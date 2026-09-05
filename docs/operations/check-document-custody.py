@@ -8,7 +8,7 @@ from pathlib import Path
 import re, subprocess, sys
 ROOT=Path(__file__).resolve().parents[2]
 files=subprocess.check_output(['git','ls-files'],cwd=ROOT,text=True).splitlines()
-pat=re.compile(r'(?:docs/coop/completion|docs/coop/artifacts|docs/v2/architecture|DECISION-PACKETS)/[A-Za-z0-9_./-]+')
+pat=re.compile(r'(?:docs/architecture/record/completion|docs/architecture/record/artifacts|docs/v2/architecture|DECISION-PACKETS)/[A-Za-z0-9_./-]+')
 missing=[]; seen=set()
 for rel in files:
  p=ROOT/rel
