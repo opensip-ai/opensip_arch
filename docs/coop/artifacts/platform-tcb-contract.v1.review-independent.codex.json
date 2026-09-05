@@ -1,0 +1,192 @@
+{
+  "artifact": "platform-tcb-contract.v1.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "reviewer": "Codex",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v1.json",
+  "subjectSha256Expected": "89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc",
+  "subjectSha256AtStart": "89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc",
+  "subjectSha256AtEnd": "89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v1.review-prompt.md",
+  "promptSha256": "ec35decaef38a07c699735c9d9379ab7aed1782724f2c13ef3460c98c7d24642",
+  "independence": {
+    "didNotAuthorCandidate": true,
+    "otherCurrentReviewerRead": false
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V1-B1",
+      "severity": "BLOCKER",
+      "title": "The closed allowlist has neither an active-platform key nor a prequalification authorship boundary",
+      "location": "/identityRuleShape/declared; /identityRuleShape/populatedTables; /platforms; /g22",
+      "evidence": [
+        "Every permitted member is shaped only as {class, identity, versionOrDigest}. No field relates an entry to OS family, supported OS version/build, architecture, filesystem, or another qualified-platform profile; /platforms is a separate four-string list with no binding rule.",
+        "populatedTables reserves the concrete per-OS members as G22 qualification evidence but does not require a platform owner to author, sign, freeze, and review the active allowlist before the loader trace is collected. G22 is therefore not constrained to consume a pre-existing policy rather than infer or bless the dependencies observed on the qualification host.",
+        "The live G22 row quantifies over supported OS/filesystem/architecture, so a global union of entries is not an equivalent representation of its platform matrix."
+      ],
+      "impact": "An entry intended for one platform can make the same name/version declared on every platform, and a qualification act can turn whatever the host happened to load into the allowlist it purports to test. The artifact therefore does not lock the claimed per-OS shape and cannot establish a closed allowlist without a later, unreviewed design decision.",
+      "requiredRepair": "Define a platform-profile key and its exact relation to every TCB entry, including OS family, supported version/build selector, architecture, and filesystem where it affects resolution. If member population remains deferred, name its owning artifact and require the signed allowlist to be independently frozen before G22 execution; G22 must compare observations to that input and must never author it from the trace."
+    },
+    {
+      "id": "PTCB-V1-B2",
+      "severity": "BLOCKER",
+      "title": "Name plus unconstrained version-or-digest is not a deterministic runtime-object identity rule",
+      "location": "/identityRuleShape/declared; /identityRuleShape/sameMeans",
+      "evidence": [
+        "The declared tuple has an identity field, while sameMeans instead refers to an undefined declared name and then calls name plus version-or-digest the identity. The subject defines no name namespace, version grammar, exact-versus-range rule, tagged discriminator, digest algorithm/encoding, or rule selecting version versus digest by dependency class.",
+        "The explicit definition makes two different resolved objects with the same declared name and version identical even when their paths, bytes, build identities, architectures, or providers differ. Because version-only entries are permitted for every class, a digest need never close that substitution.",
+        "Certificate stores and font/ICU-class members may be collections, yet the contract gives them the same single opaque scalar without defining the collection boundary or how its runtime identity is measured."
+      ],
+      "impact": "Identity drift and same-name substitution are adjudicator-dependent. A hostile object can preserve the declared label/version while changing the resolved bytes or collection contents and still be 'same' under the only rule the artifact states.",
+      "requiredRepair": "Define class-appropriate, canonical identity evidence and comparison rules without choosing the concrete per-OS members: exact namespaces and selectors; normalized resolved-object or platform-authenticated build identity; digest algorithm where bytes/collections must be bound; collection membership/root rules; architecture/provider binding; and fail-closed handling for unknown or unobservable identity."
+    },
+    {
+      "id": "PTCB-V1-B3",
+      "severity": "BLOCKER",
+      "title": "The claimed declared-versus-ambient split and alternate-search refusal predicate are absent",
+      "location": "/authorityClaim; /identityRuleShape/declared; /identityRuleShape/refuse; /negativeTests/NT-TCB-2; /negativeTests/NT-TCB-4",
+      "evidence": [
+        "authorityClaim says the artifact locks a declared-vs-ambient split, but no field defines 'ambient'.",
+        "The subject necessarily permits declared host OS ABI/loader/libc/framework/certificate/font/ICU dependencies, while refuse lists ambient PATH / system-runtime / install-time substitution without stating that an actual host object matching the active platform entry is the narrow lawful TCB case or how that case takes precedence.",
+        "alternate loader search is named as a refusal and a test, but no permitted origin, loader identity, search root/order, environment-variable policy, or resolution route exists against which 'alternate' can be decided."
+      ],
+      "impact": "One conforming reader can allow a matching host libc as declared TCB; another can reject it as system-runtime substitution; a third can accept a same-name object from an undeclared origin because origin is not part of identity. The central allow/refuse boundary is therefore non-deterministic.",
+      "requiredRepair": "State one ordered runtime-resolution predicate: select the active qualified platform profile; observe the actual object and resolution route; allow only an exact entry match under the class-specific identity rule and declared origin/search policy; define every other source or route as ambient/alternate and refuse. Reconcile this narrow TCB exception explicitly with file 04's general no-system-runtime-substitution rule."
+    },
+    {
+      "id": "PTCB-V1-B4",
+      "severity": "BLOCKER",
+      "title": "The retained trace and four test labels cannot prove full loader/system dependency closure",
+      "location": "/loaderTraces; /negativeTests; /g22",
+      "evidence": [
+        "loaderTraces requires only that some loader trace be retained and makes absence a failure. It does not require the live row's full trace, define start/end and process-tree coverage, cover late/dynamic loads, bind events to the subject/allowlist/platform profile, or fail closed when an event cannot be identified.",
+        "Each negativeTests entry contains only {id, name}. There is no four-platform by OS/filesystem/architecture matrix, no per-class mutation set, no injected origin/search perturbation, and no exact expected refusal/diagnostic/evidence result.",
+        "The live G22 evidence text expressly includes negative undeclared libc/framework/cert/font/ICU/tool resolution and requires every declared platform to pass or be removed. A loader-only trace does not by itself establish system tool execution or certificate/font/data resolution, the subject names no companion process/file-resolution evidence, and it carries no all-platform pass/removal rule."
+      ],
+      "impact": "A partial main-process trace plus one undeclared-library test can satisfy the artifact while a late load, child tool, certificate store, font, or ICU-class lookup enters from the ambient host. Retention is proven, but completeness and refusal are not.",
+      "requiredRepair": "Define the complete observation boundary and evidence joins for the initial process, late loads, descendants/tools, and non-loader system-class accesses; require every event to match the signed active-profile table or fail. Define G22 test cases as the supported platform/filesystem/architecture cross-product with each required undeclared class, identity drift, and alternate-search mutation, including exact expected refusal and retained evidence; carry the pass-all-declared-platforms-or-remove-support rule."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V1-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The signed-closure TCB inventory has no named carrier or adjacent owner join",
+      "location": "/identityRuleShape/declared; /recordedInputs; /whatThisDoesNotDo",
+      "evidence": "The subject requires a signed closure's TCB inventory but identifies no manifest/inventory field, artifact path, encoding owner, or dependency on the rows that own distribution inventory and signature binding. It also does not reserve that representation explicitly.",
+      "impact": "A successor must either invent a new signed object under DR-126 or silently modify an adjacent schema, leaving the cross-row integration and signing boundary unreviewed.",
+      "requiredRepair": "Name the owning row/artifact and binding point for the TCB table, plus the dependency consequence if it is not yet available. Keep DR-126's identity policy here while explicitly leaving carrier encoding/signature ceremony with its adjacent owner."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening custody, mode, and parse",
+      "result": "PASS",
+      "evidence": "Python hashlib(Path.read_bytes()) measured the subject at the expected 89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc; mode was 0444; strict duplicate-key-rejecting JSON parse passed."
+    },
+    {
+      "id": "M-02",
+      "check": "Live source pins and verbatim custody",
+      "result": "PASS",
+      "evidence": "Live file 04 measured a74b4511... and its lines 161-166 equal all six carried strings byte-for-byte. Live file 08 measured 1cdcf9d4... and its unique DR-126 row at line 308 equals rowVerbatim byte-for-byte."
+    },
+    {
+      "id": "M-03",
+      "check": "Recorded COORD snapshot and live cited decisions",
+      "result": "PASS",
+      "evidence": "The recorded 12d192f7... bytes reproduce exactly at repository commit 2327cf89106e3c58a317bf8b570697f3505dbbb8. The D-002 and D-006 entry segment hashes are respectively 8e19549a... and 9532e913... in both that snapshot and the live 39f372e1... file; later append-only movement did not change the cited platform or numeric-authority propositions."
+    },
+    {
+      "id": "M-04",
+      "check": "D-002 platform and D-006 numeral discipline",
+      "result": "PASS",
+      "evidence": "platforms.slice1 is exactly macos/arm64, macos/x86_64, linux/x86_64, linux/arm64, matching D-002's four platforms, and Windows is expressly absent. None of D-006's 25/80 MB, startup, RSS, or 10% threshold numerals occurs in the subject."
+    },
+    {
+      "id": "M-05",
+      "check": "Platform-scoped closed allowlist",
+      "result": "FAIL",
+      "evidence": "The only declared member shape is {class, identity, versionOrDigest}; no member-to-platform profile relation exists, and populated member tables are called G22 evidence without a freeze-before-observe rule. See PTCB-V1-B1."
+    },
+    {
+      "id": "M-06",
+      "check": "Deterministic identity and declared-versus-ambient predicate",
+      "result": "FAIL",
+      "evidence": "The explicit sameMeans rule compares only an unconstrained name and version-or-digest. No origin/search predicate or definition of ambient/alternate exists. See PTCB-V1-B2 and PTCB-V1-B3."
+    },
+    {
+      "id": "M-07",
+      "check": "Full trace and negative-test closure",
+      "result": "FAIL",
+      "evidence": "loaderTraces has only rule/preview prose; every negative test object has exactly id/name. No completeness boundary, evidence schema/join, per-class mutations, platform/filesystem matrix, or expected outcomes are present. See PTCB-V1-B4."
+    },
+    {
+      "id": "M-08",
+      "check": "Closing custody and protected-file scope",
+      "result": "PASS",
+      "evidence": "Immediately before completion, Python hashlib(Path.read_bytes()) remeasured the subject at 89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc with mode 0444. File 04 and file 08 retained their pinned a74b4511... and 1cdcf9d4... hashes. This reviewer wrote only its Codex reviewer artifact and made no commit."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "Populating per-OS package tables by fiat",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "No concrete package member is chosen, so literal population by fiat does not occur. However the contract neither defines a platform-keyed table shape nor requires the future table to be frozen before G22 observes the host; it miscasts an unbounded policy-authoring step as qualification evidence. See PTCB-V1-B1."
+    },
+    {
+      "id": "A-02",
+      "attack": "Re-owning DR-G07 extraction",
+      "result": "REFUTED-NARROWLY",
+      "evidence": "The artifact adds no archive, traversal, link, TOCTOU, descriptor, or spawn-binding rule and expressly leaves those to DR-G07/DR-103. Its unresolved alternate-loader versus loader-replacement boundary is handled as a DR-126 predicate defect in PTCB-V1-B3, not as extraction ownership."
+    },
+    {
+      "id": "A-03",
+      "attack": "Re-deciding D-006 numbers",
+      "result": "REFUTED",
+      "evidence": "No D-006 threshold numeral is present and the subject expressly leaves those values untouched."
+    },
+    {
+      "id": "A-04",
+      "attack": "Ambient or undeclared system resolution is treated as lawful",
+      "result": "DEFECT-SUSTAINED-AS-NONDETERMINISM",
+      "evidence": "The text does not positively authorize undeclared resolution, but its claimed declared-versus-ambient split is undefined. Same-name/version substitution and undeclared origins can be accepted under one reading, while all host-runtime resolution can be refused under another. See PTCB-V1-B2 and PTCB-V1-B3."
+    },
+    {
+      "id": "A-05",
+      "attack": "SATISFIED, QUALIFIED, sealing, application, or implementation authorization",
+      "result": "REFUTED",
+      "evidence": "The subject is CANDIDATE-NOT-APPLIED, binds NOTHING, recommends DO-NOT-SEAL, keeps DR-126 OPEN, calls G22 NAMED-NOT-AUTHORED, and expressly denies QUALIFIED/SATISFIED and docs/v2/implementation/ authority. This review grants none."
+    },
+    {
+      "id": "A-06",
+      "attack": "Row-verbatim mismatch against live file 08 DR-126",
+      "result": "REFUTED",
+      "evidence": "The unique live row at line 308 is byte-for-byte identical to registerRowQuoted.rowVerbatim under the matching 1cdcf9d4... file hash."
+    }
+  ],
+  "findingCounts": {
+    "blockers": 4,
+    "shouldFix": 1,
+    "advisories": 0
+  },
+  "verdictBasis": "REJECT: 4 blockers and 1 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT at the frozen subject digest. The candidate preserves the live row and source quotation, does not populate packages or alter D-006, and grants no positive authority, but it does not define a platform-scoped predeclared allowlist, deterministic runtime identity, declared-versus-ambient/alternate-search predicate, or complete G22 observation and negative-test contract; its signed-inventory carrier is also unrouted.",
+  "coordinatorSummary": "Issue a successor that keys a predeclared signed TCB table to an exact active platform profile; defines class-specific canonical identity and one fail-closed resolution predicate; specifies full process/tool/data observation plus the complete G22 mutation matrix; and names the adjacent signed-inventory carrier. Preserve the current DR-G07/D-006/platform/non-authority boundaries.",
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "implementationAuthorized": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "committed": false
+  }
+}

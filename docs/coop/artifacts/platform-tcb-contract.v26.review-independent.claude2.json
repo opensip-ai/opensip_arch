@@ -1,0 +1,184 @@
+{
+  "artifact": "platform-tcb-contract.v26.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v26.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v26",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 0 SHOULD-FIX. ACCEPT requires 0 and 0. Five of the six claimed repairs are made cleanly and I could not break any of them, including both findings I filed at v25. The sixth restores linux-pathless on a genuine measured-boot ceremony that is a large improvement over the withdrawn IMA bind, but its central equality compares two different preimages and therefore cannot hold on a real machine, which reinstates the condition Codex blocked at v25: no Linux profile can qualify.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v25 vs v26; exhaustive raw-substring search for measured-boot, PE-image and uniqueness tokens",
+
+  "custody": {
+    "subjectSha256Expected": "5128f40120f10796d3f974e82422820aed7b18e6454f2198c20cb1a89796238a",
+    "subjectSha256AtStart": "5128f40120f10796d3f974e82422820aed7b18e6454f2198c20cb1a89796238a",
+    "subjectSha256AtEnd": "5128f40120f10796d3f974e82422820aed7b18e6454f2198c20cb1a89796238a",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 149517,
+    "subjectMovedDuringReview": false,
+    "predecessorV25Sha256": "aa1542bad713b9eba6d1015f539857dfeae59690e79263ce719a914680471b07",
+    "frozenCodexV25Sha256": "4aa0e0271fdbfb741b473e5fd131a9cc0b167273c891b5d9161c87a891ceda66",
+    "frozenClaudeV25Sha256": "60b9c67627784943541cb589f34564336e19956e9204e6268765bdbce6928900",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE — both frozen v25 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "headMatchesDispatch": true,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v25 REJECT and, at v24, the blocker that caused linux-pathless to be withdrawn. v26 restores that profile on new normative content, which is the surface most at risk of being credited rather than reviewed, so I tested it from first principles against the documented behaviour of the interfaces it names. My v25 SHOULD-FIX on Linux qualifiability is structurally answered by the restoration; the blocker below is that the restored ceremony does not actually close it.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V26-B1",
+      "appliesTo": "PTCB-V25-B2 / CLAUDE-V25-S2 — answered by restoring linux-pathless; the restored bind cannot be satisfied",
+      "title": "measuredBootBind equates a PCR-4 EV_EFI_BOOT_SERVICES_APPLICATION event digest with a flat file sha-256, which are different preimages, so the equality can never hold and every Linux profile remains unqualifiable",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/{kernelEvent,quote/pcr,equality}; /loaderTraces/objectAuthenticityBind/tags/linux-pathless/authenticatedKernelMember; consequences at /platforms/slice1, /identityEvidenceUnion/pathlessClasses/{rule,linuxStanding}, /negativeTests[0], /g22/testMatrix",
+      "whatIsGenuinelyBetter": "I want to be precise about how much ground this covers, because it is a lot. The v24 defect was that IMA runtime file measurement proves a file was read, not that it is executing. measuredBootBind replaces that with an actual attestation ceremony: the TCG2 event log is retained exactly; a TPM2_Quote is taken over PCR 4 with a nonce fixed to sha-256 of runIdentity concatenated with observedAt, which is genuine boot-and-run freshness rather than the v24 list-existence check; the AK signature must verify against a certificate-store TCB member, which anchors trust inside the contract's own taxonomy instead of an unnamed root; and pcrMatch requires the quoted PCR 4 to equal an event-log reconstruction that includes kernelEvent, which is the correct replay discipline and was entirely absent at v24. unavailableRefuses is comprehensive and fails closed on no TPM, no log, no unique event, quote failure or nonce mismatch, and it explicitly keeps Linux in D-002 slice 1 rather than minting a deferral. Structurally this is the ceremony Codex B2 and I asked for. The defect is one link inside it.",
+      "theDefect": "equality reads 'kernelEvent digest (sha-256) MUST equal authenticatedKernelMember.sha256', where authenticatedKernelMember is a '{relativePath, sha256}' member of the authenticated package payload and every other sha256 in this contract is a flat digest of exact file bytes. But kernelEvent is specified as 'the unique TCG event whose eventType is EV_EFI_BOOT_SERVICES_APPLICATION'. Under the TCG PC Client Platform Firmware Profile, the digest carried by that event type is the PE/COFF image digest computed the Authenticode way when firmware loads the image: the hash is taken over the PE image with the optional-header CheckSum field, the Certificate Table data directory entry, and the attribute certificate table region excluded and the remaining ranges hashed in a defined order. It is a sha-256 in algorithm but not a sha-256 of the file's bytes. For any real kernel EFI binary the two values differ, so the equality is unsatisfiable — and it is unsatisfiable in the safe direction, meaning the profile refuses rather than admitting bad bytes, but it refuses always.",
+      "exhaustivenessEvidence": "I searched the whole 149517-byte artifact for any handling of this distinction: 'Authenticode' 0 occurrences, 'PE/COFF' 0, 'PECOFF' 0, 'PE image' 0, 'image hash' 0. There is exactly 1 occurrence of 'EV_EFI', in the kernelEvent clause itself. Nothing anywhere defines a PE image-digest computation, and nothing requires the package member to be reduced to such a digest before comparison.",
+      "compoundingFacet": "The same clause also assumes a boot path in which firmware itself loads the kernel as a UEFI boot services application. That happens on EFI-stub direct boot; it does not happen on the common bootloader path, where the loader loads the kernel through its own loader rather than firmware LoadImage and measures it into a different PCR, leaving no EV_EFI_BOOT_SERVICES_APPLICATION event whose digest is the kernel at all. The contract quotes only PCR 4 and enumerates only that one event type, with 0 occurrences of any other PCR index anywhere in the artifact. On its own this facet would be defensible as a disclosed narrowing, since unavailableRefuses says machines without a unique kernel event fail qualification. Combined with the preimage mismatch it removes the remaining case, so no configuration qualifies.",
+      "failureScenario": "A fully compliant machine: UEFI with TPM 2.0, Secure Boot on, kernel booted directly as an EFI-stub PE image, kernel package installed from the publisher's signed repository. Firmware measures the kernel PE image into PCR 4 as EV_EFI_BOOT_SERVICES_APPLICATION with the Authenticode image digest D_pe. The verifier retains the TCG2 log, takes a TPM2_Quote over PCR 4 with the required nonce, verifies the AK against a certificate-store TCB member, and replays the log to match the quoted PCR — every one of those steps passes. It then computes authenticatedKernelMember as the unique payload member whose sha256 equals the kernel event digest. No such member exists, because every member's sha256 is a flat file digest and D_pe is not one. 'Zero or more than one refuses.' The profile refuses on a machine that satisfies every security property the ceremony was designed to prove. Since OS ABI MUST use PATHLESS-PLATFORM-ATTESTED and on Linux that tag now routes to measuredBootBind, no Linux OS ABI entry can ever be represented, and pathlessClasses.rule forbids representing it any other way. That is PTCB-V25-B2's condition — 'every Linux profile unqualifiable' — reproduced through a specified-but-unsatisfiable bind instead of a withdrawal, while the contract carries standing LIVE and linuxStanding presents TPM absence as the only failure mode.",
+      "whyThisIsABlocker": "Codex rated the identical condition a blocker at v25 and the dispatch forbids removing Linux from D-002 slice 1, so the contract cannot fall back on withdrawal or deferral. A profile marked LIVE whose central equality cannot be satisfied on any machine is not a weaker version of the repair; it is the same defect wearing the ceremony's clothes, and it is the third generation in which the Linux executing-kernel bind has been asserted rather than delivered.",
+      "requiredRepair": "Fix the preimage, not the ceremony, which is otherwise sound. Either (1) define the PE/COFF image-digest computation normatively — naming the excluded CheckSum field, the Certificate Table directory entry and the attribute certificate region, and the hashing order — and require the authenticated payload member to be reduced to that image digest before comparison, retaining both the member's flat sha256 and its computed image digest; or (2) bind through a measurement whose preimage is the file bytes, naming the event type and PCR that actually carries it on the boot paths in scope, and requiring equality to the member's flat sha256. In either case, state which boot configurations are in scope and which refuse, so the narrowing is disclosed rather than emergent, and keep the quote, nonce, AK-anchoring, replay and fail-closed rules exactly as they are — they are correct."
+    }
+  ],
+
+  "shouldFix": [],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V25-B1 — RPM materialization begins from an undefined blob and does not preserve one file identity across hash, checksig and extraction",
+      "result": "REPAIRED, and it takes the branch Codex preferred. preferredApi holds a single librpm descriptor from rpmReadPackageFile across all three stages, with 'lseek to 0 between stages. Do not close and reopen', the digest taken as sha-256 of a pread of the entire descriptor and required to equal authenticityCore.payload.digest, verification via rpmVerifySignatures on that same descriptor, and extraction by rpmfi walk of that same header. The CLI fallback is properly hardened for the case where the descriptor path is not used: mkdirat a run-owned 0700 directory owned by observerProcessIdentity, a filename restricted to [A-Za-z0-9._+-]+, openat with O_CREAT|O_EXCL|O_RDWR|O_NOFOLLOW|O_CLOEXEC at 0600, write-once plus fsync, an identityRecord of {dev, ino, size, sha256} from fstat, and — the element Codex specifically demanded — fstatat O_NOFOLLOW revalidation of that same identity after checksig AND again after extraction, with mismatch refusing. materializedFileIdentity is retained as closed evidence. selectionKey now also binds the NEVRA to the signed core: 'That NEVRA MUST equal authenticityCore.payload.name plus EVR.'"
+    },
+    {
+      "finding": "PTCB-V25-S1 / CLAUDE-V25-S1 (mine) — hash uniqueness required in two live rules while joinMust said it was unnecessary",
+      "result": "REPAIRED at both sites Codex identified, which is one more than I had caught. matchedManifestMember now reads 'Duplicate relativePath refuses. Duplicate sha256 is lawful.' authenticatedManifest.uniqueness now reads 'relativePath MUST be unique after archiveMemberPathGrammar. Duplicate sha256 is lawful. joinMust selects on path and hash together. This supersedes any earlier sha256-uniqueness refusal' — including the explicit supersession statement Codex asked for. The zero-length-file case that motivated my finding is now lawful. authenticatedKernelMember carries the same rule."
+    },
+    {
+      "finding": "PTCB-V25-S1 second half — EXTERNAL directory derivation undefined",
+      "result": "REPAIRED. packageRelativePathRule.EXTERNAL-ORIGIN now defines the derivation exactly: 'canonicalOrigin is a file path. Its directory is every component except the last. The opened object MUST equal canonicalOrigin or be under that directory; otherwise refuse. If equal, relativePath is the last component after archiveMemberPathGrammar. If under the directory, strip that directory prefix then apply archiveMemberPathGrammar. No fallback to the full path outside that directory.' Root and boundary behaviour are both stated and the v25 full-path fallback is gone."
+    },
+    {
+      "finding": "PTCB-V25-S2 — rpmHeaderIdentity neither gated to RPM events nor equal to the retained query output",
+      "result": "REPAIRED, every element. The field is now 'present only when observedPlatformAttestation.trustDecision.interfaceId is rpm-checksig. Forbidden on apt-secure.' The record is closed as {sha256header, nevra, associationToken} with extrasRejected; sha256header 'MUST equal the normalized 64-hex output of headerIdentity.queryArgv for that same nevra'; nevra 'MUST equal archiveAcquisition.selectionKey'; associationToken 'MUST equal openedObjectObservation.associationToken', which is the event binding Codex required; and the use prohibition now names both packagePayloadDigest and authenticityCore.payload.digest."
+    },
+    {
+      "finding": "PTCB-V25-B2 / CLAUDE-V25-S2 (mine) — Linux retained in slice 1 while its mandatory OS ABI class was unqualifiable",
+      "result": "ADDRESSED STRUCTURALLY, NOT EFFECTIVELY — see CLAUDE-V26-B1. The contract takes the correct branch of Codex's required repair by specifying a ceremony rather than deferring Linux: platforms.slice1 still carries linux/x86_64 and linux/arm64, pathlessClasses.linuxStanding now reads 'On Linux that tag uses measuredBootBind. Machines without TPM/event-log refuse qualification. Linux is not removed from platforms.slice1', and no Linux deferral or D-096 (A) grant is minted anywhere. The class is representable in principle. It is not representable in practice, because the bind it routes to cannot be satisfied."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject 5128f401... over 149517 bytes at 0444, unmoved start and end. Predecessor v25 and both frozen v25 verdicts reproduce at 0444. HEAD steady at 93ceaa6. Strict JSON parse succeeded."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 33 path-bearing pins reproduce, zero failures. The claude2v25 pin records REJECT with blockers [] and shouldFix [CLAUDE-V25-S1, CLAUDE-V25-S2], exactly as I filed it, including that I filed no blocker. The codexv25 pin matches the frozen file. No predecessor review was replaced."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v25-to-v26 change roster",
+      "result": "PASS. Recursive diff found 43 changed paths and ZERO off-roster, against roots that correctly add /whatThisDoesNotDo this generation. reviewGuidance grew 121 to 127 as a pure prefix-preserving append. honestyRepairsFromV25 carries 4 entries covering all four Codex findings and, by pairing, both of mine."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308 with rowVerbatim byte-identical. reMeasurementAtV26 reproduces the live COORD, file 08 and file 04 pins at measuredAtHead 93ceaa6a. Linux is not removed from platforms.slice1 and no Linux deferral is minted, as the dispatch requires."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 20 D-096 occurrences are the refusal 'Never mint a D-096 (A) grant'. whatThisDoesNotDo refuses SATISFYING DR-126, authorizing docs/v2/implementation/, and QUALIFYING G22."
+    },
+    {
+      "id": "M-6",
+      "check": "measuredBootBind preimage and boot-path coverage",
+      "result": "FAIL — basis of CLAUDE-V26-B1. Zero occurrences of Authenticode, PE/COFF, PECOFF, PE image or image hash; one occurrence of EV_EFI; no PCR index other than 4."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "A Linux pathless withdrawal that still makes slice-1 Linux unqualifiable as a class, or a measured-boot bind that still uses IMA as the executing kernel (self-invited)",
+      "result": "LANDS on the first half by a route the guidance does not anticipate. IMA is genuinely gone as a bind, so the second half fails to land. But slice-1 Linux remains unqualifiable as a class — not through withdrawal this time, through an equality that cannot be satisfied. Filed as CLAUDE-V26-B1."
+    },
+    {
+      "attack": "RPM acquisition with no held descriptor or inode-stable revalidation (self-invited)",
+      "result": "FAILED TO LAND. One librpm descriptor held across all three stages, and the CLI fallback revalidates {dev, ino, size, sha256} after both checksig and extraction."
+    },
+    {
+      "attack": "Manifest uniqueness rule that still refuses duplicate sha256 (self-invited)",
+      "result": "FAILED TO LAND. Both sites now declare duplicate sha256 lawful, with an explicit supersession clause."
+    },
+    {
+      "attack": "rpmHeaderIdentity still present on apt-secure or unbound to queryArgv/NEVRA (self-invited)",
+      "result": "FAILED TO LAND. Gated on interfaceId, forbidden on apt-secure, and bound to the query output, the selectionKey NEVRA and the event association token."
+    },
+    {
+      "attack": "Silent v25-to-v26 path outside basedOn.method / honestyRepairsFromV25 (self-invited)",
+      "result": "FAILED TO LAND. 43 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "A restored profile credited because it replaces something the reviewer asked to be withdrawn (my own additional attack, and the primary attack of this round)",
+      "result": "LANDS. The ceremony is real and most of it is correct, which is exactly why the one unsatisfiable link inside it would survive a confirmatory read. Testing the named interface's documented digest semantics rather than the clause's internal coherence is what surfaced it."
+    },
+    {
+      "attack": "A Linux deferral or D-096 (A) grant minted under cover of the restoration",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1, linuxStanding says so expressly, and every D-096 mention is a refusal."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of my own prior findings",
+      "result": "FAILED TO LAND. All 33 pins reproduce and my v25 verdict is pinned accurately, including its empty blocker list."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1, and does not propose that as the repair.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v25 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not object to the measured-boot approach — the quote, nonce, AK anchoring, PCR replay and fail-closed rules are correct and should be kept verbatim."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV26ReviewerRead": false,
+    "otherReviewerNote": "The Codex v26 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v25 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v25 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the six claimed repairs, the restored measured-boot surface, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V26-B1 rests on the documented semantics of EV_EFI_BOOT_SERVICES_APPLICATION in the TCG PC Client Platform Firmware Profile and the PE image-digest definition it references, not on execution against live firmware; a successor that disputes it should do so on those semantics, and the repair I specify does not require conceding the point, since defining the image-digest computation makes the equality correct under either reading.",
+
+  "summary": "REJECT at 1 blocker and 0 SHOULD-FIX. Custody is clean: subject unmoved at 5128f401... and 0444 at both ends, HEAD steady, 33/33 chain pins reproduce, both frozen v25 verdicts reproduce with no replacement, and the v25-to-v26 diff is 43 paths with zero off-roster. Five repairs are made cleanly. The RPM branch now holds one librpm descriptor across digest, verify and extract, with a hardened openat/O_NOFOLLOW fallback that revalidates {dev, ino, size, sha256} after both checksig and extraction — the descriptor-capable branch Codex preferred. Manifest hash uniqueness is removed at both sites with an explicit supersession clause, so duplicate member digests including empty files are lawful. The EXTERNAL derivation is now exact with no full-path fallback. rpmHeaderIdentity is gated to rpm-checksig, forbidden on apt-secure, and bound to the query output, the NEVRA and the event token. And Linux is kept in D-002 slice 1 with no deferral and no D-096 (A) grant. The blocker is the restored Linux pathless bind. Its ceremony is a genuine advance on the withdrawn IMA version — retained TCG2 log, TPM2_Quote with a nonce fixed to runIdentity and observedAt, AK verified against a certificate-store TCB member, quoted PCR 4 required to equal an event-log replay including the kernel event, and comprehensive fail-closed rules. But its central equality requires a PCR-4 EV_EFI_BOOT_SERVICES_APPLICATION event digest to equal a package member's flat file sha-256, and those are different preimages: that event type carries the PE/COFF image digest computed with the checksum field, the certificate table entry and the attribute certificate region excluded. The artifact contains no handling of that distinction at all — zero occurrences of Authenticode, PE/COFF, PE image or image hash. So on a machine that satisfies every security property the ceremony proves, no payload member matches the event digest and the profile refuses. Because OS ABI must use PATHLESS-PLATFORM-ATTESTED and may not be represented any other way, that leaves slice-1 Linux unqualifiable as a class — the exact condition Codex blocked at v25, now reached through a bind that is asserted LIVE rather than through a withdrawal. The fix is narrow: define the image-digest computation and compare against it, or bind through a measurement whose preimage is the file bytes. Everything else in the ceremony should be kept as written."
+}

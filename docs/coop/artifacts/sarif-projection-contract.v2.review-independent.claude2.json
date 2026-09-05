@@ -1,0 +1,142 @@
+{
+  "verdict": "ACCEPT-WITH-ADVISORIES",
+  "reviewStatus": "COMPLETE",
+  "blockers": [],
+  "shouldFix": [],
+  "advisoryCount": 3,
+  "verdictBasis": "0 blockers, 0 SHOULD-FIX, 3 advisories. This meets the dispatch's ACCEPT bar. All three claimed Codex v1 repairs are verified against the artifact's own bytes and against live governing sources; every attack on the dispatch list is refuted at source rather than by reading the artifact's self-description.",
+
+  "artifact": "sarif-projection-contract.v2.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/sarif-projection-contract.v2.json",
+  "registerRow": "DR-122",
+  "role": "independent; refute not confirm; authored neither v1 nor v2",
+  "reviewer": "Claude 2",
+  "date": "2026-08-15",
+
+  "custody": {
+    "subjectSha256AtStart": "f58482217613d47c40f7db3321efad3f1ba1ae66b78f7142162579b615259388",
+    "subjectSha256AtEnd": "f58482217613d47c40f7db3321efad3f1ba1ae66b78f7142162579b615259388",
+    "subjectSha256Expected": "f58482217613d47c40f7db3321efad3f1ba1ae66b78f7142162579b615259388",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 22041,
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat/stat.S_IMODE"
+  },
+
+  "recordedInputs": [
+    {"path": "docs/coop/artifacts/sarif-projection-contract.v2.json", "sha256": "f58482217613d47c40f7db3321efad3f1ba1ae66b78f7142162579b615259388", "bytes": 22041, "mode": "0444", "role": "subject; equals dispatch at start and end"},
+    {"path": "docs/coop/artifacts/sarif-projection-contract.v1.json", "sha256": "2002b3eca1385690656cc3c48054b9fe3110d253f1b075de91989d725f28c1ac", "bytes": 13462, "mode": "0444", "role": "predecessor; equals dispatch; diffed in full"},
+    {"path": "docs/coop/artifacts/sarif-projection-contract.v1.review-independent.codex.json", "sha256": "87b87323139ed1ecb735f423ee518df4d37e54d106b0c7ddb4faf8fba109d394", "bytes": 13740, "mode": "0444", "role": "frozen Codex v1 REJECT; equals dispatch; findings enumerated"},
+    {"path": "docs/coop/artifacts/sarif-projection-contract.v2.review-prompt.md", "sha256": "859d7c020428712099d439f0cdd595d9e5154219599e4feb863975faada13f28", "bytes": 1931, "role": "dispatch"},
+    {"path": "docs/v2/architecture/08-decision-and-readiness-register.md", "sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3", "bytes": 97483, "role": "file 08; artifact's pin REPRODUCES exactly; DR-122 row read at line 304"},
+    {"path": "docs/v2/architecture/01-semantic-model-and-host-authority.md", "sha256": "40ab9a3e5713c9294a2c90a4b0e7c46065277b1e7013ed5023027a90c10193e1", "bytes": 11457, "role": "file 01; artifact's pin REPRODUCES exactly; L108-133 and L92-99 read"},
+    {"path": "docs/coop/COORDINATOR-DECISIONS.md", "sha256": "b9819d6ef0e71ef66ecec7916a75dfd47b3838fa7e58ebc8b688ec357ec46391", "bytes": 225684, "role": "live; artifact pins 12d192f7… which no longer reproduces — see ADV-SPC-V2-01. Claims resting on it re-verified against these live bytes."},
+    {"path": "docs/coop/artifacts/route-b.DR-006.preview-disposition.v2.json", "role": "carries the namedD002RidesIfOwnerRecorded.SARIF_for_analyze value the artifact cites; NOT pinned by the artifact — see ADV-SPC-V2-02"}
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "CODEX-V1-B1 — machineSurface did not define the stable machine/schema/version contract OBL-2 requires; it named only a family (SARIF 2.1.0 + property-bag roots)",
+      "disposition": "REPAIRED — VERIFIED",
+      "howIChecked": [
+        "machineSurface now declares projectionSchemaId 'opensip-sarif-projection.1' and projectionSchemaVersion 1, with two rooted property objects (run.properties.opensip, result.properties.opensip) and an explicit key/type/requiredness map at each: schemaId (string, fixed value), schemaVersion (integer, fixed value) and truncation (object, required ['truncated'], boolean truncated, optional string kind) requiredAlways on the run; artifactRefs (array of {ref:string}, mayBeEmpty, cardinality 0..n) requiredAlways on the result; verdict gated on requiredWhenHostVerdictExists; runId, findingId and coverage gated on requiredWhenDr006Active.",
+        "The requiredness rule is stated as a rule, not left to inference: requiredAlways keys MUST be present on every advertised emission, requiredWhen* keys MUST be present iff DR-006 is ACTIVE and MUST be omitted — explicitly 'not null' — while INACTIVE. Cardinality is stated separately (one run object per run, one result object per result).",
+        "Version behavior is closed in three directions: additive unknown keys under properties.opensip MUST be preserved in the serialized bytes even if a consumer UI hides them; same schemaId at a higher version is additive iff every requiredAlways/requiredWhen* key survives with the same type and meaning; removing, renaming or reinterpreting any of the seven named preserved fields requires a new projectionSchemaId and is a failed successor.",
+        "goldenShape gives OBL-2 a reviewable shape rather than prose: a typed input triple, an expected object, and a pass rule with three named failure modes (missing required key, extra additive key allowed, relocated identity fails).",
+        "I checked the anti-alias guard independently of the repair's own claim: forbiddenNativeIdentityAlias states run.automationDetails.guid and result.guid are NOT the OpenSIP Run/Finding identity, and goldenShape.pass restates guid-as-runId as a failure. This is what keeps the schema from minting an identity recipe by the back door while DR-006 is INACTIVE."
+      ]
+    },
+    {
+      "finding": "CODEX-V1-S1 — the SARIF-specific loss fixture had no inactive/conditional standing after preview SARIF and G17 were dropped",
+      "disposition": "REPAIRED — VERIFIED",
+      "howIChecked": "I enumerated fixtureClasses programmatically rather than reading the repair note: all five classes (FC-APPLIC, FC-PARITY, FC-LOSS, FC-NONAUTH, FC-OUTFAIL) carry previewStanding, and the set of INACTIVE classes carrying no owning ride is empty. FC-LOSS specifically is previewStanding INACTIVE with ride 'ID-DEP-S1/DR-006 advertisement restore (same condition as FC-PARITY)', which matches FC-PARITY's ride and its conditionality clause. FC-APPLIC, FC-NONAUTH and FC-OUTFAIL are ACTIVE and each carries a scope line explaining why it is executable without SARIF being advertised — FC-NONAUTH and FC-OUTFAIL both state they apply to any host-owned projection including JSON."
+    },
+    {
+      "finding": "CODEX-V1-S2 — the claimed exact output-failure golden dropped D9's conditional Run-preservation boundary and conflated ordinary output failure with renderer authority-injection",
+      "disposition": "REPAIRED — VERIFIED, and verified at source",
+      "howIChecked": "requiredOutputFailure now carries projectionScope 'host-finalization-only' and an explicit committedRunBoundary: Run preservation is conditional on an already-committed authoritative Run, and commands with no committed Run 'do not gain a Run to satisfy this golden'. FC-OUTFAIL restates the same boundary in test form ('Help/version or any command with no committed Run MUST NOT acquire a fictitious Run/RunId'). I read the cited source, file 01 L92-99, rather than trusting the citation: it requires a post-commit serialization/atomic-write failure to preserve the settled Run while the public command ends operational-failed with OUTPUT.SERIALIZATION_FAILED and exit 4, and states components cannot select either the sealed termination or this host output failure. The artifact's rendering of that golden is faithful, and its 'otherwise create no Run identity' clause is a restriction on the source, not an extension of it. The conflation is separately cured: notARendererRefusal states ordinary output failure is distinct from FC-NONAUTH authority-injection, and the two fixture classes are scoped apart — FC-NONAUTH is 'negative tests of renderer authority-injection only' and names FC-OUTFAIL as the home for ordinary serialization failure."
+    }
+  ],
+
+  "obligationReview": [
+    {"id": "OBL-1", "cellFragment": "Explicit per-command/capability applicability", "answeredAt": "applicability", "result": "ANSWERED", "detail": "Law is stated as optional-and-only-when-advertised; preview live applicability is NONE with a reason; laterApplicability is conditioned on how DR-006 closes and explicitly denies that the prose revives the advertisement. FC-APPLIC carries the per-command table requirement."},
+    {"id": "OBL-2", "cellFragment": "stable machine/schema/version contract", "answeredAt": "machineSurface", "result": "ANSWERED", "detail": "See CODEX-V1-B1 verification above. This was v1's blocker and is the substance of v2."},
+    {"id": "OBL-3", "cellFragment": "parity/loss goldens preserving canonical Run/Finding IDs, Coverage, verdict, truncation, and artifact references", "answeredAt": "parityLaw + fixtureClasses", "result": "ANSWERED, CONDITIONALLY", "detail": "All six preserved items are listed and each has a machineSurface home. FC-PARITY and FC-LOSS are honestly INACTIVE for preview on a named ride rather than claimed executable. No contradiction with machineSurface omitting runId/findingId/coverage in preview: parityLaw.identityRide states those IDs ride DR-006 recipes and that preview does not claim they are computable, and nothing advertises SARIF in preview so no emission exists to omit them from."},
+    {"id": "OBL-4", "cellFragment": "negative tests proving a renderer cannot affect policy/evidence/sealed termination or choose D9/exit", "answeredAt": "nonAuthority + fixtureClasses.FC-NONAUTH", "result": "ANSWERED", "detail": "nonAuthority.verbatim is genuinely verbatim from file 01 (whitespace-normalized containment check against live bytes: true), and is decomposed into four testable rules covering policy, evidence, sealed HostTermination, and D9/exit. FC-NONAUTH is ACTIVE in preview and names three concrete injections that must refuse."},
+    {"id": "OBL-5", "cellFragment": "exact host-owned required-output failure golden", "answeredAt": "requiredOutputFailure + fixtureClasses.FC-OUTFAIL", "result": "ANSWERED BY CITATION, NOT INVENTION", "detail": "ownerOfValues states D9 v1.14 already records the golden and that this artifact mints no new code or exit number; I confirmed the values against file 01 L92-99."}
+  ],
+
+  "attackListDisposition": [
+    {"attack": "machineSurface still a family with no key/type map", "result": "REFUTED", "detail": "Full key/type/requiredness/cardinality/version map plus goldenShape. See CODEX-V1-B1."},
+    {"attack": "FC-LOSS with no previewStanding", "result": "REFUTED", "detail": "INACTIVE with an owning ride identical to FC-PARITY's; programmatic check found zero INACTIVE classes lacking a ride."},
+    {"attack": "requiredOutputFailure creating a Run when none was committed", "result": "REFUTED", "detail": "committedRunBoundary and FC-OUTFAIL both forbid it in terms; 'otherwise create no Run identity' and 'MUST NOT acquire a fictitious Run/RunId'."},
+    {"attack": "Grouping ordinary output failure with authority-injection", "result": "REFUTED", "detail": "Split into FC-OUTFAIL (ordinary, host-finalization-only) and FC-NONAUTH (authority-injection only); notARendererRefusal states the distinction explicitly."},
+    {"attack": "Renderer affecting policy / evidence / sealed termination / D9/exit", "result": "REFUTED", "detail": "Four explicit prohibition rules, and the governing sentence is verbatim from live file 01."},
+    {"attack": "Inventing RunId/Finding fingerprint recipes", "result": "REFUTED", "detail": "runId, findingId and coverage are typed as opaque DR-006-owner-supplied values, keys named but recipes disclaimed, and OMITTED (not null) while DR-006 is INACTIVE. forbiddenNativeIdentityAlias bars guid-as-identity and goldenShape.pass makes relocated identity a failure. whatThisDoesNotDo restates it."},
+    {"attack": "Resurrecting G17 / advertising preview SARIF", "result": "REFUTED", "detail": "applicability.g17 marks harness.DR-G17.sarif-projection-parity.analyze DROPPED/inapplicable per D-077/D-086 and disclaims resurrection; previewLiveApplicability is NONE; machineSurface.preview states no first-slice command advertises SARIF and that the schema declaration 'is not an advertisement'. Verified at source in live COORD: D-086 (line 3492) gives G17 a dropped/inapplicable prefix and 'not required-now', and D-092 (line 3666) states 'Does not restore G17.'"},
+    {"attack": "Silent v1→v2 path", "result": "REFUTED", "detail": "I flattened both generations to leaf JSON paths and diffed: 7 changed, 76 added, 3 removed, and the count of changed/added/removed paths falling outside basedOn.method's nine-entry closed roster is ZERO. The method's completeness sentence ('Every path neither the roster nor succession metadata names is unchanged from v1') therefore holds as written. Notably /date did NOT drift — the off-roster-scalar defect that recurred three times in the component-manifest corpus chain does not occur here."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, documentClass DESIGN-CONTRACT-CANDIDATE. authorityClaim states it applies nothing, edits no register row and seals nothing, and leaves the row PROPOSED-CLOSED-FOR-REVIEW. whatThisDoesNotDo covers SATISFIED, preview advertisement, G17, recipes, D9 codes, universal SARIF, docs/v2/implementation/, and native-format status. QUALIFIED is not claimed anywhere."},
+    {"attack": "Row-verbatim mismatch against live file 08 '| DR-122 |'", "result": "REFUTED", "detail": "The artifact's file 08 pin 1cdcf9d4… reproduces exactly against live bytes (97483 bytes). Line 304 is the only line in the file beginning '| DR-122 |', it begins with that marker as the locationDiscipline requires, and it is byte-identical to rowVerbatim. acceptanceEvidenceCellVerbatim is a true substring of the live row. The five-part obligationDecomposition fragments are all drawn from that cell."},
+    {"attack": "Carried file 01 text is not verbatim", "result": "REFUTED", "detail": "projectionTextCarriedVerbatim.linesVerbatim is 26 entries; live file 01 lines 108-133 are 26 lines; list equality is exact with zero differing offsets."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-SPC-V2-01",
+      "title": "The COORDINATOR-DECISIONS.md pin in recordedInputs no longer reproduces",
+      "detail": "governingSources pins docs/coop/COORDINATOR-DECISIONS.md at 12d192f758f48f692e69cb410a1d7a9bf776c765257c8e910272d3de457ec3e3. Live bytes measure b9819d6ef0e71ef66ecec7916a75dfd47b3838fa7e58ebc8b688ec357ec46391 (225684 bytes). The artifact is dated 2026-08-14 and the register has been appended since (D-100 through D-105 landed after). The other two governing sources — file 01 and file 08 — both reproduce exactly.",
+      "notBlocking": "I re-verified every claim resting on this source against LIVE bytes and all of them hold: D-002 exists as 'The first blueprint slice' and advertises SARIF for analyze rides; D-077 exists at line 3053 as 'Owner-record the DR-006 preview Route B disposition'; D-086 at line 3492 gives G17 a dropped/inapplicable prefix and 'not required-now'; D-092 at line 3666 states 'Does not restore G17.' Nothing the drift touches falsifies an artifact claim, and the drift is pure append to a continuously-extended index. Rated advisory rather than SHOULD-FIX for that reason, but a successor should re-pin so the pin keeps its evidentiary value."
+    },
+    {
+      "id": "ADV-SPC-V2-02",
+      "title": "The load-bearing preview-honesty claim cites a keyed value in an artifact the contract does not pin",
+      "detail": "applicability.previewLiveApplicability rests on 'D-077 / namedD002RidesIfOwnerRecorded.SARIF_for_analyze'. That key and its value live in docs/coop/artifacts/route-b.DR-006.preview-disposition.v2.json (line 66: 'DROPS from the preview. RunId and Finding fingerprint stay conceptual.'), which is not among recordedInputs.governingSources. The contract pins the first hop of the custody chain (COORD, where D-077 owner-records the disposition) but not the second hop, while quoting a key name out of the second.",
+      "notBlocking": "The claim is true and I verified it at source in the unpinned artifact, and D-077's owner-recording of that disposition is confirmed in live COORD. This is a pin-completeness gap, not a false statement. Precedent in this repo rates the same shape advisory — the component-manifest corpus chain's ADV-CMCV5-2 was exactly 'folded a verdict without pinning the now-frozen file' and was rated advisory by both reviewers. v1 carried identical text and the frozen Codex v1 REJECT did not raise it. A successor should add the disposition artifact to governingSources with its digest."
+    },
+    {
+      "id": "ADV-SPC-V2-03",
+      "title": "machineSurface.truncation mixes two requiredness idioms inside one property block",
+      "detail": "The truncation object carries a JSON-Schema-style sibling array 'required': ['truncated'] while its optional member is marked with a per-property boolean 'kind': {..., 'required': false, ...}. Two different conventions express requiredness within a single block of what is otherwise a precise key/type map.",
+      "notBlocking": "The meaning is unambiguous — truncated is required, kind is optional — and the property's own standing string says 'optional', so no reader can be misled. It is a consistency nit in the surface that CODEX-V1-B1 asked to be made exact, not a defect in what the surface says. Flagged only so a successor can normalize on one idiom."
+    }
+  ],
+
+  "whatIDidNotCheck": [
+    "I did not read the other current v2 reviewer's file, per the dispatch. Confirmed not read.",
+    "I did not review DR-006, DR-007, DR-111 or the D9 v1.14 artifact on their merits. I confirmed only that this contract cites them as owners and mints nothing of theirs. Whether D9 v1.14 in fact records classToExitCode operational-failed -> 4 I checked against file 01's statement of the golden, not against the D9 artifact itself.",
+    "I did not verify that the FC-APPLIC preview table content (analyze/doctor/help/version advertise human+json only) matches an independent live command inventory. FC-APPLIC states what the fixture must show; no such table is asserted as already existing.",
+    "I did not re-review sarif-projection-contract.v1 on its merits. I consumed it as a diff baseline at its pinned digest, which reproduces.",
+    "I did not execute any fixture. No fixture class here is executable evidence; all five are stated requirements, three ACTIVE and two INACTIVE on a named ride.",
+    "I express no view on DR-122's register status. I did not edit file 08 or COORDINATOR-DECISIONS.md, did not edit the subject, and did not commit."
+  ],
+
+  "observationsForCoordinator": [
+    "docs/coop/artifacts/sarif-projection-contract.v3.json already exists on disk and carries text identical to v2 at the two applicability lines I compared. This review is of v2 as dispatched and takes no position on v3, but the coordinator should confirm v2 is still the intended candidate before recording anything against this verdict.",
+    "The subject is untracked in git (git status reports '??'). That is consistent with an unrecorded candidate, but it means the 0444 mode is the only thing protecting the reviewed bytes."
+  ],
+
+  "bindsTo": "NOTHING. This is one reviewer's independent verdict. It does not mark DR-122 SATISFIED or QUALIFIED, does not authorize docs/v2/implementation/, does not resurrect G17, does not advertise SARIF in preview, does not mint RunId/Finding recipes or D9 codes, does not edit the subject, file 08, or COORDINATOR-DECISIONS.md, and does not commit. An ACCEPT here is about this generation's internal consistency, its fidelity to the pinned governing sources, and its handling of the frozen Codex v1 REJECT. It is NOT a statement that DR-122's obligations are discharged: FC-PARITY and FC-LOSS are unexecuted and INACTIVE pending DR-006, and the artifact remains CANDIDATE-NOT-APPLIED.",
+
+  "summary": "ACCEPT-WITH-ADVISORIES at 0 blockers and 0 SHOULD-FIX. All three claimed repairs of the frozen Codex v1 REJECT are real and verified at source: CODEX-V1-B1's missing machine contract is now a closed key/type/requiredness map under opensip-sarif-projection.1 with cardinality, version behavior, a structured goldenShape, and a guid-as-identity prohibition that keeps it from minting a DR-006 recipe by the back door; CODEX-V1-S1's standingless loss fixture now has previewStanding INACTIVE on the same DR-006 advertisement ride as FC-PARITY, with zero INACTIVE classes anywhere lacking a ride; CODEX-V1-S2's dropped boundary is restored as an explicit committed-Run condition and the ordinary/authority-injection conflation is split into FC-OUTFAIL and FC-NONAUTH. Every dispatch attack is refuted against live bytes rather than against the artifact's self-description: the file 08 pin reproduces and line 304 is byte-identical to rowVerbatim as the sole '| DR-122 |' line; the 26 carried file 01 lines match exactly; the D9 golden is cited from file 01 L92-99, not minted; the v1-to-v2 leaf-path diff yields zero paths outside the nine-entry closed roster, so the completeness sentence holds and /date did not drift; and preview SARIF and G17 stay dropped, confirmed in live COORD at D-086 and D-092. Three advisories travel and none blocks: a stale COORDINATOR-DECISIONS pin whose dependent claims I re-verified against live bytes, a load-bearing preview-honesty citation that resolves into an unpinned disposition artifact, and one mixed requiredness idiom in the truncation block.",
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "branch": "main",
+    "gitHead": "36949e33e3f72f51c654805b903a487b30fd6660",
+    "committed": false,
+    "subjectEdited": false,
+    "subjectMoved": false,
+    "file08Edited": false,
+    "file01Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "dr122MarkedSatisfied": false,
+    "implementationAuthorized": false,
+    "g17Resurrected": false,
+    "previewSarifAdvertised": false,
+    "recipesOrD9CodesMinted": false,
+    "otherV2ReviewerRead": false,
+    "filesWritten": ["docs/coop/artifacts/sarif-projection-contract.v2.review-independent.claude2.json"]
+  }
+}

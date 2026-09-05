@@ -1,0 +1,4 @@
+# E2 — HEAD is 12 commits ahead of origin (D-282..D-292 + the D-285 hygiene commit) — Claude recommendation (round 1)
+**Recommendation: push after you have read DECISIONS-RECOMMENDED.md and are satisfied with the record as it stands — not before.** Confidence: high.
+Rationale: (1) every commit is a COORD-only append or an artifact freeze recorded at dual ACCEPT/CONSENT 0/0 (`git log 4881022~1..HEAD`), so there is nothing provisional in them; (2) the D-285 hygiene commit (`9d04151`) is the only non-append change and it corrects a date in an entry appended the same day — it belongs with D-285; (3) your standing instruction was not to push unless asked, and the review pass is the natural checkpoint; (4) pushing before the review would only matter if another machine needed the record, which nothing in the record indicates.
+If accepted: `git push` from this branch, no rebase, no squash (the hygiene commit's history matters to the D-285 custody paragraph in D-286).

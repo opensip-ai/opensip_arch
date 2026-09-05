@@ -1,0 +1,209 @@
+{
+  "artifact": "platform-tcb-contract.v37.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v37.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v37",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 2 SHOULD-FIX. ACCEPT requires 0 and 0. Both Codex v36 findings are repaired thoroughly, and they were sound findings that my own v36 ACCEPT missed — recorded plainly below rather than left implicit. The two remaining defects are a refusal condition that reached two of the three enumerations but not the third, and an arm64 offset anchor that is named rather than pinned while the x86 branch beside it is absolute.",
+
+  "correctionToMyPriorVerdict": {
+    "what": "I returned ACCEPT on v36. Codex returned REJECT on the same generation with PTCB-V36-B1 and S1. Having now read those findings and re-derived the v36 extraction path, I record that Codex was right and my ACCEPT was too generous on the one mechanism I had treated as decisive.",
+    "whatIMissed": "v36's kexecAbsenceDerivation searched the raw member bytes for IKCFG markers first and only fell back to parsing the compressed payload if none were found. That ordering prefers any marker pair present in the PE wrapper, overlay or certificate region over the genuine configuration embedded in the payload, so a well-formed but inert blob placed in the image would be read as the proof. v36 also required no uniqueness for the marker pair, leaving duplicate, nested and ambiguous pairs undefined, and it accepted 'absent from the .config or set to n', so a partial or truncated configuration satisfied the symbol rule by omission. I did probe the marker question at v36 and dismissed it on the ground that a bad gzip refuses; that reasoning covered malformed blobs and not well-formed planted ones, which is the case that matters. My v36 reasoning about arm64 coverage was also load-bearing on that same raw scan, so Codex's S1 follows.",
+    "whatItChanges": "The frozen Claude v36 ACCEPT should not be relied on as independent confirmation that the v36 derivation was sound. It remains frozen and I have not edited it; this record is the correction. It does not change any earlier verdict, and it does not change my reading of this generation, which is assessed on its own bytes below."
+  },
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v36 vs v37 against the declared roster roots; regex enumeration of D-096; targeted substring checks across the three scope and refusal clauses",
+
+  "custody": {
+    "subjectSha256Expected": "7d38d6cac7342274812adaa310ae9a87ec03fc627bd02ace85ce0b50fef8d42a",
+    "subjectSha256AtStart": "7d38d6cac7342274812adaa310ae9a87ec03fc627bd02ace85ce0b50fef8d42a",
+    "subjectSha256AtEnd": "7d38d6cac7342274812adaa310ae9a87ec03fc627bd02ace85ce0b50fef8d42a",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 236762,
+    "subjectMovedDuringReview": false,
+    "predecessorV36Sha256": "9d4779b693de35b7ba3bf7f0f5f1dd152a5deb3934346e9fcf5872debed3d8d1",
+    "frozenClaudeV36Sha256": "a676996bc19b3794a2921bce406c1bf4f8eb8bd874da9557617e34c1962684fd",
+    "frozenCodexV36Sha256": "3bfa9b04e1b39be315d44350233b5d0cec5c56135ad5115dc81e541d233ea1e1",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v36 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten. The v37 pin chain records my v36 verdict as ACCEPT with empty finding lists and the Codex v36 verdict as REJECT with PTCB-V36-B1 and S1, so the divergence is carried accurately rather than smoothed.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V37-S1",
+      "appliesTo": "PTCB-V36-B1 — repaired, but its new refusal condition reached only two of the three governing clauses",
+      "title": "A signed ikconfigDigest mismatch refuses under the derivation clause and under refusesBootConfigs, but unavailableRefuses omits it while naming its sibling kexecCapability mismatch",
+      "where": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/pathlessCeremony/unavailableRefuses; against the same object's refusesBootConfigs and inScopeBootConfigs and /loaderTraces/.../measuredBootBind/kexecAbsenceDerivation/signedAttestation",
+      "theFinding": "signedAttestation states 'signedObject.kexecCapability MUST equal kexec-absent and signedObject.ikconfigDigest MUST equal the derived ikconfigDigest', so a mismatch on either refuses. refusesBootConfigs carries both as one item, 'signed kexecCapability or ikconfigDigest mismatch', and inScopeBootConfigs states that an in-scope machine's signed object 'carries kexec-absent plus ikconfigDigest'. unavailableRefuses lists 'failed kexecAbsenceDerivation, signed kexecCapability mismatch' and stops there. I checked the full text of all three: ikconfigDigest appears in two and not in the third.",
+      "whyTheUmbrellaDoesNotCoverIt": "'failed kexecAbsenceDerivation' is not a superset of this condition. A signed-digest mismatch is the case where the derivation SUCCEEDS and produces an ikconfigDigest that then differs from the signed value; the derivation has not failed. refusesBootConfigs treats the two as distinct in exactly that way, listing derivation-stage failures separately from the signed-mismatch item, so the omission in unavailableRefuses is not a stylistic compression of the same idea.",
+      "whyItMatters": "This contract has established, and both reviewers have relied on, that these enumerations carry meaning about refusal standing: at v30 the demotion of runtimeContinuity was signalled partly by removing it from them, and at v33 I filed and at v34 the author repaired a mandatory condition that reached none of them. Read as the set that 'refuses this profile on this machine', unavailableRefuses now disagrees with two other normative statements about the same condition, with no precedence sentence covering it, in a document that uses explicit governing sentences in four other places.",
+      "whyNotABlocker": "The mechanism clause states the MUST directly and refusesBootConfigs agrees, so an implementer following either refuses, and the divergent reading only fails to refuse a machine whose signed attestation disagrees with a derivation that itself already succeeded and established kexec absence from the authenticated bytes. Nothing attests a kernel that is not the launched one under either reading. This is a consistency and determinacy defect.",
+      "requiredRepair": "Add the ikconfigDigest mismatch to unavailableRefuses in the same wording refusesBootConfigs uses, so all three clauses agree. Nothing in the mechanism needs to change."
+    },
+    {
+      "id": "CLAUDE-V37-S2",
+      "appliesTo": "PTCB-V36-S1 — repaired for x86 with absolute offsets; the arm64 branch pins field distances from an anchor it does not define",
+      "title": "The arm64 zboot parser gives payload_offset, payload_size and compressed_type as header+4, header+8 and header+20 without stating where header begins, and the clause names two candidate anchors that differ",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/kexecAbsenceDerivation/architectureDispatch/linux~1arm64/zboot",
+      "theFinding": "The clause reads 'Locate the unique LINUX_EFI_ZBOOT_HEADER whose id[4] is 7a 69 6d 67 (\"zimg\") ... payload_offset and payload_size are u32le at header+4 and header+8. compressed_type is the 32-byte NUL-padded ASCII field at header+20.' Two anchors are named in the same sentence pair: the header structure, and the id field by which the header is located. They are not the same position, so header+4 resolves differently depending on which is meant, and the clause never says. This is a textual observation about the anchor, not a claim about which field distances are correct.",
+      "theContrastWithinTheSameClause": "The x86_64 branch immediately above leaves nothing to inference: the boot flag is at 0x1FE, the HdrS signature at 0x202 through 0x205, the version at 0x206 with a stated minimum of 0x0208, setup_sects at 0x1F1 with the zero-means-four rule, and payload_offset and payload_length as u32le at 0x248 and 0x24C, all absolute from the member start with the range required to lie wholly inside the member. The arm64 branch is the only parser in the derivation that uses relative offsets, and it is the one that does not pin its origin. Codex PTCB-V36-S1 asked to 'pin exact x86 bzImage and arm64 Image/EFI-zboot layouts, including offsets, byte order, magic/version, bounds, and resource limits'; byte order, bounds and the 128 MiB limit are all supplied, and the arm64 origin is the one element of that list left open.",
+      "consequence": "Two conforming implementations can read different fields as payload_offset and payload_size on the same arm64 image. The reading that takes the struct base rather than the id position lands on reserved bytes and on the magic itself, which will not satisfy 'payload range MUST lie wholly inside the member', so that implementation refuses images the other accepts. The divergence is therefore over-refusal rather than a false pass, and it cannot admit a kernel that is not the launched one.",
+      "whyNotABlocker": "Fail-closed in the divergent direction, and confined to one architecture branch of one parser. It does not weaken the extraction confinement, the uniqueness rule, the Kconfig validation or the signed attestation, all of which are architecture-independent.",
+      "requiredRepair": "State the origin explicitly, in the style the x86 branch already uses — for example, define the header origin as the offset at which the four id bytes were found, or give the three fields as absolute offsets from the member start once the header position is located. Either form removes the ambiguity without changing the field distances."
+    }
+  ],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V36-B1 — the IKCONFIG derivation accepted an arbitrary or partial marker blob as structural proof",
+      "result": "REPAIRED, on every limb Codex named, and I could not break the result. The raw-wrapper path is closed by a dedicated prohibition rather than by reordering: neverSearchRawWrapper states 'MUST NOT search the raw PE/COFF wrapper, overlay, certificate table, or any region outside the selected payload for IKCFG markers. A pair found only in those regions is not this derivation and MUST NOT be used.' Extraction is confined to the decompressed payload P and made unique: 'In P only, find every IKCFG_ST / IKCFG_ED ASCII marker pair. MUST be exactly one pair, IKCFG_ST before IKCFG_ED, the interval wholly inside P, no nested or overlapping pair. Zero, more than one, reversed, or out-of-P pairs refuse.' The serialization is validated rather than assumed: C must contain CONFIG_IKCONFIG=y, every line must be an assignment or an explicit not-set comment, and a duplicate CONFIG_NAME refuses. The omission-means-n weakness is gone: 'Each requiredN symbol MUST appear explicitly as CONFIG_NAME=n or as \"# CONFIG_NAME is not set\". Omission is not disabled. =y or =m refuses.' And the signed carriage attests rather than substitutes, in Codex's own terms: signedObject.ikconfigDigest must equal the derived digest of the validated text, with 'Signed carriage attests this validated result; it MUST NOT replace derivation.' notThis names each retired defect, including 'a raw-PE marker search' and 'a missing-symbol-means-n rule'. The planted-blob attack that defeated v36 now fails at the confinement rule, and altering the payload to plant a blob inside P would change the member bytes and break the peCoffImageDigest equality to kernelEvent."
+    },
+    {
+      "finding": "PTCB-V36-S1 — the compressed-kernel fallback was x86-specific, format-incomplete and under-specified",
+      "result": "REPAIRED apart from the arm64 anchor filed as CLAUDE-V37-S2. Dispatch is now on the complete platformProfile architecture with otherArchRefuses true. The x86_64 branch pins the boot flag, the HdrS signature, a minimum boot-protocol version consistent with the payload fields it then reads, the setup_sects zero-means-four rule, the protected-mode offset computation, and payload_offset and payload_length as u32le at fixed offsets, with overlap, wrap and zero length refusing. The arm64 branch covers both real cases: an EFI zboot image located by its unique id with zero or multiple occurrences refusing, and an uncompressed Image resolved to the unique executable section with ambiguity or zero sections refusing. The compression set is closed and justified at five members with magic-based detection and 'Other magics refuse as unsupported-compression', and the resource limit Codex asked for is present as a 128 MiB ceiling with truncation or decoder error refusing."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject 7d38d6ca... over 236762 bytes at 0444, unmoved start and end. Predecessor v36 and both frozen v36 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 55 path-bearing pins reproduce, zero failures. The claude2v36 pin records ACCEPT with empty lists and the codexv36 pin records REJECT with its blocker and SHOULD-FIX, so the reviewer divergence is carried accurately. No predecessor review was replaced."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v36-to-v37 change roster",
+      "result": "PASS. 34 changed paths, ZERO off-roster. reviewGuidance grew 185 to 190 as a pure prefix-preserving append."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. All three reMeasurementAtV37 pins reproduce at measuredAtHead 93ceaa6a. platforms.slice1 still carries linux/x86_64 and linux/arm64; no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 34 D-096 occurrences are refusals, zero unmatched. DRTM and IMA remain excluded as or-choices."
+    },
+    {
+      "id": "M-6",
+      "check": "Extraction confinement, uniqueness, and Kconfig validation",
+      "result": "PASS. Raw-wrapper search prohibited by name, exactly one pair required inside P, complete serialization validated, explicit disabled forms required."
+    },
+    {
+      "id": "M-7",
+      "check": "Signed carriage and closed-shape propagation",
+      "result": "PASS. ikconfigDigest is defined on the signed object and linuxForm is restated as exactly {tag, pathlessObservation, measuredBootTranscriptDigest, kexecCapability, ikconfigDigest} with extras rejected, while macosForm continues to exclude the Linux-only fields."
+    },
+    {
+      "id": "M-8",
+      "check": "Scope and refusal enumeration coverage",
+      "result": "FAIL at one condition — basis of CLAUDE-V37-S1. inScopeBootConfigs and refusesBootConfigs carry the ikconfigDigest condition; unavailableRefuses does not."
+    },
+    {
+      "id": "M-9",
+      "check": "Architecture parser precision",
+      "result": "FAIL at one branch — basis of CLAUDE-V37-S2. x86 offsets are absolute; the arm64 zboot field distances are relative to an undefined origin."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "An IKCONFIG pair taken from the raw PE wrapper, overlay or certificate region (Codex B1, re-run independently and the attack I failed to construct at v36)",
+      "result": "FAILED TO LAND. neverSearchRawWrapper prohibits it by name and declares such a pair not this derivation."
+    },
+    {
+      "attack": "Duplicate, nested, reversed or out-of-payload marker pairs",
+      "result": "FAILED TO LAND. Exactly one pair required inside P, with each of those cases refusing explicitly."
+    },
+    {
+      "attack": "A partial or truncated configuration passing by omission of the proof symbols",
+      "result": "FAILED TO LAND. Explicit disabled forms are required, omission is declared not disabled, CONFIG_IKCONFIG=y must be present, and duplicate assignments refuse."
+    },
+    {
+      "attack": "Signed carriage substituting for derivation",
+      "result": "FAILED TO LAND. signedAttestation states it attests the validated result and MUST NOT replace derivation."
+    },
+    {
+      "attack": "A planted blob inside the payload rather than the wrapper",
+      "result": "FAILED TO LAND. Altering P changes the member bytes, which breaks both the member sha256 and the peCoffImageDigest equality to the transcript-authenticated kernelEvent."
+    },
+    {
+      "attack": "An architecture outside the dispatch, or an unsupported compression, passing silently",
+      "result": "FAILED TO LAND. otherArchRefuses is true and unsupported magics refuse with a named reason."
+    },
+    {
+      "attack": "A decompression bomb or unbounded payload",
+      "result": "FAILED TO LAND. Output is capped at 128 MiB with truncation or decoder error refusing."
+    },
+    {
+      "attack": "A new condition not reaching every scope and refusal enumeration (my own attack, carried from v33 and v34)",
+      "result": "LANDS at one condition. Filed as CLAUDE-V37-S1."
+    },
+    {
+      "attack": "An offset specification precise in one branch and inferential in another (my own additional attack)",
+      "result": "LANDS. Filed as CLAUDE-V37-S2."
+    },
+    {
+      "attack": "Silent v36-to-v37 path outside basedOn.method, or softened pinning of the divergent v36 verdicts",
+      "result": "FAILED TO LAND. 34 changed paths, 0 off-roster, and both v36 verdicts are pinned with their true verdict words and finding lists."
+    },
+    {
+      "attack": "A Linux deferral, a D-096 (A) grant, or DRTM/IMA added as an or-choice",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1, all 34 D-096 mentions are refusals, DRTM and IMA remain excluded."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1.",
+    "Does not edit, retract or amend my frozen v36 ACCEPT; the correction above is recorded here and the frozen file is untouched.",
+    "Does not dispute either Codex v36 finding; both are sound and both are repaired.",
+    "Does not object to the derivation, the confinement rule, the uniqueness rule, the Kconfig validation, the signed attestation or the compression handling; all should be kept verbatim.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v36 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV37ReviewerRead": false,
+    "otherReviewerNote": "The Codex v37 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v36 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v36 verdict is my own ACCEPT from the prior round, and the frozen Codex v36 REJECT is the counterpart whose findings this generation repairs."
+  },
+
+  "limitsOfThisReview": "I reviewed both predecessor findings, the rewritten derivation and its architecture dispatch, the signed carriage and closed-shape propagation, the three scope and refusal clauses, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V37-S2 is a finding about an unstated anchor and does not assert that the field distances are wrong; I have deliberately framed it that way because the distances are consistent under the reading the clause most plausibly intends, and the defect is that the clause does not say which reading applies. The concrete positive, malformed and cross-architecture vectors Codex asked for remain reserved as G22 evidence and are not populated; that reservation is disclosed in the artifact and I did not evaluate evidence that does not exist.",
+
+  "summary": "REJECT at 0 blockers and 2 SHOULD-FIX. Before the findings, a correction: I returned ACCEPT on v36 and Codex returned REJECT, and Codex was right. v36 searched the raw member bytes for IKCONFIG markers before parsing the payload, required no uniqueness for the pair, and treated an omitted symbol as disabled, so a well-formed but inert blob placed in the wrapper could have been read as the structural proof. I probed the marker question at v36 and dismissed it because malformed blobs refuse, which did not cover the planted well-formed case. The frozen ACCEPT stands unedited and this record is the correction; it should not be relied on as independent confirmation that the v36 derivation was sound. This generation repairs both Codex findings thoroughly. Extraction is confined by an explicit prohibition on searching the wrapper, overlay or certificate region; exactly one marker pair is required inside the decompressed payload with zero, duplicate, nested, reversed and out-of-region cases each refusing; the configuration text is validated as a complete serialization with CONFIG_IKCONFIG=y present and duplicate assignments refusing; every proof symbol must appear in an explicit disabled form with omission declared insufficient; and the signed ikconfigDigest attests the validated text while being forbidden to replace the derivation. The architecture dispatch pins x86 absolutely and covers both arm64 cases, the compression set is closed and justified, and a 128 MiB ceiling bounds decompression. The planted-blob attack that defeated v36 now fails at the confinement rule, and moving the blob inside the payload would break the member digest chain to the measured launch. What remains is two narrow inconsistencies. A signed ikconfigDigest mismatch refuses under the derivation clause and under refusesBootConfigs, but unavailableRefuses names only its sibling kexecCapability mismatch, and the generic derivation-failure item does not cover it because the derivation succeeds in that case. And the arm64 zboot parser gives its three field distances relative to a header whose origin the clause never states, naming both the structure and the id field that locates it, while the x86 branch beside it uses absolute offsets throughout. Both are fail-closed, both are cheap, and neither touches the confinement, uniqueness, validation or attestation that make this derivation sound."
+}

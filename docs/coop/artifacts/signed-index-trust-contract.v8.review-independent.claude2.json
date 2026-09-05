@@ -1,0 +1,101 @@
+{
+  "artifact": "signed-index-trust-contract.v8.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/signed-index-trust-contract.v8.json",
+  "subjectSha256AtStart": "fc171321e969c74464dbc9ff67edd9b874aac1d1c7375c7dc8e431469442efe0",
+  "subjectSha256AtEnd": "fc171321e969c74464dbc9ff67edd9b874aac1d1c7375c7dc8e431469442efe0",
+  "subjectMode": "0444",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "scopeNote": "DR-112 review. NOT a DR-111 / compatibility-matrices review.",
+  "verdict": "ACCEPT-WITH-ADVISORIES",
+  "verdictBasis": "0 blockers, 0 SHOULD-FIX, 1 advisory. This meets the dispatch's ACCEPT bar. My v7 advisory is repaired at the mechanism level, and I confirmed the repair by walking every EV-PRESENT-PAYLOAD (state, kind) combination through the amended discipline rather than reading the claim.",
+  "reviewer": "Claude 2, independent; authored none of v1-v8",
+  "date": "2026-08-14",
+  "predecessor": {"path": "docs/coop/artifacts/signed-index-trust-contract.v7.json", "sha256": "ce26f1621b4ff2a30d5501b710085de78a7dbc68259cc184d0e7c843125d2d40", "reMeasured": true},
+  "foldedVerdicts": [
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v7.review-independent.claude2.json", "sha256": "2f9d9274d485263f61715b72b508b6a96ba90675d113d3d9ce23d09742bb954f", "reMeasured": true, "actualFindings": {"verdict": "ACCEPT", "blockers": [], "shouldFix": [], "advisories": ["ADV-1"]}},
+    {"reviewer": "Codex v7", "standing": "NOT FROZEN at my review time - the file exists at mode 0644, so its digest is not stable. v8 correctly does not pin it: appliesFindingsOf carries no codexv7 record, and SITCV7-S1 is labelled provisional throughout. I did not treat its content as settled and I record no digest for it."}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-112 SATISFIED, does not mark QUALIFIED, does not edit file 08 or COORDINATOR-DECISIONS.md, and does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+  "shouldFix": [],
+
+  "repairVerification": [
+    {
+      "finding": "CLAUDE-V7-ADV-1 (my v7 ADV-1) - whenInactive was the one branch not gated on the member's own applicability precondition, so a recovery-typed payload could satisfy an ordinary member's whenInactive",
+      "disposition": "REPAIRED - VERIFIED by walking the machine",
+      "howIChecked": [
+        "The fix is inserted as a new first step rather than patched into the branch wording. evaluationOrder gains memberApplicability at position 0 - 'if false, this member yields no branch' - and all three existing branches are re-worded to begin 'true iff the member is applicable AND ...'. appliesTo is widened to require that the member's applicability preconditions hold, and states that a member excluded by kind 'yields NO branch and does not compete'.",
+        "A NORMATIVE memberApplicability object states the rule: 'Evaluate the member's selecting preconditions BEFORE any outcome branch. For EV-PRESENT-PAYLOAD, payloadKind MUST match the member (ordinary members 0-2; recovery staging member 6). A recovery-typed payload never makes an ordinary member's whenInactive true. A member that fails applicability is treated as if it were not named for this evaluation.'",
+        "I verified the member indices in that sentence against the transitions array rather than trusting them. Members 0, 1 and 2 are the EV-PRESENT-PAYLOAD members whose guards open 'Payload kind MUST be ordinary', covering ST-UNBOOTSTRAPPED, ST-TRUSTED and [ST-EXPIRED, ST-STALE-REVOCATION, ST-QUORUM-LOST] respectively, and each carries whenInactive plus whenActiveSuccess. Member 6 is the branchless recovery member whose guard opens 'Payload kind MUST be recovery', covering [ST-EXPIRED, ST-STALE-REVOCATION, ST-QUORUM-LOST, ST-REVOKED, ST-UNBOOTSTRAPPED]. The enumeration is correct.",
+        "defaultTransition is updated so the exclusion cannot open a hole: an inapplicable named member now routes to the event fallback rather than nowhere - 'Fallback therefore covers unnamed pairs, inapplicable named members, AND applicable named pairs whose branches/guards are all false.' Without that clause the repair would have created a gap; with it, every (state, kind) pair still resolves.",
+        "beforeFallback now states the resulting outcome explicitly, which is what makes the fix auditable: 'A recovery-typed PRESENT while INACTIVE is staged by the applicable recovery member (or PAYLOAD-NOT-ADMISSIBLE if no recovery member applies); it is not ENVELOPE-INACTIVE on an ordinary member.'",
+        "The two fixture classes were updated to test the new discipline rather than the old wording. FC-ENVELOPE-INACTIVE now requires that memberApplicability run first and that a recovery-typed PRESENT not take an ordinary member's whenInactive. FC-PAYLOAD-KIND-DISJOINT now requires disjointness 'by memberApplicability, not only by guard text' and adds the TRUSTED + recovery case explicitly.",
+        "Notably, /machine/transitions is byte-identical to v7. The repair is entirely in the discipline that reads the transitions, so no state, guard or outcome cell moved - which is the minimal correct shape for this defect."
+      ],
+      "machineWalk": "I enumerated all five EV-PRESENT-PAYLOAD members with their states and kinds and walked every combination. The four pairs my v7 advisory named - ST-UNBOOTSTRAPPED, ST-EXPIRED, ST-STALE-REVOCATION and ST-QUORUM-LOST - each carry a branched ordinary member (0 or 2) and the branchless recovery member 6. With a recovery payload while INACTIVE, memberApplicability now excludes the ordinary member before branching, so member 6 fires alone and the outcome is a single staging ACCEPT. At ST-TRUSTED only ordinary member 1 names the pair; member 6 does not include ST-TRUSTED and member 18 is ST-RECOVERY only, so a recovery payload there leaves no applicable member and falls to fallbackByEvent[EV-PRESENT-PAYLOAD], which I confirmed is refused / PAYLOAD-NOT-ADMISSIBLE. The reverse case is equally coherent: an ordinary payload at ST-RECOVERY fails member 18's kind precondition and takes the same fallback."
+    },
+    {
+      "finding": "CODEX-V7-S1 (provisional)",
+      "disposition": "FOLDED AS PROVISIONAL - ACCOUNTING VERIFIED AND CORRECTLY HEDGED",
+      "howIChecked": "v8 treats the unfrozen Codex v7 verdict exactly as it should. basedOn.method records 'Codex v7 provisional SITCV7-S1 (Codex v7 not frozen at authoring)'. The idCollisionNote says 'Codex v7 provisional SITCV7-S1 is the same finding (payloadKind not gating whenInactive). Qualify CODEX-V7-* if that verdict confirms it' - conditional rather than asserted. notFoldedThisSuccessor states 'Codex v7 verdict was not frozen at authoring; if it later carries findings beyond SITCV7-S1 they require a v9.' Critically, appliesFindingsOf carries no codexv7 record and no digest for it anywhere in the artifact - its keys are only idCollisionNote, notFoldedThisSuccessor and claude2v7. So no unstable digest is pinned. I independently confirmed the Codex v7 file is mode 0644 and therefore not frozen, and I did not treat its content as settled."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "Recovery-typed PRESENT while INACTIVE taking an ordinary whenInactive", "result": "REFUTED", "detail": "memberApplicability runs at evaluationOrder[0] and excludes ordinary members 0 and 2 on a recovery payload before any branch is evaluated; whenInactive itself is now conditioned on applicability. On all four pairs that carry both member kinds, only recovery member 6 remains applicable."},
+    {"attack": "Two true outcomes (staging ACCEPT and ENVELOPE-INACTIVE) for one PRESENT", "result": "REFUTED", "detail": "The ordinary member yields no branch at all once excluded, so its ENVELOPE-INACTIVE cannot co-fire with member 6's branchless staging ACCEPT. Exactly one member is applicable on each of the four pairs."},
+    {"attack": "TRUSTED + recovery PRESENT reporting ENVELOPE-INACTIVE", "result": "REFUTED", "detail": "I checked member 6's state list directly: ST-TRUSTED is not in it, and member 18 covers only ST-RECOVERY. A recovery payload at ST-TRUSTED therefore leaves ordinary member 1 inapplicable and no other member named, so defaultTransition routes to fallbackByEvent[EV-PRESENT-PAYLOAD] = refused / PAYLOAD-NOT-ADMISSIBLE. beforeFallback and FC-PAYLOAD-KIND-DISJOINT both state that outcome explicitly."},
+    {"attack": "Silent v7-to-v8 path", "result": "REFUTED - 30-for-30", "detail": "My recursive diff found 30 changed paths and I mapped every one against the ten roster tokens: zero uncovered. The single top-level addition is /honestyRepairsFromV7, which the roster declares; nothing was removed at top level. /machine/transitions and /machine/fallbackByEvent are byte-identical to v7."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED", "detail": "status, reviewStatus, sealRecommendation, binds, documentClass, registerRow, authorityClaim and the whole whatThisDoesNotDo block are byte-identical to v7, and the block still opens 'Does not SATISFY DR-112 until independently reviewed and recorded by a later D-000 MF-6' and disclaims minting quorum, clock, emergency or waiver numbers, shipping repair-media or self-update, and designing replay continuation. No creep at any of the 30 diff sites."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V8-01",
+      "title": "memberApplicability's parenthetical enumerates members 0-2 and 6 but omits member 18, the other EV-PRESENT-PAYLOAD member carrying a payloadKind precondition",
+      "detail": "The NORMATIVE sentence reads 'For EV-PRESENT-PAYLOAD, payloadKind MUST match the member (ordinary members 0-2; recovery staging member 6).' I enumerated every EV-PRESENT-PAYLOAD member and there are five, not four: member 18 is a second recovery-kind member, guarded 'Payload kind MUST be recovery' and covering ST-RECOVERY, described in its own guard as 'the sole ST-RECOVERY/PRESENT member'. It is unclassified by the parenthetical. No outcome changes, which is why this is advisory: member 18 is branchless, so applicability and guard collapse to the same test for it; no ordinary member names ST-RECOVERY, so it is uncontested; and the operative clause 'payloadKind MUST match the member' is general and reaches it through its own guard text. But a reader implementing the enumeration literally would find one EV-PRESENT-PAYLOAD member outside the classification, in the one rule the artifact marks NORMATIVE. Adding 'recovery ST-RECOVERY member 18' to the parenthetical would close it.",
+      "notBlocking": "No wrong outcome on any (state, kind) pair; I walked all of them."
+    }
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v7 and my frozen v7 ACCEPT re-measured and matching the dispatch.",
+    "rosterVsActualDiff": "30 changed paths, 30 covered by the ten-token closed roster; one declared top-level addition, no removals.",
+    "machineInvariance": "/machine/transitions and /machine/fallbackByEvent byte-identical to v7. The repair lives entirely in outcomeBranchDiscipline, defaultTransition and the two fixture classes.",
+    "machineWalk": "All five EV-PRESENT-PAYLOAD members enumerated with states and kinds; every (state, payloadKind) combination walked through the amended evaluation order, including the four contested pairs, ST-TRUSTED, ST-RECOVERY and ST-REVOKED.",
+    "codexV7Handling": "Confirmed the Codex v7 file is unfrozen at mode 0644, that v8 pins no digest for it, and that every reference to SITCV7-S1 is conditional."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not re-review the trust state machine on its merits beyond the EV-PRESENT-PAYLOAD surface this repair touches. The transitions are byte-identical to v7, which I accepted, and I verified invariance rather than re-adjudicating them.",
+    "I did not read the Codex v7 verdict's contents and did not rely on them. My verification of the repair rests on the artifact's own bytes and my frozen v7 advisory.",
+    "I did not read the other current v8 reviewer's file; none exists.",
+    "I did not evaluate ID-DEP-1, envelopePreimageJoin activation, DR-103's byte-level checks, or the ceremony numbers. I confirmed only that v8 continues to defer them.",
+    "I did not re-verify the governing source pins or the register row; this generation touched neither and both are outside the repair's scope.",
+    "I express no view on DR-112's register status and did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "An ACCEPT-grade verdict here is about this artifact's internal consistency and its handling of my v7 advisory. It is NOT a statement that DR-112's acceptance-evidence cell is discharged, and it does not anticipate whatever the unfrozen Codex v7 verdict may add."
+  ],
+
+  "recordedInputs": [
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v8.json", "sha256": "fc171321e969c74464dbc9ff67edd9b874aac1d1c7375c7dc8e431469442efe0", "mode": "0444", "role": "subject"},
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v8.review-prompt.md", "sha256": "bb64e42253680a911621df8aef4dc3afab0ccdd1892f5e36329a6944cd4668ea", "role": "dispatch"},
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v7.json", "sha256": "ce26f1621b4ff2a30d5501b710085de78a7dbc68259cc184d0e7c843125d2d40", "role": "predecessor, diffed in full"},
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v7.review-independent.claude2.json", "sha256": "2f9d9274d485263f61715b72b508b6a96ba90675d113d3d9ce23d09742bb954f", "role": "my frozen v7 ACCEPT; ADV-1 read and checked for coverage"},
+    {"path": "docs/coop/artifacts/signed-index-trust-contract.v7.review-independent.codex.json", "mode": "0644", "role": "EXISTS BUT UNFROZEN at review time; contents not read and no digest recorded, per dispatch"}
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "didNotReadCodexV7": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "filesWritten": ["docs/coop/artifacts/signed-index-trust-contract.v8.review-independent.claude2.json"]
+  }
+}

@@ -1,0 +1,273 @@
+{
+  "artifact": "opensip.evaluation-proof.v9.review-independent",
+  "version": 1,
+  "date": "2026-08-02",
+  "reviewer": "independent adversarial reviewer; did not author evaluation-proof.v9.json or check-evaluation-proof-v9.py",
+  "subject": {
+    "candidate": {
+      "file": "evaluation-proof.v9.json",
+      "claimedSha256": "02f9955f4f90e91afd163a5fa8274eb8832aa5419221da7e9e825a1cbf17430b",
+      "recomputedSha256": "02f9955f4f90e91afd163a5fa8274eb8832aa5419221da7e9e825a1cbf17430b",
+      "agrees": true
+    },
+    "checker": {
+      "file": "check-evaluation-proof-v9.py",
+      "claimedSha256": "c8789da2a97c10e04172394f11f10299bacdf36fa068858e55a2bfabeac64be4",
+      "recomputedSha256": "c8789da2a97c10e04172394f11f10299bacdf36fa068858e55a2bfabeac64be4",
+      "agrees": true
+    }
+  },
+  "verdict": "REJECT",
+  "verdictStatement": {
+    "verdict": "REJECT",
+    "blockingFindingCount": 2,
+    "summary": "The central claim (EP9-NEG-EP8-MINTS-AUTHORITY-OVER-SECOND-DIGEST) is REAL and, if anything, understated: I reproduced it from scratch without reading the author's probe, and it moves far more than the receipt digest. The re-pin machinery, the measured-count discipline, the live --selftest and the 0/1/2/3 exit matrix are all genuine and survived every attack I made on them. v9 is rejected on two published claims that I falsified constructively: (1) RES-EP9-05's load-bearing mitigation that the type-level false-accept class 'moves NO proof identity because every ref is derived from the stored raw CAS bytes' is false — I moved three durable identities under a byte-identical EvaluationAuthoritySealRef — and the 'exact admitted set' it enumerates is an artifact of v9's single-position injection regime, over-stating two sites and omitting two identity-moving ones; and (2) astScanScope.isSoleGuard=false is false — I built one evasion caught ONLY by the syntactic scan and a second that satisfies the scan's own routing rule, keeps the non-AST liveness counter ticking, and still binds every real PlanIntent's authority to the DEFECTIVE check-c2.py bytes while check-evaluation-proof-v9.py exits 0 with the full green 'C-2 join RE-PINNED' banner."
+  },
+
+  "blockers": [
+    {
+      "id": "IR-EP9-01",
+      "severity": "BLOCKING",
+      "title": "RES-EP9-05's identity-inertness mitigation is false, and the 'exact admitted set' is an artifact of the injection regime, not the class",
+      "statement": "evaluation-proof.v9.json knownLimitations[RES-EP9-05] and scalarLeafTotality.surfaces[evaluation-authority-candidate].admittedPositionsNote assert: 'On the frozen bytes this moves NO proof identity: every RawCasRef, the EvaluationAuthoritySealRef and the admission ref are derived from the stored raw CAS bytes rather than from the in-memory record.' The stated REASON is factually wrong: check-evaluation-proof-v8.py line 480 computes admission_ref = ep6.raw_record_ref('EvaluationAuthorityAdmissionV1', admission) from the IN-MEMORY record, and that value is written into the durable EvaluationAuthorityIndexV1 row and into the index fingerprint. The conclusion is therefore true only under v9's own census regime, which injects at ONE in-memory position and leaves the stored CAS bytes at the honest encoding. Acting as a self-consistent PRODUCER instead — emitting the record and its canonical bytes together, exactly as an honest producer does — a JSON true at planAuthorityReceipt.schemaVersion is ADMITTED by EP8's public authorize_evaluation and MOVES three durable identities (receipt CAS ref, admission ref, index fingerprint) beneath a byte-identical EvaluationAuthoritySealRef; the resulting store cold-reconstructs through resolve_stored_evaluation with planAuthorityReceipt.schemaVersion = JSON true and assert_store_continuity() returning True. The same holds for admittedResolvedInputs.schemaVersion and for evaluationAuthorityAdmission.schemaVersion — TWO SITES v9 DOES NOT LIST. Conversely two of the four sites v9 does list (activationManifest.schemaVersion, evaluationAuthoritySeal.schemaVersion) are REJECTED under producer consistency by the EP5 semantic encoder's canonical-unsigned-decimal guard, so they are inert. The published set both over-states and under-states the class it claims to enumerate exactly, and 'makes any change to that set a finding' therefore pins the wrong set. This is the corpus's own dominant failure mode — a coverage claim quantified over a region the instrument cannot observe — reappearing inside the repair that exists to prevent it.",
+      "evidence": {
+        "honestBaseline": {
+          "easRef": "sha256:631726610089c3baca1a37802f318c262a333b953d823b89157587b378463358",
+          "admissionRef": "sha256:3a31b3ec0d3729c035e9a2e79b809e29eab67612832a05d9035bc80fee3d8b78",
+          "indexFingerprint": "sha256:2c235fac16149ab17e4594e8c629e77981253ee34e7f1fa75fdc03e068ac5689",
+          "receiptCasRef": "sha256:48f3ad239dad96a14030cfd72699858d787b9743cceaee50fff86a880e4b365e"
+        },
+        "planAuthorityReceiptSchemaVersionIsJsonTrue": {
+          "admittedByEp8PublicAuthorizeEvaluation": true,
+          "easRef": "sha256:631726610089c3baca1a37802f318c262a333b953d823b89157587b378463358 (UNCHANGED)",
+          "admissionRef": "sha256:573c8e8add7ba7212024b0e86d51abc6549e5afd5396362ea8a25e868c34124e (MOVED)",
+          "indexFingerprint": "sha256:6b8cd87c8814ba1c31203129a125dcc9e157fae00fd21d781f776d18eb5074be (MOVED)",
+          "receiptCasRef": "sha256:50f250ecbcfcde6a929eb5534faee4698d5e0050e766201ec4efef130a246631 (MOVED)"
+        },
+        "evaluationAuthorityAdmissionSchemaVersionIsJsonTrue": {
+          "listedByV9": false,
+          "admitted": true,
+          "admissionRef": "sha256:a6c2694b7a83ad9bc755db3a77578485a5c07c72ab93c36f680d6fb0ba9df021 (MOVED)",
+          "indexFingerprint": "sha256:3807e921c3b6057617b7229a2c57b763d723607befb4db4598fb8676acd59241 (MOVED)"
+        },
+        "admittedResolvedInputsSchemaVersionIsJsonTrue": {
+          "listedByV9": false,
+          "admitted": true,
+          "movedIdentities": ["admission_ref", "indexFingerprint", "receiptCasRef"]
+        },
+        "listedSitesThatAreActuallyRejectedUnderProducerConsistency": {
+          "activationManifest.schemaVersion": "ValueError: ActivationManifestV1 schemaVersion is not canonical unsigned decimal",
+          "evaluationAuthoritySeal.schemaVersion": "ValueError: EvaluationAuthoritySealV1 schemaVersion is not canonical unsigned decimal"
+        },
+        "durabilityRoundTrip": "a store built ONLY from the hostile candidate cold-reconstructs via resolve_stored_evaluation() to a candidate whose planAuthorityReceipt.schemaVersion is Python True (JSON true), with assert_store_continuity() == True, under an EvaluationAuthoritySealRef byte-identical to the honest one. Two byte-distinct raw lineages therefore resolve under one and the same seal ref, decided only by which producer reached the store first.",
+        "negativeControls": [
+          "planAuthorityReceipt.schemaVersion = 2 -> ValueError: PlanAuthorityReceiptV1 is not exact (rejected)",
+          "frozenPlanIntent.schemaVersion = \"1\" -> ValueError: pinned C2 rejected PlanIntent (rejected)"
+        ]
+      },
+      "reproduction": {
+        "probe": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/probe_res05.py",
+        "command": "python3 -I -B /private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/probe_res05.py",
+        "method": "load check-evaluation-proof-v8.py; obtain a legitimately opened EMPTY store; rebuild the EP8-POS-NOMATCH-PASS candidate with one schemaVersion spelled JSON true AND its raw CAS bytes regenerated to agree, exactly as an honest producer would; call the PUBLIC authorize_evaluation(store, candidate); compare _eas_ref, _admission_ref, _index_fingerprint and the PlanAuthorityReceiptV1 recordCasRef against the honest run."
+      },
+      "requiredToClear": "Either (a) re-derive the admitted set under producer consistency and publish the true set with its identity-movement measured per site, or (b) drop the 'moves NO proof identity' mitigation and the 'exact admitted set' language and restate RES-EP9-05 as scoped strictly to single-position in-memory injection over unchanged stored bytes."
+    },
+    {
+      "id": "IR-EP9-02",
+      "severity": "BLOCKING",
+      "title": "astScanScope.isSoleGuard=false is falsified: the syntactic scan is the sole guard for the C-2 join binding outside a fixed 8-case probe family",
+      "statement": "evaluation-proof.v9.json astScanScope declares isSoleGuard=false and names 'the LB-C2-01 behavioural battery and the Authority.c2v4 access counter, neither of which reads source' as the load-bearing guard; repairs[REP-EP9-5] says 'The scan is declared a tripwire, never the guard ... the independent behavioural layer ... is required to catch every one.' I falsified this constructively with two reviewer-authored evasions that are not among the author's nine. EVASION R1 (route the LB-C2-01 probe family to the repaired module, everything else to the superseded module) was caught by EXACTLY ONE finding — EP9-SCAN, the syntactic scan — and by nothing else: not by the LB-C2-01 battery, not by the c2v4 access counter, not by the evasion battery, not by the plan-intent surface census. For that evasion the AST scan WAS the sole guard, which is the stated blocker condition. EVASION R4 then repaired R1's only tell: every C-2 reference is an ast.Attribute on an Authority accessor Call, so the scan is silent BY ITS OWN RULES; authority.c2v4() is touched on every path so c2v4_accesses still increments; and the probe family still reaches the repaired instrument so the battery, the evasion battery and the surface census all see repaired answers. check-evaluation-proof-v9.py then exits 0 and prints the complete green banner including 'C-2 join RE-PINNED onto c2-plan-stage-schema.v4.json / check-c2-v4.py' and 'LB-C2-01 battery: ... repaired join admitted 0' — while 100% of the seven pinned vectors' validate_plan_intent calls are served by the SUPERSEDED check-c2.py bytes (instrumented call counter: {v3: 1, v4: 0}). The instrument cannot distinguish 'the join was re-pinned onto C-2 v4' from 'the join is still on C-2 v3 with an eight-case whitelist', which is the entire substance of REP-EP9-1.",
+      "evidence": {
+        "evasionR1": {
+          "file": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/lab/evasion_r1.py",
+          "exit": 1,
+          "findings": ["EP9-SCAN: a C-2 call inside the join does not route through the verified Authority accessor: c2_validate_intent line 466"],
+          "note": "ONE finding, from the AST scan alone. The LB-C2-01 battery, the c2v4 access counter, the 1674-case plan-intent surface census and the 9-variant evasion battery were all silent."
+        },
+        "evasionR4": {
+          "file": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/lab/evasion_r4.py",
+          "exit": 0,
+          "output": "full green banner, byte-comparable to the unmodified checker's",
+          "instrumentedRouting": "m.c2_validate_intent(pinned vector intent) -> validate_plan_intent calls: {v3: 1, v4: 0}",
+          "probeDetectorOnPinnedVector": false
+        },
+        "authorControlsThatDidFire": "the author's own SOURCE mutation 'bypass the Authority accessor and bind the join to the superseded module' IS caught, by the battery. R2 (poison Authority.c2v4 to return the superseded module) and R3 (self-module getattr indirection) were also both caught by the battery, 5 and 6 findings respectively. The behavioural layer is real; it is simply teachable, because its entire discriminating power is a fixed 8-case family."
+      },
+      "reproduction": {
+        "command": "cd /private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/lab && python3 -I -B evasion_r1.py evaluation-proof.v9.json ; python3 -I -B evasion_r4.py evaluation-proof.v9.json ; python3 -I -B ../verify_r4.py",
+          "note": "the lab is a byte-identical copy of docs/coop/artifacts; the unmodified check-evaluation-proof-v9.py in it exits 0. No file under docs/coop was modified."
+      },
+      "mitigatingMeasurement": "I differentially fuzzed check-c2.py vs check-c2-v4.py validate_plan_intent over 2548 cases (every path of the corpus's only distinct PlanIntent x 26 hostile values). They diverge at exactly 4 (path,value) pairs, all of them the LB-C2-01 family. So R4 produces no wrong ANSWER on today's pinned bytes; the defect is in the EVIDENCE, not (yet) in the verdict. That mitigation is itself measured over one PlanIntent and is not an equivalence proof.",
+      "requiredToClear": "Either set astScanScope.isSoleGuard=true with the consequences that follow, or add a behavioural discriminator that is not a fixed case list — e.g. a differential oracle that drives BOTH instruments over the live leaf-inclusive census and requires the join's answers to equal the repaired instrument's at every enumerated position, which is measurable with machinery v9 already has."
+    }
+  ],
+
+  "centralClaimAdjudication": {
+    "tag": "EP9-NEG-EP8-MINTS-AUTHORITY-OVER-SECOND-DIGEST",
+    "finding": "REAL. Independently reproduced from scratch without reading the author's probe.",
+    "isItReal": "Yes. Executing the frozen bytes of check-evaluation-proof-v8.py, its module-level public authorize_evaluation(store, candidate) ADMITS a candidate whose admittedResolvedInputs.frozenPlanIntent.schemaVersion is JSON true and mints a complete _AdmittedEvaluationAuthorityV1 whose PlanAuthorityReceiptV1 carries sha256:5d748405d6d02ad460c54b078edfd6a627d6bd5273c41e7ba5febdd6153020d9 in place of the true sha256:7c3174f6358f40a36f19b97eab6b247086f7a5411141fb9ee056535904fa7a85. check-c2-v4.py rejects that same PlanIntent with ('C2I-02', 'PlanIntent schemaVersion must be the JSON integer 1; got boolean True').",
+    "isItAPrivatePathOrHandBuiltCandidate": "No. I did not hand-build a candidate: I acted as a PRODUCER. I took the accepted EP8-POS-NOMATCH-PASS vector, changed one wire value, and then recomputed every derived field — commitment, planId, receipt, activation manifest, seal, admission, all three raw CAS rows and their bytes, both semantic rows and bindings, and the full dependency-edge set — using the pinned encoders exactly as an honest producer must. The result is a candidate the real pipeline WOULD produce if it accepted the value, and EP8 admitted it end to end. The only private symbol I used was _open_test_project_store, which mints the TRUSTED store capability; that is not the attack surface. The store I supplied was legitimate, freshly opened and EMPTY, and had never seen candidate JSON. The hostile input was solely the caller-supplied candidate, which is precisely the untrusted payload authorize_evaluation exists to validate.",
+    "isAuthorizeEvaluationPubliclyReachable": "Yes as an entrypoint: authorize_evaluation(store, candidate) is a module-level function with no leading underscore, and the candidate is wholly caller-supplied. The store capability is token-guarded and, inside this checker-scope artifact, obtainable only via the private _open_test_project_store test double (open_project_store_authority requires _HostProjectAdmissionV1 and _TrustedStoreState, neither of which has a public constructor). In a real host the store would be host-minted, so a real consumer holding a legitimate store hits exactly this path. Scoped honestly: this is checker-scope evidence about a specified contract, not a demonstration against a production store — which v9 itself states in knownLimitations[0].",
+    "doesTheSecondDigestDiffer": "Yes. 5d748405d6d02ad460c54b078edfd6a627d6bd5273c41e7ba5febdd6153020d9 != 7c3174f6358f40a36f19b97eab6b247086f7a5411141fb9ee056535904fa7a85.",
+    "isTheTrueDigestWhatV9Says": "Yes, verified independently and redundantly. plan_intent_commitment over the unmutated intent returns sha256:7c3174f6358f40a36f19b97eab6b247086f7a5411141fb9ee056535904fa7a85 under BOTH check-c2.py and check-c2-v4.py, with byte-identical 2463-byte canonical preimages, and that is the value evaluation-proof.v8.json itself carries.",
+    "rootCause": "The `!= 1` equivalence class, and nothing else. check-c2.py line 555 `if intent.get(\"schemaVersion\") != 1:` and line 342 `if value[\"schemaVersion\"] != 1:` are bare inequalities against the integer 1 in a language where True == 1 and 1.0 == 1. I confirmed the full truth table directly against the frozen bytes: JSON true -> ADMITTED, commits to a SECOND digest; JSON 1.0 -> ADMITTED, then raises ValueError('floating-point values are forbidden') inside the encoder; JSON false, JSON \"1\", JSON 0 and JSON 2 -> correctly rejected with C2I-02, because those are not == 1. The class is exactly {values v with v == 1 but v is not the JSON integer 1}. check-c2-v4.py repairs it with exact-type predicates and names the offending type in the message.",
+    "isTheAuthorOverstatingIt": "No — the author UNDERSTATES it. v9 reports the effect as 'a PlanAuthorityReceiptV1 carrying the second commitment'. In fact the entire minted authority moves: planId (plan1:sha256:1fc7a400... vs plan1:sha256:0c0604a8...), the ActivationManifestV1 and EvaluationAuthoritySealV1 executionPlanCommitment, the EvaluationAuthoritySealRef itself (sha256:e369f6fa... vs sha256:63172661...), the admission ref, and the durable EvaluationAuthorityIndexV1 fingerprint. A PASSED surface therefore mints a complete, durable, cold-reconstructible authority over a wrong plan identity, not merely a wrong digest field.",
+    "reproduction": {
+      "probes": [
+        "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/probe_c2.py",
+        "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/probe_ep8.py"
+      ],
+      "command": "python3 -I -B <probe>"
+    }
+  },
+
+  "verifiedAndSurvived": [
+    {
+      "id": "OK-01",
+      "claim": "Ten-executable delegation-closure pin table",
+      "result": "PASS. I recomputed all ten digests myself from the live bytes. All ten agree with DELEGATION_CLOSURE in check-evaluation-proof-v9.py and with delegationClosure.executables in the candidate, digit for digit. I also recomputed the eleven PINNED_DATA digests and the superseded encoder's digest; all twelve agree. The window claim is real: EP8's own review names check-evaluation-proof-v7.py once and names check-evaluation-proof-v6.py, check-c2.py, c2-plan-stage-schema.v3.json, validate_plan_intent and LB-C2-01 ZERO times (verified by grep), no standalone v6 or v7 review exists in the corpus, and neither v8 nor v7 source contains the string 'check-c2' or 'validate_plan_intent' (0 occurrences each). REP-EP9-2's factual justification is accurate."
+    },
+    {
+      "id": "OK-02",
+      "claim": "Trust order: hash-verify, then execute from the verified in-memory snapshot",
+      "result": "PASS. load_authority() reads each pinned file once into snapshots{}, hashes that byte string, refuses on any mismatch, and then both parses and executes exclusively from snapshots[name]. _VerifiedSourceLoader.exec_module compiles self.source; spec_from_file_location is given the loader explicitly so importlib never re-opens the path. There is no second disk read between verification and execution for any of the ten executables or the superseded encoder. See nonBlockingObservations IR-NB-03 for the predecessors' own re-reads, which are themselves hash-verified."
+    },
+    {
+      "id": "OK-03",
+      "claim": "expectedPlanIntentCommitment unmoved, non-circularly",
+      "result": "PASS, with a caveat (IR-NB-01). I recomputed independently: one distinct PlanIntent across the 7 vectors, canonical preimage 2463 bytes, byte-identical under check-c2.py and check-c2-v4.py, commitment sha256:7c3174f6358f40a36f19b97eab6b247086f7a5411141fb9ee056535904fa7a85, equal to the value evaluation-proof.v8.json carries. v9's positiveVectors are == v8's positiveVectors. The verification is NOT circular: c2AuthorityJoin.expectedPlanIntentCommitment is compared against the digest-pinned EP8 artifact's field AND is required to be a member of the RECOMPUTED distinctCommitments set. The one literal in the checker's text (EP8_COMMITMENT, line 218) is used only at line 1857 to assert that the pinned EP8 artifact carries what the checker expects of it; it cannot make the candidate pass, because recomputation membership is separately required."
+    },
+    {
+      "id": "OK-04",
+      "claim": "Counts are MEASURED at runtime, not baked in",
+      "result": "PASS, and this survived direct attack. I mutated declared counts in copies of the candidate and ran the checker against them. Every mutation produced a finding that RECITES THIS RUN'S MEASUREMENT: 'evaluation-authority-candidate publishes scalarLeafPaths=1; this run measured 252'; 'contractRoot publishes enumeratedPaths=1; this run measured 6712'; 'the published evasion measurement is not this run's — measured variantsBuilt=9, detectedBySyntacticScan=6, missedBySyntacticScan=3, caughtByBehaviouralLayer=9'. Adding or removing a single scalar leaf anywhere in the document shifts contractRoot enumeratedPaths/scalarLeafPaths/noOpInjections by exactly the right amount, which is only possible if the census is live. The enumerator reaches containers AND scalar leaves at unlimited depth, including keys whose values are None (I confirmed by count arithmetic across mutations that add/remove leaves)."
+    },
+    {
+      "id": "OK-05",
+      "claim": "--selftest is live, not dead; exit matrix 0/1/2/3 distinct",
+      "result": "PASS. Normal run: 10 lines, exit 0. --selftest: 78 lines, exit 0, structurally different output — 34 mutation rows each printed with a reject/ESCAPE verdict and the finding that rejected it, including three SOURCE mutations that attack the instrument. Exit 1 on findings (verified 15 ways). Exit 2 on --bogus, on three positional arguments, and on a repeated flag. Exit 3 on --selftest over a dirty base, printing SELFTEST-REFUSED and 'SELFTEST-NOT-RUN: 0 of 25 mutations executed'. main() dispatches to selftest() BEFORE any findings return — this is the evidence.v8 defect and it is absent. I confirmed the suite ACTUALLY RUNS by mutating the candidate myself: every one of nine independent mutations I authored was caught, including type-distinct ones (version = 9.0 and version = true are both rejected by the checker's own exact-type guards)."
+    },
+    {
+      "id": "OK-06",
+      "claim": "Dependents still exit 0",
+      "result": "PASS, 7/7. check-evaluation-proof-v8.py 0, check-evaluation-proof-v6.py 0, check-c2-v4.py 0, check-c2.py 0, check-retention-custody-v22.py 0, check-d9-v1.14.py 0, check-evidence-v10.py 0. check-completeness.py exits 1 on 'cross-cutting open findings: 1 / open: R2-FINAL-03' and check-rust-provider-protocol-v4.py raises FileNotFoundError on 'rg'. Neither is attributable to EP9: no file in the corpus other than check-evaluation-proof-v9.py contains the strings 'evaluation-proof.v9' or 'check-evaluation-proof-v9'. RES-EP9-04 states both correctly."
+    },
+    {
+      "id": "OK-07",
+      "claim": "Scope honesty (RES-EP9-01)",
+      "result": "PASS, and unusually well done. The residual is stated in THREE prominent places, none of them buried: a dedicated 'WHAT v9 DOES *NOT* CLAIM — read this before reading the green banner' block in the checker's module docstring above the usage line; knownLimitations[2]; and a line printed in the GREEN BANNER of every successful run. The checker enforces it: c2AuthorityRepairJoin.ep6InnerJoinResidualId must be 'RES-EP9-01' and the residual text must contain 'does not repair', or EP9-C2-REPIN fires. On the substantive question — does the unrepaired inner join create a path where v9 passes something C-2 v4 rejects? — for the candidate's own content, no: every PlanIntent in the closure is independently revalidated through C-2 v4 and EP9-STABILITY fires if v4 rejects one. The unrepaired inner join is not reachable as a v9 bypass. It remains fully reachable by any OTHER consumer of EP6/EP8, which is exactly what RES-EP9-01 says."
+    },
+    {
+      "id": "OK-08",
+      "claim": "No paper seals",
+      "result": "PASS. Zero occurrences of DISCHARGED or QUALIFIED in the candidate. assurance.state=SPECIFIED, evidenceGrade=IMPLEMENTABLE_UNEXECUTED, candidateState=NOT-APPLIED, qualificationEvidenceIds=[] and releaseEvidenceIds=[] both empty, nonClaims explicitly lists 'no seal'. status=CANDIDATE-NOT-APPLIED, sealRecommendation=DO-NOT-SEAL. The checker refuses a candidate that raises either (EP9-POSTURE: assurance exceeds specified/implementable-unexecuted; EP9-POSTURE: candidate/no-seal status drift), which I verified by mutation. Every one of the nine declared repairs carries at least one executed mutation row in the selftest, and I saw all nine rejected. astScanScope.ownConstantLeafBattery.whatDeliversTheRejection is an unusually honest disclosure: it states plainly that a rejection may be delivered by the census rather than by a per-field type guard."
+    }
+  ],
+
+  "nonBlockingObservations": [
+    {
+      "id": "IR-NB-01",
+      "severity": "MAJOR",
+      "observation": "OVERSTATED. All seven positiveVectors carry ONE distinct frozenPlanIntent and ONE distinct planDescriptor (verified by canonical-JSON digest: all seven hash to e4542152b262e324...). planIntentCommitmentStability publishes vectors=7 / recomputedUnderV4=7 / reproducedUnderSupersededEncoder=7 / preimageByteIdentical=7 / distinctCommitments=[one], and the green banner prints '7 vectors recomputed under C-2 v4, 7 reproduced under the superseded independent encoder, 7 with BYTE-IDENTICAL preimages; distinct commitments [1]'. That reads as seven independent confirmations converging on one commitment. It is one PlanIntent encoded seven times. 'distinctCommitments has length 1' carries no discriminating power whatsoever here — it is forced by the input, not established by the measurement. The candidate does disclose the underlying fact once, obliquely, in scalarLeafTotality.surfaceEnumerationBase ('every distinct value carried by the seven vectors'), so this is not concealment; but the headline number should state the distinct-intent count."
+    },
+    {
+      "id": "IR-NB-02",
+      "severity": "MAJOR",
+      "observation": "The behavioural layer's discriminating power is exactly 8 cases (2 leaves x 4 type-distinct values), and the plan-intent surface census adds only 6 more distinguishing positions, because C-2 v3 and v4 diverge nowhere else on that surface. My 2548-case differential fuzz found divergence at exactly 4 (path,value) pairs. Any adversarial or accidental rewiring that handles those positions correctly is invisible to both layers (see IR-EP9-02). The candidate should state the behavioural layer's measured discriminating cardinality, not just its pass rate."
+    },
+    {
+      "id": "IR-NB-03",
+      "severity": "MINOR",
+      "observation": "delegationClosure.verificationRule ('no second disk read between verification and execution') is literally true of the ten executables and the superseded encoder, but the predecessors DO re-read pinned data from disk during execution: check-evaluation-proof-v6.py's admit_evaluation_authority calls load_json(HERE/'c2-plan-stage-schema.v3.json') and load_json(HERE/'fact-plane.v1.json') on every invocation. Both files are in EP6's own PINNED table and EP6 hash-verifies them via _modules() immediately before, so the re-read is itself verified and the trust order holds — but the rule as worded reads broader than what is enforced. Same for check-evaluation-proof-v8.py's _ep7(), which sha_file()-verifies then _load_module()s from disk."
+    },
+    {
+      "id": "IR-NB-04",
+      "severity": "MINOR",
+      "observation": "closure_pin_agreement() cross-checks pin tables for 4 of the 10 closure members — EP8/EP7/EP6 (.PINNED) and check-c2-v4.py (.PINS). The other six (check-evaluation-proof.py, check-evidence.py, check-retention-custody.py, check-d9.py, check-versioning.py, check-resolved-inputs.py) expose no pin-like table at all; I loaded each and confirmed there is nothing to compare. That is not a defect — there is no table to disagree with — but delegationClosure.pinAgreementRule says 'every predecessor's own declared pin table', which reads as 10/10 rather than 4/4-of-those-that-have-one. Relatedly, five of the ten closure members are not reachable from the evaluation-proof authority path at all (check-evaluation-proof.py references only check-c2.py; the evidence/retention/d9/versioning/resolved checkers are executed but supply nothing to the join). Pinning them is conservative and harmless, but 'the delegation closure' is the wrong word for a set that includes members with no delegation edge."
+    },
+    {
+      "id": "IR-NB-05",
+      "severity": "MINOR",
+      "observation": "Source comment inaccuracy at check-evaluation-proof-v9.py line ~538: 'The two leaves LB-C2-01 named, plus the third the C-2 v4 sweep found.' COMMITMENT_BEARING_LEAVES contains two entries, not three. The third site (Coverage.schemaVersion, check-c2-v4.py line 280) lives on the LB-C2-02 coverage surface, which the evaluation-proof join does not import, so its absence is correct — but the comment asserts it is present."
+    },
+    {
+      "id": "IR-NB-06",
+      "severity": "MINOR",
+      "observation": "Deleting the RES-EP9-01 sentence from knownLimitations produces findings only incidentally, via the contract-root path census ('contractRoot publishes enumeratedPaths=6712; this run measured 6711'). The targeted RES-EP9-01 enforcement is on c2AuthorityRepairJoin.ep6InnerJoinResidual, a different field. A lane could shorten knownLimitations and would be caught, but by an arithmetic side effect rather than by the guard that exists for the purpose."
+    },
+    {
+      "id": "IR-NB-07",
+      "severity": "MINOR",
+      "observation": "The EP9-SELFTEST liveness property (exactly one flag-guarded dispatch to selftest(), positioned before any findings return, exactly one main()) has NO behavioural counterpart inside the instrument — it is AST-only. It is externally verifiable and I verified it externally (distinct outputs, distinct exit codes 0/1/2/3), so I am not treating it as a blocker; but by the candidate's own standard it is a property for which the scan is the sole in-instrument guard, and astScanScope does not say so."
+    },
+    {
+      "id": "IR-NB-08",
+      "severity": "INFORMATIONAL",
+      "observation": "_own_tree() re-reads check-evaluation-proof-v9.py from disk for all three AST scans. That file is by construction not in its own pinned set, so the scans analyse bytes that are not the verified snapshot. Unavoidable for a self-scan, and I note it only so the trust-order claim is not over-read to cover the instrument's own source."
+    },
+    {
+      "id": "IR-NB-09",
+      "severity": "INFORMATIONAL",
+      "observation": "python3 check-evaluation-proof-v9.py (without -I -B) also exits 0 on this host, so v9 is not among the corpus checkers that exit 2 under other invocations. Runtime: ~40 s normal, ~13 min under --selftest on this host (114821 contract-root cases). Nothing depends on this; recorded so a future reviewer does not mistake the selftest duration for a hang."
+    },
+    {
+      "id": "IR-NB-10",
+      "severity": "INFORMATIONAL",
+      "observation": "The astScanScope evasion measurement is honest and reproducible: I re-ran the author's nine variants and independently confirmed 9 built, 3 missed by the syntactic scan, 9 caught by the behavioural layer, and that poisoning Authority.c2v4 or using getattr self-indirection is caught by the battery (5 and 6 findings respectively). The published unflattering number is real."
+    }
+  ],
+
+  "verifiedInputs": [
+    {"file": "evaluation-proof.v9.json", "sha256": "02f9955f4f90e91afd163a5fa8274eb8832aa5419221da7e9e825a1cbf17430b", "role": "candidate under review", "recomputedByReviewer": true},
+    {"file": "check-evaluation-proof-v9.py", "sha256": "c8789da2a97c10e04172394f11f10299bacdf36fa068858e55a2bfabeac64be4", "role": "checker under review", "recomputedByReviewer": true},
+    {"file": "check-evaluation-proof-v8.py", "sha256": "c80ac50e21dcd350e5f5285958a6cfb94d52c5c3f7d64f2396d91b544fa82769", "role": "delegation closure 1/10; subject of the central claim", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-evaluation-proof-v7.py", "sha256": "550a2231264ab6b308b3ddb752199c6496f7c2417a8dbeeb9f21c230569b36c4", "role": "delegation closure 2/10", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-evaluation-proof-v6.py", "sha256": "0a7ac122a598bb7b9454b1b3c46c586f6fd551a2a1ebcf5584665f875457c5f0", "role": "delegation closure 3/10; carries the unrepaired inner C-2 join (RES-EP9-01)", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-evaluation-proof.py", "sha256": "1ccc12c347f0c7598604227179a2ba0cc461466657908b5c5f9645db4f7b99e2", "role": "delegation closure 4/10 (EP5); semantic record encoders", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-c2-v4.py", "sha256": "54ff764d155f5582bc66fd7bf8138b7eaed5f90f46b92975c4bc7a85ffb3df17", "role": "delegation closure 5/10; the repaired C-2 instrument the join is re-pinned onto", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-evidence.py", "sha256": "6933d2931912a43e3018dc6037068230af0bbc0c0a00d5d9429c155930bde1af", "role": "delegation closure 6/10", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-retention-custody.py", "sha256": "15816cd8f9d22221b1187b94a160d71f644f9ab8fccb82423931fe18f6fc38d7", "role": "delegation closure 7/10", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-d9.py", "sha256": "9f8e16a0000e59d2f1326f97f1b8afcc5c7121eb0c57b6c440d76b9c401346a7", "role": "delegation closure 8/10", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-versioning.py", "sha256": "67a45b275908afc4bd04cee6c15400f5d429f9f209854630c1caf5a43cf13227", "role": "delegation closure 9/10", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-resolved-inputs.py", "sha256": "7ffed1c0e66e345a72c5e0e7feaf332508d0842c1ecdba8572f872997917ffa0", "role": "delegation closure 10/10; snapshot/plan identity oracle", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-c2.py", "sha256": "4f31d57cd1cd252d47eeb520aa31b5fe8c4fd3b0f0f067a6840b008b1fe176f3", "role": "superseded independent encoder; carries LB-C2-01", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "evaluation-proof.v8.json", "sha256": "4bb33f772c8c510c470643082f6bfb8a4df28a050b4720dda6cdd5187bd3e303", "role": "pinned data; source of the vectors and of the EP8 commitment used for the unmoved comparison", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "evaluation-proof.v7.json", "sha256": "92d51e9232c6ee137b7228aa7885a2e32f668f9b4b108d7140fdb52dae864ef8", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "evaluation-proof.v6.json", "sha256": "74f35668afae2efb57070ff9a2897d373a91b42cc1cbbc87f3c673f872ca4bce", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "evaluation-proof.v5.json", "sha256": "e05f6d8d9dd5f1f98dc1972a178c7fe58981c71b06a69feb00a717e03475988b", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "c2-plan-stage-schema.v4.json", "sha256": "4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39", "role": "pinned data; the repaired C-2 contract", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "c2-plan-stage-schema.v3.json", "sha256": "3c488ff66a1ec9ab746e99e0701d59460aff3e1d66cd072d9d564a1382b9d285", "role": "pinned data; the defective C-2 contract still bound by EP6", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "c2-plan-stage-schema.v4.review-independent-prefreeze.json", "sha256": "c74612ef4519750aa529db543c2f0cc81fce50d57c3d636486fd2f0ddc0c41f3", "role": "pinned data; the review that authorises the re-pin (verdict PASS / 0 blocking, enforced at load)", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "ep8-rt13.review-independent-cold-reconstruction.json", "sha256": "f4599b32a9f1b93049111b9e86debd19419902c9c5f4fb886f8d0dc9c330567e", "role": "pinned data; EP8's PASSING review whose window I grepped to confirm REP-EP9-2", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "fact-plane.v1.json", "sha256": "9057200822c5be59bcf8e691e3755cfa1acf2c89f0b1c2bc89237afaa0925b4d", "role": "pinned data; relation registry supplied to validate_plan_intent", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "resolved-inputs.v2.json", "sha256": "0114205aaa5d3f7c0aecc58c10522711aacaa6aa404a41563245627b27b88f43", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "versioning-policy.v4.json", "sha256": "8e6933b287a8082ea27647860938bd9cdae93b37132bba21221c2c24b40069e6", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV9Pin": true},
+    {"file": "check-retention-custody-v22.py", "sha256": "497909c21118b656d222346d9498b7a9cac34ef3dd3bb0f29ef59c0db90e1c5c", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-d9-v1.14.py", "sha256": "513d69dd879dcb678d53d8df89a907d05dacd4b078ec43c7fedc939732c5e83e", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-evidence-v10.py", "sha256": "0379bb9b9006558be9546774b177ed2a1e8c23d8000d16cc4a2cff9d8ed12bbd", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-completeness.py", "sha256": "b0bf852fa92ed5e658f24aa04cb659a0d964c9d76c00b8fee9e122ff9d636eaa", "role": "pre-existing failure, exit 1 on open finding R2-FINAL-03; contains no reference to v9", "recomputedByReviewer": true},
+    {"file": "check-rust-provider-protocol-v4.py", "sha256": "85e022c8e2470dab7c1fc42e45b9a36b10ee436f5d5198ed7750a30cb3ae642f", "role": "pre-existing failure, FileNotFoundError on 'rg'; contains no reference to v9", "recomputedByReviewer": true}
+  ],
+  "verifiedInputsNote": "29 rows. Every input this verdict depends on is listed by filename and SHA-256, recomputed by the reviewer with shasum -a 256 on the live bytes. A count is not a record; this is the record. All twenty-one digests that check-evaluation-proof-v9.py pins (ten closure executables, eleven data inputs) plus the superseded encoder agree with the reviewer's independent recomputation, digit for digit.",
+
+  "reproductionEnvironment": {
+    "host": "darwin 25.5.0, arm64",
+    "python": "CPython 3.14.6 (/opt/homebrew)",
+    "invocation": "python3 -I -B",
+    "notes": "No `timeout` binary on this host; long runs were backgrounded instead. No file under docs/coop was modified. All reviewer probes and the byte-identical working copy live under the scratchpad at /private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not verify the digests or content of the ~380 other artifacts in docs/coop/artifacts. My window is the 29 files listed in verifiedInputs.",
+    "I did not audit check-c2-v4.py for correctness. I verified only that it exposes the three imported APIs with the right arity, that its validate_plan_intent rejects the full type-distinct-one family with typed C2I-02, that its plan_intent_commitment and canonical_plan_intent agree byte-for-byte with the superseded encoder on the pinned intent, and that it exits 0. I did not review its own review; I confirmed only that c2-plan-stage-schema.v4.review-independent-prefreeze.json carries verdict PASS and blockingFindingCount 0, which is what v9 requires, without assessing whether that verdict was correctly reached.",
+    "I did not read the ten closure executables line by line. I read check-evaluation-proof-v8.py, -v7.py, -v6.py and -v5(check-evaluation-proof.py) only along the authorize_evaluation -> admit_evaluation_authority -> C-2/RI join path and the semantic-record encoders. I did not read check-evidence.py, check-retention-custody.py, check-d9.py, check-versioning.py or check-resolved-inputs.py beyond confirming they load and expose no pin table.",
+    "My C-2 v3/v4 differential fuzz covers ONE distinct PlanIntent (the only one the corpus carries) over 98 paths x 26 values = 2548 cases. It found divergence at exactly 4 (path,value) pairs. That is a measurement, not an equivalence proof: a divergence on a PlanIntent shape the corpus does not contain would not have been found, and IR-EP9-02's mitigating measurement rests on it.",
+    "I ran each dependent checker's DEFAULT invocation only. I did not run --selftest for any dependent, so I have not exercised their mutation suites.",
+    "There is no git baseline. docs/coop is entirely untracked in this repository ('?? docs/coop/'), so 'confirm the pre-existing failures against git HEAD' was not possible as instructed. I established pre-existence by cause instead: check-completeness.py fails on open finding R2-FINAL-03 and check-rust-provider-protocol-v4.py on a missing rg binary, and no file in the corpus except check-evaluation-proof-v9.py mentions v9 at all.",
+    "I did not exploit the TOCTOU window in IR-NB-03; I established its existence by reading the code paths, not by racing a concurrent writer.",
+    "My producer-consistent probes exercise EP8's public authorize_evaluation against a store minted by its private test constructor, because that is the only store mint this checker-scope artifact provides. I therefore cannot speak to a production store, a durable backend, host admission or transactionality — the same limitation v9 declares in knownLimitations[0].",
+    "I did not attempt to determine whether evaluation-proof.v8's PASSING independent review should be reopened in light of the reproduced central claim. That is an adjudication above my scope; I record only that the finding is real and that EP8's review window demonstrably did not reach the hop that carries it.",
+    "I did not measure whether IR-EP9-02's evasion class exists in any OTHER checker in this corpus. The evasion I built targets check-evaluation-proof-v9.py's own guard architecture; the same shape may or may not apply to check-c2-v4.py or check-evidence-v10.py, which use related machinery.",
+    "I did not verify the 23 unchanged raw refs / 19 verifiable / 4 replayable figure in the green banner, nor identityStabilityFromEP8, nor the crossLanguageGoldens and collisionControls sections, beyond observing that the checker recomputes them and that mutating adjacent fields produces findings."
+  ]
+}

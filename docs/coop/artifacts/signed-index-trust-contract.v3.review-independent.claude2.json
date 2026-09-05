@@ -1,0 +1,177 @@
+{
+  "artifact": "signed-index-trust-contract.v3.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "date": "2026-08-14",
+  "reviewer": "Claude 2, independent. Did not author v1, v2 or v3. Read the predecessor v2 and both v2 verdicts as the dispatch permits; I authored the Claude 2 v2 verdict and read the Codex v2 verdict for the first time in this review. No v3 reviewer file existed on disk at review time and none was read.",
+  "reviewOf": "docs/coop/artifacts/signed-index-trust-contract.v3.json",
+  "registerRow": "DR-112",
+  "measurementMethod": "hashlib.sha256 over pathlib.Path(...).read_bytes(), as dispatched.",
+  "subjectSha256AtDispatch": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce",
+  "subjectSha256AtStart": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce",
+  "subjectSha256AtEnd": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce",
+  "bindsTo": "START bytes bc55d306… (42851 bytes) — identical at end. Measured with hashlib.sha256 over Path.read_bytes() at both ends; the subject did not move during review and was not edited by me.",
+  "predecessorAndVerdictsMeasured": {
+    "signed-index-trust-contract.v2.json": "58d896115d47f9ca17b130239c36c25d5a00d1a830ba653faf45ab4146a76444 — MATCHES dispatch",
+    "signed-index-trust-contract.v2.review-independent.claude2.json": "82bc8aa83f0d0bb6c194836187c76fdeaac73711c0f8f4884031178f4e0c5f1a — MATCHES dispatch (REJECT, 0 blockers / 1 SHOULD-FIX / 3 advisories)",
+    "signed-index-trust-contract.v2.review-independent.codex.json": "7edbe09c25b0995b1310306ead225ed8e11102be34a6a67a3734490c22c92b3e — MATCHES dispatch (REJECT, 3 blockers / 1 SHOULD-FIX / 0 advisories)"
+  },
+  "authorityOfThisVerdict": {
+    "marksDR112Satisfied": false,
+    "authorizesImplementation": false,
+    "editsSubject": false,
+    "editsFile08OrCoordinatorDecisions": false,
+    "commits": false,
+    "note": "Measurement only. DR-112 remains OPEN; disposition is the coordinator's."
+  },
+
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 3 SHOULD-FIX, 0 advisories. ACCEPT was gated at 0 blockers AND 0 SHOULD-FIX.",
+  "verdictStatement": "This is a large and mostly successful repair. All three Codex blockers and both reviewers' SHOULD-FIX/advisory findings are addressed, and I verified each by executing the machine and the continuation table rather than reading their descriptions. The machine is now genuinely total in the sense Codex demanded — defaultTransition explicitly covers named pairs whose guards are all false, and fallbackByEvent supplies a typed outcome for every one of the nine events. The continuation table resolves all 343 triples explicitly with zero falling to the default, and every permissive outcome still requires CORE=ST-TRUSTED. TRUSTED entry is fail-closed while the envelope join is inactive, and recoveryAuthorityShape supplies the non-self-authorizing rotation relation that was missing. Three defects remain, none of them fail-open. One is an evidence-base defect I found by re-measuring rather than by reading: the recorded COORDINATOR-DECISIONS.md pin no longer reproduces. One is a stale duplicate transition that re-asserts the pre-repair position on recovery abort. One is a hole in the just-repaired audit contract at the single highest-traffic event.",
+
+  "repairVerification": [
+    {
+      "finding": "CODEX-V2-B1 — machine not a total deterministic relation; recovery abort absent",
+      "status": "REPAIRED IN SUBSTANCE; ONE STALE DUPLICATE REMAINS (S-2)",
+      "totality": "Codex's sharpest point was that defaultTransition applied only to pairs 'not named', leaving a named pair whose guards are all false with no outcome — a gap I did not catch at v2 and which Codex was right about. v3 closes it in terms: 'If no transitions[] member both names the (state, event) pair and has a true guard, apply fallbackByEvent[event]… This fallback covers unnamed pairs AND named pairs whose guards are all false. It is not limited to pair not named.' I confirmed fallbackByEvent has an entry for all nine events plus a fallbackDefault, so every one of the 63 pairs resolves: 43 named, 20 unnamed, and guard-false paths routed by event.",
+      "ordinaryObservations": "Codex's concrete examples are answered by outcome, not just by coverage. Fresh EV-CLOCK and non-rank-changing EV-QUORUM-OBSERVE now fall to fallbacks whose outcome is ACCEPTED stay, not a spurious refusal.",
+      "monotonicity": "EV-REVOKE from ST-REVOKED is now a named stay-and-ACCEPT that advances the monotonic observation (transition 12), and EV-QUORUM-OBSERVE is named from ST-QUORUM-LOST (14) and ST-REVOKED (15). I checked the from-sets mechanically: both events now fire from all six non-UNBOOTSTRAPPED states, so the v2 one-line summary that CLAUDE-V2-ADV-2 called an overstatement has been made true by extending the machine rather than by softening the sentence.",
+      "precedence": "Transition 10 declares ST-STALE-REVOCATION + EV-CLOCK -> ST-EXPIRED, which is the exact repair CLAUDE-V2-S1 asked for, and transition 11 makes ST-RECOVERY + EV-CLOCK an accepted stay. statePrecedence is rewritten from a global invariant into a scoped rule — it now governs only shared (state, event) pairs and label visibility, states that it is 'implemented by named transitions (not by a side-channel that overrides defaultTransition)', and justifies the RECOVERY exception explicitly. That is the second of the two dispositions I offered at v2, and it is the honest one.",
+      "abort": "EV-RECOVER-ABORT is added as a ninth event, with transition 18 from ST-RECOVERY to a computed target: the safety-dominant still-true refuse condition among REVOKED/QUORUM-LOST/EXPIRED/STALE-REVOCATION, else ST-UNBOOTSTRAPPED, and 'Never ST-TRUSTED'. That target function is total and deterministic over those four conditions. FC-RECOVER-ABORT asserts it. The dispatched attack 'abort missing or abort restoring TRUSTED' does not land.",
+      "determinism": "Six (state, event) pairs carry more than one member. Five are guard-disjoint by construction: the three EV-PRESENT-PAYLOAD pairs are split by payload type (ordinary refresh versus recovery-typed staging) and ST-TRUSTED/EV-CLOCK is split by 'AND EXPIRED guard does not hold'. The sixth is a genuine duplicate — see S-2."
+    },
+    {
+      "finding": "CODEX-V2-B2 — TRUSTED entry fail-open; recovery has no authorizing relation",
+      "status": "REPAIRED — FULLY",
+      "failClosed": "requiredOnEveryTrustedEntry[2] now ends 'until then this check is DECLARED and INACTIVE and TRUSTED-entry is fail-closed… Not a satisfied conjunct while INACTIVE.' failedGuard adds 'Dependency-inactive envelope is a refusal, not a pass.' The new envelopeJoinStanding states that while INACTIVE 'every transition whose target is ST-TRUSTED is unexecutable and refuses fail-closed' and that UNSIGNED/DIGEST_MISMATCH 'do not substitute for this check'. I checked every transition targeting ST-TRUSTED — 0, 1, 2 and 17 — and all four carry the INACTIVE fail-closed condition in their guards. The honest consequence is that ST-TRUSTED is currently unreachable, which the artifact states rather than hides, and which is the correct reading of the accepted DR-103 split.",
+      "recoveryAuthority": "recoveryAuthorityShape is added with four required conjuncts on commit: oldRootIdentification, a recoveryAuthoritySet 'distinct from the replacement root's self-signature', newRootDoesNotSelfAuthorize, and antiRollback. recoveryCeremony.shape[2] adds 'bootstrapAnchorCustody is not applied to a replacement root', removing the circularity Codex measured. Members and threshold stay reserved, so no number is minted. FC-RECOVERY-AUTHORITY requires a self-signed replacement root without the authority set to refuse and stay ST-RECOVERY. The 'replacement root that self-authorizes' attack does not land.",
+      "boundaryRespected": "envelopeJoinStanding says 'This artifact does not invent canonicalization', which is what Codex's minimum repair required."
+    },
+    {
+      "finding": "CODEX-V2-B3 / CLAUDE-V2-ADV-3 — continuation table not total and not conflict-resolved",
+      "status": "REPAIRED — FULLY",
+      "howIMeasuredIt": "I re-encoded the eight totalDecision rows and evaluated all 343 (CORE, INDEX, COMPONENT) triples under the declared CORE-then-INDEX-then-COMPONENT precedence. All 343 now match an explicit row; ZERO fall to defaultRefuse, closing the single INDEX=UNBOOTSTRAPPED hole I recorded at v2 — the INDEX fail-closed row now includes ST-UNBOOTSTRAPPED, matching its CORE and COMPONENT siblings.",
+      "theAmbiguityCodexMeasured": "totalDecision[1].alreadyRunning for CORE expired or stale was v2's 'refuse new privileged work; existing process may drain only if INDEX and COMPONENT still allow drain under later rows; preview: refuse'. It is now the single word 'refuse'. The drain text is removed rather than parked as a second reading, which is what honestyRepairsFromV2 claims and what the bytes show. For CORE=ST-EXPIRED and CORE=ST-STALE-REVOCATION with both other roles TRUSTED, the first hit is that row and the answer is one value.",
+      "permissiveSurface": "Exactly three of the 343 triples are permissive, each matching exactly one row with no shadowing: all-TRUSTED, and INDEX expired or stale with CORE and COMPONENT both TRUSTED. None has CORE outside ST-TRUSTED and none involves any role in ST-REVOKED. FC-CONTINUE-PRECEDENCE now requires the full 7x7x7 evaluation and names the CORE expired and stale tuples."
+    },
+    {
+      "finding": "CODEX-V2-S1 — a refused event may be audited without a refusal reason",
+      "status": "REPAIRED FOR EIGHT OF NINE EVENTS; ONE GAP (S-3)",
+      "howIMeasuredIt": "auditAndWaiver.audit now says 'refusalReason is REQUIRED exactly when outcome=refused and FORBIDDEN when outcome=accepted', which is both halves of Codex's requiredRepair, and 'Negative fixtures must assert the expected refusalReason', which is the third. fallbackDefault and seven of the nine fallbackByEvent entries carry stable typed reasons — NO-MATCHING-GUARD, REVOKE-NOT-NEWER-OR-INVALID, PAYLOAD-NOT-ADMISSIBLE, INSTALL-NOT-TRUSTED, RECOVERY-BEGIN-REFUSED, RECOVERY-COMMIT-REFUSED, RECOVERY-ABORT-NOT-IN-CEREMONY — and the two accepted-outcome entries correctly carry null.",
+      "gap": "EV-CONTINUE does not. See S-3."
+    },
+    {
+      "finding": "CLAUDE-V2-ADV-1 and CLAUDE-V2-ADV-2 — v2 roster parenthetical and B1 summary",
+      "status": "DISPOSED CORRECTLY",
+      "detail": "v3 does not rewrite honestyRepairsFromV1 — I confirmed it is byte-identical to v2 — and basedOn.method states 'honestyRepairsFromV1 is historical and is not rewritten', recording the correction in honestyRepairsFromV2[3] instead. That is the right disposition: a superseded repair roster should be labelled, not edited. And the v3 roster does what ADV-1 asked, naming AMEND and ADD explicitly; I verified the five amended fixture ids and the four added ids against the actual diff and the roster names all nine correctly."
+    }
+  ],
+
+  "measurementsPassed": [
+    {
+      "id": "M-1",
+      "check": "Subject digest at start",
+      "result": "MATCH. bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce, 42851 bytes."
+    },
+    {
+      "id": "M-2",
+      "check": "ATTACK — silent v2-to-v3 path outside the closed roster",
+      "result": "FAILED TO BREAK. A full recursive diff yields 70 differing paths. Every one is covered by basedOn.method's roster, and I resolved the roster's pointed claims rather than accepting them: /recoveryCeremony/shape/2 is the changed element, /trustPolicyShape/requiredOnEveryTrustedEntry/2 is the changed element, the five amended fixtures are exactly FC-RECOVER, FC-EVENT-ORDER, FC-CONTINUE-PRECEDENCE, FC-REFUSAL-AUDIT and FC-TRUST-POLICY, the four added are exactly FC-ENVELOPE-INACTIVE, FC-RECOVERY-AUTHORITY, FC-REPEATED-REVOKE and FC-RECOVER-ABORT, no fixture was removed, and reviewGuidance is strictly append-only with v2 as a prefix (15 to 26 items)."
+    },
+    {
+      "id": "M-3",
+      "check": "ATTACK — collapsed Claude/Codex finding ids",
+      "result": "FAILED TO BREAK. appliesFindingsOf carries an explicit idCollisionNote and separate claude2v2 and codexV2 blocks, each with the verdict file's path and digest. Both digests reproduce. The recorded finding sets are accurate against the verdicts themselves: Claude 0 blockers / CLAUDE-V2-S1 / three advisories, Codex CODEX-V2-B1/B2/B3 and CODEX-V2-S1. notFoldedThisSuccessor is empty, and I agree — every finding from both verdicts is addressed somewhere, though three residues remain below."
+    },
+    {
+      "id": "M-4",
+      "check": "Verbatim carries and the register row",
+      "result": "ALL BYTE-EXACT. trustTextCarriedVerbatim reproduces file 03 L76-89 across all 14 lines; offlineTextCarriedVerbatim reproduces file 04 L212-224 across all 13; registerRowQuoted.rowVerbatim reproduces file 08 line 294, which is the only line beginning '| DR-112 |'. Row status remains OPEN / Hard blocker."
+    },
+    {
+      "id": "M-5",
+      "check": "ATTACK — named pair with all guards false and no fallback",
+      "result": "FAILED TO BREAK. 63 pairs; 43 named, 20 unnamed; all nine events have a fallbackByEvent entry and fallbackDefault backstops any absent event. defaultTransition explicitly extends the fallback to named-but-guard-false pairs. Every transition's from, on and to reference resolves to a declared state or event; the only non-state targets are 'same' and the well-defined 'computed' at the abort transition."
+    },
+    {
+      "id": "M-6",
+      "check": "ATTACK — SATISFIED / QUALIFIED / implementation authorization",
+      "result": "FAILED TO BREAK. All three 'SATISFIED' occurrences are in 'Does not SATISFY DR-112…' or reviewGuidance instruction lines; both 'QUALIFIED' occurrences are the g08 denial and an attack line; both 'docs/v2/implementation/' occurrences are denials. status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, g08 NAMED-NOT-AUTHORED."
+    },
+    {
+      "id": "M-7",
+      "check": "ATTACK — minted quorum / clock / waiver numbers",
+      "result": "FAILED TO BREAK. Bare-numeral extraction across trustPolicyShape, recoveryAuthorityShape, recoveryCeremony, auditAndWaiver, namedOpenDecisions, offlineRunningPolicy, monotonicStore, airGapPayload and the whole machine returns only '08' (the gate id) and '04' (a file number). Both new shapes are explicitly SHAPE ONLY with OD-112-1 and OD-112-2 reserved."
+    },
+    {
+      "id": "M-8",
+      "check": "Governing-source pins re-measured against live bytes",
+      "result": "SIX OF SEVEN REPRODUCE. file 03, file 04, component-manifest-schemas.v2, gate-harness-naming.v3, state-class-contract.v1 and lifecycle-generation-contract.v1 all match. COORDINATOR-DECISIONS.md does not — see S-1."
+    }
+  ],
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "S-1",
+      "severity": "SHOULD-FIX",
+      "title": "The recorded COORDINATOR-DECISIONS.md pin no longer reproduces, and nothing in the artifact says a pin may be inherited",
+      "location": "/recordedInputs/governingSources[4]",
+      "measurement": {
+        "recorded": "12d192f758f48f692e69cb410a1d7a9bf776c765257c8e910272d3de457ec3e3 — byte-identical to v2's entry; /recordedInputs is not on the v3 roster and did not change.",
+        "live": "d210f103fc32a36e2220acd4c9bab8c7db1102370ba299c9989e9f54f9642166.",
+        "whatMovedIt": "Two adopted decisions committed after v2's measurement: C-D103 (recording compatibility-matrices-contract.v5 as a DR-111 candidate) and C-D104 (recording component-manifest-schemas.v11 as DR-103's accepted schema successor). The file is committed at its current state; this is not a working-tree edit.",
+        "noDisclosure": "v3 contains no inherited-pin label, no measuredAt marker, no re-measurement block and no statement that any pin might have moved. Every other pin still matches, so a reviewer meets one unexplained mismatch in seven."
+      },
+      "whatIVerifiedSoThatThisIsNotWorse": "I did not assume the named properties survived. The entry's role claims three things and all three hold at live bytes: D-002 is present with its G08 scoping, DR-110 repair deferral is present, and D-056 is present and ADOPTED. More importantly, D-104 is the decision the stale pin conceals, and it records a NEWER accepted DR-103 successor while this artifact's DR-103 boundary rests on schemas.v2. I checked both halves: D-104's own text says 'D-013 remains the historical recording of schemas.v2 and is not overturned', and component-manifest-schemas.v11 preserves the split verbatim — RJ-4 active subcodes are still UNSIGNED and DIGEST_MISMATCH, ENVELOPE_MISMATCH is still DECLARED and INACTIVE, and ID-DEP-5 still routes ceremony classes to DR-112. So the CODEX-V2-B2 repair does not rest on a superseded reading. That is why this is a SHOULD-FIX and not a blocker.",
+      "whyItStillMatters": "recordedInputs is the artifact's evidence base and it is the one thing a reviewer checks first. A v3 that re-authored seventy paths and rebuilt the machine did not re-measure its own inputs, and a reader who hits the mismatch has no way to tell from the document whether a claim broke — I had to establish that independently. The lane already recognises this exact class: D-104's own turn-2 record carries advisory ADV-D104T2-01 for a draft COORD pin being a pre-D-103 snapshot, and the permission-truth-tables lineage built explicit inherited-versus-live machinery for it. This artifact has none.",
+      "minimumRepair": "Re-measure and re-pin COORDINATOR-DECISIONS.md at d210f103…, or keep the v2 value and label it the way the sibling lineages do — an inherited v2-era whole-document pin with a live remeasurement recorded separately and the named properties re-verified. Since the pin's role is three named properties rather than the whole document, saying so explicitly would also stop the next successor inheriting the same problem."
+    },
+    {
+      "id": "S-2",
+      "severity": "SHOULD-FIX",
+      "title": "A stale duplicate transition re-asserts the pre-repair position on recovery abort",
+      "location": "/machine/transitions[3], against /machine/transitions[19]",
+      "measurement": {
+        "theDuplicate": "transitions[3] and transitions[19] have identical from (ST-RECOVERY), on (EV-PRESENT-PAYLOAD) and to (ST-RECOVERY). transitions[3] is byte-identical to v2's member and was not touched; transitions[19] is the new member appended by this repair.",
+        "theContradiction": "[3] guard: '…Invalid payload: stay RECOVERY and refuse (abort remains EV-RECOVER-BEGIN failure / default refuse).' [19] guard: '…Invalid payload: stay RECOVERY and refuse (abort is EV-RECOVER-ABORT, not this failure).' The two differ only in that parenthetical, and [3] states the position CODEX-V2-B1 expressly rejected — Codex measured that 'EV-RECOVER-BEGIN guard failure occurs before entry and is not an abort'.",
+        "outvotedButPresent": "Six sites say abort is EV-RECOVER-ABORT: the events list, transition 18, fallbackByEvent, FC-RECOVER-ABORT, honestyRepairsFromV2[1] and transition 19. One site says otherwise, and it is inside the transition relation itself."
+      },
+      "whyThisIsTheRightSeverity": "It is not a blocker: both members target the same state with the same outcome, so no permissive path opens, no state becomes unreachable and the machine's behaviour is unambiguous. The abort mechanism genuinely exists and is fully specified. But the artifact's central deliverable is a reviewed state machine, and it now contains a duplicated member one copy of which contradicts the repair the other copy embodies. An implementer generating a harness from transitions[] meets the superseded sentence first, in index order.",
+      "minimumRepair": "Delete transitions[3]. If it is kept for ordering reasons, replace its parenthetical with [19]'s and delete [19] instead — one member, one statement."
+    },
+    {
+      "id": "S-3",
+      "severity": "SHOULD-FIX",
+      "title": "EV-CONTINUE refusals carry no typed refusalReason, so the repaired audit contract has a hole at its highest-traffic event",
+      "location": "/machine/fallbackByEvent/EV-CONTINUE, /offlineRunningPolicy/totalDecision, /auditAndWaiver/audit, /fixtureClasses FC-REFUSAL-AUDIT",
+      "measurement": {
+        "theRule": "auditAndWaiver.audit: 'refusalReason is REQUIRED exactly when outcome=refused'. FC-REFUSAL-AUDIT: every fallback or guard-false refuse must emit 'a required refusalReason from the closed fallback or guard vocabulary'.",
+        "theVocabulary": "Eight typed reasons exist across fallbackDefault and fallbackByEvent. None of them applies to a continuation refusal.",
+        "theGap": "fallbackByEvent['EV-CONTINUE'] carries outcome 'see-offlineRunningPolicy' and refusalReason 'as-totalDecision-or-defaultRefuse' — a pointer, not a vocabulary member, and neither of the two values the rule admits. It points at offlineRunningPolicy, and I checked every row of totalDecision: each carries only when, alreadyRunning and newProcess, with prose values such as 'refuse', 'refuse (do not treat survival as trust)' and 'refuse unless OD-112-3 is later numbered; preview refuse'. No row defines a reason code, and defaultRefuse defines none either.",
+        "theScope": "EV-CONTINUE is the one event whose transition is declared from '*', so it applies in all seven states, and six of the eight continuation rows plus the default refuse. This is the most frequently refused event in the machine and the only one whose refusals cannot satisfy the rule that was just written for them."
+      },
+      "whyThisIsTheRightSeverity": "Nothing fails open — the continuation decision itself is total and deterministic, and the audit record still carries outcome=refused with to==from. But CODEX-V2-S1's requiredRepair was a stable typed reason exactly when refused plus fixtures asserting it, and for EV-CONTINUE neither exists; FC-REFUSAL-AUDIT as written cannot be satisfied for those refusals. A reasonless continuation refusal is precisely Codex's complaint that a record proves something refused but not which safety guard did so.",
+      "minimumRepair": "Add typed reasons for the continuation path and put them in the closed vocabulary — for example CONTINUE-CORE-NOT-TRUSTED, CONTINUE-INDEX-NOT-TRUSTED, CONTINUE-COMPONENT-NOT-TRUSTED and CONTINUE-UNMATCHED-COMBINATION — attach one to each refusing totalDecision row and to defaultRefuse, and replace the fallbackByEvent placeholder with a reference to that set."
+    }
+  ],
+
+  "advisories": [],
+
+  "attacksAttemptedAndFailed": [
+    "That the totality claim is still the v2 one. It is not — defaultTransition names the named-pair-guard-false case in terms, which is the gap Codex identified and I missed at v2.",
+    "That STALE then expiry still remains STALE. Transition 10 declares the promotion and FC-EVENT-ORDER now tests that exact ordering.",
+    "That aborting RECOVERY on expired predecessor metadata is possible. Transition 11 makes EV-CLOCK an accepted stay in RECOVERY and statePrecedence justifies the exception rather than leaving it as an unexplained gap.",
+    "That the abort can restore TRUSTED. Transition 18's computed target excludes ST-TRUSTED explicitly and is total over the four refuse conditions plus ST-UNBOOTSTRAPPED.",
+    "That any path enters ST-TRUSTED while envelopePreimageJoin is INACTIVE. All four TRUSTED-targeting transitions carry the fail-closed condition, and envelopeJoinStanding states the consequence plainly.",
+    "That a replacement root can self-authorize. recoveryAuthorityShape forbids it on three of its four conjuncts and FC-RECOVERY-AUTHORITY tests it.",
+    "That CORE expired or stale still reads as drain AND refuse. The drain text is gone; the row is a single value.",
+    "That the multi-member (state, event) pairs create nondeterminism. Five of six are guard-disjoint by construction; the sixth is a duplicate with identical outcome, recorded as S-2 for its contradictory prose rather than for any behavioural ambiguity.",
+    "That the DR-103 boundary the B2 repair rests on has been superseded by D-104. It has not — v11 preserves RJ-4's active subcodes, the INACTIVE envelope subcode and ID-DEP-5's routing unchanged, and D-104 leaves D-013 standing."
+  ],
+
+  "objections": [],
+  "subjectMovedDuringReview": false,
+
+  "coordinatorNote": "Two things worth the coordinator's attention. First, on calibration: Codex's v2 blocker B1 identified a totality gap — a named pair whose guards are all false has no outcome — that my v2 review missed, and v3 repairs it explicitly. I record that plainly because it bears on how much weight to give a single reviewer's ACCEPT on a machine of this size. Second, the one finding I would not want lost among the other two is S-1. It was not visible by reading the artifact at all; it appeared only on re-measuring the recorded pins, and behind it sat an adopted decision recording a newer accepted DR-103 successor. I chased that to its bytes and the contract's boundary survives intact, which is why this is a REJECT at three SHOULD-FIX rather than anything heavier — but an artifact whose evidence base does not reproduce should not be sealed on the assumption that someone will chase it. All three findings are bounded and none is fail-open. DR-112 remains OPEN, the subject remains CANDIDATE-NOT-APPLIED / DO-NOT-SEAL / binds NOTHING, and nothing in this verdict marks the row SATISFIED or authorizes docs/v2/implementation/."
+}

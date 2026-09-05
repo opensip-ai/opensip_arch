@@ -1,0 +1,211 @@
+{
+  "artifact": "platform-tcb-contract.v24.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v24.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v24",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 0 SHOULD-FIX, 2 advisories. ACCEPT requires 0 blockers and 0 SHOULD-FIX. Six of the seven claimed repairs are genuinely made and I could not break them, including both findings I filed at v23. The seventh, PTCB-V23-B2, is repaired in form but not in substance: the ima-kernel-image ceremony is now fully specified, but the evidence it specifies attests a file measurement rather than the executing kernel, and the contract removed the one interface that could have bridged that gap.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v23 vs v24; exhaustive raw-substring search for join, build-id and kernel-identification tokens",
+
+  "custody": {
+    "subjectSha256Expected": "b1a4386c1e307f6905d7c5bfdebfab0d64750847f04c8110a29d49c2d88803b2",
+    "subjectSha256AtStart": "b1a4386c1e307f6905d7c5bfdebfab0d64750847f04c8110a29d49c2d88803b2",
+    "subjectSha256AtEnd": "b1a4386c1e307f6905d7c5bfdebfab0d64750847f04c8110a29d49c2d88803b2",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 140270,
+    "subjectMovedDuringReview": false,
+    "predecessorV23Sha256": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+    "frozenCodexV23Sha256": "6c3774317ee3cc18e17bb722ccce3400b893f743d26867b3748a29274d3cfd25",
+    "frozenClaudeV23Sha256": "45706d7e060fcbfbed1eff22c92f916030398c75d35d9aac6122800192986867",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE — both frozen v23 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "headMatchesDispatch": true,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "passNoScopeEffectNote": "COORD did not move during this review, so the allowance was never needed.",
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v23 REJECT (45706d7e...), so two of the seven claimed repairs target my own findings. I re-ran the exact reproducible tests that produced those findings against the v24 bytes rather than confirming them from memory, and I state plainly below that both are now repaired. I have taken care not to treat repair of my own findings as evidence that the generation as a whole is sound: the blocker below is on a Codex finding, reached independently.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V24-B1",
+      "appliesTo": "PTCB-V23-B2 — claimed repaired; the ceremony is now specified but does not measure the executing kernel",
+      "title": "The ima-kernel-image ceremony attests that a kernel image file was read and hashed, not that those bytes are the executing kernel, and the contract defines no operation to identify the executing kernel image",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/executingKernelMeasurement/ima-kernel-image/{measuredRepresentation,acquisition,entrySelection,trustRoot,freshness}; corroborating: /identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/runningKernelImagePath",
+      "whatIsGenuinelyFixed": "This is not a claim that nothing changed. The ceremony gained a named acquisition artifact (/sys/kernel/security/ima/ascii_runtime_measurements, template ima-ng, hash-algo sha256), a uniqueness rule with a zero/multiple refusal, a trust root (IMA in measure+appraise or a verifiable signature/keyid, with off/unsigned/unknown-keyid refusing), a freshness-and-run-association rule against runPreselectionRecord.observedAt, a closed extras-rejected successRecord, an explicit equality successRecord.digest MUST equal authenticatedKernelMember.sha256, and unavailableRefuses. efi-boot-kernel-digest was withdrawn rather than left underspecified, which is the right instinct. The defect is what the specified evidence proves, not whether a ceremony exists.",
+      "facetA_evidenceTypeMismatch": "IMA's ascii_runtime_measurements is a runtime file-measurement log: it records files opened or executed under IMA policy, with the ima-ng template carrying file-hash and file-path. An entry whose file-path is a kernel image therefore attests that a file at that path was read and had that digest at some point during this boot. It does not attest that those bytes are the kernel currently executing. On a typical system IMA begins measuring after the kernel is already running, so the executing image is not self-measured into the runtime list at all; a kernel-image entry appears only because some process later read the on-disk image. The property the contract claims — coverage 'the entire executing kernel image', measuredRepresentation 'the kernel image IMA measured for the executing kernel' — is asserted but is not delivered by the single acquisition the contract names. The evidence normally capable of binding the executing kernel is the boot-time measurement chain (measured-boot/PCR quote, or the boot_aggregate entry that digests PCRs 0-7). I searched the artifact: 'boot_aggregate' occurs 0 times, 'kexec' 0 times, '/proc/version' 0 times, and no PCR or quote validation appears anywhere. efi-boot-kernel-digest, the one enumerated interface that could plausibly have carried a measured-boot chain, was removed this generation. So v24 kept the interface that cannot establish 'executing' and withdrew the one that might have.",
+      "facetB_undefinedSelectionPredicate": "entrySelection reads 'the unique ima-ng sha256 entry whose file-path is the executing kernel image. Zero or more than one refuses.' The predicate is conditioned on knowing the executing kernel image's file-path, and the contract defines no operation that produces it. The only clause that ever named such a path, linuxPackageDb.runningKernelImagePath, is in this same generation marked 'RETIRED as an authenticity bind. Filename/osrelease lookup MUST NOT establish OS ABI authenticity', and subjectByScheme.package-db repeats 'Filename/osrelease lookup is not this observation'. So the contract simultaneously requires a path-keyed selection and forbids the only path-derivation it has ever specified, leaving the step undefined at exactly the point where 'which measurement is the executing kernel' is decided.",
+      "failureScenario": "A Linux host runs kernel K_exec. Under IMA policy some process reads the on-disk image /boot/vmlinuz-K_other, an authentic member of the same publisher's authenticated kernel package (for instance an older, still-signed kernel left installed). The runtime list now carries an ima-ng sha256 entry for K_other's path and digest. A verifier resolving 'the executing kernel image' by the only means available to it — a filename or osrelease convention, which the contract neither defines nor, for selection purposes, forbids — selects that entry. Every stated check passes: the entry is unique for that path; IMA is in measure+appraise so the trust root holds; the entry predates runPreselectionRecord.observedAt so freshness holds; successRecord.digest equals the sha256 of a unique regular-file member of the authenticated payload, so authenticatedKernelMember resolves and equality holds; packagePayloadDigest equals authenticityCore.payload.digest. The profile qualifies, attesting the running kernel as K_other, while K_exec executes. Nothing in the contract detects the substitution, because nothing in the contract ever ties any of this evidence to the running image.",
+      "whyThisIsTheSameDefectClassAsB2": "PTCB-V22-B2 rejected NT_GNU_BUILD_ID because an identifier embedded in a file is not a measurement of the executing kernel bytes. PTCB-V23-B2 then rejected the successor because it named interfaces without a verifiable trust path to the running kernel, and required 'an end-to-end verifier operation ... equality to the exact authenticated package member', explicitly including 'freshness and run association'. v24 supplies every element of that list except the one that carries the security property: the link from the evidence to the kernel that is actually running. The chain is now rigorous from the IMA list to the package member and inert between the executing kernel and the IMA list.",
+      "selfInvitedAttack": "reviewGuidance.forTheIndependentReviewer adds this round: 'Attack a pathless Linux measurement that still lacks an end-to-end IMA ceremony or still uses executingKernelBuildId.' The build-id half is clean — all 6 executingKernelBuildId occurrences are prohibitions, guidance, or repair history, and all 5 NT_GNU_BUILD_ID mentions are negations. The end-to-end half is where the attack lands: the ceremony is end-to-end from the measurement list onward, and open at the boot end.",
+      "requiredRepair": "Either (1) specify the executing-kernel linkage: require a measured-boot chain — a PCR quote over the boot PCRs with named trust roots and freshness/nonce, or the boot_aggregate entry validated against those PCRs — and require the kernel-image digest to be the one carried by that chain, with the IMA runtime entry serving only as a corroborating file measurement; or (2) if no such chain is specifiable this generation, withdraw the linux-pathless Linux profile the way efi-boot-kernel-digest was withdrawn, and refuse PATHLESS-PLATFORM-ATTESTED on Linux until a successor specifies the ceremony. In either case, define the operation that identifies the executing kernel image, or remove the predicate that depends on it; and state expressly that a runtime file measurement of an on-disk kernel image is not by itself evidence of the executing kernel."
+    }
+  ],
+
+  "shouldFix": [],
+
+  "advisories": [
+    {
+      "id": "CLAUDE-V24-A1",
+      "title": "rpm-checksig retains pre-repair sibling keys that are now redundant with archiveAcquisition and headerIdentity",
+      "where": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/rpm-checksig/{checksigSuccess,digestSuccess}",
+      "finding": "The B1 repair moved the operative rules into archiveAcquisition and headerIdentity but left the v23 top-level checksigSuccess and digestSuccess in place. checksigSuccess is now stated twice, at the branch level and inside archiveAcquisition, in substantively identical terms; digestSuccess remains at the branch level while its argv moved to headerIdentity.queryArgv. Non-blocking: the two checksigSuccess statements agree, digestSuccess has exactly one possible referent now that the sibling NEVRA operation is deleted, and this branch is not declared extrasRejected, so no conformance ambiguity arises of the kind that made the v23 associationToken duplication a SHOULD-FIX. Worth tidying so the branch reads as one operation.",
+      "severity": "ADVISORY-NON-BLOCKING"
+    },
+    {
+      "id": "CLAUDE-V24-A2",
+      "title": "SHA256HEADER's role separation is written as a value inequality rather than a use prohibition",
+      "where": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/rpm-checksig/headerIdentity/role",
+      "finding": "The clause reads 'MUST NOT equal authenticityCore.payload.digest and MUST NOT be used as the signed archive digest.' The second half is the rule Codex B1 asked for and is correct. The first half states a value inequality between a header digest and a whole-archive digest, which are distinct preimages and so cannot collide in practice; read literally it is an inert check, and read as a required comparison it invites an implementation to test something that carries no security meaning. No failure mode either way. Recommend dropping the inequality and keeping the use prohibition.",
+      "severity": "ADVISORY-NON-BLOCKING"
+    }
+  ],
+
+  "repairsVerified": [
+    {
+      "finding": "CLAUDE-V23-B1 (mine) — linux-file-backed join stated neither equality",
+      "result": "REPAIRED, and precisely. The tag gains joinMust: 'matchedManifestMember.relativePath MUST equal the package-relative path derived by packageRelativePathRule for this event volume tag. matchedManifestMember.sha256 MUST equal openedObjectObservation.openedBytesSha256. Those two fields MUST identify the same single authenticatedManifest member. Zero matches, more than one match, or a hash-only match to a different member refuses.' Both equalities I required are now normative, the same-member condition is explicit, and the refusal set is complete. I re-ran my v23 attack: emitting matchedManifestMember {bin/tool, H_tool} while opening bytes hashing to H_evil now violates the second equality and refuses. archiveMemberPathGrammar independently restates the path equality for both volume tags, so the binding is stated in two mutually consistent places."
+    },
+    {
+      "finding": "CLAUDE-V23-S1 (mine) — associationToken specified at two nesting levels",
+      "result": "REPAIRED. associationToken is removed from the linux-file-backed required array and from the tag level; it survives only inside openedObjectObservation, which now says 'This is the only associationToken placement on this tag.' The closed extras-rejected record has exactly one lawful placement."
+    },
+    {
+      "finding": "PTCB-V23-B1 — RPM has two live inputs and conflates archive digest with SHA256HEADER",
+      "result": "REPAIRED. I could not break it. archiveAcquisition names one source ('the unique installed rpm package blob for this NEVRA from rpmdb. Exactly one blob. Zero or more than one refuses. No find/or-choice over cache paths. No <NEVRA-or-installed-package> sibling operation.'), and the sibling operation is in fact gone from the artifact. archiveDigest is sha-256 of those exact bytes with 'authenticityCore.payload.digest MUST equal this value. This is not SHA256HEADER.' packageBytes and nameVersion both restate that the digest is the archive hash. SHA256HEADER is demoted to headerIdentity with the role 'retained rpm header identity only', barred from being the signed archive digest. checksig runs on those exact bytes and extraction follows only after digest match and checksig success. See CLAUDE-V24-A1/A2 for two non-blocking tidiness points."
+    },
+    {
+      "finding": "PTCB-V23-B2 — pathless measurement names interfaces with no verifiable trust path to the running kernel",
+      "result": "NOT REPAIRED IN SUBSTANCE — see CLAUDE-V24-B1. Every listed element of the required ceremony is present except the one that carries the property: the link to the executing kernel."
+    },
+    {
+      "finding": "PTCB-V23-S1 — live Linux text still routes pathless binding through the deleted build-id schema",
+      "result": "REPAIRED. runningKernelImagePath now reads 'RETIRED as an authenticity bind ... Neither package selection nor member selection may use executingKernelBuildId.' owningPackageLookup.pathlessPath reads 'Not used for authenticity. Pathless Linux uses executingKernelMeasurement plus authenticatedKernelMember digest join. executingKernelBuildId MUST NOT select the package or the member.' objectByteJoin and subjectByScheme.package-db carry matching prohibitions. All 6 executingKernelBuildId occurrences in the artifact are prohibitions, reviewGuidance, or repair history; none is load-bearing. Note that this repair is also what leaves CLAUDE-V24-B1 facet B open: retiring the only named path derivation without replacing it strands entrySelection's path predicate."
+    },
+    {
+      "finding": "PTCB-V23-S2 — macos-codesign has no closed serializable retained same-guest value",
+      "result": "REPAIRED. sameGuestBind is now a closed record {associationToken, inputKind, checkValidityStatus, signingInfoStatus, cdhash} with extrasRejected and the explicit 'Not a native SecCodeRef.' inputKind is a two-value enum (running-kernel or resolved-object), statuses are pinned to 0 and success, cdhash is 40-hex lowercase from kSecCodeInfoUnique of that same guest, associationToken is runIdentity + observedAt, and the tie clause requires all fields to be outputs of one macosCodesign.orderedStepsSameGuest execution for this event. The tag still forbids all five Linux fields by name."
+    },
+    {
+      "finding": "PTCB-V23-S3 — package-relative path and manifest extraction grammar is not canonical",
+      "result": "REPAIRED, and thoroughly. /loaderTraces/archiveMemberPathGrammar defines one grammar: UTF-8 encoding, U+002F separator, noLeadingSlash, a reject list covering empty, '.', '..', backslash, NUL, duplicate members and non-regular-file digest members, NFC-then-UTF-8 after archive-root strip, per-format root stripping for rpmCpio and debDataTar, INSTALL-ROOT-VOLUME and EXTERNAL-ORIGIN transformations each ending in 'MUST equal matchedManifestMember.relativePath', and a links rule making symlink/hardlink members non-digest members. That covers every element S3 enumerated."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject b1a4386c... over 140270 bytes at mode 0444, unmoved at start and end. Predecessor v23 and BOTH frozen v23 verdicts reproduce their dispatched digests at 0444. HEAD held at 93ceaa6 throughout. Strict JSON parse succeeded."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 29 path-bearing pins in appliesFindingsOf reproduce exactly, zero failures. The claude2v23 pin records REJECT with blockers [CLAUDE-V23-B1] and shouldFix [CLAUDE-V23-S1], which is exactly what I filed; the codexv23 pin records REJECT with blockers [PTCB-V23-B1, PTCB-V23-B2] and shouldFix [PTCB-V23-S1, S2, S3], which matches the frozen file. No predecessor review was replaced or rewritten."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v23-to-v24 change roster",
+      "result": "PASS. Recursive path diff found 41 changed paths and ZERO off-roster: every change falls under a root declared in basedOn.method. reviewGuidance grew 108 to 115 entries as a pure prefix-preserving append. honestyRepairsFromV23 carries exactly 7 entries, one per finding across both frozen v23 verdicts, with no finding silently dropped."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row and remeasurement",
+      "result": "PASS. Exactly one file 08 line begins '| DR-126 |', at line 308, and registerRowQuoted.rowVerbatim is byte-identical to it with the correct source pin. reMeasurementAtV24 reproduces COORD 67b8df67..., file 08 1cdcf9d4..., file 04 a74b4511... and measuredAtHead 93ceaa6a... against the live tree, is the sole standing LIVE block, and states 'Does not SATISFY DR-126'."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. whatThisDoesNotDo refuses SATISFYING DR-126 before a later D-000 MF-6, refuses authorizing docs/v2/implementation/, and refuses QUALIFYING G22. All 18 D-096 occurrences are the refusal 'Never mint a D-096 (A) grant'; none mints or implies one."
+    },
+    {
+      "id": "M-6",
+      "check": "Executing-kernel linkage, exhaustive token search",
+      "result": "FAIL — basis of CLAUDE-V24-B1. 'boot_aggregate' 0 occurrences, 'kexec' 0, '/proc/version' 0, no PCR or quote validation; 'uname' appears 3 times and every one is a negation of its use. The only clause that ever named a kernel image path is retired this generation."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "Pathless Linux measurement that still lacks an end-to-end IMA ceremony or still uses executingKernelBuildId (self-invited)",
+      "result": "LANDS on the ceremony half. Filed as CLAUDE-V24-B1. The build-id half fails to land: all build-id references are prohibitions or history."
+    },
+    {
+      "attack": "linux-file-backed join that still does not MUST-equal both path and sha256 to the same member (self-invited; my own v23 blocker)",
+      "result": "FAILED TO LAND. joinMust states both equalities and the same-member condition; my v23 attack now refuses."
+    },
+    {
+      "attack": "RPM digest that is still SHA256HEADER or still has a sibling NEVRA-or-installed-package input (self-invited)",
+      "result": "FAILED TO LAND. One blob, archive-byte digest, sibling operation deleted from the artifact, SHA256HEADER demoted to header identity."
+    },
+    {
+      "attack": "macos sameGuestBind that is still a native SecCodeRef or still unserializable (self-invited)",
+      "result": "FAILED TO LAND. Closed five-field extras-rejected record with pinned statuses, explicitly not a SecCodeRef, tied to one orderedStepsSameGuest execution."
+    },
+    {
+      "attack": "associationToken still specified at two nesting levels (self-invited; my own v23 SHOULD-FIX)",
+      "result": "FAILED TO LAND. Exactly one placement, declared as such."
+    },
+    {
+      "attack": "Silent v23-to-v24 path outside basedOn.method / honestyRepairsFromV23 (self-invited)",
+      "result": "FAILED TO LAND. 41 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or repinning",
+      "result": "FAILED TO LAND. All 29 pins reproduce; both frozen v23 verdicts match the dispatch at 0444; the pin of my own verdict records my findings accurately rather than softening them."
+    },
+    {
+      "attack": "A repair that fixes the cited symptom while stranding a dependency elsewhere (my own additional attack)",
+      "result": "LANDS, and is folded into CLAUDE-V24-B1 as facet B. The S1 repair retired runningKernelImagePath without replacing the path derivation that linux-pathless entrySelection depends on."
+    },
+    {
+      "attack": "Silent SATISFIED / QUALIFIED / D-096 (A) / implementation authorization",
+      "result": "FAILED TO LAND. Refused in the artifact's own bytes at whatThisDoesNotDo, reMeasurementAtV24.note, and every reviewGuidance round."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v23 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not re-review v1-v23 on their merits beyond the pin and predecessor checks this round requires."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV24ReviewerRead": false,
+    "otherReviewerNote": "docs/coop/artifacts/platform-tcb-contract.v24.review-independent.codex.json exists on disk (366 bytes, mode 0644) and was detected by directory listing only. It was never opened.",
+    "frozenPredecessorReviewsRead": "Both frozen v23 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v23 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the seven claimed repairs, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. I did not re-review the unchanged remainder of the contract on its merits; paths outside this round's roster were checked only for unchangedness. My assessment of what an IMA ima-ng runtime measurement can and cannot prove rests on the documented semantics of the interface the contract names, not on execution against a live IMA-enabled host; a successor that disputes facet A should do so on those semantics.",
+
+  "summary": "REJECT at 1 blocker, 0 SHOULD-FIX, 2 advisories. Custody is clean: the subject is unmoved at b1a4386c... and 0444 at start and end, HEAD never left 93ceaa6, COORD and file 08 hold their pins, all 29 chain pins reproduce, both frozen v23 verdicts reproduce at 0444 with no replacement, and the v23-to-v24 diff is 41 paths with zero off-roster. Six of seven repairs are real. Both of my own v23 findings are properly closed: joinMust now states both equalities against the same manifest member, and my v23 attack refuses; associationToken has exactly one lawful placement. Codex B1 is closed — one rpmdb blob, the archive-byte sha-256 as the signed digest, SHA256HEADER demoted to header identity, sibling operation deleted. S1, S2 and S3 are closed — build-id references survive only as prohibitions, sameGuestBind is a closed serializable five-field record explicitly not a SecCodeRef, and archiveMemberPathGrammar supplies one canonical member-path grammar covering every element S3 listed. The blocker is B2. The ceremony now has every element Codex enumerated — named acquisition, uniqueness, trust root, freshness, closed success record, equality to the member digest — and still does not establish the property it claims. An ima-ng runtime entry attests that a file at some path was read and hashed; it does not attest that those bytes are the executing kernel, and on most systems the executing image is never in that runtime list at all. The evidence that could bridge the gap is the boot measurement chain, and boot_aggregate, kexec, /proc/version and PCR-quote validation appear zero times in the artifact, while efi-boot-kernel-digest — the one enumerated interface that might have carried it — was withdrawn this generation. Compounding it, entrySelection keys on 'the executing kernel image' file-path while the S1 repair retired runningKernelImagePath, the only path derivation the contract ever named, leaving the selection predicate with no defined operation. So a verifier can satisfy every stated check against an authentic but non-executing kernel image and qualify the profile while a different kernel runs. That is the same defect class as the v22 build-id finding in a new form: rigorous from the measurement list to the package member, inert between the executing kernel and the measurement list."
+}

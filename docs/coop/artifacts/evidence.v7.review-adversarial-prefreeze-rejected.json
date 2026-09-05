@@ -1,0 +1,422 @@
+{
+  "artifact": "opensip.evidence-v7-adversarial-prefreeze-review",
+  "version": 1,
+  "reviewDate": "2026-08-01",
+  "status": "FINAL-ADVERSARIAL-PREFREEZE-REVIEW",
+  "reviewer": "adversarial-prefreeze-reviewer",
+  "reviewerRole": "consumer-B / architecture-to-implementation falsifier",
+  "reviewBinding": {
+    "exactSubjects": [
+      {
+        "id": "EVIDENCE-v7-CANDIDATE",
+        "path": "docs/coop/artifacts/evidence.v7.json",
+        "sha256": "157da8cf2b44fd72794ee2c7c3dedfa30745164798c45a8d21e08094a128c356",
+        "byteLength": 83967
+      },
+      {
+        "id": "EVIDENCE-v7-CHECKER",
+        "path": "docs/coop/artifacts/check-evidence-v7.py",
+        "sha256": "9fd858b1c59f064dd9693ba3c6d2d935fc462f0833078cc2eb5bc26cc4009524",
+        "byteLength": 76539
+      }
+    ],
+    "applicability": "This verdict applies only to the two exact byte strings above. The author was concurrently hardening the candidate; any changed candidate or checker requires a new review.",
+    "frozenByteIndependentReview": false,
+    "reasonNotFrozenByteReview": "This was an adversarial pre-freeze audit requested while the author was still working. It is a durable rejection of the reviewed bytes, not acceptance or rejection of a later successor."
+  },
+  "hashWindow": {
+    "algorithm": "SHA-256",
+    "start": [
+      {
+        "path": "docs/coop/artifacts/evidence.v7.json",
+        "sha256": "157da8cf2b44fd72794ee2c7c3dedfa30745164798c45a8d21e08094a128c356"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evidence-v7.py",
+        "sha256": "9fd858b1c59f064dd9693ba3c6d2d935fc462f0833078cc2eb5bc26cc4009524"
+      }
+    ],
+    "end": [
+      {
+        "path": "docs/coop/artifacts/evidence.v7.json",
+        "sha256": "157da8cf2b44fd72794ee2c7c3dedfa30745164798c45a8d21e08094a128c356"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evidence-v7.py",
+        "sha256": "9fd858b1c59f064dd9693ba3c6d2d935fc462f0833078cc2eb5bc26cc4009524"
+      }
+    ],
+    "startEndExact": true,
+    "drift": [],
+    "outputExcluded": "docs/coop/artifacts/evidence.v7.review-adversarial-prefreeze-rejected.json"
+  },
+  "verdict": {
+    "decision": "REJECT",
+    "reviewReadiness": "NOT-REVIEW-READY",
+    "sealRecommendation": "DO-NOT-SEAL",
+    "candidateState": "NOT-APPLIED",
+    "blockingFindingCount": 8,
+    "independentAcceptance": false,
+    "integrationAuthorized": false,
+    "productAcceptanceGranted": false,
+    "architectureFreezeAuthorized": false
+  },
+  "scope": {
+    "reviewed": [
+      "durable cold-restart authority reconstruction",
+      "crash, retry, response-loss and partial-publication behavior",
+      "six-write transaction and Attempt/journal preconditions",
+      "old capability rejection across fresh sessions",
+      "D9 failure derivation and pre-commit RunId visibility",
+      "normal-check recomputation versus producer-authored declarations",
+      "closed durable-row and project-isolation boundaries",
+      "same-content Run convergence across distinct Attempts"
+    ],
+    "notClaimed": [
+      "production runtime correctness",
+      "production transaction atomicity",
+      "crash-durability demonstration",
+      "performance or support-window measurement",
+      "product disposition CD-RT-5",
+      "integration into claim-register, threat model, completeness or narrative authorities"
+    ]
+  },
+  "method": {
+    "candidateOrCheckerAuthorship": false,
+    "repositoryWritesDuringAudit": [],
+    "probeExecution": "Targeted Python probes imported the reviewed checker with python3 -B and manipulated only its executable design-test-double state. No repository fixture or candidate byte was changed.",
+    "decisionRule": "A green authored checker is checker-scope evidence only. The review required the executable transition to falsify the binding's declared invariants and separately mutated the binding to test whether the checker consumed those declarations.",
+    "normalFixtureResultUse": "The existing green normal/selftest result was not treated as acceptance. Decisive counterexamples exercised states and contract mutations outside its authored scenario set."
+  },
+  "blockingFindings": [
+    {
+      "id": "EV7-PF-01-SAME-RUN-MULTI-ATTEMPT-CONVERGENCE",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#storeContract.recovery",
+        "evidence.v7.json#correlationDifferential",
+        "check-evidence-v7.py#_existing_state",
+        "check-evidence-v7.py#_commit_rehydrated"
+      ],
+      "finding": "The executable cannot commit a second distinct Attempt whose semantic inputs produce an already committed Run. It treats the four exact pre-existing Run-scoped peers as a forbidden partial final set, contradicting the binding's convergence rule.",
+      "probe": {
+        "setup": [
+          "Prepare and commit execution exec1-audit-converge-a.",
+          "Under the same project/store, cold-resolve the same EAS and prepare the byte-identical semantic bundle for exec1-audit-converge-b.",
+          "Invoke commit_run for the second Attempt."
+        ],
+        "observed": "LedgerCorrupt: partial or conflicting final record set",
+        "recordCountsAfterFailure": {
+          "TerminalRunV1": 1,
+          "RunIndexV1": 1,
+          "AttemptRunLinkV1": 1,
+          "CustodyRootV1": 1,
+          "RunAuthorityIndexV1": 1,
+          "outbox": 1
+        },
+        "secondAttemptJournalCount": 1,
+        "result": "REPRODUCED"
+      },
+      "consequence": "Content-derived Run identity cannot converge across correlation-distinct Attempts as designed; an implementer must invent whether exact shared peers are valid or corrupt.",
+      "requiredRepair": [
+        "Classify the four exact Run-scoped peers as valid shared preexistence when all four are present and byte-identical.",
+        "Atomically add the second Attempt's exact AttemptRunLinkV1 and outbox rows and remove only its journal.",
+        "Continue to reject incomplete or conflicting shared peers and one-sided Attempt-specific peers.",
+        "Add sequential and interleaved two-Attempt convergence probes."
+      ]
+    },
+    {
+      "id": "EV7-PF-02-TRANSACTION-PRECONDITION-TOCTOU",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#storeCapabilityContinuityContract.toctouRule",
+        "evidence.v7.json#storeContract.finalTransaction.precondition",
+        "check-evidence-v7.py#_rehydrate",
+        "check-evidence-v7.py#_commit_rehydrated"
+      ],
+      "finding": "_rehydrate validates exact Attempt and journal state before _commit_rehydrated, but the modeled transaction later checks only that a journal key exists. It does not condition the swap on the exact Attempt revision or journal bytes it validated.",
+      "probes": [
+        {
+          "mutationBetweenRehydrateAndCommit": "increment frozen Attempt revision from 1 to 2",
+          "observed": "all six records committed; stored Attempt revision remained 2",
+          "result": "STALE-PRECONDITION-ACCEPTED"
+        },
+        {
+          "mutationBetweenRehydrateAndCommit": "replace journal.semanticEvidenceCasRef with sha256: followed by 64 f characters while preserving the closed journal shape",
+          "observed": "all six records committed and the changed journal was deleted",
+          "result": "CHANGED-JOURNAL-ACCEPTED-AND-CONSUMED"
+        }
+      ],
+      "consequence": "The checker does not implement the binding's in-transaction reread/conditional-write rule and can finalize stale preparation authority.",
+      "requiredRepair": [
+        "Carry an exact journal and Attempt revision snapshot or commitment into finalization.",
+        "Inside the modeled transaction, require exact equality with that snapshot before writing or deleting anything.",
+        "Model a conditional compare-and-swap or serializable predicate that prevents a concurrent state change from being lost.",
+        "Add Attempt, journal, private material and custody changes between rehydrate and commit as adversarial probes."
+      ]
+    },
+    {
+      "id": "EV7-PF-03-NO-JOURNAL-PARTIAL-PUBLICATION-BLIND-SPOT",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#storeCapabilityContinuityContract.collisionRule",
+        "evidence.v7.json#storeContract.recovery",
+        "check-evidence-v7.py#recover_run"
+      ],
+      "finding": "recover_run returns NoPreparedRun whenever both AttemptRunLinkV1 and the journal are absent, without detecting other final peers. This contradicts the unconditional declaration that any partial six-record set is LEDGER.CORRUPT.",
+      "probe": {
+        "setup": [
+          "Prepare a Run.",
+          "Insert its exact RunIndexV1 as the sole final record.",
+          "Remove the preparation journal and invoke recover_run by ExecutionId."
+        ],
+        "observedException": "NoPreparedRun: no journal or committed Attempt link",
+        "recordCounts": {
+          "TerminalRunV1": 0,
+          "RunIndexV1": 1,
+          "AttemptRunLinkV1": 0,
+          "CustodyRootV1": 0,
+          "RunAuthorityIndexV1": 0,
+          "outbox": 0
+        },
+        "expectedByBinding": "LEDGER.CORRUPT with state unchanged",
+        "result": "REPRODUCED"
+      },
+      "consequence": "Recovery cannot meet its advertised partial-state totality. Some RunId-keyed orphan peers cannot be attributed from ExecutionId without an additional completeness/index authority.",
+      "requiredRepair": [
+        "Add an execution-scoped completeness authority sufficient to detect all six peers, or assign RunId-keyed orphan detection to an explicit ledger-wide integrity API.",
+        "Narrow the recovery claim if detection is intentionally impossible from ExecutionId alone.",
+        "Test every one-through-five peer subset both with and without a journal."
+      ]
+    },
+    {
+      "id": "EV7-PF-04-D9-NOT-TOTAL-OVER-COLD-RECOVERY",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#d9Mapping",
+        "check-evidence-v7.py#_rehydrate",
+        "check-evidence-v7.py#d9_for_failure"
+      ],
+      "finding": "Trusted EP8/RT13/store corruption may escape as raw ValueError, but d9_for_failure handles only Evidence LedgerCorrupt and CommitFailed. The declared persisted-hash/index mismatch to LEDGER.CORRUPT mapping is therefore not total.",
+      "probe": {
+        "setup": "After preparation, delete the EvaluationAuthorityAdmission CAS row named by the durable authority index, then invoke recover_run and map its failure through d9_for_failure.",
+        "recoveryObserved": "ValueError: authority admission CAS row missing or ambiguous",
+        "d9Observed": "TypeError: failure has no Evidence v7 D9 mapping",
+        "expectedByBinding": {
+          "class": "operational-failed",
+          "errorCode": "LEDGER.CORRUPT"
+        },
+        "result": "REPRODUCED"
+      },
+      "consequence": "A specified durable corruption path has no HostTermination derivation and can bypass the D9/RunId visibility contract.",
+      "requiredRepair": [
+        "Classify trusted durable-store, EP8 and RT13 reconstruction failures at the E7 boundary without converting caller/programmer errors into ledger faults.",
+        "Mechanically derive the class/code from the pinned D9 authority rather than literals.",
+        "Add missing, duplicate, wrong-kind, cross-project, noncanonical and index-drift D9 probes."
+      ]
+    },
+    {
+      "id": "EV7-PF-05-CUSTODY-PREPARATION-OVERWRITES-CORRUPTION",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#storeContract.records.CustodyPreparedObjectV1",
+        "check-evidence-v7.py#prepare_run_commit"
+      ],
+      "finding": "prepare_run_commit blindly replaces the durable custody row set at a content-derived preparationRef. Unlike private CAS, Attempt and journal writes, it does not enforce absent-or-exact equality.",
+      "probe": {
+        "setup": [
+          "Prepare once and retain its custodyPreparationRef.",
+          "Change one stored custody row's recordCasRef under that same key.",
+          "Retry the identical preparation."
+        ],
+        "observed": "The conflicting durable row set was overwritten with the producer-derived rows and preparation succeeded.",
+        "expected": "LEDGER.CORRUPT with the conflicting stored state unchanged",
+        "result": "REPRODUCED"
+      },
+      "consequence": "A producer retry can silently repair or erase evidence of durable custody corruption, so row presence is not trustworthy recovery authority.",
+      "requiredRepair": [
+        "Publish custody rows insert-or-exact as one closed set.",
+        "Reject missing, extra, duplicate or differing pre-existing rows under the same preparationRef.",
+        "Add exact retry and corruption-preservation probes."
+      ]
+    },
+    {
+      "id": "EV7-PF-06-COLD-IMAGE-FINAL-ROW-BOUNDARY-OPEN",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#storeContract.records",
+        "check-evidence-v7.py#_state_from_durable_image",
+        "check-evidence-v7.py#_record_key"
+      ],
+      "finding": "Cold-image restore validates final records only as dictionaries before deriving keys. It does not enforce exact fields, schema version, ref/RunId syntax, constants or row ProjectId equality for any of the six final record kinds.",
+      "probe": {
+        "setup": "Append a RunIndexV1 carrying projectId prj1_evil and an unknown field to an otherwise valid durable image, then restore it.",
+        "observed": "Restore accepted the row into the project state's RunIndexV1 map under key (prj1_evil, run1:aaaa...).",
+        "expected": "Closed-boundary rejection before the row enters durable state",
+        "result": "REPRODUCED"
+      },
+      "consequence": "Cold restart admits cross-project and open-schema durable rows, breaking project isolation and hostile-ledger totality.",
+      "requiredRepair": [
+        "Define and execute exact validators for TerminalRunV1, RunIndexV1, AttemptRunLinkV1, CustodyRootV1, RunAuthorityIndexV1 and outbox.",
+        "Apply them on restore, trusted read and write, including project equality and content/hash relationships.",
+        "Reject wrong container types even when empty and test unknown, null, scalar, duplicate and cross-project cases."
+      ]
+    },
+    {
+      "id": "EV7-PF-07-DECLARED-SUCCESSOR-CONTRACT-NOT-CHECKER-BOUND",
+      "severity": "BLOCKING",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#recoveryMatrixContract",
+        "evidence.v7.json#durableRecoveryContract",
+        "evidence.v7.json#storeCapabilityContinuityContract",
+        "evidence.v7.json#identityStabilityFromEvidenceV6",
+        "check-evidence-v7.py#check",
+        "check-evidence-v7.py#selftest"
+      ],
+      "finding": "The checker admits the new root records but validates selected names, lengths and substrings rather than their closed obligations. In particular, recoveryMatrixContract is never semantically consumed by check().",
+      "escapingMutations": [
+        {
+          "mutation": "recoveryMatrixContract.requiredScenarios = []",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "recoveryMatrixContract.oracleRule = 'trust fixture booleans'",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "recoveryMatrixContract.failureVisibility = 'Expose RunId before commit'",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "identityStabilityFromEvidenceV6.allowedChange = 'RunId may change'",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "storeCapabilityContinuityContract.tokenExclusion = 'Store token enters RunId'",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "storeCapabilityContinuityContract.preconditions = []",
+          "checkResult": "ESCAPED"
+        },
+        {
+          "mutation": "durableRecoveryContract.recoveryApi = 'recover from caller boolean'",
+          "checkResult": "ESCAPED"
+        }
+      ],
+      "consequence": "The artifact can contradict the executable oracle and protected identity boundary while remaining green; the producer's declaration is acting as its own oracle.",
+      "requiredRepair": [
+        "Close and exact-check the entire E7 successor delta or provide a schema with additionalProperties false and semantic cross-field checks.",
+        "Mechanically equate requiredScenarios with the executable matrix scenario set.",
+        "Mutation-test every authority, identity-exclusion, recovery-order, precondition and failure-visibility obligation.",
+        "Treat mutation failure-to-apply as an escape."
+      ]
+    },
+    {
+      "id": "EV7-PF-08-BINDING-NOMENCLATURE-AND-GENERATION-FORK",
+      "severity": "BLOCKING-FOR-IMPLEMENTATION-FREEZE",
+      "status": "OPEN-IN-REVIEWED-BYTES",
+      "affected": [
+        "evidence.v7.json#persistedVsProjection.persisted",
+        "evidence.v7.json#storeContract.records",
+        "evidence.v7.json#storeContract.finalTransaction",
+        "evidence.v7.json#semanticJoins",
+        "evidence.v7.json#correlationDifferential",
+        "check-evidence-v7.py#FINAL_WRITES"
+      ],
+      "finding": "The binding exposes two names for the same custody-root record and two generations for its consumed authority contracts. The closed record schema/persisted list uses RunCustodyRootV1, while FINAL_WRITES, finalTransaction and executable code use CustodyRootV1. Protected surfaces still name EP7, RT12 and VERSIONING v7 while dependencies and execution consume EP8, RT13 and VERSIONING v8.",
+      "probe": {
+        "method": "Cross-field and checker-source comparison of exact strings",
+        "observed": [
+          "RunCustodyRootV1 in the declared records/persisted list",
+          "CustodyRootV1 in the executable six-write set",
+          "EP7/RT12/VERSIONING-v7 in semanticJoins and persisted/correlation text",
+          "EP8/RT13/VERSIONING-v8 in dependencies, invariants and executable imports"
+        ],
+        "result": "REPRODUCED"
+      },
+      "consequence": "A greenfield implementer must invent an alias and decide which provider generation is normative, creating the week-one fork the freeze process is intended to prevent.",
+      "requiredRepair": [
+        "Choose one canonical custody-root record name and use it in schemas, APIs, transactions and checkers.",
+        "Update consumed-generation labels or declare an exact, machine-checked compatibility projection from EP8/RT13/V8 to preserved predecessor identities.",
+        "Do not preserve stale prose merely to retain predecessor artifact bytes when the successor artifact itself is not a semantic identity."
+      ]
+    }
+  ],
+  "residualFindings": [
+    {
+      "id": "EV7-PF-R01-CUSTODY-AUTHORITY-JOIN",
+      "severity": "BLOCKING-UNTIL-ADJUDICATED",
+      "finding": "E7 mints and cold-remints PreparedCustodyV1 from an exact list of CustodyPreparedObjectV1 rows but does not execute or explicitly import RT13 resolve-and-pin, availability, lease or fencing authority. The EP8 durable fixture contains five authority/semantic CAS rows while the RT13 closure names 23 proof objects; most referenced raw objects are absent from every modeled E7 durable object map, yet finalization succeeds.",
+      "requiredDisposition": "Either integrate a guarded RT13 prepared/pinned capability whose authority is cold-restorable and validates object existence plus exact pins, or state and mechanically verify that CustodyPreparedObjectV1 rows are store-authoritative pin records with transactional existence constraints. Binding/ref presence alone must not confer custody."
+    },
+    {
+      "id": "EV7-PF-R02-D9-DERIVATION-IS-LITERAL",
+      "severity": "REQUIRED-HARDENING",
+      "finding": "d9_for_failure hard-codes operational-failed, LEDGER.CORRUPT and DURABILITY.COMMIT_FAILED. The checker hash-pins D9 files but does not import the declared reference derivation or recompute these values from D9 axes/code maps.",
+      "requiredDisposition": "Load and validate the pinned D9 authority, construct the exact fault axes, call the reference derivation, and assert class, ordered code payload and exit-code consequence."
+    },
+    {
+      "id": "EV7-PF-R03-MATRIX-ALIASES-ARE-AUTHORED-SUMMARIES",
+      "severity": "REQUIRED-HARDENING",
+      "finding": "neither-index-nor-link and both-exact are hard-coded alias rows. The underlying happy-path behavior is exercised elsewhere, but _matrix_errors does not validate either row's content. Partial rows likewise do not assert their exact publicCounts.",
+      "requiredDisposition": "Execute each named scenario directly or mechanically construct the alias from an executed result, validate every field, and add contract mutations for scenario removal and semantic reversal."
+    }
+  ],
+  "scopedPositiveObservations": [
+    "The normal fresh-session path reconstructs EP8 authority from durable CAS/index rather than a candidate cache.",
+    "The reviewed matrix rejects old EP8 handles and old finalized/custody capabilities when presented to a fresh session.",
+    "The modeled six-write happy path uses copy/validate/swap and response-loss retry verifies an exact committed set.",
+    "Prepared journal records omit direct RunId, runSealRef and Terminal refs.",
+    "These observations are strictly narrower than, and do not offset, the blocking counterexamples."
+  ],
+  "checkerScopeBoundary": {
+    "authoredCheckerGreenMeans": "The candidate satisfies only the predicates currently implemented by check-evidence-v7.py on its authored fixtures and mutations.",
+    "authoredCheckerGreenDoesNotMean": [
+      "the declared recoveryMatrixContract is checker-bound",
+      "all crash/interleaving/partial states were enumerated",
+      "D9 is total over trusted reconstruction failures",
+      "same-Run multi-Attempt convergence works",
+      "durable row decoding is closed or project-isolated",
+      "RT13 custody authority is actually held",
+      "production atomicity, restart or durability was demonstrated",
+      "architecture is seal-ready"
+    ],
+    "decisiveEvidence": "Each rejection is based on a concrete transition counterexample, an escaping contract mutation, or a direct contradiction between binding surfaces; no finding depends only on a nonzero checker exit."
+  },
+  "authorityBoundary": {
+    "integrationAuthority": "NONE",
+    "productDispositionAuthority": "NONE",
+    "claimRegisterAuthority": "NONE",
+    "threatModelAuthority": "NONE",
+    "completenessAuthority": "NONE",
+    "sealOrSignoffAuthority": "NONE",
+    "candidatePromotionAuthorized": false,
+    "statement": "This artifact records a rejection of exact pre-freeze bytes. It does not apply patches, accept CD-RT-5, close V10/G19/R2-FINAL-03, promote EVIDENCE or OPERABILITY, or authorize architecture freeze."
+  },
+  "workspaceMutations": {
+    "permittedWrites": [
+      "docs/coop/artifacts/evidence.v7.review-adversarial-prefreeze-rejected.json"
+    ],
+    "actualWrites": [
+      "docs/coop/artifacts/evidence.v7.review-adversarial-prefreeze-rejected.json"
+    ],
+    "candidateOrCheckerEdited": false,
+    "otherFilesModifiedByReview": false,
+    "checkerPycWritesPreventedBy": "python3 -B"
+  },
+  "finalDisposition": {
+    "candidateAccepted": false,
+    "reviewReady": false,
+    "integrationAllowed": false,
+    "sealAllowed": false,
+    "nextGate": "Repair every blocking finding, adjudicate the custody-authority join, close the checker/D9/matrix residuals, freeze new exact hashes, rerun the full packet, and obtain a new independent frozen-byte review."
+  }
+}

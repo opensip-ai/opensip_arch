@@ -1,0 +1,222 @@
+{
+  "artifact": "platform-tcb-contract.v2.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "reviewer": "Codex",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v2.json",
+  "subjectSha256Expected": "c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8",
+  "subjectSha256AtStart": "c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8",
+  "subjectSha256AtEnd": "c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "headExpected": "9b06a2fe6a7459d1757e56608412135fcfa30a56",
+  "headAtStart": "9b06a2fe6a7459d1757e56608412135fcfa30a56",
+  "headAtEnd": "9af5060f9edccf0a6dfeba551c2feb6fd1419746",
+  "headMovedDuringReview": true,
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v2.review-prompt.md",
+  "promptSha256": "ac270dc58b615c53d8b1812cd5b1648af0d68a0f6fd68bf59e2cd307dbb6ec74",
+  "predecessor": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v1.json",
+    "expectedSha256": "89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc",
+    "observedSha256": "89913fd8a8f3c62cba4e18670a192de2ee5ed7033ec56982e491bf9b53831bbc"
+  },
+  "priorCodexReview": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v1.review-independent.codex.json",
+    "expectedSha256": "e83b3188948cc9b0db917c0760db8eadfada06edfa97de61f4fd9d4e4217919e",
+    "observedSha256": "e83b3188948cc9b0db917c0760db8eadfada06edfa97de61f4fd9d4e4217919e"
+  },
+  "independence": {
+    "didNotAuthorV1OrV2": true,
+    "otherCurrentV2ReviewerRead": false
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V2-B1",
+      "severity": "BLOCKER",
+      "title": "Every supplied slice profile violates the contract's own platformProfile key",
+      "location": "/platformProfile/key; /platformProfile/slice1Profiles; /platformProfile/relationToEveryTcbEntry",
+      "evidence": [
+        "platformProfile.key has four members: osFamily, supportedVersionOrBuildSelector, architecture, and filesystemWhereItAffectsResolution. Mechanical key-set comparison shows that all four slice1Profiles omit supportedVersionOrBuildSelector.",
+        "Each filesystem value is an unresolved disjunction such as apfs-or-hfs-plus-as-declared-at-qualification or ext4-or-xfs-as-declared-at-qualification. The contract neither defines those as closed set-valued selectors nor expands them into the per-filesystem profiles its G22 matrix requires.",
+        "The recorded file-04, file-08, and COORD sources contain none of APFS, HFS+, ext4, or XFS. D-002 chooses only OS family/architecture and the G22 row says supported filesystem without selecting one, so the four concrete filesystem names are an unwarranted platform-support choice while the required OS/build choice is paradoxically absent.",
+        "memberPopulation reserves concrete dependency members, not missing platform-key fields. No owner or later artifact is named for choosing the supported OS/build selector, so qualification would have to complete the key as an unreviewed policy decision."
+      ],
+      "impact": "No complete active profile exists to key an allowlist entry or drive the G22 matrix. Entries can be frozen against non-identical OS builds or filesystem choices while claiming the same profile, and unsupported/supported filesystems are selected without authority, so the central platform-scoping repair is not executable.",
+      "requiredRepair": "Define a closed platform-profile selector grammar and make every profile carry all required key members before its allowlist is frozen. Route concrete filesystem and version/build support choices to a named, independently reviewed platform packet; then split alternatives into distinct profiles or define a canonical set-valued selector with mandatory per-member matrix expansion. Until that packet exists, label these as incomplete non-selectable templates and do not populate package rows here."
+    },
+    {
+      "id": "PTCB-V2-B2",
+      "severity": "BLOCKER",
+      "title": "identityEvidence still leaves the security comparison to population-time prose",
+      "location": "/identityRuleShape/identityEvidence; /identityRuleShape/sameMeans; /identityRuleShape/drift",
+      "evidence": [
+        "The entry shape contains an opaque identityEvidence value. The identityEvidence object in the contract is a prose menu, not a tagged union, and no taxonomy class is mapped to a required evidence form. sameMeans nevertheless invokes a class-specific rule that is defined nowhere.",
+        "namespacesAndSelectors supplies no selector grammar or exact-versus-range semantics. resolvedObjectOrPlatformAuthenticatedBuild lists codesign, package db, and soname+ABI together but states no verification that the actual resolved object is covered by a trusted signature/package record; a copied label can therefore be the compared evidence under one conforming population packet.",
+        "For collections, any merely named digest algorithm is allowed at population time. There is no collision-resistance requirement, algorithm identifier grammar, canonical member encoding/order, duplicate rule, or closed root construction."
+      ],
+      "impact": "Two packets can lawfully choose incompatible identity notions, including label-only or weak-digest comparisons. Same-name object substitution and collection drift can therefore compare equal under the claimed exact match, so the prior identity blocker is not repaired.",
+      "requiredRepair": "Define a closed tagged identity-evidence union and map every taxonomy class to permitted/required evidence forms. Require verification of the actual resolved object through a trusted platform attestation or an approved collision-resistant digest; define algorithm identifiers and canonical collection membership/root semantics; define selector exactness/range rules; and fail closed on an unsupported or unobservable form. Concrete per-OS values may remain deferred."
+    },
+    {
+      "id": "PTCB-V2-B3",
+      "severity": "BLOCKER",
+      "title": "The ordered allow predicate depends on an entry field that does not exist",
+      "location": "/identityRuleShape/declared; /resolutionPredicate/order; /resolutionPredicate/declaredVersusAmbient",
+      "evidence": [
+        "Every entry is shaped only as {platformProfileKey, class, identityEvidence}, but resolutionPredicate requires the declared origin/search policy 'for that entry'. No origin/search field, reference, or default rule binds such a policy to an entry.",
+        "NT-TCB-2 must distinguish a declared route from an alternate route, but there is no signed declared route to mutate. identityEvidence's canonical name/selector is not an origin or ordered loader/search policy.",
+        "Resolution step one selects an active qualified platformProfile, while memberPopulation says the frozen profile/table must be exercised by G22 before G22 can qualify it. The text does not distinguish the candidate profile under qualification from an already-qualified runtime profile."
+      ],
+      "impact": "Alternate versus declared search remains uncomputable, and qualification has a circular profile-selection precondition. Different harnesses can invent different signed-route fields or skip the predicate before qualification.",
+      "requiredRepair": "Add a closed origin/search-policy field or referenced policy to the signed entry shape, including canonical origin, allowed loader/search order, environment influence, and class-appropriate tool/data lookup rules. Define NT-TCB-2 against that field. Split the state machine explicitly: G22 exercises a frozen candidate profile; only a passing result makes it qualified for runtime selection."
+    },
+    {
+      "id": "PTCB-V2-B4",
+      "severity": "BLOCKER",
+      "title": "The G22 matrix has an explicit coverage escape and no way to prove that a trace is complete",
+      "location": "/loaderTraces/observationBoundary; /loaderTraces/evidenceJoin; /negativeTests; /g22/testMatrix",
+      "evidence": [
+        "NT-TCB-1 quantifies only over taxonomy classes 'that the harness can substitute'. Harness capability, rather than the contract, can therefore remove a required class. The live G22 row expressly calls for negative undeclared libc/framework/cert/font/ICU/tool resolution.",
+        "g22.testMatrix crosses each of four NT labels, not each applicable taxonomy class and mutation. NT-TCB-2 and NT-TCB-3 can each be demonstrated on one convenient class while origin or identity drift remains untested on the others; no explicit inapplicability proof is required.",
+        "observationBoundary names late loads, descendants/tools, and non-loader accesses, and evidenceJoin says partial traces fail, but no retained event types, capture-completeness sentinel/probe, per-boundary mutation, or trace-to-subject/profile/table/run binding makes an omitted event detectable.",
+        "The live G22 threshold is pass all declared platforms or remove platform support. The candidate does not carry that rule."
+      ],
+      "impact": "A harness can declare a difficult cert/font/ICU/tool substitution unsupported, capture only main-process loader events, and still satisfy every stated passProperty. Retention is shown, but full closure is not, so ambient dependencies can remain invisible.",
+      "requiredRepair": "Remove the harness-capability quantifier. For every profile and taxonomy class, require the applicable undeclared, identity-drift, and alternate-route mutations or an explicit proof that the class is absent/inapplicable; inability to observe or substitute is a qualification failure or platform-removal path. Define retained event schemas and completeness probes for every observation-boundary member, bind the trace to the signed subject/profile/table/run, and carry the pass-all-declared-platforms-or-remove-support rule."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V2-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The carrier join still names two rows without one carrier or binding point",
+      "location": "/tcbCarrier",
+      "evidence": "owningRowForSignedClosureInventoryCarrier gives 'DR-101 / DR-103 signed closure inventory' but identifies no artifact, field, reference edge, or division of responsibility between inventory encoding and signature binding. DR-101 is live OPEN, and the subject itself acknowledges that no carrier exists; naming two adjacent rows does not make the eventual join deterministic.",
+      "impact": "A successor can add the table to either schema, or create two non-identical copies, while each claims the other row owns the binding. The honest dependencyIfCarrierAbsent prevents premature qualification but does not repair the integration contract.",
+      "requiredRepair": "Name one authoritative inventory carrier and its exact future binding point or reference relation, then route signature ceremony separately to its actual owner. If the field does not yet exist, state the precise owning row/artifact dependency and one-copy consistency rule without inventing the field here."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening custody, parse, and HEAD",
+      "result": "PASS",
+      "evidence": "Python hashlib(Path.read_bytes()) measured c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8; mode was 0444; strict duplicate-key-rejecting JSON parse passed; git HEAD was 9b06a2fe6a7459d1757e56608412135fcfa30a56."
+    },
+    {
+      "id": "M-02",
+      "check": "Predecessor and prior-review custody",
+      "result": "PASS",
+      "evidence": "v1 reproduced at 89913fd8... and the frozen Codex v1 REJECT reproduced at e83b3188.... The frozen Claude v1 artifact reproduced at the subject's cited 2dd94367... without reading the current v2 reviewer."
+    },
+    {
+      "id": "M-03",
+      "check": "Live source and remeasurement custody",
+      "result": "PASS",
+      "evidence": "File 04 measured a74b4511..., file 08 measured 1cdcf9d4..., and COORD measured the asserted live a28f7a23... at HEAD. File-04 lines 161-166 and the unique live DR-126 row at line 308 match the carried bytes exactly. The inherited COORD pin 12d192f7... reproduces at commit 2327cf89106e3c58a317bf8b570697f3505dbbb8; its D-002 and D-006 segment hashes 8e19549a... and 9532e913... are byte-identical live."
+    },
+    {
+      "id": "M-04",
+      "check": "Closed v1-to-v2 path",
+      "result": "PASS",
+      "evidence": "A recursive semantic diff found 38 changed leaves. Every changed leaf is under a root expressly listed in basedOn.method; reviewGuidance changes are append-only and no unrostered v1 path changed."
+    },
+    {
+      "id": "M-05",
+      "check": "Complete platform-profile keys",
+      "result": "FAIL",
+      "evidence": "Mechanical key-set comparison found supportedVersionOrBuildSelector missing from slice1Profiles[0], [1], [2], and [3]; all four filesystem values remain qualification-time A-or-B placeholders. See PTCB-V2-B1."
+    },
+    {
+      "id": "M-06",
+      "check": "Deterministic identity and resolution schema",
+      "result": "FAIL",
+      "evidence": "The entry shape has only platformProfileKey/class/identityEvidence, while the allow predicate requires an absent per-entry origin/search policy. identityEvidence has no tagged alternatives, closed class mapping, approved digest rule, or actual-object verification contract. See PTCB-V2-B2 and PTCB-V2-B3."
+    },
+    {
+      "id": "M-07",
+      "check": "Full G22 trace/test closure",
+      "result": "FAIL",
+      "evidence": "NT-TCB-1 contains the literal escape 'that the harness can substitute'; the matrix is profile/filesystem by four NT labels, not class-specific mutations; no completeness probe or trace binding is defined. See PTCB-V2-B4."
+    },
+    {
+      "id": "M-08",
+      "check": "Signed-carrier join",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "tcbCarrier names DR-101 / DR-103 jointly but no authoritative artifact/field/reference or one-copy rule. dependencyIfCarrierAbsent correctly blocks G22, limiting this to PTCB-V2-S1 rather than a separate qualification-authority blocker."
+    },
+    {
+      "id": "M-09",
+      "check": "Concurrent HEAD movement and closing custody",
+      "result": "PASS-NO-SCOPE-EFFECT",
+      "evidence": "The review opened at required HEAD 9b06a2fe6a7459d1757e56608412135fcfa30a56. Before completion, HEAD advanced once to 9af5060f9edccf0a6dfeba551c2feb6fd1419746 for append-only D-108/DR-120 recording. The diff adds 49 terminal COORD lines plus D-108/component-packaging artifacts; it changes none of DR-126, D-002, D-006, D-096, file 04, file 08, v1, or the subject and expressly grants no D-096 (A). Closing Python hashlib remeasured the subject at c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8 with mode 0444."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "Allowlist with no platformProfile key",
+      "result": "DEFECT-SUSTAINED",
+      "evidence": "The entry shape now names platformProfileKey, but every supplied profile lacks one required key member and carries an unresolved filesystem alternative. There is no complete profile to reference. See PTCB-V2-B1."
+    },
+    {
+      "id": "A-02",
+      "attack": "Name plus unconstrained version-or-digest as identity",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "The literal v1 versionOrDigest field is gone and unconstrained version strings are rejected in prose. However class-specific rules remain undefined, selectors remain ungrammatical, label-only package-db/soname evidence is possible, and any named digest algorithm is permitted. See PTCB-V2-B2."
+    },
+    {
+      "id": "A-03",
+      "attack": "Missing declared-versus-ambient predicate",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "Ambient is now defined and the decision order is explicit, but the predicate's required declared origin/search policy is absent from the signed entry shape and profile selection is circular during qualification. See PTCB-V2-B3."
+    },
+    {
+      "id": "A-04",
+      "attack": "Traces cannot prove full closure",
+      "result": "DEFECT-SUSTAINED",
+      "evidence": "The boundary is named but completeness is not observable; the harness may skip any class it cannot substitute and the matrix does not quantify mutations per class. See PTCB-V2-B4."
+    },
+    {
+      "id": "A-05",
+      "attack": "Silent v1-to-v2 path",
+      "result": "REFUTED",
+      "evidence": "All 38 recursively changed leaves are within the closed basedOn.method roster, and the review-guidance edit is append-only. v1 is not retargeted."
+    },
+    {
+      "id": "A-06",
+      "attack": "SATISFIED, QUALIFIED, D-096 (A), application, sealing, or implementation authorization",
+      "result": "REFUTED",
+      "evidence": "The subject is CANDIDATE-NOT-APPLIED, binds NOTHING, says DO-NOT-SEAL, keeps DR-126 OPEN, blocks G22 when the carrier is absent, denies QUALIFIED/SATISFIED and implementation authority, and contains no D-096 grant. This review grants none."
+    },
+    {
+      "id": "A-07",
+      "attack": "Per-OS members are populated or D-006/DR-G07 ownership is changed",
+      "result": "REFUTED",
+      "evidence": "No concrete member table or D-006 numeral is supplied. Extraction, symlink, TOCTOU, and spawn-binding mechanics remain expressly outside this artifact; observing a spawn route does not itself define DR-G07's binding mechanism."
+    }
+  ],
+  "findingCounts": {
+    "blockers": 4,
+    "shouldFix": 1,
+    "advisories": 0
+  },
+  "verdictBasis": "REJECT: 4 blockers and 1 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT at the frozen subject digest. The successor has a closed v1-to-v2 path and adds the intended profile, identity, ambient, observation, and carrier sections, but the supplied profiles are incomplete and partly unauthorized, identity evidence remains population-defined, the allow predicate references an absent origin/search field and is circular at qualification, trace/test coverage remains skippable, and the carrier join is still ambiguous.",
+  "coordinatorSummary": "Issue a successor with complete non-selectable-until-frozen platform profiles; a closed tagged identity-evidence policy; an entry-bound origin/search policy and candidate-to-qualified state transition; non-skippable class-by-class G22 completeness probes; and one precise signed-carrier join. Preserve the closed v1 path and all non-authority boundaries. This verdict does not mint D-096 (A).",
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "d096AGrantMinted": false,
+    "perOsTablesPopulated": false,
+    "implementationAuthorized": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "committed": false
+  }
+}

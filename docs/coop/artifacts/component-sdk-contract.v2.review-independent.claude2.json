@@ -1,0 +1,179 @@
+{
+  "verdict": "REJECT",
+  "reviewStatus": "COMPLETE",
+  "blockers": [
+    {
+      "id": "CLAUDE-V2-B1",
+      "severity": "BLOCKER",
+      "title": "noFanoutWhen grants the control plane a translation exception at exactly the point the cited source forbids it, contradicting two adjacent fields",
+      "site": "$.t1CancellationComposition.composition.noFanoutWhen",
+      "text": "'Provider-only in-band Cancel that is not a host cancellation event. Control plane does not translate it into supervision meaning except under the owning J-1 join.'",
+      "defect": "The trailing clause 'except under the owning J-1 join' carves out a case in which the control plane MAY translate provider meaning into supervision meaning. No source grants that, and three texts refuse it - including two inside this same artifact.",
+      "measurement": {
+        "file 02 lines 171-173 (source, verbatim)": "the control plane may decide supervision/fate only under the owning contract and cannot translate provider meaning to resolve a race.",
+        "scopeCollision": "The source prohibition is scoped precisely TO RESOLVING A RACE. CPC v2's J-1 IS the race join (race: 'cancellation versus result'). The exception is therefore carved exactly where the prohibition bites, not at its margin.",
+        "CPC v2 J-1 rule ends": "'The owning contract then decides what a result-after-cancel or cancel-after-result IS.' - meaning assignment belongs to the owning contract, never to the control plane.",
+        "CPC v2 ID-DEP-2": "'RF-1..RF-8 and the J-1..J-5 orderings bind ORDERING and refusal-class identity only.'",
+        "selfContradiction1": "$.t1CancellationComposition.composition.mustNot (same JSON object): 'The control plane cannot translate provider meaning to resolve a race ... That is the source must-not.' Stated correctly, then excepted four fields later.",
+        "selfContradiction2": "$.t1CancellationComposition.join: 'J-1 binds ordering only.' An ordering-only join cannot host a meaning-translation exception."
+      },
+      "secondDefectSameClause": "The clause also presupposes an unobservable premise. It directs control-plane behaviour upon 'provider-only in-band Cancel', but under CPC v2's opacity rule the control plane cannot identify any provider frame: content is invisible, and 'The control plane has no concept of a provider duplicate: recognizing one would require reading content.' Recognizing a provider Cancel is the same forbidden read.",
+      "whyBlocker": "This is not imprecision - it is an affirmative grant of the exact authority the artifact was rewritten to disclaim. v1 was rejected partly for over-claiming on the must-not; v2 sources the must-not correctly and then reintroduces the escape as an exception clause. Left standing, it licenses the control plane to assign supervision meaning to provider frames during a race, which is the core prohibition of the DR-102/DR-127 demarcation and an 'authority escape' under DR-125's own acceptance cell.",
+      "fix": "Delete 'except under the owning J-1 join'. If the intent was that J-1 still ORDERS the events, say that explicitly: 'J-1 appends both events to the merged order; the owning contract alone assigns meaning.' That states the ordering fact without granting translation."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V2-SF1",
+      "severity": "SHOULD-FIX",
+      "title": "A required dual-carrier fanout trigger rests on an invented term and misdescribes the applied provider contract",
+      "site": "$.t1CancellationComposition.composition.dualCarrierFanoutRequiredWhen[2]",
+      "text": "'host-observed process death that the applied provider contract treats as cancellation-equivalent'",
+      "measurement": {
+        "corpusSearch": "'cancellation-equivalent' occurs in exactly ONE file in docs/: component-sdk-contract.v2.json itself. Zero occurrences in CPC v2, file 02, file 08, delivery.v2/v4, or COORDINATOR-DECISIONS.md. The term has no source referent.",
+        "applied contract CancelV1.reason": "closed enum 'user-interrupt|host-shutdown' - process death is not a member, so no valid CancelV1 can even be constructed for this trigger.",
+        "applied contract cancelTransition": "'Cancel may be sent once from any NONTERMINAL state; only Cancelled may follow, after which EOF is required.' A dead process is terminal, so the transition is barred by the contract's own state rule, not merely by physics.",
+        "applied contract userCancellation": "'On SIGINT/SIGTERM before finalization, send Cancel once, close the request side, allow the host's bounded cleanup grace, then terminate the child if needed.' Cancel PRECEDES termination; the artifact's item inverts that order.",
+        "CPC v2 teardown ladder": "process death is T-5 ('reap and final death event') - the terminus of teardown, not a cancellation initiator."
+      },
+      "defect": "The item sits in a list of conditions where fanout is REQUIRED, and $.composition.fanout asserts 'Both happen.' For this trigger both cannot happen: no applied provider contract treats death as cancellation-equivalent, and none could accept the frame if it did. The 'IFF ... live in-band Cancel transition' guard in the fanout rule silently evaluates false here, leaving a normative REQUIRED entry that produces no composition - the opposite of the composed-transition repair this section was written to deliver.",
+      "note": "Filed as SHOULD-FIX rather than BLOCKER because the IFF guard prevents an implementer from actually emitting the forbidden frame. If the coordinator reads the REQUIRED list as normative on its own, it rises to a blocker.",
+      "fix": "Drop the item, or restate it as what the sources support: on host-observed process death the control plane appends the death boundary event and runs the teardown ladder; no in-band Cancel is sent because the provider transition is unavailable from a terminal state."
+    }
+  ],
+  "observations": [
+    {
+      "id": "O-1",
+      "title": "reMeasurementAtV2 was honest; the drift is the repo, not the artifact",
+      "detail": "Live COORDINATOR-DECISIONS.md is c8933f74..., while the subject records a28f7a23.... Verified `git show 9b06a2f:` reproduces a28f7a23... EXACTLY at the subject's stated HEAD, 230965 bytes. HEAD then advanced one commit (9af5060, D-108). The re-measurement repair is genuine. Recorded so the coordinator sees the mismatch was reconciled, not missed."
+    },
+    {
+      "id": "O-2",
+      "title": "'inject' and 'author' persist as control-plane verbs, but are no longer attributed to file 02",
+      "detail": "$.t1CancellationComposition.split.providerInBandCancel still reads 'MUST NOT inject, wrap, translate, or author that Cancel frame.' Neither 'inject' nor 'author' is a file-02 verb. This is now stated as the artifact's own stricter derived rule, and $.composition.mustNot explicitly disclaims inventing a broader file-02 list, so the v1 SF-1 defect is repaired. A stricter prohibition on the control plane contradicts nothing. Noted only so the coordinator sees the verbs were checked."
+    },
+    {
+      "id": "O-3",
+      "title": "SF-3's 'namespaced' still sourced from an unpinned file",
+      "detail": "Carried unchanged from v1. 'namespaced' comes from file 03 line 31 ('namespaced and schema-closed'); file 03 is still absent from recordedInputs.governingSources. standardizedFamilies is off the v2 repair roster, so this was correctly not touched. Faithful restatement, not a mint; pin file 03 whenever that block is next opened."
+    }
+  ],
+  "artifact": "component-sdk-contract.v2.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-sdk-contract.v2.json",
+  "registerRow": "DR-125",
+  "role": "independent; refute not confirm; authored neither v1 nor v2",
+  "reviewer": "Claude 2",
+  "date": "2026-08-15",
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat/stat.S_IMODE",
+  "custody": {
+    "subjectSha256Expected": "e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0",
+    "subjectSha256AtStart": "e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0",
+    "subjectSha256AtEnd": "e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0",
+    "subjectMode": "0o444",
+    "subjectBytes": 13205,
+    "subjectMoved": false,
+    "matchesDispatch": true,
+    "subjectModeAtEnd": "0o444",
+    "unmovedThroughout": true,
+    "predecessorV1AtEnd": "d937c1180492420ba54efd77640f98b51bc8dae1159d47c023530567ffd2cb22",
+    "predecessorUnmoved": true
+  },
+  "recordedInputs": [
+    {
+      "path": "docs/coop/artifacts/component-sdk-contract.v2.json",
+      "sha256": "e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0",
+      "bytes": 13205,
+      "mode": "0o444",
+      "role": "subject; matches dispatch digest and mode"
+    },
+    {
+      "path": "docs/coop/artifacts/component-sdk-contract.v1.json",
+      "sha256": "d937c1180492420ba54efd77640f98b51bc8dae1159d47c023530567ffd2cb22",
+      "bytes": 8817,
+      "mode": "0o444",
+      "role": "predecessor; frozen, matches dispatch d937c118; confirms 'does not retarget v1'"
+    },
+    {
+      "path": "docs/coop/artifacts/component-sdk-contract.v1.review-independent.claude2.json",
+      "sha256": "1f5afe630b001a3e16cef5984d808409431b0c54777c9ca4f1b04966b141a938",
+      "bytes": 15503,
+      "mode": "0o444",
+      "role": "my own v1 REJECT; matches dispatch 1f5afe63 and the subject's appliesFindingsOf pin"
+    },
+    {
+      "path": "docs/v2/architecture/08-decision-and-readiness-register.md",
+      "sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+      "bytes": 97483,
+      "mode": "0o644",
+      "role": "live file 08; DR-125 row-verbatim; DR-127 / DR-122 / DR-108 / DR-114 / DR-007 / DR-G20 checks"
+    },
+    {
+      "path": "docs/v2/architecture/02-distribution-and-components.md",
+      "sha256": "1811c682cf293e1e0b255be82c62f7ed3c439f0873eb7922bfb0ad965b43f7db",
+      "bytes": 18210,
+      "mode": "0o644",
+      "role": "live file 02; lines 175-193 carry; lines 171-173 no-translation rule"
+    },
+    {
+      "path": "docs/coop/artifacts/control-protocol-contract.v2.json",
+      "sha256": "c50a79fef566ecccbd8913a3d309b0cf7332f7d77f892474a548ef3d7b4ebdca",
+      "bytes": 80533,
+      "mode": "0o644",
+      "role": "CPC v2; T-1 tension, J-1 rule, ID-DEP-2, opacity"
+    },
+    {
+      "path": "docs/coop/artifacts/delivery.v2.json",
+      "sha256": "47b6cfd17338fafd407c554afe1951ab23d2896aac99bcfd272fc0894e3cabf3",
+      "bytes": 143995,
+      "mode": "0o644",
+      "role": "applied provider contract holding the in-band Cancel frame; CancelV1 + cancelTransition"
+    },
+    {
+      "path": "docs/coop/COORDINATOR-DECISIONS.md",
+      "sha256": "c8933f7432e01c5a3584d83cd9e14080590ecdd9a093ffdd42748bf28228eb19",
+      "bytes": 233309,
+      "mode": "0o644",
+      "role": "live decisions at review time (HEAD advanced past the subject's re-measurement)"
+    }
+  ],
+  "environmentAtStart": {
+    "gitHead": "9af5060f9edccf0a6dfeba551c2feb6fd1419746",
+    "headSubject": "D-108: record component-packaging-contract.v14 as DR-120 candidate",
+    "headClaimedByDispatchAndSubject": "9b06a2fe6a7459d1757e56608412135fcfa30a56",
+    "headMatchesClaim": false,
+    "reconciliation": "HEAD advanced by exactly one commit (9af5060 D-108, DR-120 packaging candidate) after the subject was authored. Verified the subject's reMeasurementAtV2 was EXACT at its stated HEAD 9b06a2f. Diff 8fdd59c..HEAD adds zero lines touching DR-125 / DR-122 / SARIF, so no carried claim is disturbed. Not a finding."
+  },
+  "isolation": {
+    "barredFiles": [
+      "docs/coop/artifacts/component-sdk-contract.v2.review-independent.codex.json",
+      "docs/coop/artifacts/component-sdk-contract.v1.review-independent.codex.json"
+    ],
+    "read": false,
+    "note": "Operator instruction 'Do not read Codex' taken at its broader scope: no Codex reviewer file was opened, v1 or v2. Consequence recorded at limitsOfThisReview."
+  },
+  "priorInvolvementDisclosure": "I authored the independent Claude 2 review of v1 (REJECT; 1f5afe63...). I did NOT author v1 or v2 themselves. Because v2 claims to repair my own findings, I re-derived every repair from primary sources rather than from my prior text, and I attacked the repairs as new material. The two findings below are NEW defects introduced by the v2 repair work, not restatements of my v1 findings.",
+  "notes": "Findings written after analysis. Custody re-measured at end.",
+  "verifiedClean": [
+    "Custody: subject reproduces at e191b7eb...d16b0, mode 0444, 13205 bytes, unmoved start to end.",
+    "Predecessor untouched: v1 still d937c118... at mode 0444, so 'Does not retarget component-sdk-contract.v1.json' holds.",
+    "Row-verbatim: byte-exact against live file 08 line 307; exactly one '| DR-125 |' row; sourceSha256 1cdcf9d4... matches live (and is unchanged by D-107/D-108).",
+    "File 02 carry: all 19 lines byte-exact against live lines 175-193; sourceSha256 1811c682... matches live.",
+    "All other pins match live: CPC v2 c50a79fe..., file 02, file 08. COORD pin is correctly labelled INHERITED-V1-AUTHORING-PIN with live re-measurement supplied.",
+    "CLAUDE-V1-B1 REPAIRED: zero surviving claims that D-015 routed anything to DR-125. Every D-015 mention now either denies the routing or states the true fact (D-015 adopted CPC v2, which REPORTED T-1). Independently re-verified: 'T-1' occurs 0 times in COORDINATOR-DECISIONS.md; D-015's 45 lines mention DR-125/cancellation 0 times.",
+    "CLAUDE-V1-B2 REPAIRED: 'named owner of the composition decision' is gone; standing is 'PROPOSED composition'; the keys carrying the self-grant ($.t1CancellationComposition.decision and .whyThisIsRuleGoverned) are deleted; alternativesRejected now rejects the claim that D-015 decided it. Proposing a composition for coordinator disposition is what a T2-02 candidate is for.",
+    "CLAUDE-V1-SF-1 REPAIRED: the cited must-not is now file 02's actual text ('cannot translate provider meaning to resolve a race'), matching lines 171-173 word for word, correctly attributed to the DR-127 / CPC demarcation. (Then excepted - see CLAUDE-V2-B1.)",
+    "provenance claim verified true on both limbs: D-015 did adopt CPC v2 which reported T-1, and the live DR-125 acceptance cell does name cancellation integration.",
+    "Closed roster HOLDS - no silent v1-to-v2 path. Structural diff: every changed key (artifact, version, date, purpose, recordedInputs, reviewGuidance, t1CancellationComposition, whatThisDoesNotDo) and every new key (basedOn, appliesFindingsOf, honestyRepairsFromV1, reMeasurementAtV2) is on the declared roster. Fourteen off-roster keys are byte-identical to v1. reviewGuidance is a PURE APPEND (first 5 items identical, 6 added); whatThisDoesNotDo removed nothing and added 2.",
+    "appliesFindingsOf pins my v1 review at 1f5afe63..., which reproduces exactly, and describes its verdict/finding ids correctly; the id-collision rename to CLAUDE-V1-* is disclosed.",
+    "No SDK API or framework chosen; 'exact SDK APIs and frameworks' reserved; g20.doesNotClaim QUALIFIED.",
+    "No SATISFIED / QUALIFIED / implementation authorization: status CANDIDATE-NOT-APPLIED, binds NOTHING, DO-NOT-SEAL, and whatThisDoesNotDo covers all of it.",
+    "No D9/exit mint: SF-5 defers to DR-007 (file 08 line 40); reserved list repeats it.",
+    "Carried cross-row citations re-verified against live sources: DR-122 SARIF preview 'none advertised' (sarif-projection-contract.v5, registerRow DR-122), DR-108 '(deferred)', DR-105 argument-vector reservation, DR-114 doctor, DR-G20 harness id / NAMED-NOT-AUTHORED (file 08 line 354), DR-127 carrying the control/data race demarcation. D-107 and D-108 add zero lines touching DR-125 / DR-122 / SARIF."
+  ],
+  "limitsOfThisReview": [
+    "Per the operator instruction not to read Codex, I did not open either Codex reviewer file. I therefore cannot verify that CODEX-V1-B1 and CODEX-V1-S1 are correctly characterised or fully folded, nor that appliesFindingsOf.notFoldedThisSuccessor == [] is complete with respect to Codex's findings. I assessed the v2 text directly against primary sources instead. The coordinator should confirm the Codex limb separately.",
+    "CLAUDE-V2-B1 lands inside the very clause added to satisfy the Codex composition finding, so the Codex limb may warrant re-checking against this blocker."
+  ],
+  "verdictBasis": "1 blocker, 1 SHOULD-FIX. ACCEPT requires 0 and 0.",
+  "summary": "v2's honesty repairs are real and independently verified. The D-015 routing claim is gone in every site, the self-granted disposition is downgraded to a PROPOSED composition with the two offending keys deleted, the must-not is now quoted from file 02 word for word, the COORD pin is labelled inherited with an honest live re-measurement (exact at its stated HEAD), and the closed roster holds with no silent v1-to-v2 drift. All three of my v1 findings are repaired. The failure is new, and it is in the repair itself: the dual-carrier composition added for the Codex finding ends with 'except under the owning J-1 join', granting the control plane permission to translate provider meaning into supervision meaning at precisely the race point file 02 forbids - contradicting the artifact's own mustNot and join fields, and presupposing a provider frame the opacity rule forbids it to recognize. A second, softer defect names a required fanout trigger on an invented term ('cancellation-equivalent', found nowhere else in the corpus) that the applied provider contract's closed reason enum and nonterminal-state rule both refuse. Both are narrow and fixable by deletion; neither touches the carried text, which remains impeccable."
+}

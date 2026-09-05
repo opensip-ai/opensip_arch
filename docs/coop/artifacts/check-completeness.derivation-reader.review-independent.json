@@ -1,0 +1,219 @@
+{
+  "artifact": "check-completeness.derivation-reader.review-independent.json",
+  "version": 1,
+  "date": "2026-08-04",
+  "reviewer": "independent adversarial reviewer (did not author the instrument under review)",
+  "subject": "artifacts/check-completeness.py @ 6c52a5f9a4ac6a3ec3dae9fb0c87e82552744b18eb8cc38d1c4522ade3e549d6 -- the derivation-aware contract-shape reader (CMP-IR-01, second half)",
+
+  "verdict": "NO BLOCKING FINDING. The movement is earned and it is the only movement. Contract shape 10/13 -> 11/13 and seal-ready 8/13 -> 9/13 are both attributable to C-2 alone. I independently recomputed the predecessor digest, independently re-materialised the effective contract with a resolver of my own that shares no code with either the instrument or check-c2-v9.py, and got a canonical-JSON document byte-identical to both of theirs. C-2's effective contract genuinely carries a real serialised schema and 113 real goldens. No other surface moved, and I could not make one move without fabricating a declaration into the artifact itself. The instrument fails closed on every precondition I broke. The one place the author overstates is the strength of its own selftest, not the strength of its result.",
+
+  "theOneQuestion": {
+    "didAnyScoreMoveThatShouldNotHave": "NO.",
+    "howEstablished": "I reconstructed the verbatim pre-change predicate (score the binding artifact's own top-level key names with the same SCHEMA_RE/GOLDEN_RE) as a standalone program that does not import the instrument, and ran it against all 13 surfaces. It agreed with the instrument's reported ownScore on all 13, and agreed on the sub-facts (schema boolean and golden count), not merely on the totals. Exactly one final score differs: C-2, 2/4 -> 4/4.",
+    "isTheMovedOneEarned": "YES -- and by a materially higher standard than the 12 surfaces scored by name."
+  },
+
+  "blockers": [],
+  "blockerCount": 0,
+
+  "claimAdjudications": [
+    {
+      "claim": "1. The movement is earned",
+      "ruling": "UPHELD, verified independently on every bullet.",
+      "evidence": [
+        "Predecessor digest RECOMPUTED from disk: artifacts/c2-plan-stage-schema.v4.json = 4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39, equal to the declared value. Measured three times across the session; it did not move.",
+        "The bytes hashed ARE the bytes parsed. load_bytes() returns a single bytes object; resolve_derivation calls hashlib.sha256(raw) at line 301 and json.loads(raw) at line 308 on that same object. There is no re-read between verification and use, so no TOCTOU window exists inside the reader.",
+        "The 13 operations change exactly five top-level keys -- checkerModeContract, hostileScalarLeafTotality, planIntent, supersedes, version -- measured by walking each declared path with my own parser and collecting steps[0]. stageSchemas is NOT among them and no fixture array is among them. I also confirmed positively that the effective document's stageSchemas is deep-equal to the predecessor's, so it is untouched in fact and not merely un-named.",
+        "stageSchemas is a real serialised contract schema, not a regex hit: it carries `why`, a `common` block (required [kind, stageId], optional [dependsOn, budget]), four closed stage kinds -- fact-derivation, policy-evaluation, probe, rule-evaluation -- and a `privateOperators` prohibition list naming six operators with a MUST NOT appear rule. Every one of the four kinds carries `required`, `optional` and an `effectClass`.",
+        "Goldens are 113 across exactly five arrays and every stated split is exact: planIntentFixtures 42 (7 valid / 35 invalid), intentBindingFixtures 22 (1/21), storedViewBindingFixtures 13 (2/11), planFixtures 14 (4/10), coverageFixtures 22 (3/19). 42+22+13+14+22 = 113. Zero fixtures lacked a `valid` field.",
+        "Exactly one key in the effective contract matches SCHEMA_RE with a dict value (stageSchemas), so the schema point is carried by one real section and not by an accidental plural of matches."
+      ],
+      "correctionToTheBrief": "The brief describes the four kinds as carrying `required`/`optional`/`forbidden` and an `effectClass`. Measured: all four carry `required`, `optional` and `effectClass`; only two of the four (policy-evaluation, rule-evaluation) carry `forbidden`. This does not weaken the finding -- a `forbidden` list is not what makes a schema -- but the characterisation is 2/4, not 4/4."
+    },
+    {
+      "claim": "2. Exactly one surface moved",
+      "ruling": "UPHELD, reproduced.",
+      "evidence": [
+        "Pre-change predicate vs new ownScore: agreement on 13/13, including sub-facts.",
+        "Final score: C-2 alone differs (2/4 -> 4/4). contract shape OLD 10/13, NEW 11/13.",
+        "Seal readiness recomputed per surface as (review.ready AND shape==4): OLD 8/13, NEW 9/13. Only C-2's seal-ready flag flipped. C-2's review.ready was already True BEFORE the change (0 open findings, empty sealBlockers, no DO-NOT-SEAL adjudication), so the shape point was the sole gate, exactly as the freeze's CMP-IR-01 row predicted it would be.",
+        "Second-surface attempt: I fabricated a derivation declaration into private copies of the two non-4/4 surfaces. TRUSTED-REQUEST-CONTEXT went 2/4 -> 4/4 and RUST-PROVIDER-PROTOCOL 3/4 -> 4/4. This requires EDITING THE BINDING ARTIFACT to assert a derivation that does not exist. It is not reachable from the corpus as it stands, and it is strictly harder than forging the pre-existing name predicate -- see nonBlockingObservations NB-05."
+      ]
+    },
+    {
+      "claim": "3. Detection is structural, not name-based",
+      "ruling": "UPHELD. Sweep verified; I could construct a false positive in DETECTION but not one that manufactures a point.",
+      "evidence": [
+        "I re-ran the sweep myself over every JSON document under artifacts/ (rglob). It fires on exactly five documents -- c2-plan-stage-schema.v5/v6/v7/v8/v9.json -- each declaring c2-plan-stage-schema.v4.json at 487628479046..., 13 operations. Zero detection errors, zero near-misses (no document anywhere carries an operation list in a block that fails to resolve to a declaration).",
+        "Renaming the declaration key is genuinely survived: the selftest's `renamed-declaration` case (key `materialisedFrom`) resolves identically, and I confirmed the detector reads only value shapes.",
+        "FALSE POSITIVE FOUND, in detection only: an artifact carrying an RFC-6902 JSON Patch block -- which uses exactly the member names `op` and `path` -- alongside one .json filename and one sha256 in the same object satisfies declaration_fields(). I built one. It fires. See NB-03 for why this is the correct design anyway."
+      ],
+      "sweepCountDiscrepancy": "The instrument's comment and the brief say 371 artifact JSON documents. I measured 372 (all at the top level of artifacts/; rglob and glob agree). Attributable to the live tree -- other agents added a file between the author's measurement and mine. The conclusion (fires on exactly the five C-2 deltas) is unaffected."
+    },
+    {
+      "claim": "4. It fails closed",
+      "ruling": "UPHELD on every precondition I could break.",
+      "evidence": [
+        "missing predecessor -> finding 'declared predecessor is absent', source own-keys/DERIVATION-UNRESOLVED, score == ownScore, schema False, goldens 0.",
+        "digest mismatch -> finding naming both declared and measured digests; no fallback.",
+        "inapplicable operation (a `from` that lies about the predecessor) -> finding quoting both values AND both types; no fallback.",
+        "unknown verb -> finding naming the declared verb set.",
+        "predecessor is not JSON -> finding.",
+        "predecessor is valid JSON but not an object (a bare array) -> finding, no crash.",
+        "`set` carrying no `from` -> finding, no crash (I checked specifically for an unhandled KeyError here; there is none).",
+        "partial declaration (one block, two .json filenames) -> finding, and this exercises the declaration_fields error branch.",
+        "negative list index `arr[-1]` -> refused.",
+        "In no failure mode did the score exceed ownScore. Failure is always toward understatement, never toward a manufactured point."
+      ]
+    },
+    {
+      "claim": "5. Cross-validation against check-c2-v9.py's apply_derivation",
+      "ruling": "UPHELD, and strengthened beyond what the author offered.",
+      "evidence": [
+        "Three-way canonical-JSON comparison, all byte-identical at sha256 d5eab95c0678968f434c46573d757679452ff18fc6df08ee488196bca5bb07ca (137,617 bytes, 34 top-level keys): (A) my own independent resolver, (B) check-completeness.py resolve_derivation, (C) check-c2-v9.py apply_derivation.",
+        "Import independence CONFIRMED: check-completeness.py imports only copy, hashlib, json, pathlib, re, sys. It does not import check-c2-v9.py, and check-c2-v9.py does not import it. Neither loads the other through its exec/importlib sites.",
+        "HOWEVER the author's two-implementation cross-validation is weaker than it reads, because the path-step grammar is a VERBATIM textual copy: both files define the identical regex \\[(\\d+)\\]|\\.?([^.\\[\\]]+) (check-completeness.py STEP_RE line 107; check-c2-v9.py _STEP_RE line 3181). A defect in that shared grammar would be replicated in both and the cross-validation would not catch it. The instrument's comment is candid that this is deliberate, but the agreement it buys is correspondingly narrower than 'two independent implementations agree'.",
+        "I closed that gap myself: my resolver (A) parses paths with a hand-written splitter and compares with its own type-exact equality function, sharing no code with either. It agrees byte-for-byte. The cross-validation therefore stands on genuinely independent footing after this review, which it did not before."
+      ]
+    },
+    {
+      "claim": "6. The selftest's own rigour / the two surviving mutants",
+      "ruling": "SPLIT. The equivalence argument for the two survivors is SOUND. The characterisation of the suite as '12 killed, 2 survivors' materially UNDERSTATES its gaps.",
+      "twoSurvivorsAdjudication": {
+        "ruling": "EQUIVALENT on all reachable inputs -- not a defect. Keep the deepcopies anyway.",
+        "reasoning": [
+          "A1 (effective = base instead of deepcopy): `base` is produced by json.loads(raw) freshly inside every resolve_derivation call, and in the chained case by a recursive call that itself returns a freshly built document. json.loads never shares objects between calls. After apply_operations returns, the caller never reads `base` again. I could construct no input where mutating it in place is observable.",
+          "A2 (aliasing op['value']): JSON parsing creates a distinct object per literal, so no two operations in one document can share a value object. A later operation writing INTO an earlier operation's added value does mutate the declaration in place -- I built that case (add newBlock {count:1}, then set newBlock.count) -- but the declaration is discarded with the artifact at the end of contract_shape and is never re-read, so it too is unobservable.",
+          "Both survive my battery for the same reason the author gives, and I accept the argument."
+        ],
+        "qualification": "The equivalence is CONTINGENT, not local. It holds only because (a) load_bytes returns immutable bytes and parsing is repeated per resolution, and (b) the effective document is scored and dropped. Memoising the loader or caching parsed predecessors -- an obvious optimisation on a 372-document corpus -- would silently turn A1 into a live cross-contamination bug in which one surface's resolution corrupts another's. The deepcopies are the cheap guard that makes the property local instead of emergent. Removing them would be safe today and unsafe after a change nobody would think to connect to it."
+      },
+      "fifteenthMutantHunt": {
+        "found": "I ran 17 mutants. 6 were killed by the selftest; 11 survived. The author reports 14 mutants, 12 killed, 2 survivors.",
+        "survivors": [
+          "A1 effective=base (author's, accepted as equivalent)",
+          "A2 alias op['value'] (author's, accepted as equivalent)",
+          "M3 cycle guard removed",
+          "M4 depth guard removed",
+          "M5 chain recursion skipped entirely",
+          "M6 predecessor-not-an-object check removed",
+          "M8 digest compared by 16-char prefix instead of in full",
+          "M11 empty operation list accepted",
+          "M14 `set` no longer required to restate `from`",
+          "M15 declaration_fields accepts >1 filename / >1 digest",
+          "M16 negative list index accepted"
+        ],
+        "decisiveRuling": "All nine of my new survivors are TEST DEBT, not live defects. I exercised every corresponding branch of the SHIPPED code directly and each behaves correctly: the two-link chain A->B->C resolves to the right document; a non-object predecessor is refused; a `set` without `from` is refused without crashing; a two-filename block is refused with the right message; a digest differing only after its first 16 characters is refused; `arr[0]` resolves and `arr[-1]` is refused. The shipped guards are present and correct -- they are simply not pinned by any fixture, so a future edit could delete them silently.",
+        "rootCause": "The suite has no fixture whose predecessor is itself a delta. The entire chain-recursion branch of resolve_derivation -- the recursion, the `seen` cycle guard, DERIVATION_MAX_DEPTH, and the non-object-predecessor check -- is unexecuted by --selftest. It also has no fixture with a list-index path, no empty operations array, no `set` missing its `from`, and no single-block partial declaration, so declaration_fields' error branch (lines 207-215) never runs during the selftest despite being live code."
+      }
+    },
+    {
+      "claim": "7. Honest scoping / the self-report",
+      "ruling": "ACCURATE, and UNDERSTATED in one dimension.",
+      "evidence": [
+        "The printed reach line -- 1/13 scored from a resolved derivation, 12/13 still scored by SCHEMA_RE/GOLDEN_RE over their own top-level key names -- matches my measurement exactly. 0 surfaces are in the UNRESOLVED state.",
+        "'CMP-IR-01 is NOT closed: the rename half of the class is untouched' is true and correctly refuses to claim the class.",
+        "UNDERSTATEMENT: the self-report names RENAMING as the surviving fragility. There is a second, unnamed one -- both predicates scan TOP-LEVEL KEYS ONLY, so a correctly-named contract section nested one level down is lost regardless of its name. RUST-PROVIDER-PROTOCOL is a live instance."
+      ],
+      "theOpenQuestionTheAuthorLeft": {
+        "question": "Are RUST-PROVIDER-PROTOCOL (3/4) and TRUSTED-REQUEST-CONTEXT (2/4) shortfalls real, or naming artifacts?",
+        "answer": "BOTH ARE SUBSTANTIALLY INSTRUMENT ARTIFACTS, NOT ARTIFACT DEFECTS. I resolved this; the author left it open.",
+        "RUST-PROVIDER-PROTOCOL": "Missing only the goldens point. It DOES carry goldens: 6 `semanticConformanceVectors`, each with id / kind / initialState / event / guard / actions / expected / falsifies -- unambiguously golden cases with expected outcomes. They are missed on TWO counts at once: the name ends in 'Vectors' (outside GOLDEN_RE) and they sit nested under `orderingAndStateMachineV4` rather than at the top level. Its registered checker additionally carries NARROWGOLDENS, FINALIZER_GOLDENS and SEMANTICCONFORMANCEVECTORS symbols. The 3/4 understates the artifact.",
+        "TRUSTED-REQUEST-CONTEXT": "Missing both the schema and the goldens point, and both appear to be naming artifacts. It carries 30 `adversarialControls` each with id / input / expected -- textbook goldens -- plus 5 `positiveControls`, both at the top level and both outside GOLDEN_RE. For the schema point it carries `capabilityContract` (13 members including publicConstructors, forbiddenConstructionSources, allowedProjection, mintPreconditions, tokenRule), which is a serialised contract by content and outside SCHEMA_RE. The 2/4 is the weakest figure in the table and is probably the least accurate one.",
+        "consequence": "Contract shape 11/13 should be read as a FLOOR. At least two of the remaining shortfalls are instrument blindness, not missing contract. This strengthens rather than undermines the change under review -- the reader repaired the one case no regex could reach, and correctly declined to claim the two it still cannot see."
+      }
+    }
+  ],
+
+  "freezeCorrectionVerification": {
+    "theClaim": "CMP-IR-01's row asserted 'GOLDEN_RE is missing planIntentFixtures, intentBindingFixtures, storedViewBindingFixtures, planFixtures and coverageFixtures.' The author calls that sentence false.",
+    "ruling": "The author is CORRECT. The sentence was false and its withdrawal is properly recorded.",
+    "measured": "GOLDEN_RE is fixtures$|goldens$|goldencases$|^cases$ under re.I. I ran .search() against all five names: all five MATCH. A widening would have changed nothing.",
+    "realCause": "CONFIRMED as stated. The five keys are absent from the delta file entirely -- c2-plan-stage-schema.v9.json carries none of them -- while all five ARE present in the verified predecessor v4. The cause is a missing document, never a missing alternation.",
+    "errorInTheCorrectionItself": "The withdrawal text states the delta 'carries 28 top-level keys'. Measured: 29. The substantive claim (not one of the five is present) is correct; the count is off by one. Flagging it because this passage exists specifically to correct a false measurement in a signature-bound record."
+  },
+
+  "movementAdjudication": [
+    {"surface": "C-2", "old": "2/4", "new": "4/4", "moved": true, "earned": true, "basis": "Effective contract = verified v4 + 13 declared operations, materialised byte-identically by three independent implementations. Carries a real 4-kind closed schema and 113 real goldens. Predecessor v4 additionally holds its own independent review with verdict PASS. Seal-ready flipped because review.ready was already True and shape was the sole gate."},
+    {"surface": "D9", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "DELIVERY", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "EVIDENCE", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged. Not seal-ready for review reasons, not shape reasons."},
+    {"surface": "FACT-IDENTITY", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "FACT-PLANE", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "OPERABILITY", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "R-1", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "RESOLVED-INPUTS", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"},
+    {"surface": "RUST-PROVIDER-PROTOCOL", "old": "3/4", "new": "3/4", "moved": false, "earned": "n/a -- unchanged. Shortfall is an instrument artifact: 6 semanticConformanceVectors exist but are nested and named outside GOLDEN_RE."},
+    {"surface": "TM", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged. Not seal-ready for review reasons, not shape reasons."},
+    {"surface": "TRUSTED-REQUEST-CONTEXT", "old": "2/4", "new": "2/4", "moved": false, "earned": "n/a -- unchanged. Shortfall is likely an instrument artifact: 35 controls with input/expected and a 13-member capabilityContract, all outside the two alternations."},
+    {"surface": "VERSIONING", "old": "4/4", "new": "4/4", "moved": false, "earned": "n/a -- unchanged, scored by own keys"}
+  ],
+
+  "aggregateMovement": {
+    "contractShape": "10/13 -> 11/13, entirely attributable to C-2",
+    "sealReadiness": "8/13 -> 9/13, entirely attributable to C-2",
+    "independentlyReviewed": "13/13, unchanged by this instrument change",
+    "crossCuttingOpen": "1 (R2-FINAL-03), unchanged",
+    "exitCode": 1
+  },
+
+  "nonBlockingObservations": [
+    {"id": "NB-01", "severity": "MAJOR", "title": "The selftest is materially weaker than the author's account of it", "detail": "Reported as 14 mutants / 12 killed / 2 equivalent survivors. I ran 17 and 11 survived. Every one of my 9 new survivors is test debt rather than a live defect -- I exercised each shipped branch directly and all behave correctly -- but the suite does not pin: the whole chain-recursion path (recursion, cycle guard, DERIVATION_MAX_DEPTH, non-object predecessor), full-digest comparison as opposed to prefix comparison, `set` missing its `from`, empty operations arrays, list-index paths, or the declaration_fields partial-declaration error branch. Since this instrument's output is quoted into a signature-bound record, unpinned guards are the ones a later edit removes silently. Suggested minimum: one delta-of-delta fixture, one cycle fixture, one fixture whose declared digest shares a long prefix, and one single-block two-filename fixture."},
+    {"id": "NB-02", "severity": "MINOR", "title": "The two surviving mutants are equivalent only by grace of the caller", "detail": "Accepted as equivalent. But the property depends on load_bytes returning immutable bytes and on re-parsing per resolution. Any future memoisation of loading or parsing converts A1 into cross-surface contamination. The deepcopies should stay, and the reason should be a comment at the deepcopy rather than an argument in a review."},
+    {"id": "NB-03", "severity": "MINOR", "title": "A detection false positive exists and the design is right anyway", "detail": "An artifact carrying an RFC-6902 JSON Patch (which uses exactly `op` and `path`) beside one .json filename and one sha256 in the same object fires the detector. The corpus contains zero such documents today. I want to record explicitly that NARROWING is_operation_list to the declared verbs would be the WRONG fix: detection must stay broader than acceptance, otherwise a derivation with an undeclared verb would cease to be detected at all and would fall back to own-key scoring silently -- destroying the unknown-verb gate. Detect broadly, refuse loudly is correct."},
+    {"id": "NB-04", "severity": "MINOR", "title": "`operations: []` is the one malformed declaration that degrades silently", "detail": "is_operation_list requires a non-empty list, so a declaration with an empty operations array is not recognised as a declaration at all. The document is scored on its own keys with NO finding. This is the single exception to the instrument's stated 'it NEVER degrades silently'. It fails in the safe direction (understates, cannot manufacture a point) and check-c2-v9.py independently rejects an empty operations array as a finding, so nothing is currently exposed -- but the prose is absolute where the behaviour is not."},
+    {"id": "NB-05", "severity": "MINOR", "title": "Predecessor integrity is verified; predecessor AUTHORITY is not", "detail": "Nothing constrains WHICH file an artifact may declare as its predecessor. I built a 'parasite' with no schema and no goldens of its own that inherited a 4/4 from an unrelated document by declaring it with a correct digest. This is NOT a new weakness and NOT a blocker: exploiting it requires editing the binding artifact, and the pre-existing name predicate is strictly easier to forge -- score_document awards both schema and goldens to {\"xSchema\": {}, \"xFixtures\": [1]}, i.e. for an empty object and a one-element list, on key names alone. The derivation path at minimum demands a real file, a matching sha256 and type-exact `from` restatements. It raises the bar rather than lowering it. Worth recording only because the inherited content is no longer visible in the file a human opens, which is precisely why the printed provenance block (predecessor, both digests, schema keys, per-array golden counts) is load-bearing and must not be dropped."},
+    {"id": "NB-06", "severity": "MAJOR", "title": "The freeze's quoted figures are now stale", "detail": "IMPLEMENTATION-FREEZE.md still cites contract shape 10/13 and seal-ready 8/13 in three places (lines 279-280, 286, 1790-1791) while the instrument now prints 11/13 and 9/13. The CMP-IR-01 row itself predicted this exact move and required that it be a deliberate reviewed act rather than a quiet side effect -- this review is that act, and the reconciliation is now owed. I did not edit the freeze; it is outside my one permitted write."},
+    {"id": "NB-07", "severity": "MINOR", "title": "Live-tree instability during review", "detail": "IMPLEMENTATION-FREEZE.md moved TWICE while I worked: 4e8038a676e125b9af981e99372b2446e1677695aa3cb692bc163e943202e86e when I started, 8260c5abb511decb62c2b2843ced78038dc9b3cd62e615182c9e4d13e2f85b03 when I finished. Neither equals the 83b64e24f2802cc3f923854ab6b7a263d451356ffdf5230a89c8e46b0f80026f the author measured against. Every input my verdict actually depends on was re-hashed at the end and none moved. My freeze-derived findings were taken against 4e8038a6."},
+    {"id": "NB-08", "severity": "MINOR", "title": "Sweep count is 372, not 371", "detail": "Both the instrument's comment and the brief say 371 artifact JSON documents. I measure 372. Live-tree drift; the conclusion (exactly five fires, zero near-misses) is unaffected."},
+    {"id": "NB-09", "severity": "MINOR", "title": "The cross-validation shares a verbatim regex", "detail": "STEP_RE in check-completeness.py and _STEP_RE in check-c2-v9.py are textually identical. The two implementations are independent by import but not by construction at the point most likely to harbour a subtle path-walking bug. My own resolver used a different parser and agreed, which supplies the missing independence."},
+    {"id": "NB-10", "severity": "MINOR", "title": "v4's own reviewStatus prose is stale", "detail": "c2-plan-stage-schema.v4.json's reviewStatus reads 'It is AUTHORED, NOT REVIEWED: no independent party has replayed it.' That was true when written; v4 subsequently received an independent review with verdict PASS (c2-plan-stage-schema.v4.review-independent-prefreeze.json, c74612ef4519750aa529db543c2f0cc81fce50d57c3d636486fd2f0ddc0c41f3) plus an adjudication for its one MAJOR non-blocking finding. A reader tracing C-2's now-inherited contract back to v4 reads a self-description more pessimistic than the record. Not this instrument's defect; noted because this change makes v4 load-bearing for a seal-readiness figure for the first time."},
+    {"id": "NB-11", "severity": "MINOR", "title": "v9's derivedFrom.rule mis-names itself", "detail": "The rule opens 'The effective v8 contract is the VERIFIED predecessor document...' inside c2-plan-stage-schema.v9.json. Should read v9. Cosmetic, in the artifact rather than the instrument, and it does not affect resolution."},
+    {"id": "NB-12", "severity": "INFO", "title": "check-package-coherence.py's single textual mention", "detail": "The brief asked me to confirm zero references to the instrument. Strictly there is ONE textual occurrence, at line 412, inside a prose comment explaining PC-6's rationale. There are zero functional references: it does not import, execute, hash or pin check-completeness.py. Its PC-7 finding concerns artifacts/rust-provider-protocol.v2.json being pinned as normative while its own review records REJECT, which is unrelated to this instrument."}
+  ],
+
+  "verifiedInputs": [
+    {"filename": "artifacts/check-completeness.py", "sha256": "6c52a5f9a4ac6a3ec3dae9fb0c87e82552744b18eb8cc38d1c4522ade3e549d6", "role": "SUBJECT. Matches the author's declared freeze digest exactly. Re-hashed at the end of the session; unmoved."},
+    {"filename": "artifacts/claim-register.v1.json", "sha256": "a83fac4df620af5c9cfa01e6fee3b6d342c7e423197b583e570928a3c0312c6e", "role": "source of the 13 scored surfaces. MATCHES the digest the author measured against. Unmoved across the session."},
+    {"filename": "IMPLEMENTATION-FREEZE.md", "sha256": "4e8038a676e125b9af981e99372b2446e1677695aa3cb692bc163e943202e86e", "role": "state AT REVIEW START; all freeze-derived findings taken against these bytes. DOES NOT match the author's 83b64e24... -- the freeze moved before I began. It moved again to 8260c5abb511decb62c2b2843ced78038dc9b3cd62e615182c9e4d13e2f85b03 before I finished."},
+    {"filename": "ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md", "sha256": "47df412dba5d62a823ca7c008c382c489b8a10c797fd8656f3d4dd5d6c342e2e", "role": "pinned by SHA-256 in seven checkers. CONFIRMED intact at the required value at both the start and the end of the session. Never opened for writing."},
+    {"filename": "artifacts/c2-plan-stage-schema.v4.json", "sha256": "4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39", "role": "declared predecessor. RECOMPUTED independently; equals the declared digest. The document whose stageSchemas and 113 fixtures carry C-2's +2."},
+    {"filename": "artifacts/c2-plan-stage-schema.v9.json", "sha256": "321faeaa3b70c83991f1cceefc9335891d69fa502b3d62cfa133494bb4e9c5a1", "role": "C-2's registered binding artifact; the delta document carrying the derivation declaration. 29 top-level keys."},
+    {"filename": "artifacts/check-c2-v9.py", "sha256": "ae9525f1d2efa7688fb6b678e89161f5cf1e3b38f7fd3a9f712c1b6a75be3035", "role": "C-2's registered checker; source of the third independent apply_derivation used in cross-validation. Exits 0."},
+    {"filename": "artifacts/c2-plan-stage-schema.v9.review-independent.json", "sha256": "3a411de77332019d910368e2f033cb9f5c60250f11f33180af4476c204df9f6c", "role": "C-2's registered current review. verdict NO BLOCKING FINDING, blockers [], 0 findings -- which is why review.ready is True with no adjudication registered."},
+    {"filename": "artifacts/c2-plan-stage-schema.v4.review-independent-prefreeze.json", "sha256": "c74612ef4519750aa529db543c2f0cc81fce50d57c3d636486fd2f0ddc0c41f3", "role": "establishes that the inherited predecessor holds an independent PASS."},
+    {"filename": "artifacts/rust-provider-protocol.v4.json", "sha256": "3e34934720a78f823d3d4c7ceb73735d444f09a4a1ec964a894bd1ac5daf2909", "role": "non-moving surface at 3/4; source of the semanticConformanceVectors finding."},
+    {"filename": "artifacts/trusted-request-context.v3.json", "sha256": "bc53c2679a977fd2c2c8369ec9d5794f2295b0df5100b1e360a42c155d04008a", "role": "non-moving surface at 2/4; source of the adversarialControls / capabilityContract finding."},
+    {"filename": "artifacts/check-package-coherence.py", "sha256": "8d56b5f56fed4fd031f4e9f602e63d4f90ac2a189e56b0b580498f20a107f2a6", "role": "exits 1 on PC-7 as expected; confirmed unrelated to this instrument."},
+    {"filename": "artifacts/operability.v2.json", "sha256": "43e63e4bca8e238e933a6b3e0c91112fb29b52da5f92d64ff2438d79140e6f04", "role": "source of the product-qualification line (NOT-RELEASE-QUALIFIED, 0/25)."},
+    {"derived": "effective C-2 contract (canonical JSON, sort_keys, compact separators)", "sha256": "d5eab95c0678968f434c46573d757679452ff18fc6df08ee488196bca5bb07ca", "role": "NOT A FILE. The materialised v4+13ops document, 137617 bytes, 34 top-level keys. Produced identically by my independent resolver, by check-completeness.py and by check-c2-v9.py."}
+  ],
+
+  "checkerRuns": [
+    {"checker": "check-claims.py", "exit": 0},
+    {"checker": "check-product-dispositions.py", "exit": 0},
+    {"checker": "check-operability.py", "exit": 0},
+    {"checker": "check-operability-v3.py", "exit": 0},
+    {"checker": "check-operability-v10.py", "exit": 0},
+    {"checker": "check-c2-v9.py", "exit": 0},
+    {"checker": "check-retention-custody-v24.py", "exit": 0},
+    {"checker": "check-d9-v1.14.py", "exit": 0},
+    {"checker": "check-package-coherence.py", "exit": 1, "note": "expected; single PC-7 finding on rust-provider-protocol.v2.json, zero functional references to the instrument under review"},
+    {"checker": "check-completeness.py", "exit": 1, "note": "expected; shape 11/13 and 1 cross-cutting open finding both hold it non-zero"},
+    {"checker": "check-completeness.py --selftest", "exit": 0, "note": "all 5 original + all 17 derivation checks report their accept/reject line"}
+  ],
+
+  "whatIDidNotCheck": [
+    "I did not verify the substantive CORRECTNESS of v4's stageSchemas as a contract, nor of the 113 fixtures as test cases. I established that they exist, that they are structurally real (closed kinds, required/optional/effectClass, prohibition list; fixtures with valid/invalid flags), that they are untouched by the 13 operations, and that they are counted correctly. Contract shape is a PRESENCE measure everywhere in this instrument -- the name-based path awards the same point for an empty object under a matching key -- so I held the derivation path to presence, not to correctness.",
+    "I did not re-derive any of check-c2-v9.py's internal measurement work: not the 440,495-case path-injectivity attack, not jx_canon, not the guard inventory, not the skeleton digest. I used exactly one function from it, apply_derivation, and only as a comparison oracle.",
+    "I did not re-run check-c2-v4.py's selftest matrix over the predecessor.",
+    "I did not audit the instrument's non-derivation halves beyond running them -- review_state, resolution_state, finding_ids, unregistered_current_reviews and the cross-cutting path were exercised by --selftest and by the live run, but I wrote no mutants against them. My mutation work was confined to the derivation reader.",
+    "I did not attempt a sha256 near-collision to make the M8 prefix mutant reachable in practice; I established only that the shipped code compares digests in full.",
+    "I did not verify the 12 name-scored surfaces' binding artifacts beyond applying the shape predicate and, for the two below 4/4, inspecting their top-level keys. In particular I did not sweep the other ten for renamed or nested contract sections, so the count of surfaces whose shape figure is depressed by CMP-IR-01's rename/nesting half may be higher than the two I identified.",
+    "I did not test the instrument under concurrent modification of an artifact between processes. I did confirm that within a single resolution the bytes hashed and the bytes parsed are the same object, so no window exists inside the reader itself.",
+    "I did not evaluate whether contract shape, as a four-point presence measure, is the right instrument for gating seal readiness at all. That is a design question above this review.",
+    "I did not read IMPLEMENTATION-FREEZE.md in full. I read the CMP-IR-01 row, the §3 figure block and the §9.1 figure block, and grepped for the quoted numbers."
+  ],
+
+  "scope": "Independent review evidence only. Nothing here is signed, sealed, frozen, applied or integrated. No finding is closed, no disposition is softened, no status is changed. CD-RT-5 remains BLOCKED_ON_PHASE_1A. This review does not authorise adoption of the instrument and does not reconcile the freeze's stale figures -- it establishes only that the movement those figures must be reconciled TO is earned and correctly attributed. All probe work was performed on a copy of the tree under a private scratchpad; the only file I wrote under docs/coop/ is this one."
+}

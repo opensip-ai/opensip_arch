@@ -1,0 +1,170 @@
+{
+  "artifact": "component-manifest-schemas.v3.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-manifest-schemas.v3.json",
+  "subjectSha256AtDispatchAndStart": "159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88",
+  "subjectSha256AtEnd": "159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88",
+  "predecessor": {"path": "docs/coop/artifacts/component-manifest-schemas.v2.json", "sha256": "73114ddec12d3ec6dfbcb51b7002d983ff9dbfa1fa39189bb025008f1f501381", "reMeasured": true},
+  "predecessorVerdict": {"path": "docs/coop/artifacts/component-manifest-schemas.v2.review-independent.json", "sha256": "42004c95474a66a8bd7685862c9e205fe7c4a7fadc97ab90e408a2fb04f238dd", "reMeasured": true, "standing": "ACCEPT, 0 blockers, 1 advisory (V2-A1)"},
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-103 SATISFIED, does not mark QUALIFIED, does not edit file 08 or COORDINATOR-DECISIONS.md, does not authorize docs/v2/implementation/.",
+  "date": "2026-08-14",
+  "reviewer": "Claude 2, independent, authored neither v2 nor v3",
+  "verdict": "REJECT",
+  "verdictBasis": "4 blockers, 2 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+
+  "method": "v2 and v3 were both loaded with a duplicate-key-rejecting pairs hook and diffed recursively, matching list members by id/name/code where those keys exist and positionally otherwise. The diff found exactly 23 changed, added or removed paths. Each was then mapped against the three repairLog entries v3 appends. v3's repairLog[0:16] was confirmed byte-identical to v2's complete repairLog, so no landed v1->v2 repair was rewritten except where noted below.",
+
+  "blockers": [
+    {
+      "id": "V3-B1",
+      "title": "The collisionUniverse defining sentence names RJ-1 and exempts every same-stableId case from it, which unfires RJ-1's duplicate-stableId protection; two of the three landing sites drop the provenance qualifier that makes the exclusion safe",
+      "severity": "MUST-FIX",
+      "site": "/indexSchema/collisionUniverse, /rejectionRules/rules[RJ-2]/trigger",
+      "detail": [
+        "ADDED /indexSchema/collisionUniverse reads, in full: 'Collisions and the live-name/root-name uniqueness quantify over entries of a DIFFERENT stableId. Index entries are keyed per (stableId, version). The component-binding uniqueness constraint holds per stableId. This is the V2-A1 defining sentence; a fixture author implementing RJ-1/RJ-2 literally must not refuse TC-ACCEPT's multi-version coexistence pair.'",
+        "The sentence explicitly scopes itself to RJ-1 as well as RJ-2. But RJ-1 is inherently a SAME-stableId rule. Its trigger, carried unchanged into v3, is: 'Admission of a manifest whose stableId already has a live index entry with different provenance AND no recorded in-class ownership transfer accounting for the change, or matches a retiredIds entry with different provenance'. RJ-1 fires only when the stableId is the same. A universe that 'quantifies over entries of a DIFFERENT stableId' can never contain RJ-1's trigger condition, so read as the defining sentence it announces itself to be, RJ-1 becomes unfirable.",
+        "The safe exclusion is the one entryShape.stableId actually states: 'A second LIVE admission of the same (stableId, PROVENANCE) at a new version is a release, not a duplicate.' Provenance-qualified, that exempts the coexistence pair and leaves the different-provenance claimant refusable. collisionUniverse drops the provenance qualifier. So does the new trailing sentence at RJ-2's trigger: 'Same-stableId multi-version coexistence is excluded from this universe (indexSchema.collisionUniverse).'",
+        "The three landing sites therefore do not agree. entryShape.stableId excludes same-(stableId, provenance). collisionUniverse and the RJ-2 trailing sentence exclude same-stableId outright. The site that carries the loosest formulation is the one labelled 'the V2-A1 defining sentence', and it is the only site stating the universe globally."
+      ],
+      "whyItMatters": "Under the defining sentence as written, a publisher who is not the steward of stableId 1111 may present a manifest bearing stableId 1111 at a new version and be excluded from both refusal universes at once - out of RJ-2 because same-stableId coexistence is excluded, and out of RJ-1 because RJ-1's own quantifier has been narrowed to different stableIds. That is precisely the hostile-takeover case D-012 clause 1 and the (ID, provenance) discriminator exist to refuse. V2-A1 asked for a sentence that stops a literal implementer from refusing a lawful coexistence pair; as landed it also stops a literal implementer from refusing an unlawful provenance claim.",
+      "remedy": "Add the provenance qualifier at both loose sites. collisionUniverse: 'Collisions and the live-name/root-name uniqueness quantify over entries of a DIFFERENT stableId, or of the same stableId under a DIFFERENT provenance; same-(stableId, provenance) multi-version coexistence is excluded. RJ-1's duplicate check is unaffected: it quantifies over the same stableId by construction.' Mirror the qualifier in RJ-2's trailing sentence.",
+      "notADraftingQuibble": "I checked whether RJ-1's unchanged trigger text rescues this by itself. It states the rule correctly, but collisionUniverse is added ABOVE it as the defining statement of the universe both rules quantify over, and it names RJ-1 by number. Where a defining sentence and a rule trigger disagree, the defect is that they disagree; an implementer told the sentence is definitional will apply it."
+    },
+    {
+      "id": "V3-B2",
+      "title": "The newly asserted (stableId, version) entry key cannot represent D-012 clause 4's dual-scope admission, and contradicts shadowedBy's (stableId, scope) reference shape",
+      "severity": "MUST-FIX",
+      "site": "/indexSchema/collisionUniverse, /indexSchema/fields[entries]/entryShape/stableId",
+      "detail": [
+        "v3 states in two places that 'index entries are keyed per (stableId, version)'. This is new normative content - v2 said only 'unique among LIVE entries per (stableId)'.",
+        "The same entryShape, carried unchanged from v2, says at scope: \"'project' | 'global' - D-012 clause 4: a component admitted at BOTH SCOPES resolves project-shadows-global, and the index entry for the shadowed admission carries shadowedBy\". A component admitted at both scopes therefore has two live entries under one stableId. Nothing anywhere requires those two admissions to be at different versions, and the ordinary case - the same release installed globally and again in a project - puts them at the SAME version. Under a (stableId, version) key those two entries collide.",
+        "shadowedBy is the direct textual counter-evidence: 'optional (stableId, scope) of the shadowing admission - present exactly when this entry is shadowed'. It identifies the shadowing entry by stableId and SCOPE, carrying no version. If entries were keyed per (stableId, version), a (stableId, scope) reference would not resolve to a unique entry. The schema now contains two incompatible statements of what identifies an entry."
+      ],
+      "whyItMatters": "This is the central repair of the successor, stated three times, and file 08 requires it to land before or with fixture generation. An index fixture author working from it must choose between a key that cannot carry the dual-scope case the schema requires elsewhere, and a shadowedBy reference that cannot address a uniquely keyed entry. Whichever they choose, the corpus's scope-precedence disclosure fixture and its multi-version coexistence fixture cannot both be valid against one stated key.",
+      "remedy": "State the key as (stableId, version, scope), or state explicitly that scope partitions the entries array so the key is (stableId, version) within a scope - and in the latter case amend shadowedBy to carry the version it needs to address an entry. Either resolution is a sentence; leaving both statements standing is not.",
+      "newInV3": true
+    },
+    {
+      "id": "V3-B3",
+      "title": "The exact-pin lock split does not make a MULTI-COMPONENT closure producible, because the unchanged closureRule closes over dependency edges that are versionConstraint-typed",
+      "severity": "MUST-FIX",
+      "site": "/lockSchema/fields[resolved]/closureRule (unchanged), /manifestSchema/fields[dependencies]/type (unchanged), /testCorpusRequirements/classes[TC-ACCEPT]/requires[5] (changed)",
+      "detail": [
+        "v3 amends resolutionInputs so that a request may be exact-pin pairs { stableId, version }, and asserts: 'Exact-pin requests do not evaluate versionConstraint and are producible while DR-111 is open: the tuples are copied from admitted index custody.' That claim is true of the REQUEST, which pins the closure's ROOTS.",
+        "It is not true of the CLOSURE. /lockSchema/fields[resolved]/closureRule is byte-identical to v2: 'The resolved set must be dependency-closed over the manifests' declared dependencies.' And /manifestSchema/fields[dependencies]/type is byte-identical to v2: 'array of { stableId: UUID, versionConstraint: string (constraint language is a DR-111 surface), reason: string }'. Every declared dependency edge is expressed as a versionConstraint. Selecting which admitted version discharges such an edge IS constraint evaluation - the operation ID-DEP-4 forbids until DR-111 closes.",
+        "So an exact-pin request makes a SINGLE-component, dependency-free closure producible, and nothing more. The moment the closure has a second member reached through a declared edge, the resolver must evaluate that edge's versionConstraint.",
+        "v3 then amends TC-ACCEPT's required lock fixture to be exactly the form the split does not deliver: 'lock resolving a multi-component closure as an exact-pin request (stableId, version) copied from admitted index entries - not a versionConstraint request'. The required fixture remains unproducible under ID-DEP-4, which is the precise problem the repair announces it is solving.",
+        "v3 never states how the closure rule is discharged without constraint evaluation. The two candidate readings are both unstated and materially different: (a) the request exact-pins every closure member and the resolver merely checks that each declared edge's stableId is present, ignoring the constraint - which produces a lock that may violate a declared versionConstraint; or (b) the resolver verifies each pinned version satisfies the edge's constraint - which is constraint evaluation and is forbidden. The schema is silent at exactly the point the repair rests on."
+      ],
+      "whyItMatters": "This is a producibility claim, and producibility is the whole content of the repair. As written, the successor authorizes a fixture class it has not made producible, and the fixture author has no stated rule for closing a multi-component set.",
+      "remedy": "Either extend the exact-pin form to the edges - state that an exact-pin request pins the FULL closure, every member copied from admitted index custody, and that edge discharge is by stableId presence with constraint checking explicitly deferred to DR-111 - or narrow TC-ACCEPT's required lock to a single-component closure until DR-111 closes and name the multi-component lock as deferred. Both are honest; the current text is neither."
+    },
+    {
+      "id": "V3-B4",
+      "title": "v3 reverts the closure-rule half of v2's landed A5 repair without disclosing the removal, while leaving the closure rule itself unamended",
+      "severity": "MUST-FIX",
+      "site": "/identityDependencies/dependencies[ID-DEP-4]/consequence",
+      "detail": [
+        "v2 repairLog[10] records finding A5, disposition REPAIRED, operation: 'AMEND /identityDependencies/dependencies/3/consequence - stated at full width: until DR-111 closes, no lock over a constrained request is producible at all, because resolutionInputs.request AND THE CLOSURE RULE both require constraint evaluation.' A5's verdict title was 'ID-DEP-4's consequence understates its ride: lock RESOLUTION, not just admission, cannot evaluate versionConstraint.'",
+        "The v2 text that landed reads: '...lockSchema.resolutionInputs.request and the resolved closure rule both require versionConstraint evaluation to produce ANY lock... The consequence is stated at resolution's width, not only admission's window-evaluation.'",
+        "v3 replaces that consequence with: 'Lock RESOLUTION splits: an exact-pin request { stableId, version } copied from already-admitted index entries is producible now and does not evaluate versionConstraint; a constrained request { stableId, versionConstraint } remains unproducible until DR-111 closes. The TC-ACCEPT required lock is the exact-pin form.' The closure rule is no longer named as a second site, and the 'stated at resolution's width, not only admission's' sentence is gone.",
+        "The closure rule was not amended to justify dropping it - /lockSchema/fields/2/closureRule is byte-identical to v2. So v3 removes the naming of a constraint that still exists.",
+        "v3's repairLog entry for this change ('ID-DEP-4-LOCK-PRODUCIBILITY') lists three AMEND operations and discloses none of this. It presents the rewrite as a repair, not as the partial reversal of a landed one."
+      ],
+      "whyItMatters": "A5 was a repair the v1 verdict extracted and v2 landed: the artifact had understated ID-DEP-4's reach and was corrected to state it at full width. v3 narrows it back to the request site alone. That is the dispatch's 'silent change outside the repairLog' and 'reopening' attack in its exact form - the change is inside the repairLog by path, but its character as a reversal of landed content is undisclosed. It is also the mechanism by which V3-B3 escapes notice: with the closure rule no longer named, the producibility claim reads complete.",
+      "remedy": "Either restore the closure-rule half of ID-DEP-4's consequence and reconcile it with the exact-pin split (see V3-B3's remedy), or state plainly in the repairLog that A5's closure-rule clause is being withdrawn and why the closure rule no longer requires constraint evaluation."
+    }
+  ],
+
+  "shouldFix": [
+    {
+      "id": "V3-S1",
+      "title": "The repairLog is not the complete diff account its own basedOn/method claims it to be: three changed paths are unnamed",
+      "site": "/basedOn/method vs the actual diff",
+      "detail": [
+        "/basedOn/method asserts: 'v3 was produced from v2's exact bytes by targeted operations only. Every path the v3 repairLog does not name is unchanged from v2.' My recursive diff found 23 changed paths. Three are not named by any of the three repairLog entries.",
+        "UNNAMED 1 - /date, changed '2026-08-13' -> '2026-08-14'. The META-v3 entry names only /artifact, /version, /basedOn and /appliesFindingsOf.",
+        "UNNAMED 2 - /manifestSchema/fields[name]/semantics, changed to add 'of a DIFFERENT stableId' and the new sentence 'Same-stableId multi-version coexistence is not a name collision.' The V2-A1 entry's operation names only 'AMEND /manifestSchema/fields name TYPE'. The semantics subfield changed too and is not named.",
+        "UNNAMED 3 - /testCorpusRequirements/classes[TC-ACCEPT]/requires[3], changed to append '; lawful under collisionUniverse'. This is a V2-A1 repair and the V2-A1 entry contains no testCorpusRequirements operation at all. The path prefix 'classes/0/requires' does appear, but under the ID-DEP-4-LOCK-PRODUCIBILITY entry, whose operation text describes only the lock member at requires[5]. I record this as the weakest of the three: the path is technically named, under the wrong finding and with a description that does not cover it."
+      ],
+      "whyItMatters": "The repairLog-as-complete-diff-account is the mechanism by which a reviewer can trust a successor without re-deriving it, and v2's reviewGuidance was amended to add a repairLog-walk item for exactly this reason. Two of the three unnamed changes are substantively correct and in scope, so nothing here is a hidden substantive change - the defect is that the completeness claim is literally false, which costs the next reviewer the ability to rely on it.",
+      "remedy": "Name /date in META-v3; name the name-field semantics amendment and the TC-ACCEPT requires[3] amendment in the V2-A1 entry."
+    },
+    {
+      "id": "V3-S2",
+      "title": "The ID-DEP-4-LOCK-PRODUCIBILITY entry carries a verdictTitle for a finding that appears in no verdict",
+      "site": "/repairLog[17]",
+      "detail": "v3's own /appliesFindingsOf/standing states the v2 verdict was 'ACCEPT - 0 blockers, 1 advisory (V2-A1)'. There is no v2 finding named ID-DEP-4-LOCK-PRODUCIBILITY, and I confirmed against the v2 verdict at 42004c95... that its single advisory is V2-A1. The entry nonetheless carries a 'verdictTitle' field - the key every genuine finding entry uses - reading 'ID-DEP-4 forbids any lock over a constrained request while DR-111 is open, which made TC-ACCEPT's required lock fixture unproducible'. That is an author-initiated change presented in the grammar of a verdict finding. The artifact already has the correct convention for this case and uses it two entries later: META-v3's verdictTitle reads 'Succession bookkeeping (not a verdict finding)'.",
+      "whyItMatters": "A repairLog that mixes verdict-extracted repairs with author-initiated changes under one grammar makes the next reviewer's repairLog walk unreliable in the direction that matters - it inflates the appearance of review-driven provenance for a change no reviewer asked for. The change may well be sound (the coordinator's dispatch names the lock split as an intended successor claim), which is precisely why it should be labelled as author-initiated rather than dressed as a finding.",
+      "remedy": "Relabel the entry's disposition as author-initiated, or amend its verdictTitle on the META-v3 pattern to state that it is not a verdict finding."
+    }
+  ],
+
+  "advisories": [
+    {
+      "id": "V3-A1",
+      "title": "'unique-among-LIVE applies to a DIFFERENT stableId' is a category error where it stands",
+      "detail": "In entryShape.stableId, this clause follows three clauses that already carry the meaning (keyed per (stableId, version); component-binding uniqueness per stableId; same-(stableId, provenance) at a new version is a release). Uniqueness of a stableId 'applied to a different stableId' is not a statable constraint - an entry is trivially unique among entries bearing a different stableId. The clause appears to be reaching for the NAME uniqueness rule, which belongs at manifestSchema.fields[name] where v3 has correctly stated it. Harmless because the surrounding clauses are load-bearing, but it is the sort of sentence that invites the literal reading V2-A1 was raised about."
+    },
+    {
+      "id": "V3-A2",
+      "title": "basedOn/method drops v2's stated reproduction procedure",
+      "detail": "v2's method read: 'v1 loaded under python3 -I -B with a duplicate-key-rejecting pairs hook, the repairLog operations applied, nothing else touched. Every block the verdict did not reach is byte-identical to v1; the repairLog is the COMPLETE diff account - a path it does not name is unchanged.' v3's replacement keeps the invariant but drops both the named tooling and the phrase 'the repairLog is the COMPLETE diff account'. Nothing is made false by the omission - and I did verify v3 parses clean under a duplicate-key-rejecting hook, 0 duplicates - but a successor is easier to audit when it says how it was produced, and v2 set that bar."
+    },
+    {
+      "id": "V3-A3",
+      "title": "/sources/reMeasurementAtV2 is carried into v3 unrenamed, and v3 does not re-measure sources at authoring",
+      "detail": "v2's META entry recorded 'AMEND /sources/corpusHeadAtAuthoring and ADD /sources/reMeasurementAtV2 - every v1 source digest and the SRC-PROTO pin re-measured and reproduced exactly at v2 authoring'. v3's META entry records no equivalent re-measurement, and the sources block still carries a member named reMeasurementAtV2 inside a v3 document. Defensible - v3 is byte-derived from v2 and the sources block is unchanged, so the v2 measurement still stands - but the member name now describes a predecessor's act, and the practice v2 established of re-measuring at authoring is silently not continued."
+    },
+    {
+      "id": "V3-A4",
+      "title": "RJ-2's new 'of a DIFFERENT stableId' qualifier attaches grammatically to only the last item in the enumeration",
+      "detail": "The amended trigger reads '...against the reserved list, live names/aliases, live entries' MOUNTED ROOT COMMAND NAMES of a DIFFERENT stableId, or within the manifest's own command tree'. The qualifier sits on the third enumerated item; 'live names/aliases' is left unqualified. The trailing sentence ('Same-stableId multi-version coexistence is excluded from this universe') does close the gap, so this is drafting rather than substance - but placing the qualifier on one of three list members, in the rule the repair exists to correct, invites the same literal misreading. Note this advisory is about placement only; the substantive defect in that trailing sentence is V3-B1."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "V2-A1 not landed at all three sites (entryShape.stableId, name uniqueness, RJ-2 trigger) plus the named collisionUniverse sentence", "result": "REFUTED on its own terms", "detail": "All four landings are present and verified: /indexSchema/collisionUniverse ADDED and explicitly labelled 'the V2-A1 defining sentence'; /indexSchema/fields[entries]/entryShape/stableId rewritten; /manifestSchema/fields[name]/type AND /semantics both amended; /rejectionRules/rules[RJ-2]/trigger amended. The sites exist. My blockers V3-B1 and V3-B2 are about what the landed sentence SAYS, not about whether it landed."},
+    {"attack": "Silent change outside the repairLog", "result": "CONFIRMED", "detail": "V3-S1 - three changed paths unnamed against a method sentence claiming completeness. V3-B4 - the substantive one: a landed v2 repair partially reverted with the reversal undisclosed."},
+    {"attack": "Exact-pin lock form that secretly evaluates windows", "result": "CONFIRMED at the closure, REFUTED at the request", "detail": "The request tuple genuinely does not evaluate versionConstraint - it copies admitted index tuples. But the closure the lock must record is closed over dependencies[].versionConstraint, so any multi-component lock still requires constraint evaluation. See V3-B3."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED - v3 is clean", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, authorityClaim NONE - all byte-identical to v2. All nine whatThisDoesNotDo items byte-identical to v2, including 'Does NOT close DR-103' and 'Does NOT bind the host to these schemas'. /appliesFindingsOf/standing volunteers 'It does not SATISFY DR-103 and does not author fixtures.' No authorization creep at any of the 23 diff sites."},
+    {"attack": "Re-opening v2 blockers", "result": "PARTIALLY CONFIRMED", "detail": "v3's repairLog[0:16] is byte-identical to v2's complete repairLog, and I checked each B1-B6 repair site against the 23 diff sites: the ownership-transfer records, the stale-alias fixture class, the DIFF-9..DIFF-14 register, ENVELOPE_MISMATCH's conditional demotion, rootNameBinding, and the duplicate-JSON-key class are all untouched. B1-B6 stand. The reopening is of A5, an advisory-numbered v1 finding landed in v2 - see V3-B4."},
+    {"attack": "Making Windows, ceremony, or ENVELOPE_MISMATCH active", "result": "REFUTED - v3 is clean", "detail": "None of the 23 diff sites touches them. TC-PATH's Windows scopeNote, TC-SIG's ceremony scopeNote, RJ-4's conditionalSubcode and TC-SIG's conditionalRequires are all byte-identical to v2. ENVELOPE_MISMATCH remains out of RJ-4's active subcodes and behind ID-DEP-1 plus ID-DEP-5."}
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured 159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88 at start and again at end - identical, subject did not move. Predecessor v2 re-measured 73114ddec12d3ec6dfbcb51b7002d983ff9dbfa1fa39189bb025008f1f501381 and the v2 verdict re-measured 42004c95474a66a8bd7685862c9e205fe7c4a7fadc97ab90e408a2fb04f238dd, both matching the dispatch. v3 parses under a duplicate-key-rejecting pairs hook with 0 duplicate keys.",
+    "repairLogCompletenessVsActualDiff": "23 diff sites found. 20 are named by a repairLog operation: /artifact, /version, /basedOn/{predecessor,sha256,method}, /appliesFindingsOf/{verdict,sha256,standing} (META-v3); /indexSchema/collisionUniverse, /indexSchema/fields[entries]/entryShape/stableId, /manifestSchema/fields[name]/type, /rejectionRules/rules[RJ-2]/trigger (V2-A1); /lockSchema/fields[resolutionInputs]/{type,semantics}, /identityDependencies/dependencies[ID-DEP-4]/consequence, /testCorpusRequirements/classes[TC-ACCEPT]/requires[5] (ID-DEP-4-LOCK-PRODUCIBILITY); plus the three repairLog appends themselves. 3 are unnamed - see V3-S1. Structural integrity of the log is otherwise good: repairLog[0:16] byte-identical to v2's, and the two path indices the new entries cite by position (/indexSchema/fields/2 = entries, /rejectionRules/rules/1 = RJ-2, /lockSchema/fields/1 = resolutionInputs, /identityDependencies/dependencies/3 = ID-DEP-4, /testCorpusRequirements/classes/0 = TC-ACCEPT) all resolve correctly.",
+    "noStructuralDrift": "Top-level key set identical between v2 and v3 - 25 keys, none added, none removed. No list reordering detected at any keyed collection.",
+    "carriedContentSpotChecks": "RJ-1's trigger and its clause-6 ownership-transfer exception, RJ-3's path enumeration, RJ-5, RJ-6's subcodes including DUPLICATE_JSON_KEY, manifestSchema.commands.rootNameBinding, indexSchema.custodyRule, retiredIds' defining relation, and all of whatThisDoesNotDo verified byte-identical to v2."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not re-verify v3's source digests against the live corpus files (SRC-02, SRC-03, SRC-08, SRC-D, SRC-FRZ, SRC-PROTO) or the measured prototype baselines. The sources and measuredPrototypeBaselines blocks are byte-identical to v2, which the v2 verdict accepted at those digests; V3-A3 notes that v3 performs no re-measurement of its own.",
+    "I did not re-review the v2 findings B1-B6 or A1-A9 on their merits. I verified only that their landed repairs survive into v3 unchanged, except A5.",
+    "I did not review the fixture corpus artifact or any fixture. Where V3-B3 refers to TC-ACCEPT's required lock, I am reading the requirement text in this subject, not any authored fixture.",
+    "I did not evaluate DR-111's constraint language, DR-112's ceremony, or the canonical-JSON profile (ID-DEP-1). I confirmed only that v3 leaves them deferred as v2 did.",
+    "I did not assess DR-103's register status and express no view on it. I did not read or edit file 08.",
+    "I did not read the other reviewer. docs/coop/artifacts/component-manifest-schemas.v3.review-independent.codex.json was not opened and is not in my read set.",
+    "I did not verify whether the exact-pin lock split was requested by any decision record; I read the coordinator's dispatch statement that it is an intended successor claim, and reviewed it on its merits as authored content (see V3-S2)."
+  ],
+
+  "recordedInputs": [
+    {"path": "docs/coop/artifacts/component-manifest-schemas.v3.json", "sha256": "159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88", "role": "subject"},
+    {"path": "docs/coop/artifacts/component-manifest-schemas.v3.review-prompt.md", "sha256": "8a58680cbe9296a5f61087fcb95072bdc70df7717472825ea96720e72f065602", "role": "dispatch"},
+    {"path": "docs/coop/artifacts/component-manifest-schemas.v2.json", "sha256": "73114ddec12d3ec6dfbcb51b7002d983ff9dbfa1fa39189bb025008f1f501381", "role": "predecessor, diffed in full"},
+    {"path": "docs/coop/artifacts/component-manifest-schemas.v2.review-independent.json", "sha256": "42004c95474a66a8bd7685862c9e205fe7c4a7fadc97ab90e408a2fb04f238dd", "role": "predecessor verdict; V2-A1 text and the ACCEPT standing read from it"}
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "2327cf89106e3c58a317bf8b570697f3505dbbb8",
+    "branch": "main",
+    "subjectSha256AtStart": "159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88",
+    "subjectSha256AtEnd": "159c60894341e766e86b941730e5f9e7b764dc400b95032dc8b31831881b2e88",
+    "subjectMoved": false,
+    "didNotReadOtherReviewer": true,
+    "filesWritten": ["docs/coop/artifacts/component-manifest-schemas.v3.review-independent.claude2.json"],
+    "committed": false,
+    "dispatchedToCodex": false
+  }
+}

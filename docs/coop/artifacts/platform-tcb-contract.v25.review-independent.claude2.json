@@ -1,0 +1,205 @@
+{
+  "artifact": "platform-tcb-contract.v25.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v25.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v25",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 2 SHOULD-FIX. ACCEPT requires 0 and 0. This is the strongest generation of this contract I have reviewed: every blocker from both v24 verdicts is genuinely closed, including the executing-kernel blocker, which is resolved by an honest withdrawal rather than by a paper ceremony. Both remaining findings are consequences of repairs that were made correctly at the point of repair and not carried through to a clause that depends on them. Neither admits unauthentic bytes; both fail closed.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v24 vs v25; exhaustive raw-substring search for withdrawal, uniqueness and kernel-bind tokens",
+
+  "custody": {
+    "subjectSha256Expected": "aa1542bad713b9eba6d1015f539857dfeae59690e79263ce719a914680471b07",
+    "subjectSha256AtStart": "aa1542bad713b9eba6d1015f539857dfeae59690e79263ce719a914680471b07",
+    "subjectSha256AtEnd": "aa1542bad713b9eba6d1015f539857dfeae59690e79263ce719a914680471b07",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 142563,
+    "subjectMovedDuringReview": false,
+    "predecessorV24Sha256": "b1a4386c1e307f6905d7c5bfdebfab0d64750847f04c8110a29d49c2d88803b2",
+    "frozenCodexV24Sha256": "7c747e6d86294345f0887c2b956fc418b9161a579b7c8d512d1e9c4c139cb0e8",
+    "frozenClaudeV24Sha256": "d30d4535750c848e37e43504428ebc3406b3dd6a8c32155b77f4aaede5054f50",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE — both frozen v24 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "headMatchesDispatch": true,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v24 REJECT (d30d4535...). v25 answers my blocker CLAUDE-V24-B1 by taking the second of the two options I offered — withdrawing the profile rather than specifying a measured-boot chain. A repair that adopts a reviewer's own suggested remedy is the case most at risk of being waved through, so I treated withdrawal completeness as the primary attack surface of this round rather than as a settled question, and I hunted specifically for surfaces the withdrawal failed to reach. One of the two findings below comes from exactly that hunt.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V25-S1",
+      "appliesTo": "PTCB-V24-S1 — repaired in six of seven elements; the hash-uniqueness removal was not carried out",
+      "title": "authenticatedManifest.uniqueness still refuses on duplicate member sha256, contradicting joinMust and the artifact's own repair claim, and making any package containing two byte-identical members unattestable",
+      "where": "/loaderTraces/objectAuthenticityBind/authenticatedManifest/uniqueness (line 384) contradicted by /loaderTraces/objectAuthenticityBind/tags/linux-file-backed/joinMust (line 366) and /honestyRepairsFromV24[2] (line 2064)",
+      "theContradiction": "joinMust closes with 'Hash uniqueness of the whole manifest is not required once path+hash selects the member.' honestyRepairsFromV24 states 'Hash uniqueness of the whole manifest is not required.' But authenticatedManifest.uniqueness still reads, unchanged from v24, 'If two members share a sha256 or a relativePath, refuse.' Two normative clauses in the same document give opposite answers to the same question. Codex S1 asked precisely for this: 'Require unique canonical paths/entries; do not require hash uniqueness once path+hash selects the member.' The path half was done — archiveMemberPathGrammar.reject now carries 'duplicate canonical relativePath' — and the hash half was left in place.",
+      "practicalConsequence": "This is not only a drafting inconsistency. Byte-identical members are ordinary in real packages: repeated licence or changelog files, identical helper scripts, and above all zero-length files, which all share sha256 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855. Under authenticatedManifest.uniqueness as written, the manifest cannot be built at all for any such package, so no linux-file-backed event on that package can ever qualify. A contract governing RPM and deb payloads cannot refuse every package that contains two empty files.",
+      "whyNotABlocker": "Both readings fail closed. An implementer following joinMust performs a correct path+hash join to a single member and is safe; an implementer following authenticatedManifest.uniqueness over-refuses. Neither reading admits bytes from the wrong member, so this is a correctness-and-availability defect rather than an authenticity hole.",
+      "requiredRepair": "Delete the sha256 clause from authenticatedManifest.uniqueness, leaving relativePath uniqueness, which archiveMemberPathGrammar.reject already enforces as 'duplicate canonical relativePath'. Optionally state expressly that duplicate member digests are lawful because joinMust selects on path and hash together."
+    },
+    {
+      "id": "CLAUDE-V25-S2",
+      "appliesTo": "PTCB-V24-B2 / CLAUDE-V24-B1 — the withdrawal is correct and complete on the authenticity surfaces, but its consequence is not carried into the qualification matrix or the platform scope",
+      "title": "The withdrawal makes the mandatory OS ABI class permanently unsatisfiable on Linux, and the contract records that at the tag level while leaving platforms, NT-TCB-1 and the G22 test matrix asserting a Linux profile that can no longer be completed",
+      "where": "/platforms/slice1; /negativeTests[0] (NT-TCB-1); /g22/testMatrix; against /identityEvidenceUnion/pathlessClasses/{members,rule,linuxStanding} and /signedEntry/originSearchPolicy/volumeConstraint/tags/PATHLESS-PLATFORM-ATTESTED/{join,linuxStanding}",
+      "theChain": "Four clauses compose to a conclusion the contract never states. (1) taxonomy includes 'OS ABI' and classMap maps OS ABI to PLATFORM-ATTESTED only. (2) pathlessClasses.members is exactly ['OS ABI'] and its rule says those classes 'MUST use volumeConstraint PATHLESS-PLATFORM-ATTESTED and MUST NOT use INSTALL-ROOT-VOLUME or EXTERNAL-ORIGIN. A file-backed install-root volume predicate cannot represent them. A signed OS ABI entry with any other volumeConstraint tag refuses.' (3) volumeConstraint PATHLESS join repeats 'OS ABI entries MUST use this tag.' (4) linux-pathless is WITHDRAWN-THIS-GENERATION and 'A Linux PATHLESS-PLATFORM-ATTESTED signed entry refuses.' Therefore on Linux the OS ABI class has no representable form at all, and no complete Linux platform profile can qualify this generation.",
+      "whatTheContractDoesAndDoesNotSay": "It does disclose the local fact, in exactly two places: pathlessClasses.linuxStanding ('OS ABI still MUST use PATHLESS-PLATFORM-ATTESTED. On Linux that combination refuses this generation') and volumeConstraint linuxStanding. That is honest as far as it goes, and I credit it. What it does not do is carry the consequence to the three places that assert the opposite. platforms.slice1 still lists linux/x86_64 and linux/arm64 with no qualification — note that the same field annotates Windows as 'DELIBERATELY absent. D-002', so this field does record platform-level dispositions when the author intends them. whatThisDoesNotDo is unchanged and says nothing about Linux. And NT-TCB-1 and g22.testMatrix both still require 'every complete platformProfile x every taxonomy class ... or explicit absent/inapplicable proof', with NT-TCB-1 adding 'Inability to observe or substitute is a qualification failure or platform-removal path, not a skipped cell.'",
+      "whyTheEscapeHatchDoesNotApply": "NT-TCB-1 permits a cell to be skipped only on 'an explicit proof that the class is absent/inapplicable'. OS ABI is plainly neither absent nor inapplicable on Linux — Linux has an OS ABI; the contract has simply declined to specify a ceremony that can attest it. By NT-TCB-1's own terms that is the 'qualification failure or platform-removal path' branch, and no such proof or disposition is recorded anywhere in the artifact.",
+      "whyNotABlocker": "The composition is fail-closed and is the intended effect of the withdrawal I asked for; nothing unauthenticated is admitted. The defect is that a reader of platforms, NT-TCB-1 or g22 would conclude Linux is a qualifiable slice-1 platform under this contract, which it is not. That is an honesty and completeness gap of the same family the honestyRepairs discipline exists to prevent, not an authenticity hole.",
+      "requiredRepair": "Record the platform-level consequence where the contract already records such things: annotate platforms.slice1's Linux entries for this generation the way Windows is annotated, and add a whatThisDoesNotDo line stating that this generation cannot qualify a complete Linux platform profile because the mandatory OS ABI class has no representable authenticity form while linux-pathless is withdrawn. Then either give NT-TCB-1 and g22.testMatrix an explicit Linux OS ABI disposition for this generation, or state that Linux is on the platform-removal path until a successor specifies the measured-boot ceremony."
+    }
+  ],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V24-B2 / CLAUDE-V24-B1 (mine) — IMA authenticates a measured file without binding it to the executing kernel",
+      "result": "REPAIRED by withdrawal, and the withdrawal is complete on every authenticity surface. The tag carries standing WITHDRAWN-THIS-GENERATION and the operative rule 'A Linux PATHLESS-PLATFORM-ATTESTED signed entry refuses', naming plainly that 'This generation does not specify a measured-boot ceremony that binds a digest to the currently executing kernel. IMA file measurement and NT_GNU_BUILD_ID are not that ceremony', and naming what a successor must supply — PCR/boot-aggregate quote, trust roots, freshness, executing-image selection — which is the repair I specified. I hunted for surfaces the withdrawal failed to reach and found none at the authenticity level: subjectByScheme.package-db binding now reads 'A Linux pathless observation using this scheme refuses'; objectByteJoin reads 'linux-pathless refuses this generation'; runningKernelImagePath reads 'RETIRED. Linux pathless PLATFORM-ATTESTED is withdrawn'; owningPackageLookup.pathlessPath reads 'Not used. Linux pathless is withdrawn'; volumeConstraint laterEventVariant refuses the Linux case and adds linuxStanding. Token search confirms no live bind survives: all 4 executingKernelMeasurement occurrences and all 3 authenticatedKernelMember occurrences are forbidden-list entries or historical repair records, all 3 ima-kernel-image occurrences are prohibitions or history, and all 4 NT_GNU_BUILD_ID occurrences are negations. The one consequence not carried through is the qualification-matrix effect, filed as CLAUDE-V25-S2."
+    },
+    {
+      "finding": "PTCB-V24-B1 — RPM asserts an archive blob but defines no operation acquiring or passing those bytes",
+      "result": "REPAIRED, and I could not break it. archiveAcquisition now names a selectionKey ('the unique NEVRA in rpmdb. Zero or more than one NEVRA refuses') and a full materialization ceremony: O_EXCL create of a new file in a run-owned directory named {runIdentity}-{observedAt}-{NEVRA}.rpm; write the unique rpmdb blob exactly once, then fsync, then close; 'any existing file at that path refuses. After fsync the file MUST NOT be replaced'; and an identity rule making sha-256 of the materialized file the signed digest with a re-hash immediately before --checksig and again immediately before rpm2cpio, where 'Any digest change refuses'. checksigArgv and extractArgv both take <materializedPath>, with the explicit 'The pathname is the materialized file, never raw archive bytes as an argv element', which is the exact defect Codex named. Every element of the required repair — creation, fsync/identity, no-replacement, before/after digest checks — is present, and extraction runs on the same file bytes through archiveMemberPathGrammar.rpmCpio."
+    },
+    {
+      "finding": "PTCB-V24-S1 — grammar not wired into APT or the live join; overlapping RPM prefix rules",
+      "result": "REPAIRED IN SIX OF SEVEN ELEMENTS; see CLAUDE-V25-S1 for the seventh. Sole-input is stated twice and from both directions: archiveMemberPathGrammar.soleInput ('authenticatedManifest.relativePath and packageRelativePathRule both MUST use this grammar only') and packageRelativePathRule.soleGrammar. APT is wired explicitly at both ends — debDataTar carries 'APT authenticatedManifest MUST be built with this rule only' and apt extractAfter says 'using archiveMemberPathGrammar.debDataTar only'. Both INSTALL and EXTERNAL transforms now apply the grammar before equality. longestPrefixStrip is one unambiguous rule, 'strip at most one leading ./ only. Do not strip a lawful leading . that is part of a filename. Do not strip multiple prefixes', which preserves dot-prefixed names as required. componentWise adds 'split on U+002F and reject any component that is empty, . , or ..'. Path uniqueness moved into the grammar's reject list as 'duplicate canonical relativePath'. Only the hash-uniqueness removal was missed."
+    },
+    {
+      "finding": "PTCB-V24-S2 — header identity called retained with no retained field; digestSuccess had no producer",
+      "result": "REPAIRED. headerIdentity is now 'optional retained rpm header identity' with outputGrammar 'exactly 64 lowercase hex characters or refuse' bound to queryArgv, and a real retained field: 'rpmHeaderIdentity on linux-file-backed events when present. Closed {sha256header}. extrasRejected.' I confirmed rpmHeaderIdentity is actually present on the linux-file-backed tag rather than only promised. The orphaned digestSuccess is deleted."
+    },
+    {
+      "finding": "CLAUDE-V24-A1 (mine) — redundant top-level checksigSuccess/digestSuccess",
+      "result": "REPAIRED. rpm-checksig now has exactly five keys and neither sibling survives; the operative success rules live once, inside archiveAcquisition."
+    },
+    {
+      "finding": "CLAUDE-V24-A2 (mine) — value inequality instead of a use prohibition",
+      "result": "REPAIRED. The role now reads 'MUST NOT be used as, derived as, or substituted for authenticityCore.payload.digest', which is Codex's wording; the meaningless value inequality is gone."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject aa1542ba... over 142563 bytes at 0444, unmoved at start and end. Predecessor v24 and both frozen v24 verdicts reproduce their dispatched digests at 0444. HEAD held at 93ceaa6. Strict JSON parse succeeded."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 31 path-bearing pins reproduce, zero failures. The claude2v24 pin records REJECT with blockers [CLAUDE-V24-B1], shouldFix [] and advisories [CLAUDE-V24-A1, CLAUDE-V24-A2], which is exactly what I filed, including the advisories rather than quietly dropping them. The codexv24 pin matches the frozen file. No predecessor review was replaced."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v24-to-v25 change roster",
+      "result": "PASS. Recursive diff found 60 changed paths and ZERO off-roster against the roots declared in basedOn.method, which correctly adds /identityEvidenceUnion/pathlessClasses this generation because the withdrawal touches it. reviewGuidance grew 115 to 121 as a pure prefix-preserving append. honestyRepairsFromV24 carries 6 entries covering all 4 Codex findings and both of my advisories."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row and remeasurement",
+      "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. reMeasurementAtV25 reproduces COORD 67b8df67..., file 08 1cdcf9d4..., file 04 a74b4511... and measuredAtHead 93ceaa6a..., is the sole standing LIVE block, and states 'Does not SATISFY DR-126'."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. whatThisDoesNotDo refuses SATISFYING DR-126 before a later D-000 MF-6, refuses authorizing docs/v2/implementation/, and refuses QUALIFYING G22. All 19 D-096 occurrences are the refusal 'Never mint a D-096 (A) grant'."
+    },
+    {
+      "id": "M-6",
+      "check": "Withdrawal completeness, token search",
+      "result": "PASS at the authenticity level, FAIL at the qualification-matrix level. No live kernel bind survives anywhere; the composition with pathlessClasses and platforms is CLAUDE-V25-S2."
+    },
+    {
+      "id": "M-7",
+      "check": "Internal consistency of manifest uniqueness",
+      "result": "FAIL — basis of CLAUDE-V25-S1. Two normative clauses give opposite answers on duplicate member digests."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "Linux pathless bind that is still IMA-as-executing-kernel or still not withdrawn (self-invited)",
+      "result": "FAILED TO LAND. The withdrawal is real, operative and propagated to every authenticity surface; no live bind survives."
+    },
+    {
+      "attack": "RPM checksig/extract that still treats raw archive bytes as an argv pathname or has no materialized file identity (self-invited)",
+      "result": "FAILED TO LAND. O_EXCL materialization with fsync, no-replacement, and re-hash before both checksig and extraction; both argvs take the materialized pathname."
+    },
+    {
+      "attack": "archiveMemberPathGrammar still unwired for APT or stripping more than one ./ prefix (self-invited)",
+      "result": "FAILED TO LAND. APT is wired at both ends and the strip rule is exactly one leading './' with dot-prefixed names preserved."
+    },
+    {
+      "attack": "SHA256HEADER still used as the signed archive digest (self-invited)",
+      "result": "FAILED TO LAND. Demoted to an optional retained rpmHeaderIdentity with a use-prohibition and a real closed retained field."
+    },
+    {
+      "attack": "Silent v24-to-v25 path outside basedOn.method / honestyRepairsFromV24 (self-invited)",
+      "result": "FAILED TO LAND. 60 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "Withdrawal that leaves the retired profile reachable through another surface (my own additional attack, and the primary attack of this round)",
+      "result": "FAILED TO LAND at the authenticity level — every referring surface refuses — but LANDS one level up, at the qualification matrix and platform scope. Filed as CLAUDE-V25-S2."
+    },
+    {
+      "attack": "A repair claim in honestyRepairs that overstates the normative schema (my own additional attack, carried forward from the v23 round where it succeeded)",
+      "result": "LANDS once. honestyRepairsFromV24[2] claims hash uniqueness is not required while authenticatedManifest.uniqueness still requires it. Filed as CLAUDE-V25-S1. The other five claims all reproduce in the schema."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of my own prior findings",
+      "result": "FAILED TO LAND. All 31 pins reproduce; my v24 blocker and both advisories are pinned accurately."
+    },
+    {
+      "attack": "Silent SATISFIED / QUALIFIED / D-096 (A) / implementation authorization",
+      "result": "FAILED TO LAND. Refused in the artifact's own bytes throughout."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v24 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not re-review v1-v24 on their merits beyond the pin and predecessor checks this round requires.",
+    "Does not object to the withdrawal itself — withdrawal was one of the two repairs I named at v24 and it is the honest one."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV25ReviewerRead": false,
+    "otherReviewerNote": "The Codex v25 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v24 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v24 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the four claimed repairs, the withdrawal's propagation, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. My duplicate-digest argument in CLAUDE-V25-S1 rests on the ordinary composition of RPM and deb payloads rather than on a survey of a specific package corpus; the contradiction between the two clauses stands independently of how common the case is.",
+
+  "summary": "REJECT at 0 blockers and 2 SHOULD-FIX. Custody is clean: subject unmoved at aa1542ba... and 0444 at start and end, HEAD steady at 93ceaa6, COORD and file 08 at their pins, 31/31 chain pins reproduce, both frozen v24 verdicts reproduce with no replacement, and the v24-to-v25 diff is 60 paths with zero off-roster. Every blocker is closed. The RPM branch now has a real acquisition ceremony — unique NEVRA, O_EXCL materialization, fsync, no-replacement, re-hash before both checksig and rpm2cpio, and a pathname argv instead of the impossible raw-bytes argv Codex caught. SHA256HEADER is demoted to an optional retained field with a use prohibition. The grammar is genuinely sole-input and wired into APT at both ends with a single unambiguous prefix strip. And the executing-kernel blocker that I and Codex reached independently is answered by withdrawing linux-pathless rather than by dressing IMA up as a boot measurement — the tag refuses, names why, and names what a successor must specify. I attacked the withdrawal hardest, since it adopts a remedy I proposed, and at the authenticity level it holds: every referring surface refuses and no live kernel bind survives anywhere in the artifact. Both findings are repairs that stopped one clause short. First, honestyRepairs and joinMust both declare that whole-manifest hash uniqueness is no longer required, while authenticatedManifest.uniqueness still refuses when two members share a sha256 — a direct contradiction that, taken literally, makes every package containing two byte-identical members, including two empty files, unattestable. Second, the withdrawal composes with pathlessClasses, which makes OS ABI mandatory and PATHLESS-only, to render the OS ABI class permanently unsatisfiable on Linux; the contract records that at the tag level in two linuxStanding fields but leaves platforms.slice1 listing both Linux targets unannotated, and leaves NT-TCB-1 and the G22 matrix demanding a per-platform cell that can never pass and that NT-TCB-1 itself forbids treating as skippable. Both fail closed and neither admits unauthentic bytes, which is why both are SHOULD-FIX rather than blockers."
+}

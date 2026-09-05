@@ -1,0 +1,647 @@
+{
+  "artifact": "control-completion-independent-review",
+  "version": 3,
+  "reviewer": "Codex security_behavior_review",
+  "independence": "Reviewer authored no files in this eight-file subject or its provisional predecessor schema.",
+  "verdict": "OBJECT",
+  "reviewedAt": "2026-09-04T22:56:30.729235+00:00",
+  "subject": {
+    "at": "2026-09-04T22:54:48.257030+00:00",
+    "freezeSha256": "47e033370a633fe6bad5ffd2399fb9438a6384f4764d833cdf93c5eced08c8c9",
+    "files": {
+      "control-completion.schema.v3.json": "2929de62e9eb3a3dc78959eaf3d50361b8d1f895d086940724c1c743ac46a98c",
+      "control-completion.check.v3.py": "5da2a3669c3766ac6f98549c5a1defa11a100b57fa5839a2832eac03909970df",
+      "control-completion.author.v3.py": "46d86b286290f125f0818df7a0cb555fd786160b498dd9a14cd281d05588f273",
+      "control-completion.cases.v3.json": "b360d9c8f3b9adc768088c7d49367166dd295d7459df9d68e5bf94fd90eaa8b0",
+      "control-completion.report.v3.json": "923479960f8db5f22eccc9d9befa8cf989e284328c399212a4d21989843d867e",
+      "control-completion.protocol-join.v3.json": "e0902b566302a5d19df1bad3bef296077806e27956791c08a201acf0c915b207",
+      "control-completion.rf5-proof.v2.json": "21d7fb2a4d5a6dfb93e69f174e1498350ad2f2768e733d1cf875f09c1b28e3e8",
+      "control-completion.contract.v3.md": "e1057f74fdb798036bb569d1907645810ffc717994ed4ae68906117e34a3662b"
+    }
+  },
+  "postReviewHashes": {
+    "control-completion.schema.v3.json": "2929de62e9eb3a3dc78959eaf3d50361b8d1f895d086940724c1c743ac46a98c",
+    "control-completion.check.v3.py": "5da2a3669c3766ac6f98549c5a1defa11a100b57fa5839a2832eac03909970df",
+    "control-completion.author.v3.py": "46d86b286290f125f0818df7a0cb555fd786160b498dd9a14cd281d05588f273",
+    "control-completion.cases.v3.json": "b360d9c8f3b9adc768088c7d49367166dd295d7459df9d68e5bf94fd90eaa8b0",
+    "control-completion.report.v3.json": "923479960f8db5f22eccc9d9befa8cf989e284328c399212a4d21989843d867e",
+    "control-completion.protocol-join.v3.json": "e0902b566302a5d19df1bad3bef296077806e27956791c08a201acf0c915b207",
+    "control-completion.rf5-proof.v2.json": "21d7fb2a4d5a6dfb93e69f174e1498350ad2f2768e733d1cf875f09c1b28e3e8",
+    "control-completion.contract.v3.md": "e1057f74fdb798036bb569d1907645810ffc717994ed4ae68906117e34a3662b"
+  },
+  "subjectUnchanged": true,
+  "replay": {
+    "command": "/tmp/opensip-architecture-review-env/bin/python -B docs/coop/completion/control-completion.check.v3.py --report /tmp/control-independent-replay.v3.json",
+    "passed": 448,
+    "total": 448,
+    "externalReportSha256": "923479960f8db5f22eccc9d9befa8cf989e284328c399212a4d21989843d867e",
+    "matchesRetainedReport": true,
+    "writeInspection": "Checker only writes supplied external report; no author script run. Main guard permits nonmutating import; -B suppresses pycache."
+  },
+  "sourcePins": {
+    "docs/coop/artifacts/control-protocol-contract.v2.json": "c50a79fef566ecccbd8913a3d309b0cf7332f7d77f892474a548ef3d7b4ebdca",
+    "docs/coop/artifacts/permission-truth-tables.v9.json": "05d559647d103a47c18ed5177b71900a1d9dfcdea6b9a1255aefcec5f09eaccb"
+  },
+  "joinIndependentChecks": {
+    "oldPinMatches": true,
+    "newPinMatches": true,
+    "everyExcludedIdExists": true,
+    "everyReplacementIdExists": true,
+    "computedActiveCases": 9768,
+    "declaredActiveCases": 9768
+  },
+  "findings": [
+    {
+      "id": "CCR-1",
+      "priority": "MUST",
+      "title": "Sequence-range refusal bypasses promised structural RF-2 precedence",
+      "locations": [
+        "control-completion.check.v3.py parse: LargeInteger sequence branch and zero/overflow sequence branch",
+        "control-completion.contract.v3.md State and refusal precedence"
+      ],
+      "authority": "Completed contract explicitly says structure is checked first and other simultaneous structural faults still win RF2; accepted control-protocol-contract.v2 $.controlFrameEncoding requires RF2 for unknown members and invalid envelope member types.",
+      "evidence": [
+        "zero-seq-plus-unknown-body-field",
+        "overflow-seq-plus-wrong-body-type",
+        "large-seq-plus-invalid-major",
+        "zero-seq-plus-unknown-message"
+      ],
+      "observed": "All four contradictory-structure frames return RF-7. The sequence-specific early return precedes body shape, known-type membership, body schema, and (for LargeInteger) even envelope type checks. The standalone seq=0 case correctly returns RF-7 and must remain so.",
+      "impact": "Deterministic refusal-family conformance is wrong for compound-invalid frames. Both families remain terminal; this review does not claim an authorization bypass or accepted malformed frame.",
+      "repair": "Record the sequence range fault while validating all remaining applicable structure. For a supported-major message, validate known type/body with only the invalid seq substituted by a valid validation sentinel, then select RF2 if any other structure fails, otherwise RF7 for sequence. For unsupported-major hello, inspect only frozen envelope constraints, preserving opaque future body handling and integer-lexeme resource safety. Do not convert arbitrarily large seq text to int. Add the compound-invalid cases alongside standalone zero/overflow positives."
+    }
+  ],
+  "probes": [
+    {
+      "name": "zero-seq-only",
+      "json": "{\"type\":\"ping\",\"seq\":0,\"controlMajor\":1,\"body\":{\"nonce\":\"n\"}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-7",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "zero-seq-plus-unknown-body-field",
+      "json": "{\"type\":\"ping\",\"seq\":0,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",\"unknown\":0}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-7",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "overflow-seq-plus-wrong-body-type",
+      "json": "{\"type\":\"ping\",\"seq\":9007199254740992,\"controlMajor\":1,\"body\":[]}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-7",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "large-seq-plus-invalid-major",
+      "json": "{\"type\":\"ping\",\"seq\":11111111111111111,\"controlMajor\":\"invalid\",\"body\":{\"nonce\":\"n\"}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-7",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "zero-seq-plus-unknown-message",
+      "json": "{\"type\":\"unknown\",\"seq\":0,\"controlMajor\":1,\"body\":{}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-7",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "malformed-trailing-comma",
+      "json": "{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-2",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "surrogate-known-string",
+      "json": "{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"\\ud800\"}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-2",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    },
+    {
+      "name": "duplicate-escaped-key",
+      "json": "{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",\"\\u006eonce\":\"n\"}}",
+      "context": {
+        "state": "STEADY",
+        "direction": "host-to-component",
+        "helloSeen": true,
+        "frameBound": 65536,
+        "frameOffer": 65536,
+        "nextSeq": 1,
+        "stableId": "00000000-0000-4000-8000-000000000001",
+        "manifestDigest": "1111111111111111111111111111111111111111111111111111111111111111",
+        "platform": {
+          "os": "linux",
+          "arch": "x86_64"
+        },
+        "manifestTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "offeredTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "confirmedTuples": [
+          {
+            "role": "semantic-provider",
+            "roleSubprotocol": "typescript",
+            "subprotocolVersion": 1
+          }
+        ],
+        "selectedTuple": {
+          "role": "semantic-provider",
+          "roleSubprotocol": "typescript",
+          "subprotocolVersion": 1
+        },
+        "pendingNonce": {
+          "pong": "nonce-1",
+          "healthReport": "nonce-1"
+        },
+        "authorizationEvidence": {
+          "authorized": true,
+          "effectClass": "HE-1",
+          "authorizationRef": "opaque-grant-record-fixture",
+          "operationRef": "opaque-operation-fixture",
+          "decisionClass": null,
+          "bindingMismatchDecisionClass": "PR-4"
+        },
+        "effectOutcomeEvidence": {
+          "requestSeq": 12,
+          "decisionSeq": 40,
+          "outcomeSeq": 41,
+          "commitClass": "REVERSIBLE",
+          "effectOutcome": "COMPLETED",
+          "effectClass": "HE-1"
+        }
+      },
+      "actual": {
+        "verdict": "RF-2",
+        "nextState": "FAULTED",
+        "bodyBuffered": true
+      }
+    }
+  ],
+  "reproducerSource": "import copy,importlib.util,json,pathlib,sys\nsys.dont_write_bytecode=True\nP=pathlib.Path('/Users/sb/code/opensip-ai/opensip/docs/coop/completion');spec=importlib.util.spec_from_file_location('control',P/'control-completion.check.v3.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\ncs=json.loads((P/'control-completion.cases.v3.json').read_text())['cases'];base=next(c for c in cs if c['id']=='MATRIX/ping/STEADY/host-to-component');results=[]\ndef probe(name,body):\n c=copy.deepcopy(base);raw=body.encode();c['frameHex']=(len(raw).to_bytes(4,'big')+raw).hex()\n try:actual=m.run_case(c)\n except Exception as e:actual={'exception':repr(e)}\n results.append({'name':name,'json':body,'context':c['context'],'actual':actual})\nfor name,b in [\n ('zero-seq-only','{\"type\":\"ping\",\"seq\":0,\"controlMajor\":1,\"body\":{\"nonce\":\"n\"}}'),\n ('zero-seq-plus-unknown-body-field','{\"type\":\"ping\",\"seq\":0,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",\"unknown\":0}}'),\n ('overflow-seq-plus-wrong-body-type','{\"type\":\"ping\",\"seq\":9007199254740992,\"controlMajor\":1,\"body\":[]}'),\n ('large-seq-plus-invalid-major','{\"type\":\"ping\",\"seq\":11111111111111111,\"controlMajor\":\"invalid\",\"body\":{\"nonce\":\"n\"}}'),\n ('zero-seq-plus-unknown-message','{\"type\":\"unknown\",\"seq\":0,\"controlMajor\":1,\"body\":{}}'),\n ('malformed-trailing-comma','{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",}}'),\n ('surrogate-known-string','{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"\\\\ud800\"}}'),\n ('duplicate-escaped-key','{\"type\":\"ping\",\"seq\":1,\"controlMajor\":1,\"body\":{\"nonce\":\"n\",\"\\\\u006eonce\":\"n\"}}')]:probe(name,b)\npathlib.Path('/tmp/control-independent-probes.v3.json').write_text(json.dumps(results,indent=2)+'\\n')\nfor x in results:print(x['name'],x['actual'])\n",
+  "positiveFindings": [
+    "Iterative JSON parser retains exact integer lexical distinction, avoids Python recursive container parsing and huge-int conversion, and preserves unsupported-major body opacity. Retained deep-known/deep-future and 5000-digit integer cases replay successfully.",
+    "Independent malformed trailing comma, unpaired surrogate in a known string and duplicate escaped-member-name probes correctly return RF2.",
+    "All 256 state/type/direction coordinates exist. Source pins, active corpus old/new hashes, all 212 exclusion/replacement references and active-count arithmetic were independently checked; active count is 9768.",
+    "RF5 reachability is explicitly scoped by closed message/effect vocabulary and inert references, not an NLP or semanticActionRequested boolean. External authorization/outcome evidence is explicitly delegated to host permission/journal authority rather than used as proof of real execution.",
+    "Actual analyzer/typescript/version1 handshake frames exist separately from the synthetic generic role matrix."
+  ],
+  "should": [
+    {
+      "id": "CCR-S1",
+      "text": "Retain a short stateful two-direction teardown witness showing a refusal is only received on the still-readable opposite direction after FAULTED and cannot reopen a stopped direction. The present 256-cell matrix tests supplied single-frame contexts, not that transport-close invariant."
+    }
+  ],
+  "pendingJoinsNotDefects": [
+    "Security/journal owner must supply durable outcome evidence, exact locator grammar and accepted permission semantics before effect activation; SEC-M2/M5 remain named dependencies.",
+    "RF5 reachability and old/new active corpus replacement remain proposed successor decisions, not automatic changes to accepted authority."
+  ],
+  "scope": "Bounded independent review of control schema/framing/reference-state design evidence. No shipping implementation, platform qualification, journal activation, numeric D9/exit assignment, acceptance/SATISFIED, or register disposition is asserted."
+}

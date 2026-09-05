@@ -1,0 +1,380 @@
+{
+  "artifact": "opensip.authority-provenance.v2.review-independent",
+  "version": 2,
+  "date": "2026-08-01",
+  "reviewType": "INDEPENDENT-ARCHITECTURE-CONFORMANCE-REVIEW",
+  "reviewer": "independent authority-provenance review lane",
+  "verdict": {
+    "decision": "REQUIRED-CHANGES",
+    "assuranceCeiling": "SPECIFIED/IMPLEMENTABLE_UNEXECUTED",
+    "sealRecommendation": "DO-NOT-SEAL",
+    "candidateApplied": false,
+    "integrationAuthorized": false,
+    "productAcceptance": false,
+    "blockingFindings": [
+      "APV2-01-COLD-STORED-RESOLVE-DEPENDS-ON-VOLATILE-CANDIDATE-CACHE"
+    ]
+  },
+  "exactSubjects": [
+    {
+      "id": "EP7",
+      "path": "docs/coop/artifacts/evaluation-proof.v7.json",
+      "sha256": "92d51e9232c6ee137b7228aa7885a2e32f668f9b4b108d7140fdb52dae864ef8"
+    },
+    {
+      "id": "EP7-CHECKER",
+      "path": "docs/coop/artifacts/check-evaluation-proof-v7.py",
+      "sha256": "550a2231264ab6b308b3ddb752199c6496f7c2417a8dbeeb9f21c230569b36c4"
+    },
+    {
+      "id": "EVIDENCE6",
+      "path": "docs/coop/artifacts/evidence.v6.json",
+      "sha256": "a941cd24365ce4b0bd43de45698dc045d292005e378ed87e5e6884732e83e102"
+    },
+    {
+      "id": "EVIDENCE6-CHECKER",
+      "path": "docs/coop/artifacts/check-evidence-v6.py",
+      "sha256": "ad3aa393abac0a5094678c3f29b2a4478eccb651b747c0e19e2e69499cab92f4"
+    },
+    {
+      "id": "AUTHOR-RESPONSE-V3",
+      "path": "docs/coop/artifacts/phase1a-a-prime-successor.response.v3.json",
+      "sha256": "ee27d89fbf93eeba0c25dce9a1a2b19069303b6b3f1e54e7faf3731b1ea192a7"
+    }
+  ],
+  "requiredChangesReviewInputs": [
+    {
+      "path": "docs/coop/artifacts/phase1a-a-prime-successor-v2.review-independent-evidence-op.json",
+      "sha256": "9e863b925b77579603e8e449c25f58563edd710d4b720adce6882f125b249861",
+      "verdict": "REQUIRED-CHANGES",
+      "finding": "IR-E5OP4-01",
+      "originalDefect": "A caller-carried EvaluationAuthorityIndexV1 inside ordinary admission JSON could mint the opaque EP6 handle without a trusted project-store capability."
+    },
+    {
+      "path": "docs/coop/artifacts/retention-tiers.v11.rereview-independent-final.json",
+      "sha256": "86f592ec6f553fadee789a3d08002139ab88da670f82704ac2d591be71dd0612",
+      "verdict": "REQUIRED-CHANGES/DO-NOT-SEAL",
+      "finding": "R17-P1A-RR13-01-STORE-PROVENANCE",
+      "originalDefect": "EP6 could not distinguish a byte-identical caller-created index row from a durable trusted-store row because its constructor had no independently held store/host capability."
+    }
+  ],
+  "priorDefectDisposition": {
+    "liveAuthorizePath": "CLOSED-IN-CANDIDATE: EvaluationAuthorityCandidateV1 is closed and index-free; ProjectStoreAuthorityV1.authorize_evaluation derives the index, validates the exact EP6 core, publishes-or-verifies CAS, inserts-or-verifies the index, rereads trusted state, and mints a store-bound handle.",
+    "ordinarySerializedSubstitution": "REJECTED-BY-DECLARED-PRODUCTION-API: no dict, JSON value, owner string, boolean, ref, fixture value, or serialized handle is a declared substitute for HostProjectAdmissionV1, TrustedProjectStoreStateV1, ProjectStoreAuthorityV1, or AdmittedEvaluationAuthorityV1.",
+    "overall": "NOT-FULLY-CLOSED: the declared store-only resolver cannot reconstruct an admitted authority from durable CAS/index after cold open or process restart, so the exact durable stored-authority boundary remains incomplete."
+  },
+  "independence": {
+    "candidateCheckersUsedAsOracle": false,
+    "method": [
+      "Read and modeled the declared production capability path separately from checker-only fixture construction.",
+      "Inspected exact closed candidate, host/store construction, CAS/index, handle, resolver, continuity, and final transaction contracts.",
+      "Ran small direct probes against the executable specification without calling authored check() or selftest() as proof.",
+      "Independently rehashed SemanticEvidence, EvidenceDigest, RunId, TerminalRunV1, authority receipt/admission refs, and RunAuthorityIndexV1 raw bytes.",
+      "Ran authored EP7/Evidence6 checkers only after the independent probes as regression checks."
+    ],
+    "workspaceWriteRule": {
+      "permitted": [
+        "docs/coop/artifacts/authority-provenance.v2.review-independent.json"
+      ],
+      "reviewerWrites": [
+        "docs/coop/artifacts/authority-provenance.v2.review-independent.json"
+      ],
+      "candidateFilesModified": false,
+      "productV10ThreatModelRegisterSealStateModified": false
+    }
+  },
+  "boundaryModel": [
+    {
+      "stage": "untrusted-candidate-schema",
+      "result": "PASS",
+      "finding": "All seven EvaluationAuthorityCandidateV1 values have the same exact closed top-level schema and recursively contain none of the forbidden store/index/owner/boolean/token keys."
+    },
+    {
+      "stage": "host-project-admission",
+      "result": "PASS-SPECIFIED-UNEXECUTED",
+      "finding": "The production-shaped constructor requires a nonserializable HostProjectAdmissionV1 bound to marker, registry, opened root, and ProjectId. The JSON fixture bridge is not this production capability."
+    },
+    {
+      "stage": "trusted-store-state-creation",
+      "result": "REQUIRED-CHANGES-FOR-DURABLE-RESOLUTION",
+      "finding": "TrustedProjectStoreStateV1 is nominally capability-gated, and CAS/index rows are project-checked. However, the full candidate reconstruction state used by stored resolve exists only in _TrustedStoreState._candidates, which is initialized empty and is neither immutable CAS nor the durable index."
+    },
+    {
+      "stage": "production-ProjectStoreAuthority-constructor",
+      "result": "PASS-SPECIFIED-UNEXECUTED",
+      "finding": "open_project_store_authority accepts only guarded HostProjectAdmissionV1 and TrustedStoreState objects with matching ProjectId. Plain values have no declared production constructor path."
+    },
+    {
+      "stage": "atomic-authorize-transaction",
+      "result": "PASS-FOR-CAS-AND-INDEX-SPECIFICATION; REQUIRED-CHANGES-FOR-RECONSTRUCTION-STATE",
+      "finding": "The copy-on-write fixture rejects wrong-project, duplicate, and conflict cases without CAS/index mutation and keeps exact retries idempotent. If candidate reconstruction state is required for the declared resolver, it must also be durable and committed in this transaction; the current separate _candidates assignment is insufficient."
+    },
+    {
+      "stage": "immutable-CAS-and-index",
+      "result": "PASS-SPECIFIED-UNEXECUTED",
+      "finding": "CAS is publish-if-absent/exact-verify; index key is exact (ProjectId, evaluationAuthoritySealRef); duplicate/conflicting rows reject; handle binds index fingerprint and generation; trusted CAS/index rereads reject mutation."
+    },
+    {
+      "stage": "stored-resolve",
+      "result": "REQUIRED-CHANGES",
+      "finding": "resolve_stored_evaluation promises an EAS-ref-only trusted CAS/index read, but it first requires self._state._candidates[key]. A cold store with the exact five CAS records and one index row rejects, and clearing only that cache after authorization reproduces the failure while all durable state remains unchanged."
+    },
+    {
+      "stage": "opaque-admitted-handle",
+      "result": "PASS-SPECIFIED-UNEXECUTED",
+      "finding": "The handle is nominally module-minted, nonserializable, and bound to store instance, project, EAS ref, admission ref, index fingerprint/version, and required CAS rows. Different-store and changed-state continuity checks reject."
+    },
+    {
+      "stage": "same-store-final-commit",
+      "result": "PASS-SPECIFIED-UNEXECUTED",
+      "finding": "Evidence v6 requires the same live store, admitted handle, finalized evidence, and prepared custody tokens; rechecks authority state immediately before one six-record publication; exact retry is idempotent; conflict and test-window TOCTOU probes publish nothing."
+    },
+    {
+      "stage": "post-core-equality-and-cycle",
+      "result": "PASS",
+      "finding": "Independent decoding/rehashing reproduced unchanged Evidence v5 identities, exact Terminal/RunAuthorityIndex authority equality, exact RunAuthorityIndex raw bytes, external runSealRef, and no VERSIONING-v7 Evidence/store-token back-edge."
+    }
+  ],
+  "fixtureProductionSeparation": {
+    "decision": "ACCEPTABLE-AS-CHECKER-FIXTURE-ONLY",
+    "facts": [
+      "_open_test_project_store is underscore-prefixed and its docstring says Fixture-only.",
+      "Every trustedStoreFixture has fixtureOnly=true and synthetic opensip.test.* host evidence.",
+      "The EP7 checker module docstring identifies the in-memory port as a test double and excludes the fixture bridge from its listed public successor APIs.",
+      "Evidence v6 declares the production call as opensip_store.open_project_store_authority_v1(HostProjectAdmissionV1, TrustedProjectStoreStateV1), not the JSON fixture bridge.",
+      "_open_test_project_store is absent from IMPLEMENTATION-FREEZE.md, IMPLEMENTER-BLUEPRINT.md, and ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md; its repository uses are confined to checkers."
+    ],
+    "guardrail": "Python underscore privacy is conventional, so the fixture helper can mint a test store from ordinary JSON inside the checker module. It is not production authority evidence and MUST NOT be exported, packaged, copied, or treated as an implementer API. Shipping such a path would reopen the EP6 provenance blocker."
+  },
+  "independentProbeResults": {
+    "candidateAndCapabilityBoundary": {
+      "candidateIndexFreeAllSeven": "PASS",
+      "ordinaryStoreValuesRejected": "PASS: dict/string/boolean/ref/fixture-shaped JSON rejected by authorize_evaluation",
+      "ordinaryProductionConstructorInputsRejected": "PASS: open_project_store_authority({}, {}) rejected",
+      "storeAndHandleJsonAndPickleRejected": "PASS",
+      "wrongProjectRejectedBeforeMutation": "PASS"
+    },
+    "authorizeAndContinuity": {
+      "emptyStoreAuthorization": "PASS: five CAS keys, one index row, index version 1",
+      "exactRetry": "PASS-IDEMPOTENT: state and version unchanged",
+      "duplicateIndexRollback": "PASS",
+      "conflictingIndexRollback": "PASS",
+      "differentStoreContinuity": "PASS-REJECTED",
+      "indexGenerationChange": "PASS-REJECTED",
+      "missingCASOnContinuity": "PASS-REJECTED"
+    },
+    "coldStoredResolve": {
+      "preloadedDurableState": {
+        "casKeys": 5,
+        "indexRows": 1,
+        "candidateCacheEntries": 0
+      },
+      "coldOpenResult": "REJECTED: ValueError: stored-read has no store-admitted candidate reconstruction",
+      "liveResultBeforeCacheLoss": "ACCEPTED",
+      "restartSimulation": "Cleared only _candidates after successful authorization; CAS, index, and index versions remained exactly equal.",
+      "postRestartResult": "REJECTED: ValueError: stored-read has no store-admitted candidate reconstruction"
+    },
+    "finalization": {
+      "sameStoreSixRecordCommit": "PASS: one each of TerminalRunV1, RunIndexV1, AttemptRunLinkV1, CustodyRootV1, RunAuthorityIndexV1, outbox",
+      "exactRetry": "PASS-IDEMPOTENT",
+      "differentStoreFinalizer": "PASS-REJECTED-WITH-NO-PUBLICATION",
+      "RunAuthorityIndexCollision": "PASS-REJECTED-WITH-STATE-UNCHANGED",
+      "authorityIndexTOCTOU": "PASS-REJECTED-WITH-NO-FINAL-PUBLICATION"
+    },
+    "independentIdentityResults": {
+      "semanticEvidenceCasRef": "sha256:858ccc7c508c49c44ae85df6f880b4e26cecb0b2ec182abbf890a6c1ea8a0d82",
+      "evidenceDigest": "sha256:6edbf46f919565e5a10426e4ff9f1dcf56588d18d1b75ad1c32cd848b19f47b9",
+      "runId": "run1:3f319950f6a00565611029f3accc38a2afd38b3f4ab6539b2d6c8304ef0a9208",
+      "runSealRef": "sha256:d34fc5e0d80f2af919c3ab572f03793b7893dddb2f816587b76bce40af497734",
+      "runAuthorityIndexRawCasRef": "sha256:bf50d2d6b01dcdc09ef13f830a1b8ed208547c549e53816ba282c99e53185dad",
+      "EvidenceV5GoldenUnchanged": true,
+      "terminalRunAuthorityEquality": true,
+      "postCoreNoCycle": true
+    }
+  },
+  "blockingFindings": [
+    {
+      "id": "APV2-01-COLD-STORED-RESOLVE-DEPENDS-ON-VOLATILE-CANDIDATE-CACHE",
+      "severity": "BLOCKING",
+      "status": "OPEN",
+      "claimRejected": "ProjectStoreAuthorityV1.resolve_stored_evaluation(evaluationAuthoritySealRef) reconstructs authority from trusted durable index/CAS alone and reruns exact admission.",
+      "affected": [
+        "evaluation-proof.v7.json#authorityAdmissionContract.storedReadApi",
+        "evaluation-proof.v7.json#authoritySeam.storedReadBoundary",
+        "evaluation-proof.v7.json#projectStoreAuthorityContract",
+        "check-evaluation-proof-v7.py#_TrustedStoreState._candidates",
+        "check-evaluation-proof-v7.py#_ProjectStoreAuthorityV1.authorize_evaluation",
+        "check-evaluation-proof-v7.py#_ProjectStoreAuthorityV1.resolve_stored_evaluation",
+        "evidence.v6.json#importedAuthorityContract.storedReadApi",
+        "evidence.v6.json#storeCapabilityContinuityContract"
+      ],
+      "evidence": [
+        "_TrustedStoreState.__init__ initializes _candidates to an empty process-local dict even when trusted CAS and EvaluationAuthorityIndexV1 rows are preloaded.",
+        "authorize_evaluation publishes CAS/index/version fields and then separately copies the full candidate into _candidates; the candidate cache is not an immutable CAS row, index field, reconstruction root, or specified durable record.",
+        "resolve_stored_evaluation rejects before CAS-based reconstruction when _candidates lacks the key, then calls authorize_evaluation only if that cached full candidate exists.",
+        "The accepted fixture already contains the exact five CAS rows and exact one index row. Cold resolution still rejects because the cache is empty.",
+        "After a successful live resolution, deleting only _candidates while preserving CAS/index/version state exactly causes the same rejection."
+      ],
+      "impact": [
+        "A cold, restarted, or second-process store cannot recover a fresh store-instance-bound admitted handle from the declared EAS-ref-only API.",
+        "The stored-read promise is not implemented by, or fully specified over, the durable authority state it names.",
+        "Same-store finalization/recovery after process loss lacks the declared store-only authority rehydration path; callers must retain volatile state or resubmit the full candidate through a different operation.",
+        "No direct ordinary-value bypass was observed, but durable closure of the two EP6 store-provenance findings cannot be claimed while one declared authority path depends on unindexed volatile reconstruction state."
+      ],
+      "requiredChanges": [
+        "Define the exact durable reconstruction contract. Either persist a closed content-addressed EvaluationAuthorityCandidateV1/root/inventory reachable from EvaluationAuthorityIndexV1, or specify a complete deterministic traversal that reconstructs every candidate field from the indexed admission and immutable CAS graph.",
+        "Atomically publish-or-exact-verify the reconstruction anchor/closure with all required CAS rows and the unique index. It must not be a process-local cache assignment outside the durable transaction.",
+        "Make resolve_stored_evaluation accept only the live ProjectStoreAuthorityV1 plus EAS ref, reconstruct exclusively through that store, rerun the exact closed EP7 admission, reread index/CAS in one trusted transaction, and mint a new handle bound to the current store instance.",
+        "Do not add a caller-supplied candidate/index overload to stored resolve and do not treat cached bytes, an owner string, a boolean, or a ref alone as authenticated reconstruction.",
+        "Add independent cold-open, restart, and second-process probes with empty caches. Exact durable state must resolve; missing/extra/duplicate/conflicting reconstruction rows, graph edges, bindings, CAS bytes, or index generations must reject.",
+        "Add crash/rollback and concurrency cases covering the reconstruction anchor together with CAS/index insert-or-verify, then regenerate affected pins and obtain a fresh independent rereview."
+      ]
+    }
+  ],
+  "nonBlockingResiduals": [
+    {
+      "id": "APV2-R1-PRODUCTION-EXECUTION-ABSENT",
+      "state": "RETAINED",
+      "effect": "Host admission, trusted store construction, database isolation, durability, transaction rollback, and atomic six-record publication are specified with guarded in-memory doubles only; no production implementation or qualification evidence exists."
+    },
+    {
+      "id": "APV2-R2-COPY-SWAP-IS-NOT-ATOMICITY-EVIDENCE",
+      "state": "RETAINED",
+      "effect": "The checker copy/swap model and module-global run ledger are useful executable semantics, but they do not demonstrate crash-safe or concurrent production atomicity. The production implementation must use the declared serializable one-project-ledger transaction."
+    },
+    {
+      "id": "APV2-R3-FIXTURE-EXPORT-GUARDRAIL",
+      "state": "RETAINED",
+      "effect": "_open_test_project_store is acceptable only while checker-private and non-shipping. Python callers can reach underscore names by reflection, so packaging/export boundaries must exclude it."
+    },
+    {
+      "id": "V10",
+      "state": "UNRESOLVED",
+      "effect": "Threat/product closure remains absent and outside this review."
+    },
+    {
+      "id": "CD-RT-5/G19",
+      "state": "BLOCKED",
+      "effect": "Product retention disposition and live operability gate remain blocked and outside this review."
+    }
+  ],
+  "regressionChecks": [
+    {
+      "command": "python3 -B docs/coop/artifacts/check-evaluation-proof-v7.py",
+      "exitCode": 0,
+      "role": "regression-only"
+    },
+    {
+      "command": "python3 -B docs/coop/artifacts/check-evaluation-proof-v7.py --selftest",
+      "exitCode": 0,
+      "role": "regression-only; does not exercise cold stored resolve"
+    },
+    {
+      "command": "python3 -B docs/coop/artifacts/check-evidence-v6.py",
+      "exitCode": 0,
+      "role": "regression-only"
+    },
+    {
+      "command": "python3 -B docs/coop/artifacts/check-evidence-v6.py --selftest",
+      "exitCode": 0,
+      "role": "regression-only"
+    },
+    {
+      "command": "python3 -B docs/coop/artifacts/check-phase1a-a-prime-successor-v3.py",
+      "exitCode": 0,
+      "role": "regression-only"
+    }
+  ],
+  "hashWindow": {
+    "algorithm": "SHA-256",
+    "manifestPreimage": "For each lexicographically sorted path: lowercase sha256, two spaces, decimal byte length, two spaces, path, LF",
+    "inputCount": 16,
+    "manifestPreimageBytes": 1947,
+    "startManifestSha256": "1d914749923df07adade06c3658251a9098fee11221263c2ce6f7d818eb2e06a",
+    "endManifestSha256": "1d914749923df07adade06c3658251a9098fee11221263c2ce6f7d818eb2e06a",
+    "startEndExact": true,
+    "inputs": [
+      {
+        "path": "docs/coop/ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md",
+        "bytes": 18601,
+        "sha256": "47df412dba5d62a823ca7c008c382c489b8a10c797fd8656f3d4dd5d6c342e2e"
+      },
+      {
+        "path": "docs/coop/IMPLEMENTATION-FREEZE.md",
+        "bytes": 21211,
+        "sha256": "df422a924bee290f07c27f98ccc2a8d7ee905eaff6dcfa4f6664ab2ac8e3dea1"
+      },
+      {
+        "path": "docs/coop/IMPLEMENTER-BLUEPRINT.md",
+        "bytes": 37197,
+        "sha256": "7d2c1a697fb130524fc1f238513a5528b485ce1c7fba1c4ad9bbe7d435975763"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evaluation-proof-v6.py",
+        "bytes": 42842,
+        "sha256": "0a7ac122a598bb7b9454b1b3c46c586f6fd551a2a1ebcf5584665f875457c5f0"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evaluation-proof-v7.py",
+        "bytes": 41429,
+        "sha256": "550a2231264ab6b308b3ddb752199c6496f7c2417a8dbeeb9f21c230569b36c4"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evidence-v5.py",
+        "bytes": 18118,
+        "sha256": "fc2017ffbe70f46b18c19a41688b1e7fd037dd9b174308ae63ae53d7b703abf3"
+      },
+      {
+        "path": "docs/coop/artifacts/check-evidence-v6.py",
+        "bytes": 38370,
+        "sha256": "ad3aa393abac0a5094678c3f29b2a4478eccb651b747c0e19e2e69499cab92f4"
+      },
+      {
+        "path": "docs/coop/artifacts/evaluation-proof.v6.json",
+        "bytes": 466509,
+        "sha256": "74f35668afae2efb57070ff9a2897d373a91b42cc1cbbc87f3c673f872ca4bce"
+      },
+      {
+        "path": "docs/coop/artifacts/evaluation-proof.v7.json",
+        "bytes": 603662,
+        "sha256": "92d51e9232c6ee137b7228aa7885a2e32f668f9b4b108d7140fdb52dae864ef8"
+      },
+      {
+        "path": "docs/coop/artifacts/evidence.v5.json",
+        "bytes": 107142,
+        "sha256": "833d2dd69276363d2951f69eb1665e12a8e87d7e433a24aaf085753013903351"
+      },
+      {
+        "path": "docs/coop/artifacts/evidence.v6.json",
+        "bytes": 76826,
+        "sha256": "a941cd24365ce4b0bd43de45698dc045d292005e378ed87e5e6884732e83e102"
+      },
+      {
+        "path": "docs/coop/artifacts/phase1a-a-prime-successor-v2.review-independent-evidence-op.json",
+        "bytes": 29326,
+        "sha256": "9e863b925b77579603e8e449c25f58563edd710d4b720adce6882f125b249861"
+      },
+      {
+        "path": "docs/coop/artifacts/phase1a-a-prime-successor.response.v3.json",
+        "bytes": 42290,
+        "sha256": "ee27d89fbf93eeba0c25dce9a1a2b19069303b6b3f1e54e7faf3731b1ea192a7"
+      },
+      {
+        "path": "docs/coop/artifacts/retention-tiers.v11.rereview-independent-final.json",
+        "bytes": 22656,
+        "sha256": "86f592ec6f553fadee789a3d08002139ab88da670f82704ac2d591be71dd0612"
+      },
+      {
+        "path": "docs/coop/artifacts/retention-tiers.v12.json",
+        "bytes": 204150,
+        "sha256": "1a034746512de51605b7a4bcc4fb0936bdc167db057a3018be74a2a047376dab"
+      },
+      {
+        "path": "docs/coop/artifacts/versioning-policy.v7.json",
+        "bytes": 171132,
+        "sha256": "0c0f2d7396c32854c3cd5a6aff794c6a0e1be2ffe833816f9ff66f0089b49985"
+      }
+    ]
+  },
+  "recommendation": "REQUIRED-CHANGES. Preserve the live index-free candidate and opaque same-store capability design, but repair durable candidate reconstruction and prove cold/restarted stored resolution from store state alone. Keep the candidate NOT-APPLIED at SPECIFIED/IMPLEMENTABLE_UNEXECUTED; do not modify product/V10/threat-model/register/seal state and do not seal or integrate before regenerated pins and fresh independent rereview."
+}

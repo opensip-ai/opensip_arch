@@ -1,0 +1,102 @@
+{
+  "subject": "security completion v2",
+  "head": "867175a",
+  "author": "Claude",
+  "reviewer": "Codex lead",
+  "independence": "Reviewer authored none of this frozen unit bytes; paired distribution draft is separately authored and awaiting Claude review.",
+  "verdict": "OBJECT",
+  "mustFix": 5,
+  "shouldFix": 0,
+  "findings": [
+    {
+      "id": "SEC2-M1",
+      "severity": "MUST-FIX",
+      "title": "Resolve stock Linux platform support against the stated threat model",
+      "where": "security-completion.v2.md \u00a78.4/8.6, v48 successor boundary",
+      "evidence": "The proposed product now requires an OpenSIP-built kexec-absent kernel. \u00a71 incorporates a threat model expressly excluding compromised OS and distribution signing chain. This requirement creates a new customer OS replacement prerequisite without establishing a needed security claim within that threat model.",
+      "repair": "Adopt an explicit scoped OS-ABI successor with an honest assumed OS TCB and stock signed supported Ubuntu baseline, or independently justify the custom-kernel requirement against a concrete in-scope attack not already excluded. Preserve component loader and dependency exact-byte protections. This is a challenged design choice, not a claim that existing v48 already permits stock kernels."
+    },
+    {
+      "id": "SEC2-M2",
+      "severity": "MUST-FIX",
+      "title": "Define a race-free lifecycle-to-operation lock handoff and witness reconciliation",
+      "where": "\u00a75.4; paired lifecycle-carrier v2",
+      "evidence": "Security releases the fence before acquiring the operation lease; lifecycle v2 requires lease publication under the fence. End/start high-water copies claim no lease held yet read a carrier another writer may change. COMMITTED n with matching seq but differing hash has no specified branch; project rollback after last start floor can evade the blanket claim.",
+      "repair": "Acquire project lease nonblocking under fence, compare/publish trust and lifecycle observations before releasing fence; never wait for fence under operation lease. Define a race-free end handoff/re-read or skip protocol. Reconcile every witness state including zero/genesis, malformed/missing, equal-seq unequal-hash, ahead/behind, generation mismatches. Author executable crash/restore/overlap cases and honest bounds of detection."
+    },
+    {
+      "id": "SEC2-M3",
+      "severity": "MUST-FIX",
+      "title": "Make rollback claims consistent with the explicit detection boundary",
+      "where": "\u00a71 and \u00a75.5",
+      "evidence": "\u00a71 says rollback yields denial, not stale authority, while \u00a75.5 acknowledges undetectable coherent offline rollback with a suppressed marker. The former is not guaranteed under the latter, and copied project floors only cover observed operation boundaries.",
+      "repair": "Bound fail-closed claims to detected/declared restores and observed floors. State explicitly that coherent unmarked rollback may reuse formerly valid authority until a trusted refresh/expiry observation. Do not claim an origin check happens before offline operations unless actually required."
+    },
+    {
+      "id": "SEC2-M4",
+      "severity": "MUST-FIX",
+      "title": "Enforce semantic root admission before signature thresholds are consumed",
+      "where": "root.schema.json and security_unit_lib_v2.py verify_envelope/root_keys_for_role",
+      "evidence": "Independent probe changes roles.TR-COMPONENT.threshold to 1. The root schema admits it; with one retained signature verify_envelope returns VERIFIED, valid=1 threshold=1, contrary to chosen 2-of-3. No root semantic admission checker enforces exact role membership, keyId/publicKey consistency, references, distinct/disjoint keys, role activity or threshold selection. previousRootVersion is also uint53 while rootVersion is i64, preventing a valid high-version chain.",
+      "repair": "Implement explicit root semantic validation and call it before using root authority; retain negative cases for weak thresholds, missing/duplicate/reused keys, keyId mismatch, active-role typed absence, and chaining bounds. Fix previousRootVersion to the chosen common range. The checker may be design evidence; do not equate mere JSON shape with trusted root admission."
+    },
+    {
+      "id": "SEC2-M5",
+      "severity": "MUST-FIX",
+      "title": "Align cross-unit canonical and epoch field names",
+      "where": "\u00a72.1 domain table, \u00a74.5 registry views, \u00a75.1 trustEpoch",
+      "evidence": "Registry-view digest uses opensip.metadata.registry-view.1 but the closed prose registry omits it (the helper contains it). trustEpoch uses catalogSnapshotVersion while lifecycle v2 uses indexSnapshotVersion.",
+      "repair": "Add the registry-view domain to the normative closed table; align trustEpoch exact schema member with lifecycle, retaining an explicit catalog-snapshot meaning. Update numeric text to distinguish journal uint53 seq from metadata i64."
+    }
+  ],
+  "replay": {
+    "checks": 82,
+    "failures": 0,
+    "report": "/tmp/opensip-security-v2-lead-replay.json"
+  },
+  "scope": "No register edit proposed. Design evidence only. G22 final fixture union, permission/doctor D9 joins and integrated application grades remain separate required work.",
+  "subjectPins": {
+    "docs/coop/completion/security-completion.v2.md": "fca2a4b615a3261f61e2e2d7a685b1b747678dedc54f9f87d7adcd643ffd3b78",
+    "docs/coop/completion/security-vectors.v2.json": "7d612accce34ea9c4e6d1774840438bf170ed25a50ac0457dc0141fc6e2a1498",
+    "docs/coop/completion/security_unit_lib_v2.py": "5e41fff3fbe3c6985951ffa4d676c0f82d5a26b2316a766a632689f787942430",
+    "docs/coop/completion/check-security-unit.v2.py": "2afc04957f205434675c83c3429bba68445bfa214e4a59f56fb9abfec1c2232e",
+    "docs/coop/completion/security-unit.v2.report.json": "235dc7d92a2b6c53d6000bed0ae65ab1e66a5c47e1c729c1109237e0b331f971",
+    "docs/coop/completion/security-schemas.v2/catalog.schema.json": "939ad388734f0d8ff3618d2b6a137e049abe305328b6ee50d9c786b0f84c7c44",
+    "docs/coop/completion/security-schemas.v2/envelope.schema.json": "82baf6967b8315546a93d955a2523805161f37bd22cb6728198442491e3cc3c1",
+    "docs/coop/completion/security-schemas.v2/grant-journal.sql": "8b633ea910b5d7136f2eaae64ae05840d9e81b20ea359aa8994d1a86ae3f753f",
+    "docs/coop/completion/security-schemas.v2/journal-record.schema.json": "3c090afa5f6232f626d234f8c40e77615779557609302f6666f8090dde0ad63d",
+    "docs/coop/completion/security-schemas.v2/payload.schema.json": "bb9ab011b8b8d3f819552a7aa8924a1df9e6e00abf447f0a5e99330060b43da0",
+    "docs/coop/completion/security-schemas.v2/permission-policy.schema.json": "3d7153d920bf6fa0a395b5cc16afa0e6ede0414ef95e98f769935133c76f6d5b",
+    "docs/coop/completion/security-schemas.v2/registry-view.schema.json": "43726cf5c700f41e7ba22f2fee77ec59a98f17ab7a45027c2cde52df5f24e756",
+    "docs/coop/completion/security-schemas.v2/registry.schema.json": "90465235f8a7694aa3152a5d227a33993a796e0ab27e3e06da6393dadaffd8c7",
+    "docs/coop/completion/security-schemas.v2/revocation.schema.json": "143027369ccd150449cfe5b45d38645e62931002f47cd73e8cea22d38547fad4",
+    "docs/coop/completion/security-schemas.v2/root.schema.json": "326fadc6275c6de0b973e8780a0be7f38016e4ad463db5c33139a6473cf3447d",
+    "docs/coop/completion/security-schemas.v2/tcb-profile-template.schema.json": "d0b24d76fdcb5c6a5af7f59d4f77e0a62588af9c41fd30997824cb84ddb4d181",
+    "docs/coop/completion/security-fixtures.v2/catalog.envelope.json": "c9af0df3deb6813188b7fc00542e31f8fdd7cbe626fdbe0a7c08bff8cb435036",
+    "docs/coop/completion/security-fixtures.v2/catalog.example.json": "7d1a9337e3f25cf76441a0fbb4adcce035b46e832c06dcf2fa5865ae3cbfc53c",
+    "docs/coop/completion/security-fixtures.v2/grant-journal.example.json": "86cc2ae88b9de4d9b0bc018561cdf6128aefcfed346f491e11373523e270f9e7",
+    "docs/coop/completion/security-fixtures.v2/grant-journal.example.sqlite": "0e3f00205868b8b2db1eca75df87f127f0e7d85c9f890b000a0dd73466343b7f",
+    "docs/coop/completion/security-fixtures.v2/payload.example.json": "84eedb7749288fd80527d98ad161c35ad380e22998946e2e4153411b628c80b6",
+    "docs/coop/completion/security-fixtures.v2/permission-policy.example.json": "2053da325ead6b388c512dc04b9840b72337093013c339985bbcab9eaf04749e",
+    "docs/coop/completion/security-fixtures.v2/profile.P-LINUX-ARM64-UBUNTU2404-EXT4.json": "86860fe1267bb9bce11973c96f307dd48879728e90da854e0fc47553f8a2ad1e",
+    "docs/coop/completion/security-fixtures.v2/profile.P-LINUX-X86_64-UBUNTU2404-EXT4.json": "01f2e6960a0afe67e86022c838b48ff9e1bf79502aa2e5c664ad9b505ca65a3b",
+    "docs/coop/completion/security-fixtures.v2/profile.P-MACOS-ARM64-25G83-APFS.json": "eb8b6c02f61498029dd300d7df2d35e1c6b4f134f5743ddabdfc1ec1dddaccfc",
+    "docs/coop/completion/security-fixtures.v2/profile.P-MACOS-X86_64-25G83-APFS.json": "99b1c69ed557e85f671904621f617fbcdc333d13a49c5112e2bf751e7b0f95a4",
+    "docs/coop/completion/security-fixtures.v2/registry-view.project-a.example.json": "1f05268f6460c1663e27d80b1b49d1568fb7c6d689a7726f625b73d02cf564c4",
+    "docs/coop/completion/security-fixtures.v2/registry-view.project-b.example.json": "347b72c3102cf5d7aa52b1d446e721b86efc762adcc86fb816df637e34f5e0bc",
+    "docs/coop/completion/security-fixtures.v2/registry.example.json": "4e6a48e8435a5d3f6cd252d0f1817f0e0d5be1c9c21d918d91ef9497d5f6acb5",
+    "docs/coop/completion/security-fixtures.v2/revocation.example.json": "3920fc31404b568ab7aa0059cb75b2bc19f59f1d2971813b656f179df5bad45f",
+    "docs/coop/completion/security-fixtures.v2/root.envelope.json": "6b76563dda2c9c63c97884ed251d9d5570d9cee1c3a4ed1006f4074e74417300",
+    "docs/coop/completion/security-fixtures.v2/root.example.json": "ed8449aa4ac937f5261fb6f7af462afd4dfd8bcf1accfd6c26b84b73f4a4465c",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope-malformed.json": "76adc54d7819ce420bf3427d7064f8ace96a2810d7f0ad30b60e329def4701c8",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope-mismatch.json": "e94bb99a0c8266aa9dccbc336bc7c70787b68d46d03f691404ffa80568d1eb59",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope-namespace-mismatch.json": "c48270153729f035bba9f5f2e0c133b058f344896c6d91d3b903706f01673eb2",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope-role-confusion.json": "02d83293f49bb5b9da463c66ad3cdf9f06c2108ade5f8845c0c8ab37e9e1fd7e",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope-unauthorized-key.json": "f59b2e1b2cc52d098b911dd126c3aac9e0096aace0033b0a71e2d450744d4d6e",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.envelope.json": "5d6afda406cbfab1c88a54071137a124e9f9a33b01eaf615be75b242594f83c9",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.manifest.canonical.bin": "1aab3a29b0424d0c430e7bb39e829e993cde121a97b9eb861edc75dfe7beef33",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.manifest.json": "ce6c943513188ccf785065332b754fdd68a3f672fbb66af5177234fa7f0b7401",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.manifest.unknown-capability.json": "1bafdf22c6fd4065b05992881a54eb60977f864b55c2b8379adcd29c08abe73d",
+    "docs/coop/completion/security-fixtures.v2/typescript-analyzer.manifest.wrong-rung.json": "d1b70af3137aad6392ef6e712df74b05c81f9378a9a33f98832b27fd01f0e266"
+  }
+}

@@ -1,0 +1,80 @@
+{
+  "artifact": "host-effect-authorization.v7.review-independent.claude2.json",
+  "reviewer": "claude2",
+  "subject": "host-effect-authorization.v7",
+  "documentClass": "INDEPENDENT-REVIEW",
+  "date": "2026-08-13",
+  "protocol": "Independent review under D-000; refute not confirm; successor to v6 (Claude 2 ACCEPT 0 blockers; Codex REJECT at HAE6-CX-01)",
+  "subjectSha256AtStart": "62cbf794182e273d74eb2b0e2d18a84eb7f1d6dca8cae779c0a2e9fc2e5adfe0",
+  "subjectSha256AtEnd": "62cbf794182e273d74eb2b0e2d18a84eb7f1d6dca8cae779c0a2e9fc2e5adfe0",
+  "subjectMoved": false,
+  "verdict": "ACCEPT",
+  "blockers": 0,
+  "advisories": 0,
+  "sealRecommendation": "DO-NOT-SEAL",
+  "binds": "NOTHING",
+  "reviewerSelfCorrection": "Codex's HAE6-CX-01 identifies a real defect in v6 that I passed over and should not have. In my v6 review I verified that observationDeadline and byteCap were well-founded — that doctor v4's scope member genuinely names 'which deadline, which byte cap', and that the per-class requiredness matched v4's per-class prose — and I then accepted v6 with zero findings. I did not scrutinize their types. v6 declared observationDeadline as a bare string with no format and byteCap as a bare object with no inner shape, inside a scope shape whose own rule is closed true and additionalMembers forbidden. An untyped object in a closed shape is an open hole, and it is the same defect class I had myself raised at IR-HEA5-A1 one round earlier. I checked provenance and did not check shape, and the blocker was correctly Codex's to find.",
+  "summary": "The v6 blocker is repaired thoroughly and the repair is surgical. observationDeadline is now a closed four-member object whose kind is closed to DURATION-FROM-INVOCATION-START, whose clockRule is closed to OBSERVATION-ONLY with the meaning that doctor's clock 'decides no authorization and no order' and that 'An expiry-shaped timestamp is forbidden', and whose forbiddenShapes list names ISO-8601 instant, wall-clock expiry, empty object, bare number and string duration. byteCap is now a closed object-or-null with three per-class variants: acceptFromTarget for CA-1 and CA-2, a send and receive pair for CA-4-HOST with swappedOrMissingDirection failing, and mustBeNull for CA-3 with a closed nullReason. Those variants match doctor v4's per-class prose exactly. I applied the finding as a class across all fifteen scope members and found no remaining open object. The prompt's instruction to confirm the fail-closed and preview-denial bytes are unchanged in effect is satisfied in a stronger form than asked: I diffed six regions structurally and all six are byte-identical, zero paths changed, added or removed.",
+  "findings": [],
+  "predecessorFindingVerification": {
+    "HAE6-CX-01": "REPAIRED (repair present; original finding text unseen, though the prompt names its subject as untyped observationDeadline and byteCap and the v6 bytes confirm the defect independently). observationDeadline moved from 'type: string, nullable: false' to a closed object with additionalMembers forbidden and four members: kind closed to the single value DURATION-FROM-INVOCATION-START; value typed nonnegative-integer with domain 0..2^53-1 inclusive; unit closed to milliseconds; and clockRule closed to OBSERVATION-ONLY. byteCap moved from 'type: object' with no inner shape to a closed object-or-null with an integerRule of nonnegative integer 0..2^53-1 for every numeric member, a stated unit of bytes, and three variants keyed on action class. Both carry an explicit forbiddenShapes list, and a new fixture class FC-BOUND-SHAPE tests every enumerated forbidden shape for both members.",
+    "IR-HEA6 (none raised)": "I raised no finding on v6. The gap that produced Codex's blocker is recorded at reviewerSelfCorrection above rather than presented here as a repaired finding of mine, because it was not mine."
+  },
+  "whatIVerified": [
+    "Subject digest at start and end: 62cbf794182e273d74eb2b0e2d18a84eb7f1d6dca8cae779c0a2e9fc2e5adfe0 both times. No drift.",
+    "The deadline is not expiry-shaped, which was the sharper half of that axis. kind is closed to DURATION-FROM-INVOCATION-START — a duration measured from a known origin, not an absolute instant — and clockRule is closed to OBSERVATION-ONLY with the meaning 'Doctor's clock ends an observation. It decides no authorization and no order. An expiry-shaped timestamp is forbidden.' That matters beyond typing: it keeps the deadline out of the authorization axis, consistent with doctor v4's own 'Carried ALONGSIDE the consent but NOT as authorization parameters', and it keeps wall-clock out of ordering, which is the discipline DR-105 and gate DR-G09 impose where they forbid wall-clock or component ordering from choosing a linearization. forbiddenShapes names ISO-8601 instant and wall-clock expiry explicitly.",
+    "byteCap carries class variants and the send/receive split, and they match doctor v4's per-class prose rather than being invented. v4 describes CA-1 and CA-2 as carrying 'a bound on bytes doctor will accept from the component' — v7 gives those classes a single acceptFromTarget member meaning 'output-acceptance bound on bytes doctor will read from the target'. v4 describes CA-4 as carrying 'a byte bound in both directions' — v7 gives CA-4-HOST a send and receive pair with swappedOrMissingDirection marked 'fails'. v4 mentions a deadline only for CA-3 — v7 makes byteCap mustBeNull for CA-3 with nullReason closed to the single value NOT-APPLICABLE-NO-IO-BOUND, so the absence is typed rather than merely permitted.",
+    "Empty and open objects are not lawful: both members carry forbiddenShapes lists naming empty object, and byteCap additionally names open object, missing direction, swapped unlabeled directions, wrong unit, negative, non-integer and extra keys. The new FC-BOUND-SHAPE fixture class enumerates the rejections, including 'CA-3 byteCap that is non-null' and 'CA-1/CA-2 byteCap missing acceptFromTarget', so the class-conditional cases are covered and not only the type-level ones.",
+    "I applied Codex's finding as a class rather than checking only the two members it named, which is the check that would have caught it in v6. I swept all fifteen scope-shape members for object-typed entries lacking an inner shape. My first pass flagged productAdmissionRefs as a bare array<object>; that was a false positive from my own detector, which did not look for the key itemClosedMembers — the member does declare a six-name closed item shape, matching the closedItemShape on the corresponding authorizationRecord member. designContractRef likewise declares closedMembers of path, version and sha256. Every remaining member is a string or array<string> primitive needing no inner shape. No open object survives.",
+    "The fail-closed and preview-denial bytes are unchanged, verified structurally rather than by reading. I flattened both documents to path-value maps and diffed six regions — failClosed, coveredActs, slice1EgressExecutionSide, joinBlockerDisposition, outcomeVocabulary and effectCommit. Every one returned zero changed, zero added and zero removed paths. So the six-conjunct fail-closed rule, the CA-2 whole-class preview denial, the CA-1 IN_PROCESS denial, the ES-2a/ES-2b egress split, the seven join-blocker dispositions, the three-member closed outcome vocabulary and all four commit boundaries are literally identical to the bytes I accepted at v6, not merely equivalent in effect.",
+    "The change set is confined to the repair. Flattening the whole document, the v6-to-v7 delta is 204 added, 145 removed and 7 changed paths, and by section: authorizationRecord 50 added and 5 removed and 2 changed, which is the two members' typing; acceptanceEvidenceFixtureClasses 2 added, which is FC-BOUND-SHAPE; predecessorVerdictFindings 149 added and 140 removed, which is the v6 accounting bookkeeping; recordedInputs 3 added; and five header fields changed for the version bump. Nothing changed outside those.",
+    "No regression on the named axes: CA-2 previewStanding and the CA-1 IN_PROCESS standing are inside coveredActs, which the structural diff shows byte-identical, so neither can have regressed.",
+    "No silent SATISFIED: the token occurs twice, both negative. Header retains CANDIDATE-NOT-APPLIED, AWAITING-INDEPENDENT-REVIEW, DO-NOT-SEAL and binds NOTHING.",
+    "No minted PT token: 'PT-' occurs eleven times, nine PT-NET-EGRESS and two the literal wildcard in the disclaimer. 'WAIV' occurs zero times.",
+    "No waived join blocker: joinBlockerDisposition is byte-identical to v6, so all seven remain named with BLK-1 through BLK-4 STILL-ROUTED.",
+    "predecessorVerdictFindings records my v6 verdict at d438d001817df2861b5e196457ebb04ddcc24151b2c0070b4a26b86e292c5cde with verdict ACCEPT and an empty findings array. Both the digest and the characterization match my own file.",
+    "Environment: no input moved during this review or since my v6 review. Git HEAD is 164102d and COORDINATOR-DECISIONS.md and doctor v4 re-measure identically."
+  ],
+  "whatIDidNotCheck": [
+    "The Codex reviews of any version, including HAE6-CX-01 itself. None read at any point; the v7 file is confirmed absent at review time. I verified the v6 defect independently from the v6 bytes rather than from Codex's text, and my handling of the finding is recorded as repair-present, finding-text-unseen.",
+    "Whether a doctor successor will accept these member names and shapes for consentRecords[].scope. This contract proposes the shape and states it does not amend doctor v4; adoption is that successor's act.",
+    "Whether milliseconds and the 2^53-1 domain are the right units and bounds as a product matter. I checked that they are typed, closed, non-negative and integer, and that the deadline is duration-shaped rather than instant-shaped; the numeric choices are design, not coherence.",
+    "Whether Option B is the right actor scope. Settled by adopted D-032; I checked conformity, not merits.",
+    "doctor-contract.v4 and permission-truth-tables.v1 on their merits. Both remain CANDIDATE-NOT-APPLIED and this artifact applies neither.",
+    "Whether the fixture classes are executable. They remain classes; no fixture corpus exists.",
+    "Whether the crash-report surface will be owned, or whether the joint owners will record this contract."
+  ],
+  "acceptanceScope": {
+    "whatThisAcceptanceIs": "An independent reviewer's judgement that the artifact's bytes carry no blocker and no advisory I would raise, on a design-contract candidate.",
+    "whatItIsNot": [
+      "Not a seal. sealRecommendation remains DO-NOT-SEAL and I concur.",
+      "Not an application. Status remains CANDIDATE-NOT-APPLIED and binds NOTHING.",
+      "Not a recording. D-032 requires this contract be recorded by Operability+security jointly with Security+platform before any in-scope host act is exercisable; the artifact does not record itself.",
+      "Not a discharge of any join blocker. BLK-1 through BLK-4 remain STILL-ROUTED under adopted D-032.",
+      "Not closure of DR-105 or DR-114. Both rows remain OPEN and neither is SATISFIED.",
+      "Not a resolution of the crash-report surface, which remains UNOWNED-AND-NEEDED with its fixture obligation bounded rather than claimed."
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/host-effect-authorization.v7.json": "62cbf794182e273d74eb2b0e2d18a84eb7f1d6dca8cae779c0a2e9fc2e5adfe0",
+    "docs/coop/artifacts/host-effect-authorization.v6.json": "5934e4437ec751ea17d3300cabb1459fedf96d87aeb970c7b04e22165c3bac00",
+    "docs/coop/artifacts/host-effect-authorization.v6.review-independent.claude2.json": "d438d001817df2861b5e196457ebb04ddcc24151b2c0070b4a26b86e292c5cde",
+    "docs/coop/COORDINATOR-DECISIONS.md": "7c6d8a568ee58c4a1b27a2a4a40005dd83f85b40f75011677554d9d1f95805e6",
+    "docs/coop/artifacts/doctor-contract.v4.json": "df2e717555616db096e61548458f23b442f7f0e37b2d2461eabc2c33201e94b3"
+  },
+  "environment": {
+    "workingDirectory": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "164102d",
+    "gitHeadSubject": "D-037: consume file 11 via D-001 routes",
+    "subjectTrackedInGit": false,
+    "inputDriftSinceV6Review": "None. Git HEAD unchanged at 164102d and every recorded input re-measures identically to my v6 review.",
+    "note": "The subject and review prompt are untracked working-tree files at review time; digests bind working-tree bytes, not committed objects. Recorded as a condition of review, not a finding, since the artifact declares binds NOTHING and CANDIDATE-NOT-APPLIED.",
+    "measurementTool": "shasum -a 256; python3 json path-flattening diff of v6 against v7 both globally and restricted to six named regions; scope-member type sweep for object-typed entries lacking an inner shape; substring sweeps; direct reads of doctor v4's scope member and per-class bounds prose",
+    "digestsReadFromBytes": true,
+    "reviewerReadOtherVerdict": false,
+    "filesWritten": ["docs/coop/artifacts/host-effect-authorization.v7.review-independent.claude2.json"],
+    "filesEdited": [],
+    "commits": []
+  },
+  "verdictNote": "ACCEPT, zero findings. I record two things plainly rather than letting an empty finding list speak for itself. First, the blocker this version repairs was one I missed: at v6 I checked whether the deadline and byte-cap members were well-founded and stopped there, without checking whether they were typed, and an untyped object inside a closed shape is precisely the defect class I had raised myself one round earlier. That correction is stated at reviewerSelfCorrection and I have applied it as a class this round, sweeping every scope member rather than the two named. Second, the prompt asked me to confirm the fail-closed and preview-denial bytes are unchanged in effect; I answered it structurally instead, and six regions are byte-identical with zero path differences, so no regression is possible in them rather than merely unlikely. Across seven versions this artifact has taken one blocker and five advisories from me and repaired every one at bytes; the acceptanceScope block is carried forward so this verdict is not read as sealing, applying, recording, or discharging anything."
+}

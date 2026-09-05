@@ -1,0 +1,109 @@
+{
+  "artifact": "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.json",
+  "reviewer": "codex",
+  "date": "2026-08-14",
+  "decision": "D-099",
+  "turn": 1,
+  "protocol": "D-000 independent adversarial review; refute not confirm; new cycle after CONTESTED D-098, not a fourth turn; frozen prompt, D-099 subject, and all three D-098 subjects; other-reviewer files not opened, statted, or hash-measured; no subject, authority, register, freeze, implementation, predecessor, or other repository edits; no commit",
+  "subject": "docs/coop/artifacts/coordinator-decisions.D-099.draft.md",
+  "promptSha256AtStart": "90a5a20ba94b4e29ce22533dd18476f957f365f63176f42bb5043debf51fef8a",
+  "promptSha256AtEnd": "90a5a20ba94b4e29ce22533dd18476f957f365f63176f42bb5043debf51fef8a",
+  "promptModeAtStart": "0444",
+  "promptModeAtEnd": "0444",
+  "promptMovementObserved": false,
+  "expectedSubjectSha256AtDispatch": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+  "subjectSha256AtStart": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+  "subjectSha256AtEnd": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovementObserved": false,
+  "verdict": "OBJECTIONS",
+  "findingCounts": {
+    "mustFix": 0,
+    "shouldFix": 1,
+    "notes": 0
+  },
+  "summary": "D-099 is a lawful new cycle and preserves the substantive D-098 turn-3 repairs: exactly five operative G03 quantities, paired current-VM regression measurements from release two onward, no weekly-image rebaseline, unchanged D-006 numerals, explicit G04 series, and complete rollback. It also removes `/proc/self/exe` and universal-binary slice ambiguity. One SHOULD-FIX remains. The replacement still does not define a deterministic observation of the successfully exec'd target process: Linux `file -L /proc/T/exe` reads executable metadata and can race a pre-exec wrapper, target exit, or PID reuse; macOS declares the requested `arch` value to be process architecture and permits translation to be read from a helper rather than from the target. No same-PID exec handshake, target identity binding, liveness protocol, normalized observed output, or short-lived-command race handling is specified. The fail-closed architecture proof therefore remains incomplete, so CONSENT and the proposed condition-4 MET transition are unavailable.",
+  "objections": [
+    {
+      "id": "ADV-D099-01",
+      "severity": "SHOULD-FIX",
+      "title": "The replacement still infers target-process state without an exec/liveness identity protocol",
+      "finding": "Lines 30-43 correct the inspector path and ban fat binaries, but they do not establish when PID T has successfully exec'd the digest-pinned target or keep that short-lived process observable. On Linux, `/proc/T/exe` is a link to the executed program and `file` opens that executable; its output is executable format metadata, not a distinct runtime-ABI observation. Without a post-exec handshake and target identity check, the read may see a launcher/helper, fail after `--help` or `--version` exits, or be attempted after PID reuse. On macOS, `arch -arm64` / `arch -x86_64` is an architecture-selection request, yet the draft simply defines the request as the process result. The documented `arch` behavior may try a close match when the requested architecture is unavailable. The alternative `sysctl.proc_translated` result comes from a helper process unless an optional, undefined target command happens to exist; Apple defines that sysctl as reporting whether the calling process is translated. 'Same arch immediately before' is not an explicit same-PID, same-exec-image evidence binding. Thin artifacts make the intended result plausible but do not turn these inferences into the claimed independently recorded host/executable/process facts.",
+      "evidence": [
+        "D-099 lines 30-43 name PID T but specify no command/arguments, child-stop or post-exec handshake, PID start-time/path/digest identity check, liveness rule, or behavior when a short-lived target exits before inspection.",
+        "Linux kernel procfs documentation says `/proc/<pid>/exe` is a link to the executable and warns that a PID may be reused after exit: https://www.kernel.org/doc/html/v6.8/filesystems/proc.html .",
+        "Linux proc_pid_exe documentation says dereferencing `/proc/<pid>/exe` opens the executable and that the link can become unavailable: https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html .",
+        "The macOS `arch` contract is selection-order control, not a target-process query, and may select a close match when the requested architecture is absent: https://keith.github.io/xcode-man-pages/arch.1.html .",
+        "Apple documents `sysctl.proc_translated` as a call made by the process whose Rosetta state is being determined: https://developer.apple.com/documentation/Apple-Silicon/about-the-rosetta-translation-environment ."
+      ],
+      "impact": "An implementation can record a launcher or executable-format result as the target process fact, or reject nondeterministically because the bounded startup command has already exited. The helper-based macOS branch proves the helper's translation state rather than retaining evidence from the target itself. That falls short of the fail-closed, reproducible no-silent-Rosetta/process-architecture contract needed to name G03/G04 and mark condition 4 MET.",
+      "requiredRepair": "Specify one deterministic target-bound protocol per OS. Bind PID plus process start identity to the exact digest-pinned executable; prove successful exec before observation; hold or instrument the child so the observation cannot race `--help`/`--version` exit; define the exact observed field, normalized accepted values, and failure behavior. On Linux, do not count `file` of `/proc/<T>/exe` as both executable and process facts without an additional target-specific ABI observation. On macOS, require the target itself to return normalized architecture and `sysctl.proc_translated` state, or define a documented target-PID mechanism; if a same-process pre-exec helper is retained, require same PID, exact exec target/digest, no intervening fork, and an explicit proof that the reported property survives that exact exec. Clarify whether the thin-only rule constrains shipped release artifacts or only a digest-bound measurement projection. Refreeze for turn 2."
+    }
+  ],
+  "notes": [],
+  "predecessorFindingDisposition": {
+    "ADV-D098-T3-01": "PARTIALLY RESOLVED. D-099 replaces `/proc/self/exe` with `/proc/T/exe`, captures a target PID, rejects fat/universal artifacts, and avoids using an unrelated default-architecture `sysctl` command. It does not land the required target ABI observation, exact fields/normalization, or lifetime/race handling, and its macOS helper is not explicitly bound to the target process. The residual is ADV-D099-01."
+  },
+  "factVerification": {
+    "cycleIdentity": "VERIFIED. D-099 declares a new D-000 cycle after CONTESTED D-098, not turn 4, and live HEAD is the recorded C-D098 commit 09d0e288509f8b3e58d035290ff26f2e1d29c4ce.",
+    "inheritedContract": "VERIFIED. The frozen D-098 turn-3 subject is digest-pinned, and D-099 expressly incorporates its contract except for the replaced process-architecture observation.",
+    "d006StartupSurface": "VERIFIED. The inherited contract keeps only cold p50/p95/p99 and warm p95/p99 operative; warm p50 remains non-failing telemetry.",
+    "regressionContract": "VERIFIED. The inherited contract preserves paired previous/candidate measurements on the same current VMs from the second release and expressly disallows weekly-image automatic rebaseline.",
+    "numericThresholds": "VERIFIED. D-099 changes no D-006 numeric threshold numeral.",
+    "processPathRepair": "PARTIAL. `/proc/self/exe` and universal-image ambiguity are removed, but process ABI/translation is still inferred without a deterministic post-exec target observation and race protocol.",
+    "reversibility": "VERIFIED. D-099 restores both reserved cells, the 16-of-18 and PARTLY-MET text, exact-machine, exact-OS, and the original D-006 runner classes; it does not purport to overturn CONTESTED D-098.",
+    "d098FrozenSubjects": "VERIFIED. D-098 turn 1 remains mode 0444 at bd45626e0a0cdc1b6e798a4f5276fbb09646debdd832cf19180d8bed4d4dc264; turn 2 remains mode 0444 at 1be52e83df90b1ac7c02b0937cb62f861821b517c77c45905cda0dd7f4479a1b; turn 3 remains mode 0444 at 5ad6884a06aa450bc2cbc0f286b3366eb9e029922e92a0ae6937868e37e05031.",
+    "file08EditTargets": "VERIFIED before verdict write. Each of D-099's five exact replacement targets occurs exactly once in live file 08.",
+    "readinessAndSideEffects": "VERIFIED. Live condition 4 remains 16 of 18 PARTLY MET before adoption. D-099 makes no QUALIFIED, DEMONSTRATED, or SATISFIED claim; does not name G13 or restore G17; leaves condition 2 at 4 of 30 NOT MET and condition 5 NOT MET; and does not authorize implementation. docs/v2/implementation is absent.",
+    "liveInputs": "VERIFIED. COORD 0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b; file 08 45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206; freeze e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd; C-D098 commit and HEAD 09d0e288509f8b3e58d035290ff26f2e1d29c4ce; D-098 turn-3 subject 5ad6884a06aa450bc2cbc0f286b3366eb9e029922e92a0ae6937868e37e05031."
+  },
+  "attackResults": {
+    "processArchStillObservesInspectorOrFatSlice": "FAIL as SHOULD-FIX ADV-D099-01. The literal `/proc/self` and fat-slice defects are gone, but Linux still records executable metadata rather than a distinct process ABI, and macOS substitutes an architecture request/helper state for target-process evidence without an exact exec binding.",
+    "fourthTurnOfD098": "PASS. D-099 is explicitly a new cycle after the recorded CONTESTED D-098 outcome.",
+    "weeklyRollDisablesTenPercent": "PASS. The digest-pinned inherited contract expressly keeps the paired 10% rule active across weekly image rolls.",
+    "warmP50FailGate": "PASS. Warm p50 remains non-operative telemetry.",
+    "changesD006Numerals": "PASS. The inherited D-006 numerals and five-quantity startup surface stand.",
+    "claimsQualifiedOrSatisfied": "PASS. D-099 says not authored and not QUALIFIED and marks no row SATISFIED.",
+    "authorizesImplementationOrFlipsCondition5": "PASS. Both are expressly denied; condition 5 remains NOT MET and the implementation directory is absent.",
+    "flipsCondition4WithoutCompleteContract": "FAIL. ADV-D099-01 leaves a SHOULD-FIX in the fail-closed process-observation contract, so CONSENT and condition-4 MET are unavailable.",
+    "citedDigests": "PASS. Every cited digest and commit that Codex was permitted to measure matches the frozen subject.",
+    "subjectOrPromptMoved": "PASS. Prompt and D-099 subject retained their start hashes and mode 0444 through the final checkpoint.",
+    "d098SubjectsEdited": "PASS. All three frozen D-098 subjects retain their recorded digests and mode 0444."
+  },
+  "consensusStatus": "CODEX OBJECTIONS: 0 MUST-FIX, 1 SHOULD-FIX, 0 NOTES. CONSENT prohibited.",
+  "protocolPartition": {
+    "otherReviewerFilesOpened": false,
+    "otherReviewerVerdictContentsRead": false,
+    "otherReviewerVerdictHashesMeasured": false,
+    "peerEvidenceUsed": "No other-reviewer path was opened, statted, parsed, or hash-measured.",
+    "externalSources": "Process-observation semantics were checked against Linux kernel procfs documentation, Linux man-pages project documentation, Apple's Rosetta documentation, and the macOS arch manual mirror: https://www.kernel.org/doc/html/v6.8/filesystems/proc.html, https://man7.org/linux/man-pages/man5/proc_pid_exe.5.html, https://developer.apple.com/documentation/Apple-Silicon/about-the-rosetta-translation-environment, and https://keith.github.io/xcode-man-pages/arch.1.html .",
+    "filesWrittenByCodex": [
+      "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.json"
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-prompt.md": "90a5a20ba94b4e29ce22533dd18476f957f365f63176f42bb5043debf51fef8a",
+    "docs/coop/artifacts/coordinator-decisions.D-099.draft.md": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+    "docs/coop/COORDINATOR-DECISIONS.md": "0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b",
+    "docs/v2/architecture/08-decision-and-readiness-register.md": "45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd",
+    "docs/coop/artifacts/coordinator-decisions.D-098.draft.md": "bd45626e0a0cdc1b6e798a4f5276fbb09646debdd832cf19180d8bed4d4dc264",
+    "docs/coop/artifacts/coordinator-decisions.D-098.turn2.draft.md": "1be52e83df90b1ac7c02b0937cb62f861821b517c77c45905cda0dd7f4479a1b",
+    "docs/coop/artifacts/coordinator-decisions.D-098.turn3.draft.md": "5ad6884a06aa450bc2cbc0f286b3366eb9e029922e92a0ae6937868e37e05031",
+    "D-098 CONTESTED commit / HEAD": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce"
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtStart": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "gitHeadAtEnd": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "localStartMeasurementTime": "2026-08-14T18:33:07-0700",
+    "utcStartMeasurementTime": "2026-08-15T01:33:07Z",
+    "targetExistedAtStart": false,
+    "implementationDirectoryPresent": false,
+    "committed": false
+  },
+  "filesWritten": [
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.json"
+  ]
+}

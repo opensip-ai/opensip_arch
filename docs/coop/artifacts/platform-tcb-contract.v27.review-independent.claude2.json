@@ -1,0 +1,197 @@
+{
+  "artifact": "platform-tcb-contract.v27.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v27.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v27",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 1 SHOULD-FIX. ACCEPT requires 0 and 0. All five predecessor findings — my blocker and all four of Codex's — are comprehensively repaired, and I could not break any of them. The single remaining finding is that the PE/COFF image-digest clause states two normative things that can disagree on some inputs, with no precedence rule between them. It fails closed and the fix is small.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v26 vs v27; exhaustive raw-substring search for PE-layout, precedence and D-096 tokens",
+
+  "custody": {
+    "subjectSha256Expected": "8adb520b04cd8e9f1137943b932cac00357664de1fb1d88bd65e74db74490133",
+    "subjectSha256AtStart": "8adb520b04cd8e9f1137943b932cac00357664de1fb1d88bd65e74db74490133",
+    "subjectSha256AtEnd": "8adb520b04cd8e9f1137943b932cac00357664de1fb1d88bd65e74db74490133",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 168636,
+    "subjectMovedDuringReview": false,
+    "predecessorV26Sha256": "5128f40120f10796d3f974e82422820aed7b18e6454f2198c20cb1a89796238a",
+    "frozenClaudeV26Sha256": "798f47deca92719e09a71889d66f162e8018c03f8d1fd8cdb4218694572f5de8",
+    "frozenCodexV26Sha256": "ee19b741ee110318d39269b00711d962a9c4be0c3a0665a988024254953f7ede",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE — both frozen v26 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "headMatchesDispatch": true,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v26 REJECT, whose blocker named the PE/COFF preimage mismatch and the undisclosed boot-path narrowing. This generation adopts that diagnosis directly, which is the situation most at risk of a confirmatory read, so I checked the new image-digest clause against the computation it names rather than against my own prior wording. Doing that is what produced the one remaining finding: the clause uses the right vocabulary and the right architecture, and its enumerated steps are not quite the algorithm it names.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V27-S1",
+      "appliesTo": "CLAUDE-V26-B1 — the preimage repair is correct in architecture; its enumerated hashing order is not the algorithm it normatively names",
+      "title": "peCoffImageDigestAlgorithm names the Authenticode image hash and separately enumerates a linear-pass order that omits the section-table-ordered stage, with no precedence rule between the two statements",
+      "where": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/pathlessCeremony/peCoffImageDigestAlgorithm/{specification,order}; consumed at /loaderTraces/objectAuthenticityBind/tags/linux-pathless/{authenticatedKernelMember,measuredBootBind/equality} and /identityEvidenceUnion/.../pathlessCeremony/kernelEventSelection/match",
+      "whatIsCorrect": "The architecture of the repair is right and I want that on the record. authenticatedKernelMember is now {relativePath, sha256, peCoffImageDigest}; sha256 stays the flat digest of the member bytes, peCoffImageDigest is computed from those same exact bytes, and equality reads 'kernelEvent.digestSha256 MUST equal authenticatedKernelMember.peCoffImageDigest. MUST NOT equal, be compared to, or be substituted for authenticatedKernelMember.sha256.' kernelEvent.digestSha256 is itself labelled 'MUST NOT be treated as a flat file sha-256', and notThis repeats the distinction. The three exclusions are correct and precisely located: the optional-header CheckSum, the 8-byte IMAGE_DIRECTORY_ENTRY_SECURITY entry, and the attribute certificate table region those bytes name. That is exactly the repair I specified.",
+      "theGap": "specification states the digest is the 'Windows Authenticode Portable Executable Signature Format image hash ... the digest UEFI LoadImage extends into PCR 4', which is a normative reference to a defined algorithm. order then enumerates seven steps that hash the file linearly: after skipping the security directory entry, step 5 hashes 'from the byte after that entry through the last byte before the attribute certificate table, or through EOF if no certificate table'. The Authenticode algorithm does not hash linearly there. It hashes the headers up to SizeOfHeaders, then walks the section table sorted by PointerToRawData and hashes each section's SizeOfRawData bytes in that order, accumulating SUM_OF_BYTES_HASHED, and only then hashes any trailing bytes beyond that sum, excluding the certificate table. The artifact contains zero occurrences of SizeOfHeaders, PointerToRawData, SizeOfRawData or SUM_OF_BYTES, and zero occurrences of any precedence or governance term, so nothing says which of the two statements wins when they differ.",
+      "whenTheyDiverge": "The two agree exactly when the file is fully covered, in order, by the header region and contiguous section raw ranges — which is the common case for linker-emitted PEs. They differ whenever bytes exist that no section raw range covers (padding between SizeOfHeaders and the first section, or inter-section gaps), or when sections are not in ascending file order: the linear pass hashes those bytes, the Authenticode walk does not. That matters more here than it would elsewhere, because the in-scope artifact is specifically a kernel EFI-stub PE image, whose PE headers and section table are hand-constructed in the kernel build rather than emitted by a conventional linker, so a non-canonical layout is a realistic case rather than a theoretical one.",
+      "failureScenario": "A fully in-scope machine: UEFI with TPM 2.0, Secure Boot enabled, kernel LoadImage/StartImage'd by firmware as an EFI-stub PE, the kernel package authenticated. Firmware computes the true Authenticode digest D_spec and extends it into PCR 4. The verifier computes the member's image digest by following order literally on a kernel image with a header-to-first-section gap, obtaining D_lin != D_spec. kernelEventSelection.match then finds no pre-separator PCR-4 event whose digest equals any member's computed peCoffImageDigest, 'Zero matches or more than one match refuses', and the machine fails qualification despite satisfying every security property the ceremony exists to prove. Two conforming implementations — one following specification, one following order — disagree on the same member bytes.",
+      "whyNotABlocker": "It fails closed in both directions. An implementer following the named specification matches firmware and qualifies correctly; an implementer following order over-refuses. Neither reading can make a wrong kernel pass, because the comparison is still against a firmware-extended digest of the executing image under enforced Secure Boot. So this is a determinacy and correctness defect, not an authenticity hole, and it does not reopen CLAUDE-V26-B1, which was about comparing two different preimages and is genuinely closed.",
+      "requiredRepair": "Make the two statements agree, in whichever direction the author prefers. Either (1) complete order with the missing stage — hash from after the security directory entry through SizeOfHeaders, then hash each section's SizeOfRawData bytes in ascending PointerToRawData order, then hash any bytes beyond the sum of what has been hashed excluding the attribute certificate table — or (2) keep order as an informative summary and add one sentence stating that the named Authenticode specification governs wherever the enumerated steps are silent or differ, in the same form as the supersession sentence already used at authenticatedManifest.uniqueness. Either way the exclusions, the input, the output encoding and the notThis clause should be kept exactly as written."
+    }
+  ],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "CLAUDE-V26-B1 (mine), facet A — PCR-4 event digest equated with a flat file sha-256",
+      "result": "REPAIRED in architecture; see CLAUDE-V27-S1 for the residual algorithm-precision point. The contract now carries both digests on the member, compares only image digest to image digest, and forbids the flat digest from entering that comparison in three separate clauses."
+    },
+    {
+      "finding": "CLAUDE-V26-B1 (mine), facet B — undisclosed boot-path narrowing",
+      "result": "REPAIRED, and disclosed exactly as I asked. inScopeBootConfigs names the supported configuration in full: UEFI class firmware with TPM 2.0 and a TCG2 log, Secure Boot enabled, the executing kernel a PE/COFF EFI-stub image that firmware LoadImage and StartImage as a boot services application producing a pre-EV_SEPARATOR PCR-4 event. refusesBootConfigs names what falls out, including 'GRUB/systemd-boot or any bootloader path in which firmware LoadImage/StartImage is the loader rather than the kernel', BIOS/legacy, Secure Boot disabled, SHA-1-only PCR bank, and non-PE/COFF kernels, and closes with 'Those machines fail qualification. Linux remains in platforms.slice1. No D-096 (A).' The narrowing is now stated rather than emergent, and Linux is not removed from D-002 slice 1."
+    },
+    {
+      "finding": "PTCB-V26-B2 — PCR-4 quote and log consistency does not prove the authenticated member is the code that executed",
+      "result": "REPAIRED, and this is the strongest work in the generation. I could not break it. enforcedBootPolicy supplies the execution root Codex demanded: measuringAgent fixes UEFI firmware LoadImage as the measurer before the first PCR-4 EV_SEPARATOR; controlTransfer requires 'firmware StartImage of the same EFI_HANDLE whose LoadImage produced kernelEvent. A firmware that measures an image it does not StartImage refuses'; secureBoot requires PCR-7 EV_EFI_VARIABLE_DRIVER_CONFIG for SecureBoot with value 1 plus PK, KEK, db and dbx, with quoted PCR 7 matching the replay; imageSignature requires the member's PE Authenticode signature to verify against the measured db with a dbx match refusing. excludesSyntheticExtend answers Codex's hardest sentence directly: 'A bootloader that extends an approved digest and then transfers control to different kernel bytes has no pre-separator firmware LoadImage of those kernel bytes and refuses.' kernelEventSelection is now non-circular by construction and says so — selection is digest-match against payload members' computed image digests, not the v26 phrase 'whose digest is the loaded kernel image'. replayAlgorithm is correct TPM extend semantics with a single named bank: init 32 zero bytes, step new = SHA-256(old || event digest), reconstructing PCR 4 and PCR 7 against the quoted values. The quote retains TPMS_ATTEST bytes, TPMT_SIGNATURE bytes and the AK TPM2B_NAME, with pcrSelect fixed to bits 4 and 7 only, and akJoin binds the signature through qualifiedSigner to a certificate-store DIGEST-BOUND allowlist member. nonceBind is a genuine length-prefixed canonical serialization — u16be-framed runIdentity, observedAt, subject canonical JSON, signedCarrierDigest and a 32-byte verifier CSPRNG challenge — whose SHA-256 'is the TPM2_Quote qualifyingData. Unframed concatenation is not this bind.' I checked specifically that the challenge is inside the qualifyingData preimage rather than merely retained beside it; it is, so the freshness is real and not decorative."
+    },
+    {
+      "finding": "PTCB-V26-B1 — both RPM branches begin from an undefined archive; neither proves one archive supplied digest, verification and manifest bytes",
+      "result": "REPAIRED, every element. The archive is now an exact source: publisherArchivePath, 'an already-present regular file that is the publisher .rpm for selectionKey', with 'This contract does not download, reconstruct from rpmdb, or invent archive bytes' and 'rpmdb does not contain those bytes and MUST NOT be treated as the archive'. headerBind parses NEVRA from the held descriptor's own header and chains it to selectionKey and authenticityCore, and computes SHA256HEADER over the immutable header region for comparison with queryArgv. preferredApi holds one O_NOFOLLOW descriptor across headerBind, digest, verify and extract with closed success values ('RPMRC_OK (0) and no failed signature class'). Extraction hashes 'the exact payload bytes returned by rpmfiArchiveRead' and authenticatedManifest.builtFrom is those extracted bytes, which is the hash-actual-extracted-bytes requirement. The CLI branch answers the hardest half: instead of relying on post-exit pathname revalidation, it dup2s the held copy fd to an inherited fd N, clears FD_CLOEXEC, passes exactly /dev/fd/N as the child argv, forbids passing publisherArchivePath or any other pathname, fstats immediately before execve, and states plainly that the post-exit check 'is additional and is not the identity proof'. That is exactly the descriptor handoff Codex specified."
+    },
+    {
+      "finding": "PTCB-V26-S1 — materializedFileIdentity required but with no lawful location in the closed event schema",
+      "result": "REPAIRED. Both records now have named, precisely-gated slots in retainedEventSchema and on the linux-file-backed tag. materializedFileIdentity is 'required exactly when ... interfaceId is rpm-checksig AND archiveAcquisition used cliInheritedFd', forbidden on preferredApi, apt-secure, linux-pathless and macos-codesign, closed as {dir, name, dev, ino, size, sha256, associationToken, selectionKey, archiveDigest} with extrasRejected and full equalities to identityRecord, the association token, the selection key and the payload digest. descriptorConsumptionRecord is its mutually exclusive counterpart for the preferred branch, closed with a stages field pinned to exactly [headerBind, digest, verify, extract]. Each branch forbids emitting the other."
+    },
+    {
+      "finding": "PTCB-V26-S2 — rpmHeaderIdentity had two mutually exclusive extras-rejected schemas",
+      "result": "REPAIRED. Both sites now carry the single schema Codex preferred, {sha256header, nevra, associationToken}, with the same equalities to the queryArgv output for that NEVRA, to archiveAcquisition.selectionKey, and to openedObjectObservation.associationToken. The tag additionally keeps the use prohibition against packagePayloadDigest and authenticityCore.payload.digest. The two statements no longer conflict."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject 8adb520b... over 168636 bytes at 0444, unmoved start and end. Predecessor v26 and both frozen v26 verdicts reproduce at 0444. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 35 path-bearing pins reproduce, zero failures. The claude2v26 pin records REJECT with blockers [CLAUDE-V26-B1] and empty shouldFix/advisories, exactly as I filed it. The codexv26 pin matches the frozen file. No predecessor review was replaced."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v26-to-v27 change roster",
+      "result": "PASS. Recursive diff found 59 changed paths and ZERO off-roster. reviewGuidance grew 127 to 133 as a pure prefix-preserving append. honestyRepairsFromV26 carries 5 entries covering all four Codex findings and my blocker."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308 with rowVerbatim byte-identical. reMeasurementAtV27 reproduces the live COORD, file 08 and file 04 pins at measuredAtHead 93ceaa6a. platforms.slice1 still carries linux/x86_64 and linux/arm64; no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. I enumerated all 22 D-096 occurrences individually rather than relying on a phrase count: 21 are the standard 'Never mint a D-096 (A) grant' and the 22nd is the refusesBootConfigs sentence 'Linux remains in platforms.slice1. No D-096 (A).' All 22 are refusals; none mints or implies a grant."
+    },
+    {
+      "id": "M-6",
+      "check": "measuredBootBind execution-rootedness, preimage, freshness",
+      "result": "PASS. Preimage separation, enforced Secure Boot chain, StartImage control transfer, synthetic-extend exclusion, single-bank replay, closed quote/AK join, and challenge-inside-qualifyingData freshness all hold."
+    },
+    {
+      "id": "M-7",
+      "check": "PE/COFF image-digest algorithm determinacy",
+      "result": "FAIL — basis of CLAUDE-V27-S1. Zero occurrences of SizeOfHeaders, PointerToRawData, SizeOfRawData or SUM_OF_BYTES; zero precedence or governance terms."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "A measured-boot bind whose equality still compares unlike preimages (my own v26 blocker, re-run)",
+      "result": "FAILED TO LAND. Image digest is compared only to image digest, with the flat digest excluded by name in three clauses."
+    },
+    {
+      "attack": "An execution-rootedness gap — approved bytes extended, different bytes run (Codex's hardest requirement, re-run independently)",
+      "result": "FAILED TO LAND. excludesSyntheticExtend plus the pre-separator requirement plus StartImage-of-the-same-EFI_HANDLE plus enforced Secure Boot with db/dbx signature verification close it from several directions at once."
+    },
+    {
+      "attack": "A decorative verifier challenge retained beside the quote but absent from qualifyingData",
+      "result": "FAILED TO LAND. nonceBind puts the 32-byte CSPRNG challenge inside the length-prefixed preimage whose SHA-256 is the qualifyingData, alongside runIdentity, observedAt, subject and signedCarrierDigest, with unframed concatenation explicitly excluded."
+    },
+    {
+      "attack": "A circular kernel-event selection that presumes the digest it is proving",
+      "result": "FAILED TO LAND. Selection is digest-match against payload members' computed image digests, with zero-or-multiple refusing, and the contract names the v26 circularity and disclaims it."
+    },
+    {
+      "attack": "An RPM CLI branch that proves file identity only by post-exit pathname revalidation",
+      "result": "FAILED TO LAND. The child receives /dev/fd/N on an inherited descriptor, no pathname is passed, and the contract states the post-exit check is not the identity proof."
+    },
+    {
+      "attack": "A retained record required with no lawful slot, or two closed schemas for one field",
+      "result": "FAILED TO LAND. Both new records have gated, mutually exclusive, extras-rejected slots, and rpmHeaderIdentity now has one schema at both sites."
+    },
+    {
+      "attack": "Silent v26-to-v27 path outside basedOn.method / honestyRepairsFromV26",
+      "result": "FAILED TO LAND. 59 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "A Linux deferral or D-096 (A) grant minted under cover of the expanded ceremony",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1, refusesBootConfigs says so expressly, and all 22 D-096 mentions are refusals."
+    },
+    {
+      "attack": "A named specification used as a badge while the enumerated procedure differs from it (my own additional attack)",
+      "result": "LANDS. Filed as CLAUDE-V27-S1. The clause names the Authenticode image hash and then enumerates a linear pass that omits the section-table-ordered stage, with no precedence rule."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of my own prior blocker",
+      "result": "FAILED TO LAND. All 35 pins reproduce and my v26 verdict is pinned accurately."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1, and does not propose that as the repair.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v26 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not reopen CLAUDE-V26-B1 — the preimage separation is genuinely closed.",
+    "Does not object to the measured-boot architecture, the enforced-boot policy, the RPM descriptor handoff, or the nonce construction; those should be kept verbatim."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV27ReviewerRead": false,
+    "otherReviewerNote": "The Codex v27 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v26 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v26 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the claimed repairs, the expanded measured-boot ceremony, the RPM acquisition branches, the new retained records, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V27-S1 rests on the published Authenticode image-hash procedure that the clause itself names, not on execution against firmware; the repair I specify does not require conceding the technical point, since adding a precedence sentence resolves the determinacy defect either way.",
+
+  "summary": "REJECT at 0 blockers and 1 SHOULD-FIX. Custody is clean throughout: subject unmoved at 8adb520b... and 0444 at both ends, HEAD steady, 35/35 chain pins reproduce, both frozen v26 verdicts reproduce with no replacement, 59 changed paths with zero off-roster, reviewGuidance a pure append, and Linux still in D-002 slice 1 with no deferral and no D-096 (A) grant anywhere among its 22 mentions. Every predecessor finding is closed. The Linux pathless bind is now a genuinely execution-rooted attestation: firmware LoadImage is fixed as the measuring agent before the first PCR-4 separator, control transfer must be StartImage of the same EFI_HANDLE, Secure Boot must be enabled and replayed from PCR 7 with PK/KEK/db/dbx, the member's own Authenticode signature must verify against the measured db with dbx refusing, and excludesSyntheticExtend closes the extend-then-run substitution Codex named. Kernel-event selection is non-circular, replay is correct single-bank TPM extend semantics, the quote retains TPMS_ATTEST, TPMT_SIGNATURE and the AK name joined to a certificate-store allowlist member, and the 32-byte verifier CSPRNG challenge sits inside the length-prefixed qualifyingData preimage rather than beside it — I checked that specifically. The RPM branch now starts from a named already-present publisher archive rather than rpmdb, chains the archive's own header NEVRA to the selection key and signed core, hashes actually-extracted payload bytes into the manifest, and hands the CLI child /dev/fd/N on an inherited descriptor while stating outright that post-exit pathname revalidation is not the identity proof. Both new retained records have gated mutually exclusive slots, and rpmHeaderIdentity has one schema. The single remaining defect is narrow and determinate: peCoffImageDigestAlgorithm normatively names the Windows Authenticode image hash and then enumerates a seven-step order that hashes the file linearly after the security-directory skip, omitting the stage where Authenticode hashes headers to SizeOfHeaders and then each section's raw bytes in ascending PointerToRawData order. The artifact contains no occurrence of SizeOfHeaders, PointerToRawData, SizeOfRawData or SUM_OF_BYTES, and no precedence term, so two conforming implementations can compute different digests for the same kernel member — and the in-scope artifact is exactly the hand-constructed EFI-stub PE where non-canonical layout is realistic. It fails closed in both directions and cannot admit a wrong kernel, so it is a SHOULD-FIX; completing the order, or adding one sentence saying the named specification governs, closes it."
+}

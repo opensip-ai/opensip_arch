@@ -1,0 +1,104 @@
+{
+  "artifact": "component-packaging-contract.v13.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-packaging-contract.v13.json",
+  "subjectSha256AtStart": "234831d97ea0cff1942906faddfd48be9251fd10e11811f6ca58b5af446ab204",
+  "subjectSha256AtEnd": "234831d97ea0cff1942906faddfd48be9251fd10e11811f6ca58b5af446ab204",
+  "subjectMode": "0444",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "ACCEPT-WITH-ADVISORIES",
+  "verdictBasis": "0 blockers, 0 SHOULD-FIX, 1 advisory. This meets the dispatch's ACCEPT bar. Every attack line in the dispatch is mechanically checkable and I ran all of them against the artifact's own bytes; each refutes. The advisory concerns disclosure of unreviewed predecessor generations, not the contract.",
+  "reviewer": "Claude 2, independent; authored none of v1-v13",
+  "date": "2026-08-15",
+  "predecessor": {"path": "docs/coop/artifacts/component-packaging-contract.v12.json", "sha256": "487a33a6f9c0485ad73e61a5e9f66962e5f3620f32550ecc42b27a830edfb579", "reMeasured": true, "mode": "0444"},
+  "foldedFindings": [
+    {"id": "CODEX-V12-S1", "standing": "PROVISIONAL - the Codex v12 verdict is unfrozen at mode 0644 at my review time. I did not pin its digest and v13 does not either.", "disposition": "REPAIRED - VERIFIED"}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-120 or DR-103 SATISFIED, does not mark QUALIFIED, does not choose a packager, toolchain or CLI, does not edit file 08 or COORDINATOR-DECISIONS.md, and does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+  "shouldFix": [],
+
+  "repairVerification": [
+    {
+      "finding": "CODEX-V12-S1 (provisional) - mapKeyCount 79 disagreed with len(fixtureMemberMap.members) 80",
+      "disposition": "REPAIRED - VERIFIED, and the underlying defect independently confirmed",
+      "howIChecked": "I confirmed the finding was real before checking the fix: v12's fixtureMemberMap declares mapKeyCount 79 while its members object holds 80 entries. v13 declares 80 and its members object holds 80, so the self-consistency claim now holds. This is the entire substantive delta - the diff is one integer plus succession metadata, and every other subtree is byte-identical to v12."
+    },
+    {
+      "finding": "CODEX-V10-S2 - SIZE-MAX boundary and archiveGoldenKeyCount (folded at v12)",
+      "disposition": "PREVIOUSLY FOLDED - VERIFIED IN THE INHERITED BYTES",
+      "howIChecked": "v13 does not re-claim it, but the dispatch asks me to attack both halves so I verified them here. archiveGoldenKeyCount declares 17; counting members with kind 'archive-golden' returns 17, and the AT-ARCHIVE-* key count is also 17, so the three agree. The boundary split is scored on both sides rather than only on overflow: AT-ARCHIVE-SIZE-8589934591 expects ACCEPT and AT-ARCHIVE-SIZE-8589934592 expects refuse:SIZE-EXCEEDS-USTAR-FIELD, with the same inclusive/overflow pair for MODE at 2097151 and 2097152. Those boundary values are exactly the octal field capacities - 8^11-1 and 8^7-1 - so the ACCEPT half sits on the last representable value rather than an arbitrary one."
+    },
+    {
+      "finding": "CODEX-V10-B1 / CPCV10-S1 (folded at v11)",
+      "disposition": "PREVIOUSLY FOLDED - NOT RE-CLAIMED",
+      "howIChecked": "v13's idCollisionNote records 'Codex v10 B1/S1/S2 were folded at v11/v12' and the honestyRepairs entry for this generation covers only CODEX-V12-S1. v13 adds a codexv10 record pinning 52be6609..., which I re-measured and matched, so the v10 verdict this lineage folds is now pinned rather than merely referenced."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "mapKeyCount that disagrees with len(fixtureMemberMap.members)", "result": "REFUTED", "detail": "mapKeyCount 80, len(members) 80."},
+    {"attack": "archiveGoldenKeyCount that disagrees with kind=archive-golden members", "result": "REFUTED", "detail": "archiveGoldenKeyCount 17; kind='archive-golden' members 17; AT-ARCHIVE-* keys 17. The member-kind census across the whole map is requires 46, requires-arm 3, conditionalRequires 2, scopeNote-arm 2, acceptance-test 10, archive-golden 17 - summing to the declared 80."},
+    {"attack": "AT-8 aggregate map key", "result": "REFUTED", "detail": "No key 'AT-8' exists in fixtureMemberMap.members and no key begins with 'AT-8'. Archive coverage is carried by the 17 granular AT-ARCHIVE-* members instead of an aggregate, which is what makes the count check meaningful."},
+    {"attack": "SIZE-MAX scored only on the overflow half", "result": "REFUTED", "detail": "Both halves are separate scored members with opposite expectations - 8589934591 ACCEPT, 8589934592 refuse:SIZE-EXCEEDS-USTAR-FIELD - and MODE is split the same way."},
+    {"attack": "COORD governingSources digest that does not reproduce unless inherited", "result": "REFUTED", "detail": "The COORD entry pins b9819d6ef0e71ef66ecec7916a75dfd47b3838fa7e58ebc8b688ec357ec46391 and its role says 'Live digest at this authoring.' I measured the live file and it is exactly that digest, so the live claim is true and no inherited label is needed. All fourteen governing sources were re-measured with zero mismatches."},
+    {"attack": "Silent v12-to-v13 path", "result": "REFUTED - 20-for-20", "detail": "My recursive diff found 20 changed paths and all 20 fall under the nine roster tokens. The single top-level addition is /honestyRepairsFromV12, which the roster declares; nothing was removed at top level. Notably the roster names /date defensively even though /date did not change this generation - over-listing, not a gap."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization / packager choice", "result": "REFUTED", "detail": "status, reviewStatus, sealRecommendation, binds, documentClass, registerRow, purpose and the whole whatThisDoesNotDo block are byte-identical to v12, as are archiveProfile, outputContract, acceptanceTests, hermeticCI, adapterTemplate, identityDependencies, recordedInputs, namedOpenDecisions and fixtureGeneration. whatThisDoesNotDo still opens with the two SATISFY disclaimers and includes 'Does not choose a packager, build tool, toolchain, or CLI.' archiveProfile.doesNotChoose still excludes packager brand, CLI, build tool and tar implementation. Affirmative-form searches for 'is SATISFIED', 'are SATISFIED', 'is QUALIFIED' and 'authorizes docs/v2/implementation' return nothing; the single 'SATISFIES' occurrence is a reviewGuidance line instructing reviewers to attack such a claim."},
+    {"attack": "Inventing a frozen Codex v12 digest", "result": "REFUTED", "detail": "appliesFindingsOf holds only idCollisionNote, notFoldedThisSuccessor, codexv10 and v12historical - there is no codexv12 record and no digest for that verdict anywhere in the artifact. basedOn.method labels the finding 'Codex v12 provisional CPCV12-S1' and states 'Codex v12 was not frozen at authoring', and notFoldedThisSuccessor routes any further Codex v12 findings to a v14. I independently confirmed the file is mode 0644 and did not pin it either."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V13-01",
+      "title": "The rotation dropped v11's 'not independently reviewed' standing, so the accumulating set of unreviewed generations in this lineage is now only partly recorded",
+      "detail": "v12 carried an appliesFindingsOf.v11historical record whose standing read 'process-frozen 0444; folded CPCV10-B1/S1; not independently reviewed; not retargeted'. v13 rotates that entry out in favour of v12historical, whose standing does not carry an equivalent phrase - correctly, since v12 does have an in-flight Codex review. The effect is that v11's unreviewed status is no longer recorded anywhere in the live artifact. I checked the actual state: neither reviewer has a v11 review file, neither has a v12 Claude file, and the Codex v12 file is unfrozen. So three gaps exist in the lineage - v11 wholly unreviewed, v12 reviewed only by an in-flight Codex verdict, and v9 from earlier. v13 discloses two of the three explicitly and well: notFoldedThisSuccessor states 'Claude has not reviewed v12' and separately carries my v10 advisory about v9 being unreviewed. Only v11's gap fell out with the rotation. Nothing is misrepresented - v13 claims no v11 review - and the v11 bytes are frozen and inherited into generations that have been reviewed, so this is disclosure completeness rather than an evidence defect. A one-line carry in notFoldedThisSuccessor would restore the full picture the coordinator needs when judging what the accepted lineage rests on.",
+      "notBlocking": "No false claim; v11 is frozen at 11395bea… and its content reaches v13 through v12, which this review and the in-flight Codex v12 review both examine."
+    }
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v12 re-measured and matching, mode 0444.",
+    "countInvariants": "mapKeyCount 80 against 80 actual members; archiveGoldenKeyCount 17 against 17 kind='archive-golden' members and 17 AT-ARCHIVE-* keys; the full member-kind census sums to 80.",
+    "boundaryPairs": "SIZE and MODE each scored as an inclusive-ACCEPT member and an overflow-refuse member, at values equal to the 11- and 7-digit octal field maxima.",
+    "rosterVsActualDiff": "20 changed paths, all covered by the nine-token closed roster; one declared top-level addition, no removals.",
+    "governingSources": "All fourteen re-measured against live bytes with zero mismatches, including the COORD pin whose role claims a live this-authoring measurement.",
+    "verdictPins": "The v10 Codex and Claude verdicts both re-measured to the digests the dispatch names, both frozen at 0444. The Codex v12 verdict confirmed present at 0644 and deliberately unpinned."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not read the Codex v12 verdict's contents and did not rely on them. My confirmation that CPCV12-S1 was a real defect rests on measuring v12's own mapKeyCount against its own member count.",
+    "I did not read the other current v13 reviewer's file; none exists.",
+    "I did not re-review the surfaces v13 leaves untouched - archiveProfile and its byteAlgorithm, outputContract, acceptanceTests, hermeticCI, adapterTemplate, identityDependencies, namedOpenDecisions, fixtureGeneration and the 80 member records themselves. I verified they did not move rather than re-adjudicating them; their substance was reviewed in earlier generations.",
+    "I did not review v11 or v12 as artifacts in their own right. See ADV-V13-01.",
+    "I did not construct a ustar archive to execute the byteAlgorithm.",
+    "I did not evaluate DR-112 ceremony, DR-110 repair media, DR-111 windows, or the DR-G* thresholds. I confirmed only that v13 continues to defer them.",
+    "I did not assess DR-120's or DR-103's register status and express no view on either. I did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "An ACCEPT-grade verdict here is about this generation's internal consistency and its handling of the provisional CPCV12-S1. It is NOT a statement that DR-120's acceptance-evidence cell is discharged - no adapter exists, DR-G15 is unexecuted, and the lock members remain deferred to DR-111."
+  ],
+
+  "recordedInputs": [
+    {"path": "docs/coop/artifacts/component-packaging-contract.v13.json", "sha256": "234831d97ea0cff1942906faddfd48be9251fd10e11811f6ca58b5af446ab204", "mode": "0444", "role": "subject"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v13.review-prompt.md", "sha256": "60da484933f9f1d5fe4303e262bc62de3cf175975518f8332db30caa6f818bfe", "role": "dispatch"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v12.json", "sha256": "487a33a6f9c0485ad73e61a5e9f66962e5f3620f32550ecc42b27a830edfb579", "role": "predecessor, diffed in full; its mapKeyCount/member mismatch confirmed"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v12.review-independent.codex.json", "mode": "0644", "role": "PRESENT BUT UNFROZEN; contents not read and no digest recorded, per dispatch"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v11.json", "sha256Prefix": "11395bea", "mode": "0444", "role": "existence and mode checked for ADV-V13-01; no review files exist for it"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v10.review-independent.codex.json", "sha256": "52be660955c009c16bfb88db043591c6507fbb8fdd2f36fc96462703feed736d", "role": "re-measured; matches the new codexv10 pin and the dispatch"},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v10.review-independent.claude2.json", "sha256": "b07dc19dbfb7686fdad4f7dfce99ffa489133db43bcea902ab58052f14c05f05", "role": "re-measured; matches the dispatch"},
+    {"path": "docs/coop/COORDINATOR-DECISIONS.md", "sha256Live": "b9819d6ef0e71ef66ecec7916a75dfd47b3838fa7e58ebc8b688ec357ec46391", "role": "governing source; live digest reproduces the pin. Read only, not edited."}
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "36949e33e3f72f51c654805b903a487b30fd6660",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "didNotReadCodexV12": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "packagerOrToolchainChosen": false,
+    "filesWritten": ["docs/coop/artifacts/component-packaging-contract.v13.review-independent.claude2.json"]
+  }
+}

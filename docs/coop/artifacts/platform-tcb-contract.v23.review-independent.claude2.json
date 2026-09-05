@@ -1,0 +1,195 @@
+{
+  "artifact": "platform-tcb-contract.v23.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v23.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v23",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker and 1 SHOULD-FIX. ACCEPT requires 0 and 0. Three of the four claimed repairs (PTCB-V22-B2, S1, S2) are genuinely and well made and I could not break them. The fourth, PTCB-V22-B1, is not made: the normative linux-file-backed clause never requires the opened object's path or bytes to equal the matched manifest member, and it deletes the one v22 clause that did bind the observed bytes. The contract is strictly weaker than its predecessor on the exact axis B1 named.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v22 vs v23; exhaustive raw-substring search for join tokens",
+
+  "custody": {
+    "subjectSha256Expected": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+    "subjectSha256AtStart": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+    "subjectSha256AtEnd": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 133703,
+    "subjectMovedDuringReview": false,
+    "predecessorV22Sha256": "62cba1c1ce548a93565326ec1b9a80518841033cd3ea3846045f77de0879da6d",
+    "predecessorMatchesDispatch": true,
+    "frozenCodexV22Sha256": "9a603e8c693a7b2fae70fdaaaa48556db38fbe5ea461ff0669175d3b85b601c5",
+    "frozenCodexV22MatchesDispatch": true,
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headClaimedByDispatch": "93ceaa6 (D-124 ADOPTED)",
+    "headMatchesClaim": true,
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "file08MatchesDispatchPin": true,
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordMatchesDispatchPin": true,
+    "passNoScopeEffectNeeded": false,
+    "passNoScopeEffectNote": "COORD did not move during this review, so the allowance was never needed. No predecessor-review replacement occurred: the v22 subject and the frozen Codex v22 REJECT both reproduce their dispatched pins byte-for-byte.",
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V23-B1",
+      "appliesTo": "PTCB-V22-B1 — claimed repaired, NOT repaired; regressed",
+      "title": "The linux-file-backed join never requires the opened object's path or bytes to equal the matched manifest member, so a conformant record can be produced without ever comparing the opened bytes to anything",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-file-backed/{openedObjectObservation,packageRelativePathRule,matchedManifestMember}; corroborating: /identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/objectByteJoin; /identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/fileBackedBinding",
+      "whatTheContractSays": "matchedManifestMember is defined as '{relativePath, sha256}. extrasRejected. MUST equal one authenticatedManifest member on BOTH fields. Hash-only match to a different member refuses. Duplicate relativePath or sha256 in the manifest refuses.' openedObjectObservation separately records canonicalPath and openedBytesSha256. packageRelativePathRule separately derives 'the package-relative path' for INSTALL-ROOT-VOLUME and EXTERNAL-ORIGIN.",
+      "theGap": "No clause anywhere in the artifact states either half of the join: (a) matchedManifestMember.relativePath MUST equal the package-relative path derived by packageRelativePathRule, and (b) matchedManifestMember.sha256 MUST equal openedObjectObservation.openedBytesSha256. 'MUST equal one authenticatedManifest member on BOTH fields' constrains matchedManifestMember against the MANIFEST only, which any genuine member satisfies trivially. packageRelativePathRule computes a value that nothing is required to consume. openedBytesSha256 is recorded and then never compared to anything.",
+      "exhaustivenessEvidence": "I searched the entire 133703-byte artifact for the token 'openedBytesSha256': exactly 2 occurrences — its own definition at line 343, and honestyRepairsFromV22[0] at line 1933. It appears in no normative equality clause. 'matchedManifestMember' occurs 4 times: the macOS forbidden list, the linux-file-backed required list, its own definition, and fileBackedBinding ('openedObjectObservation plus matchedManifestMember path+hash'), none of which states the equality. 'packageRelativePathRule' occurs once, in its own definition.",
+      "failureScenario": "Linux, scheme package-db, INSTALL-ROOT-VOLUME. The loader opens /opt/app/lib/evil.so whose bytes hash to H_evil, which is not any member of the authenticated payload. The authenticated manifest contains M2 = {bin/tool, H_tool}. The producer emits: openedObjectObservation {canonicalPath: /opt/app/lib/evil.so, openedBytesSha256: H_evil, associationToken}; matchedManifestMember {relativePath: bin/tool, sha256: H_tool}; packagePayloadDigest equal to authenticityCore.payload.digest; associationToken. Check every stated requirement: matchedManifestMember equals a real manifest member on BOTH fields — pass. It is not a 'hash-only match to a different member', because both of its own fields agree with M2 — pass. packagePayloadDigest equals the core — pass. No forbidden field present, extras absent — pass. The record is conformant, and the executing object's bytes were never compared to the authenticated package at all. This is PTCB-V22-B1's defect class, reached through the repaired clause.",
+      "regressionEvidence": "v22 at /loaderTraces/objectAuthenticityBind/fileBacked/join said: 'openedBytesSha256 MUST equal exactly one authenticatedManifest.sha256. Zero or more than one match refuses. rpm -qf / dpkg-query -S ownership is not this join.' That was a hash-only join, which is precisely why Codex rejected it — but it did bind the OBSERVED bytes. v23 deletes the join key entirely (confirmed by recursive diff: /loaderTraces/objectAuthenticityBind/fileBacked is removed) and replaces it with a clause that binds nothing observed. The successor is strictly weaker than the predecessor on the axis the blocker named.",
+      "contrastWithinTheSameArtifact": "The sibling linux-pathless tag states its equality explicitly and correctly: 'authenticatedKernelMember ... Unique regular-file member of the authenticated package payload whose sha256 equals executingKernelMeasurement.digest. Zero or more than one refuses.' objectByteJoin restates it. The author demonstrably knows how to write the binding and wrote it for pathless; the file-backed tag has no equivalent sentence. The asymmetry shows this is an omission, not a house style of leaving joins implicit.",
+      "honestyAspect": "honestyRepairsFromV22[0] asserts 'linux-file-backed join requires the same authenticatedManifest member on both package-relative path (install-root prefix strip or EXTERNAL prefix rule) and openedBytesSha256.' That sentence is the repair the contract needed, but it lives only in the repair narrative. The claim overstates what the normative schema contains.",
+      "selfInvitedAttack": "reviewGuidance.forTheIndependentReviewer contains 'Attack a file-backed join that can still accept a hash match to the wrong package member.' I ran exactly that attack and it succeeds — and in fact succeeds more broadly than the guidance anticipates, since a conformant record need not present any hash match to any member.",
+      "requiredRepair": "In the linux-file-backed tag, state both equalities normatively: matchedManifestMember.relativePath MUST equal the package-relative path derived by packageRelativePathRule for this event's volume tag, and matchedManifestMember.sha256 MUST equal openedObjectObservation.openedBytesSha256; that member MUST be the same single authenticatedManifest member on both fields; zero matches, more than one match, a path match whose member sha256 differs from openedBytesSha256, and a hash match whose member relativePath differs from the derived package-relative path each refuse. Keep the existing manifest-uniqueness and traversal/root refusals, which are correct as written."
+    }
+  ],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V23-S1",
+      "title": "associationToken is specified at two nesting levels of the same extras-rejected closed record with different wording, so a producer cannot tell which placement is conformant",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-file-backed/{required[3],openedObjectObservation/associationToken,associationToken}",
+      "finding": "The linux-file-backed tag lists associationToken in its top-level required array and defines a top-level 'associationToken': 'runIdentity + observedAt of this later event', while openedObjectObservation simultaneously defines a nested 'associationToken': 'runIdentity + observedAt'. The tag declares extrasRejected: true, so emitting the field at the wrong level — or at both levels — is a refusal, and the contract does not say which is canonical. v22 carried associationToken only inside openedObjectObservation, so the duplication is new in v23.",
+      "whyItMatters": "This is a closed, extras-rejected retained record whose whole purpose is unambiguous machine validation. A field that is simultaneously required at the top level and defined one level down makes two incompatible readings both defensible, and extrasRejected converts the ambiguity into an arbitrary refusal.",
+      "requiredRepair": "Pick one placement. Either keep associationToken inside openedObjectObservation and drop it from the tag's required array and top level, or hoist it to the tag level and remove the nested definition. State the single serialization once."
+    }
+  ],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V22-B1 — file-backed manifest join accepts bytes from the wrong member",
+      "claimed": "linux-file-backed join requires the same authenticatedManifest member on both package-relative path and openedBytesSha256",
+      "result": "NOT REPAIRED — see CLAUDE-V23-B1. The structural scaffolding (canonicalization grammar, install-root and external prefix rules, traversal/ambiguous-root refusals, manifest uniqueness refusals) is present and correct; the equality that makes the scaffolding load-bearing is absent, and the v22 clause that bound the observed bytes was deleted."
+    },
+    {
+      "finding": "PTCB-V22-B2 — NT_GNU_BUILD_ID is not a cryptographic measurement of the executing kernel",
+      "claimed": "linux-pathless uses a trusted sha-256 measurement of the executing kernel image (ima-kernel-image or efi-boot-kernel-digest); unmeasurable kernels refuse",
+      "result": "REPAIRED. I could not break it. executingKernelMeasurement names algorithm sha-256, coverage 'the entire executing kernel image', a closed two-member interfaceEnum with 'exactly one' selection, a 64-hex digest, and a trustResult requiring success where 'Failed, unknown, or unavailable measurement refuses the profile'. authenticatedKernelMember is bound by an explicit equality — 'Unique regular-file member of the authenticated package payload whose sha256 equals executingKernelMeasurement.digest. Zero or more than one refuses' — and packagePayloadDigest MUST equal authenticityCore.payload.digest. I searched every NT_GNU_BUILD_ID occurrence in the artifact: 5 total, and none is load-bearing. Two are explicit negations ('NT_GNU_BUILD_ID alone is not this measurement'; 'NT_GNU_BUILD_ID is not a substitute measurement'), one is a reviewGuidance attack instruction, and two are historical repair records for v21/v22. openedObjectObservation, sameGuestBind and filenameOsreleaseBind are all forbidden on this tag."
+    },
+    {
+      "finding": "PTCB-V22-S1 — authenticity-bind evidence is not a closed OS-discriminated retained record",
+      "claimed": "objectAuthenticityBindRecord is one OS/scheme-discriminated extras-rejected retained field; macOS forbids Linux manifest fields",
+      "result": "REPAIRED. objectAuthenticityBind.standing declares a closed OS/scheme-discriminated record required for every PLATFORM-ATTESTED observation, with form 'exactly one tag from the closed enum below. extrasRejected.' The three tags are disjoint by their when-clauses, and each carries its own required list, forbidden list, and extrasRejected: true. macos-codesign requires only sameGuestBind and explicitly forbids openedObjectObservation, matchedManifestMember, authenticatedKernelMember, executingKernelMeasurement and packagePayloadDigest, which is exactly what S1 asked for. The consolidation is real and verified by diff: v22's two separate retainedEventSchema fields (openedObjectObservation, executingKernelBind) are gone and replaced by the single objectAuthenticityBindRecord entry, and all three volumeConstraint laterEventVariant tags are rewired consistently to it."
+    },
+    {
+      "finding": "PTCB-V22-S2 — Linux package-payload source has a prohibited or-choice and no reproducible archive acquisition",
+      "claimed": "rpm acquires one rpmdb blob, binds SHA256HEADER + archive sha-256 to the signed digest, then checksig+extract those bytes; apt acquires one .deb from the unique trusted Packages Filename and compares sha-256 before extract",
+      "result": "REPAIRED. I could not break it. rpm archiveAcquisition names a single source ('the unique installed rpm package blob for this NEVRA from rpmdb. Exactly one blob. Zero or more than one refuses'), an argv grammar that explicitly excludes the or-choice ('not a find/or-choice over cache paths'), and orders the operations correctly: preVerifyDigest requires sha-256 of those exact archive bytes AND the blob SHA256HEADER to both equal authenticityCore.payload.digest BEFORE --checksig, with extractAfter permitting rpm2cpio only after digest match and checksig success, on those same bytes. apt archiveAcquisition names the unique trusted Packages record after apt-secure Release verification, takes its Filename field, acquires exactly one .deb at that pool path, and requires sha-256 of those exact bytes to equal both the Packages SHA256 field and authenticityCore.payload.digest before extracting data.tar. Output bytes are normalized rather than version-pinned (exact token 'digests signatures OK'; exactly 64 hex case-folded to lowercase), which satisfies S2's 'Pin or normalize'."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject measured c93175e6... over 133703 bytes at mode 0444 at both start and end; unmoved throughout. Predecessor v22 reproduces 62cba1c1... and frozen Codex v22 reproduces 9a603e8c..., both 0444, both matching the dispatch. Strict JSON parse succeeded."
+    },
+    {
+      "id": "M-2",
+      "check": "Complete pin-chain reproduction",
+      "result": "PASS. All 27 path-bearing pins in appliesFindingsOf reproduce their recorded sha256 exactly, with zero failures. The codexv22 pin records verdict REJECT, blockers [PTCB-V22-B1, PTCB-V22-B2], shouldFix [PTCB-V22-S1, PTCB-V22-S2], advisories [], which I independently confirmed against the frozen file. No claude2v22 pin is present or fabricated, consistent with the dispatch's statement that Claude v22 did not land COMPLETE. No predecessor-review replacement occurred."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v22-to-v23 change roster",
+      "result": "PASS. Recursive path diff found 35 changed paths and ZERO off-roster paths: every change falls under a root declared in basedOn.method. reviewGuidance.forTheIndependentReviewer grew 102 to 108 entries as a pure prefix-preserving append. The removal of retainedEventSchema's openedObjectObservation and executingKernelBind entries is accounted for by the S1 consolidation, not a silent deletion."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row and remeasurement",
+      "result": "PASS. Exactly one file 08 line begins '| DR-126 |', at line 308, and registerRowQuoted.rowVerbatim is byte-identical to it. registerRowQuoted.sourceSha256, reMeasurementAtV23's file 08 pin, its COORD pin 67b8df67..., its file 04 pin a74b4511... and measuredAtHead 93ceaa6a... all reproduce against the live tree. reMeasurementAtV23 is the sole standing LIVE block and states 'Does not SATISFY DR-126'."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL, reviewStatus AWAITING-INDEPENDENT-REVIEW. whatThisDoesNotDo refuses SATISFYING DR-126 before a later D-000 MF-6, refuses authorizing docs/v2/implementation/, and refuses QUALIFYING G22. Every one of the 17 D-096 occurrences in the artifact is the refusal 'Never mint a D-096 (A) grant'; none mints or implies one."
+    },
+    {
+      "id": "M-6",
+      "check": "Join semantics, exhaustive token search",
+      "result": "FAIL — basis of CLAUDE-V23-B1. See the blocker's exhaustivenessEvidence."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "File-backed join that still accepts a hash match to the wrong package member (self-invited by reviewGuidance)",
+      "result": "LANDS. Filed as CLAUDE-V23-B1. A conformant record need not present any hash match to any member."
+    },
+    {
+      "attack": "Pathless Linux bind that is still NT_GNU_BUILD_ID without a trusted kernel-image measurement",
+      "result": "FAILED TO LAND. All 5 build-id occurrences are negations, guidance, or history; the bind is a named-algorithm, named-coverage, trust-gated measurement with an explicit digest equality to a unique payload member."
+    },
+    {
+      "attack": "objectAuthenticityBind record that is not OS-discriminated or mixes macOS and Linux fields",
+      "result": "FAILED TO LAND. Closed three-tag enum with disjoint when-clauses, per-tag required/forbidden lists and extrasRejected; macOS forbids all five Linux fields by name."
+    },
+    {
+      "attack": "Package-payload source that is still an or-choice or extracts before digest bind",
+      "result": "FAILED TO LAND. Both rpm and apt name a single archive source, bind the digest to the signed core before verification, and extract only after."
+    },
+    {
+      "attack": "Silent v22-to-v23 path outside basedOn.method / honestyRepairsFromV22",
+      "result": "FAILED TO LAND. Recursive diff: 35 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "Silent repinning or replacement of a frozen predecessor review",
+      "result": "FAILED TO LAND. All 27 pins reproduce; v22 subject and frozen Codex v22 both match the dispatch; no Claude v22 pin invented."
+    },
+    {
+      "attack": "Silent SATISFIED / QUALIFIED / D-096 (A) / implementation authorization",
+      "result": "FAILED TO LAND. Refused in the artifact's own bytes at whatThisDoesNotDo, reMeasurementAtV23.note and every reviewGuidance round."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register at 1cdcf9d4...."
+    },
+    {
+      "attack": "Ambiguity in the new closed record's field placement (my own additional attack)",
+      "result": "LANDS at SHOULD-FIX severity. Filed as CLAUDE-V23-S1."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v22 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not re-review v1-v22 on their merits beyond the pin and predecessor checks this round requires."
+  ],
+
+  "independence": {
+    "authoredAnyVersion": false,
+    "otherCurrentV23ReviewerRead": false,
+    "otherReviewerNote": "docs/coop/artifacts/platform-tcb-contract.v23.review-independent.codex.json exists on disk (366 bytes, mode 0644) and was detected by directory listing only. It was never opened.",
+    "priorInvolvementDisclosure": "Frozen Claude verdicts on earlier generations of this contract are attributed to my reviewer role. I re-derived every finding in this verdict from the v23 and v22 bytes directly; no earlier Claude verdict was read or relied upon, and the blocker rests on a token search and a recursive diff that anyone can reproduce."
+  },
+
+  "limitsOfThisReview": "I reviewed the four claimed repairs, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. I did not re-review the unchanged 96 percent of the contract on its merits — the taxonomy, platformProfile, resolutionPredicate, tcbCarrier, g22 and the older loaderTraces surfaces are outside this round's roster and were checked only for unchangedness. The four negativeTests were read; none of them exercises the file-backed join, which is itself part of why the B1 gap survives undetected by the artifact's own tests.",
+
+  "summary": "REJECT at 1 blocker and 1 SHOULD-FIX. Custody is clean throughout: the subject is unmoved at c93175e6... and mode 0444 at start and end, HEAD never moved off 93ceaa6, COORD and file 08 both hold their dispatched pins, all 27 chain pins reproduce, the predecessor and the frozen Codex v22 REJECT reproduce, and the v22-to-v23 diff is 35 paths with zero off-roster. Three of the four claimed repairs are real and I could not break them. B2 is convincingly repaired: the pathless bind is now a named-algorithm sha-256 measurement of the entire executing kernel image over a closed interface enum, gated on a success trust result, with an explicit digest equality to a unique authenticated payload member, and every surviving NT_GNU_BUILD_ID mention is a negation or history. S1 is repaired: the two v22 fields are consolidated into one closed OS/scheme-discriminated extras-rejected record whose macOS tag forbids all five Linux fields by name. S2 is repaired: rpm and apt each acquire exactly one archive, bind its digest to the signed core before verification, and extract only afterwards from those same bytes. B1 is not repaired, and this is the whole verdict. The linux-file-backed tag builds all the scaffolding — canonicalization, install-root and external prefix derivation, traversal and ambiguous-root refusals, manifest uniqueness — and then never states the two equalities that make it load-bearing: nothing requires matchedManifestMember.relativePath to equal the derived package-relative path, and nothing requires matchedManifestMember.sha256 to equal openedObjectObservation.openedBytesSha256. A search of all 133703 bytes finds openedBytesSha256 exactly twice, in its own definition and in the repair narrative, and in no normative equality. So a producer can emit any genuine manifest member as matchedManifestMember, satisfy every stated requirement including 'BOTH fields' and the hash-only refusal, and never compare the opened object's bytes to the authenticated package at all. Worse, v23 deleted v22's join clause, which at least required openedBytesSha256 to equal exactly one manifest sha256; the successor is strictly weaker than the predecessor on the exact axis the blocker named. The contract proves it knows the pattern by writing the equality correctly one tag over, for linux-pathless, and the repair narrative states the missing rule as though it were in the schema. The artifact's own reviewGuidance invites this attack; it succeeds."
+}

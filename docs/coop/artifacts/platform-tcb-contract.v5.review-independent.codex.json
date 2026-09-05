@@ -1,0 +1,213 @@
+{
+  "artifact": "platform-tcb-contract.v5.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "reviewer": "Codex",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v5.json",
+  "subjectSha256Expected": "02867806e3f930a6d31d5eb95665b0d1f86ef63d87708e95f831c2e72c585a14",
+  "subjectSha256AtStart": "02867806e3f930a6d31d5eb95665b0d1f86ef63d87708e95f831c2e72c585a14",
+  "subjectSha256AtEnd": "02867806e3f930a6d31d5eb95665b0d1f86ef63d87708e95f831c2e72c585a14",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "headExpected": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+  "headAtStart": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+  "headAtEnd": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v5.review-prompt.md",
+  "promptSha256": "a1e8bb59ec0c6d8387ada1d4a4914b5200ba96a3653505d70616a2354a80efc2",
+  "predecessor": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v4.json",
+    "expectedSha256": "5d13483cf09e4b307d1dfd3ce83e0130560bbf11c0db6be78bb9de1c08ead08a",
+    "observedSha256": "5d13483cf09e4b307d1dfd3ce83e0130560bbf11c0db6be78bb9de1c08ead08a"
+  },
+  "priorReviews": {
+    "codexV4": {
+      "path": "docs/coop/artifacts/platform-tcb-contract.v4.review-independent.codex.json",
+      "expectedSha256": "7b71799a5aaffcfd665b59d420b9cbdcedd9d0ad2b036264ed2cc280a8b5d962",
+      "observedSha256": "7b71799a5aaffcfd665b59d420b9cbdcedd9d0ad2b036264ed2cc280a8b5d962",
+      "contentInspected": true
+    },
+    "claudeV4": {
+      "path": "docs/coop/artifacts/platform-tcb-contract.v4.review-independent.claude2.json",
+      "expectedSha256": "1fa7ed11b3ab3d70f2af494e730049e3bfecdf500c4c4bd059cb35305664ba2c",
+      "observedSha256": "1fa7ed11b3ab3d70f2af494e730049e3bfecdf500c4c4bd059cb35305664ba2c",
+      "contentInspected": false
+    }
+  },
+  "independence": {
+    "didNotAuthorSubject": true,
+    "otherCurrentV5ReviewerRead": false,
+    "readScopeLimitedToPromptPermittedFiles": true
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V5-B1",
+      "severity": "BLOCKER",
+      "title": "The Linux selector still collapses distinct host-ABI TCBs into one qualified platform profile",
+      "location": "/platformProfile/selectorGrammar/requiredMembers; /platformProfile/selectorGrammar/supportedVersionOrBuildSelector/identifierSchemes; /platformProfile/relationToEveryTcbEntry; /resolutionPredicate/g22VersusQualified",
+      "evidence": [
+        "For Linux, the only new scheme is linux-uname-release: a kernel release string from uname -r. The other required members are merely osFamily=linux, architecture, and filesystem. No distribution/publisher, userspace release, or attested platform-image variant participates in the key even though this TCB expressly governs the loader, libc, certificate store, font, ICU, and comparable userspace dependencies.",
+        "The grammar does not bind an identifierScheme to osFamily. An EXACT-BUILD object using macos-product-build is syntactically lawful in a Linux profile, and linux-uname-release is syntactically lawful in a macOS profile; the later packet is forbidden to mint the missing compatibility rule.",
+        "Two Linux hosts can therefore have the same four required members and different material userspace TCBs. relationToEveryTcbEntry keys both allowlists by that same profile, and g22VersusQualified attaches qualification to that profile. The contract can only union their members under one qualified key or make one host unrepresentable; it cannot qualify the two TCBs independently."
+      ],
+      "impact": "A host that was not the environment exercised by G22 can select the same qualified profile as the tested host. If both variants are supported, an object declared for one variant is no longer undeclared or identity drift on the other, defeating the profile boundary the negative tests are meant to prove.",
+      "requiredRepair": "Make the contract-owned platformProfile key distinguish every material host-ABI equivalence class. Bind each identifierScheme to its lawful osFamily and canonical trusted observation source. For Linux, include a closed publisher/distribution plus userspace-release or equivalent attested platform-image discriminator in addition to any kernel-release selector. The later population packet may choose values but must not define these semantics."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V5-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The SONAME-ABI companion still has no closed encoding inside either lawful libc authenticity payload",
+      "location": "/identityRuleShape/identityEvidence/form; /identityEvidenceUnion/tags; /identityEvidenceUnion/classMap/libc; /identityEvidenceUnion/comparison; /signedEntry",
+      "evidence": "A signed entry still carries exactly one classMap tag, and libc classMap lawfully selects only PLATFORM-ATTESTED or DIGEST-BOUND. V5 adds prose saying SONAME-ABI is inside either payload and not a signed-entry field, but neither authenticity tag declares an optional SONAME field, payload key, object shape, or cardinality. SONAME-ABI remains a sibling under tags. notASignedEntryField closes one invalid encoding without defining a conforming encoding.",
+      "impact": "One producer can omit the companion, another can invent an unrostered payload member, and another can treat the sibling tag as a nested tagged union. The authenticity requirement itself remains sound, but the signed inventory shape is not interoperably deterministic.",
+      "requiredRepair": "Either delete SONAME-ABI companion language, or define a named optional field with a closed object shape, such as sonameAbi: { soname, abiSelector }, inside the PLATFORM-ATTESTED and DIGEST-BOUND libc payload schemas, with extra forms rejected and the existing non-identity comparison rule retained."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening custody, mode, parse, and HEAD",
+      "result": "PASS",
+      "evidence": "Python hashlib(Path.read_bytes()) measured the subject at 02867806e3f930a6d31d5eb95665b0d1f86ef63d87708e95f831c2e72c585a14; mode was 0444; strict duplicate-key-rejecting JSON parse passed; opening HEAD was the required 2d5f15b466eaad7eefebb638934ac5a07a79d501."
+    },
+    {
+      "id": "M-02",
+      "check": "Predecessor and frozen-review custody",
+      "result": "PASS",
+      "evidence": "v4 reproduced at 5d13483c..., frozen Codex v4 at 7b71799a..., and frozen Claude v4 at 1fa7ed11.... Neither frozen review's content was inspected during opening custody, and no current v5 reviewer was read."
+    },
+    {
+      "id": "M-03",
+      "check": "Live row, carried source, and current-pin custody",
+      "result": "PASS",
+      "evidence": "File 04 measured a74b4511... and its lines 161-166 equal all carried strings. File 08 measured 1cdcf9d4... and its unique DR-126 row at line 308 equals rowVerbatim. COORD measured 72e71f2e..., matching reMeasurementAtV5 at opening HEAD."
+    },
+    {
+      "id": "M-04",
+      "check": "Closed v4-to-v5 succession path",
+      "result": "PASS",
+      "evidence": "A recursive semantic diff found 38 changed nodes, all under the closed basedOn.method roster or succession metadata. The 24-entry v4 reviewGuidance list is an exact prefix of v5's 27-entry list; slice1ProfileStems is byte-semantic-equal to v4 and is now expressly rostered."
+    },
+    {
+      "id": "M-05",
+      "check": "Closed and collision-resistant platform selector semantics",
+      "result": "FAIL",
+      "evidence": "EXACT-BUILD now has exact comparison and CLOSED-RANGE is prohibited, but linux-uname-release does not distinguish userspace/platform variants and no scheme-to-osFamily constraint exists. See PTCB-V5-B1."
+    },
+    {
+      "id": "M-06",
+      "check": "Closed SONAME-ABI companion representation",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "Libc authenticity remains PLATFORM-ATTESTED or DIGEST-BOUND and SONAME cannot be sole identity, but neither lawful payload declares the purported optional companion field. See PTCB-V5-S1."
+    },
+    {
+      "id": "M-07",
+      "check": "CLOSED-RANGE prohibition and filesystem escape structure",
+      "result": "PASS",
+      "evidence": "CLOSED-RANGE expressly cannot occupy supportedVersionOrBuildSelector. OTHER-FSTYPE fixes the tag, sha-256 algorithm id, UTF-8 NFC hash input, 64-character lowercase-hex encoding, length, and equality inputs. The structural range and filesystem halves of PTCB-V4-B1 are repaired."
+    },
+    {
+      "id": "M-08",
+      "check": "Exhaustive signed entry and declared-versus-ambient predicate",
+      "result": "PASS",
+      "evidence": "identityRuleShape.declared and signedEntry.required agree on exactly four exhaustive fields. environmentInfluence remains a closed FIXED/FORBIDDEN map; unnamed influence and mutable PATH/loader substitution refuse."
+    },
+    {
+      "id": "M-09",
+      "check": "Full trace closure contract",
+      "result": "PASS",
+      "evidence": "The observation boundary still covers every actual attempt, capture is independent of the tested process, lifecycle and sensor-health closure are required, retained events bind subject/profile/carrier/process/class/outcome, and false-match use fails."
+    },
+    {
+      "id": "M-10",
+      "check": "One carrier, population reservation, and carrier-absence consequence",
+      "result": "PASS",
+      "evidence": "One DR-101 successor owns exactly one inventory copy; DR-103 consumes it; ceremony is separate; and G22 cannot QUALIFY without it. All four stems keep both selector members RESERVED and required before freeze; no later packet or owner is designated."
+    },
+    {
+      "id": "M-11",
+      "check": "Scope and authority discipline",
+      "result": "PASS",
+      "evidence": "The subject binds NOTHING, is CANDIDATE-NOT-APPLIED and DO-NOT-SEAL, leaves DR-126 OPEN, populates no per-OS members, excludes language-runtime/Node from the core taxonomy, re-owns neither DR-G07 nor D-006 numbers, creates no D-096 (A) grant, and authorizes no implementation."
+    },
+    {
+      "id": "M-12",
+      "check": "Closing custody, mode, source exactness, and HEAD",
+      "result": "PASS",
+      "evidence": "Python hashlib re-measured the subject at 02867806e3f930a6d31d5eb95665b0d1f86ef63d87708e95f831c2e72c585a14 with mode 0444; strict JSON parsing still passed. File 04 lines 161-166 and the unique DR-126 row at file 08 line 308 remained exact; the coordinator digest remained 72e71f2e...; closing HEAD remained 2d5f15b466eaad7eefebb638934ac5a07a79d501."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "EXACT-BUILD schemes distinguish every qualified platform TCB and are compatible with osFamily",
+      "result": "DEFECT-SUSTAINED",
+      "evidence": "Exact equality and range prohibition landed, but Linux kernel release is not a userspace/platform variant and schemes are not bound to osFamily. See PTCB-V5-B1."
+    },
+    {
+      "id": "A-02",
+      "attack": "SONAME-ABI is a closed optional subfield rather than a fifth field or sole identity tag",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "The fifth-field and sole-authenticity paths are prohibited, but no lawful authenticity payload contains a defined companion field. See PTCB-V5-S1."
+    },
+    {
+      "id": "A-03",
+      "attack": "CLOSED-RANGE remains usable or OTHER-FSTYPE lacks algorithm, encoding, or digest length",
+      "result": "REFUTED",
+      "evidence": "The range tag is prohibited as a required member, and OTHER-FSTYPE supplies a fixed algorithm id plus exact lowercase-hex digest input and length rules."
+    },
+    {
+      "id": "A-04",
+      "attack": "A three-field entry survives or naming PATH/loader influence makes mutable substitution lawful",
+      "result": "REFUTED",
+      "evidence": "The declared and detailed shapes agree on four exhaustive fields, while environment influence accepts only fixed signed values or refusal."
+    },
+    {
+      "id": "A-05",
+      "attack": "Capture can self-assert completeness, omit actual attempts, or use a false evidence join",
+      "result": "REFUTED",
+      "evidence": "Independent capture, lifecycle/sensor-health closure, independently checkable inapplicability proof, retained bindings, and false-match failure remain mandatory."
+    },
+    {
+      "id": "A-06",
+      "attack": "Carrier ownership is joint or absent without blocking G22",
+      "result": "REFUTED",
+      "evidence": "Field authorship remains singular, consumers and ceremony are separate, and absence expressly prevents qualification."
+    },
+    {
+      "id": "A-07",
+      "attack": "The v4-to-v5 path contains an unrostered semantic change",
+      "result": "REFUTED",
+      "evidence": "All 38 changed semantic nodes are under rostered or succession-metadata paths; reviewGuidance is append-only and slice1ProfileStems is now expressly rostered."
+    },
+    {
+      "id": "A-08",
+      "attack": "The candidate populates platform tables, designates a later packet, expands the core TCB, satisfies DR-126, qualifies G22, or grants application/implementation authority",
+      "result": "REFUTED",
+      "evidence": "Selectors and members remain RESERVED, the packet is indefinite, scope remains narrow, DR-126 remains OPEN, G22 remains unqualified, and every application or implementation claim is denied."
+    }
+  ],
+  "findingCounts": {
+    "blockers": 1,
+    "shouldFix": 1,
+    "advisories": 0
+  },
+  "verdictBasis": "REJECT: 1 blocker and 1 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT. linux-uname-release still allows distinct userspace/host-ABI TCBs to share one qualified profile and identifier schemes are not bound to osFamily. SONAME-ABI also remains without a closed lawful payload field. DR-126 remains OPEN; no D-096 (A) grant, satisfaction, qualification, sealing, application, or implementation authority is created.",
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "d096AGrantMinted": false,
+    "perOsTablesPopulated": false,
+    "implementationAuthorized": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "committed": false
+  }
+}

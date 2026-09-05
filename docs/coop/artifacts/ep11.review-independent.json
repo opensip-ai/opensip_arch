@@ -1,0 +1,395 @@
+{
+  "artifact": "opensip.evaluation-proof.v11.review-independent",
+  "version": 1,
+  "date": "2026-08-03",
+  "reviewer": "independent adversarial reviewer; did not author evaluation-proof.v11.json or check-evaluation-proof-v11.py; distinct from the authors of ep10.review-independent.json and ep9.review-independent.json",
+
+  "subject": {
+    "candidate": {
+      "file": "evaluation-proof.v11.json",
+      "claimedSha256": "9a31241ee4f1f6b72712a126453e2467359d1c07c4b658db1b699f6500a31f5a",
+      "recomputedSha256": "9a31241ee4f1f6b72712a126453e2467359d1c07c4b658db1b699f6500a31f5a",
+      "agrees": true
+    },
+    "checker": {
+      "file": "check-evaluation-proof-v11.py",
+      "claimedSha256": "15ac67e249604f251c0ee116a7a397db1b4a445c24bc313b76c77e08908f822e",
+      "recomputedSha256": "15ac67e249604f251c0ee116a7a397db1b4a445c24bc313b76c77e08908f822e",
+      "agrees": true
+    },
+    "predecessorReviews": [
+      {"file": "ep10.review-independent.json",
+       "claimedSha256": "854c3defe17528ed237a3b1185ab61d1fc2a8e33ff9e282f631982a6235a8a55",
+       "recomputedSha256": "854c3defe17528ed237a3b1185ab61d1fc2a8e33ff9e282f631982a6235a8a55",
+       "agrees": true, "readInFull": true, "verdict": "REJECT", "blockers": 1},
+      {"file": "ep9.review-independent.json",
+       "claimedSha256": "46b244235321c8a36549d0b92ebf843b1561ea6c37a5a7bcc49a498f7899c8cf",
+       "recomputedSha256": "46b244235321c8a36549d0b92ebf843b1561ea6c37a5a7bcc49a498f7899c8cf",
+       "agrees": true, "readInFull": true, "verdict": "REJECT", "blockers": 2}
+    ]
+  },
+
+  "verdict": "REJECT",
+  "verdictStatement": {
+    "verdict": "REJECT",
+    "blockingFindingCount": 2,
+    "summary": "v11 is a large, real advance and I say so first, because most of what it claims I reproduced by execution and could not break. Its diagnosis of v10 is exactly right and I reproduced it: AX2 rebuilt against check-evaluation-proof-v10.py exits 0 with v10's complete green banner including 'ROUTING ESTABLISHED BEHAVIOURALLY ... 0 served by the superseded module (REQUIRED zero)' while 7 of 7 pinned vectors' verdicts are produced by check-c2.py. Its central novelty is also real and measured exactly as published: A-1 value equality agrees 21/21 for joins that return check-c2.py's answer (AX2 and AX3), and A-2's PRIVATE witness is the only rule that catches AX8 — I measured AX8 at A-1 21/21, A-3 21/21, A-4 21/21, A-5 7/7 and the SHARED ledger 21/21, with A-2 alone at 14/21. The preserved v10 measurements reproduce by execution digit for digit; the two silent-accept enumerations reproduce position for position under my own walker and my own direct drives; 27 of 27 pins agree; non-circularity is exact; --selftest is 36/36 with a distinct 0/1/2/3 matrix; there are no paper seals. BUT the load-bearing property does not hold. A-2 tags a returned object by WHICH MODULE OBJECT THE ATTRIBUTE WAS FOUND ON, not by which pinned bytes computed it, and _witnessing reads that attribute at window entry. A route region using ONLY the two arguments it is handed — no sys, no frames, no getattr, nothing the introspection tripwire names — can install its own serving function on authority.c2v4()'s attribute, wrapped by the ledger's OWN _wrap under the repaired tag. Every rule then holds by construction: call provenance 28/21/0, A-1 21/21, A-2 21/21, A-3 21/21, A-4 21/21, A-5 7/7, oracle 0 mismatches. MEASURED: evasion_rx1.py exits 0 with the complete green banner including 'ANSWER PROVENANCE ESTABLISHED ... 21 ARE the object that module produced for this vector (A-2)', --selftest returns SELFTEST-PASS with all 36 mutations rejected and no variant escaping, every published number reproduces unchanged, and 7 of 7 pinned vectors' validation verdicts are produced by check-c2.py and 0 of 7 by check-c2-v4.py. That is the IR-EP10-01 class, in the repair built to close it, with the new guard green. Separately I defeated the introspection tripwire — the SOLE guard for the class RES-EP11-02 concedes — with a spelling it does not enumerate, and that variant also exits 0 green with 7/7 answered by check-c2.py."
+  },
+
+  "blockers": [
+    {
+      "id": "IR-EP11-01",
+      "severity": "BLOCKING",
+      "title": "A-2 does not establish answer provenance: the private witness tags an object by WHICH MODULE OBJECT the attribute was found on, so a route region that installs its own serving function on authority.c2v4()'s attribute satisfies all five rules while 7/7 pinned verdicts come from check-c2.py — with no introspection of any kind",
+      "statement": "evaluation-proof.v11.json answerProvenance.property claims 'for every pinned vector, each value the join returns and the checker acts on — the validation verdict above all, plus the commitment and the canonical preimage — is the value the repaired module produced for that PlanIntent', with isSoleGuardForAnswerProvenance=true and establishesCallProvenanceOnly=false. The mechanism cannot support that. _witnessing(witness, tagged) reads `getattr(module, api)` at window entry and installs a wrapper that records `(tag, api, argfp, depth, result)` where `tag` is fixed by WHICH MODULE OBJECT the attribute was read from — not by which pinned bytes computed the result. A-2 then asks only that the returned object be one the witness recorded against C2V4. So A-2 establishes 'this object came out of whatever function was bound at check-c2-v4.py's module attribute at the moment the guard looked', which the route region controls. EVASION RX1, mine, not among the nineteen: on its first call c2_validate_intent captures both modules' unwrapped originals out of authority.ledger.originals, builds a serving function that returns check-c2.py's answer for every intent whose two commitment-bearing schemaVersion leaves are JSON integers and the true check-c2-v4.py answer otherwise, wraps it with the ledger's OWN authority.ledger._wrap(serve, 'validate_plan_intent', C2V4), and assigns it to authority.c2v4().validate_plan_intent. Everything it touches is reachable from `intent` and `authority`. It uses no frame, no sys, no getattr/setattr, no __closure__, no dunder introspection at all; route_introspection_scan reports introspectionSites=[] and c2_route_scan reports referencesOutsideDeclaredClosure=[], unroutedSitesInsideJoin=[], authorityRoutedSites=4. Every rule then holds BY CONSTRUCTION: the ledger records a depth-0 repaired-tagged call over this vector's fingerprint (call provenance green); the witness wraps the forged seat and tags its result C2V4 (A-2); _poisoned replaces that same attribute so the sentinel flows (A-3); the serving function holds the v3 original captured BEFORE any poisoning, so poisoning check-c2.py does not move the answer (A-4); v3 and v4 agree on the pinned vectors so A-1 and A-5 agree; and the whitelist routes the four divergent census positions to the true v4 original so the differential oracle sees 0 mismatches. MEASURED, in the instrument's own production ordering (call provenance first, then the answer-provenance guard, exactly as heavy_measurements runs them): answer_provenance_guard returns ZERO findings with independentValueAgreements 21, objectProvenanceAgreements 21, sharedLedgerAgreements 21, repairedSentinelFlowed 21, supersededSentinelIgnored 21, gateAgreements 7, evaluationErrors 0, allRulesHeld TRUE; call_provenance_guard returns ZERO findings with observedCalls 28, depthZeroCalls 21, supersededCallsInsideJoin 0; the differential oracle reports 0 mismatches over 1656 cases at discriminating cardinality 4; and the verdict object returned for all seven pinned vectors, measured inside a window shaped exactly like the guard's own with the guard's own _Witness installed, is produced by check-c2.py — 7 of 7, against 7 of 7 by check-c2-v4.py for the unmodified checker in the identical harness. End to end `python3 -I -B evasion_rx1.py` exits 0 and prints the COMPLETE green banner, including 'ANSWER PROVENANCE ESTABLISHED for 7 pinned vectors x 3 imported APIs = 21 answers: 21 equal the value an INDEPENDENT instance of check-c2-v4.py computed (A-1); 21 ARE the object that module produced for this vector (A-2); 21 FOLLOW a sentinel ... (A-3); 21 are UNMOVED ... (A-4); 7 accept/reject gates agree (A-5)', every preserved and evasion number identical to the shipped run, and `--selftest` returns SELFTEST-PASS with all 36 mutations rejected, no ESCAPE lines, and 'variants that escaped EVERY guard: none'. The mutation is confined to the ROUTE-REGION: text before # ROUTE-REGION-BEGIN and after # ROUTE-REGION-END is byte-identical to check-evaluation-proof-v11.py (verified programmatically), which is the same region evasion_variants() rewrites for its twelve source variants. astScanScope.routingScanCannotSeeWhoseAnswerIsUsed=true remains true and guardInventory.claimsTotalCoverage=false remains true, but for the answer-provenance property EVERY declared guard is silent at once, which is the condition on which IR-EP9-02 and IR-EP10-01 were each found blocking.",
+      "evidence": {
+        "evasionFile": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/lab/evasion_rx1.py",
+        "evasionSha256Prefix": "03bda1011c04db39",
+        "mutationScope": "ONLY the ROUTE-REGION. Prefix and suffix byte-identical to check-evaluation-proof-v11.py, asserted programmatically. 31 region lines replaced by 66.",
+        "usesNoIntrospection": "route_introspection_scan(mutated) -> introspectionSites []. The region names no member of INTROSPECTION_NAMES. It reads authority.ledger.originals, calls authority.ledger._wrap, and assigns through authority.c2v4() — all ordinary attribute access on the two objects the route region is handed by design.",
+        "endToEnd": {
+          "command": "python3 -I -B evasion_rx1.py evaluation-proof.v11.json",
+          "exit": 0,
+          "banner": "complete and byte-comparable to the unmodified checker's, including the ANSWER PROVENANCE ESTABLISHED line with 21/21/21/21 and 7 gates",
+          "selftest": "exit 0, SELFTEST-PASS: all 36 mutations rejected, 0 ESCAPE lines, exit matrix 0/1/2/3 agrees, evasion battery 19/19 caught, escapedEveryGuard none"
+        },
+        "guardsThatWereSilent": {
+          "answerProvenanceFindings": 0,
+          "answerProvenanceCounts": {
+            "expectedPerRuleTotal": 21, "independentValueAgreements": 21,
+            "objectProvenanceAgreements": 21, "sharedLedgerAgreements": 21,
+            "repairedSentinelFlowed": 21, "supersededSentinelIgnored": 21,
+            "gateAgreements": 7, "evaluationErrors": 0, "allRulesHeld": true},
+          "callProvenanceFindings": 0,
+          "callProvenance": {"observedCalls": 28, "depthZeroCalls": 21,
+                             "supersededCallsInsideJoin": 0},
+          "differentialOracleMismatches": 0,
+          "c2RouteScan": {"referencesOutsideDeclaredClosure": [],
+                          "unroutedSitesInsideJoin": [], "authorityRoutedSites": 4},
+          "introspectionSites": [],
+          "supersededCrossCheckFindings": 0
+        },
+        "provenanceOfTheAnswer": {
+          "method": "the ledger's two UNWRAPPED originals for validate_plan_intent are replaced, before any route-region call has happened, by seat-marking stand-ins that return the real module's OWN object and record id(result) -> seat in a side registry that retains the object so ids cannot recycle. No type is perturbed: the guard still measures 21/21 on every rule in the same process. The join is then driven inside a window shaped exactly like the guard's own, with the guard's own _Witness installed by the guard's own _witnessing.",
+          "pinnedVectorsAnsweredByCheckC2Py": "7 of 7",
+          "pinnedVectorsAnsweredByCheckC2V4Py": "0 of 7",
+          "controlUnmodifiedV11": "check-c2-v4.py 7 of 7, check-c2.py 0 of 7, in the identical harness"
+        },
+        "whyTheSeamExists": "_witnessing derives `tag` from the module object the attribute was read from, and _poisoned writes to that same attribute. Both operations are therefore relative to a mutable binding the route region can reach through the DECLARED accessor. The guard's own private instance (A-1) is genuinely unreachable and I could not touch it — but A-1 is value equality, which v11 itself measures to be insufficient. The rule that was supposed to carry provenance, A-2, is anchored to the same mutable binding as A-3 and A-4, so one write moves all three at once.",
+        "authorControlsThatDidFire": "The architecture is strong and I say so. Every one of the nineteen declared variants is caught, and I reproduced the per-guard matrix exactly. A-2's private witness is a real advance and is genuinely the sole catcher of AX8, measured: AX8 holds A-1 21/21, A-3 21/21, A-4 21/21, A-5 7/7 and the SHARED ledger 21/21, and fails only A-2 at 14/21. My first refinement of RX1 (evasion_rx1b.py, which swaps the seat only when it carries the ledger's own __ledger_tag__ marker so the guard's instrumentation is never disturbed) was REJECTED — not by any guard, but by drift in perGuardCatchCount and soleGuardVariants, because the persistent substitution changes how the seven object attacks score. The simple RX1 leaves every published number untouched."
+      },
+      "reproduction": {
+        "setup": "copy the 27 pinned inputs + evaluation-proof.v11.json + check-evaluation-proof-v11.py into an empty directory LAB (29 files); confirm `python3 -I -B check-evaluation-proof-v11.py` exits 0 there; then replace ONLY the text between the ROUTE-REGION markers with the RX1 region and save as LAB/evasion_rx1.py",
+        "command": "cd LAB && python3 -I -B evasion_rx1.py evaluation-proof.v11.json ; echo $? ; python3 -I -B evasion_rx1.py --selftest ; echo $? ; cd .. && python3 -I -B prove2.py",
+        "builders": [
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/build_rx1.py",
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/prove2.py",
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/verify_rx1.py",
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/score_rx.py"
+        ],
+        "note": "the lab is a byte-identical copy of the 29 files; the unmodified check-evaluation-proof-v11.py in it exits 0. No file under docs/coop was modified except this review."
+      },
+      "requiredToClear": "Anchor provenance to the PINNED BYTES rather than to a mutable attribute. Options that would actually close it: (a) have the guard call the three APIs through references captured at build_authority time and verify, immediately before each measured window, that authority.module(C2V4)'s three attributes are still identically the ledger wrappers the install created and that each wrapper's inner original is the object load-time capture recorded — a behavioural fingerprint of the served module, not a source scan; or (b) require A-2's witnessed object to have been produced by the GUARD'S OWN PRIVATE INSTANCE, by driving the join through an authority whose c2v4() returns that private instance for the measured windows, so that no binding the route region can write participates in the measurement; or (c) if neither is achievable, retract answerProvenance.property and isSoleGuardForAnswerProvenance, restate A-2 as what it enforces ('the object returned was produced by whatever function was bound at the repaired module's attribute when the guard looked'), delete the banner's 'ANSWER PROVENANCE ESTABLISHED' framing, and publish the seat-substitution class as a named residual with RX1 enumerated. Option (c) leaves IR-EP10-01 open."
+    },
+    {
+      "id": "IR-EP11-02",
+      "severity": "BLOCKING",
+      "title": "The introspection tripwire — the SOLE guard for the class RES-EP11-02 concedes defeats A-1 through A-5 completely — is defeated by a spelling it does not enumerate, and the whole class then escapes every guard the instrument runs",
+      "statement": "RES-EP11-02, RES-EP11-04, RES-EP11-12 and guardInventory all state that AX6 and AX9 defeat A-1..A-5 and are caught ONLY by route_introspection_scan, and that that scan 'is an ENUMERATION of spellings, and an enumeration is not a proof. A spelling it does not name would reach the private witness undetected.' I built that spelling. EVASION RX2c is AX6's tamper written so that not one member of INTROSPECTION_NAMES appears as an ast.Name or ast.Attribute anywhere in the route region: the module is reached by `import inspect as _probe` and `import operator as _op`, which are ast.alias nodes the scan's Name/Attribute walk never visits; the frame comes from `_probe.stack(0)[k].frame` ('stack' and 'frame' are not enumerated); the guard's locals come from `_probe.getargvalues(frame).locals` ('getargvalues' and 'locals' are not enumerated — the list carries globals, vars and dir but not locals); and the witness's slot is reached with `_op.attrgetter('produ' + 'ced')` ('attrgetter' is not enumerated and string Constants are never scanned at all). MEASURED: route_introspection_scan(mutated) returns introspectionSites=[] and regionDefinitions=4; c2_route_scan returns referencesOutsideDeclaredClosure=[], unroutedSitesInsideJoin=[], authorityRoutedSites=3. The variant returns check-c2.py's answer for every pinned vector, forges the guard's PRIVATE witness record for it, and corrects the one shared-ledger entry the guard publishes beside A-2 so no published number moves. `python3 -I -B evasion_rx2c.py evaluation-proof.v11.json` exits 0 with the COMPLETE green banner including the ANSWER PROVENANCE ESTABLISHED line; answer_provenance_guard returns ZERO findings with 21/21/21/21/21 and 7 gates and allRulesHeld TRUE; call provenance returns zero findings at 28/21/0; and the verdict object for 7 of 7 pinned vectors, measured inside the guard's own window shape with the guard's own witness, is produced by check-c2.py. MY RULING ON THE BOUNDARY, stated precisely because the brief asks for it: RES-EP11-02 is an HONEST disclosure and that is a material improvement over v9, which published isSoleGuard=false and was wrong. But it is not a legitimate scope limit, for three reasons. First, the class does not live outside the declared hostile surface: v11 itself defines the route region as 'the three marked functions ... and the region the evasion battery is permitted to rewrite', and AX6, AX9 and RX2c are all confined to exactly that region — nothing about the guard's own code, the pin table or the checking layer is touched. Second, the remaining guard is of exactly the kind v9 was rejected for: ep9.review-independent.json IR-EP9-02 found it blocking that 'the syntactic scan is the sole guard' for the C-2 join binding, and here a syntactic scan is the sole guard for a class that defeats the C-2 ANSWER binding — the same defect one level up, and the level it moved to is the load-bearing one. Third, the consequence is a banner-level published property that is false in the presence of an in-scope mutation, which is the standard on which both predecessors were rejected; the banner prints 'ANSWER PROVENANCE ESTABLISHED' unconditionally and prints 'ESCAPED EVERY GUARD []' with no scope. I distinguish this sharply from 'a checker cannot defend against arbitrary modification of itself', which is true and which I would accept: a mutation of answer_provenance_guard, of ALL_PINS, or of check() is genuinely out of scope and I did not treat any such thing as a finding. The distinction is that the route region is a declared input surface with a declared hostile model, and the guard's private state is reachable FROM it.",
+      "evidence": {
+        "evasionFile": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/lab/evasion_rx2c.py",
+        "evasionSha256Prefix": "a9f8b9715a99aade",
+        "mutationScope": "ONLY the ROUTE-REGION; prefix and suffix byte-identical, asserted programmatically",
+        "introspectionScanResult": {"introspectionSites": [], "regionDefinitions": 4},
+        "spellingsNotEnumeratedByINTROSPECTION_NAMES": [
+          "ast.alias — `import inspect as _probe` / `import operator as _op` are never visited by the scan's Name/Attribute walk",
+          "inspect.stack", "FrameInfo.frame", "inspect.getargvalues", "ArgInfo.locals",
+          "operator.attrgetter", "string Constants, which the scan never inspects at all"
+        ],
+        "endToEnd": {"exit": 0, "banner": "complete green, ANSWER PROVENANCE ESTABLISHED 21/21/21/21, 7 gates"},
+        "guardsThatWereSilent": {
+          "answerProvenanceFindings": 0,
+          "answerProvenanceCounts": {"independentValueAgreements": 21,
+            "objectProvenanceAgreements": 21, "sharedLedgerAgreements": 21,
+            "repairedSentinelFlowed": 21, "supersededSentinelIgnored": 21,
+            "gateAgreements": 7, "allRulesHeld": true},
+          "callProvenanceFindings": 0,
+          "introspectionSites": []
+        },
+        "provenanceOfTheAnswer": {"pinnedVectorsAnsweredByCheckC2Py": "7 of 7",
+                                  "pinnedVectorsAnsweredByCheckC2V4Py": "0 of 7"},
+        "intermediateResultRecordedForHonesty": "my first spelling (evasion_rx2b.py, sha256 prefix in scratchpad) escaped the introspection scan identically but was REJECTED at exit 1 — not by any guard, but by drift in perGuardCatchCount and in the own-constant-leaf battery, because leaving the shared ledger entry uncorrected moves sharedLedgerAgreements from 21 to 14. RX2c corrects that one entry and no published number moves. I record the failed attempt because it shows the accidental defence exists and is one line deep."
+      },
+      "reproduction": {
+        "command": "cd LAB && python3 -I -B evasion_rx2c.py evaluation-proof.v11.json ; echo $?",
+        "builders": [
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/build_rx2.py",
+          "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad/prove2.py"
+        ]
+      },
+      "requiredToClear": "Either give the guard-tamper class a behavioural counterpart — the natural one is to run the measured windows in a subprocess or under an authority object that carries no reference the region could walk back to, or to verify after each window that witness.produced contains exactly the entries the wrapper appended (a sequence number the region cannot forge without also reaching the witness) — or, if that is not achievable, stop claiming the property unconditionally: make the banner's ANSWER PROVENANCE line and evasionMeasurement.escapedEveryGuard carry, in the banner itself, that both are measurements over a declared spelling enumeration and over nineteen built classes. Note this blocker is materially lighter than IR-EP11-01: the class was disclosed in advance and measured, and only its sole-guard status is falsified. IR-EP11-01 was not disclosed and needs no introspection at all."
+    }
+  ],
+
+  "centralClaimAdjudications": [
+    {
+      "claim": 1,
+      "title": "Does answer provenance actually hold? A-1 21/21 for a substituted join; AX2 against v10; AX2 against v11",
+      "verdict": "PARTLY UPHELD — every published number reproduced, but the property itself does NOT hold (blocker IR-EP11-01)",
+      "aOneIsInsufficient_reproduced": "REPRODUCED INDEPENDENTLY. I exec'd every declared variant and read the guard's own per-rule counters. AX2-decoy-call-superseded-answer: independentValueAgreements 21 of 21 while objectProvenance 14, repairedSentinelFlowed 14, supersededSentinelIgnored 14 — 21 findings, failing A-2, A-3 and A-4 and never A-1. AX3-verdict-only-substitution: identical shape. So value equality alone is measured, not argued, to be blind to the blocking evasion. The candidate's positiveControl.decoyCall block is exactly this measurement and verify_answer_provenance enforces it against the run.",
+      "ax2AgainstV10_reproduced": "REPRODUCED. I rebuilt AX2 inside check-evaluation-proof-v10.py's own ROUTE-REGION (prefix and suffix byte-identical, asserted) with the one refinement ep10.review-independent.json IR-EP10-NB-07 names — fall back to the honest repaired answer when the ledger carries no unwrapped originals, so the deinstalled-ledger attack scores unchanged. `python3 -I -B v10_ax2b.py evaluation-proof.v10.json` exits 0 and prints v10's COMPLETE green banner including 'ROUTING ESTABLISHED BEHAVIOURALLY: 28 C-2 calls observed PER CALL across 7 pinned vectors; 1 distinct PlanIntent fingerprint(s) bound to those calls; 0 served by the superseded module (REQUIRED zero)'. routing_ledger_guard returns 0 findings at observedCalls 28 / supersededCallsInsideJoin 0; superseded_cross_check returns 0 findings. Seat measurement: 7 of 7 pinned vectors' validate answer produced by check-c2.py, 0 of 7 by check-c2-v4.py; the unmodified v10 in the identical harness gives 0 and 7. Every number ep10.review-independent.json published for its AX2 is reproduced. v11's account of why v10 failed is correct.",
+      "ax2AgainstV11": "CAUGHT, as claimed. v11's own battery scores AX2 as answerProvenance-only, and I confirmed the mechanism by reading the guard's counters rather than the matrix: 21 findings failing A-2 (14/21), A-3 (14/21) and A-4 (14/21) with A-1 at 21/21 and the gate at 7/7. The same holds for AX3, AX4 (14 findings, A-2 and A-3), AX5 and forged-ledger-entry-replay.",
+      "butTheClassIsNotClosed": "My own answer substitution RX1 is not an AX2 — it does not discard a call, it changes what the repaired module's attribute IS — and it satisfies all five rules while 7/7 verdicts come from check-c2.py. See IR-EP11-01."
+    },
+    {
+      "claim": 2,
+      "title": "A-2's private witness, the load-bearing novelty; AX8; and my own attacks on it",
+      "verdict": "THE POSITIVE CLAIM IS UPHELD AND UNDERSTATED; THE RULE IS NEVERTHELESS DEFEATED",
+      "ax8ClaimReproduced": "EXACTLY. v11 claims AX8 — which calls both instruments, follows the repaired one whenever they disagree so A-3 and A-4 both hold, and forges the shared ledger entry and provenance record — is caught by A-2's private witness and by nothing else. I measured the guard's own counters for AX8: independentValueAgreements 21/21, repairedSentinelFlowed 21/21, supersededSentinelIgnored 21/21, gateAgreements 7/7, sharedLedgerAgreements 21/21 (the forgery works), objectProvenanceAgreements 14/21. Seven findings, every one an A-2 finding. That is a precise, unflattering, correct self-measurement and it justifies the design decision not to read the shared ledger. AX6 and AX9 confirm the converse: both reach objectProvenanceAgreements 21/21 by forging the witness and produce ZERO findings across all five rules.",
+      "myAttacksOnTheWitness": [
+        "reach the private witness without introspection: FAILED. The witness is created inside answer_provenance_guard, bound to no global and to no attribute of anything the region receives. I could not reach it by any ordinary object path.",
+        "reach the private repaired instance: FAILED. _private_repaired re-hashes the snapshot against the pin and holds the module only in the guard's frame; A-1's expected values are computed AFTER the drive, so they do not exist while the region runs. This part of independentPathIsUnreachable is true as stated.",
+        "forge the shared ledger to satisfy A-2: FAILED by design — A-2 does not read it. Confirmed by the forged-ledger control at sharedLedgerAgreements 21 / objectProvenance 14.",
+        "wrap the returned object in an identity-preserving proxy: NOT POSSIBLE — A-2 compares `witnessed[4] is actual`, so a proxy is a different object.",
+        "exploit interning or id recycling: FAILED. _witness_wrapper retains the result object in the record, so an id cannot be recycled while the record names it. I could not construct a collision.",
+        "defeat the argument fingerprint: FAILED. value_fingerprint is canonical-JSON SHA-256 of args[0] and the witness wrapper is outermost, so it sees the real intent.",
+        "SUCCEEDED: do not attack the witness at all — attack what it tags. Install a serving function on authority.c2v4()'s attribute, wrapped by the ledger's own _wrap under the repaired tag, before the guard's window opens. The witness then faithfully records check-c2.py's answer as an object the repaired module produced. See IR-EP11-01.",
+        "SUCCEEDED: forge the witness through a spelling the introspection tripwire does not enumerate. See IR-EP11-02."
+      ],
+      "assessment": "The private witness is a genuine and well-motivated advance over v10's R-5 and over the shared ledger, and its self-measurement against AX8 is the most honest single number in the document. Its defect is not that it can be reached; it is that it is anchored to a mutable binding the route region owns."
+    },
+    {
+      "claim": 3,
+      "title": "The RES-EP11-02 threat-model boundary — honest scope limit, or the same defect one level up?",
+      "verdict": "THE SAME DEFECT ONE LEVEL UP — disclosed rather than denied, which changes its character but not its status. See IR-EP11-02.",
+      "reasoning": "I separate three things. (i) A checker cannot defend against arbitrary modification of ITSELF. I accept this fully and treated no mutation of answer_provenance_guard, ALL_PINS, check() or the checking layer as a finding; RES-EP11-04's and guardInventory.whatNoGuardHereCovers's statement that instrument removal is not excluded by any self-check is correct and correctly scoped. (ii) v11's actual position is narrower and different: it declares the ROUTE REGION hostile — 'the region the evasion battery is permitted to rewrite' — and then classifies a mutation CONFINED TO THAT REGION as 'tampering with the guard' because of what it reaches. That reclassification is doing real work: it moves a class inside the declared hostile surface into the excluded set on the basis of its effect rather than its location. (iii) The test the corpus has been applying is whether a published property is false in the presence of an in-scope mutation with every behavioural guard silent. Under (ii) the answer is yes, and the only thing standing in the way is an enumeration of forty-four identifier spellings which I defeated with six that are not on it, using nothing more exotic than the inspect and operator modules. ep9.review-independent.json rejected v9 for 'the AST scan is the sole guard' over the C-2 join binding; here a source scan is the sole guard over the C-2 ANSWER binding, which is strictly more load-bearing. WHAT I CREDIT: v11 does not hide this. It builds AX6 and AX9, executes them every run, publishes guardTamperOutcome with defeatedAnswerProvenance=true for both, names introspectionScan as isSoleGuardForSomeClass=true, and states in terms that the scan is an enumeration and not a proof. Every one of those statements is TRUE and I verified each. That is the opposite of v9's behaviour and it deserves saying. WHAT I DO NOT CREDIT: the banner still prints 'ANSWER PROVENANCE ESTABLISHED' and 'ESCAPED EVERY GUARD []' with no qualification, and the property answerProvenance.property is published unconditionally. Disclosure inside knownLimitations does not make a banner-level unconditional claim true. WHERE I LAND: blocking, but at lower weight than IR-EP11-01, and clearable by scoping the claim rather than by closing the hole — which is precisely what option (c) of IR-EP11-02.requiredToClear says. Had IR-EP11-01 not existed, I would have found this one alone blocking on the narrow ground that the sole-guard status published for introspectionScan is falsified by measurement, not on the broad ground that a checker must defend itself."
+    },
+    {
+      "claim": 4,
+      "title": "RES-EP11-13 — the defect v11 found in v10",
+      "verdict": "STRUCTURAL CLAIM TRUE; MEASURED CLAIM NOT REPRODUCED",
+      "structural": "TRUE and verified by reading both implementations. check-evaluation-proof-v10.py's _inject does `cursor[path[-1]] = injected` — the SAME object out of HOSTILE_VALUES is inserted into every case at every path, and four of its seventeen members are mutable ({}, [], [[[[1]]]], {'x': 1}). check-evaluation-proof-v11.py's _inject does `value = copy.deepcopy(injected)` first. So v11's surfaces are order-independent and v10's are not, exactly as RES-EP11-13 says.",
+      "measured": "NOT REPRODUCED. RES-EP11-13 states 'Measured: driving the predecessor's own oracle before v11's changes v11's plan-intent silent-accept count from 7 to 20 and its plan-descriptor count from 41 to 59.' I could not produce 20 or 59 in any configuration. (a) v11 as shipped, delegate battery first: 7 and 41. (b) same process with v11's _inject replaced by the predecessor's shallow injector: 7 and 41. (c) fresh module, shallow injector, no delegate battery: 7 and 41. (d) full v11 heavy_measurements pipeline including delegate.check, with the shallow injector: 7 and 41. (e) the predecessor driven against ITSELF: drive_surface before its own heavy_measurements gives 7 and 41, and after gives 7 and 41, with the delegate's HOSTILE_VALUES table byte-unchanged ({}, [], [[[[1]]]] and {'x': 1} all intact after a complete v11 run).",
+      "whyNot": "The premise has no instance in this corpus. I drove every mutable hostile value into every one of the 98 plan-intent paths and every one of the 88 plan-descriptor paths through four guards — v11's join, an independently instantiated check-c2-v4.py, check-c2.py, and check-resolved-inputs.py._plan_record_errors — and NO guard mutated the shared object. sharedValuesMutated is empty on both surfaces. Without a mutator the shared-table defect cannot move a count, so the numbers 20 and 59 have no mechanism I could find.",
+      "consequence": "The correct reading of v10's counts is therefore stronger than RES-EP11-13 allows: they are correct because nothing mutates, not because v10 happens to measure early. The residual overstates its own evidence. This is NON-BLOCKING — the residual concerns a pinned predecessor and no v11 measurement depends on it — but it is an un-measured number published inside a document whose thesis is that a count is not a record, and no checking-layer rule enforces it. See IR-EP11-NB-03. I record explicitly that I may have failed to find the configuration the author used; my instrument's limits on this point are stated in whatIDidNotCheck."
+    },
+    {
+      "claim": 5,
+      "title": "Enumerations replacing counts — are the silent-accept enumerations complete and correct?",
+      "verdict": "UPHELD IN FULL — reproduced position for position with my own instrument",
+      "method": "I wrote my own census walker and my own injection driver and drove check-c2-v4.py.validate_plan_intent and check-resolved-inputs.py._plan_record_errors directly, calling no function of check-evaluation-proof-v11.py.",
+      "planIntent": "MY MEASUREMENT: 98 enumerated / 28 container / 70 scalar leaves; 1666 enumerated cases, 10 no-ops, 1656 executed, 0 escapes, 7 silent accepts. Identical to the published census AND the published enumeration is IDENTICAL to mine, string for string, in sorted order: contributions=json-empty-array, contributions[0..2].parameters=json-object-leaf, scope.requestedPaths=json-empty-array, scope.requestedPaths[0]=json-control-char, scope.requestedPaths[0]=json-text-one.",
+      "planDescriptor": "MY MEASUREMENT: 88 / 26 / 62; 1496 enumerated, 11 no-ops, 1485 executed, 0 escapes, 41 silent accepts. Identical to the published census and the published enumeration; my set minus published is empty and published minus mine is empty.",
+      "enforcement": "verify_totality requires the enumeration to match exactly AND requires len(positions) == silentAccepts, so the two cannot drift apart. Two selftest rows empty each enumeration and both are rejected with the measured list recited. IR-EP10-NB-03 is genuinely repaired."
+    },
+    {
+      "claim": 6,
+      "title": "Residual and retraction enforcement — try to gut them",
+      "verdict": "MATERIALLY IMPROVED OVER v10, BUT THE PUBLISHED PROPERTY IS OVERSTATED — I gutted five and stayed green",
+      "whatIsRepaired": "The v10 defects are genuinely closed. A bare identifier fails: I confirmed RES-EP11-02 at 12 characters is rejected against a 320-character minimum and RES-EP11-07 at 12 against 240. A one-character retractedText is rejected against a 60-character minimum. A detached fragment that occurs nowhere in the subject is rejected. A wrong subjectPath is rejected. Softening a disposition to SCOPED is rejected. All five are live selftest rows and I saw each rejected with its own finding.",
+      "whatIGutted": "The rule is a minimum length plus a phrase grep, so a residual padded to length with the anchor phrases intact passes. FOUR residuals hollowed of all meaning while keeping their anchors — RES-EP11-05, RES-EP11-12, RES-EP11-13 and, most seriously, RES-EP11-02 itself, the residual that carries the entire threat-model concession this candidate rests on — each produced exit 0 with the complete green banner. And RET-EP11-01.retractedText replaced by a genuinely verbatim 80-character fragment taken from a DIFFERENT part of the same declared subject ($.repairs[1] of evaluation-proof.v10.json) also produced exit 0: the fragment is substantive by length and located inside the named subject, so both of v11's rules are satisfied while the retraction no longer quotes the sentence it retracts.",
+      "assessment": "The candidate's own words are 'Here every residual must carry its declared SUBSTANCE. The anchors are the load-bearing phrases of each residual, chosen so that a residual hollowed out to its identifier, or softened into a claim of closure, fails.' The two failure modes it NAMES do fail — that part is true and enforced. The broader sentence, that every residual must carry its substance, is not what the rule tests. NON-BLOCKING (drift risk, not a false claim in the shipped bytes, and strictly stronger than the predecessor), recorded as IR-EP11-NB-01 and IR-EP11-NB-02."
+    },
+    {
+      "claim": 7,
+      "title": "The guard inventory — is it complete, and is any sole-guard flag wrong?",
+      "verdict": "THE MEASURED PART IS CORRECT; THE COMPLETENESS CLAIM IS NOT",
+      "measuredPartIsCorrect": "perGuardCatchCount, soleGuardVariants and answerProvenanceOnlyCatches are all derived from this run's per-variant matrix and compared with strict_equal; I confirmed each by re-running the battery and by reading the guard counters directly. isSoleGuardForSomeClass is checked in BOTH directions (a guard measured sole must publish true, and a guard publishing true must be measured sole), which is stronger than v10 and closes IR-EP10-NB-05 for the six scored guards. superseded_cross_check — the undisclosed sole guard of v10 — is now a first-class member with its own blind spot, and I verified the blind spot statement is accurate. Every blindSpot is over 60 characters and claimsTotalCoverage is false, both enforced.",
+      "completenessClaimIsNot": "guardInventory.why says 'Every guard this instrument runs is listed here with what it establishes and what it cannot see.' It is not. guardInventory declares exactly the six ids _score scores. At least these also run and produce findings and appear in NO inventory: c2_api_surface (EP11-C2-API), which checks the three imported APIs' presence, callability and arity on the repaired module and is not scored by the evasion matrix at all, so whether it is a sole catcher for any class is unmeasured. global_binding_probe (EP11-BINDING), own_constant_leaf_battery (EP11-BATTERY) and exit_matrix_probe (EP11-EXIT) run and produce findings and appear only as 'behavioural counterparts' in astScanScope. The selftest-dispatch, integer-guard and non-circularity scans run and appear in astScanScope but not in guardInventory. NON-BLOCKING: the omission is one of prose scope, not of measurement, and every omitted mechanism is disclosed somewhere in the document. Recorded as IR-EP11-NB-05.",
+      "didIFindAWrongFlag": "No. I could not falsify any published sole-guard flag. My own variants RX1 and RX2c have NO catcher at all rather than a mis-attributed one, which is the more serious failure and is recorded as the two blockers."
+    },
+    {
+      "claim": 8,
+      "title": "Measured totality — baked in or measured, and is escapedEveryGuard=[] stated honestly everywhere?",
+      "verdict": "COUNTS ARE MEASURED; escapedEveryGuard IS SCOPED IN THE DOCUMENT BUT NOT IN THE BANNER",
+      "countsAreMeasured": "Confirmed by execution rather than by reading. Every _expect comparison recites this run's value, and strict_equal is recursive and type-exact, so 14.0 for 14 and false for 0 cannot pass. The selftest drives 36 mutations and I watched all 36 rejected, each with the measured value quoted back. I additionally observed the census arithmetic catch a mutation the author did not intend it to catch (see IR-EP11-NB-04), which is itself evidence the census is live: adding one key moved contractRoot enumeratedPaths from 1003 to 1004 and was rejected on that ground. My own recomputation of the contract-root census, the two surface censuses and both regime censuses agrees exactly.",
+      "elevenResidualsAndTheDominantFailureMode": "knownLimitations carries fifteen entries, of which fourteen are RES-EP11-01..14 plus the closing CD-RT-5 statement; RESIDUAL_CONTENT enforces all fourteen by length and by content anchors. The dominant failure mode the freeze names — a surface publishing a coverage claim over a region its instrument cannot observe — is present in this candidate in exactly the two places my blockers name: answerProvenance.property over the seat the route region owns, and the banner's ESCAPED EVERY GUARD [] over the class RES-EP11-02 concedes.",
+      "escapedEveryGuardHonesty": "In the document, YES and well: rule A-6's doesNotEstablish says 'coverage of any evasion class not built. Nineteen are built and executed; that is a measurement over nineteen', guardInventory.claimsTotalCoverage is false and enforced false, and whatNoGuardHereCovers is explicit. In the BANNER, NO: the ordinary run prints 'ESCAPED EVERY GUARD [] (declared blind spot [])' with no scope at all, which is the same shape as v10's 'ROUTING ESTABLISHED BEHAVIOURALLY' that RET-EP11-03 retracts in this very document. Recorded as IR-EP11-NB-08. My two evasions make the point concretely: the set is empty because it is measured over nineteen classes, and I built two more."
+    },
+    {
+      "claim": 9,
+      "title": "Preserved work — executed rather than re-derived",
+      "verdict": "UPHELD IN FULL — every reviewer-verified v10 measurement reproduced by execution",
+      "method": "I executed check-evaluation-proof-v10.py from its verified bytes myself, called its heavy_measurements and its check() directly, and compared field by field against v11's published preservedMeasurements and against the numbers ep10.review-independent.json states it verified independently.",
+      "regimeA": "345 enumerated / 93 container / 252 scalar leaves / 504 executed cases / 0 no-ops -> 496 rejected, 8 admitted, and every admitted row has movedIdentities == []. Whole block equal to the published block.",
+      "regimeB": "164 / 51 / 113 / 226 executed / 0 no-ops -> 9 admitted. 5 type-distinct-one positions move durable identity, 3 of them WITHOUT moving the EvaluationAuthoritySealRef. Whole block equal to the published block, including every admitted row and both baselines.",
+      "admissionDescriptorPosition": "PRESENT in this run's regime-B admitted set: $.admittedResolvedInputs.frozenPlanIntent.analysis.admissionDescriptor.schemaVersion=json-true, moving all six durable identities including evaluationAuthoritySealRef, admissionRef, indexFingerprint, receiptCasRef, resolvedCasRef and admissionCasRef. Enforced by name at ADMISSION_DESCRIPTOR_POSITION.",
+      "oracleCardinality": "4, both in the delegate's own oracle and in v11's.",
+      "family": "declaredPerturbations 13, acceptedByRepairedInstrument 14, distinctIntentsDriven 14, rejectedPerturbations 0, distinctCommitments 14, injective true, reproducedUnderSupersededEncoder 14, preimageByteIdentical 14 — all agree.",
+      "stability": "vectors 7, recomputedUnderV4 7, reproducedUnderSupersededEncoder 7, preimageByteIdentical 7, distinctFrozenPlanIntents 1, distinctPlanDescriptors 1 — all agree.",
+      "probeFamily": "cases 8, repairedAdmitted 0, supersededAdmitted 4, secondDigests 2, admitThenRaise 2, discriminatingCardinality 4 — all agree.",
+      "checkingLayer": "delegate.check(pinned v10 candidate) returns ZERO findings in my run, matching predecessorCheckingLayerFindings=0. delegateSourceCacheSeeded is enforced and I confirmed load_delegate seeds _SCAN_CACHE with the verified bytes before anything runs, so the delegate never re-opens its own path. This is the strongest part of the candidate: nothing is transcribed."
+    },
+    {
+      "claim": 10,
+      "title": "--selftest live, 36/36, exit matrix 0/1/2/3 distinct",
+      "verdict": "UPHELD, with two mislabelled rows",
+      "observed": "Ordinary run 15 banner lines, exit 0. --selftest 74 lines, structurally different output, 36 mutation rows each with a reject verdict and the finding that rejected it, plus the behavioural exit matrix and a 19-row evasion restatement; 0 ESCAPE lines; exit 0. Exit 1 on findings (I produced it many times). Exit 2 on --bogus, two positional artifacts, a repeated declared flag and an unreadable pin. Exit 3 on --selftest over a dirty base with SELFTEST-REFUSED and 'SELFTEST-NOT-RUN: 0 of 36 mutations executed'. main() dispatches `if \"--selftest\" in flags: return selftest(...)` BEFORE `findings = check(...)`; the classic early-return defect is absent and I confirmed it behaviourally by the differing output lengths and exit codes over the same inputs, not by reading.",
+      "didISeeItCatchMyOwnMutations": "YES, repeatedly and in both directions. Five residual/retraction mutations of my own were rejected (a 12-character residual, a detached fragment, a wrong subject path, a softened disposition, a one-character fragment). My evasion evasion_rx1b.py and evasion_rx2b.py were both rejected at exit 1 by drift in perGuardCatchCount and the own-constant-leaf battery. My AX2 against v10 in its first form was rejected by v10's own evasion drift. The instrument is live and sharp; it is the property it measures that is wrong.",
+      "twoMislabelledRows": "2 of the 36 mutations target a path that does not exist in the candidate: ('answerProvenance','positiveControl','substitutedJoinProducesFindings') and ('evasionMeasurement','ax6Outcome'). Assigning a NEW key raises nothing, so selftest's `except MALFORMED` guard does not fire and the row is scored as a pass. The first is still caught meaningfully (strict_equal over positiveControl notices the extra key). The second, labelled 'the declared blind-spot outcome flattered', is caught ONLY by contract-root census arithmetic — the printed finding is 'EP11-TOTALITY: contractRoot publishes enumeratedPaths=1003; this run measured 1004' — so it exercises nothing whatsoever about the blind-spot outcome it names. Recorded as IR-EP11-NB-04."
+    },
+    {
+      "claim": 11,
+      "title": "No paper seals",
+      "verdict": "UPHELD",
+      "evidence": "Zero occurrences of DISCHARGED, DEMONSTRATED, QUALIFIED, SEALED or SIGNED-OFF anywhere in the candidate. status=CANDIDATE-NOT-APPLIED, reviewState=AWAITING-INDEPENDENT-REVIEW, sealRecommendation=DO-NOT-SEAL, assurance SPECIFIED / IMPLEMENTABLE_UNEXECUTED / NOT-APPLIED, qualificationEvidenceIds and releaseEvidenceIds both empty, CD-RT-5 named with BLOCKED_ON_PHASE_1A. nonClaims states 'implementable is not discharged and not demonstrated' and, unusually and correctly, 'provenance is not correctness: the rules here establish whose answer was used, not that the answer is right'. Seven selftest rows attack this posture and all seven are rejected. Every discharge-shaped claim has an executable behind it that RAN on my machine, and I reproduced the substantive ones independently. I changed no status, seal, freeze or signature field anywhere; CD-RT-5 remains BLOCKED_ON_PHASE_1A and unsigned."
+    }
+  ],
+
+  "nonBlockingObservations": [
+    {
+      "id": "IR-EP11-NB-01",
+      "severity": "MAJOR",
+      "observation": "The residual rule is a minimum character count plus a phrase grep, so a residual padded to length with its anchors intact passes with all meaning removed. I gutted FOUR and the checker exited 0 with the full green banner each time: RES-EP11-05 (160 min, anchors 'own source' and 'not a verified snapshot'), RES-EP11-12 (240 min, anchors 'superseded_cross_check' and 'sole'), RES-EP11-13 (240 min, anchors 'order-dependent' and 'deep-copies'), and RES-EP11-02 (320 min, anchors 'ROUTE REGION', 'sys._getframe', 'AX6', 'NOT closed'). The last is the serious one: RES-EP11-02 carries the entire threat-model concession on which this candidate's scope rests, and I replaced it with a paragraph that names all four anchors and discloses nothing. This is a large improvement on v10 — where the same reviewer gutted two residuals to bare identifiers — and the two failure modes RESIDUAL_CONTENT's own comment names do fail. But 'every residual must carry its declared SUBSTANCE' is not what is enforced. A rule that also required, say, a declared measurement id or a numeric field per residual that the checking layer re-derives would close it."
+    },
+    {
+      "id": "IR-EP11-NB-02",
+      "severity": "MAJOR",
+      "observation": "retraction_checks repairs IR-EP10-NB-01 exactly as advertised — 60-character minimum, subjectFile must be a pinned input, and for JSON subjects the fragment must occur inside the resolved subjectPath — and I could not defeat any of those three. What it cannot check is that the fragment is the sentence being retracted. I replaced RET-EP11-01.retractedText with an 80-character fragment taken verbatim from a DIFFERENT part of the same declared subject ($.repairs[1] of evaluation-proof.v10.json) and the checker exited 0 with the full green banner. The published purpose — that the retraction 'demonstrably targets the bytes it names' — is satisfied at the granularity of the subject object, not of the claim. Requiring the fragment to appear inside the retraction's own `subject` prose as well, or requiring subjectPath to resolve to a string rather than to an object, would narrow it."
+    },
+    {
+      "id": "IR-EP11-NB-03",
+      "severity": "MAJOR",
+      "observation": "RES-EP11-13's MEASURED numbers do not reproduce. Its structural claim is true and I verified it by reading both implementations: v10's _inject shares the mutable members of HOSTILE_VALUES across every case and v11's deep-copies the injected value. But the published measurement — 'driving the predecessor's own oracle before v11's changes v11's plan-intent silent-accept count from 7 to 20 and its plan-descriptor count from 41 to 59' — I could not produce in five configurations (shipped injector with and without the delegate battery; the predecessor's shallow injector with and without it; and the full v11 pipeline including delegate.check with the shallow injector). All five give 7 and 41. Driving the predecessor against itself gives 7 and 41 before its own battery and 7 and 41 after, with its HOSTILE_VALUES table byte-unchanged at the end of a complete run. The reason is that the premise has no instance here: I injected all four mutable hostile values at all 98 plan-intent paths and all 88 plan-descriptor paths through four guards — v11's join, an independent check-c2-v4.py, check-c2.py and check-resolved-inputs.py._plan_record_errors — and not one of them mutated the shared object. So v10's counts are correct STRUCTURALLY, not accidentally, and the previous reviewer had nothing to catch. Nothing in v11 depends on this number and no checking-layer rule enforces it, which is itself the point: it is an unenforced measured claim inside a document whose thesis is that a count is not a record."
+    },
+    {
+      "id": "IR-EP11-NB-04",
+      "severity": "MINOR",
+      "observation": "Two of the 36 selftest mutations target paths that do not exist in the candidate — ('answerProvenance','positiveControl','substitutedJoinProducesFindings') and ('evasionMeasurement','ax6Outcome'). selftest guards missing INTERMEDIATE paths with `except MALFORMED`, but assigning a new FINAL key to an existing dict raises nothing, so both rows silently become a different test. The second, labelled 'the declared blind-spot outcome flattered', is rejected only by contract-root census arithmetic (enumeratedPaths 1003 -> 1004) and therefore exercises nothing at all about the blind-spot outcome. This is the incidental-catch shape ep9.review-independent.json recorded as IR-NB-06, inside the suite that certifies the instrument. Requiring each mutation path to resolve in the base candidate before the suite runs would make the count of 36 mean 36."
+    },
+    {
+      "id": "IR-EP11-NB-05",
+      "severity": "MINOR",
+      "observation": "guardInventory.why asserts 'Every guard this instrument runs is listed here with what it establishes and what it cannot see.' The inventory is exactly the six ids _score scores. At least seven other finding-producing mechanisms run on every ordinary run: c2_api_surface (EP11-C2-API), global_binding_probe (EP11-BINDING), own_constant_leaf_battery (EP11-BATTERY), exit_matrix_probe (EP11-EXIT), and the selftest-dispatch, integer-guard and non-circularity scans. Six of the seven are disclosed elsewhere (astScanScope.scans and the behavioural-counterpart column). c2_api_surface is disclosed NOWHERE and is not scored against any variant, so whether it is a sole catcher for some class is unmeasured — the precise shape of IR-EP10-NB-05, at much smaller stakes. Either widen the inventory or narrow the sentence to 'every guard scored by the evasion matrix'."
+    },
+    {
+      "id": "IR-EP11-NB-06",
+      "severity": "MINOR",
+      "observation": "The Authority class docstring states that the object handed to the route region 'deliberately does NOT carry the guard's private repaired instance, and it does not carry v11's snapshot dictionary; both are threaded to the guards by parameter so that the only way the route region could reach them is stack or global introspection.' The first half is true; the second is false in the shipped bytes. Authority.__init__ binds `self._snapshots = snapshots`, and the inner v10 Authority binds `self.snapshots = snapshots`, so the route region can read every verified byte string by plain attribute access via authority._snapshots or authority.inner.snapshots. This does not by itself defeat any rule — the snapshots are inert bytes and A-1's expected values are computed after the drive — but answerProvenance.independentPathIsUnreachable rests in part on this sentence, and a route region can in fact build its own instance of the repaired module from the verified bytes without any introspection at all."
+    },
+    {
+      "id": "IR-EP11-NB-07",
+      "severity": "MINOR",
+      "observation": "The guard announces when it is measuring. _witnessing replaces the module attribute the route region calls through, so the identity of authority.c2v4().validate_plan_intent differs inside a measured window from outside it, and the ledger's own wrappers carry a __ledger_tag__ marker the witness wrapper does not. I built a variant (evasion_rx1b.py) that keys on exactly that and behaves honestly precisely while observed. It happens to be rejected — by drift in perGuardCatchCount and soleGuardVariants, because the persistent substitution changes how the seven object attacks score, not by any guard — so I record it as an observation rather than as part of a blocker. But an observer that can be detected by the subject is a structural weakness in any behavioural guard, and it is worth closing alongside IR-EP11-01, because the natural repair for IR-EP11-01 (fingerprinting the seat) does not close this one."
+    },
+    {
+      "id": "IR-EP11-NB-08",
+      "severity": "MINOR",
+      "observation": "The green banner prints 'ANSWER PROVENANCE ESTABLISHED for 7 pinned vectors x 3 imported APIs = 21 answers' and 'ESCAPED EVERY GUARD [] (declared blind spot [])' with no scope, while the document scopes both correctly (rule A-6's doesNotEstablish says nineteen built is a measurement over nineteen; RES-EP11-03 says the strong property is measured at 21 points). This is precisely the shape RET-EP11-03 retracts in the predecessor — 'ROUTING ESTABLISHED BEHAVIOURALLY' overstated at banner level while the document was more careful. The banner is what a future lane reads."
+    },
+    {
+      "id": "IR-EP11-NB-09",
+      "severity": "MINOR",
+      "observation": "RET-EP11-01.statement contains keyword-stuffed filler produced to satisfy RETRACTION_CONTENT's anchor greps: 'These rules bind which module was called and not whose answer was used. The result is that because the repaired result was discarded.' The second of those is not a grammatical sentence, and both duplicate content already stated correctly earlier in the same field. It is harmless in itself but it is direct evidence that the content anchors are keyword tests rather than meaning tests, which is the mechanism IR-EP11-NB-01 exploits."
+    },
+    {
+      "id": "IR-EP11-NB-10",
+      "severity": "INFORMATIONAL",
+      "observation": "Environment and reproduction notes. CPython 3.14.6 (/opt/homebrew), darwin 25.5.0 arm64, `python3 -I -B`. There is no `timeout` binary on this host, so long runs were backgrounded. Ordinary v11 run ~90 s; --selftest ~9 min; the full evasion and gutting batteries several minutes each. docs/coop is entirely untracked, so a git HEAD baseline is impossible and I established the two pre-existing dependent failures by CAUSE: check-completeness.py exits 1 printing 'open: R2-FINAL-03' and check-rust-provider-protocol-v4.py raises FileNotFoundError for 'rg'. Neither is attributable to v11: the only two files in the corpus that contain the strings 'evaluation-proof.v11' or 'check-evaluation-proof-v11' are the two deliverables themselves. Note that check-completeness.py and check-package-coherence.py now carry digests different from those recorded in ep10.review-independent.json, because other lanes are working in this directory; both were re-hashed by me and are recorded below at their current bytes."
+    },
+    {
+      "id": "IR-EP11-NB-11",
+      "severity": "INFORMATIONAL",
+      "observation": "A mitigation of IR-EP11-01 that I record because an honest reviewer must. v11's own _score harness calls answer_provenance_guard BEFORE call_provenance_guard, and in that ordering RX1 self-detects on the first vector: the arming write lands inside an open _witnessing window, destroys the witness wrapper for that one call, and A-2 fails once. heavy_measurements — the production path — calls call_provenance_guard first, so by the time the answer guard runs the seat is already forged and every rule is green, which is why the end-to-end run exits 0. So the shipped instrument is protected against this specific spelling by nothing more than the order of two lines in heavy_measurements, and not at all in the ordering its own battery uses. That is an accidental defence, it is not the defence the candidate publishes, and it does not survive: an attacker who arms from any earlier route-region call, or who defers arming as evasion_rx1b.py does, is outside it. I state it so the blocker is not read as stronger than it is, and so the repair is not mistaken for 'reorder the guards'."
+    }
+  ],
+
+  "dependentRegressions": {
+    "ranAtDefaultInvocation": "python3 -I -B <checker>, from docs/coop/artifacts",
+    "results": [
+      {"file": "check-evaluation-proof-v10.py", "exit": 0},
+      {"file": "check-evaluation-proof-v9.py", "exit": 0},
+      {"file": "check-evaluation-proof-v8.py", "exit": 0},
+      {"file": "check-evaluation-proof-v6.py", "exit": 0},
+      {"file": "check-c2-v4.py", "exit": 0},
+      {"file": "check-c2.py", "exit": 0},
+      {"file": "check-retention-custody-v22.py", "exit": 0},
+      {"file": "check-d9-v1.14.py", "exit": 0},
+      {"file": "check-evidence-v10.py", "exit": 0},
+      {"file": "check-package-coherence.py", "exit": 0},
+      {"file": "check-product-dispositions.py", "exit": 0},
+      {"file": "check-claims.py", "exit": 0}
+    ],
+    "preExistingFailures": [
+      {"file": "check-completeness.py", "exit": 1,
+       "cause": "cross-cutting open finding R2-FINAL-03; established by cause, not by git baseline, because docs/coop is untracked",
+       "attributableToV11": false},
+      {"file": "check-rust-provider-protocol-v4.py", "exit": 1,
+       "cause": "FileNotFoundError: [Errno 2] No such file or directory: 'rg' — no ripgrep binary on PATH on this host",
+       "attributableToV11": false}
+    ],
+    "note": "No file in the corpus other than check-evaluation-proof-v11.py and evaluation-proof.v11.json contains the string 'evaluation-proof.v11' or 'check-evaluation-proof-v11', so no dependent can be affected by this candidate."
+  },
+
+  "verifiedInputs": [
+    {"file": "evaluation-proof.v11.json", "sha256": "9a31241ee4f1f6b72712a126453e2467359d1c07c4b658db1b699f6500a31f5a", "role": "candidate under review", "recomputedByReviewer": true},
+    {"file": "check-evaluation-proof-v11.py", "sha256": "15ac67e249604f251c0ee116a7a397db1b4a445c24bc313b76c77e08908f822e", "role": "checker under review; the ROUTE-REGION of these bytes is what my two evasions rewrite", "recomputedByReviewer": true},
+    {"file": "ep10.review-independent.json", "sha256": "854c3defe17528ed237a3b1185ab61d1fc2a8e33ff9e282f631982a6235a8a55", "role": "pinned data; the REJECT review v11 answers; read in full", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "ep9.review-independent.json", "sha256": "46b244235321c8a36549d0b92ebf843b1561ea6c37a5a7bcc49a498f7899c8cf", "role": "pinned data; the earlier REJECT review; read in full", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof-v10.py", "sha256": "0606eae06088df67bc6cc25cfcff520160cf75f9db47ebde73c4f8962e8e07b1", "role": "delegated checker; I executed its heavy_measurements and its check() directly to reproduce every preserved measurement, and rewrote its ROUTE-REGION to reproduce AX2", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v10.json", "sha256": "ba023d7eab2b9ed5f0aad49b103f77775b748dce1e706cfc46d4eee22b984cb8", "role": "pinned data; the rejected predecessor; subject of RET-EP11-01 and RET-EP11-02; driven through v10's own checking layer with 0 findings", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v9.json", "sha256": "02f9955f4f90e91afd163a5fa8274eb8832aa5419221da7e9e825a1cbf17430b", "role": "pinned data; required to agree with EP8 on positiveVectors and commitment", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v8.json", "sha256": "4bb33f772c8c510c470643082f6bfb8a4df28a050b4720dda6cdd5187bd3e303", "role": "pinned data; VECTOR_SOURCE; carries the seven positiveVectors and the expected commitment", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v7.json", "sha256": "92d51e9232c6ee137b7228aa7885a2e32f668f9b4b108d7140fdb52dae864ef8", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v6.json", "sha256": "74f35668afae2efb57070ff9a2897d373a91b42cc1cbbc87f3c673f872ca4bce", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "evaluation-proof.v5.json", "sha256": "e05f6d8d9dd5f1f98dc1972a178c7fe58981c71b06a69feb00a717e03475988b", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "c2-plan-stage-schema.v4.json", "sha256": "4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39", "role": "pinned data; the repaired C-2 contract used by my own surface drive and my own oracle", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "c2-plan-stage-schema.v3.json", "sha256": "3c488ff66a1ec9ab746e99e0701d59460aff3e1d66cd072d9d564a1382b9d285", "role": "pinned data; the defective C-2 contract my evasions route the pinned vectors to", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "c2-plan-stage-schema.v4.review-independent-prefreeze.json", "sha256": "c74612ef4519750aa529db543c2f0cc81fce50d57c3d636486fd2f0ddc0c41f3", "role": "pinned data; the review authorising the re-pin; RES-EP11-09 rests on it", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "ep8-rt13.review-independent-cold-reconstruction.json", "sha256": "f4599b32a9f1b93049111b9e86debd19419902c9c5f4fb886f8d0dc9c330567e", "role": "pinned data; EP8's passing review", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "fact-plane.v1.json", "sha256": "9057200822c5be59bcf8e691e3755cfa1acf2c89f0b1c2bc89237afaa0925b4d", "role": "pinned data; relation registry supplied to validate_plan_intent by my own drives", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "resolved-inputs.v2.json", "sha256": "0114205aaa5d3f7c0aecc58c10522711aacaa6aa404a41563245627b27b88f43", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "versioning-policy.v4.json", "sha256": "8e6933b287a8082ea27647860938bd9cdae93b37132bba21221c2c24b40069e6", "role": "pinned data", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof-v8.py", "sha256": "c80ac50e21dcd350e5f5285958a6cfb94d52c5c3f7d64f2396d91b544fa82769", "role": "delegation closure 1/10; executed transitively through the delegate for both regimes", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof-v7.py", "sha256": "550a2231264ab6b308b3ddb752199c6496f7c2417a8dbeeb9f21c230569b36c4", "role": "delegation closure 2/10", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof-v6.py", "sha256": "0a7ac122a598bb7b9454b1b3c46c586f6fd551a2a1ebcf5584665f875457c5f0", "role": "delegation closure 3/10; carries the unrepaired inner C-2 join (RES-EP11-01)", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof.py", "sha256": "1ccc12c347f0c7598604227179a2ba0cc461466657908b5c5f9645db4f7b99e2", "role": "delegation closure 4/10 (EP5); the canonical-unsigned-decimal guard behind RES-EP11-06", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-c2-v4.py", "sha256": "54ff764d155f5582bc66fd7bf8138b7eaed5f90f46b92975c4bc7a85ffb3df17", "role": "delegation closure 5/10; the repaired instrument; loaded independently by me for my own surface drive; the module whose ATTRIBUTE blocker IR-EP11-01 substitutes", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evidence.py", "sha256": "6933d2931912a43e3018dc6037068230af0bbc0c0a00d5d9429c155930bde1af", "role": "delegation closure 6/10", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-retention-custody.py", "sha256": "15816cd8f9d22221b1187b94a160d71f644f9ab8fccb82423931fe18f6fc38d7", "role": "delegation closure 7/10", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-d9.py", "sha256": "9f8e16a0000e59d2f1326f97f1b8afcc5c7121eb0c57b6c440d76b9c401346a7", "role": "delegation closure 8/10", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-versioning.py", "sha256": "67a45b275908afc4bd04cee6c15400f5d429f9f209854630c1caf5a43cf13227", "role": "delegation closure 9/10", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-resolved-inputs.py", "sha256": "7ffed1c0e66e345a72c5e0e7feaf332508d0842c1ecdba8572f872997917ffa0", "role": "delegation closure 10/10; _plan_record_errors is the guard I drove directly for the plan-descriptor enumeration", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-c2.py", "sha256": "4f31d57cd1cd252d47eeb520aa31b5fe8c4fd3b0f0f067a6840b008b1fe176f3", "role": "superseded independent encoder; carries LB-C2-01; the module both my blocker evasions route 7/7 pinned vectors to", "recomputedByReviewer": true, "agreesWithV11Pin": true},
+    {"file": "check-evaluation-proof-v9.py", "sha256": "c8789da2a97c10e04172394f11f10299bacdf36fa068858e55a2bfabeac64be4", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-retention-custody-v22.py", "sha256": "497909c21118b656d222346d9498b7a9cac34ef3dd3bb0f29ef59c0db90e1c5c", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-d9-v1.14.py", "sha256": "513d69dd879dcb678d53d8df89a907d05dacd4b078ec43c7fedc939732c5e83e", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-evidence-v10.py", "sha256": "0379bb9b9006558be9546774b177ed2a1e8c23d8000d16cc4a2cff9d8ed12bbd", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-package-coherence.py", "sha256": "f2c85958250a10296214e56fe799d0ff7e47f6cf23894dc2423f118e8e1eb52a", "role": "dependent regression, ran exit 0; digest differs from the one ep10.review-independent.json recorded because another lane has edited it since", "recomputedByReviewer": true},
+    {"file": "check-product-dispositions.py", "sha256": "c64d31b4489afc37193f6f37a7de89e39688d4efdb47d7c7d2a0c4c6cc9f79b4", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-claims.py", "sha256": "0226cfb5ab720e4e8b4696b2df4377cf17a143d84692001a6bc72fa53caaff4b", "role": "dependent regression, ran exit 0", "recomputedByReviewer": true},
+    {"file": "check-completeness.py", "sha256": "f6760454683bed11c5306846edd8a2bb8e2f1c74e2c2582c87f1c777dd854d02", "role": "pre-existing failure, exit 1 on open finding R2-FINAL-03; contains no reference to v11; digest differs from ep10's record because another lane has edited it since", "recomputedByReviewer": true},
+    {"file": "check-rust-provider-protocol-v4.py", "sha256": "85e022c8e2470dab7c1fc42e45b9a36b10ee436f5d5198ed7750a30cb3ae642f", "role": "pre-existing failure, exit 1 on missing 'rg' binary; contains no reference to v11", "recomputedByReviewer": true}
+  ],
+  "verifiedInputsNote": "38 rows. Every input this verdict depends on is listed by FILENAME AND SHA-256, recomputed by me with shasum -a 256 on the live bytes, per IMPLEMENTATION-FREEZE 7.2. A count is not a record; this is the record. All 27 digests check-evaluation-proof-v11.py pins — 1 delegated checker, 10 closure executables, 1 superseded encoder and 15 data inputs — agree with my independent recomputation digit for digit AND with the candidate's own delegationClosure tables, and the set of files named by the candidate is exactly the set of files named by the checker. The checker's own text contains exactly 27 unique 64-hex literals and they are exactly those 27 pins: no commitment digest and no durable identity digest appears anywhere in the instrument, so non-circularity holds by measurement.",
+
+  "reviewerArtefacts": {
+    "scratchpad": "/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/b77058e9-55ba-4689-9065-cbe03732a0a8/scratchpad",
+    "isolatedLab": "scratchpad/lab — 29 files (27 pinned inputs + candidate + checker); the unmodified checker exits 0 there",
+    "blockerOneEvasion": "scratchpad/build_rx1.py -> scratchpad/lab/evasion_rx1.py (sha256 prefix 03bda1011c04db39)",
+    "blockerTwoEvasion": "scratchpad/build_rx2.py -> scratchpad/lab/evasion_rx2c.py (sha256 prefix a9f8b9715a99aade)",
+    "ax2AgainstV10": "scratchpad/lab/v10_ax2b.py (sha256 prefix 35194f98596471b1)",
+    "provenanceProof": "scratchpad/prove2.py (type-exact seat attribution), scratchpad/prove.py, scratchpad/verify_rx1.py",
+    "guardScoring": "scratchpad/score_rx.py (drives v11's own _score), scratchpad/ax8.py (per-rule counters for all twelve source variants)",
+    "independentEnumerations": "scratchpad/indep.py (my own census walker and my own direct guard drives)",
+    "preservedReproduction": "scratchpad/preserved.py",
+    "resEp1113": "scratchpad/res13.py, res13b.py, res13c.py, res13d.py",
+    "residualAndRetractionGutting": "scratchpad/gut.py",
+    "rejectedRefinements": "scratchpad/lab/evasion_rx1b.py and evasion_rx2b.py — both escape every guard but are rejected at exit 1 by published-number drift; recorded so the blockers are not read as stronger than they are"
+  },
+
+  "whatIDidNotCheck": [
+    "I did not verify the digests or content of the other ~400 artifacts in docs/coop/artifacts. My window is the 38 files listed in verifiedInputs.",
+    "I did not audit check-c2-v4.py for CORRECTNESS. I confirmed only that it exposes the three imported APIs with the right arity, that it rejects the type-distinct-one family, and that an independently instantiated copy agrees with the join on the pinned vectors. RES-EP11-09 is right that provenance is not correctness, and I did not test correctness; I did not read c2-plan-stage-schema.v4.review-independent-prefreeze.json for whether its PASS verdict was correctly reached.",
+    "I did not read the ten closure executables line by line. I read check-evaluation-proof-v10.py along the Authority/ServedLedger/routing/oracle/heavy path and its ROUTE-REGION; I read check-evaluation-proof-v11.py in full only for Sections 0-7 and 10-12, and skimmed the banner. I did not read check-evidence.py, check-retention-custody.py, check-d9.py or check-versioning.py at all beyond running them transitively.",
+    "My two evasions establish that the answer-provenance property is FALSE as published; they do NOT establish that v11 produces a wrong verdict on today's pinned bytes, and I do not claim it does. Both route every position at which the two instruments diverge to the repaired module, and the commitment and preimage are left honest, so the accept/reject outcome on today's inputs is unchanged. The defect is in the EVIDENCE — a banner-level published property that is false — which is the standard on which IR-EP9-02 and IR-EP10-01 were each found blocking and which RES-EP11-03 itself adopts.",
+    "RES-EP11-13's published measurement may be reproducible in a configuration I did not construct. I tried five and also tested the premise directly over 186 paths, four mutable values and four guards, finding no mutator. I state the negative result as a negative result, not as proof that no such configuration exists.",
+    "I did not attempt to determine whether my two evasion classes exhaust the space. RX1 was found by asking what `tag` in _witness_wrapper is actually derived FROM; RX2c by asking which spellings INTROSPECTION_NAMES omits. There may be other properties the six rules fail to bind that I did not think of. In particular I did not systematically attack the commitment or the canonical preimage seats (RX1 substitutes only the validation verdict, which is the gate), nor did I attack _private_repaired's re-hash, nor superseded_cross_check's own guarantees.",
+    "My census and oracle work covers the ONE distinct PlanIntent the corpus carries — 98 paths x 17 hostile values = 1656 cases, diverging at exactly 4 positions. That is a MEASUREMENT, not an equivalence proof between check-c2.py and check-c2-v4.py, and my evasions' practical harmlessness on today's inputs rests on it, exactly as RES-EP11-03 says.",
+    "The regime measurements exercise EP8's public authorize_evaluation through the delegate against a store minted by EP8's private test double, so I can say nothing about a production store, a durable backend, host admission or transactionality.",
+    "I ran each dependent checker's DEFAULT invocation only. I did not run --selftest for any dependent, so I have not exercised their mutation suites.",
+    "There is no git baseline: docs/coop is untracked, so pre-existence of the two dependent failures was established by CAUSE and by grepping the corpus for any reference to v11, not by comparison against HEAD. Two dependents (check-completeness.py, check-package-coherence.py) changed bytes during this review because other lanes are working in this directory; I re-hashed both and both behave as expected.",
+    "I did not exploit any TOCTOU window. I confirmed the trust order by reading load_snapshots, _VerifiedSourceLoader, _private_repaired's re-hash and load_delegate's cache seeding, not by racing a concurrent writer.",
+    "I did not adjudicate whether evaluation-proof.v8's, v9's or v10's dispositions should be revisited in light of anything measured here. I changed no status, seal, freeze or signature field; CD-RT-5 remains BLOCKED_ON_PHASE_1A and unsigned; ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md was not touched; claim-register.v1.json was neither read for authority nor written. The only file I wrote under docs/coop is this review, which did not previously exist."
+  ]
+}

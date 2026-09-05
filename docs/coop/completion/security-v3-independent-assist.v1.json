@@ -1,0 +1,1037 @@
+{
+  "reviewer": "Codex security_behavior_review",
+  "subjectAuthor": "Claude (wH:p2)",
+  "independence": "Reviewer authored none of the65 security-v3 subject files. Prior reviews and neighboring core-gate design are not reviewed subject implementation.",
+  "role": "Independent scoped assistance to consolidated parent verdict",
+  "verdict": "OBJECT-WITHIN-ASSIGNED-SCOPE",
+  "mustFix": 3,
+  "shouldFix": 0,
+  "findings": [
+    {
+      "id": "SV3A-1",
+      "severity": "MUST-FIX",
+      "scope": "Root admission boundary",
+      "where": "security_unit_lib_v3.py admit_root/verify_envelope; root.schema.json; security-completion.v3 \u00a73.1",
+      "defect": "A shape-valid root with kernelAttestationKeys containing one known root key is semantically admitted and its manifest envelope returns VERIFIED. The preview explicitly requires that list empty. In addition, direct verify_envelope admits a root whose five recoveryAuthority entries repeat one key: the schema rejects that shape, but verify_envelope never invokes root-schema validation and admit_root omits recovery-list duplication checks.",
+      "probes": [
+        "root-nonempty-preview-kernel-keys",
+        "root-duplicate-recovery-key"
+      ],
+      "repair": "Require preview kernelAttestationKeys=[] at admission (and preferably schema). Make the root admission boundary enforce both closed shape and all semantic list/key rules before signature use, or expose an explicit validated-root type with an enforced precondition; do not let verify_envelope independently label an unvalidated root admitted. Retain exact negatives."
+    },
+    {
+      "id": "SV3A-2",
+      "severity": "MUST-FIX",
+      "scope": "Policy narrowing",
+      "where": "security_unit_lib_v3.py _prefix_within/merge_policy; permission-policy scope pathPrefixes",
+      "defect": "Both raw policies are schema-valid, but global prefix src plus project src/../private or src/../../outside produces effective grants with no refusals. Lexical startswith admits traversal that leaves the globally allowed subtree. This contradicts the project-only-narrows rule. A later effect/path boundary may still refuse the target; this finding does not assert demonstrated product access.",
+      "probes": [
+        "project-dotdot-widen",
+        "project-root-escape-prefix"
+      ],
+      "repair": "Validate canonical policy path syntax at source admission and compare normalized, component-delimited paths. Refuse dot/dotdot, absolute/drive/backslash/empty-segment or other forbidden path forms as applicable to the inherited scope grammar; a policy source must not earn a narrowing proof solely from a lexical prefix. Retain both exact traversal negatives and legal descendant/prefix-sibling controls."
+    },
+    {
+      "id": "SV3A-3",
+      "severity": "MUST-FIX",
+      "scope": "Witness reconciliation",
+      "where": "security_unit_lib_v3.py reconcile_witness; security-completion.v3 \u00a75.4 malformed-witness row",
+      "defect": "The recovery helper returns OK for COMMITTED seq:true at tail1, REVERT for PENDING2 with no bodySha256 at tail1, and ADVANCE for PENDING0 with empty journal. These malformed state records bypass the promised quarantine branch. Recognizing only the literal MALFORMED sentinel does not validate a supplied witness dictionary.",
+      "probes": [
+        "bool-sequence",
+        "missing-pending-hash",
+        "zero-pending-empty"
+      ],
+      "repair": "Define and validate the closed witness shape before comparing it with a verified tail: strict integer generation/sequence ranges, no bool, legal state, required carrier identity/hash and state-specific genesis/PENDING constraints. Invalid witness bytes/fields must map to quarantine; only a valid witness can authorize REVERT/ADVANCE. Preserve legal INIT/OK/REVERT/ADVANCE and lost-tail controls."
+    }
+  ],
+  "snapshot": {
+    "freezeSha256": "9486f6c4f3d8196a1489541dd5bff7d3b7869e15d0b9d88b5a2011a46c761f81",
+    "files": {
+      "security-completion.v3.md": {
+        "sha256": "ce26ab4b46c7b21e9c8d50ff363bcea80f8b8e89cd2d00b52746d44cc90216a6",
+        "bytes": 46160
+      },
+      "security_unit_lib_v3.py": {
+        "sha256": "a29a3e70210f6900ac61c41bca4c90600ede6026c7ac5c72f1d86c5d6c16758f",
+        "bytes": 49571
+      },
+      "check-security-unit.v3.py": {
+        "sha256": "e7e5ffd49af697b396f9093f3b9d3fc869ade7c20fe0efa0930f36b217035cb1",
+        "bytes": 42076
+      },
+      "security-vectors.v3.json": {
+        "sha256": "2def75257569ff64514cd64ad8c2afda373a4118adf3b859e8d0cc36c22aaf66",
+        "bytes": 4308
+      },
+      "security-unit.v3.report.json": {
+        "sha256": "8e2be798ad23e378c6ea6b898df23348f28bdc547c7b062cd1bae5317e7d6b7b",
+        "bytes": 37253
+      },
+      "security-schemas.v3/catalog.schema.json": {
+        "sha256": "939ad388734f0d8ff3618d2b6a137e049abe305328b6ee50d9c786b0f84c7c44",
+        "bytes": 4556
+      },
+      "security-schemas.v3/envelope.schema.json": {
+        "sha256": "82baf6967b8315546a93d955a2523805161f37bd22cb6728198442491e3cc3c1",
+        "bytes": 2040
+      },
+      "security-schemas.v3/grant-journal.sql": {
+        "sha256": "8b633ea910b5d7136f2eaae64ae05840d9e81b20ea359aa8994d1a86ae3f753f",
+        "bytes": 2425
+      },
+      "security-schemas.v3/journal-record.schema.json": {
+        "sha256": "3c090afa5f6232f626d234f8c40e77615779557609302f6666f8090dde0ad63d",
+        "bytes": 17583
+      },
+      "security-schemas.v3/payload.schema.json": {
+        "sha256": "bb9ab011b8b8d3f819552a7aa8924a1df9e6e00abf447f0a5e99330060b43da0",
+        "bytes": 5356
+      },
+      "security-schemas.v3/permission-policy-effective.schema.json": {
+        "sha256": "976fbe21cbfe605482e25cda7663f34d72af2da00d3eb7e36e2e29ea8d061cf2",
+        "bytes": 4852
+      },
+      "security-schemas.v3/permission-policy.schema.json": {
+        "sha256": "3d7153d920bf6fa0a395b5cc16afa0e6ede0414ef95e98f769935133c76f6d5b",
+        "bytes": 4259
+      },
+      "security-schemas.v3/registry-view.schema.json": {
+        "sha256": "43726cf5c700f41e7ba22f2fee77ec59a98f17ab7a45027c2cde52df5f24e756",
+        "bytes": 10324
+      },
+      "security-schemas.v3/registry.schema.json": {
+        "sha256": "90465235f8a7694aa3152a5d227a33993a796e0ab27e3e06da6393dadaffd8c7",
+        "bytes": 8704
+      },
+      "security-schemas.v3/revocation.schema.json": {
+        "sha256": "143027369ccd150449cfe5b45d38645e62931002f47cd73e8cea22d38547fad4",
+        "bytes": 1517
+      },
+      "security-schemas.v3/root.schema.json": {
+        "sha256": "be4c113839df93aa0b25ef978ed67bbc28cb670c7fcffc764fe08cd5a95065ab",
+        "bytes": 7908
+      },
+      "security-schemas.v3/tcb-profile-template.schema.json": {
+        "sha256": "71950b584c0f1010d2b7dabdc1382684bd4367c4d7a83bc0358a21818f3dfe85",
+        "bytes": 22134
+      },
+      "security-fixtures.v3/broker-handles.example.json": {
+        "sha256": "94e988b50afe303a99909fedf35bb888c5f1b09613fbddf4fcd28a5eb61cf282",
+        "bytes": 44434
+      },
+      "security-fixtures.v3/catalog.envelope.json": {
+        "sha256": "c9af0df3deb6813188b7fc00542e31f8fdd7cbe626fdbe0a7c08bff8cb435036",
+        "bytes": 630
+      },
+      "security-fixtures.v3/catalog.example.json": {
+        "sha256": "7d1a9337e3f25cf76441a0fbb4adcce035b46e832c06dcf2fa5865ae3cbfc53c",
+        "bytes": 2143
+      },
+      "security-fixtures.v3/d9-joins.example.json": {
+        "sha256": "e50c94372397553c587865a90acf7a9fe9bec2cd38ad98430de2512a45b85c0f",
+        "bytes": 6192
+      },
+      "security-fixtures.v3/doctor-trust-report.example.json": {
+        "sha256": "5e8ea43f7a5faae8607fdd8fed44e622c9bdac8de1035345e059a22a2545a719",
+        "bytes": 5499
+      },
+      "security-fixtures.v3/durability-io-failures.json": {
+        "sha256": "013dbbd15cda6bf8c7047f40b9920529e2d614baa5a1c9535bfa32f95ee8141b",
+        "bytes": 21624
+      },
+      "security-fixtures.v3/g22-observed-events.json": {
+        "sha256": "48377b807ea80a6531286ee0941e82f7ec4b1f7d61577ea728a7d02948191cf5",
+        "bytes": 34379
+      },
+      "security-fixtures.v3/grant-journal.example.json": {
+        "sha256": "782a302fb483a7dc5518d25369d017d7729fe64dfb3faff031864d4e3627dd77",
+        "bytes": 5532
+      },
+      "security-fixtures.v3/grant-journal.example.sqlite": {
+        "sha256": "0e3f00205868b8b2db1eca75df87f127f0e7d85c9f890b000a0dd73466343b7f",
+        "bytes": 24576
+      },
+      "security-fixtures.v3/launch-verification-classes.json": {
+        "sha256": "6217cb68c34f3f3ab7e8d621990888988f2d74548744803b3bc66237ac0190b2",
+        "bytes": 1997
+      },
+      "security-fixtures.v3/locator-bounds.json": {
+        "sha256": "18c7e406b4fc553d37b7c8844e25dd53e22770044f4304ddb66159456407ac39",
+        "bytes": 1217
+      },
+      "security-fixtures.v3/payload.example.json": {
+        "sha256": "3d69d6cd7f5ec8ba511ba246ca5f9b8b91e940711983abc411113b7b142922f3",
+        "bytes": 1836
+      },
+      "security-fixtures.v3/permission-policy.effective.example.json": {
+        "sha256": "07c28179a23657db39565221b8510c0f3b55e75054d50a570bf9dc9460289e01",
+        "bytes": 6196
+      },
+      "security-fixtures.v3/permission-policy.example.json": {
+        "sha256": "2053da325ead6b388c512dc04b9840b72337093013c339985bbcab9eaf04749e",
+        "bytes": 532
+      },
+      "security-fixtures.v3/profile.P-LINUX-ARM64-UBUNTU2404-EXT4.json": {
+        "sha256": "d5e184f4ba2820427c36b882371141132668c679148f2090adbfd62556d4c687",
+        "bytes": 10598
+      },
+      "security-fixtures.v3/profile.P-LINUX-X86_64-UBUNTU2404-EXT4.json": {
+        "sha256": "7fbbd805d5cdae32fd6563b3b47d58f7868222076c8e9650539b603501827b7a",
+        "bytes": 10595
+      },
+      "security-fixtures.v3/profile.P-MACOS-ARM64-25G83-APFS.json": {
+        "sha256": "43e49a29857df7b749c5ed869383e3221bd9e7488a484df62fa6d4bbf9eb16e1",
+        "bytes": 8685
+      },
+      "security-fixtures.v3/profile.P-MACOS-X86_64-25G83-APFS.json": {
+        "sha256": "c465da51f3881aa37fa02aa37528347e4eeaf850f466838f6899a643fb478366",
+        "bytes": 8954
+      },
+      "security-fixtures.v3/qualification-runners.json": {
+        "sha256": "0e07023304e9990b1c4b4c5d3f81074227c47bed236adcf54001f883004c79b5",
+        "bytes": 2982
+      },
+      "security-fixtures.v3/registry-view.project-a.example.json": {
+        "sha256": "1f05268f6460c1663e27d80b1b49d1568fb7c6d689a7726f625b73d02cf564c4",
+        "bytes": 2913
+      },
+      "security-fixtures.v3/registry-view.project-b.example.json": {
+        "sha256": "347b72c3102cf5d7aa52b1d446e721b86efc762adcc86fb816df637e34f5e0bc",
+        "bytes": 2776
+      },
+      "security-fixtures.v3/registry.example.json": {
+        "sha256": "4e6a48e8435a5d3f6cd252d0f1817f0e0d5be1c9c21d918d91ef9497d5f6acb5",
+        "bytes": 3371
+      },
+      "security-fixtures.v3/revocation.example.json": {
+        "sha256": "3920fc31404b568ab7aa0059cb75b2bc19f59f1d2971813b656f179df5bad45f",
+        "bytes": 274
+      },
+      "security-fixtures.v3/root.envelope.json": {
+        "sha256": "eda85ba6f343d96605b782f7167f25622c1609184e09bc63a7b41cbc92a6e43e",
+        "bytes": 620
+      },
+      "security-fixtures.v3/root.example.json": {
+        "sha256": "87d8c15c873ae60f21c897188162d2aa44ab10d8aab63ca69a4aeab8eff9656c",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.active-role-typed-absence.json": {
+        "sha256": "71589b26301f8c4ed08ab6c31c1f558a22e1746f1ea7d3558598675982c854be",
+        "bytes": 7637
+      },
+      "security-fixtures.v3/root.negative.duplicate-key-id.json": {
+        "sha256": "b7afbce895477aee723d0cd2bf70acb8b8bcae49e030aab1030a2e0ef181cc38",
+        "bytes": 7855
+      },
+      "security-fixtures.v3/root.negative.expiry-before-issue.json": {
+        "sha256": "c8402e5cc353b75f7667f3407ea9e9ddad6018e43bdd29e62eea56f04a141c66",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.key-id-mismatch.json": {
+        "sha256": "b50481f21c8e12d24b681b762ed6a4405fccccf2235f653197a98ebeab32cf55",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.key-reused-across-roles.json": {
+        "sha256": "219945449f75dd523c4a6f3f5a088bfaf7385265c228a9d6c9c4232bdcad2b45",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.origin-with-previous.json": {
+        "sha256": "1469d3482eee9cd2e9846439ce598517a0e2627608c21964177897cb99aa0999",
+        "bytes": 7620
+      },
+      "security-fixtures.v3/root.negative.previous-version-not-below.json": {
+        "sha256": "be33198f5b0477d97fa9c10c4f3a3f1cfcb5864698acfc84bf50464b26d427fe",
+        "bytes": 7620
+      },
+      "security-fixtures.v3/root.negative.recovery-overlaps-root.json": {
+        "sha256": "8abd27b12d0c51599da7974f26e46e5d2ecc6f4ecb7ce5c86c1726440da9f777",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.repair-with-keys.json": {
+        "sha256": "519bb19051470929e75d7d56ad835b9574c5c2c109923c2928ab7f6f55a969c2",
+        "bytes": 7716
+      },
+      "security-fixtures.v3/root.negative.role-threshold-1.json": {
+        "sha256": "520bde70444729e7390a94bb84187e12b4c0cd365011d8d0339ece2cbb0de4dd",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.root-threshold-1.json": {
+        "sha256": "1f43058c503e97d2a29885bfe709edb6bceef9099cb84db04566e6be686d9688",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/root.negative.unknown-key-ref.json": {
+        "sha256": "893f52f00104d0c24bfdabcc00e79cb8fc481d3b14c4987912169a37851e058a",
+        "bytes": 7623
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope-malformed.json": {
+        "sha256": "76adc54d7819ce420bf3427d7064f8ace96a2810d7f0ad30b60e329def4701c8",
+        "bytes": 364
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope-mismatch.json": {
+        "sha256": "e94bb99a0c8266aa9dccbc336bc7c70787b68d46d03f691404ffa80568d1eb59",
+        "bytes": 636
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope-namespace-mismatch.json": {
+        "sha256": "c48270153729f035bba9f5f2e0c133b058f344896c6d91d3b903706f01673eb2",
+        "bytes": 633
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope-role-confusion.json": {
+        "sha256": "02d83293f49bb5b9da463c66ad3cdf9f06c2108ade5f8845c0c8ab37e9e1fd7e",
+        "bytes": 630
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope-unauthorized-key.json": {
+        "sha256": "f59b2e1b2cc52d098b911dd126c3aac9e0096aace0033b0a71e2d450744d4d6e",
+        "bytes": 636
+      },
+      "security-fixtures.v3/typescript-analyzer.envelope.json": {
+        "sha256": "5d6afda406cbfab1c88a54071137a124e9f9a33b01eaf615be75b242594f83c9",
+        "bytes": 906
+      },
+      "security-fixtures.v3/typescript-analyzer.manifest.canonical.bin": {
+        "sha256": "1aab3a29b0424d0c430e7bb39e829e993cde121a97b9eb861edc75dfe7beef33",
+        "bytes": 5264
+      },
+      "security-fixtures.v3/typescript-analyzer.manifest.json": {
+        "sha256": "ce6c943513188ccf785065332b754fdd68a3f672fbb66af5177234fa7f0b7401",
+        "bytes": 8297
+      },
+      "security-fixtures.v3/typescript-analyzer.manifest.unknown-capability.json": {
+        "sha256": "1bafdf22c6fd4065b05992881a54eb60977f864b55c2b8379adcd29c08abe73d",
+        "bytes": 8518
+      },
+      "security-fixtures.v3/typescript-analyzer.manifest.wrong-rung.json": {
+        "sha256": "d1b70af3137aad6392ef6e712df74b05c81f9378a9a33f98832b27fd01f0e266",
+        "bytes": 8305
+      },
+      "security-fixtures.v3/witness-reconciliation-cases.json": {
+        "sha256": "55c74b477ec34a9fcbca8ef4632d8de60e24a98cd1c14deabdb46392847c04d9",
+        "bytes": 3849
+      }
+    }
+  },
+  "postReviewHashes": {
+    "security-completion.v3.md": "ce26ab4b46c7b21e9c8d50ff363bcea80f8b8e89cd2d00b52746d44cc90216a6",
+    "security_unit_lib_v3.py": "a29a3e70210f6900ac61c41bca4c90600ede6026c7ac5c72f1d86c5d6c16758f",
+    "check-security-unit.v3.py": "e7e5ffd49af697b396f9093f3b9d3fc869ade7c20fe0efa0930f36b217035cb1",
+    "security-vectors.v3.json": "2def75257569ff64514cd64ad8c2afda373a4118adf3b859e8d0cc36c22aaf66",
+    "security-unit.v3.report.json": "8e2be798ad23e378c6ea6b898df23348f28bdc547c7b062cd1bae5317e7d6b7b",
+    "security-schemas.v3/catalog.schema.json": "939ad388734f0d8ff3618d2b6a137e049abe305328b6ee50d9c786b0f84c7c44",
+    "security-schemas.v3/envelope.schema.json": "82baf6967b8315546a93d955a2523805161f37bd22cb6728198442491e3cc3c1",
+    "security-schemas.v3/grant-journal.sql": "8b633ea910b5d7136f2eaae64ae05840d9e81b20ea359aa8994d1a86ae3f753f",
+    "security-schemas.v3/journal-record.schema.json": "3c090afa5f6232f626d234f8c40e77615779557609302f6666f8090dde0ad63d",
+    "security-schemas.v3/payload.schema.json": "bb9ab011b8b8d3f819552a7aa8924a1df9e6e00abf447f0a5e99330060b43da0",
+    "security-schemas.v3/permission-policy-effective.schema.json": "976fbe21cbfe605482e25cda7663f34d72af2da00d3eb7e36e2e29ea8d061cf2",
+    "security-schemas.v3/permission-policy.schema.json": "3d7153d920bf6fa0a395b5cc16afa0e6ede0414ef95e98f769935133c76f6d5b",
+    "security-schemas.v3/registry-view.schema.json": "43726cf5c700f41e7ba22f2fee77ec59a98f17ab7a45027c2cde52df5f24e756",
+    "security-schemas.v3/registry.schema.json": "90465235f8a7694aa3152a5d227a33993a796e0ab27e3e06da6393dadaffd8c7",
+    "security-schemas.v3/revocation.schema.json": "143027369ccd150449cfe5b45d38645e62931002f47cd73e8cea22d38547fad4",
+    "security-schemas.v3/root.schema.json": "be4c113839df93aa0b25ef978ed67bbc28cb670c7fcffc764fe08cd5a95065ab",
+    "security-schemas.v3/tcb-profile-template.schema.json": "71950b584c0f1010d2b7dabdc1382684bd4367c4d7a83bc0358a21818f3dfe85",
+    "security-fixtures.v3/broker-handles.example.json": "94e988b50afe303a99909fedf35bb888c5f1b09613fbddf4fcd28a5eb61cf282",
+    "security-fixtures.v3/catalog.envelope.json": "c9af0df3deb6813188b7fc00542e31f8fdd7cbe626fdbe0a7c08bff8cb435036",
+    "security-fixtures.v3/catalog.example.json": "7d1a9337e3f25cf76441a0fbb4adcce035b46e832c06dcf2fa5865ae3cbfc53c",
+    "security-fixtures.v3/d9-joins.example.json": "e50c94372397553c587865a90acf7a9fe9bec2cd38ad98430de2512a45b85c0f",
+    "security-fixtures.v3/doctor-trust-report.example.json": "5e8ea43f7a5faae8607fdd8fed44e622c9bdac8de1035345e059a22a2545a719",
+    "security-fixtures.v3/durability-io-failures.json": "013dbbd15cda6bf8c7047f40b9920529e2d614baa5a1c9535bfa32f95ee8141b",
+    "security-fixtures.v3/g22-observed-events.json": "48377b807ea80a6531286ee0941e82f7ec4b1f7d61577ea728a7d02948191cf5",
+    "security-fixtures.v3/grant-journal.example.json": "782a302fb483a7dc5518d25369d017d7729fe64dfb3faff031864d4e3627dd77",
+    "security-fixtures.v3/grant-journal.example.sqlite": "0e3f00205868b8b2db1eca75df87f127f0e7d85c9f890b000a0dd73466343b7f",
+    "security-fixtures.v3/launch-verification-classes.json": "6217cb68c34f3f3ab7e8d621990888988f2d74548744803b3bc66237ac0190b2",
+    "security-fixtures.v3/locator-bounds.json": "18c7e406b4fc553d37b7c8844e25dd53e22770044f4304ddb66159456407ac39",
+    "security-fixtures.v3/payload.example.json": "3d69d6cd7f5ec8ba511ba246ca5f9b8b91e940711983abc411113b7b142922f3",
+    "security-fixtures.v3/permission-policy.effective.example.json": "07c28179a23657db39565221b8510c0f3b55e75054d50a570bf9dc9460289e01",
+    "security-fixtures.v3/permission-policy.example.json": "2053da325ead6b388c512dc04b9840b72337093013c339985bbcab9eaf04749e",
+    "security-fixtures.v3/profile.P-LINUX-ARM64-UBUNTU2404-EXT4.json": "d5e184f4ba2820427c36b882371141132668c679148f2090adbfd62556d4c687",
+    "security-fixtures.v3/profile.P-LINUX-X86_64-UBUNTU2404-EXT4.json": "7fbbd805d5cdae32fd6563b3b47d58f7868222076c8e9650539b603501827b7a",
+    "security-fixtures.v3/profile.P-MACOS-ARM64-25G83-APFS.json": "43e49a29857df7b749c5ed869383e3221bd9e7488a484df62fa6d4bbf9eb16e1",
+    "security-fixtures.v3/profile.P-MACOS-X86_64-25G83-APFS.json": "c465da51f3881aa37fa02aa37528347e4eeaf850f466838f6899a643fb478366",
+    "security-fixtures.v3/qualification-runners.json": "0e07023304e9990b1c4b4c5d3f81074227c47bed236adcf54001f883004c79b5",
+    "security-fixtures.v3/registry-view.project-a.example.json": "1f05268f6460c1663e27d80b1b49d1568fb7c6d689a7726f625b73d02cf564c4",
+    "security-fixtures.v3/registry-view.project-b.example.json": "347b72c3102cf5d7aa52b1d446e721b86efc762adcc86fb816df637e34f5e0bc",
+    "security-fixtures.v3/registry.example.json": "4e6a48e8435a5d3f6cd252d0f1817f0e0d5be1c9c21d918d91ef9497d5f6acb5",
+    "security-fixtures.v3/revocation.example.json": "3920fc31404b568ab7aa0059cb75b2bc19f59f1d2971813b656f179df5bad45f",
+    "security-fixtures.v3/root.envelope.json": "eda85ba6f343d96605b782f7167f25622c1609184e09bc63a7b41cbc92a6e43e",
+    "security-fixtures.v3/root.example.json": "87d8c15c873ae60f21c897188162d2aa44ab10d8aab63ca69a4aeab8eff9656c",
+    "security-fixtures.v3/root.negative.active-role-typed-absence.json": "71589b26301f8c4ed08ab6c31c1f558a22e1746f1ea7d3558598675982c854be",
+    "security-fixtures.v3/root.negative.duplicate-key-id.json": "b7afbce895477aee723d0cd2bf70acb8b8bcae49e030aab1030a2e0ef181cc38",
+    "security-fixtures.v3/root.negative.expiry-before-issue.json": "c8402e5cc353b75f7667f3407ea9e9ddad6018e43bdd29e62eea56f04a141c66",
+    "security-fixtures.v3/root.negative.key-id-mismatch.json": "b50481f21c8e12d24b681b762ed6a4405fccccf2235f653197a98ebeab32cf55",
+    "security-fixtures.v3/root.negative.key-reused-across-roles.json": "219945449f75dd523c4a6f3f5a088bfaf7385265c228a9d6c9c4232bdcad2b45",
+    "security-fixtures.v3/root.negative.origin-with-previous.json": "1469d3482eee9cd2e9846439ce598517a0e2627608c21964177897cb99aa0999",
+    "security-fixtures.v3/root.negative.previous-version-not-below.json": "be33198f5b0477d97fa9c10c4f3a3f1cfcb5864698acfc84bf50464b26d427fe",
+    "security-fixtures.v3/root.negative.recovery-overlaps-root.json": "8abd27b12d0c51599da7974f26e46e5d2ecc6f4ecb7ce5c86c1726440da9f777",
+    "security-fixtures.v3/root.negative.repair-with-keys.json": "519bb19051470929e75d7d56ad835b9574c5c2c109923c2928ab7f6f55a969c2",
+    "security-fixtures.v3/root.negative.role-threshold-1.json": "520bde70444729e7390a94bb84187e12b4c0cd365011d8d0339ece2cbb0de4dd",
+    "security-fixtures.v3/root.negative.root-threshold-1.json": "1f43058c503e97d2a29885bfe709edb6bceef9099cb84db04566e6be686d9688",
+    "security-fixtures.v3/root.negative.unknown-key-ref.json": "893f52f00104d0c24bfdabcc00e79cb8fc481d3b14c4987912169a37851e058a",
+    "security-fixtures.v3/typescript-analyzer.envelope-malformed.json": "76adc54d7819ce420bf3427d7064f8ace96a2810d7f0ad30b60e329def4701c8",
+    "security-fixtures.v3/typescript-analyzer.envelope-mismatch.json": "e94bb99a0c8266aa9dccbc336bc7c70787b68d46d03f691404ffa80568d1eb59",
+    "security-fixtures.v3/typescript-analyzer.envelope-namespace-mismatch.json": "c48270153729f035bba9f5f2e0c133b058f344896c6d91d3b903706f01673eb2",
+    "security-fixtures.v3/typescript-analyzer.envelope-role-confusion.json": "02d83293f49bb5b9da463c66ad3cdf9f06c2108ade5f8845c0c8ab37e9e1fd7e",
+    "security-fixtures.v3/typescript-analyzer.envelope-unauthorized-key.json": "f59b2e1b2cc52d098b911dd126c3aac9e0096aace0033b0a71e2d450744d4d6e",
+    "security-fixtures.v3/typescript-analyzer.envelope.json": "5d6afda406cbfab1c88a54071137a124e9f9a33b01eaf615be75b242594f83c9",
+    "security-fixtures.v3/typescript-analyzer.manifest.canonical.bin": "1aab3a29b0424d0c430e7bb39e829e993cde121a97b9eb861edc75dfe7beef33",
+    "security-fixtures.v3/typescript-analyzer.manifest.json": "ce6c943513188ccf785065332b754fdd68a3f672fbb66af5177234fa7f0b7401",
+    "security-fixtures.v3/typescript-analyzer.manifest.unknown-capability.json": "1bafdf22c6fd4065b05992881a54eb60977f864b55c2b8379adcd29c08abe73d",
+    "security-fixtures.v3/typescript-analyzer.manifest.wrong-rung.json": "d1b70af3137aad6392ef6e712df74b05c81f9378a9a33f98832b27fd01f0e266",
+    "security-fixtures.v3/witness-reconciliation-cases.json": "55c74b477ec34a9fcbca8ef4632d8de60e24a98cd1c14deabdb46392847c04d9"
+  },
+  "all65SubjectsUnchanged": true,
+  "retainedFullReport": {
+    "path": "docs/coop/completion/security-unit.v3.report.json",
+    "sha256": "8e2be798ad23e378c6ea6b898df23348f28bdc547c7b062cd1bae5317e7d6b7b",
+    "checks": 230,
+    "failures": 0,
+    "replayByThisAssistant": false,
+    "note": "Parent owns full replay; this assistant read/inspected checker and ran targeted independent probes only."
+  },
+  "independentProbes": [
+    {
+      "id": "root-nonempty-preview-kernel-keys",
+      "schemaValid": true,
+      "inputRoot": {
+        "rootSchema": 1,
+        "rootVersion": 1,
+        "previousRootVersion": null,
+        "issuedAt": "2026-10-01T00:00:00Z",
+        "expiresAt": "2027-10-01T00:00:00Z",
+        "keys": [
+          {
+            "keyId": "64923ff5a4ac3969a0828d819d4849d6ec20ff367417d587fe44a3e58d82a81b",
+            "publicKey": "4bf28e164456cfc58888eadfa2c80b92ea5722191ffc800564cd8853abdaa620",
+            "label": "K-comp-1 (TEST key ed_test.pem)"
+          },
+          {
+            "keyId": "55273331335693d98ae7139ecc52da6ace097009bd5d08b83134206a8d9d0a41",
+            "publicKey": "7b4cbce492e4d44c6d4c29a2dbd87f1082f3077e9825557812bdc66be305be35",
+            "label": "K-comp-2 (TEST key ed_test3.pem)"
+          },
+          {
+            "keyId": "836e0c2944e814e9314ab77c5d6c2bf9bdbe3209e4b4481385ebb11e1496f9ad",
+            "publicKey": "b2790dec9a946433dc4ce7b8f9d1b5762b0c03bee2199b7107ebbd1d13910ea0",
+            "label": "K-core-1 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "179d5387a3f6d461140931ec09ae6bf4a0ba5ad2a897ff5dcc0eb43a763eb840",
+            "publicKey": "50ab383579fe731f541551c07468579f8525b6be0c1c6043e14006429f852b1d",
+            "label": "K-core-2 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "35e25f979f0f386a963ca1ef1c6e4cffed9c0fd36c862aa183759e0dfbe536d1",
+            "publicKey": "39163c50364a6c895cacaf3cc946f62beceaa1d56d47ff0bca5ea64e286d46a7",
+            "label": "K-core-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "71fc5156bc249640d90c69ac293cd0596b1c053bceeb867e3816548f43a6f84a",
+            "publicKey": "b9168409372c778fcf039ffcea38b3e3f6c8548798458ef431e783ac4a42b016",
+            "label": "K-index-1 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "56123865f5f4ecd155b71a6b16af009781a1c78fe87ebb91e03bf8705c8c1ae4",
+            "publicKey": "fa908a4147b01b1f320acc5ffac2b2374064e29de41f48963cad8e2dc767ce3b",
+            "label": "K-index-2 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "b238e9e536a0b14f67141773a9ad918f5f77838e80b9e50a667ebf680fbb720f",
+            "publicKey": "b239d82b64562cd269eda2efa51956a5a5d6eaba6d1aa39b762741eb14035349",
+            "label": "K-index-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "95972dd4a972403a9b49545dbf6fb6d3c898f006210b4566265f483dce85bd4a",
+            "publicKey": "2fe5d60ae7f2817ddf88aa4f090f96c71e25e022b4c5200e3f7b13606cd5a3f0",
+            "label": "K-comp-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "719529c46ef1e7663b179c6d2cefe86316abcafe5356fdd3bfc3399d076b27e4",
+            "publicKey": "44eb39691b29fa6603dd3f697a9437f45e8f4c4b8fd41749358cab39e6711743",
+            "label": "K-bundle-1 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "a9f76fa4d703d86639612e92ba3fb1f21712ae60f38a9c46ef88c9f04a65ee74",
+            "publicKey": "b0ef1dbd97e9a0714d2f39b1c3e839c4cd3c6128312ae45827676ace20b68957",
+            "label": "K-bundle-2 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "9f0bcb8f73ff59ead0e3a5f75d2267022159e8755c5bddc81b2fbac28d4ac019",
+            "publicKey": "5f089466405030a26673da1b422a915a26a7169b0f7dc13660ee7b8679a1827d",
+            "label": "K-bundle-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "9f3c22efd484338ab73be03dcea1c99be6ca96fdad3cdfe98e5b5f0880ffb82e",
+            "publicKey": "a5afaa11e10aa56ae873085c81dedcdf5219a56eb5a41082f6c26f80891a4de1",
+            "label": "R-1 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "ec93d0b2a7f96297fa6186eaab59e9242fc99f68ffb820584e2e63d48fa85067",
+            "publicKey": "607bd40b527d140102026ffa199381174c9e17aeeb20e85d29b27be7224edbc6",
+            "label": "R-2 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "f5f0810dc858b7ea35bff4e701631978fcdc5130da5754fc21b157a0b94c3240",
+            "publicKey": "20c58398277dc3f2dea59f0440746d29acf39dfb8143f1fedfacac178d77e4e2",
+            "label": "R-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "5107bf01671d7f476156d1b4de68073872c9c85e30f83361cffca9e736d42608",
+            "publicKey": "f6c44f59ebc23c3a5082cc3ea3419dc25b20a2e295431a982a897fb32e6387f8",
+            "label": "RA-1 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "8c15f3c41c479c6ecd0c8f369f30fbbc323d9a9b7319e813ff02e38add67a3c4",
+            "publicKey": "043b8be3e922c9dea7c1c858e78c6e6a5f8eae8bc8b84dc36da8ea0d756ad71d",
+            "label": "RA-2 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "b30df06c0e11be3587ddaf4469ad6311cc084e67bcfb9a4d9117b4881868c3d7",
+            "publicKey": "c777955a3e9f8b81276c1fa9b00f3978dfb6c7c9ad54d69c1d98bfc0bb913dc8",
+            "label": "RA-3 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "ed78a57bfd7d1eeacdd614de8c73d5e41f2ef6202869c087fe8d7dd0d7ded300",
+            "publicKey": "6dd8a31db77c2cfea778a679afb6d791c0588647739c8f2c7c91789f6f49dac9",
+            "label": "RA-4 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          },
+          {
+            "keyId": "278690ceaeb72d2ea1d78b6f2ab5921540160dd68a1f39a00ea99268118cfc63",
+            "publicKey": "2e594d20105f1dbbf7d0f7da51e0a931d9cb341c78df3211dd45a842f9169a7c",
+            "label": "RA-5 (EXAMPLE placeholder; RELEASE-MEASURED)"
+          }
+        ],
+        "rootKeys": [
+          "9f3c22efd484338ab73be03dcea1c99be6ca96fdad3cdfe98e5b5f0880ffb82e",
+          "ec93d0b2a7f96297fa6186eaab59e9242fc99f68ffb820584e2e63d48fa85067",
+          "f5f0810dc858b7ea35bff4e701631978fcdc5130da5754fc21b157a0b94c3240"
+        ],
+        "rootThreshold": 2,
+        "roles": {
+          "TR-CORE": {
+            "keys": [
+              "836e0c2944e814e9314ab77c5d6c2bf9bdbe3209e4b4481385ebb11e1496f9ad",
+              "179d5387a3f6d461140931ec09ae6bf4a0ba5ad2a897ff5dcc0eb43a763eb840",
+              "35e25f979f0f386a963ca1ef1c6e4cffed9c0fd36c862aa183759e0dfbe536d1"
+            ],
+            "threshold": 2,
+            "namespaces": [
+              "opensip"
+            ],
+            "standing": "active"
+          },
+          "TR-INDEX": {
+            "keys": [
+              "71fc5156bc249640d90c69ac293cd0596b1c053bceeb867e3816548f43a6f84a",
+              "56123865f5f4ecd155b71a6b16af009781a1c78fe87ebb91e03bf8705c8c1ae4",
+              "b238e9e536a0b14f67141773a9ad918f5f77838e80b9e50a667ebf680fbb720f"
+            ],
+            "threshold": 2,
+            "namespaces": [
+              "opensip"
+            ],
+            "standing": "active"
+          },
+          "TR-COMPONENT": {
+            "keys": [
+              "64923ff5a4ac3969a0828d819d4849d6ec20ff367417d587fe44a3e58d82a81b",
+              "55273331335693d98ae7139ecc52da6ace097009bd5d08b83134206a8d9d0a41",
+              "95972dd4a972403a9b49545dbf6fb6d3c898f006210b4566265f483dce85bd4a"
+            ],
+            "threshold": 2,
+            "namespaces": [
+              "opensip"
+            ],
+            "standing": "active"
+          },
+          "TR-BUNDLE": {
+            "keys": [
+              "719529c46ef1e7663b179c6d2cefe86316abcafe5356fdd3bfc3399d076b27e4",
+              "a9f76fa4d703d86639612e92ba3fb1f21712ae60f38a9c46ef88c9f04a65ee74",
+              "9f0bcb8f73ff59ead0e3a5f75d2267022159e8755c5bddc81b2fbac28d4ac019"
+            ],
+            "threshold": 2,
+            "namespaces": [
+              "opensip"
+            ],
+            "standing": "active"
+          },
+          "TR-REPAIR": {
+            "keys": [],
+            "threshold": 0,
+            "namespaces": [],
+            "standing": "typed-absence-DR-110"
+          }
+        },
+        "recoveryAuthority": {
+          "keys": [
+            "5107bf01671d7f476156d1b4de68073872c9c85e30f83361cffca9e736d42608",
+            "8c15f3c41c479c6ecd0c8f369f30fbbc323d9a9b7319e813ff02e38add67a3c4",
+            "b30df06c0e11be3587ddaf4469ad6311cc084e67bcfb9a4d9117b4881868c3d7",
+            "ed78a57bfd7d1eeacdd614de8c73d5e41f2ef6202869c087fe8d7dd0d7ded300",
+            "278690ceaeb72d2ea1d78b6f2ab5921540160dd68a1f39a00ea99268118cfc63"
+          ],
+          "threshold": 3
+        },
+        "kernelAttestationKeys": [
+          "9f3c22efd484338ab73be03dcea1c99be6ca96fdad3cdfe98e5b5f0880ffb82e"
+        ],
+        "indexOrigin": {
+          "url": "https://index.opensip.example/v1",
+          "spkiSha256": "cd6b0137ed6c92cf9fb3f967602f07bf336192cbef3ccd82d68bcf65333a1750"
+        }
+      },
+      "semanticRefusals": [],
+      "envelopeResult": [
+        "VERIFIED",
+        "valid=2 threshold=2"
+      ]
+    },
+    {
+      "id": "root-duplicate-recovery-key",
+      "schemaValid": false,
+      "semanticRefusals": [],
+      "envelopeResult": [
+        "VERIFIED",
+        "valid=2 threshold=2"
+      ]
+    },
+    {
+      "id": "project-dotdot-widen",
+      "global": {
+        "policySchema": 1,
+        "policyScope": "global",
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src",
+                "tsconfig.json",
+                "package.json"
+              ]
+            }
+          },
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-HOST-EFFECT-BROKERED",
+            "scope": {
+              "stateClass": "SC-CACHE"
+            }
+          }
+        ],
+        "denies": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-NET-EGRESS"
+          }
+        ],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "project": {
+        "policySchema": 1,
+        "policyScope": "project",
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src/../private"
+              ]
+            }
+          }
+        ],
+        "denies": [],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "bothSchemaValid": true,
+      "effective": {
+        "policySchema": 1,
+        "policyScope": "effective",
+        "sources": {
+          "global": "42f007edacc964788a5d412339de86583d1e6838faecea571157a770ce6ba885",
+          "project": "31e842a5fc3cac7dd3205f51f5e36c423e209e4e21addedce60961511367e23d"
+        },
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src/../private"
+              ]
+            }
+          }
+        ],
+        "denies": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-NET-EGRESS"
+          }
+        ],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "refusals": []
+    },
+    {
+      "id": "project-root-escape-prefix",
+      "project": {
+        "policySchema": 1,
+        "policyScope": "project",
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src/../../outside"
+              ]
+            }
+          }
+        ],
+        "denies": [],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "schemaValid": true,
+      "effective": {
+        "policySchema": 1,
+        "policyScope": "effective",
+        "sources": {
+          "global": "42f007edacc964788a5d412339de86583d1e6838faecea571157a770ce6ba885",
+          "project": "414465a31fdaf26e369d46c5debdd141479f1a0274187ad225b3272c121b93ff"
+        },
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src/../../outside"
+              ]
+            }
+          }
+        ],
+        "denies": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-NET-EGRESS"
+          }
+        ],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "refusals": []
+    },
+    {
+      "id": "project-adds-undeclared-state-class",
+      "global": {
+        "policySchema": 1,
+        "policyScope": "global",
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-FS-READ-PROJECT",
+            "scope": {
+              "pathPrefixes": [
+                "src",
+                "tsconfig.json",
+                "package.json"
+              ]
+            }
+          },
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-HOST-EFFECT-BROKERED",
+            "scope": {}
+          }
+        ],
+        "denies": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-NET-EGRESS"
+          }
+        ],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "project": {
+        "policySchema": 1,
+        "policyScope": "project",
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-HOST-EFFECT-BROKERED",
+            "scope": {
+              "stateClass": "SC-OPS"
+            }
+          }
+        ],
+        "denies": [],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "effective": {
+        "policySchema": 1,
+        "policyScope": "effective",
+        "sources": {
+          "global": "21436034863018b6c994ff6ad925ed0a78689fc09fac1303c788312a32b1be5f",
+          "project": "8518522f06612ead48ab0619dc604ed33f83ee1a626d32d7ae6b62f657be3c22"
+        },
+        "grants": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-HOST-EFFECT-BROKERED",
+            "scope": {
+              "stateClass": "SC-OPS"
+            }
+          }
+        ],
+        "denies": [
+          {
+            "stableId": "6f1c2c3e-0b6a-4a1c-9c2d-1f0e2a3b4c5d",
+            "token": "PT-NET-EGRESS"
+          }
+        ],
+        "consents": [
+          {
+            "actionClass": "CA-4-HOST",
+            "actionSubtype": "PATH-TRUST-STATE-REFRESH",
+            "resourceScope": [],
+            "endpointSet": [
+              "index.opensip.example:443"
+            ],
+            "checkIds": []
+          }
+        ]
+      },
+      "refusals": []
+    },
+    {
+      "id": "bool-sequence",
+      "witness": {
+        "projectKeyDigest": "eb3102a6cb586765d01fad324523ec0bc67b9efd6a2d9589c135adfedf7922cc",
+        "grantGeneration": 1,
+        "seq": true,
+        "bodySha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "COMMITTED"
+      },
+      "tail": [
+        1,
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "result": [
+        "OK",
+        "consistent"
+      ]
+    },
+    {
+      "id": "missing-pending-hash",
+      "witness": {
+        "projectKeyDigest": "eb3102a6cb586765d01fad324523ec0bc67b9efd6a2d9589c135adfedf7922cc",
+        "grantGeneration": 1,
+        "seq": 2,
+        "state": "PENDING"
+      },
+      "tail": [
+        1,
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "result": [
+        "REVERT",
+        "append never became durable; witness -> COMMITTED 1"
+      ]
+    },
+    {
+      "id": "zero-pending-empty",
+      "witness": {
+        "projectKeyDigest": "eb3102a6cb586765d01fad324523ec0bc67b9efd6a2d9589c135adfedf7922cc",
+        "grantGeneration": 1,
+        "seq": 0,
+        "bodySha256": null,
+        "state": "PENDING"
+      },
+      "tail": null,
+      "result": [
+        "ADVANCE",
+        "commit completed before the witness update; witness -> COMMITTED 0"
+      ]
+    },
+    {
+      "id": "sqlite-replace",
+      "result": "grant journal sequence must be tail+1"
+    },
+    {
+      "id": "sqlite-delete",
+      "result": "grant journal is append-only"
+    },
+    {
+      "id": "sqlite-update",
+      "result": "grant journal is append-only"
+    },
+    {
+      "id": "root-valid",
+      "semanticRefusals": [],
+      "envelopeResult": [
+        "VERIFIED",
+        "valid=2 threshold=2"
+      ]
+    },
+    {
+      "id": "signature-single-key-shortfall",
+      "result": [
+        "THRESHOLD-SHORTFALL",
+        "valid=1 threshold=2"
+      ]
+    },
+    {
+      "id": "signature-duplicate-not-quorum",
+      "result": [
+        "RJ-4 UNSIGNED",
+        "malformed envelope: $.signatures: uniqueItems"
+      ]
+    },
+    {
+      "id": "ordinary-prefix-widen-refuses",
+      "refusals": [
+        "POLICY.PROJECT_WIDENS_SCOPE:PT-FS-READ-PROJECT:pathPrefixes"
+      ]
+    },
+    {
+      "id": "deny-overrides-grant",
+      "grants": [],
+      "refusals": []
+    },
+    {
+      "id": "raw-policy-absence-rules",
+      "selectedMissingGrants": [],
+      "missingEqualsExplicitEmpty": true,
+      "missingProjectSourceIsEmptyLayerDigest": true,
+      "coreProjectSource": null,
+      "effectiveDigestDifferent": true
+    },
+    {
+      "id": "witness-valid-init",
+      "result": [
+        "INIT",
+        "genesis carrier; witness created at COMMITTED 0"
+      ]
+    },
+    {
+      "id": "witness-valid-committed",
+      "result": [
+        "OK",
+        "consistent"
+      ]
+    },
+    {
+      "id": "witness-valid-pending-before-commit",
+      "result": [
+        "REVERT",
+        "append never became durable; witness -> COMMITTED 1"
+      ]
+    },
+    {
+      "id": "witness-valid-pending-after-commit",
+      "result": [
+        "ADVANCE",
+        "commit completed before the witness update; witness -> COMMITTED 2"
+      ]
+    },
+    {
+      "id": "witness-valid-committed-tail-lost",
+      "result": [
+        "QUARANTINE",
+        "uncertainTailLoss: committed 2 beyond tail 1"
+      ]
+    }
+  ],
+  "reproducer": {
+    "path": "/tmp/security-v3-assist-probes.v1.py",
+    "sha256": "29a866d331cb4b08f4de9ec7a4bbcf344f1bdb7028a494441211c0243fdf7b28",
+    "source": "import pathlib,json,copy,importlib.util,sqlite3\nP=pathlib.Path('/Users/sb/code/opensip-ai/opensip/docs/coop/completion');s=importlib.util.spec_from_file_location('security_v3_assist',P/'security_unit_lib_v3.py');L=importlib.util.module_from_spec(s);s.loader.exec_module(L)\ndef load(n):return json.loads((P/n).read_text())\nrows=[]\ndef schema_ok(v,n):\n try:L.validate(v,L.load_schema(n));return True\n except L.SchemaError:return False\nroot=load('security-fixtures.v3/root.example.json');env=load('security-fixtures.v3/typescript-analyzer.envelope.json');raw=(P/'security-fixtures.v3/typescript-analyzer.manifest.json').read_bytes()\nr=copy.deepcopy(root);r['kernelAttestationKeys']=[r['rootKeys'][0]];rows.append({'id':'root-nonempty-preview-kernel-keys','schemaValid':schema_ok(r,'root'),'inputRoot':r,'semanticRefusals':L.admit_root(r),'envelopeResult':L.verify_envelope(raw,env,r,'manifest','opensip')})\nr=copy.deepcopy(root);r['recoveryAuthority']['keys']=[r['recoveryAuthority']['keys'][0]]*5;rows.append({'id':'root-duplicate-recovery-key','schemaValid':schema_ok(r,'root'),'semanticRefusals':L.admit_root(r),'envelopeResult':L.verify_envelope(raw,env,r,'manifest','opensip')})\npe=load('security-fixtures.v3/permission-policy.effective.example.json');g=pe['global'];p=copy.deepcopy(pe['project']);p['grants'][0]['scope']['pathPrefixes']=['src/../private'];eff,ref=L.merge_policy(g,p);rows.append({'id':'project-dotdot-widen','global':g,'project':p,'bothSchemaValid':schema_ok(g,'permission-policy') and schema_ok(p,'permission-policy'),'effective':eff,'refusals':ref})\np=copy.deepcopy(pe['project']);p['grants'][0]['scope']['pathPrefixes']=['src/../../outside'];eff,ref=L.merge_policy(g,p);rows.append({'id':'project-root-escape-prefix','project':p,'schemaValid':schema_ok(p,'permission-policy'),'effective':eff,'refusals':ref})\ng2=copy.deepcopy(g);g2['grants'][1]['scope']={};p2=copy.deepcopy(pe['project']);p2['grants']=[copy.deepcopy(g2['grants'][1])];p2['grants'][0]['scope']={'stateClass':'SC-OPS'};eff,ref=L.merge_policy(g2,p2);rows.append({'id':'project-adds-undeclared-state-class','global':g2,'project':p2,'effective':eff,'refusals':ref})\nfor label,w,tail in [('bool-sequence',{'projectKeyDigest':L.project_key_digest('pk'),'grantGeneration':1,'seq':True,'bodySha256':'a'*64,'state':'COMMITTED'},(1,'a'*64)),('missing-pending-hash',{'projectKeyDigest':L.project_key_digest('pk'),'grantGeneration':1,'seq':2,'state':'PENDING'},(1,'a'*64)),('zero-pending-empty',{'projectKeyDigest':L.project_key_digest('pk'),'grantGeneration':1,'seq':0,'bodySha256':None,'state':'PENDING'},None)]:rows.append({'id':label,'witness':w,'tail':tail,'result':L.reconcile_witness(tail,w,'pk',1)})\n# Fresh, isolated SQLite only. No frozen example database is opened writable.\nc=sqlite3.connect(':memory:');c.executescript((P/'security-schemas.v3/grant-journal.sql').read_text());args=(1,1,'AUD','op-'+'a'*32,'{}','a'*64,'b'*64);sql='INSERT INTO grant_journal(grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256) VALUES(?,?,?,?,?,?,?)';c.execute(sql,args)\nfor label,cmd,params in [('replace','INSERT OR REPLACE'+sql[len('INSERT'):],args),('delete','DELETE FROM grant_journal',()),('update',\"UPDATE grant_journal SET body='changed'\",())]:\n try:c.execute(cmd,params);out='ACCEPT'\n except sqlite3.IntegrityError as e:out=str(e)\n rows.append({'id':'sqlite-'+label,'result':out})\nc.close();pathlib.Path('/tmp/security-v3-assist-probes.v1.json').write_text(json.dumps(rows,indent=2)+'\\n');print(json.dumps([{k:v for k,v in r.items() if k in ['id','schemaValid','bothSchemaValid','semanticRefusals','envelopeResult','refusals','result']} for r in rows],indent=2))\nrows.append({'id':'root-valid','semanticRefusals':L.admit_root(root),'envelopeResult':L.verify_envelope(raw,env,root,'manifest','opensip')})\ne=copy.deepcopy(env);e['signatures']=e['signatures'][:1];rows.append({'id':'signature-single-key-shortfall','result':L.verify_envelope(raw,e,root,'manifest','opensip')})\ne=copy.deepcopy(env);e['signatures']=[e['signatures'][0],e['signatures'][0]];rows.append({'id':'signature-duplicate-not-quorum','result':L.verify_envelope(raw,e,root,'manifest','opensip')})\np=copy.deepcopy(pe['project']);p['grants'][0]['scope']['pathPrefixes']=['src-other'];eff,ref=L.merge_policy(g,p);rows.append({'id':'ordinary-prefix-widen-refuses','refusals':ref})\np=copy.deepcopy(pe['project']);p['denies'].append({'stableId':p['grants'][0]['stableId'],'token':p['grants'][0]['token']});eff,ref=L.merge_policy(g,p);rows.append({'id':'deny-overrides-grant','grants':eff['grants'],'refusals':ref})\nmissing=L.effective_policy_for_operation(g,None,True)[0];explicit=L.effective_policy_for_operation(g,copy.deepcopy(L.EMPTY_PROJECT_POLICY),True)[0];core=L.effective_policy_for_operation(g,None,False)[0];rows.append({'id':'raw-policy-absence-rules','selectedMissingGrants':missing['grants'],'missingEqualsExplicitEmpty':missing==explicit,'missingProjectSourceIsEmptyLayerDigest':missing['sources']['project']==L.domain_digest(L.DOMAIN_TAGS['policy'],L.EMPTY_PROJECT_POLICY)[0],'coreProjectSource':core['sources']['project'],'effectiveDigestDifferent':L.effective_policy_digest(missing)!=L.effective_policy_digest(core)})\nfor label,tail,w in [('init',None,None),('committed',(1,'a'*64),{'seq':1,'state':'COMMITTED','bodySha256':'a'*64}),('pending-before-commit',(1,'a'*64),{'seq':2,'state':'PENDING','bodySha256':'b'*64}),('pending-after-commit',(2,'b'*64),{'seq':2,'state':'PENDING','bodySha256':'b'*64}),('committed-tail-lost',(1,'a'*64),{'seq':2,'state':'COMMITTED','bodySha256':'b'*64})]:\n if w is not None:w.update(projectKeyDigest=L.project_key_digest('pk'),grantGeneration=1)\n rows.append({'id':'witness-valid-'+label,'result':L.reconcile_witness(tail,w,'pk',1)})\npathlib.Path('/tmp/security-v3-assist-probes.v1.json').write_text(json.dumps(rows,indent=2)+'\\n');print('total targeted probes',len(rows))\n"
+  },
+  "confirmed": [
+    "Frozen root and authorized manifest signatures validate; one signing key is THRESHOLD-SHORTFALL and a repeated signature is not counted as another quorum member.",
+    "No unsupported conditional/schema keywords were found among the current owned JSON schemas relative to the local validator subset. This is a keyword inventory, not proof of full generic JSON Schema implementation.",
+    "Selected-project policy absence is converted to explicit empty project layer: no effective grants, source.project is its digest; global/core uses null project source and a distinct effective digest. Missing and explicit-empty project policy intentionally coincide per the normative rule.",
+    "Denies override matching grants; a simple src-other widening is refused. Effective policy uses the separate effective-domain digest and both raw-policy source digests.",
+    "Fresh isolated SQLite rejects INSERT OR REPLACE of an existing journal sequence, UPDATE and DELETE. Contiguous-sequence guard prevents the common recursive-trigger replacement bypass. No frozen SQLite file was opened writable.",
+    "Legal witness INIT/OK/REVERT/ADVANCE and committed-tail-loss controls behave as specified."
+  ],
+  "additionalObservationNotCountedAsFinding": {
+    "probe": "project-adds-undeclared-state-class",
+    "detail": "Global token grant with absent stateClass plus project SC-OPS adds that dimension without a refusal. Whether absent global stateClass means unrestricted or ungranted needs the token-scope source law; this assist does not invent that law or count an additional MUST. Parent should include it when deciding raw-policy scope semantics."
+  },
+  "boundaries": [
+    "The SQL DDL is not credited with proving arbitrary JSON body/hash/column correctness; those remain the verified append/read boundary and retained binding checks.",
+    "No actual hostile effect, platform kernel/root detection, OS loader coverage or durable multi-process protocol was qualified by these probes.",
+    "Normative platform/locks/courier and whole cross-unit joins remain the parent review; this assist makes no row/application/SATISFIED decision."
+  ],
+  "registerEdit": null
+}

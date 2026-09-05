@@ -1,0 +1,276 @@
+{
+  "artifact": "opensip.duplicate-key-adoption",
+  "version": "v2",
+  "date": "2026-08-04",
+  "role": "RECORD OF A REPAIR PASS. This file seals nothing, advances no status, changes no verdict, disposition or seal, and touches no [UNSET]. CD-RT-5 remains BLOCKED_ON_PHASE_1A. It records which checkers in the tasked set were given a duplicate-key guard, which could not be and why, and the measured result of each attack.",
+  "basis": "artifacts/duplicate-key-adoption.v1.json (prior pass) and artifacts/corpus-duplicate-key-sweep.v1.json (measurement-only)",
+  "taskedSet": {
+    "initial": [
+      "check-assurance.py",
+      "check-fact-identity.py",
+      "check-fact-plane.py",
+      "check-phase1a-a-prime-successor.py",
+      "check-phase1a-a-prime-successor-v2.py",
+      "check-phase1a-a-prime-successor-v3.py"
+    ],
+    "addedMidTask": ["check-threat-claims.py"],
+    "deliberatelyExcludedByInstruction": ["check-completeness.py"]
+  },
+
+  "headlineCounts": {
+    "checkersTasked": 7,
+    "checkersRepaired": 2,
+    "checkersBlockedAndRevertedOrNeverEdited": 5,
+    "parseSitesHooked": 5,
+    "unhookedParseSitesRemainingInRepairedFiles": 0,
+    "attacksRun": 5,
+    "attacksRejectedNamingTheKey": 5,
+    "cleanTreeVerdictsChanged": 0
+  },
+
+  "theConstraintThatShapedThisPass": {
+    "ruleAsBriefed": "Freeze 7.2 binds a verdict to bytes AND an environment. A checker may be edited only if no review that recorded running it is still live.",
+    "secondConstraintFoundByMeasurement": "A checker may ALSO be pinned by an EXECUTABLE digest check inside a sibling checker. That pin is not a paper reference: it changes the sibling's stdout the moment the target's bytes change. The prior pass named this class PINNED-BY-CHECKER / BLOCKED-UNREPAIRABLE-IN-PLACE. Four of the six initially tasked files fall in it, which the tasking's review-artifact-only exposure measurement did not cover.",
+    "method": "sha256 of each target computed, then every file under docs/coop scanned for that digest at 64-, 32-, 16-, 12- and 8-character prefixes in both cases; each pinner then checked for citation in IMPLEMENTATION-FREEZE.md and IMPLEMENTER-BLUEPRINT.md; then every checker's full stdout, stderr and exit code captured before and after and compared byte-for-byte."
+  },
+
+  "repaired": {
+    "shape": "One hooked entry point per file, every parse routed through it, modelled on check-package-coherence.py. Named exception type DuplicateKeyError (the corpus-dominant name, used by 30+ checkers) so the failure is greppable and cannot be confused with a malformed-document error. The hook NAMES the duplicated key.",
+    "checkers": {
+      "check-fact-identity.py": {
+        "sha256Before": "b80f7ec2ec853202e96b4d040454aada9368ba643dc73122be4def8d964f6b31",
+        "sha256After": "be7b36d301c4b3710865779d53e8cb43740d54e6273b4dbd1c85cec38f9b3216",
+        "parseSitesBefore": 2,
+        "entryPoint": "loads_strict(text)",
+        "sitesRouted": [
+          "load(n) — the FP/TM/CLOSURE/PRODUCT cross-check loader",
+          "main() — the binding contract"
+        ],
+        "unhookedDecodesRemaining": 0,
+        "exceptionType": "DuplicateKeyError(ValueError)",
+        "message": "duplicate JSON key {key!r}",
+        "propagation": "uncaught, matching this file's own idiom (it has no parse-error handler) and matching the reference check-package-coherence.py, which also lets its DuplicateKey propagate"
+      },
+      "check-fact-plane.py": {
+        "sha256Before": "437de8b9732cc5082b0146e4070b31f7a8fad369a2fe8df0492dc6d11b4934c9",
+        "sha256After": "c7ebcd3ee2c206ae8cdd6dfd1750236e465bdab7e9a104b105fe8e85330e29ac",
+        "parseSitesBefore": 3,
+        "entryPoint": "loads_strict(text)",
+        "sitesRouted": [
+          "main() — the binding contract",
+          "main() — the D9 cross-check (d9-exit-contract.v1.6.json)",
+          "main() — resolved-inputs.v2.json"
+        ],
+        "unhookedDecodesRemaining": 0,
+        "exceptionType": "DuplicateKeyError(ValueError)",
+        "message": "duplicate JSON key {key!r}",
+        "propagation": "uncaught, matching this file's own idiom and the reference"
+      }
+    },
+    "whatWasNotChanged": "No verdict logic, threshold, output string, exit code or finding text. The only edits are the hook definition, the entry point, and the call sites. Confirmed by byte-for-byte comparison of stdout and stderr before and after, plain and --selftest."
+  },
+
+  "blocked": {
+    "note": "Four of these were edited, measured to change a sibling's verdict output, and REVERTED byte-for-byte to their recorded pre-task digests. One was never edited. Every reverted file was confirmed to hash to its exact before-digest.",
+    "checkers": {
+      "check-assurance.py": {
+        "sha256": "3258eee90c42b8a68619b5e898715eb681e6ef0c8c01577cea9672d2d11036f2",
+        "sha256AfterRevert": "3258eee90c42b8a68619b5e898715eb681e6ef0c8c01577cea9672d2d11036f2",
+        "pinClass": "PINNED-BY-CHECKER",
+        "reason": "It is one of the 79 protected inputs that check-phase1a-a-prime-successor-v3.py hashes at runtime against the manifest in phase1a-a-prime-successor.response.v3.json. Editing it added a FAIL line to v3's stdout: 'protected input changed: docs/coop/artifacts/check-assurance.py 363a6e4e... != 3258eee9...'",
+        "measuredVerdictDamage": "check-phase1a-a-prime-successor-v3.py stdout gained 1 FAIL line"
+      },
+      "check-phase1a-a-prime-successor.py": {
+        "sha256": "1591301d800ff41bfa5ac60cca06b22b14fc57e2443b657bad53b237f93834ee",
+        "sha256AfterRevert": "1591301d800ff41bfa5ac60cca06b22b14fc57e2443b657bad53b237f93834ee",
+        "pinClass": "PINNED-BY-CHECKER",
+        "reason": "Protected input of check-phase1a-a-prime-successor-v3.py (same 79-input runtime window).",
+        "measuredVerdictDamage": "check-phase1a-a-prime-successor-v3.py stdout gained 1 FAIL line"
+      },
+      "check-phase1a-a-prime-successor-v2.py": {
+        "sha256": "797207ea7042198f7047df48639794971573b11bcc0eb343b38126448a75bd1e",
+        "sha256AfterRevert": "797207ea7042198f7047df48639794971573b11bcc0eb343b38126448a75bd1e",
+        "pinClass": "PINNED-BY-CHECKER + SELF-PINNED",
+        "reason": "Protected input of v3, AND self-pinned: its own check() compares sha_file('check-phase1a-a-prime-successor-v2.py') against the responseChecker.sha256 recorded in phase1a-a-prime-successor.response.v2.json. Editing it makes the checker fail itself.",
+        "measuredVerdictDamage": "its own stdout gained 'FAIL: response checker/output hash rule drift'; v3's stdout gained 1 FAIL line"
+      },
+      "check-phase1a-a-prime-successor-v3.py": {
+        "sha256": "99a323a4554afb1b83a1a7340c1d67aa052756fb39a0a7af3be7e31ef6f6425f",
+        "sha256AfterRevert": "99a323a4554afb1b83a1a7340c1d67aa052756fb39a0a7af3be7e31ef6f6425f",
+        "pinClass": "SELF-PINNED",
+        "reason": "Its own check() compares sha_file('check-phase1a-a-prime-successor-v3.py') against the responseChecker.sha256 recorded in phase1a-a-prime-successor.response.v3.json. Editing it makes the checker fail itself.",
+        "measuredVerdictDamage": "its own stdout gained 'FAIL: response checker/output hash rule drift'"
+      },
+      "check-threat-claims.py": {
+        "sha256": "b393d5a105d00cbb8479e51a2d57b02d02bd50f27218b554b826f24203695221",
+        "edited": false,
+        "pinClass": "PINNED-BY-A-LIVE-HEAD-CITED-REVIEW",
+        "reason": "Two independent blockers. (1) artifacts/threat-model.v3.storage-namespace.review-independent.json records this checker with role 'the mechanism that enforces the subject; read as data and executed', sha256AtStart == sha256AtEnd == b393d5a1..., stable true — a textbook 7.2 bytes-and-environment pin. Its SUBJECT is artifacts/threat-model.v3.json at 56734a40..., which is the digest cited as the LIVE TM head in freeze §3 and blueprint §1.1; the subject is not superseded. The review is dated 2026-08-04, verdict REJECT at 3 blockers, and is cited twice in IMPLEMENTATION-FREEZE.md and twice in IMPLEMENTER-BLUEPRINT.md as the discharge of an 'UNSET — BLOCKS FREEZE' obligation. It further records, in verificationOfRequiredCheckerStates.checkThreatClaims, that it executed this checker and observed exit 1 with exactly 2 findings. Editing the checker invalidates that review. (2) It is also one of the 79 protected inputs hashed at runtime by check-phase1a-a-prime-successor-v3.py.",
+        "note": "This is the same shape as the check-completeness.py exclusion already made by the tasking: a live, head-cited review issued today."
+      }
+    }
+  },
+
+  "independentPinVerification": {
+    "theSix": {
+      "claimUnderTest": "The six are pinned by 11 review artifacts, every one reviewing a superseded subject cited by neither head document.",
+      "result": "CONFIRMED, exactly. The digest scan returned a union of exactly 11 pinners, matching the tasking's enumeration item for item, and grep of both head documents returned 0 citations for all 11.",
+      "pinners": [
+        "artifacts/evidence.v3.rereview-independent-reviewer12.json",
+        "artifacts/lifecycle-versioning.v1.review-independent-convergence.json",
+        "artifacts/phase1a-a-prime-successor-v2.review-independent-evidence-op.json",
+        "artifacts/phase1a-a-prime-successor-v3.review-independent-evidence-op.json",
+        "artifacts/phase1a-a-prime-successor.response.v2.json",
+        "artifacts/phase1a-a-prime-successor.response.v3.json",
+        "artifacts/phase1a-a-prime-successor.review-independent-evidence-op.json",
+        "artifacts/provider-fact-identity.rereview-reviewer9-response.v1.json",
+        "artifacts/provider-fact-identity.rereview2-independent-reviewer9.json",
+        "artifacts/retention-tiers.v11.rereview-independent-final.json",
+        "artifacts/retention-tiers.v12.rereview-independent-final.json"
+      ],
+      "headDocCitations": 0,
+      "caveat": "The claim is true as stated and was NOT the binding constraint. Review-artifact pinning was never what blocked these files; executable digest checks inside sibling checkers were, and those were outside the tasking's measurement."
+    },
+    "checkThreatClaims": {
+      "claimUnderTest": "12 pinners, zero of them cited by either head document.",
+      "result": "NOT CONFIRMED — REFUTED. The digest scan returned 14 pinners, and 2 of them ARE cited by a head document.",
+      "pinnerCountMeasured": 14,
+      "headCitedPinners": [
+        {
+          "file": "artifacts/threat-model.v3.storage-namespace.review-independent.json",
+          "freezeCitations": 2,
+          "blueprintCitations": 2,
+          "subject": "artifacts/threat-model.v3.json @ 56734a4047b61e1fc702f75ccb21e8721b334adb449093d266756d0b08adc499 — the LIVE head, not superseded",
+          "verdict": "REJECT",
+          "date": "2026-08-04"
+        },
+        {
+          "file": "artifacts/threat-model-storage-namespace.v4.json",
+          "freezeCitations": 1,
+          "blueprintCitations": 0,
+          "status": "CANDIDATE"
+        }
+      ],
+      "actionTaken": "Stopped and did not edit, per the tasking's own stop condition."
+    },
+    "blueprintNameVsDigest": {
+      "claimUnderTest": "The blueprint names check-threat-claims.py by filename, not by digest, so the reference does not break on edit.",
+      "result": "CONFIRMED for the head documents. Digest b393d5a1... searched at 64-, 32-, 16-, 12- and 8-character prefixes in both IMPLEMENTATION-FREEZE.md and IMPLEMENTER-BLUEPRINT.md: 0 hits at every length. The filename appears at IMPLEMENTER-BLUEPRINT.md:173 and IMPLEMENTATION-FREEZE.md:2013.",
+      "butIrrelevantToTheDecision": "The head documents are not the pin. The pin is the review artifact they cite, which records the digest."
+    }
+  },
+
+  "attacks": {
+    "shape": "Order-preserving duplicate insert (the sweep's shape C): the duplicate is placed IMMEDIATELY BEFORE the real member, so a stock last-wins parse reproduces the honest document in value AND in dict key order. Only the bytes differ. Each mutant was asserted equal to the honest document under stock json.loads, in both value and key order, before being used.",
+    "whyNotExitCodes": "A non-zero exit is not evidence a guard fired. Every rejection below was confirmed by READING the message and seeing the duplicated key NAMED. Each attack was additionally run against a pre-repair control — the identical file with only the object_pairs_hook argument removed — to prove the guard is what fired and not something else.",
+    "sites": [
+      {
+        "checker": "check-fact-identity.py",
+        "site": "main() — binding contract",
+        "input": "fact-identity-policy.v2.json with \"status\": \"SEALED: ACCEPTED\" inserted immediately before the real status member (32 bytes)",
+        "humanReads": "SEALED: ACCEPTED",
+        "instrumentsSee": "BINDING-CANDIDATE (independently reviewed and adjudicated; ...)",
+        "preRepairControl": "exit 0, full green: 'fact-identity OK — ... FI-CAP / FI-CAP-CLAIM / FI-CT / FI-CANON / FI-RECORD / FI-ANCHOR / FI-BUDGET / FI-TM / FI-DIS / FI-FREEZE clean'",
+        "repairedRejection": "DuplicateKeyError: duplicate JSON key 'status'",
+        "keyNamed": true
+      },
+      {
+        "checker": "check-fact-identity.py",
+        "site": "load() — cross-checked sibling",
+        "input": "threat-model.v3.json with a duplicate \"status\" inserted immediately before the real member (32 bytes)",
+        "humanReads": "SEALED: ACCEPTED",
+        "instrumentsSee": "CANDIDATE-REPAIRED-AWAITING-REREVIEW (...)",
+        "preRepairControl": "exit 0, full green",
+        "repairedRejection": "DuplicateKeyError: duplicate JSON key 'status'",
+        "keyNamed": true
+      },
+      {
+        "checker": "check-fact-plane.py",
+        "site": "main() — binding contract",
+        "input": "fact-plane.v1.json with a duplicate \"status\" inserted immediately before the real member (32 bytes)",
+        "humanReads": "SEALED: ACCEPTED",
+        "instrumentsSee": "CANDIDATE-REPAIRED-PENDING-INDEPENDENT-REREVIEW",
+        "preRepairControl": "exit 0, full green: 'fact-plane contract OK — ... F1..F14 clean'",
+        "repairedRejection": "DuplicateKeyError: duplicate JSON key 'status'",
+        "keyNamed": true
+      },
+      {
+        "checker": "check-fact-plane.py",
+        "site": "main() — D9 cross-check",
+        "input": "d9-exit-contract.v1.6.json with a duplicate \"status\" inserted immediately before the real member (32 bytes)",
+        "humanReads": "SEALED: ACCEPTED",
+        "instrumentsSee": "CANDIDATE-UNREVIEWED (v1.6 resolves all v1.5 findings; binding under consumer B)",
+        "preRepairControl": "exit 0, full green",
+        "repairedRejection": "DuplicateKeyError: duplicate JSON key 'status'",
+        "keyNamed": true
+      },
+      {
+        "checker": "check-fact-plane.py",
+        "site": "main() — resolved-inputs.v2.json",
+        "input": "resolved-inputs.v2.json with a duplicate \"status\" inserted immediately before the real member (32 bytes)",
+        "humanReads": "SEALED: ACCEPTED",
+        "instrumentsSee": "CANDIDATE-REPAIRED-PENDING-INDEPENDENT-REREVIEW (identity recipes are IMPLEMENTABLE_UNEXECUTED)",
+        "preRepairControl": "exit 0, full green",
+        "repairedRejection": "DuplicateKeyError: duplicate JSON key 'status'",
+        "keyNamed": true
+      }
+    ],
+    "harness": "Attacks against non-argv sites ran in a scratch directory holding byte-identical copies of the two repaired checkers and symlinks to every artifacts/*.json, so no repo file was ever mutated. The sandbox was confirmed to reproduce the real clean-tree verdicts before any mutation."
+  },
+
+  "verdictStability": {
+    "bar": "zero changed verdicts",
+    "result": "MET",
+    "sixTaskedCheckers": "stdout, stderr and exit code byte-identical before and after, both plain and --selftest",
+    "wholeTree": {
+      "exitZero": [
+        "check-claims.py",
+        "check-product-dispositions.py",
+        "check-c2-v9.py",
+        "check-retention-custody-v23.py",
+        "check-retention-custody-v24.py",
+        "check-d9-v1.14.py",
+        "check-operability-v10.py"
+      ],
+      "checkPackageCoherence": {
+        "exit": 1,
+        "pc7Findings": 2,
+        "subjects": ["artifacts/rust-provider-protocol.v2.json", "artifacts/threat-model.v3.json"],
+        "pathsMissing": 0,
+        "byteIdentical": true
+      },
+      "checkThreatClaims": {
+        "exit": 1,
+        "t1Findings": 2,
+        "byteIdenticalStdoutAndStderr": true,
+        "freezeSection91QuotationIntact": "2 finding(s): T1 07-outcomes-and-failure.md / T1 08-surfaces-and-topology.md, unqualified confinement claim — reproduced exactly, ordering and spacing included"
+      },
+      "checkCompleteness": {"exit": 1, "byteIdentical": true, "edited": false},
+      "onlyVaryingToken": "check-c2-v9.py self-reports its own sweep duration ('measured in N seconds'). It varied 56/57/58/59 across runs independently of this pass; with that token normalised its stdout is byte-identical. Exit code 0 throughout."
+    }
+  },
+
+  "pinnedDocumentUntouched": {
+    "path": "ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md",
+    "sha256": "47df412dba5d62a823ca7c008c382c489b8a10c797fd8656f3d4dd5d6c342e2e",
+    "confirmed": true
+  },
+
+  "housekeeping": {
+    "bytecode": "python3 -I -B -m py_compile writes .pyc regardless of -B. Six were written into artifacts/__pycache__/ and then removed, restoring the directory to its pre-task state (only the pre-existing check-c2-v9.cpython-314.pyc, dated 2026-08-03, remains). No existing .pyc was deleted. Compilation was then re-verified with the bytecode redirected outside the repo; all seven files compile.",
+    "filesCreated": ["artifacts/duplicate-key-adoption.v2.json"],
+    "filesModified": ["artifacts/check-fact-identity.py", "artifacts/check-fact-plane.py"]
+  },
+
+  "residualExposure": {
+    "note": "This pass closed 5 parse sites in 2 checkers. The following remain unhooked and are recorded so the exposure is not lost.",
+    "stillExploitable": [
+      {"checker": "check-assurance.py", "sites": 1, "blockedBy": "PINNED-BY-CHECKER (v3 protected input)"},
+      {"checker": "check-phase1a-a-prime-successor.py", "sites": 1, "blockedBy": "PINNED-BY-CHECKER (v3 protected input)"},
+      {"checker": "check-phase1a-a-prime-successor-v2.py", "sites": 1, "blockedBy": "PINNED-BY-CHECKER + SELF-PINNED"},
+      {"checker": "check-phase1a-a-prime-successor-v3.py", "sites": 1, "blockedBy": "SELF-PINNED"},
+      {"checker": "check-threat-claims.py", "sites": "not counted; not edited", "blockedBy": "live head-cited review pin, plus v3 protected input"}
+    ],
+    "structuralObservation": "A self-pinned checker — one that hashes its own bytes against a value recorded in the artifact it validates — can never be repaired in place. It is freeze §7.6's 'immutability prevents a proven fix from propagating', in its sharpest form: the only route is a new version alongside, which is a decision for the freeze owner, not for this pass."
+  }
+}

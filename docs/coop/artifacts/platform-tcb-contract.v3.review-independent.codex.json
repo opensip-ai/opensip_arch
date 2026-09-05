@@ -1,0 +1,237 @@
+{
+  "artifact": "platform-tcb-contract.v3.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "reviewer": "Codex",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v3.json",
+  "subjectSha256Expected": "e215f91d687a5dd704fc8c43b7f26ac9da4cfbe4f9acd3725e43bda38f2652c7",
+  "subjectSha256AtStart": "e215f91d687a5dd704fc8c43b7f26ac9da4cfbe4f9acd3725e43bda38f2652c7",
+  "subjectSha256AtEnd": "e215f91d687a5dd704fc8c43b7f26ac9da4cfbe4f9acd3725e43bda38f2652c7",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "headExpected": "9af5060f9edccf0a6dfeba551c2feb6fd1419746",
+  "headAtStart": "9af5060f9edccf0a6dfeba551c2feb6fd1419746",
+  "headAtEnd": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+  "headMovedDuringReview": true,
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v3.review-prompt.md",
+  "promptSha256": "6b93d4c25b66d6052ad658eaf0dc0fbf8e3df5ce4f352c3f022b0b8f82539c4d",
+  "predecessor": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v2.json",
+    "expectedSha256": "c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8",
+    "observedSha256": "c404bb8f41f97fbec7e1c77bab2727e5a90d8037736f12e9f8f428a99cde94a8"
+  },
+  "priorCodexReview": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v2.review-independent.codex.json",
+    "expectedSha256": "082e357563c05477beb313ee7c8308acd099b39b90c9c3b593aaf74030702c55",
+    "observedSha256": "082e357563c05477beb313ee7c8308acd099b39b90c9c3b593aaf74030702c55"
+  },
+  "independence": {
+    "didNotAuthorV1V2OrV3": true,
+    "claudeArtifactsRead": false,
+    "otherCurrentV3ReviewerRead": false
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V3-B1",
+      "severity": "BLOCKER",
+      "title": "selectorGrammar names fields but does not define the two selectors that determine a profile",
+      "location": "/platformProfile/selectorGrammar; /platformProfile/populationPacket; /identityEvidenceUnion/comparison",
+      "evidence": [
+        "selectorGrammar defines enums for osFamily and architecture plus a no-or-join rule, but supplies no type, canonical identifier, exact/range variants, endpoint ordering, normalization, wildcard rejection, or equality rule for supportedVersionOrBuildSelector or filesystemWhereItAffectsResolution.",
+        "A value such as '*' or 'current' is not an or-join and can occupy every required member, so beforeAllowlistFreeze would treat the profile as populated without making it reproducible.",
+        "identityEvidenceUnion.comparison expressly lets the later population packet define a closed range form. The packet therefore authors comparison semantics, not merely the reserved values, contrary to the claim that this contract owns the grammar."
+      ],
+      "impact": "Two independently reviewed population packets can freeze non-equivalent OS/build and filesystem profiles under different private grammars, while both satisfy all v3 fields. Allowlist keys and G22 cells remain adjudicator-dependent.",
+      "requiredRepair": "Define a closed tagged selector language now: canonical filesystem identifiers and exact-build or typed closed-range version selectors with endpoint domain/order, normalization, wildcard/empty-set rejection, equality, and serialization. The population packet may choose values within that language but must not mint new range semantics."
+    },
+    {
+      "id": "PTCB-V3-B2",
+      "severity": "BLOCKER",
+      "title": "The SONAME-ABI tag preserves the same-label libc substitution the identity repair was required to close",
+      "location": "/identityEvidenceUnion/tags/SONAME-ABI; /identityEvidenceUnion/classMap/libc; /identityEvidenceUnion/comparison",
+      "evidence": [
+        "SONAME-ABI requires only exact SONAME plus an ABI selector and is independently permitted for libc. It requires neither trusted platform attestation nor a collision-resistant digest of the actual resolved object.",
+        "A different libc object can publish the same SONAME and ABI at the declared origin. Comparing the observed object's labels to the signed labels then returns equal even though its bytes/build/provider changed.",
+        "The generic statement that the harness compares the observed object does not strengthen the evidence carried by this tag; for SONAME-ABI, the observed evidence is still only two copyable labels."
+      ],
+      "impact": "Identity drift can enter silently through the one class most central to the host ABI. The tagged union is closed syntactically but not security-equivalent across its permitted tags.",
+      "requiredRepair": "Remove label-only SONAME-ABI as sufficient identity. Require the actual libc object to be covered by trusted platform attestation or an approved collision-resistant digest; SONAME/ABI may remain additional compatibility selectors, never the sole authenticity evidence."
+    },
+    {
+      "id": "PTCB-V3-B3",
+      "severity": "BLOCKER",
+      "title": "The artifact has contradictory signed-entry shapes and can declare mutable PATH/loader influence lawful",
+      "location": "/identityRuleShape/declared; /signedEntry/required; /signedEntry/originSearchPolicy/environmentInfluence; /resolutionPredicate",
+      "evidence": [
+        "identityRuleShape.declared remains the normative three-field shape {platformProfileKey, class, identityEvidence}; signedEntry.required separately declares four fields by adding originSearchPolicy. No precedence or replacement rule says which signed shape is authoritative.",
+        "NT-TCB-2 and resolutionPredicate require originSearchPolicy, so a producer following the carried primary shape cannot execute the supposedly repaired predicate.",
+        "environmentInfluence permits named env/PATH/loader-config variables that may affect lookup but does not bind their values or forbid a PATH/loader search step. Because declaredVersusAmbient treats a signed originSearchPolicy as declared, merely naming mutable PATH influence can convert the source law's substitution vector into a lawful route."
+      ],
+      "impact": "One conforming carrier can omit the origin policy entirely; another can admit lookup controlled by a mutable named environment variable. Alternate/ambient refusal is still not deterministic.",
+      "requiredRepair": "Replace the primary declared shape with the four-field signedEntry and state it is exhaustive. For environment influence, require a closed map of variables to fixed expected values or explicit forbidden standing; PATH and loader-variable substitution must not become lawful merely by naming it. Bind every allowed lookup step to immutable profile/entry evidence."
+    },
+    {
+      "id": "PTCB-V3-B4",
+      "severity": "BLOCKER",
+      "title": "completenessProof is circular and the retained event schema cannot prove full closure or refusal",
+      "location": "/loaderTraces; /negativeTests; /g22",
+      "evidence": [
+        "completenessProof defines completeness as every boundary event being present, but gives no independent capture source, sequence/closure marker, coverage probe, or sensor-health result that can reveal an omitted event. An incomplete recorder can declare its own output complete.",
+        "The observation boundary narrows the initial image to its declared TCB members rather than every actual resolution attempt, so an undeclared initial dependency can fall outside the very set whose completeness is asserted.",
+        "retainedEventSchema lacks subject digest, complete platformProfileKey, allowlist/carrier digest, run identity, process identity/parentage, taxonomy class, tagged evidence form, event kind, refusal/use outcome, and sequence/closure information. allowlistMatch is an ungrounded boolean and cannot show that a false match actually refused.",
+        "v3 deletes v2's evidenceJoin requiring every observed event to match the signed active-profile table or fail. The replacement supplies no equivalent trace-to-table/run binding. Explicit absent/inapplicable proof also has no schema, producer, or verification rule."
+      ],
+      "impact": "A partial or self-asserted trace can omit an undeclared initial/late/descendant/data access, mark the remaining events matched, and retain no evidence tying them to the reviewed subject or proving refusal. The live G22 full-trace obligation is therefore not met by this design.",
+      "requiredRepair": "Quantify the boundary over every actual resolution/access attempt, declared or not. Define a trusted capture/completeness protocol with process-tree and lifecycle closure probes; bind each trace to subject, full profile, signed allowlist/carrier, and run; record class, evidence tag, route, match and enforced outcome; restore the match-or-fail join; and define independently checkable inapplicability proofs."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V3-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The purported one carrier is still a nonexistent field with two joint owners and no carrier-absent consequence",
+      "location": "/tcbCarrier",
+      "evidence": "authoritativeInventoryCarrier is still owned by 'DR-101/DR-103'; bindingPoint names a future inventorySchema TCB field that expressly does not exist until an unspecified 'DR-101/103 successor' authors it; signatureCeremonyOwner is likewise a slash join. v3 deletes v2's explicit dependencyIfCarrierAbsent rule that G22 cannot qualify without the carrier.",
+      "impact": "There is no present or uniquely owned future binding point, and the removed guard permits a reader to treat the population packet as sufficient even though the one authoritative signed carrier does not exist.",
+      "requiredRepair": "Assign inventory field authorship to one exact row/successor artifact, define the single reference/binding relation to any adjacent schema, route ceremony independently, and restore an explicit rule that G22 cannot qualify until that one signed carrier exists."
+    },
+    {
+      "id": "PTCB-V3-S2",
+      "severity": "SHOULD-FIX",
+      "title": "The closed successor roster omits reMeasurementAtV3",
+      "location": "/basedOn/method; /reMeasurementAtV3",
+      "evidence": "A recursive v2-to-v3 semantic diff found 55 changed leaves. reMeasurementAtV3 is new, but the closed roster in basedOn.method does not include /reMeasurementAtV3. Its opening values are accurate, so this is succession-integrity rather than merits falsity.",
+      "impact": "The artifact's claim that every v2-to-v3 change is on a closed targeted roster is false on its own bytes.",
+      "requiredRepair": "Add /reMeasurementAtV3 to the closed roster or remove the unrostered field, then refreeze and remeasure the successor diff."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening custody, parse, and HEAD",
+      "result": "PASS",
+      "evidence": "Python hashlib(Path.read_bytes()) measured the subject at e215f91d687a5dd704fc8c43b7f26ac9da4cfbe4f9acd3725e43bda38f2652c7; mode was 0444; strict duplicate-key-rejecting JSON parse passed; opening HEAD was the required 9af5060f9edccf0a6dfeba551c2feb6fd1419746."
+    },
+    {
+      "id": "M-02",
+      "check": "Predecessor and frozen Codex-review custody",
+      "result": "PASS",
+      "evidence": "v2 reproduced at c404bb8f... and the frozen Codex v2 REJECT reproduced at 082e3575.... No Claude artifact was opened or hashed."
+    },
+    {
+      "id": "M-03",
+      "check": "Live row and carried-source custody",
+      "result": "PASS",
+      "evidence": "File 04 measured a74b4511... and its lines 161-166 equal all six carried strings. File 08 measured 1cdcf9d4... and its unique DR-126 row at line 308 equals rowVerbatim byte-for-byte. At opening HEAD, COORD reproduced the subject's reMeasurementAtV3 value c8933f74...."
+    },
+    {
+      "id": "M-04",
+      "check": "Closed v2-to-v3 succession path",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "The recursive diff found 55 changed leaves. All changed roots are rostered except the new /reMeasurementAtV3 root. ReviewGuidance changes are append-only. See PTCB-V3-S2."
+    },
+    {
+      "id": "M-05",
+      "check": "Complete selector grammar",
+      "result": "FAIL",
+      "evidence": "The grammar has five rules: required-member roster, OS enum, architecture enum, no-or-join, and freeze completeness. It has no grammar for version/build or filesystem values and delegates range semantics. See PTCB-V3-B1."
+    },
+    {
+      "id": "M-06",
+      "check": "Actual-object identity",
+      "result": "FAIL",
+      "evidence": "classMap permits libc to use SONAME-ABI alone; that tag carries no attestation or digest. See PTCB-V3-B2."
+    },
+    {
+      "id": "M-07",
+      "check": "One exhaustive signed-entry schema and ambient predicate",
+      "result": "FAIL",
+      "evidence": "identityRuleShape.declared has three fields while signedEntry.required has four. Named mutable environment influence has no fixed-value/forbidden semantics. See PTCB-V3-B3."
+    },
+    {
+      "id": "M-08",
+      "check": "Full trace proof and evidence join",
+      "result": "FAIL",
+      "evidence": "retainedEventSchema has only eventTime, a conflated processRole, resolvedObjectIdentity, route, and allowlistMatch; it lacks every subject/profile/table/run/process/class/outcome binding, and v2 evidenceJoin was removed. See PTCB-V3-B4."
+    },
+    {
+      "id": "M-09",
+      "check": "One authoritative carrier",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "The named binding point explicitly does not exist, remains jointly attributed to DR-101/DR-103, and no longer carries carrier-absence => G22-not-qualified. See PTCB-V3-S1."
+    },
+    {
+      "id": "M-10",
+      "check": "Concurrent HEAD movement and closing custody",
+      "result": "PASS-NO-SCOPE-EFFECT",
+      "evidence": "The review opened at required HEAD 9af5060f9edccf0a6dfeba551c2feb6fd1419746. During review, HEAD advanced once to 2d5f15b466eaad7eefebb638934ac5a07a79d501 for append-only D-109/DR-105 recording. The COORD diff appends D-109 and changes none of DR-126, D-002, D-006, D-096, file 04, file 08, v2, or the subject; D-109 expressly grants no D-096 (A). Closing Python hashlib remeasured the subject at e215f91d687a5dd704fc8c43b7f26ac9da4cfbe4f9acd3725e43bda38f2652c7 with mode 0444."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "Four-member selector grammar, no or-join, and stems cannot freeze",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "The four members, stem standing, and no-or-join rule landed. The two substantive selectors still have no grammar and packet-defined ranges remain possible. See PTCB-V3-B1."
+    },
+    {
+      "id": "A-02",
+      "attack": "Tagged identityEvidenceUnion plus classMap closes identity",
+      "result": "DEFECT-SUSTAINED",
+      "evidence": "The union/map landed, but libc may use unauthenticated SONAME-ABI alone. See PTCB-V3-B2."
+    },
+    {
+      "id": "A-03",
+      "attack": "originSearchPolicy is required on every signed entry",
+      "result": "DEFECT-SUSTAINED",
+      "evidence": "signedEntry requires it while the primary declared-entry shape omits it; named mutable PATH/loader influence can also be declared. See PTCB-V3-B3."
+    },
+    {
+      "id": "A-04",
+      "attack": "No harness-capability escape and completenessProof proves full closure",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "The literal capability escape is removed and class matrix added, but completeness remains self-referential, the retained schema cannot bind or prove outcomes, and the prior evidence join is deleted. See PTCB-V3-B4."
+    },
+    {
+      "id": "A-05",
+      "attack": "One inventory carrier and binding point",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "The text says one copy, but the field does not exist, has two slash-joined owning rows, and loses the carrier-absence qualification guard. See PTCB-V3-S1."
+    },
+    {
+      "id": "A-06",
+      "attack": "Silent v2-to-v3 path",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "reMeasurementAtV3 is accurate but absent from the closed roster. See PTCB-V3-S2."
+    },
+    {
+      "id": "A-07",
+      "attack": "Per-OS tables, D-006 numbers, DR-G07 extraction ownership, or positive authority are silently introduced",
+      "result": "REFUTED",
+      "evidence": "No table members or D-006 threshold numerals are supplied; extraction/symlink/TOCTOU remain outside; the candidate binds NOTHING, keeps DR-126 OPEN, denies SATISFIED/QUALIFIED/implementation, and contains no D-096 (A) grant. This review grants none."
+    }
+  ],
+  "findingCounts": {
+    "blockers": 4,
+    "shouldFix": 2,
+    "advisories": 0
+  },
+  "verdictBasis": "REJECT: 4 blockers and 2 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT at the frozen subject digest. The successor lands field rosters, tags, origin-policy prose, a class matrix, and one-copy intent, but still delegates selector grammar, permits label-only libc identity, contradicts itself about whether originSearchPolicy is in every signed entry, cannot prove or bind trace completeness, names no existing uniquely owned carrier, and adds one path outside its closed successor roster.",
+  "coordinatorSummary": "Issue a successor with a closed version/filesystem selector language; attested-or-digest-bound libc identity; one exhaustive four-field entry schema with fixed/forbidden environment influence; trusted, subject/profile/table/run-bound completeness evidence; one uniquely owned carrier with an absence block; and a complete succession roster. Preserve the current non-authority and no-table boundaries.",
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "d096AGrantMinted": false,
+    "perOsTablesPopulated": false,
+    "implementationAuthorized": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "committed": false
+  }
+}

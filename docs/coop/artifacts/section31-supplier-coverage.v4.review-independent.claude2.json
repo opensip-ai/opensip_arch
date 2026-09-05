@@ -1,0 +1,142 @@
+{
+  "artifact": "section31-supplier-coverage.v4.review-independent.claude2.json",
+  "reviewer": "claude2",
+  "subject": "docs/coop/artifacts/section31-supplier-coverage.v4.json",
+  "companionSubject": "docs/coop/artifacts/check-section31-supplier-coverage-v4.py",
+  "date": "2026-08-14",
+  "protocol": "D-000 independent review; refute not confirm; successor to v3 (both reviewers ACCEPT-WITH-ADVISORIES, 0 blockers)",
+  "subjectSha256AtStart": "97727684af2d812d3a677add9b15287db81d6fe36aeaa96d72d5118890a847f6",
+  "subjectSha256AtEnd": "97727684af2d812d3a677add9b15287db81d6fe36aeaa96d72d5118890a847f6",
+  "checkerSha256AtStart": "a30928260e9ddd36c680a13925d40353c362151f8729b99b021d400b5c2f96c2",
+  "checkerSha256AtEnd": "a30928260e9ddd36c680a13925d40353c362151f8729b99b021d400b5c2f96c2",
+  "subjectMoved": false,
+  "verdict": "ACCEPT-WITH-ADVISORIES",
+  "mustFix": 0,
+  "shouldFix": 2,
+  "notes": 0,
+  "summary": "All three named repairs verified by execution rather than trust, and S31V3-01 I proved side by side: the identical mutation gives the v3 checker a KeyError traceback and the v4 checker a typed 'FAIL - S31-1: BOUND item has no supplier'. S31V3-02's disclosure is present and its claim is true at the bytes -- resolve() still tests key presence only. S31V3-CX-A1 is fully repaired: all four verdict tokens are the exact uppercase enum and zero lowercase occurrences remain. Ten mutation cases fail closed, a path-level diff shows REMOVED 0, and the apparent losses in failsWhen are list-shift artifacts from inserting the new entry at index 1, which I traced item by item. Both advisories share one root: this generation has not consumed adopted D-044, which landed at afc0990 between v4's authoring and this review. Its recordedInputs is byte-identical across v2, v3 and v4 while two of its three pins have since moved, against the artifact's own clause 'If a cited file moves, re-measure'; and D-044 gave DR-004 -- one of this instrument's two register rows -- a freeze §3.1 SEGMENT pin, while the instrument still gates that same section on the freeze whole-file digest.",
+  "objections": [
+    {
+      "id": "S31V4-01",
+      "severity": "SHOULD-FIX",
+      "location": "recordedInputs, against remeasurementClause",
+      "claim": "recordedInputs has been carried forward byte-identical across three generations while two of its three pins moved. The artifact states the rule it is breaking.",
+      "evidence": [
+        "recordedInputs is identical in v2, v3 and v4: freeze e809d439…, COORD 54d34099…, file 08 877e36d3…. I extracted and compared all three generations.",
+        "Live values: freeze e809d439… (unchanged, correct), COORDINATOR-DECISIONS.md 3aec906fb60dbb6fabc1… , file 08 80fc55d1c54b1fd508eb… . Two of three are stale.",
+        "The file-08 pin was superseded by D-044 itself, adopted at afc0990, which rewrote DR-004's, DR-005's, DR-006's, DR-011's and DR-012's source-pin cells and DR-001's scope clause. The COORD pin 54d34099 predates D-039 through D-044.",
+        "The artifact's own remeasurementClause reads: 'If a cited file moves, re-measure. A moved freeze is ENVIRONMENT; the checker fails closed until this table is re-pinned by a successor.'"
+      ],
+      "whatThisIsNot": "This does not produce a wrong answer and I am not treating it as one. The checker gates only on the freeze digest, which has not moved, so the baseline PASS is correct and coverage is unaffected. These pins are provenance, not gates -- the checker never reads them.",
+      "whyItMattersAnyway": "This instrument exists to make stale supplier pins visible; theErrorThisExistsToPrevent is 'Conflating a successor still exists with the item's supplier selector still exists'. Carrying its own environment pins unchanged through three generations, two of them now superseded, is the same conflation applied to itself. The COORD pin in particular has never been re-measured across the whole v2-to-v4 lineage, so a reader reconstructing what environment this table was built against gets an answer six adopted decisions out of date.",
+      "remedy": "Re-measure the three recordedInputs entries, or state expressly that they are authoring-time values not re-measured at this generation and why that is acceptable."
+    },
+    {
+      "id": "S31V4-02",
+      "severity": "SHOULD-FIX",
+      "location": "freezeSection31.wholeFileSha256 and checker.failsWhen[4], against the post-D-044 DR-004 row",
+      "claim": "The instrument gates freeze §3.1 on the freeze WHOLE-FILE digest, while adopted D-044 gave DR-004 -- one of this instrument's two register rows -- a §3.1 SEGMENT pin for the same section. The instrument now re-pins on motion the register has just established as immaterial for that row.",
+      "evidence": [
+        "Post-D-044 file 08, DR-004's source-pin cell reads: 'freeze §3.1 property pin (`docs/coop/IMPLEMENTATION-FREEZE.md`, heading `### 3.1 Phase-1A insertion — mandatory`, segment `19c6a3eb2664478a4fb340451bcd1878a0ee57bcbdb7ccafd5362c86fb02b490`); product `CD-RT-5.whatThisDecisionDoesNOTDo.phase1A`'. I recomputed that segment from lines 580-603 of the live freeze and it reproduces at 19c6a3eb….",
+        "The instrument's freezeSection31 carries path, wholeFileSha256 e809d439…, selector and itemsVerbatim. failsWhen[4] fires ENVIRONMENT on whole-file digest motion, and remeasurementClause says the checker 'fails closed until this table is re-pinned by a successor'.",
+        "The two gates diverge on exactly the case D-044 exists to handle: a freeze edit outside §3.1 moves the whole-file digest but not the §3.1 segment. The register correctly does not re-open DR-004; this instrument goes ENVIRONMENT and demands a successor generation.",
+        "v4 mentions D-044 zero times and D-043 zero times, and its file-08 pin is the pre-D-044 value, so it was authored without the rewrite in view."
+      ],
+      "whyItMatters": "This is the treadmill D-033 named and D-044 just ended for the register: an immaterial whole-document move forcing a re-pin. Adopted D-044 performed the conversion for DR-004 specifically, and the Lane R instrument serving DR-004 still runs the superseded form on the same section. The cost is concrete and recurring -- every freeze move outside §3.1 forces a v5, v6 and so on, with a full review cycle each, while the row those generations serve would not have re-opened.",
+      "itIsStrictNotWrong": "The divergence is in the safe direction: the instrument fails closed where the register would not re-open, so it never falsely passes. That is why this is an advisory and not a blocker, and it is also why v4 cannot be faulted for authoring order -- D-044 adopted after these bytes were frozen.",
+      "remedy": "In a successor, pin freeze §3.1 by the segment the register now cites -- heading delimiter plus segment sha256 19c6a3eb… under D-044's extraction rule -- keeping itemsVerbatim as the item-level check, so ENVIRONMENT fires on §3.1 motion rather than on any freeze motion. If the whole-file gate is deliberate belt-and-braces, say so and say why the instrument holds a stricter gate than the row it serves."
+    }
+  ],
+  "namedRepairsVerifiedByExecution": [
+    {
+      "id": "S31V3-01",
+      "claimed": "BOUND item with no supplier key is a typed FAIL, not KeyError",
+      "disposition": "REPAIRED",
+      "howIProvedIt": "Side-by-side on the identical mutation, against a scratchpad copy carrying both generations. I set S31-1's standing to BOUND without adding a supplier block, then ran each checker against its own table. v3: 'Traceback … supplier = item[\"supplier\"] … KeyError: supplier'. v4: 'FAIL - S31-1: BOUND item has no supplier - count drift: bound=2 unbound=6 expected {items: 8, bound: 1, unbound: 7}'. The defect existed, and it is gone.",
+      "codeChange": "The checker diff v3 to v4 is exactly three added lines plus the docstring and table path: `if \"supplier\" not in item: failures.append(f\"{item['id']}: BOUND item has no supplier\"); continue`, placed before the `supplier = item[\"supplier\"]` lookup. Nothing else in the checker changed.",
+      "alsoDocumented": "failsWhen gained a matching entry at index 1, 'A BOUND item has no supplier key', and authorityClaim now recites it in the failure list."
+    },
+    {
+      "id": "S31V3-02",
+      "claimed": "doesNotFailWhen records that PASS is not semantic completeness of a bound head",
+      "disposition": "REPAIRED",
+      "howIProvedIt": "doesNotFailWhen[3] is present and reads 'A BOUND item's head resolves but supplies only part of what its freeze item names — the checker tests selector presence, not coverage of the item text. That judgement is the reviewer's and the owners''. I then confirmed the claim is true of the code rather than merely asserted: resolve() at lines 24-32 is unchanged from v3, walks the dotted selector, and returns True as soon as every segment is present as a dict key. It never inspects the resolved value and never compares it to textVerbatim.",
+      "note": "This is the disclosure I asked for and it is placed in the right field -- the list a reader consults to learn what a PASS does not guarantee -- and it names who owns the judgement instead of implying the checker could make it."
+    },
+    {
+      "id": "S31V3-CX-A1",
+      "claimed": "predecessor Codex verdict token is the exact uppercase ACCEPT-WITH-ADVISORIES",
+      "disposition": "REPAIRED",
+      "howIProvedIt": "I enumerated every path ending in .verdict across the whole artifact: v3.claude2 'ACCEPT-WITH-ADVISORIES', v3.codex 'ACCEPT-WITH-ADVISORIES', v2.claude2 'REJECT', v2.codex 'ACCEPT-WITH-ADVISORIES'. The v2.codex value was the lowercase 'accepted-with-advisories' in v3 and is now the exact enum. A case-insensitive search for the lowercase form returns zero occurrences anywhere in the file.",
+      "note": "The repair reaches back and fixes the v2 block rather than only using the enum in the newly added v3 block, which is the fuller reading of the advisory."
+    }
+  ],
+  "mutationSuite": {
+    "method": "Copied the freeze, both generations of table and checker, and the bound supplier into a scratchpad tree, restoring a pristine copy between cases. No repository byte was modified; git reports zero modified tracked files at close.",
+    "cases": [
+      {"id": "baseline", "mutation": "none", "result": "PASS bound=1 unbound=7", "exit": 0, "assessment": "counts confirmed independently of the table's own claim"},
+      {"id": "V-A", "mutation": "flip S31-1 to BOUND with no supplier key", "result": "FAIL - S31-1: BOUND item has no supplier + count drift", "exit": 1, "assessment": "S31V3-01, typed where v3 raised KeyError"},
+      {"id": "V-B", "mutation": "delete S31-3's supplier file", "result": "FAIL - S31-3: bound supplier missing", "exit": 1},
+      {"id": "V-C", "mutation": "modify S31-3's supplier bytes, path and selector intact", "result": "FAIL - S31-3: DIGEST-MOVED bbe24527… -> 0122d0cb…", "exit": 1},
+      {"id": "V-D", "mutation": "corrupt S31-3's supplier to non-JSON", "result": "FAIL - S31-3: DIGEST-MOVED", "exit": 1, "assessment": "digest gate still precedes the parse"},
+      {"id": "V-E", "mutation": "strip sha256 from S31-3's supplier", "result": "FAIL - S31-3: BOUND supplier has no sha256", "exit": 1},
+      {"id": "V-F", "mutation": "make S31-3's selector unresolvable AND re-pin the digest to match", "result": "FAIL - S31-3: selector $.nope does not resolve", "exit": 1, "assessment": "confirms the selector check stays reachable behind the digest gate rather than becoming dead code"},
+      {"id": "V-G", "mutation": "drop item 8 and adjust counts to match", "result": "FAIL - counts.items 7 != pinned freeze list 8 - item count 7 != pinned freeze list 8 - id mapping not S31-1..S31-8", "exit": 1, "assessment": "the v2-era hole stays closed"},
+      {"id": "V-H", "mutation": "tamper items[2].textVerbatim", "result": "FAIL - S31-3: textVerbatim does not match freeze item 3", "exit": 1},
+      {"id": "V-I", "mutation": "append a line to the freeze", "result": "FAIL - ENVIRONMENT: freeze digest moved e809d439… -> …", "exit": 1, "assessment": "correct behaviour for the gate as designed; it is the design of that gate that S31V4-02 questions, not its implementation"},
+      {"id": "restore", "mutation": "baseline restored", "result": "PASS bound=1 unbound=7", "exit": 0}
+    ]
+  },
+  "whatIVerified": [
+    "Both subject digests at start and end: instrument 97727684af2d812d3a677add9b15287db81d6fe36aeaa96d72d5118890a847f6, checker a30928260e9ddd36c680a13925d40353c362151f8729b99b021d400b5c2f96c2. Both match the dispatch's recitals and neither moved.",
+    "A path-flattening diff of v3 against v4 gives REMOVED 0, ADDED 17, CHANGED 10. I then token-diffed every changed leaf for substance dropped inside a string, which is the failure mode that has repeatedly mattered in this corpus. The apparent losses in failsWhen[1], [2] and [3] are list-shift artifacts: the new entry was inserted at index 1 and each prior entry moved down one, with the old [3] text reappearing intact as the added [4]. I matched them item by item. Nothing was removed.",
+    "The attack 'treats item 1 as BOUND' fails. S31-1 is UNBOUND and its reason still carries the four-category argument: evaluation-proof.v8's head 'supplies match, no-match, indeterminate, and error. Freeze item 1 also requires verdict claims…'.",
+    "The attack 'treats bound=1 / unbound=7 as complete coverage' fails, and this generation strengthens the position rather than restating it: counts are {items 8, bound 1, unbound 7}, the checker independently reports the same, whatThisDoesNotDo carries seven refusals including 'Does not bind evaluation-proof.v8 as item 1; verdict claims are missing', and the new doesNotFailWhen[3] is precisely the anti-completeness disclosure.",
+    "The attack 'checker PASS used as semantic completeness' fails for the same reason, and the disclosure is honest about the code: I confirmed resolve() tests key presence only.",
+    "The attack 'silent SATISFIED or Phase-1A insertion' fails. SATISFIED occurs once, inside a refusal: 'not the Phase-1A packet, not SATISFIED evidence, and not owner recording of any Route B disposition'. whatThisDoesNotDo carries 'Does not insert Phase-1A' and 'Does not mark DR-004 or DR-002 SATISFIED'. Header fields are documentClass BINDING-INSTRUMENT-CANDIDATE, status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, isThePhase1AInsertion false, isMeasurementOnly false, registerRows DR-004 and DR-002, lane R.",
+    "The attack 'file 08 / freeze / COORD edited' fails: git reports zero modified tracked files, and the freeze measures e809d439… unchanged. The instrument has changed nothing outside itself.",
+    "The predecessor accounting is accurate on my half and independently checkable. predecessorSha256 is 9a544eb2…, which is v3's digest as I measured it. My v3 verdict is pinned at 08cc0583ad1d01a8816480bd671ea70e680bbf004b2445a3fd58373ea08c9fe9 and characterized ACCEPT-WITH-ADVISORIES, which matches my file and what I returned; both of my findings S31V3-01 and S31V3-02 are listed REPAIRED with an 'at' that names where. The Codex v3 verdict digest d7b0fbfba1a6b345a7a691b5de51e81a14de1b322dcf2e2ea0e688b39d85fe41 is correct, confirmed by hashing that file without opening it.",
+    "The sole BOUND row still holds at the bytes: S31-3 binds product-dispositions.v1.json#$.decisions.CD-RT-5.defaultPosture, the digest matches, the selector resolves, and the baseline PASS confirms it. I established in the v2 review that this head answers both limbs of freeze item 3 -- durableDefault DURABLE_RETAINED and implicitDurableRetention YES.",
+    "authorityClaim was updated in step with the code rather than left behind: it now recites four failure conditions including 'a BOUND item has no supplier key', matching failsWhen[0] through [3], with the freeze condition carried at failsWhen[4] and in remeasurementClause.",
+    "I verified D-044's rewrite actually landed before relying on it for S31V4-02, rather than inferring it from the commit subject: DR-004's post-D-044 source-pin cell carries the §3.1 heading delimiter and segment 19c6a3eb…, and I recomputed that segment from the live freeze at lines 580-603 and it reproduces."
+  ],
+  "whatIDidNotCheck": [
+    "The Codex review of v4. Not read; the file is confirmed absent at review time.",
+    "The Codex reviews of v1, v2 and v3, none of which I have read. I know S31V3-CX-A1 only through the dispatch and this artifact's own predecessorVerdictFindings, and I verified the repair against the bytes -- every .verdict token -- rather than against Codex's statement of the defect.",
+    "Whether any of the seven UNBOUND items could now be bound. I verified S31-1's reason is true at the bytes; I did not sweep the corpus for candidate suppliers for items 2 and 4 through 8. Under-binding is the safe direction but it is unmeasured, and with seven of eight unbound this instrument reports very little coverage.",
+    "Whether product-dispositions.v1's CD-RT-5 is itself sound. I verified it answers freeze item 3's two limbs; I did not review the disposition's merits, and I note without judging it that CD-RT-5 overrides a standing architectural recommendation.",
+    "resolve() on selector forms the corpus does not exercise: array indices, wildcards, escaped dots, or a selector terminating on a non-dict. Only $.decisions.CD-RT-5.defaultPosture is exercised.",
+    "Whether a §3.1 segment pin would be the right form for the successor S31V4-02 asks for, beyond noting that it is the form adopted D-044 chose for the same section on this instrument's own row. Designing that pin is the author's act, not mine.",
+    "Whether DR-004 and DR-002's owners will accept this instrument. It binds nothing and recommends nothing about their rows."
+  ],
+  "recordedInputs": {
+    "docs/coop/artifacts/section31-supplier-coverage.v4.json": "97727684af2d812d3a677add9b15287db81d6fe36aeaa96d72d5118890a847f6",
+    "docs/coop/artifacts/check-section31-supplier-coverage-v4.py": "a30928260e9ddd36c680a13925d40353c362151f8729b99b021d400b5c2f96c2",
+    "docs/coop/artifacts/section31-supplier-coverage.v3.json": "9a544eb2a60012d0c312cbb9ce237e7743942472ba9834fe35821bdd1f1e80d0",
+    "docs/coop/artifacts/check-section31-supplier-coverage-v3.py": "b139c43a6af3237a6d1d3b20791d51d35a7bcf9eefe472fb09601b14b13f6446",
+    "docs/coop/artifacts/section31-supplier-coverage.v3.review-independent.claude2.json": "08cc0583ad1d01a8816480bd671ea70e680bbf004b2445a3fd58373ea08c9fe9",
+    "docs/coop/artifacts/section31-supplier-coverage.v3.review-independent.codex.json": "d7b0fbfba1a6b345a7a691b5de51e81a14de1b322dcf2e2ea0e688b39d85fe41",
+    "docs/coop/artifacts/product-dispositions.v1.json": "bbe24527f732f9c265f9cf71b988303a326e45fec0c6adb0d934536d515d6017",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd",
+    "docs/coop/COORDINATOR-DECISIONS.md": "3aec906fb60dbb6fabc1… measured live this review",
+    "docs/v2/architecture/08-decision-and-readiness-register.md": "80fc55d1c54b1fd508eb… measured live this review, post-D-044"
+  },
+  "environment": {
+    "workingDirectory": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "afc0990",
+    "gitHeadSubject": "D-044: perform the D-033 property-pin rewrite",
+    "environmentMovedSincePredecessorReview": "Yes, materially. At the v3 review HEAD was 7e7a636 and file 08 was 877e36d3. D-042 (4e23a2e), D-043 (a5d3719) and D-044 (afc0990) have since adopted; file 08 is now 80fc55d1 and COORD 3aec906f. Both advisories arise from that motion.",
+    "subjectTrackedInGit": false,
+    "note": "Both subjects are untracked working-tree files at review time; digests bind working-tree bytes, not committed objects. Recorded as a condition of review, not a finding, since the candidate is pre-adoption and binds NOTHING.",
+    "measurementTool": "shasum -a 256; python3 path-flattening diff of v3 against v4 with a per-leaf token-loss pass, and manual reconciliation of the failsWhen list shift; unified diff of the two checkers; an eleven-case executable mutation suite on a scratchpad copy with a pristine restore between cases, including a side-by-side run of the same mutation against the v3 and v4 checkers; enumeration of every .verdict path for the token audit; recomputation of the freeze §3.1 segment from lines 580-603; recordedInputs comparison across v2, v3 and v4",
+    "mutationsRanAgainstCopy": true,
+    "repositoryBytesModified": false,
+    "digestsReadFromBytes": true,
+    "codexVerdictHashedNotRead": false,
+    "reviewerReadOtherVerdict": false,
+    "filesWritten": ["docs/coop/artifacts/section31-supplier-coverage.v4.review-independent.claude2.json"],
+    "filesEdited": [],
+    "commits": []
+  },
+  "verdictNote": "ACCEPT-WITH-ADVISORIES. The fold is honest and complete: all three named repairs land, the one that mattered most is proved by running the identical mutation against both generations, nothing was removed, and ten mutations fail closed. Neither advisory produces a wrong answer, and neither is a criticism of authoring order -- D-044 adopted at afc0990 after these bytes were frozen, so v4 could not have consumed it. But both are now true of the bytes under review, and they are the same defect twice: an instrument whose subject is pin honesty is carrying three-generation-old environment pins against its own re-measure rule, and is gating freeze §3.1 on a whole-file digest that adopted D-044 has just replaced with a segment pin on this instrument's own register row. The second is the more consequential, because it puts this instrument back on the treadmill the register just stepped off."
+}

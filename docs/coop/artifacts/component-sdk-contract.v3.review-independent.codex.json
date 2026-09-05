@@ -1,0 +1,177 @@
+{
+  "artifact": "component-sdk-contract.v3.review-independent.codex",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/component-sdk-contract.v3.json",
+  "registerRow": "DR-125",
+  "date": "2026-08-15",
+  "reviewer": "Codex, independent; did not author v1-v3",
+  "protocol": "Independent review; refute, not confirm; no Claude review artifact read",
+  "reviewScope": "DR-125 component-sdk-contract v3 only. This review does not mark DR-125 SATISFIED, mint an owner grant, choose an SDK API, authorize docs/v2/implementation/, or apply or seal the candidate.",
+  "reviewState": "COMPLETE",
+  "subjectSha256AtStart": "0719eb804ed88e8fca1345af48c27e033bc04d7482ea7eb53961cc978f276bc3",
+  "subjectSha256AtEnd": "0719eb804ed88e8fca1345af48c27e033bc04d7482ea7eb53961cc978f276bc3",
+  "subjectMovedDuringReview": false,
+  "verdict": "REJECT",
+  "blockerCount": 2,
+  "shouldFixCount": 1,
+  "advisoryCount": 0,
+  "summary": "REJECT. V3 removes the J-1 translation exception, conditions deadline fanout on the applied provider contract, orders provider Cancel before CPC teardown, and deletes the invented cancellation-equivalent death trigger. It remains non-applying, chooses no SDK API, mints no D9/exit or owner grant, and makes no SATISFIED, QUALIFIED, or implementation claim. Three defects bar acceptance. CSCV3-B1 makes the death event both appended and followed by a J-5 ladder even though CPC requires drain-before-death and death last. CSCV3-B2 separates eligibility sampling from Cancel commit without a linearization rule or failed-commit branch, leaving cancellation-versus-terminal and broken-write executions undefined. CSCV3-S1 finds /reMeasurementAtV3 outside the claimed closed v2-to-v3 roster. At 2 blockers and 1 SHOULD-FIX, DR-125 remains OPEN and this verdict authorizes nothing.",
+  "blockers": [
+    {
+      "id": "CSCV3-B1",
+      "severity": "BLOCKER",
+      "title": "The process-death repair starts the teardown ladder after the ladder's terminal event",
+      "sites": [
+        "/t1CancellationComposition/composition/onHostObservedProcessDeath",
+        "/whatThisDoesNotDo/2",
+        "/honestyRepairsFromV2/1"
+      ],
+      "measurement": "V3 says that on host-observed process death the control plane 'appends the death boundary event and runs the teardown ladder.' CPC J-3 requires every channel to be drained to EOF before death is appended and makes death the LAST event in the child's merged order. CPC J-5 defines the one-way ladder as shutdown/cancel -> bounded wait -> EOF/drain -> kill -> reap/final death; every transition is appended and the ladder never skips backward. Starting or continuing that ladder after appending death necessarily creates events after the event CPC makes final, while attempting its shutdown/cancel/kill steps against an already-dead process is not a valid transition.",
+      "counterexample": "A child dies spontaneously while no teardown is active. The v3 sentence permits appending death immediately and then issuing the ladder's shutdown/cancel and drain steps. That violates J-3's drain-before-death and death-last invariants. If 'runs the ladder' is instead read as occurring first, a spontaneous already-observed death cannot traverse T-1 through T-4, and the clause still supplies no lawful ordering.",
+      "whyBlocker": "This is the core death branch of the proposed cancellation composition and directly contradicts the accepted CPC ordering while the artifact claims not to rewrite DR-102. Removing the invented cancellation-equivalent label did not produce a valid terminal branch.",
+      "requiredRepair": "Distinguish physical death observation from logical event append. On spontaneous death, perform J-3 bounded channel drain and append the death event last; do not start a new J-5 ladder against a dead child. If a ladder is already active, state that the drained/reaped death completes its T-5 terminal step. Send no in-band Cancel, and leave fate/D9/exit meaning to the owning contracts."
+    },
+    {
+      "id": "CSCV3-B2",
+      "severity": "BLOCKER",
+      "title": "Eligibility sampling and Cancel commit are not linearized and the transition relation has no commit-failure branch",
+      "sites": [
+        "/t1CancellationComposition/composition/hostEventTransitionRelation/sampleEligibilityAt",
+        "/t1CancellationComposition/composition/hostEventTransitionRelation/ifAdmissible",
+        "/t1CancellationComposition/composition/hostEventTransitionRelation/ifNotAdmissible",
+        "/g20/executes",
+        "/honestyRepairsFromV2/2"
+      ],
+      "measurement": "The relation samples provider eligibility and then separately commands 'Commit ... FIRST,' but it supplies no linearization rule against a concurrent provider terminal frame and no branch for an admissible transition whose pipe write/commit fails. ifNotAdmissible covers only the sampled precondition; it does not cover failure after an admissible sample. The applied TypeScript contract permits Cancel only from a nonterminal state and only once, while CPC expressly requires hostile cancellation-versus-result races. G20 remains the unchanged generic phrase 'supervision cancel vs in-band Cancel' and carries no oracle for the sample/terminal race or failed commit.",
+      "counterexamples": [
+        "The provider-side participant samples ANALYZING as Cancel-admissible. Before it commits Cancel, Complete arrives and terminalizes the provider protocol. Sending Cancel now violates the applied transition; suppressing it violates the v3 ifAdmissible branch. No v3 rule chooses the outcome.",
+        "The state and cause are admissible, but the request pipe closes during the write. The provider Cancel did not commit, so 'Then emit CPC supervision teardown' has no satisfied predecessor. V3 defines neither a CPC-progress fallback nor the owning fault event, allowing teardown to stall."
+      ],
+      "whyBlocker": "A two-branch precondition test is not a total host-event transition relation when the checked state can race and the commanded transition can fail. This is exactly the reachability/failure hole CSCV2-B1 required the successor to close; notFoldedThisSuccessor is therefore false on the merits.",
+      "requiredRepair": "Give the provider-side participant a behavioral linearization point that atomically validates the cause/state and commits or rejects the outbound Cancel relative to provider terminal events, without choosing an SDK API. Add an explicit commit-failed branch that proceeds to CPC supervision teardown and records the failure only under the owning provider/CPC contracts. Add G20 expected traces for terminal-wins, Cancel-wins, write-fails, already-terminal/already-cancelled, and no-in-band cases. Mint no frame, fate, D9/exit, API, or owner grant."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "CSCV3-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The closed v2-to-v3 delta roster omits the newly added reMeasurementAtV3 path",
+      "sites": [
+        "/basedOn/method",
+        "/reMeasurementAtV3"
+      ],
+      "measurement": "A strict deep diff found eight changed-or-added top-level members: artifact, version, t1CancellationComposition, reviewGuidance, basedOn, appliesFindingsOf, honestyRepairsFromV2, and reMeasurementAtV3. basedOn.method names every one except reMeasurementAtV3; it lists date instead, whose v2 and v3 values are identical. The new remeasurement is accurate at dispatched HEAD 2d5f15b, but it is outside the artifact's claimed closed roster.",
+      "whyShouldFix": "The omission makes the explicit no-silent-path account false even though the unlisted addition is benign. A reviewer following the closed roster cannot reproduce the actual delta exactly.",
+      "requiredRepair": "Add /reMeasurementAtV3 to basedOn.method's closed roster. Retaining /date as an allowed-but-unchanged path is harmless; do not alter the measured source files."
+    }
+  ],
+  "advisories": [],
+  "repairVerification": {
+    "j1TranslationException": "REPAIRED. noFanoutWhen now keeps provider-only Cancel wholly inside the provider contract, j1 says the join orders independently emitted events only, and mustNot states no exception. CSCV2-B2 is closed.",
+    "processDeath": "NOT REPAIRED at full width; see CSCV3-B1. The invented cancellation-equivalent label and post-death in-band Cancel are gone, but the replacement appends death and runs a ladder whose own terminal event is death.",
+    "sequencedFanout": "PARTIALLY REPAIRED; see CSCV3-B2. V3 samples eligibility and puts provider Cancel before CPC teardown, but does not linearize sample-to-commit against provider terminal events or define commit failure, so CSCV2-B1 remains.",
+    "v2ToV3Lineage": "FAIL at CSCV3-S1. The semantic delta is otherwise confined to named roster members, but reMeasurementAtV3 is a real added top-level path omitted from basedOn.method's closed roster.",
+    "unrelatedInheritedContract": "PASS. Candidate status, D-015 provenance, source must-not wording, host-owned capability vocabulary, five behavior families, forbidden acts, deferrals, and no-authority clauses are unchanged from v2."
+  },
+  "attackResults": {
+    "controlPlaneTranslationException": "PASS. No remaining clause allows J-1 or CPC to derive supervision meaning from a provider-only in-band Cancel.",
+    "inventedCancellationEquivalentDeath": "FAIL at CSCV3-B1 for the replacement semantics, not the deleted phrase. Death is no longer a Cancel trigger, but its new append-plus-ladder rule violates J-3/J-5.",
+    "sequencedTransitionRelation": "FAIL at CSCV3-B2. Provider-before-CPC ordering is stated, but sample/commit is not linearized and commit failure has no branch or golden.",
+    "silentV2ToV3Path": "FAIL at CSCV3-S1. reMeasurementAtV3 is outside the claimed closed roster.",
+    "sdkApiOrFramework": "PASS. The artifact remains behavior-level and reserves exact SDK APIs/frameworks.",
+    "d9ExitOrFateMinting": "PASS. No code, numeric exit, fate, or mapping is introduced; owning contracts retain meaning.",
+    "satisfiedQualifiedImplementation": "PASS. Header state remains CANDIDATE-NOT-APPLIED / AWAITING-INDEPENDENT-REVIEW / DO-NOT-SEAL / binds NOTHING. SATISFIED, QUALIFIED, and implementation occurrences are denials or review instructions.",
+    "d015AndReservedAuthority": "PASS. D-015 is described only as adopting the CPC report; T-1 remains a proposed composition and no owner grant or row disposition is minted.",
+    "rowAndSourceCarriage": "PASS. The unique DR-125 row is exact at file-08 line 307, and the 19 developer-contract lines exactly equal file-02 lines 175-193.",
+    "governingSourceRemeasurement": "PASS. File 02, file 08, CPC, delivery.v2, and the v3 live coordinator digest reproduce at dispatched HEAD 2d5f15b."
+  },
+  "measurements": [
+    "Subject SHA-256 matched 0719eb804ed88e8fca1345af48c27e033bc04d7482ea7eb53961cc978f276bc3 at review start and end; mode remained 0444, size remained 14794 bytes, and the subject did not move.",
+    "Review prompt SHA-256 was 0b753686845bd8c394994a1bc3841bd65a4c648d1345321bc69c61cb6d602288.",
+    "Strict duplicate-key-rejecting JSON parse passed for v3, v2, the Codex v2 verdict, CPC, and delivery.v2. No Claude artifact was opened, hashed, or parsed.",
+    "Permitted lineage reproduced: component-sdk-contract.v2 e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0 and its Codex verdict 43eb205143650c862745f2a91c8a82d7700bfd379ffac95a7d236a1793a46240.",
+    "Deep v2-to-v3 diff found top-level changes/additions at artifact, version, t1CancellationComposition, reviewGuidance, basedOn, appliesFindingsOf, honestyRepairsFromV2, and reMeasurementAtV3; no top-level removal. reMeasurementAtV3 is absent from the closed roster, while roster-listed date is unchanged.",
+    "At the comparison frontier the diff contains 10 modified leaf/list positions, 12 added structural roots, and 4 removed paths. Every path is under a named roster member except /reMeasurementAtV3.",
+    "File 02 measured 1811c682cf293e1e0b255be82c62f7ed3c439f0873eb7922bfb0ad965b43f7db and its lines 175-193 equal the 19 carried lines. File 08 measured 1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3 and its sole DR-125 row is exact at line 307.",
+    "COORDINATOR-DECISIONS.md measured 72e71f2e60639d038e2c520a2335eb0554f52f5883c7e1ed9fa9de727419cf50 at exact HEAD 2d5f15b466eaad7eefebb638934ac5a07a79d501, matching reMeasurementAtV3.",
+    "CPC measured c50a79fef566ecccbd8913a3d309b0cf7332f7d77f892474a548ef3d7b4ebdca. J-3 drains all channels before appending death and makes death last; J-5 ends its one-way ladder at reaped final death.",
+    "Delivery.v2 measured 47b6cfd17338fafd407c554afe1951ab23d2896aac99bcfd272fc0894e3cabf3. TypeScript permits one Cancel only from a nonterminal state, so a provider terminal event between eligibility sample and commit changes admissibility.",
+    "Recursive authority scanning found zero D-096 occurrences and no positive SATISFIED, QUALIFIED, implementation, SDK API, D9, exit, or fate grant."
+  ],
+  "authorityOfThisVerdict": {
+    "marksDR125Satisfied": false,
+    "mintsD096AGrant": false,
+    "authorizesImplementation": false,
+    "choosesSdkApi": false,
+    "appliesOrSealsCandidate": false,
+    "editsSubject": false,
+    "editsFile08": false,
+    "editsCoordinatorDecisions": false,
+    "commits": false,
+    "note": "This independent verdict is review evidence only. It leaves DR-125 OPEN and supplies no owner grant or implementation authority."
+  },
+  "recordedInputs": {
+    "subjectPrompt": {
+      "path": "docs/coop/artifacts/component-sdk-contract.v3.review-prompt.md",
+      "sha256": "0b753686845bd8c394994a1bc3841bd65a4c648d1345321bc69c61cb6d602288"
+    },
+    "subject": {
+      "path": "docs/coop/artifacts/component-sdk-contract.v3.json",
+      "sha256": "0719eb804ed88e8fca1345af48c27e033bc04d7482ea7eb53961cc978f276bc3"
+    },
+    "lineage": [
+      {
+        "path": "docs/coop/artifacts/component-sdk-contract.v2.json",
+        "sha256": "e191b7eb95c63692d6e83ece7c78fd91cd5ad823551887b5d4b56ba7546d16b0"
+      },
+      {
+        "path": "docs/coop/artifacts/component-sdk-contract.v2.review-independent.codex.json",
+        "sha256": "43eb205143650c862745f2a91c8a82d7700bfd379ffac95a7d236a1793a46240"
+      }
+    ],
+    "claudeIsolation": {
+      "subjectContainsClaudeLineageClaims": true,
+      "claudeArtifactRead": false,
+      "note": "Per dispatch, no Claude review file was opened, hashed, parsed, or used as evidence."
+    },
+    "governingSources": [
+      {
+        "path": "docs/v2/architecture/02-distribution-and-components.md",
+        "sha256AtReview": "1811c682cf293e1e0b255be82c62f7ed3c439f0873eb7922bfb0ad965b43f7db"
+      },
+      {
+        "path": "docs/v2/architecture/08-decision-and-readiness-register.md",
+        "sha256AtReview": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3"
+      },
+      {
+        "path": "docs/coop/COORDINATOR-DECISIONS.md",
+        "sha256AtReview": "72e71f2e60639d038e2c520a2335eb0554f52f5883c7e1ed9fa9de727419cf50",
+        "measuredAtHead": "2d5f15b466eaad7eefebb638934ac5a07a79d501"
+      },
+      {
+        "path": "docs/coop/artifacts/control-protocol-contract.v2.json",
+        "sha256AtReview": "c50a79fef566ecccbd8913a3d309b0cf7332f7d77f892474a548ef3d7b4ebdca"
+      },
+      {
+        "path": "docs/coop/artifacts/delivery.v2.json",
+        "sha256AtReview": "47b6cfd17338fafd407c554afe1951ab23d2896aac99bcfd272fc0894e3cabf3"
+      }
+    ]
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtStart": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+    "gitHeadAtEnd": "2d5f15b466eaad7eefebb638934ac5a07a79d501",
+    "gitBranch": "main",
+    "targetExistedAtStart": false,
+    "subjectGitState": "untracked at review time; mode 0444; digest-pinned",
+    "otherCurrentV3ReviewerRead": false,
+    "claudeArtifactsRead": false,
+    "filesWritten": [
+      "docs/coop/artifacts/component-sdk-contract.v3.review-independent.codex.json"
+    ],
+    "forbiddenFilesEdited": false,
+    "committed": false,
+    "method": "Python hashlib over pathlib.Path.read_bytes() at subject start/end and after each incremental reviewer write; duplicate-key-rejecting JSON parse; exact file-02 carry and file-08 row checks; permitted Codex lineage audit; deep v2-to-v3 path diff; CPC J-3/J-5 and TypeScript Cancel transition audit; authority/status scan. Claude artifacts excluded by dispatch."
+  }
+}

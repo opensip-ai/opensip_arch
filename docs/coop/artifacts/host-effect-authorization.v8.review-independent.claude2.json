@@ -1,0 +1,81 @@
+{
+  "artifact": "host-effect-authorization.v8.review-independent.claude2.json",
+  "reviewer": "claude2",
+  "subject": "host-effect-authorization.v8",
+  "documentClass": "INDEPENDENT-REVIEW",
+  "date": "2026-08-13",
+  "protocol": "Independent review under D-000; refute not confirm; successor to v7 (Claude 2 ACCEPT 0 blockers; Codex REJECT at HAE7-CX-01)",
+  "subjectSha256AtStart": "2cbad5612e546d3bf915074a8ad3fc4cae444122c997e2ddb3fe067d3cd022dc",
+  "subjectSha256AtEnd": "2cbad5612e546d3bf915074a8ad3fc4cae444122c997e2ddb3fe067d3cd022dc",
+  "subjectMoved": false,
+  "verdict": "ACCEPT",
+  "blockers": 0,
+  "advisories": 0,
+  "sealRecommendation": "DO-NOT-SEAL",
+  "binds": "NOTHING",
+  "reviewerSelfCorrection": "This is the second consecutive version where Codex found a blocker I did not. HAE7-CX-01 is real and I confirmed it from v7's own bytes before looking at v8: v7's actionClass closedValues were CA-1-HOST-HEAD, CA-2, CA-3, CA-4-HOST, while targetIdentity's union branches keyed on CA-1 and CA-2 and its own nullWhen keyed on 'CA-3 and CA-4-HOST', and byteCap's variants keyed on 'CA-1 or CA-2', 'CA-4-HOST' and 'CA-3'. A single member therefore mixed two vocabularies, and a validator resolving when: CA-1 against a record whose actionClass is CA-1-HOST-HEAD would match no branch, so the CA-1 target-identity branch could never select. At v7 I verified the member types, the forbidden-shape lists, the per-class grounding against doctor v4, and a six-region byte-identity diff, and I did not check that the discriminator predicates were drawn from one domain. Method note, recorded because it is the same lesson twice: at v7 I applied the prior round's finding as a class and swept every scope member for open objects, which was right, but I swept only for the defect already named. This round I checked predicate-domain consistency mechanically across the whole shape rather than reading the three sites the prompt names."
+  ,
+  "summary": "The repair is exactly what the prompt specifies and it is verifiable rather than asserted. A new classPredicateDomain block fixes one discriminator domain — doctor-v4 consentRecords[].actionClass with closedValues CA-1 through CA-4 — supplies a translation from the authorization-record labels, and states the rule that authorization-record labels do not appear as scope predicates. I tested that claim mechanically instead of accepting it: stripping the translation block itself, CA-1-HOST-HEAD and CA-4-HOST occur zero times in the shape body, and every class predicate remaining is drawn from the four-value domain. The translation is total over the four record labels, injective, and its targets exactly equal the domain's closed values. The CA-4 send and receive variant now actually selects, because its predicate finally matches the domain it is evaluated in. The updated FC-BOUND-SHAPE fixture adds the exhaustiveness property that makes the v7 defect non-recurrable: 'No legal serialized class is unmatched.' Six regions are byte-identical to v7, so no preview-denial or fail-closed regression is possible, and the global change set is confined to the discriminator repair, one fixture, the accounting and the version bump.",
+  "findings": [],
+  "predecessorFindingVerification": {
+    "HAE7-CX-01": "REPAIRED (repair present; original finding text unseen, though I confirmed the underlying defect independently from v7's bytes as recorded at reviewerSelfCorrection). v8 adds consentRecordsScopeShape.classPredicateDomain with four parts: domain 'doctor-v4 consentRecords[].actionClass'; closedValues CA-1, CA-2, CA-3, CA-4; translationFromAuthorizationRecord mapping CA-1-HOST-HEAD to CA-1, CA-2 to CA-2, CA-3 to CA-3 and CA-4-HOST to CA-4; and the rule 'Every conditional in this scope shape is evaluated against the serialized doctor-v4 actionClass after that translation. Authorization-record labels CA-1-HOST-HEAD and CA-4-HOST do not appear as scope predicates.' The three mixed predicates are corrected in place: targetIdentity.nullWhen moves from 'CA-3 and CA-4-HOST' to 'CA-3 and CA-4', and byteCap's second variant moves from when CA-4-HOST to when CA-4. The authorization-record actionClass closedValues are deliberately unchanged, which is correct — the record keeps its own labels and the translation carries them into the serialized domain, rather than the record being rewritten to match doctor.",
+    "IR-HEA7 (none raised)": "I raised no finding on v7. The gap that produced Codex's blocker is recorded at reviewerSelfCorrection rather than presented here as a repaired finding of mine, because it was not mine."
+  },
+  "whatIVerified": [
+    "Subject digest at start and end: 2cbad5612e546d3bf915074a8ad3fc4cae444122c997e2ddb3fe067d3cd022dc both times. No drift.",
+    "No mixed predicate domains remain, tested mechanically. I stripped the classPredicateDomain block — which must name the record labels in order to translate them — and swept the remaining shape body: CA-1-HOST-HEAD occurs zero times and CA-4-HOST occurs zero times. I then extracted every when, nullWhen, requiredWhen and mustBeNull predicate in the shape. The class predicates are CA-2 only, 'CA-3 and CA-4', CA-1, CA-2, 'CA-1 or CA-2', CA-4, CA-3 and CA-4 — every one inside the four-value domain. The single non-class predicate is policyProvenance's nullWhen 'invocation-time-naming', which is a consent-carrier condition rather than a class discriminator and is legitimately outside the domain.",
+    "The translation is well-formed as a function, not merely present. It is total over the authorization record's four actionClass closedValues, injective, and the set of its targets is exactly the domain's closedValues. So every legal record label maps to exactly one serialized class and no domain value is unreachable.",
+    "Exhaustiveness holds for both discriminated members against the four-value domain. byteCap variants cover CA-1 and CA-2 jointly, CA-4, and CA-3 — all four. targetIdentity covers CA-1 and CA-2 as union branches and CA-3 and CA-4 through nullWhen — all four. No legal class falls through either member, which is the property whose absence made the v7 defect bite.",
+    "CA-4 send and receive is no longer unselected. The variant retains closedMembers send and receive, both nonnegative-integer, with swappedOrMissingDirection 'fails', and its predicate is now CA-4, which matches the domain the shape says conditionals are evaluated in. In v7 that variant keyed on CA-4-HOST and so could never select against a serialized doctor record.",
+    "The fixture was strengthened rather than merely renamed. FC-BOUND-SHAPE now opens 'Parent consentRecords[].actionClass is the discriminator', enumerates which class selects which variant, and adds 'No legal serialized class is unmatched' alongside the previous rejection list. That is the fixture-level statement of the exhaustiveness property, so the v7 failure mode is testable rather than only fixed.",
+    "No deadline or byteCap shape regression. observationDeadline retains kind closed to DURATION-FROM-INVOCATION-START, clockRule closed to OBSERVATION-ONLY, and the forbiddenShapes list naming ISO-8601 instant, wall-clock expiry, empty object, bare number and string duration. byteCap retains its closed variants, the bytes unit, the nonnegative-integer rule and its forbidden-shape list.",
+    "No preview-denial or fail-closed regression, verified structurally. I flattened both documents and diffed six regions — failClosed, coveredActs, slice1EgressExecutionSide, joinBlockerDisposition, outcomeVocabulary and effectCommit. All six returned zero changed, zero added and zero removed paths, so the six-conjunct fail-closed rule, the CA-2 whole-class preview denial, the CA-1 IN_PROCESS denial, the egress split, the seven join-blocker dispositions, the closed outcome vocabulary and the four commit boundaries are byte-identical to what I reviewed at v7.",
+    "The change set is confined to the repair: globally 171 added, 149 removed and 9 changed paths, of which authorizationRecord accounts for 10 added and 3 changed (the classPredicateDomain block and the three predicate strings), acceptanceEvidenceFixtureClasses 1 changed (FC-BOUND-SHAPE), predecessorVerdictFindings 158 added and 149 removed (accounting), recordedInputs 3 added, and five header fields changed for the version bump. Nothing else moved.",
+    "No silent SATISFIED: the token occurs twice, both negative. Header retains CANDIDATE-NOT-APPLIED, DO-NOT-SEAL and binds NOTHING.",
+    "No minted PT token: 'PT-' occurs eleven times, nine PT-NET-EGRESS and two the literal wildcard in the disclaimer. 'WAIV' occurs zero times.",
+    "No waived join blocker: joinBlockerDisposition is byte-identical to v7, so all seven remain named with BLK-1 through BLK-4 STILL-ROUTED.",
+    "Environment: no input moved during this review or since my v7 review. Git HEAD is 164102d and COORDINATOR-DECISIONS.md and doctor v4 re-measure identically."
+  ],
+  "whatIDidNotCheck": [
+    "The Codex reviews of any version, including HAE7-CX-01 itself. None read at any point; the v8 file is confirmed absent at review time. I confirmed the v7 defect from v7's own bytes rather than from Codex's text.",
+    "Whether doctor v4 serializes actionClass with exactly the values CA-1 through CA-4. The mapping's own actionClass destinations assert that translation and I verified the contract is internally consistent with it; confirming doctor v4's serialized enumeration against its schema is a separate pass and would not change this verdict, since the defect repaired here is the contract's internal predicate consistency.",
+    "Whether a doctor successor will accept this scope shape. The contract states it does not amend doctor v4; adoption is that successor's act.",
+    "Whether Option B is the right actor scope. Settled by adopted D-032; I checked conformity, not merits.",
+    "doctor-contract.v4 and permission-truth-tables.v1 on their merits. Both remain CANDIDATE-NOT-APPLIED and this artifact applies neither.",
+    "Whether the fixture classes are executable. They remain classes; no fixture corpus exists.",
+    "Whether the crash-report surface will be owned, or whether the joint owners will record this contract."
+  ],
+  "acceptanceScope": {
+    "whatThisAcceptanceIs": "An independent reviewer's judgement that the artifact's bytes carry no blocker and no advisory I would raise, on a design-contract candidate.",
+    "whatItIsNot": [
+      "Not a seal. sealRecommendation remains DO-NOT-SEAL and I concur.",
+      "Not an application. Status remains CANDIDATE-NOT-APPLIED and binds NOTHING.",
+      "Not a recording. D-032 requires this contract be recorded by Operability+security jointly with Security+platform before any in-scope host act is exercisable; the artifact does not record itself.",
+      "Not a discharge of any join blocker. BLK-1 through BLK-4 remain STILL-ROUTED under adopted D-032.",
+      "Not closure of DR-105 or DR-114. Both rows remain OPEN and neither is SATISFIED.",
+      "Not a resolution of the crash-report surface, which remains UNOWNED-AND-NEEDED with its fixture obligation bounded rather than claimed."
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/host-effect-authorization.v8.json": "2cbad5612e546d3bf915074a8ad3fc4cae444122c997e2ddb3fe067d3cd022dc",
+    "docs/coop/artifacts/host-effect-authorization.v7.json": "62cbf794182e273d74eb2b0e2d18a84eb7f1d6dca8cae779c0a2e9fc2e5adfe0",
+    "docs/coop/artifacts/host-effect-authorization.v7.review-independent.claude2.json": "e73cb68f3e3914861df86557739a68b858e3dc527d99a91007fcff685844d23f",
+    "docs/coop/COORDINATOR-DECISIONS.md": "7c6d8a568ee58c4a1b27a2a4a40005dd83f85b40f75011677554d9d1f95805e6",
+    "docs/coop/artifacts/doctor-contract.v4.json": "df2e717555616db096e61548458f23b442f7f0e37b2d2461eabc2c33201e94b3"
+  },
+  "environment": {
+    "workingDirectory": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "164102d",
+    "gitHeadSubject": "D-037: consume file 11 via D-001 routes",
+    "subjectTrackedInGit": false,
+    "inputDriftSinceV7Review": "None. Git HEAD unchanged at 164102d and every recorded input re-measures identically to my v7 review.",
+    "note": "The subject and review prompt are untracked working-tree files at review time; digests bind working-tree bytes, not committed objects. Recorded as a condition of review, not a finding, since the artifact declares binds NOTHING and CANDIDATE-NOT-APPLIED.",
+    "measurementTool": "shasum -a 256; python3 json predicate extraction across the whole scope shape with the translation block excluded; translation totality, injectivity and target-set checks; per-member exhaustiveness check against the four-value domain; path-flattening diff of v7 against v8 globally and across six named regions; substring sweeps",
+    "digestsReadFromBytes": true,
+    "reviewerReadOtherVerdict": false,
+    "filesWritten": ["docs/coop/artifacts/host-effect-authorization.v8.review-independent.claude2.json"],
+    "filesEdited": [],
+    "commits": []
+  },
+  "verdictNote": "ACCEPT, zero findings. The repair is the kind that is checkable rather than assertable: the artifact states a rule about its own predicates and I tested the rule against its own bytes, finding zero occurrences of either authorization-record label anywhere in the shape body once the translation block is set aside. I also checked the two properties the rule does not itself claim — that the translation is a total injective function onto the domain, and that both discriminated members are exhaustive over all four domain values — and both hold, which is what makes the v7 failure mode impossible rather than merely absent. The fixture now carries the exhaustiveness property explicitly. I have recorded, for the second consecutive round, a blocker I did not find, along with the method change it argues for. The acceptanceScope block is carried forward so this verdict is not read as sealing, applying, recording, or discharging anything."
+}

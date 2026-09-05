@@ -1,0 +1,310 @@
+{
+  "artifact": "platform-tcb-contract.v23.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "reviewer": "Codex",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v23.json",
+  "subjectSha256Expected": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+  "subjectSha256AtStart": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+  "subjectSha256AtEnd": "c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v23.review-prompt.md",
+  "promptSha256AtStart": "223cc436b8e6db75295cf8d26ac8a9c5cd580a57e3ac884bb9bf042d5ff7f28d",
+  "promptSha256AtEnd": "223cc436b8e6db75295cf8d26ac8a9c5cd580a57e3ac884bb9bf042d5ff7f28d",
+  "promptMovedDuringReview": false,
+  "headExpected": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+  "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+  "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+  "headMovedDuringReview": false,
+  "headMovementDisposition": "PASS: HEAD remained at the dispatched D-124 commit.",
+  "coordinatorSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+  "coordinatorSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+  "coordinatorMovedDuringReview": false,
+  "coordinatorMovementDisposition": "PASS: COORD remained at the dispatched live pin; the append-only exception was not needed.",
+  "predecessor": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v22.json",
+    "expectedSha256": "62cba1c1ce548a93565326ec1b9a80518841033cd3ea3846045f77de0879da6d",
+    "observedSha256AtStart": "62cba1c1ce548a93565326ec1b9a80518841033cd3ea3846045f77de0879da6d",
+    "observedSha256AtEnd": "62cba1c1ce548a93565326ec1b9a80518841033cd3ea3846045f77de0879da6d",
+    "observedMode": "0444"
+  },
+  "priorReviews": {
+    "codexV22": {
+      "path": "docs/coop/artifacts/platform-tcb-contract.v22.review-independent.codex.json",
+      "expectedSha256": "9a603e8c693a7b2fae70fdaaaa48556db38fbe5ea461ff0669175d3b85b601c5",
+      "observedSha256AtStart": "9a603e8c693a7b2fae70fdaaaa48556db38fbe5ea461ff0669175d3b85b601c5",
+      "observedSha256AtEnd": "9a603e8c693a7b2fae70fdaaaa48556db38fbe5ea461ff0669175d3b85b601c5",
+      "observedMode": "0444",
+      "verdict": "REJECT",
+      "rawRosterMatchesPin": true,
+      "pinReproduces": true
+    }
+  },
+  "independence": {
+    "didNotAuthorSubjectOrPredecessors": true,
+    "otherCurrentV23ReviewerRead": false,
+    "claudeV22ReadOrRequired": false,
+    "readScopeLimitedToPromptPermittedFiles": true,
+    "stubWrittenBeforeCompleteVerdict": true
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V23-B1",
+      "severity": "BLOCKER",
+      "title": "The RPM branch has two live inputs and conflates the archive digest with SHA256HEADER",
+      "location": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/{authenticityCore,platformAttestationOperation/linuxPackageDb/rpm-checksig}; /loaderTraces/objectAuthenticityBind/{tags/linux-file-backed,tags/linux-pathless,authenticatedManifest}",
+      "evidence": [
+        "The generic package-db authenticityCore defines payload.digest as sha-256 of the package bytes, and objectAuthenticityBind.packagePayloadDigest defines it as sha-256 of the exact archive bytes used for verification and extraction. The RPM nameVersion and packageBytes rules instead define that same digest as the rpmdb %{SHA256HEADER} value.",
+        "archiveAcquisition.preVerifyDigest requires sha-256 of the full header-plus-payload archive bytes and the blob SHA256HEADER to both equal the one authenticityCore.payload.digest. These are distinct measurements over differently named inputs; the contract supplies no invariant or transform that makes them equal. Any lawful RPM for which archiveSha256 != SHA256HEADER has no value that can satisfy the branch.",
+        "Two sibling live checksig inputs remain. rpm-checksig.checksigArgv still ends with the prohibited <NEVRA-or-installed-package> alternative, while archiveAcquisition.checksigArgv ends with <those-exact-bytes>. No rule retires the former, gives the nested rule precedence, or maps the exact bytes to the pathname expected by rpm(8).",
+        "archiveAcquisition.source merely asserts a unique installed rpm package blob from rpmdb and argvGrammar calls for librpm reconstruction of header+payload. It names neither an exact librpm API/return value nor a stable archive handle/path, and it does not define how reconstructed octets preserve the original signed archive checked by rpm --checksig.",
+        "The retained trustDecision contains only interfaceId rpm-checksig and result success; it carries no archive digest or archive identity that could resolve which of the two live inputs was checked. An implementation can only refuse the ordinary unequal-digest case or ignore one of the conflicting rules."
+      ],
+      "impact": "The mandatory RPM-family PLATFORM-ATTESTED cells cannot reproducibly authenticate and extract one package archive. They can blanket-refuse valid packages or diverge by checking a NEVRA, an installed package, or reconstructed bytes, so the candidate cannot prove one closed package-to-object trust chain for G22.",
+      "requiredRepair": "Choose one existing immutable RPM archive-byte source with a named acquisition/API and exact byte identity. Compute sha-256 of those bytes as authenticityCore.payload.digest, run signature/header validation on those same bytes, and extract the manifest from those same bytes. Give SHA256HEADER its correct separate role or remove it from identity; do not require it to equal whole-archive sha-256. Delete the sibling <NEVRA-or-installed-package> operation and close any pathname/handle and output-normalization rules."
+    },
+    {
+      "id": "PTCB-V23-B2",
+      "severity": "BLOCKER",
+      "title": "The pathless Linux measurement names interfaces but defines no verifiable trust path to the running kernel",
+      "location": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/executingKernelMeasurement; /identityEvidenceUnion/tags/PLATFORM-ATTESTED/{subjectByScheme/package-db,platformAttestationOperation/linuxPackageDb/objectByteJoin}",
+      "evidence": [
+        "executingKernelMeasurement closes interface to the two labels ima-kernel-image and efi-boot-kernel-digest, but those labels have no operation definition anywhere in the candidate: no acquisition source, report/event shape, signature or quote verification, trust anchor, PCR/IMA policy, nonce, runIdentity association, replay rule, or failure-status grammar is specified.",
+        "trustResult is only prose saying success from that interface. It is not a closed value and is not joined to observedPlatformAttestation.trustDecision, which remains a package-db signature/index result rather than a kernel-measurement attestation result.",
+        "The coverage phrase entire executing kernel image does not identify the measured byte representation or stage. It does not say whether the digest covers the package member, compressed boot artifact, decompressed image, post-relocation image, or immutable loaded executable pages, so equality with a regular-file member sha256 is not reproducible.",
+        "A retained event can select either interface label, copy the authenticated package member hash into digest, and assert trustResult success while a different kernel executes. Every specified equality then passes because no specified verifier authenticates the report or binds its claimed digest to this run's executing kernel.",
+        "Replacing NT_GNU_BUILD_ID with a sha-256 field repairs the hash primitive but not the missing provenance. A cryptographic digest supplied without a defined trusted measurement ceremony is still only an assertion."
+      ],
+      "impact": "A substituted executing kernel can be represented as matching the authenticated package member, producing a false allow for the mandatory pathless OS-ABI subject. The candidate therefore does not establish the identity-drift refusal required by DR-126.",
+      "requiredRepair": "Define each supported measurement as an end-to-end verifier operation: exact measured representation and lifecycle stage, acquisition API/artifact, authenticated report or quote and trust roots, policy/PCR or IMA-template validation, freshness and run association, closed success/failure record, and equality to the exact authenticated package member. Remove an interface until that ceremony is specified; unavailable or unverifiable evidence must refuse."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V23-S1",
+      "severity": "SHOULD-FIX",
+      "title": "Live Linux operation text still routes pathless binding through the deleted build-id schema",
+      "location": "/identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/{runningKernelImagePath,owningPackageLookup/pathlessPath}",
+      "evidence": [
+        "runningKernelImagePath says to use objectAuthenticityBind.pathlessLinux executingKernelBuildId. No pathlessLinux member exists in v23; the closed tag is objectAuthenticityBind.tags.linux-pathless and its field is executingKernelMeasurement.",
+        "owningPackageLookup.pathlessPath likewise says Pathless Linux uses executingKernelBuildId to select the authenticated kernel member, contradicting the new authenticatedKernelMember rule that selects by executingKernelMeasurement.digest.",
+        "Both strings are in the live platformAttestationOperation, not a historical ledger. honestyRepairsFromV22 and objectByteJoin say NT_GNU_BUILD_ID is not the bind, but no precedence rule retires these two contrary producer instructions."
+      ],
+      "impact": "A producer can follow a live but nonexistent schema path, retain the forbidden build-id selection, or fail closed for incompatible reasons. The v22-B2 repair is therefore not represented consistently even if a trusted measurement ceremony is later supplied.",
+      "requiredRepair": "Delete the build-id instructions and replace both references with the exact tags/linux-pathless executingKernelMeasurement plus authenticatedKernelMember digest join. State expressly that neither package selection nor member selection may use executingKernelBuildId."
+    },
+    {
+      "id": "PTCB-V23-S2",
+      "severity": "SHOULD-FIX",
+      "title": "macos-codesign still has no closed serializable retained same-guest value",
+      "location": "/loaderTraces/{retainedEventSchema,objectAuthenticityBind/tags/macos-codesign}; /identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/macosCodesign",
+      "evidence": [
+        "The macos-codesign variant requires sameGuestBind, but its entire value definition is the SecCode guest from orderedStepsSameGuest for this event. It gives no scalar/object shape, canonical encoding, association token, or equality rule for the retained field.",
+        "A SecCodeRef is the operation's process-local guest handle, not a portable retained JSON value. The candidate specifies the live API call sequence but not evidence that can be serialized and replayed to show that validity and cdhash came from the same guest.",
+        "retainedEventSchema only names objectAuthenticityBindRecord and relies on the tag definition for closure. extrasRejected cannot close a required member whose value grammar is absent."
+      ],
+      "impact": "Independent producers can retain an opaque handle, a boolean assertion, an implementation-defined identifier, or nothing replayable while all claiming the same closed record. Qualification traces cannot be deterministically validated after the operation.",
+      "requiredRepair": "Define sameGuestBind as a closed serializable evidence record tied to runIdentity+observedAt and the one macosCodesign operation, with the exact stable outputs/statuses needed to demonstrate that the retained trust decision and cdhash arose from the same guest. Do not retain a native SecCodeRef as the contract value."
+    },
+    {
+      "id": "PTCB-V23-S3",
+      "severity": "SHOULD-FIX",
+      "title": "The package-relative path and manifest extraction grammar is not canonical",
+      "location": "/loaderTraces/objectAuthenticityBind/{tags/linux-file-backed/packageRelativePathRule,authenticatedManifest}; /identityEvidenceUnion/tags/PLATFORM-ATTESTED/platformAttestationOperation/linuxPackageDb/{rpm-checksig/archiveAcquisition,apt-secure/archiveAcquisition}",
+      "evidence": [
+        "authenticatedManifest closes each member to {relativePath, sha256} but gives relativePath no byte encoding, separator, leading-slash, dot-segment, Unicode, link, regular-file, archive-root, or duplicate-entry normalization rules.",
+        "INSTALL-ROOT-VOLUME says to strip a hostLocalCanonicalPath prefix but does not define boundary/delimiter handling or how the remainder maps to a cpio/data.tar member name. EXTERNAL-ORIGIN invents a signed canonicalOrigin directory prefix even though canonicalOrigin is defined as one full object path; the derivation of that directory and its result encoding are not specified.",
+        "The RPM and apt branches say to extract authenticatedManifest via rpm2cpio or data.tar without defining the common canonical member enumeration. The same archive can therefore yield different relativePath strings across conforming extractors even when every member hash agrees.",
+        "Rejecting every repeated sha256 does not cure path ambiguity and unnecessarily rejects two distinct paths with identical contents after the new join already requires path and hash on the same member."
+      ],
+      "impact": "The direct v22 wrong-member counterexample is closed abstractly, but different producers can still disagree on which manifest path corresponds to the same opened object or blanket-refuse ordinary packages. The path half of the repaired join is not reproducible evidence.",
+      "requiredRepair": "Define one canonical archive-member path grammar and byte encoding for both RPM cpio and deb data.tar, including root stripping, separators, dot/traversal rejection, Unicode, links, member type, duplicate entries, and leading delimiters. Define exact INSTALL and EXTERNAL transformations into that grammar, then require equality to the canonical member."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening prompt, subject, mode, parse, and HEAD custody",
+      "result": "PASS",
+      "evidence": "Python hashlib measured the prompt at 223cc436b8e6db75295cf8d26ac8a9c5cd580a57e3ac884bb9bf042d5ff7f28d and the subject at c93175e6577daed190bb33af12973e42ad5bba88be36df07307e99f54053289d; subject mode was 0444; duplicate-key-rejecting JSON parsing passed; opening HEAD was 93ceaa6a0e2f5b93ad984c42357c23b193e1f361."
+    },
+    {
+      "id": "M-02",
+      "check": "Incremental write",
+      "result": "PASS",
+      "evidence": "The Codex v23 verdict path did not exist at dispatch. A valid IN_PROGRESS JSON stub was written first and reproduced at SHA-256 45c882adc7e4a88c6011529b8b21bd0c6ea12a431b98527efbdc270f4e3e7084 before this complete verdict replaced it."
+    },
+    {
+      "id": "M-03",
+      "check": "Predecessor and frozen-review custody",
+      "result": "PASS",
+      "evidence": "The v22 subject reproduced at 62cba1c1ce548a93565326ec1b9a80518841033cd3ea3846045f77de0879da6d. Frozen Codex v22 reproduced at 9a603e8c693a7b2fae70fdaaaa48556db38fbe5ea461ff0669175d3b85b601c5 and its COMPLETE REJECT blocker/SHOULD/advisory roster exactly matched appliesFindingsOf.codexv22. Claude v22 was neither read nor required."
+    },
+    {
+      "id": "M-04",
+      "check": "Carried source, register row, COORD, and D-124 custody",
+      "result": "PASS",
+      "evidence": "File 04 reproduced at a74b451169382e1c8f855afb8f4eda2511fb74ec7ffa81c4e42d7b8118119e06 and lines 161-166 equal tcbTextCarriedVerbatim. File 08 reproduced at 1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3 and DR-126 remains OPEN. COORD reproduced at 67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c; D-124 records an unrelated monorepo-CI candidate and authorizes none of this subject's prohibited actions."
+    },
+    {
+      "id": "M-05",
+      "check": "Closed v22-to-v23 succession path",
+      "result": "PASS",
+      "evidence": "A recursive semantic diff found 50 changed leaves, all under the basedOn.method closed roster. reviewGuidance.forTheIndependentReviewer is an exact append from 102 to 108 entries, the rostered date is unchanged, and the predecessor/review pins reproduce."
+    },
+    {
+      "id": "M-06",
+      "check": "File-backed same-member join",
+      "result": "PASS-WITH-SHOULD-FIX",
+      "evidence": "linux-file-backed now requires matchedManifestMember to equal both the derived package-relative path and openedBytesSha256, and explicitly refuses a hash-only match to another member. That closes PTCB-V22-B1's direct false allow. The derivation and manifest path encoding remain non-canonical; see PTCB-V23-S3."
+    },
+    {
+      "id": "M-07",
+      "check": "Pathless Linux executing-kernel authenticity",
+      "result": "FAIL-BLOCKER",
+      "evidence": "Build-id is excluded from the new bind and sha-256 is named, but neither measurement-interface label defines an authenticated, fresh verifier path from the retained digest to the executing kernel. See PTCB-V23-B2."
+    },
+    {
+      "id": "M-08",
+      "check": "RPM one-archive acquisition, verification, and extraction",
+      "result": "FAIL-BLOCKER",
+      "evidence": "The branch simultaneously uses whole-archive sha-256 and SHA256HEADER as the same digest, retains the live <NEVRA-or-installed-package> alternative beside <those-exact-bytes>, and does not identify reproducible archive octets. See PTCB-V23-B1."
+    },
+    {
+      "id": "M-09",
+      "check": "APT one-archive acquisition, digest bind, and extraction ordering",
+      "result": "PASS",
+      "evidence": "The apt branch selects one trusted Packages record and Filename, acquires exactly one .deb, requires its computed sha-256 to equal both the index SHA256 and signed core digest, and only then extracts data.tar."
+    },
+    {
+      "id": "M-10",
+      "check": "OS-discriminated object-authenticity union",
+      "result": "PASS-WITH-SHOULD-FIX",
+      "evidence": "The closed tags now separate macos-codesign, linux-file-backed, and linux-pathless and explicitly forbid cross-branch fields, closing the structural mixing in PTCB-V22-S1. The macOS required value itself lacks a retained serialization; see PTCB-V23-S2."
+    },
+    {
+      "id": "M-11",
+      "check": "Removal of build-id producer instructions",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "Two live linuxPackageDb strings still point to deleted objectAuthenticityBind.pathlessLinux/executingKernelBuildId rules and contradict the v23 measurement join. See PTCB-V23-S1."
+    },
+    {
+      "id": "M-12",
+      "check": "Package manifest and opened-path canonicalization",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "The path+hash equality is present, but archive relativePath encoding and the INSTALL/EXTERNAL transformations into it are not a closed grammar. See PTCB-V23-S3."
+    },
+    {
+      "id": "M-13",
+      "check": "Authority discipline",
+      "result": "PASS",
+      "evidence": "The subject binds NOTHING, remains CANDIDATE-NOT-APPLIED and DO-NOT-SEAL, leaves DR-126 OPEN, populates no per-OS tables, creates no D-096 (A) grant, does not QUALIFY G22, SATISFY a DR, or authorize docs/v2/implementation/."
+    },
+    {
+      "id": "M-14",
+      "check": "Closing custody",
+      "result": "PASS",
+      "evidence": "Python hashlib remeasured the prompt, subject, predecessor, frozen Codex v22 review, file 04, file 08, and COORD at their opening hashes; the subject remained duplicate-key-free JSON at mode 0444. HEAD remained 93ceaa6a0e2f5b93ad984c42357c23b193e1f361. No PASS-NO-SCOPE-EFFECT exception was needed."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "The v22 predecessor or frozen Codex v22 review fails its v23 pin",
+      "result": "REFUTED",
+      "evidence": "Both exact mode-0444 files reproduce their dispatched hashes, and the frozen review's COMPLETE REJECT roster matches the v23 pin."
+    },
+    {
+      "id": "A-02",
+      "attack": "The v22-to-v23 path hides an unrostered semantic change",
+      "result": "REFUTED",
+      "evidence": "All 50 changed leaves are within the closed roster and the 102-entry review guidance is an exact prefix of the 108-entry successor array."
+    },
+    {
+      "id": "A-03",
+      "attack": "Copying another unique member of the same authenticated package over a declared object still passes",
+      "result": "REFUTED-WITH-SHOULD-FIX",
+      "evidence": "The join now requires path and hash equality to the same member and expressly rejects hash-only matching. Archive/member path encoding remains open, but the v22 counterexample no longer satisfies the abstract equality. See PTCB-V23-S3."
+    },
+    {
+      "id": "A-04",
+      "attack": "The RPM branch authenticates and extracts one unambiguous archive byte sequence",
+      "result": "DEFECT-SUSTAINED-AS-BLOCKER",
+      "evidence": "Whole-archive sha-256 and SHA256HEADER are forced into one digest, two live checksig input forms remain, and rpmdb reconstruction does not name exact signed archive octets. See PTCB-V23-B1."
+    },
+    {
+      "id": "A-05",
+      "attack": "A modified running kernel cannot pass by asserting the authenticated member's digest as a trusted measurement",
+      "result": "DEFECT-SUSTAINED-AS-BLOCKER",
+      "evidence": "No operation verifies either named measurement interface, authenticates its report, binds it to this run, or defines the measured byte representation. See PTCB-V23-B2."
+    },
+    {
+      "id": "A-06",
+      "attack": "No live rule still selects a pathless Linux member by NT_GNU_BUILD_ID",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "runningKernelImagePath and owningPackageLookup.pathlessPath still name executingKernelBuildId and one references a deleted schema path. See PTCB-V23-S1."
+    },
+    {
+      "id": "A-07",
+      "attack": "The retained macOS same-guest proof has one closed portable encoding",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "sameGuestBind is defined only as the native SecCode guest and has no retained value grammar or event binding. See PTCB-V23-S2."
+    },
+    {
+      "id": "A-08",
+      "attack": "macOS events can emit Linux manifest fields or Linux events can emit the SecCode guest field",
+      "result": "REFUTED",
+      "evidence": "The closed OS/scheme tags explicitly forbid the opposite branch's fields and reject extras."
+    },
+    {
+      "id": "A-09",
+      "attack": "RPM or apt can extract a selected archive before its digest is bound",
+      "result": "REFUTED-WITH-BLOCKER",
+      "evidence": "Both nested archiveAcquisition objects place extraction after a digest check. The RPM check itself is inconsistent and does not identify one archive; see PTCB-V23-B1."
+    },
+    {
+      "id": "A-10",
+      "attack": "The canonical path-to-manifest-member comparison is replayable across RPM and deb producers",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "No common archive relativePath grammar or exact INSTALL/EXTERNAL conversion is defined. See PTCB-V23-S3."
+    },
+    {
+      "id": "A-11",
+      "attack": "The candidate satisfies DR-126, qualifies G22, mints D-096 (A), applies itself, or authorizes implementation",
+      "result": "REFUTED",
+      "evidence": "Every such action is absent or expressly denied; file 08 retains DR-126 OPEN."
+    },
+    {
+      "id": "A-12",
+      "attack": "Concurrent custody movement changes the review subject or governing pins",
+      "result": "REFUTED",
+      "evidence": "The prompt, subject, predecessor, frozen review, file 08, COORD, and HEAD all reproduced at closing."
+    }
+  ],
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "anyDrMarkedSatisfied": false,
+    "d096AGrantMinted": false,
+    "perOsTablesPopulated": false,
+    "implementationAuthorized": false,
+    "promptEdited": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "frozenV12ThroughV22VerdictEdited": false,
+    "committed": false
+  },
+  "findingCounts": {
+    "blockers": 2,
+    "shouldFix": 3,
+    "advisories": 0
+  },
+  "verdictBasis": "REJECT: 2 blockers and 3 SHOULD-FIX findings. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT. v23 closes the direct wrong-member hash join, separates the OS/scheme record variants, and gives apt one digest-bound archive. It still cannot name one coherent RPM identity/archive pipeline, and its two kernel-measurement labels do not establish a trusted measurement of the executing kernel. Live build-id instructions, the macOS retained value, and package-member path canonicalization also remain open. DR-126 remains OPEN; no DR is marked SATISFIED, and no D-096 (A) grant, G22 qualification, sealing, application, or implementation authority is created."
+}

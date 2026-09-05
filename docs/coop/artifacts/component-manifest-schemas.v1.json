@@ -1,0 +1,561 @@
+{
+  "artifact": "component-manifest-schemas.v1",
+  "version": 1,
+  "date": "2026-08-13",
+  "documentClass": "DESIGN-CONTRACT-CANDIDATE",
+  "status": "CANDIDATE-NOT-APPLIED",
+  "reviewStatus": "AWAITING-INDEPENDENT-REVIEW",
+  "sealRecommendation": "DO-NOT-SEAL",
+  "binds": "NOTHING",
+  "authorityClaim": "NONE. Authored under the adopted D-001 plan as DR-103 candidate acceptance material. This artifact is the author-side candidate for DR-103's acceptance-evidence cell ('Reviewed canonical schemas, duplicate/path rejection, signatures, exact-byte test corpus', file 08 DR-103 row). It closes nothing: DR-103 closes only on independent review plus the register's own process. Nothing here is QUALIFIED or DEMONSTRATED.",
+  "purpose": "Define the canonical COMPONENT MANIFEST, INDEX, and LOCK schemas for V2 distribution, field by field, with typed rejection rules, exact-byte test-corpus requirements, named identity dependencies on open surfaces, and named differences from the pinned prototype baseline. Every empirical claim below is measured or cited at digest (EIR discipline); every design choice that could go another way carries an alternatives note.",
+
+  "sources": {
+    "bindingSources": [
+      {
+        "id": "SRC-02",
+        "path": "docs/v2/architecture/02-distribution-and-components.md",
+        "sha256": "1811c682cf293e1e0b255be82c62f7ed3c439f0873eb7922bfb0ad965b43f7db",
+        "measuredAtAuthoring": true,
+        "note": "Byte-identical to the DR-205 frozen digest and to the digest DR-117's row re-verified (file 08 DR-117 row). The distribution/packaging/manifest sections bound this artifact; the operative manifest sentence is quoted at manifestSchema.coverageObligation."
+      },
+      {
+        "id": "SRC-03",
+        "path": "docs/v2/architecture/03-configuration-and-security.md",
+        "sha256": "52158469e805ca2c2e9a053282ac8428b9adf75184190c1cb6b4ebe2fce8425a",
+        "measuredAtAuthoring": true,
+        "note": "Supplies the lock's owning sentence ('The project component lock records selected signed inputs and deterministic resolution, not secret values, user trust decisions, or self-granted authority. Its concrete schema is DR-103.', lines 37-39), the independent-release trust enumeration (delegated publisher/component namespaces, SBOM/attestation digests inside the signed closure, last-known revocation/expiry), and the permission law ('A manifest, repository, or publisher cannot grant authority to itself'; deny wins; absence denies)."
+      },
+      {
+        "id": "SRC-08",
+        "path": "docs/v2/architecture/08-decision-and-readiness-register.md",
+        "sha256": "f0d72536eb1c55e62e43f02ca859a32aa5a8fd096719199d087d8aa665f7b00d",
+        "measuredAtAuthoring": true,
+        "note": "DR-103 row (decision: 'Canonical component manifest/index/lock schemas, delegated roles, IDs, provenance/SBOM/attestation binding'; acceptance evidence: 'Reviewed canonical schemas, duplicate/path rejection, signatures, exact-byte test corpus'; status OPEN). Also DR-006 park coverage naming capabilityManifestId and typescriptStdlibMerkleRoot as identity gaps with no producing rule; DR-104/115/118/119/123 decided rows; DR-111/DR-112 open rows this artifact declares dependencies on."
+      },
+      {
+        "id": "SRC-D",
+        "path": "docs/coop/COORDINATOR-DECISIONS.md",
+        "sha256": "a3d0d26675bfa0512daebd2f5fcc818346aec7cc1ac2eb07878647ce5e2ddb8f",
+        "measuredAtAuthoring": true,
+        "note": "D-002 (slice, identity-dependencies section and its symmetry clause), D-008 (DR-119 rule accepted universally: manifest declarations of licenses/SBOM/attestation/platform/capability/performance; typed absence/failure for approved exceptions), D-012 (DR-104 identity/namespace policy, clauses 1-7 plus the four routed turn-2 observations: per-install uniqueness universe, (ID, provenance) discriminator, host-core release train for the alias window, per-item landing discipline)."
+      },
+      {
+        "id": "SRC-PROTO",
+        "repository": "/Users/sb/code/opensip-ai/opensip-cli",
+        "commit": "a62509d623173155d0946e9f5d5ca90c839893e0",
+        "verifiedAtAuthoring": "git rev-parse HEAD returned exactly this commit; working tree clean at measurement time",
+        "custodyCaveats": "DR-203's recorded caveats carry: SHA-1 commit identity; out-of-corpus custody; the pin is re-verified at each measurement time (it was, this authoring)."
+      }
+    ],
+    "corpusHeadAtAuthoring": "a2ad75d018c7b0c1d46b1d0eb0417dcb337162a7",
+    "citationDiscipline": "Whole-document digests above are measured at authoring. Per file 08's own pin-move record, whole-document pins strand on any edit of the cited file; the binding citations in this artifact are therefore stated as (path, digest-at-authoring, named property), and the named property is what the independent review should re-verify if a digest has moved."
+  },
+
+  "measuredPrototypeBaselines": {
+    "note": "These are the empirical baselines every 'the prototype does X' claim below rests on. All paths are relative to SRC-PROTO at commit a62509d6.",
+    "files": [
+      {
+        "id": "PB-1",
+        "path": "packages/core/src/tools/manifest.ts",
+        "sha256": "e0f47e6f39766f7c8394029a8aa87b3adbdec5b290f18717334b3a35ebde7db2",
+        "lines": 302,
+        "measuredShape": {
+          "manifestDeclarationSite": "package.json#opensipTools for bundled + installed tools; JSON sidecar (opensip-tool.manifest.json) for user-global/project-local tools (fileoverview comment, lines 1-24)",
+          "identityFields": "kind:'tool' discriminator; identity (ToolIdentity block, id must equal identity.name); id (human/programmatic key, 'declared' identifier, backward-compat key per ADR-0048); stableId OPTIONAL ('Stable machine identity (real UUID) ... Declared additively by tools that opt into durable identity', lines 185-190); name (display); version (display semver, 'NOT the contract epoch')",
+          "contractEpoch": "apiVersion: single coarse integer epoch; admission is an integer range check [MIN_SUPPORTED_PLUGIN_API_VERSION, PLUGIN_API_VERSION] = [1,1] at the pin; 'no semver range maths'; a missing apiVersion is representable (RawToolPluginManifest) so the gate can diagnose before rejecting (lines 49-61, 264-280)",
+          "commands": "ToolCommandManifest: name, description, aliases?, visibility? ('public'|'internal'), parent? (verb nesting), commonFlags?, options? (OptionSpec MINUS the parse closure - the one non-serializable field, a documented deliberate narrowing), args?, scope?, output?, rawStreamReason?, producesVerdict?, producesEvidenceSnapshot? (lines 98-146). Host mounts external commands from the manifest ALONE - no runtime import",
+          "capabilities": "optional ToolCapabilityDeclaration[]; host stamps ownerToolId = stableId ?? id (lines 202-211)",
+          "otherFields": "config? (coarse draft-07-subset JSON-Schema descriptor validated host-side before forking), pluginLayout?, requires? (ToolResourceRequirement[], declaration-only, structurally validated at admission), languages?; reserved unknown-shaped fields: dashboard, sessions, pluginDomains, compatibility, distribution, extensionMetadata (lines 212-261)",
+          "provenance": "ToolProvenance: source ('bundled'|'installed'|'user-global'|'project-local' trust classes, project-local deny-by-default), id, stableId?, version, packageName?, resolvedPath?, manifestHash ('Stable hash of the manifest bytes the host read - tamper/identity check') (lines 63-84, 287-302)"
+        }
+      },
+      {
+        "id": "PB-2",
+        "path": "packages/tool-cargo-clippy/package.json",
+        "sha256": "d52fd32d8b50221b7f41893b2529ebeebedd520428eed20bfd96bdbc6dfc18fd",
+        "measuredShape": "Worked opensipTools instance: kind 'tool'; id 'cargo-clippy'; identity {name:'cargo-clippy', aliases:['clippy']}; stableId '66cb4afb-783c-42e7-b893-bb922ff8a72c' (a real UUID, present in a first-party tool as ADR-0048 directs); apiVersion 1; three commands, two of which ('doctor', 'version') declare parent 'cargo-clippy' - the declarative sub-grammar D-012 clause 2 adopts; requires [{resource:'subprocess', reason}, {resource:'filesystem', reason}]; config {namespace, schema}; license at package.json level only"
+      },
+      {
+        "id": "PB-3",
+        "path": "packages/cli/src/bootstrap/bundled-tools.manifest.json",
+        "sha256": "f607ec0607f1a8d4d3d0c7c91d2338551831ad125b7e96227cee4f875766d1ad",
+        "lines": 30,
+        "measuredShape": "First-party bundled-set manifest: bundledPackages (5 package names), scaffoldingToolIds, bundledCapabilityPacks (two named pack groups). Data-driven source the CLI composition root loads; the closest prototype analogue to an INDEX - an unsigned name list with no digests, no custody fields, no admission records"
+      },
+      {
+        "id": "PB-4",
+        "path": "docs/decisions/ADR-0048-tool-stable-uuid-identity.md",
+        "sha256": "f87284a73b99695b8caff02d7b42a0b24f40e8e7b393f277f975945327525826",
+        "measuredShape": "Stable UUID identity decision: tools get a stable machine UUID with the human key separate; motivation is community collision-proofing and rename-without-history-loss; enforcement 'no placeholder UUIDs' is mechanizable"
+      },
+      {
+        "id": "PB-5",
+        "path": "docs/decisions/ADR-0159-reserved-host-command-and-suite-names.md",
+        "sha256": "7e672be4c89169f22748821750b169f50affa83eab4f584d6d64d189ab823a63",
+        "measuredShape": "Reserved host root-command names: a Tool may not claim any host-owned root command name or alias; colliding tools are rejected at admission, before mounting; a parity test asserts the reserved list stays in parity with the mounted host surface (enforced-by: reserved-names.test.ts, reject-host-command-collisions.ts)"
+      },
+      {
+        "id": "PB-6",
+        "path": "packages/core/src/tools/manifest-assert.ts",
+        "sha256": "32e9ac8bacae4547b4f200cc671a14bd6b2e285b9d7fa395513500fe237cdbdd",
+        "measuredShape": "Load-time drift guard: manifest.id must equal runtime tool name; declared stableId must equal runtime tool id; manifest.id must equal identity.name - typed ValidationError refusals, not warnings"
+      },
+      {
+        "id": "PB-7",
+        "path": "packages/cli/src/bootstrap/reject-host-command-collisions.ts",
+        "sha256": "2e454c8f3a6266ea1dc4bc0f3a0d077dfb81f71bb6e92b9f01e725b93e13c827",
+        "measuredShape": "The admission gate ADR-0159 names as its CLI-side enforcement point (existence and digest measured; cited as the pinned mechanism behind D-012 clause 3)"
+      }
+    ]
+  },
+
+  "manifestSchema": {
+    "name": "opensip-component-manifest",
+    "schemaVersionField": "manifestSchemaVersion",
+    "coverageObligation": "SRC-02 (at 1811c682), 'One component architecture' section, verbatim: 'A manifest eventually binds commands, capabilities, dependencies/prerequisites, compatibility, exact immutable tree and entrypoint, publisher/provenance, SBOM/attestations, permissions, configuration classification, state/migration, and update data. Concrete schemas remain DR-103.' Every member of that enumeration appears below either as a designed field group or as an explicitly reserved binding point; none is silently dropped.",
+    "encodingRule": "A manifest is a single JSON document. Its ADMISSION identity is the sha256 of its exact bytes as stored (a plain measurement, no canonicalization involved). Its SIGNING preimage is the canonicalized form under the canonical-JSON dependency declared at identityDependencies ID-DEP-1; this artifact declares THAT manifests are canonicalized for signing and does NOT define the canonicalization (see ID-DEP-1).",
+    "fields": [
+      {
+        "name": "manifestSchemaVersion",
+        "type": "integer >= 1",
+        "required": true,
+        "semantics": "Version of THIS schema. Compatibility windows for the manifest schema surface are a DR-111 per-surface matrix; this field is the surface's version datum, not a semver range.",
+        "sourceWarrant": "SRC-02 'no required same-version coupling ... Compatibility is expressed by separate per-surface matrices under DR-111'; prototype precedent PB-1 apiVersion (single integer, no range maths)",
+        "alternatives": "A semver string was rejected: the prototype's own comment rejects 'semver range maths' at the admission gate, and DR-111 owns window semantics - a bare integer keeps the admission comparison trivial and pushes window policy to its owner."
+      },
+      {
+        "name": "kind",
+        "type": "closed string enum, initial vocabulary: 'component'",
+        "required": true,
+        "semantics": "Discriminator for the document class. The prototype's value is 'tool' (PB-1 line 167); V2 uses 'component' because file 02's one-component-architecture section makes 'component' the covering term for all optional roles.",
+        "sourceWarrant": "PB-1 (kind:'tool'); SRC-02 'One component architecture'",
+        "namedDifference": "DIFF-7"
+      },
+      {
+        "name": "stableId",
+        "type": "UUID string (RFC 4122 textual form, lowercase)",
+        "required": true,
+        "semantics": "The component's identity: an author-declared immutable UUID. Never derived from mutable state. The host enforces uniqueness at admission against its persisted admission registry (the index custody below) - two custody records with a uniqueness constraint between them, per-install uniqueness universe, (ID, provenance) pair as the same-vs-different-component discriminator. A retired stableId is retained in the registry and never readmitted for a different component. Display names and aliases are mutable metadata resolving THROUGH this ID, never the reverse.",
+        "sourceWarrant": "D-012 clause 1 (SRC-D) verbatim policy; prototype baseline PB-1 stableId + PB-2 worked UUID + PB-4 ADR-0048",
+        "namedDifference": "DIFF-1"
+      },
+      {
+        "name": "name",
+        "type": "string, non-empty, host-defined safe-charset (lowercase alphanumeric plus '-'), unique among live names at admission",
+        "required": true,
+        "semantics": "Human/programmatic display and command key. Mutable across releases (rename governance is D-012 clause 5); resolves through stableId. Collision with any live name, alias, or reserved root command is a typed refusal (rejectionRules RJ-2).",
+        "sourceWarrant": "D-012 clauses 1, 2, 5; PB-1 id/name split; PB-6 drift guard",
+        "alternatives": "The prototype carries BOTH a programmatic 'id' (human key) and a display 'name'. V2 collapses them to one 'name' plus 'displayName' optional, because the prototype's id-must-equal-identity.name drift guard (PB-6) shows the two-key shape only ever holds by assertion; see DIFF-2."
+      },
+      {
+        "name": "displayName",
+        "type": "string",
+        "required": false,
+        "semantics": "Optional human-facing label when it differs from 'name'. Pure metadata; participates in no resolution.",
+        "sourceWarrant": "PB-1 name field ('Human-facing display name')"
+      },
+      {
+        "name": "aliases",
+        "type": "array of strings, same charset as name, no duplicates within the array",
+        "required": false,
+        "semantics": "Alternate resolution keys through stableId. An alias may never shadow any live name or reserved name; alias cycles are refused at admission; a rename keeps the old name as a deprecated alias for at least one host-core minor release cycle AND no fewer than 90 days from the deprecating release, whichever is longer (deprecation metadata lives in the index entry, not the manifest, because the manifest is immutable per release).",
+        "sourceWarrant": "D-012 clause 5 verbatim (including the turn-2 observation that 'one minor release cycle' means the host core's release train); PB-2 aliases:['clippy']"
+      },
+      {
+        "name": "version",
+        "type": "semver string",
+        "required": true,
+        "semantics": "Display/release version of the component itself. Distinct from stableId (ID/version distinctness is a D-012 negative-test class) and distinct from every contract-surface version (DR-111). Multi-version coexistence is expressed in the index/lock, not by mutating the manifest.",
+        "sourceWarrant": "PB-1 version ('Display semver ... NOT the contract epoch'); D-012 clause 7 (ID/version distinctness, multi-version coexistence)"
+      },
+      {
+        "name": "role",
+        "type": "closed string enum owned by the host, initial slice-1 vocabulary: 'analyzer'; vocabulary extension is a host decision, not a manifest right",
+        "required": true,
+        "semantics": "The delegated role class this component fills (DR-103 row: 'delegated roles'). A role names which host contracts apply (e.g. an analyzer negotiates an opaque named role subprotocol per SRC-02's control-plane demarcation). The role vocabulary is host-owned; a manifest cannot mint a role.",
+        "sourceWarrant": "SRC-08 DR-103 decision column; SRC-02 control plane ('negotiate an opaque named role subprotocol and version')",
+        "alternatives": "A free-form role string was rejected: file 02's control plane only carries NAMED role subprotocols, and an open vocabulary would let a manifest invent a contract surface no host owns - the same class of self-granted authority file 03 forbids."
+      },
+      {
+        "name": "commands",
+        "type": "array of CommandSpec objects (below)",
+        "required": true,
+        "semantics": "The declarative command grammar this component asks the host to mount. The ROOT namespace is host-owned and flat: exactly one entry may omit 'parent' and that entry is the component's mounted root command; every other entry must name a parent within this manifest. The component declares; the host owns all parsing and dispatch; discovery never hands a component raw root parser authority. Help/completion/inventory are served from this declaration without executing component code.",
+        "sourceWarrant": "D-012 clause 2 verbatim; SRC-02 'Help, completion, and inventory read authenticated metadata only'; PB-1 ToolCommandManifest; PB-2 parent nesting worked example",
+        "commandSpecFields": [
+          { "name": "name", "type": "string, command charset", "required": true },
+          { "name": "description", "type": "string", "required": true },
+          { "name": "aliases", "type": "array of strings", "required": false, "note": "Sub-command aliases; same shadowing/cycle refusals as component aliases, scoped to the mounted subtree." },
+          { "name": "parent", "type": "string naming another command in THIS manifest", "required": "absent exactly once (the mounted root)", "note": "Parent linkage must form a tree rooted at the mounted root command: unknown parent, self-parent, cycle, or duplicate (parent,name) pair is a typed refusal (RJ-2). Namespace depth beyond the mounted-root model is EXPLICITLY DEFERRED to the DR-117 successor process per D-012 clause 6 - this schema therefore permits arbitrary depth BELOW the single mounted root and nothing above it." },
+          { "name": "visibility", "type": "'public' | 'internal'", "required": false, "default": "public" },
+          { "name": "options", "type": "array of pure-data option descriptors (flag, description, valueKind, repeatable, default)", "required": false, "note": "Pure data by construction. The prototype had to EXCLUDE the one non-serializable field (the parse closure, PB-1 ManifestOptionDescriptor); V2 manifests are JSON documents, so the exclusion is structural, not a carve-out - see DIFF-5." },
+          { "name": "args", "type": "array of positional-arg descriptors (name, description, required, variadic)", "required": false },
+          { "name": "scope", "type": "'project' | 'none'", "required": false, "default": "project", "note": "Whether the host enters a project scope before dispatch (PB-1 CommandScopeRequirement mirror)." },
+          { "name": "outputModes", "type": "array over 'human' | 'json' | 'sarif'", "required": false, "default": "['human','json']", "note": "Which HOST-OWNED projections the command's results feed. Declaring 'sarif' is an applicability advertisement under DR-122/DR-G17 and carries D-002's SARIF identity dependency; it is not a right to render. Components never render product UI directly (SRC-02 developer contract)." }
+        ]
+      },
+      {
+        "name": "capabilities",
+        "type": "array of capability declaration objects: { capabilityId: string (host-registered vocabulary), roleSubprotocol: string, subprotocolVersion: integer, declarationData: schema-checked object }",
+        "required": true,
+        "semantics": "The capability domains this component serves, consumed metadata-only at admission and by DR-118's matrix (D-007: 'the manifest is the boundary source' for matrix rows). Subprotocol names/versions are opaque tokens here; negotiation semantics are DR-102's. No identity is derived from this block by this schema: capabilityManifestId is a NAMED IDENTITY GAP owned elsewhere (ID-DEP-2).",
+        "sourceWarrant": "PB-1 capabilities (ToolCapabilityDeclaration[]); D-007 matrix boundary (SRC-D); SRC-08 DR-006 park coverage naming capabilityManifestId"
+      },
+      {
+        "name": "platforms",
+        "type": "array of platform objects: { os: string, arch: string, tree: TreeCommitment (below), entrypoint: relative path into that tree }, at least one entry",
+        "required": true,
+        "semantics": "Explicit supported-platform alternatives (SRC-02 packaging contract). Each platform binds its own exact immutable tree and entrypoint. A platform absent from this array is unsupported - typed unavailability, never a fallback (D-008 rule). The slice-1 platform vocabulary is D-002's four (macos/arm64, macos/x86_64, linux/x86_64, linux/arm64); the schema is platform-open, the product decision is not made here.",
+        "sourceWarrant": "SRC-02 'explicit supported-platform alternatives and per-surface compatibility'; D-002 platforms (SRC-D)",
+        "treeCommitmentShape": {
+          "definition": "TreeCommitment = { entries: array of { path: string, type: 'file'|'dir'|'symlink', mode: octal string, length: integer (files only), sha256: hex string (files only), target: relative path (symlinks only) } }",
+          "semantics": "Full-tree path/type/mode/length/digest commitment including entrypoint and every required runtime/tool byte (SRC-02 packaging contract; DR-119's 'declares every bundled runtime/tool byte and exact tree'). Every per-entry sha256 is a plain measurement of bytes. This schema deliberately does NOT mint a single tree-root digest: a Merkle-style root would be a DERIVED identity requiring a producing recipe, and the freeze's identity-recipe property (DR-006) owns that class - the corpus specifically records typescriptStdlibMerkleRoot as a root digest with no producing rule. A treeRootDigest field is RESERVED as a binding point that activates only on the DR-006/EIR-lineage closure it rides (ID-DEP-3).",
+          "pathRule": "Every path and symlink target is relative, forward-slash separated, NFC-composed, case-sensitively unique AND unique under case-folding and Unicode normalization within the tree, with no '.' or '..' segments, no leading '/', no drive letters, no backslashes, no NUL, no empty segments. Violation is RJ-3. Symlink targets must resolve inside the tree.",
+          "alternatives": "A single root digest (simpler to sign, one-line lock entries) was rejected for the identity-recipe reason above; an entries list of plain measurements carries the same information without minting a recipe, at the cost of manifest size. The reviewer should weigh whether size bounds need a stated cap."
+        }
+      },
+      {
+        "name": "dependencies",
+        "type": "array of { stableId: UUID, versionConstraint: string (constraint language is a DR-111 surface), reason: string }",
+        "required": true,
+        "mayBeEmpty": true,
+        "semantics": "The component's complete declared dependency closure over other components. Completeness is load-bearing: resolution refuses any closure that requires an undeclared edge (RJ-5), and admission never fetches implicitly (D-008 refusal of ambient/implicit downloads). System-ABI/loader dependencies are DR-126's allowlist surface, not manifest edges.",
+        "sourceWarrant": "SRC-02 'dependencies/prerequisites'; D-008 (SRC-D); SRC-08 DR-126"
+      },
+      {
+        "name": "prerequisites",
+        "type": "array of typed prerequisite objects; slice-1 vocabulary: the DR-119 approved-exception shape below",
+        "required": false,
+        "semantics": "Non-bundleable external prerequisites. Under D-008's accepted rule the ONLY lawful member is an explicitly product-approved customer-owned external-system exception, and it must carry: { exceptionApprovalRef: string (the product approval record), ownership: string, trust: string, network: string, prerequisiteExpectations: string, doctorContract: string (the doctor surface that reports it), typedAbsenceBehavior: refusal-code ref, typedFailureBehavior: refusal-code ref }. Visible in manifest and doctor output; never marketed or silently treated as self-contained.",
+        "sourceWarrant": "D-008 accepted rule, restated at full source fidelity in SRC-D; SRC-02 Language runtime/toolchain UX section"
+      },
+      {
+        "name": "declarations",
+        "type": "object with required members: licenses, sbom, attestation, platformQualification, capabilityParityEvidence, performanceBaseline",
+        "required": true,
+        "semantics": "The DR-119/D-008 declaration set. Each member is either (a) a digest reference { path: relative path into the platform tree OR sibling release artifact name, sha256: hex } binding the declared inventory/evidence bytes into the signed closure (SRC-03: 'SBOM and attestation digests inside the signed closure'), or (b) for approved exceptions only, a TYPED ABSENCE object { absent: true, exceptionApprovalRef: string, typedAbsenceBehavior: refusal-code ref } - absence is a claim, never a default (D-007's absence-as-claim discipline). licenses additionally carries the notice inventory (SRC-02: 'license, and notice inventory').",
+        "sourceWarrant": "D-008 verbatim ('MANIFEST DECLARATIONS of licenses/SBOM/attestation/platform/capability/performance; ... typed absence/failure' for approved exceptions); SRC-02 packaging contract bullets",
+        "namedDifference": "DIFF-6"
+      },
+      {
+        "name": "permissions",
+        "type": "array of { permission: host-owned closed vocabulary token, reason: string }",
+        "required": true,
+        "mayBeEmpty": true,
+        "semantics": "REQUESTED permissions only. A manifest cannot grant authority to itself; deny wins; absence denies (SRC-03 verbatim law). Grant/denial/enforcement records are the host's DR-105/DR-G09 surface. The prototype's requires[] (resource + reason, PB-2) is the evidentiary ancestor; V2 narrows it to a closed host vocabulary.",
+        "sourceWarrant": "SRC-03 permissions section; PB-1 requires (ToolResourceRequirement, 'Declaration-only ... structurally validated at admission')"
+      },
+      {
+        "name": "configuration",
+        "type": "object { namespace: string, schema: JSON-Schema-subset object, classifications: map field -> host-owned classification token }",
+        "required": false,
+        "semantics": "Namespaced, schema-closed component configuration with per-field analysis classification, mapped by the host into existing resolution/Plan semantics. A component cannot add a private precedence layer or classify its own hidden semantic input (SRC-03) - therefore 'classifications' values come from a host-owned vocabulary and the host validates the mapping at admission.",
+        "sourceWarrant": "SRC-03 lines 31-35; SRC-02 'configuration classification'; PB-1 config descriptor precedent"
+      },
+      {
+        "name": "provenance",
+        "type": "object { publisher: string (delegated publisher/component namespace token; namespace semantics are DR-112's), sourceClass: closed enum, slice-1 vocabulary: 'first-party' | 'explicitly-trusted' }",
+        "required": true,
+        "semantics": "The provenance half of the (ID, provenance) discriminator. Slice 1 admits first-party/explicitly-trusted only (D-002/DR-128); the enum widens only by the DR-117/DR-010 successor process, never by schema edit here. The signature itself is NOT a manifest field - see signatureBinding.",
+        "sourceWarrant": "D-012 (ID, provenance) discriminator; D-002 components clause; PB-1 ToolSource trust classes as the prototype baseline",
+        "namedDifference": "DIFF-4"
+      },
+      {
+        "name": "stateMigration",
+        "type": "RESERVED BINDING POINT (typed null: { reserved: true, ridesOn: ['DR-124', 'DR-106', 'DR-109', 'DR-113'] })",
+        "required": true,
+        "semantics": "File 02's manifest enumeration includes 'state/migration'. DR-106/109/113 are deferred WHOLLY by D-002 (their acceptance cells begin with applied DR-002..008 successors), so this schema RESERVES the member and designs no semantics - the DR-202 F2 lesson: a slice-1 schema must not force wholly-deferred rows into design. The reserved marker is required so the omission is visible, never silent.",
+        "sourceWarrant": "SRC-02 manifest sentence; D-002 MF-03 wholly-deferred ruling (SRC-D); SRC-08 DR-202 row (F2 rescoping)"
+      },
+      {
+        "name": "updateData",
+        "type": "RESERVED BINDING POINT (typed null: { reserved: true, ridesOn: ['DR-110', 'DR-112'] })",
+        "required": true,
+        "semantics": "File 02's 'deterministic update, rollback, repair, and revocation metadata'. Slice 1's install is a fresh signed download (D-002's DR-110 deferral); the member is reserved, visible, and undesigned here.",
+        "sourceWarrant": "SRC-02 packaging contract; D-002 explicit deferrals (SRC-D)"
+      },
+      {
+        "name": "compatibility",
+        "type": "object mapping surface name -> declared version datum; surface vocabulary and window semantics are DR-111's",
+        "required": true,
+        "semantics": "Per-surface compatibility declarations replacing the prototype's single integer epoch. The manifest DECLARES data; DR-111's matrices own meaning. No shared same-version assumption may be encoded (SRC-02: 'no required same-version coupling').",
+        "sourceWarrant": "SRC-02 compatibility paragraph; SRC-08 DR-111 row; PB-1 apiVersion baseline",
+        "namedDifference": "DIFF-3"
+      }
+    ],
+    "signatureBinding": {
+      "rule": "A manifest file itself carries NO signature field. Each component release ships the manifest plus a DETACHED signature envelope over the manifest's canonicalized bytes (ID-DEP-1), under the publisher's delegated namespace. Signature format, key custody, thresholds, rotation, expiry, revocation and the ceremony are DR-112's surface; this schema defines only the binding points: (a) the manifest's admission digest (sha256 of stored bytes), (b) the canonicalized signing preimage (dependency declared, not defined), (c) the envelope's association to the index entry (indexSchema.entries[].signatureRef).",
+      "alternatives": "An embedded signature field (self-describing single file) was rejected: embedding forces a sign-then-mutate ordering problem (the signed bytes differ from the stored bytes), while the detached envelope keeps 'verified bytes equal executed bytes' (DR-G07) trivially statable. The prototype has no manifest signature at all (PB-1 manifestHash is a post-hoc integrity note, not a signature) - see DIFF-4."
+    }
+  },
+
+  "indexSchema": {
+    "name": "opensip-component-index",
+    "purpose": "The signed collection of ADMITTED manifests plus the host registry custody records - the second custody record of D-012's two-record identity shape. The index is what help/completion/inventory read ('authenticated metadata only', SRC-02); it is the admission registry that enforces stableId uniqueness; and it is the uniqueness universe, which is PER-INSTALL (D-012 routed observation), not global.",
+    "fields": [
+      { "name": "indexSchemaVersion", "type": "integer >= 1", "required": true, "semantics": "DR-111 surface datum, same rule as manifestSchemaVersion." },
+      { "name": "installId", "type": "UUID", "required": true, "semantics": "Names the per-install uniqueness universe this index governs. Minted by the host at install time; participates in no cross-install identity." },
+      {
+        "name": "entries",
+        "type": "array of admission records",
+        "required": true,
+        "entryShape": {
+          "stableId": "UUID - unique among LIVE entries per (stableId) and discriminated from retired holders by (stableId, provenance)",
+          "provenance": "copy of the admitted manifest's provenance object - the discriminator's second half",
+          "version": "the admitted release's semver",
+          "manifestDigest": "sha256 of the admitted manifest's exact stored bytes - the custody join to the first record",
+          "signatureRef": "reference to the detached signature envelope verified at admission (envelope identity = sha256 of envelope bytes); verification semantics are DR-112's",
+          "admittedAt": "timestamp of admission",
+          "scope": "'project' | 'global' - D-012 clause 4: a component admitted at both scopes resolves project-shadows-global, and the index entry for the shadowed admission carries shadowedBy so the REQUIRED DISCLOSURE at resolution is computable from custody data alone",
+          "shadowedBy": "optional (stableId, scope) of the shadowing admission - present exactly when this entry is shadowed",
+          "mountedRootCommand": "the single root command name mounted for this component - the flat host-owned root namespace record",
+          "namesSnapshot": "the name + aliases the admission bound, so collision computation is metadata-only against custody (D-012 clause 7) without re-reading manifests",
+          "status": "'active' | 'deprecated-alias-window' | 'retired' | 'revoked'",
+          "deprecation": "optional { oldName: string, deprecatedAtRelease: host-core release id, deprecatedAtDate: date, windowEndsNoEarlierThan: date } - carries D-012 clause 5's dual clock (>= 1 host-core minor cycle AND >= 90 days)"
+        }
+      },
+      {
+        "name": "retiredIds",
+        "type": "array of { stableId: UUID, provenance: object, retiredAt: timestamp, reason: string }",
+        "required": true,
+        "mayBeEmpty": true,
+        "semantics": "The never-readmit ledger: a retired ID is retained and never readmitted for a DIFFERENT component (same (ID, provenance) may return; a different provenance claiming a retired ID is RJ-1)."
+      },
+      {
+        "name": "reservedRootCommands",
+        "type": "array of strings",
+        "required": true,
+        "semantics": "The host's static reserved root-command list (D-012 clause 3, the prototype's ADR-0159 shape, PB-5). Recorded IN the index so reservation checks are metadata-only; a CI parity test between this list and the live host grammar is part of the negative-test evidence (TC-NAME-1)."
+      },
+      {
+        "name": "trustMetadata",
+        "type": "RESERVED BINDING POINT (typed null: { reserved: true, ridesOn: ['DR-112'] })",
+        "required": true,
+        "semantics": "Index signature envelope, delegated publisher/component namespace policy, metadata expiry, last-known revocation for air-gap/removable media, quorum/rotation/recovery state (SRC-03 independent-release trust enumeration). The index IS signed - that requirement is declared here - but every ceremony/state-machine semantic is DR-112's. The index's signing preimage rides ID-DEP-1 like the manifest's."
+      }
+    ],
+    "custodyRule": "Admission writes the manifest custody record (the manifest bytes at manifestDigest) and the registry custody record (the entry above) in one admission act; the uniqueness constraint holds between them (D-012 clause 1). Metadata-only admission: every check needed to admit or refuse - uniqueness, collisions, reservation, path rules, declaration presence, signature-digest match - is computable from manifest bytes plus this index, with NO component execution during discovery or admission (D-012 clause 7)."
+  },
+
+  "lockSchema": {
+    "name": "opensip-component-lock",
+    "purpose": "The exact-resolution record for a project/operation: which admitted component releases a resolution selected, as (stableId, provenance, version, digest) tuples, deterministically derived from declared inputs. Owning sentence, SRC-03 lines 37-39 verbatim: 'The project component lock records selected signed inputs and deterministic resolution, not secret values, user trust decisions, or self-granted authority. Its concrete schema is DR-103.'",
+    "fields": [
+      { "name": "lockSchemaVersion", "type": "integer >= 1", "required": true, "semantics": "DR-111 surface datum." },
+      {
+        "name": "resolutionInputs",
+        "type": "object { installId: UUID, indexDigest: sha256 of the index bytes consulted, platform: { os, arch }, hostCoreVersion: string, request: the resolved dependency roots as (stableId, versionConstraint) pairs }",
+        "required": true,
+        "semantics": "The complete declared input set. Determinism claim: identical resolutionInputs must yield a byte-identical lock - which is only fully statable once the canonical serialization dependency (ID-DEP-1) closes; until then the lock's determinism is defined at the tuple level (same tuples, same order), and the byte-level claim is EXPLICITLY conditional on that closure. Ordering rule: entries sorted by (stableId, version) so tuple-level determinism does not ride the open canonicalization."
+      },
+      {
+        "name": "resolved",
+        "type": "array of tuples { stableId: UUID, provenance: object, version: semver, manifestDigest: sha256, platformTreeEntryCount: integer, artifactDigests: array of { artifact: string, sha256: hex } }",
+        "required": true,
+        "semantics": "One tuple per selected component release: the (ID, provenance, version, digest) record the task's cell names, widened with the release's per-artifact digests (archive, detached signature envelope, declaration artifacts) so DR-G07 exact-byte verification and offline install (SRC-02 authoritative-closure bullets) are computable from the lock alone. Every digest is a plain sha256-of-bytes measurement.",
+        "closureRule": "The resolved set must be dependency-closed over the manifests' declared dependencies. If closing the set would require an edge no manifest declares, resolution REFUSES (RJ-5) and no lock is produced - a lock is never a record of an improvised closure."
+      },
+      {
+        "name": "exclusionsRecorded",
+        "type": "statement",
+        "required": true,
+        "semantics": "The lock records NO secret values, NO user trust decisions, and NO self-granted authority (SRC-03 verbatim). Trust decisions live in host consent/permission records (DR-105/DR-G09); secrets live behind handles (SRC-03 secret-value scope)."
+      }
+    ],
+    "alternatives": "Recording only direct dependencies (smaller lock, npm-style peer ambiguity) was rejected: SRC-02's offline-closure bullets require the exact selection installable on a clean machine, which needs the full closure in one signed-input record. Recording resolved TREES inline (self-contained lock) was rejected: manifestDigest already pins the tree commitment through the manifest bytes; duplicating it would create a second copy that can drift - the corpus's recorded drift mechanism."
+  },
+
+  "rejectionRules": {
+    "discipline": "Every rule is a TYPED REFUSAL: a stable refusal-code identity plus the refusing datum, emitted loudly at admission or resolution. Never silent shadowing, auto-renaming, warn-and-continue, partial admission, or silent fallback (D-012 clause 2; D-008 anti-fallback rule). Refusal codes are typed identities WITHIN this surface; their mapping to process exits/D9 is the host's D9/exit surface and is NOT defined here (DR-007 forbids inventing typed result/exit integration - ID-DEP-7).",
+    "rules": [
+      {
+        "id": "RJ-1",
+        "code": "REFUSE_DUPLICATE_STABLE_ID",
+        "trigger": "Admission of a manifest whose stableId already has a live index entry with different provenance, or matches a retiredIds entry with different provenance (the never-readmit ledger). Same (ID, provenance) at a new version is not a duplicate - it is a release.",
+        "warrant": "D-012 clause 1 + per-install universe + (ID, provenance) discriminator"
+      },
+      {
+        "id": "RJ-2",
+        "code": "REFUSE_NAME_COLLISION",
+        "subcodes": ["RESERVED_ROOT_COMMAND", "LIVE_NAME_COLLISION", "ALIAS_COLLISION", "ALIAS_SHADOWS_LIVE_OR_RESERVED", "ALIAS_CYCLE", "PARENT_LINKAGE_COLLISION", "PARENT_UNKNOWN_OR_CYCLIC", "MULTIPLE_ROOT_COMMANDS", "ID_VERSION_INDISTINCT"],
+        "trigger": "Any collision at admission over name, alias, or parent linkage against the reserved list, live names/aliases, or within the manifest's own command tree; more than one parent-less command; a version datum used as an identity key.",
+        "warrant": "D-012 clauses 2, 3, 5; prototype mechanism PB-5/PB-7 (rejected at admission, before mounting)"
+      },
+      {
+        "id": "RJ-3",
+        "code": "REFUSE_PATH_VIOLATION",
+        "trigger": "Any file reference anywhere in the manifest (tree entry paths, symlink targets, entrypoint, declaration paths, doctor-contract references) violating the pathRule: '..' or '.' segments, absolute paths, drive letters, backslashes, NUL, empty segments, non-NFC bytes, symlink escaping the tree, duplicate paths (byte, case-fold, or Unicode-normalization duplicate), or an entrypoint not present in the committed tree.",
+        "warrant": "SRC-02 exact-byte admission + DR-G07 hostile archive/path corpus; DR-120 hostile-path acceptance tests"
+      },
+      {
+        "id": "RJ-4",
+        "code": "REFUSE_SIGNATURE_INVALID",
+        "subcodes": ["UNSIGNED", "DIGEST_MISMATCH", "ENVELOPE_MISMATCH"],
+        "trigger": "A release presented without its detached signature envelope where the trust policy requires one; index-recorded manifestDigest not equal to the sha256 of the presented manifest bytes; artifact bytes not matching a lock/index-recorded digest; an envelope that does not verify over the canonicalized preimage. NOTE: which keys/namespaces/thresholds make an envelope VALID is DR-112's; this rule owns only the byte-level mismatch and absence classes, which are decidable without the ceremony.",
+        "warrant": "SRC-03 preserved signed-delivery laws; DR-G07 'verified bytes equal executed bytes'; scope split per whatThisDoesNotDo item 3"
+      },
+      {
+        "id": "RJ-5",
+        "code": "REFUSE_UNDECLARED_CLOSURE",
+        "trigger": "Resolution requiring a dependency edge no manifest declares; admission of a component whose declared closure references a stableId absent from the index with no lawful acquisition path; any attempt to satisfy a closure by ambient lookup or implicit download.",
+        "warrant": "D-008 refusal of ambient/implicit downloads AND typed remediation as separate obligations; SRC-02 offline-closure bullets"
+      },
+      {
+        "id": "RJ-6",
+        "code": "REFUSE_MALFORMED_MANIFEST",
+        "subcodes": ["UNKNOWN_KIND", "MISSING_REQUIRED_FIELD", "NON_UUID_STABLE_ID", "UNKNOWN_ROLE", "UNKNOWN_PERMISSION_TOKEN", "SELF_CLASSIFIED_CONFIGURATION", "RESERVED_FIELD_POPULATED"],
+        "trigger": "Structural invalidity, including populating a RESERVED BINDING POINT (stateMigration/updateData/treeRootDigest/trustMetadata) before its owning surface closes - reserved means reserved. Malformed inputs remain REPRESENTABLE for diagnosis (the prototype's raw-vs-admitted pattern, PB-1 RawToolPluginManifest) but are never admitted.",
+        "warrant": "PB-1 raw/admitted split; SRC-03 self-granted-authority and self-classification prohibitions"
+      }
+    ]
+  },
+
+  "testCorpusRequirements": {
+    "discipline": "These are REQUIREMENTS for the exact-byte acceptance corpus DR-103's cell names - fixture classes, not fixtures. Every fixture, when authored, is digest-pinned per file; every fixture states its expected outcome (ACCEPT, or exactly one refusal code + subcode); acceptance evidence retains the fixture bytes, the run, and the digests (file 08's no-evidence-no-claim rule). Authoring the fixtures is qualification-side work under DR-120's fixture-generation contract; this artifact defines what classes must exist for DR-103's cell to be satisfiable.",
+    "classes": [
+      { "id": "TC-ACCEPT", "requires": ["minimal valid manifest (every required field, empty optionals)", "maximal manifest (every designed field populated)", "approved-exception manifest (DR-119 typed-absence declarations + prerequisite block)", "multi-version coexistence pair (same stableId+provenance, two versions, both admitted - file 05's goldens class per D-012 clause 7)", "index carrying all of the above with custody records", "lock resolving a multi-component closure"], "byteRule": "Each accept fixture's stored bytes are digest-pinned; the admission digest recomputes to the pin." },
+      { "id": "TC-DUP", "requires": ["duplicate stableId, different provenance (RJ-1)", "retired-ID readmission by different provenance (RJ-1)", "same (ID, provenance) re-release (must ACCEPT - the discriminator's positive case)"] },
+      { "id": "TC-NAME", "requires": ["reserved root-command claim (name and alias forms)", "live-name collision", "alias collision and alias-shadows-live", "alias cycle", "parent-linkage collision and unknown/cyclic parent", "multiple root commands", "ID/version distinctness violation", "scope-precedence disclosure: dual-scope admission whose index custody yields the required shadowing disclosure", "TC-NAME-1: the reserved-list/live-grammar CI parity check (D-012 clause 3)"], "warrant": "the full D-012 clause 7 negative-test enumeration, every member present" },
+      { "id": "TC-PATH", "requires": ["'..' segment", "absolute path", "backslash separator", "drive letter", "NUL byte", "empty segment", "non-NFC path bytes", "symlink escaping the tree", "byte-duplicate path", "case-fold duplicate path", "Unicode-normalization duplicate path", "entrypoint absent from tree"], "byteRule": "Path fixtures are byte-exact by definition - several classes (NFC, case-fold, NUL) are indistinguishable at the rendered-text level and exist only as pinned bytes." },
+      { "id": "TC-SIG", "requires": ["unsigned release where policy requires a signature (RJ-4/UNSIGNED)", "single-byte flip in manifest bytes against the recorded manifestDigest (RJ-4/DIGEST_MISMATCH)", "artifact bytes vs lock digest mismatch", "envelope-over-wrong-preimage mismatch"], "scopeNote": "Ceremony-validity fixtures (wrong key, expired metadata, revoked namespace, threshold failure) belong to DR-112's corpus; requiring them here would design the ceremony. The boundary is stated, not silent." },
+      { "id": "TC-CLOSURE", "requires": ["undeclared dependency edge discovered at resolution (RJ-5)", "closure referencing an absent stableId (RJ-5)", "implicit-download attempt refused with typed remediation (D-008's two separate obligations: the refusal AND the remediation)"] },
+      { "id": "TC-METADATA-ONLY", "requires": ["no-execution-during-admission probe: an admission/discovery/help/completion/inventory pass over a fixture set containing an executable that records execution; the recorder must show zero executions (D-012 clause 7's probe)"] },
+      { "id": "TC-BYTE-EXACT", "requires": ["a fixture whose admission digest, index custody digest, and lock digest all recompute from stored bytes", "a reserved-field-populated fixture refused RJ-6/RESERVED_FIELD_POPULATED"], "scopeNote": "Canonicalization vectors (signing preimages) are OWNED by the canonical-JSON surface (ID-DEP-1) and are required of THIS corpus only after that surface closes with a binding profile; if it closes by disposition, the signing-preimage fixture class follows that disposition's terms - the D-002 symmetry clause applied to a test class." }
+    ]
+  },
+
+  "identityDependencies": {
+    "pattern": "Named per the D-002 symmetry-clause pattern: each dependency names the open surface it rides, presumes nothing settled, and if the named surface closes by scoped disposition rather than a binding artifact, the dependent feature here ships reduced, re-scoped, or waits, by that disposition's terms; none of it survives on prose.",
+    "dependencies": [
+      {
+        "id": "ID-DEP-1",
+        "feature": "Signing preimages for manifest and index ('manifests are canonicalized for signing' - declared, not defined)",
+        "ridesOn": "The canonical-JSON owning surface. Measured standing: canonical-json-profile.v1.json (sha256 6f7c906cb739a1313d68f5dd8bc31285d5f213c63649d3d54e1f9e88e5496710) is status CANDIDATE-NOT-APPLIED, binds NOTHING, with UR-1 (key-ordering plane) plus UR-2..UR-5 recorded UNDETERMINED at the vector level. This artifact invents NO canonicalization rule: no key-ordering, escaping, numeric, or normalization semantics are defined or implied here.",
+        "consequence": "Until that surface closes, signatures are specified over canonicalized bytes ONLY as a binding point; the lock's byte-level determinism claim is conditional (stated at lockSchema.resolutionInputs); tuple-level determinism does not ride it."
+      },
+      {
+        "id": "ID-DEP-2",
+        "feature": "Any identity derived from the capabilities block",
+        "ridesOn": "DR-006's park coverage, which names capabilityManifestId as a related identity gap with no producing rule (SRC-08). This schema derives no identity from capability declarations; the field is data, not a commitment.",
+        "consequence": "If a capability-manifest identity is ever needed (e.g. for DR-118 matrix pinning), it enters ONLY through the DR-006/EIR-lineage closure, and this schema gains it by successor, not by reinterpretation."
+      },
+      {
+        "id": "ID-DEP-3",
+        "feature": "Single-root tree commitment (treeRootDigest)",
+        "ridesOn": "DR-006/the identity-recipe property: a minted Merkle-style root is a derived identity requiring a producing recipe; the corpus records typescriptStdlibMerkleRoot as exactly this class with no rule (SRC-08, Exact DR-006 park coverage). The designed TreeCommitment is a list of plain per-entry sha256 measurements precisely so no recipe is minted.",
+        "consequence": "treeRootDigest stays a RESERVED BINDING POINT; populating it before its recipe closes is RJ-6."
+      },
+      {
+        "id": "ID-DEP-4",
+        "feature": "compatibility field value semantics and constraint language in dependencies[].versionConstraint",
+        "ridesOn": "DR-111 (per-surface compatibility matrices, OPEN). The manifest declares data; the matrices own meaning.",
+        "consequence": "Admission may check structural validity of these fields but must not evaluate windows until DR-111 closes."
+      },
+      {
+        "id": "ID-DEP-5",
+        "feature": "Signature envelope validity, delegated publisher/component namespaces, index trust metadata (expiry, last-known revocation, rotation, quorum, recovery)",
+        "ridesOn": "DR-112 (OPEN) and the preserved DELIVERY signed-delivery laws (SRC-03). RJ-4 owns only byte-level mismatch/absence, decidable without the ceremony.",
+        "consequence": "trustMetadata stays reserved; TC-SIG's ceremony classes belong to DR-112's corpus."
+      },
+      {
+        "id": "ID-DEP-6",
+        "feature": "capabilities[].roleSubprotocol / subprotocolVersion semantics",
+        "ridesOn": "DR-102 (common control transport and opaque subprotocol negotiation, OPEN). Tokens here are opaque names.",
+        "consequence": "No negotiation, framing, or translation semantics are implied by the manifest fields."
+      },
+      {
+        "id": "ID-DEP-7",
+        "feature": "Mapping refusal codes to process exits / D9 / typed results",
+        "ridesOn": "DR-007's successor chain (D9 gaps; 'V2 cannot define replay/purge/degradation typed result or exit') and DR-114's doctor schema.",
+        "consequence": "Refusal codes are surface-local identities; exit/D9 integration enters by the owning successor only."
+      },
+      {
+        "id": "ID-DEP-8",
+        "feature": "Producing manifests from language builds; conformance of adapters to this schema; fixture generation for the test corpus",
+        "ridesOn": "DR-120 (packaging contract and build-adapter template, OPEN) and DR-G15.",
+        "consequence": "This artifact defines the contract adapters must emit; the adapter template and its ergonomics are DR-120's to design."
+      },
+      {
+        "id": "ID-DEP-9",
+        "feature": "SARIF applicability advertisement in commands[].outputModes",
+        "ridesOn": "D-002's identity-dependencies section: SARIF for analyze rides DR-006's RunId/fingerprint closure; DR-122/DR-G17 own the projection contract.",
+        "consequence": "Declaring 'sarif' advertises applicability only; if DR-006 closes by disposition, dependent SARIF surfaces follow that disposition's terms (D-002's symmetry clause verbatim)."
+      }
+    ]
+  },
+
+  "namedDifferencesFromPrototype": [
+    {
+      "id": "DIFF-1",
+      "prototype": "stableId is OPTIONAL and additive ('Declared additively by tools that opt into durable identity', PB-1 lines 185-190); the primary manifest key is the human string id.",
+      "v2": "stableId is REQUIRED and is THE component identity; the human name is mutable metadata resolving through it.",
+      "reason": "D-012 clause 1 adopted the author-declared immutable UUID as the identity model with host-registry second custody; an optional identity cannot anchor the (ID, provenance) discriminator or the never-readmit ledger. ADR-0048 (PB-4) itself records the prototype's direction of travel toward exactly this."
+    },
+    {
+      "id": "DIFF-2",
+      "prototype": "Dual human keys: id (programmatic) AND identity.name AND name (display), held equal by a load-time drift guard that throws when they diverge (PB-6).",
+      "v2": "One name plus optional displayName.",
+      "reason": "The prototype's guard proves the three-way shape only holds by continuous assertion - a drift mechanism held shut by a runtime check. Collapsing the keys removes the invariant instead of guarding it. Alternative (keep the split for prototype-file compatibility) rejected: V2 manifests are a new surface; DR-130 owns migration posture, and slice 1 claims no upgrade continuity (D-010)."
+    },
+    {
+      "id": "DIFF-3",
+      "prototype": "Single integer contract epoch apiVersion with a [min,max] admission range (PB-1 lines 49-61).",
+      "v2": "manifestSchemaVersion for THIS document's schema plus a per-surface compatibility object; window semantics owned by DR-111.",
+      "reason": "SRC-02 forbids the shared same-version assumption the single epoch encodes ('no required same-version coupling among distribution core, component release, ... Compatibility is expressed by separate per-surface matrices under DR-111'). The prototype's integer-not-semver-range lesson is KEPT (both version data are bare integers/data, no range maths in the manifest)."
+    },
+    {
+      "id": "DIFF-4",
+      "prototype": "Provenance is a runtime-attached record: a source enum inferred from discovery location ('bundled'|'installed'|'user-global'|'project-local'), plus manifestHash as a post-hoc integrity note. No signatures anywhere in the manifest path (PB-1 lines 63-84, 287-302).",
+      "v2": "Provenance is a signed, author/publisher-declared manifest field (publisher namespace + closed sourceClass), verified against a detached signature envelope at admission; manifestDigest becomes index custody data.",
+      "reason": "SRC-02's packaging contract requires 'signed publisher provenance plus bound SBOM, attestation, license, and notice inventory'; location-inferred trust cannot express delegated namespaces (SRC-03) or survive offline/air-gap transport. The prototype's deny-by-default posture for the least-trusted class is retained as the general rule: nothing is admitted on location alone."
+    },
+    {
+      "id": "DIFF-5",
+      "prototype": "Command manifests mirror runtime CommandSpec MINUS two non-serializable members (handler, OptionSpec.parse) - a documented deliberate narrowing (PB-1 lines 87-146).",
+      "v2": "CommandSpec is pure data by construction; there is no runtime twin to narrow from, and admission is metadata-only with a no-execution probe (TC-METADATA-ONLY).",
+      "reason": "D-012 clause 7 makes metadata-only admission a policy clause, not an implementation convenience. The prototype already mounts external commands 'from the manifest ALONE'; V2 removes the possibility of the closure-shaped exception rather than documenting it."
+    },
+    {
+      "id": "DIFF-6",
+      "prototype": "No manifest declarations of licenses/SBOM/attestation/platform-qualification/capability-parity/performance; license exists only as a package.json field (PB-2); typed-but-not-consumed placeholders reserved for future catalog metadata (PB-1 lines 246-261).",
+      "v2": "The declarations object is REQUIRED with all six DR-119 members, each a digest-bound artifact reference or a typed absence under an approved exception.",
+      "reason": "D-008 accepted the DR-119 rule universally; the declaration set is its manifest half verbatim. The prototype's placeholder pattern (reserve fields, let the consuming release define shape) is retained for the members that remain open here (stateMigration, updateData, trustMetadata, treeRootDigest) - with the V2 hardening that populating a reserved field is a typed refusal instead of silently ignored data."
+    },
+    {
+      "id": "DIFF-7",
+      "prototype": "kind: 'tool'; the manifest lives in package.json#opensipTools or an npm-ecosystem sidecar; discovery walks node package structures (PB-1 fileoverview).",
+      "v2": "kind: 'component'; the manifest is a standalone document inside the signed release; no package-manager semantics reach admission.",
+      "reason": "SRC-02's adapter-boundary rule verbatim: 'Variation ends at the adapter boundary: admission, signing, exact-byte verification, lifecycle, offline use, and measurement consume the common contract rather than language-specific package-manager semantics.' The npm shapes remain as build-adapter INPUTS under DR-120."
+    },
+    {
+      "id": "DIFF-8",
+      "prototype": "The bundled-set list (PB-3) is an unsigned name array with no digests, custody, or admission records.",
+      "v2": "The index is a signed custody registry with per-entry digests, admission records, scope/shadowing disclosure data, a retired-ID ledger, and the reserved-command list.",
+      "reason": "D-012 clause 1's second custody record and SRC-02's 'authenticated metadata only' both require the index to be evidence, not configuration. The prototype file is retained as evidence of the first-party-set concept only."
+    }
+  ],
+
+  "whatThisDoesNotDo": [
+    "Does NOT close DR-103. The row closes only on independent review of this candidate plus the register's own process; this artifact is author-side material and its own header says AWAITING-INDEPENDENT-REVIEW.",
+    "Does NOT qualify anything. No claim here is QUALIFIED or DEMONSTRATED; the test-corpus section states requirements for future retained evidence, and no fixture exists yet.",
+    "Does NOT define the signing ceremony: key custody, thresholds, rotation, expiry, revocation, quorum loss, recovery, and envelope validity are DR-112's surface. This artifact defines binding points and byte-level mismatch refusals only.",
+    "Does NOT invent canonicalization. It declares that manifests/index are canonicalized for signing and names the dependency on the canonical-JSON owning surface (ID-DEP-1), whose profile artifact is CANDIDATE-NOT-APPLIED with UR-1 OPEN; no ordering, escaping, numeric, or normalization rule is defined or implied here.",
+    "Does NOT design state/migration, update/rollback/repair, replay/purge, or storage semantics: stateMigration and updateData are reserved binding points because DR-106/109/110/113 are deferred (D-002), and DR-007 forbids inventing typed result/exit integration.",
+    "Does NOT mint any identity recipe: no tree root digest, no capability-manifest identity, no release-commitment digest. Every digest in these schemas is a plain sha256 over exact stored bytes; derived identities are reserved to the DR-006/EIR lineage.",
+    "Does NOT extend the provenance/trust universe beyond slice 1's first-party/explicitly-trusted classes; widening is the DR-117/DR-010 successor's (with DR-116 for support/vulnerability policy), per D-012 clause 6.",
+    "Does NOT choose packagers, build tools, or adapter mechanics (DR-120), and does NOT decide DR-111 windows, DR-102 negotiation, DR-105 permission truth tables, or DR-114 doctor schemas.",
+    "Does NOT bind the host to these schemas: binds NOTHING. Application, if it ever happens, is a separate reviewed act under the standing route-A acceptance property (D-001 T2-02)."
+  ],
+
+  "reviewGuidance": {
+    "forTheIndependentReviewer": [
+      "Re-measure every digest in sources and measuredPrototypeBaselines; the prototype pin must equal a62509d623173155d0946e9f5d5ca90c839893e0 at review time (DR-203 custody caveats apply).",
+      "Check the coverageObligation claim: every member of SRC-02's manifest enumeration maps to a designed field or an explicitly reserved binding point - the claim is falsifiable by enumeration walk.",
+      "Check no clause contradicts D-012's adopted policy text (the D-012 review rejected two drafts for contradicting the pin; the clauses are restated here at their operative strength, not paraphrased down).",
+      "Check that no canonicalization semantics leak in anywhere (the encodingRule, signatureBinding, lockSchema determinism clause, and TC-BYTE-EXACT scopeNote are the four places to probe).",
+      "Check the rejection rules against D-012 clause 7's negative-test enumeration for completeness (TC-NAME claims every member present).",
+      "Probe the alternatives notes: each names a real other design and a reason; a note that cannot be argued back is a decoration, not an alternative."
+    ]
+  }
+}

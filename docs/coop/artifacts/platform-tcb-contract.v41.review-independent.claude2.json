@@ -1,0 +1,137 @@
+{
+  "artifact": "platform-tcb-contract.v41.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v41.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v41",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "ACCEPT",
+  "blockers": [],
+  "shouldFix": [],
+  "advisories": [],
+  "verdictBasis": "0 blockers, 0 SHOULD-FIX, which is the ACCEPT bar. Both Codex v40 blockers and all three of its SHOULD-FIX items are repaired, and both of my v40 SHOULD-FIX items with them. The builder attestation is now a fully specified Ed25519 construction whose preimage binds the member, the payload, the capability token, the release, the consume relation and the header kind, verified against a uniquely identified allowlist root. I attacked it on replay, bypass, root substitution, preimage malleability, format confusion and parse ambiguity and could not break it. The stale-reference sweep and the closed-roster check both return clean, the latter for the first time in three generations.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v40 vs v41 against the declared roster roots; regex enumeration of D-096 and STRUCTURAL PROOF; substring enumeration of role token, kexecSymbolAbsence, forbiddenUtf8, buildProvenance.kernelRelease and the notThis negations",
+
+  "custody": {
+    "subjectSha256Expected": "554de3700ad613dba49cd6d7768b3708233aa2a78502a35b06ca6e4e27ed04a4",
+    "subjectSha256AtStart": "554de3700ad613dba49cd6d7768b3708233aa2a78502a35b06ca6e4e27ed04a4",
+    "subjectSha256AtEnd": "554de3700ad613dba49cd6d7768b3708233aa2a78502a35b06ca6e4e27ed04a4",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 257828,
+    "subjectMovedDuringReview": false,
+    "predecessorV40Sha256": "9d029aad1ab74a98dc88f29ea23e250a408d9d3a8ac05bd42a60dcc15ec4a506",
+    "frozenClaudeV40Sha256": "8edd2e0ca2cd9425bcd5d2d63cba522c569035e1cc9b1afcb4e35181296ab628",
+    "frozenCodexV40Sha256": "59831abc5c8653d077aad1850523f269eafc56059d84f5a1e57109e2cf334f45",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v40 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v40 REJECT, and earlier the v36 ACCEPT that Codex correctly rejected and that I corrected in my v37 verdict. That earlier error shapes how I approached this one. At v36 I probed the extraction mechanism from the failure side, asking what malformed input would refuse, and did not ask what a well-formed adversarial input would do or what the search order preferred. This round I ran the adversarial questions explicitly and in order — forge, replay, bypass, substitute the root, malleate the preimage, confuse the format, exploit the parse — and I record each result below rather than reporting a general impression. I also record the residual trust assumption by name, because an ACCEPT that hides where trust sits is the same failure in a different costume.",
+
+  "whyThisIsAccept": {
+    "theProofChain": "Each link is an operation over authenticated inputs, and the chain closes. The member is pinned by unique relativePath and by sha256 equality to the manifest member. Those same bytes are tied to what ran, because peCoffImageDigest is recomputed from them and must equal kernelEvent.digestSha256, and kernelEvent is the transcript-authenticated PCR-4 application immediately following the boot-manager action for BootCurrent. The payload P is selected by the official same-PE header at pinned offsets with no alternate-header search, and must lie wholly in loaded sections. Capability then comes from a signature: builderAttestation is Ed25519 over a domain-separated message, ASCII opensip.tcb.builderAttestation.v1 followed by 0x00 followed by SHA-256 of a canonical compact JSON preimage whose keys are exactly memberSha256, peCoffImageDigest, payloadDigest, kexecCapability, kernelRelease, consumeRelation and headerKind in that order, extras rejected and insignificant whitespace excluded. It verifies under the 32-byte raw Ed25519 public key whose SHA-256 is builderRootDigest, which must equal the identityEvidence.digest of a four-field certificate-store DIGEST-BOUND allowlist member, with zero or more than one matching member refusing.",
+    "whyItCannotBeFaked": "The clause states the property that every earlier attempt lacked — 'The 64-byte signature is not a function of member bytes alone' — and unlike v40 the statement is now backed by a pinned algorithm, key format, message construction and signature size, with any other size or algorithm refusing. Critically, the verifier does not receive the preimage; it reconstructs it from its own observations of the member and P, so any disagreement between what the builder signed and what the verifier measures changes SHA-256(preimage) and the verification fails. That makes payloadDigest equality, member equality and release equality self-enforcing rather than separate comparisons that could be omitted.",
+    "whyThereIsNoBypass": "result.kexecCapability is kexec-absent if and only if builderAttestation verifies. The IKCONFIG absent branch, which is where a bypass would most naturally hide and which I checked first, ends with 'builderAttestation remains required' and forbids the extraction and serialization pipeline from running at all on that branch. The withdrawn symbol scan carries a single standing line saying it MUST NOT certify kexec-absent, and the artifact contains exactly one STRUCTURAL PROOF standing, on builderAttestation.",
+    "theConsumeRelation": "Codex's entry-to-payload blocker is closed by the third route Codex itself named. The builder signs payloadDigest together with the token official-header-same-pe and a headerKind drawn from exactly three pinned values, so the builder asserts that P is the payload this PE's official header names. A PE whose official header names a different payload yields a different payloadDigest in the verifier's reconstructed preimage and fails verification, which the clause states directly."
+  },
+
+  "adversarialChecksRun": [
+    {"check": "Forge a signature without the builder key", "result": "Not possible. Ed25519 under a key pinned by digest in the signed allowlist."},
+    {"check": "Replay a valid attestation from a different build or member", "result": "Refused. The preimage carries memberSha256, peCoffImageDigest and payloadDigest, so an attestation for other bytes does not verify against this member's reconstruction."},
+    {"check": "Reach kexec-absent without a verified signature, via the IKCONFIG absent branch", "result": "Refused. The absent branch keeps builderAttestation required and the capability is conditioned by an iff."},
+    {"check": "Substitute or duplicate the builder root", "result": "Refused. Zero or more than one matching allowlist member refuses, and builderRootDigest must equal the member's identityEvidence.digest, the signed object's field and the later event's field."},
+    {"check": "Malleate the preimage to change meaning while preserving the digest", "result": "Refused by construction. Canonical compact UTF-8 JSON with a fixed key order, extras rejected and no insignificant whitespace, under a versioned domain separator with a NUL delimiter."},
+    {"check": "Signature or key format confusion, including reusing a cdhash or package-db digest as the signature", "result": "Refused. The key is the exact 32-byte raw Ed25519 public key and is explicitly not a cdhash and not a package-db archive digest; the signature is 64 bytes and any other size or algorithm refuses."},
+    {"check": "Exploit an ambiguous release parse", "result": "Refused. kernelReleaseParse requires a unique linux_banner located by the exact byte prefix, takes the longest run over a pinned character set, bounds the length at 1..256, and refuses on zero or more than one banner."},
+    {"check": "Select a payload the entry does not consume", "result": "Refused. The official header at pinned offsets selects P with no alternate-header search, the range must lie wholly in loaded sections, and the builder signs payloadDigest with the consume relation and header kind."},
+    {"check": "A withdrawn mechanism retaining live standing beside its replacement", "result": "Not present. One STRUCTURAL PROOF standing exists; the symbol scan is a withdrawal statement only."},
+    {"check": "A removed field still dereferenced by a live clause", "result": "Not present. The single occurrence of buildProvenance.kernelRelease is inside a negation that names the field as removed."},
+    {"check": "A change outside the declared closed roster", "result": "Not present. 49 changed paths, zero off-roster, the roster now naming containing ancestors rather than exact paths."}
+  ],
+
+  "residualTrustNamedExplicitly": {
+    "whatRemains": "A builder holding the key whose SHA-256 is builderRootDigest can sign an attestation asserting kexec-absent for an image that is not. No clause in this contract can detect that, and none claims to.",
+    "whyThatIsAcceptableHere": "Both reviewers asked for exactly this. Codex PTCB-V37-B2 and PTCB-V38-B2 required 'a verifiable provenance statement signed by an identified and authorized builder', and my v38 blocker named builder-signed provenance as route one. Locating trust in a named, uniquely identified root carried in the signed allowlist is what a design contract can do; the alternative would be an independent code-capability analysis, which the row attempted at v39 and which failed for reasons both reviewers recorded.",
+    "whatIsOutOfScope": "Key management for the builder root, including issuance, rotation and revocation, and whether the same operator controls both the builder key and the closure-signing key. Those are deployment properties this contract neither addresses nor should be read as having settled."
+  },
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V40-B1 — no representable trust-root role and no verification algorithm",
+      "result": "REPAIRED, every element Codex enumerated. builderRoot is 'a four-field signedEntry already on the signed TCB allowlist: class exactly certificate store; identityEvidence tag exactly DIGEST-BOUND; identityEvidence.digest is SHA-256 of the exact 32-byte raw Ed25519 public key', with the invented role token removed and the removal stated twice — 'This is representable in the existing signedEntry schema; there is no role token on originSearchPolicy' and, in g22, 'Does not use an originSearchPolicy role token.' Algorithm, key format, message construction, signature size, domain separation, root uniqueness, builderRootDigest equality and a bounded unique release parse are all pinned. The vector set Codex asked for is reserved verbatim: valid Ed25519, wrong key, wrong member digest, altered kexec-absent token, malformed 64-byte signature, duplicate builderRoot, absent builderRoot, multiple linux_banner, official x86 header and decoy header elsewhere."
+    },
+    {
+      "finding": "PTCB-V40-B2 — the same-PE official-header clause asserted rather than verified payload consumption",
+      "result": "REPAIRED by the third route Codex offered. The preimage now carries payloadDigest, consumeRelation fixed to official-header-same-pe, and headerKind from a closed three-value set, and consumePredicate states the consequence: 'A PE whose official header names a different P fails payloadDigest equality.' Because the verifier reconstructs the preimage from its own P, that equality is enforced by the signature check itself rather than by a separate comparison."
+    },
+    {
+      "finding": "PTCB-V40-S1 / CLAUDE-V40-S1 — IKCONFIG branches conflicted with retained mandatory clauses, including a dereference of the removed buildProvenance field",
+      "result": "REPAIRED. ikconfig now carries a precedence sentence, 'GOVERNING over any earlier ikconfigPair/extract/kconfigSerialization text', the present branch states that extract and kconfigSerialization run only there, the absent branch says 'do not extract, do not serialize, do not refuse for absence', and kconfigSerialization carries 'when: presentBranch only. MUST NOT run on absentBranch.' My finding is closed in the same clause: utsRelease now reads that kernelRelease equality is 'builderAttestation.preimage.kernelRelease versus kernelReleaseParse of P, not signedObject.buildProvenance.kernelRelease (that field is removed)', which both repoints the comparison and records why."
+    },
+    {
+      "finding": "PTCB-V40-S2 / CLAUDE-V40-S2 — linuxStanding changed outside the closed roster",
+      "result": "REPAIRED, and by the containing-ancestor form rather than another exact path, which is what both Codex and I recommended and what should stop the recurrence. The roster now names /loaderTraces/objectAuthenticityBind/tags/linux-pathless and /identityEvidenceUnion. My diff of v40 against v41 found 49 changed paths and zero off-roster, the first clean result after three consecutive generations with exactly one escaping path."
+    },
+    {
+      "finding": "PTCB-V40-S3 — builderRootDigest was promised on the later event but absent from its closed shape",
+      "result": "REPAIRED. laterEventVariant now carries 'builderRootDigest: required on Linux; MUST equal signedObject.builderRootDigest and builderRoot.identityEvidence.digest' alongside builderSignature with its 64-byte size, and signedObject.linuxForm is restated as 'exactly {tag, pathlessObservation, measuredBootTranscriptDigest, kexecCapability, builderRoot, builderSignature, builderRootDigest} plus ikconfigDigest on the IKCONFIG present branch. extrasRejected. buildProvenance MUST NOT appear.'"
+    },
+    {
+      "finding": "Propagation into the scope and refusal surfaces",
+      "result": "PASS, and I checked this by reading the clauses rather than by token search, having first got a misleading negative from an over-literal grep. inScopeBootConfigs states that the official same-PE header selects a loaded-section payload and that builderAttestation verifies over that payload digest and the consume relation. refusesBootConfigs names the new failure modes individually — 'official-header or PE-join failure; missing kernel-builder-root; builderAttestation signature failure; preimage hash mismatch' — rather than relying on an umbrella. unavailableRefuses carries 'failed official-header/PE-join, builderAttestation failure, signed result.kexecCapability mismatch'. NT-TCB-KEXEC opens on builderAttestation failure and retains the kexec_loaded condition."
+    }
+  ],
+
+  "measurements": [
+    {"id": "M-1", "check": "Start and end custody, strict parsing", "result": "PASS. Subject 554de370... over 257828 bytes at 0444, unmoved start and end. Predecessor v40 and both frozen v40 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."},
+    {"id": "M-2", "check": "Pin-chain reproduction and predecessor-review replacement", "result": "PASS. All 63 path-bearing pins reproduce, zero failures. No predecessor review was replaced."},
+    {"id": "M-3", "check": "Closed v40-to-v41 change roster", "result": "PASS. 49 changed paths, ZERO off-roster, with containing ancestors named. reviewGuidance grew 205 to 211 as a pure prefix-preserving append."},
+    {"id": "M-4", "check": "Live register row, remeasurement, and D-002 scope", "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. All reMeasurementAtV41 pins reproduce at measuredAtHead 93ceaa6a. Both Linux targets remain in platforms.slice1; no deferral is minted."},
+    {"id": "M-5", "check": "Authority refusals", "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 38 D-096 occurrences are refusals, zero unmatched. DRTM and IMA remain excluded."},
+    {"id": "M-6", "check": "Cryptographic specification completeness", "result": "PASS. Algorithm, key format and size, message construction with versioned domain separation, signature size, root uniqueness and digest binding, canonical preimage with fixed key order, and a bounded unique release parse are all pinned, each with a stated refusal."},
+    {"id": "M-7", "check": "Absence of a path to kexec-absent without verification", "result": "PASS. The iff condition, the absent-branch requirement and the single structural-proof standing all hold."},
+    {"id": "M-8", "check": "Stale-reference sweep", "result": "PASS. Every occurrence of role token, kexecSymbolAbsence, buildProvenance.kernelRelease, constant token and procfs-as-structural is a negation, a reviewGuidance attack line or a historical repair record; forbiddenUtf8 is gone entirely."}
+  ],
+
+  "whatThisAcceptDoesNotMean": [
+    "Does not mark DR-126 SATISFIED. The register row stays OPEN. This is a review verdict on a candidate, and recording or adopting it is a separate coordinator decision under the D-000 protocol requiring both independent verdicts at 0/0.",
+    "Does not seal or apply the subject, which remains CANDIDATE-NOT-APPLIED, binds NOTHING, and carries DO-NOT-SEAL.",
+    "Does not QUALIFY G22, whose standing remains NAMED-NOT-QUALIFIED, and does not assert that the reserved vectors exist; they are named as qualification evidence and are outside this contract.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1; the profile narrows which Linux machines can qualify and says so in all three scope clauses.",
+    "Does not settle key management for the builder root, nor assert that the builder and closure signers are distinct operators.",
+    "Does not certify the macOS or file-backed surfaces beyond the unchangedness check this round's roster required."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV41ReviewerRead": false,
+    "otherReviewerNote": "The Codex v41 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v40 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v40 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed both predecessor verdicts' findings, the cryptographic specification and its propagation, the IKCONFIG branch structure, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness, and the roster is accurate this round. My assessment of the signature construction rests on the properties the clause pins — algorithm, key encoding, message framing, canonical serialization and the verifier's reconstruction of the preimage — not on execution against a live signer. The reserved G22 vectors, including the ten Codex named for this mechanism, remain unpopulated and were not evaluated; ACCEPT here is a verdict on the contract, not on evidence that does not yet exist.",
+
+  "summary": "ACCEPT at 0 blockers and 0 SHOULD-FIX. Custody is clean throughout: subject unmoved at 554de370... and 0444 at start and end, HEAD never left 93ceaa6, all 63 chain pins reproduce, both frozen v40 verdicts reproduce with no replacement, the sole DR-126 row is quoted byte-exactly, every remeasurement pin reproduces, and all 38 D-096 occurrences are refusals. Every finding from both v40 verdicts is repaired. The trust root is now representable in the existing schema as a four-field certificate-store DIGEST-BOUND entry over the exact 32-byte raw Ed25519 public key, with the invented role token removed and its removal stated in two places; the signature is Ed25519 over a versioned, NUL-separated domain string and the SHA-256 of a canonical compact JSON preimage with a fixed key order; and that preimage now binds the member digests, the payload digest, the capability token, a uniquely parsed and bounded kernel release, the consume relation and the header kind. Because the verifier reconstructs the preimage from its own measurements, every one of those equalities is enforced by the verification itself rather than by a separate step that could be skipped. Codex's entry-to-payload blocker is closed by the third route Codex named, since the builder now signs the payload digest together with official-header-same-pe. The IKCONFIG branches gained a governing sentence and a conditional pipeline, my stale dereference is repointed with the removed field named, builderRootDigest reached the later event's closed shape, and the roster was widened to containing ancestors, producing zero off-roster paths for the first time in three generations. I ran the adversarial questions individually — forge, replay, bypass through the absent branch, root substitution, preimage malleability, format confusion, parse ambiguity, payload substitution — and recorded each result; none succeeded. What remains is a trust assumption rather than a gap, and I name it rather than leave it implicit: a builder holding the rooted key can attest falsely, which no clause here detects and none claims to, and which is precisely the construction both reviewers asked for after the alternatives were exhausted. ACCEPT is a verdict on this candidate only: DR-126 stays OPEN, the artifact stays CANDIDATE-NOT-APPLIED and DO-NOT-SEAL, G22 stays NAMED-NOT-QUALIFIED with its vectors unpopulated, and nothing here authorizes docs/v2/implementation/ or mints a D-096 (A) grant."
+}

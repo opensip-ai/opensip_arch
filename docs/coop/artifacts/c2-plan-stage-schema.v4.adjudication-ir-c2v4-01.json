@@ -1,0 +1,372 @@
+{
+  "artifact": "c2-plan-stage-schema.v4.adjudication-ir-c2v4-01",
+  "version": 1,
+  "date": "2026-08-03",
+  "adjudicator": "independent adjudicator, no authorship of check-c2-v4.py, c2-plan-stage-schema.v4.json or the pre-freeze review",
+  "adjudicates": [
+    "c2-plan-stage-schema.v4.review-independent-prefreeze.json"
+  ],
+  "findingId": "IR-C2V4-01",
+  "findingTitle": "_integer_guard_scan is syntactic, not semantic: it establishes that the repaired exact-type guards are present in the source, not that every admission path reaches one",
+  "raisedBy": "c2-plan-stage-schema.v4.review-independent-prefreeze.json (graded MAJOR, blocking=false)",
+  "disposition": "BLOCKING",
+  "dispositionOverridesRaisingReview": true,
+  "resolves": {
+    "IR-C2V4-01": "REJECTED-AS-NON-BLOCKING — regraded BLOCKING on measured evidence"
+  },
+  "summary": "The finding is upheld and REGRADED from MAJOR non-blocking to BLOCKING. The pre-freeze review established that _integer_guard_scan is evadable but concluded that no false accept is reachable on the frozen bytes. That conclusion is false, and it is false for the same reason the instrument is weak: the review's own widening and its 'exhaustive' sweep both retained the author's numeric model, in which a numeric operand must be an ast.Constant (the review widened it only to module-level names bound to numeric constants). Neither the instrument nor the audit of the instrument can see a comparison of a wire-sourced value against a COMPUTED integer. Three such comparisons exist in the frozen bytes, all three inside the scan's own declared 69-function reachable closure, and 48 wire-sourced integer positions are read through them. I drove them to a full green banner and exit 0 in BOTH normal and --selftest mode, with ZERO modification to check-c2-v4.py, using only the wire input the checker exists to validate. The minimal reproduction is a SINGLE character-level edit to the candidate contract. Under IMPLEMENTATION-FREEZE.md section 7 that is the evaluation-proof.v9 grading, not the grading of the seven.",
+  "whatIsNotBeingSaid": [
+    "LB-C2-01 itself is genuinely and completely repaired at the wire-validator surface. I verified this by execution and it is not in dispute — see reachabilityVerdict.lbC201RepairConfirmed.",
+    "The seven pinned planIntentCommitment vectors are unmoved, under this checker and independently under the pinned v3 encoder check-c2.py.",
+    "This blocker is NOT against the exact-type guards. It is against the scan's advertised scope and against three unguarded admission sites the scan's own claim quantifies over. The repair must not touch the guard helpers.",
+    "The pre-freeze review's core defence-in-depth argument is correct FOR THE CLASS IT TESTED: every source-indirection evasion of the scan is caught by the behavioural census layer. I reproduced that result. It does not hold for this class, because here the behavioural layer IS the layer carrying the gap, and there is no third layer behind it."
+  ],
+  "decisionRuleApplied": {
+    "source": "IMPLEMENTATION-FREEZE.md section 7, 'Why evaluation-proof.v9 is graded differently from the seven above'",
+    "quotedVerbatim": "The distinction is not severity of intent but whether the overstatement is *reachable*. The seven were graded non-blocking because a reviewer verified, at the AST level, that the frozen bytes contain no indirection for the gap to admit — the rule is true of those bytes even though the instrument establishing it is weaker than claimed. In v9 the gap was demonstrably reachable: an evasion satisfied the scan's own routing rule, kept its liveness counter ticking, and the checker printed `C-2 join RE-PINNED onto c2-plan-stage-schema.v4.json` while routing measured `{v3: 1, v4: 0}`. **The test is reachability on the actual bytes, not the category of the instrument.** A syntactic scan is not automatically advisory, and a residual graded advisory today becomes blocking the moment a successor introduces the indirection it cannot see.",
+    "questionAsPosed": "On the frozen bytes of check-c2-v4.py, is there any admission path that reaches a comparison without passing a repaired exact-type guard?",
+    "answer": "YES. Three comparison sites, 48 wire-sourced integer positions, inside the scan's own declared reachable closure, demonstrated to a green banner with no source modification.",
+    "whyThisIsTheV9GradingAndNotTheSevens": "The seven were advisory because the gap's blind spot was EMPTY on the frozen bytes — an evasion had to be constructed by editing the source. Here the blind spot is OCCUPIED on the frozen bytes: the unguarded comparison is already written, already reached on every ordinary invocation, and the evasion requires editing only the input document. This is strictly stronger than evaluation-proof.v9, where the evasion still required mutating the checker."
+  },
+  "reachabilityVerdict": {
+    "verdict": "REACHABLE — FALSE ACCEPT DEMONSTRATED",
+    "theUnguardedSites": [
+      {
+        "location": "check-c2-v4.py line 2487, function _census_findings",
+        "code": "if row.get(key) != value:",
+        "context": "for key, value in measured[\"census\"].items():  — `row` is bound at line 2479 from `declared.get(name)`, where `declared` is built from `c[\"hostileScalarLeafTotality\"][\"surfaces\"]`, i.e. the UNPINNED candidate contract. `value` is a measured Python int.",
+        "whyTheScanCannotSeeIt": "_numeric_literal (line 1406) requires isinstance(node, ast.Constant). `value` is an ast.Name bound by a for-target, so _numeric_literal returns False and the site is never emitted. _is_wire_expression correctly identifies row.get(key) as wire; the miss is entirely in the numeric model."
+      },
+      {
+        "location": "check-c2-v4.py line 2493, function _census_findings",
+        "code": "if row.get(key) != measured[\"stats\"][key]:",
+        "context": "covers executedCases, unguardedEscapes, guardedEscapes, silentAccepts, admitThenRaise, typeDistinctConstantAdmissions",
+        "whyTheScanCannotSeeIt": "right operand is an ast.Subscript, not an ast.Constant"
+      },
+      {
+        "location": "check-c2-v4.py line 2517, function _census_findings",
+        "code": "if root_row.get(key) != value:",
+        "context": "for key, value in root_census.items():  — `root_row` is c[\"hostileScalarLeafTotality\"][\"contractRoot\"]",
+        "whyTheScanCannotSeeIt": "same as line 2487"
+      }
+    ],
+    "siteIsInsideTheScansOwnDeclaredScope": {
+      "measured": true,
+      "method": "recomputed the author's own _reachable(_module_functions(tree), INTEGER_SCAN_ENTRYPOINTS) over the frozen bytes",
+      "result": "_census_findings IS in the author's reached set; so are _check, _check_fixtures, measure_surfaces, measure_contract_root and node_census. Reached set size minus the 7 GUARD_HELPERS = 69, which equals the scannedFunctions figure the checker publishes.",
+      "consequence": "The site is not outside the claim. It is inside the claim and the scan reports it clean."
+    },
+    "claimFalsified": {
+      "checkC2V4Docstring_lines19to22": "Repaired here by exact-type guards AND by a scan of this checker's own syntax tree that refuses any bare numeric comparison against a wire-sourced value anywhere in the reachable validator closure, so a fifth site cannot be added silently.",
+      "measuredTruth": "There are 48 wire-sourced integer positions read through a bare numeric comparison inside that closure. The scan refuses none of them. A fifth site was in fact added silently: the eight fields enumerated in c2-plan-stage-schema.v4.json planIntent.integerConstantFields include planIntentTotalityMatrix.caseCount (which IS type-guarded by is_wire_int at line 2196) but omit the entire hostileScalarLeafTotality counter block (which is NOT type-guarded at all)."
+    },
+    "demonstratedFalseAccepts": [
+      {
+        "id": "FA-1-minimal-single-edit",
+        "sourceModification": "NONE — check-c2-v4.py byte-identical at 54ff764d155f5582bc66fd7bf8138b7eaed5f90f46b92975c4bc7a85ffb3df17",
+        "inputModification": "ONE edit: hostileScalarLeafTotality.contractRoot.scalarLeafPaths changed from the JSON integer 2538 to the JSON number 2538.0",
+        "compensationRequired": "NONE",
+        "normalModeExit": 0,
+        "normalModeBanner": "C-2 v4 contract OK — c2-plan-stage-schema.v4.json ...",
+        "note": "2538.0 != 2538 is False in the host language. This is character-for-character the LB-C2-01 defect (1.0 == 1) that made v3 a REJECT, at a position the contract itself declares must be a published measured count.",
+        "replicatedAt": [
+          "contractRoot.enumeratedPaths := 3332.0 -> exit 0",
+          "contractRoot.scalarLeafPaths := 2538.0 -> exit 0",
+          "surfaces[plan-intent].enumeratedPaths := 473.0 -> exit 0"
+        ]
+      },
+      {
+        "id": "FA-2-boolean-at-the-self-referential-counter",
+        "sourceModification": "NONE",
+        "inputModification": "hostileScalarLeafTotality.surfaces[coverage].typeDistinctConstantAdmissions changed from the JSON integer 0 to the JSON boolean false, plus republication of contractRoot.noOpInjections 170->169 and contractRoot.executedCases 23723->23724",
+        "whyTheCompensationIsNeededAndWhyItIsNotCheating": "Changing an int to a bool at any position of the contract shifts the CONTRACT-ROOT path census by one no-op, because CONTRACT_HOSTILE_VALUES contains ('integer', 0) and _same_leaf is type-exact. That produces two unrelated arithmetic findings. Republishing the two drifted counters at their newly measured values is exactly what an honest author republishing a changed document does; it evades no guard. FA-1 needs no compensation at all because a float substitution at a value other than 0 or 1.0 is no-op-neutral.",
+        "normalModeExit": 0,
+        "selftestExit": 0,
+        "selftestBanner": "SELFTEST-PASS: all 68 retained cases rejected — the proof path is load-bearing",
+        "mutatedContractSha256": "080f3d78e4670f7f0b77458ac900a8869623e11b16041baac171faefc08127c1",
+        "admittedPublication": "coverage.typeDistinctConstantAdmissions = false (JSON boolean)",
+        "contractsOwnStatedRequirement": "No type-distinct spelling of a declared integer constant may be admitted. Required value 0.",
+        "note": "The counter admitted in a type-distinct spelling IS the counter whose declared meaning is that no type-distinct spelling of a declared integer constant may be admitted."
+      },
+      {
+        "id": "FA-3-nine-position-combined",
+        "sourceModification": "NONE",
+        "inputModification": "all three surfaces: typeDistinctConstantAdmissions := false, admitThenRaise := false, unguardedEscapes := 0.0",
+        "normalModeExit": 0,
+        "selftestExit": 0,
+        "concurrentScanReport": {
+          "scannedFunctions": 69,
+          "guardHelperCallSites": 30,
+          "unguardedNumericComparisons": 0,
+          "unguarded": [],
+          "missingEntrypoints": []
+        },
+        "concurrentTotalBoundaryScan": {
+          "declaredBoundaries": 7,
+          "guardedDispatches": 7,
+          "unguardedDispatches": 0
+        },
+        "note": "This is the exact evaluation-proof.v9 signature: the scan publishes its clean figures to the digit while the checker prints a full green banner over a defective input."
+      }
+    ],
+    "whatTheFalseAcceptDoesAndDoesNotLaunder": {
+      "doesLaunder": "The publication-fidelity property — 'the published census equals the measured census'. That is precisely the property IMPLEMENTATION-FREEZE.md section 7 makes mandatory for every successor: 'Any successor publishing a totality or coverage claim must enumerate and inject at scalar leaf positions, not containers only, and must publish measured counts rather than a declared target.' The instrument that enforces it admits a JSON boolean or a JSON float in place of the JSON integer, at 48 positions.",
+      "doesNotLaunder": "The substantive runtime property. Lines 2496-2511 fire named findings off measured['stats'] directly, independent of the published row, so a REAL nonzero escape or admission still produces a named LB-C2-01 / LB-C2-04 / C2V4-TOTALITY finding. I verified this: the selftest source-mutation battery still rejects all 68 retained cases under the false accept.",
+      "whyThatDoesNotRescueTheGrading": "Section 7's test is reachability of the overstatement, not the blast radius of the payload. The seven advisory residuals were advisory because NO false accept was reachable, not because the reachable one was small. evaluation-proof.v9 was blocking on a green banner over a routing counter, which is likewise an instrument-fidelity property rather than a runtime one. Grading this advisory because the payload is a published integer rather than a runtime admission would be inventing a severity test that section 7 explicitly declines to use."
+    },
+    "lbC201RepairConfirmed": {
+      "verdict": "GENUINELY REPAIRED at the wire-validator surface — no part of this blocker touches it",
+      "callConvention": "validate_plan_intent(intent, c, relations) with relations = set(fact_plane['relationRegistry']['relations']); 12 relations loaded from fact-plane.v1.json",
+      "baseFixture": "valid-minimal-analysis-intent (intentKind=analysis), validates clean under the control",
+      "schemaVersionPositions": {
+        "PlanIntent.schemaVersion": {
+          "true": "REJECTED", "false": "REJECTED", "1.0": "REJECTED", "\"1\"": "REJECTED",
+          "0": "REJECTED", "2": "REJECTED", "null": "REJECTED", "0.0": "REJECTED",
+          "-1": "REJECTED", "\"\"": "REJECTED", "{}": "REJECTED", "[]": "REJECTED",
+          "1 (control)": "ADMITTED, encodes to sha256:dca3a310674308c9bb951c5..."
+        },
+        "analysis.admissionDescriptor.schemaVersion": {
+          "true": "REJECTED", "false": "REJECTED", "1.0": "REJECTED", "\"1\"": "REJECTED",
+          "0": "REJECTED", "2": "REJECTED", "null": "REJECTED", "0.0": "REJECTED",
+          "-1": "REJECTED", "\"\"": "REJECTED", "{}": "REJECTED", "[]": "REJECTED",
+          "1 (control)": "ADMITTED"
+        }
+      },
+      "scalarLeafTotalitySweep": {
+        "surface": "plan-intent, valid-minimal-analysis-intent",
+        "enumeratedPaths": 98,
+        "scalarLeafPathsRoundTripVerified": 70,
+        "injectionValues": 13,
+        "executedCases": 904,
+        "unguardedValidatorRaises": 0,
+        "guardedValidatorRaises": 0,
+        "admitThenRaise": 0,
+        "typeDistinctConstantAdmissions": 0
+      },
+      "sevenPinnedCommitments": {
+        "declaredValidFixturesWithExpectedCommitment": 7,
+        "movedUnderThisChecker": 0,
+        "reproducedUnderPinnedV3Encoder": "7/7 under check-c2.py at 4f31d57cd1cd252d47eeb520aa31b5fe8c4fd3b0f0f067a6840b008b1fe176f3",
+        "vectors": [
+          "valid-explicit-general-authority-forms OK",
+          "valid-full-profile-semantic-providers OK",
+          "valid-minimal-analysis-intent OK",
+          "valid-stored-view-list-artifacts-no-attempt OK",
+          "valid-stored-view-read-artifact-no-attempt OK",
+          "valid-stored-view-read-fact-view-no-attempt OK",
+          "valid-stored-view-show-run-no-attempt OK"
+        ]
+      }
+    }
+  },
+  "enumeration": {
+    "allCountsMeasuredThisRun": true,
+    "subject": "check-c2-v4.py at 54ff764d155f5582bc66fd7bf8138b7eaed5f90f46b92975c4bc7a85ffb3df17, 159521 bytes, 3238 lines",
+    "functionUniverse": {
+      "topLevelFunctionDef": 143,
+      "topLevelAsyncFunctionDef": 0,
+      "classes": 6,
+      "classesNamed": ["AuthorityLoadError", "PinMismatch", "UnsupportedInvocation", "_VerifiedSourceLoader", "Authority", "_TupleToSet"],
+      "classMethods": 7,
+      "nestedDefsAtAnyDepthIncludingMethods": 11,
+      "lambdas": 11,
+      "totalFunctionLikeNodesExcludingLambdas": 154,
+      "totalFunctionLikeNodesIncludingLambdas": 165,
+      "note": "The author's _module_functions sees only the 143 top-level FunctionDefs. The pre-freeze review reported 154; that figure excludes lambdas. My widened scan ran over all 165."
+    },
+    "callSiteShapes": {
+      "total": 1548,
+      "astNameCallee": 733,
+      "astAttributeCallee": 815,
+      "otherCallee": 0,
+      "note": "confirms the review: no Subscript-callee, Call-callee or Starred dispatch anywhere"
+    },
+    "indirectionPrimitives": {
+      "getattrForFunctionDispatch": 0,
+      "getattrTotal": 1,
+      "getattrOnlyUse": "getattr(node, 'lineno', 0) at line 1441 — an AST attribute default, not dispatch",
+      "evalUses": 0,
+      "execUses": 2,
+      "execOnlyUses": "line 143 (_VerifiedSourceLoader.exec_module) and line 2953 (_execute_tree) — the two verified-snapshot loaders",
+      "globalsVarsLocalsImportForDispatch": 0,
+      "decoratorsOnAnyDefOrClass": 0,
+      "moduleLevelFunctionAliases": 0
+    },
+    "guardHelperReferences": {
+      "helpers": ["is_wire_int", "exact_int", "int_in_range", "_schema_version_ok", "_descriptor_schema_version_ok", "_plan_schema_major_ok", "_coverage_schema_version_ok"],
+      "totalAstNameReferencesModuleWide": 38,
+      "ofWhichDirectCalls": 38,
+      "ofWhichBareNonCallReferences": 0,
+      "attributeAccessReferences": 0,
+      "getattrByNameReferences": 0,
+      "dispatchTableEntries": 0,
+      "comprehensionOrWalrusOrTupleUnpackBindings": 0,
+      "innerFunctionOrClassMethodDefinitions": 0,
+      "stringLiteralOccurrences": "only in the GUARD_HELPERS tuple (lines 1330-1332) and in the four SOURCE_MUTATIONS _replace_body targets (lines 2867, 2871, 2875, 2932)",
+      "everyReferenceIsDirect": true,
+      "verdict": "This is the enumeration that made the seven advisory gradings defensible, and on these bytes it PASSES: all 38 references are direct calls. It is not the axis on which this finding turns.",
+      "guardHelperCallSitesInsideTheReachedClosure": 30
+    },
+    "authorsOwnScanOnFrozenBytes": {
+      "scannedFunctions": 69,
+      "guardHelperCallSites": 30,
+      "unguardedNumericComparisons": 0,
+      "missingEntrypoints": 0
+    },
+    "reachability": {
+      "authorsReachedSetIncludingGuardHelpers": 76,
+      "authorsScannedFunctions": 69,
+      "myWidenedReachedSet": 93,
+      "reachedOnlyByMyWiderModel": ["_execute_snapshot", "_execute_tree", "_is_relative_path", "_parse_argv", "exec_module", "intent_extra", "json", "load_authority", "main", "module", "report", "run_contract_mutations", "run_generator_narrowing", "run_source_mutations", "selftest", "visit", "walk"],
+      "confirmsReviewsIsRelativePathObservation": true
+    },
+    "exhaustiveNumericLiteralComparisonSweep": {
+      "method": "every ast.Compare in the whole module, ANY operator, ANY depth, no taint model and no reachability model, having a numeric-literal operand",
+      "count": 7,
+      "sites": [
+        "line 460 _is_semver: len(value.encode('utf-8')) <= 96",
+        "line 1399 _tainted_names: len(node.targets) == 1",
+        "line 1574 selftest_reachability_scan: sum((1 for n in subject.body if isinstance(n, ast.FunctionDef) and n.name == 'main')) == 1",
+        "line 3016 run_source_mutations: broken > 0",
+        "line 3016 run_source_mutations: clean == 0",
+        "line 3067 selftest: len(base_findings) > 10",
+        "line 3178 _parse_argv: len(positional) > 1"
+      ],
+      "allSevenComparePythonInternalIntegers": true,
+      "comparisonsAgainstModuleLevelNumericNamedConstants": 0,
+      "membershipTestsAgainstContainersHoldingNumericLiterals": 0,
+      "verdict": "I reproduce the pre-freeze review's sweep exactly. It is correct — and it is the wrong sweep, because a comparison against a COMPUTED integer contains no numeric literal and is therefore invisible to it. The review's audit inherited the narrowing of the instrument it was auditing."
+    },
+    "theSweepTheReviewDidNotRun": {
+      "method": "every ast.Compare in every one of the 165 function-like nodes, with a fixpoint taint model covering args, kwonly, vararg, kwarg, single- and multi-target Assign, AnnAssign, AugAssign, NamedExpr (walrus), tuple/list unpack, Starred, for-targets, comprehension targets, with-targets, nested-function and lambda parameters, and .get()/.pop()/.setdefault()/next()/getattr()/iter() results — asking not 'is the other operand a numeric literal' but 'can the other operand be an integer at all'",
+      "eqNeqSitesWhereAWireOperandMeetsAPossiblyNumericNonLiteralOperand": 61,
+      "ofWhichCarryWireSourcedIntegersInPractice": 3,
+      "theThree": ["line 2487", "line 2493", "line 2517"],
+      "wireIntegerPositionsReadThroughThoseThreeSites": 48,
+      "positionsCurrentlyValued0or1AndThereforeBooleanExploitable": 16,
+      "positionsFloatExploitable": "all 48 — n.0 != n is False for every int n; verified by execution at 3 of them",
+      "byContrastGuardedElsewhere": "lines 2196-2199 read planIntentTotalityMatrix.caseCount / noOpInjections / executedCases through is_wire_int before comparing. The author applied the type guard to ONE published-counter block and not to the other. That inconsistency is the defect."
+    },
+    "otherAdmissionPathsCheckedAndFoundGuarded": {
+      "PlanIntent.schemaVersion": "line 886, _schema_version_ok -> exact_int(value, 1) -> is_wire_int and value == constant. GUARDED EXACTLY.",
+      "AdmissionDescriptorV1.schemaVersion": "line 664, _descriptor_schema_version_ok. GUARDED EXACTLY.",
+      "planIdentityInputs.planSchemaMajor": "line 1219, _plan_schema_major_ok. GUARDED EXACTLY.",
+      "Coverage.schemaVersion": "lines 959-960, _coverage_schema_version_ok. GUARDED EXACTLY.",
+      "Coverage integer wire type": "line 968, is_wire_int. GUARDED.",
+      "resolvedConfiguration[*].decidingLayer": "line 694, int_in_range(entry['decidingLayer'], 1, 6). GUARDED.",
+      "StageBudgetV1.limit / descriptor budgets": "lines 526, 817, 822, int_in_range. GUARDED.",
+      "bounded parameter scalars and sizes": "lines 475, 484, 488-499, 518, int_in_range / is_wire_int. GUARDED.",
+      "contract version / supersedes": "line 1935, exact_int(c.get('version'), 4) and exact_int(c.get('supersedes'), 3). GUARDED.",
+      "planIntentTotalityMatrix counters": "lines 2196-2199, is_wire_int before each comparison. GUARDED.",
+      "line1215DescriptorFieldEquality": "inputs.get(field) != descriptor[field] over 9 fields — measured operand types are dict/str/list only, zero scalar-int fields, so not LB-C2-01-exploitable. CHECKED, CLEAN.",
+      "line224PinnedReviewBlockingFindingCount": "review.get('blockingFindingCount') != 2 is a bare numeric comparison, but c2-plan-stage-schema.v3.review-independent-livebytes.json is hash-pinned at load, so no type variant can be introduced. NOT REACHABLE.",
+      "enumMembersAndDiscriminants": "intentKind, stage kind, stage operator, subjectScope, lineage state, retention onUnavailable, id grammars — all compared against strings or routed through isinstance guards (_stage_kind_ok, _stage_operator_ok, _subject_scope_shape_ok, _coverage_relation_is_checkable). String equality is type-exact in the host language. CHECKED, CLEAN."
+    }
+  },
+  "evasionAttempts": [
+    {
+      "id": "A-source-indirection-battery",
+      "what": "8 variants replacing the single line `if not _schema_version_ok(intent.get(\"schemaVersion\")):` in _validate_plan_intent, each reintroducing the LB-C2-01 defect through a different indirection: V0 direct inline `!= 1`, V6 walrus, V1 module-level alias, V8 module-level named constant, V9 `not in (1,)` membership, V10 class method, V11 module-level lambda, V3 dict dispatch table.",
+      "result": "7 of 8 EVADED the scan (scanReported 0) while restoring a live false accept — validate_plan_intent returned zero findings for schemaVersion true AND 1.0. Only V0 direct inline was reported.",
+      "behaviouralBackstop": "ALL 7 evading variants were caught by the behavioural census layer, 5 named findings each.",
+      "conclusion": "Reproduces the pre-freeze review's central result and CONFIRMS its defence-in-depth argument for this class. This class alone would justify NON-BLOCKING-REQUIRED-HARDENING. It is not why this adjudication is BLOCKING."
+    },
+    {
+      "id": "B-naive-census-type-confusion",
+      "what": "48 mutations: every one of the 16 census counters currently valued 0 or 1, each spelled as a JSON boolean, a JSON float and a JSON string.",
+      "result": "48 of 48 rejected, exit 1 — BUT NOT BY THE COMPARISON. Inspection of the finding text showed the rejections were unrelated arithmetic drift in the self-referential contract-root path census (`contractRoot.noOpInjections is published as 170 but this run measured 169`). The boolean itself passed the `!=` silently, exactly as `False != 0` requires.",
+      "conclusion": "A near miss that would have read as a clean defence if the finding text had not been inspected. Recorded because it is the trap this adjudication nearly fell into."
+    },
+    {
+      "id": "C-compensated-census-type-confusion",
+      "what": "Same mutations, with the two drifted contract-root counters republished at their newly measured values — the ordinary bookkeeping of an author republishing a changed document. 5 cases.",
+      "result": "5 of 5 FALSE ACCEPTS. Full green banner, exit 0, converged in one absorption round.",
+      "conclusion": "The gap is reachable."
+    },
+    {
+      "id": "D-nine-position-combined-under-selftest",
+      "what": "typeDistinctConstantAdmissions := false, admitThenRaise := false, unguardedEscapes := 0.0 at all three surfaces simultaneously.",
+      "result": "Normal mode exit 0 with the full green banner. --selftest exit 0 with SELFTEST-PASS over all 68 retained cases. integer_guard_scan concurrently reported scannedFunctions 69 / guardHelperCallSites 30 / unguardedNumericComparisons 0; total_boundary_scan reported 7/7 guarded, 0 unguarded.",
+      "conclusion": "The full instrument, both modes, passes over a contract that publishes JSON booleans and JSON floats where its own properties block says 'Required value 0'."
+    },
+    {
+      "id": "E-minimal-single-edit",
+      "what": "The smallest reproduction: ONE edit to the candidate contract, no compensation, no source modification. hostileScalarLeafTotality.contractRoot.scalarLeafPaths from 2538 to 2538.0. Replicated at contractRoot.enumeratedPaths (3332.0) and surfaces[plan-intent].enumeratedPaths (473.0).",
+      "result": "3 of 3 FALSE ACCEPTS, exit 0, full green banner.",
+      "whyNoCompensationIsNeeded": "A float substitution at a value other than 0 or 1.0 is no-op-neutral against CONTRACT_HOSTILE_VALUES, so the self-referential path census does not drift.",
+      "conclusion": "This is the record. One character of JSON, zero bytes of Python, and the checker declares the contract OK."
+    },
+    {
+      "id": "F-what-I-could-not-do",
+      "what": "I could not produce a false accept at the PlanIntent, AdmissionDescriptor, Coverage, stage-plan or intent-binding wire surfaces without modifying check-c2-v4.py.",
+      "result": "904 executed scalar-leaf cases plus 26 targeted schemaVersion injections: zero admissions, zero admit-then-raise, zero unguarded raises.",
+      "conclusion": "The four exact-type guards hold. The blocker is not there."
+    }
+  ],
+  "whatWouldMakeThisBlocking": {
+    "conditionThatWasMet": "IMPLEMENTATION-FREEZE.md section 7: an evasion that satisfies the scan's own rule while the checker prints a full green banner over a defective input. Met three independent ways (evasion attempts C, D and E), in both invocation modes, with check-c2-v4.py byte-identical to its frozen digest.",
+    "theRaisingReviewsOwnFalsificationConditionWasAlsoMet": "c2-plan-stage-schema.v4.review-independent-prefreeze.json, IR-C2V4-01.whatWouldChangeMyMind: 'If any of the eleven evading variants had produced a green run, or if my widened scan or exhaustive sweep had found even one unguarded wire comparison in the frozen bytes, this would be BLOCKING. Neither occurred.' Both occurred. My widened sweep found three unguarded wire comparisons in the frozen bytes at lines 2487, 2493 and 2517, and they produced a green run. The reviewer did not find them because their widened numeric model reached only 'module-level names bound to numeric constants' and their exhaustive sweep was defined as 'EVERY ast.Compare in the entire module for a numeric-LITERAL operand'. A comparison against a computed integer satisfies neither.",
+    "whatWouldHaveKeptItAdvisory": [
+      "If the three sites had been guarded with is_wire_int the way lines 2196-2199 already are, the remaining finding would be the pure source-indirection class (evasion attempt A), which the behavioural layer catches 7 of 7 — that is NON-BLOCKING-REQUIRED-HARDENING, the EV10-IR-01 grading.",
+      "If every wire-sourced integer position had been unreachable or hash-pinned, as line 224's pinned-review comparison is.",
+      "If the census comparison had had an independent backstop. It does not: the census layer IS the behavioural backstop, so nothing stands behind it. This is the precise structural difference from evasion attempt A, and it is why the review's defence-in-depth reasoning does not transfer."
+    ],
+    "explicitNonReason": "This is NOT graded blocking because of the size of the payload, the plausibility of an author making the edit, or the aesthetics of the instrument. It is graded blocking on the single test section 7 specifies: the gap is reachable on the frozen bytes and it was reached."
+  },
+  "requiredRepair": {
+    "mustNotDo": [
+      "Do not weaken or alter the four exact-type guards or the seven GUARD_HELPERS. LB-C2-01 is repaired and the seven commitment vectors are pinned to those bytes.",
+      "Do not repair this by narrowing the claim alone. Option (a) of the pre-freeze review's requiredRepair — restating the docstring as 'refuses a bare numeric comparison in any top-level function reachable by direct name call' — would leave a live false accept in the shipped instrument while making the sentence true. That is not available here, because unlike EV10-IR-01 the gap is occupied."
+    ],
+    "mustDo": [
+      "Route the three census comparisons through the existing type guard, exactly as lines 2196-2199 already do: require is_wire_int(row.get(key)) before comparing, at lines 2487, 2493 and 2517, covering all 48 wire integer positions.",
+      "Add hostileScalarLeafTotality.surfaces[*] and hostileScalarLeafTotality.contractRoot counters to c2-plan-stage-schema.v4.json planIntent.integerConstantFields.fields, which currently enumerates 8 fields and omits this entire block. The section's stated purpose is 'so a fifth site cannot be added silently'; this is that fifth site.",
+      "Widen _numeric_literal so a numeric operand is not required to be an ast.Constant: treat any operand that is not provably non-numeric as numeric, or invert the predicate to flag any wire operand in an Eq/NotEq/ordering comparison that does not pass a GUARD_HELPERS call. Narrowing to ast.Constant is what made this site invisible to the instrument AND to its independent reviewer.",
+      "Also adopt the pre-freeze review's option (b) widenings — function universe, callback edges, walrus/unpack/comprehension taint, named constants, In/NotIn — which that reviewer measured as costing nothing on these bytes.",
+      "Add retained SCAN_MUTATIONS for the computed-integer shape specifically, and a retained CONTRACT_MUTATION that spells a census counter as a JSON boolean and as a JSON float, so this exact false accept becomes a falsifiable retained case rather than a finding rediscovered by the next reviewer."
+    ],
+    "successorRequired": "Yes. Under IMPLEMENTATION-FREEZE.md section 7.2 the repair may not be made in place: it requires a version bump and a new independent verdict."
+  },
+  "verifiedInputs": [
+    {"filename": "check-c2-v4.py", "sha256": "54ff764d155f5582bc66fd7bf8138b7eaed5f90f46b92975c4bc7a85ffb3df17", "role": "subject of the finding; all AST enumeration and all executions ran against these exact bytes, unmodified"},
+    {"filename": "c2-plan-stage-schema.v4.json", "sha256": "4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39", "role": "candidate contract; the wire input mutated in the false-accept demonstrations; restored to this digest after every mutation and verified"},
+    {"filename": "c2-plan-stage-schema.v4.review-independent-prefreeze.json", "sha256": "c74612ef4519750aa529db543c2f0cc81fce50d57c3d636486fd2f0ddc0c41f3", "role": "the review raising IR-C2V4-01 and grading it non-blocking; the grading this adjudication overrides"},
+    {"filename": "c2-plan-stage-schema.v3.review-independent-livebytes.json", "sha256": "0f297bed7d8c83e6bd96e54fe40bcda14281b3e4bcedf96e1173d14fbe60a3a3", "role": "the REJECT of v3 carrying LB-C2-01 and LB-C2-02 that v4 repairs; pinned by check-c2-v4.py and verified at load"},
+    {"filename": "c2-plan-stage-schema.v3.json", "sha256": "3c488ff66a1ec9ab746e99e0701d59460aff3e1d66cd072d9d564a1382b9d285", "role": "predecessor contract; source of the seven v3 commitment vectors"},
+    {"filename": "check-c2.py", "sha256": "4f31d57cd1cd252d47eeb520aa31b5fe8c4fd3b0f0f067a6840b008b1fe176f3", "role": "pinned independent v3 encoder; reproduced 7/7 commitment vectors in my run"},
+    {"filename": "fact-plane.v1.json", "sha256": "9057200822c5be59bcf8e691e3755cfa1acf2c89f0b1c2bc89237afaa0925b4d", "role": "source of the 12-relation set passed as `relations` to validate_plan_intent"},
+    {"filename": "d9-exit-contract.v1.6.json", "sha256": "c633614e17f6757cab74753d462eed53ade09dc234923d73b70d3042c6367046", "role": "pinned input; required for the checker to run"},
+    {"filename": "threat-model.v3.json", "sha256": "56734a4047b61e1fc702f75ccb21e8721b334adb449093d266756d0b08adc499", "role": "pinned input; required for the checker to run"},
+    {"filename": "operability.v2.json", "sha256": "43e63e4bca8e238e933a6b3e0c91112fb29b52da5f92d64ff2438d79140e6f04", "role": "pinned input; required for the checker to run"},
+    {"filename": "delivery.v2.json", "sha256": "47b6cfd17338fafd407c554afe1951ab23d2896aac99bcfd272fc0894e3cabf3", "role": "pinned input; required for the checker to run"},
+    {"filename": "resolved-inputs.v2.json", "sha256": "0114205aaa5d3f7c0aecc58c10522711aacaa6aa404a41563245627b27b88f43", "role": "pinned input; required for the checker to run"},
+    {"filename": "IMPLEMENTATION-FREEZE.md", "sha256": "209876ff84782a90760c5422e7f63a0614ad5deed59faa5c0e43ae60860ee859", "role": "source of the section 7 reachability decision rule quoted verbatim in decisionRuleApplied; read, not modified"},
+    {"filename": "check-completeness.py", "sha256": "f6760454683bed11c5306846edd8a2bb8e2f1c74e2c2582c87f1c777dd854d02", "role": "read only, to understand how findings are counted as open; NOT executed and NOT influenced by this adjudication's disposition"}
+  ],
+  "recordedExecutionClosure": {
+    "host": "darwin 25.5.0 arm64",
+    "interpreter": "CPython 3.14.6, invoked as python3 -I -B for every execution",
+    "workingCopy": "all mutations performed in a disposable copy under the session scratchpad; no file under docs/coop/ was modified except the creation of this adjudication",
+    "controlRuns": [
+      "check-c2-v4.py (normal) -> exit 0, full green banner",
+      "check-c2-v4.py --selftest -> exit 0, SELFTEST-PASS all 68 retained cases"
+    ],
+    "restoreVerification": "c2-plan-stage-schema.v4.json re-hashed to 4876284790462968549f834b866c7ffc5f7be1c43b583169570c1947c5c4af39 after every mutation batch, asserted in code"
+  },
+  "whatIDidNotCheck": [
+    "I did not audit the 48 census positions for whether any string spelling is admitted. I tested string spellings only in evasion attempt B, where the drift masked the result; a JSON string never equals a Python int, so I expect strings to be correctly rejected, but I did not confirm that after compensation.",
+    "I did not exhaustively drive all 48 wire integer positions to a false accept. I demonstrated 3 by single edit with no compensation and 9 more under compensation. The claim that all 48 are float-exploitable is structural (n.0 != n is False for every int n) and verified at 3 positions, not at all 48.",
+    "I did not run the scalar-leaf totality sweep across all seven valid PlanIntent fixtures — only the one clean base fixture, valid-minimal-analysis-intent, at 70 round-trip-verified scalar leaves and 904 executed cases. The checker's own run covers 4790 plan-intent cases across all fixtures and reported them clean; I did not independently recompute that figure.",
+    "I did not evaluate the coverage, stage-plan, intent-binding or stored-view-binding wire surfaces with my own injection battery. I relied on the checker's own measured counts for those, cross-read against the pre-freeze review.",
+    "I did not attempt to move a commitment. I verified the seven vectors are unmoved under both encoders but did not try to construct an input that changes one.",
+    "I did not audit the remaining 58 of the 61 Eq/NotEq wire-versus-non-literal sites individually beyond classifying their operand types; I confirmed by execution only that lines 2487/2493/2517 carry wire integers and that line 1215's nine descriptor fields carry no scalar integers.",
+    "I did not verify whether other retained checkers in this corpus (check-evidence-v10.py, check-evaluation-proof-v10.py, check-retention-custody-*.py) contain the same computed-integer comparison shape. Given that the narrowing is in the shared _numeric_literal idiom and that EV10-IR-01 is explicitly the same class, this is worth a sweep and I did not run it.",
+    "I did not execute check-completeness.py, and I did not evaluate what effect a BLOCKING disposition has on the seal-readiness count. That was deliberate: the count is not an input to this decision.",
+    "I am not authorised to and did not sign, seal, freeze or change any status. CD-RT-5 remains BLOCKED_ON_PHASE_1A. This document is an adjudication of one finding and nothing else."
+  ],
+  "authorityBoundary": {
+    "scope": "adjudication of IR-C2V4-01 only",
+    "doesNotDeclare": ["seal", "freeze", "integration", "product acceptance", "any change to CD-RT-5", "any verdict on c2-plan-stage-schema.v4 as a whole beyond this finding"],
+    "note": "c2-plan-stage-schema.v4 passed independent review with 0 blocking findings. This adjudication converts one MAJOR non-blocking residual into a blocker on measured evidence; it does not re-review the artifact and does not disturb any other finding or disposition."
+  }
+}

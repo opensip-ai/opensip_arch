@@ -1,0 +1,20 @@
+# Independent review — doctor-actor-join-integration-contract.v4 (DR-114 leftover)
+
+Independent, refute not confirm. Did not author v1–v4.
+**SUBJECT:** `docs/coop/artifacts/doctor-actor-join-integration-contract.v4.json`
+Expected digest: `e0044480cd0a14703a441fae869b2aab24396dbebf5994a0edfc3f4c20e11154`
+Predecessor v3 `56c006d7b596ddff0f817838857e2789cd7f89208a0a0c83c2e8624da212d736`.
+Frozen Claude v3 REJECT `bb9929c87934e04c8ef3f2c55c4f807c0b6d95d8b2257bca11b1804fd94c9780`.
+Frozen Codex v3 REJECT `1586ebe359e9d1d69a76a58139c12d9d2b50a70bbfc13bb36cb28c03d38b765a`.
+Do not read the other current v4 reviewer.
+**WRITE ONLY:**
+- Claude 2: `docs/coop/artifacts/doctor-actor-join-integration-contract.v4.review-independent.claude2.json`
+- Codex: `docs/coop/artifacts/doctor-actor-join-integration-contract.v4.review-independent.codex.json`
+Do not edit the subject. Do not commit. Do not mark DR-114 or DR-105 SATISFIED.
+Never mint a D-096 (A) grant. Do not edit recorded host-effect v8 / v25, doctor v4, frozen v1–v3, or COORD/file 08.
+HEAD is `5827371` (D-126 ADOPTED). File 08 pin `1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3`. COORD live pin `643bd738fb9fc98953fd50289accd2abbf90208fadc1c4ecbb36b662087c4423`. Ignore stale C1/D-100/D-103/D-104-era HEAD (`499c057`, `2327cf8`, `5bb125d`). D-106 draft `a1337c9d` is historical turn-1; adopted D-106 records corpus v6 without SATISFYING DR-103.
+
+**PASS-NO-SCOPE-EFFECT:** Append-only COORD after this remasurement, with file 08 and this subject unmoved, is PASS-NO-SCOPE-EFFECT and is not a blocker.
+
+Claimed repairs: CLAUDE-DAJ3-S1 — remainingNamedNotResolved names the inherited permission recital. DAJ3-CX-01 — every subsequent CA-1 child effect stays in DR-105; egress is PT-NET-EGRESS, not doctor/host CA-4. DAJ3-CX-02 — DR-119 is necessary and not sufficient; a later D-000 product/authorization gate is named, not minted; FC-JOIN-CA2-D000-GATE. Naming that later D-000 decision is not a D-096 (A) grant.
+ACCEPT only at 0 blockers and 0 SHOULD-FIX. Final chat: verdict word.

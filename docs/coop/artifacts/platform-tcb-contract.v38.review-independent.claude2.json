@@ -1,0 +1,191 @@
+{
+  "artifact": "platform-tcb-contract.v38.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v38.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v38",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 0 SHOULD-FIX. ACCEPT requires 0 and 0. Both of my v37 SHOULD-FIX items are repaired exactly, and Codex's arm64 grammar and result-propagation findings with them. The PE binding added for Codex PTCB-V37-B1 is largely real. But PTCB-V37-B2 is not repaired: buildProvenance is a signed record whose every field is mechanically derivable from the member itself, which is the specific construction Codex pre-emptively excluded, and the two new heuristics raise the cost of a decoy without establishing that the extracted configuration describes the compiled code.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v37 vs v38 against the declared roster roots; regex enumeration of D-096; field-by-field provenance analysis of the signed buildProvenance record against its derivation sources",
+
+  "custody": {
+    "subjectSha256Expected": "a8e4130289853a14692e3ba9f8999d5855ed6466ff05de4adbb9f60138fa27f1",
+    "subjectSha256AtStart": "a8e4130289853a14692e3ba9f8999d5855ed6466ff05de4adbb9f60138fa27f1",
+    "subjectSha256AtEnd": "a8e4130289853a14692e3ba9f8999d5855ed6466ff05de4adbb9f60138fa27f1",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 243057,
+    "subjectMovedDuringReview": false,
+    "predecessorV37Sha256": "7d38d6cac7342274812adaa310ae9a87ec03fc627bd02ace85ce0b50fef8d42a",
+    "frozenClaudeV37Sha256": "af088ad48cfeac632d765da2f83ac4353f7565e3066affcb5fed7e9e47fe6c34",
+    "frozenCodexV37Sha256": "d4a6ff60827f6b9c424a907dcc20cf0bc46910218b98eec31cf020a0d48b0f3e",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v37 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v37 REJECT; both its SHOULD-FIX items are repaired here and I confirm that below. I also authored the v36 ACCEPT that Codex correctly rejected, and I recorded that correction in my v37 verdict. That history is why this round's scrutiny went to the new derivation content rather than to the two one-line checks, and why the test I applied to each addition was what an adversary supplies and what would notice if the claim were false.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V38-B1",
+      "appliesTo": "PTCB-V37-B2 — not repaired; the construction offered is the one Codex named as insufficient",
+      "title": "Every field of signedObject.buildProvenance is mechanically derivable from the member bytes, so the record is an inventory signature over extracted values rather than evidence that the extracted configuration describes the compiled code",
+      "where": "/signedEntry/originSearchPolicy/volumeConstraint/tags/PATHLESS-PLATFORM-ATTESTED/signedObject/buildProvenance; /loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/kexecAbsenceDerivation/{signedAttestation,kconfigSerialization/{complete,utsRelease}}",
+      "whatCodexAskedFor": "PTCB-V37-B2 required binding the exact configuration digest to the exact executable member 'through signed build provenance from the builder and a pinned build/config identity relation, or replace IKCONFIG inspection with an independently verifiable code-capability proof', and closed with the sentence that decides this round: 'an inventory signature over a mechanically extracted blob is not build provenance.' It also asked for a vector whose sole official-looking IKCONFIG blob disagrees with the compiled capability.",
+      "theFinding": "buildProvenance is defined as a closed record {kernelRelease, memberSha256, peCoffImageDigest, ikconfigDigest} carried on the signed PATHLESS object, and each of its four fields is required to equal a value the verifier computes from the member: memberSha256 must equal authenticatedKernelMember.sha256, peCoffImageDigest must equal the Authenticode digest recomputed from those same bytes, ikconfigDigest must equal the digest of the text extracted from those same bytes, and kernelRelease must equal the UTS_RELEASE string found in the payload decompressed from those same bytes. No field carries information that originates anywhere but the image. The clause's closing sentence, 'This record is the builder attestation that C compiled this member', is a label applied to that set of values; nothing in the record could take a different value if the assertion were false.",
+      "theDecisiveTest": "Consider the vector Codex asked for: an image whose single in-payload IKCONFIG blob says the kexec symbols are not set while the compiled code retains a kexec path. That image satisfies every check. The blob is unique and inside the selected loaded-section payload, so neverSearchRawWrapper and ikconfigPair pass. It has CONFIG_IKCONFIG=y, the architecture symbol, explicit disabled forms for all five requiredN symbols, and well over 200 unique CONFIG_ lines, so kconfigSerialization passes. Its UTS_RELEASE matches the linux_banner in the same payload, because both come from the same image, so utsRelease passes. buildProvenance then reproduces four values computed from that image and is self-consistent by construction, so signedAttestation passes. The derivation returns kexec-absent for a kexec-capable kernel, and no clause anywhere notices. The two additions this round raise the cost of a careless decoy — a six-line stub and a mismatched release are both caught, and I credit that — but neither addresses the correspondence between the configuration text and the compiled code, which is the thing B2 is about.",
+      "whyThisIsNotOnlyAnAdversarialCase": "The gap also admits an honest failure. A build in which the embedded configuration is generated at a different stage than the one that compiled the object, or carried forward stale, produces exactly this disagreement with no attacker present. The derivation exists precisely because the contract declined to take the publisher's word for the capability; resting the correspondence on an unverified property of the publisher's build process reintroduces the assumption the derivation was built to remove.",
+      "secondFacetSameRoot": "peJoin has the same shape in its last clause. Its machine, entryPoint and loadedRange rules are concrete and checkable against the PE header and section table, and they are a real repair of PTCB-V37-B1. But notInert closes with 'The PE entry path MUST be the Linux EFI stub that consumes the selected payload; a wrapper whose entry bypasses that payload refuses', which states a required property of what the code does at run time and gives no operation that establishes it. A verifier can confirm the entry point lies in a loaded executable section; nothing in the clause lets it confirm that the code at that entry point consumes the payload the derivation analysed. I fold this into the blocker rather than file it separately because it shares the root cause and will be resolved by the same repair.",
+      "severityRationale": "The whole no-replacement closure rests on kexec being absent from the launched image. If the derivation can return kexec-absent for a kexec-capable kernel, replacement is possible and the profile still attests the launched kernel as the running one, which is a positive attestation of a false property. That is the class rated blocker at CLAUDE-V28-B1, CLAUDE-V31-B1 and CLAUDE-V35-B1, and it is Codex's own blocker unrepaired rather than a new objection.",
+      "requiredRepair": "Take one of the two routes Codex named, not a third. (1) Genuine builder provenance: require a field that cannot be recomputed from the member — a provenance statement signed by the kernel builder over the pair (member digest, configuration digest), verified against a named builder trust root carried in the signed inventory, so that the attestation fails when the builder did not vouch for that pairing. (2) An independently verifiable code-capability proof: derive kexec absence from the executable content itself rather than from embedded configuration text — for example by requiring that the decompressed payload contain none of the named kexec syscall entry symbols or their dispatch-table entries, specified as exactly as the IKCONFIG grammar already is — so the proof is about code rather than about a description of code. Under either route, apply the same discipline to peJoin.notInert by giving the entry-path requirement an operation or removing the claim, add Codex's disagreement vector to the reserved G22 set, extend notThis to name an inventory signature over mechanically extracted values, and propagate the resulting condition to refusesBootConfigs and unavailableRefuses, which currently name buildProvenance in neither while NT-TCB-KEXEC names it."
+    }
+  ],
+
+  "shouldFix": [],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "CLAUDE-V37-S1 / PTCB-V37-S2 — the two-component derivation result was not propagated consistently",
+      "result": "REPAIRED. The derivation now returns a closed structured result, 'form: closed {kexecCapability, ikconfigDigest}. extrasRejected', with each projection named. unavailableRefuses now reads 'signed kexecCapability or ikconfigDigest mismatch', which is the omission I filed, and NT-TCB-KEXEC now enumerates the signed-digest mismatch case Codex asked for, covering kexecCapability, ikconfigDigest and buildProvenance together with the derivation, symbol and line-count failures and the loaded-section condition."
+    },
+    {
+      "finding": "CLAUDE-V37-S2 / PTCB-V37-S1 — the arm64 selection and offset anchor were underdetermined",
+      "result": "REPAIRED, and precisely on the point I raised. The anchor is now pinned in the words the repair needed: 'headerOrigin is the file offset of that unique id. payload_offset = u32le at headerOrigin+4, relative to headerOrigin.' The zero, one and many decision tree Codex asked for is explicit — scan only loaded PE sections for the id, exactly one match takes the zboot branch, zero matches take the uncompressed branch, more than one refuses — and the compressor field must equal the magic-detected compressor with disagreement refusing, which closes the case where a declared type and the actual stream differ. The uncompressed branch pins the arm64 Image magic and refuses zero or multiple candidate sections."
+    },
+    {
+      "finding": "PTCB-V37-B1 — the architecture selector was not bound to the payload executed by the PE entry point",
+      "result": "SUBSTANTIALLY REPAIRED; see the second facet of CLAUDE-V38-B1 for the one clause that remains an assertion. peJoin adds three concrete, checkable rules: Machine must be 0x8664 for linux/x86_64 and 0xAA64 for linux/arm64, AddressOfEntryPoint must fall in a loaded executable section with IMAGE_SCN_MEM_EXECUTE and non-zero SizeOfRawData, and the selected payload range must lie wholly within loaded sections, with a range in the certificate directory, in the overlay after the last section raw end, or outside SizeOfHeaders plus sections refusing. The arm64 id scan is confined to loaded sections by the same rule. That closes the decoy-region half of B1: a payload placed in a non-loaded range can no longer be selected."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject a8e41302... over 243057 bytes at 0444, unmoved start and end. Predecessor v37 and both frozen v37 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 57 path-bearing pins reproduce, zero failures. No predecessor review was replaced this round."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v37-to-v38 change roster",
+      "result": "PASS. 31 changed paths, ZERO off-roster. reviewGuidance grew 190 to 195 as a pure prefix-preserving append."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. All reMeasurementAtV38 pins reproduce at measuredAtHead 93ceaa6a. platforms.slice1 still carries linux/x86_64 and linux/arm64; no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 35 D-096 occurrences are refusals, zero unmatched."
+    },
+    {
+      "id": "M-6",
+      "check": "Extraction confinement and PE loaded-section binding",
+      "result": "PASS on the checkable rules. Machine, entry point and loaded-range conditions are concrete; non-loaded, overlay and certificate-directory ranges refuse."
+    },
+    {
+      "id": "M-7",
+      "check": "Provenance of each signed buildProvenance field",
+      "result": "FAIL — basis of CLAUDE-V38-B1. All four fields resolve to values computed from the member bytes; none originates outside the image."
+    },
+    {
+      "id": "M-8",
+      "check": "Propagation of the buildProvenance condition",
+      "result": "Partial. NT-TCB-KEXEC names a buildProvenance mismatch; refusesBootConfigs and unavailableRefuses name neither. Folded into the blocker's repair rather than filed separately, because the field requires rework."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "An official-looking in-payload IKCONFIG blob that disagrees with the compiled capability (Codex's named vector, constructed and run)",
+      "result": "LANDS. Filed as CLAUDE-V38-B1. Every confinement, uniqueness, serialization, line-count, release-match and signed-attestation check passes on such an image."
+    },
+    {
+      "attack": "A six-line or otherwise trivially incomplete decoy configuration",
+      "result": "FAILED TO LAND. The 200-line minimum, the CONFIG_IKCONFIG=y requirement and the architecture-symbol requirement all refuse it. This is a real improvement and is credited."
+    },
+    {
+      "attack": "A configuration lifted from a different kernel build",
+      "result": "FAILED TO LAND. utsRelease requires the release in the payload to equal the signed kernelRelease, so a config whose release disagrees with the banner in the same image refuses. Also credited."
+    },
+    {
+      "attack": "A payload designated in the certificate table, the overlay, or another non-loaded range",
+      "result": "FAILED TO LAND. peJoin.loadedRange refuses each of those cases by name, and the arm64 id scan is confined to loaded sections."
+    },
+    {
+      "attack": "An architecture mismatch between the profile and the image",
+      "result": "FAILED TO LAND. Machine must equal the per-architecture constant and mismatch refuses."
+    },
+    {
+      "attack": "A declared compressor that disagrees with the actual stream",
+      "result": "FAILED TO LAND. compressed_type must equal the magic-detected compressor; disagreement refuses."
+    },
+    {
+      "attack": "An unpinned arm64 offset anchor (my own v37 SHOULD-FIX, re-run)",
+      "result": "FAILED TO LAND. headerOrigin is defined as the file offset of the unique id and the field distances are stated relative to it."
+    },
+    {
+      "attack": "A refusal condition reaching some enumerations but not others (my own v37 SHOULD-FIX, re-run)",
+      "result": "FAILED TO LAND for ikconfigDigest, which now appears in all three. buildProvenance shows the same asymmetry but is subsumed by the blocker."
+    },
+    {
+      "attack": "Silent v37-to-v38 path outside basedOn.method, or softened pinning of either frozen v37 verdict",
+      "result": "FAILED TO LAND. 31 changed paths, 0 off-roster; both v37 verdicts pinned accurately."
+    },
+    {
+      "attack": "A Linux deferral, a D-096 (A) grant, or DRTM/IMA added as an or-choice",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1, all 35 D-096 mentions are refusals."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1.",
+    "Does not dispute Codex PTCB-V37-B2; this verdict agrees with it and finds it unrepaired.",
+    "Does not object to peJoin's machine, entry-point or loaded-range rules, to the arm64 decision tree, to the 200-line and release checks, or to the closed derivation result; all should be kept.",
+    "Does not require DRTM, TXT or IMA; neither repair route I name needs one.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v37 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV38ReviewerRead": false,
+    "otherReviewerNote": "The Codex v38 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v37 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v37 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed both predecessor verdicts' findings, the new PE binding and provenance content, the arm64 grammar, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V38-B1 rests on tracing each buildProvenance field back to its stated source within the artifact's own text; it does not depend on any claim about a particular kernel build, and it would stand even if every real publisher's embedded configuration did agree with its compiled code, because the contract's proof must hold without that assumption. The reserved G22 vectors, including the disagreement vector Codex asked for, remain unpopulated and were not evaluated.",
+
+  "summary": "REJECT at 1 blocker and 0 SHOULD-FIX. Custody is clean: subject unmoved at a8e41302... and 0444 at both ends, 57/57 chain pins reproduce, both frozen v37 verdicts reproduce with no replacement, 31 changed paths with zero off-roster, reviewGuidance a pure append, the sole DR-126 row quoted byte-exactly, all remeasurement pins reproducing, and all 35 D-096 occurrences refusals. Three of the four predecessor findings are repaired. My arm64 anchor finding is closed in the exact words needed — headerOrigin is the file offset of the unique id and the field distances are relative to it — with a proper zero-one-many decision tree and a compressor-agreement check added around it. My propagation finding is closed, with ikconfigDigest now named in all three governing clauses and the signed-digest mismatch added to NT-TCB-KEXEC. And Codex's entry-point finding is substantially closed: Machine is pinned per architecture, AddressOfEntryPoint must fall in a loaded executable section, and the selected payload must lie wholly within loaded sections, so a decoy in the certificate directory or the overlay can no longer be selected. What is not repaired is Codex's second blocker, and it is the one that carries the closure. buildProvenance is a signed record of four fields, and every one of them is a value the verifier computes from the member: the member digest, the Authenticode digest of the same bytes, the digest of the text extracted from those bytes, and the release string found in the payload decompressed from those bytes. Codex wrote in advance that an inventory signature over a mechanically extracted blob is not build provenance, and this is that construction with a sentence attached calling it a builder attestation. The vector Codex asked for still succeeds: an image whose single in-payload configuration blob is complete, architecture-correct, release-consistent, explicitly disabled on all five symbols and well past 200 lines, but whose compiled code retains a kexec path, passes every check and yields kexec-absent. The same shape appears once more in peJoin, whose closing clause requires the entry path to be the stub that consumes the selected payload without giving any operation that establishes it. The 200-line and release checks are genuine improvements against careless decoys and I credit them, but they measure the same artifact the claim is about. Either bind the configuration digest to the member through something the builder signs and the image cannot supply, or prove kexec absence from the executable content rather than from a description of it."
+}

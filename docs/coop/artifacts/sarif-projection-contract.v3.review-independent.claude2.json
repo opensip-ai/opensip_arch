@@ -1,0 +1,181 @@
+{
+  "verdict": "REJECT",
+  "reviewStatus": "COMPLETE",
+  "blockerCount": 2,
+  "shouldFixCount": 1,
+  "advisoryCount": 4,
+  "verdictBasis": "REJECT: 2 blockers and 1 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX. CODEX-V2-S1 is fully and correctly repaired. CODEX-V2-B1 is NOT: its structured-golden half is repaired in form but the only two concrete goldens the artifact supplies fail the artifact's own declared input schema, and its third defect — the ambiguous native location mapping — is byte-identical to v2 and untouched, while honestyRepairsFromV2 asserts B1 closed.",
+
+  "artifact": "sarif-projection-contract.v3.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/sarif-projection-contract.v3.json",
+  "registerRow": "DR-122",
+  "role": "independent; refute not confirm; authored none of v1-v3",
+  "reviewer": "Claude 2",
+  "date": "2026-08-15",
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat/stat.S_IMODE",
+
+  "custody": {
+    "subjectSha256AtStart": "850565277112dde38526d80fb99ed67c00ee0218e890a4bd049c6c22b689dbd5",
+    "subjectSha256AtEnd": "850565277112dde38526d80fb99ed67c00ee0218e890a4bd049c6c22b689dbd5",
+    "subjectSha256Expected": "850565277112dde38526d80fb99ed67c00ee0218e890a4bd049c6c22b689dbd5",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 25844,
+    "subjectMoved": false,
+    "subjectEdited": false
+  },
+
+  "dispatchDiscrepancyResolved": {
+    "discrepancy": "sarif-projection-contract.v3.review-prompt.md line 11 says 'Codex v2 may still be in flight; do not invent a frozen digest.' The operator task message instead supplied a frozen Codex v2 REJECT digest 579e8685ff70f38303c0347be3b277eeb13669c73bf0001cb9893f47b44494d6 and asserted 'Findings SARIFV2-B1 and SARIFV2-S1 only.'",
+    "resolution": "Resolved by measurement rather than by preferring either instruction. The file exists on disk and reproduces exactly at 579e8685…, 13408 bytes, mode 0444. I invented nothing. I then read it rather than accept the operator's characterisation: it is verdict REJECT with blockerCount 1 (SARIFV2-B1), shouldFixCount 1 (SARIFV2-S1), advisoryCount 0, reviewState COMPLETE. The operator's two-finding claim is exact.",
+    "consequenceForTheSubject": "v3's appliesFindingsOf.notFoldedThisSuccessor hedges 'Codex v2 verdict was not frozen at authoring; if it later carries findings beyond SARIFV2-B1/S1 they require a v4.' That hedge now resolves favourably and I record it for the coordinator: the frozen verdict carries exactly those two findings and no others, so no v4 is owed on that count."
+  },
+
+  "priorInvolvementDisclosure": "I authored the independent Claude 2 review of v2 and returned ACCEPT-WITH-ADVISORIES where Codex returned REJECT. Having now read the frozen Codex v2 verdict, both of its findings are real and my v2 ACCEPT was wrong on both. On SARIFV2-B1 I recorded that goldenShape 'gives OBL-2 a reviewable shape rather than prose' when its three members were in fact JSON strings, and I did not notice that goldenShape.expected named projectionSchemaId/projectionSchemaVersion where the emitted map defines schemaId/schemaVersion. On SARIFV2-S1 I checked only that no INACTIVE fixture lacked a ride, which structurally could not surface the defect, since the two fixtures missing the ride member were both ACTIVE. I record this because it bears on how much weight the coordinator should give my verdict here, and because it is why I verified every v3 claim mechanically rather than by reading its repair notes.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V3-B1",
+      "severity": "BLOCKER",
+      "title": "Both concrete goldens fail the artifact's own declared golden input schema",
+      "location": "/machineSurface/goldenShape/input/properties/hostCanonicalResult/properties/sha256; /machineSurface/goldenShape/previewFixtures[FC-PARITY.preview-inactive, FC-LOSS.preview-inactive]",
+      "detail": [
+        "goldenShape.input declares hostCanonicalResult.sha256 as {type: string, minLength: 64, maxLength: 64}, and lists hostCanonicalResult among input.required.",
+        "Both previewFixtures supply hostCanonicalResult.sha256 = 'RESERVED-until-DR-006-recipe', which is 28 characters. Validating the artifact's two declared goldens against the artifact's own declared input schema yields two failures. I checked this mechanically, not by reading: len('RESERVED-until-DR-006-recipe') == 28, and 28 is outside [64, 64].",
+        "The expected halves are internally consistent — both carry {produced, reason}, matching expectedWhenNotProduced.required, and both reasons are in the declared enum. The defect is confined to the input half, which is what makes it a mechanical contradiction rather than a judgement call.",
+        "No exemption is declared anywhere for the sentinel: input has no oneOf branch, no 'RESERVED' enum, no clause relaxing the length constraint when produced is false, and no statement that the input is inert for non-produced goldens."
+      ],
+      "whyThisIsBlockerGrade": "CODEX-V2-B1 was not 'goldenShape should look structured' — it was that the golden was not executable, a 'contradictory string template rather than an executable expected projection', and its minimumRepair asked for actual structured or digest-pinned inputs. v3 converts a prose contradiction into a structural one: a reader who executes the contract as written gets two failing goldens on the only two instances it supplies. OBL-3's parity/loss goldens therefore remain non-executable, which is precisely the impact Codex recorded and which v3 claims to have discharged.",
+      "notAnObjectionToTheSentinel": "Refusing to pin a real canonical-result digest while DR-006 is INACTIVE is the honest choice and I am not asking for it to be reversed — inventing one would mint the recipe this contract forbids. The defect is that the schema does not admit the sentinel it ships with.",
+      "minimumRepair": "Make the declared input admit the reserved form, e.g. a oneOf over a 64-hex sha256 or an explicit RESERVED sentinel, or scope hostCanonicalResult as not-required when the expected half is expectedWhenNotProduced. Then state that the two preview goldens validate against the declared input."
+    },
+    {
+      "id": "CLAUDE-V3-B2",
+      "severity": "BLOCKER",
+      "title": "The third defect inside CODEX-V2-B1 is untouched while honestyRepairsFromV2 asserts B1 repaired",
+      "location": "/machineSurface/nativeMappings (unchanged from v2); /honestyRepairsFromV2[0]; /basedOn/method",
+      "detail": [
+        "The frozen Codex v2 SARIFV2-B1 carries three detail bullets. The third states that nativeMappings gives one artifact URI two possible SARIF destinations joined by 'and' — result.locations[].physicalLocation.artifactLocation.uri and result.relatedLocations[] — defining neither the related-location URI path nor a primary-versus-related placement rule, 'so the purported exact native mapping still permits divergent emitted objects'. Its minimumRepair correspondingly requires the successor to 'state the deterministic native location/related-location rule'.",
+        "I compared v2 and v3 nativeMappings as parsed JSON: they are equal. The value is byte-identical, including the 'and'-joined destination string and the note.",
+        "honestyRepairsFromV2[0] nonetheless opens 'CODEX-V2-B1:' and enumerates only the structured record type, the {produced:false} preview goldens, and the schemaId/schemaVersion naming. basedOn.method likewise describes SARIFV2-B1 as 'structured goldens using emitted schemaId/schemaVersion names', silently narrowing a three-part finding to two parts.",
+        "The closed roster covers /machineSurface/goldenShape but not /machineSurface/nativeMappings, so leaving it unchanged is roster-consistent and produces no silent path. Roster consistency is not repair completeness: the successor selected a roster that excluded the part of the blocker it did not fix, and then claimed the blocker closed."
+      ],
+      "whyThisIsBlockerGrade": "SARIFV2-B1 is one finding with one ID. A successor does not discharge it by repairing two of its three defects. The unrepaired defect is also the parity-critical one: OBL-3 requires that two renderers serialize one canonical result into the same projection, and an artifact-URI mapping that permits two destinations with no placement rule permits exactly the divergence parity forbids. This is the same overstated-closure pattern Codex recorded against v2, where honestyRepairsFromV1 'overstates closure while this independently executable part remains absent'.",
+      "minimumRepair": "Either state the deterministic primary-versus-related placement rule and the related-location URI path in nativeMappings, or, if the successor intends to defer it, stop claiming CODEX-V2-B1 repaired: name the deferred bullet explicitly in notFoldedThisSuccessor with its owning condition, and put /machineSurface/nativeMappings on the roster."
+    }
+  ],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V3-S1",
+      "severity": "SHOULD-FIX",
+      "title": "v3 drops v2's frozen-verdict pin and now carries no digest for any folded verdict",
+      "location": "/appliesFindingsOf",
+      "detail": "v2's appliesFindingsOf carried a codexv1 record pinning docs/coop/artifacts/sarif-projection-contract.v1.review-independent.codex.json at 87b87323139ed1ecb735f423ee518df4d37e54d106b0c7ddb4faf8fba109d394 with its verdict, blockers, shouldFix and advisories enumerated. v3's appliesFindingsOf has keys ['idCollisionNote', 'notFoldedThisSuccessor'] only: the codexv1 record is removed and no codexv2 record replaces it. The artifact therefore references SARIFV1-B1/S1/S2 and SARIFV2-B1/S1 by identifier in idCollisionNote, honestyRepairsFromV1 and honestyRepairsFromV2, while pinning the bytes of neither verdict. A reader cannot verify from the artifact which frozen bytes those identifiers name.",
+      "severityReasoning": "Rated SHOULD-FIX rather than advisory because this is the removal of an existing pin, not a pin never added. The nearest precedent in this repository, component-manifest-fixture-corpus ADV-CMCV5-2, was rated advisory — but that was a successor omitting to add a pin for a verdict frozen after its predecessor was authored. Here the pin existed in the immediate predecessor and was deleted, and the deletion moves the artifact backwards on exactly the evidentiary discipline this chain has repeatedly repaired. It is roster-covered (/appliesFindingsOf is on the roster), so it is not a silent path.",
+      "minimumRepair": "Restore the codexv1 pin and add a codexv2 pin. Codex v2 is now frozen and measurable at 579e8685ff70f38303c0347be3b277eeb13669c73bf0001cb9893f47b44494d6, mode 0444, verdict REJECT, blockers [SARIFV2-B1], shouldFix [SARIFV2-S1], advisories []."
+    }
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "CODEX-V2-S1 — FC-NONAUTH and FC-OUTFAIL omitted the ride member despite the every-fixture claim",
+      "disposition": "REPAIRED — VERIFIED, fully",
+      "howIChecked": "I enumerated all five fixture classes and tested for the presence of the ride key rather than its truthiness, which is what my v2 review got wrong. All five now carry an explicit ride member: FC-APPLIC ride null, FC-PARITY ride 'ID-DEP-S1/DR-006 advertisement restore', FC-LOSS the same ride qualified as FC-PARITY's condition, FC-NONAUTH ride null, FC-OUTFAIL ride null. FC-NONAUTH and FC-OUTFAIL additionally carry a rideNote stating they are active host-projection fixtures with no parked dependency and that ride:null is the explicit representation, same as FC-APPLIC — which is exactly the representation Codex's minimumRepair named. No fixture, active or inactive, omits the member."
+    },
+    {
+      "finding": "CODEX-V2-B1 bullet 1 — goldenShape members were JSON strings, and no fixture supplied an input/expected pair",
+      "disposition": "REPAIRED IN FORM, DEFEATED IN SUBSTANCE",
+      "howIChecked": "goldenShape now declares recordType 'opensip-sarif-golden.1' and replaces the three string members with structured objects: input with required [hostCanonicalResult, advertisement, dr006Standing] and typed properties including enums; expectedWhenProduced and expectedWhenNotProduced as separate typed objects with const-pinned produced values; and previewFixtures supplying concrete input/expected pairs for FC-PARITY and FC-LOSS. That is genuine structural progress and directly answers the form of the complaint. It is defeated by CLAUDE-V3-B1: the two concrete pairs do not validate against the declared input. goldenShape.pass remains a prose string, which I do not score — it states a comparison procedure rather than a golden value, and Codex's complaint was about input/expected, not about pass."
+    },
+    {
+      "finding": "CODEX-V2-B1 bullet 2 — expected named projectionSchemaId/projectionSchemaVersion where the emitted map defines schemaId/schemaVersion",
+      "disposition": "REPAIRED — VERIFIED",
+      "howIChecked": "expectedWhenProduced.properties.runPropertiesOpensip.required is exactly ['schemaId','schemaVersion'], its note states the emitted map names are used, and goldenShape.discipline says expected field names are the emitted map names. No projectionSchemaId or projectionSchemaVersion appears anywhere under goldenShape. See ADV-SPC-V3-01 for a wording defect in the discipline sentence that does not affect this repair."
+    },
+    {
+      "finding": "CODEX-V2-B1 bullet 3 — nativeMappings permits divergent emitted objects",
+      "disposition": "NOT REPAIRED",
+      "howIChecked": "Parsed-JSON equality between v2 and v3 nativeMappings returns true. See CLAUDE-V3-B2."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "goldenShape still a prose string", "result": "PARTIALLY REFUTED", "detail": "input, expectedWhenProduced and expectedWhenNotProduced are structured objects; previewFixtures supply concrete pairs. Only pass remains a string, which I do not score. The structure is real — but see CLAUDE-V3-B1, where it does not validate its own instances."},
+    {"attack": "expected keys named projectionSchemaId", "result": "REFUTED", "detail": "expectedWhenProduced requires schemaId and schemaVersion; no projectionSchema* key exists under goldenShape."},
+    {"attack": "FC-NONAUTH / FC-OUTFAIL missing ride", "result": "REFUTED", "detail": "Both carry ride:null plus an explanatory rideNote; all five fixtures have the member."},
+    {"attack": "Minted RunId/Finding/D9", "result": "REFUTED", "detail": "runId, findingId and coverage stay typed as opaque DR-006-owned values, omitted (not null) while INACTIVE; expectedWhenProduced's note repeats that preview must not mint them; forbiddenNativeIdentityAlias bars guid-as-identity and goldenShape.pass makes guid-as-runId a failure. requiredOutputFailure cites the D9 v1.14 golden and states it mints no code or exit number; I confirmed the class, code and exit against file 01 L92-99. The two preview goldens produce nothing, so they cannot smuggle a value."},
+    {"attack": "Silent v2→v3 path", "result": "REFUTED", "detail": "Flattened both generations to leaf JSON paths: 9 changed, 57 added, 8 removed, and ZERO fall outside the nine-entry closed roster in basedOn.method. The completeness sentence holds. /date is explicitly named on this roster and the method says so — a deliberate improvement over the off-roster /date defect that recurred three times in the component-manifest corpus chain."},
+    {"attack": "SATISFIED / QUALIFIED / implementation / resurrected G17", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, row left PROPOSED-CLOSED-FOR-REVIEW. QUALIFIED appears nowhere. whatThisDoesNotDo covers SATISFIED, preview advertisement, G17, recipes, D9 codes, universal SARIF, docs/v2/implementation/ and native-format status. applicability.g17 keeps DR-G17 dropped/inapplicable per D-077 and D-086, which I confirmed in live COORD at line 3492 ('G17 receives a dropped/inapplicable prefix and is not required-now') and line 3666 ('Does not restore G17.')."},
+    {"attack": "Live-row or carried-prose drift", "result": "REFUTED", "detail": "Both governing architecture pins reproduce against live bytes: file 08 at 1cdcf9d4… and file 01 at 40ab9a3e…. Line 304 is the sole line beginning '| DR-122 |' and is byte-identical to rowVerbatim. The 26 carried file-01 lines equal live lines 108-133 exactly. nonAuthority.verbatim is genuinely verbatim in file 01."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-SPC-V3-01",
+      "title": "The discipline sentence is false of the artifact even though it is true of the emitted object",
+      "detail": "goldenShape.discipline ends 'There is no projectionSchemaId / projectionSchemaVersion key.' machineSurface does carry both keys at declaration level (projectionSchemaId 'opensip-sarif-projection.1', projectionSchemaVersion 1). The preceding clause scopes the sentence to expected field names in the emitted map, so a careful reader will not be misled, but as written the sentence asserts something contradicted 80 lines above it.",
+      "notBlocking": "The repair it describes is real and verified; only the wording overreaches. Suggested: 'There is no projectionSchemaId / projectionSchemaVersion key in the emitted object; those names exist only as machineSurface declarations.'"
+    },
+    {
+      "id": "ADV-SPC-V3-02",
+      "title": "Structured goldens are supplied only for the two classes that produce nothing",
+      "detail": "previewFixtures covers FC-PARITY.preview-inactive and FC-LOSS.preview-inactive — the two INACTIVE classes. The three classes that are ACTIVE in preview and therefore actually executable now (FC-APPLIC, FC-NONAUTH, FC-OUTFAIL) still carry only a prose requires sentence and no structured input/expected pair.",
+      "notBlocking": "Codex's SARIFV2-B1 minimumRepair named FC-PARITY and FC-LOSS specifically, so v3 meets the letter of what was asked and I do not score the gap. It is worth the coordinator's attention that the new golden machinery has been applied exactly where nothing is produced and not where conformance could be demonstrated today."
+    },
+    {
+      "id": "ADV-SPC-V3-03",
+      "title": "The COORDINATOR-DECISIONS pin is stale but provably append-only",
+      "detail": "governingSources pins COORD at 12d192f7… while live measures b9819d6e…. I verified independently rather than relying on Codex's M-4: the pinned digest reproduces from exactly the first 218672 bytes of the live file, which is 225684 bytes, so the cited snapshot is an exact prefix and 7012 bytes have been appended since. Every claim resting on it re-verified against live bytes — D-002, D-077 at line 3053, D-086, D-092 — and all hold.",
+      "notBlocking": "Append-only drift on a continuously extended register falsifies nothing here. This downgrades the equivalent advisory I raised at v2, where I had not yet done the prefix check. A successor should re-pin so the pin retains evidentiary value, but nothing in the artifact is wrong because of it."
+    },
+    {
+      "id": "ADV-SPC-V3-04",
+      "title": "The truncation block still mixes two requiredness idioms",
+      "detail": "machineSurface.opensipRunProperties.requiredAlways.truncation carries a JSON-Schema-style sibling required ['truncated'] while marking its optional member with a per-property boolean required:false. Carried unchanged from v2 and outside the v3 roster, so this is pre-existing rather than introduced.",
+      "notBlocking": "Unambiguous in meaning — truncated required, kind optional, and the standing string says optional. Repeated only so it is not lost between generations."
+    }
+  ],
+
+  "obligationReview": [
+    {"id": "OBL-1", "result": "PASS", "reason": "applicability states the optional-and-only-when-advertised law, preview live applicability NONE with reason, and conditional later applicability that expressly does not revive the advertisement. FC-APPLIC carries the per-command table requirement and is ACTIVE with ride:null."},
+    {"id": "OBL-2", "result": "PASS-WITH-BLOCKER-DEPENDENCY", "finding": "CLAUDE-V3-B2", "reason": "The run/result member map, requiredness, cardinality and three-way version behavior are closed and unchanged from v2, which I verified there. The schema-stability and breaking-change rules are intact. But the native mapping half of the machine surface still permits two destinations for one artifact URI with no placement rule."},
+    {"id": "OBL-3", "result": "FAIL-BLOCKER", "findings": ["CLAUDE-V3-B1", "CLAUDE-V3-B2"], "reason": "The declared parity/loss goldens do not validate against the contract's own declared input, and the mapping ambiguity that permits divergent emitted objects is unrepaired. Parity remains undemonstrable."},
+    {"id": "OBL-4", "result": "PASS", "reason": "nonAuthority carries the verbatim file-01 sentence, verified in live bytes, decomposed into four testable prohibitions covering policy, evidence, sealed HostTermination and D9/exit. FC-NONAUTH is ACTIVE, scoped to authority-injection only, and now carries its explicit ride. The SHOULD-FIX Codex attached to this obligation at v2 is discharged."},
+    {"id": "OBL-5", "result": "PASS", "reason": "requiredOutputFailure carries host-finalization-only scope, the conditional committed-Run boundary, and the D9 v1.14 values by citation; FC-OUTFAIL restates the boundary in test form and forbids a fictitious Run for help/version. I confirmed the golden, class and exit against file 01 L92-99. FC-OUTFAIL now carries its explicit ride. The SHOULD-FIX Codex attached to this obligation at v2 is discharged."}
+  ],
+
+  "whatIDidNotCheck": [
+    "I did not read the other current v3 reviewer's file, per the operator instruction. Confirmed not read.",
+    "I did not open the d9-exit-contract.v1.14 artifact. Codex's M-7 reports it reproduces at 8dd33038… with goldenCases[37] machine-output-serialization-failed and classToExitCode operational-failed -> 4; I verified the same values against file 01 L92-99 instead, which is an independent path to the same claim but not a check of the D9 artifact itself.",
+    "I did not verify the FC-APPLIC preview table content against an independent live command inventory. FC-APPLIC states what the fixture must show; no such table is asserted to exist.",
+    "I did not re-review v1 or v2 on their merits. v2 was consumed as a diff baseline at its pinned digest, which reproduces.",
+    "I executed no fixture and validated no emitted SARIF document; none exists. My CLAUDE-V3-B1 check validates the artifact's declared goldens against the artifact's own declared schema, which is a self-consistency check, not a conformance run.",
+    "I express no view on DR-122's register status. I did not edit file 08 or COORDINATOR-DECISIONS.md, did not edit the subject, and did not commit."
+  ],
+
+  "coordinatorNote": "The successor is close. CODEX-V2-S1 is fully discharged and both obligations it touched now pass. A v4 needs three things: admit the RESERVED sentinel in the declared golden input so the two preview goldens validate against it; either state the deterministic primary-versus-related native location rule or stop claiming CODEX-V2-B1 closed and defer that bullet explicitly with /machineSurface/nativeMappings on the roster; and restore the codexv1 pin while adding a codexv2 pin, which is now possible because the Codex v2 verdict is frozen at 579e8685… with exactly SARIFV2-B1 and SARIFV2-S1. Preserve v3's correct preview, G17, renderer-authority, required-output-failure and roster dispositions, and preserve the explicit /date roster entry.",
+
+  "bindsTo": "NOTHING. This is one reviewer's independent verdict. It does not mark DR-122 SATISFIED or QUALIFIED, does not authorize docs/v2/implementation/, does not resurrect G17, does not advertise SARIF in preview, does not mint RunId/Finding/D9 recipes, does not edit the subject, file 08, or COORDINATOR-DECISIONS.md, and does not commit.",
+
+  "summary": "REJECT at 2 blockers and 1 SHOULD-FIX. CODEX-V2-S1 is fully repaired: all five fixture classes now carry an explicit ride member, FC-NONAUTH and FC-OUTFAIL as ride:null with the FC-APPLIC representation Codex named, and OBL-4 and OBL-5 pass clean. CODEX-V2-B1 is not. Its structured-golden half is answered in form — recordType opensip-sarif-golden.1, typed input, split expectedWhenProduced/expectedWhenNotProduced, concrete preview pairs, and expected keys correctly renamed to schemaId/schemaVersion — but the only two goldens the artifact ships declare hostCanonicalResult.sha256 as the 28-character sentinel 'RESERVED-until-DR-006-recipe' against an input schema that constrains that field to exactly 64 characters, so executing the contract as written fails both of its own instances; and SARIFV2-B1's third defect, the artifact URI with two 'and'-joined SARIF destinations and no placement rule, is byte-identical to v2 while honestyRepairsFromV2 and basedOn.method both describe B1 as repaired. Separately, appliesFindingsOf has deleted v2's codexv1 digest pin and adds no codexv2 pin, leaving five finding identifiers referenced with no frozen bytes behind any of them. Everything else holds and holds well: zero of 74 changed, added or removed leaf paths fall outside the closed roster, /date is on that roster by name, both architecture pins reproduce against live bytes, the sole live DR-122 row is byte-identical at line 304, the 26 carried file-01 lines match exactly, the COORD pin is stale but verifiably an exact 218672-byte prefix of the live file, and no recipe, D9 code, preview advertisement, G17 resurrection or positive DR-122 authority appears anywhere.",
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "branch": "main",
+    "gitHead": "36949e33e3f72f51c654805b903a487b30fd6660",
+    "committed": false,
+    "subjectEdited": false,
+    "subjectMoved": false,
+    "file08Edited": false,
+    "file01Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "dr122MarkedSatisfied": false,
+    "implementationAuthorized": false,
+    "g17Resurrected": false,
+    "previewSarifAdvertised": false,
+    "recipesOrD9CodesMinted": false,
+    "otherV3ReviewerRead": false,
+    "filesWritten": ["docs/coop/artifacts/sarif-projection-contract.v3.review-independent.claude2.json"]
+  }
+}

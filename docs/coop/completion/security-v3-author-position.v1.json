@@ -1,0 +1,65 @@
+{
+  "artifact": "security-v3-author-position.v1",
+  "documentClass": "author-position-for-adjudication",
+  "author": "Claude (wH:p2), author of the frozen security v3 unit",
+  "date": "2026-09-04",
+  "standing": "D-368 CONTESTED after the third exchange. This file records the author's position per finding for the fresh no-context adjudicator. It edits no subject byte; security-freeze.v3.json (9486f6c4…) and all 65 pinned files stay frozen; nothing here adopts, confirms or repairs anything.",
+  "subject": {
+    "unitFreeze": "docs/coop/completion/security-freeze.v3.json",
+    "unitFreezeSha256": "9486f6c4f3d8196a1489541dd5bff7d3b7869e15d0b9d88b5a2011a46c761f81",
+    "verdict": "docs/coop/completion/security-codex-review.v3.json",
+    "verdictSha256": "21b2fdee68ff58bc4a89b15049d00bb8ea86dac9902f8ff73bf65d8223181c77",
+    "headAtWriting": "649def86bce28f5260ae08d3886e4d57fa71dafa"
+  },
+  "authorReproduction": "Every counterexample was re-run read-only against the frozen security_unit_lib_v3.py before this position was written; results are quoted per ID. The M6 primary source was fetched (raw runner-images Ubuntu2404-Readme.md: 'Kernel Version: 6.17.0-1022-azure', 'Image Version: 20260823.283.1').",
+  "positions": [
+    {
+      "id": "SEC3-M1",
+      "position": "ACCEPT",
+      "reproduced": "admit_root(root with kernelAttestationKeys=[<a known root keyId>]) -> [] (admitted); admit_root(root whose five recoveryAuthority keys repeat one key) -> [] while root.schema.json refuses it (uniqueItems); verify_envelope calls admit_root but never schema validation.",
+      "authorView": "Section 3.1 says the preview list is empty but the executable rule only resolves references, and the admission boundary is split between schema (never invoked by verify_envelope) and admit_root (no recovery-list duplication rule). The finding is correct.",
+      "intendedRepair": "admit_root refuses ROOT.KERNEL_ATTESTATION_KEYS_NOT_EMPTY unless kernelAttestationKeys == [] (and the schema pins const []); admit_root re-checks duplication for every key list including recoveryAuthority; one admission boundary admit_root_document(bytes) = parse -> schema -> semantic rules, returning an AdmittedRoot value that verify_envelope requires as its only root argument; retained negatives for both counterexamples."
+    },
+    {
+      "id": "SEC3-M2",
+      "position": "ACCEPT",
+      "reproduced": "merge_policy(global pathPrefixes ['src'], project pathPrefixes ['src/../private']) -> no refusal, effective scope ['src/../private'].",
+      "authorView": "_prefix_within is lexical; the normalized member-path rule of section 7.5 was not applied to raw policy sources. The finding is correct; it does not by itself show product access, as the verdict says.",
+      "intendedRepair": "At raw-policy admission every pathPrefixes member must satisfy normalized_member_path (relative, NFC, no empty/dot/dot-dot segment, no backslash or NUL, <= 1024 bytes) or the policy refuses POLICY.PATH_PREFIX_NOT_NORMALIZED; the narrowing comparison is whole-segment; retained negatives src/../private and src/../../outside plus legal controls src/a (descendant) and srcx (sibling, refused)."
+    },
+    {
+      "id": "SEC3-M3",
+      "position": "ACCEPT",
+      "reproduced": "reconcile_witness: COMMITTED seq true at tail 1 -> OK; PENDING 2 without bodySha256 at tail 1 -> REVERT; PENDING 0 on an empty carrier -> ADVANCE.",
+      "authorView": "The function validates only the literal MALFORMED sentinel; a supplied dictionary is trusted. The finding is correct.",
+      "intendedRepair": "A closed witness shape (witnessSchema const 1, projectKeyDigest hex64, grantGeneration int 1..2^63-1, seq int not bool 0..2^53-1, state enum, bodySha256 hex64 required when seq >= 1 and null only at COMMITTED 0, PENDING requires seq >= 1) validated before any comparison; any violation -> QUARANTINE witnessMalformed; only a valid witness authorizes REVERT/ADVANCE; legal INIT/OK/REVERT/ADVANCE and lost-tail controls retained; the three counterexamples retained as negatives."
+    },
+    {
+      "id": "SEC3-M4",
+      "position": "ACCEPT",
+      "reproduced": "target_within_scope with a grant scope lacking snapshotDigest -> True; verify_effect_request with an empty broker grant scope -> admitted; with the underlying scope lacking snapshotDigest -> admitted; resolve_result(ref, callback) with no effectResult/stat context returns bytes; RESULT_REF_RE uses '$' so 'rr:...:5\\n' matches.",
+      "authorView": "The frozen text promises mandatory checks; the executable guards made them optional-by-absence and the pure helper doubled as the enforcing boundary. The finding is correct and is the most important of the six for the SDK successor.",
+      "intendedRepair": "verify_effect_request requires the sealed snapshot manifest and refuses AUTHORIZATION.CONTEXT_ABSENT when any of connection map, current binding, journal state, snapshot manifest or grant scope snapshotDigest is missing; the target must lie inside BOTH the broker grant scope and the underlying grant scope, and an empty scope admits nothing; resolve_result takes one required context record {effectResult, expectedRequestSeq, scratchDirStat, selfUid, fileStat, spawnBytesSoFar} with no defaults; all wire grammars use fullmatch (\\A...\\Z); lower-level pure helpers keep distinct names and are never scored as admission; retained negatives for absent context, empty/foreign/narrowed scopes, missing snapshot binding, trailing-newline ref, and the response-association cases."
+    },
+    {
+      "id": "SEC3-M5",
+      "position": "ACCEPT",
+      "reproduced": "By reading: section 7.5 HE-1 bullet orders commit and unlink before 'appends RA/RCI/RCO' and names no ICI/ICO although the descriptor may carry IRREVERSIBLE.",
+      "authorView": "The narrative contradicts durable-authorization-before-effect and leaves two implementable orders. The finding is correct.",
+      "intendedRepair": "Explicit ordered HE-1 algorithm: admit request and durably append RA; append RCI (REVERSIBLE) or ICI (IRREVERSIBLE) durably before any committed effect; apply from the immutable bounded buffer; append RCO or ICO carrying the actual outcome and the commit id; only then unlink the stage file and send effectResult with the receipt tied to that outcome record; crash/REV cases retained before and after each boundary; FAILED/INDETERMINATE preserved; a missing outcome record never implies not-performed."
+    },
+    {
+      "id": "SEC3-M6",
+      "position": "ACCEPT",
+      "reproduced": "Primary source fetched: the ubuntu-24.04 hosted image (20260823.283.1) publishes kernel 6.17.0-1022-azure; both frozen Linux templates fix kernelSeries 6.8.0-generic and kernelPackageNamePattern linux-image-6.8.0-*-generic, which no release measurement can replace under the frozen scheme.",
+      "authorView": "The fleet decision (four D-102 classes) is right and unchanged; the Linux OS-ABI identity members were fixed where they must be measured. The finding is correct and does not reopen the fleet.",
+      "intendedRepair": "kernel publisher stays fixed (ubuntu, apt-secure, Ubuntu maintainer, archive key), while flavor and series become RELEASE-MEASURED profile members bound per class {flavor: azure|generic, series: <measured on the image>}; the 6.8.0-generic templates are marked illustrative; a non-6.8 Azure-class example (6.17.0-1022-azure on ubuntu-24.04) and a wrong-series negative are retained; acquisition and refusal rules unchanged otherwise."
+    }
+  ],
+  "authorSummary": "All six findings are accepted; none is contested. If the adjudicator UPHOLDS, the author will land the repairs above under security v4 paths (new names only; v3 stays frozen) with retained negatives for every counterexample, and the lead's bounded post-UPHOLD confirmation applies. No v4 byte is adopted or confirmed before the ruling.",
+  "whatThisFileDoesNotDo": [
+    "Edits no subject.",
+    "Adopts or confirms nothing.",
+    "Proposes no register edit."
+  ]
+}

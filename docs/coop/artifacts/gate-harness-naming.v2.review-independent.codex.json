@@ -1,0 +1,110 @@
+{
+  "artifact": "docs/coop/artifacts/gate-harness-naming.v2.review-independent.codex.json",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewer": "codex",
+  "date": "2026-08-14",
+  "subject": {
+    "path": "docs/coop/artifacts/gate-harness-naming.v2.json",
+    "expectedSha256AtDispatch": "dcc40159c1b7929688900432a8ac9c0492ae4939cdbdab7ffea5014203ac7365",
+    "sha256AtStart": "dcc40159c1b7929688900432a8ac9c0492ae4939cdbdab7ffea5014203ac7365",
+    "sha256AtEnd": "dcc40159c1b7929688900432a8ac9c0492ae4939cdbdab7ffea5014203ac7365",
+    "modeAtStart": "0444",
+    "modeAtEnd": "0444",
+    "moved": false
+  },
+  "prompt": {
+    "path": "docs/coop/artifacts/gate-harness-naming.v2.review-prompt.md",
+    "sha256AtStart": "d054aa03cf199a187bc09d53eea687d138158ca1323623bf4231a84406c1d9c4",
+    "sha256AtEnd": "d054aa03cf199a187bc09d53eea687d138158ca1323623bf4231a84406c1d9c4",
+    "modeAtStart": "0444",
+    "modeAtEnd": "0444",
+    "moved": false
+  },
+  "verdict": "REJECT",
+  "blockingFindingCount": 1,
+  "advisoryFindingCount": 1,
+  "summary": "V2 repairs both prior Codex blockers at the row-classification level: G17 is dropped and not counted, while G03/G04 are explicit zero-progress reservations with no invented machines or Rosetta substitution. The resulting readiness arithmetic is still not recordable. D-002's 19-gate required set loses G17 under D-077 and therefore has 18 current required gates; D-006 does not remove G03/G04 from that denominator, it makes their valid naming contingent on the coupled pins and sign-off. The candidate instead inserts an unauthorised 'countable required' qualifier and projects 16 of 16, where the honest condition-4 measurement after recording the presently valid names would be 16 of 18 required gates. G13 is correctly excluded from that count but its row and future batch still ambiguously call the reservation NAMED before DR-118.",
+  "findings": [
+    {
+      "id": "GHN-V2-B1",
+      "severity": "BLOCKER",
+      "title": "The 16-of-16 denominator silently removes two still-required gates",
+      "claim": "G03/G04 may contribute zero valid naming progress, but they remain required gates and cannot be removed from condition 4's denominator by introducing the new category 'countable required'.",
+      "evidence": [
+        "D-001's operative condition 4 says required release gates have named harnesses and owners. Its implementation paragraph requires one named harness identifier per required gate; it does not define a smaller 'countable required' gate set.",
+        "D-002's adopted condition-4 set contains 19 gates: G01..G05, G07..G10, G12, and G14..G22. D-077 executes D-002's SARIF consequence and drops G17, leaving 18 required preview gates.",
+        "D-006 does not defer or drop G03/G04. It requires their exact machine identifiers, OS versions, cache-state protocol, product sign-off, and native-Intel procurability verification to land in the reviewed G03/G04 naming act. Until then they are required but not validly named.",
+        "The candidate correctly classifies G03/G04 as REQUIRED-BUT-NAMING-BLOCKED and zero-progress, yet its commission changes the authority to one identifier per '*countable required*' gate, sliceScope labels only 16 gates requiredNowCountable, and condition4EffectIfLaterRecorded projects '16 of 16 countable required names'.",
+        "The candidate's five-way 16 + 2 + 1 + 2 + 1 partition is structurally complete, but it never reports the authoritative current required-set arithmetic: 16 presently recordable names + 2 still-required blocked names = 18 required gates."
+      ],
+      "impact": "A later D-000 recording or MF-6 register update could report a complete 16-of-16 harness-name numerator while two required gates remain unnamed under D-006. The prose denial of condition-4 MET limits the damage but does not cure the false denominator or the silent alteration of D-001/D-002.",
+      "requiredRepair": "Keep the G03/G04 zero-progress reservation repair, but restore D-001's unqualified required-gate language. Report the post-D-077 required set as 18 and the projected valid naming progress as 16 of 18, with G03/G04 still required and unnamed. Rename requiredNowCountable to a non-authoritative progress category such as presentlyRecordableRequiredNames, update countCheck and condition4EffectIfLaterRecorded, and ensure the later MF-6 write cannot present 16 as the required-gate denominator. Preserve G17 as dropped and re-dispatch frozen bytes."
+    },
+    {
+      "id": "GHN-V2-A1",
+      "severity": "ADVISORY",
+      "title": "G13's reservation semantics are internally ambiguous",
+      "claim": "The subject intends G13 to be a zero-progress reservation pending DR-118, but its gate and owner-batch fields can be read as a current named harness.",
+      "evidence": [
+        "D-001 says G13 waits on DR-118 and D-002 says DR-G13 (TypeScript) after DR-118.",
+        "sliceScope.blockedOnPredecessor and remainingUnmetNamed correctly describe G13 as blocked/reserved and exclude it from the 16-name progress set.",
+        "The G13 row nevertheless says namingStanding NAMED-NOT-AUTHORED, lacks contributeToCondition4NamedCount=false, and appears without a predecessor guard in C4-BATCH-LANGUAGE-PACKAGING-CI."
+      ],
+      "impact": "A mechanical consumer or later owner-batch recording could treat G13 as named before its required corpus, matrix, and thresholds exist, contrary to the intended sequencing.",
+      "recommendedRepair": "Give G13 the same explicit reservation semantics used for other zero-progress rows: IDENTIFIER-RESERVED-ZERO-C4-PROGRESS, contributeToCondition4NamedCount=false, and a DR-118 gate on any later recording batch."
+    }
+  ],
+  "predecessorRepairAssessment": {
+    "GHN-V1-B1": "REPAIRED. G17 is INAPPLICABLE-DROPPED-BY-D077, excluded from the live required/progress list, assigned contributeToCondition4NamedCount=false, and isolated in a do-not-record-as-required batch.",
+    "GHN-V1-B2": "REPAIRED AS TO COUNTING. G03/G04 are REQUIRED-BUT-NAMING-BLOCKED reservations with contributeToCondition4NamedCount=false; exact machines remain unpinned, Intel procurability remains unverified, product sign-off remains owed, and Rosetta is expressly forbidden. GHN-V2-B1 concerns the denominator created around that otherwise valid repair."
+  },
+  "attackResults": {
+    "priorB1G17StillRequiredOrCounted": "PASS. G17 is dropped/inapplicable and zero-count.",
+    "priorB2G03G04StillCountAsNamed": "PASS. Both are explicit identifier reservations contributing zero naming progress.",
+    "silentQualifiedDemonstratedOrSatisfied": "PASS. Every occurrence is negated, historical, or an unmet-state recital; no gate or DR row is elevated.",
+    "inventedG03G04Machines": "PASS. No exact machine identifier, OS version, or cache protocol is invented.",
+    "rosettaSubstitution": "PASS. Native Intel remains required, procurability is honestly unverified, and Rosetta is explicitly forbidden.",
+    "g06G11AuthoritativeClosurePulledIntoPreview": "PASS. Both remain hygiene-only and expressly outside slice-1 authoritative scope.",
+    "windowsHarnessNamed": "PASS. Windows remains deferred and no Windows harness identifier is present.",
+    "namingTreatedAsCondition4Met": "FAIL ON MEASUREMENT, PASS ON EXPLICIT STATUS. The subject denies MET, but GHN-V2-B1's invented 16-of-16 denominator overstates the harness-half arithmetic.",
+    "implementationAuthorization": "PASS. The subject expressly withholds docs/v2/implementation authorization.",
+    "file08Edited": "PASS. The subject claims no edit and file 08 had no tracked diff during review.",
+    "requiredSetArithmetic": "FAIL. After D-077, 18 gates remain required; 16 are presently recordable and G03/G04 remain required-but-unnamed. See GHN-V2-B1.",
+    "structure": "PASS. Strict JSON parse succeeds; all 22 gate IDs, harness IDs, and future paths are unique; all artifactExists values are false; no future artifact path exists; and the declared five-way partition is disjoint and exhaustive at 22.",
+    "owners": "PASS. The 22 owner strings materially reproduce the live file-08 owner cells, including G16's restored parenthetical.",
+    "subjectAndPromptMovement": "PASS. Subject matched the dispatch digest; prompt and subject remained mode 0444 and byte-identical through the final pre-write measurement."
+  },
+  "recordedInputAssessment": {
+    "status": "CURRENT-AT-REVIEW",
+    "coordinatorDigestRecordedAndLive": "e65753891eae66eaf7d870f9df2d59585b252336d35bb7dfef0a22380490a188",
+    "file08DigestRecordedAndLive": "ff2ebaddc782443a5c5a88590bd77d340ac6caf30ed788977221225f4838a811",
+    "routeBDr006DigestRecordedAndLive": "28fb23ec9f01de17753624d9e90bec53d75df2344d62594321c17da8a799d161",
+    "result": "The relevant pins remeasure exactly. The blocker is an interpretation/arithmetic defect in the candidate, not input drift."
+  },
+  "recommendation": "Correct the authoritative denominator and G13 reservation semantics, freeze a successor, and obtain fresh independent review before any D-000 recording or MF-6 register write.",
+  "protocolPartition": {
+    "otherReviewerVerdictFilesRead": false,
+    "otherReviewerVerdictFilesHashMeasured": false,
+    "peerEvidenceUsed": "None. The frozen subject contains predecessor-review metadata in its own bytes; no Claude 2 verdict file was opened, parsed, statted, or hash-measured.",
+    "filesWrittenByCodex": [
+      "docs/coop/artifacts/gate-harness-naming.v2.review-independent.codex.json"
+    ]
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtStart": "75c981dd2b827c5ce11c37013b2e124870ee9c6e",
+    "gitHeadAtEnd": "75c981dd2b827c5ce11c37013b2e124870ee9c6e",
+    "localFinalPrewriteMeasurementTime": "2026-08-14T15:22:37-0700",
+    "utcFinalPrewriteMeasurementTime": "2026-08-14T22:22:37Z",
+    "targetExistedAtStart": false,
+    "committed": false
+  },
+  "whatIDidNotDo": [
+    "I did not read or hash-measure any Claude 2 verdict file.",
+    "I did not edit the prompt, subject, predecessor, coordinator record, file 08, any gate artifact, or any file other than this verdict.",
+    "I did not name or execute a harness, pin a machine, substitute Rosetta, move a status, authorize implementation, commit, push, or edit the frozen v1 subject."
+  ],
+  "filesWritten": [
+    "docs/coop/artifacts/gate-harness-naming.v2.review-independent.codex.json"
+  ]
+}

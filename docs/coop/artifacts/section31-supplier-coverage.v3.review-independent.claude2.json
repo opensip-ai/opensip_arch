@@ -1,0 +1,130 @@
+{
+  "artifact": "section31-supplier-coverage.v3.review-independent.claude2.json",
+  "reviewer": "claude2",
+  "subject": "docs/coop/artifacts/section31-supplier-coverage.v3.json",
+  "companionSubject": "docs/coop/artifacts/check-section31-supplier-coverage-v3.py",
+  "date": "2026-08-13",
+  "protocol": "D-000 independent review; refute not confirm; successor to v2 (Claude 2 REJECT on S31V2-01; Codex ACCEPT-WITH-ADVISORIES on S31-V2-CX-A1)",
+  "subjectSha256AtStart": "9a544eb2a60012d0c312cbb9ce237e7743942472ba9834fe35821bdd1f1e80d0",
+  "subjectSha256AtEnd": "9a544eb2a60012d0c312cbb9ce237e7743942472ba9834fe35821bdd1f1e80d0",
+  "checkerSha256AtStart": "b139c43a6af3237a6d1d3b20791d51d35a7bcf9eefe472fb09601b14b13f6446",
+  "checkerSha256AtEnd": "b139c43a6af3237a6d1d3b20791d51d35a7bcf9eefe472fb09601b14b13f6446",
+  "subjectMoved": false,
+  "verdict": "ACCEPT-WITH-ADVISORIES",
+  "mustFix": 0,
+  "shouldFix": 2,
+  "notes": 0,
+  "summary": "Everything the dispatch named landed. S31-1 is UNBOUND for exactly the reason I gave, stated in the artifact's own words as 'A three-of-four supplier is not a binding of the item'; counts are 1 bound and 7 unbound and the checker independently reports the same; and the checker now takes the eight from the pinned freeze list rather than from mutable counts.items. I did not take Codex's S31-V2-CX-A1 on trust -- I reproduced the hole in v2 and it is real and serious: deleting freeze item 8 from the v2 table and adjusting counts to match returned PASS bound=2 unbound=5 at exit 0, a mandatory freeze item silently vanishing from a coverage instrument built to detect exactly that. v3 catches the same mutation four separate ways. Eleven cases in my v3 suite fail closed correctly. Two advisories, neither a blocker: a BOUND item with no supplier key crashes the checker with an unhandled KeyError instead of the typed failure the design promises, and doesNotFailWhen still omits the one limit that produced the v2 blocker -- the checker cannot tell whether a bound head actually covers its item.",
+  "objections": [
+    {
+      "id": "S31V3-01",
+      "severity": "SHOULD-FIX",
+      "location": "check-section31-supplier-coverage-v3.py line 117",
+      "claim": "A BOUND item with no supplier key crashes the checker with an unhandled KeyError instead of producing a typed FAIL. This is the one malformation the checker does not handle, and it sits on the exact edit the artifact's lifecycle invites.",
+      "evidence": [
+        "Line 117 reads supplier = item[\"supplier\"] with no guard. Mutation V-E sets S31-1's standing to BOUND without adding a supplier and the run terminates in 'Traceback ... KeyError: supplier', exit 1.",
+        "Every other malformation produces the typed form. V-F sets standing to PARTIAL and gets 'FAIL - S31-1: unknown standing PARTIAL'. V-D strips sha256 from a BOUND supplier and gets 'FAIL - S31-3: BOUND supplier has no sha256'. The checker validates the standing vocabulary and validates the supplier's contents; it does not validate that a BOUND item has a supplier at all.",
+        "None of the four failsWhen entries describes a traceback, and the module docstring commits to fail-closed behaviour on named conditions."
+      ],
+      "whyItMatters": "v3 has seven UNBOUND items and one BOUND. The expected motion of this instrument over its life is UNBOUND to BOUND as suppliers are found, and the hand-edit that performs it is exactly 'change standing to BOUND' -- with the supplier block added in a second step, or forgotten. The checker already guards the two adjacent mistakes in that same edit and misses the first one. It is a SHOULD-FIX rather than a blocker because the exit code is still non-zero, so a harness keying on exit status fails closed and no false PASS is produced; what is lost is the typed, machine-readable reason the rest of the design delivers.",
+      "remedy": "Guard the lookup: if 'supplier' not in item, append a typed failure such as f\"{item['id']}: BOUND item has no supplier\" and continue, matching the shape of the adjacent sha256 check three lines below."
+    },
+    {
+      "id": "S31V3-02",
+      "severity": "SHOULD-FIX",
+      "location": "checker.doesNotFailWhen",
+      "claim": "The list of things a PASS does not rule out omits the one that produced the v2 blocker. The checker cannot detect a bound head that only partially covers its freeze item, and nothing in the artifact says so.",
+      "evidence": [
+        "doesNotFailWhen carries three entries: an item is UNBOUND; a successor of a bound file exists beside it; file 08 status cells have not changed. All three are true. None covers partial coverage.",
+        "resolve() at lines 24-32 walks the dotted selector and returns True as soon as every path segment is present as a dict key. It never inspects the resolved value and never compares it to the item's textVerbatim. Key presence is the entire test.",
+        "This is not hypothetical: it is the v2 defect. evaluation-proof.v8#$.proofObligationsByClaimShape resolved cleanly, carried a correct digest, and passed every check the v2 checker had, while supplying three of the four categories freeze item 1 names. Human review caught it; the checker could not and still cannot.",
+        "v3 repaired the instance by moving S31-1 to UNBOUND. The class remains reachable by any future binding."
+      ],
+      "whyItMatters": "This artifact's product is a coverage count, and doesNotFailWhen is where it tells a reader what that count does not guarantee. The instrument is otherwise unusually honest about its limits, which is precisely why the omission reads as coverage rather than as silence: a reader who checks doesNotFailWhen sees three caveats, none about completeness, and concludes a PASS means each bound item is supplied. In v2 that conclusion would have been wrong on half the bound rows.",
+      "remedy": "Add an entry in the existing form, for instance: 'A BOUND item's head resolves but supplies only part of what its freeze item names -- the checker tests selector presence, not coverage of the item text. That judgement is the reviewer's and the owners'.'",
+      "notAskingForTheImpossible": "I am not asking the checker to judge coverage; I said in my v2 verdict that no checker in this design can. The ask is to record the limit where the artifact already records its other limits."
+    }
+  ],
+  "mutationSuite": {
+    "method": "Copied the freeze, both the v2 and v3 tables and checkers, and both suppliers into a scratchpad tree, restoring a pristine copy between cases. No repository byte was modified; git reports zero modified tracked files at close.",
+    "verificationOfCodexFindingS31VeeTwoCXA1": [
+      {"id": "X-1", "target": "v2", "mutation": "none", "result": "PASS bound=2 unbound=6", "exit": 0},
+      {"id": "X-2", "target": "v2", "mutation": "delete freeze item 8 from items[] and set counts to {items:7, bound:2, unbound:5}", "result": "PASS bound=2 unbound=5", "exit": 0, "assessment": "THE v2 HOLE, REPRODUCED. A mandatory freeze item is removed from the coverage table and the instrument reports success. v2's expected_n came from table['counts']['items'], so the table supplied both the claim and the standard it was judged against."},
+      {"id": "X-3", "target": "v3", "mutation": "the identical mutation", "result": "FAIL - counts.items 7 != pinned freeze list 8 - item count 7 != pinned freeze list 8 - id mapping not S31-1..S31-8 - item numbers not 1..8", "exit": 1, "assessment": "Caught four ways. S31-V2-CX-A1 repaired."}
+    ],
+    "cases": [
+      {"id": "baseline", "mutation": "none", "result": "PASS bound=1 unbound=7", "exit": 0, "assessment": "counts 1/7 confirmed independently of the table's own claim"},
+      {"id": "V-A", "mutation": "truncate freezeSection31.itemsVerbatim to 7", "result": "FAIL - freeze §3.1 item texts no longer match pinned list (live 8, pinned 7) - pinned freeze list is 7 items, not 8 - counts.items 8 != …", "exit": 1, "assessment": "The new authority is itself guarded three ways: against the live freeze, against the hardcoded 8, and against counts.items."},
+      {"id": "V-B", "mutation": "delete S31-3's supplier file", "result": "FAIL - S31-3: bound supplier missing", "exit": 1},
+      {"id": "V-C", "mutation": "modify S31-3's supplier bytes, path and selector intact", "result": "FAIL - S31-3: DIGEST-MOVED bbe24527… -> 0122d0cb…", "exit": 1, "assessment": "The v1 blocker stays repaired on the sole remaining bound row."},
+      {"id": "V-D", "mutation": "strip sha256 from S31-3's supplier", "result": "FAIL - S31-3: BOUND supplier has no sha256", "exit": 1},
+      {"id": "V-E", "mutation": "flip S31-1 to BOUND with no supplier key", "result": "Traceback … KeyError: 'supplier'", "exit": 1, "assessment": "THE ONE UNTYPED FAILURE. Fails closed by exit code but not by the design's own reporting contract. This is S31V3-01."},
+      {"id": "V-F", "mutation": "set S31-1 standing to PARTIAL", "result": "FAIL - S31-1: unknown standing PARTIAL - count drift: bound=1 unbound=6 …", "exit": 1, "assessment": "The standing vocabulary is closed. Note this also means a partial state cannot be expressed today without minting it."},
+      {"id": "V-G", "mutation": "tamper items[3].textVerbatim", "result": "FAIL - S31-4: textVerbatim does not match freeze item 4", "exit": 1},
+      {"id": "V-H", "mutation": "falsify counts.bound to 2", "result": "FAIL - count drift: bound=1 unbound=7 expected {items:8, bound:2, unbound:7}", "exit": 1},
+      {"id": "V-I", "mutation": "append a line to the freeze file", "result": "FAIL - ENVIRONMENT: freeze digest moved e809d439… -> 1840ee5b…", "exit": 1},
+      {"id": "restore", "mutation": "baseline restored", "result": "PASS bound=1 unbound=7", "exit": 0}
+    ],
+    "readThisWay": "Eleven v3 cases, ten typed fail-closed results and one untyped crash. The mechanism is materially stronger than v2's: the count authority moved from the table to the pinned freeze list, and the mutation that silently deleted a mandatory item from v2 is now caught four ways. Neither advisory touches the mechanism's correctness on any case that produces an answer."
+  },
+  "reviewerSelfCorrection": [
+    {
+      "what": "Codex's S31-V2-CX-A1 found a hole in the v2 checker that my twelve-case suite missed: expected_n came from table['counts']['items'], so the table supplied both the coverage claim and the yardstick. I verified the hole rather than accepting it, and it is worse than a technicality -- v2 returns PASS with freeze item 8 deleted outright.",
+      "pattern": "I tested whether the counts matched reality (mutation M-K falsified counts.bound and was caught) but never asked what supplies the authority for 'eight'. Both sides of the check I ran were table-controlled, so a coordinated edit satisfied it. This is the same family as the misses I have already recorded in this protocol: verifying that a claim has a referent without verifying the referent's own standing.",
+      "correctionApplied": "I now test the authority chain and not just the consistency of a check -- for each assertion, where does the standard come from and can the artifact under review edit it. That is how I framed V-A on the new pinned-freeze-list authority, which is itself guarded three ways."
+    },
+    {
+      "what": "In my v2 verdict I wrote that no checker in this design can catch a partial head, 'because the checker verifies that a selector resolves and not that what it resolves to answers the item'. I stated that limit and then did not ask whether the artifact records it for its readers.",
+      "correctionApplied": "That question is S31V3-02. Stating a limit in a review that the artifact's own users will never read is not the same as the artifact disclosing it."
+    }
+  ],
+  "whatIVerified": [
+    "Subject digests at start and end: table 9a544eb2a60012d0c312cbb9ce237e7743942472ba9834fe35821bdd1f1e80d0, checker b139c43a6af3237a6d1d3b20791d51d35a7bcf9eefe472fb09601b14b13f6446, both unchanged and both matching the dispatch's recitals.",
+    "S31-1 is UNBOUND and the stated reason is faithful to the finding rather than a paraphrase that softens it: 'evaluation-proof.v8 $.proofObligationsByClaimShape supplies match, no-match, indeterminate, and error. Freeze item 1 also requires verdict claims. That category is absent from the bound selector. A three-of-four supplier is not a binding of the item. UNBOUND is the honest state until a head carries all four categories, including verdict.' That is the defect as I measured it, including the four-category framing.",
+    "Counts are 1 bound and 7 unbound, and I did not take the table's word: the checker independently reports PASS bound=1 unbound=7, and V-H shows a falsified count is caught rather than trusted.",
+    "The checker takes the eight from the pinned freeze list. The v2-to-v3 diff is five lines: expected_n = len(pinned_items) replaces expected_n = table['counts']['items'], plus a hard assertion that the pinned list is 8, plus a cross-check that counts.items equals it. The pinned list is in turn compared against live_items extracted from the freeze file, whose digest is pinned -- so the authority chain terminates outside the table.",
+    "Codex's S31-V2-CX-A1 is real, verified by execution against v2 rather than accepted. See mutationSuite.verificationOfCodexFindingS31VeeTwoCXA1.",
+    "S31V2-02 is correctly dispositioned MOOT rather than quietly dropped. My advisory was that S31-1 pinned evaluation-proof.v8 when v9 supersedes v8's proof obligations with identical content. S31-1 is no longer bound to anything, so the question does not arise. This is legitimate mooting: the binding it concerned is gone.",
+    "S31V2-03 is repaired and slightly over-delivered. whatThisDoesNotDo no longer names retention-tiers.v28, which the table stopped binding at v2; it now names the live bound file -- 'Does not apply product-dispositions.v1 or treat CD-RT-5 as Phase-1A' -- and adds 'Does not bind evaluation-proof.v8 as item 1; verdict claims are missing', which records the S31V2-01 repair as a standing refusal.",
+    "The sole remaining BOUND row still holds at the bytes. S31-3 binds product-dispositions.v1.json#$.decisions.CD-RT-5.defaultPosture at bbe24527f732…, which matches live, and the selector resolves. I confirmed in the v2 review that this head answers both limbs of freeze item 3 -- durableDefault DURABLE_RETAINED and implicitDurableRetention YES against 'selected default custody/retention behavior, including whether any retention is implicit'.",
+    "S31-4's reason gained new factual claims and they are true at the bytes. It asserts that evidence.v15, the lineage head APPLIED at D-014, 'does not carry sealedCapabilityContract or availabilityDifferential' and that 'those members live on the v10 terminus'. I measured both files: neither member appears anywhere in evidence.v15.json; both appear in evidence.v10.json. The D-014 application of v15 as lineage head is corroborated by the commit history.",
+    "No silent SATISFIED. Two occurrences, both refusals: authorityClaim's 'not SATISFIED evidence' and whatThisDoesNotDo's 'Does not mark DR-004 or DR-002 SATISFIED'. Header fields are status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL, isThePhase1AInsertion false, isMeasurementOnly false, documentClass BINDING-INSTRUMENT-CANDIDATE, lane R, registerRows DR-004 and DR-002.",
+    "The predecessor accounting is accurate on my half and independently checkable: predecessorSha256 is 553b740a…, which is v2's digest as I measured it, and my v2 verdict is pinned at 440ba42668fad1d0a540694361ee55c990992bbeb0e23ec061aaa50b74c72cdd, matching my file exactly and characterized as REJECT, which is what I returned. All three of my findings are listed with a disposition; none was dropped.",
+    "The Codex v2 verdict digest is correct at 0d31f3192181127b3a31d1fccdd2986c47b0a6bc28a0a7f5dd35f91ce336f647, confirmed by hashing that file without opening it.",
+    "Each of the seven UNBOUND items carries a substantive reason rather than a bare state, and the reasons distinguish causes rather than reciting one formula: parked identities for S31-2, a lost supplier for S31-4, unresolved inheritance chains for S31-5 and S31-6, downstream absence for S31-7, and 'This instrument's own checker is not that suite' for S31-8 -- a refusal to count itself as its own acceptance evidence.",
+    "theErrorThisExistsToPrevent and the remeasurementClause survive from v2 unchanged in substance, and authorityClaim now recites the supplier tuple as 'path + selector + sha256', matching the items and the checker."
+  ],
+  "whatIDidNotCheck": [
+    "The Codex review of v3. Not read. It exists at review time and I hashed it without opening: d7b0fbfba1a6b345a7a691b5de51e81a14de1b322dcf2e2ea0e688b39d85fe41.",
+    "The Codex reviews of v1 and v2, hashed but never opened. I know S31-CX-B1, S31-CX-B2, S31-CX-A1 and S31-V2-CX-A1 only through this artifact's predecessorVerdictFindings and the dispatches. For S31-V2-CX-A1 I closed that gap by reproducing the defect myself against v2; for the earlier three I verified the repairs against the freeze and the suppliers rather than against Codex's statements of the defects.",
+    "Whether any of the seven UNBOUND items could now be bound. I verified each reason is stated and that S31-1's and S31-4's are true at the bytes; I did not sweep the corpus for candidate suppliers for items 2, 5, 6, 7 and 8. Under-binding is the safe direction but it is unmeasured, and with seven of eight unbound this instrument now reports very little coverage.",
+    "Whether product-dispositions.v1's CD-RT-5 is itself sound. I verified it answers freeze item 3's two limbs. I note without judging it that CD-RT-5 overrides a standing architectural recommendation and states its own consequence as writing analysis evidence into a user's project before that user has been asked. That is the product authority's call, not this instrument's and not mine here.",
+    "resolve() on selector forms the corpus does not exercise: array indices, wildcards, escaped dots in key names, or a selector terminating on a non-dict. With one bound row remaining, only $.decisions.CD-RT-5.defaultPosture is exercised.",
+    "Whether DR-004 and DR-002's owners will accept this instrument. It binds nothing and recommends nothing about their rows."
+  ],
+  "recordedInputs": {
+    "docs/coop/artifacts/section31-supplier-coverage.v3.json": "9a544eb2a60012d0c312cbb9ce237e7743942472ba9834fe35821bdd1f1e80d0",
+    "docs/coop/artifacts/check-section31-supplier-coverage-v3.py": "b139c43a6af3237a6d1d3b20791d51d35a7bcf9eefe472fb09601b14b13f6446",
+    "docs/coop/artifacts/section31-supplier-coverage.v2.json": "553b740a556a570bb5aa08b309c0cce1fec6a02375c18009ad5baf74a97d6bfd",
+    "docs/coop/artifacts/section31-supplier-coverage.v2.review-independent.claude2.json": "440ba42668fad1d0a540694361ee55c990992bbeb0e23ec061aaa50b74c72cdd",
+    "docs/coop/artifacts/section31-supplier-coverage.v2.review-independent.codex.json": "0d31f3192181127b3a31d1fccdd2986c47b0a6bc28a0a7f5dd35f91ce336f647",
+    "docs/coop/artifacts/product-dispositions.v1.json": "bbe24527f732f9c265f9cf71b988303a326e45fec0c6adb0d934536d515d6017",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd"
+  },
+  "environment": {
+    "workingDirectory": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "7e7a636",
+    "subjectTrackedInGit": false,
+    "note": "Both subjects are untracked working-tree files at review time; digests bind working-tree bytes, not committed objects. Recorded as a condition of review, not a finding, since the candidate is pre-adoption and binds NOTHING.",
+    "measurementTool": "shasum -a 256; diff of the v2 and v3 checkers; an eleven-case executable mutation suite against v3 plus a three-case reproduction of the v2 hole, all on a scratchpad copy with a pristine restore between cases; python3 key-presence measurement of evidence.v15 and evidence.v10",
+    "mutationsRanAgainstCopy": true,
+    "repositoryBytesModified": false,
+    "digestsReadFromBytes": true,
+    "codexVerdictHashedNotRead": true,
+    "reviewerReadOtherVerdict": false,
+    "filesWritten": ["docs/coop/artifacts/section31-supplier-coverage.v3.review-independent.claude2.json"],
+    "filesEdited": [],
+    "commits": []
+  },
+  "verdictNote": "ACCEPT-WITH-ADVISORIES. My v2 blocker is repaired in the strongest available form -- not by arguing the head was adequate but by moving the item to UNBOUND and saying plainly that a three-of-four supplier is not a binding. Codex's finding, which I missed, is repaired and I confirmed both the hole and the fix by execution. Neither advisory produces a wrong answer: S31V3-01 still exits non-zero, and S31V3-02 is a disclosure gap rather than a mechanism gap. I record without treating it as a defect that this instrument now reports one bound item of eight. That is a much smaller coverage claim than v1 made, and it is the honest one; a coverage instrument that gets smaller as it gets more truthful is working."
+}

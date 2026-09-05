@@ -1,0 +1,130 @@
+{
+  "artifact": "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn3.json",
+  "reviewer": "codex",
+  "date": "2026-08-14",
+  "decision": "D-099",
+  "turn": 3,
+  "protocol": "D-000 independent adversarial review; refute not confirm; final turn 3 of 3; frozen prompt, turn-3 subject, turn-2 subject, and turn-1 subject; other-reviewer verdict contents not opened or parsed; opaque peer SHA-256 values measured only to verify the subject's cited-digest table; no subject, prompt, authority, register, freeze, implementation, predecessor, or other repository edits; no commit",
+  "subject": "docs/coop/artifacts/coordinator-decisions.D-099.turn3.draft.md",
+  "promptSha256AtStart": "3f61b205d9f9ccbdfe27b2fc4b7bb98a2eddb1825325ffb70989152d1a7b2004",
+  "promptSha256AtEnd": "3f61b205d9f9ccbdfe27b2fc4b7bb98a2eddb1825325ffb70989152d1a7b2004",
+  "promptModeAtStart": "0444",
+  "promptModeAtEnd": "0444",
+  "promptMovementObserved": false,
+  "expectedSubjectSha256AtDispatch": "3249a26c738c35cbd20f31ebe442559fc027acc764a610cb4dc93eac3b4ee47a",
+  "subjectSha256AtStart": "3249a26c738c35cbd20f31ebe442559fc027acc764a610cb4dc93eac3b4ee47a",
+  "subjectSha256AtEnd": "3249a26c738c35cbd20f31ebe442559fc027acc764a610cb4dc93eac3b4ee47a",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovementObserved": false,
+  "verdict": "OBJECTIONS",
+  "findingCounts": {
+    "mustFix": 1,
+    "shouldFix": 0,
+    "notes": 1
+  },
+  "summary": "Turn 3 lands the unique current-cycle pin table, dedicated stopped-after-exec launches, Linux target auxv ABI source, and macOS target P_TRANSLATED source. It also preserves the five D-006 startup gates, the weekly-roll 10% rule, all numeric threshold numerals, condition 5, and the implementation freeze. The macOS preflight is nevertheless not executable as written: PROC_PIDT_SHORTBSDINFO returns a structure with no start-time fields, and KERN_PROC_PID returns kinfo_proc with no CPU-type field. Because unreadable fields invalidate a job, both macOS classes would reject every sample; substituting executable file metadata would recreate the process-architecture defect. This MUST-FIX prohibits CONSENT and the proposed condition-4 MET transition.",
+  "objections": [
+    {
+      "id": "ADV-D099-T3-01",
+      "severity": "MUST-FIX",
+      "title": "The macOS 15 preflight requests start-time and CPU-type fields that its named structures do not contain",
+      "finding": "Lines 214-215 say proc_pidinfo(T, PROC_PIDT_SHORTBSDINFO) supplies start tv_sec/tv_usec. On the target macOS 15.4 SDK, that flavor returns struct proc_bsdshortinfo, which has no start-time members; pbi_start_tvsec and pbi_start_tvusec belong to struct proc_bsdinfo returned by PROC_PIDTBSDINFO. Lines 216-220 then say sysctl(CTL_KERN, KERN_PROC, KERN_PROC_PID, T) returns a kinfo_proc CPU type. kinfo_proc embeds struct extern_proc, which has p_flag (and therefore the correctly named P_TRANSLATED bit) but no CPU-type member. The target SDK also has no PROC_PIDARCHINFO or struct proc_archinfo that could silently supply the missing process field. A syntax-only probe against MacOSX15.4.sdk fails exactly on proc_bsdshortinfo.pbi_start_tvsec, proc_bsdshortinfo.pbi_start_tvusec, and kinfo_proc.kp_proc.p_cputype.",
+      "evidence": [
+        "D-099 turn 3 lines 214-220 name PROC_PIDT_SHORTBSDINFO start fields and a kinfo_proc CPU-type field.",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk/usr/include/sys/proc_info.h defines pbi_start_tvsec/pbi_start_tvusec only on struct proc_bsdinfo, defines struct proc_bsdshortinfo without them, and binds PROC_PIDT_SHORTBSDINFO to sizeof(struct proc_bsdshortinfo). Its SHA-256 is 9548e28972bd1653a6adb673d17beb975ae26a79e673a697434945bcb79d4059.",
+        "/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk/usr/include/sys/sysctl.h defines kinfo_proc as extern_proc plus eproc; /usr/include/sys/proc.h defines extern_proc without a CPU-type field and defines P_TRANSLATED in p_flag. Their SHA-256 values are 32d463b3d01a2999b10865cc4e032a8b5959ab8d2b5e0c71ce820fe81fe53f82 and ecfcb2d5fdfe030f3b3197d3313b9d13875f1f8a345c6a9c75b7e82dc7052e64.",
+        "A clang -fsyntax-only probe against MacOSX15.4.sdk reports: no member named pbi_start_tvsec in struct proc_bsdshortinfo; no member named pbi_start_tvusec in struct proc_bsdshortinfo; no member named p_cputype in struct extern_proc.",
+        "The macOS translation half is distinct and valid at the field level: the same target kinfo_proc can expose kp_proc.p_flag & P_TRANSLATED after the suspended spawn. The defect is the separate, nonexistent process-CPU field and the wrong start-info flavor."
+      ],
+      "impact": "The global fail-closed clause makes every macos-15 and macos-15-intel job invalid because two required fields cannot be read from the named results. An implementation that instead treats file/lipo output as the missing process architecture would again observe executable metadata rather than T's selected process ABI. Therefore the proposed G03/G04 harness names are not backed by a runnable four-platform contract, and condition 4 cannot become MET.",
+      "requiredRepair": "Replace the start-identity step with a real macOS 15 field and flavor, such as PROC_PIDTBSDINFO with struct proc_bsdinfo.pbi_start_tvsec/pbi_start_tvusec or the already obtained kinfo_proc.kp_proc.p_starttime, with exact return-size and error checks. Replace the invented kinfo_proc CPU type with a documented target-PID process-architecture observation actually available on macOS 15, naming its API, returned structure, normalized values, and failure behavior; if no such external field is available, define a reviewed post-exec in-target report or a different reviewed proof rather than falling back to file/lipo. Retain T's post-exec kinfo_proc P_TRANSLATED check and the suspended-spawn handshake. Because this is turn 3 of 3, repair requires the protocol's post-cycle route, not a fourth turn."
+    }
+  ],
+  "notes": [
+    {
+      "id": "ADV-D099-T3-N-01",
+      "severity": "NOTE",
+      "title": "AT_PLATFORM is a target-memory pointer, not an inline auxv string",
+      "finding": "The Linux intent is clear enough not to create a second rejecting finding: /proc/T/auxv is target-specific and the accepted values are strings. At implementation time, however, each auxv record contains an ID and machine-word value, and AT_PLATFORM's value is a pointer into T's initial stack. The harness must dereference that pointer through a bounded target-memory read while T is stopped; it must not call getauxval() in the parent or compare the raw address.",
+      "routing": "Make the dereference, NUL/length bound, target-memory API, and read failure explicit when authoring the harness or in the next reviewed successor."
+    }
+  ],
+  "predecessorFindingDisposition": {
+    "D099-T2-MF-1": "RESOLVED-VERIFIED. The dispatch table contains one uniquely labeled row for each current D-099 cycle input; the single D-098 predecessor-commit identity is an input to this cycle, not a duplicated historical pin block.",
+    "ADV-D099-T2-02": "RESOLVED-VERIFIED. The historical D-098 pin block and duplicate generic labels are gone; every remaining label is unique.",
+    "ADV-D099-T2-01": "PARTIALLY RESOLVED. Dedicated stopped-after-exec launches, Linux T auxv AT_PLATFORM, and macOS T kinfo_proc P_TRANSLATED all landed. The macOS process-architecture observation is still nonfunctional because kinfo_proc has no CPU-type field; residual recorded as ADV-D099-T3-01.",
+    "D099-T2-N-1": "RESOLVED-VERIFIED. The macOS translation field is expressly T's post-exec kinfo_proc P_TRANSLATED bit, not parent sysctl.proc_translated or a pre-exec helper."
+  },
+  "factVerification": {
+    "fullContractInCurrentBytes": "VERIFIED. The operative fleet-class and measurement contract is present in the turn-3 subject rather than incorporated from CONTESTED D-098.",
+    "dispatchPinTable": "VERIFIED. Labels are unique and scoped to the D-099 cycle's dispatch inputs. Every cited SHA-256 reproduces, including the peer verdict files measured as opaque hashes only.",
+    "d006StartupSurface": "VERIFIED. Exactly cold p50/p95/p99 and warm p95/p99 are operative; warm p50 is non-failing telemetry.",
+    "regressionContract": "VERIFIED. Previous and candidate binaries use the same 21 current VMs from the second qualified release, and weekly image rolls expressly do not suppress the paired 10% rule.",
+    "sampleCacheAndRssMatrix": "VERIFIED. Series, nearest-rank estimator, purge/warm order, doctor handling, 21 matched pairs, absolute G04 sample bounds, and non-pooled aggregates are explicit.",
+    "runnerClassSource": "VERIFIED against GitHub's current official hosted-runner table: public-repository Linux 4 CPU/16 GB/14 GB, macOS arm64 3-core M1/7 GB/14 GB, macOS Intel 4 CPU/14 GB/14 GB, and the named Intel UDID match the source.",
+    "linuxTargetObservation": "VERIFIED at the contract level, with NOTE ADV-D099-T3-N-01 for implementation detail. The child reaches a ptrace exec stop; /proc/T/exe identifies the target image; /proc/T/auxv supplies target AT_PLATFORM; /proc/self/exe is forbidden; fat images are rejected.",
+    "macTargetObservation": "NOT VERIFIED. The suspended post-exec target and T's P_TRANSLATED bit are correctly named, but the required start and process-CPU reads refer to fields absent from their named macOS 15 result structures.",
+    "numericThresholds": "VERIFIED. All D-006 size/startup/RSS numerals and the five-quantity G03 surface remain unchanged; the successor changes only the G03/G04 runner class and measurement contract.",
+    "file08EditTargets": "VERIFIED before verdict write. Each of the five exact replacement targets occurs exactly once in live file 08.",
+    "readinessAndSideEffects": "VERIFIED except for the blocked condition-4 transition. The draft makes no QUALIFIED, DEMONSTRATED, or SATISFIED claim; does not restore G17 or name G13; leaves condition 2 at 4 of 30 NOT MET and condition 5 NOT MET; and does not authorize implementation. docs/v2/implementation is absent.",
+    "turn1Freeze": "VERIFIED. The D-099 turn-1 subject remains mode 0444 at 458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08.",
+    "turn2Freeze": "VERIFIED. The D-099 turn-2 subject remains mode 0444 at 4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c.",
+    "liveInputs": "VERIFIED. COORD 0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b; file 08 45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206; freeze e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd; D-098 CONTESTED predecessor commit and HEAD 09d0e288509f8b3e58d035290ff26f2e1d29c4ce."
+  },
+  "attackResults": {
+    "d099T2Mf1NotLanded": "PASS. No duplicate or foreign historical pin block remains, and labels are unique.",
+    "advD099T201NotLanded": "FAIL as MUST-FIX ADV-D099-T3-01. Both exec-stop handshakes and T's translation field landed, but the named macOS process-architecture field does not exist and therefore cannot observe T.",
+    "processArchObservesInspectorOrFatSlice": "FAIL as MUST-FIX ADV-D099-T3-01. The draft no longer points at /proc/self/exe and rejects fat images, but its macOS substitute is an invented kinfo_proc CPU-type field; executable file metadata cannot lawfully fill the gap.",
+    "weeklyRollDisablesTenPercent": "PASS. Weekly image rolls expressly do not suppress the rule; P/C are measured on the same current VMs.",
+    "warmP50FailGate": "PASS. Warm p50 is expressly telemetry and must not fail qualification.",
+    "changesD006Numerals": "PASS. The D-006 threshold numerals are preserved.",
+    "claimsQualifiedOrSatisfied": "PASS. No QUALIFIED, DEMONSTRATED, or SATISFIED claim is made.",
+    "authorizesImplementationOrFlipsCondition5": "PASS. Both are expressly denied, condition 5 remains NOT MET and last, and the implementation directory is absent.",
+    "flipsCondition4WithoutCompleteContract": "FAIL. ADV-D099-T3-01 leaves two governed platforms with an impossible fail-closed preflight, so the complete-contract predicate for naming G03/G04 and marking condition 4 MET is not met.",
+    "citedDigests": "PASS. All table values reproduce; peer review files were hash-measured without opening or parsing their contents.",
+    "subjectOrPromptMoved": "PASS. Prompt and turn-3 subject retained their start hashes and mode 0444 through the final checkpoint.",
+    "turn1OrTurn2SubjectEdited": "PASS. Both frozen predecessor subjects retain their cited hashes and mode 0444."
+  },
+  "consensusStatus": "CODEX OBJECTIONS: 1 MUST-FIX, 0 SHOULD-FIX, 1 NOTE. CONSENT prohibited.",
+  "protocolPartition": {
+    "otherReviewerVerdictContentsRead": false,
+    "otherReviewerVerdictContentsParsed": false,
+    "otherReviewerVerdictHashesMeasured": true,
+    "peerEvidenceUsed": "Only peer finding/disposition text necessarily quoted in the frozen prompt and subject. Peer files were not displayed, parsed, or used for merits; their opaque hashes were computed solely because the subject cites those digests and the attack list requires digest verification.",
+    "technicalSources": "The blocker was reproduced against the installed target-version SDK at /Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk. Current runner specifications were checked against https://docs.github.com/en/actions/reference/runners/github-hosted-runners and https://github.com/actions/runner-images. Linux AT_PLATFORM representation was checked against https://man7.org/linux/man-pages/man3/getauxval.3.html and https://github.com/torvalds/linux/blob/master/fs/binfmt_elf.c.",
+    "filesWrittenByCodex": [
+      "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn3.json"
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn3.review-prompt.md": "3f61b205d9f9ccbdfe27b2fc4b7bb98a2eddb1825325ffb70989152d1a7b2004",
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn3.draft.md": "3249a26c738c35cbd20f31ebe442559fc027acc764a610cb4dc93eac3b4ee47a",
+    "docs/coop/artifacts/coordinator-decisions.D-099.draft.md": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn2.draft.md": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.json": "13b40bd21ec4d9930f7890a0223d535b081ecf768de121388c4840e7c4f9b89e",
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn2.json": "03ae1f97e62001436d536d5ba3917e3be2bdc2953b6fb97a8ae51dc2b19f91cd",
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.claude2.json (hash only)": "9016bc8125fdf6262e1867c2b3f6ffc7d46e889c8ebd290bc5d386c55f907642",
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.claude2.turn2.json (hash only)": "fcbb2bfcc1fe34bbd3d8908c289d5cabafa9911cff410a83f97cab3ed93639e8",
+    "docs/coop/COORDINATOR-DECISIONS.md": "0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b",
+    "docs/v2/architecture/08-decision-and-readiness-register.md": "45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd",
+    "D-098 CONTESTED predecessor commit": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "MacOSX15.4.sdk usr/include/sys/proc_info.h": "9548e28972bd1653a6adb673d17beb975ae26a79e673a697434945bcb79d4059",
+    "MacOSX15.4.sdk usr/include/sys/sysctl.h": "32d463b3d01a2999b10865cc4e032a8b5959ab8d2b5e0c71ce820fe81fe53f82",
+    "MacOSX15.4.sdk usr/include/sys/proc.h": "ecfcb2d5fdfe030f3b3197d3313b9d13875f1f8a345c6a9c75b7e82dc7052e64"
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtStart": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "gitHeadAtEnd": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "localFinalPrewriteMeasurementTime": "2026-08-14T18:51:34-0700",
+    "utcFinalPrewriteMeasurementTime": "2026-08-15T01:51:34Z",
+    "targetExistedAtStart": false,
+    "implementationDirectoryPresent": false,
+    "committed": false
+  },
+  "filesWritten": [
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn3.json"
+  ]
+}

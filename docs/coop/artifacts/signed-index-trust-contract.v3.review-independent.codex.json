@@ -1,0 +1,177 @@
+{
+  "artifact": "signed-index-trust-contract.v3.review-independent.codex",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/signed-index-trust-contract.v3.json",
+  "registerRow": "DR-112",
+  "subjectSha256AtStart": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce",
+  "date": "2026-08-14",
+  "reviewer": "Codex, independent; did not author v1, v2, or v3",
+  "protocol": "Independent successor review; refute claimed repairs; other current v3 reviewer not read",
+  "reviewScope": "Review only. This review does not mark DR-112 SATISFIED, does not qualify or demonstrate anything, does not authorize implementation, and does not apply or seal the candidate.",
+  "reviewState": "COMPLETE",
+  "subjectSha256AtEnd": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce",
+  "subjectMovedDuringReview": false,
+  "verdict": "REJECT",
+  "blockerCount": 2,
+  "shouldFixCount": 1,
+  "advisoryCount": 1,
+  "summary": "v3 genuinely repairs the stale-then-expired ordering, RECOVERY clock handling, unmatched-guard fallback, monotonic repeated observations, explicit abort event, envelope-inactive fail closure, the 343-triple continuation table, candidate finding-id attribution, and historical/diff honesty. It is still not acceptable. A recovery-typed payload from UNBOOTSTRAPPED can match both the bootstrap-to-TRUSTED and ceremony-staging transitions, while ST-RECOVERY/PRESENT is duplicated; the relation therefore lacks disjoint guards and can skip the recovery ceremony. More seriously, RECOVER-COMMIT targets TRUSTED without applying the complete trustPolicyShape, and recoveryAuthorityShape names an authority set without requiring authorization evidence from that set over the old-root-to-new-root transition. The audit rule requires refusalReason, but named install and continuation refusals have no reason mapping and the accepted abort text conflicts with the no-reason-on-accepted rule. DR-112 remains OPEN and this verdict authorizes no implementation.",
+  "blockers": [
+    {
+      "id": "SITCV3-B1",
+      "severity": "BLOCKER",
+      "title": "Recovery-payload dispatch is not guard-disjoint and can bypass the recovery ceremony",
+      "sites": [
+        "/machine/transitions/0",
+        "/machine/transitions/3",
+        "/machine/transitions/7",
+        "/machine/transitions/19",
+        "/machine/statePrecedence",
+        "/airGapPayload",
+        "/fixtureClasses/6"
+      ],
+      "measurement": "The v3 machine has 7 states, 9 events, and 20 transition members. Expansion yields 43 distinct named state/event pairs and 20 fallback-only pairs. Six pairs have multiple transition members. Four ordinary-refresh/staging overlaps are intended to be split by payload kind and the two TRUSTED/CLOCK rows have complementary guards, but the split is not complete. For ST-UNBOOTSTRAPPED/EV-PRESENT-PAYLOAD, transition 0 accepts any complete payload satisfying the bootstrap trust predicate after activation and targets ST-TRUSTED; transition 7 accepts a recovery-typed payload and targets same/ST-UNBOOTSTRAPPED for staging. Transition 0 never says ordinary/non-recovery, and airGapPayload defines no authenticated payload-kind discriminator. A complete, trust-valid payload labeled recovery-typed therefore satisfies both written guards and has two targets.",
+      "ceremonyBypass": "The staging row promises that a recovery-typed payload does not skip EV-RECOVER-BEGIN, and FC-RECOVER requires UNBOOTSTRAPPED recovery to stage, begin, then commit. The competing bootstrap row reaches ST-TRUSTED directly without recoveryAuthorityShape or EV-RECOVER-BEGIN. If statePrecedence is used to select between the two declared rows, its written order ranks ST-TRUSTED above ST-UNBOOTSTRAPPED, choosing the ceremony-bypassing target; if it is not used, the relation is multi-target. Either reading violates the claimed deterministic recovery staging repair.",
+      "duplicateRow": "ST-RECOVERY/EV-PRESENT-PAYLOAD is declared twice, at transitions 3 and 19, with overlapping 'Recovery payload only' guards and the same state target. The earlier copy retains the now-false v2 parenthetical that abort remains an EV-RECOVER-BEGIN failure/default refusal; the later copy names EV-RECOVER-ABORT. Even though the state target agrees, the contract does not say whether one or two transition/audit actions fire or which guard text is authoritative.",
+      "whyBlocker": "DR-112 requires a reviewed state machine and a recovery ceremony. A caller-controlled or undefined payload classification that can choose direct TRUSTED entry instead of ceremony staging is a recovery-boundary bypass, not a cosmetic duplicate.",
+      "minimumRepair": "Define an authenticated ordinary-versus-recovery payload discriminator in the payload shape, make every overlapping PRESENT guard explicitly disjoint, and state that recovery-typed input from every recovery source including UNBOOTSTRAPPED can only stage. Remove the duplicate ST-RECOVERY/PRESENT row and its stale abort text. Re-expand the guarded relation, not just the state/event pair set, and add a fixture whose recovery-typed UNBOOTSTRAPPED payload would otherwise satisfy the ordinary bootstrap predicate."
+    },
+    {
+      "id": "SITCV3-B2",
+      "severity": "BLOCKER",
+      "title": "RECOVER-COMMIT still skips the complete TRUSTED-entry predicate and does not require positive recovery authorization",
+      "sites": [
+        "/machine/transitions/17",
+        "/trustPolicyShape/requiredOnEveryTrustedEntry",
+        "/trustPolicyShape/envelopeJoinStanding",
+        "/recoveryAuthorityShape/requiredOnRecoverCommit",
+        "/recoveryCeremony/shape/2",
+        "/fixtureClasses/6",
+        "/fixtureClasses/10",
+        "/fixtureClasses/15"
+      ],
+      "measurement": "Five transition members target ST-TRUSTED. Bootstrap, refresh, and install either name trustPolicyShape or explicitly reuse the first-bootstrap predicate. RECOVER-COMMIT does not. Its guard requires only that TRUSTED-entry be ACTIVE and recoveryAuthorityShape hold. ACTIVE means that the envelope mechanism/dependency is enabled; transition 4 demonstrates that activation and satisfying trustPolicyShape are separate predicates by requiring both. Commit therefore omits the byte-level pass, envelope verification over the recovery payload, role/delegated-namespace authorization, signer-threshold evaluation, expiry/future-time check, and revocation-freshness check that requiredOnEveryTrustedEntry says are mandatory. FC-RECOVER mirrors the same weakened condition rather than closing it.",
+      "authorizationGap": "recoveryAuthorityShape requires identification of the old root, existence of a reserved authority set distinct from the replacement root's self-signature, a negative rule that the new root not self-authorize, and counter advance. It never requires signatures/approval from that authority set, satisfaction of its reserved threshold, or a signed binding over the identified old root and replacement root. Naming a set and forbidding sole self-signature is not a positive authorization relation; an implementation cannot decide what non-self evidence authorizes the replacement.",
+      "whyBlocker": "The accepted DR-103/DR-112 split leaves ceremony-valid envelope, key, threshold, rotation, and recovery semantics to this row. A recovery transition cannot enter a state named TRUSTED without the complete applicable trust predicate and proof that the reserved recovery authority authorized this specific root replacement.",
+      "minimumRepair": "Define and reference a recoveryTrustedEntry predicate on RECOVER-COMMIT: every applicable trustPolicyShape check, with bootstrapAnchorCustody replaced by a positive authorization from recoveryAuthoritySet; byte/envelope verification; threshold satisfaction against the reserved parameter; an old-root/new-root/role binding; expiry/future/freshness checks; and anti-rollback. Keep all cardinalities and identities reserved. Extend fixtures with a payload that has a named authority set but no valid approval from it, plus expired, wrong-role, and bad-envelope recovery commits."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "SITCV3-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The required refusalReason invariant has no total mapping and conflicts with the abort record",
+      "sites": [
+        "/auditAndWaiver/audit",
+        "/machine/transitions/5",
+        "/machine/transitions/6",
+        "/machine/transitions/18",
+        "/machine/fallbackByEvent/EV-CONTINUE",
+        "/offlineRunningPolicy/totalDecision",
+        "/fixtureClasses/12",
+        "/fixtureClasses/17"
+      ],
+      "detail": "auditAndWaiver now correctly says refusalReason is required exactly on refused outcomes, but the machine does not define one for every refusal. The named non-TRUSTED EV-INSTALL row refuses directly and therefore never falls through to fallbackByEvent, yet supplies no reason identity. EV-CONTINUE is named for every state by a wildcard transition; its policy rows say continue/refuse but define no refusal reasons. Its fallback entry cannot repair that: it uses the non-enum outcome 'see-offlineRunningPolicy' and the placeholder reason 'as-totalDecision-or-defaultRefuse', and the fallback is not selected while the wildcard guard matches. FC-REFUSAL-AUDIT asserts fallback/guard-false refusals but omits these named policy refusals.",
+      "abortConflict": "EV-RECOVER-ABORT says the abort event outcome is accepted while also saying it is audited with refusalReason RECOVERY-ABORTED 'on the ceremony'. The only declared event-audit schema forbids refusalReason when outcome is accepted, and no separate ceremony-termination record shape is defined. The text therefore either violates the invariant in one record or relies on an undeclared second record.",
+      "requiredRepair": "Declare a closed refusal-reason vocabulary and a total mapping for every refused named transition, guard-false fallback, and continuation decision. Accepted audit records must omit refusalReason rather than carry a value or placeholder. If ceremony termination needs its own reason, define a distinct ceremony audit record and its join to the accepted abort event. Expand FC-REFUSAL-AUDIT to named install and continuation refusals."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "SITCV3-A1",
+      "severity": "ADVISORY",
+      "title": "EV-RECOVER-ABORT uses an undeclared transition-target token",
+      "sites": [
+        "/machine/transitions/18/to",
+        "/machine/states",
+        "/fixtureClasses/17"
+      ],
+      "detail": "The abort transition's to value is 'computed', which is neither one of the seven state ids nor the established 'same' meta-target. The guard prose bounds the result to REVOKED, QUORUM-LOST, EXPIRED, STALE-REVOCATION, or UNBOOTSTRAPPED under the declared precedence and explicitly forbids TRUSTED, so this is not independently safety-blocking. A structured target function or explicit guarded rows would make conformance and audit-to-state validation mechanical."
+    }
+  ],
+  "attackResults": {
+    "guardedRelationTotality": "FAIL at SITCV3-B1. Every event has a fallback for no-true-guard cases, but true-guard overlap remains for UNBOOTSTRAPPED/PRESENT and RECOVERY/PRESENT is duplicated.",
+    "clockPrecedence": "PASS. ST-STALE-REVOCATION plus an expiry clock has a named transition to ST-EXPIRED. ST-RECOVERY plus clock is an explicit accepted stay, and statePrecedence now scopes that exception honestly.",
+    "recoveryAbort": "PASS on safety direction, with advisory SITCV3-A1. EV-RECOVER-ABORT exists only from RECOVERY, never targets TRUSTED, never publishes a root, and defaults to refusal outside the ceremony.",
+    "envelopeInactiveTrustedEntry": "PASS for ordinary bootstrap/refresh/install. envelopeJoinStanding and the guards refuse every such TRUSTED entry while inactive without inventing canonicalization. RECOVER-COMMIT fails for the separate complete-predicate defect at SITCV3-B2.",
+    "recoveryAuthority": "FAIL at SITCV3-B2. The negative anti-self-authorization sentence is present, but no positive approval/signature relation from recoveryAuthoritySet to the old-root/new-root transition is required.",
+    "offlineContinuation": "PASS. Mechanical evaluation of all 343 CORE/INDEX/COMPONENT triples yields 340 explicit refusals, 3 permissive outcomes, and 0 default gaps. The only permissive triples have CORE=TRUSTED and COMPONENT=TRUSTED; CORE expired/stale is unambiguously refuse and INDEX UNBOOTSTRAPPED is explicit refuse.",
+    "refusalAudit": "FAIL at SITCV3-S1. The required/forbidden cardinality rule is stated, but reasons are absent for named install/continuation refusals and the accepted abort text refers to a refusal reason without a separate record shape.",
+    "reviewerFindingIdentity": "PASS. Claude S-1/ADV-1/2/3 and Codex SITCV2-B1/B2/B3/S1 are carried under distinct CLAUDE-V2-* and CODEX-V2-* successor ids with exact verdict digests; none are collapsed.",
+    "successionHonesty": "PASS. The recursive v2-to-v3 diff has 70 changed leaves and none lies outside the closed-roster prefixes. honestyRepairsFromV1 is byte-identical to v2; events and review guidance are strict append operations; fixture amendments/additions exactly match the roster.",
+    "mintedQuorumClockWaiverNumbers": "PASS. Threshold, skew/freshness, recovery-authority membership, break-glass permission, and waiver duration remain reserved parameters; the 7x7x7 fixture count is a measured state cross-product, not a policy value.",
+    "implicitNetworkOrLockMutation": "PASS. Payload and failed-guard rules remain fail-closed with no download, refresh, or lock mutation.",
+    "roleCollapse": "PASS. Five roles remain separate and the machine discipline remains per role.",
+    "repairAndReplayDeferrals": "PASS. Repair-media shipping stays with DR-110 and newly revoked replay stays with DR-113.",
+    "candidateLabelAttribution": "PASS. P-8 and SC-OPS remain candidate-attributed rather than live register vocabulary.",
+    "satisfiedQualifiedOrImplementationAuthorization": "PASS. The subject remains CANDIDATE-NOT-APPLIED / AWAITING-INDEPENDENT-REVIEW / DO-NOT-SEAL / binds NOTHING, keeps DR-112 OPEN, claims no QUALIFIED result, and authorizes neither G06/G08 execution nor docs/v2/implementation/.",
+    "sourceAndCarryIntegrity": "PASS with live-source-advance note. The prompt, subject, predecessor, both permitted v2 verdicts, six non-coordinator governing sources, file 08, and both verbatim carries reproduce. The subject's pinned COORDINATOR-DECISIONS digest 12d192f7... resolves at historical commit 2327cf89...; live HEAD has only appended D-103/DR-111 and D-104/DR-103 recording text after that pin, without changing the cited D-002, DR-110, or D-056 material."
+  },
+  "measurements": [
+    "Subject SHA-256 matched bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce at review start and end.",
+    "Dispatch prompt SHA-256 is d2830060dfe9a3cd4f4ad8cf3880bf189e5d3a253a9a4ea1fa1e804ffa5b5ff3.",
+    "Predecessor v2 reproduced 58d896115d47f9ca17b130239c36c25d5a00d1a830ba653faf45ab4146a76444; Claude 2 v2 REJECT reproduced 82bc8aa83f0d0bb6c194836187c76fdeaac73711c0f8f4884031178f4e0c5f1a; Codex v2 REJECT reproduced 7edbe09c25b0995b1310306ead225ed8e11102be34a6a67a3734490c22c92b3e.",
+    "The subject, predecessor, and both permitted verdicts parsed with duplicate JSON keys rejected.",
+    "File 03 lines 76-89 matched trustTextCarriedVerbatim 14/14 lines; file 04 lines 212-224 matched offlineTextCarriedVerbatim 13/13 lines.",
+    "Exactly one live register line begins '| DR-112 |', at line 294, and it is byte-identical to registerRowQuoted.rowVerbatim with OPEN / Hard blocker standing.",
+    "The v3 machine has 7 states, 9 events, 20 transition members, 43 distinct named state/event pairs, 20 fallback-only pairs, and six multi-member pairs. Every declared event has a fallback entry.",
+    "Multi-member pairs are UNBOOTSTRAPPED/PRESENT, EXPIRED/PRESENT, STALE/PRESENT, QUORUM-LOST/PRESENT, RECOVERY/PRESENT, and TRUSTED/CLOCK. UNBOOTSTRAPPED/PRESENT has non-disjoint written guards and different targets; RECOVERY/PRESENT has duplicate rows 3 and 19.",
+    "Five transition members target ST-TRUSTED. RECOVER-COMMIT is the only one whose guard neither names trustPolicyShape nor reuses the first-bootstrap predicate; it requires only activation plus recoveryAuthorityShape.",
+    "recoveryAuthorityShape contains no predicate requiring approval/signatures from recoveryAuthoritySet or satisfaction of its reserved threshold over an old-root/new-root binding.",
+    "Continuation cross-product evaluation produced 340 explicit refuses, 3 continues, and 0 defaulted triples.",
+    "Named non-TRUSTED INSTALL refusal and continuation-policy refusals have no stable refusalReason mapping; EV-CONTINUE fallback uses outcome=see-offlineRunningPolicy rather than accepted|refused.",
+    "Recursive v2-to-v3 comparison found 70 changed leaves, zero outside the basedOn.method closed roster. Historical honestyRepairsFromV1 is unchanged; v2 review guidance is a 15-item prefix of v3's 26 items; fixture changes are exactly five amendments and four additions named by the roster.",
+    "The current COORDINATOR-DECISIONS hash is d210f103fc32a36e2220acd4c9bab8c7db1102370ba299c9989e9f54f9642166 after unrelated appended D-103/D-104 acts; the subject's pinned 12d192f7... bytes reproduce from commit 2327cf89...."
+  ],
+  "authorityOfThisVerdict": {
+    "marksDR112Satisfied": false,
+    "authorizesImplementation": false,
+    "qualifiesOrDemonstratesAnything": false,
+    "appliesOrSealsCandidate": false,
+    "editsSubject": false,
+    "editsFile08OrCoordinatorDecisions": false,
+    "commits": false,
+    "note": "This verdict records an independent review over digest-pinned candidate bytes. DR-112 remains OPEN; coordinator disposition and any successor authoring are separate acts."
+  },
+  "recordedInputs": {
+    "dispatchPrompt": {
+      "path": "docs/coop/artifacts/signed-index-trust-contract.v3.review-prompt.md",
+      "sha256": "d2830060dfe9a3cd4f4ad8cf3880bf189e5d3a253a9a4ea1fa1e804ffa5b5ff3"
+    },
+    "subject": {
+      "path": "docs/coop/artifacts/signed-index-trust-contract.v3.json",
+      "sha256": "bc55d30610c11a3b39f16ff574b8dd979853ba440d0c801e10086510115756ce"
+    },
+    "predecessor": {
+      "path": "docs/coop/artifacts/signed-index-trust-contract.v2.json",
+      "sha256": "58d896115d47f9ca17b130239c36c25d5a00d1a830ba653faf45ab4146a76444"
+    },
+    "permittedPriorVerdicts": [
+      {
+        "path": "docs/coop/artifacts/signed-index-trust-contract.v2.review-independent.claude2.json",
+        "sha256": "82bc8aa83f0d0bb6c194836187c76fdeaac73711c0f8f4884031178f4e0c5f1a",
+        "verdict": "REJECT"
+      },
+      {
+        "path": "docs/coop/artifacts/signed-index-trust-contract.v2.review-independent.codex.json",
+        "sha256": "7edbe09c25b0995b1310306ead225ed8e11102be34a6a67a3734490c22c92b3e",
+        "verdict": "REJECT"
+      }
+    ]
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtFirstEnvironmentCheck": "499c057b5730425977389282ea156bfe932af42e",
+    "gitHeadAtEnd": "499c057b5730425977389282ea156bfe932af42e",
+    "gitBranch": "main",
+    "subjectGitState": "untracked at review time; mode 0444; digest-pinned",
+    "targetExistedAtStart": false,
+    "otherCurrentReviewerRead": false,
+    "filesWritten": [
+      "docs/coop/artifacts/signed-index-trust-contract.v3.review-independent.codex.json"
+    ],
+    "forbiddenFilesEdited": false,
+    "committed": false,
+    "method": "Python hashlib over pathlib.Path.read_bytes() at start and end; duplicate-key-rejecting parse; exact permitted-input and source-carry verification; recursive closed-roster diff; mechanical 7x9 state/event expansion; guarded-overlap analysis; TRUSTED-target predicate enumeration; 343-triple continuation evaluation; recovery-authority and audit-totality attacks; explicit dispatch attack sweep."
+  }
+}

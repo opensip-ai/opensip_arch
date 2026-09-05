@@ -1,0 +1,124 @@
+{
+  "artifact": "docs/coop/artifacts/coordinator-decisions.D-101.review-adversarial.codex.turn2.json",
+  "reviewer": "codex",
+  "date": "2026-08-14",
+  "decision": "D-101",
+  "turn": 2,
+  "protocol": "D-000 independent adversarial review; refute not confirm; turn 2 of 3; frozen prompt, turn-2 subject, turn-1 subject, and D-099 subjects; other-reviewer verdict contents not opened or parsed; cited peer SHA-256 values measured as opaque hashes only; no subject, prompt, authority, register, freeze, implementation, predecessor, or other repository edits; no commit",
+  "subject": "docs/coop/artifacts/coordinator-decisions.D-101.turn2.draft.md",
+  "expectedSubjectSha256AtDispatch": "795c34e13e474b5007b33693d8399abb58df3910a79933ab6d927af2d922729b",
+  "subjectSha256AtStart": "795c34e13e474b5007b33693d8399abb58df3910a79933ab6d927af2d922729b",
+  "subjectSha256AtEnd": "795c34e13e474b5007b33693d8399abb58df3910a79933ab6d927af2d922729b",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovementObserved": false,
+  "prompt": "docs/coop/artifacts/coordinator-decisions.D-101.turn2.review-prompt.md",
+  "promptSha256AtStart": "453f30a50585296c4da3c23e810b8099808008dd611b4b3ddcff8e4176443ac3",
+  "promptSha256AtEnd": "453f30a50585296c4da3c23e810b8099808008dd611b4b3ddcff8e4176443ac3",
+  "promptModeAtStart": "0444",
+  "promptModeAtEnd": "0444",
+  "promptMovementObserved": false,
+  "verdict": "OBJECTIONS",
+  "findingCounts": {
+    "mustFix": 1,
+    "shouldFix": 0,
+    "notes": 0
+  },
+  "summary": "Turn 2 removes sysctl.proc_cputype as a process-architecture field, uses the accepted H+E+D+single-arch-spawn-preference+target-P_TRANSLATED=0 derivation, removes the claim that suspension itself detects a path swap, adds the required macOS path/inode/digest rechecks, and preserves every other attacked invariant. The repair creates a new measurement contradiction, however: the macOS full-file SHA-256 recheck is required immediately before each timed launch, while every cold launch is required to be the first exec after a cache purge. Rehashing P after that purge reads P back into the filesystem cache unless a cache-bypassing method is required; none is. The resulting G03 cold series is not cold-cache evidence. One MUST-FIX prohibits CONSENT and the proposed condition-4 MET transition.",
+  "objections": [
+    {
+      "id": "ADV-D101-T2-01",
+      "severity": "MUST-FIX",
+      "title": "The just-in-time macOS digest recheck repopulates the cache before every purported cold launch",
+      "finding": "Lines 81-85 and 95-100 require purge, then a cold launch as the first exec after that purge, followed immediately by its warm launch. Lines 146-151 and 220-224 independently require stat plus a repeated SHA-256 of P immediately before every macOS timed launch. Recomputing SHA-256 over P necessarily reads all of P. Ordinary macOS file reads populate the filesystem buffer cache; the draft specifies neither F_NOCACHE nor another cache-neutral digest mechanism. For a cold sample, the required ordering is therefore purge -> read all candidate bytes to rehash -> exec candidate, so the candidate image has just been warmed by the identity check. For the warm sample, the same check also inserts a full-file hash workload between the cold and supposedly immediate warm launches. This is a contradiction in the normative measurement sequence, not merely an implementation detail.",
+      "evidence": [
+        "D-101 turn 2 lines 81-85 define the first-release purge/cold/immediate-warm sequence; lines 95-104 define the equivalent paired sequence from the second release onward.",
+        "D-101 turn 2 lines 146-151 and 220-224 require the inode and full digest check immediately before each macOS timed launch.",
+        "Apple's File-System Performance Tips states that macOS maintains a buffer cache containing recently read file data and directs one-shot readers to disable caching explicitly; it names fcntl(F_NOCACHE) for that purpose: https://developer.apple.com/library/archive/documentation/Performance/Conceptual/FileSystem/Articles/FilePerformance.html",
+        "Apple's fcntl(2) manual defines F_NOCACHE as turning data caching off or on: https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/fcntl.2.html",
+        "MacOSX15.4.sdk usr/include/sys/fcntl.h defines F_NOCACHE as 'turn data caching off/on for this fd' at line 252; its SHA-256 is ebe22134742232b94f282575ff1fd901ac8b834976aab8d988ea0b37b0c52f85. The draft does not require it or any tested equivalent."
+      ],
+      "impact": "The governed macOS cold p50/p95/p99 samples can measure a digest-warmed executable while being labeled cold-cache. Those are three of D-006's five operative G03 quantities and can determine both the absolute qualification gate and the paired 10 percent gate. A contract that systematically contaminates those samples cannot back the G03 identifier or the claim that all required condition-4 harnesses are validly named.",
+      "requiredRepair": "Define one non-contradictory, reviewable sequence that preserves both executable identity and cache state. For example, require and validate a cache-bypassing full-file read such as a correctly implemented F_NOCACHE digest path, with no cache-populating helper exec, and state how the immediate warm pair remains uncontaminated; or bind an immutable opened object and its inode/digest before a final purge, then use a cache-neutral path-to-object check immediately before exec and revalidate after the pair. In either design, no full-file cache-populating read may occur after the final cold purge, and no unaccounted digest workload may occur inside the cold/warm pair. Retain rejection and preflight rerun on any identity mismatch."
+    }
+  ],
+  "predecessorFindingDisposition": {
+    "D101-T1-MF-1": "RESOLVED-VERIFIED. sysctl.proc_cputype+PID is expressly rejected, not used as process architecture. macOS target ISA is the accepted fail-closed H, thin E, digest D0, one exact spawn preference, and target P_TRANSLATED=0 derivation.",
+    "ADV-D101-T1-01": "RESOLVED-AS-WRITTEN, WITH NEW DEFECT ADV-D101-T2-01. The unsupported claim that suspension itself detects a swap is gone, and path/inode/digest checks now occur before spawn, after target observations, and before each macOS timed launch. The new objection is not a residual missing check; it is the cache-state contamination caused by where the added full digest check is ordered.",
+    "D101-T1-N-1": "RESOLVED-VERIFIED. G03/G04 launch sharing is permitted, peak RSS is routed to wait4/getrusage after exit, and steady-baseline methodology remains explicitly routed to harness authoring/evidence.",
+    "D101-T1-N-4": "RESOLVED-VERIFIED. MacOSX15.4.sdk is identified only as the API-availability warrant; the fleet class remains the workflow label plus the documented public-runner resource/architecture row."
+  },
+  "attackResults": {
+    "d101T1Mf1NotLanded": "PASS. The draft does not use sysctl.proc_cputype as a process field and states the accepted native-ISA derivation explicitly.",
+    "advD101T101NotLanded": "PASS on the dispatched attack. The after-observation and before-each-launch checks are present, and suspension is expressly said not to detect swaps by itself. Independent defect ADV-D101-T2-01 addresses the resulting cache contradiction.",
+    "processArchObservesInspectorOrFatSlice": "PASS. Linux dereferences T's AT_PLATFORM value while T is stopped; macOS reads T's P_TRANSLATED bit and combines it with the accepted derivation. file/lipo supplies only thin on-disk E, not a claimed per-process field, and fat/universal projections fail preflight.",
+    "atPlatformRawPointerOrParentGetauxval": "PASS. The draft requires bounded target-memory dereference of AT_PLATFORM from /proc/T/auxv and forbids both raw-pointer comparison and parent getauxval().",
+    "weeklyRollDisablesTenPercent": "PASS. Weekly image rolls expressly do not suppress the rule, and previous/candidate measurements are on the same current VMs.",
+    "warmP50IsFailGate": "PASS. Warm p50 is expressly telemetry and must not fail qualification; only D-006's five quantities are operative.",
+    "changesD006Numerals": "PASS. The D-006 size/startup/RSS numerals and 1.10 regression ceiling are preserved; the scoped successor changes the G03/G04 class and measurement contract only.",
+    "claimsQualifiedOrSatisfied": "PASS. The draft makes no QUALIFIED, DEMONSTRATED, or SATISFIED claim and does not mark a DR row SATISFIED.",
+    "authorizesImplementationOrFlipsCondition5": "PASS. docs/v2/implementation remains unauthorized and absent; condition 5 remains NOT MET and last.",
+    "fourthTurnOfD099": "PASS. This is D-101 turn 2 of 3, while D-099 remains CONTESTED at predecessor commit 90c80fc31b4c4a0dc376da62184d1fd6d82f21a4.",
+    "citedDigestsMismatch": "PASS. Every cited live-file and turn-1 digest reproduces. The other reviewer's turn-1 file was measured only as an opaque SHA-256 and was not opened or parsed.",
+    "subjectOrPromptMoved": "PASS. Subject and prompt retained their start SHA-256 values and mode 0444 through the end checkpoint.",
+    "turn1OrD099SubjectsEdited": "PASS. The D-101 turn-1 subject and all three D-099 subjects retain their measured hashes and mode 0444; the D-099 subjects have no diff from predecessor commit 90c80fc31b4c4a0dc376da62184d1fd6d82f21a4.",
+    "completeContractForCondition4": "FAIL as MUST-FIX ADV-D101-T2-01. The required macOS digest ordering invalidates the cold-cache evidence, so the G03 contract is not yet fit to support condition 4 MET."
+  },
+  "factVerification": {
+    "turn1ArchitectureRepair": "VERIFIED. The SDK exposes POSIX_SPAWN_START_SUSPENDED, posix_spawnattr_setarchpref_np, PROC_PIDTBSDINFO start fields, and P_TRANSLATED; the draft uses them in the accepted derivation and does not resurrect a nonexistent PROC_PIDARCHINFO or kinfo_proc CPU-type member.",
+    "linuxTargetObservation": "VERIFIED at contract level. The target child reaches the ptrace post-exec stop, /proc/T/exe is opened and hashed, and the AT_PLATFORM pointer is dereferenced in T's memory with bounded NUL/error handling.",
+    "runnerClassSource": "VERIFIED against GitHub's current official hosted-runner table: the four public-repository labels and CPU/RAM/storage/architecture rows match, including the Intel macOS UDID. Source: https://docs.github.com/en/actions/reference/runners/github-hosted-runners",
+    "d006Surface": "VERIFIED. Cold p50/p95/p99 and warm p95/p99 are the only operative G03 quantities; warm p50 is non-failing telemetry; the 10 percent rule begins at release two and survives weekly rolls; all threshold numerals are unchanged.",
+    "file08EditTargets": "VERIFIED. Each of the five exact source strings occurs exactly once in live file 08.",
+    "readinessSideEffects": "VERIFIED except for the blocked condition-4 transition. Condition 2 stays 4 of 30 NOT MET, condition 5 stays NOT MET and last, G13 remains unnamed, G17 remains inapplicable, no SATISFIED/QUALIFIED claim is made, and implementation is not authorized.",
+    "freezeIntegrity": "VERIFIED. Current turn-2 subject, current prompt, frozen turn-1 subject, and all frozen D-099 subjects retained their hashes and read-only modes."
+  },
+  "whatIDidNotCheck": [
+    "I did not read, open, display, or parse the other D-101 reviewer's review files.",
+    "I did not execute the complete preflight and 21-job measurement series on the four GitHub-hosted runner classes.",
+    "I did not implement or benchmark a proposed cache-neutral repair; the blocker follows from the draft's required ordering and ordinary cached full-file reads."
+  ],
+  "consensusStatus": "CODEX OBJECTIONS: 1 MUST-FIX, 0 SHOULD-FIX, 0 NOTE. CONSENT prohibited.",
+  "protocolPartition": {
+    "otherReviewerVerdictContentsRead": false,
+    "otherReviewerVerdictContentsParsed": false,
+    "otherReviewerVerdictHashesMeasured": true,
+    "peerEvidenceUsed": "Only peer disposition text embedded in the frozen subject and prompt. The cited turn-1 peer file was treated as opaque bytes solely to verify its cited SHA-256.",
+    "technicalSources": "Installed MacOSX15.4.sdk headers; Apple fcntl(2) and File-System Performance Tips; GitHub's official hosted-runner reference.",
+    "filesWrittenByCodex": [
+      "docs/coop/artifacts/coordinator-decisions.D-101.review-adversarial.codex.turn2.json"
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/coordinator-decisions.D-101.turn2.review-prompt.md": "453f30a50585296c4da3c23e810b8099808008dd611b4b3ddcff8e4176443ac3",
+    "docs/coop/artifacts/coordinator-decisions.D-101.turn2.draft.md": "795c34e13e474b5007b33693d8399abb58df3910a79933ab6d927af2d922729b",
+    "docs/coop/artifacts/coordinator-decisions.D-101.draft.md": "54333f8ec16398e0cd3d3bec15afb0b42c4e4a9740bfe7755e3326d083cd7864",
+    "docs/coop/artifacts/coordinator-decisions.D-101.review-adversarial.claude2.json (hash only)": "903d4abeddcdee58f4bd0854b709b6432636e4e356b5823cc72d6d667a6a3c54",
+    "docs/coop/artifacts/coordinator-decisions.D-101.review-adversarial.codex.json": "4936f9f24e49d004ef1e6443131cc6bf717e22baefb1f8876fd0f3e63775edef",
+    "docs/coop/artifacts/coordinator-decisions.D-099.draft.md": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn2.draft.md": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn3.draft.md": "3249a26c738c35cbd20f31ebe442559fc027acc764a610cb4dc93eac3b4ee47a",
+    "docs/coop/COORDINATOR-DECISIONS.md": "0f184eb32dceab330e8ec0b6e9fb9886881fcb0f228ebf346ce5be2e2dc2b4cf",
+    "docs/v2/architecture/08-decision-and-readiness-register.md": "45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd",
+    "D-099 CONTESTED predecessor commit": "90c80fc31b4c4a0dc376da62184d1fd6d82f21a4",
+    "MacOSX15.4.sdk usr/include/sys/fcntl.h": "ebe22134742232b94f282575ff1fd901ac8b834976aab8d988ea0b37b0c52f85",
+    "MacOSX15.4.sdk usr/include/sys/proc_info.h": "9548e28972bd1653a6adb673d17beb975ae26a79e673a697434945bcb79d4059",
+    "MacOSX15.4.sdk usr/include/sys/proc.h": "ecfcb2d5fdfe030f3b3197d3313b9d13875f1f8a345c6a9c75b7e82dc7052e64",
+    "MacOSX15.4.sdk usr/include/spawn.h": "34f7b5af45af0ba5d5d9fafc2bcbca0deeeffd389034a50be2ea6cc30b4f021c"
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "hostOS": "macOS 26.5.2 (25F84)",
+    "hostArch": "arm64",
+    "sdkInspected": "/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk",
+    "gitHeadAtStart": "90c80fc31b4c4a0dc376da62184d1fd6d82f21a4",
+    "gitHeadAtEnd": "90c80fc31b4c4a0dc376da62184d1fd6d82f21a4",
+    "targetExistedAtStart": false,
+    "implementationDirectoryPresent": false,
+    "committed": false
+  },
+  "filesWritten": [
+    "docs/coop/artifacts/coordinator-decisions.D-101.review-adversarial.codex.turn2.json"
+  ]
+}

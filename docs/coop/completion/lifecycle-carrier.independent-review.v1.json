@@ -1,0 +1,210 @@
+{
+  "artifact": "lifecycle-carrier-independent-review",
+  "version": 1,
+  "reviewer": "Codex security_behavior_review",
+  "independence": "Reviewer authored none of the six subject files. No subject/register changes.",
+  "verdict": "OBJECT",
+  "reviewedAt": "2026-09-04T22:54:40.345723+00:00",
+  "subject": {
+    "at": "2026-09-04T22:53:08.972289+00:00",
+    "freezeSha256": "3cef22bea874f73fb085328062433b4c07fcd2f283b543fc0d2fd4badefc37cb",
+    "files": {
+      "docs/coop/completion/lifecycle-carrier.schema.v1.sql": "b1dd5a8a0b18f9ff110f134bfdc3061303ce660b1cc5cd06c44191b166f86ebf",
+      "docs/coop/completion/lifecycle-carrier.contract.v1.json": "c55ebce49f4708187761428b417a39e2a432523b3c2bcf44354551a1fede076d",
+      "docs/coop/completion/lifecycle-carrier.cases.v1.json": "15c58b0c00fa72cbd949f1a3b3d3e78016e6da778023fa506a6cd9f2c93bdac3",
+      "docs/coop/completion/lifecycle-carrier.check.v1.py": "1c2b8020fcaa0d582fc6e8d6ba0ccec89597bc5b01b8f4da875a33c979628a38",
+      "docs/coop/completion/lifecycle-carrier.report.v1.json": "274284997538840d0541d41d050bd0729f61a18d4cabef829c0ff02689cd628d",
+      "docs/coop/completion/lifecycle-carrier.notes.v1.md": "81b78ec5d8095e306d7b6b5a9a55bd1e11b6ea9daa6cb58e4649e8492f2298c8"
+    }
+  },
+  "postReviewHashes": {
+    "docs/coop/completion/lifecycle-carrier.schema.v1.sql": "b1dd5a8a0b18f9ff110f134bfdc3061303ce660b1cc5cd06c44191b166f86ebf",
+    "docs/coop/completion/lifecycle-carrier.contract.v1.json": "c55ebce49f4708187761428b417a39e2a432523b3c2bcf44354551a1fede076d",
+    "docs/coop/completion/lifecycle-carrier.cases.v1.json": "15c58b0c00fa72cbd949f1a3b3d3e78016e6da778023fa506a6cd9f2c93bdac3",
+    "docs/coop/completion/lifecycle-carrier.check.v1.py": "1c2b8020fcaa0d582fc6e8d6ba0ccec89597bc5b01b8f4da875a33c979628a38",
+    "docs/coop/completion/lifecycle-carrier.report.v1.json": "274284997538840d0541d41d050bd0729f61a18d4cabef829c0ff02689cd628d",
+    "docs/coop/completion/lifecycle-carrier.notes.v1.md": "81b78ec5d8095e306d7b6b5a9a55bd1e11b6ea9daa6cb58e4649e8492f2298c8"
+  },
+  "subjectUnchanged": true,
+  "replay": {
+    "command": "python3 -B docs/coop/completion/lifecycle-carrier.check.v1.py --report /tmp/lifecycle-carrier-independent-replay.v1.json",
+    "passed": 88,
+    "total": 88,
+    "sqliteVersion": "3.53.3",
+    "externalReportSha256": "274284997538840d0541d41d050bd0729f61a18d4cabef829c0ff02689cd628d",
+    "matchesRetainedReport": true,
+    "writeInspection": "Checker executes real SQL, writes only requested report and temporary fixture databases/files, local fsync/rename, subprocess crash and local flock probes. Import has main guard. No original subject files written."
+  },
+  "sourcePins": [
+    {
+      "path": "docs/coop/completion/lifecycle-carrier.schema.v1.sql",
+      "sha256": "b1dd5a8a0b18f9ff110f134bfdc3061303ce660b1cc5cd06c44191b166f86ebf"
+    },
+    {
+      "path": "docs/coop/artifacts/lifecycle-generation-contract.v2.json",
+      "sha256": "a5f9d6a35f83d64687cdd2a00ec3106251ae407e54a5538727c086dd8f9ab77b"
+    },
+    {
+      "path": "docs/coop/artifacts/state-class-contract.v11.json",
+      "sha256": "b5456c63e865b53738b1f11f46a898438afca7890a6069a8653aad6ea78d86bb"
+    }
+  ],
+  "findings": [
+    {
+      "id": "LCR-1",
+      "priority": "MUST",
+      "title": "REPLACE statements bypass immutable rows, lease release, retention, and tombstone guards",
+      "locations": [
+        "lifecycle-carrier.schema.v1.sql generation_immutable/lease_immutable/lease_delete_guard/transition_prune/registry_no_delete",
+        "lifecycle-carrier.contract.v1.json $.database.requiredPragmas",
+        "lifecycle-carrier.check.v1.py Store.__init__"
+      ],
+      "authority": [
+        "lifecycle-generation-contract.v2 $.properties P-1, P-3, P-5, P-6",
+        "lifecycle-carrier.contract.v1.json $.writeProtocols.operation and $.projectRegistry.retirement"
+      ],
+      "evidence": [
+        "replace-live-lease-retargets-generation",
+        "replace-committed-history-bypasses-retention",
+        "replace-retired-registry-revives-tombstone",
+        "replace-ready-generation-overwrites-identity"
+      ],
+      "mechanism": "The tested connection has PRAGMA recursive_triggers=0, which is not constrained in requiredPragmas. INSERT OR REPLACE removes a conflicting row without invoking its DELETE triggers under this setting; it does not run UPDATE immutability guards. Valid INSERT guards then allow the replacement. A live acquired lease with unchanged UUID/boot/token can switch from G1 to G2 after selection advances, without any release authorization. A retained transition and retired registry key can also be replaced; an unreferenced READY generation can be reset with different digests/platform without a GC ticket. All probes keep the writer lock, foreign_keys=ON, and the supplied callbacks; no schema tampering or forged OS liveness facts are needed for the lease example.",
+      "repair": "Close REPLACE/conflict-replacement paths explicitly. Prefer BEFORE INSERT collision guards for immutable primary and unique identities so replacement cannot silently delete an existing row, and/or require and verify recursive_triggers=ON on every connection with guarded deletes sufficient to reject the attempted replacement. Check collisions through UNIQUE indexes as well as primary keys. Retain negative INSERT OR REPLACE / REPLACE and relevant UPDATE OR REPLACE cases for lease lifetime, tombstones, generation identity, transition retention, and quarantine. Verify legitimate publication and cleanup still pass."
+    },
+    {
+      "id": "LCR-2",
+      "priority": "MUST",
+      "title": "Canonical UUID and digest checks accept embedded NUL suffixes",
+      "locations": [
+        "lifecycle-carrier.schema.v1.sql generation.id",
+        "lifecycle-carrier.schema.v1.sql generation.manifestDigest",
+        "lifecycle-carrier.schema.v1.sql repeated UUID/digest/decimal/hex text constraints"
+      ],
+      "authority": [
+        "lifecycle-carrier.contract.v1.json $.localIdentity.generation.id",
+        "lifecycle-carrier.schema.v1.sql declared canonical lowercase UUIDv4 and 64-hex digest CHECKs"
+      ],
+      "evidence": [
+        "uuid-nul-tail",
+        "digest-nul-tail"
+      ],
+      "mechanism": "SQLite text length and GLOB checks stop at NUL in these expressions. The DDL accepts a 43-byte id consisting of a valid 36-character UUID followed by NUL and suffix, and a 71-byte digest consisting of 64 lowercase hex characters followed by NUL and suffix. STRICT TEXT does not enforce the intended byte grammar. Different consumers can disagree on identity/digest bytes even though SQL declares the row canonical.",
+      "repair": "Explicitly reject NUL in every constrained textual carrier, and enforce exact ASCII byte lengths for UUID/digest domains using BLOB length as appropriate. Audit repeated namespace/lease/boot/transition UUIDs, root hex, decimal identities and all digest fields for the same truncation behavior. Add NUL-prefix/middle/suffix and malformed-byte boundary cases through real SQL; do not rely on a later verifier callback to repair scalar DDL grammar."
+    }
+  ],
+  "probes": [
+    {
+      "name": "replace-live-lease-retargets-generation",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT leaseId,generationId FROM operation_lease": [
+          [
+            "77777777-7777-4777-8777-777777777777",
+            "22222222-2222-4222-8222-222222222222"
+          ]
+        ],
+        "SELECT generationId FROM project_selection": [
+          [
+            "22222222-2222-4222-8222-222222222222"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "replace-committed-history-bypasses-retention",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT txId,oldGeneration,newGeneration,phase FROM transition": [
+          [
+            "44444444-4444-4444-8444-444444444444",
+            "11111111-1111-4111-8111-111111111111",
+            "22222222-2222-4222-8222-222222222222",
+            "PREPARING"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "replace-retired-registry-revives-tombstone",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT projectKey,namespaceId,status FROM project_registry": [
+          [
+            "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+            "ACTIVE"
+          ],
+          [
+            "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            "99999999-9999-4999-8999-999999999999",
+            "ACTIVE"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "replace-ready-generation-overwrites-identity",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT id,state,manifestDigest,platform FROM generation": [
+          [
+            "11111111-1111-4111-8111-111111111111",
+            "PREPARING",
+            "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "linux-arm64"
+          ]
+        ]
+      }
+    },
+    {
+      "name": "uuid-nul-tail",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT hex(id),length(id),length(CAST(id AS BLOB)) FROM generation": [
+          [
+            "31313131313131312D313131312D343131312D383131312D31313131313131313131313100737566666978",
+            36,
+            43
+          ]
+        ]
+      }
+    },
+    {
+      "name": "digest-nul-tail",
+      "actual": "ACCEPT",
+      "recursiveTriggers": 0,
+      "observed": {
+        "SELECT hex(manifestDigest),length(manifestDigest),length(CAST(manifestDigest AS BLOB)) FROM generation": [
+          [
+            "6161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616100737566666978",
+            64,
+            71
+          ]
+        ]
+      }
+    }
+  ],
+  "reproducerSource": "import sys,copy,hashlib,importlib.util,json,pathlib,tempfile,sqlite3\nsys.dont_write_bytecode=True\nP=pathlib.Path('/Users/sb/code/opensip-ai/opensip/docs/coop/completion');spec=importlib.util.spec_from_file_location('lc',P/'lifecycle-carrier.check.v1.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)\nresults=[]\ndef run(name,setup,fn,queries):\n with tempfile.TemporaryDirectory(prefix='opensip-lifecycle-independent-') as td:\n  s=m.Store(td)\n  if setup!='empty':s.setup(setup)\n  try:\n   with s.writer():\n    s.execute('BEGIN IMMEDIATE');fn(s);s.execute('COMMIT')\n   actual='ACCEPT'\n  except Exception as e:\n   if s.connection.in_transaction:s.execute('ROLLBACK')\n   actual=type(e).__name__+': '+str(e)\n  rows={q:[list(r) for r in s.execute(q).fetchall()] for q in queries}\n  results.append({'name':name,'actual':actual,'recursiveTriggers':s.execute('PRAGMA recursive_triggers').fetchone()[0],'observed':rows})\n  s.close()\ndef replace_lease(s):\n s.lease();s.publish(m.P1,m.G2)\n s.execute('INSERT OR REPLACE INTO operation_lease VALUES(?,?,?,?,?)',(m.L1,m.P1,m.G2,m.BOOT,'fixture-process-start:1'))\nrun('replace-live-lease-retargets-generation','pending',replace_lease,['SELECT leaseId,generationId FROM operation_lease','SELECT generationId FROM project_selection'])\ndef replace_transition(s):\n s.execute('INSERT OR REPLACE INTO transition VALUES(?,?,?,?,?)',(m.T1,m.P1,m.G1,m.G2,'PREPARING'))\nrun('replace-committed-history-bypasses-retention','selected',lambda s:(s.insert_generation(m.G2),replace_transition(s)),['SELECT txId,oldGeneration,newGeneration,phase FROM transition'])\ndef replace_registry(s):\n s.execute(\"UPDATE project_registry SET status='RETIRED' WHERE projectKey=?\",(m.P1,))\n vals=list(s.execute('SELECT * FROM project_registry WHERE projectKey=?',(m.P1,)).fetchone());vals[-1]='ACTIVE';s.execute('INSERT OR REPLACE INTO project_registry VALUES(?,?,?,?,?,?,?,?,?)',vals)\nrun('replace-retired-registry-revives-tombstone','empty',replace_registry,['SELECT projectKey,namespaceId,status FROM project_registry'])\ndef replace_generation(s):\n s.execute('INSERT OR REPLACE INTO generation(id,manifestDigest,lockDigest,platform,immutablePath,state) VALUES(?,?,?,?,?,?)',(m.G1,'c'*64,'d'*64,'linux-arm64','generations/'+m.G1,'PREPARING'))\nrun('replace-ready-generation-overwrites-identity','ready',replace_generation,['SELECT id,state,manifestDigest,platform FROM generation'])\nrun('uuid-nul-tail','empty',lambda s:s.insert_generation(m.G1+'\\x00suffix'),['SELECT hex(id),length(id),length(CAST(id AS BLOB)) FROM generation'])\nrun('digest-nul-tail','empty',lambda s:s.insert_generation(manifestDigest='a'*64+'\\x00suffix'),['SELECT hex(manifestDigest),length(manifestDigest),length(CAST(manifestDigest AS BLOB)) FROM generation'])\npathlib.Path('/tmp/lifecycle-carrier-independent-probes.v1.json').write_text(json.dumps(results,indent=2)+'\\n')\nprint(json.dumps(results,indent=2))\n",
+  "positiveFindings": [
+    "External replay reproduced 88/88 on SQLite 3.53.3. The DDL does execute real constraints/transactions, not a replacement in-memory model.",
+    "Publication and matching COMMITTED transition updates are in one SQLite transaction; independent process-death witnesses cover both sides of commit while an old lease remains pinned.",
+    "The four-field trust epoch exact comparison, project-root/lock-scope callbacks, safe opaque-key namespace mapping, and nonblocking GC lease probe have explicit bounded contracts."
+  ],
+  "should": [
+    {
+      "id": "LCR-S1",
+      "text": "Add a synthetic global-context lock containing a project-scoped resolved tuple to the callback fixtures. The contract explicitly refuses it; the current scope_match test callback checks only scopeContext and has no tuple-level rejection. This is a fixture-depth gap, not a request for SQL to prove filesystem facts."
+    }
+  ],
+  "pendingIntegrationNotDefects": [
+    "Parent distribution-runtime-completion final section 5 must adopt the six-table schema and registry/scope guards. Current section 5 is paired proposed direction, not a recorded replacement for the inherited artifact.",
+    "Security successor must adopt the complete four-field epoch, same install-root fence, and registry-derived grant-journal locator."
+  ],
+  "reviewBound": "Callback observations are trusted host/OS inputs with explicit contracts. SQL is not required to prove signatures, native statx/fstat facts, confinement, OS lease ownership, power-loss durability, or four-platform qualification. This verdict covers the frozen reference DDL/evidence subject only; it is not an acceptance/SATISFIED or register disposition."
+}

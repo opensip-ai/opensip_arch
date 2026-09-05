@@ -1,0 +1,111 @@
+{
+ "artifact": "opensip.check-completeness.dialect-repair.review-independent",
+ "version": 1,
+ "date": "2026-08-13",
+ "role": "INDEPENDENT-REVIEW",
+ "reviewOf": "artifacts/check-completeness.dialect-repair.v1.json",
+ "subjectFrozenAtDispatch": {
+  "changeRecord": {"path": "artifacts/check-completeness.dialect-repair.v1.json", "sha256": "683b3db824be8ce0444360009375ef3124f2be16ea0c1f76c27a3c59c76178cf"},
+  "instrumentsPostEdit": {
+   "check-completeness.py": "af9f8837a5abc561cefebf071b862e2dd5fb427304f4738f7fadf5872c4f0f1f",
+   "check-completeness-v2.py": "dbe1e6955f66b0ccb032df115ca03fa780895b129b51fb39a49593581901bfb9"
+  },
+  "instrumentsPreEdit": {
+   "source": "git show HEAD:docs/coop/artifacts/... at HEAD b0fdc5e, digests verified by this reviewer before use as diff base",
+   "check-completeness.py": "6c52a5f9a4ac6a3ec3dae9fb0c87e82552744b18eb8cc38d1c4522ade3e549d6",
+   "check-completeness-v2.py": "b08824e86ea22720bdea649cdc663a39ef6d1fc483adfa6aa49cc19dc8666dd7"
+  },
+  "driftDuringReview": "NONE for the subject: all three subject digests identical at review start (2026-08-13T05:59:46Z) and end (2026-08-13T06:14:18Z). The verdict binds these bytes."
+ },
+ "verdict": "PASS",
+ "blockers": [],
+ "advisories": [
+  {
+   "id": "DR-A1",
+   "severity": "advisory",
+   "title": "Array-dialect margin divergence between the two instruments (empty-string and negative-integer tokens)",
+   "detail": "check-completeness.py's NEW array branch refuses an empty-string token and a negative integer token at parse time; check-completeness-v2.py's untouched array_path_steps admits both to walk stage. Demonstrated in scratch: {'op':'set','path':['a',''],...} against a base holding an empty-string key APPLIES under check-completeness-v2.py and REFUSES under check-completeness.py ('path is not plainly resolvable'); same split for add. Today this is corpus-vacuous: a sweep of all 852 distinct declared operation paths in the live corpus found zero empty-string or negative tokens, and cross-instrument agreement on every mutually-resolved artifact is byte-identical (recomputed, not trusted). The divergence direction is the safe one (cc1 refuses; nothing is invented). But a future array-path artifact addressing an empty-string key would split the census between the instruments. Successor work: align the two array grammars and state the empty-string/negative-token rule in both docstrings (cc1's docstring currently names only the bool refusal).",
+   "blocking": false
+  },
+  {
+   "id": "DR-A2",
+   "severity": "advisory",
+   "title": "The pointer-branch round-trip comparison is unreachable; only the dotted round-trip is load-bearing",
+   "detail": "Mutation-testing the selftest (scratch copies only): disabling the DOTTED round-trip comparison is caught in both instruments by the named case ('guessed-path-add' -> 'ESCAPE a non-round-tripping path was walked on a guess', exit 1). Disabling ONLY the POINTER round-trip comparison is caught by NO selftest case in either instrument -- because that comparison is unreachable: given the empty-token and '~(?![01])' escape gates, re-encoding a decoded token always reproduces the declared spelling (exhaustive enumeration of all tokens up to length 6 over {a,0,1,~} plus 200k random tokens up to length 12 including unicode: the guard fired zero times). Symmetrically, removing the escape gate alone is also inert (a bad '~' always lengthens under re-encoding, so round-trip refuses it; verified on the mutant, which still refuses /ver~2sion, /a/~, /x~9). The two pointer gates are mutually redundant; each alone fully covers the class, so neither single-gate mutant is behaviorally distinguishable and no test could catch it. This is defense-in-depth, not a paper guard -- a paper guard protects nothing, whereas here the refusal behavior survives either single mutation -- but the change record's operative sentence ('a string parse must re-print to the exact declared path or refuse') is enforced in the pointer branch by construction, not by the comparison, and future mutation coverage cannot see that comparison. Worth recording so a later editor does not mistake the uncatchable mutant for a coverage gap.",
+   "blocking": false
+  },
+  {
+   "id": "DR-A3",
+   "severity": "advisory",
+   "title": "check-completeness.py's refusal wording on content-addressed derivations misattributes the limitation to the artifact",
+   "detail": "v10-disposition.v3 (0 names, 3 digests) and .v4 (0 names, 4 digests) now refuse LOUDLY under check-completeness.py -- verified, and verified silent/invisible pre-edit -- but through the PRE-EXISTING wording: \"'derivation' carries an operation list and 0 predecessor name(s) and N digest(s); a derivation must state exactly one of each, so no effective contract can be materialised\". The clause 'a derivation must state exactly one of each' asserts a corpus-wide norm that check-completeness-v2.py lawfully relaxes (content identity: zero names, one or more digests; both artifacts RESOLVE under it, recomputed). A reader of cc1's error alone would conclude the ARTIFACT is malformed when the true state is that this READER does not implement content addressing. Loud is the right direction and the change record's surfacedResiduals discloses the gap honestly; the wording repair belongs to the successor work that record already names (porting the content branch).",
+   "blocking": false
+  },
+  {
+   "id": "DR-A4",
+   "severity": "advisory",
+   "title": "'DOTTED grammar unchanged for every path it already parsed' has a narrow, corpus-vacuous exception class",
+   "detail": "A slash-initial string that round-trips under the dotted grammar (e.g. a literal top-level key spelled '/x', which pre-edit parsed as the single dotted step '/x') is now intercepted by the pointer branch and parses to different steps ('x'). Such a key is still addressable post-edit via pointer escaping ('/~1x'). The regression sweep and the 852-path census confirm ZERO live paths in this class, and re-interpreting slash-initial strings as RFC 6901 is the entire declared point of the repair -- so this is a wording overreach in the docstring/change record, not a smuggled behavior change. The companion claim (non-round-tripping dotted spellings like 'a[00]' that previously walked on a guess now refuse) IS declared and was verified.",
+   "blocking": false
+  },
+  {
+   "id": "DR-A5",
+   "severity": "advisory",
+   "title": "Selftest verdicts are location-conditional (pre-existing, unchanged)",
+   "detail": "Both instruments' --selftest derive ROOT from the instrument's own location and check (ROOT/'artifacts/<validator>').exists(); a copy executed outside an artifacts/ directory fails many cases (measured: exit 1, cc2 26/42 pre and 29/49 post) with case-failure output indistinguishable from real mutation escapes -- not a distinct 'suite did not run' observable of the kind freeze 7.2 requires elsewhere. This property is byte-identical pre- and post-edit (both pre instruments show it too), so it is an environment note about the instrument family, not a finding about this change. All verdict-bearing selftest runs in this review were executed from an artifacts/ directory: post instruments in place (cc1 exit 0; cc2 exit 0 at 49/49) and pre instruments from a scratch root (cc1 exit 0; cc2 exit 0 at 42/42).",
+   "blocking": false
+  }
+ ],
+ "whatWasVerified": {
+  "diffCompleteness": "Recomputed both diffs against the digest-verified git pre-edit bytes. Every hunk maps to a declared change: cc1 -- path_steps (three strict dialects + round-trip), is_operation_list widening, new operation_shaped, new derivation_declaration refusal branch, pathDialect provenance, one comment block, and exactly 9 new selftest cases with their fixtures; cc2 -- path_steps pointer branch + round-trip, describe_unreadable_operations wording, pathDialect provenance, one comment block, and exactly 7 new selftest cases with their fixtures. NOTHING undeclared changed in either instrument.",
+  "independentImplementation": "Wrote an independent resolver sharing no walk code with either instrument: pointer parsing from RFC 6901's ABNF (fetched from https://www.rfc-editor.org/rfc/rfc6901.txt, sha256 12f9f4fc13d686aa4fbe7d144d70166cd3fcd4ab89174c2b13bda8f4b55e49da; escape order ~1-then-~0, array-index ABNF 0|[1-9][0-9]*, CONTEXTUAL index interpretation), a hand-written dotted scanner (not STEP_RE), duplicate-key-rejecting object_pairs_hook on every parse, bool-before-int token gates, type-exact 'from' equality, per-link digest verification. All three candidate chains reproduce the claimed canonical digests exactly: r1-lifetime-neutrality.conformance.v1.9 -> 27d27bc073cfd3c647f73eaf3a5236a513dee72f7a6c891e78ece72922e2bf1d (218973 bytes, chain v1.8/v1.7/v1.6 verified), evidence-identity-recipes.v7 -> 0f8022352100ee48fc1075b1a9837678745a0fd727037ff1d8583f28c9690d37, evidence-identity-recipes.v8 -> b64f5b8888a560bf2f3638dad44a8d0987629d303f77eede5aa663f5f79fdd70; and both post instruments' own resolutions match mine byte-for-byte (three-way agreement recomputed, not trusted).",
+  "regression": "Ran all four instrument versions (pre from verified git bytes, post from the working tree, python3 -I -B throughout, instruments imported as modules with ROOT pointed at the live corpus) over every artifact declaring a derivation. Recomputed, not trusted: pre-cc1 11 resolved / post-cc1 23; pre-cc2 18 / post-cc2 25 -- exactly the record's and the corpus-resolution.v2 census figures. Every artifact that resolved pre-edit resolves post-edit to the IDENTICAL canonical digest under both instruments (zero moved, zero newly refused). retention-tiers.v26/.v27/.v28 refuse pre and post with byte-identical error text under both instruments (the recorded terminus false positive persists unchanged, as declared). The newly-readable set is exactly as claimed: r1 v1.7/v1.8/v1.9, evidence-identity-recipes v6/v7/v8, uncomputable-identity-fields.sweep.v2 under both instruments, plus array-token v10-disposition.v2 and versioning-policy v14..v17 under check-completeness.py -- all byte-identical across the two instruments, and sweep.v2's canonical matches the v2 record's ffc322f8... Cross-instrument agreement on every mutually-resolved artifact: byte-identical, zero disagreements.",
+  "selftests": "post cc1 exit 0 (31 case lines, +9 over pre's 22); post cc2 exit 0 at 49/49 (+7 over pre's 42/42); pre instruments exit 0 from a faithful scratch root. Claimed counts and exit codes verified.",
+  "roundTripAttack": "Swept all 852 distinct declared operation paths in the live corpus through both post instruments' path readers against my independent RFC-6901/dotted/array parsers: zero disagreements; dialect census dotted 754, array 49, pointer 48, one null path (refused everywhere); zero live paths use RFC-valid-but-instrument-refused empty tokens. Adversarial battery (round-trip-but-tricky and falsely-refusable candidates): '01' pointer token is a string key, '~01' decodes to '~1', adjacent escapes '/~0~1/~1~0' decode and re-encode exactly, '00'/'-1'/'-' are string keys (array walks then refuse per the RFC's leading-zero rule), dotted keys containing '/' or digits parse as single keys exactly as pre-edit, 'a[00]'/'a[0]b'/'a.[0]' refuse, '[0].a' parses; instruments matched the independent parser or refused correctly on every case except the DR-A1 array-margin split. Contextual walk of every pointer path in every resolvable live derivation: zero array-index-form tokens land on a DICT, confirming the record's residual 'the corpus contains no such path today'.",
+  "silentAddHazard": "Demonstrated CLOSED on the real chain: PRE-edit check-completeness.py apply_operations, given r1 v1.7's two real add operations against the resolved v1.6 base, SILENTLY invented literal top-level keys '/successorContextV17' and '/findingIdentity' (zero errors) -- exactly the v1 corpus-resolution measurement; POST-edit lands both on the properly named keys with the literal slash spellings ABSENT. Scratch adversarial adds mis-tokenising in each dialect (pointer bad escape, pointer empty token, dotted guess, dotted non-canonical index, array bool token) all refuse LOUDLY under both post instruments; a well-formed pointer add lands on the named key with '/key' absent under both.",
+  "residuals": "All four surfacedResiduals and the verification claims recomputed and confirmed (v10-disposition.v3/.v4 loud-vs-lawful split per DR-A3; pathDialect present and correct in resolve provenance for samples of all three dialects including chained 'via' provenance, and NOT in the census printers -- one occurrence per instrument, as disclosed; dotted-ambiguity residual confirmed with the DR-A4 nuance; numeric-string-dict-key residual confirmed corpus-vacuous by contextual walk).",
+  "discipline": "bool-before-int verified in both instruments' token gates and exact_equal (type-exact, so True!=1); [True] refuses in both; the 'from' coercion gate (1 vs true) covered by selftest and diff-verified unchanged. My own parses used a duplicate-key-rejecting hook throughout; no duplicate keys exist in any chain link parsed. All executions python3 -I -B (Python 3.14.6). Note: the instruments themselves parse with plain json.loads (last-key-wins) -- pre-existing in both pre-edit instruments, untouched by this change, named in freeze 7.5."
+ },
+ "whatIDidNotCheck": [
+  "The non-derivation surfaces of both instruments (review_state, seal readiness, product qualification, cross-cutting state): the diff shows them byte-unchanged, and main-mode runs completed without traceback (exit 1 = findings, as expected for this corpus), but I did not re-verify their verdict logic; the 2026-08-04 derivation-reader review's scope was not re-executed here.",
+  "The contents of the corpus-resolution v1/v2 context records beyond: digest verification (3aff78f1..., f79ccd04... both match), the census figures, the canonical digests, and the pre-edit set-refusal/add-invention behavior, all of which I reproduced independently.",
+  "The precedent review check-completeness.derivation-reader.review-independent.json beyond its digest (97d47b1c... matches the change record's citation).",
+  "Pointer-guard reachability beyond the stated bounds: exhaustive tokens to length 6 over {a,0,1,~} plus 200k random tokens to length 12 including non-ASCII; I did not prove e(d(t))==t algebraically for unbounded lengths, though the length-growth argument for bad escapes is exact.",
+  "Unicode normalization interactions in pointer tokens beyond fuzzing (RFC 6901 mandates none; the instruments perform none; no live path carries non-ASCII tokens).",
+  "The claim-register's claims themselves, the freeze's census prose, and every freeze section other than 7.2/7.2.1/7.3-rider-context/7.7/7.8.1.",
+  "Whether any OTHER file in the working tree changed during the review window; only the five recorded inputs plus the two context records and the precedent review were digest-tracked.",
+  "The concurrently-running evidence-identity-recipes.v8 review's outputs (its target file did not exist in artifacts/ at either measurement; nothing it writes was read)."
+ ],
+ "recordedInputs": {
+  "changeRecord": {"path": "artifacts/check-completeness.dialect-repair.v1.json", "sha256": "683b3db824be8ce0444360009375ef3124f2be16ea0c1f76c27a3c59c76178cf"},
+  "checkCompletenessPostEdit": {"path": "artifacts/check-completeness.py", "sha256": "af9f8837a5abc561cefebf071b862e2dd5fb427304f4738f7fadf5872c4f0f1f"},
+  "checkCompletenessV2PostEdit": {"path": "artifacts/check-completeness-v2.py", "sha256": "dbe1e6955f66b0ccb032df115ca03fa780895b129b51fb39a49593581901bfb9"},
+  "checkCompletenessPreEdit": {"source": "git show HEAD:docs/coop/artifacts/check-completeness.py", "sha256": "6c52a5f9a4ac6a3ec3dae9fb0c87e82552744b18eb8cc38d1c4522ade3e549d6"},
+  "checkCompletenessV2PreEdit": {"source": "git show HEAD:docs/coop/artifacts/check-completeness-v2.py", "sha256": "b08824e86ea22720bdea649cdc663a39ef6d1fc483adfa6aa49cc19dc8666dd7"},
+  "rfc6901PrimarySource": {"url": "https://www.rfc-editor.org/rfc/rfc6901.txt", "sha256": "12f9f4fc13d686aa4fbe7d144d70166cd3fcd4ab89174c2b13bda8f4b55e49da", "bytes": 13037},
+  "corpusResolutionV1": {"path": "artifacts/r1-lifetime-neutrality.conformance.v1.9.corpus-resolution.v1.json", "sha256": "3aff78f1c35f5bb6fc7517695f420c6dc6681491dbdaa57a581e94b127be48b0"},
+  "corpusResolutionV2": {"path": "artifacts/r1-lifetime-neutrality.conformance.v1.9.corpus-resolution.v2.json", "sha256": "f79ccd046cf3d71445020f3db482249a9c9282ae3989df898c83ea6e6ffd2b0a"},
+  "precedentReview": {"path": "artifacts/check-completeness.derivation-reader.review-independent.json", "sha256": "97d47b1cf3d6598b989ed3e7ee9048bedb5e5fd0a85c55dea25bc7ce47af1916"},
+  "candidateChainHeads": {
+   "r1-lifetime-neutrality.conformance.v1.9": {"resolvedCanonicalSha256": "27d27bc073cfd3c647f73eaf3a5236a513dee72f7a6c891e78ece72922e2bf1d"},
+   "evidence-identity-recipes.v7": {"resolvedCanonicalSha256": "0f8022352100ee48fc1075b1a9837678745a0fd727037ff1d8583f28c9690d37"},
+   "evidence-identity-recipes.v8": {"resolvedCanonicalSha256": "b64f5b8888a560bf2f3638dad44a8d0987629d303f77eede5aa663f5f79fdd70"}
+  }
+ },
+ "environment": {
+  "reviewStartUtc": "2026-08-13T05:59:46Z",
+  "reviewEndUtc": "2026-08-13T06:14:18Z",
+  "python": "3.14.6",
+  "invocation": "python3 -I -B for every execution; instruments imported as modules for the regression, agreement, and hazard runs; all mutants and scratch fixtures written ONLY under the session scratchpad, never under docs/coop",
+  "gitHeadAtReview": "b0fdc5e69d794830b25a7315806704f3cb4c7f97",
+  "freeze": {
+   "path": "IMPLEMENTATION-FREEZE.md",
+   "sha256AtStart": "e1cdb71d383a3208987e909981ec4bdbf2d87f8e137dba3ab55d62227a2af10b",
+   "sha256AtEnd": "c4560fc3d9f86809437d5b7c84fdc9f4431a3afaa38d182f945212b65d3f828a",
+   "note": "the freeze MOVED during the review window, consistent with the dispatch's notice of an active coordinator edit lane; the start digest equals the digest the change record itself recorded. Per 7.8.1 this movement is an environment observation, NOT a finding about the subject; no conclusion in this review reads the freeze's moved sections as evidence."
+  },
+  "claimRegister": {"path": "artifacts/claim-register.v1.json", "sha256AtStartAndEnd": "95097b3fbb8986fc1761511059cfb8210dd2a2bc80b409f604fb1809405453d0"},
+  "subjectDrift": "NONE -- change record and both post-edit instruments byte-identical at start and end"
+ },
+ "scoringNote": "Scored by finding-set delta: zero blockers, five advisories (DR-A1..DR-A5), none of which alters a live resolution, invents a value, or contradicts a claim in the change record beyond the two wording overreaches (DR-A3 pre-existing wording, DR-A4 docstring scope). Every checkable claim in the change record -- diff inventory, selftest counts and exit codes, regression table, census figures, three-way agreement digests, newly-readable set, surfaced residuals -- was recomputed independently and reproduced exactly."
+}

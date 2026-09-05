@@ -1,0 +1,190 @@
+{
+  "artifact": "platform-tcb-contract.v35.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v35.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v35",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 0 SHOULD-FIX. ACCEPT requires 0 and 0. Both SHOULD-FIX items from the prior round are repaired cleanly, the roster is accurate again, and abandoning the OptionalData token basis was the right response to Codex's encoding finding. But the replacement no-replacement proof consists of a constant token that carries no information and a present-state read from the kernel whose identity is in question, while the clause asserts in terms that it does not rely on a current-kernel self-report. Codex PTCB-V34-B2 asked for a signed capability rule; a field name was added without one.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v34 vs v35 against the declared roster roots; substring enumeration of kexecCapability, kexec-absent, OptionalData and capability tokens",
+
+  "custody": {
+    "subjectSha256Expected": "c048f7602eb18b513e897f7d55d4288c1d4e39a7be8e8bae8ff67648ef1e2d80",
+    "subjectSha256AtStart": "c048f7602eb18b513e897f7d55d4288c1d4e39a7be8e8bae8ff67648ef1e2d80",
+    "subjectSha256AtEnd": "c048f7602eb18b513e897f7d55d4288c1d4e39a7be8e8bae8ff67648ef1e2d80",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 223759,
+    "subjectMovedDuringReview": false,
+    "predecessorV34Sha256": "6b923e27c41c2e7e3070b17b42cee1fc3ced7b1f25af6da86de8b75e59963e4f",
+    "frozenClaudeV34Sha256": "6ba0745729f7396982da558392b93a2a396f4c15405803ce5fa42371dc579f28",
+    "frozenCodexV34Sha256": "24622b9d9c88977e5aae89248e1d3922ce83f965c8a001e6c5a29ee19afcd362",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v34 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v34 REJECT. Its S2 observed that the mandatory kexec check refused kernels on which kexec is structurally absent, and asked for the capability binding Codex had already requested. v35 resolves the inversion — a kexec-absent kernel now passes — but does so by discarding the authenticated anchor rather than by binding the capability. I have taken care to distinguish a repair I dislike from a repair that does not work, and the finding below rests on what operations the clause specifies, not on which direction it chose.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V35-B1",
+      "appliesTo": "PTCB-V34-B2 / CLAUDE-V34-S2 — the inversion is resolved, but the no-replacement proof is now a self-report by the kernel under test",
+      "title": "kexecCapability is a constant token with no derivation, no signed carriage and no check against the authenticated member's bytes, so the only operative evidence is a procfs read from the running kernel, while role asserts the opposite",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/{authenticatedKernelMember,measuredBootBind/fromBootLockdown/{selectedCapability,presentState,role}}; /identityEvidenceUnion/.../pathlessCeremony/enforcedBootPolicy/fromBootLockdown; /negativeTests[NT-TCB-KEXEC]",
+      "whatIsGenuinelyRight": "Two things in this change are correct and should survive. Abandoning the OptionalData token basis was the right answer to PTCB-V34-B1: the Linux EFI-stub LoadOptions are CHAR16, not the UTF-8 v34 specified, so the token rule could not have been implemented as written, and optionalData now says plainly that 'OptionalData tokens are not security facts in this profile' while keeping FilePathList as the authenticated boot target. And selecting kexec-absent rather than kexec-disabled-by-parameter resolves the inversion I filed at v34: a kernel on which no kexec path exists now passes rather than being refused. The scope narrowing is also disclosed this time — inScopeBootConfigs states that the authenticated kernel member is kexec-absent and the sysctl is absent — which is the lesson of my v33 and v34 findings applied.",
+      "theDefect": "authenticatedKernelMember is '{relativePath, sha256, peCoffImageDigest, kexecCapability, gnuBuildId?}' where 'kexecCapability is exactly the token kexec-absent.' It is a constant: the schema permits no other value, so recording it is unconditional and it distinguishes nothing. Contrast peCoffImageDigest in the same record, which is explicitly computed from the member's exact bytes by a named algorithm. No clause derives kexecCapability from the member bytes, and no signed structure carries it: the Linux PATHLESS signedObject is 'exactly {tag, pathlessObservation, measuredBootTranscriptDigest}' with extras rejected, and signedEntry.required is the four fields with no capability among them. The sentence 'A kernel that ships /proc/sys/kernel/kexec_load_disabled is not this member' states a definitional consequence but specifies no operation that tests it against K. The only operation anywhere is presentState: '/proc/sys/kernel/kexec_load_disabled MUST be absent', read from whatever kernel is running at qualification.",
+      "theOverclaim": "fromBootLockdown.role reads 'Replacement is structurally impossible because the authenticated member has no kexec path. This does not rely on a current-kernel self-report that a disable sysctl was applied.' The second sentence is true only in its narrowest reading. The profile no longer relies on a self-report that a sysctl was set to 1; it relies instead on a self-report that the sysctl file is absent. Both are readings of /proc taken from the executing kernel, and the executing kernel is exactly what the ceremony is trying to pin down. The first sentence asserts a property of the authenticated member that no operation in the contract establishes.",
+      "failureScenario": "K is an ordinary publisher kernel that ships /proc/sys/kernel/kexec_load_disabled. It is launched by the firmware boot manager and everything about that launch verifies: the signed transcript matches through each separator, the composite quote verifies under the AK, the Calling action sits at the required PCR-4 sequence position, and K's PE/COFF Authenticode image digest equals kernelEvent.digestSha256 for a member of the authenticated package. The producer records kexecCapability as kexec-absent, which is the only value the schema allows and which nothing checks against K's bytes. The privileged actor then uses K's kexec path to enter M, a kernel that does not expose that sysctl. At qualification presentState reads M's procfs, finds the file absent, finds no kexec_loaded, and passes; NT-TCB-KEXEC, whose passProperty is exactly those two reads plus the unverified assertion 'The authenticated member must be kexec-absent', passes as a fail-closed cell. The profile attests firmware-launched-kernel-package for K while M executes, and no clause detects that K ships the sysctl, because nothing examines K for it.",
+      "whyItIsWeakerThanThePredecessor": "v34 rested on data that was genuinely authenticated — a token inside the Boot#### VariableData the signed transcript covers. Codex correctly showed the encoding rule was wrong and the effective-command-line equality unproven, so that anchor needed repair rather than removal. v35 removes the anchor and does not replace it, leaving the constant token and the procfs read. PTCB-V34-B2 anticipated precisely this: it asked to 'Bind authenticatedKernelMember to a qualified, signed capability rule' and closed with 'Present current-kernel self-reports alone are insufficient.' The field name matching that request is present; the rule is not.",
+      "severityRationale": "This yields a passing fail-closed NT-TCB-KEXEC cell and a positive attestation on a machine whose executing kernel is not the launched one. That is the same class as CLAUDE-V28-B1 and CLAUDE-V31-B1 and is rated the same way. It is not an over-refusal or determinacy defect.",
+      "requiredRepair": "Make kexecCapability provable rather than asserted, by either of two routes. (1) Derive it from the authenticated member: name an operation over the member's exact bytes — the same bytes whose Authenticode digest already equals kernelEvent.digestSha256 — that establishes the absence of every kexec entry point, and require that derivation to succeed, so K's capability is a fact about authenticated data rather than a constant. (2) Carry it in signed inventory: add the capability to the Linux PATHLESS signedObject or the four-field signedEntry, keyed to the same platformProfileKey and OS-ABI entry as measuredBootTranscriptDigest already is, with cross-entry substitution refusal, so a signer attests the property. Under either route keep presentState as a corroborating check, and correct fromBootLockdown.role so it does not claim independence from current-kernel self-reports until one of these anchors exists. The kexec-absent selection itself, the abandonment of the OptionalData basis, and the disclosed scope narrowing should all be kept."
+    }
+  ],
+
+  "shouldFix": [],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "CLAUDE-V34-S1 (mine) — classForCodeRows was added outside the declared closed roster",
+      "result": "REPAIRED. basedOn.method now names both '/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/preKernelReferences' and '/loaderTraces/objectAuthenticityBind/tags/linux-pathless/authenticatedKernelMember' among its roster roots, which covers the previously off-roster addition and this generation's own changes to the member record. My recursive diff of v34 against v35 found 36 changed paths and zero off-roster, so the unchanged-assertion in basedOn.method is true as written again."
+    },
+    {
+      "finding": "PTCB-V34-S1 — the loader option was impossible under the unchanged classMap",
+      "result": "REPAIRED, and by the branch that avoids a second change. classForCodeRows now reads 'MUST be comparable system-class dependency. class loader is not used (classMap has no DIGEST-BOUND loader route). framework MUST NOT be used for firmware, CRTM, POST, IPL, or PE driver/application rows.' That removes the contradiction Codex identified — requiring a DIGEST-BOUND loader while classMap forbids that tag for loader — and states the reason rather than leaving the reader to infer it."
+    },
+    {
+      "finding": "PTCB-V34-B1 — the UTF-8 OptionalData rule was not the Linux EFI-stub command-line ABI",
+      "result": "REPAIRED by withdrawal, which is the honest response. Rather than attempt a CHAR16 rewrite of a token policy that would still have carried B2's problem, the profile now states 'OptionalData tokens are not security facts in this profile ... LoadOptions encoding is not used to disable kexec', while retaining the EFI_LOAD_OPTION FilePathList as the authenticated boot target so the handoff evidence is unaffected. notThisProfile explicitly lists kexec-disabled-by-parameter and OptionalData-token-disable as not selected. The encoding defect cannot recur because the encoding is no longer load-bearing."
+    },
+    {
+      "finding": "CLAUDE-V34-S2 (mine), inversion half — the mandatory check refused kernels on which kexec is structurally absent",
+      "result": "REPAIRED. presentState now requires the sysctl file to be absent rather than to read 1, so a kernel built without kexec support qualifies instead of being refused, and refusesBootConfigs lists '/proc/sys/kernel/kexec_load_disabled present' rather than the previous inverse. The scope consequence is disclosed at inScopeBootConfigs, which now states that the authenticated kernel member is kexec-absent and the sysctl absent, so the narrowing is visible where readers look for it."
+    },
+    {
+      "finding": "CLAUDE-V34-S2 (mine), capability half, and PTCB-V34-B2 — bind the authenticated member to a qualified signed capability rule",
+      "result": "NOT REPAIRED — see CLAUDE-V35-B1. A field named kexecCapability now exists on authenticatedKernelMember and is referenced by enforcedBootPolicy, which is the shape of what both reviewers asked for. What is missing is the rule: the field is a constant, no signed structure carries it, and no operation tests it against the authenticated bytes."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject c048f760... over 223759 bytes at 0444, unmoved start and end. Predecessor v34 and both frozen v34 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 51 path-bearing pins reproduce, zero failures. No predecessor review was replaced this round."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v34-to-v35 change roster",
+      "result": "PASS. 36 changed paths, ZERO off-roster, with the roster widened to cover preKernelReferences and authenticatedKernelMember. reviewGuidance grew 175 to 180 as a pure prefix-preserving append."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308 with rowVerbatim byte-identical. reMeasurementAtV35 reproduces the live COORD, file 08 and file 04 pins at measuredAtHead 93ceaa6a. platforms.slice1 still carries linux/x86_64 and linux/arm64 and no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 32 D-096 occurrences are refusals. DRTM and IMA remain excluded as or-choices."
+    },
+    {
+      "id": "M-6",
+      "check": "Scope disclosure of the narrowed qualifying population",
+      "result": "PASS. inScopeBootConfigs, refusesBootConfigs and unavailableRefuses all carry the kexec-absent condition."
+    },
+    {
+      "id": "M-7",
+      "check": "Derivation or signed carriage of kexecCapability",
+      "result": "FAIL — basis of CLAUDE-V35-B1. The field is a constant; signedObject is closed without it; signedEntry.required does not include it; no operation tests it against the member bytes."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "A kexec-absent profile that still requires OptionalData tokens or still refuses a missing kexec_load_disabled file (self-invited)",
+      "result": "FAILED TO LAND. The token requirement is withdrawn and the file-absence case now passes."
+    },
+    {
+      "attack": "A classForCodeRows that still requires a class the classMap forbids (self-invited)",
+      "result": "FAILED TO LAND. Narrowed to comparable system-class dependency with the reason stated."
+    },
+    {
+      "attack": "Silent v34-to-v35 path outside basedOn.method (self-invited; my own v34 finding, re-run)",
+      "result": "FAILED TO LAND. 36 changed paths, 0 off-roster, roster widened to cover the previously escaping path."
+    },
+    {
+      "attack": "A capability field added in name while the rule that would establish it is absent (my own additional attack, and the finding of this round)",
+      "result": "LANDS. Filed as CLAUDE-V35-B1."
+    },
+    {
+      "attack": "A no-replacement proof that is a self-report by the entity under test (my own attack, carried from v29, v31 and v34)",
+      "result": "LANDS, and is the same finding. The only operative evidence is a procfs read from the running kernel."
+    },
+    {
+      "attack": "An undisclosed narrowing of the qualifying population (my own attack, carried from v33)",
+      "result": "FAILED TO LAND. All three scope and refusal clauses carry the kexec-absent condition."
+    },
+    {
+      "attack": "A Linux deferral, a D-096 (A) grant, or DRTM/IMA added as an or-choice under cover of the capability change",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1, all 32 D-096 mentions are refusals, DRTM and IMA remain excluded and are named in notThisProfile."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of my own prior findings",
+      "result": "FAILED TO LAND. All 51 pins reproduce and my v34 verdict is pinned accurately."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1.",
+    "Does not object to selecting kexec-absent as the capability, to withdrawing the OptionalData token basis, or to the disclosed scope narrowing; all three are sound and should be kept.",
+    "Does not require DRTM, TXT or IMA; neither repair route I name needs one.",
+    "Does not reopen CLAUDE-V34-S1 or PTCB-V34-S1, both of which are repaired.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v34 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV35ReviewerRead": false,
+    "otherReviewerNote": "The Codex v35 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v34 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v34 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the claimed repairs against all four predecessor findings, the replacement capability mechanism, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V35-B1 rests on what operations the artifact specifies — established by enumerating every occurrence of kexecCapability and by reading the closed signedObject and signedEntry shapes — and on the fact that /proc is served by the running kernel; it does not depend on any claim about a particular machine.",
+
+  "summary": "REJECT at 1 blocker and 0 SHOULD-FIX. Custody is clean: subject unmoved at c048f760... and 0444 at both ends, 51/51 chain pins reproduce, both frozen v34 verdicts reproduce with no replacement, 36 changed paths with zero off-roster now that the roster names preKernelReferences and authenticatedKernelMember, reviewGuidance a pure append, Linux still in D-002 slice 1, all 32 D-096 mentions refusals. Three of the four predecessor findings are repaired. My roster finding is closed and the unchanged-assertion is true again. Codex's classMap contradiction is closed by narrowing classForCodeRows to comparable system-class dependency with the reason stated. Codex's encoding blocker is closed by withdrawal, which was the honest move: the Linux stub LoadOptions are CHAR16 rather than the UTF-8 v34 specified, so rather than rewrite a token policy that would still have carried the deeper problem, the profile now declares OptionalData tokens not security facts while keeping FilePathList as the authenticated boot target. Selecting kexec-absent also resolves the inversion I filed at v34, and the resulting narrowing is disclosed at all three scope clauses. What did not survive the change is the anchor. v34's no-replacement claim rested on data inside the authenticated Boot#### VariableData; v35 removes that and puts nothing authenticated in its place. kexecCapability is a constant the schema permits only one value for, so it distinguishes nothing; no signed structure carries it, since the Linux PATHLESS signedObject is closed as exactly {tag, pathlessObservation, measuredBootTranscriptDigest} and signedEntry.required is the four fields; and no operation tests it against the member bytes, unlike peCoffImageDigest in the same record which is computed by a named algorithm. The only operative evidence is presentState reading /proc/sys/kernel/kexec_load_disabled from the executing kernel. So an ordinary publisher kernel that ships that sysctl can be launched and verified, its kexec path used to enter a kernel that does not expose the file, and the ceremony passes — attesting the launched kernel while another runs, with NT-TCB-KEXEC passing as a fail-closed cell. fromBootLockdown.role states that this 'does not rely on a current-kernel self-report that a disable sysctl was applied', which is true only in the narrowest reading: it relies instead on a current-kernel self-report that the file is absent. PTCB-V34-B2 asked to bind the member to a qualified signed capability rule and closed with 'Present current-kernel self-reports alone are insufficient'; the field name is present and the rule is not. Deriving the capability from the authenticated bytes, or carrying it in the signed inventory beside measuredBootTranscriptDigest, closes it; everything else in this generation should be kept."
+}

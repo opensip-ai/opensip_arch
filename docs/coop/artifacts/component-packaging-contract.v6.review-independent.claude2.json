@@ -1,0 +1,130 @@
+{
+  "artifact": "component-packaging-contract.v6.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-packaging-contract.v6.json",
+  "subjectSha256AtStart": "c1fe8cb788b7da1d65356d055a826b852e3fa4752445b5e1778f1d910d7c0cf2",
+  "subjectSha256AtEnd": "c1fe8cb788b7da1d65356d055a826b852e3fa4752445b5e1778f1d910d7c0cf2",
+  "subjectMode": "0444",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 1 SHOULD-FIX, 0 advisories. ACCEPT requires 0 blockers and 0 SHOULD-FIX. Every folded finding is genuinely repaired and I verified each against the artifact's own bytes and against schemas.v11; the single item is that the member-keying repair retired the AT-* reporting slot without replacing it, in the same revision that adds new AT-* obligations.",
+  "reviewer": "Claude 2, independent; authored none of v1-v6",
+  "date": "2026-08-14",
+  "predecessor": {"path": "docs/coop/artifacts/component-packaging-contract.v5.json", "sha256": "eda5855e01777d884ac972ef71804dd4bf1e30fd4c2ab5a190b9754a80c2876c", "reMeasured": true},
+  "foldedVerdicts": [
+    {"path": "docs/coop/artifacts/component-packaging-contract.v5.review-independent.claude2.json", "sha256": "893601ad90e14280fe9fff968d36d6a603e3d948808b3afe4c4b8ab1c7925c0e", "reMeasured": true, "actualFindings": {"verdict": "REJECT", "blockers": [], "shouldFix": ["V5-S1"], "advisories": ["ADV-V5-01"]}},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v4.review-independent.codex.json", "sha256": "6f7ab491bddace9afa76df720fea6686f428658d8e188463dac517cc40a55c7c", "reMeasured": true, "mode": "0444", "note": "Now frozen, which is the state my ADV-V5-01 said was missing at v5 authoring."}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-120 or DR-103 SATISFIED, does not mark QUALIFIED, does not choose a packager, toolchain or CLI, does not edit file 08 or COORDINATOR-DECISIONS.md, does not retarget corpus v2 or v3, and does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "V6-S1",
+      "title": "Retiring fixtureClassRides removed the only reporting slot for the AT-* acceptance classes, and fixtureMemberMap does not replace it, so the AT-8 and FG-7 obligations this revision adds cannot be recorded",
+      "site": "/conformanceReport/shape/fixtureClassCoverage, /conformanceReport/fixtureMemberMap, /conformanceReport/fixtureClassRides, /acceptanceTests/classes[AT-8], /fixtureGeneration/generationContract[FG-7]",
+      "detail": [
+        "In v5 the report recorded coverage as { class: TC-* or AT-*, ... } and fixtureClassRides carried nine AT-* entries: AT-1-ASSEMBLY, AT-1-TRUSTED-INSTALL, AT-2, AT-3, AT-4, AT-5-ASSEMBLY, AT-5-TRUSTED-INSTALL, AT-6 and AT-7. Both halves are gone in v6. fixtureClassCoverage is now keyed strictly by 'memberKey: fixtureMemberMap key', and fixtureClassRides is reduced to two meta fields declaring the class strings retired.",
+        "fixtureMemberMap does not carry the AT-* half. I enumerated all 50 keys: every one is a TC-* member, and a search for keys beginning 'AT' returns none. So no AT-* class has any key that fixtureClassCoverage will accept.",
+        "That leaves this revision's own new obligations unrecordable. AT-8 requires 'Every archiveProfile.byteAlgorithm.goldenAndNegativeCases member' - eleven AT-ARCHIVE-* cases - and FG-7 states those cases 'are required AT-ARCHIVE-* members'. Neither AT-8 nor any AT-ARCHIVE-* case has a slot in the report shape.",
+        "It also strands the deferrals. lawfulExemptions now says not-applicable and blocked-on-ride are lawful 'only via the ride recorded on that memberKey', so with no AT-* memberKey an acceptance class cannot even be lawfully marked blocked-on-ride. AT-1-TRUSTED-INSTALL and AT-5-TRUSTED-INSTALL, which v5 explicitly parked on ID-DEP-P3, now have no way to say so.",
+        "The asymmetry with the TC-* half is what makes this visible: FG-6 makes a report invalid if it 'is missing any fixtureMemberMap key', so every TC-* member must appear, while no rule requires or even permits an AT-* row. AT-4's health half does land - healthAndSubprotocol.applicability is a closed record and I verified it - but AT-4's own pass/fail standing has nowhere to go.",
+        "I checked the rest of the report shape for a substitute and there is none: outputContractMembers is keyed by OC-1..OC-9, gateResults by DR-G* or DR-115/118, staticValidation by DR-103 refusal id or OC id. None accepts an AT id."
+      ],
+      "whyItMatters": "CODEX-V4-S1 asked for member-level keying instead of class-level alternatives, and v6 delivers that for the schema classes with real rigour. But the repair was applied to only one of the two families the report covered, and the dropped family is the one carrying this artifact's own acceptance tests - including the archive golden and negative cases that are the entire evidentiary basis for the byteAlgorithm work this revision adds. As written, an adapter can emit a fully valid conformance report that says nothing about whether two adapters produced identical archive bytes, whether the 101-byte overflow refused, or whether trusted install is still parked.",
+      "whyNotABlocker": "Nothing false is asserted and no authorization creeps. The AT-* classes still exist and state their requirements in /acceptanceTests/classes; what is missing is the report slot to record their standing. The fix is additive and follows the pattern already built.",
+      "remedy": "Extend fixtureMemberMap with AT-* members under the same one-producer / one-expected discipline - including the eleven AT-ARCHIVE-* cases from byteAlgorithm.goldenAndNegativeCases and the two trusted-install halves parked on ID-DEP-P3 - or add a parallel acceptanceTestResults array to the report shape keyed by AT id with the same standing enum, evidence and ride rules."
+    }
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "CLAUDE-V5-S1 - the chksum computation rule used a NUL in the eight-octet mask, and devmajor/devminor were stated two incompatible ways",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "Both halves are fixed and stated twice consistently. metadata.checksum now reads 'Computation: sum of all 512 header bytes with the eight chksum octets taken as ASCII space 0x20. Stored layout: six octal digits, NUL, space. The stored layout is not the computation mask.' byteAlgorithm.headerLayout.checksumComputation repeats it and adds 'A NUL in the mask is forbidden.' That is the POSIX rule exactly, and it names the confusion that produced the v5 error. metadata.devmajor and devminor now read 'octal7nul of 0 ... Empty-field alternative is forbidden', which agrees with numericFields and with headerLayout, where both fields are 'octal7nul of 0'. The ambiguity is gone in both directions."
+    },
+    {
+      "finding": "CODEX-V4-B1 residue - POSIX ustar named as a family rather than a complete tree-to-byte algorithm",
+      "disposition": "REPAIRED - VERIFIED, and I checked the layout arithmetic",
+      "howIChecked": "archiveProfile.byteAlgorithm is a genuine algorithm, not a label. I verified the header layout field by field against the POSIX ustar block: name 0/100, mode 100/8, uid 108/8, gid 116/8, size 124/12, mtime 136/12, chksum 148/8, typeflag 156/1, linkname 157/100, magic 257/6, version 263/2, uname 265/32, gname 297/32, devmajor 329/8, devminor 337/8, prefix 345/155, pad 500/12 - every offset contiguous and summing to exactly 512. The four family ambiguities the dispatch names are each closed: typeflagBytes fixes 0x30/0x35/0x32 and forbids the alternate regular-file 0x00; prefix is 155 NUL and 'never used to split a path'; bodyRules bind the file body to exactly TreeCommitment.length bytes whose sha256 equals TreeCommitment.sha256 then NUL-pad to the 512 boundary, with the length-0 and exact-multiple cases called out; and the trailer is exactly two zero blocks with 'Physical blocking factor is 1 block' and 'Bytes after the two zero blocks do not exist.' PAX/GNU longname/longlink extensions are forbidden. The archiveLength formula '512 * N_members + sum over file members of 512*ceil(length/512) + 1024' follows from those rules and is correct, including the zero-length case. bijection and admissionChecks give the reader side."
+    },
+    {
+      "finding": "CODEX-V4-B1 - the 100-byte capacity was a hidden cap not owned at OD-P2",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "OD-P2 gains profileCapacityDeclaredHere with standing 'DECLARED profile constraint, not a schema cap, not hidden', binding the name field to <= 100 UTF-8 bytes of the NFC path with typed non-success PATH-EXCEEDS-USTAR-NAME and the linkname field likewise with LINKTARGET-EXCEEDS-USTAR-LINKNAME. Its relationshipToOD1 states plainly that schemas.v11 OD-1 remains OPEN and UNSPECIFIED at admission, that a schema-valid tree may fail this profile, and that the refusal is owned here rather than being an implied OD-1 number. byteAlgorithm.doesNotMintSchemaCaps repeats it. The boundary between a profile capacity and a schema cap is now explicit rather than silent."
+    },
+    {
+      "finding": "CODEX-V4-B1 - OD-P2 pointed at schemas.v2",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "OD-P2.decision now reads 'Schema-level size caps (schemas.v11 OD-1: manifest byte size, tree entry count, path length, alias count)', owner reads 'Still schemas.v11 OD-1 ... This artifact does not mint schema caps', and a new doesNotPointAt field states 'historical schemas.v2. Live schema pin is schemas.v11.'"
+    },
+    {
+      "finding": "CODEX-V4-S1 - fixtureClassRides class-level alternatives standing in for member coverage",
+      "disposition": "REPAIRED - VERIFIED, and I checked the map against the schema",
+      "howIChecked": "I counted schemas.v11's testCorpusRequirements requires[] strings directly: TC-ACCEPT 6, TC-DUP 5, TC-NAME 12, TC-PATH 13, TC-SIG 2, TC-CLOSURE 3, TC-METADATA-ONLY 1, TC-BYTE-EXACT 3 - total 45. fixtureMemberMap declares schemaRequiresCount 45 and mapKeyCount 50, and both are exactly right: the map holds 50 members, and every one of the 45 requires strings is keyed with a requireVerbatim that matches the schema string byte for byte. The five extra keys are declared and correct - the TC-NAME.4 stale-alias require is split into TC-NAME.4.inside (expected ACCEPT) and TC-NAME.4.after (expected refuse:typed-stale-alias), which is the both-edges obligation the schema states in one string, and four conditional arms are added as TC-SIG.C-ENVELOPE, TC-SIG.C-LOCK, TC-BYTE-EXACT.C-CANON and TC-BYTE-EXACT.C-LOCK. I searched every member's producer field for a class-level alternative and found no 'or' and no '|' anywhere: each member has exactly one producer and one expected outcome. Members that cannot be produced carry producer 'none' with a named ride - TC-ACCEPT.5 the multi-component lock on ID-DEP-P2/DR-111, the two conditional TC-SIG arms, and the two TC-BYTE-EXACT arms. FG-1 is rewritten to be that map and FG-6 makes a report invalid on a missing key, duplicate key, class-wide stand-in, or a producer/ride other than the map entry.",
+      "residual": "The same repair dropped the AT-* half of the coverage array. See V6-S1."
+    },
+    {
+      "finding": "CODEX-V4-S2 - a health result could be omitted with no applicability standing",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "healthAndSubprotocol now carries a closed applicability record: an array of { role, platform, standing } over the enum executed-pass | executed-fail | not-applicable | blocked-on-ride, with { path, sha256 } REQUIRED for either executed standing and the AT-4 / ID-DEP-P4 ride REQUIRED for either deferred standing. 'A missing applicability array, or a member with no standing, is report-invalid' and 'Omission of healthResult without a ride is forbidden.' OC-6 carries the matching emission duty on both its emits and adapterDuty sides, and AT-4 is amended so that 'A report with no applicability record is AT-4 fail.' Omission is no longer silent."
+    },
+    {
+      "finding": "CLAUDE-V5-ADV-1 - the Codex v4 verdict was unfrozen and folded by nothing",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "The file is now mode 0444 and measures 6f7ab491bddace9afa76df720fea6686f428658d8e188463dac517cc40a55c7c, matching the dispatch. appliesFindingsOf gains a codexv4 record carrying that digest with blockers [CODEX-V4-B1] and shouldFix [CODEX-V4-S1, S2, S3], plus a note apportioning what was folded where - S3 at v5, B1's CI-1-pin clause at v5 as CI-5, and B1's residue here. notFoldedThisSuccessor is now empty, which is correct: I accounted for all four Codex v4 findings and both of mine, and none is left carried."
+    },
+    {
+      "finding": "CODEX-V4-S3",
+      "disposition": "PREVIOUSLY FOLDED - ACCOUNTING VERIFIED",
+      "howIChecked": "v6 does not re-claim it. The idCollisionNote records 'CPCV4-S3 was folded at v5 (CODEX-V3-A1/A2)' and honestyRepairsFromV5 repeats that it was already folded at v5 by historicalizing the first-candidate line and excluding runId from CI-3. I confirmed both of those are still in place."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "Checksum still computed with a NUL-in-mask", "result": "REFUTED", "detail": "Stated twice as all eight chksum octets at 0x20, with 'A NUL in the mask is forbidden' and the stored layout explicitly distinguished from the computation mask. AT-ARCHIVE-CHKSUM-SPACES exists as a negative case."},
+    {"attack": "POSIX ustar still a family (typeflag NUL, prefix split, unbound body, trailer pad)", "result": "REFUTED on all four", "detail": "See CODEX-V4-B1 above. Typeflag bytes are exact and 0x00 is forbidden; prefix is 155 NUL and never splits; the body is bound to length and sha256 with a defined pad; the trailer is two blocks with blocking factor 1 and nothing after. encoding also forbids PAX/GNU longname/longlink and states 'One permitted byte representation.'"},
+    {"attack": "Hidden path/link cap not owned at OD-P2", "result": "REFUTED", "detail": "OD-P2.profileCapacityDeclaredHere owns both caps as typed non-success, distinguishes them from schemas.v11 OD-1, and states that a schema-valid tree may lawfully fail the profile. AT-ARCHIVE-NAME-100/101 and AT-ARCHIVE-LINK-100/101 exercise both edges."},
+    {"attack": "fixtureClassRides class-level alternatives standing in for members", "result": "REFUTED", "detail": "The class strings are removed, the object is retired with historicalV5ClassStringsAreNotCoverage true, and no member in the 50-key map carries an alternative producer."},
+    {"attack": "Health result omittable with no applicability standing", "result": "REFUTED", "detail": "Closed enum with mandatory evidence or ride; missing array is report-invalid; AT-4 fails a report with no applicability record."},
+    {"attack": "OD-P2 still pointing at schemas.v2", "result": "REFUTED", "detail": "Repointed to schemas.v11 OD-1 with an explicit doesNotPointAt for historical schemas.v2."},
+    {"attack": "Silent v5-to-v6 path", "result": "REFUTED - 70-for-70", "detail": "My recursive diff found 70 changed paths and I mapped every one against the 14 tokens of the closed roster. Zero uncovered. The single top-level addition is /honestyRepairsFromV5, which the roster declares; nothing was removed at top level. All fourteen governing-source digests re-measured against live bytes with zero mismatches."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization / packager choice", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, documentClass DESIGN-CONTRACT-CANDIDATE, registerRow DR-120 - all byte-identical to v5. whatThisDoesNotDo is byte-identical and still disclaims SATISFYing DR-120, SATISFYing DR-103 with D-013's refusal standing, executing DR-G15, marking any adapter QUALIFIED, choosing a packager/build tool/toolchain/CLI, and authorizing docs/v2/implementation/. archiveProfile.doesNotChoose still excludes packager brand, CLI, build tool and tar implementation, and FG-7 states the archive cases 'do not choose a packager'. Naming the ustar header layout and the octal encodings specifies a byte format, not a tool. The report's exclusionsRecorded also bars QUALIFIED/DEMONSTRATED/SATISFIED tokens."}
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v5, my frozen v5 REJECT, and the now-frozen Codex v4 REJECT all re-measured and matching the dispatch.",
+    "rosterVsActualDiff": "70 changed paths, 70 covered by the 14-token closed roster; one declared top-level addition, no removals.",
+    "schemaCrossCheck": "schemas.v11 testCorpusRequirements requires[] counted directly at 45, matching fixtureMemberMap.schemaRequiresCount; all 45 keyed with byte-matching requireVerbatim; mapKeyCount 50 matches the 50 members present; no member carries an alternative producer.",
+    "formatCheck": "The full ustar header layout verified field by field for contiguity and total 512 bytes; the checksum mask, numeric encodings, typeflag bytes, body and pad rules, trailer and archiveLength formula each checked for internal consistency.",
+    "governingSources": "All fourteen pinned governing sources re-measured against live bytes; zero mismatches."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not construct a ustar archive to execute the byteAlgorithm. The verification above is of the specification's internal completeness and its agreement with the POSIX ustar header layout, not of any implementation.",
+    "I did not re-review the surfaces v6 leaves untouched - the adapter stages, hermeticCI, platformFanOut, localDeveloperValidation, representativeLanguageClosures, identityDependencies or recordedInputs beyond re-measuring the pins. I verified they did not move rather than re-adjudicating them.",
+    "I did not read the other current v6 reviewer's file.",
+    "I did not review corpus v2 or v3 and did not touch either; my separate corpus-v3 SATISFIED-GRADE verdict is complete and frozen and I did not edit it.",
+    "I did not evaluate DR-112 ceremony, DR-110 repair media, DR-111 windows, or the DR-G* thresholds. I confirmed only that v6 continues to defer them.",
+    "I did not adjudicate Codex v4's findings on their merits; I established what they were from the frozen file and checked whether v6's fold matches them.",
+    "I did not assess DR-120's or DR-103's register status and express no view on either. I did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "This verdict is about the artifact's internal consistency and its handling of my v5 REJECT plus the frozen Codex v4 REJECT. It is not a statement that DR-120's acceptance-evidence cell is discharged."
+  ],
+
+  "advisories": [],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "corpusRetargeted": false,
+    "packagerOrToolchainChosen": false,
+    "filesWritten": ["docs/coop/artifacts/component-packaging-contract.v6.review-independent.claude2.json"]
+  }
+}

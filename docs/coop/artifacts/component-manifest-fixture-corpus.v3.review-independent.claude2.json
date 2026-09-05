@@ -1,0 +1,148 @@
+{
+  "artifact": "component-manifest-fixture-corpus.v3.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-manifest-fixture-corpus.v3.json",
+  "grade": "SATISFIED-GRADE review of the fixture-corpus half of DR-103",
+  "scopeNote": "Not a DR-111 / compatibility-matrices review. Not a DR-112 review. Not a packaging review.",
+  "subjectSha256AtStart": "7fe3d17161147089f00157598e268bba5ea2a37a6d77a94571489d916c9cdb84",
+  "subjectSha256AtEnd": "7fe3d17161147089f00157598e268bba5ea2a37a6d77a94571489d916c9cdb84",
+  "subjectMode": "0444",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 1 SHOULD-FIX, 1 advisory. ACCEPT requires 0 blockers and 0 SHOULD-FIX. Every blocker and SHOULD-FIX I raised against corpus v1 is repaired and I verified each against live fixture bytes; the single remaining item is one TC-PATH fixture still masked by the entrypoint-absent arm.",
+  "reviewer": "Claude 2, independent; authored neither the corpus nor the schemas",
+  "date": "2026-08-14",
+  "schemaContract": {"path": "docs/coop/artifacts/component-manifest-schemas.v11.json", "sha256": "1c0b8868444a097256aaa7d9caf8ebaa1c6f73fb071dbb4dd712334abb17a005", "reMeasured": true, "standing": "D-104 accepted schema successor; the pin is correct"},
+  "predecessorCorpus": {"path": "docs/coop/artifacts/component-manifest-fixture-corpus.v2.json", "sha256": "70248781118452308399e91fcbecb7cac37dd5d58fd03c49ac9efcec445341d5", "reMeasured": true, "standing": "unchanged and not retargeted; still pins schemas.v9"},
+  "bindsTo": "NOTHING. Does not mark DR-103 SATISFIED, does not mark QUALIFIED, does not authorize docs/v2/implementation/, does not edit file 08 or COORDINATOR-DECISIONS.md, does not edit the subject or any fixture byte, and does not retarget corpus v2.",
+
+  "corpusIntegrity": {
+    "result": "CLEAN",
+    "detail": "All 51 authored[] and 30 supportingBytes[] paths exist and every recorded sha256 recomputes from live bytes - 81 of 81, zero mismatches, zero missing. authoredCount 51 equals len(authored). No duplicate ids, no duplicate paths. The fixture directory docs/coop/artifacts/fixtures/dr-103.v2/ holds exactly 81 files with zero strays and zero catalogued-but-absent entries. The two DR-111-deferred lock files are among those 81, carried in supportingBytes, and their digests also recompute. Subject digest identical at start and end; subject is mode 0444 and did not move. Corpus v2 re-measured at 70248781... unchanged."
+  },
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "V3-S1",
+      "title": "TC-PATH.unicode-norm-duplicate is still masked by the entrypoint-absent arm, so the one path class the schema calls invisible at the rendered-text level can be passed without implementing it",
+      "site": "docs/coop/artifacts/fixtures/dr-103.v2/TC-PATH.unicode-norm-duplicate.manifest.json",
+      "detail": [
+        "I extracted the entrypoint and every tree path for all thirteen TC-PATH fixtures. Twelve now isolate their own arm cleanly, which is a real repair: the violating bytes have been moved into the entrypoint itself, so absolute carries entrypoint '/bin/entry', backslash carries 'bin\\\\entry', dot carries 'bin/./entry', dotdot carries 'bin/../entry', drive-letter carries 'C:/bin/entry', empty-segment carries 'bin//entry', non-nfc carries the NFD 'bin/caf\\u0065\\u0301', and nul carries 'bin/ent\\u0000ry' - and in every one of those the entrypoint is present in the committed tree, so the entrypoint-presence rule cannot fire.",
+        "unicode-norm-duplicate is the exception. Its entrypoint is 'bin/entry' and its tree entries are exactly ['bin', 'bin/caf\\u00e9' (NFC), 'bin/cafe\\u0301' (NFD)]. 'bin/entry' is not among them, so the manifest independently trips RJ-3's 'entrypoint not present in the committed tree' clause in addition to the Unicode-normalization-duplicate clause it exists to test.",
+        "Its two sibling duplicate-path fixtures do it correctly and show the intended pattern: byte-duplicate keeps 'bin/entry' in the tree alongside its duplicate pair, and case-fold-duplicate keeps 'bin/entry' alongside 'bin/Entry'. Only unicode-norm-duplicate dropped the entrypoint entry.",
+        "The expected outcome 'RJ-3' remains literally correct, because RJ-3 carries no subcodes. The defect is discriminating power, not labelling."
+      ],
+      "whyItMatters": "This is SATISFIED-GRADE acceptance evidence for DR-103's exact-byte cell, and the Unicode-normalization-duplicate arm is the one schemas.v11 singles out as existing only as pinned bytes because it is indistinguishable at the rendered-text level. As authored, an implementation that checks entrypoint presence and never NFC-normalizes paths for comparison passes this fixture. The corpus would then be recorded as evidence for a rule it does not actually exercise.",
+      "whyNotABlocker": "One fixture of thirteen, down from the eight I found masked in corpus v1, and the correct pattern already exists twice in the same class. Nothing is mis-stated: the fixture's recorded expectation is accurate, and the class member is present rather than missing.",
+      "remedy": "Add a 'bin/entry' file entry to the committed tree so the entrypoint resolves, leaving the NFC/NFD pair as the sole violation - exactly what byte-duplicate and case-fold-duplicate already do."
+    }
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "FX-B1 (my corpus v1 blocker) - TC-ACCEPT.maximal populated no capabilities, permissions, configuration or command args, leaving four designed field groups with zero coverage corpus-wide",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "TC-ACCEPT.maximal.manifest.json now carries capabilities [{capabilityId 'host.analyze.typescript', roleSubprotocol 'opaque.analyze', subprotocolVersion 1, declarationData {}}], permissions [{permission 'host.fs.read-project', reason 'read project sources'}], and a configuration block with namespace, a JSON-Schema-subset schema and classifications mapping 'strictness' to the host-owned token 'host.analysis.non-identity'. Its root CommandSpec now carries aliases, args, options, outputModes, scope and visibility, so args is populated too. displayName and aliases remain. prerequisites stays absent from maximal, which is correct - the class lists the DR-119 prerequisite block as the separate approved-exception member, and I confirmed TC-ACCEPT.approved-exception.manifest.json carries the full eight-field shape including exceptionApprovalRef, typedAbsenceBehavior and typedFailureBehavior."
+    },
+    {
+      "finding": "FX-B2 (my corpus v1 blocker) - three required TC-NAME members unauthored: the alias form of the reserved claim, ALIAS_COLLISION as distinct from alias-shadows-live, and PARENT_LINKAGE_COLLISION",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "TC-NAME grew from 14 members to 17 and every RJ-2 subcode now has its own fixture with its own expected subcode. The three I named are present by name and by expectation: TC-NAME.reserved-alias expects RJ-2/ALIAS_SHADOWS_LIVE_OR_RESERVED, TC-NAME.alias-collision expects RJ-2/ALIAS_COLLISION and is now distinct from the separately authored TC-NAME.alias-shadows-live, and TC-NAME.parent-linkage-collision expects RJ-2/PARENT_LINKAGE_COLLISION. The class also now maps subcodes one-to-one rather than collapsing several members onto a bare 'RJ-2'."
+    },
+    {
+      "finding": "FX-B3 (my corpus v1 blocker) - stale-alias-after-window encoded a premature retirement violating D-012 clause 5's 90-day floor, asserted non-resolve while the date clock was still running, and carried no release-clock datum",
+      "disposition": "REPAIRED - VERIFIED, and I re-did the arithmetic",
+      "howIChecked": "The after-window index now sets deprecatedAtDate 2026-01-01 with windowEndsNoEarlierThan 2026-04-02. The 90-day floor from 2026-01-01 is 2026-04-01 in a non-leap year, so the declared window end is at or beyond the floor rather than 60 days short of it as in v1. The packet's asOf is 2026-08-14, comfortably past that, so the date clock is elapsed. The release clock is now evaluable because the packet carries hostCoreVersion 0.2.0 against deprecatedAtRelease 0.1.0 - the datum that was entirely missing before - and the packet states the reasoning in its own note. The entry status is 'retired' and its namesSnapshot.aliases is empty, consistent with retirement, and the expectation is 'RJ-2 typed non-resolve', typed rather than a silent rebind. The inside-window sibling is correct on both clocks in the other direction: deprecatedAtDate 2026-06-01 with windowEndsNoEarlierThan 2026-12-01 (past its own 2026-08-30 floor), asOf inside the window, hostCoreVersion 0.1.0 equal to deprecatedAtRelease so the release clock has not turned, status 'deprecated-alias-window' with the alias still in namesSnapshot, and expectation RESOLVE. Both edges are now exercised and both clocks are decidable."
+    },
+    {
+      "finding": "FX-B4 (my corpus v1 blocker) - the ACCEPT indexes silently resolved the then-open V2-A1 advisory about same-stableId multi-version coexistence",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "The question is no longer open: schemas.v11 carries the collisionUniverse sentence as accepted content under D-104, keying index entries per (stableId, version, scope). I checked every index fixture against that key and found no duplicate (stableId, version, scope) tuple anywhere. The multi-version pair sits at 1111.../0.0.1 and 1111.../0.0.2, both active, same scope - lawful coexistence. TC-NAME.index-scope-precedence is the case that previously could not be keyed at all: it now carries the same stableId at the same version 0.0.1 under scope 'global' and scope 'project', which the three-part key admits, and its shadowedBy is the full triple {stableId, version, scope} rather than the old pair, so the reference addresses a unique entry. The corpus now conforms to an accepted rule instead of assuming an unresolved advisory."
+    },
+    {
+      "finding": "FX-S1 (my corpus v1 SHOULD-FIX) - the digest-mismatch flip landed inside manifest.name and so tripped RJ-2/ROOT_COMMAND_NAME_MISMATCH as well as RJ-4/DIGEST_MISMATCH",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "I byte-compared TC-SIG.digest-mismatch.manifest.json against TC-ACCEPT.minimal.manifest.json: exactly one differing byte, same length 2100, at offset 251, 0x6d to 0x6e, inside the value of commands[0].description ('mounted root' becomes 'nounted root'). The flipped manifest's name is still 'fixture-min' and its parent-less command is still 'fixture-min', so the rootNameBinding invariant holds and only the digest family can fire. The packet records the recorded digest as the unflipped source's 6f8203ff... and now names the field it flipped. This is the remedy I proposed, applied precisely."
+    },
+    {
+      "finding": "FX-S2 (my corpus v1 SHOULD-FIX) - three RJ-2 collision fixtures were bare manifests with no packet supplying the live index their expected outcome depends on",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "Every collision-class TC-NAME member that needs live custody now has an admission-against-index packet carrying both indexPath and manifestPath: live-name-collision, alias-collision, alias-shadows-live, hostile-double-mount, reserved-root and reserved-alias. The intra-manifest members correctly have none, because alias-cycle, parent-cycle, unknown-parent, parent-linkage-collision, multiple-roots, root-name-mismatch and id-version-not-distinct are decidable from manifest bytes alone. The reserved-list parity case additionally gained a retained live-grammar side: TC-NAME.live-grammar-observation.json holds the observed reservedRootCommands, and the parity packet pins it by path and digest, so both operands of the comparison are now bytes in the corpus rather than one side being assumed."
+    },
+    {
+      "finding": "FX-S3 (my corpus v1 SHOULD-FIX) - TC-SIG.lock-artifact-digest-mismatch was all placeholder digests with no real bytes to mismatch against",
+      "disposition": "RESOLVED BY DEFERRAL - VERIFIED, and the deferral is correct",
+      "howIChecked": "The fixture is no longer scored. It moves out of authored[] into supportingBytes[] with no 'expected' key at all, and is separately catalogued under deferredUntilDR111 with standing DEFERRED-UNTIL-DR-111 and the note that no lock fixture is required or producible until DR-111. TC-ACCEPT's lock member is handled the same way, and notAuthored adds a 'TC-ACCEPT multi-component lock' entry naming the DR-111 deferral. That matches the accepted schemas.v11 position that no lock of any form is producible until DR-111 closes. The retained bytes are honest supporting material rather than scored evidence, and the note records that the retained file keeps dummy.onebyte with a differing recorded digest."
+    },
+    {
+      "finding": "FX-S4 (my corpus v1 SHOULD-FIX) - eight of thirteen TC-PATH fixtures also violated the entrypoint-in-tree rule, so the class could not discriminate between path arms",
+      "disposition": "SUBSTANTIALLY REPAIRED - twelve of thirteen clean; see V3-S1",
+      "howIChecked": "Detailed in V3-S1. The repair pattern is sound and applied nearly everywhere: the violating bytes now live in the entrypoint itself and the entrypoint resolves in the tree, so each fixture isolates its own arm. unicode-norm-duplicate is the single remaining masked case."
+    },
+    {
+      "finding": "Corpus v1 advisory - the no-execution probe's executable could not record anything",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "The probe now names a real recorder, TC-METADATA-ONLY.recorder.sh, pinned at its own sha256, together with TC-METADATA-ONLY.recorder.initial.log pinned at the empty-file digest e3b0c442..., and states expectedRecorderExecutions 0 alongside expectedFinalRecorderSha256 equal to that same empty digest across admission, discovery, help, completion and inventory. The claim is now falsifiable by digest comparison rather than satisfied by the absence of a recorder."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "Any scored lock fixture while DR-111 is OPEN", "result": "REFUTED", "detail": "Neither lock file appears in authored[]. Both sit in supportingBytes[] with keys limited to path, sha256, standing and note - no 'expected' key, so nothing scores them - and both are catalogued under deferredUntilDR111 with standing DEFERRED-UNTIL-DR-111. whatThisDoesNotDo states 'Does not score or require a lock fixture while DR-111 remains OPEN.' notAuthored names the multi-component lock as DR-111-deferred."},
+    {"attack": "Calling a custody copy a lock", "result": "REFUTED", "detail": "The retained exact-pin file is described as an exact-pin of a dependency-free component whose bytes are retained as supporting and not scored, and the multi-component lock is named as deferred rather than reclassified. Nothing in the catalog presents a pin as a completed lock."},
+    {"attack": "Silent retarget of corpus v2", "result": "REFUTED", "detail": "Corpus v2 re-measured at 70248781118452308399e91fcbecb7cac37dd5d58fd03c49ac9efcec445341d5, exactly the frozen digest, and its schemaContract still pins schemas.v9 at 52b3ab93... - it was not re-pointed. v3 is a separate catalog file and its basedOn records v2's digest and standing. I did not edit it."},
+    {"attack": "Schema pin not the D-104 v11 successor", "result": "REFUTED", "detail": "schemaContract pins docs/coop/artifacts/component-manifest-schemas.v11.json at 1c0b8868..., which I re-measured and matched, with standing ACCEPTED-SCHEMA-SUCCESSOR and recordedBy D-104."},
+    {"attack": "V2-A1 / collisionUniverse violations", "result": "REFUTED", "detail": "See FX-B4. No duplicate (stableId, version, scope) key in any index; the dual-scope case uses the three-part key; shadowedBy is the full triple."},
+    {"attack": "Maximal incomplete; missing NAME members; stale-alias clocks", "result": "REFUTED on all three", "detail": "See FX-B1, FX-B2 and FX-B3. Maximal populates every designed field group; TC-NAME covers every RJ-2 subcode with a distinct expectation; both stale-alias edges are lawful and both clocks are evaluable."},
+    {"attack": "Packet cases missing live index / reserved / live-grammar bytes", "result": "REFUTED", "detail": "See FX-S2. Every case needing live custody carries an index-bearing packet, and the parity case now pins a retained live-grammar observation by path and digest."},
+    {"attack": "Fake signatureRef; lock-digest mismatch without retained bytes", "result": "REFUTED", "detail": "I collected every signatureRef across all index fixtures - four distinct values - and hashed every file in the fixture directory. Each signatureRef equals the sha256 of a real envelope file: minimal, multiversion-v2, maximal and approved-exception each have their own. That matches indexSchema's rule that envelope identity is the sha256 of envelope bytes, and it also fixes corpus v1's reuse of one release's signature reference for another. The lock-digest-mismatch case retains its bytes and is unscored rather than asserted against placeholders."},
+    {"attack": "PATH fixtures masked by ENTRYPOINT_ABSENT", "result": "PARTIALLY CONFIRMED", "detail": "Twelve of thirteen are unmasked; unicode-norm-duplicate remains masked. See V3-S1."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-SATISFIED-GRADE-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, documentClass DESIGN-CONTRACT-CANDIDATE, registerRow DR-103. authorityClaim opens 'NONE' and states 'Not SATISFIED ... Does not authorize implementation. Does not make any lock producible.' The three SATISFIED occurrences and the single docs/v2/implementation occurrence are all inside disclaimers; QUALIFIED does not occur at all."},
+    {"attack": "Inventing a closed surface owned by another row (leftover-contracts)", "result": "REFUTED", "detail": "The new envelope files are deliberately inert: each carries kind 'detached-envelope-bytes-only', notCeremony true, a manifestDigest, a tag, and the note 'DR-103 byte-level association only; DR-112 owns validity'. They supply the byte-level signatureRef target indexSchema requires without defining keys, signatures, thresholds or verification. TC-SIG ceremony members and ENVELOPE_MISMATCH remain in notAuthored under DR-112 and the conditional surface, and Windows-only path classes remain absent."},
+    {"attack": "Treating an unaccepted sibling contract as settled (leftover-contracts)", "result": "REFUTED", "detail": "The pin is to schemas.v11, which D-104 accepted; the catalog says SATISFIED-GRADE review is lawful precisely because the schema successor is independently accepted, rather than assuming it. It does not inherit corpus v2's unaccepted schemas.v9 pin."},
+    {"attack": "Silent v2-to-v3 path", "result": "REFUTED", "detail": "The top-level keys that differ between v2 and v3 are exactly the eight the closed roster names: artifact, version, reviewStatus, authorityClaim, schemaContract, basedOn, repairsOf, whatThisDoesNotDo. I also confirmed the fixture set is identical: the sorted (path, sha256) pairs across authored and supportingBytes are equal in v2 and v3, 81 entries each, so the pin change touched no fixture byte."}
+  ],
+
+  "whatIDidNotCheck": [
+    "I did not execute any fixture. Nothing here verifies that an admission engine produces the stated outcomes; no engine exists and the corpus states it does not execute fixtures.",
+    "I did not re-review schemas.v11 itself. I consumed it as the accepted contract at its pinned digest, and relied on the dispatch's statement - which the catalog repeats - that the fixture-facing subtrees are value-identical to schemas.v9.",
+    "I did not evaluate DR-112 ceremony semantics, the canonical-JSON surface, or DR-111 window semantics. I confirmed only that the corpus stays out of them and defers the members that ride them.",
+    "I did not open corpus v1's fixture directory; my v1 findings were re-tested against the v2/v3 fixture set at docs/coop/artifacts/fixtures/dr-103.v2/, which is a separate directory, so corpus v1's rejected bytes are untouched.",
+    "I did not read any other reviewer's file for this subject; none exists, and I invented none.",
+    "I did not verify the recorder script's behaviour, only that it is pinned by digest together with an initial and expected-final log digest.",
+    "I express no view on DR-103's register status and did not edit file 08 or COORDINATOR-DECISIONS.md. I did not edit the subject, any fixture byte, or corpus v2, and I did not commit."
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V3-01",
+      "title": "The reserved-list parity case authors only the equal-lists arm, so a checker that never compares still passes",
+      "detail": "TC-NAME.reserved-list-live-grammar-parity.packet.json now pins both operands - the index at TC-ACCEPT.index-with-minimal.json and the live grammar at TC-NAME.live-grammar-observation.json with its digest - which is a real improvement over corpus v1, where one side was assumed. Both lists read ['help','version','doctor'], so the expectation 'ACCEPT iff reservedRootCommands equals observed reservedRootCommands' resolves to ACCEPT and is decidable from retained bytes. The residue is that only the passing arm exists: a parity check whose sole fixture has the lists already equal cannot detect a checker that never performs the comparison. A divergent-list companion would close it. Advisory rather than a finding because the class member the schema requires is the parity check itself, and it is now authored with both sides retained.",
+      "notBlocking": "Both operands are pinned bytes and the stated outcome follows from them."
+    }
+  ],
+
+  "recordedInputs": [
+    {"path": "docs/coop/artifacts/component-manifest-fixture-corpus.v3.json", "sha256": "7fe3d17161147089f00157598e268bba5ea2a37a6d77a94571489d916c9cdb84", "mode": "0444", "role": "subject"},
+    {"path": "docs/coop/artifacts/component-manifest-fixture-corpus.v3.review-prompt.md", "sha256": "7b1ec46b7adb9af491c48e79282f5b1e4f3cab87a8822d61f28d4ec36ce43f78", "role": "dispatch"},
+    {"path": "docs/coop/artifacts/leftover-contracts.review-prompt.md", "sha256": "cb9af05f750962d01f7c0a08af2f46c9702f1e9948ad5f8eee347ab5fb4a212a", "role": "secondary attack list; applicable lines applied"},
+    {"path": "docs/coop/artifacts/component-manifest-schemas.v11.json", "sha256": "1c0b8868444a097256aaa7d9caf8ebaa1c6f73fb071dbb4dd712334abb17a005", "role": "schema contract, re-measured and matching"},
+    {"path": "docs/coop/artifacts/component-manifest-fixture-corpus.v2.json", "sha256": "70248781118452308399e91fcbecb7cac37dd5d58fd03c49ac9efcec445341d5", "role": "predecessor catalog, re-measured; unchanged and not retargeted"},
+    {"path": "docs/coop/artifacts/fixtures/dr-103.v2/", "role": "all 81 catalogued files re-measured; directory enumerated for strays; individual fixtures read for the class checks above"}
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "fixtureBytesEdited": false,
+    "corpusV2Retargeted": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "otherReviewerRead": false,
+    "filesWritten": ["docs/coop/artifacts/component-manifest-fixture-corpus.v3.review-independent.claude2.json"]
+  }
+}

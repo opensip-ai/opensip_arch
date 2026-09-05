@@ -1,0 +1,130 @@
+{
+  "artifact": "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn2.json",
+  "reviewer": "codex",
+  "date": "2026-08-14",
+  "decision": "D-099",
+  "turn": 2,
+  "protocol": "D-000 independent adversarial review; refute not confirm; turn 2 of 3; frozen prompt, turn-2 subject, and turn-1 subject; other-reviewer files not opened, statted, or hash-measured; no subject, authority, register, freeze, implementation, predecessor, or other repository edits; no commit",
+  "subject": "docs/coop/artifacts/coordinator-decisions.D-099.turn2.draft.md",
+  "promptSha256AtStart": "a0b5fd644e9199f481770017752e8c84ae36e858edfb0c533c5ec8915aeb2404",
+  "promptSha256AtEnd": "a0b5fd644e9199f481770017752e8c84ae36e858edfb0c533c5ec8915aeb2404",
+  "promptModeAtStart": "0444",
+  "promptModeAtEnd": "0444",
+  "promptMovementObserved": false,
+  "expectedSubjectSha256AtDispatch": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+  "subjectSha256AtStart": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+  "subjectSha256AtEnd": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovementObserved": false,
+  "verdict": "OBJECTIONS",
+  "findingCounts": {
+    "mustFix": 0,
+    "shouldFix": 2,
+    "notes": 0
+  },
+  "summary": "Turn 2 places the full fleet-class contract in its own bytes, preserves the five D-006 startup gates and weekly-roll regression rule, and removes both `/proc/self/exe` and fat-slice ambiguity. The accepted target-process repair is still incomplete, however. The prose states a same-PID exec sequence but supplies no actual exec-completion handshake, and a pipe cannot by itself keep an arbitrary post-exec help/version target alive. On macOS it says translation is read from the child after exec without defining a target self-report or target-PID API; `sysctl.proc_translated` reports the calling process. The dispatch provenance table also presents both the historical pre-D-098 and current post-D-098 COORD hashes under the same `COORD` label while calling every row a turn-2 dispatch input. These two SHOULD-FIX defects prohibit CONSENT and the proposed condition-4 MET transition.",
+  "objections": [
+    {
+      "id": "ADV-D099-T2-01",
+      "severity": "SHOULD-FIX",
+      "title": "The stated same-PID sequence still lacks an executable post-exec sampling protocol",
+      "finding": "Lines 127-142 improve target identity substantially, but `fork`, record T, then `execve` is a sequence, not an exec-completion handshake. The parent is not told how it distinguishes the pre-exec child/helper from the successfully exec'd target. The sentence that a short command 'is held live with a pipe' supplies no pipe endpoints or target behavior: a close-on-exec pipe can notify a parent that exec occurred, but does not keep the new image alive; redirecting output to a pipe does not guarantee blocking for bounded help/version output. Thus `/proc/T/exe` and `proc_pidpath(T)` can be sampled before exec or after exit. On macOS, the draft additionally says `sysctl.proc_translated` is read from the child after exec but defines no target command/self-report and no target-PID API. Apple's documented sysctl call reports the calling process, so a parent cannot obtain T's value merely by naming T. `file` of `proc_pidpath(T)` remains executable metadata and does not fill that missing target translation observation.",
+      "evidence": [
+        "D-099 turn 2 lines 130-142 name fork/exec, a live PID, and a pipe but specify no close-on-exec success/error channel, wait/stop state, process start identity, target cooperation, or exact sampling API/output.",
+        "The governed target commands are `--help` and `--version` with bounded startup latency (lines 59-63), so unsynchronized post-exec inspection has a direct exit race.",
+        "Linux procfs identifies `/proc/<pid>/exe` as the executable link and warns that PIDs may be reused after exit: https://www.kernel.org/doc/html/v6.8/filesystems/proc.html .",
+        "Apple documents `sysctl.proc_translated` as a call made by the process whose translation state is being tested: https://developer.apple.com/documentation/Apple-Silicon/about-the-rosetta-translation-environment ."
+      ],
+      "impact": "The harness can sample the launcher, fail nondeterministically after a fast target exits, or lack any lawful way to obtain the macOS target's Rosetta state. The contract therefore still cannot reproduce its claimed independent host/executable/live-process facts fail closed.",
+      "requiredRepair": "Define an actual per-OS protocol. Establish successful exec and exact target identity with a specified handshake, bind PID plus start identity to the digest-pinned path, and stop or cooperatively block the post-exec target until all observations complete. A pipe is sufficient only if the target has an expressly defined read/write protocol after exec; otherwise name a documented stopped-after-exec primitive. Specify the exact Linux process-ABI observation rather than counting executable `file` output twice. On macOS require an exact target-PID API and field or an implemented target self-report that calls `sysctl.proc_translated` inside T, with normalized values and error behavior. Refreeze for turn 3."
+    },
+    {
+      "id": "ADV-D099-T2-02",
+      "severity": "SHOULD-FIX",
+      "title": "The turn-2 dispatch table conflates historical and current COORD inputs",
+      "finding": "The section is titled 'Measured inputs at turn-2 dispatch', yet line 253 labels COORD as `17262fe0...` and line 264 labels COORD again as `09840050...`. The live file at this dispatch is only `09840050...`; `17262fe0...` is the historical COORD state at D-097 / before the C-D098 record. The adjacent generic `turn-1 subject`, `turn-2 subject`, and reviewer labels likewise first refer to D-098 and later refer to D-099 without a decision prefix. The underlying historical hashes are reproducible, but the table's single dispatch scope makes two different bytes appear simultaneously current and leaves replay consumers unable to tell which decision each generic row belongs to.",
+      "evidence": [
+        "D-099 turn 2 lines 249-267 contain two `COORD` rows with different digests and duplicate generic turn/reviewer labels under one turn-2-dispatch heading.",
+        "Live `docs/coop/COORDINATOR-DECISIONS.md` is 0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b.",
+        "The COORD object at D-097 commit 11691723d2a4b959daf9ddf5ac3df3977f8259ac is 17262fe0d40b8a41fae8d5391691809eb436102b842118652e042695ee749326; the object at C-D098 / current HEAD 09d0e288509f8b3e58d035290ff26f2e1d29c4ce is 0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b."
+      ],
+      "impact": "The frozen provenance recital is internally ambiguous about current versus inherited historical evidence, defeating the instruction to remeasure a cited file when it moves and making automated or human replay prone to selecting the stale COORD state.",
+      "requiredRepair": "Split the table into explicitly labeled `D-098 historical inputs` and `D-099 turn-2 dispatch inputs`, prefix every turn subject/verdict row with its decision and turn, and identify the commit/object for historical file hashes. Under the current-dispatch table, retain exactly one COORD row at the live digest. Refreeze for turn 3."
+    }
+  ],
+  "notes": [],
+  "predecessorFindingDisposition": {
+    "D099-SF-1": "RESOLVED-VERIFIED. The scoped successor, class trade, governed series, execution ordering, regression formula, preflight, exact file-08 edits, readiness effect, and reversibility are all present in the turn-2 subject's own bytes; adoption no longer depends on incorporating CONTESTED D-098 by digest alone.",
+    "ADV-D099-01": "PARTIALLY RESOLVED. The subject now uses a child PID T, same PID across exec, thin images, target-specific `/proc/T/exe`, and rejects helper translation as a substitute. It still does not define an exec-completion/liveness handshake or a mechanism that reads translation from the post-exec target. Residual recorded as ADV-D099-T2-01."
+  },
+  "factVerification": {
+    "fullContractInCurrentBytes": "VERIFIED. The turn-2 subject is self-contained for the operative class and measurement contract.",
+    "d006StartupSurface": "VERIFIED. Exactly cold p50/p95/p99 and warm p95/p99 are operative; warm p50 is explicitly non-failing telemetry.",
+    "regressionContract": "VERIFIED. Previous and candidate binaries use the same 21 current VMs from the second release, and weekly image rolls do not suppress the 10% rule.",
+    "sampleCacheAndRssMatrix": "VERIFIED. Series, purge/warm order, doctor handling, matched pairs, absolute G04 samples, and non-pooled aggregates are explicit.",
+    "processObservationRepair": "PARTIAL. Target PID, thin-image, and path corrections landed; successful-exec synchronization, post-exec liveness, process ABI, and target translation retrieval remain undefined.",
+    "numericThresholds": "VERIFIED. D-006's numeric threshold numerals and five-quantity G03 surface are unchanged.",
+    "turn1Freeze": "VERIFIED. The D-099 turn-1 subject remains mode 0444 at 458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08.",
+    "ownTurn1Verdict": "VERIFIED. The Codex turn-1 verdict remains at 13b40bd21ec4d9930f7890a0223d535b081ecf768de121388c4840e7c4f9b89e.",
+    "d098FrozenSubjects": "VERIFIED. D-098 turn 1 remains mode 0444 at bd45626e0a0cdc1b6e798a4f5276fbb09646debdd832cf19180d8bed4d4dc264; turn 2 remains mode 0444 at 1be52e83df90b1ac7c02b0937cb62f861821b517c77c45905cda0dd7f4479a1b; turn 3 remains mode 0444 at 5ad6884a06aa450bc2cbc0f286b3366eb9e029922e92a0ae6937868e37e05031.",
+    "file08EditTargets": "VERIFIED before verdict write. Each of the five exact replacement targets occurs exactly once in live file 08.",
+    "readinessAndSideEffects": "VERIFIED. Live condition 4 remains 16 of 18 PARTLY MET before adoption. The draft makes no QUALIFIED, DEMONSTRATED, or SATISFIED claim; does not restore G17 or name G13; leaves condition 2 at 4 of 30 NOT MET and condition 5 NOT MET; and does not authorize implementation. docs/v2/implementation is absent.",
+    "dispatchDigestTable": "NOT VERIFIED as a single dispatch snapshot. The current hashes are correct where stated, but the table also includes unlabeled historical D-098-era inputs under the same current-dispatch heading.",
+    "liveInputs": "VERIFIED. COORD 0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b; file 08 45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206; freeze e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd; D-094 commit 4172141db867fa33c7ca3c49e77ed2795978aff8 exists; D-097 commit 11691723d2a4b959daf9ddf5ac3df3977f8259ac exists; C-D098 and HEAD 09d0e288509f8b3e58d035290ff26f2e1d29c4ce."
+  },
+  "attackResults": {
+    "d099Sf1NotLanded": "PASS. The full operative contract is present in this subject's bytes.",
+    "advD09901NotLanded": "FAIL as SHOULD-FIX ADV-D099-T2-01. Literal inspector and fat-slice defects are repaired, but the claimed same-PID exec/liveness and target translation observation are not operationally defined.",
+    "processArchNotOfLiveTargetPid": "FAIL as SHOULD-FIX ADV-D099-T2-01. The prose names T but supplies no deterministic proof that T is the post-exec live target when sampled or any way to retrieve T's translation state.",
+    "weeklyRollDisablesTenPercent": "PASS. Weekly image rolls expressly do not suppress the inherited paired rule.",
+    "warmP50FailGate": "PASS. Warm p50 is explicitly non-operative telemetry.",
+    "changesD006Numerals": "PASS. The D-006 numerals stand unchanged.",
+    "claimsQualifiedOrSatisfied": "PASS. No QUALIFIED, DEMONSTRATED, or SATISFIED claim is made.",
+    "authorizesImplementationOrFlipsCondition5": "PASS. Both are expressly denied and the implementation directory is absent.",
+    "flipsCondition4WithoutCompleteContract": "FAIL. The remaining process-observation SHOULD-FIX means the complete-contract predicate is not met.",
+    "citedDigests": "FAIL as SHOULD-FIX ADV-D099-T2-02. Hash values are reproducible, but the dispatch table assigns two different COORD hashes and duplicate generic turn labels to one current snapshot.",
+    "subjectOrPromptMoved": "PASS. Prompt and turn-2 subject retained their start hashes and mode 0444 through the final checkpoint.",
+    "turn1SubjectEdited": "PASS. The frozen turn-1 subject retains its expected digest and mode 0444."
+  },
+  "consensusStatus": "CODEX OBJECTIONS: 0 MUST-FIX, 2 SHOULD-FIX, 0 NOTES. CONSENT prohibited.",
+  "protocolPartition": {
+    "otherReviewerFilesOpened": false,
+    "otherReviewerVerdictContentsRead": false,
+    "otherReviewerVerdictHashesMeasured": false,
+    "peerEvidenceUsed": "Only finding/disposition text necessarily present in the mandatory prompt and frozen subject; no other-reviewer path was opened, statted, parsed, or hash-measured.",
+    "externalSources": "Process semantics were checked against Linux kernel procfs documentation and Apple's Rosetta documentation: https://www.kernel.org/doc/html/v6.8/filesystems/proc.html and https://developer.apple.com/documentation/Apple-Silicon/about-the-rosetta-translation-environment .",
+    "filesWrittenByCodex": [
+      "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn2.json"
+    ]
+  },
+  "recordedInputs": {
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn2.review-prompt.md": "a0b5fd644e9199f481770017752e8c84ae36e858edfb0c533c5ec8915aeb2404",
+    "docs/coop/artifacts/coordinator-decisions.D-099.turn2.draft.md": "4e34c7f0c16a1c7c761405504c8294e4152a5eddd470a559a47dbd933f61832c",
+    "docs/coop/artifacts/coordinator-decisions.D-099.draft.md": "458dae40f8c77b7986ba4287448a4aa4ffdbcaccd6864d1612b97d6cd1afda08",
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.json": "13b40bd21ec4d9930f7890a0223d535b081ecf768de121388c4840e7c4f9b89e",
+    "docs/coop/artifacts/coordinator-decisions.D-098.draft.md": "bd45626e0a0cdc1b6e798a4f5276fbb09646debdd832cf19180d8bed4d4dc264",
+    "docs/coop/artifacts/coordinator-decisions.D-098.turn2.draft.md": "1be52e83df90b1ac7c02b0937cb62f861821b517c77c45905cda0dd7f4479a1b",
+    "docs/coop/artifacts/coordinator-decisions.D-098.turn3.draft.md": "5ad6884a06aa450bc2cbc0f286b3366eb9e029922e92a0ae6937868e37e05031",
+    "docs/coop/COORDINATOR-DECISIONS.md": "0984005085b96920c2b4d3d561e950853bd40b6d97ee2cac77e457d647fe301b",
+    "docs/v2/architecture/08-decision-and-readiness-register.md": "45dc4611717276c1f1c275982aa7ce787b2fa0b8fffbe1d315e8cb83ddff2206",
+    "docs/coop/IMPLEMENTATION-FREEZE.md": "e809d4395f394a507c36c23c069d566c838b2283c931b6d2d13797be53406dbd",
+    "historical COORD at D-097 commit": "17262fe0d40b8a41fae8d5391691809eb436102b842118652e042695ee749326",
+    "D-094 commit": "4172141db867fa33c7ca3c49e77ed2795978aff8",
+    "D-097 commit": "11691723d2a4b959daf9ddf5ac3df3977f8259ac",
+    "D-098 CONTESTED commit / HEAD": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce"
+  },
+  "environment": {
+    "cwd": "/Users/sb/code/opensip-ai/opensip",
+    "gitHeadAtStart": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "gitHeadAtEnd": "09d0e288509f8b3e58d035290ff26f2e1d29c4ce",
+    "localFinalPrewriteMeasurementTime": "2026-08-14T18:40:37-0700",
+    "utcFinalPrewriteMeasurementTime": "2026-08-15T01:40:37Z",
+    "targetExistedAtStart": false,
+    "implementationDirectoryPresent": false,
+    "committed": false
+  },
+  "filesWritten": [
+    "docs/coop/artifacts/coordinator-decisions.D-099.review-adversarial.codex.turn2.json"
+  ]
+}

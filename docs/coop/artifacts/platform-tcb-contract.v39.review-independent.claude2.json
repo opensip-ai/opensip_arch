@@ -1,0 +1,205 @@
+{
+  "artifact": "platform-tcb-contract.v39.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v39.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v39",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 1 SHOULD-FIX. ACCEPT requires 0 and 0. The move away from an inventory signature over extracted values is right, and Codex's arm64, gzip, projection and negative-test findings are repaired well. But the replacement structural proof searches the decompressed payload for symbol-name strings that a Linux kernel image does not normally store in that form, so a kexec-capable kernel generally produces no hit and is certified kexec-absent — and the configuration check that would have caught it is demoted to optional corroboration whose absence explicitly does not refuse. The failure direction is open, not closed.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v38 vs v39 against the declared roster roots; regex enumeration of D-096; substring checks for kallsyms, BTF, symtab and CONFIG_KALLSYMS across the whole artifact",
+
+  "custody": {
+    "subjectSha256Expected": "8e0813390076145406bc3f7b4bb470f79193d1461a801e16de40fc68856dea16",
+    "subjectSha256AtStart": "8e0813390076145406bc3f7b4bb470f79193d1461a801e16de40fc68856dea16",
+    "subjectSha256AtEnd": "8e0813390076145406bc3f7b4bb470f79193d1461a801e16de40fc68856dea16",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 247147,
+    "subjectMovedDuringReview": false,
+    "predecessorV38Sha256": "a8e4130289853a14692e3ba9f8999d5855ed6466ff05de4adbb9f60138fa27f1",
+    "frozenClaudeV38Sha256": "02bfcea9ca51255b5216a6576b5930b2f664e029db9fa07f2d4e351e4fda4053",
+    "frozenCodexV38Sha256": "7104a069a4036330ceb0d5b600a0da61d489011fe9b5e2f8d498566815916809",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v38 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v38 REJECT, whose blocker offered two repair routes; v39 takes the second, which I named. Having suggested the direction, I tested the implementation for the failure mode a content check can have and a configuration check cannot — passing for every input and therefore proving nothing — rather than checking that the words match my suggestion. That test is what produced the blocker. I also note that the artifact internalised my v38 reasoning correctly in its notThis list, which now names an inventory signature over mechanically extracted values as not the capability proof; the problem is what replaced it.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V39-B1",
+      "appliesTo": "CLAUDE-V38-B1 route (2) / PTCB-V38-B2 — the capability proof was replaced by a check a kexec-capable kernel generally passes",
+      "title": "kexecSymbolAbsence proves kexec-absent from the non-occurrence of symbol-name strings in the decompressed payload, but a Linux kernel image does not normally store those names as contiguous plain bytes, so the check passes for kexec-capable kernels and its only backstop is explicitly optional",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/kexecAbsenceDerivation/{kexecSymbolAbsence,result,ikconfig,signedAttestation}",
+      "whatTheClauseSays": "kexecSymbolAbsence carries standing 'STRUCTURAL PROOF', a haystack of 'decompressed payload P only', a list of eleven forbidden strings including __x64_sys_kexec_load, __arm64_sys_kexec_file_load, kernel_kexec, machine_kexec and crash_kexec, and the rule 'None of the forbiddenUtf8 strings MAY occur as a contiguous UTF-8 byte sequence in P. Any hit refuses. This is the structural kexec-absent proof.' result.kexecCapability is then 'exactly kexec-absent iff kexecSymbolAbsence succeeds', and signedAttestation adds 'Signed carriage MUST NOT replace kexecSymbolAbsence.' So the entire capability claim rests on this search.",
+      "theDefect": "The check assumes the payload contains those function names as contiguous plain byte sequences. A Linux kernel image does not generally satisfy that assumption. When the kernel's symbol table is built in, names are held in a token-compressed table and expanded at run time rather than stored as whole contiguous strings; when it is not built in, no symbol names are present at all. In neither case does a search for a contiguous occurrence of __x64_sys_kexec_load find anything, whether or not the kexec entry points are compiled in. Function names appear as plain contiguous strings only when some build option that emits them happens to be enabled. This contract requires no such option and never mentions the question: I searched the whole artifact for kallsyms, BTF, symtab and CONFIG_KALLSYMS and each occurs zero times. The proof's detection power therefore depends on an unstated, unrequired property of the build, and when that property does not hold the search returns no hit and the derivation returns kexec-absent.",
+      "whyTheBackstopDoesNotHold": "IKCONFIG would catch the case, and this generation deliberately removes it from that role. ikconfig.standing is 'CORROBORATION only. MUST NOT be the structural proof', and ifPresent closes with the sentence that decides this: 'Absence of IKCONFIG does not refuse if kexecSymbolAbsence succeeds.' So a kernel built without the embedded configuration has no second check at all. I credit that when IKCONFIG is present the conflicting-y-or-m rule still refuses, which is a real retained safeguard for that subset of images; but the contract's declared structural proof is the weaker check, and the combination of kexec compiled in and IKCONFIG absent is expressly permitted to pass.",
+      "theFailureDirection": "This is the property that makes it a blocker rather than an over-refusal. The v38 mechanism I rejected could at least be made to fail by an image whose embedded configuration disagreed with its code; it correlated with the truth in the honest case and failed only under a crafted or careless build. This mechanism returns the passing answer for the ordinary case, so an entirely honest kexec-enabled distro kernel with no embedded configuration is certified kexec-absent. Since the no-replacement closure rests on that certification, the profile then attests that the executing kernel is the launched one for a machine on which replacement remains possible.",
+      "howToConfirmItCheaply": "The reserved G22 vectors are the right place: take any stock kexec-enabled kernel image for either in-scope architecture, run the eleven-string search over its decompressed payload, and observe whether a hit occurs. If no hit occurs, the check has certified a kexec-capable kernel. That vector is not among the reserved set and should be added whichever repair route is taken.",
+      "requiredRepair": "Make the capability proof one that a kexec-capable kernel actually fails, and say what it assumes about the image. Three routes, any of which suffices. (1) Pin the encoding: require the payload to carry its symbol names in a named, version-pinned form, specify the decoding operation for that form, run the forbidden-symbol test against decoded names rather than raw bytes, and refuse when the image does not carry names in the pinned form so the test cannot pass vacuously. (2) Return the configuration check to structural standing: require IKCONFIG rather than making it optional, keep the completeness and explicit-disabled-form rules v38 established, and supply the authenticated builder binding Codex asked for at PTCB-V38-B2 so the configuration is tied to the build rather than merely extracted from the image. (3) Compare against a signed reference: measure the decompressed payload and require its digest to equal a signed reference for a build the signer attests is kexec-absent, which also answers the entry-to-payload question Codex raised at PTCB-V38-B1. Under any route, state the assumption the check makes about how the image represents the property, and add the stock-kernel vector above."
+    }
+  ],
+
+  "shouldFix": [
+    {
+      "id": "CLAUDE-V39-S1",
+      "appliesTo": "PTCB-V38-S2 — the projection repair reached authenticatedKernelMember, which the roster does not name",
+      "title": "authenticatedKernelMember was rewritten this generation but lies outside every declared roster root, while basedOn.method asserts that unnamed paths are unchanged from v38",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/authenticatedKernelMember; against /basedOn/method",
+      "theFinding": "basedOn.method declares a closed roster whose only /loaderTraces entry is '/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/kexecAbsenceDerivation', and closes with 'Every path neither the roster nor succession metadata names is unchanged from v38.' authenticatedKernelMember is a sibling of measuredBootBind, not beneath it, and my recursive diff shows it changed: v39 makes ikconfigDigest optional in the field set and rewrites the equalities to the new result projections, reading 'kexecCapability MUST equal result.kexecCapability. When result.ikconfigDigest is present, ikconfigDigest MUST equal result.ikconfigDigest; otherwise ikconfigDigest is absent.' My diff of v38 against v39 found 43 changed paths, of which 42 fall under a declared root and this one does not.",
+      "whyItMatters": "The change itself is correct and is part of the PTCB-V38-S2 repair, which asked to replace generic derivation-output equalities with explicit projections. The defect is that the succession metadata says the change was not made. The closed roster is what lets an independent reviewer check unnamed paths for unchangedness only, and an escaping change makes that sentence false. This is the second occurrence of the same class: I filed it at v34 as CLAUDE-V34-S1 for classForCodeRows and the v35 repair was to widen the roster, which is the same fix needed here.",
+      "whyNotABlocker": "The escaping change is small, correct and beneficial, and it neither weakens an authenticity path nor alters a refusal outcome. The defect is in the accuracy of the succession metadata.",
+      "requiredRepair": "Add '/loaderTraces/objectAuthenticityBind/tags/linux-pathless/authenticatedKernelMember' to the closed roster in basedOn.method, or widen the existing /loaderTraces entry to the linux-pathless tag, so the unchanged-assertion is true as written. The clause itself needs no change."
+    }
+  ],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V38-B2 — buildProvenance was an inventory assertion rather than authenticated builder provenance",
+      "result": "The construction I and Codex rejected is withdrawn, and the reasoning is internalised: notThis now names 'an inventory signature over mechanically extracted IKCONFIG or member hashes as the capability proof', signedAttestation demotes buildProvenance to 'corroboration only', and ikconfig is explicitly not the structural proof. Withdrawing it was right. What replaced it is the subject of CLAUDE-V39-B1, so the finding is not closed, but it is not closed by substitution of an equivalent assertion either — the failure is in the new mechanism's detection power rather than in its epistemic shape."
+    },
+    {
+      "finding": "PTCB-V38-S1 — the arm64 and inner-gzip parsers remained underdetermined",
+      "result": "REPAIRED, on every element Codex enumerated. The zimg scan is confined to loaded PE sections and 4-byte aligned, with exactly one match taking the zboot branch, zero taking the uncompressed branch and more than one refusing, which closes the incidental-zimg case. The zboot header must lie wholly within the same loaded section and its payload range must satisfy peJoin.loadedRange, with compressed_type required to equal the magic detection and disagreement refusing. The magic-free fallback is gone: the uncompressed branch now requires exactly one loaded executable section with 41 52 4d 64 at section-relative 0x38 and states 'No magic-free fallback.' The gzip rules Codex asked for are present as a closed set: C is capped at 8 MiB, 'Concatenated extra gzip members after the first refuse', and 'Trailing non-gzip bytes after that member refuse', alongside the existing 128 MiB payload ceiling."
+    },
+    {
+      "finding": "PTCB-V38-S2 — stale scalar-to-pair and nonexistent-path equalities survived the result repair",
+      "result": "REPAIRED. The derivation output is now stated as the explicit projections 'result.kexecCapability and, when present, result.ikconfigDigest', the result form is closed as {kexecCapability, ikconfigDigest?} with extras rejected, and authenticatedKernelMember and signedAttestation both compare the named projections rather than a whole record. See CLAUDE-V39-S1 for where that otherwise-correct edit landed relative to the roster."
+    },
+    {
+      "finding": "PTCB-V38-S3 — the negative test had dropped kexec_loaded",
+      "result": "REPAIRED for that element. NT-TCB-KEXEC now reads 'If any forbidden kexec symbol string occurs in P, refuse. If /proc/sys/kernel/kexec_load_disabled exists, refuse. If kexec_loaded is 1, refuse. If official-header/PE-join fails, refuse. If signed result.kexecCapability mismatches, refuse.' The buildProvenance propagation half of S3 is moot because the field is demoted out of the proof path."
+    },
+    {
+      "finding": "PTCB-V38-B1 — the PE-entry-to-payload relation was an untestable assertion",
+      "result": "PARTIALLY REPAIRED. peJoin.notInert is rewritten as an operation rather than a requirement: 'the selected payload is the unique range named by the official x86 header at the pinned offsets, or by the unique loaded-section zimg / 0x38 Image header. There is no search for an alternate header. A wrapper that would require a different payload than that unique official range refuses.' That closes the decoy-header search Codex named and is checkable against the header and section table. It does not establish that the code at the entry point consumes that payload, which is what the finding's first sentence asked for; Codex's three suggested routes were a canonical stub identity with an exact entry relation, a signed builder predicate covering that relation, or a measurement of the decompressed executed payload, and none is supplied. I do not file this separately because the third of those routes is also route (3) of my blocker's repair, so a single change can close both."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject 8e081339... over 247147 bytes at 0444, unmoved start and end. Predecessor v38 and both frozen v38 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 59 path-bearing pins reproduce, zero failures. No predecessor review was replaced this round."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v38-to-v39 change roster",
+      "result": "FAIL at one path — basis of CLAUDE-V39-S1. 43 changed paths, one off-roster. reviewGuidance grew 195 to 200 as a pure prefix-preserving append."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. All reMeasurementAtV39 pins reproduce. platforms.slice1 still carries linux/x86_64 and linux/arm64; no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 36 D-096 occurrences are refusals, zero unmatched."
+    },
+    {
+      "id": "M-6",
+      "check": "Architecture parsers and decompression bounds",
+      "result": "PASS. Alignment, containment, no magic-free fallback, compressor agreement, and both size ceilings are present with refusals stated."
+    },
+    {
+      "id": "M-7",
+      "check": "Detection power of the structural capability proof",
+      "result": "FAIL — basis of CLAUDE-V39-B1. The proof assumes an image representation the contract never requires; kallsyms, BTF, symtab and CONFIG_KALLSYMS occur zero times in the artifact."
+    },
+    {
+      "id": "M-8",
+      "check": "Backstop when the structural proof is uninformative",
+      "result": "FAIL — folded into CLAUDE-V39-B1. IKCONFIG is corroboration only and its absence expressly does not refuse."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "A capability proof that returns the passing answer for ordinary inputs (my own additional attack, and the finding of this round)",
+      "result": "LANDS. Filed as CLAUDE-V39-B1. An honest kexec-enabled kernel that does not carry plain contiguous symbol names, and carries no embedded configuration, is certified kexec-absent."
+    },
+    {
+      "attack": "An embedded configuration that disagrees with the compiled code (my v38 blocker and Codex PTCB-V38-B2, re-run)",
+      "result": "NO LONGER APPLICABLE in that form, because the configuration is no longer the structural proof. Its replacement fails differently."
+    },
+    {
+      "attack": "An incidental zimg id, a magic-free single section, or a declared compressor that disagrees with the stream (Codex S1, re-run)",
+      "result": "FAILED TO LAND. Aligned loaded-section scan with zero/one/many resolution, mandatory 0x38 magic with the fallback removed, and compressor agreement required."
+    },
+    {
+      "attack": "Concatenated gzip members or a decompression bomb",
+      "result": "FAILED TO LAND. Extra members and trailing non-gzip bytes refuse; 8 MiB and 128 MiB ceilings apply."
+    },
+    {
+      "attack": "A decoy header searched for outside the official location (Codex B1, re-run)",
+      "result": "FAILED TO LAND. The official range is unique and there is no search for an alternate header."
+    },
+    {
+      "attack": "A stale generic derivation-output equality surviving the projection repair (Codex S2, re-run)",
+      "result": "FAILED TO LAND on substance; the projections are explicit. The edit's placement relative to the roster is CLAUDE-V39-S1."
+    },
+    {
+      "attack": "Silent v38-to-v39 path outside basedOn.method (self-invited; my own v34 finding, re-run)",
+      "result": "LANDS at one path. Filed as CLAUDE-V39-S1."
+    },
+    {
+      "attack": "A Linux deferral, a D-096 (A) grant, or DRTM/IMA added as an or-choice",
+      "result": "FAILED TO LAND. Linux stays in platforms.slice1 and all 36 D-096 mentions are refusals."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of either frozen v38 verdict",
+      "result": "FAILED TO LAND. All 59 pins reproduce."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1.",
+    "Does not object to withdrawing buildProvenance from the proof path, which was the right response to both v38 verdicts.",
+    "Does not object to the arm64 and gzip repairs, the projection repair, the restored kexec_loaded condition, or the header-uniqueness operation; all should be kept.",
+    "Does not require DRTM, TXT or IMA; none of the three repair routes I name needs one.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v38 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV39ReviewerRead": false,
+    "otherReviewerNote": "The Codex v39 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v38 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v38 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed both predecessor verdicts' findings, the replacement capability proof, the architecture and decompression rules, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness, which is how the escaping path surfaced. CLAUDE-V39-B1 rests on how Linux kernel images represent symbol names and on the artifact's own silence about that representation; I have stated the confirmation vector explicitly so the finding can be settled empirically against a stock kernel rather than argued, and the repair routes I name do not require agreeing with my reading, since each makes the check's assumption explicit and refuses when it does not hold. The reserved G22 vectors remain unpopulated and were not evaluated.",
+
+  "summary": "REJECT at 1 blocker and 1 SHOULD-FIX. Custody is clean: subject unmoved at 8e081339... and 0444 at both ends, 59/59 chain pins reproduce, both frozen v38 verdicts reproduce with no replacement, reviewGuidance a pure append, the sole DR-126 row quoted byte-exactly, all remeasurement pins reproducing, and all 36 D-096 occurrences refusals. Most of this generation is good work. Codex's arm64 and gzip finding is repaired on every element — aligned loaded-section scanning, zero-one-many resolution, the magic-free fallback removed, compressor agreement required, concatenated members and trailing bytes refused, and both size ceilings present. The projection finding is repaired, the dropped kexec_loaded condition is restored, the decoy-header search is closed by a header-uniqueness operation, and buildProvenance is withdrawn from the proof path with my v38 reasoning written into notThis. The problem is what now carries the capability claim. kexecSymbolAbsence is declared the structural proof, and result.kexecCapability is kexec-absent if and only if it succeeds, but it succeeds by finding no contiguous occurrence of eleven function-name strings in the decompressed payload. A Linux kernel image does not normally hold those names that way: with the in-kernel symbol table built in they are token-compressed and expanded at run time, and without it they are absent entirely, so an ordinary kexec-enabled kernel yields no hit. The contract never states this assumption — kallsyms, BTF, symtab and CONFIG_KALLSYMS each occur zero times in the artifact — and it removes the check that would have caught the case, since IKCONFIG is now corroboration only and 'Absence of IKCONFIG does not refuse if kexecSymbolAbsence succeeds.' The result is a proof whose failure direction is open: an honest kexec-enabled kernel with no embedded configuration is certified kexec-absent, and the no-replacement closure built on that certification then attests the launched kernel as the running one on a machine where replacement is still possible. Any of three repairs closes it — pin and decode the name representation, restore the configuration check to structural standing with the builder binding Codex asked for, or compare a measurement of the decompressed payload against a signed kexec-absent reference, which would also finish PTCB-V38-B1. The second finding is smaller: authenticatedKernelMember was correctly rewritten for the projection repair but sits outside every roster root, so basedOn.method's assertion that unnamed paths are unchanged is false, exactly as at v34."
+}

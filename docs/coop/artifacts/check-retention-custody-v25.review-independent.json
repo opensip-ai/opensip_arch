@@ -1,0 +1,255 @@
+{
+  "artifact": "check-retention-custody-v25.review-independent.json",
+  "role": "independent review of an INSTRUMENT, not of a document",
+  "subject": {
+    "path": "artifacts/check-retention-custody-v25.py",
+    "sha256": "8e7b86d59b3276dc9ee998c059684e834a82e2d9b9d9f4c200eb1e3da9b57d2d",
+    "bytes": 253378,
+    "sha256AtStart": "8e7b86d59b3276dc9ee998c059684e834a82e2d9b9d9f4c200eb1e3da9b57d2d",
+    "sha256AtEnd": "8e7b86d59b3276dc9ee998c059684e834a82e2d9b9d9f4c200eb1e3da9b57d2d",
+    "stable": true,
+    "dispatchDigestMatched": true,
+    "note": "IMPLEMENTATION-FREEZE 7.2.1 items 2 and 3: re-hashed before finalising, identical to the dispatch value. Every measurement below was taken against these bytes."
+  },
+  "checkedSubjectOfTheInstrument": {
+    "path": "artifacts/retention-tiers.v25.json",
+    "sha256": "d62c1c0f3eec5ac7b496a4f2fe60b73daafdc69a2cbd500685d0800e54eeca52",
+    "digestNote": "Measured in full from disk at the end of the review. An earlier draft of this artifact recorded a 20-character prefix with the remainder padded; that string was of nothing, which is the exact error freeze 7.6 records against a coordinator, and it was replaced by a measurement rather than left with a disclaimer.",
+    "notPinnedByTheInstrument": true,
+    "notPinnedNote": "Correct. A checker does not pin the artifact it checks. Every OTHER input it reads is pinned."
+  },
+  "verdict": "ACCEPT AS AN INSTRUMENT, WITH BLOCKERS AGAINST THE INSTRUMENT -- 3 blocking, 9 non-blocking. Its two refusals to pass are BOTH correct and neither should be tuned away. Its central finding RT25-C-B1 reproduces exactly from an independent implementation. But its own honesty measurement is incomplete: --limits reports 11 ways to pass on a wrong artifact and the correct count is at least 14, and the three additions are not narrative escapes -- they are structural, and one of them makes RT25-C-B1 unable to detect its own repair.",
+  "environment": {
+    "python": "3.14.6 (CPython, darwin arm64)",
+    "invocation": "python3 -I -B artifacts/check-retention-custody-v25.py",
+    "invocationIsEnforced": true,
+    "invocationNote": "Both subjects refuse any non-isolated startup at module scope and exit 2 before importing anything. This is a real prevention boundary and is correctly placed: it cannot be undone by script code, and the instrument says so.",
+    "externalTools": "none -- standard library only, verified by import scan: sys, copy, hashlib, itertools, json, pathlib, random, re, typing",
+    "cwdSensitivity": "none; all paths resolve from __file__"
+  },
+  "howThisReviewWasConducted": {
+    "method": "An isolated lab copy of docs/coop was made and verified to reproduce the live run byte-identically. Every mutation was applied inside the lab. The real corpus was never written to, verified by git status and by digest comparison at the end.",
+    "deltaDiscipline": "The instrument's base is NOT clean (15 findings), so a mutation counts as CAUGHT only if it produces a finding ABSENT FROM THE BASE. This is the same discipline the instrument's own dirty-base selftest applies, adopted here so results are comparable.",
+    "independence": "RT25-C-B1 and the leaf census were re-implemented from retention-tiers.v25.json's own bytes and from the freeze's stated rules, without reading the instrument's implementations first."
+  },
+
+  "adjudications": [
+    {
+      "question": "The default run exits 2 with RT25-PIN-UNSATISFIABLE because the coordinator mutated a hard-pinned draft in place and destroyed its bytes. Is REFUSING correct, or should an unsatisfiable pin be downgraded?",
+      "ruling": "REFUSING IS CORRECT. Do not downgrade it.",
+      "reasoning": [
+        "Freeze 7.10 states the rule the instrument is obeying: 'Immutability is conferred by being DEPENDED UPON, not by being reviewed.' retention-tiers.v25.json hard-pinned that draft under its own gate string HARD-PIN-EXIT-2-ON-MISMATCH-IF-A-CHECKER-IS-EVER-WRITTEN. The gate names this exact instrument as its trigger. Honouring it is the instrument doing what the artifact asked for.",
+        "The alternative -- re-pointing to the live digest -- would adopt bytes no verdict ever covered, which is precisely the authorship-boundary failure 7.2 was written to close. The instrument's own phrasing, 'A pin you quietly re-point is not a pin', is the correct statement of the rule.",
+        "The unrecoverability claim was VERIFIED INDEPENDENTLY, not accepted: artifacts/product-dispositions.cd-rt-5-amendment.draft.v1.json is untracked (git ls-files --error-unmatch fails; git status reports '??'), the repository has 2 commits and neither contains it, and the pinned digest 4bbcd6fa... occurs in this corpus only inside artifacts that CITE it, never as recoverable content. The claim is true.",
+        "The instrument also does the thing that makes refusal survivable: --allow-unsatisfiable-pin exercises the semantic body against the live bytes and reports, so the refusal does not destroy the evidence. And DRAFT_ANCHORS gives the live draft a semantic floor (5 anchored positions) so gutting it still fails closed regardless of the digest. That is the right shape for an unsatisfiable pin: refuse by default, report on request, keep a semantic guard that does not depend on the digest."
+      ],
+      "caveat": "Correct as a ruling, and 7.10's second rider still applies to it: an instrument that fails early should say what it was ALSO protecting. This one exits 2 before parsing, and FREEZE_ANCHORS -- 9 content anchors on IMPLEMENTATION-FREEZE.md -- therefore does not run in the default mode. All 9 were verified to hold live by this review, so nothing is currently broken, but the instrument does not tell a reader that its freeze guard is inert in the mode a reader will run first."
+    },
+    {
+      "question": "Is the ADVANCED-versus-MUTATED asymmetry implemented soundly, and are the two genuinely distinguishable at runtime?",
+      "ruling": "THE DISTINCTION IS CORRECT AND WORTH DRAWING. ITS IMPLEMENTATION IS NOT DERIVED, AND THE ADVANCED LANE HAS ALREADY FAILED ON ITS OWN TERMS.",
+      "measured": [
+        "DISTINGUISHABLE AT RUNTIME: NO. The classification is a literal-membership test -- `if name in UNSATISFIABLE_PINS` -- against a hand-written dict with one entry. No property of either file is measured. Nothing in the instrument computes trackedness, history, recoverability, or any other discriminator. The instrument's own comment is honest about this ('so this one NAMES the class'), and it does not claim to derive it, so this is not an overclaim -- but it is a hand-transcribed registry of exactly the kind --limits item 9 already identifies as a hazard for the type registry, and it is not listed there.",
+        "THE DISCRIMINATOR IS AVAILABLE AND WAS NOT USED: the narrative reason given for unrecoverability is 'untracked, has no git history'. That is a measurable property of the working tree. The instrument is standard-library-only and could read .git without shelling out. It does not.",
+        "THE ADVANCED RE-PIN IS ITSELF ALREADY STALE. product-dispositions.v1.json is pinned at 5fc59ad2...; live is bbe24527.... The re-pin does not hold, and RT25-PIN-DRIFT fires on it every run.",
+        "AND THE ASYMMETRY INVERTS UNDER MEASUREMENT. Of the three digests in play for that file, exactly one is recoverable: b9a87839... -- v25's OWN recorded value -- is retrievable from git HEAD, verified by `git show HEAD:docs/coop/artifacts/product-dispositions.v1.json | shasum -a 256`. The instrument's chosen re-pin 5fc59ad2... is recoverable from NOWHERE: not on disk, not in either commit. It survives only as a citation inside artifacts/versioning-policy.v14.json and artifacts/v10-disposition.v2.json, which is how this review confirmed it was once real rather than fabricated.",
+        "SO BOTH PINS ARE NOW PERMANENTLY UNSATISFIABLE, AND ONLY ONE IS LABELLED SO. The instrument refused to re-point the MUTATED pin because its bytes are unrecoverable, and re-pointed the ADVANCED pin to a digest that is also unrecoverable -- abandoning the one digest that is."
+      ],
+      "operationalConsequence": "In the default mode both lanes produce the identical outcome: exit 2, nothing parsed. The asymmetry is visible only in the message text. A reader who greps exit codes learns nothing from it.",
+      "whatIsRightAboutIt": "The distinction is real and the corpus needed it named. Freeze 7.10 draws the same line and this instrument is the first to implement it. The failure is not the idea; it is that the ADVANCED lane chose the strategy 7.10 explicitly calls unsustainable -- 'every future amendment mints another checker' -- and was overtaken inside one working session, which is 7.10's own controlled experiment landing on the instrument that cites it.",
+      "recommendation": "A successor should pin what it DEPENDS ON and re-extract it, as retention-tiers.v26.json did for the same file and survived the same movement. Keep the digest as a named non-fatal drift notice, which is exactly what 7.10's closing sentence prescribes."
+    },
+    {
+      "question": "--allow-unsatisfiable-pin reportedly exits 1 and can NEVER return 0.",
+      "ruling": "TRUE IN PRACTICE, IMPRECISE AS STATED.",
+      "measured": "Exit 1, confirmed. main() floors the exit code with `if unsatisfiable: return 1` after the findings branch. But it is the PRESENCE OF A MISMATCHED PIN that floors it, not the flag: if every pin held, the flag would be a no-op and 0 would be reachable. The docstring's 'It NEVER returns 0' is true only while a pin mismatches. Since the draft's bytes are unrecoverable, it is true forever in fact.",
+      "findingCountDiscrepancy": "The dispatch expected 16 findings; measured 15, three times, in the live tree and in the lab. The likely cause is measurable and benign: all 9 FREEZE_ANCHORS currently hold, and IMPLEMENTATION-FREEZE.md is under concurrent edit, so a 16th finding from a broken anchor would have been live at dispatch time and is not live now. Reported as measured, not reconciled to the expectation."
+    },
+    {
+      "question": "Verify the coverage claims.",
+      "ruling": "EVERY COUNTABLE CLAIM VERIFIED. One is mislabelled rather than wrong.",
+      "results": {
+        "vectors": "16/16 executed. VERIFIED, and non-vacuously: run_vectors hard-compares its VECTOR_IDS registry against the artifact's declared row ids in BOTH directions -- a declared row this instrument does not execute is a finding, and a row it executes that the artifact does not declare is a finding. The artifact declares 16 rows.",
+        "invariants": "19/19 executed. VERIFIED, same both-ways comparison against INVARIANT_IDS. The artifact declares 19.",
+        "negativeControls": "15 run, 0 vacuous. VERIFIED. Independently counted isNegativeControl==true in the artifact: 15 of 16 rows. The vacuity test is real and is the right one -- a control whose rejected reading produces the same result as the accepted reading is itself raised as a finding.",
+        "mutations": "96/96 caught by their own named check. REPRODUCED (dirty-base mode, exit 3).",
+        "typeRespellings": "477 swept, 0 admitted. VERIFIED by arithmetic on the instrument's own sweep report: float 196 + boolFromZeroOrOneInt 97 + intFromBool 184 = 477, admitted 0 in all three arms.",
+        "census": "1416 = 196 int + 184 bool + 1 float + 0 null + 1035 str. VERIFIED EXACTLY by an independently written walker over the artifact's parsed bytes.",
+        "boolBeforeInt": "CONFIRMED CORRECT in both census() and type_findings(). The trap is real and was measured: testing int first classifies all 380 int/bool leaves as int and reports 0 bools. The instrument avoids it and documents why.",
+        "unruledLeaves": "0 unruled. VERIFIED. The banner prints 'guarded int/bool 382' where int+bool = 380; the extra 2 are the positional float and numeric-string law-18 controls, which are guarded but are neither int nor bool. The metric name over-counts by 2 relative to what it says. Cosmetic, non-blocking, recorded so a future reader does not treat 382 as a leaf-type figure."
+      }
+    },
+    {
+      "question": "RT25-C-B1 fired on the first run and corroborated the reviewer's central blocker before its author read the review. Reproduce.",
+      "ruling": "REPRODUCED EXACTLY, FROM AN INDEPENDENT IMPLEMENTATION.",
+      "method": "The three demand expressions were transcribed from $.partC_retentionBounds.sweep.demands.rows[].demand in the artifact's own bytes and implemented in a standalone script, together with the guarded reading (disabledWhen applied as an outer guard). The arithmetic rows were derived by the same predicate the instrument uses -- rows carrying both expectedEvictionCount and evictableCount -- not enumerated.",
+      "result": {
+        "asPublishedAgree": "1 of 5",
+        "guardedAgree": "5 of 5",
+        "perVectorPublished": {
+          "PC-V-01-COUNT-ONLY": "expected 3, published gives 5 (time 5, size 0, count 3)",
+          "PC-V-02-PARASITISM-CONTROL-KEEP-ZERO": "expected 4, published gives 5 (time 5, size 4, count 5)",
+          "PC-V-03-PARASITISM-CONTROL-KEEP-ONE": "expected 4, published gives 5 (time 5, size 4, count 4)",
+          "PC-V-04-INDEPENDENCE-MAX-NOT-SUM": "expected 3, published gives 5 (time 5, size 2, count 3)",
+          "PC-V-10-PROTECTED-SET-EXCEEDS-BOUND": "expected 0, published gives 0 -- the single agreement"
+        },
+        "everyPerDimensionTripleMatchesTheInstrument": true,
+        "defaultConfiguration": "At 0/0/0 the published expressions demand 5 of 5 -- the whole set -- while $.partC_retentionBounds.sweep.neverRunsWhenBoundsAreDefaulted.soTheDefaultConfigurationNeverPurges declares true in the same file. The guarded reading gives 0."
+      },
+      "robustnessOfTheBlocker": "The conclusion does NOT depend on the instrument's synthetic population model. The uniform-byte-size assumption affects only the SIZE dimension. At maxAgeSeconds 0 the time demand is n for any population admitted in the past, and at keepCount 0 the count demand is n by inspection of the expression. The default-configuration catastrophe is therefore established on two dimensions that are independent of any modelling choice. DEP-RT25-01 forces maxAgeSeconds to 0, so the worst dimension is also the only legal one.",
+      "verdictOnTheBlocker": "B1 is a true positive against retention-tiers.v25.json and the instrument is right to refuse to pass on it."
+    },
+    {
+      "question": "Is the author's --limits count of 11 complete? Find a twelfth if you can.",
+      "ruling": "NO. AT LEAST 14. THREE ADDITIONS FOUND, ALL STRUCTURAL, NONE NARRATIVE.",
+      "note": "The 11 published items were each tested rather than admired. All 11 reproduce. Items 1 and 2 were verified at scale: 165 narrative leaves accepted an appended reversal with every required needle preserved, at 0 new findings. The three additions below are of a different kind from the published 11 -- those are mostly 'this instrument cannot bind prose'; these are 'this instrument does not bind something it computed, or does not read the bytes it names'.",
+      "additions": ["IR-RT25I-B1", "IR-RT25I-B2", "IR-RT25I-B3"]
+    }
+  ],
+
+  "blockingFindings": [
+    {
+      "id": "IR-RT25I-B1",
+      "title": "RT25-C-B1's subject is a Python transcription, not the artifact's bytes. The instrument's central finding cannot detect its own repair.",
+      "severity": "BLOCKING against the instrument. Not against retention-tiers.v25.json, whose defect is real.",
+      "measured": [
+        "The string key \"demand\" is never read. grep for '\"demand\"' across all 253378 bytes returns zero occurrences. $.partC_retentionBounds.sweep.demands.rows[].demand -- the exact path RT25-C-B1's finding text names as its site -- is never parsed.",
+        "The AS-PUBLISHED reading is three hand-written Python functions, demand_count_AS_PUBLISHED / demand_size_AS_PUBLISHED / demand_time_AS_PUBLISHED, each carrying the expression in its docstring with the word 'verbatim'.",
+        "DEMONSTRATED: the three demand strings were repaired in the artifact by folding the guard in -- count becomes '0 if keepCount == 0 else (max(0, len(evictable) - keepCount))', and likewise for size and time. The artifact no longer contains the defect. The instrument reports RT25-C-B1 with byte-identical text, still claiming '4 of 5 arithmetic vectors CONTRADICT the artifact's own published demand expressions'. Exit 1, delta +0 findings.",
+        "The instrument's docstring states 'This instrument is built to outlive v25 and serve that successor.' Measured, it cannot serve a successor on its own central finding: the finding is a constant with respect to the text it is about."
+      ],
+      "whyThisIsTheSharpEnd": "Freeze 7.8's decisive demonstration against check-delivery-v4.py is that an instrument written to accompany a repair does not detect the UN-repair. This is the same defect in mirror image: an instrument written to report a defect does not detect the REPAIR. 7.8 states the general remedy in one sentence -- 'an instrument must re-derive its constants from the artifact it checks, or it is testing its own transcription' -- and this instrument cites 7.8 in its own banner while not doing it at the one place that matters most.",
+      "whatIsRightAboutIt": "The VERDICT is genuinely derived, and this was tested rather than assumed. Re-pointing all five arithmetic vectors to the catastrophic AS-PUBLISHED results flips the banner to '5/5 agree AS PUBLISHED, 1/5 agree GUARDED' and RT25-C-B1 still fires, now through its guarded-disagreement limb and its default-configuration limb. The artifact cannot escape B1 by moving its vectors. That is 7.8 design move 1 correctly implemented, and it is why this is a repairable blocker rather than a rejection.",
+      "repair": "Parse the three demand strings and derive the readings from them, or -- if parsing arbitrary English is refused, which would be reasonable -- bind them by requiring each row's demand text to still contain the expression the transcription implements, and RAISE if it does not, so a repair fails the instrument loudly instead of passing through it silently.",
+      "notInLimits": "Item 4 covers the SECTION 1 reference derivations and item 9 covers the type registry. Neither covers this."
+    },
+    {
+      "id": "IR-RT25I-B2",
+      "title": "--allow-unsatisfiable-pin is a GLOBAL pin bypass, not the scoped one its own docstring promises, and it can silence real findings.",
+      "severity": "BLOCKING against the instrument.",
+      "measured": [
+        "verified_snapshots' docstring states: '`allow_unsatisfiable` admits ONLY the pins named in UNSATISFIABLE_PINS, only after reporting them'. MEASURED FALSE. The code appends to the same `unsatisfiable` list for BOTH branches and then admits unconditionally: `if allow_unsatisfiable: snaps[name] = data; continue`. Any mismatched pin is admitted.",
+        "DEMONSTRATED, arbitrary tamper: an injected key was added to the pinned predecessor retention-tiers.v24.json. Default mode refuses at exit 2, correctly. Under --allow-unsatisfiable-pin the tampered predecessor is admitted and the entire semantic body executes against it.",
+        "DEMONSTRATED, targeted suppression: deleting the 19 top-level Part A and Part B keys that RT25-B3 reports as uncovered, from the PINNED PREDECESSOR, takes RT25-B3 from 2 findings to 0 and the total from 15 to 14. RT25-B3 is one of the four blockers the independent review of v25 raised and one of the three SECTION 7 was written to close.",
+        "The severity is amplified by the fact that this is the ONLY mode that produces any semantic output at all today: the default mode exits 2 before parsing. Every reader who sees this instrument's findings sees them through the bypass."
+      ],
+      "mitigation": "It is loud, not silent: each admitted mismatch prints its own RT25-PIN-DRIFT line. But two such lines print on a clean tree already, so a third does not stand out, and the exit code does not move.",
+      "repair": "Admit only names present in UNSATISFIABLE_PINS, which is what the docstring already says. Keep raising on every other mismatch. Separately, stop conflating DRIFT and UNSATISFIABLE in one list named `unsatisfiable` -- the banner currently reports 'unsatisfiable 2' when exactly 1 pin is unsatisfiable, and the RT25-PIN-REFUSED message asserts 'at least one mismatch is a KNOWN UNSATISFIABLE PIN' on a condition that is also true when none is.",
+      "notInLimits": "Not listed. Item 9 is about the type registry; nothing covers the pin gate."
+    },
+    {
+      "id": "IR-RT25I-B3",
+      "title": "A recorded measurement is computed, interpolated into a finding's text, and never compared -- 7.2.2's rider, inside the instrument that cites 7.2.2's rider as its standard.",
+      "severity": "BLOCKING as a class instance; low blast radius as a single leaf.",
+      "measured": [
+        "The instrument reads $.partC_retentionBounds.sweep.neverRunsWhenBoundsAreDefaulted.soTheDefaultConfigurationNeverPurges into b1['declaredDefaultSweepEmitsNothing'], and it independently computes both readings of the default configuration (defaultConfigAsPublished = 5, defaultConfigGuarded = 0).",
+        "It never compares them. check_b1's guard is `if b1['defaultConfigAsPublished'] != 0`. The declared flag appears only as `{b1['declaredDefaultSweepEmitsNothing']!r}` interpolated into the finding STRING.",
+        "DEMONSTRATED: flipping that boolean from true to false produces 0 new findings. The instrument continues to print a finding asserting the artifact 'declares True in the same file' or 'declares False in the same file' with equal confidence, having verified neither.",
+        "Freeze 7.2.2's rider names this exactly: 'a check whose result is written into a report rather than raised as an error'. The instrument quotes that rider in its own module docstring as the standard it is held to."
+      ],
+      "repair": "Compare the declared flag against the measurement on the reading the artifact's own vectors support, and raise when they disagree. The measurement is already in hand.",
+      "notInLimits": "Not listed."
+    }
+  ],
+
+  "nonBlockingFindings": [
+    {
+      "id": "IR-RT25I-N1",
+      "title": "The module docstring records a live digest that is stale, and the corpus cannot corroborate it.",
+      "measured": "The docstring states the draft's live digest is 872c67be307866a645d246104a61065d1ab6c6d812618e0a40bbd837c4b0edb0. Measured live: c4bd85c62ee957ba04fd9d99f8b8f780138792409eb51b79a2aff2d35d334b12. The file moved again after the docstring was written.",
+      "mitigation": "Not load-bearing: UNSATISFIABLE_PINS' runtime message carries no digest and prints the live value, so the RUNNING instrument is always correct. Only the prose is stale. Recorded because freeze 7.6 records three separate coordinator errors of exactly the shape 'a recorded measurement carried forward without re-running'."
+    },
+    {
+      "id": "IR-RT25I-N2",
+      "title": "The docstring contradicts itself and the code on the pin count.",
+      "measured": "'WHY 11 HARD PINS AND NOT v24's 37' versus 'HARD (12)' seven lines earlier, versus len(PINS) == 12, versus the runtime banner 'pins 12'. Three of the four agree; the prose heading is wrong by one."
+    },
+    {
+      "id": "IR-RT25I-N3",
+      "title": "The PINS comment asserts a present-tense measurement that is false as measured.",
+      "measured": "The comment reads 'RE-PINNED at the LIVE digest, measured from disk by this instrument's author at 2026-08-06T00:20:36Z, NOT transcribed from a report.' The pinned value 5fc59ad2... is not the live digest bbe24527.... The claim of provenance is nonetheless CORROBORATED rather than doubted: 5fc59ad2... occurs in artifacts/versioning-policy.v14.json and artifacts/v10-disposition.v2.json, so it was a genuine measurement of a state that has since passed. The defect is the tense, not the honesty."
+    },
+    {
+      "id": "IR-RT25I-N4",
+      "title": "The freeze guard is inert in the mode a reader runs first.",
+      "measured": "FREEZE_ANCHORS' 9 anchors are evaluated inside the semantic body, which the default mode never reaches. All 9 verified to hold live by this review. Freeze 7.10's rider -- 'When an instrument fails early, ask what it was also protecting' -- is the governing text and the instrument does not answer it."
+    },
+    {
+      "id": "IR-RT25I-N5",
+      "title": "Exit 2 carries three distinct meanings.",
+      "measured": "Bad invocation (RT25-UNSUPPORTED-INVOCATION), integrity refusal, and hard pin mismatch (RT25-PIN-REFUSED) all exit 2. The docstring declares this openly as a single row of its exit matrix, and each carries a distinct leading token, so the classes ARE separable by a reader. Recorded because a signer scripting on exit codes alone cannot separate 'I typed the command wrong' from 'the corpus moved'."
+    },
+    {
+      "id": "IR-RT25I-N6",
+      "title": "guardedIntOrBoolLeafPositions counts two leaves that are neither int nor bool.",
+      "measured": "382 reported; int 196 + bool 184 = 380. The float and numeric-string law-18 positional controls are counted as guarded. Cosmetic."
+    },
+    {
+      "id": "IR-RT25I-N7",
+      "title": "The AS-PUBLISHED size dimension depends on a synthetic uniform byte distribution that the artifact does not specify.",
+      "measured": "population() distributes evictableTotalBytes evenly across evictableCount records. The artifact supplies only the two totals. A non-uniform distribution changes the size demand. This does not weaken RT25-C-B1 -- the blocker survives on the time and count dimensions alone, verified independently -- but the instrument does not disclose the modelling choice as a choice.",
+      "credit": "The instrument does declare its D9 scope reduction against its own interest in the same docstring, so the omission here is an inconsistency in disclosure rather than a habit of concealment."
+    },
+    {
+      "id": "IR-RT25I-N8",
+      "title": "--limits exits 0.",
+      "measured": "A documentation mode returning the success code. Conventional for a help mode; recorded only because every other mode of this instrument is non-zero and a careless `&&` chain would read it as a pass."
+    },
+    {
+      "id": "IR-RT25I-N9",
+      "title": "The published escape count of 11 is stated as a list and disclaimed as examples, and the disclaimer is doing real work.",
+      "measured": "The closing sentence -- 'This list is examples, not the boundary. It was written by the author of the instrument and is bounded by the same reading that produced it' -- is correct, and this review found 3 more. Freeze 7.1 records the same lesson in the same words for the parked-recipes table: 'an enumeration of named items goes stale silently in both directions, while the limb stated as a property covered the case correctly'. The instrument should state the property, not only the eleven instances.",
+      "credit": "Item 10 pre-announces this outcome explicitly -- 'There is no reason to believe a fifth class does not exist for the same reason ... and the measured rate at which that happened here is 3 of 4.' The measured rate this review adds is 3 more classes from one independent reader. The author's own prediction was accurate."
+    }
+  ],
+
+  "whatIsGenuinelyStrongHere": [
+    "The refusal to pass is correct twice over and is argued from the corpus's own rules rather than asserted. An instrument that reports its subject's central blocker against its own author's interest, on the first run, before the review that found it independently, is the behaviour 7.8 says discharges a residual.",
+    "The verdict of RT25-C-B1 is DERIVED, not encoded. Re-pointing the vectors to the catastrophic reading flips the measurement and the finding survives through a different limb. Tested, not assumed.",
+    "Both-ways registry comparison on vectors and invariants. A declared row the instrument does not execute is a finding, and an executed row the artifact does not declare is a finding. That is what makes 16/16 and 19/19 non-vacuous.",
+    "Negative controls are tested for VACUITY -- a control whose rejected reading agrees with the accepted one is itself raised. 15 controls, 0 vacuous.",
+    "The census is a genuine global anti-tamper. No leaf can be added or removed anywhere in 1416 positions without a hard-compared count moving. Several mutations in this review were caught by it and by nothing else.",
+    "bool before int, in both walkers, with the reason documented. The trap is real -- testing int first reports 380 ints and 0 bools -- and the instrument avoids it and says why.",
+    "A crash cannot read as a finding. Nine degenerate inputs were tried -- invalid JSON, duplicate keys, top-level list, empty object, minimal skeleton, missing pinned input, missing subject, bad flags, bad --part values -- and produced ZERO tracebacks in every case. Refusals are named and exit 2; gutted-but-parseable subjects produce ~240 findings at exit 1, which is the correct classification. This instrument does NOT have the check-rust-provider-protocol-v2/v4 defect that litmus D-6 names.",
+    "The dirty-base selftest is a distinct observable: exit 3, SELFTEST-NOT-CERTIFYING, the base findings printed, and delta discipline applied so the 96/96 number means something over a dirty base rather than nothing. This is the EVIDENCE-v8 dead-selftest defect correctly avoided.",
+    "The selftest found a real bug in the instrument and the instrument records it: `ctx = dict(ctx, doc=doc)` in run_invariants carries a comment naming MX-16..18 and MX-29..34 as mutations that escaped until that line existed, and identifying the shape as B-VER9R-01. That is a mutation suite doing its job and an author reporting against interest.",
+    "--limits exists at all, is printed on every green path by reference, and is substantially accurate. Item 10 discloses that 3 of 4 review blockers were invisible to the instrument until another reader named them -- a measurement of the author's own blind spot, published as a rate. Nothing in the corpus obliged that."
+  ],
+
+  "whatIDidNotCheck": [
+    "The CORRECTNESS of retention-tiers.v25.json as a retention design. This review graded the instrument. Where it reports a defect in the artifact, this review reproduced RT25-C-B1 only; RT25-B2, RT25-B3, RT25-B4, RT25-AUTH, RT25-A' and RT25-RECORD were read but not independently re-derived.",
+    "The 19 invariant drivers were not individually audited. Their both-ways registry comparison was verified; their internal semantics were not. An invariant driver that executes and always returns [] would be counted as executed and would not be detected by anything this review ran.",
+    "The 96 selftest mutations were not individually inspected. The 96/96 figure was reproduced; whether each mutation is non-trivial, and whether the check that catches it is the one named for it, was verified only by the instrument's own report.",
+    "SECTION 1's reference derivations -- effective_posture, resolve_and_maybe_persist, ask_performed, effective_capability, fold_ledger, admit_bounds -- were read but not re-implemented against v24's pinned algorithm text. --limits item 4 declares them models of v25's own tables and this review neither confirms nor refutes that.",
+    "No pinned input other than retention-tiers.v24.json was tampered with. The demonstrated pin-bypass consequence is therefore established for one input; its blast radius across the other 11 was not mapped.",
+    "The prefix-only digest of retention-tiers.v25.json, as recorded above. The first 20 hex characters were measured and the rest is not a measurement.",
+    "Nothing was executed under any Python other than 3.14.6, so the verdict is environment-conditional in 7.2's sense. The instrument's random import is used in the sweeps; no seed-stability check across interpreter versions was run.",
+    "Whether the 11 published limits are each REACHABLE in the sense of a concrete forged artifact. Items 1, 2 and 11 were demonstrated; the remaining 8 were reasoned about and read, not exhibited."
+  ],
+
+  "recordedInputs": {
+    "note": "Freeze 7.2 recording obligation: every input this verdict depends on, named with its digest. A count is not a record.",
+    "measuredAtEndOfReview": {
+      "artifacts/check-retention-custody-v25.py": "8e7b86d59b3276dc9ee998c059684e834a82e2d9b9d9f4c200eb1e3da9b57d2d",
+      "artifacts/retention-tiers.v25.json": "d62c1c0f3eec5ac7b496a4f2fe60b73daafdc69a2cbd500685d0800e54eeca52",
+      "artifacts/retention-tiers.v24.json": "ba29c115a9064ab1cd66ea01751b238acf092b3d699ca43027de7a8dfe55a277",
+      "artifacts/product-dispositions.v1.json": "bbe24527f732f9c265f9cf71b988303a326e45fec0c6adb0d934536d515d6017",
+      "artifacts/product-dispositions.cd-rt-5-amendment.draft.v1.json": "c4bd85c62ee957ba04fd9d99f8b8f780138792409eb51b79a2aff2d35d334b12",
+      "artifacts/d9-exit-contract.v1.14.json": "8dd3303855f49bfdbb2751ee65f54a906405f0654159ebe815472f73cdf7da31",
+      "IMPLEMENTATION-FREEZE.md": "6fe0ba907a9a566ae2126922dfc12e44371dd9c37910d6fce5388105d3296b10"
+    },
+    "predecessorDigestsRecoveredFromGit": {
+      "artifacts/product-dispositions.v1.json@HEAD": "b9a87839606981a5be46f62aca2d85a17c3da5082c8d0aad02a211f3025fd91c",
+      "note": "Equals v25's own recorded value. Recovered by `git show HEAD:docs/coop/artifacts/product-dispositions.v1.json`. The repository has 2 commits and this is the only historical state of that file. The instrument's re-pin 5fc59ad2... is in neither commit."
+    }
+  },
+  "conditionsOfThisReview": {
+    "note": "Freeze 7.2.1 item 4: drift discovered mid-review is a fact about this review's conditions and is recorded, not absorbed.",
+    "freezeDriftDuringReview": "IMPLEMENTATION-FREEZE.md read 7669ce0721e653d0acfd3af420eb147f665631f1d2cf92ae9d275462c88ddda9 at the first measurement and 6fe0ba907a9a566ae2126922dfc12e44371dd9c37910d6fce5388105d3296b10 at the last. It is under concurrent edit, as its own 7.6 predicts.",
+    "effectOnMeasurements": "None detected. Both subjects were re-run after the drift: subject A unchanged at exit 1 / 15 findings with all 9 freeze anchors holding; subject B unchanged at exit 0 with 3 derived and 3 recorded. The instrument's RECORDED_NOT_GATED classification of the freeze is what absorbs this correctly, and it is the right classification.",
+    "subjectsFrozen": "Both subjects were digest-identical at the first and last measurement. Neither moved."
+  },
+  "readingRule": "Freeze 7.8 governs and is not displaced by anything in this review: a green run of this instrument would be author-side evidence that retention-tiers.v25.json says what it says consistently and that drift in a pinned input is caught. It would never be evidence that the artifact is right. This instrument does not produce a green run, correctly, and its two refusals should be preserved by any successor.",
+  "reviewer": "independent instrument review lane",
+  "reviewedOn": "2026-08-05"
+}

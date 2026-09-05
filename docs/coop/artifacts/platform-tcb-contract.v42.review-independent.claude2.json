@@ -1,0 +1,141 @@
+{
+  "artifact": "platform-tcb-contract.v42.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v42.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v42",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "ACCEPT",
+  "blockers": [],
+  "shouldFix": [],
+  "advisories": [],
+  "verdictBasis": "0 blockers, 0 SHOULD-FIX, which is the ACCEPT bar. Codex's v41 blocker was correct and is repaired: the Ed25519 public key is now carried in a pinned encoding, joined by digest to the allowlist root and to both records, and consumed by verification. Both Codex SHOULD-FIX items are repaired. I re-ran the whole chain under the specific discipline my v41 miss exposed — for every operation, does the verifier hold each operand — and found no further gap.",
+
+  "correctionToMyPriorVerdict": {
+    "what": "I returned ACCEPT on v41. Codex returned REJECT with PTCB-V41-B1. Codex was right and my ACCEPT was wrong.",
+    "whatIMissed": "v41 specified Ed25519 verification under 'the 32-byte key whose digest is builderRootDigest', and the builderRoot allowlist member is DIGEST-BOUND, so the carrier held a SHA-256 digest of the public key and never the key itself. SHA-256 is preimage-resistant, so no verifier could obtain the key from what was carried, and the verification step as written could not be executed. I traced the digest binding chain — builderRootDigest equal to the member's identityEvidence.digest, to the signed object's field, to the later event's field — confirmed it was internally consistent, and never asked where the key bytes themselves come from. My v41 verdict even lists an adversarial checklist covering forgery, replay, root substitution and format confusion, and none of those items asks whether the verifier possesses the operands.",
+    "thePattern": "This is my second ACCEPT that Codex correctly rejected, after v36, and the two share one shape. At v36 I checked what malformed input would refuse and not what a well-formed planted input would do. Here I checked that the bindings agreed with each other and not whether the operation had its inputs. Both are the same underlying error: verifying that a construction is internally coherent rather than that it can actually be executed against an adversary. I have applied the corresponding check explicitly this round and recorded its results below.",
+    "whatItChanges": "The frozen Claude v41 ACCEPT stands unedited; this record is the correction. A coordinator weighing the v41 divergence should treat the Codex REJECT as the correct verdict for that generation and should discount my v41 ACCEPT as independent confirmation. It does not change any earlier verdict, and this generation is assessed on its own bytes."
+  },
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v41 vs v42 against the declared roster roots; regex enumeration of D-096 and STRUCTURAL PROOF; explicit operand-availability trace over every verification step; full-text reading of the three scope clauses rather than token search",
+
+  "custody": {
+    "subjectSha256Expected": "79a24b5e4224ee59d6da0d8d94822fcfdb2325b6b041bb25c57fa85a02b5ad84",
+    "subjectSha256AtStart": "79a24b5e4224ee59d6da0d8d94822fcfdb2325b6b041bb25c57fa85a02b5ad84",
+    "subjectSha256AtEnd": "79a24b5e4224ee59d6da0d8d94822fcfdb2325b6b041bb25c57fa85a02b5ad84",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 262333,
+    "subjectMovedDuringReview": false,
+    "predecessorV41Sha256": "554de3700ad613dba49cd6d7768b3708233aa2a78502a35b06ca6e4e27ed04a4",
+    "frozenClaudeV41Sha256": "db4da05b5484a44254076b98a0c991022e555219a7d65805c7cb85da8871e11e",
+    "frozenCodexV41Sha256": "3ae5e64fcf139612ffffb93f4594687620ae5e9fe78126198261b74ae8ad7994",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE this round — both frozen v41 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten. The v42 pin chain records my v41 verdict as ACCEPT with empty finding lists and the Codex v41 verdict as REJECT with PTCB-V41-B1, so the divergence is carried accurately rather than smoothed.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "operandAvailabilityTrace": {
+    "why": "This is the check whose absence produced my v41 error. For each operation in the chain I asked what it consumes and whether the carrier supplies it.",
+    "steps": [
+      "Manifest and member selection consume the authenticated archive and relativePath; both are supplied by the acquisition procedure and the record.",
+      "peCoffImageDigest consumes the member bytes and a pinned algorithm; both available.",
+      "The launch join consumes kernelEvent.digestSha256 from the retained TCG2 event log; available.",
+      "Transcript matching consumes the signed measuredBootTranscript, which the signed TCB inventory carries with a locked shape, joined by measuredBootTranscriptDigest; the rows themselves are carried, not only their digest.",
+      "Quote verification consumes quoted TPMS_ATTEST bytes, TPMT_SIGNATURE, qualifiedSigner and akTpmtPublic, all retained; note that the AK public key is carried rather than only its Name, which is the same lesson this generation now applies to the builder key.",
+      "Payload selection consumes the official header at pinned offsets and the section table; available.",
+      "Ed25519 verification consumes builderSignature and builderPublicKey; builderSignature was already carried, and builderPublicKey is carried as of this generation. This is the operand that was missing at v41.",
+      "Preimage construction consumes seven values the verifier computes for itself; available.",
+      "Root join consumes builderRootDigest, the allowlist member's identityEvidence.digest, and SHA-256 of the carried key bytes; available."
+    ],
+    "result": "No operation in the chain now lacks an operand. I found no second instance of the v41 defect elsewhere in the contract."
+  },
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V41-B1 — the verifier had a key digest but no acquisition or same-object join for the public-key bytes",
+      "result": "REPAIRED, and by the first of the two routes Codex offered, which is the simpler and less failure-prone one. builderPublicKey now reads 'exact 32 raw Ed25519 public-key bytes. On the signed/later records encoded as 64-hex lowercase of those 32 bytes. SHA-256 of the 32 bytes MUST equal builderRoot.identityEvidence.digest AND signedObject.builderRootDigest AND later.builderRootDigest. Ed25519 verify MUST use these identical 32 bytes as the public key. Absent, not 32 bytes, or digest mismatch refuses.' That supplies the encoding Codex asked to pin, the three-way digest join, the requirement that verification consume those identical bytes, and the absent-key and non-32-byte refusals. verify is rewritten to name the operand — 'Ed25519 verify of the 64-byte builderSignature under builderPublicKey (the same 32 bytes hashed above)' — so the operation and its input are stated together. Codex's same-event association sub-requirement is moot under this route rather than unmet: the key is carried inline on the signed record and mirrored on the later event with 'MUST equal signedObject.builderPublicKey', so there is no run-time acquisition event to associate. The closed forms were updated to match, which is where I have most often found propagation failures: linuxForm is restated as 'exactly {tag, pathlessObservation, measuredBootTranscriptDigest, kexecCapability, builderRoot, builderPublicKey, builderSignature, builderRootDigest} plus ikconfigDigest on the IKCONFIG present branch. extrasRejected', and laterEventVariant carries builderPublicKey, builderSignature and builderRootDigest with fieldwise equalities. The vector classes Codex named are reserved, including absent key, non-32-byte key, digest mismatch and correct-key-verifies."
+    },
+    {
+      "finding": "PTCB-V41-S1 — the governing IKCONFIG branch did not define unmatched, reversed or extra-marker disposition",
+      "result": "REPAIRED, over every malformed class Codex enumerated. markers now reads 'Count every IKCFG_ST and IKCFG_ED occurrence in P. Absent condition: zero ST and zero ED. Present condition: exactly one ST and exactly one ED, ST byte-offset strictly less than ED, interval wholly inside P. Lone ST, lone ED, reversed (ED before ST), nested, overlapping, or any extra marker beyond one ST and one ED refuses.' The two branches are then keyed to those exact conditions rather than to the looser any-pair and zero-pairs wording, and the reserved vectors include lone ST, reversed markers and one pair plus a stray ED."
+    },
+    {
+      "finding": "PTCB-V41-S2 — signed headerKind was not explicitly equated to the dispatch branch that produced P",
+      "result": "REPAIRED. architectureDispatch now carries actualHeaderKind as a 'REQUIRED return' with the three mappings stated — x86 official-header yields x86-setup-0x1f1, arm64 unique-zimg yields arm64-zimg-loaded, arm64 uncompressed Image yields arm64-image-0x38 — and closes with 'preimage.headerKind MUST equal actualHeaderKind. Any other pairing refuses.' The equality is propagated to fromBootLockdown, and the cross-kind mismatch vector Codex asked for is reserved as 'x86 member signed with arm64-image-0x38 headerKind refuses' alongside 'each actualHeaderKind correct mapping accepts'."
+    }
+  ],
+
+  "adversarialChecksRun": [
+    {"check": "Does verification have its key operand", "result": "Yes, as of this generation. builderPublicKey is carried in a pinned encoding on both records and named as the verify input. This is the v41 defect and it is closed."},
+    {"check": "Is the carried key bound to the allowlist root", "result": "Yes. SHA-256 of the carried 32 bytes must equal the member's identityEvidence.digest, signedObject.builderRootDigest and later.builderRootDigest; a substituted key fails the digest join and also fails signature verification."},
+    {"check": "Forge a signature without the builder key", "result": "Refused. Ed25519 under a key whose digest is fixed by the signed allowlist."},
+    {"check": "Replay an attestation from another build or member", "result": "Refused. The preimage binds memberSha256, peCoffImageDigest and payloadDigest, and the verifier reconstructs it from its own measurements."},
+    {"check": "Reach kexec-absent without verification, via the IKCONFIG absent branch", "result": "Refused. The absent branch ends with builderAttestation remaining required, and the capability is conditioned by an iff."},
+    {"check": "Pass a malformed marker configuration as absent", "result": "Refused. Absence is now zero ST and zero ED; every lone, reversed, nested, overlapping or stray case refuses explicitly."},
+    {"check": "Sign one header kind and dispatch another", "result": "Refused. actualHeaderKind is a required return and preimage.headerKind must equal it."},
+    {"check": "Preimage malleability or format confusion", "result": "Refused. Canonical compact JSON with fixed key order and extras rejected, versioned NUL-separated domain string, 32-byte key and 64-byte signature with any other size or algorithm refusing."},
+    {"check": "A second operand gap elsewhere in the chain", "result": "None found. See operandAvailabilityTrace; the AK public key was already carried as TPMT_PUBLIC and the transcript rows are carried in the signed inventory, not only as digests."},
+    {"check": "A withdrawn mechanism retaining live standing", "result": "Not present. One STRUCTURAL PROOF standing; the symbol scan is a withdrawal statement; forbiddenUtf8 is gone."},
+    {"check": "A change outside the declared closed roster", "result": "Not present. 27 changed paths, zero off-roster."}
+  ],
+
+  "residualTrustNamedExplicitly": {
+    "whatRemains": "A builder holding the key whose SHA-256 is builderRootDigest can sign an attestation asserting kexec-absent for an image that is not. No clause detects that and none claims to.",
+    "andOneLevelUp": "The signer of the TCB inventory chooses which builder root is allowlisted and now also carries the builder's public key on the signed object. A malicious closure signer could therefore name a builder key it controls. That is not a defect introduced here — it is the base trust of the signed closure, on which every other clause in this contract already depends — but it means the builder and closure roles are separated by policy rather than by mechanism, and a coordinator should read the separation that way.",
+    "whatIsOutOfScope": "Key management for the builder root, including issuance, rotation and revocation, and whether one operator controls both the builder key and the closure-signing key."
+  },
+
+  "measurements": [
+    {"id": "M-1", "check": "Start and end custody, strict parsing", "result": "PASS. Subject 79a24b5e... over 262333 bytes at 0444, unmoved start and end. Predecessor v41 and both frozen v41 verdicts reproduce at their dispatched digests. HEAD steady at 93ceaa6."},
+    {"id": "M-2", "check": "Pin-chain reproduction and predecessor-review replacement", "result": "PASS. All 65 path-bearing pins reproduce. The v41 divergence is pinned accurately on both sides. No predecessor review was replaced."},
+    {"id": "M-3", "check": "Closed v41-to-v42 change roster", "result": "PASS. 27 changed paths, ZERO off-roster, the containing-ancestor roster from v41 holding. reviewGuidance grew 211 to 216 as a pure prefix-preserving append."},
+    {"id": "M-4", "check": "Live register row, remeasurement, and D-002 scope", "result": "PASS. Sole DR-126 row at file 08 line 308, rowVerbatim byte-identical. All reMeasurementAtV42 pins reproduce at measuredAtHead 93ceaa6a. Both Linux targets remain in platforms.slice1; no deferral is minted."},
+    {"id": "M-5", "check": "Authority refusals", "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 39 D-096 occurrences are refusals, zero unmatched. DRTM and IMA remain excluded."},
+    {"id": "M-6", "check": "Operand availability across every verification step", "result": "PASS. No operation lacks an input; the v41 gap is closed and no second instance exists."},
+    {"id": "M-7", "check": "Closed-form propagation of the new field", "result": "PASS. builderPublicKey appears in signedObject.linuxForm and in laterEventVariant with fieldwise equality, and is forbidden on macOS."},
+    {"id": "M-8", "check": "Scope and refusal coverage", "result": "PASS. Read in full rather than by token search. refusesBootConfigs enumerates official-header or PE-join failure, missing kernel-builder-root, builderAttestation signature failure and preimage hash mismatch; unavailableRefuses carries builderAttestation failure as an umbrella that reaches the key conditions; a wrong or absent key additionally cannot verify, so the condition is covered by mechanism, by enumeration and by cryptography."},
+    {"id": "M-9", "check": "Stale-reference sweep", "result": "PASS. One STRUCTURAL PROOF standing, kexecSymbolAbsence present only as its withdrawal statement, forbiddenUtf8 absent entirely."}
+  ],
+
+  "whatThisAcceptDoesNotMean": [
+    "Does not mark DR-126 SATISFIED. The register row stays OPEN. Recording or adopting the candidate is a separate coordinator decision requiring both independent verdicts at 0/0; this is one of two.",
+    "Does not seal or apply the subject, which remains CANDIDATE-NOT-APPLIED, binds NOTHING, and carries DO-NOT-SEAL.",
+    "Does not QUALIFY G22, whose standing remains NAMED-NOT-QUALIFIED, and does not assert that the reserved vectors exist; they are named as qualification evidence and are outside this contract.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1.",
+    "Does not settle key management for the builder root, nor assert that the builder and closure signers are distinct operators; the separation is by policy, not by mechanism.",
+    "Does not certify the macOS or file-backed surfaces beyond the unchangedness check this round's roster required.",
+    "Should be weighted in light of the correction recorded above: two of my previous ACCEPT verdicts on this row were wrong, and both were caught by the other reviewer."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV42ReviewerRead": false,
+    "otherReviewerNote": "The Codex v42 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v41 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v41 verdict is my own ACCEPT, which the correction above addresses."
+  },
+
+  "limitsOfThisReview": "I reviewed all three predecessor findings, the key-carriage repair and its propagation, the marker cardinality and header-kind equality, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals, and I ran an explicit operand-availability trace over the whole verification chain. Paths outside this round's roster were checked only for unchangedness. My assessment of the signature scheme rests on the properties the clauses pin rather than on execution against a live signer, and the reserved G22 vectors remain unpopulated and were not evaluated. Given that two of my earlier ACCEPT verdicts on this row were wrong, this verdict should be read as one independent opinion to be weighed against the other reviewer's, not as a sufficient basis for adoption on its own.",
+
+  "summary": "ACCEPT at 0 blockers and 0 SHOULD-FIX, with a correction recorded first. My v41 ACCEPT was wrong and Codex's v41 REJECT was right: the contract specified Ed25519 verification under a key that the carrier never supplied, holding only its SHA-256, so the operation had no executable input. I had traced the digest bindings for consistency and never asked where the key bytes come from — the same shape as my v36 miss, where I asked what malformed input refuses and not what a well-formed planted input does. This round I ran that check explicitly across every step of the chain and record the trace. v42 closes the gap by the simpler of Codex's two routes: builderPublicKey carries the exact 32 raw bytes as 64-hex on both the signed object and the later event, SHA-256 of those bytes must equal the allowlist member's identityEvidence.digest and both record fields, verification must consume those identical bytes, and absent, wrong-size or digest-mismatched keys refuse. The closed linuxForm and laterEventVariant were both updated, which is the propagation step this row has historically missed. Codex's two SHOULD-FIX items are repaired in full: marker cardinality now counts every occurrence and refuses lone, reversed, nested, overlapping and stray cases with absence defined as zero of each, and architectureDispatch returns actualHeaderKind with preimage.headerKind required to equal it across all three mappings. Structure is clean throughout — 65 of 65 pins reproduce, 27 changed paths with zero off-roster, a pure-append reviewGuidance, a byte-exact register row, reproducing remeasurement pins, 39 of 39 D-096 occurrences refusals, one structural-proof standing and no stale live references. I found no second operand gap; the AK public key was already carried as TPMT_PUBLIC and the transcript rows live in the signed inventory rather than existing only as a digest. What remains is trust, named rather than hidden: the rooted builder can attest falsely, and one level up the closure signer both allowlists the builder root and carries its public key, so builder and closure roles are separated by policy rather than by mechanism. ACCEPT is a verdict on this candidate only, and given that two of my prior ACCEPTs on this row were wrong it should be weighed alongside the other reviewer's rather than relied on alone."
+}

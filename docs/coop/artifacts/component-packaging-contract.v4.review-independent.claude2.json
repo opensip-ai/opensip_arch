@@ -1,0 +1,131 @@
+{
+  "artifact": "component-packaging-contract.v4.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-packaging-contract.v4.json",
+  "subjectSha256AtStart": "ef54a4d8e03762ce9835576c487bada3d304b9585aceb16a4457cf773c09fc7d",
+  "subjectSha256AtEnd": "ef54a4d8e03762ce9835576c487bada3d304b9585aceb16a4457cf773c09fc7d",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 3 SHOULD-FIX, 1 advisory. ACCEPT requires 0 blockers and 0 SHOULD-FIX. Both of my v3 SHOULD-FIX items are substantively repaired and the v3-to-v4 roster is complete at 59-for-59; the three new items are a false CI cross-reference, a profile that calls itself closed while leaving symlink and trailer bytes undetermined, and two Codex v3 advisories recorded as nonexistent.",
+  "reviewer": "Claude 2, independent, authored none of v1-v4",
+  "date": "2026-08-14",
+  "predecessor": {"path": "docs/coop/artifacts/component-packaging-contract.v3.json", "sha256": "3e9f193fe59437c58d02546c97b11cd26c45327c0c7d24b07f963dd312920d6e", "reMeasured": true},
+  "foldedVerdicts": [
+    {"path": "docs/coop/artifacts/component-packaging-contract.v3.review-independent.codex.json", "sha256": "df42f687fc0e43ffa824e7594f21b4f8089787f73e23f5853fc201eba9281711", "reMeasured": true, "actualFindings": {"verdict": "REJECT", "blockers": ["CPCV3-B1", "CPCV3-B2"], "shouldFix": ["CPCV3-S1", "CPCV3-S2"], "advisories": ["CPCV3-A1", "CPCV3-A2"]}},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v3.review-independent.claude2.json", "sha256": "4af6e3bfd1a3e06978515f9f75a730c31e51a18eb961108741dda61f0449d507", "reMeasured": true, "actualFindings": {"verdict": "REJECT", "blockers": [], "shouldFix": ["V3-S1", "V3-S2"], "advisories": ["ADV-V3-01"]}}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-120 or DR-103 SATISFIED, does not mark QUALIFIED, does not choose a packager or toolchain, does not edit file 08 or COORDINATOR-DECISIONS.md, does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "V4-S1",
+      "title": "archiveProfile asserts that CI-1 pins archiveProfileId; CI-1 pins no such thing and no CI rule mentions the token",
+      "site": "/archiveProfile/emittedAs, /honestyRepairsFromV3[1], /hermeticCI/rules[CI-1]",
+      "detail": [
+        "archiveProfile.emittedAs states: 'OC-2 and conformanceReport.subject.archiveProfileId MUST equal opensip-archive-profile.1. CI-1 pins that token.'",
+        "CI-1 reads in full: 'Every input is named and digest-pinned: source tree, tool closure, adapter version, platform target, exception-approval records if any.' It names five input classes and archiveProfileId is none of them. I searched every hermeticCI rule for the token and none contains it.",
+        "The mismatch is also categorical, not just a missing list item: CI-1 governs the pinning of adapter-run INPUTS, whereas archiveProfileId is an emitted output token appearing at OC-2 and at conformanceReport.subject. Adding it to CI-1 as written would be a category error; it needs its own clause or a report-side rule.",
+        "honestyRepairsFromV3[1] repeats the claim to the coordinator: 'archiveProfileId emitted and CI-pinned.' Emitted is true - I confirmed the token at OC-2 and in conformanceReport.subject. CI-pinned is not.",
+        "The v4 closed roster does not include /hermeticCI, so under the artifact's own succession discipline CI-1 could not have been amended this generation. That explains the gap but leaves the assertion standing."
+      ],
+      "whyItMatters": "The profile's whole value is that a single token expands to one byte-level encoding, and emittedAs is where the artifact says that token is held stable. A pin that does not exist means nothing in hermeticCI prevents two runs from claiming different profile ids, and a reader auditing the claim finds CI-1 saying something else entirely. This is the artifact asserting its own enforcement.",
+      "whyNotABlocker": "Nothing unsafe is authorized and the token is genuinely emitted at both required sites; the defect is a false cross-reference plus a missing rule, both cheap to close.",
+      "remedy": "Add archiveProfileId to a CI rule - either extend CI-1 to cover emitted profile tokens or add a CI-5 requiring the report's archiveProfileId to equal the profile id - put /hermeticCI on the roster, and correct honestyRepairsFromV3[1] if the rule does not land."
+    },
+    {
+      "id": "V4-S2",
+      "title": "archiveProfile calls itself a closed profile, but symlink linkname and the end-of-archive trailer are unspecified, so archiveDigest is not determined for trees containing symlinks and is not determined at all for the archive tail",
+      "site": "/archiveProfile (encoding, metadata, treeRelation), /hermeticCI/rules[CI-3]",
+      "detail": [
+        "This is a large advance on v3, which named no parameters at all. v4 closes the classic reproducibility offenders: mtime 0, uid 0, gid 0, uname and gname empty, mode from TreeCommitment.mode, magic ustar\\0, version 00, prefix empty with over-long paths refused rather than split, member order by Unicode code-point over the NFC path string, and compression none with gzip/xz/zip explicitly inadmissible. I record that as real work.",
+        "It is nonetheless not closed at the byte level. I searched the whole archiveProfile block for each remaining ustar determinant and every one is absent: linkname, target, trailer, end-of-archive, padding, block, devmajor, devminor, checksum, size.",
+        "SYMLINKS. metadata.typeflag admits 'file/dir/symlink only', so symlink members are in scope. A ustar symlink member carries its target in the 100-byte linkname field. The profile never says what goes there. The source datum exists and the artifact could have named it: schemas.v11's treeCommitmentShape defines entries as { path, type: 'file'|'dir'|'symlink', mode, length (files only), sha256 (files only), TARGET: relative path (symlinks only) }. Without 'linkname = TreeCommitment.target', a symlink member's bytes are undetermined and archiveDigest is undetermined for any tree containing one.",
+        "TRAILER. A ustar stream ends with zero blocks, and implementations differ on how many: POSIX requires at least two 512-byte blocks, while common writers pad the whole archive to a fixed blocking factor - GNU tar's default is 10240 bytes. The profile states no trailer or blocking rule, so two adapters that agree on every named field still produce archives of different total length and therefore different archiveDigest.",
+        "SMALLER RESIDUE. devmajor/devminor encoding, the size field for dir and symlink members, the header checksum's terminator convention, and octal-versus-base-256 numeric encoding are all unspecified and all affect bytes."
+      ],
+      "whyItMatters": "archiveProfile.standing claims 'Closed profile' and CI-3 rides byte-identity on exactly that claim - 'Byte-identical archives ride archiveProfile in this artifact, not canonical JSON / ID-DEP-1.' The ride is the artifact's answer to Codex CPCV3-B2 and to my V3-S2. If the profile does not determine the bytes for symlink members or the tail, CI-3's 'same archiveDigest' is not achievable from the contract for a realistic tree, and archiveProfileId names a token that expands to more than one byte string.",
+      "whyNotABlocker": "The detachment from canonical JSON and ID-DEP-1 is correct and complete, the token is emitted and reported, and the named parameters already remove the dominant sources of nondeterminism. What remains is a bounded completion of a profile that now has the right shape, not a design error.",
+      "remedy": "State linkname = TreeCommitment.target for symlink members; state the trailer exactly (for example two 512-byte zero blocks and no further padding, so total length is a deterministic function of the member set); and fix devmajor/devminor, the dir/symlink size field, the checksum terminator, and numeric-field encoding to one named convention. None of this chooses a tar implementation, which doesNotChoose correctly reserves."
+    },
+    {
+      "id": "V4-S3",
+      "title": "appliesFindingsOf records the Codex v3 verdict as carrying no advisories when it carries two, and notFoldedThisSuccessor is emptied, so CPCV3-A1 and CPCV3-A2 disappear from the record while both remain substantively live",
+      "site": "/appliesFindingsOf/codexV3, /appliesFindingsOf/notFoldedThisSuccessor, /appliesFindingsOf/idCollisionNote",
+      "detail": [
+        "I enumerated the Codex v3 verdict at the pinned digest df42f687...: verdict REJECT, blockers CPCV3-B1 and CPCV3-B2, shouldFix CPCV3-S1 and CPCV3-S2, and advisories CPCV3-A1 and CPCV3-A2.",
+        "v4's codexV3 record reproduces the blockers and shouldFix correctly and then states 'advisories': []. That is false about the source file.",
+        "notFoldedThisSuccessor went from one entry in v3 to an empty array in v4, so the two advisories are not recorded as carried either. The idCollisionNote likewise enumerates only 'CPCV3-B1/B2/S1/S2'. Between the three fields there is no trace of them, and honestyRepairsFromV3's six entries cover B1, B2 with my S2, S1, S2, my S1 and my ADV-1 - neither Codex advisory.",
+        "Both are still live, which I checked rather than assumed. CPCV3-A1 targets a stale reviewGuidance instruction; that instruction is still present verbatim at reviewGuidance.forTheIndependentReviewer[8], reading 'This artifact is a first candidate. Predecessor-finding accounting is N/A' - untrue of a v4 with a pinned v3 predecessor, an appliesFindingsOf block and six claimed repairs. CPCV3-A2 asks whether the report's opaque runId is inside or outside CI-3's reproducible tuple; conformanceReport.shape.inputPins still reads 'runId: opaque' and CI-3 still does not mention runId, so the tension Codex named is unchanged.",
+        "The contrast is instructive: my own advisory is handled correctly - recorded as CLAUDE-V3-ADV-1 in claude2v3, disclosed in the idCollisionNote, and folded at honestyRepairsFromV3[5]. The Codex pair got neither treatment."
+      ],
+      "whyItMatters": "Carrying an advisory unfolded is legitimate; recording a REJECT verdict as containing no advisories is not, because appliesFindingsOf is the record a later reviewer walks to check that nothing was dropped. Here the mechanism that exists for exactly this - notFoldedThisSuccessor - was emptied in the same revision that needed it.",
+      "whyNotABlocker": "Both are advisory-grade in the source verdict, neither bears on the packaging obligations, and CPCV3-A1's target is a stale instruction that misleads nobody who reads the surrounding block.",
+      "remedy": "Set codexV3.advisories to ['CODEX-V3-A1','CODEX-V3-A2'], list them in notFoldedThisSuccessor if they are carried, name them in the idCollisionNote, and either historicalize reviewGuidance[8] and resolve runId's status in CI-3, or state plainly that both remain owed on a successor."
+    }
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V4-01",
+      "title": "reviewGuidance is append-only by roster, so a stale instruction now sits among 27 items that contradict it",
+      "detail": "The v4 roster names '/reviewGuidance/forTheIndependentReviewer (append)', and eight items were appended, taking the list from 19 to 27. Item [8] still instructs the reviewer that 'This artifact is a first candidate. Predecessor-finding accounting is N/A', while items [17] and the new tail direct the reviewer to audit the v3-to-v4 delta and the folded findings. A reviewer following the list top-down is told first that succession accounting does not apply and later that it is the main thing to attack. Append-only is a sound default for a closed roster, but it cannot correct a carried instruction that has become false; this successor needed an explicit edit slot for that item. Reported separately from V4-S3 because that finding is about the accounting record and this is about the instruction the reviewer actually reads.",
+      "notBlocking": "The later items are unambiguous and I followed them; no measurement depends on item [8]."
+    }
+  ],
+
+  "repairVerification": [
+    {"finding": "CODEX-V3-B1 - emission target still schemas.v2 after D-104", "disposition": "REPAIRED - VERIFIED", "howIChecked": "outputContract.consumes now points at component-manifest-schemas.v11.json with sha256 1c0b8868..., and I confirmed that equals the live v11 digest. outputContract.discipline now assigns admission/uniqueness/path/signature/closure refusals to schemas.v11 (D-104) and adds 'schemas.v2 is historical D-013 lineage and is not the live emission target.' purpose says the same. governingSources[5]'s role is demoted to 'Historical D-013 accepted DR-103 design contract. Not the live emission target after D-104', and a new governingSources[13] adds v11 as the live target. fixtureGeneration.idDep8 now reads 'schemas.v11 defines the classes ... schemas.v2 is not the live class list.' ID-DEP-P1 rides v11's ID-DEP-1. consumes.historicalD013 preserves the v2 pin as lineage. All fourteen governingSources digests re-measured against live bytes with zero mismatches."},
+    {"finding": "CODEX-V3-B2 and CLAUDE-V3-S2 - archive determinism owned but unspecified", "disposition": "SUBSTANTIALLY REPAIRED; residue at V4-S2", "howIChecked": "v3's four vague profileRules are removed and replaced by a closed-shaped profile: id opensip-archive-profile.1, encoding 'POSIX ustar (ustar\\0), uncompressed' with one member per TreeCommitment entry and byte-identical paths, ordering by Unicode code-point over NFC, a metadata block fixing mtime/uid/gid/uname/gname/mode/typeflag/magic/version/prefix, compression none, a one-to-one treeRelation, emittedAs, and doesNotChoose. archiveProfileId is added to OC-2 and to conformanceReport.subject. That answers the substance of both findings; what remains unspecified is set out at V4-S2."},
+    {"finding": "CODEX-V3-S1 - produced fixture/health results without exact joins", "disposition": "REPAIRED - VERIFIED", "howIChecked": "conformanceReport.shape.fixtureClassCoverage now requires 'evidence: {path, sha256} REQUIRED when standing=produced' and requires ride to be 'the class-scoped ride from fixtureClassRides'. lawfulExemptions is tightened to 'not-applicable and blocked-on-ride are lawful only via fixtureClassRides for that class. An unrelated ID-DEP-* or OD-* does not exempt a class. Missing, duplicate, or unrelated rides are report-invalid.' healthAndSubprotocol replaces the unconstrained healthResultRef with 'healthResult: {path, sha256} when a health result is claimed' and adds 'healthResultRef as an unconstrained string is forbidden.'"},
+    {"finding": "CODEX-V3-S2 - FG-1 did not map every corpus class", "disposition": "REPAIRED - VERIFIED", "howIChecked": "FG-1 is rewritten to 'Every applicable schemas.v11 testCorpusRequirements class member maps through fixtureClassRides to exactly one of: production S-3-EMIT, fixtureGenerator (one controlled invalidity), authored exact-byte fixture, or behavioral harness', with expected outcome and {path, sha256} custody recorded. A new conformanceReport.fixtureClassRides table supplies the mapping for TC-ACCEPT, TC-DUP, TC-NAME, TC-PATH, TC-SIG, TC-CLOSURE, TC-METADATA-ONLY, TC-BYTE-EXACT and the AT-* classes, and it correctly routes the deferred arms - TC-SIG ceremony members to ID-DEP-P3 and TC-BYTE-EXACT's lock-digest arm to ID-DEP-P2 until DR-111 - and keeps TC-PATH away from S-3-EMIT."},
+    {"finding": "CLAUDE-V3-S1 - file-08 row standings carrying COORD-derived content", "disposition": "REPAIRED - VERIFIED, exactly as remedied", "howIChecked": "measuredRowStandingsAtFile08Digest is restored to the register's own text: DR-103 back to 'OPEN - design contract ACCEPTED 2026-08-13 (D-013); the fixture-corpus half remains open.' and DR-111 back to bare 'OPEN'. I extracted both live file-08 status cells and confirmed the claims appear in them. The D-103/D-104 facts move to a new coordinatorRecordingsAtCOORDDigest field carrying coordSha256 d210f103... and the explicit note 'These facts are adopted COORD recordings. They are NOT file-08 cell text. D-103 and D-104 each declined MF-6.' recordedInputs.discipline is rewritten to state the split. This is the second option I offered and it is executed cleanly."},
+    {"finding": "CLAUDE-V3-ADV-1 (my ADV-V3-01) - corpus v3 pin exposed to retarget", "disposition": "REPAIRED - VERIFIED", "howIChecked": "governingSources[12] gains 'Process-frozen 0444 at 7fe3d171.... Do not retarget this file at a later schema. Advancing the catalog is a new corpus version, not an in-place digest move.' I confirmed the file's mode is 0o444 and its digest still matches the pin. That converts the coupling I flagged into a stated rule with a named lawful exit."},
+    {"finding": "ID-DEP-P2 attribution", "disposition": "IMPROVED AND ACCURATE", "howIChecked": "v3 carried the full-width no-lock rule as a packaging-only proposal with an attribution caveat. v4 now states 'THIS ARTIFACT FOLLOWS the accepted schemas.v11 ID-DEP-4 full-width rule' and notes that the rule is in the D-104 accepted successor rather than a proposal. That is correct: I verified schemas.v11's ID-DEP-4 states no lock of any form is producible until DR-111 closes. ID-DEP-P9 is correspondingly narrowed to 'a later DR-103 schema successor after v11 ... Not schemas.v11', which is also right - v11 contains zero occurrences of archiveDigest."}
+  ],
+
+  "attackListDisposition": [
+    {"attack": "Emission still targeting schemas.v2 after D-104", "result": "REFUTED", "detail": "See CODEX-V3-B1. Every emission-target site now names v11 at the verified digest; v2 survives only as labelled historical lineage."},
+    {"attack": "Archive profile with no closed encoding or missing archiveProfileId", "result": "PARTIALLY CONFIRMED", "detail": "archiveProfileId is present at OC-2 and conformanceReport.subject, so that half refutes. The encoding is closed for the dominant parameters but not for symlink linkname or the end-of-archive trailer - V4-S2 - and the token's claimed CI pin does not exist - V4-S1."},
+    {"attack": "D-103/D-104 facts presented as file-08 cell measurements", "result": "REFUTED", "detail": "The two fields are split and the file-08 field is restored to text I confirmed appears in the live cells."},
+    {"attack": "Produced fixture without {path, sha256} or unrelated-ride exemption", "result": "REFUTED", "detail": "evidence {path, sha256} is REQUIRED when standing=produced, rides must be the class-scoped entry from fixtureClassRides, and unrelated or duplicate rides are report-invalid."},
+    {"attack": "Silent corpus v3 retarget", "result": "REFUTED", "detail": "governingSources[12].standing forbids retarget and names the lawful alternative; the file is mode 0444 and still at its pinned digest."},
+    {"attack": "Silent v3-to-v4 path", "result": "REFUTED - 59-for-59", "detail": "My recursive diff found 59 changed paths and I mapped every one against the 22 tokens of the closed roster in basedOn.method. Zero uncovered. The single top-level addition is /honestyRepairsFromV3, which the roster declares; nothing was removed at top level."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, documentClass DESIGN-CONTRACT-CANDIDATE, registerRow DR-120. whatThisDoesNotDo is byte-identical to v3 and still disclaims SATISFYing DR-120, SATISFYing DR-103 with D-013's refusal standing, executing DR-G15, marking any adapter QUALIFIED, choosing a packager/toolchain/CLI, and authorizing docs/v2/implementation/."},
+    {"attack": "Choosing a packager / toolchain / CLI", "result": "REFUTED", "detail": "archiveProfile.doesNotChoose explicitly excludes packager brand, CLI, build tool and tar implementation, and compression names a profile token rather than a brand. Naming POSIX ustar is a format standard, not a packager selection, and OD-P1 still holds the concrete toolchain."},
+    {"attack": "Misreporting or inventing a v3 finding", "result": "CONFIRMED in one direction", "detail": "Nothing is invented - both v3 verdicts are pinned at digests I re-measured and matched, and the blockers and shouldFix rosters are reproduced correctly. The failure is omission: Codex v3's two advisories are recorded as an empty array - V4-S3."}
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v3 and both v3 verdicts re-measured and matching the dispatch.",
+    "rosterVsActualDiff": "59 changed paths, 59 covered by the 22-token closed roster; one declared top-level addition, no removals.",
+    "governingSources": "All fourteen pinned governing sources re-measured against live bytes; zero mismatches. outputContract.consumes.sha256 confirmed equal to the live schemas.v11 digest.",
+    "crossArtifactClaims": "schemas.v11's treeCommitmentShape confirmed to carry a symlink 'target' field (basis of V4-S2); schemas.v11 confirmed to contain zero occurrences of archiveDigest (supporting ID-DEP-P9); live file-08 DR-103 and DR-111 status cells extracted and matched against the restored row standings; corpus v3 confirmed mode 0444 at its pinned digest.",
+    "verdictRosters": "Both v3 verdict files opened and enumerated: Codex REJECT with B1/B2, S1/S2, A1/A2; Claude REJECT with no blockers, V3-S1/V3-S2, ADV-V3-01."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not re-review the parts of the contract v4 leaves untouched - the adapter stages, platformFanOut, localDeveloperValidation, representativeLanguageClosures, acceptanceTests, and OC members other than OC-2. I verified they did not move rather than re-adjudicating them.",
+    "I did not construct a ustar archive to demonstrate the V4-S2 divergence empirically; the finding rests on the profile's own silence at the named fields, which I confirmed by exhaustive substring search of the block.",
+    "I did not review the fixture-corpus candidates on their merits; I measured digests and the corpus v3 file mode to test v4's claims.",
+    "I did not evaluate DR-112 ceremony, DR-110 repair media, DR-111 windows, or the DR-G* thresholds. I confirmed only that v4 continues to defer them.",
+    "I did not adjudicate whether Codex's CPCV3-A1 and CPCV3-A2 are correct on their merits; I established that they exist in the pinned verdict, are recorded as absent, and remain substantively live.",
+    "I did not read the other current v4 reviewer's file.",
+    "I did not assess DR-120's or DR-103's register status and express no view on either. I did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "This verdict is about the artifact's internal consistency and its handling of the two v3 REJECTs. It is not a statement that DR-120's acceptance-evidence cell is discharged."
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "subjectMode": "0444",
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "filesWritten": ["docs/coop/artifacts/component-packaging-contract.v4.review-independent.claude2.json"]
+  }
+}

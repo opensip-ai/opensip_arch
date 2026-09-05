@@ -1,0 +1,72 @@
+{
+  "status": "FROZEN-INDEPENDENT-REVIEW",
+  "reviewer": "Codex protocol fixture author; authored none of the five subjects",
+  "scope": "Compatibility design evidence only; not DR103/DR111 SATISFIED-grade or complete distribution contract approval",
+  "verdict": "OBJECT",
+  "mustFix": 3,
+  "shouldFix": 2,
+  "subjectPins": {
+    "compatibility-design-cases.v1.json": "2219a0f4a65b3f93f266e15fc2ea500f89535be936605242f1a0d7c1bf300706",
+    "check_compatibility_design.py": "53518450f08c3d20e06de603784cbe92ddd61109bd53345816bd7ec36957782f",
+    "component-lock-schema.completed.v1.json": "04110653c2b580efd9576373b160a55f7d23b01bfc98d2501a850721f157741e",
+    "version-constraint-schema.completed.v1.json": "2a7e97a6aea85c84a153299e0c2cb05c88a6ade60e7258784f8fb84c47129968",
+    "compatibility-matrix.completed.v1.json": "9fb8de29f95a82143d09576cbdccfd707436807a0ef55661764801d6a8934b8d"
+  },
+  "subjectPermissions": "Each of five subjects chmod 0444 before reading/review; unchanged at review completion",
+  "execution": {
+    "command": "/tmp/opensip-architecture-review-env/bin/python docs/coop/completion/check_compatibility_design.py",
+    "result": "34/34 authored cases pass",
+    "independentProbes": [
+      "4301-digit major: schema-valid but parser rejects and exact self-constraint false",
+      "Empty resolved closure, future S-CTRL major 2, conflicting duplicate tuple: structurally valid; no semantic admission claim inferred"
+    ]
+  },
+  "findings": [
+    {
+      "id": "COMP-M1",
+      "severity": "MUST-FIX",
+      "subject": "compatibility-matrix.completed.v1.json #/rows/0 and component-lock-schema.completed.v1.json #/properties/resolved/items/properties/selectedCompatibility/properties/S-CORE",
+      "issue": "S-CORE merges core release and core-state writer into one supportedReaders [1,1] window, while initial release 0.1.0 has SemVer major 0. The lock S-CORE is only a release string, so it cannot pin the independently named coreState=1. Component state S-STATE is a different surface and cannot silently stand in for core state. The prose blanket initial-major [1,1] makes the contradiction evaluable, not just a naming concern.",
+      "requiredChange": "Declare separate core-release compatibility and core-state compatibility within S-CORE, or explicitly choose a versioned core API separate from release numbering. Pin both the release and core-state datum in selectedCompatibility; add supported/unsupported examples that accept the actual 0.1.0/1 writer without equating the numbers."
+    },
+    {
+      "id": "COMP-M2",
+      "severity": "MUST-FIX",
+      "subject": "check_compatibility_design.py version() and satisfies()",
+      "issue": "The contract promises arbitrary nonnegative decimal version components, but Python int conversion rejects more than 4300 digits under the default Python 3.12 limit. A 4301-digit major plus .0.0 passes the authored JSON schema; version() raises ValueError and satisfies(v,v) returns false. This is well below the 4 MiB metadata cap. Numeric prerelease identifiers have the same defect.",
+      "reproduction": "v='1'*4301+'.0.0'; VALIDATOR.is_valid(v) == True; satisfies(v,v) == False",
+      "requiredChange": "Compare normalized decimal strings by length then lexicographic bytes, or explicitly implement an adequate bounded decimal parser consistent with the metadata cap. Add over-4300-digit major and numeric-prerelease equality/ordering fixtures. Do not silently add an unstated small integer bound."
+    },
+    {
+      "id": "COMP-M3",
+      "severity": "MUST-FIX",
+      "subject": "component-lock-schema.completed.v1.json #/properties/resolutionInputs and distribution-runtime-completion.v1.md section 3",
+      "issue": "The claimed complete resolution input record omits project/global scope and the scoped request context even though section 3 says scope affects selection and project shadowing/global fallback. The inherited DR111 source also names requested profile, capabilities and pins/holds as resolution inputs. Current fields are installId/indexDigest/platform/hostCoreVersion/request/permissionPolicyDigest; request contains only stableId/version or constraint. Different project/global selection contexts can therefore share the same declared inputs and yield different resolved tuples.",
+      "requiredChange": "Either explicitly fix unused preview profile/capability/pin-hold inputs by normative constants and document that disposition, or include all remaining resolution-affecting inputs with exact types and canonical ordering, including scope/project-selection context. Add a differing-scope fixture and identical-input determinism check."
+    },
+    {
+      "id": "COMP-S1",
+      "severity": "SHOULD-FIX",
+      "subject": "compatibility-design-cases.v1.json and check_compatibility_design.py",
+      "issue": "No candidate comparator, tuple comparator or dependency closure property is exercised. ORDER-5 intentionally returns equal precedence for 1.0.0+a/b but no fixture checks the required full-version/provenance/digest tie-break. The only positive lock is one component, while inherited TC-ACCEPT requires a multi-component closure once DR111 activates locks. Missing dependency, undeclared edge, required-cycle, backtrack from an unsatisfiable highest candidate, scope fallback and duplicate tuple conflict remain absent.",
+      "requiredChange": "Before treating this package as complete compatibility design evidence, author finite explicit selection/closure fixtures with exact expected selected tuples/refusal, implement a reference comparator/closure model or bind a separately reviewed package that does, and pin that join. This is not a request to implement a shipping solver."
+    },
+    {
+      "id": "COMP-S2",
+      "severity": "SHOULD-FIX",
+      "subject": "compatibility-matrix.completed.v1.json and check_compatibility_design.py run()",
+      "issue": "Matrix checking counts rows and active flags only. It does not evaluate both-declared-range intersection, selected pin membership, support-clock edges or security revocation overriding support. The lock structural schema accepts S-CTRL=2 and empty/conflicting closure sets, correctly within structural-only scope, but no paired semantic negative fixture distinguishes those inputs from admitted compatible locks.",
+      "requiredChange": "Add semantic matrix/pin/support-boundary examples or a reviewed executable join, including 0.1.0 core acceptance after COMP-M1, nonintersection, unsupported selected major, and 90-day/one-subsequent-minor edge cases."
+    }
+  ],
+  "acceptedPoints": [
+    "Prerelease admission correctly requires an exact match or a same-core prerelease endpoint; build metadata ignored for precedence and distinguished for exact release requests.",
+    "Lock includes every inherited top-level and tuple field, adds public policy digest, rejects unknown fields, and explicitly distinguishes structural validity from trust/closure.",
+    "Security canonical-profile dependency is openly conditional. Its unspecified identity is an integration dependency, not standalone evidence of an admitted lock; acceptance of final integrated lock requires exact accepted profile and byte goldens."
+  ],
+  "contextPins": {
+    "docs/coop/completion/distribution-runtime-completion.v1.md": "506e40a4f831b476d1fb3ac066477203ff1371c6fb623cb7f2844c8434d0d6e7",
+    "docs/coop/artifacts/component-manifest-schemas.v11.json": "1c0b8868444a097256aaa7d9caf8ebaa1c6f73fb071dbb4dd712334abb17a005",
+    "docs/coop/artifacts/compatibility-matrices-contract.v5.json": "d0386cee26d8aafd3d07b46f21352cc3d9d03cdc8f406de0adf571f8c81f7f41"
+  }
+}

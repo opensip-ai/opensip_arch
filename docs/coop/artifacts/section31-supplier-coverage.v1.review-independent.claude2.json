@@ -1,0 +1,94 @@
+{
+  "artifact": "section31-supplier-coverage.v1.review-independent.claude2.json",
+  "reviewer": "claude2",
+  "subject": "docs/coop/artifacts/section31-supplier-coverage.v1.json",
+  "companionSubject": "docs/coop/artifacts/check-section31-supplier-coverage-v1.py",
+  "date": "2026-08-13",
+  "protocol": "D-000 independent review; refute not confirm; Lane R instrument, not the Phase-1A packet",
+  "subjectSha256AtStart": "2ceb0365fd6bf068d9871aa028a7be05312b3ea638d1345b2182366f355048bb",
+  "subjectSha256AtEnd": "2ceb0365fd6bf068d9871aa028a7be05312b3ea638d1345b2182366f355048bb",
+  "checkerSha256AtStart": "12f3f0c9df9f8b877999226dccd3c5a26db33656960d7c9957f82d530e4ea3f6",
+  "checkerSha256AtEnd": "12f3f0c9df9f8b877999226dccd3c5a26db33656960d7c9957f82d530e4ea3f6",
+  "subjectMoved": false,
+  "verdict": "REJECT",
+  "mustFix": 1,
+  "shouldFix": 0,
+  "notes": 0,
+  "summary": "Three of the four named attacks fail on the bytes: the instrument never claims SATISFIED, both bound selectors resolve, the v28 partB_purgeSemantics loss is reported accurately rather than papered over, and deleting a bound supplier does fail the checker -- I confirmed that by executing it. The fourth attack succeeds in a form the dispatch did not name. The artifact advertises digest-level detection twice, in authorityClaim's supplier tuple '(path + selector + digest)' and in checker.failsWhen[2]'s DIGEST-MOVED clause, and neither exists: no BOUND item carries a digest, the checker never hashes a supplier, and I demonstrated by mutation that changing a bound supplier's bytes while leaving its path and selector intact returns PASS at exit 0. That is precisely the silent-supersession failure the instrument's own authorityClaim says it exists to detect, so the gap sits exactly where the artifact places its purpose. I ran a six-case mutation suite against a scratchpad copy; the other five all fail closed as required.",
+  "objections": [
+    {
+      "id": "S31-B1",
+      "severity": "MUST-FIX",
+      "location": "checker.failsWhen[2] and authorityClaim, against items[].supplier and check-section31-supplier-coverage-v1.py",
+      "claim": "The instrument advertises digest-level supersession detection that is not implemented anywhere, and empirically does not occur. A bound supplier's content can change arbitrarily and the checker reports full coverage.",
+      "evidence": [
+        "checker.failsWhen[2] reads: 'A BOUND item's supplier digest does not match the digest this checker measures at run time — recorded as DIGEST-MOVED, not as coverage.'",
+        "authorityClaim describes the mapping as 'freeze §3.1's eight mandatory items to named suppliers (path + selector + digest)'.",
+        "Neither BOUND item carries a digest. S31-1 and S31-3 both have supplier key sets of exactly ['path', 'selector', 'whyThisHead']. There is no digest field to compare against.",
+        "The checker never hashes a supplier. sha256() is defined at line 20-21 and called at exactly one site, line 72, on the freeze: freeze_digest = sha256(freeze_path). No supplier path is ever passed to it.",
+        "The string DIGEST-MOVED does not appear anywhere in the checker.",
+        "Mutation M-D, executed: adding a key to docs/coop/artifacts/retention-tiers.v28.json while leaving $.theSubstantiveDeltaIsPRESERVED intact returns 'PASS bound=2 unbound=6' at exit 0. The bound supplier's bytes moved and the instrument reported coverage."
+      ],
+      "whyItMatters": "This is not a cosmetic over-claim. authorityClaim states the instrument's reason for existing: 'That is the detection gap D-001 named: a supersession can silently drop a Phase-1A supplier and no checker will say so.' A supersession that rewrites a supplier's content while preserving path and selector is exactly a silent drop of substance, and it is the shape the corpus has already produced once -- v24 to v28 is the worked example this artifact is built around. The instrument detects the crude form (file deleted, selector renamed) and misses the form its own governing rationale describes. A reader who trusts failsWhen[2] would believe a PASS rules out supplier drift. It does not.",
+      "internalContradiction": "The artifact also disagrees with itself about how many failure modes exist. authorityClaim states two ('Its checker fails when a bound supplier file or selector disappears'); failsWhen lists four, of which the third is the unimplemented one. The two-condition sentence happens to be the accurate description of the shipped checker.",
+      "remedy": "Either implement it -- add a digest field to each BOUND supplier, hash it at run time, and emit DIGEST-MOVED on mismatch -- or delete failsWhen[2], strike 'digest' from authorityClaim's supplier tuple, and state the residual gap explicitly in whatThisDoesNotDo so that a PASS is not read as ruling out supplier drift. The second option is honest and cheap; the first is what the artifact currently promises."
+    }
+  ],
+  "mutationSuite": {
+    "method": "Copied the corpus to a scratchpad tree and ran the checker there, so no repository byte was modified. Baseline established and restored at the end.",
+    "cases": [
+      {"id": "baseline", "mutation": "none", "result": "PASS bound=2 unbound=6", "exit": 0, "assessment": "as designed"},
+      {"id": "M-A", "mutation": "delete docs/coop/artifacts/evaluation-proof.v8.json (S31-1's supplier)", "result": "FAIL - S31-1: bound supplier missing", "exit": 1, "assessment": "fails closed, as failsWhen[0] requires"},
+      {"id": "M-B", "mutation": "delete docs/coop/artifacts/retention-tiers.v28.json (S31-3's supplier)", "result": "FAIL - S31-3: bound supplier missing", "exit": 1, "assessment": "fails closed, as failsWhen[0] requires"},
+      {"id": "M-C", "mutation": "rename key proofObligationsByClaimShape in evaluation-proof.v8.json, file still present", "result": "FAIL - S31-1: selector $.proofObligationsByClaimShape does not resolve", "exit": 1, "assessment": "fails closed, as failsWhen[1] requires"},
+      {"id": "M-D", "mutation": "add a key to retention-tiers.v28.json, leaving path and selector intact", "result": "PASS bound=2 unbound=6", "exit": 0, "assessment": "THE DEFECT. failsWhen[2] advertises DIGEST-MOVED here and the checker reports coverage instead."},
+      {"id": "M-E", "mutation": "alter freeze §3.1 item-4 text", "result": "FAIL - ENVIRONMENT: freeze digest moved e809d439… -> c060cfc2…; fail-closed until successor re-pin - freeze §3.1 item texts no longer match pinned list (live 8, pinned 8)", "exit": 1, "assessment": "fails closed and reports ENVIRONMENT rather than silently following the moved freeze, as failsWhen[3] requires"},
+      {"id": "restore", "mutation": "baseline restored", "result": "PASS bound=2 unbound=6", "exit": 0, "assessment": "suite is clean; no residue"}
+    ],
+    "readThisWay": "Five of six behave exactly as the artifact says. The instrument is real and executable, which is why the one gap is worth blocking on rather than waving through: everything around it works, so a PASS carries weight it has not earned on this one axis."
+  },
+  "whatIVerified": [
+    "Subject digest at start and end: 2ceb0365fd6bf068d9871aa028a7be05312b3ea638d1345b2182366f355048bb both times, matching the dispatch's recital. Checker at 12f3f0c9df9f8b877999226dccd3c5a26db33656960d7c9957f82d530e4ea3f6 both times, measured by me since the dispatch did not pin it. Neither moved.",
+    "The 'claims SATISFIED' attack fails. SATISFIED occurs twice and both are refusals: authorityClaim's 'not the Phase-1A packet, not SATISFIED evidence, and not owner recording of any Route B disposition', and the explicit 'Does not mark DR-004 or DR-002 SATISFIED'. status is CANDIDATE-NOT-APPLIED, binds is NOTHING, documentClass is BINDING-INSTRUMENT-CANDIDATE, isThePhase1AInsertion is false.",
+    "The 'binds a selector that does not resolve' attack fails. Both BOUND selectors resolve on the bytes they name: $.proofObligationsByClaimShape in evaluation-proof.v8.json and $.theSubstantiveDeltaIsPRESERVED in retention-tiers.v28.json. Baseline PASS confirms it, and M-C confirms the checker would have caught a non-resolving one rather than passing it.",
+    "The 'pretends v28 still carries partB_purgeSemantics' attack fails, and fails in the artifact's favour. I counted the key directly: partB_purgeSemantics occurs 4 times in retention-tiers.v24.json and 0 times in v28.json. S31-4's UNBOUND reason states that the primary supplier retention-tiers.v24#$.partB_purgeSemantics.distinction 'was lost when v28 became head' and calls it 'the drop the instrument exists to keep visible'. That is accurate at the bytes. whatThisDoesNotDo carries 'Does not restore partB_purgeSemantics' among its six refusals.",
+    "The 'checker passes when a bound supplier is deleted' attack fails as stated. M-A and M-B both FAIL at exit 1 with the correct item named. The attack succeeds only in the un-named variant where the supplier is modified rather than deleted, which is S31-B1.",
+    "The counts are honest: counts {items: 8, bound: 2, unbound: 6} matches the items array, and the baseline run independently reports bound=2 unbound=6.",
+    "isMeasurementOnly is false and registerRows are DR-004 and DR-002 with lane R. The artifact does not claim to be measurement-only while carrying binding language, and does not claim a lane it is not in.",
+    "The freeze pin is real and enforced, not decorative. M-E shows the checker refuses to proceed when the freeze moves, reports ENVIRONMENT with both digests, and states 'fail-closed until successor re-pin' rather than re-deriving the item list from the moved bytes. It also cross-checks the item texts, reporting 'live 8, pinned 8' alongside the digest mismatch.",
+    "The checker's root resolution is sound for its location: ROOT = Path(__file__).resolve().parents[3], which lands on the repository root from docs/coop/artifacts/. Its item extraction keys on the marker '### 3.1 Phase-1A insertion — mandatory' and its resolve() walks dotted $.a.b selectors, which is sufficient for the two selectors actually in use."
+  ],
+  "whatIDidNotCheck": [
+    "The Codex review of this subject. Not read. It exists at review time and I hashed it without opening: b364bec3a2fea37430b3b01c5195a44f8b61bc1e74683391b9dc72096b90ea94.",
+    "Whether the six UNBOUND items SHOULD be bindable -- that is, whether a supplier exists in the corpus for any of items 2, 4, 5, 6, 7, 8 that the author missed. I verified that item 4's stated reason for being UNBOUND is true, because the dispatch named it. I did not sweep the corpus for candidate suppliers for the other five. An instrument that under-binds reports less coverage than exists, which is the safe direction, but I did not measure it.",
+    "The substantive adequacy of the two BOUND heads. I confirmed both selectors resolve and that each carries a whyThisHead rationale; I did not judge whether $.proofObligationsByClaimShape genuinely discharges freeze §3.1 item 1, or $.theSubstantiveDeltaIsPRESERVED item 3. That is the row owners' call and it is the question the instrument defers to them.",
+    "The checker's behaviour on selector forms it does not currently exercise -- array indices, wildcards, or selectors deeper than the dotted form. Both live selectors are single-segment, so resolve()'s deeper behaviour is untested by this corpus and by me.",
+    "Whether DR-004 and DR-002's owners will accept this instrument. It binds nothing and recommends nothing about their rows."
+  ],
+  "recordedInputs": {
+    "docs/coop/artifacts/section31-supplier-coverage.v1.json": "2ceb0365fd6bf068d9871aa028a7be05312b3ea638d1345b2182366f355048bb",
+    "docs/coop/artifacts/check-section31-supplier-coverage-v1.py": "12f3f0c9df9f8b877999226dccd3c5a26db33656960d7c9957f82d530e4ea3f6",
+    "freezePinnedDigest": "e809d439… as pinned in the artifact and confirmed enforced by mutation M-E",
+    "suppliersExercised": [
+      "docs/coop/artifacts/evaluation-proof.v8.json",
+      "docs/coop/artifacts/retention-tiers.v28.json",
+      "docs/coop/artifacts/retention-tiers.v24.json (read only, to count partB_purgeSemantics)"
+    ]
+  },
+  "environment": {
+    "workingDirectory": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "7e7a636",
+    "subjectTrackedInGit": false,
+    "note": "Both subjects are untracked working-tree files at review time; digests bind working-tree bytes, not committed objects. Recorded as a condition of review, not a finding, since the candidate is pre-adoption and binds NOTHING.",
+    "measurementTool": "shasum -a 256; python3 for key counting and supplier key-set inspection; executable six-case mutation suite run against a scratchpad copy of the corpus",
+    "mutationsRanAgainstCopy": true,
+    "repositoryBytesModified": false,
+    "digestsReadFromBytes": true,
+    "codexVerdictHashedNotRead": true,
+    "reviewerReadOtherVerdict": false,
+    "filesWritten": ["docs/coop/artifacts/section31-supplier-coverage.v1.review-independent.claude2.json"],
+    "filesEdited": [],
+    "commits": []
+  },
+  "verdictNote": "REJECT on one blocker, and I want the reason for the severity on the record. I did not reject this for over-claiming in the abstract. I rejected it because the specific detection it advertises and does not have is the detection its own authorityClaim names as its reason for existing, and because I demonstrated the miss by execution rather than by reading. The instrument is otherwise sound and its other five behaviours fail closed correctly, which is what makes an unearned PASS on this axis dangerous rather than harmless: a reader has good reason to trust this checker. The cheap repair -- deleting the digest claims and stating the gap -- is available and would make the artifact honest without implementing anything."
+}

@@ -1,0 +1,111 @@
+{
+  "artifact": "component-packaging-contract.v5.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-packaging-contract.v5.json",
+  "subjectSha256AtStart": "eda5855e01777d884ac972ef71804dd4bf1e30fd4c2ab5a190b9754a80c2876c",
+  "subjectSha256AtEnd": "eda5855e01777d884ac972ef71804dd4bf1e30fd4c2ab5a190b9754a80c2876c",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 1 SHOULD-FIX, 1 advisory. ACCEPT requires 0 blockers and 0 SHOULD-FIX. All three of my v4 SHOULD-FIX items plus my advisory and both dropped Codex v3 advisories are folded, and the v4-to-v5 roster is complete at 31-for-31. The single SHOULD-FIX is that the newly added ustar tail specification gets the checksum computation rule wrong against the POSIX format it declares, and states devmajor/devminor two incompatible ways.",
+  "reviewer": "Claude 2, independent, authored none of v1-v5",
+  "date": "2026-08-14",
+  "predecessor": {"path": "docs/coop/artifacts/component-packaging-contract.v4.json", "sha256": "ef54a4d8e03762ce9835576c487bada3d304b9585aceb16a4457cf773c09fc7d", "reMeasured": true},
+  "foldedVerdicts": [
+    {"path": "docs/coop/artifacts/component-packaging-contract.v4.review-independent.claude2.json", "sha256": "fef7bbb749801a105abf0fbf2e1e4d17cb5dd8b4681d3e01e2cc825870b7d60f", "reMeasured": true, "actualFindings": {"verdict": "REJECT", "blockers": [], "shouldFix": ["V4-S1", "V4-S2", "V4-S3"], "advisories": ["ADV-V4-01"]}}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-120 or DR-103 SATISFIED, does not mark QUALIFIED, does not choose a packager or toolchain, does not edit file 08 or COORDINATOR-DECISIONS.md, does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "V5-S1",
+      "title": "The new ustar tail specification states the chksum computation rule incorrectly against POSIX ustar, and gives devmajor/devminor two incompatible encodings",
+      "site": "/archiveProfile/metadata/checksum, /archiveProfile/metadata/devmajor, /archiveProfile/metadata/devminor, /archiveProfile/metadata/numericFields",
+      "detail": [
+        "CHECKSUM. metadata.checksum reads: 'POSIX ustar chksum: sum of header bytes with the checksum field treated as six spaces plus one space and one NUL (six octal digits, then NUL, then space). Stored as six octal digits, NUL, space.' The stored layout is right - six octal digits, NUL, space is the conventional ustar encoding. The computation rule is not. POSIX ustar computes the checksum over the 512-byte header with all EIGHT chksum octets taken as ASCII space (0x20). v5 instructs that the field be treated as six spaces plus one space and one NUL, i.e. seven spaces and one NUL.",
+        "The consequence is arithmetic and exact: a NUL contributes 0 where a space contributes 0x20, so every header written to this rule carries a chksum value 32 lower than the value any conforming reader recomputes. Every member header therefore fails checksum verification in standard tar, and the archive is not a valid POSIX ustar stream even though /archiveProfile/encoding declares 'POSIX ustar (ustar\\0)'.",
+        "The error looks like the stored layout was reused as the computation mask: substituting spaces for the six octal digits of '000000\\0 ' yields the '(six spaces) + NUL + space' shape the text describes, instead of the all-spaces mask the format requires.",
+        "DEVMAJOR/DEVMINOR. metadata.devmajor and metadata.devminor both read 'empty / zero. Not used (no devices).' Empty and zero are different bytes: an empty field is NUL or space fill, a zero field is octal ASCII '0000000' plus NUL. The sibling metadata.numericFields resolves it one way - it lists devmajor and devminor among fields that are 'octal ASCII, leading zeros, NUL-terminated' - so the two clauses in the same block disagree, and the 'empty /' alternative admits bytes numericFields forbids.",
+        "I record what v5 got right, because it is most of the finding I raised. linkname is now 'exactly TreeCommitment.target' for symlinks and empty otherwise, which is the datum schemas.v11's treeCommitmentShape supplies and the gap that left symlink trees undetermined. The trailer is now 'Exactly two 512-byte zero blocks after the last member. No further padding', which closes the blocking-factor divergence between POSIX-minimum and GNU-default writers and makes archive length a function of the member set. size is fixed for files, dirs and symlinks. numericFields names the octal/NUL convention. That is the substance of CLAUDE-V4-S2."
+      ],
+      "whyItMatters": "archiveProfile.standing claims 'Closed profile opensip-archive-profile.1' and encoding declares POSIX ustar; CI-3 rides byte-identity on the profile and CI-5 now pins the token as a CI input. A profile that is precise but non-conforming produces archives that no standard reader accepts, which matters directly at OC-7, where the archive bytes are an air-gap install input. The devmajor/devminor ambiguity is smaller but is the same species of gap the last two rounds have been closing.",
+      "whyNotABlocker": "Internal determinism survives: two adapters following v5 literally emit identical bytes, so CI-3's same-archiveDigest promise still holds and nothing unsafe is authorized. The defect is conformance to the declared format plus one internal contradiction, and both are single-clause fixes.",
+      "remedy": "State the computation as 'the eight chksum octets are taken as ASCII space (0x20) when summing; the stored value is six octal digits, NUL, space.' Delete the 'empty /' alternative from devmajor and devminor so numericFields governs, or state the exact byte fill if empty is intended."
+    }
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "CLAUDE-V4-S1 - archiveProfile asserted that CI-1 pins archiveProfileId when no CI rule mentioned the token",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "A new CI-5 is added: 'The conformance report archiveProfileId MUST equal opensip-archive-profile.1. That token is a CI input alongside CI-1 pins. A mismatch is a typed non-success of the adapter run.' That supplies both the pin and the consequence that were missing. archiveProfile.emittedAs is corrected to 'CI-5 pins that token. CI-1 remains source-tree/tool/adapter/platform/exception pins', and I confirmed CI-1's own text is unchanged and still names only its five input classes - so the corrected cross-reference is now true in both directions. honestyRepairsFromV4[0] states it accurately rather than repeating the old claim. /hermeticCI is also now on the closed roster, which is what made the amendment lawful under the artifact's own succession discipline; the roster entry reads '/hermeticCI/rules (ADD CI-5; AMEND CI-3)', and CI-2 and CI-4 are byte-identical to v4."
+    },
+    {
+      "finding": "CLAUDE-V4-S2 - the closed profile left symlink linkname and the end-of-archive trailer undetermined",
+      "disposition": "SUBSTANTIALLY REPAIRED; residue at V5-S1",
+      "howIChecked": "Both decisive gaps are closed. metadata.linkname now binds symlink members to TreeCommitment.target and empties the field for every other type. A new archiveProfile.trailer fixes exactly two 512-byte zero blocks with no further padding and draws the consequence explicitly - 'Archive length is thus a deterministic function of the member set.' The smaller residue I listed is also addressed: size is specified for file, dir and symlink members; devmajor and devminor are present; checksum and numericFields are added. What remains is that two of those additions are stated wrongly or twice - V5-S1."
+    },
+    {
+      "finding": "CLAUDE-V4-S3 - Codex v3's two advisories recorded as an empty array while both remained live",
+      "disposition": "REPAIRED - VERIFIED, and both advisories are also substantively folded",
+      "howIChecked": "The record is corrected three ways: a new /appliesFindingsOf/codexV3AdvisoriesFoldedHere lists ['CODEX-V3-A1','CODEX-V3-A2']; the idCollisionNote now says plainly 'Codex v3 advisories CPCV3-A1/A2 were dropped at v4 and are recorded/folded here as CODEX-V3-A1/A2', which names the earlier omission rather than quietly correcting it; and honestyRepairsFromV4[2] folds them. I then checked that both are substantively resolved, not just recorded. CPCV3-A1's target, reviewGuidance item [8], now reads 'HISTORICAL v1-era: This artifact is a first candidate. Predecessor-finding accounting is N/A' - the stale instruction is labelled rather than left asserting. CPCV3-A2's target is resolved in CI-3, which now reads 'same report members except runId' and adds 'runId is a nondeterministic custody annotation identifying the run; it is excluded from the reproducible tuple' - one of the two dispositions Codex said would be workable, chosen and stated.",
+      "recordRotation": "The v3 verdict records /appliesFindingsOf/codexV3 and /claude2v3 are removed and /claude2v4 added. That is the rotation convention this chain already uses - v4 likewise removed codexV2 when it added codexV3 - and /appliesFindingsOf is on the closed roster, so the removal is declared rather than silent."
+    },
+    {
+      "finding": "CLAUDE-V4-ADV-1 - append-only reviewGuidance left a stale instruction contradicting newer items",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "Item [8] is edited in place to carry a HISTORICAL v1-era prefix, and the roster explicitly authorizes it: '/reviewGuidance/forTheIndependentReviewer (historicalize first-candidate line; append)'. honestyRepairsFromV4[3] records the choice to mark rather than delete. The list grows 27 to 32 with five new attack lines that name this round's findings, including 'Attack CI-1 claimed to pin archiveProfileId (it does not; CI-5 does)' and 'Attack an archiveDigest that is not determined for symlink trees or missing the two-block trailer'."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "CI-1 claimed to pin archiveProfileId", "result": "REFUTED", "detail": "The claim is gone and replaced by CI-5. emittedAs now states correctly that CI-1 remains source-tree/tool/adapter/platform/exception pins, and I confirmed CI-1's text is unchanged and consistent with that description."},
+    {"attack": "Undetermined symlink/trailer/checksum bytes", "result": "PARTIALLY CONFIRMED", "detail": "Symlink linkname and the trailer are now determined - both refute. The checksum is specified but specified wrongly against POSIX ustar, and devmajor/devminor are specified twice incompatibly. See V5-S1."},
+    {"attack": "Dropped Codex v3 advisories", "result": "REFUTED", "detail": "Both are recorded at codexV3AdvisoriesFoldedHere, named in the idCollisionNote together with the fact that v4 dropped them, folded in honestyRepairsFromV4, and substantively resolved at reviewGuidance[8] and CI-3."},
+    {"attack": "Silent v4-to-v5 path", "result": "REFUTED - 31-for-31", "detail": "My recursive diff found 31 changed paths and I mapped every one against the closed roster in basedOn.method. Zero uncovered. The single top-level addition is /honestyRepairsFromV4, which the roster declares; nothing was removed at top level. Whole subtrees untouched this generation and verified byte-identical to v4: outputContract, conformanceReport, fixtureGeneration, fixtureGenerator, acceptanceTests, adapterTemplate, identityDependencies, recordedInputs, purpose and whatThisDoesNotDo."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus AWAITING-INDEPENDENT-REVIEW, sealRecommendation DO-NOT-SEAL, binds NOTHING, documentClass DESIGN-CONTRACT-CANDIDATE, registerRow DR-120 - all byte-identical to v4. whatThisDoesNotDo is byte-identical and still disclaims SATISFYing DR-120, SATISFYing DR-103 with D-013's refusal standing, executing DR-G15, marking any adapter QUALIFIED, choosing a packager/toolchain/CLI, and authorizing docs/v2/implementation/. The new reviewGuidance tail even appends 'Do not mark DR-120 or DR-103 SATISFIED.' All fourteen governing-source digests re-measured against live bytes with zero mismatches."},
+    {"attack": "Choosing a packager / toolchain / CLI", "result": "REFUTED", "detail": "archiveProfile.doesNotChoose is unchanged and still excludes packager brand, CLI, build tool and tar implementation. Everything V5-S1 concerns is format-level byte specification, not tool selection - naming the POSIX chksum mask chooses no implementation, and OD-P1 still holds the concrete toolchain."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V5-01",
+      "title": "A Codex v4 verdict file now exists and is unfrozen; v5 folds none of it and says so",
+      "detail": "docs/coop/artifacts/component-packaging-contract.v4.review-independent.codex.json is present at mode 0644, unlike every frozen predecessor verdict in this chain, which sit at 0444. v5's notFoldedThisSuccessor states 'Codex v4 verdict was not frozen at authoring; if it later carries findings beyond these, they require a v6', which is an honest disclosure of exactly this situation and is why I raise it as an advisory rather than a finding - nothing is concealed and v5 claims no coverage it does not have. I did not open the file, since my authorization extended only to my own frozen v4 REJECT. The coordinator should note that any findings it carries are unaddressed by this generation, and that its 0644 mode means its digest is not yet stable for citation.",
+      "notBlocking": "Disclosed in the artifact's own carry register; v5 asserts no fold of it."
+    }
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v4 re-measured and matching, and my own v4 REJECT re-measured to fef7bbb7... exactly as the dispatch states, confirming the bytes v5 folds are the bytes I filed.",
+    "rosterVsActualDiff": "31 changed paths, 31 covered by the closed roster; one declared top-level addition, no removals.",
+    "governingSources": "All fourteen pinned governing sources re-measured against live bytes; zero mismatches.",
+    "untouchedSurfaces": "outputContract, conformanceReport, fixtureGeneration, fixtureGenerator, acceptanceTests, adapterTemplate, identityDependencies, recordedInputs, purpose, whatThisDoesNotDo and the six status/standing fields all verified byte-identical to v4, so this generation touched only hermeticCI, archiveProfile, reviewGuidance, appliesFindingsOf and succession metadata.",
+    "formatCheck": "The ustar tail specification was checked field by field against the POSIX ustar header layout: magic, version, prefix, name, mode, uid, gid, uname, gname, mtime, typeflag, linkname, size, devmajor, devminor, chksum and the end-of-archive trailer. All are now addressed; two are addressed incorrectly - V5-S1."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not construct a ustar archive to demonstrate the checksum divergence empirically. The finding rests on the profile's own text against the POSIX ustar computation rule, and the arithmetic consequence - a value 32 low - follows directly from substituting one NUL for one space in the eight-octet mask.",
+    "I did not read the Codex v4 verdict; my authorization covered only my own frozen v4 REJECT. See ADV-V5-01.",
+    "I did not read the other current v5 reviewer's file.",
+    "I did not re-review the surfaces v5 leaves untouched - outputContract, conformanceReport, fixtureClassRides, acceptanceTests, the adapter stages or identityDependencies. I verified they did not move rather than re-adjudicating them.",
+    "I did not review the fixture-corpus candidates on their merits; the governing-source digests were re-measured only to test v5's pins.",
+    "I did not evaluate DR-112 ceremony, DR-110 repair media, DR-111 windows, or the DR-G* thresholds. I confirmed only that v5 continues to defer them.",
+    "I did not assess DR-120's or DR-103's register status and express no view on either. I did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "This verdict is about the artifact's internal consistency and its handling of my v4 REJECT plus the two carried Codex v3 advisories. It is not a statement that DR-120's acceptance-evidence cell is discharged."
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "subjectMode": "0444",
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "filesWritten": ["docs/coop/artifacts/component-packaging-contract.v5.review-independent.claude2.json"]
+  }
+}

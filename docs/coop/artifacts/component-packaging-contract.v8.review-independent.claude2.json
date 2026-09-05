@@ -1,0 +1,122 @@
+{
+  "artifact": "component-packaging-contract.v8.review-independent.claude2",
+  "reviewOf": "docs/coop/artifacts/component-packaging-contract.v8.json",
+  "subjectSha256AtStart": "533389cba8af7f41b8b61e84e2fe23f6a16ea28f442482b94c6e272ba52c7c97",
+  "subjectSha256AtEnd": "533389cba8af7f41b8b61e84e2fe23f6a16ea28f442482b94c6e272ba52c7c97",
+  "subjectMode": "0444",
+  "measurementTool": "python3 hashlib.sha256 over pathlib.Path.read_bytes(), per dispatch",
+  "verdict": "REJECT",
+  "verdictBasis": "0 blockers, 1 SHOULD-FIX, 1 advisory. ACCEPT requires 0 blockers and 0 SHOULD-FIX. All three folded Codex v6 findings are substantively repaired and I verified each against the artifact's own bytes and against schemas.v11; the SHOULD-FIX is that one fixtureMemberMap member is now invalid under the very rule this revision tightened to answer CODEX-V6-S1.",
+  "reviewer": "Claude 2, independent; authored none of v1-v8",
+  "date": "2026-08-14",
+  "predecessor": {"path": "docs/coop/artifacts/component-packaging-contract.v7.json", "sha256": "017c4e81f7f3e542be60eebc7ffed6058b945cdfd8f42d11b80c326071592ddf", "reMeasured": true},
+  "foldedVerdicts": [
+    {"path": "docs/coop/artifacts/component-packaging-contract.v6.review-independent.codex.json", "sha256": "53a569875cdf97ac425e5bcebd39bb65b40ffd30fa62cead76c489c1e917f1d6", "reMeasured": true, "mode": "0444", "actualFindings": {"verdict": "REJECT", "blockers": ["CPCV6-B1"], "shouldFix": ["CPCV6-S1", "CPCV6-S2"]}},
+    {"path": "docs/coop/artifacts/component-packaging-contract.v6.review-independent.claude2.json", "sha256": "a714c77142027bcd0ae42fa6e5eeb52b1af05a1ce8602168fd4d4bb305aad43f", "reMeasured": true, "note": "My v6 REJECT (AT-* coverage slot). Folded at v7, not at v8; v8 carries it for lineage only and does not re-claim it."}
+  ],
+  "bindsTo": "NOTHING. Independent design-contract review. Does not mark DR-120 or DR-103 SATISFIED, does not mark QUALIFIED, does not choose a packager, toolchain or CLI, does not edit file 08 or COORDINATOR-DECISIONS.md, and does not authorize docs/v2/implementation/.",
+
+  "blockers": [],
+
+  "shouldFix": [
+    {
+      "id": "V8-S1",
+      "title": "TC-NAME.4.after expects a bare refuse:RJ-2, which the FG-2 rule tightened in this same revision makes invalid, and no live RJ-2 subcode fits the case",
+      "site": "/conformanceReport/fixtureMemberMap/members/TC-NAME.4.after/expected, /fixtureGeneration/generationContract[FG-2]",
+      "detail": [
+        "v8 tightens FG-2 to answer CODEX-V6-S1: 'Each generated fixture is digest-pinned per file and states expected outcome ACCEPT or exactly one live refusal family and, when that family has subcodes, exactly one live subcode. Invented subcodes are report-invalid.'",
+        "I validated every one of the 79 fixtureMemberMap.members expected values against the live rejectionRules in schemas.v11. The repair is real and broad: the TC-NAME records that Codex found stuck at bare refuse:RJ-2 now carry live subcodes - TC-NAME.0 RESERVED_ROOT_COMMAND, TC-NAME.1 LIVE_NAME_COLLISION, TC-NAME.2 ALIAS_COLLISION, and so on - and the conjunctive requires were split to make that possible. Exactly one record is left non-conforming.",
+        "TC-NAME.4.after expects 'refuse:RJ-2' with no subcode and no ride. RJ-2 carries ten live subcodes in schemas.v11 (ALIAS_COLLISION, ALIAS_CYCLE, ALIAS_SHADOWS_LIVE_OR_RESERVED, ID_VERSION_INDISTINCT, LIVE_NAME_COLLISION, MULTIPLE_ROOT_COMMANDS, PARENT_LINKAGE_COLLISION, PARENT_UNKNOWN_OR_CYCLIC, RESERVED_ROOT_COMMAND, ROOT_COMMAND_NAME_MISMATCH), so FG-2 requires exactly one and the record supplies none.",
+        "The artifact knows this and says so. The member's own note reads 'schemas.v11 mints no dedicated stale-alias subcode; family RJ-2 only; do not invent typed-stale-alias.' I checked the ten subcodes myself and confirm none describes an after-window alias non-resolve. So the situation is real, not an oversight about the schema.",
+        "That honesty is the right instinct and it fixed the worse defect: v6's invented 'typed-stale-alias' token is gone, and I confirmed by full-text scan that the token now appears only in prose - the member's own note, the reviewGuidance attack line, and the honestyRepairs entry - never as an expected value. Same for ENTRYPOINT_ABSENT, which appears only in the reviewGuidance attack line while TC-PATH.12 correctly expects bare refuse:RJ-3, RJ-3 having no subcodes.",
+        "But the two statements cannot both stand. FG-2 makes this member's expected value report-invalid, and FG-6 makes a coverage array that departs from fixtureMemberMap.members[memberKey] report-invalid. A conforming report for TC-NAME.4.after is therefore impossible as written: the map entry it must mirror is itself FG-2-invalid."
+      ],
+      "whyItMatters": "TC-NAME.4.after is a required member of a closed map that FG-6 says a report must cover in full without omission or substitution. One member that cannot be recorded conformantly leaves the coverage contract unsatisfiable, and it does so through the rule this revision added to make coverage exact.",
+      "whyNotABlocker": "Nothing false is asserted, nothing is invented, and the gap is disclosed at the member itself rather than hidden. The remaining 78 members validate cleanly against the live codes. Either resolution is a single clause.",
+      "remedy": "Either give the member a standing of blocked-on-ride against a named ride - the absence of a stale-alias subcode in schemas.v11 is exactly the kind of dependency the map already carries rides for - or amend FG-2 to permit a bare family where the schema mints no applicable subcode, with the member's existing note as the recorded warrant. The second keeps the fixture producible today; the first keeps FG-2 absolute."
+    }
+  ],
+
+  "repairVerification": [
+    {
+      "finding": "CODEX-V6-B1 - opensip-archive-profile.1 was not a total, closed payload-to-byte and admission algorithm",
+      "disposition": "REPAIRED - VERIFIED on all four sub-claims",
+      "howIChecked": [
+        "PAYLOAD JOIN. byteAlgorithm.inputs now names a second input: 'payloadBytes: a map keyed by that same NFC path string to the exact file payload octets collected at S-1-COLLECT. Every file entry MUST have a payloadBytes[path] whose length equals TreeCommitment.length and whose sha256 equals TreeCommitment.sha256 BEFORE any header is emitted. Dir and symlink keys MUST be absent from payloadBytes. This join is normative; S-1-COLLECT is not a side comment.' bodyRules.file is rewritten from a postcondition into a procedure: look up payloadBytes[path], refuse SIZE-OR-DIGEST-MISMATCH if missing or mismatched, emit exactly those octets, pad to the 512 boundary. Codex's precise objection was that the function could not produce a nonempty regular-file body from its stated inputs; it now can.",
+        "NUMERIC CAPACITIES. A new headerLayout.numericCapacity states octal7nul encodes 0..2097151 and octal11nul encodes 0..8589934591. I checked the arithmetic rather than the prose: seven octal digits give 8^7 - 1 = 2097151 and eleven give 8^11 - 1 = 8589934591. Both are exactly right. Overflow is owned as typed non-success MODE-EXCEEDS-USTAR-FIELD and SIZE-EXCEEDS-USTAR-FIELD, and OD-P2.profileCapacityDeclaredHere gains matching modeField and sizeField entries so the capacity sits with the other profile capacities rather than floating. doesNotMintSchemaCaps is extended to name all four refusals as profile-owned and not schemas.v11 OD-1 caps. AT-ARCHIVE-MODE-MAX and AT-ARCHIVE-SIZE-MAX exercise both boundaries at max ACCEPT and max+1 refuse.",
+        "OCTET-EQUAL ADMISSION. admissionChecks is rewritten from a checklist of properties into a derivation: check 0 is now 'Recompute the canonical 512-byte header from TreeCommitment + payloadBytes using headerLayout. Compare every one of the 512 octets. Any difference is admission failure.' The zero-field requirement is explicit at check 2 - uid, gid, mtime, devmajor, devminor as octal of 0, uname/gname 32 NUL, prefix 155 NUL, pad 12 NUL - and numericCapacity adds that nonzero in those fields 'is not a capacity overflow; admission rejects any nonzero as noncanonical.' AT-ARCHIVE-NONCANON-UID tests a nonzero uid with a valid checksum refusing, which is the case a property checklist would have passed.",
+        "ADAPTER-IDENTITY-INDEPENDENT GOLDEN. A new crossAdapterIdentity states that AT-ARCHIVE-IDENTITY and AT-ARCHIVE-FIXED-VECTOR 'MUST NOT require two adapters to share CI-1 adapterVersionDigest. CI-1 still pins each adapter's own version. The expected archive bytes are a function of tree+payloadBytes+profile only.' The new AT-ARCHIVE-FIXED-VECTOR member is a digest-pinned tree-plus-payload vector with expected bytes 'independent of adapter identity'. That answers the dispatch attack directly."
+      ]
+    },
+    {
+      "finding": "CODEX-V6-S1 - fixtureMemberMap was not an addressable one-fixture/one-outcome coverage contract",
+      "disposition": "REPAIRED - VERIFIED, with one residue",
+      "howIChecked": "ADDRESSING: a new fixtureMemberMap.addressing field states 'Normative keys live at fixtureMemberMap.members. Reports MUST use fixtureMemberMap.members[memberKey].' The three consumers are all corrected in step - conformanceReport.shape.fixtureClassCoverage now says 'memberKey: key of fixtureMemberMap.members' and resolves 'fixtureMemberMap.members[memberKey].ride'; FG-1 adds 'References are fixtureMemberMap.members[memberKey], never fixtureMemberMap[memberKey]'; FG-6 rejects a coverage array missing any 'fixtureMemberMap.members key'. Codex's exact objection - that the four top-level keys are discipline, schemaRequiresCount, mapKeyCount and members, so no TC-* record was addressable - is closed. SUBCODES: mapKeyCount rises 72 to 79 as conjunctive requires are split, and I confirmed the claim matches reality at 79 actual members. I then validated all 79 expected values against schemas.v11's live rejectionRules: 78 conform, including bare refuse:RJ-3 for every TC-PATH member (correct, since RJ-3 mints no subcodes) and live RJ-2 subcodes across the TC-NAME set. TC-NAME.4.after is the single residue - see V8-S1. NO INVENTED SUBCODES: full-text scan confirms typed-stale-alias and ENTRYPOINT_ABSENT appear only in prose, never as an expected value."
+    },
+    {
+      "finding": "CODEX-V6-S2 - health standing was typed but lacked an exact subject role/platform coverage invariant",
+      "disposition": "REPAIRED - VERIFIED",
+      "howIChecked": "Both halves Codex named are closed. The standalone subject shape now carries role: '{ stableId, version, platform, role, provenance, scope, manifestDigest, archiveDigest, treeDigest, archiveProfileId }. role is REQUIRED so health applicability can join subject.role + subject.platform.' And healthAndSubprotocol replaces the weak existence test with an exact invariant: 'For a per-platform report: exactly one unique applicability member whose {role, platform} equals subject.role + subject.platform. Empty array, missing required pair, extra pair, duplicate pair, or unrelated role/platform is report-invalid.' Codex's four escape routes - empty array, duplicates, an unrelated pair, and omission of the subject's own pair while another is present - are each named and rejected."
+    },
+    {
+      "finding": "CLAUDE-V6-S1 (my v6 AT-* coverage slot finding)",
+      "disposition": "PREVIOUSLY FOLDED AT v7 - ACCOUNTING VERIFIED",
+      "howIChecked": "v8 does not re-claim it. basedOn.method records 'Claude v6 V6-S1 was folded at v7', the idCollisionNote repeats it, and the claude2v6 record is reduced to a lineage note reading 'V6-S1 folded at v7; carried here for lineage.' I confirmed the substance survives in v8: fixtureClassCoverage still accepts AT-* and AT-ARCHIVE-* keys and still states 'AT-* and AT-ARCHIVE-* keys are required members of this array', and the AT-ARCHIVE-* members are present in the map."
+    }
+  ],
+
+  "attackListDisposition": [
+    {"attack": "byteAlgorithm.inputs that cannot produce a nonempty file body", "result": "REFUTED", "detail": "payloadBytes is now a normative second input keyed by NFC path, verified for length and sha256 before any header is emitted, and bodyRules.file emits exactly those octets."},
+    {"attack": "mode/size overflow with no owned typed refusal", "result": "REFUTED", "detail": "numericCapacity states both ranges - I verified 8^7-1 and 8^11-1 - with MODE-EXCEEDS-USTAR-FIELD and SIZE-EXCEEDS-USTAR-FIELD owned at OD-P2 and exercised at both boundaries by AT-ARCHIVE-MODE-MAX and AT-ARCHIVE-SIZE-MAX."},
+    {"attack": "Admission that accepts nonzero uid / noncanonical pad", "result": "REFUTED", "detail": "Admission recomputes the canonical 512-byte header and compares all 512 octets; the zero fields and NUL fills are enumerated explicitly; AT-ARCHIVE-NONCANON-UID tests nonzero uid with a valid checksum refusing."},
+    {"attack": "AT-ARCHIVE-IDENTITY requiring shared CI-1 adapterVersionDigest", "result": "REFUTED", "detail": "crossAdapterIdentity forbids it in terms and AT-ARCHIVE-FIXED-VECTOR supplies an adapter-identity-independent expected archiveDigest."},
+    {"attack": "Reports addressing fixtureMemberMap[memberKey] not .members[memberKey]", "result": "REFUTED", "detail": "Corrected at the shape, FG-1 and FG-6, with a normative addressing field added."},
+    {"attack": "Invented subcodes (ENTRYPOINT_ABSENT, typed-stale-alias)", "result": "REFUTED", "detail": "Neither token appears as an expected value anywhere; both occur only in prose. TC-PATH.12 correctly expects bare refuse:RJ-3. The related residue is the opposite failure - a family with no subcode where FG-2 demands one - reported as V8-S1."},
+    {"attack": "Empty or off-subject health applicability", "result": "REFUTED", "detail": "Exactly one unique member matching subject.role + subject.platform; empty, missing, extra, duplicate and unrelated are each report-invalid; subject.role is required."},
+    {"attack": "Silent v7-to-v8 path", "result": "REFUTED - 78-for-78", "detail": "My recursive diff found 78 changed paths and I mapped every one against the eleven roster tokens: zero uncovered. The single top-level addition is /honestyRepairsFromV7, which the roster declares; nothing was removed at top level. All fourteen governing-source digests re-measured against live bytes with zero mismatches."},
+    {"attack": "SATISFIED / QUALIFIED / implementation authorization / packager choice", "result": "REFUTED", "detail": "status CANDIDATE-NOT-APPLIED, reviewStatus, sealRecommendation, binds NOTHING, documentClass, registerRow, purpose and the whole whatThisDoesNotDo block are byte-identical to v7, as are outputContract, acceptanceTests, hermeticCI, adapterTemplate, identityDependencies and recordedInputs. archiveProfile.doesNotChoose still excludes packager brand, CLI, build tool and tar implementation. Naming octal field capacities and header octets specifies a byte format, not a tool."}
+  ],
+
+  "advisories": [
+    {
+      "id": "ADV-V8-01",
+      "title": "Eight AT-ARCHIVE-* members carry the alternative expected outcome refuse:profile-or-admission, which sits against FG-1's exactly-one-expected-outcome rule",
+      "detail": "AT-ARCHIVE-BODY-MISMATCH, CHKSUM-SPACES, EXTRA-MEMBER, LINK-101, MISSING-MEMBER, NAME-101, TARGET-MISMATCH and TYPEFLAG-NUL all expect 'refuse:profile-or-admission'. That these use profile-owned tokens rather than DR-103 RJ families is correct and deliberate - they are packaging-profile acceptance tests, not admission fixtures, and their siblings AT-ARCHIVE-NONCANON-UID and AT-ARCHIVE-SIZE-MAX carry single tokens. The note is that 'profile-or-admission' is an alternative, and FG-1 requires each member to map to 'exactly one expected outcome'. A report cannot record which of the two produced the refusal, which is the same reason this chain retired class-level 'or' producers two revisions ago. Either refusal is a correct refusal, so nothing unsafe follows; naming which stage owns each case would make the member scoreable on its own terms.",
+      "notBlocking": "The expected outcome is a refusal either way, and these are the artifact's own acceptance tests rather than schema-class fixtures."
+    }
+  ],
+
+  "whatIVerified": {
+    "digestIntegrity": "Subject measured with python3 hashlib over pathlib.Path.read_bytes() at start and end - identical and equal to the dispatch digest. Subject is mode 0444 and did not move. Predecessor v7, the frozen Codex v6 REJECT and my frozen v6 REJECT all re-measured and matching the dispatch.",
+    "rosterVsActualDiff": "78 changed paths, 78 covered by the eleven-token closed roster; one declared top-level addition, no removals.",
+    "schemaCrossCheck": "All 79 fixtureMemberMap.members expected values validated against schemas.v11's live rejectionRules families and subcodes; mapKeyCount 79 confirmed against the actual member count; the ten live RJ-2 subcodes enumerated directly from the schema.",
+    "formatCheck": "numericCapacity bounds verified arithmetically against seven- and eleven-digit octal fields; admissionChecks read as a derivation-and-compare rather than a property list.",
+    "governingSources": "All fourteen pinned governing sources re-measured against live bytes; zero mismatches."
+  },
+
+  "whatIDidNotCheck": [
+    "I did not construct a ustar archive to execute the byteAlgorithm. The verification is of the specification's completeness and internal consistency, not of any implementation.",
+    "I did not review or rely on my own in-progress v7 review, which exists unfrozen at mode 0644 in another pane. Nothing in this verdict depends on it and I finished nothing about v7 here.",
+    "I did not read the other current v8 reviewer's file; none exists.",
+    "I did not re-review the surfaces v8 leaves untouched - outputContract, acceptanceTests, hermeticCI, adapterTemplate, identityDependencies and recordedInputs. I verified they did not move rather than re-adjudicating them.",
+    "I did not re-review the fixture-corpus candidates; the governing-source digests were re-measured only to test v8's pins.",
+    "I did not evaluate DR-112 ceremony, DR-110 repair media, DR-111 windows, or the DR-G* thresholds. I confirmed only that v8 continues to defer them.",
+    "I did not adjudicate Codex v6's findings on their merits; I established what they were from the frozen file and checked whether v8's fold matches them.",
+    "I did not assess DR-120's or DR-103's register status and express no view on either. I did not edit file 08, COORDINATOR-DECISIONS.md, or the subject, and I did not commit.",
+    "This verdict is about the artifact's internal consistency and its handling of the frozen Codex v6 REJECT. It is not a statement that DR-120's acceptance-evidence cell is discharged."
+  ],
+
+  "environment": {
+    "repo": "/Users/sb/code/opensip-ai/opensip",
+    "gitHead": "499c057b5730425977389282ea156bfe932af42e",
+    "branch": "main",
+    "subjectMoved": false,
+    "subjectEdited": false,
+    "committed": false,
+    "didNotReadOtherReviewer": true,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "packagerOrToolchainChosen": false,
+    "filesWritten": ["docs/coop/artifacts/component-packaging-contract.v8.review-independent.claude2.json"]
+  }
+}

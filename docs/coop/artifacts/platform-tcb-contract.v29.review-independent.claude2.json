@@ -1,0 +1,199 @@
+{
+  "artifact": "platform-tcb-contract.v29.review-independent.claude2",
+  "documentClass": "INDEPENDENT-REVIEW-VERDICT",
+  "reviewOf": "docs/coop/artifacts/platform-tcb-contract.v29.json",
+  "registerRow": "DR-126",
+  "reviewer": "Claude 2",
+  "role": "independent; refute not confirm; authored none of v1-v29",
+  "date": "2026-08-15",
+  "reviewState": "COMPLETE",
+  "verdict": "REJECT",
+  "verdictBasis": "1 blocker, 0 SHOULD-FIX. ACCEPT requires 0 and 0. All four Codex v28 findings are repaired and I could not break any of them; the event-preimage and closed-union work in particular is exact. My own CLAUDE-V28-B1 is answered by a new runtimeContinuity clause, but its four indicators are present-state observations rather than since-boot invariants, and each remains satisfiable by a kernel entered after the measured boot.",
+
+  "measurementTool": "python3 hashlib.sha256 over open(p,'rb').read(); mode via os.stat st_mode & 0o777; recursive JSON path diff v28 vs v29; exhaustive raw-substring search for continuity, kexec, preimage and D-096 tokens",
+
+  "custody": {
+    "subjectSha256Expected": "8ad68c0aa65a113199ebdc80ff3dc1a9ccdb24e6b49113acd94e57b78b33bb4a",
+    "subjectSha256AtStart": "8ad68c0aa65a113199ebdc80ff3dc1a9ccdb24e6b49113acd94e57b78b33bb4a",
+    "subjectSha256AtEnd": "8ad68c0aa65a113199ebdc80ff3dc1a9ccdb24e6b49113acd94e57b78b33bb4a",
+    "subjectModeAtStart": "0444",
+    "subjectModeAtEnd": "0444",
+    "subjectBytes": 191852,
+    "subjectMovedDuringReview": false,
+    "predecessorV28Sha256": "dd9f437676f6d3464930f3aed52b12d78bdc99438d6a7c20553e013c2cbf14fc",
+    "frozenClaudeV28Sha256": "a2645526979bcdf07ff8e5b966e96774680af53b472522d5afaa8d0e63df2c73",
+    "frozenCodexV28Sha256": "6ef9fb4aef6c21661a50a850eadc93077f4863f3c9d9b4e25db252b134f6a0ac",
+    "allPredecessorPinsMatchDispatch": true,
+    "predecessorReviewReplacement": "NONE — both frozen v28 verdicts reproduce their dispatched digests at mode 0444 and were not rewritten.",
+    "frozenVerdictsEdited": false,
+    "subjectEdited": false,
+    "committed": false,
+    "file08Edited": false,
+    "coordEdited": false
+  },
+
+  "environment": {
+    "headAtStart": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headAtEnd": "93ceaa6a0e2f5b93ad984c42357c23b193e1f361",
+    "headMovedDuringReview": false,
+    "headMatchesDispatch": true,
+    "file08Sha256": "1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3",
+    "coordSha256AtStart": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "coordSha256AtEnd": "67b8df674e782c705dd254df5926be33f468d3bf7d5f0a3b5fdbfe808b33c40c",
+    "passNoScopeEffectNeeded": false,
+    "staleHeadsIgnored": ["499c057", "2327cf8", "5bb125d"]
+  },
+
+  "priorInvolvementDisclosure": "I authored the frozen Claude v28 REJECT, whose blocker named the unconstrained interval between a boot-time proof and a run-time claim. v29 takes the first of the two routes I offered, adding runtimeContinuity rather than narrowing the declared subject. A clause written specifically to answer my finding is the surface most at risk of a confirmatory read, so I tested each indicator against what it actually observes rather than against whether it used the vocabulary I suggested. The blocker below is a different finding from CLAUDE-V28-B1: it is about what these four indicators prove, not about their absence.",
+
+  "blockers": [
+    {
+      "id": "CLAUDE-V29-B1",
+      "appliesTo": "CLAUDE-V28-B1 — answered by adding runtimeContinuity; the indicators chosen do not exclude a post-boot kernel transition",
+      "title": "runtimeContinuity's four indicators are present-state observations, each of which a kernel entered after the measured boot can satisfy, so the interval remains open while the subject is still declared running-kernel-package",
+      "where": "/loaderTraces/objectAuthenticityBind/tags/linux-pathless/measuredBootBind/runtimeContinuity/{lockdown,kexecLoadDisabled,kexecLoaded,bootCurrentNow}; /identityEvidenceUnion/.../pathlessCeremony/enforcedBootPolicy/runtimeContinuity; against /identityEvidenceUnion/tags/PLATFORM-ATTESTED/subjectByScheme/package-db/kind",
+      "whatIsGenuinelyBetter": "The clause is real work and it is retained, gated and fail-closed: unavailable indicators refuse the machine, refusesBootConfigs adds 'failed runtimeContinuity; kexec enabled or loaded', and whatThisDoesNotDo now states 'Does not treat PCR 4 as a post-boot running-kernel digest; runtimeContinuity is the interval constraint' and 'Does not leave kexec-enabled machines in scope'. The role field is candid that these are indicators, 'not a second image digest and not an IMA bind'. My objection is not that the contract ignored the interval; it is that the four chosen facts do not close it.",
+      "perIndicatorAnalysis": {
+        "lockdown": "Reading [integrity] from /sys/kernel/security/lockdown is re-established identically in a kernel entered by transition, because Secure Boot enables lockdown automatically on any kernel it starts. Worse for this purpose, integrity mode is precisely the mode in which a signature-verified kernel-replacement path is permitted — it blocks the unsigned load path and allows the signed one. So this indicator is satisfied both before and after the transition, and the mode it certifies is the one that permits the transition.",
+        "kexecLoadDisabled": "/proc/sys/kernel/kexec_load_disabled is per-kernel-instance state. It is one-way within an instance — once 1 it cannot return to 0 — but a kernel entered by transition is a new instance that starts at the default 0, and the same privileged actor that performed the transition can then write 1. Reading 1 therefore proves only that replacement is disabled now, in this instance; it carries no information about whether a transition already occurred. Nothing in the clause establishes when the value became 1.",
+        "kexecLoaded": "/proc/sys/kernel/kexec_loaded reports whether an image is currently staged. It reads 0 both on a machine that never staged one and on a machine that staged one and has already jumped to it, because the staged image is consumed by the jump. It cannot distinguish the two.",
+        "bootCurrentNow": "BootCurrent is firmware state established at boot and exposed as an EFI variable. A kernel transition performed by the running OS does not alter it. So comparing the run-time read to trustedHandoff.bootCurrent compares a value to itself across exactly the event it is meant to detect, and holds unchanged."
+      },
+      "failureScenario": "An in-scope machine boots kernel K under Secure Boot; PCR 0,1,2,4,7 and the TCG log record the firmware boot-manager handoff to K exactly as the ceremony requires, and lockdown comes up in integrity mode. The privileged OS-time actor the contract already models — excludesSyntheticExtend exists to defeat that same actor — uses the signature-verified replacement path permitted in integrity mode to enter a different but validly signed kernel M, for example an older build carrying a known local-privilege-escalation defect. No PCR is reset and nothing is extended, and the TCG log remains readable from the firmware-provided table. In M the actor writes 1 to kexec_load_disabled. The qualification run then executes the whole ceremony and every check passes: the log replays to the same PCR values, the fresh quote verifies under the AK with the composite matching, callingFromBootOption sits at pcr4SequenceIndex minus 1 with no intervening PCR-4 application, filePathList from the authenticated Boot#### VariableData is unchanged, kernelEvent.digestSha256 equals the recomputed peCoffImageDigest of K's package member, and runtimeContinuity reads lockdown [integrity], kexec_load_disabled 1, kexec_loaded 0, and BootCurrent equal to the measured value. The profile qualifies with subject kind running-kernel-package naming K's package while M executes.",
+      "secondFacetIndicatorInversion": "The indicator set also inverts the security ordering it is meant to enforce. A kernel built without kernel-replacement support at all — the strongest configuration for this purpose — exposes neither /proc/sys/kernel/kexec_load_disabled nor /proc/sys/kernel/kexec_loaded. Under this clause that machine refuses twice over: kexecLoadDisabled says '0 or absent refuses', and kexecLoaded's escape, 'Absent file is success only when kexecLoadDisabled is 1', cannot apply because kexecLoadDisabled is itself absent. Meanwhile a kernel that retains full replacement capability passes as soon as a runtime toggle is written. The clause thus refuses the configuration that structurally cannot transition and admits the one that can, which is independent evidence that the indicators were chosen for availability rather than for what they prove.",
+      "severityRationale": "This is not fail-closed. As at v28, the outcome is a positive, verifiable attestation naming a kernel that need not be the one running, and it is rated the way that class has been rated in every prior round on this row. It is a distinct finding from CLAUDE-V28-B1 — that one was that no interval constraint existed; this one is that the constraint now present does not constrain the interval.",
+      "requiredRepair": "Both routes I named at v28 remain open and either closes this. (1) Choose a since-boot invariant rather than present-state indicators: require a fact that a transition necessarily breaks and that the verifier can compare against something established at the measured boot — a per-boot kernel instance identifier compared against a value bound into the attested run, or an equivalent that changes across any kernel entry. Also invert the kexec test so that absence of the replacement capability satisfies it and presence of a merely-toggled capability does not. (2) Narrow the claim to what is proven: redefine subjectByScheme.package-db.kind from running-kernel-package to the kernel image the firmware boot manager launched for this boot, state in inScopeBootConfigs and unavailableRefuses that the bind does not cover post-boot kernel replacement, and record that limitation where NT-TCB-1 and g22.testMatrix can see it. Under route (2) runtimeContinuity may be kept as hardening, described as such rather than as an interval proof. Everything else in the ceremony — eventPreimage, preKernelEventUnion, trustedHandoff, the composite quote, the AK Name join, nonceBind, archiveSnapshot — should be kept verbatim."
+    }
+  ],
+
+  "shouldFix": [],
+
+  "advisories": [],
+
+  "repairsVerified": [
+    {
+      "finding": "PTCB-V28-B1 — the quote authenticates PCR digest sequences, not the event-log metadata used to prove the handoff",
+      "result": "REPAIRED, and this is the strongest work in the generation. eventPreimage now states the governing rule outright: 'No event metadata is a security fact until its type-specific preimage SHA-256 equals event.digests[TPM_ALG_SHA256] ... preimage verification is required before reading eventType semantics, action text, variable contents, or FilePathList.' Per-type preimages are correct and specific — UCS-2-LE action string for EV_EFI_ACTION, UEFI_VARIABLE_DATA as UnicodeName || VariableData for the EFI-variable types, PE/COFF Authenticode image digest for the application and driver types, and per-TCG-PFP preimages for the firmware-blob, POST-code, CRTM, IPL, non-host and separator types. The specific defect Codex named is closed in its own words: 'eventData.DevicePath is NOT part of that preimage and MUST NOT be used as a security fact.' Critically, the handoff was re-grounded rather than merely annotated — trustedHandoff.filePathList now comes from the authenticated Boot#### VariableData, 'a security fact because it is inside the measured UEFI_VARIABLE_DATA preimage. It is not taken from UEFI_IMAGE_LOAD_EVENT.DevicePath', bootCurrent likewise comes from the authenticated EV_EFI_VARIABLE_BOOT VariableData, and kernelEvent no longer carries a devicePath field at all. I checked specifically for the contradiction that would arise if DevicePath were declared a non-fact while still being required to equal something; it is not."
+    },
+    {
+      "finding": "PTCB-V28-B2 — preKernelReferences bound no event digest to its signed identity and did not close the classification",
+      "result": "REPAIRED. preKernelEventUnion is closed with explicit codeBearing and configBearing lists covering the firmware, driver, application, IPL, non-host, CRTM, variable, action, handoff-table and tag types, and 'Every PCR-0/1/2/4 event with globalLogIndex < kernelEvent.globalLogIndex MUST have eventType in codeBearing or configBearing ... Unclassified refuses', reinforced by eventPreimage.unknownTypeRefuses and 'Two validators MUST NOT disagree about classification.' The tagged join Codex demanded is present: recomputedDigest MUST equal eventPreimage(event), and then equal the correct field of the four-field signedEntry per identityEvidence tag — identityEvidence.digest for DIGEST-BOUND, authenticityCore.payload.digest or the PE/COFF image digest for PLATFORM-ATTESTED — with 'Pairing an event digest with an unrelated allowlisted entry refuses.'"
+    },
+    {
+      "finding": "PTCB-V28-S1 — the sealed-memfd procedure could not produce the required O_RDONLY descriptor",
+      "result": "REPAIRED exactly as specified. After F_ADD_SEALS the procedure now opens /proc/self/fd/<snapFd> with O_RDONLY|O_CLOEXEC as roFd, verifies {dev,ino,size} equality against snapFd, verifies F_GET_SEALS equals the four seals, verifies the digest of pread(roFd) against the copied bytes, closes both sourceFd and the O_RDWR snapFd, and confines every later stage to roFd. The lifetime rule is stated, and notThis explains the reasoning correctly: 'Seals, not access mode, freeze bytes; the O_RDONLY reopen is required so later stages do not retain a writable-mode fd.'"
+    },
+    {
+      "finding": "PTCB-V28-S2 — incompatible global and PCR-4-filtered adjacency rules",
+      "result": "REPAIRED. kernelEvent carries both globalLogIndex and a separate pcr4SequenceIndex. Adjacency is now expressed only in PCR-4 sequence — callingFromBootOption.pcr4SequenceIndex is 'kernelEvent.pcr4SequenceIndex minus 1. Any other PCR-4 distance refuses' — while the global index carries only 'strictly less than kernelEvent.globalLogIndex'. noInterveningPcr4Application is likewise expressed in PCR-4 sequence order. The v28 global-minus-one requirement is gone, so intervening non-PCR-4 events no longer contradict the invariant."
+    },
+    {
+      "finding": "CLAUDE-V28-B1 (mine) — unconstrained interval between boot-time proof and run-time claim",
+      "result": "ADDRESSED BY ADDING A CONSTRAINT THAT DOES NOT CONSTRAIN — see CLAUDE-V29-B1. The contract chose route (1) and added runtimeContinuity as a retained, fail-closed clause with refusesBootConfigs and whatThisDoesNotDo updated to match. The subject kind remains 'exactly running-kernel-package', so route (2) was not taken and the claim is unchanged."
+    }
+  ],
+
+  "measurements": [
+    {
+      "id": "M-1",
+      "check": "Start and end custody, strict parsing",
+      "result": "PASS. Subject 8ad68c0a... over 191852 bytes at 0444, unmoved start and end. Predecessor v28 and both frozen v28 verdicts reproduce at 0444. HEAD steady at 93ceaa6."
+    },
+    {
+      "id": "M-2",
+      "check": "Pin-chain reproduction and predecessor-review replacement",
+      "result": "PASS. All 39 path-bearing pins reproduce, zero failures. The claude2v28 pin records REJECT with blockers [CLAUDE-V28-B1] and empty shouldFix and advisories, exactly as I filed it. The codexv28 pin records its two blockers and two SHOULD-FIX and matches the frozen file. No predecessor review was replaced."
+    },
+    {
+      "id": "M-3",
+      "check": "Closed v28-to-v29 change roster",
+      "result": "PASS. Recursive diff found 56 changed paths and ZERO off-roster. reviewGuidance grew 140 to 147 as a pure prefix-preserving append. honestyRepairsFromV28 carries 5 entries covering both Codex blockers, both Codex SHOULD-FIX, and my blocker."
+    },
+    {
+      "id": "M-4",
+      "check": "Live register row, remeasurement, and D-002 scope",
+      "result": "PASS. Sole DR-126 row at file 08 line 308 with rowVerbatim byte-identical. reMeasurementAtV29 reproduces the live COORD, file 08 and file 04 pins at measuredAtHead 93ceaa6a. platforms.slice1 still carries linux/x86_64 and linux/arm64; no Linux deferral is minted."
+    },
+    {
+      "id": "M-5",
+      "check": "Authority refusals",
+      "result": "PASS. status CANDIDATE-NOT-APPLIED, binds NOTHING, sealRecommendation DO-NOT-SEAL. All 24 D-096 occurrences are refusals. DRTM is not added as an or-choice; it remains in notThisProfile and refusesBootConfigs states 'DRTM is not this profile.'"
+    },
+    {
+      "id": "M-6",
+      "check": "Event metadata authentication and classification closure",
+      "result": "PASS. Type-specific preimages defined for every union member, DevicePath demoted and the handoff re-grounded on authenticated VariableData, closed union with deterministic refusal of unclassified events, tagged digest-to-signedEntry equality."
+    },
+    {
+      "id": "M-7",
+      "check": "Post-boot interval closure",
+      "result": "FAIL — basis of CLAUDE-V29-B1. Zero occurrences of boot_id, /proc/version or since boot; the four runtimeContinuity indicators are all present-state and all satisfiable after a transition."
+    }
+  ],
+
+  "attacksRun": [
+    {
+      "attack": "Event metadata treated as a security fact without preimage verification (Codex B1, re-run independently)",
+      "result": "FAILED TO LAND. The rule is stated globally, per-type preimages are correct, and the handoff no longer depends on DevicePath at all."
+    },
+    {
+      "attack": "An unclassified pre-kernel event, or a digest paired with an unrelated allowlist entry (Codex B2, re-run)",
+      "result": "FAILED TO LAND. Closed union with deterministic refusal, plus a tagged equality to the correct signedEntry field per identityEvidence tag."
+    },
+    {
+      "attack": "A sealed snapshot whose named operations cannot produce the required descriptor (Codex S1, re-run)",
+      "result": "FAILED TO LAND. Explicit /proc/self/fd reopen with seal, identity and digest verification, both writable descriptors closed."
+    },
+    {
+      "attack": "Adjacency invariants that contradict each other between selection, retention and replay (Codex S2, re-run)",
+      "result": "FAILED TO LAND. Separate indices, one adjacency invariant expressed only in PCR-4 sequence."
+    },
+    {
+      "attack": "A DevicePath demotion that leaves a dangling equality requirement elsewhere (my own additional attack)",
+      "result": "FAILED TO LAND. kernelEvent no longer carries devicePath and filePathList is sourced from authenticated VariableData, so no clause requires equality against a value the contract calls a non-fact."
+    },
+    {
+      "attack": "An interval constraint whose indicators are satisfiable after the transition they are meant to exclude (my own additional attack, and the primary attack of this round)",
+      "result": "LANDS. Filed as CLAUDE-V29-B1, with per-indicator analysis and a second facet showing the indicator set refuses the configuration that structurally cannot transition."
+    },
+    {
+      "attack": "Silent v28-to-v29 path outside basedOn.method / honestyRepairsFromV28",
+      "result": "FAILED TO LAND. 56 changed paths, 0 off-roster."
+    },
+    {
+      "attack": "DRTM introduced as an or-choice, a Linux deferral, or a D-096 (A) grant minted under cover of the new clause",
+      "result": "FAILED TO LAND. DRTM excluded in two places, Linux stays in platforms.slice1, all 24 D-096 mentions are refusals."
+    },
+    {
+      "attack": "Silent predecessor-review replacement or softened pinning of my own prior blocker",
+      "result": "FAILED TO LAND. All 39 pins reproduce and my v28 verdict is pinned accurately."
+    },
+    {
+      "attack": "Register-row misquotation or wrong-file-08 substitution",
+      "result": "FAILED TO LAND. Sole DR-126 row at line 308, rowVerbatim byte-identical, source pinned to the v2 register."
+    }
+  ],
+
+  "whatThisVerdictDoesNotDo": [
+    "Does not mark DR-126 SATISFIED — the row stays OPEN.",
+    "Does not mint or imply a D-096 (A) grant.",
+    "Does not remove or defer Linux from D-002 slice 1, and does not propose that as the repair.",
+    "Does not propose DRTM, TXT, SKINIT or IMA as an or-choice; neither repair route I name requires adding one.",
+    "Does not record, apply, or seal the subject; this is a review verdict on a candidate that binds NOTHING.",
+    "Does not edit the subject, any frozen v12-v28 verdict, file 08, or COORDINATOR-DECISIONS.md; nothing was committed.",
+    "Does not authorize docs/v2/implementation/.",
+    "Does not reopen CLAUDE-V28-B1, CLAUDE-V27-S1 or CLAUDE-V26-B1 as such; CLAUDE-V29-B1 is a finding about the sufficiency of the new clause, not about its absence.",
+    "Does not object to eventPreimage, preKernelEventUnion, trustedHandoff, the composite quote, the AK Name join, nonceBind or archiveSnapshot; those should be kept verbatim."
+  ],
+
+  "independence": {
+    "authoredAnyContractVersion": false,
+    "otherCurrentV29ReviewerRead": false,
+    "otherReviewerNote": "The Codex v29 reviewer file was not opened; its existence was noted by directory listing only.",
+    "frozenPredecessorReviewsRead": "Both frozen v28 verdicts were read, as the dispatch pins them as predecessor inputs. The frozen Claude v28 verdict is my own from the prior round."
+  },
+
+  "limitsOfThisReview": "I reviewed the five claimed repairs, the new event-preimage and continuity surfaces, the closed change roster, the pin chain, the live register/COORD/file-04 carries and the authority refusals. Paths outside this round's roster were checked only for unchangedness. CLAUDE-V29-B1 rests on the documented semantics of the interfaces the clause itself names — that lockdown integrity mode permits the signature-verified replacement path, that the replacement-disabled toggle is per-kernel-instance and defaults off in a newly entered kernel, that the loaded-image indicator is cleared by the jump, and that BootCurrent is firmware boot state unaffected by an OS-initiated transition — not on execution against a live machine. The repair I specify does not require conceding any of those points, since narrowing the declared subject resolves the overclaim regardless.",
+
+  "summary": "REJECT at 1 blocker and 0 SHOULD-FIX. Custody is clean: subject unmoved at 8ad68c0a... and 0444 at both ends, HEAD steady, 39/39 chain pins reproduce, both frozen v28 verdicts reproduce with no replacement, 56 changed paths with zero off-roster, reviewGuidance a pure append, Linux still in D-002 slice 1, and all 24 D-096 mentions refusals. All four Codex findings are repaired, and the event-metadata work is the best in the sequence: no event metadata is a security fact until its type-specific preimage hashes to the logged digest, per-type preimages are correct for actions, EFI variables, images, drivers and firmware blobs, DevicePath is demoted by name, and — the part that matters — the handoff was re-grounded rather than annotated, with filePathList and BootCurrent now taken from authenticated UEFI_VARIABLE_DATA and kernelEvent no longer carrying a devicePath at all. The pre-kernel classification is a closed union with deterministic refusal and a tagged digest-to-signedEntry equality; the sealed snapshot gains the /proc/self/fd O_RDONLY reopen with seal and digest verification; and the adjacency contradiction is resolved by splitting globalLogIndex from pcr4SequenceIndex. What remains is my finding from last round, in a new form. runtimeContinuity was added to constrain the interval, but its four facts are all present-state. Lockdown integrity is re-established in any Secure Boot kernel and is the very mode that permits the signature-verified replacement path; kexec_load_disabled is per-instance, defaults off in a newly entered kernel, and can then be set by the same actor who performed the transition; kexec_loaded reads 0 both when nothing was ever staged and when a staged image has already been jumped to; and BootCurrent is firmware state that the transition does not touch, so comparing it to the measured value compares it to itself across the event it is meant to detect. A privileged actor — the same one excludesSyntheticExtend was written to defeat — can therefore transition to a different validly signed kernel and still pass every check, yielding a positive attestation naming the boot kernel while another runs. The indicator set also inverts the ordering it enforces: a kernel built without replacement support exposes neither sysctl and is refused twice, while a fully replacement-capable kernel passes on a toggle. Either a genuine since-boot invariant or the subject-narrowing route from my v28 verdict closes it; everything else should be kept verbatim."
+}

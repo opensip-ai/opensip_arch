@@ -1,0 +1,168 @@
+{
+  "artifact": "distribution-core-inventory-contract.v3.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "reviewer": "Codex",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "subject": "docs/coop/artifacts/distribution-core-inventory-contract.v3.json",
+  "subjectSha256Expected": "35a81f9bae4e0c5a75a1efec0de5130b628cd87fd0bbe3b1c8c2eedc2f971a1c",
+  "subjectSha256AtStart": "35a81f9bae4e0c5a75a1efec0de5130b628cd87fd0bbe3b1c8c2eedc2f971a1c",
+  "subjectSha256AtEnd": "35a81f9bae4e0c5a75a1efec0de5130b628cd87fd0bbe3b1c8c2eedc2f971a1c",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "prompt": "docs/coop/artifacts/distribution-core-inventory-contract.v3.review-prompt.md",
+  "promptSha256": "8d2c7f63d709490068dc2b2da06ebf9d61e5dc94f0c5e2dfe940d797896a12a9",
+  "predecessor": {
+    "path": "docs/coop/artifacts/distribution-core-inventory-contract.v2.json",
+    "expectedSha256": "59dd0987bab9dbe38d04cd7ca3dd24bdb8ec36dfc2a4e082aff05f48f55068bc",
+    "observedSha256": "59dd0987bab9dbe38d04cd7ca3dd24bdb8ec36dfc2a4e082aff05f48f55068bc"
+  },
+  "priorCodexReview": {
+    "path": "docs/coop/artifacts/distribution-core-inventory-contract.v2.review-independent.codex.json",
+    "expectedSha256": "0b54d0dc464ec81aab6c77d6266a85c897166c341594febc8fb7fff70b29f0a7",
+    "observedSha256": "0b54d0dc464ec81aab6c77d6266a85c897166c341594febc8fb7fff70b29f0a7"
+  },
+  "independence": {
+    "didNotAuthorV1V2OrV3": true,
+    "frozenClaudeV2ReviewRead": false,
+    "otherCurrentV3ReviewerRead": false
+  },
+  "verdict": "REJECT",
+  "blockers": [],
+  "shouldFix": [
+    {
+      "id": "DCIC-V3-S1",
+      "title": "The duplicate-digest alias exception introduces an undefined second edge relation.",
+      "evidence": [
+        "inventorySchema.dependencyGraph calls the inventory a directed requires-graph, and graphRules.edgeRelation defines only consumer-to-dependency 'requires' edges, their direction, and cycle refusal.",
+        "graphRules.nodeIdentity nevertheless allows duplicate sha256 values at different paths when the second is an 'explicit alias edge', then states that this artifact does not mint that edge. No field defines alias-edge direction, endpoints, whether the second path remains a node, or how alias edges affect roots, cycle detection, layers, and closure traversal.",
+        "Because node identity is already {path, sha256}, equal bytes at distinct paths are distinct identities; the unexplained exception also fails to distinguish a true path alias from two independent files with identical content."
+      ],
+      "impact": "A populated successor can either reject a repeated digest, admit it by labeling an undefined alias edge, or count its second path differently in roots and closure. Those outcomes all fit parts of the text, so edge direction and graph membership remain non-deterministic despite the claimed repair.",
+      "requiredRepair": "Either remove the exception and make duplicate-sha256-under-different-path an unconditional failure, or define a closed alias relation: direction, endpoint/node representation, eligibility, layer assignment, root/cycle/closure treatment, and the distinction between a filesystem alias and independent equal-content files. If aliases are future work, reserve them to a named owner and make them unavailable to successors under this version."
+    }
+  ],
+  "advisories": [],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening custody",
+      "result": "PASS",
+      "evidence": "Python hashlib over Path.read_bytes() measured the subject at 35a81f9bae4e0c5a75a1efec0de5130b628cd87fd0bbe3b1c8c2eedc2f971a1c; size 21369 bytes; mode 0444."
+    },
+    {
+      "id": "M-02",
+      "check": "Prompt, predecessor, and prior Codex-review custody",
+      "result": "PASS",
+      "evidence": "Prompt measured 8d2c7f63d709490068dc2b2da06ebf9d61e5dc94f0c5e2dfe940d797896a12a9; predecessor v2 measured 59dd0987bab9dbe38d04cd7ca3dd24bdb8ec36dfc2a4e082aff05f48f55068bc; frozen Codex v2 REJECT measured 0b54d0dc464ec81aab6c77d6266a85c897166c341594febc8fb7fff70b29f0a7."
+    },
+    {
+      "id": "M-03",
+      "check": "Strict JSON and live source pins",
+      "result": "PASS",
+      "evidence": "The subject, predecessor, and gate-harness input parse with duplicate-key rejection. At review opening, live file 02, file 08, COORD, and gate-harness-naming.v3 hashes matched the subject's recorded 1811c682..., 1cdcf9d4..., b9819d6e..., and b5236612... digests."
+    },
+    {
+      "id": "M-04",
+      "check": "Verbatim source custody",
+      "result": "PASS",
+      "evidence": "coreTextCarriedVerbatim equals all 30 live file-02 lines 7-36. The subject's DR-101 row equals the unique live row at file-08 line 283 byte-for-byte."
+    },
+    {
+      "id": "M-05",
+      "check": "Closed v2-to-v3 succession path",
+      "result": "PASS",
+      "evidence": "A recursive semantic diff found 18 changed leaves. Every change is succession metadata or falls under the closed roster's inventorySchema.graphRules, inventorySchema.dependencyGraph, or review-guidance paths; no unrostered semantic change was found."
+    },
+    {
+      "id": "M-06",
+      "check": "Direct shared-executable repair",
+      "result": "PASS-NARROWLY",
+      "evidence": "For the named distribution-core plus semantic-host case, graphRules now requires one file node, exactly {L-DIST,L-HOST}, forbids duplicate nodes and one-sided assignment, defines non-empty layer sets, names consumer-to-dependency requires direction, rejects cycles, and supplies a structural root rule."
+    },
+    {
+      "id": "M-07",
+      "check": "Closed graph-relation vocabulary",
+      "result": "FAIL",
+      "evidence": "edgeRelation defines only directed 'requires', while nodeIdentity conditionally admits an 'alias edge' that the artifact says it does not mint. No alias-edge schema, direction, or effect on roots/cycles/closure appears anywhere in the subject."
+    },
+    {
+      "id": "M-08",
+      "check": "Concurrent authority movement",
+      "result": "PASS-NO-SCOPE-EFFECT",
+      "evidence": "During review, HEAD advanced from 36949e33e3f72f51c654805b903a487b30fd6660 to 8fdd59c4d3ac1d23272fddfd741f3beca56cedd1 and COORD advanced to 39f372e1e1031a67de132b311b463e18e0deca9224afdb085754e30c4540aac0 solely by appended D-106 fixture-corpus recording. The diff changes none of D-002/D-006/D-056/D-089/D-102 or DR-101; file 08 and the subject remained unchanged. This reviewer made none of those authority changes."
+    },
+    {
+      "id": "M-09",
+      "check": "Closing subject custody",
+      "result": "PASS",
+      "evidence": "Immediately before completion, Python hashlib over Path.read_bytes() remeasured the subject at 35a81f9bae4e0c5a75a1efec0de5130b628cd87fd0bbe3b1c8c2eedc2f971a1c with mode 0444."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "The shared executable remains assignable L-DIST-only, L-HOST-only, duplicated, or exclusively assigned.",
+      "result": "REFUTED",
+      "evidence": "sharedExecutableRepresentation mandates exactly one node with the set {L-DIST,L-HOST}, expressly rejects two nodes and either one-sided assignment, and preserves the semantic-host non-migration boundary."
+    },
+    {
+      "id": "A-02",
+      "attack": "Node granularity, roots, edge direction, or layer-set cardinality remains missing.",
+      "result": "PARTLY-REFUTED-DEFECT-SUSTAINED",
+      "evidence": "File-node granularity, structural requires-roots, consumer-to-dependency direction, cycles, non-empty sets, exclusivity, and the lawful D/H overlap are stated. However nodeIdentity opens an alias-edge exception outside the only defined requires relation, with no direction or graph semantics; see DCIC-V3-S1."
+    },
+    {
+      "id": "A-03",
+      "attack": "The three cores collapse or graph layering moves semantic authority/effects.",
+      "result": "REFUTED",
+      "evidence": "The semantic terms remain distinct; D/H file co-location is represented as overlap rather than authority transfer; L-EVAL is exclusive and remains effect-free; L-COMP cannot overlap another layer."
+    },
+    {
+      "id": "A-04",
+      "attack": "The successor chooses a core language or notarization/signing ceremony.",
+      "result": "REFUTED",
+      "evidence": "OD-101-1 and OD-101-2 remain RESERVED with later DR-101 ownership. The graph changes choose neither Rust nor another language and add no ceremony, thresholds, or notarization mechanics."
+    },
+    {
+      "id": "A-05",
+      "attack": "DR-106/DR-109 storage is moved into the default install.",
+      "result": "REFUTED",
+      "evidence": "The default remains a proposed management/recovery selection excluding evidence databases and storage backends; authoritative offline storage remains a different selection owned by DR-106/DR-109."
+    },
+    {
+      "id": "A-06",
+      "attack": "v3 contains a silent semantic change outside the closed successor roster.",
+      "result": "REFUTED",
+      "evidence": "All 18 recursive v2-to-v3 changed leaves fall under named succession metadata, graphRules/dependencyGraph, or reviewGuidance roster entries."
+    },
+    {
+      "id": "A-07",
+      "attack": "The artifact claims SATISFIED, QUALIFIED, application, sealing, or implementation authority.",
+      "result": "REFUTED",
+      "evidence": "Status remains CANDIDATE-NOT-APPLIED, binds NOTHING, and recommends DO-NOT-SEAL. DR-101 stays OPEN; qualification, G01-G05 execution, and docs/v2/implementation/ authorization are expressly denied. This review grants no application authority."
+    },
+    {
+      "id": "A-08",
+      "attack": "The quoted DR-101 row differs from live file 08.",
+      "result": "REFUTED",
+      "evidence": "The subject row is byte-for-byte equal to the unique live '| DR-101 |' row at line 283 under the matching recorded file hash."
+    }
+  ],
+  "findingCounts": {
+    "blockers": 0,
+    "shouldFix": 1,
+    "advisories": 0
+  },
+  "conclusion": "REJECT under the prompt's zero-SHOULD-FIX rule. The direct shared-executable layer assignment and the other carried repairs withstand attack, but DCIC-V3-S1 leaves an undefined alias-edge exception outside the closed directed requires relation. This review does not apply the candidate, change DR-101, claim QUALIFIED, or authorize implementation.",
+  "constraints": {
+    "dr101DispositionChanged": false,
+    "implementationAuthorized": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "committed": false
+  }
+}

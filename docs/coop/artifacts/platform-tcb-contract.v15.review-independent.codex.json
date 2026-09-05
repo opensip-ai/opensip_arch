@@ -1,0 +1,278 @@
+{
+  "artifact": "platform-tcb-contract.v15.review-independent.codex",
+  "artifactType": "INDEPENDENT-REVIEW",
+  "date": "2026-08-15",
+  "reviewMode": "INDEPENDENT-REFUTE-NOT-CONFIRM",
+  "reviewStatus": "COMPLETE",
+  "reviewer": "Codex",
+  "subject": "docs/coop/artifacts/platform-tcb-contract.v15.json",
+  "subjectSha256Expected": "ca7804beda8eae95084a4f92b4196ed44599c66f73730f9dfa6e8f1ca0535641",
+  "subjectSha256AtStart": "ca7804beda8eae95084a4f92b4196ed44599c66f73730f9dfa6e8f1ca0535641",
+  "subjectSha256AtEnd": "ca7804beda8eae95084a4f92b4196ed44599c66f73730f9dfa6e8f1ca0535641",
+  "subjectModeAtStart": "0444",
+  "subjectModeAtEnd": "0444",
+  "subjectMovedDuringReview": false,
+  "prompt": "docs/coop/artifacts/platform-tcb-contract.v15.review-prompt.md",
+  "promptSha256AtStart": "98d47cc12381d8e5c78f6d45036155bd0256cc06141a8113005225a69b781954",
+  "promptSha256AtEnd": "98d47cc12381d8e5c78f6d45036155bd0256cc06141a8113005225a69b781954",
+  "promptMovedDuringReview": false,
+  "headExpected": "498cd8dddb7de9cb2bd55e7aba54240a3b897e54",
+  "headAtStart": "498cd8dddb7de9cb2bd55e7aba54240a3b897e54",
+  "headAtEnd": "498cd8dddb7de9cb2bd55e7aba54240a3b897e54",
+  "headMovedDuringReview": false,
+  "headMovementDisposition": "PASS: HEAD remained at the dispatched D-118 commit; no append-only exception was needed.",
+  "coordinatorSha256AtStart": "b38bd9007da65f0d1f3bc3cb48b34cb7f757a811bd9a9c5159190c975b70f34f",
+  "coordinatorSha256AtEnd": "b38bd9007da65f0d1f3bc3cb48b34cb7f757a811bd9a9c5159190c975b70f34f",
+  "coordinatorMovedDuringReview": false,
+  "coordinatorMovementDisposition": "PASS: the v15 LIVE COORD pin reproduced exactly; PASS-NO-SCOPE-EFFECT was not needed.",
+  "predecessor": {
+    "path": "docs/coop/artifacts/platform-tcb-contract.v14.json",
+    "expectedSha256": "c90757221d4235d67e4758b197d90e29fa80c9c7d1ee4e3308528ed53f7f3b6a",
+    "observedSha256AtStart": "c90757221d4235d67e4758b197d90e29fa80c9c7d1ee4e3308528ed53f7f3b6a",
+    "observedSha256AtEnd": "c90757221d4235d67e4758b197d90e29fa80c9c7d1ee4e3308528ed53f7f3b6a",
+    "observedMode": "0444"
+  },
+  "priorReviews": {
+    "codexV14": {
+      "path": "docs/coop/artifacts/platform-tcb-contract.v14.review-independent.codex.json",
+      "expectedSha256": "37b37d26764b15ddc1ee4a7754a053a38885fd6abf5997a1603660516b84b000",
+      "observedSha256AtStart": "37b37d26764b15ddc1ee4a7754a053a38885fd6abf5997a1603660516b84b000",
+      "observedSha256AtEnd": "37b37d26764b15ddc1ee4a7754a053a38885fd6abf5997a1603660516b84b000",
+      "observedMode": "0444",
+      "verdict": "REJECT",
+      "rawRosterMatchesPin": true
+    }
+  },
+  "independence": {
+    "didNotAuthorSubjectOrPredecessors": true,
+    "otherCurrentV15ReviewerRead": false,
+    "claudeV14ReadOrRequired": false,
+    "readScopeLimitedToPromptPermittedFiles": true,
+    "stubWrittenBeforeCompleteVerdict": true
+  },
+  "verdict": "REJECT",
+  "blockers": [
+    {
+      "id": "PTCB-V15-B1",
+      "severity": "BLOCKER",
+      "title": "The Linux snapshot requires a mountinfo operation that its named interface cannot perform",
+      "location": "/platformProfile/filesystemMeasurementTarget/linux/{observerProcess,namespace,source}; /loaderTraces/{observerProcessIdentityShape,mountNamespaceIdentityShape}",
+      "evidence": [
+        "observerProcess, namespace, and both retained identity shapes require mountinfo to be read through the held /proc/<pid>/ns/mnt descriptor and expressly forbid a later pathname reopen that can retarget.",
+        "linux.source remains /proc/<verifierPid>/mountinfo, or /proc/self/mountinfo only when the observer is that process. Either source is a separate procfs file opened by pathname; it is not a byte stream reachable by reading or traversing the ns/mnt descriptor.",
+        "The artifact names no implementable bridge such as a dedicated helper entering the held namespace with setns and then reading its own mountinfo. Re-fstat of the same held ns descriptor only proves that the handle still denotes the same namespace object; it does not prove that a separately opened /proc/<pid>/mountinfo came from that namespace.",
+        "If an implementation follows the descriptor requirement literally, it has no defined mountinfo read and Linux preselection cannot complete. If it follows linux.source instead, a same-{pid,starttime} process can change namespaces between the ns/mnt and mountinfo opens, reproducing the cross-namespace composite that PTCB-V14-S3 required v15 to exclude."
+      ],
+      "impact": "Both mandatory Linux slice-1 profiles lack a conforming, reproducible filesystem preselection protocol. A verifier must either fail every Linux run or accept a mount-namespace inode and selected mount record that need not describe one namespace.",
+      "requiredRepair": "Specify one real Linux acquisition path and make linux.source agree with it. For example, use a dedicated helper that enters the held namespace via setns(nsfd, CLONE_NEWNS), reads /proc/self/mountinfo, retains the helper/task/namespace binding, and exits; or require a frozen target and a fully defined equivalent protocol. Define all failure handling and retain evidence that the mountinfo bytes came from the held namespace."
+    }
+  ],
+  "shouldFix": [
+    {
+      "id": "PTCB-V15-S1",
+      "severity": "SHOULD-FIX",
+      "title": "The run record's carrier and ordering joins do not exist in the later-event schema",
+      "location": "/loaderTraces/{retainedEventSchema,evidenceJoin/runBinding,runPreselectionRecord}",
+      "evidence": [
+        "runPreselectionRecord requires signedCarrierDigest, and evidenceJoin.runBinding says every later event binds signedCarrierDigest to it. retainedEventSchema instead has only allowlistOrCarrierDigest; signedCarrierDigest is not an admitted later-event field anywhere in the subject.",
+        "No conditional alias says when allowlistOrCarrierDigest is the carrier digest, how its bytes equal signedCarrierDigest, or where an allowlist digest is retained when the carrier branch is chosen. evidenceJoin also sets extrasRejected, so silently adding the differently named field is not a conforming repair.",
+        "The new record requires observedAt, but observedAt has no type, clock or sequence domain, and no rule compares it with later eventTime or sequenceAndClosure. The retained record therefore still does not prove that preselection preceded profile selection, despite the operational BEFORE assertion."
+      ],
+      "impact": "The baseline-to-event carrier equality and security-critical ordering cannot be replayed from the declared closed records. Producers can choose incompatible digest interpretations or attach a baseline retrospectively while satisfying the listed field names.",
+      "requiredRepair": "Give later events an exact signedCarrierDigest field, or define an exhaustive tagged digest object that distinguishes carrier and allowlist digests and states the equality path. Define observedAt as a retained monotonic sequence value and require it to precede the first post-selection event under sequenceAndClosure."
+    },
+    {
+      "id": "PTCB-V15-S2",
+      "severity": "SHOULD-FIX",
+      "title": "identitySerializations is closed as an object map but not as a byte encoding",
+      "location": "/loaderTraces/identitySerializations/{macosVolumeIdentity,linuxVolumeIdentity,linuxSelectedMountRecordIdentity,observedAttestation}",
+      "evidence": [
+        "macosVolumeIdentity says two native integers are serialized decimal and joined by a colon, but does not fix array order, width, signedness, or the canonical decimal grammar, including leading zeros and negative values.",
+        "linuxVolumeIdentity compares decodedMountPoint bytes but gives no retained transport encoding for arbitrary non-UTF-8 pathname bytes. Its device field is retained 'as published' rather than as a closed parsed major/minor form, and linuxSelectedMountRecordIdentity inherits those open representations.",
+        "observedAttestation admits 'codesign|package-db|equivalent named scheme', so its scheme set is open. Its payload is called observed bytes and then subjected to NFC and UTF-8 without a byte-to-Unicode decoding rule or any per-scheme canonical payload grammar."
+      ],
+      "impact": "Two producers can emit unequal retained bytes for the same OS identity or accept different attestation schemes and payloads while both claim the new closed serialization. Cross-run and independent-review equality is not deterministic.",
+      "requiredRepair": "Define exact tagged runtime objects and canonical scalar encodings: fixed f_fsid component order and signed widths with one decimal grammar; an explicit byte encoding or invalid-UTF-8 refusal for Linux paths; parsed canonical major/minor integers; and a closed attestation-scheme enum with a canonical payload schema for each admitted scheme."
+    },
+    {
+      "id": "PTCB-V15-S3",
+      "severity": "SHOULD-FIX",
+      "title": "Observed origin and attestation values are not bound to the actual retained event",
+      "location": "/loaderTraces/{retainedEventSchema,evidenceJoin,identitySerializations/{observedOrigin,observedAttestation}}; /signedEntry/originSearchPolicy/volumeConstraint/tags/{EXTERNAL-ORIGIN,PATHLESS-PLATFORM-ATTESTED}",
+      "evidence": [
+        "observedOrigin.canonicalOrigin is defined as byte-identical to the signed expected canonicalOrigin, not as a value derived from the actual resolved object's path or the capture sensor. lookupStepIndex is only a non-negative index; no exact rule binds it to retainedEventSchema.route or binds canonicalOrigin to resolvedObjectIdentity.",
+        "The EXTERNAL join says observedOrigin names a lawful allowedLoaderOrSearchOrder step, but does not define the field-level comparison that proves the actual route used that step. A producer can copy the signed origin and a valid list index beside an unrelated observed route.",
+        "For PATHLESS, observedAttestation.equality names scheme and payload equality without naming the signed identityEvidence value they must equal or the platform-verification result they derive from. evidenceJoin requires the fields' presence but supplies no exact authenticity join."
+      ],
+      "impact": "The new variants can carry the expected signed labels without proving that the external object or pathless OS-ABI evidence was actually observed through that origin or attestation. The declared-versus-ambient and authenticity decisions remain partly self-asserted rather than independently checkable.",
+      "requiredRepair": "Define observedOrigin as the canonicalized actual origin emitted by the trusted resolver sensor, bind lookupStepIndex exactly to event.route and the signed list element, and bind that origin to resolvedObjectIdentity. Define observedAttestation as the captured platform-verification result and compare its exact scheme/payload to the signed identityEvidence branch."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "PTCB-V15-A1",
+      "severity": "ADVISORY",
+      "title": "The run record says it supersedes an alias that v15 still retains",
+      "location": "/loaderTraces/{runPreselectionRecord/supersedes,preselectionRecord}",
+      "evidence": "runPreselectionRecord.supersedes includes the v14 alias preselectionRecord, while v15 still carries preselectionRecord as aliasOf runPreselectionRecord. The alias standing also clearly says producers emit only runPreselectionRecord.",
+      "whyOnlyAdvisory": "The retained alias is explicitly non-emitting and points to the sole record, so it does not create a second wire form; only the historical wording is inconsistent.",
+      "suggestedRepair": "Remove the alias, or change supersedes to say that v15 supersedes the v14 alias contents while retaining this non-emitting reference alias."
+    }
+  ],
+  "measurements": [
+    {
+      "id": "M-01",
+      "check": "Opening prompt, subject, mode, parse, and HEAD custody",
+      "result": "PASS",
+      "evidence": "Python hashlib measured the prompt at 98d47cc12381d8e5c78f6d45036155bd0256cc06141a8113005225a69b781954 and the subject at ca7804beda8eae95084a4f92b4196ed44599c66f73730f9dfa6e8f1ca0535641; subject mode was 0444; duplicate-key-rejecting JSON parsing passed; opening HEAD was 498cd8dddb7de9cb2bd55e7aba54240a3b897e54."
+    },
+    {
+      "id": "M-02",
+      "check": "Incremental write",
+      "result": "PASS",
+      "evidence": "The Codex v15 verdict path did not exist at dispatch. A valid IN_PROGRESS JSON stub was written first and reproduced at SHA-256 cb69b946686de23513133ddc299a90ff28e4e00c01100ce61bd31bf8795b2d6e before this complete verdict replaced it."
+    },
+    {
+      "id": "M-03",
+      "check": "Predecessor and frozen-review custody",
+      "result": "PASS",
+      "evidence": "The v14 subject reproduced at c90757221d4235d67e4758b197d90e29fa80c9c7d1ee4e3308528ed53f7f3b6a. Frozen Codex v14 reproduced its prompt/subject pin at 37b37d26764b15ddc1ee4a7754a053a38885fd6abf5997a1603660516b84b000, was mode 0444, and its REJECT verdict and complete finding roster matched the pin. No predecessor-review replacement occurred."
+    },
+    {
+      "id": "M-04",
+      "check": "Carried source, register row, COORD, and D-118 custody",
+      "result": "PASS",
+      "evidence": "File 04 reproduced at a74b451169382e1c8f855afb8f4eda2511fb74ec7ffa81c4e42d7b8118119e06 and lines 161-166 equal tcbTextCarriedVerbatim. File 08 reproduced at 1cdcf9d4071a6c5eaa7cd7d28fac288eaced796c9ee906b6f1db0f7a4b1f95b3 and DR-126 remains OPEN. COORD reproduced at b38bd9007da65f0d1f3bc3cb48b34cb7f757a811bd9a9c5159190c975b70f34f; D-118 binds a different candidate, mints no D-096 (A), SATISFIES no row, and authorizes no implementation."
+    },
+    {
+      "id": "M-05",
+      "check": "Closed v14-to-v15 succession path",
+      "result": "PASS",
+      "evidence": "A recursive semantic diff found 60 changed leaves, all under the basedOn.method closed roster. reviewGuidance is an exact append from 58 to 63 entries, and the rostered date is unchanged."
+    },
+    {
+      "id": "M-06",
+      "check": "External-origin event-schema repair",
+      "result": "PASS",
+      "evidence": "laterEventVolumeFields is explicitly RETIRED, the EXTERNAL-ORIGIN later variant contains observedOrigin only and forbids volume fields, volumeEquality delegates by tag, and evidenceJoin enumerates INSTALL, PATHLESS, and EXTERNAL. PTCB-V14-B1's contradictory volume requirement is repaired."
+    },
+    {
+      "id": "M-07",
+      "check": "Run-level preselection record",
+      "result": "PASS-WITH-SHOULD-FIX",
+      "evidence": "The record now carries runIdentity, subjectDigest, signedCarrierDigest, observedAt, OS evidence, and extrasRejected, and preselection is not an eventKind. Later-event carrier field naming and retained ordering remain incomplete under PTCB-V15-S1."
+    },
+    {
+      "id": "M-08",
+      "check": "Signed-field location and identity serialization",
+      "result": "FAIL-SHOULD-FIX",
+      "evidence": "canonicalOrigin and pathlessObservation now name one signed tag-object location, but the OS/attestation byte forms and their actual-event joins are not closed. See PTCB-V15-S2 and PTCB-V15-S3."
+    },
+    {
+      "id": "M-09",
+      "check": "Linux process and namespace snapshot",
+      "result": "FAIL-BLOCKER",
+      "evidence": "The desired held-namespace semantics are stated, but the subject requires an unavailable descriptor read while retaining a conflicting pathname source. See PTCB-V15-B1."
+    },
+    {
+      "id": "M-10",
+      "check": "verifiedInstallRoot equality domains",
+      "result": "PASS",
+      "evidence": "signedBinding.serialization.equality is now an explicit two-comparison object for signedTokenBytes and hostLocalCanonicalPath. The v14 stale single-domain sentence is gone, repairing PTCB-V14-A1."
+    },
+    {
+      "id": "M-11",
+      "check": "Platform selector, identity, signed-entry, trace-closure, and authority discipline",
+      "result": "PASS-WITH-FINDINGS",
+      "evidence": "Four selector members, closed Linux userspace identity, per-OS filesystem sources, the four-field signed entry, companion-only sonameAbi, declared-versus-ambient refusal, and independent lifecycle capture remain. The subject binds NOTHING, stays CANDIDATE-NOT-APPLIED and DO-NOT-SEAL, leaves DR-126 OPEN, populates no per-OS tables, creates no D-096 (A) grant, does not QUALIFY G22, and authorizes no implementation. The retained-evidence defects are separately recorded above."
+    },
+    {
+      "id": "M-12",
+      "check": "Closing custody",
+      "result": "PASS",
+      "evidence": "Python hashlib remeasured the prompt, subject, predecessor, frozen Codex v14 review, file 04, file 08, and COORD at their opening hashes; the subject remained strict JSON at mode 0444 and HEAD remained 498cd8dddb7de9cb2bd55e7aba54240a3b897e54."
+    }
+  ],
+  "attacks": [
+    {
+      "id": "A-01",
+      "attack": "The frozen Codex v14 review fails its v15 pin or changed during review",
+      "result": "REFUTED",
+      "evidence": "The exact file reproduced 37b37d26764b15ddc1ee4a7754a053a38885fd6abf5997a1603660516b84b000 at mode 0444 and its raw roster matches the v15 pin."
+    },
+    {
+      "id": "A-02",
+      "attack": "The v14-to-v15 path hides an unrostered semantic change",
+      "result": "REFUTED",
+      "evidence": "All 60 changed leaves are rostered and reviewGuidance is an exact append."
+    },
+    {
+      "id": "A-03",
+      "attack": "laterEventVolumeFields still requires volume fields on EXTERNAL-ORIGIN",
+      "result": "REFUTED",
+      "evidence": "The schema is RETIRED and all active external clauses are origin-only."
+    },
+    {
+      "id": "A-04",
+      "attack": "The run record and later events have one exact carrier and chronology join",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "The later schema lacks the named signedCarrierDigest and observedAt has no ordering semantics. See PTCB-V15-S1."
+    },
+    {
+      "id": "A-05",
+      "attack": "Every new identitySerializations object has a canonical closed byte form",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "Native integer formatting, arbitrary Linux path bytes, and the open attestation scheme/payload remain under-specified. See PTCB-V15-S2."
+    },
+    {
+      "id": "A-06",
+      "attack": "Observed origin and attestation fields prove the actual event's origin and authenticity",
+      "result": "DEFECT-SUSTAINED-AS-SHOULD-FIX",
+      "evidence": "The fields carry expected values without an exact join to route, resolvedObjectIdentity, or signed identityEvidence. See PTCB-V15-S3."
+    },
+    {
+      "id": "A-07",
+      "attack": "The held namespace descriptor yields mountinfo through the named Linux source",
+      "result": "DEFECT-SUSTAINED-AS-BLOCKER",
+      "evidence": "An ns/mnt handle is not the separately named mountinfo stream, and the subject defines no bridge between them. See PTCB-V15-B1."
+    },
+    {
+      "id": "A-08",
+      "attack": "signedBinding.serialization.equality remains a single conflated comparison",
+      "result": "REFUTED",
+      "evidence": "It now separately defines signedTokenBytes and hostLocalCanonicalPath and states they are not one comparison."
+    },
+    {
+      "id": "A-09",
+      "attack": "The candidate satisfies DR-126, qualifies G22, mints D-096 (A), applies itself, or authorizes implementation",
+      "result": "REFUTED",
+      "evidence": "Every such action is absent or expressly denied; file 08 retains DR-126 OPEN."
+    },
+    {
+      "id": "A-10",
+      "attack": "A later append-only COORD movement creates a false custody blocker",
+      "result": "REFUTED",
+      "evidence": "HEAD and COORD remained at the dispatched v15 pins; the allowed PASS-NO-SCOPE-EFFECT exception was recognized but not needed."
+    }
+  ],
+  "constraints": {
+    "dr126MarkedSatisfied": false,
+    "anyDrMarkedSatisfied": false,
+    "d096AGrantMinted": false,
+    "perOsTablesPopulated": false,
+    "implementationAuthorized": false,
+    "promptEdited": false,
+    "file08Edited": false,
+    "coordinatorDecisionsEdited": false,
+    "subjectEdited": false,
+    "frozenV12ThroughV14VerdictEdited": false,
+    "committed": false
+  },
+  "findingCounts": {
+    "blockers": 1,
+    "shouldFix": 3,
+    "advisories": 1
+  },
+  "verdictBasis": "REJECT: 1 blocker and 3 SHOULD-FIX. ACCEPT requires 0 blockers and 0 SHOULD-FIX.",
+  "conclusion": "REJECT. Linux mountinfo acquisition is not implementable through the named descriptor/source pair, and the run binding, canonical byte encodings, and actual-event origin/attestation joins remain incomplete. DR-126 remains OPEN; no DR is marked SATISFIED, and no D-096 (A) grant, G22 qualification, sealing, application, or implementation authority is created."
+}
