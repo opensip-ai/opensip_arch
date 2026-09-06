@@ -1,3 +1,7 @@
+# OpenSIP design and architecture
+
+Start with [docs/README.md](docs/README.md) for the curated documentation map. The architecture record preserves original custody paths so frozen references and digests remain valid.
+
 # opensip
 
 Greenfield next-generation OpenSIP CLI. The preview architecture is complete under D-369; implementation authorization and release qualification remain separate.

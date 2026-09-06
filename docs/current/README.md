@@ -1,5 +1,3 @@
-# OpenSIP current documentation
+# Current architecture navigation
 
-This directory is the navigation layer for the adopted architecture. Frozen contracts, checkers, fixtures, reports, and review receipts remain at their custody paths until a reviewed migration updates every path and digest reference.
-
-Use the inventory at [`docs/operations/document-inventory.v1.json`](../operations/document-inventory.v1.json) before moving or deleting anything. The architecture completion record and coordinator decisions remain authoritative.
+The adopted architecture is preserved at its original custody paths. Use the [documentation catalog](../catalog/README.md) for topic navigation and the [current architecture set](../v2/architecture/README.md) for the normative design pages.

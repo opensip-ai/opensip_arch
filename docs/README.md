@@ -1,18 +1,5 @@
-# docs
+# OpenSIP documentation
 
-| Path | Purpose |
-|------|---------|
-| [`coop/`](coop/) | V1 architecture and evidence corpus: binding contracts, checkers, reviews, adjudication, and the path to implementation freeze. **Start here for V1 authority and history.** |
-| [`v2/architecture/`](v2/architecture/) | Draft human-first OpenSIP V2 architecture. Non-binding; preserves V1 semantics while presenting the proposed distribution/component transition for review. |
+Start with the [current design map](catalog/current-design.md). Topic catalogs cover [security](catalog/security.md), [protocol and SDK](catalog/protocol.md), [qualification](catalog/qualification.md), [reviews and freezes](catalog/reviews-and-freezes.md), and [historical material](catalog/historical-material.md).
 
-Primary entry points inside `coop/`:
-
-- `ARCHITECTURE-TO-IMPLEMENTATION-PLAN.md` — plan to finish architecture and start building
-- `architecture/` — narrative design documents
-- `artifacts/` — binding JSON contracts + retained checkers
-- `artifacts/claim-register.v1.json` — claim status authority
-
-Proposed transitions:
-
-- [`OPENSIP-DISTRIBUTION-AND-COMPONENT-TRANSITION-BRIEF.md`](OPENSIP-DISTRIBUTION-AND-COMPONENT-TRANSITION-BRIEF.md) — non-binding proposal to preserve the current semantic architecture while moving to a small native core and optional independently released components
-- [`v2/architecture/README.md`](v2/architecture/README.md) — V2 architecture front door, exact V1 claim mapping, and the single decision/readiness register covering blockers, decisions, reviews, and release gates
+The architecture record retains its original custody paths under `docs/v2/architecture`, `docs/coop`, `DECISION-PACKETS`, and `tools`. Do not move or delete a file named by a frozen path or digest without a reviewed successor migration. See [operations](operations/README.md) and the [full inventory](operations/document-inventory.v1.json).
