@@ -1,6 +1,6 @@
 # OpenSIP design and architecture
 
-Start with [docs/README.md](docs/README.md) for the curated documentation map. The architecture record preserves original custody paths so frozen references and digests remain valid.
+Start with [docs/START-HERE.md](docs/START-HERE.md) for the curated documentation map. The architecture record preserves original custody paths so frozen references and digests remain valid.
 
 # opensip
 
