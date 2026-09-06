@@ -1,7 +1,8 @@
 #!/bin/zsh
 # Record D-294 after dual CONSENT at turn $1: append entry, freeze reviews, commit, push. Usage: record-D294.sh <turn>
 set -e
-cd /Users/sb/code/opensip-ai/opensip
+REPO="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$REPO"
 S=/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad
 T=${1:?turn}
 A=docs/coop/artifacts

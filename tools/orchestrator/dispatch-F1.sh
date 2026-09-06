@@ -1,7 +1,8 @@
 #!/bin/zsh
 # Dispatch the F1 recommendation review to Codex. Usage: dispatch-F1.sh <pane> [round]
 set -e
-cd /Users/sb/code/opensip-ai/opensip
+REPO="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$REPO"
 PANE=${1:?pane}; R=${2:-1}
 PK=DECISION-PACKETS/F-docs-rewrite.md
 if [ "$R" = 1 ]; then CL=DECISION-PACKETS/F-docs-rewrite.claude-recommendation.md; OUT=DECISION-PACKETS/F-docs-rewrite.codex-recommendation.json

@@ -1,8 +1,9 @@
+from pathlib import Path
 import os
 #!/usr/bin/env python3
 """Compile DECISIONS-RECOMMENDED.md from the packets and the Claude/Codex round files. Each item: final verdict (AGREED / SPLIT / PENDING), the agreed recommendation text (latest Claude round that Codex accepted, or both positions), evidence pointers, next step if the owner accepts."""
 import json,os,re,glob,datetime
-REPO='/Users/sb/code/opensip-ai/opensip'; D=REPO+'/DECISION-PACKETS'
+REPO=str(Path(__file__).resolve().parents[2]); D=REPO+'/DECISION-PACKETS'
 ITEMS=[('A1/A2','A-process-rulings','Process rulings: D-272 (A1) and the nine superseded CONTESTED entries (A2)'),
        ('A3','A3-identity-namespace','identity-namespace leftover-join.v6 (DR-104): remasure or leave'),
        ('A4','A4-citation-convention','Cross-lineage citation convention (precedent vs content-based)'),

@@ -1,7 +1,8 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """g19-leftover-join.v5 (G19 GATE join) from frozen leftover-join.v4: refresh the DR-124 ROW citation from state-class leftover-join.v3 (D-183) to state-class leftover-join.v4 (D-284); occupancy v2 (D-222) unchanged; re-pin live inputs."""
 import json, collections, hashlib, subprocess, re, sys, os, datetime
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); O=collections.OrderedDict
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); O=collections.OrderedDict
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],text=True).strip()
 HEAD=git('rev-parse','HEAD'); COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'

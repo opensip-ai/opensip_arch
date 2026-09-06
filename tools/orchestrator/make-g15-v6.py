@@ -1,9 +1,10 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """g15-leftover-join.v6 (G15 GATE join) from frozen leftover-join.v5: citation refresh of the DR-103 ROW leftover-join
 (component-manifest leftover-join.v6, D-174 -> component-manifest leftover-join.v9, D-282). Occupancy v9 (D-214) unchanged.
 packaging leftover-join.v4 (D-266) stays current DR-120 ROW leftover-join. leftoverDesign unchanged. Re-pin live inputs."""
 import json, collections, hashlib, subprocess, re, sys, os, datetime
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); O=collections.OrderedDict
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); O=collections.OrderedDict
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],text=True).strip()
 HEAD=git('rev-parse','HEAD'); COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'

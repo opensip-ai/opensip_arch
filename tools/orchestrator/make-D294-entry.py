@@ -1,8 +1,9 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """Build (and with --apply append) the ADOPTED COORD entry for the D-294 convention act from the CONSENT-turn draft.
 Usage: TURN=<n> python3 make-D294-entry.py [--apply]"""
 import json, re, os, sys, hashlib, subprocess, datetime, textwrap
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
 COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'
 SCR='/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad/'
 NEW='D-294'; TURN=int(os.environ.get('TURN','1')); TS='' if TURN==1 else f'.turn{TURN}'

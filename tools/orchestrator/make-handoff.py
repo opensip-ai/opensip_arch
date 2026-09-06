@@ -1,7 +1,8 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """Write HANDOFF.D-000-orchestrator-live.txt from live bytes (Claude → Grok handoff, 2026-08-28)."""
 import os, re, json, hashlib, subprocess, datetime
-os.chdir('/Users/sb/code/opensip-ai/opensip'); A='docs/coop/artifacts/'
+os.chdir(str(Path(__file__).resolve().parents[2])); A='docs/coop/artifacts/'
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest() if os.path.exists(p) else 'ABSENT'
 def git(*a): return subprocess.check_output(['git',*a],text=True).strip()
 COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'

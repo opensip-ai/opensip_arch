@@ -1,7 +1,8 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """Correct the D-285 COORD entry's Date/ADOPTED to its actual append date (2026-08-27); nothing else."""
 import re,subprocess,hashlib,sys,os
-os.chdir('/Users/sb/code/opensip-ai/opensip'); COORD='docs/coop/COORDINATOR-DECISIONS.md'
+os.chdir(str(Path(__file__).resolve().parents[2])); COORD='docs/coop/COORDINATOR-DECISIONS.md'
 s=open(COORD).read(); i=s.rfind('\n## D-285 '); assert i>0 and '\n## D-286' not in s
 head,entry=s[:i],s[i:]
 assert entry.count('- **Date:** 2026-08-26')==1 and entry.count('**ADOPTED 2026-08-26.**')==1, 'unexpected entry shape'

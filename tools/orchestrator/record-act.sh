@@ -2,7 +2,8 @@
 # Record an act after dual CONSENT: freeze reviews, append entry via its builder, commit (listed files only), push.
 # Usage: record-act.sh <D-NNN> <turn> <entry-builder.py> <commit-subject> [<commit-body-file>]
 set -e
-cd /Users/sb/code/opensip-ai/opensip
+REPO="$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)"
+cd "$REPO"
 S=/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad
 NEW=${1:?D-NNN}; T=${2:?turn}; BUILDER=${3:?builder}; SUBJECT=${4:?commit subject}; BODY=${5:-}
 A=docs/coop/artifacts

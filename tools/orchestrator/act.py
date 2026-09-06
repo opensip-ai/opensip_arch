@@ -1,3 +1,4 @@
+from pathlib import Path
 import re
 #!/usr/bin/env python3
 """Generic COORD act tooling for leftover remasurements, driven by a JSON config.
@@ -13,7 +14,7 @@ Config keys: newD, lineage (e.g. 'permission'), lineageTitle ('permission leftov
 import datetime as _dt
 TODAY=_dt.date.today().isoformat()
 import json,hashlib,os,re,subprocess,sys,textwrap
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'; COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); A='docs/coop/artifacts/'; COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'
 SCR='/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad/'
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],text=True).strip()

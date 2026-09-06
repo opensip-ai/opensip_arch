@@ -1,7 +1,8 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """D-288 convention draft: cross-lineage leftover-join citations are custody at recording. Every measured row is computed from bytes."""
 import json,re,os,sys,hashlib,subprocess,datetime,collections
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n:A+n
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n:A+n
 COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'
 SCR='/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad/'
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest()

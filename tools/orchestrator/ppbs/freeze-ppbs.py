@@ -1,7 +1,8 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """Freeze preview-product-boundary-successor.v9 into docs/coop/artifacts (0444), write its Stage A review prompt (0444) and the dispatch text."""
 import os, sys, json, hashlib, subprocess, shutil, re
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
+REPO=str(Path(__file__).resolve().parents[3]); os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
 V=int(sys.argv[1]) if len(sys.argv)>1 else 9
 SRC=f'/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad/ppbs-v9/preview-product-boundary-successor.v{V}.json'
 COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'

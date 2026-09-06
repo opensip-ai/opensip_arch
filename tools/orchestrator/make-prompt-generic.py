@@ -1,10 +1,11 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """Generic Stage A review prompt + dispatch writer. Usage: make-prompt-generic.py CONFIG.json
 Config: subject (file), title ('doctor-actor leftover-join.v12'), speakerV ('v12'), frozen ([[label,file],...]), row ('DR-114'), rowKind ('ROW'|'GATE'), gate ('G12'),
   namingParent (str), predecessorV (11), predecessorRecording ('D-170'), predecessorVersionsNotCurrent (str), occupancyLines ([str]), crossLines ([str]), leftoverDesign ([...]),
   doNotSatisfy ([...]), doNotInvent (str), doNotSteal (str), doNotRecord ([str]), extraFacts ([str]), attacks ([str]), landsLine (str), tokenNote (str), lineagesLine (str), fileToken ('OPEN')"""
 import json,hashlib,os,re,subprocess,sys
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'
+REPO=str(Path(__file__).resolve().parents[2]); os.chdir(REPO); A='docs/coop/artifacts/'
 def sha(p): return hashlib.sha256(open(p,'rb').read()).hexdigest()
 def git(*a): return subprocess.check_output(['git',*a],text=True).strip()
 c=json.load(open(sys.argv[1]))

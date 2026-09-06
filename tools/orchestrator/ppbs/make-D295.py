@@ -1,9 +1,10 @@
+from pathlib import Path
 #!/usr/bin/env python3
 """D-295: record preview-product-boundary-successor.v{V} as DR-117 leftover remasurement.
 Modes: draft (write Stage B draft to scratchpad), stageb (freeze draft + prompt + dispatch into artifacts), entry [--apply] (build/append the ADOPTED entry after dual CONSENT).
 Env: TURN (default 1)."""
 import json, re, os, sys, hashlib, subprocess, datetime, textwrap
-REPO='/Users/sb/code/opensip-ai/opensip'; os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
+REPO=str(Path(__file__).resolve().parents[3]); os.chdir(REPO); A='docs/coop/artifacts/'; P=lambda n: A+n
 COORD='docs/coop/COORDINATOR-DECISIONS.md'; F08='docs/v2/architecture/08-decision-and-readiness-register.md'
 SCR='/private/tmp/claude-501/-Users-sb-code-opensip-ai-opensip/dcbad0ae-7fad-4c78-89e7-e93d989f5501/scratchpad/'
 NEW='D-295'; V=int(os.environ.get('PPBS_V','10')); SUBJ=f'preview-product-boundary-successor.v{V}.json'; PRED='preview-product-boundary-successor.v8.json'
