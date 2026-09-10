@@ -1,0 +1,1400 @@
+"""Bounded evaluator3 workflow schema + projection checks. Not full Run replay.
+
+Consumes admitted proof-shaped finding objects. Does not run native admission
+or evaluator_replay_model.v3.derive/replay.
+
+Run: /tmp/opensip-architecture-review-env/bin/python -I -B check-workflow-projection.v3.py
+     [--output PATH]
+
+Reports: stdout, or --output under grok-workflow-projection.v7/ only.
+Does not write historical v1–v6 receipts.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import hashlib
+import importlib.util
+import json
+import re
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / "foundation"))
+import canonical  # noqa: E402
+from jsonschema import Draft202012Validator, ValidationError  # noqa: E402
+from referencing import Registry, Resource  # noqa: E402
+from referencing.jsonschema import DRAFT202012  # noqa: E402
+
+spec = importlib.util.spec_from_file_location("proj", HERE / "workflow_projection_model.v3.py")
+P = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(P)
+
+E3 = HERE / "schemas" / "evaluator3"
+WF = HERE / "schemas"
+CHECKS = []
+
+
+def check(cid, ok, detail=""):
+    CHECKS.append({"id": cid, "ok": bool(ok), "detail": "" if ok else str(detail)[:240]})
+    return bool(ok)
+
+
+def token(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
+
+
+def hid(prefix: str, s: str) -> str:
+    return prefix + ":" + token(s)
+
+
+SCHEMAS = {}
+for p in sorted(E3.glob("*.schema.json")):
+    doc = canonical.parse(p.read_bytes())
+    Draft202012Validator.check_schema(doc)
+    SCHEMAS[doc["$id"]] = doc
+for name in (
+    "common.schema.json",
+    "imported-evidence.schema.json",
+    "policy-document.schema.json",
+    "policy-document.v2.schema.json",
+    "test-execution.schema.json",
+):
+    path = WF / name
+    if path.exists():
+        doc = canonical.parse(path.read_bytes())
+        Draft202012Validator.check_schema(doc)
+        SCHEMAS[doc["$id"]] = doc
+
+REG = Registry().with_resources(
+    [(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()]
+)
+U = "urn:opensip:product-v1:workflows:evaluator3:"
+
+
+def validator(ref: str):
+    return canonical.ExactValidator({"$ref": ref}, registry=REG)
+
+
+def valid(ref, value):
+    try:
+        canonical.typed(value)
+        validator(ref).validate(value)
+        return True, ""
+    except (ValidationError, canonical.AdmissionError, Exception) as exc:
+        return False, str(exc).splitlines()[0][:200]
+
+
+def must_valid(cid, ref, value):
+    ok, why = valid(ref, value)
+    return check(cid, ok, why)
+
+
+def must_invalid(cid, ref, value):
+    ok, _ = valid(ref, value)
+    return check(cid, not ok, "unexpectedly valid")
+
+
+def reject(cid, fn, error=None, detail=None):
+    try:
+        fn()
+    except P.Refusal as exc:
+        ok = True
+        if error is not None:
+            ok = ok and exc.error_code == error
+        if detail is not None:
+            ok = ok and exc.detail == detail
+        return check(cid, ok, f"{exc.error_code}/{exc.detail}")
+    except Exception as exc:
+        return check(cid, False, type(exc).__name__ + ": " + str(exc).splitlines()[0][:200])
+    return check(cid, False, "expected refusal")
+
+
+RUN = "run3:" + token("run")
+PLAN = "plan2:" + token("plan")
+SNAP = "snapshot2:" + token("snap")
+PRJ = "prj1-" + token("proj")
+DET = "closure2:" + token("detector")
+SCOPE = {"schemaFamily": "opensip.product.scope", "schemaMajor": 1, "include": ["**"], "exclude": []}
+WAIVERS = {"schemaFamily": "opensip.product.waivers", "schemaMajor": 1, "waivers": []}
+ATOM = {"op": "none", "relation": "file", "minResolution": "enumerated", "filters": []}
+RULE = {
+    "ruleId": "r",
+    "ruleProgramRef": {
+        "contributionId": "fixture",
+        "ruleStableId": "r",
+        "semanticsMajor": 2,
+        "programDigest": token("prog"),
+    },
+    "enabled": True,
+    "severity": "error",
+    "gate": True,
+    "subjectEnumeration": {"universe": "typescript", "subjectKind": "file"},
+    "emitWhen": ATOM,
+    "evidenceUse": [],
+}
+POLICY = {
+    "schemaFamily": "opensip.product.policy",
+    "schemaMajor": 2,
+    "gateSeverityAtLeast": "error",
+    "rules": [RULE],
+}
+POLICY_ADVISORY = {
+    "schemaFamily": "opensip.product.policy",
+    "schemaMajor": 2,
+    "gateSeverityAtLeast": "error",
+    "rules": [dict(RULE, gate=False)],
+}
+BINDING = {
+    "ruleId": "r",
+    "contributionId": "fixture",
+    "ruleStableId": "r",
+    "semanticsMajor": 2,
+    "detectorClosure": DET,
+    "stabilityClass": "path-stable",
+    "emissionProfile": "declarative-subject-v1",
+}
+CUSTODY = {"exportedAtUtc": "2026-09-08T00:00:00Z", "exportedByHostRelease": "1.0.0"}
+
+
+def fp_desc(path="src/a.ts", name="src/a.ts", kind="file", disc=None):
+    if disc is None:
+        disc = hashlib.sha256(canonical.canonical([])).hexdigest()
+    return {
+        "schemaVersion": 2,
+        "ruleStableId": "r",
+        "detectorSemanticsMajor": 2,
+        "subjectKey": {
+            "language": "typescript",
+            "kind": kind,
+            "logicalPath": path,
+            "qualifiedName": name,
+            "discriminator": disc,
+        },
+        "relatedSubjectKeys": [],
+    }
+
+
+def params(path="src/a.ts", name="src/a.ts", kind="file", facts=0, imports=0, language="typescript"):
+    return {
+        "schemaVersion": 2,
+        "messageCode": "r",
+        "parameters": {
+            "ruleId": "r",
+            "subjectPath": path,
+            "qualifiedName": name,
+            "subjectKind": kind,
+            "subjectLanguage": language,
+            "matchingFactCount": facts,
+            "matchingImportCount": imports,
+        },
+    }
+
+
+def occurrence(tag, *, unmatched=False, reason=None, universe="one", path="src/a.ts", facts=0, legacy=None, kind=None, name=None, subject_id=None):
+    if kind is None:
+        kind = "symbol" if unmatched and reason == "projection-unavailable" else "file"
+    if name is None:
+        name = "f" if kind == "symbol" else ("pkg" if kind == "package" else path)
+    desc = None if unmatched else fp_desc(path, name, kind)
+    fp = None if unmatched else P.fingerprint_id(desc)
+    par = params(path, name, kind, facts=facts)
+    if subject_id is None:
+        subject_id = hid("subject3", universe + "|" + path + "|" + kind + "|" + name)
+    finding = {
+        "schemaVersion": 3,
+        "fingerprint": fp,
+        "ruleClosure": DET,
+        "subjectId": subject_id,
+        "messageCode": "r",
+        "parameterDigest": P.sha(par),
+        "severity": "error",
+        "evidenceRefs": [],
+        "ruleId": "r",
+        "subject": {"language": "typescript", "kind": kind, "logicalPath": path, "qualifiedName": name},
+        "correspondence": {
+            "state": "unmatched" if unmatched else "matched",
+            "reason": reason if unmatched else None,
+        },
+    }
+    occ = {"findingId": hid("finding3", tag), "finding": finding, "parameterRecord": par}
+    if desc is not None:
+        occ["fingerprintDescriptor"] = desc
+    if legacy is not None:
+        occ["legacyFingerprint"] = legacy
+    return occ
+
+
+def empty_evidence():
+    return {"importKinds": [], "relations": [], "imports": []}
+
+
+def rule_cov(gating=True, required="satisfied", rule_id="r"):
+    return {
+        "ruleId": rule_id,
+        "requiredCoverage": required,
+        "enabled": True,
+        "gating": gating,
+        "evidenceUse": [],
+    }
+
+
+def ctx(policy=None):
+    pol = policy if policy is not None else POLICY
+    return {
+        "policyDigest": P.doc_digest(pol),
+        "scopeDigest": P.doc_digest(SCOPE),
+        "waiverSetDigest": P.doc_digest(WAIVERS),
+        "detectorClosureIds": [DET],
+        "evidenceAvailability": empty_evidence(),
+    }
+
+
+def host(**overrides):
+    h = {
+        "closures": {DET: {"bytes": "ok", "trust": "admitted", "protocolMajor": 1, "platform": "linux"}},
+        "protocolMajors": [1],
+        "platform": "linux",
+        "pivotRunId": RUN,
+        "recipeMajors": [2],
+    }
+    h.update(overrides)
+    return h
+
+
+def detectors():
+    return {"fixture": {"closureId": DET, "semanticsMajor": 2, "compatibleWith": []}}
+
+
+def complete_enum():
+    return {
+        "state": "complete",
+        "inventoryRefs": [],
+        "selectedSubjectIds": [],
+        "unresolvedSubjectIds": [],
+        "incompleteInventoryRefs": [],
+    }
+
+
+def incomplete_enum():
+    e = complete_enum()
+    e["state"] = "incomplete"
+    return e
+
+
+def rr(*, outcome, enum=None, findings=None, deficiencies=None, rule_id="r"):
+    return {
+        "ruleId": rule_id,
+        "enumeration": enum if enum is not None else complete_enum(),
+        "outcome": outcome,
+        "findingIds": findings or [],
+        "deficiencies": deficiencies or [],
+    }
+
+
+def detector_closure_entries():
+    return [
+        {
+            "detectorId": "fixture",
+            "closureId": DET,
+            "semanticsMajor": 2,
+            "semanticVersion": "1.0.0",
+            "contributionId": "fixture",
+            "manifestDigest": token("man"),
+        }
+    ]
+
+
+def pivot_entries():
+    return [
+        {
+            "closureId": DET,
+            "kind": "detector",
+            "manifestDigest": token("man"),
+            "protocolMajor": 1,
+            "platform": "linux",
+        }
+    ]
+
+
+def scope_spec():
+    digest = hashlib.sha256((WF / "policy-document.schema.json").read_bytes()).hexdigest()
+    return {"parameters": [{"schemaDigest": digest, "payloadDigest": P.doc_digest(SCOPE)}]}
+
+
+def adopt(projected, run_id=RUN, policy=None, coverage=None, custody=None, analysis_spec=None):
+    pol = policy if policy is not None else POLICY
+    run = {"authority": "authoritative", "availability": "retained", "runId": run_id, "snapshotId": SNAP}
+    return P.adopt_baseline_v3(
+        run,
+        PLAN,
+        PRJ,
+        pol,
+        SCOPE,
+        WAIVERS,
+        coverage if coverage is not None else [rule_cov(gating=P.rule_gates(pol, "r"))],
+        projected,
+        detector_closure_entries(),
+        pivot_entries(),
+        ctx(pol),
+        scope_spec() if analysis_spec is None else analysis_spec,
+        custody if custody is not None else CUSTODY,
+    )
+
+
+def pivot_true(fps):
+    return {fp: {"E0": False, "E1": True, "E2": True, "E3": True} for fp in fps}
+
+
+def make_current(
+    *,
+    occurrences,
+    rule_results,
+    policy=None,
+    waived=None,
+    required=None,
+    run_id=None,
+    snapshot=None,
+    project=None,
+    execution=None,
+    state="evaluated",
+    pivots=None,
+    bound=None,
+    bindings=None,
+):
+    pol = policy if policy is not None else POLICY
+    occs = occurrences
+    fps = [o["finding"]["fingerprint"] for o in occs if o["finding"]["fingerprint"]]
+    return {
+        "runId": run_id or hid("run3", "cur"),
+        "snapshotId": snapshot or hid("snapshot2", "cur"),
+        "projectId": project if project is not None else PRJ,
+        "policy": pol,
+        "occurrences": occs,
+        "ruleResults": rule_results,
+        "waivedFindingIds": [] if waived is None else waived,
+        "executionDeficiencies": [] if execution is None else execution,
+        "evaluationState": state,
+        "emissionBindings": bindings if bindings is not None else {"r": BINDING},
+        "context": ctx(pol),
+        "requiredCoverage": required if required is not None else {r["ruleId"]: "satisfied" for r in pol["rules"]},
+        "boundPivots": [] if bound is None else bound,
+        "pivotPresence": pivots if pivots is not None else pivot_true(fps),
+    }
+
+
+def verdict(**kwargs):
+    pv = kwargs.pop("proof_verdict", None)
+    cur = make_current(**kwargs)
+    return P.current_run_verdict(
+        policy=cur["policy"],
+        occurrences=cur["occurrences"],
+        waived_ids=cur["waivedFindingIds"],
+        rule_results=cur["ruleResults"],
+        execution_deficiencies=cur["executionDeficiencies"],
+        evaluation_state=cur["evaluationState"],
+        proof_verdict=pv,
+    )
+
+
+def cmp_obj(res):
+    return {"comparisonResultId": res["comparisonResultId"], "descriptor": res["descriptor"]}
+
+
+# ----------------------------------------------------------------------------- schema shape vs v1
+check("schema-count", len(list(E3.glob("*.schema.json"))) == 10)
+check("common-run3-not-mixed", SCHEMAS[U + "common:3"]["$defs"]["RunId"]["pattern"].startswith("^run3:"))
+check("common-no-run2-alternation", "run[23]" not in json.dumps(SCHEMAS[U + "common:3"]["$defs"]["RunId"]))
+check("fingerprint-retained-key2", SCHEMAS[U + "common:3"]["$defs"]["Fingerprint"]["pattern"].startswith("^finding-key2:"))
+v1_base = json.loads((WF / "baseline-artifact.schema.json").read_text())
+v1_cmp = json.loads((WF / "comparison-result.schema.json").read_text())
+v1_env = json.loads((WF / "command-envelope.schema.json").read_text())
+v1_inv = json.loads((WF / "invocation-record.schema.json").read_text())
+v1_q = json.loads((WF / "graph-query.schema.json").read_text())
+v1_rep = json.loads((WF / "repair.schema.json").read_text())
+v1_invt = json.loads((WF / "command-inventory.schema.json").read_text())
+check("v1-baseline-identity-major-was-1", v1_base["$defs"]["BaselineDescriptor"]["properties"]["schemaMajor"]["const"] == 1)
+check("v1-comparison-identity-major-was-1", v1_cmp["$defs"]["ComparisonDescriptor"]["properties"]["schemaMajor"]["const"] == 1)
+check("v1-envelope-major-was-2", v1_env["properties"]["schemaMajor"]["const"] == 2)
+check("v1-invocation-major-was-1", v1_inv["properties"]["schemaMajor"]["const"] == 1)
+check("v1-query-major-was-1", v1_q["$defs"]["GraphQueryRequestV1"]["properties"]["schemaMajor"]["const"] == 1)
+check("v1-repair-plan-major-was-1", v1_rep["$defs"]["RepairPlanDescriptor"]["properties"]["schemaMajor"]["const"] == 1)
+check("v1-inventory-major-was-1", v1_invt["properties"]["schemaMajor"]["const"] == 1)
+check("baseline-schema-major-2", SCHEMAS[U + "baseline:2"]["$defs"]["BaselineDescriptor"]["properties"]["schemaMajor"]["const"] == 2)
+check("baseline-requires-unmatched", "unmatchedOccurrences" in SCHEMAS[U + "baseline:2"]["$defs"]["BaselineDescriptor"]["required"])
+check("comparison-schema-major-2", SCHEMAS[U + "comparison:2"]["$defs"]["ComparisonDescriptor"]["properties"]["schemaMajor"]["const"] == 2)
+check(
+    "comparison-cause-correspondence",
+    "correspondence-incomplete" in SCHEMAS[U + "comparison:2"]["$defs"]["RuleDeficiency"]["properties"]["cause"]["enum"],
+)
+check("envelope-major-3", SCHEMAS[U + "command-envelope:3"]["properties"]["schemaMajor"]["const"] == 3)
+check("invocation-major-3", SCHEMAS[U + "invocation:3"]["properties"]["schemaMajor"]["const"] == 3)
+check("new-baseline-major-bumped-for-unmatched-preimage", SCHEMAS[U + "baseline:2"]["$defs"]["BaselineDescriptor"]["properties"]["schemaMajor"]["const"] != 1)
+check("new-comparison-major-bumped-for-unmatched-preimage", SCHEMAS[U + "comparison:2"]["$defs"]["ComparisonDescriptor"]["properties"]["schemaMajor"]["const"] != 1)
+check("new-repair-plan-major-bumped-for-run3", SCHEMAS[U + "repair:2"]["$defs"]["RepairPlanDescriptor"]["properties"]["schemaMajor"]["const"] == 2)
+check("new-query-major-bumped-for-findingId", SCHEMAS[U + "graph-query:2"]["$defs"]["GraphQueryRequestV1"]["properties"]["schemaMajor"]["const"] == 2)
+pins = SCHEMAS[U + "baseline:2"]["$defs"]["Custody"]["properties"]["retentionPins"]["items"]["pattern"]
+check("retention-pins-run3-not-mixed-regex", pins.startswith("^(run3|closure2):") and "run[23]" not in pins)
+check("unmatched-requires-side", "side" in SCHEMAS[U + "common:3"]["$defs"]["UnmatchedOccurrence"]["required"])
+check("finding-surface-is-not-sarif", "not a SARIF" in SCHEMAS[U + "common:3"]["$defs"]["FindingSurface"]["description"])
+check("sarif-adapter-major-2", SCHEMAS[U + "sarif-adapter:2"]["properties"]["version"]["const"] == "2.1.0")
+must_invalid("run2-prefix-refused", U + "common:3#/$defs/RunId", "run2:" + "a" * 64)
+must_valid("run3-prefix-admitted", U + "common:3#/$defs/RunId", "run3:" + "a" * 64)
+must_invalid("finding2-prefix-refused", U + "common:3#/$defs/FindingId", "finding2:" + "a" * 64)
+
+surf_matched = {
+    "findingId": hid("finding3", "s1"),
+    "ruleId": "r",
+    "subjectId": hid("subject3", "s1"),
+    "subjectPath": "src/a.ts",
+    "severity": "error",
+    "messageCode": "r",
+    "correspondence": {"state": "matched", "reason": None},
+    "fingerprint": "finding-key2:" + "a" * 64,
+    "waived": False,
+    "partialFingerprints": {"opensip/finding-key2": "finding-key2:" + "a" * 64},
+}
+must_valid("finding-surface-matched", U + "common:3#/$defs/FindingSurface", surf_matched)
+surf_unmatched = copy.deepcopy(surf_matched)
+surf_unmatched["correspondence"] = {"state": "unmatched", "reason": "signature-ambiguous"}
+surf_unmatched["fingerprint"] = None
+del surf_unmatched["partialFingerprints"]
+must_valid("finding-surface-unmatched-null-fp", U + "common:3#/$defs/FindingSurface", surf_unmatched)
+surf_bad = copy.deepcopy(surf_unmatched)
+surf_bad["partialFingerprints"] = {"opensip/finding-key2": "finding-key2:" + "a" * 64}
+must_invalid("unmatched-cannot-carry-partialFingerprints", U + "common:3#/$defs/FindingSurface", surf_bad)
+
+# ----------------------------------------------------------------------------- two-config / package / baseline
+a = occurrence("cfg-a", universe="one", facts=0)
+b = occurrence("cfg-b", universe="two", facts=3)
+check("two-config-same-logical-fingerprint", a["finding"]["fingerprint"] == b["finding"]["fingerprint"])
+check("two-config-different-params", a["finding"]["parameterDigest"] != b["finding"]["parameterDigest"])
+proj = P.project_baseline_entries([a, b], {"r": BINDING}, [])
+check("two-config-one-baseline-entry", len(proj["entries"]) == 1 and len(proj["unmatchedOccurrences"]) == 0)
+check("two-config-params-not-collapsed", len({a["finding"]["parameterDigest"], b["finding"]["parameterDigest"]}) == 2)
+check("subjectId-opaque-not-three-coords", a["finding"]["subjectId"].startswith("subject3:") and "universe" not in a["finding"]["subjectId"])
+pkg_a = occurrence("pkg-a", kind="package", name="dup", path="crates/a/Cargo.toml", universe="u", subject_id=hid("subject3", "pkg-a-opaque"))
+pkg_b = occurrence("pkg-b", kind="package", name="dup", path="crates/b/Cargo.toml", universe="u", subject_id=hid("subject3", "pkg-b-opaque"))
+check("package-same-name-different-manifest-paths", pkg_a["finding"]["subject"]["qualifiedName"] == "dup" and pkg_b["finding"]["subject"]["qualifiedName"] == "dup")
+check("package-manifest-path-owns-fingerprint", pkg_a["finding"]["fingerprint"] != pkg_b["finding"]["fingerprint"])
+proj_pkg = P.project_baseline_entries([pkg_a, pkg_b], {"r": BINDING}, [])
+check("package-two-baseline-entries-by-path", len(proj_pkg["entries"]) == 2)
+art = adopt(proj)
+check("adopt-schema-major-2", art["descriptor"]["schemaMajor"] == 2)
+check("adopt-run3", art["descriptor"]["runId"].startswith("run3:"))
+check("adopt-uses-trusted-custody-timestamp", art["custody"]["exportedAtUtc"] == CUSTODY["exportedAtUtc"])
+must_valid("baseline-artifact-schema", U + "baseline:2", art)
+P.verify_baseline_artifact_v3(art)
+
+c = occurrence("leg-a", universe="one")
+d = occurrence("leg-b", universe="two", legacy="old-key")
+reject("legacy-optional-presence-conflict", lambda: P.project_baseline_entries([c, d], {"r": BINDING}, []), "CONFIG.INVALID", "BASELINE.ENTRY_PROJECTION_CONFLICT")
+lv1 = occurrence("lv1", universe="one", legacy="x")
+lv2 = occurrence("lv2", universe="two", legacy="y")
+reject("legacy-value-conflict", lambda: P.project_baseline_entries([lv1, lv2], {"r": BINDING}, []), "CONFIG.INVALID", "BASELINE.ENTRY_PROJECTION_CONFLICT")
+lg1 = occurrence("lg1", universe="one", legacy="same")
+lg2 = occurrence("lg2", universe="two", legacy="same")
+proj_lg = P.project_baseline_entries([lg1, lg2], {"r": BINDING}, [])
+check("legacy-agree-groups", len(proj_lg["entries"]) == 1 and proj_lg["entries"][0]["legacyFingerprint"] == "same")
+pre = copy.deepcopy(a)
+pre["findingId"] = hid("finding3", "pre")
+pre["fingerprintDescriptor"] = fp_desc("src/other.ts", "src/other.ts", "file")
+reject("preimage-conflict-input-refusal", lambda: P.project_baseline_entries([a, pre], {"r": BINDING}, []), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
+reject(
+    "adopt-requires-scope-parameter",
+    lambda: P.adopt_baseline_v3(
+        {"authority": "authoritative", "availability": "retained", "runId": RUN, "snapshotId": SNAP},
+        PLAN, PRJ, POLICY, SCOPE, WAIVERS, [rule_cov()], proj,
+        detector_closure_entries(), pivot_entries(), ctx(), None, CUSTODY,
+    ),
+    "REQUEST.PRECONDITION_FAILED",
+    "BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER",
+)
+reject(
+    "adopt-requires-trusted-custody",
+    lambda: P.adopt_baseline_v3(
+        {"authority": "authoritative", "availability": "retained", "runId": RUN, "snapshotId": SNAP},
+        PLAN, PRJ, POLICY, SCOPE, WAIVERS, [rule_cov()], proj,
+        detector_closure_entries(), pivot_entries(), ctx(), scope_spec(), {},
+    ),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+
+# ----------------------------------------------------------------------------- gating from policy, not ruleResults
+u = occurrence("un-1", unmatched=True, reason="signature-ambiguous")
+proj_u = P.project_baseline_entries([u], {"r": BINDING}, [])
+check("unmatched-not-in-entries", proj_u["entries"] == [] and len(proj_u["unmatchedOccurrences"]) == 1)
+check("unmatched-fingerprint-is-null", u["finding"]["fingerprint"] is None)
+check(
+    "nongating-live-finding-does-not-fail",
+    verdict(occurrences=[u], rule_results=[rr(outcome="pass")], policy=POLICY_ADVISORY) == "pass",
+)
+check(
+    "advisory-outcome-fail-does-not-gate",
+    verdict(occurrences=[u], rule_results=[rr(outcome="fail", findings=[u["findingId"]])], policy=POLICY_ADVISORY) == "pass",
+)
+check(
+    "gating-live-unmatched-fails",
+    verdict(occurrences=[u], rule_results=[rr(outcome="fail", findings=[u["findingId"]])], policy=POLICY) == "fail",
+)
+check(
+    "gating-live-ignores-outcome-pass",
+    verdict(occurrences=[u], rule_results=[rr(outcome="pass", findings=[u["findingId"]])], policy=POLICY) == "fail",
+)
+check("unmatched-current-fail", verdict(occurrences=[u], rule_results=[rr(outcome="fail", findings=[u["findingId"]])]) == "fail")
+check(
+    "path-waiver-current-pass",
+    verdict(occurrences=[u], rule_results=[rr(outcome="pass", findings=[u["findingId"]])], waived=[u["findingId"]], policy=POLICY) == "pass",
+)
+check(
+    "execution-deficiency-independent-indeterminate",
+    verdict(
+        occurrences=[],
+        rule_results=[rr(outcome="disabled", enum={"state": "disabled", "inventoryRefs": [], "selectedSubjectIds": [], "unresolvedSubjectIds": [], "incompleteInventoryRefs": []})],
+        execution=[{"source": "execution", "cause": "required-cell-unsatisfied", "subjectId": None, "predicateId": None, "inputRefs": [], "evidenceKind": None, "nativeCause": None, "universe": None}],
+        policy={"schemaFamily": "opensip.product.policy", "schemaMajor": 2, "gateSeverityAtLeast": "error", "rules": [dict(RULE, enabled=False)]},
+    )
+    == "indeterminate",
+)
+check(
+    "budget-exhausted-independent",
+    verdict(occurrences=[], rule_results=[rr(outcome="indeterminate", enum=incomplete_enum())], state="budget-exhausted") == "indeterminate",
+)
+reject(
+    "proof-verdict-inconsistent",
+    lambda: P.current_run_verdict(
+        policy=POLICY,
+        occurrences=[u],
+        waived_ids=[],
+        rule_results=[rr(outcome="pass", findings=[u["findingId"]])],
+        execution_deficiencies=[],
+        evaluation_state="evaluated",
+        proof_verdict="pass",
+    ),
+    "CONFIG.INVALID",
+    "EVALUATION.PROOF_VERDICT_INCONSISTENT",
+)
+cov_adv = P.correspondence_coverage(POLICY_ADVISORY, [rr(outcome="fail", findings=[u["findingId"]])], [u])
+check("correspondence-gating-not-from-outcome", cov_adv[0]["gating"] is False and cov_adv[0]["unmatchedCount"] == 1)
+
+# ----------------------------------------------------------------------------- comparison: derive E4, baseline unmatched, profiles
+art_u = adopt(proj_u)
+current_u = make_current(occurrences=[u], rule_results=[rr(outcome="fail", findings=[u["findingId"]])])
+cmp_u = P.compare_v3(baseline_artifact=art_u, current=current_u, host=host(), profile_name="code-regression", current_detectors=detectors())
+check("unmatched-not-classified-as-net-new", all(e.get("classification") != "CODE-NET-NEW" for e in cmp_u["descriptor"]["entries"]))
+check(
+    "unmatched-audit-correspondence-incomplete",
+    cmp_u["descriptor"]["verdict"] == "indeterminate"
+    and any(d["cause"] == "correspondence-incomplete" for d in cmp_u["descriptor"]["ruleDeficiencies"]),
+)
+must_valid("comparison-artifact-schema", U + "comparison:2", cmp_obj(cmp_u))
+
+current_w = make_current(occurrences=[u], rule_results=[rr(outcome="pass", findings=[u["findingId"]])], waived=[u["findingId"]])
+cmp_w = P.compare_v3(baseline_artifact=art_u, current=current_w, host=host(), profile_name="code-regression", current_detectors=detectors())
+check("path-waiver-audit-still-unknown", cmp_w["descriptor"]["verdict"] == "indeterminate" and any(x["waived"] for x in cmp_w["descriptor"]["unmatchedOccurrences"] if x["side"] == "current"))
+
+bad_cur = dict(current_u)
+del bad_cur["occurrences"]
+reject(
+    "compare-requires-occurrences",
+    lambda: P.compare_v3(baseline_artifact=art_u, current=bad_cur, host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+bad_rr = dict(current_u)
+del bad_rr["ruleResults"]
+reject(
+    "compare-requires-ruleResults",
+    lambda: P.compare_v3(baseline_artifact=art_u, current=bad_rr, host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+heal = dict(current_u)
+heal["ruleResults"] = []
+reject(
+    "empty-ruleResults-does-not-heal",
+    lambda: P.compare_v3(baseline_artifact=art_u, current=heal, host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+reject(
+    "compare-rejects-supplied-presence",
+    lambda: P.compare_v3(baseline_artifact=art_u, current=dict(current_u, presence={}), host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+reject(
+    "compare-rejects-supplied-entryRules",
+    lambda: P.compare_v3(baseline_artifact=art_u, current=dict(current_u, entryRules={}), host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+
+empty_current = make_current(occurrences=[], rule_results=[rr(outcome="pass")], snapshot=SNAP)
+cmp_b = P.compare_v3(baseline_artifact=art_u, current=empty_current, host=host(), profile_name="code-regression", current_detectors=detectors())
+check(
+    "baseline-unmatched-survives-current-empty-baseline-or-current",
+    any(d["cause"] == "correspondence-incomplete" and d["gating"] for d in cmp_b["descriptor"]["ruleDeficiencies"])
+    and any(x["side"] == "baseline" for x in cmp_b["descriptor"]["unmatchedOccurrences"]),
+)
+
+POLICY_REMOVED = {"schemaFamily": "opensip.product.policy", "schemaMajor": 2, "gateSeverityAtLeast": "error", "rules": [dict(RULE, ruleId="other")]}
+empty_removed = make_current(
+    occurrences=[],
+    rule_results=[rr(outcome="pass", rule_id="other")],
+    policy=POLICY_REMOVED,
+    required={"other": "satisfied"},
+    snapshot=SNAP,
+    bindings={"other": dict(BINDING, ruleId="other")},
+    bound=["E1"],
+)
+cmp_co = P.compare_v3(baseline_artifact=art_u, current=empty_removed, host=host(), profile_name="full-current", current_detectors=detectors())
+check(
+    "current-only-removed-rule-does-not-inherit-baseline-unmatched-gate",
+    not any(d["cause"] == "correspondence-incomplete" and d["ruleId"] == "r" for d in cmp_co["descriptor"]["ruleDeficiencies"]),
+)
+
+art_adv = adopt(proj_u, policy=POLICY_ADVISORY, coverage=[rule_cov(gating=False)])
+empty_adv = make_current(occurrences=[], rule_results=[rr(outcome="pass")], policy=POLICY_ADVISORY, snapshot=SNAP)
+cmp_adv_b = P.compare_v3(baseline_artifact=art_adv, current=empty_adv, host=host(), profile_name="code-regression", current_detectors=detectors())
+check(
+    "nongating-baseline-unmatched-does-not-block",
+    not any(d["gating"] and d["cause"] == "correspondence-incomplete" for d in cmp_adv_b["descriptor"]["ruleDeficiencies"]),
+)
+
+m = occurrence("reg-new", universe="cur-only")
+proj_empty = P.project_baseline_entries([], {"r": BINDING}, [])
+art_empty = adopt(proj_empty)
+current_reg = make_current(
+    occurrences=[m, u],
+    rule_results=[rr(outcome="fail", findings=[m["findingId"], u["findingId"]])],
+)
+cmp_reg = P.compare_v3(baseline_artifact=art_empty, current=current_reg, host=host(), profile_name="code-regression", current_detectors=detectors())
+check(
+    "matched-regression-dominates-unknown",
+    cmp_reg["descriptor"]["verdict"] == "fail"
+    and any(e["classification"] == "CODE-NET-NEW" and e["gates"] for e in cmp_reg["descriptor"]["entries"]),
+)
+
+mw = occurrence("waiver-new", universe="cur-w")
+current_hidden = make_current(
+    occurrences=[mw],
+    rule_results=[rr(outcome="pass", findings=[mw["findingId"]])],
+    waived=[mw["findingId"]],
+)
+cmp_hide = P.compare_v3(baseline_artifact=art_empty, current=current_hidden, host=host(), profile_name="code-regression", current_detectors=detectors())
+check(
+    "code-regression-new-waiver-does-not-suppress",
+    any(e["classification"] == "CODE-NET-NEW" and e["gates"] for e in cmp_hide["descriptor"]["entries"]),
+)
+cmp_full_w = P.compare_v3(baseline_artifact=art_empty, current=current_hidden, host=host(), profile_name="full-current", current_detectors=detectors())
+check(
+    "full-current-new-waiver-suppresses-hidden-net-new",
+    any(e["classification"] == "CODE-NET-NEW" and not e["gates"] for e in cmp_full_w["descriptor"]["entries"]),
+)
+
+other_prj = "prj1-" + token("other")
+unmapped = make_current(occurrences=[m], rule_results=[rr(outcome="fail", findings=[m["findingId"]])], project=other_prj)
+cmp_un = P.compare_v3(baseline_artifact=art_empty, current=unmapped, host=host(), profile_name="code-regression", current_detectors=detectors())
+check("unmapped-has-contextDelta", "contextDelta" in cmp_un["descriptor"] and set(cmp_un["descriptor"]["contextDelta"]) == {"codeChanged", "detectorChanged", "policyChanged", "scopeChanged", "waiversChanged", "evidenceAvailabilityChanged"})
+check("unmapped-comparison-not-performed", cmp_un["descriptor"]["comparisonPerformed"] is False and cmp_un["descriptor"]["verdict"] == "indeterminate")
+check("unmapped-error-is-precondition", cmp_un.get("errorCode") == "REQUEST.PRECONDITION_FAILED")
+check("unmapped-reason-project-unmapped", cmp_un["descriptor"]["wholeIndeterminateReason"] == "baseline-project-unmapped")
+check("unmapped-empty-unmatched", cmp_un["descriptor"]["unmatchedOccurrences"] == [] and cmp_un["descriptor"]["correspondenceCoverage"] == [])
+must_valid("unmapped-comparison-schema", U + "comparison:2", cmp_obj(cmp_un))
+
+cmp_decl = P.compare_v3(baseline_artifact=art_empty, current=unmapped, host=host(), profile_name="code-regression", current_detectors=detectors(), accept_origins=(PRJ,))
+check("declared-origin-performs-comparison", cmp_decl["descriptor"]["projectCorrespondence"] == "declared" and cmp_decl["descriptor"]["comparisonPerformed"] is True)
+must_valid("declared-origin-schema", U + "comparison:2", cmp_obj(cmp_decl))
+
+cmp_recipe = P.compare_v3(
+    baseline_artifact=art_empty,
+    current=make_current(occurrences=[], rule_results=[rr(outcome="pass")], snapshot=SNAP),
+    host=host(recipeMajors=[99]),
+    profile_name="code-regression",
+    current_detectors=detectors(),
+)
+check("recipe-unsupported-whole-shape", cmp_recipe["descriptor"]["comparisonPerformed"] is False and "contextDelta" in cmp_recipe["descriptor"])
+check("recipe-unsupported-reason", cmp_recipe["descriptor"]["wholeIndeterminateReason"] == "baseline-recipe-unsupported")
+check("recipe-unsupported-error", cmp_recipe.get("errorCode") == "REQUEST.SCHEMA_MAJOR_UNSUPPORTED")
+must_valid("recipe-unsupported-schema", U + "comparison:2", cmp_obj(cmp_recipe))
+
+old = copy.deepcopy(art)
+old["descriptor"]["schemaMajor"] = 1
+del old["descriptor"]["unmatchedOccurrences"]
+reject("old-baseline-major-refused-not-empty-coercion", lambda: P.verify_baseline_artifact_v3(old), "REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "BASELINE.SCHEMA_MAJOR_UNSUPPORTED")
+reject(
+    "old-baseline-compare-refused-not-v1-semantics",
+    lambda: P.compare_v3(baseline_artifact=old, current=empty_current, host=host(), profile_name="code-regression", current_detectors=detectors()),
+    "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
+    "BASELINE.SCHEMA_MAJOR_UNSUPPORTED",
+)
+old_cmp = copy.deepcopy(cmp_obj(cmp_u))
+old_cmp["descriptor"]["schemaMajor"] = 1
+must_invalid("old-comparison-major-unsupported", U + "comparison:2", old_cmp)
+
+tamper = copy.deepcopy(art)
+tamper["descriptor"]["contextDocuments"]["policy"] = POLICY_ADVISORY
+tamper["baselineId"] = P.wid("baseline2", "workflow.baseline", tamper["descriptor"])
+reject("verify-context-digest-binding", lambda: P.verify_baseline_artifact_v3(tamper), "REQUEST.PRECONDITION_FAILED", "BASELINE.CONTEXT_DOCUMENT_MISSING")
+
+check(
+    "optional-unknown-non-gating-current-pass",
+    verdict(occurrences=[], rule_results=[rr(outcome="pass")], policy=POLICY_ADVISORY) == "pass",
+)
+cmp_opt = P.compare_v3(
+    baseline_artifact=art_empty,
+    current=make_current(occurrences=[], rule_results=[rr(outcome="pass")], policy=POLICY_ADVISORY),
+    host=host(),
+    profile_name="code-regression",
+    current_detectors=detectors(),
+)
+check(
+    "optional-unknown-no-gating-correspondence-deficiency",
+    not any(d["gating"] and d["cause"] == "correspondence-incomplete" for d in cmp_opt["descriptor"]["ruleDeficiencies"]),
+)
+
+zero_rules = [rr(outcome="indeterminate", enum=incomplete_enum())]
+check("zero-finding-population-unknown-not-pass", verdict(occurrences=[], rule_results=zero_rules) == "indeterminate")
+cmp_z = P.compare_v3(
+    baseline_artifact=art_empty,
+    current=make_current(occurrences=[], rule_results=zero_rules),
+    host=host(),
+    profile_name="code-regression",
+    current_detectors=detectors(),
+)
+check("zero-result-population-unknown-preserved", cmp_z["descriptor"]["correspondenceCoverage"][0]["populationUnknown"] is True)
+check("zero-unknown-gating-deficiency", any(d["gating"] and d["cause"] == "correspondence-incomplete" for d in cmp_z["descriptor"]["ruleDeficiencies"]))
+check("source-syntax-invalid-is-enumeration-unknown-not-native", verdict(occurrences=[], rule_results=zero_rules) == "indeterminate")
+check("source-syntax-invalid-preserves-zero-population-unknown", cmp_z["descriptor"]["correspondenceCoverage"][0]["zeroFindings"] is True and cmp_z["descriptor"]["correspondenceCoverage"][0]["populationUnknown"] is True)
+
+# ----------------------------------------------------------------------------- SARIF actual + intermediate surfaces
+surfaces = P.project_finding_surfaces([a, b, u], [])
+check("intermediate-surface-one-per-findingId", len(surfaces) == 3)
+check("intermediate-surface-is-not-sarif-log", all("version" not in row and "runs" not in row for row in surfaces))
+cited = occurrence("cited", universe="cite", facts=4)
+cited["finding"]["evidenceRefs"] = [{"domain": "fact", "digest": token("factblob")}]
+sarif = P.project_sarif([a, b, u, cited], [], verdict="fail")
+check("sarif-version-2-1-0", sarif["version"] == "2.1.0" and len(sarif["runs"][0]["results"]) == 4)
+check("sarif-one-result-per-findingId", len({r["properties"]["findingId"] for r in sarif["runs"][0]["results"]}) == 4)
+check(
+    "sarif-partialFingerprints-only-matched",
+    all(("partialFingerprints" in r) == (r["properties"]["correspondence"]["state"] == "matched") for r in sarif["runs"][0]["results"]),
+)
+check("sarif-keeps-message-params", any(r["message"]["properties"]["matchingFactCount"] == 3 for r in sarif["runs"][0]["results"]))
+check("sarif-keeps-citations", any(r["properties"]["citations"] == cited["finding"]["evidenceRefs"] for r in sarif["runs"][0]["results"]))
+check("sarif-one-per-findingId", {r["properties"]["findingId"] for r in sarif["runs"][0]["results"]} == {a["findingId"], b["findingId"], u["findingId"], cited["findingId"]})
+check("sarif-matched-have-partialFingerprints", all("partialFingerprints" in r for r in sarif["runs"][0]["results"] if r["properties"]["findingId"] in {a["findingId"], b["findingId"]}))
+must_valid("sarif-log-schema", U + "sarif-adapter:2", sarif)
+ids = {a["findingId"], b["findingId"], u["findingId"]}
+surf_ids = {row["findingId"] for row in surfaces}
+check("sarif-surface-cfg-a", a["findingId"] in surf_ids)
+check("sarif-surface-cfg-b", b["findingId"] in surf_ids)
+check("sarif-surface-unmatched", u["findingId"] in surf_ids)
+
+# ----------------------------------------------------------------------------- candidates grouped
+cands = P.project_candidates(RUN, PRJ, [a, b, u], POLICY, [], {}, "2026-09-08", {"r": BINDING})
+matched_c = [c for c in cands if c["fingerprint"] == a["finding"]["fingerprint"]]
+un_c = [c for c in cands if c["fingerprint"] is None]
+check("matched-two-configs-one-candidateId", len(matched_c) == 1 and len(matched_c[0]["findingIds"]) == 2)
+check("matched-candidate-preserves-both-params", len({o["parameterDigest"] for o in matched_c[0]["occurrences"]}) == 2)
+check("unmatched-candidate-by-findingId", len(un_c) == 1 and un_c[0]["findingIds"] == [u["findingId"]])
+check("unmatched-candidate-key-is-findingId", un_c[0]["candidateId"] == P.wid("candidate2", "workflow.candidate", {"projectId": PRJ, "kind": "finding", "key": u["findingId"]}))
+check("matched-candidate-has-fingerprint", matched_c[0]["fingerprint"] == a["finding"]["fingerprint"])
+must_valid("candidate-matched-schema", U + "review:2#/$defs/Candidate", matched_c[0])
+must_valid("candidate-unmatched-schema", U + "review:2#/$defs/Candidate", un_c[0])
+disp = {matched_c[0]["candidateId"]: {"disposition": "reject", "suppressUntil": "2026-12-01", "receiptId": hid("receipt2", "r1")}}
+cands2 = P.project_candidates(RUN, PRJ, [a, b, u], POLICY, [], disp, "2026-09-08", {"r": BINDING})
+check("suppression-targets-logical-fingerprint-candidate", next(c for c in cands2 if c["fingerprint"] == a["finding"]["fingerprint"])["suppressed"] is True)
+check("fingerprint-suppression-does-not-hide-unmatched", next(c for c in cands2 if c["fingerprint"] is None)["suppressed"] is False)
+check("suppression-does-not-hide-unmatched", next(c for c in cands2 if c["fingerprint"] is None)["suppressed"] is False)
+disp_u = {un_c[0]["candidateId"]: {"disposition": "defer", "suppressUntil": "2026-12-01", "receiptId": hid("receipt2", "r2")}}
+cands3 = P.project_candidates(RUN, PRJ, [a, b, u], POLICY, [], disp_u, "2026-09-08", {"r": BINDING})
+check("unmatched-suppression-by-findingId-candidate", next(c for c in cands3 if c["fingerprint"] is None)["suppressed"] is True)
+check("unmatched-suppression-does-not-hide-matched", next(c for c in cands3 if c["fingerprint"] == a["finding"]["fingerprint"])["suppressed"] is False)
+
+q_u = P.query_finding([a, b, u], finding_id=u["findingId"])
+q_fp = P.query_finding([a, b, u], fingerprint=a["finding"]["fingerprint"])
+check("query-unmatched-by-findingId", [o["findingId"] for o in q_u] == [u["findingId"]])
+check("query-fingerprint-matched-only-all-configs", {o["findingId"] for o in q_fp} == {a["findingId"], b["findingId"]})
+check("findings-map-by-findingId", set(P.findings_map([a, b]).keys()) == {a["findingId"], b["findingId"]})
+dup = copy.deepcopy(a)
+reject("findings-map-duplicate-refused", lambda: P.findings_map([a, dup]), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
+
+reject(
+    "repair-unmatched-refuses",
+    lambda: P.project_repair_targets(["finding-key2:" + "f" * 64], [u]),
+    "REQUEST.PRECONDITION_FAILED",
+    "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE",
+)
+ok_repair = P.project_repair_targets([a["finding"]["fingerprint"]], [a, b])
+check("repair-multi-config-compatible-keeps-both-ids", len(ok_repair[a["finding"]["fingerprint"]]["findingIds"]) == 2)
+check("repair-does-not-collapse-params", len(ok_repair[a["finding"]["fingerprint"]]["parameterDigests"]) == 2)
+amb = copy.deepcopy(a)
+amb["findingId"] = hid("finding3", "amb")
+amb["finding"] = dict(a["finding"], subject=dict(a["finding"]["subject"], logicalPath="src/b.ts"))
+reject(
+    "repair-multi-config-path-ambiguity",
+    lambda: P.project_repair_targets([a["finding"]["fingerprint"]], [a, amb]),
+    "REQUEST.PRECONDITION_FAILED",
+    "REPAIR.TARGET_METADATA_AMBIGUOUS",
+)
+
+term = P.serialization_overflow_termination()
+check(
+    "output-bound-existing-error",
+    term["errorCode"] == "OUTPUT.SERIALIZATION_FAILED"
+    and term["faultCause"] == "output-serialization"
+    and term["domainDetail"]["code"] == "EVALUATION.OUTPUT_BOUND_EXCEEDED",
+)
+check("output-bound-detail-is-registered", "EVALUATION.OUTPUT_BOUND_EXCEEDED" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
+check("schema-major-error-is-d9-errorcode", "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" in SCHEMAS[U + "common:3"]["$defs"]["D9ErrorCode"]["enum"])
+check("schema-major-error-not-used-as-detail-member", "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" not in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
+check("graph-query-findingId-param", "findingId" in SCHEMAS[U + "graph-query:2"]["$defs"]["Params"]["properties"])
+check("graph-query-fingerprint-param", "fingerprint" in SCHEMAS[U + "graph-query:2"]["$defs"]["Params"]["properties"])
+
+pairs = re.findall(r'Refusal\(\s*"([^"]+)"\s*,\s*"([^"]+)"', (HERE / "workflow_projection_model.v3.py").read_text())
+check("config-invalid-not-used-as-detail", all(detail != "CONFIG.INVALID" for _, detail in pairs) and pairs)
+check("request-schema-major-not-used-as-detail", all(detail != "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" for _, detail in pairs))
+check(
+    "checker-default-is-stdout-not-historical-receipt",
+    "--output" in (HERE / "check-workflow-projection.v3.py").read_text()
+    and "stdout" in (HERE / "check-workflow-projection.v3.py").read_text()
+    and "v5" in (HERE / "check-workflow-projection.v3.py").read_text(),
+)
+
+# ----------------------------------------------------------------------------- admitted-run adapter over identity-model.v3.close_run
+FOUNDATION = HERE.parent / "foundation"
+_rc_spec = importlib.util.spec_from_file_location("replay_check3", FOUNDATION / "check-replay.v3.py")
+RC = importlib.util.module_from_spec(_rc_spec)
+_rc_spec.loader.exec_module(RC)
+
+CONTROL_COUNT = len(CHECKS)
+check("v4-control-coverage-preserved", CONTROL_COUNT == 141)
+
+
+def project_graph(**options):
+    return P.project_admitted_run_v3(*RC.positive(**options))
+
+
+two = project_graph(multiple_universes=True)
+occ = two["occurrences"]
+cands = two["candidates"]
+sarif_results = two["sarif"]["runs"][0]["results"]
+matched_cands = [c for c in cands if c["fingerprint"] is not None]
+all_ids = [fid for c in cands for fid in c["findingIds"]]
+check("admitted-twoU-close-run-run3", two["runId"].startswith("run3:"))
+check("admitted-twoU-six-findings", len(occ) == 6)
+check("admitted-twoU-six-subjectIds", len({o["finding"]["subjectId"] for o in occ}) == 6)
+check("admitted-twoU-three-fingerprints", len({o["finding"]["fingerprint"] for o in occ}) == 3)
+check("admitted-twoU-three-baseline-entries", len(two["baselineEntries"]) == 3 and two["unmatchedOccurrences"] == [])
+check("admitted-twoU-three-logical-candidates", len(matched_cands) == 3)
+check("admitted-twoU-all-six-findingIds-retained", len(all_ids) == 6 and set(all_ids) == {o["findingId"] for o in occ})
+check(
+    "admitted-twoU-group-keeps-both-configs",
+    all(len(c["findingIds"]) == 2 and len(c["occurrences"]) == 2 for c in matched_cands),
+)
+check("admitted-twoU-six-sarif-results", two["sarif"]["version"] == "2.1.0" and len(sarif_results) == 6)
+check("admitted-twoU-sarif-findingIds", {r["properties"]["findingId"] for r in sarif_results} == {o["findingId"] for o in occ})
+check("admitted-twoU-sarif-message-params", all("matchingFactCount" in r["message"]["properties"] for r in sarif_results))
+check("admitted-twoU-sarif-citations", all(isinstance(r["properties"]["citations"], list) for r in sarif_results))
+check("admitted-twoU-verdict-fail-from-policy-and-proof", two["derivedVerdict"] == "fail" and two["proofVerdict"] == "fail")
+check("admitted-twoU-no-unmatched", all(o["finding"]["correspondence"]["state"] == "matched" for o in occ))
+check("admitted-twoU-adoption-not-performed-without-scope", two["scopeDocumentParameter"] == "absent")
+check("admitted-twoU-adoption-scope-detail", "baselineAdoption" not in two)
+must_valid("admitted-twoU-sarif-schema", U + "sarif-adapter:2", two["sarif"])
+must_valid("admitted-twoU-candidate-schema", U + "review:2#/$defs/Candidate", matched_cands[0])
+
+file_pos = project_graph()
+check("admitted-file-three-findings", len(file_pos["occurrences"]) == 3)
+check("admitted-file-three-fingerprints", len({o["finding"]["fingerprint"] for o in file_pos["occurrences"]}) == 3)
+check("admitted-file-three-baseline-entries", len(file_pos["baselineEntries"]) == 3)
+check("admitted-file-three-candidates", len(file_pos["candidates"]) == 3)
+check("admitted-file-three-sarif", len(file_pos["sarif"]["runs"][0]["results"]) == 3)
+check("admitted-file-verdict-fail", file_pos["derivedVerdict"] == "fail" and file_pos["proofVerdict"] == "fail")
+check("admitted-file-adoption-not-performed", file_pos["scopeDocumentParameter"] == "absent")
+
+nongate = project_graph(gate=False)
+check("admitted-nongating-three-findings", len(nongate["occurrences"]) == 3)
+check("admitted-nongating-verdict-pass", nongate["derivedVerdict"] == "pass" and nongate["proofVerdict"] == "pass")
+check("admitted-nongating-live-does-not-fail", any(nongate["ruleResults"][0]["findingIds"]) and nongate["derivedVerdict"] == "pass")
+check("admitted-nongating-adoption-not-performed", nongate["scopeDocumentParameter"] == "absent")
+
+reject(
+    "admitted-run-adopt-without-scope-document",
+    lambda: P.adopt_baseline_v3(
+        {"authority": "authoritative", "availability": "retained", "runId": two["runId"], "snapshotId": two["snapshotId"]},
+        two["planId"],
+        two["projectId"],
+        two["policy"],
+        SCOPE,
+        WAIVERS,
+        [rule_cov(gating=True, rule_id="file-observed")],
+        {"entries": two["baselineEntries"], "unmatchedOccurrences": two["unmatchedOccurrences"]},
+        detector_closure_entries(),
+        pivot_entries(),
+        ctx(two["policy"]),
+        two["analysisSpec"],
+        CUSTODY,
+    ),
+    "REQUEST.PRECONDITION_FAILED",
+    "BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER",
+)
+check("open_run_closure-not-called-from-adapter", "open_run_closure(" not in (HERE / "workflow_projection_model.v3.py").read_text())
+check("adapter-invokes-close_run", "close_run(" in (HERE / "workflow_projection_model.v3.py").read_text())
+
+V5_CONTROL = len(CHECKS)
+check("v5-control-coverage-preserved", V5_CONTROL == 174)
+
+# ----------------------------------------------------------------------------- v6: blocking law, execution comparison, admitted adoption, admitted compare, SARIF
+nb = [{"source": "native", "cause": "cross-family-edge-not-owed", "subjectId": None, "predicateId": None, "inputRefs": [], "evidenceKind": None, "nativeCause": None, "universe": "native.semantic-universe.rust.v2"}]
+check(
+    "nonblocking-cross-family-does-not-make-unknown",
+    verdict(occurrences=[], rule_results=[rr(outcome="pass", deficiencies=nb)]) == "pass",
+)
+check(
+    "waived-live-plus-incomplete-stays-indeterminate",
+    verdict(occurrences=[u], rule_results=[rr(outcome="indeterminate", findings=[u["findingId"]], enum=incomplete_enum())], waived=[u["findingId"]]) == "indeterminate",
+)
+check(
+    "optional-unknown-nonblocking-pass",
+    verdict(occurrences=[], rule_results=[rr(outcome="pass", deficiencies=nb)], policy=POLICY_ADVISORY) == "pass",
+)
+
+exec_d = [{"source": "execution", "cause": "work-budget-exhausted", "subjectId": None, "predicateId": None, "inputRefs": [], "evidenceKind": None, "nativeCause": None, "universe": None}]
+cmp_ex = P.compare_v3(
+    baseline_artifact=art_empty,
+    current=make_current(occurrences=[], rule_results=[rr(outcome="indeterminate", enum=incomplete_enum())], execution=exec_d, state="budget-exhausted"),
+    host=host(),
+    profile_name="code-regression",
+    current_detectors=detectors(),
+)
+check("compare-carries-execution-deficiencies", any(d["cause"] == "work-budget-exhausted" for d in cmp_ex["descriptor"]["currentExecutionDeficiencies"]))
+check("compare-budget-exhausted-not-pass", cmp_ex["descriptor"]["verdict"] == "indeterminate" and cmp_ex["descriptor"]["currentEvaluationState"] == "budget-exhausted")
+must_valid("compare-execution-schema", U + "comparison:2", cmp_obj(cmp_ex))
+
+disabled_pol = {"schemaFamily": "opensip.product.policy", "schemaMajor": 2, "gateSeverityAtLeast": "error", "rules": [dict(RULE, enabled=False)]}
+cmp_dis = P.compare_v3(
+    baseline_artifact=art_empty,
+    current=make_current(
+        occurrences=[],
+        rule_results=[rr(outcome="disabled", enum={"state": "disabled", "inventoryRefs": [], "selectedSubjectIds": [], "unresolvedSubjectIds": [], "incompleteInventoryRefs": []})],
+        policy=disabled_pol,
+        execution=exec_d,
+        state="budget-exhausted",
+    ),
+    host=host(),
+    profile_name="code-regression",
+    current_detectors=detectors(),
+)
+check("compare-disabled-rules-execution-still-unknown", cmp_dis["descriptor"]["verdict"] == "indeterminate")
+
+SCOPE_DOC = {"schemaFamily": "opensip.product.scope", "schemaMajor": 1, "include": ["src/**"], "exclude": []}
+scope_graph = RC.positive(scope_document=SCOPE_DOC)
+scope_view = P.project_admitted_run_v3(*scope_graph)
+check("scope-document-selected", scope_view["scopeDocumentParameter"] == "selected" and len(scope_view["occurrences"]) == 1)
+check("scope-document-verdict-fail", scope_view["derivedVerdict"] == "fail" and scope_view["proofVerdict"] == "fail")
+art_scope = P.adopt_admitted_baseline_v3(*scope_graph, CUSTODY)
+P.verify_baseline_artifact_v3(art_scope)
+must_valid("admitted-baseline-artifact-schema", U + "baseline:2", art_scope)
+check("admitted-baseline-one-entry", len(art_scope["descriptor"]["entries"]) == 1)
+pins = art_scope["custody"]["retentionPins"]
+expect_pins = sorted({art_scope["descriptor"]["runId"]} | {p["closureId"] for p in art_scope["descriptor"]["pivotClosure"]})
+check("admitted-baseline-exact-pins", pins == expect_pins)
+
+wrong_entries = copy.deepcopy(art_scope)
+wrong_entries["descriptor"]["entries"] = []
+reject("reminted-wrong-entries-refused", lambda: P.verify_baseline_artifact_v3(wrong_entries), "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
+wrong_pins = copy.deepcopy(art_scope)
+wrong_pins["custody"]["retentionPins"] = [art_scope["descriptor"]["runId"]]
+reject("reminted-wrong-pins-refused", lambda: P.verify_baseline_artifact_v3(wrong_pins), "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
+wrong_scope = copy.deepcopy(art_scope)
+wrong_scope["descriptor"]["contextDocuments"]["scope"] = {"schemaFamily": "opensip.product.scope", "schemaMajor": 1, "include": ["**"], "exclude": []}
+wrong_scope["baselineId"] = P.wid("baseline2", "workflow.baseline", wrong_scope["descriptor"])
+reject("reminted-wrong-scope-digest-refused", lambda: P.verify_baseline_artifact_v3(wrong_scope), "REQUEST.PRECONDITION_FAILED", "BASELINE.CONTEXT_DOCUMENT_MISSING")
+reject(
+    "ordinary-graph-adopt-admitted-refuses-without-scope",
+    lambda: P.adopt_admitted_baseline_v3(*RC.positive(), CUSTODY),
+    "REQUEST.PRECONDITION_FAILED",
+    "BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER",
+)
+
+
+def host_from_graph(run, objects):
+    closures = {}
+    majors = set()
+    platform = None
+    for key, (dom, val) in objects.items():
+        if dom != "closure":
+            continue
+        closures[key] = {"bytes": "ok", "trust": "admitted", "protocolMajor": val["protocolMajor"], "platform": val["platform"]}
+        majors.add(val["protocolMajor"])
+        if val["kind"] == "evaluator":
+            platform = val["platform"]
+        elif platform is None and val["kind"] == "detector" and val["platform"] != "any":
+            platform = val["platform"]
+    return {
+        "closures": closures,
+        "protocolMajors": sorted(majors),
+        "platform": platform or "linux",
+        "pivotRunId": run["runId"] if str(run.get("runId", "")).startswith("run3:") else objects,
+        "recipeMajors": [2],
+    }
+
+
+srun, sobj, sblobs = scope_graph
+# close_run identity is view runId; overlay run dict has no runId field
+srun_host = dict(srun)
+# identifier from view
+host_s = host_from_graph({"runId": scope_view["runId"]}, sobj)
+host_s["pivotRunId"] = scope_view["runId"]
+dets_s = {row["contributionId"]: {"closureId": row["detectorClosure"], "semanticsMajor": row["semanticsMajor"], "compatibleWith": []} for row in scope_view["emission"]["rules"]}
+cmp_same = P.compare_admitted_v3(
+    baseline_artifact=art_scope,
+    current_run=srun,
+    current_objects=sobj,
+    current_blobs=sblobs,
+    host=host_s,
+    profile_name="code-regression",
+    current_detectors=dets_s,
+)
+check("admitted-compare-same-context-performed", cmp_same["descriptor"]["comparisonPerformed"] is True)
+check("admitted-compare-same-context-pass", cmp_same["descriptor"]["verdict"] in ("pass", "fail") and cmp_same["descriptor"]["projectCorrespondence"] == "same-project")
+check("admitted-compare-same-context-no-invented-maps", all(e["classification"] in ("UNCHANGED", "CODE-NET-NEW", "INDETERMINATE") for e in cmp_same["descriptor"]["entries"]))
+must_valid("admitted-compare-same-context-schema", U + "comparison:2", cmp_obj(cmp_same))
+
+gate_off = RC.positive(gate=False, scope_document=SCOPE_DOC)
+cmp_piv = P.compare_admitted_v3(
+    baseline_artifact=art_scope,
+    current_run=gate_off[0],
+    current_objects=gate_off[1],
+    current_blobs=gate_off[2],
+    host=host_s,
+    profile_name="code-regression",
+    current_detectors=dets_s,
+)
+check("admitted-compare-policy-change-pivot-unavailable", cmp_piv["descriptor"]["pivotsAvailable"]["E1"] == "unavailable" or cmp_piv["descriptor"]["comparisonPerformed"] is False or cmp_piv["descriptor"]["verdict"] == "indeterminate")
+must_valid("admitted-compare-pivot-unavailable-schema", U + "comparison:2", cmp_obj(cmp_piv))
+
+waived_sarif = P.project_sarif([u], [u["findingId"]], verdict="pass")
+check("sarif-waived-has-suppression", any(r.get("suppressions") == [{"kind": "external", "status": "accepted"}] for r in waived_sarif["runs"][0]["results"]))
+check("sarif-rule-messageStrings", any(row["messageCode"] in rule.get("messageStrings", {}) for rule in waived_sarif["runs"][0]["tool"]["driver"]["rules"] for row in [{"messageCode": "r"}]))
+must_valid("sarif-waived-schema", U + "sarif-adapter:2", waived_sarif)
+must_valid("step-termination-output-bound", U + "common:3#/$defs/StepTermination", P.serialization_overflow_termination())
+
+qreq = {
+    "schemaFamily": "opensip.product.query",
+    "schemaMajor": 2,
+    "projectId": PRJ,
+    "view": {"runId": RUN},
+    "operation": "finding.show",
+    "params": {"findingId": u["findingId"]},
+    "completeness": "required",
+    "page": {"size": 1},
+}
+must_valid("graph-query-request-schema", U + "graph-query:2#/$defs/GraphQueryRequestV1", qreq)
+must_valid("candidate-from-admitted", U + "review:2#/$defs/Candidate", scope_view["candidates"][0])
+
+def replay_positive_cases():
+    """Same positive option tuples as check-replay.v3 main (not reminted mutants)."""
+    yield "complete-file-positive", {}, "fail"
+    for name, options, want, _count in [
+        ("two-universes-six-full-findings", {"multiple_universes": True}, "fail", 6),
+        ("file-none", {"atom_override": {"op": "none", "relation": "file", "minResolution": "enumerated", "filters": []}}, "pass", 0),
+        ("file-count-at-most-zero", {"atom_override": {"op": "count-at-most", "relation": "file", "minResolution": "enumerated", "filters": [], "n": 0}}, "pass", 0),
+        ("file-all-covered", {"atom_override": {"op": "all-covered", "relation": "file", "minResolution": "enumerated", "filters": []}}, "fail", 3),
+        ("nongating-live-findings", {"gate": False}, "pass", 3),
+        ("disabled-rule", {"enabled": False}, "pass", 0),
+        ("budget-exhausted", {"budget_limit": 1}, "indeterminate", 0),
+        ("selected-scope-document", {"scope_document": SCOPE_DOC}, "fail", 1),
+        ("complete-empty-path-selection", {"enumeration_filter": {"include": ["absent/**"]}}, "pass", 0),
+        ("filter-whole-segment-glob", {"atom_override": {"op": "exists", "relation": "file", "minResolution": "enumerated", "filters": [{"field": "subject", "cmp": "glob", "value": "src/**"}]}}, "fail", 1),
+    ]:
+        yield name, options, want
+    window = {"startUtc": "2026-08-01T00:00:00Z", "endUtc": "2026-08-02T00:00:00Z"}
+    runtime = {
+        "kind": "runtime",
+        "payload": {
+            "payloadDomain": "workflow.import-payload.runtime.v1",
+            "format": "v8-json",
+            "observationWindow": window,
+            "observedPopulation": "synthetic",
+            "mappingGaps": [],
+            "subjects": [{"path": "src/index.ts", "observability": "observed-hit", "hits": 2}],
+        },
+        "observation": {"window": window, "population": "synthetic"},
+    }
+    for name, op, partial, required, want, _count in [
+        ("runtime-known-hit", "exists", False, True, "fail", 1),
+        ("runtime-missing-subject-negative", "none", False, True, "indeterminate", 0),
+        ("runtime-partial-known-hit", "exists", True, True, "fail", 1),
+        ("runtime-partial-all-covered", "all-covered", True, True, "indeterminate", 0),
+        ("runtime-optional-unknown", "none", False, False, "pass", 0),
+    ]:
+        item = copy.deepcopy(runtime)
+        if partial:
+            item["observation"].update(completeness="partial", omissions=["fixture omitted observations"])
+        atom = {"op": op, "relation": "runtime-observation", "minResolution": "observed", "filters": [], "evidence": "runtime"}
+        yield name, {"atom_override": atom, "import_specs": [item], "evidence_use": [{"kind": "runtime", "requirement": "required" if required else "optional"}]}, want
+    history = {
+        "kind": "history",
+        "payload": {
+            "payloadDomain": "workflow.import-payload.history.v1",
+            "vcsSystem": "git",
+            "revisionRange": {"from": None, "to": "a" * 40, "commitCount": 0, "truncated": False},
+            "collectionScope": "all-paths",
+            "subjects": [],
+        },
+        "observation": {"revisionRange": {"from": None, "to": "a" * 40}},
+    }
+    for name, scope, partial, want, _count in [
+        ("history-complete-zero", "all-paths", False, "fail", 3),
+        ("history-listed-zero", "listed-paths", False, "indeterminate", 0),
+        ("history-partial-zero", "all-paths", True, "indeterminate", 0),
+    ]:
+        item = copy.deepcopy(history)
+        item["payload"]["collectionScope"] = scope
+        if partial:
+            item["observation"].update(completeness="partial", omissions=["fixture truncated history"])
+            item["payload"]["revisionRange"]["truncated"] = True
+        atom = {"op": "none", "relation": "history-change", "minResolution": "observed", "filters": [], "evidence": "history"}
+        yield name, {"atom_override": atom, "import_specs": [item], "evidence_use": [{"kind": "history", "requirement": "required"}]}, want
+    argv = canonical.canonical(["fixture-test"])
+    empty = b""
+    selection = {"mode": "full", "completenessEstablished": True}
+    test = {
+        "kind": "test",
+        "payload": {
+            "payloadDomain": "workflow.import-payload.test.v1",
+            "producer": "independent-prepared",
+            "argvDigest": hashlib.sha256(argv).hexdigest(),
+            "toolClosureId": None,
+            "exitStatus": 0,
+            "signal": None,
+            "timedOut": False,
+            "stdoutDigest": hashlib.sha256(empty).hexdigest(),
+            "stderrDigest": hashlib.sha256(empty).hexdigest(),
+            "stdoutBytes": 0,
+            "stderrBytes": 0,
+            "outputTruncated": False,
+            "tests": [{"testId": "fixture-test-1", "subjectPath": "src/index.ts", "outcome": "pass"}],
+            "selection": selection,
+        },
+        "observation": {"selection": selection},
+        "extra_blobs": [argv, empty],
+    }
+    for name, rel, op, filters, partial, want, _count in [
+        ("test-row-exact-location", "test-result", "exists", [], False, "fail", 1),
+        ("test-process-coarse-scope", "test-execution", "exists", [{"field": "testResult", "cmp": "eq", "value": "passed"}], False, "fail", 3),
+        ("test-partial-no-false-all-covered", "test-execution", "all-covered", [], True, "indeterminate", 0),
+    ]:
+        item = copy.deepcopy(test)
+        if partial:
+            item["observation"].update(completeness="partial", omissions=["fixture incomplete test selection"])
+        atom = {"op": op, "relation": rel, "minResolution": "observed", "filters": filters, "evidence": "test"}
+        yield name, {"atom_override": atom, "import_specs": [item], "evidence_use": [{"kind": "test", "requirement": "required"}]}, want
+    for name, options, want, _count, _unmatched in [
+        ("symbol-with-detector-projection", {"symbol_rows": [{"nativeSubjectId": "symbol:x"}]}, "fail", 1, 0),
+        ("symbol-without-detector-projection", {"symbol_rows": [{"nativeSubjectId": "symbol:x", "projectionAvailable": False}]}, "fail", 1, 1),
+        ("symbol-signature-collision", {"symbol_rows": [{"nativeSubjectId": "symbol:x1"}, {"nativeSubjectId": "symbol:x2"}]}, "fail", 2, 2),
+        ("symbol-distinct-overload-signatures", {"symbol_rows": [{"nativeSubjectId": "symbol:x1"}, {"nativeSubjectId": "symbol:x2", "signatureTokens": ["function", "x", "(", "number", ")"]}]}, "fail", 2, 0),
+        ("export-membership-unknown", {"symbol_rows": [{"nativeSubjectId": "symbol:x", "exported": "unknown"}], "select_exports": True}, "indeterminate", 0, 0),
+        ("partial-symbol-known-finding", {"symbol_rows": [{"nativeSubjectId": "symbol:x"}], "symbol_state": "partial"}, "fail", 1, 1),
+        ("disabled-required-symbol-partial", {"symbol_rows": [{"nativeSubjectId": "symbol:x"}], "symbol_state": "partial", "enabled": False}, "indeterminate", 0, 0),
+    ]:
+        yield name, options, want
+
+
+mismatch = []
+replay_names = []
+for name, options, want in replay_positive_cases():
+    replay_names.append(name)
+    projected = P.project_admitted_run_v3(*RC.positive(**options))
+    if projected["derivedVerdict"] != want or projected["proofVerdict"] != want:
+        mismatch.append((name, projected["derivedVerdict"], projected["proofVerdict"], want))
+    check("replay-verdict-" + name, projected["derivedVerdict"] == want and projected["proofVerdict"] == want, str((projected["derivedVerdict"], want)))
+check("replay-case-verdicts-aligned", mismatch == [])
+check("replay-loop-covers-file-runtime-history-test-symbol", set(replay_names) >= {"complete-file-positive", "runtime-known-hit", "history-complete-zero", "test-row-exact-location", "symbol-with-detector-projection"})
+
+V6_CONTROL = len(CHECKS)
+check("v6-control-coverage-preserved", V6_CONTROL >= 224)
+
+# v7: mixed-boolean, required evidence coverage, bound E1 pivot, SARIF colon, detector override
+mixed_atom = {
+    "op": "and",
+    "operands": [
+        {"op": "none", "relation": "file", "minResolution": "enumerated", "filters": []},
+        {"op": "exists", "relation": "file", "minResolution": "enumerated", "filters": []},
+    ],
+}
+try:
+    mixed = P.project_admitted_run_v3(*RC.positive(atom_override=mixed_atom))
+    check("mixed-boolean-and-supported", True)
+    check("mixed-boolean-determinate-false-can-pass", mixed["derivedVerdict"] == mixed["proofVerdict"])
+except Exception as exc:
+    check("mixed-boolean-and-supported", False, type(exc).__name__ + ": " + str(exc).splitlines()[0][:200])
+    check("mixed-boolean-determinate-false-can-pass", False, "fixture/atom_override and-operands not admitted")
+
+none_scope = RC.positive(
+    atom_override={"op": "none", "relation": "file", "minResolution": "enumerated", "filters": []},
+    scope_document=SCOPE_DOC,
+)
+_rt_partial = {
+    "kind": "runtime",
+    "payload": {
+        "payloadDomain": "workflow.import-payload.runtime.v1",
+        "format": "v8-json",
+        "observationWindow": {"startUtc": "2026-08-01T00:00:00Z", "endUtc": "2026-08-02T00:00:00Z"},
+        "observedPopulation": "synthetic",
+        "mappingGaps": [],
+        "subjects": [{"path": "src/index.ts", "observability": "observed-hit", "hits": 2}],
+    },
+    "observation": {
+        "window": {"startUtc": "2026-08-01T00:00:00Z", "endUtc": "2026-08-02T00:00:00Z"},
+        "population": "synthetic",
+        "completeness": "partial",
+        "omissions": ["fixture omitted observations"],
+    },
+}
+rt_unknown = RC.positive(
+    atom_override={"op": "all-covered", "relation": "runtime-observation", "minResolution": "observed", "filters": [], "evidence": "runtime"},
+    import_specs=[_rt_partial],
+    evidence_use=[{"kind": "runtime", "requirement": "required"}],
+    scope_document=SCOPE_DOC,
+)
+art_none = P.adopt_admitted_baseline_v3(*none_scope, CUSTODY)
+nv = P.project_admitted_run_v3(*none_scope)
+uv = P.project_admitted_run_v3(*rt_unknown)
+check(
+    "required-import-unknown-not-inventory-satisfied",
+    uv["ruleResults"][0]["enumeration"]["state"] == "complete"
+    and P.required_coverage_from_rule_result(uv["policy"]["rules"][0], uv["ruleResults"][0]) == "unknown",
+)
+host_n = host_from_graph({"runId": nv["runId"]}, none_scope[1])
+host_n["pivotRunId"] = nv["runId"]
+cmp_req = P.compare_admitted_v3(
+    baseline_artifact=art_none,
+    current_run=rt_unknown[0],
+    current_objects=rt_unknown[1],
+    current_blobs=rt_unknown[2],
+    host=host_n,
+    profile_name="code-regression",
+)
+check("complete-inventory-required-import-unknown-comparison-indeterminate", cmp_req["descriptor"]["verdict"] == "indeterminate")
+check(
+    "execution-deficiency-keeps-inputRefs-nativeCause",
+    all("inputRefs" in d and "nativeCause" in d and "predicateId" in d for d in cmp_ex["descriptor"]["currentExecutionDeficiencies"]),
+)
+
+colon_occ = occurrence("colon", path="src/foo:bar.ts", name="src/foo:bar.ts")
+space_occ = occurrence("space", path="src/a b.ts", name="src/a b.ts")
+sarif_enc = P.project_sarif([colon_occ, space_occ], [], verdict="fail")
+uris = [r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in sarif_enc["runs"][0]["results"]]
+check("sarif-colon-not-scheme", all(":" not in u.split("/")[0] or "%3A" in u or "%3a" in u for u in uris) and any("%3A" in u or "%3a" in u for u in uris))
+check("sarif-space-percent-encoded", any("%20" in u for u in uris))
+must_valid("sarif-encoded-uri-schema", U + "sarif-adapter:2", sarif_enc)
+check("detail-input-refused-retained", "EVALUATION.INPUT_REFUSED" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
+check("detail-selection-limit-retained", "EVALUATION.SELECTION_LIMIT" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
+check("detail-preimage-mismatch-retained", "REPAIR.TARGET_PREIMAGE_MISMATCH" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
+
+reject(
+    "current-detectors-compatibleWith-refused",
+    lambda: P.compare_admitted_v3(
+        baseline_artifact=art_scope,
+        current_run=srun,
+        current_objects=sobj,
+        current_blobs=sblobs,
+        host=host_s,
+        profile_name="code-regression",
+        current_detectors={k: dict(v, compatibleWith=["closure2:" + "a" * 64]) for k, v in dets_s.items()},
+    ),
+    "REQUEST.PRECONDITION_FAILED",
+    "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+)
+_noscope = RC.positive()
+reject(
+    "compare-admitted-without-scope-refused",
+    lambda: P.compare_admitted_v3(
+        baseline_artifact=art_scope,
+        current_run=_noscope[0],
+        current_objects=_noscope[1],
+        current_blobs=_noscope[2],
+        host=host_s,
+        profile_name="code-regression",
+    ),
+    "REQUEST.PRECONDITION_FAILED",
+    "BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER",
+)
+
+base_e1 = RC.positive(scope_document=SCOPE_DOC, gate=True)
+cur_e1 = RC.positive(scope_document=SCOPE_DOC, gate=False)
+art_e1 = P.adopt_admitted_baseline_v3(*base_e1, CUSTODY)
+host_e = host_from_graph({"runId": art_e1["descriptor"]["runId"]}, base_e1[1])
+host_e["pivotRunId"] = art_e1["descriptor"]["runId"]
+cmp_e1 = P.compare_admitted_v3(
+    baseline_artifact=art_e1,
+    current_run=cur_e1[0],
+    current_objects=cur_e1[1],
+    current_blobs=cur_e1[2],
+    host=host_e,
+    profile_name="code-regression",
+    pivot_runs={"E1": base_e1},
+)
+check("bound-e1-same-snapshot-available", cmp_e1["descriptor"]["pivotsAvailable"]["E1"] == "available" and cmp_e1["descriptor"]["comparisonPerformed"] is True)
+must_valid("bound-e1-schema", U + "comparison:2", cmp_obj(cmp_e1))
+reject(
+    "wrong-context-e1-refused",
+    lambda: P.compare_admitted_v3(
+        baseline_artifact=art_e1,
+        current_run=cur_e1[0],
+        current_objects=cur_e1[1],
+        current_blobs=cur_e1[2],
+        host=host_e,
+        profile_name="code-regression",
+        pivot_runs={"E1": cur_e1},
+    ),
+    "CONFIG.INVALID",
+    "EVALUATION.FINDING_JOIN_REFUSED",
+)
+
+check("portable-any-rewritten-in-host-adapter", "def _host_portable_platforms" in (HERE / "workflow_projection_model.v3.py").read_text() and "provider" in P.PIVOT_KINDS)
+
+passed = all(c["ok"] for c in CHECKS)
+report = {
+    "standing": "BOUNDED WORKFLOW PROJECTION ONLY. Isolated evaluator3 schemas + close_run adapter over synthetic owner-admitted graphs. Not real extraction qualification, not execution-input-manifest completion, not full SARIF-schema qualification, not full profile acceptance. Passing these checks does not establish complete admission.",
+    "passed": passed,
+    "count": len(CHECKS),
+    "failed": [c for c in CHECKS if not c["ok"]],
+    "results": CHECKS,
+}
+V7_ROOT = Path("/tmp/opensip-design-corrections/grok-workflow-projection.v7")
+parser = argparse.ArgumentParser(description="Bounded evaluator3 workflow projection checks")
+parser.add_argument("--output", help="Write JSON report under grok-workflow-projection.v7/ only. Default: stdout.")
+args = parser.parse_args()
+payload = json.dumps(report, indent=2) + "\n"
+if args.output:
+    out = Path(args.output).resolve()
+    v5 = V7_ROOT.resolve()
+    blocked = ("grok-workflow-projection.v1", "grok-workflow-projection.v2", "grok-workflow-projection.v3", "grok-workflow-projection.v4", "grok-workflow-projection.v5", "grok-workflow-projection.v6")
+    if any(part in str(out) for part in blocked) or out.name in {
+        "workflow-projection-report.v1.json",
+        "workflow-projection-report.v2.json",
+        "workflow-projection-report.v3.json",
+        "workflow-projection-report.v4.json",
+    }:
+        print("refusing historical receipt path: " + str(out), file=sys.stderr)
+        sys.exit(2)
+    try:
+        out.relative_to(v5)
+    except ValueError:
+        print("reports must be under " + str(v5) + " or stdout", file=sys.stderr)
+        sys.exit(2)
+    v5.mkdir(parents=True, exist_ok=True)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(payload)
+    print(json.dumps({"passed": passed, "count": len(CHECKS), "failed": report["failed"], "output": str(out)}, indent=2))
+else:
+    sys.stdout.write(payload)
+sys.exit(0 if passed else 1)

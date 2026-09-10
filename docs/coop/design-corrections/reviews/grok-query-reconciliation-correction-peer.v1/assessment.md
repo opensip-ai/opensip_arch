@@ -1,0 +1,16 @@
+I'll start by verifying the source manifest and hashes, then read the proposed query contract and related laws in the input source only.Manifest hash matches. Next I’ll verify every source file hash and read the author/root materials.Manifest is clean. I’ll read the source query/atom/laws next and see whether the author and root patches are already applied.Source already includes the author overlay plus root wording. I’ll read the query contract, atom §2, and related laws next.I’ll now read the occupancy implementation, atom reconciliation, fixture modes, and checker owner controls.I’ll copy the source into a disposable worktree under output and run the focused query and semantic checks plus independent probes.I’ll write the independent occupancy probes now so they can run as soon as the focused checkers finish.Focused checkers passed (123 query, 18 semantic). Next I’ll run the independent occupancy probes.The sealed-Run V1 mutation hit `REFERENCE_IDENTITY`, not schema admission. I’ll probe seed-time V1 through `close_run` so that distinction is actual.Unmapped `exists` came back `indeterminate` while the Run verdict was `pass`. I’ll dump every predicate value before deciding whether that’s a real scoped defect.Evidence is complete. I’ll write the scoped peer artifacts with `ACCEPT_SCOPED` and the helper-only versus full-Run distinctions.**Verdict: `ACCEPT_SCOPED`.** No actual MUST blocker on public `execute_graph_query` after complete `close_run`.
+
+Source manifest SHA-256 `75e9e648dd216c25c498de72c8cd0e6dd11e122871aa0537de5eb1240646d082` verified; **1318/1318** files matched. Writes stayed in this output directory.
+
+Public query projection uses the same reconciled occupancy identity as atom matching: mapped file → inventory spelling `a.ts`; exact-id symbol with no sidecar; unknown sidecar does not erase that identity; unmapped is honest `unprojectable-fact` (atom value indeterminate, empty neighbors are not native `none`); single-kind still projects payload id. Query `factId` equals atom `matchingFactIds`. Host cache/standing/`targetAttributions` are not occupancy authority. V1 cannot reach public edge projection.
+
+Focused checks (pins stale; global suite not run): **123/123** query, **18/18** semantic, plus 42 independent public/close_run probes.
+
+Non-blocking observations only:
+- **L1** helper `AtomAdmissionError` catch can omit V1 as `unprojectable-fact`; public `close_run` refuses instead (`REGISTERED_RECORD:#` / `evidence.corrupt`). Helper failure is not whole-Run proof.
+- **L2** default mapped-file payload is unchanged, but imports source census is `foo+bar`; semantic 18 is not census-parity.
+- **L3** author atom-run-agrees is verdict/count only; matching-fact identity is the occupancy proof. Unmapped `findingCount` 0 / verdict `pass` is non-blocking unknown, not a known miss.
+
+M1 provider-return and M2 C15 overwrite are not in these bytes and are not accepted here. `_reconcile_attribution(fact, spec, inputs)` / `_ephemeral_target` / `AtomAdmissionError.key` signatures were inspected for coordination. Full design review and NEW-blind remain later.
+
+Artifacts: `query-reconciliation-correction-peer.md` and `query-reconciliation-correction-peer.json`.

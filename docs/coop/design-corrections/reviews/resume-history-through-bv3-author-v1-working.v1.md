@@ -1,0 +1,94 @@
+# Resume — Bv3 found required gaps; actual Claude correction pass active
+
+**NOT READY FOR IMPLEMENTATION.** User authorized architecture/design/schema/reference correction, actual Claude reviews and eventual design/readiness application only. No product implementation, commit, push or publication. Condition5 NOT MET. Preserve all working changes and historical/frozen evidence. Actual CLI `/Users/sb/.local/bin/claude`; NEVER substitute GPT or infer agreement. Python `/tmp/opensip-architecture-review-env/bin/python -I -B`. JSONL split on LF only; retain public tool_use/tool_result, never private thinking. Commentary/waits <=60s. No external blocker now; continue work.
+
+## Active actual coauthor — DO NOT relaunch
+
+**PID96030 / UUID6f624b3a-aade-4530-addc-03c02405732a**, `/tmp/opensip-design-corrections/bv3-corrections-author.v1`, disposable source `work` copied from all2981 exact frozen v12 files. Fresh actual Claude COAUTHOR, not reviewer. `launch-bv3-corrections-author-v1.py` in codex-post-reset.v1 already executed. Prompt/inputs/process preserved. Full final blind findings delivered via `CODEX-PUBLIC-NOTE.md`, with two exact prior-note copies; **actual full Read at06:02:33.320UTC** before source edits. Author began source edits around06:05UTC; no handoff yet.
+
+Ownership: THREE identity/native/workflow prose contracts + necessary source/schema/corpora under foundation/native/workflows. No security/admission-contract, source-pin manifests, generated existing reports, reviews/crosswalk/readiness/application changes in released source delta. Development whole-suite checks may use a further disposable copy and explicitly measured pin refresh; those are not final candidate pin proof. Root owns integration/recording/finalpinrefresh. Author must preserve all before-images, failed attempts, exact changedFiles/sourceRoot/handoff and verify all source-copy deltas. Let author finish, read FULL handoff/code/prose/probes, substantively assess/recheck then integrate released accounted bytes. Existing source is still frozen-v12-equivalent live except mutable guide and additive review evidence; no product/application changes.
+
+Known author interim: p1_mirror_diff.py audits mirror fields; p2_rung_exploit.py initial mutation did NOT rejoin scope and all controls hit FACT_SCOPE_JOIN, retained as FAILED-ATTEMPT, not proof the gap is closed. Inspect final corrected probe and valid controls. Do not claim source edits accepted while author still running. Actual note says all8final findings must be covered, including syntax-only ANY bundled grammar and inventory-only repos; not just original interimF1..F5.
+
+## Completed actual blind Bv3 — definitive correction checklist
+
+Actual fresh session **4dcdbac0-6004-49dc-8a37-70dad208639d** completed is_error=false, **CHANGES_REQUIRED**, retained `reviews/consumer-b.v3`. **ReviewJSONSHA e0fa53f338acb49323a2eb9d2b5318b4833cd8b7574d850b8c3fa760bbc8fb6b**. Root read FULL33,081BMarkdown +required/advisory/limitsJSON.45normativeinputs60retainedfiles198publictoolblocks. Retainer verified every kit hash/length/inventory against accepted v12parentbefore/after; blind itself honestly could not verify unseenparentmanifest.143vectors0executionfailures,214schemavalidations0invalid,5Rungraphs16terminations;10findingvectors separatefromexecutionfailures. Reviewer assumedladders/inventedpartialcause, DIDNOTconstructsyntax-onlyRun orresolved/typepolicy, so noACCEPT.
+
+Required exact IDs:
+- **CB3-MUST-1** relation-payloadregistry claims rungladderbut8single-rungrows haveemptyrungsfieldrules; existingcapability RELATION-LADDER-DOMAIN-V2 publishesvaluesbutboundonlycapabilityfields. Foundationconditionalemptytablecheckbypassesmembership. Needexplicitsharedladderauthority/order/admission.
+- **CB3-MUST-2** policyAtom.minResolution syntax/resolved/type/external vsnativefact/Coverage/Requirementactual15rungs, no mapping. Needcoherentpolicy/native/repair/import-observationrule; neverarbitrarycrossrelationrank.
+- **CB3-MUST-3** syntax-onlySUPPORTED-DESIGNsyntax/clonescells requirefact/subjectscopeuniversebutdomainsetonlyTS/Rust andmode saysnone. ANYbundledgrammarpromised; alsoneedfile/package/vcsinventoryfactpathwithnoTS/Rustunit. DoNOTsilentlynarrowmatrix. Closedcontext/universe/grammar/provider/normalizer/language/version/snapshot/retentionjoinneeded.
+- **CB3-MUST-4** ScopeDocumentV1requiredanalysis-specparameterforcomparisonscopeaxisbutclosedparameterregistryonlyadmitsimport-source-context. Registerexactownerdocument/selectororcoherentowningcarrier; preservediscovery-scopevsworkflowglobscope distinction.
+- **CB3-MUST-5** partial/absent/ambiguouscloneownershipmustsurfaceCoveragecausebutNativeCause/§10closedmappinglackit; preserveemptycloneviewindeterminateandnoillegalbodyidentity. IncludeexaminedExhaustivedisclosurelaw.
+- **CB3-SHOULD-1** importomissions+3scopearrayorder canonical-setfoundation vssequenceexactmirrorworkflow.
+- **CB3-SHOULD-2** blobsmin0vs1 AND max100000vs4096 contradictmirrorclaim.
+- **CB3-SHOULD-3** node_moduleslayoutdescriptionwronglysayssnapshotinventoried; actualprose/blobJoincorrectlyretainsoutsideinventory.
+
+4ADVs: pincompletenesshostjoin and confinementtruth-tablehostjoin arevalidscopelimits; inventoryproducerrowmissing shouldaccountalongMUST3withoutchangingseverity; illustrative723byte21crate-mapdependsnames(blind's21crates391Bstill>255). Preserveactualseverities, notalladvsblockers. AlloldTS/JS/Rustbody/dialect/config/ownership/canonical/retentioncasesremainusefulhistory.
+
+## Root independent regressions and prepared follow-on
+
+All `/tmp/opensip-design-corrections/codex-post-reset.v1`:
+- `probe-bv3-policy-before.py/.json`: exactfrozenv12workflowSHA99ab2a09ecad47de9027f74a64f4b1552d0546082ec0fcacd0c3fddbce954948; abstractresolvedcontrolTrue vsnativeresolved-target/syntactic-specifierKeyError. Purehelperonly,nofullhostclaim. Authorhasreadpath.
+- `probe-bv3-mirror-parity.py --root <source> --out <NEWfile>`:13independentlyselectedcases,6beforemismatches (reversedomissions,zero/4097blobs,3reversedscopearrays), positiveandduplicatecontrolspreserved. Before report `bv3-mirror-parity-before.json`. Testsrealfoundationimportidentifier/order,scoperegistered+order,workflowregisteredvalidator; syntheticdigestsdescriptoradmissiononly,noRunclosureclaim. Rerunonceonfinalreleasedsourcewithnewoutputaftercorrection.
+- `launch-consumer-b-v4.py` PREPARED NOTLAUNCHED fromv2launcher. Addscomplete syntax-onlynonTS/RustRun, resolved/typepolicy+repair/importboundary, preciseownershipcauses,realScopeDocumentanalysisparameter/scope-onlycomparison. Noauthororacleprovided. **Reconcile normative input selection with ALL new normative dependency files afterhandoff**; doNOTblindlyuseold45file selection ifauthoraddsregistryfiles. Gate stillactualnewindependentACCEPTzeroMUST/SHOULD+actualCodexassentexactsamebytes.
+- `status-blind-v3.py` currentlylistsbothactualsessions'publicrecenttools; Bv3 completed, onlyauthoractive. Canmakeauthor-onlyhelper. DoNOTreruncompletedBretainer.
+
+## Frozen accepted v12 — preserve, but Bv3 blocks promotion
+
+Manifest **fc124cc7d487f7f6fcc97665255574273b03fe1f09e6b70c3246feedf1678beb**,2981files82,723,140B; snapshot`/tmp/opensip-design-corrections/candidate-subject.v12`; archive`reviews/candidate-source.v12.tar.gz`. Actualindependent864c56f8-181e-47fc-9681-690374211d0d ACCEPT0MUST0SHOULD2ADVs; reviewSHA5511287af67e4fd77e99d6865950d6f7773294457ae52fe69a31a50ab14af9e5;44outputs162tools. ActualCodexassent`reviews/codex-post-reset.v1/design-assent.v12.json`,33advisoryaccountitems. Sixcommands/logs/reportsreproducedbyteidentically;all1308pinsvalid; own84typednegative42positive48discriminate;21,562identitycalls17domains5370distinctsamev11/v12. Foundation1115=231+767+24+28+65;identity757unique+10extra;security456+10sweeps;native151;workflows1290;integration363. Latestnewblindfindingsdon'trewritehistoricalACCEPTbutrequirecorrectedsuccessor/newreviews.
+
+V12reviewenvelope usesoverallVerdict, top-levelsubjectManifestSha256;subjectisaPATHSTRING. Adaptersacceptconsistenttop-levelORnestedpin,refuseabsent/conflictingvalues; originalactualJSONuntouched. v12inherited27/eval30CARRIED-UNCHANGED explicitlynotgraded/discharged;5DR201..205ACCEPT_SCOPEDroutingonly. Finalapplicationreviewmustsubstantivelygradeproposedcurrentrecords.32qualificationflagsfalse.
+
+Originaluser v1 **e7403b702d419f381be1cdbee7b886303fb43106b86985bc2f8ec63f5687a0ac** +1192files ANDv12+2981filesreverifiedthiscontinuation.17draftbeforeimagesexact,26inherited/reentrysourcepinsmatchv12. Allhistoricalsubjectsimmutable. Model/checkerv12ed38f172.../f9b427a8...; priorannotation3limbs/typedalias/cycleprose correctionsmustsurvive.
+
+## Full application still UNASSEMBLED / UNAPPLIED
+
+`/tmp/opensip-design-corrections/application-assembly.v1`, likelyfuturestage.v3 +application-subject/review.v2. NEVERapplyrejectedstage.v2. Requiresacceptednewdesign+NEWblind. All17draftbeforeimagesmustreverify.28readinessrows/30eval/27inherited/5scopedowners/32falsegates,actualD372actandfullindependentappreviewbeforeactivationLAST; then6postapplycommands/verify/catalog/links/inventory/frozenhashes/legacyD369provenance.
+
+Prospective/tmpchangesalreadyEXECUTED, DO NOT rerunone-shotclarifiers:
+- required-findingshardening:explicitrequiredarrayspresent/list/empty;20syntheticfinalizerselftestsPASS,notactualapplication. Exact7beforeimages/history.
+- subject-envelopeadapterexact4before/after +custody.
+- `clarify-application-evidence.v1.py`:literalcarrieddispositions+finalappgradeauthority, joinedcountsummary(767/757/10currently;dynamicnewversion), relativepinnedsourcecommandsindisposableacceptedcopy.3beforeimages/hashes.
+- `clarify-scoped-owner-authority.v1.py`:5routing-onlyreviewobjectsremainliteral, newapplicationoutcomeauthorityexplicit; registergeneratedtextdependsnewfinalapplicationreview.2beforeimages/hashes.
+prepare-validationcopiesallthesechains/currenttoolsintoapplicationsupport. FinalizerrequiresexactactualfreshappACCEPTwith0MUST/SHOULDandunchangedbefore/exactinterruptedafter;activationlast. No historicalreviewJSONnormalization.
+
+Pipeline: assemble-records -> prepare-validation (only2nativedocumentprovenancepinschange,6commands,20selftests) -> build-inventories -> assess-links -> freeze-application -> NEWactualClaudeapplicationreview -> retain ->reviewedfinalizer ->6postapplychecks ->verify-applied. OriginalD369checkerunchangedbaseline6329PASS6CONTEXT3FAIL(arch08/rootREADME/arch12); accountauthorizedafterimages,neverrepinoldacceptance/callPASS. FullpreviousappM1..7/S1..6/A1mustremainaddressed.
+
+## Required continuation
+
+Finishactualauthor -> retainedsubstantiveCodexassessment/necessaryfurthercoauthoredcorrection ->releasedintegration ->allrecord/crosswalk/prospectiveadvisoryeditsBEFOREfixture/pinrefresh ->sixfinalcommands ->finallive/copyALLpinseal ->frozenv13orcorrectsuccessor ->actualfreshindependentzeroMUST/SHOULD ->actualCodexassent ->NEWblindBv4 ->fullnewindependentapplicationreview/application/readinessverification. Repeatifrequired. No stoppingmerelybecauseareviewisrunning; reportonlyactualexternalblockerhonestly. No implementation/commit/push.
+
+[Full preceding guide, histories and exact earlier scripts](resume-history-through-bv3-review.v1.md) preserves all prior evidence paths and chronology. D371onecompleteproductdesignimplementedinstages; Fallow15constraints mapped acrosscommoncontracts/nativeTSJSRust, upstream23bb9a7...pinnedhistorically. No newweblookupneededunlessnewexternalfactquestionarises.
+
+## Latest Codex continuation details (around 06:45 UTC Sept7)
+
+Actual author6f624.../PID96030 still active, now adding grammar-only context/universe and syntax body version/admission after per-relation policy correction. No handoff/integration/application. V1+1192 andV12+2981 all SHA/lengths reverified again.
+
+Root M4 probe `probe-bv3-scope-parameter.py` and immutable `bv3-scope-parameter-before.json` reproduce full validScopeDoc Run refusal PAYLOAD_PARAMETER_UNREGISTERED with legal base control and3malformed/unregistered controls. Uses integration-fixtures solelyconstructionhelper. After new source, adapt to replace any default existingScopeDoc parameter rather than appendduplicate; preservebefore script/output. Actual comparisoncontext.scopeDigest mustjoinselectedparameter, not merelyregistryadmission. Root communicated exactscopeprobe and M5 producer/Run null/wrongcause/incorrectdeficiency guard need in publicnote (later than actual06:02Read; verifyreread beforehandoff).
+
+Cardinality still NO finalCodexassent: authorinterimnarrowsfoundationblobs0..100000 to1..4096. Root independently found workflow imported-evidence schema topdescription DOES explicitly publish4096blobs/256MiBbound, and sent correction to earlier rootclaim thatnoquotedlawchose4096. Coherent4096max thereforehasrealbasis, compatibilitymustaccount. Minimum1separate: payload/auxiliarypreimagesretainedindependently, so zeroassetinventory alone doesnotprovepayloadabsent. Needactualoriginalartifact/sourcePathcustodyjoinorjustifiedpreservation0. Author'snewarchive-membercitationwronglynamesnative§6; actualPO-4is§3lines871–875. Newnote exactpriorcopy `CODEX-PUBLIC-NOTE.before-cardinality-evidence.md`; latestnote11,579B.
+
+PreparedNOTEXECUTED `/tmp/opensip-design-corrections/codex-post-reset.v1/retain-bv3-corrections-author-v1.py`: requiresactualsuccessfulfinalresponse+handoff.md/json, exactchangedFileslist path/beforeSha256/afterSha256, sourceRoot; explicitlypass everyfullcopy via --copy-root. Currentfullcopies work/devtest/probes/regress/probes/regress2 (reinspectfinal). Inventorieseachagainstimmutablev12, retainschanged/addedbytes+deletedrows andexactunchangedfileaccount; allotherfiles includingpartialbefore-images/logs/probes copiedverbatim. Onlypublic tool_use/tool_resultLFJSONL. Gatesworkdeltaowned3contracts+foundation/native/workflows, no sourcepins/reports/history. Adaptactualhandoffschema/layout ifnecessary BEFORErunning, neverdropunaccountedcopies. This preservesdevelopmentfullcopyhistorywithoutduplicatingallunchanged82MiBpercopy.
+
+PreparedNOTEXECUTED `probe-bv3-policy-after.py --root --out`:16independentlyselected native syntactic/resolved/type positive/insufficient controls, negativepartial/complete,foreignrungfault,observedruntime/missingevidence. Purehelper only, completeCoverageexplicitassumption; nohostadmission/sufficiency/repairqualificationclaim. Originalbeforeprobeunchanged. Runonceonfinalreleasedsource, inspectactualfailuresandRefusalattributes ifneeded.
+
+## Further continuation around06:58UTC
+
+Actualauthorstillactive, developmentdevtest8 aftersyntaxfullRunfixture corrections. No handoff/releasedintegration. Additional root preparedNOTEXECUTED scripts: launch-review-v13.py (all5MUST3SHOULD+4ADV and affectedjoins, fullfrozen/sourcepin/reproduction/oldregressions, explicit0MUST/SHOULDgate, carriedunchangednotnewapplicationgrades); run-final-v13.py; adapt-integration-builder-v13.py (provisionalexplicitnewGRAMMAR_FILES/syntax_inputs/SCOPE_DOCUMENT dependencies, actualhandoffchangedFiles/afterSha256guard; reconcilefinalASTinterfacefirst). Blindv4launcher stillpreparedonly.
+
+Root independentM5probe NOWEXECUTED onimmutablev12: `probe-bv3-ownership-cause.py --root --out`, beforeoutput `bv3-ownership-cause-before.json` in codex-post-reset.v1. FullRunpartialRustownership/emptyview withselfconsistentCoverage/witnessrekeys: producercontrol(resolution-incomplete/null)ADMIT; input-closure-incomplete/nullADMIT; unrelatedbudget-exhausted/nullADMIT; falsecompleteclaimREFUSE intendedCOVERAGE_DIALECT_PREREQUISITE. ConfirmsactualretainedRun null/wrongdeficiencydisclosuregap. Afterfinalreleasecorrectproducercontrolmustclosewithnewlegalpairandmutatednull/unrelatedpairsrefuse. Builderissyntheticconstructionhelperonly. Actualrootnotepathdelivered; latestnote priorcopies before-comparison-site/before-ownership-probe.md.
+
+RootM4furtheractualsite: workflowadopt_baseline641–650 setscontext.scopeDigestfrompassedscope, planargumentonlyPlanIDstring; cannotitselfproveanalysisparameterbinding. AskClaudeexplicitnormativehostprecondition+honestpurehelperlimit orboundedretainedRun/contextadmissionhelper/composition, notclaimexistinglineprovesjoin. compare541/553consumessuppliedcontexts. Sentexactsite. Stillnoactualrereadafter06:02confirmed; promptrequiresbeforehandoff, verifylater.
+
+## Latest continuation, approximately07:12UTC /00:12Pacific Sept7
+
+Actual Claude coauthor PID96030/session6f624... remains active. No handoff, source integration, new freeze or application. It has run development checks through devtest12 and updated workflow surfaces/prose; native devtest10 reported151/151, workflows1577/1577. These are provisional development results, not acceptance. Use new `status-bv3-author-v1.py` for only this session's latest public tools, note Read timestamps and response/handoff sizes. A full public-tool search confirmed no later note read via Bash either as of07:11; the latest substantive root notes still require Claude assessment before handoff.
+
+The accumulated public note was consolidated into clear current prose; every previous byte is preserved at `CODEX-PUBLIC-NOTE.before-consolidation.md` and earlier before-note copies. Latest note includes all actual Bv3MUST/SHOULD/ADV, root counterexamples, concrete cardinality recommendation, scope comparison boundary and a newly noticed stale ownership description.
+
+Codex recommends import asset inventory0..4096. Published workflow4096/256MiB bound supports the maximum. Operational ImportedEvidenceRecordV1.sourcePath is UserInputPath+receipt, not an H-bound original artifact digest and not joined to a wrapper asset member. One arbitrary blob cannot establish input custody; canonical payload/schema retention is independently mandatory, so self-contained payloads can have zero auxiliary asset members. Actual Claude assessment remains pending; root has not assented to interim1..4096.
+
+Additional same-law prose gap: native Rust universe sourceUnitOwnershipId.description still invokes the obsolete single-edition fast path (“every body has the same dialect”), contradicted by targetEdition overrides and mandatory ownership for every Rust clone body. Ask author to reconcile that description with nullable unavailable universe/indeterminate empty-view semantics, not remove null merely to vindicate stale prose. Exact note before-image: before-ownership-description.md. Account this additional Codex observation with M5 in final technical assessment.
+
+Provisional v13 fixture adapter was statically checked against the current author source: all requested declarations exist, and no selected function references an additional top-level declared global beyond the supplied header/selection. This is an integration preparation check only; reconcile again if the final author source adds dependencies (especially M5 helpers). New v13 runner/review launcher/retainer remain prepared, not executed.

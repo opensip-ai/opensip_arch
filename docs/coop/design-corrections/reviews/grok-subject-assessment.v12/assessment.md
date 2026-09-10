@@ -1,0 +1,52 @@
+I’ll settle optional-unselected enumerator in the five owned files, then read the root integration models for a bounded v12 review. Receipts go to a new scratch path, not v11.Schema currently forces selected enumerators; I’ll align it with optional-unselected, then read the root integration models for the v12 review.Implementing optional-unselected in schema and model, then the checker CLI and v12 review notes.v12 is coauthor continuation, not independent acceptance. Enumeration-join checks only; they do not qualify a Run.
+
+## A. Optional-unselected (five owned files)
+
+Prose and schema now match the model.
+
+- Available bindings: `{status:"selected", closureId}` only.
+- Unavailable bindings may use that, or `{status:"unselected", reason:"optional-unselected"}` when `required=false`, `universe=null`, lawful `provider-unavailable` / `nativeCause` null, empty unavailable inventories, and host extents still compared.
+- `required=true` + unselected → `ENUMERATION_PLAN_REQUIRED_UNSELECTED_ENUMERATOR`.
+- Available U + unselected → `ENUMERATION_PLAN_SCHEMA`.
+- Selected missing `closureId` → structural schema refusal.
+- Host extents still fail unselected bindings (`ENUMERATION_BINDING_EXTENT_PATHS`).
+- Live `ENUMERATION_SCOPE_EXCLUDE_ALL` removed from `INTERNAL_FAULTS`. v7–v11 receipts were not rewritten.
+- Checker default is `/tmp/opensip-enumeration-check-scratch/`; `--receipt`/`--hashes`/`--stdout`; writes into `grok-subject-assessment.v7`–`v11` are refused.
+
+**39 cases, 0 mismatches, 13/20 historical bounded.** Python 3.12.13.
+
+| Control | Result |
+|---|---|
+| optional unselected + empty unavailable inventories | ADMIT |
+| required + unselected | REFUSE `REQUIRED_UNSELECTED` |
+| available U + unselected | REFUSE `PLAN_SCHEMA` |
+| selected missing closureId | REFUSE `PLAN_SCHEMA` |
+| optional unselected, wrong extents | REFUSE `EXTENT_PATHS` |
+
+## B. Integration review (read-only)
+
+Actual `check-replay.v3.py`: **25/25 passed**, synthetic admitted inputs, including `two-universes-six-full-findings` and four reminted same-count mutants. That suite does not exercise `kinds=[]`, omitted views, or optional-unselected. Completeness is not inferred from it.
+
+**Blockers (root-owned reconstruct/replay, not enumeration files):**
+
+1. **False-satisfied required candidate-only cells.** `clones-near` / `clones-cross-tsjs` have `kinds=[]` and emit zero inventories. Reconstruct only marks required-unsatisfied if `universe is None` or an **existing** inventory is not complete. Required `kinds=[]` with a non-null U therefore leaves `executionDeficiencies` empty and can pass.
+2. **No view input totality.** Imports must equal `plan.importIds`. Views are whatever `evaluationInputRefs` lists; replay rebuilds evidence from those same refs, so an omitted view is stable.
+3. **`no-covering-program` is inventory-shaped.** Unavailable inventories still “cover”; candidate-only cells never appear in `relevant`. That disagrees with complete-empty’s covering **available** binding and interacts with (1).
+4. **Duplicate `required-cell-unsatisfied`** for one required unavailable inventory cell (U=null arm and inv-not-complete arm, different `inputRefs`, `cset` keeps both).
+
+Sidecar/incoming remains atom v6; not restated as new discovery. Same-Plan available U domain join is present (`universe_domains` / `EVALUATOR_CELL_UNIVERSE_DOMAIN`); `two-universes-six-full-findings` is two syntax U on one inventory cell, not a candidate-only control.
+
+## C. Disposition
+
+| Item | Owner | Status |
+|---|---|---|
+| Optional-unselected enumerator | these five files | Settled |
+| Checker historical overwrite | these five files | Settled |
+| False-satisfied required `kinds=[]` | reconstruct | **Blocker** |
+| View input totality | reconstruct/replay | **Blocker** |
+| no-covering-program vs available covering | reconstruct | **Blocker** |
+| Duplicate required-cell-unsatisfied | reconstruct | Defect |
+| Sidecar/incoming | atom v6 | Known pending |
+| Full Run / independent evaluator3 acceptance | — | **Not claimed** |
+
+Findings: `/tmp/opensip-design-corrections/grok-subject-assessment.v12/integration-review.v12.md`. Receipt: same dir `check-receipt.json` (explicit `--receipt`, not default).

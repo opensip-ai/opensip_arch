@@ -1,0 +1,21 @@
+--- a/docs/coop/design-corrections/foundation/check-identity.py
++++ b/docs/coop/design-corrections/foundation/check-identity.py
+@@ -1506,12 +1506,16 @@
+           for r in (_ADOPT_NOT_SELECTED,_ADOPT_MISMATCH)))
+ # NOT VACUOUS: the same caller with the SELECTED document does not raise either scope refusal, so
+ # the two controls above are measuring the binding and not some unrelated precondition.
++_NO_REFUSAL=object()
+ def _adopt_scope_detail(spec_rows,document):
++    # Sentinel rather than None: a Refusal may carry detail=None - adopt_baseline's OWN
++    # duplicate-entry guard raises exactly that - so projecting to `.detail` alone cannot
++    # distinguish "refused" from "returned", which is what this positive must assert.
+     try:_adopt(spec_rows,document)
+     except W.Refusal as exc:return exc.detail
+-    return None
++    return _NO_REFUSAL
+ check('adopt_baseline-with-the-selected-document-returns-without-any-refusal',
+-      _adopt_scope_detail([_SCOPE_ROW_A],SCOPE_DOCUMENT) is None)
++      _adopt_scope_detail([_SCOPE_ROW_A],SCOPE_DOCUMENT) is _NO_REFUSAL)
+ # And the ambiguity refusal introduced by the earlier correction is untouched by the registration.
+ check('the-ambiguity-refusal-still-uses-config-invalid-after-the-registration',
+       _refusal(lambda:W.verify_scope_parameter_binding(

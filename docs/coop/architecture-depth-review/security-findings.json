@@ -1,0 +1,234 @@
+{
+  "reviewer": "Claude (claude-fable-5-1), independent Lens B review of the D-371 snapshot",
+  "lens": "B: security, distribution, protocol and operational correctness",
+  "readiness": "NOT_READY",
+  "findings": [
+    {
+      "id": "SEC-01",
+      "severity": "HIGH",
+      "classification": "newly_discovered_defect",
+      "title": "Platform TCB identity binds to exact CI-runner kernels; accepted profile mechanism cannot admit ordinary user machines",
+      "sources": [
+        "docs/coop/completion/security-completion.v8.md \u00a78.3 lines 564-569, \u00a78.4 lines 586-596 and 614-622, \u00a78.6 lines 628-632, \u00a78.7 lines 636-639",
+        "docs/coop/completion/security-fixtures.v8/profile.P-MACOS-ARM64-25G83-APFS.json /acquisition/launch/0 (refusesOn: value differs from the profile) and /signedEntries/0 (kernUuid, osversion)",
+        "docs/coop/completion/security-fixtures.v8/linux-os-abi-predicate-cases.json /cases[id=wrong-series-generic-6.8-on-azure-profile] expect fail",
+        "docs/coop/completion/security_unit_lib_v8.py lines 1361-1366 and 1379-1380",
+        "docs/coop/completion/host-foundation-completion.v2.md \u00a71 lines 40-43 (operational root must be ext4/APFS)"
+      ],
+      "trigger": "Any macOS host on a build other than the runner-measured build; any Linux host booting a generic-flavor Ubuntu kernel; any Linux account whose home is not ext4.",
+      "consequence": "NT-TCB-BOOT / NT-TCB-IDENTITY refusal at launch; the qualified support set collapses to hosts identical to GitHub-hosted runner images.",
+      "counterevidence": "Scope chapter defers exact baselines to DR-119/126; v2 \u00a78.6 discloses the Linux refusal in general terms; profiles are labeled release-measured. Rejected because the accepted mechanism itself forecloses a supportable population and \u00a78.7 forbids qualifying profiles for builds the four classes do not run.",
+      "required_correction": "Replace exact kernel identity with a bounded baseline plus attestation predicates (macOS major/minor range with sealed-boot and SIP checks; Linux publisher-signed kernel within a supported line, any flavor), qualify each baseline on a class that can run it, publish the actual support set at DR-119/126 and in file 10, and record csr_check SPI dependence as a release-measured risk.",
+      "owner": "DR-126 (Security + platform), DR-119 (Product + language + release), DR-G22",
+      "confidence": "high"
+    },
+    {
+      "id": "SEC-02",
+      "severity": "MEDIUM",
+      "classification": "newly_discovered_defect",
+      "title": "Ancestor walk for opensip.json has no ownership or boundary check; cross-user configuration and snapshot-root injection on shared directories",
+      "sources": [
+        "docs/coop/completion/host-foundation-completion.v2.md \u00a72 lines 113-117 (walk to nearest ancestor, stop at filesystem root)",
+        "docs/coop/completion/host-foundation-completion.v2.md \u00a71 lines 45-49 (ancestor ownership checks apply to the operational root only)",
+        "docs/coop/completion/host-foundation-completion.v2.md \u00a73 lines 166-167 and 179-186 (layer-3 fields: pins, holds, allowedScopes, budget)"
+      ],
+      "trigger": "User runs analyze without --project in a descendant of a shared or sticky directory (e.g. /tmp, shared CI workspace) where another principal placed opensip.json.",
+      "consequence": "Another principal selects component pins/holds and budget for the victim's run and makes their directory the sealed snapshot root; results can be made indeterminate or pinned to a defective component version; other users' readable files enter the report.",
+      "counterevidence": "Configuration is data only and cannot grant permissions; same-user ancestors are within the trust boundary. Neither answers the cross-user case.",
+      "required_correction": "Stop the walk at the first ancestor not owned by the invoking account or root, or at HOME/mount boundaries; require the selected project root to be owned by the invoking account; record the deciding ancestor in provenance; add G12/G18 fixtures.",
+      "owner": "DR-103/DR-104 host foundation (Lifecycle + security), DR-G12/DR-G18",
+      "confidence": "medium-high"
+    },
+    {
+      "id": "SEC-03",
+      "severity": "MEDIUM",
+      "classification": "newly_discovered_defect",
+      "title": "Unbounded monotonic evalHighWater advance from the wall clock; one future clock excursion permanently expires trust with no reviewed recovery",
+      "sources": [
+        "docs/coop/completion/security-completion.v8.md \u00a74.2 lines 210-217",
+        "docs/coop/completion/security-completion.v2.md \u00a74.2 lines 277-288 (wall clock more than 24h ahead accepted as time passing)",
+        "docs/coop/completion/security-completion.v8.md \u00a75.5 lines 303-305 (restore keeps floors)",
+        "docs/coop/completion/security_unit_lib_v8.py lines 1068-1072"
+      ],
+      "trigger": "Dead RTC, bad NTP step or manual clock error places the wall clock in the future during any state-using operation.",
+      "consequence": "Every catalog, revocation list and root is expired relative to the persisted instant; no later signed payload cures it because document expiry is bounded by issue time; restore retains the floor; only out-of-band deletion of the per-user root recovers.",
+      "counterevidence": "Monotonic evaluation is deliberate anti-rollback; doctor reports CLOCK-REGRESSION. Neither provides recovery.",
+      "required_correction": "Bound the wall-clock advance (e.g. not beyond newest accepted document expiry plus tolerance, or plausibility relative to lastAccepted), or define an audited operator floor reset requiring a freshly signed payload; retain a G08 case for excursion-then-correction.",
+      "owner": "DR-112 (Security + release), DR-G08",
+      "confidence": "high"
+    },
+    {
+      "id": "SEC-04",
+      "severity": "MEDIUM",
+      "classification": "newly_discovered_defect",
+      "title": "Revocation during a live operation has journal vocabulary but no defined path to the running host; contradicts OD-112-3 alreadyRunning=refuse and chapter 03 revocation law",
+      "sources": [
+        "docs/coop/completion/security-schemas.v8/journal-record.schema.json lines 617-627 (REV reasons operator/policy/process-death/trust-revoked)",
+        "docs/coop/completion/security_unit_lib_v8.py lines 794-796 (journal_state only)",
+        "docs/coop/completion/security-completion.v8.md \u00a75.4 lines 250-260 and \u00a77.5 lines 488-497 (REV only on process death)",
+        "docs/coop/completion/security-completion.v1.md \u00a74.3 lines 395-400 (alreadyRunning refuse at every stage)",
+        "docs/coop/completion/lifecycle-carrier.cases.v2.json /cases[id=live-operation-survives-selection-change] line 910",
+        "docs/v2/architecture/03-configuration-and-security.md lines 107-122"
+      ],
+      "trigger": "Trust refresh or imported payload revokes a component or key while an operation holding that project's lease is mid-effect.",
+      "consequence": "The broker keeps honoring grants to a revoked component until the operation ends; no REV trust-revoked writer exists; G09 revocation cases have no contract to execute.",
+      "counterevidence": "Preview worker has zero handles; new operations re-verify (revocation-refresh-allows-new-lease). Neither covers the full-product long-running case.",
+      "required_correction": "Specify the live path (re-read revocation counter at every effectRequest and on a bounded interval; append REV trust-revoked; cancel; teardown) or explicitly retract alreadyRunning=refuse and record the window; add G09 cases.",
+      "owner": "DR-105/DR-112 (Security), DR-G09",
+      "confidence": "medium-high"
+    },
+    {
+      "id": "SEC-05",
+      "severity": "MEDIUM",
+      "classification": "newly_discovered_defect",
+      "title": "Root chaining through an expired root is unspecified; dormant and air-gapped installs have no defined recovery after 365 days",
+      "sources": [
+        "docs/coop/completion/security-completion.v1.md \u00a73.1 lines 312-314 and \u00a74.2 lines 379, 387-390 and \u00a74.6 lines 420-426",
+        "docs/coop/completion/security-completion.v8.md \u00a72.2 lines 145-147 and \u00a74.2 lines 215-216",
+        "docs/coop/completion/security_unit_lib_v8.py admit_root lines 261-265 (only issuedAt < expiresAt)"
+      ],
+      "trigger": "Install presents a payload carrying root N+1 after root N has expired at tEval.",
+      "consequence": "Either permanent refusal requiring fresh core install, or an unwritten rule that could weaken anti-rollback; DR-G08's claim that trust survives expiry has no clause to test.",
+      "counterevidence": "G15 final join covers root admission negatives and origin/previous-version consistency, not expiry chaining.",
+      "required_correction": "Add an explicit rule (intermediate root expiry ignored during chaining; newest root must be unexpired at tEval; rootVersion anti-rollback holds) with one retained case.",
+      "owner": "DR-112 (Security + release), DR-G08",
+      "confidence": "medium"
+    },
+    {
+      "id": "SEC-06",
+      "severity": "HIGH",
+      "classification": "integration_gap",
+      "title": "D-371 Rust depth is jointly unsatisfiable with no-repository-execution and no-confinement under the accepted permission model",
+      "sources": [
+        "docs/v2/architecture/10-mvp-and-future-scope.md table rows Native language depth and Exclusions lines 39, 45; lines 74-77",
+        "docs/coop/artifacts/delivery.v2.json lines 534-539 (Rust repositoryExecution withGrant)",
+        "docs/coop/artifacts/permission-truth-tables.v7.json lines 143-149 and 181-195 (PT-PROC-EXEC-DECLARED bounded to admitted tree; PT-NET-EGRESS)",
+        "docs/coop/completion/security-completion.v1.md \u00a76.1 lines 556-563 (six tokens DISCLOSURE-ONLY) and \u00a76.3 lines 578-580 (PR-6 empty trigger set)",
+        "docs/coop/completion/security-completion.v8.md \u00a71 lines 98-108 (TCB is first-party code)",
+        "docs/v2/architecture/03-configuration-and-security.md lines 152-160"
+      ],
+      "trigger": "Authoring the Rust capability cells at DR-118 that require cfg/proc-macro expansion.",
+      "consequence": "Either Rust semantics are far shallower than promised, or a grant runs third-party repository code with the user's ambient authority under a token vocabulary that cannot enforce the promised network-disabled bound.",
+      "counterevidence": "Rows DR-117/118/119 are OPEN for full product and freeze law 11 governs; the tension is known in pieces but never recorded as a contradiction.",
+      "required_correction": "Record a product decision before capability authoring: accept a declared Rust depth without repository execution, or admit a confinement primitive with enforcement evidence (which reopens DR-128 scope), and add a principal class for repository-controlled code to the threat model.",
+      "owner": "DR-117/DR-118/DR-119 (Product + language + security), with DR-105 and DR-128",
+      "confidence": "medium-high"
+    },
+    {
+      "id": "SEC-07",
+      "severity": "MEDIUM",
+      "classification": "integration_gap",
+      "title": "Stage-1 closed vocabularies refuse stage-2 extensions and the compatibility matrix promises no bridge; contradicts D-371's no-incompatible-state-models statement",
+      "sources": [
+        "docs/coop/completion/security_unit_lib_v8.py admit_root lines 250-258 (TR-REPAIR typed absence and kernelAttestationKeys=[] are refusals)",
+        "docs/coop/completion/control-completion.contract.v5.md lines 67-70 (unknown effect classes RF-2)",
+        "docs/coop/artifacts/permission-truth-tables.v7.json lines 143 and 153 (fs.write.project RESERVED; closed at seven)",
+        "docs/coop/completion/compatibility-matrix.completed.v5.json /rows S-SCHEMA, S-CTRL, S-STATE (readers [1,1], no cross-major bridge)",
+        "docs/coop/completion/distribution-runtime-completion.v2.md \u00a73 lines 168-177",
+        "docs/v2/architecture/10-mvp-and-future-scope.md lines 93-96"
+      ],
+      "trigger": "Publishing a root with an active TR-REPAIR role, a third effect class, a project-write token or a new journal record type for repair/import.",
+      "consequence": "Stage-1 hosts refuse the documents; the first stage-2 capable host is a fresh install, not an update.",
+      "counterevidence": "DR-110/111 are OPEN for full product and the reference architecture discloses no upgrade continuity for the preview.",
+      "required_correction": "Record a stage-transition contract at DR-107/110/111 that reserves extension points now (e.g. active TR-REPAIR admissible under stated key policy; effect-class registry; token extension rule) and defines migration or honest discard of stage-1 state.",
+      "owner": "DR-107/DR-110/DR-111 (Lifecycle + security + release), DR-105",
+      "confidence": "medium"
+    },
+    {
+      "id": "SEC-08",
+      "severity": "LOW",
+      "classification": "documentation_hazard",
+      "title": "Adopted manifest and evidence annotations self-describe as not adopted or carry stale digests; duplicate section numbers in security v8",
+      "sources": [
+        "docs/coop/completion/architecture-application.v1.json /status, /enactmentPlan/alreadyEnacted, /evidenceTargets/S.*/sources/0/observedSha256 (82d1\u2026) versus pin (54f3\u2026)",
+        "docs/coop/completion/architecture-incorporated-dependency-supplement.v1.json /standing",
+        "docs/coop/completion/check-architecture-application.v1.py lines 212-214 (observedSha256 ignored)",
+        "docs/coop/completion/security-completion.v8.md headings at lines 713-723 and 731-814 (two sections numbered 10, 11, 12)",
+        "docs/coop/completion/architecture-whole-review.v6.json /advisories line 1381"
+      ],
+      "trigger": "A reader or later checker relies on the self-description or the observed digest.",
+      "consequence": "Misreading of adoption state; a future heading-selector pin on \u00a710-\u00a712 fails the unique-heading rule.",
+      "counterevidence": "Whole-review v6 explicitly disposes stale standing strings as residue and records the 54f3 digest.",
+      "required_correction": "Pin-only successor that corrects the status strings, removes or explains observedSha256, renumbers the appended sections, and refreshes the freeze v6 pre-review block.",
+      "owner": "D-369 recording custody (DR-201\u2013205 owners)",
+      "confidence": "high for the text; digests not recomputed by me"
+    },
+    {
+      "id": "SEC-09",
+      "severity": "LOW",
+      "classification": "documentation_hazard",
+      "title": "Decided offline refresh cliff and doctor exit-zero-on-defect are not disclosed at the product-facing surfaces",
+      "sources": [
+        "docs/coop/completion/security-completion.v1.md \u00a74.2 lines 387-390 and \u00a74.4 lines 404-406",
+        "docs/coop/completion/security-completion.v2.md \u00a74.7 line 353 (CONTINUE-CORE-NOT-TRUSTED)",
+        "docs/coop/completion/security-completion.v8.md \u00a76.9 line 352 (OC-2 exit 0)",
+        "docs/v2/architecture/10-mvp-and-future-scope.md line 136"
+      ],
+      "trigger": "Air-gapped install exceeds the revocation freshness floor; CI gates doctor on its exit code.",
+      "consequence": "Already-verified analysis stops without a payload import; CI passes with environment defects unless it parses report.outcome.",
+      "counterevidence": "Both are decided under OD-112-2 and the frozen D9 vocabulary.",
+      "required_correction": "State the refresh obligation in the scope chapter's local-first row and in doctor output; add CI guidance that gates on report.outcome.",
+      "owner": "DR-112, DR-114, DR-123",
+      "confidence": "high"
+    }
+  ],
+  "strengths": [
+    "Fence-then-lease non-blocking handoff and GC census (security v8 \u00a75.4; lifecycle-carrier.contract.v2.json callbacks) eliminate the fence-wait deadlock class and are exercised on real SQLite.",
+    "Witness reconciliation as an exception-free boundary with a closed shape and complete action table (security_unit_lib_v8.py 273-343).",
+    "HE-1 ordered algorithm: durable RA and intent before effect, footprint-decided recovery, closed outcome vocabulary, receipt tied to record position (v8 \u00a77.5; he1_recover).",
+    "Effective policy digests both raw sources, deny-by-absence, whole-segment narrowing, refusal yields zero grants (v8 \u00a76.11; merge_policy).",
+    "Single root admission boundary with use-side recheck; a raw dictionary can never verify (admit_root_document, recheck_admitted_root).",
+    "Honest confinement labeling: disclosure-only cells, worker declared TCB not sandbox, brokered route declared voluntary; this honesty exposes SEC-06 rather than hiding it.",
+    "TypeScript worker launch posture: sealed VFS only, no repository execution, environment from empty, no addons, no global search paths, one-shot process (delivery.v2 \u00a7authority; broker-bootstrap v2).",
+    "Separate monotonic trust database never restored by generation rollback; detected and undetected rollback cases stated (v8 \u00a75.5).",
+    "Archive profile closed to file/dir/symlink with hard-link and PAX forms forbidden; stage and result files admitted on nlink==1, owner and size via held directory fds."
+  ],
+  "coverage": {
+    "files_read": [
+      "docs/v2/architecture/10-mvp-and-future-scope.md (full)",
+      "docs/v2/architecture/08-decision-and-readiness-register.md lines 330-506",
+      "docs/v2/architecture/02-distribution-and-components.md, 03-configuration-and-security.md, 04-lifecycle-delivery-and-operations.md, 13-evidence-workflows-and-product-contracts.md (full)",
+      "docs/coop/completion/reference-architecture.v2.md (full)",
+      "docs/coop/completion/architecture-application.v1.json lines 1-1449 and 8931-9040",
+      "docs/coop/completion/architecture-incorporated-dependency-supplement.v1.json lines 1-120 and 625-690",
+      "docs/coop/completion/architecture-application-freeze.v6.json; architecture-whole-review.v6.json lines 1336-1405; check-architecture-application.v1.py lines 205-275",
+      "docs/coop/COORDINATOR-DECISIONS.md D-369, D-370, D-371 entries; docs/coop/unified-design-review/D-371-design-target.v1.md",
+      "docs/coop/completion/security-completion.v8.md (full); v2 \u00a71-\u00a78 lines 96-672; v1 \u00a73-\u00a78 lines 294-772",
+      "docs/coop/completion/security_unit_lib_v8.py lines 200-1384; security-schemas.v8/grant-journal.sql; journal-record.schema.json REV/TERMINAL; root.schema.json timestamp patterns",
+      "docs/coop/completion/security-fixtures.v8/: profile.P-MACOS-ARM64-25G83-APFS.json, profile.example.linux-x86_64.azure-6.17.json, linux-os-abi-predicate-cases.json; fixture list",
+      "docs/coop/completion/security-lead-review.v3.json; security-freeze.v8.json (pins)",
+      "docs/coop/completion/host-foundation-completion.v2.md, broker-bootstrap.contract.v2.md, broker-sdk-courier.contract.v1.md, control-completion.contract.v5.md, distribution-runtime-completion.v2.md, g15-final-security-contract.v1.md, lifecycle-carrier.contract.v2.json (full)",
+      "docs/coop/completion/lifecycle-carrier.cases.v2.json case IDs and cases at lines 669-760 and 910-957",
+      "docs/coop/completion/compatibility-matrix.completed.v5.json rows S-CORE, S-SCHEMA, S-CTRL, S-ROLE, S-STATE, S-EVIDENCE, S-DOCTOR",
+      "docs/coop/completion/protocol-coverage.v2.json lines 1-120; qualification-design-packaging.v1.json case IDs",
+      "docs/coop/artifacts/delivery.v2.json lines 515-564 and 1120-1194; permission-truth-tables.v7.json lines 130-210; component-packaging-contract.v14.json lines 1655-1669",
+      "docs/coop/IMPLEMENTER-BLUEPRINT.md \u00a71.1 lines 121-161"
+    ],
+    "scenarios_traced": [
+      "Hostile project configuration: TS tsconfig/plugins/transformers (delivery.v2 repositoryExecution disabled); Rust build scripts/proc macros (withGrant branch, SEC-06); ancestor opensip.json injection (SEC-02); array/null/unknown-member refusal; layer 4 unopened in CI",
+      "Crafted components: envelope verification order and refusal precedence; root admission negatives; archive typeflag closure; manifest namespace binding",
+      "Path/symlink/hardlink: ustar profile forbids hard links and PAX; stage/result admission nlink==1 via held fds; SUP-LINK cases; verify-to-spawn crosswalk incl. macOS residual same-UID window",
+      "Partial provider transactions: factBatchAtomicity CANDIDATE_ONLY, DISCARD_ALL_CANDIDATES on every non-success, admit on Complete+zero exit+EOF",
+      "Cancel/EOF/fault order: cancelTransition, userCancellation D9 precedence, control state matrix TEARDOWN/FAULTED/CLOSED",
+      "Grant revocation during mutation: journal REV reasons vs writer path (SEC-04); HE-1 REV-after-RA closure via CLN",
+      "Trust rollback and restore: floors retained, RESTORED unbootstrap, undetected coherent rollback stated; evalHighWater monotonic (SEC-03)",
+      "Crash between carrier commits: witness table twelve rows; he1_recover lawful prefixes; post-visibility UNDETERMINED; lifecycle publish CAS and quarantine",
+      "Lease/reference GC: fence census, live lease retention root, spawn scratch orphan reaping, two-projects-conflicting-generations",
+      "Multiple users/projects: per-account roots via getpwuid_r, no shared writable service, namespace UUIDs, project registry device/inode/birth uniqueness",
+      "APFS/ext4 and platform observations: birth-time requirement, ext4-only operational root, exact kernel identity (SEC-01)",
+      "Offline closure, bootstrap, update, retention: air-gap payload mustCarry, 90/365-day floors, expired-root chaining (SEC-05), TR-REPAIR typed absence and matrix bridges (SEC-07), CD-RT-5 posture with SC-EVIDENCE deferred"
+    ],
+    "untested_assumptions": [
+      "No SHA-256 was recomputed; pin/byte equality is taken from whole-review v5/v6 replay records.",
+      "The v8 unit library is reference design evidence; production Rust behavior is assumed to follow its documented order.",
+      "Timestamp comparisons in the reference model are lexical; sound only because schemas pin the fixed Z grammar; trust.sqlite evalHighWater grammar is assumed to match."
+    ]
+  },
+  "not_reviewed": [
+    "Analysis-quality, performance (G13) and doctor-cache units beyond the clauses the security join consumes",
+    "CI ownership selector algorithm and fixtures; compatibility solver internals (selection-model v3/v5/v8 code)",
+    "Control checker v5 code and the 9,804-case protocol corpus bodies (contract text and coverage counts only)",
+    "Advisory/Map, repair, import, baseline/delta contracts (exist only as chapter 13 constraints and file 08 obligations)",
+    "The live repository and any product execution or platform measurement"
+  ]
+}

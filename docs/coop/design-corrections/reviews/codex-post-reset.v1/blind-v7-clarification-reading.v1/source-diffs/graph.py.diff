@@ -1,0 +1,226 @@
+--- /tmp/opensip-design-corrections/consumer-b.v7/output/work/graph.py
++++ /tmp/opensip-design-corrections/consumer-b.v7-clarification.v1/output/work/graph.py
+@@ -22,6 +22,46 @@
+ GRAMMAR_REG = O.doc("native")["x-opensip-grammar-capability-registry"]
+ MATRIX = O.doc("matrix")
+ CAUSE_REG = O.doc("native")["x-opensip-deficiency-cause-registry"]
++
++# CLARIFICATION v1 (post-review, root feedback item 1).
++# The ORIGINAL closure walked only run/snapshot/plan/evidence/seal/proof/
++# closure/fact/subject-scope/coverage/view.  `finding`, `finding-fingerprint`
++# and `execution-plan` objects were EXPORTED but never admitted against their
++# owning schema or their declared x-opensip-order, so
++# identity-schemas.v2#/$defs/finding/properties/evidenceRefs/x-opensip-order
++# (`canonical-set`) was never enforced.  This map closes that class: every
++# retained typed object is admitted through its owning selector, and a domain
++# with no row is itself a refusal.
++FOUNDATION_SELECTOR = {
++    "snapshot": "#/$defs/snapshot",
++    "closure": "#/$defs/closure",
++    "import": "#/$defs/import",
++    "plan": "#/$defs/plan",
++    "subject-scope": "#/$defs/subject-scope",
++    "fact": "#/$defs/fact",
++    "coverage": "#/$defs/coverage",
++    "view": "#/$defs/view",
++    "execution-plan": "#/$defs/execution-plan",
++    "finding-fingerprint": "#/$defs/finding-fingerprint",
++    "finding": "#/$defs/finding",
++    "proof-bundle": "#/$defs/proof-bundle",
++    "semantic-evidence": "#/$defs/semantic-evidence",
++    "evaluation-seal": "#/$defs/evaluation-seal",
++    "run": "#/$defs/run",
++    "cache-key": "#/$defs/cache-key",
++    "regeneration-key": "#/$defs/regeneration-key",
++    "policy-derivation": "#/$defs/policy-derivation",
++}
++
++
++def native_selector(domain):
++    """(document, selector) for a native H domain, from the registry itself."""
++    for setname in ("native-context", "native-semantic-universe", "native-nested"):
++        row = DOMAINS["domainSets"].get(setname, {}).get(domain)
++        if row:
++            return _docname(row["document"]), row["selector"]
++    return None
++
+ 
+ RESOLVED_RUNGS = {"resolved-target", "resolved-binding", "resolved-callee",
+                   "checked", "from-resolved-calls"}          # native S4.3 RC-1
+@@ -238,6 +278,36 @@
+         return val
+ 
+     # ---------------------------------------------------------------------
++    def admit_every_retained_object(self, w):
++        """CLARIFICATION v1: admit EVERY retained typed object against its
++        owning schema AND its declared x-opensip-order.  Returns the measured
++        coverage so the report can state scope rather than assert totality."""
++        covered, uncovered = {}, []
++        for key, desc in sorted(w.objects.items()):
++            if key.startswith("sha256:"):
++                hx = key.split(":", 1)[1]
++                dom = w.frames[hx][0]
++                sel = native_selector(dom)
++                if sel is None:
++                    uncovered.append((key, dom))
++                    self.bad("UNREGISTERED_H_DOMAIN[retained-object]", dom)
++                    continue
++                document, selector = sel
++            else:
++                dom = {v: k for k, v in O.IDENTITY_PREFIX.items()}.get(
++                    key.split(":", 1)[0])
++                if dom is None or dom not in FOUNDATION_SELECTOR:
++                    uncovered.append((key, dom))
++                    self.bad("RETAINED_OBJECT_DOMAIN_UNREGISTERED", str(dom))
++                    continue
++                document, selector = "identity", FOUNDATION_SELECTOR[dom]
++            self.schema(document, selector, desc, dom)
++            covered[dom] = covered.get(dom, 0) + 1
++        self.objectAdmissionCoverage = {"byDomain": covered,
++                                        "uncovered": uncovered}
++        return covered
++
++    # ---------------------------------------------------------------------
+     def close_run(self, run_id):
+         w = self.w
+         run = w.objects.get(run_id)
+@@ -245,6 +315,10 @@
+             self.bad("RUN_NOT_RETAINED", run_id)
+             return self.errs
+         self.schema("identity", "#/$defs/run", run, "run")
++        # CLARIFICATION v1 item 1: admit every retained object first, so no
++        # record family can escape schema/order admission by not being reached
++        # through a hand-written join below.
++        self.admit_every_retained_object(w)
+         if run["projectId"] != w.projectId:
+             self.bad("RUN_PROJECT_MISMATCH", run["projectId"])
+ 
+@@ -322,6 +396,7 @@
+                                       "#/$defs/scope-descriptor", "scope")
+         spec = self.canonical_record(plan["analysisSpecDigest"], "identity",
+                                      "#/$defs/analysis-spec", "analysis-spec")
++        spec_rec = spec
+         grant = self.canonical_record(plan["semanticGrantDigest"], "identity",
+                                       "#/$defs/semantic-grant", "semantic-grant")
+         if snap["resolvedConfigDigest"] != plan["resolvedConfigDigest"]:
+@@ -479,11 +554,23 @@
+                 if gc and gc["semanticVersion"] != gb["parserVersion"]:
+                     self.bad("native.syntax-grammar-version-not-from-manifest",
+                              gb["parserVersion"])
++                # CLARIFICATION v1 item 1: native S1.2 requires "every grammar
++                # definition, the bundle manifest and the normalizer
++                # specification PRESENT IN THE RETAINED TREE".  Membership of
++                # the DECLARED kind=grammar closure tree is the law; merely
++                # retaining the bytes somewhere in the CAS is not.
++                gtree = {m["sha256"] for m in gc["tree"]} if gc else set()
+                 if gb["bundleDigest"] not in self.w.cas:
+                     self.bad("SYNTAX_GRAMMAR_BUNDLE_NOT_RETAINED")
++                elif gb["bundleDigest"] not in gtree:
++                    self.bad("SYNTAX_GRAMMAR_BUNDLE_NOT_IN_CLOSURE_TREE",
++                             gb["bundleDigest"])
+                 for g in gb["grammars"]:
+                     if g["grammarDigest"] not in self.w.cas:
+                         self.bad("SYNTAX_GRAMMAR_DEFINITION_NOT_RETAINED",
++                                 g["grammarId"])
++                    elif g["grammarDigest"] not in gtree:
++                        self.bad("SYNTAX_GRAMMAR_DEFINITION_NOT_IN_CLOSURE_TREE",
+                                  g["grammarId"])
+                     reg = GRAMMAR_REG["languages"].get(g["languageId"])
+                     if reg is None:
+@@ -498,6 +585,9 @@
+                                          "%s %s" % (g["languageId"], s))
+                 if gb["normalizer"]["specificationDigest"] not in self.w.cas:
+                     self.bad("SYNTAX_NORMALIZER_SPEC_NOT_RETAINED")
++                elif gb["normalizer"]["specificationDigest"] not in gtree:
++                    self.bad("SYNTAX_NORMALIZER_SPEC_NOT_IN_CLOSURE_TREE",
++                             gb["normalizer"]["specificationDigest"])
+             if dom == "native.context.rust.v2":
+                 tc = self.w.objects.get(ctx["toolClosure"]["closureId"])
+                 if tc and tc["semanticVersion"] != ctx["toolchain"]["rustcVersion"]:
+@@ -873,6 +963,86 @@
+         if set(ev["importIds"]) != set(plan["importIds"]):
+             self.bad("EVIDENCE_IMPORTS_NOT_PLAN_SELECTED")
+ 
++        # --- findings (CLARIFICATION v1) -----------------------------------
++        view_fact_ids, view_cov_ids = set(), set()
++        for vid in ev["viewIds"]:
++            v = w.objects.get(vid)
++            if v:
++                view_fact_ids |= set(v["facts"])
++                view_cov_ids |= set(v["coverageIds"])
++        retained_findings = sorted(k for k in w.objects if k.startswith("finding2:"))
++        for fid in retained_findings:
++            f = w.objects[fid]
++            self.checks += 1
++            fp = w.objects.get(f["fingerprint"])
++            if fp is None:
++                self.bad("FINDING_FINGERPRINT_NOT_RETAINED", fid)
++            elif "finding-key2:" + H("finding-fingerprint", fp) != f["fingerprint"]:
++                self.bad("FINDING_FINGERPRINT_IDENTITY_MISMATCH", fid)
++            if f["ruleClosure"] not in plan["semanticClosures"]:
++                self.bad("FINDING_RULE_CLOSURE_NOT_PLAN_SELECTED", fid)
++            elif closures.get(f["ruleClosure"], {}).get("kind") != "detector":
++                self.bad("FINDING_RULE_CLOSURE_KIND", fid)
++            params = self.canonical_record(f["parameterDigest"], "identity",
++                                           "#/$defs/finding-parameters",
++                                           "finding-parameters")
++            if params is not None and params["messageCode"] != f["messageCode"]:
++                self.bad("FINDING_PARAMETER_MESSAGE_CODE_MISMATCH", fid)
++            # citations may not introduce extra authoritative input roots
++            for ref in f["evidenceRefs"]:
++                d, dg = ref["domain"], ref["digest"]
++                if d == "fact" and ("fact2:" + dg) not in view_fact_ids:
++                    self.bad("FINDING_FACT_CITATION_OUTSIDE_AN_EVALUATED_VIEW", dg)
++                if d == "coverage" and ("coverage2:" + dg) not in view_cov_ids:
++                    self.bad("FINDING_COVERAGE_CITATION_OUTSIDE_AN_EVALUATED_VIEW", dg)
++                if d == "import" and ("import2:" + dg) not in set(plan["importIds"]):
++                    self.bad("FINDING_IMPORT_CITATION_NOT_PLAN_SELECTED", dg)
++                if d == "blob" and dg not in w.cas:
++                    self.bad("FINDING_BLOB_CITATION_NOT_RETAINED", dg)
++        self.checks += 1
++        if sorted(set(proof["findingIds"])) != sorted(set(ev["findingIds"])):
++            self.bad("EVIDENCE_FINDINGS_DISAGREE_WITH_PROOF")
++        for fid in proof["findingIds"]:
++            if fid not in w.objects:
++                self.bad("PROOF_FINDING_NOT_RETAINED", fid)
++
++        # --- execution plan and stage specs (CLARIFICATION v1) -------------
++        epid = seal["executionPlanId"]
++        ep = w.objects.get(epid)
++        self.checks += 1
++        if ep is None:
++            self.bad("EXECUTION_PLAN_NOT_RETAINED", epid)
++        else:
++            if ep["planId"] != run["planId"]:
++                self.bad("EXECUTION_PLAN_PLAN_JOIN", epid)
++            if proof["executionPlanId"] != epid:
++                self.bad("PROOF_EXECUTION_PLAN_JOIN", epid)
++            for i, st in enumerate(ep["stages"]):
++                if st["ordinal"] != i:
++                    self.bad("EXECUTION_PLAN_ORDINAL_NOT_CONTIGUOUS", str(i))
++                spec = self.canonical_record(st["stageSpecDigest"], "identity",
++                                             "#/$defs/stage-spec", "stage-spec")
++                if spec is None:
++                    continue
++                if spec["planId"] != run["planId"]:
++                    self.bad("STAGE_SPEC_PLAN_JOIN", st["stageSpecDigest"])
++                if spec["producerClosure"] not in plan["semanticClosures"]:
++                    self.bad("STAGE_SPEC_PRODUCER_NOT_PLAN_SELECTED",
++                             st["stageSpecDigest"])
++                if sorted(spec["outputDomains"]) != sorted(st["outputDomains"]):
++                    self.bad("STAGE_SPEC_OUTPUT_DOMAINS_DISAGREE",
++                             st["stageSpecDigest"])
++                if spec["outputSchemaDigest"] not in w.cas:
++                    self.bad("STAGE_SPEC_OUTPUT_SCHEMA_NOT_RETAINED",
++                             st["stageSpecDigest"])
++                specparams = [C(x) for x in spec["parameters"]]
++                planparams = [C(x) for x in (spec_rec["parameters"]
++                                             if spec_rec else [])]
++                for pb in specparams:
++                    if pb not in planparams:
++                        self.bad("STAGE_SPEC_TAKES_A_HIDDEN_INPUT",
++                                 pb.decode("utf-8"))
++
+         # --- proof / witnesses / rule program ------------------------------
+         self.check_proof(proof, plan, w, facts, coverages)
+         return self.errs

@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.fact-batch.3",
+  "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
+  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves historical FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates. Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is the worker echo of the current AnalyzeV2 StageRequestV2.stageOrdinal (exact execution-plan.stages[].ordinal). Host does not invent a second ordinal field. When the token is absent, historical FactBatchV2 remains. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisOrdinal",
+    "stageId",
+    "batchIndex",
+    "candidates",
+    "occupancyCompanions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 3,
+      "description": "Payload discriminator for the negotiated FactBatchV3 contract. Not a narrowing of FactCandidateV1.schemaVersion."
+    },
+    "analysisOrdinal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615,
+      "description": "Exact echo of AnalyzeV2.analysisOrdinal for this Analyze."
+    },
+    "stageId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615,
+      "description": "Historical FactBatchV2.stageId preserved. Worker echo of the current AnalyzeV2.stages[k].stageOrdinal. Host associates: batch.stageId == execution-plan.stages[k].ordinal == Analyze StageRequestV2.stageOrdinal. Not a renamed field."
+    },
+    "batchIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615,
+      "description": "Contiguous from 0 for this stage, same as FactBatchV2."
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateOrdinal",
+          "relation",
+          "resolution",
+          "layer",
+          "producer",
+          "producerVersion",
+          "schemaVersion",
+          "language",
+          "sourceUniverseId",
+          "targetUniverseId",
+          "confidenceMillionths",
+          "relationSchemaId",
+          "canonicalRelationPayloadHex",
+          "decodedRelationPayload",
+          "anchors"
+        ],
+        "properties": {
+          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "relation": {"type": "string", "minLength": 1, "maxLength": 64},
+          "resolution": {"type": "string", "minLength": 1, "maxLength": 64},
+          "layer": {"type": "string", "minLength": 1, "maxLength": 64},
+          "producer": {"type": "string", "minLength": 1, "maxLength": 128},
+          "producerVersion": {"type": "string", "minLength": 1, "maxLength": 256},
+          "schemaVersion": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+          "language": {"type": "string", "minLength": 1, "maxLength": 64},
+          "sourceUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "targetUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "confidenceMillionths": {"type": "integer", "minimum": 0, "maximum": 1000000},
+          "relationSchemaId": {"type": "string", "minLength": 1, "maxLength": 256},
+          "canonicalRelationPayloadHex": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})+(?![\\s\\S])",
+            "minLength": 2,
+            "description": "JSON-vector transcription of FactCandidateV1.canonicalRelationPayload. Those wire bytes are deterministic-CBOR of the closed relation payload (fact-plane.v1 candidateSchema.transportRepresentation). The hex encodes those SAME CBOR bytes, not canonical JSON UTF-8. Admission requires hex == deterministic_cbor(decodedRelationPayload).hex()."
+          },
+          "decodedRelationPayload": {
+            "type": "object",
+            "description": "Verified TCB observation of one decode of the CBOR payload bytes. Not a wire field. Must round-trip to canonicalRelationPayloadHex via fact-plane _deterministic_cbor."
+          },
+          "anchors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {"type": "object"},
+            "x-opensip-order": "canonical-set"
+          }
+        }
+      },
+      "x-opensip-order": "candidateOrdinal",
+      "description": "Non-empty closed FactCandidateV1 membership as a JSON vector. No occupancy field. Order is registered candidateOrdinal (unique nondecreasing integers). Contiguous-within-stage is additional admission. Arrays are not silently sorted."
+    },
+    "occupancyCompanions": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/OccupancyCompanionV1"
+      },
+      "x-opensip-order": "candidateOrdinal",
+      "description": "Zero or more OccupancyCompanionV1. Length <= candidates. Every candidateOrdinal names a candidate in this batch. Empty is lawful unknown except exact-id ephemeral. Not silently sorted."
+    }
+  },
+  "$defs": {
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {"pattern": "(^|/)\\.\\.?(/|$)"}
+    },
+    "OccupancyCompanionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "candidateOrdinal",
+        "targetUniverseId",
+        "targetNativeId",
+        "kind",
+        "occupancy",
+        "exported",
+        "logicalPath",
+        "packageManifestPath",
+        "evaluationNativeId"
+      ],
+      "properties": {
+        "schemaVersion": {"const": 1},
+        "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
+        "targetUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "targetNativeId": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "kind": {"type": "string", "enum": ["file", "symbol", "package", "unknown"]},
+        "occupancy": {"type": "string", "enum": ["first-party", "external", "unknown"]},
+        "exported": {"oneOf": [{"type": "string", "enum": ["exported", "not-exported", "unknown"]}, {"type": "null"}]},
+        "logicalPath": {"oneOf": [{"$ref": "#/$defs/LogicalPath"}, {"type": "null"}]},
+        "packageManifestPath": {"oneOf": [{"$ref": "#/$defs/LogicalPath"}, {"type": "null"}]},
+        "evaluationNativeId": {"oneOf": [{"type": "string", "minLength": 1, "maxLength": 4096}, {"type": "null"}]}
+      }
+    }
+  },
+  "x-opensip-negotiation": {
+    "token": "target-attribution-v2",
+    "stageCorrelation": "AnalyzeV2.stages[k].stageOrdinal == execution-plan.stages[k].ordinal is sent to the worker. FactBatch.stageId echoes that integer. Host bind requires batch.stageId == execution-plan.stages[k].ordinal and batch.analysisOrdinal == AnalyzeV2.analysisOrdinal.",
+    "whenPresent": "FactBatch payload MUST admit as this schema",
+    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions).",
+    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and len(candidates).",
+    "protocolMajorUnchanged": true,
+    "newFrame": false
+  }
+}

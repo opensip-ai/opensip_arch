@@ -1,0 +1,356 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/check-atoms.v1.py	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/check-atoms.v1.py	2026-09-09 00:11:17
+@@ -270,12 +270,16 @@
+ 
+ 
+ def sidecar(fid, native, kind="file", occupancy="first-party", exported=None, logical=None, manifest=None,
+-            producer=C_PROV, universe=U1):
++            producer=C_PROV, universe=U1, evaluation=None):
++    if occupancy == "first-party" and evaluation is None:
++        evaluation = native if kind == "symbol" else None
++    if occupancy != "first-party":
++        evaluation = None if evaluation is None else evaluation
+     return {
+-        "schemaVersion": 1, "planId": PLAN, "sourceFactId": fid, "producerClosure": producer,
++        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": producer,
+         "targetUniverse": universe, "targetNativeId": native,
+         "kind": kind, "occupancy": occupancy, "exported": exported, "logicalPath": logical,
+-        "packageManifestPath": manifest,
++        "packageManifestPath": manifest, "evaluationNativeId": evaluation,
+     }
+ 
+ 
+@@ -432,10 +436,12 @@
+             "sourceUniverse": U1, "targetUniverse": U1,
+             "producerClosure": C_PROV, "confidenceMillionths": 1000000,
+             "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a",
+-                        "resolvedTarget": "src/a.ts"},
++                        "resolvedTarget": "file:src/a.ts"},
+             "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
+         }},
+         inventories=[inv_symbol(), inv_file()],
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party",
++                                         evaluation="src/a.ts")},
+     )
+     install_pair(inputs, sid, sc, cid, cov)
+     subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
+@@ -503,9 +509,11 @@
+             "factId": fid, "relation": "imports", "resolution": "resolved-target",
+             "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
+             "confidenceMillionths": 1000000,
+-            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": "src/a.ts"},
++            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": "file:src/a.ts"},
+             "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
+         }},
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party",
++                                         evaluation="src/a.ts")},
+     )
+     install_pair(inputs, sid, sc, cid, cov)
+     subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
+@@ -524,12 +532,14 @@
+             "factId": fid, "relation": "imports", "resolution": "resolved-target",
+             "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
+             "confidenceMillionths": 1000000,
+-            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": "src/a.ts"},
++            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a",
++                        "resolvedTarget": "ts-symbol:src/a.ts#f"},
+             "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
+         }},
+-        targetAttributions={fid: sidecar(fid, "src/a.ts", kind="symbol", occupancy="first-party", exported="exported")},
++        targetAttributions={fid: sidecar(fid, "ts-symbol:src/a.ts#f", kind="file", occupancy="first-party",
++                                         evaluation="src/a.ts")},
+     )
+-    subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
++    subj = {"universe": U1, "kind": "symbol", "nativeSubjectId": "ts-symbol:src/a.ts#f"}
+     atom = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
+             "endpoint": "target", "filters": []}
+ 
+@@ -538,7 +548,8 @@
+     expect_admit(go, "TARGET_ATTRIBUTION_KIND_INVENTORY_DISAGREEMENT", "sidecar-kind")
+ 
+     inputs2 = dict(inputs)
+-    inputs2["targetAttributions"] = {fid: sidecar(fid, "src/a.ts", kind="file", occupancy="external")}
++    inputs2["targetAttributions"] = {fid: sidecar(fid, "ts-symbol:src/a.ts#f", kind="symbol", occupancy="external",
++                                                  exported="exported")}
+     def go2():
+         AM.evaluate_atom(atom, subj, inputs2)
+     expect_admit(go2, "TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY", "sidecar-external")
+@@ -549,7 +560,8 @@
+     f3["producerClosure"] = C_EVAL
+     facts3[fid] = f3
+     inputs3["facts"] = facts3
+-    inputs3["targetAttributions"] = {fid: sidecar(fid, "src/a.ts", kind="unknown", occupancy="unknown", producer=C_EVAL)}
++    inputs3["targetAttributions"] = {fid: sidecar(fid, "ts-symbol:src/a.ts#f", kind="unknown", occupancy="unknown",
++                                                  producer=C_EVAL)}
+     def go3():
+         AM.evaluate_atom(atom, subj, inputs3)
+     expect_admit(go3, "TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER", "sidecar-evaluator")
+@@ -1100,10 +1112,11 @@
+             "factId": fid, "relation": "imports", "resolution": "resolved-target",
+             "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
+             "confidenceMillionths": 1000000,
+-            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "ext", "resolvedTarget": "left-pad"},
++            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "ext", "resolvedTarget": "package:left-pad"},
+             "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
+         }},
+-        targetAttributions={fid: sidecar(fid, "left-pad", kind="package", occupancy="first-party",
++        targetAttributions={fid: sidecar(fid, "package:left-pad", kind="package", occupancy="first-party",
++                                         evaluation="left-pad",
+                                          manifest="node_modules/left-pad/package.json")},
+     )
+     atom = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
+@@ -1123,10 +1136,10 @@
+             "factId": fid, "relation": "imports", "resolution": "resolved-target",
+             "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_EVAL,
+             "confidenceMillionths": 1000000,
+-            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": "src/a.ts"},
++            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": "file:src/a.ts"},
+             "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
+         }},
+-        targetAttributions={fid: sidecar(fid, "src/a.ts", kind="unknown", occupancy="unknown", producer=C_EVAL)},
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="unknown", occupancy="unknown", producer=C_EVAL)},
+     )
+     def go():
+         AM.evaluate_atom(
+@@ -1520,8 +1533,224 @@
+     expect_value(r, "indeterminate", "provider-no-scope-explicit")
+     if "source-target-search-unattested" not in {c["code"] for c in r["causes"]}:
+         fail(f"provider-no-scope causes {r['causes']}")
++
++
++def _imports_file_fact(fid, resolved="file:src/a.ts"):
++    return {
++        "factId": fid, "relation": "imports", "resolution": "resolved-target",
++        "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
++        "confidenceMillionths": 1000000,
++        "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": resolved},
++        "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++    }
+ 
+ 
++def test_ordinary_first_party_file_import_target():
++    fid = fact2("1")
++    sid, sc, cid, cov = paired("imports", "resolved-target", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: _imports_file_fact(fid)},
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party",
++                                         evaluation="src/a.ts")},
++    )
++    install_pair(inputs, sid, sc, cid, cov)
++    subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []}, subj, inputs)
++    expect_value(r, "true", "p-file-exists")
++    if fid not in r["knownFactIds"]:
++        fail("p-file-exists missing known fact")
++    r2 = AM.evaluate_atom({"op": "none", "relation": "imports", "minResolution": "resolved-target",
++                           "endpoint": "target", "filters": []}, subj, inputs)
++    expect_value(r2, "false", "p-file-none-false")
++
++
++def test_ordinary_first_party_package_import_target():
++    fid = fact2("1")
++    sid, sc, cid, cov = paired("imports", "resolved-target", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "package"]),
++        inventories=[inv_symbol(), inv_package(name="demo-app", path="package.json")],
++        facts={fid: {
++            "factId": fid, "relation": "imports", "resolution": "resolved-target",
++            "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
++            "confidenceMillionths": 1000000,
++            "payload": {"importer": "ts-symbol:src/a.ts#f", "specifier": "demo-app",
++                        "resolvedTarget": "package:demo-app"},
++            "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++        }},
++        targetAttributions={fid: sidecar(fid, "package:demo-app", kind="package", occupancy="first-party",
++                                         evaluation="demo-app", manifest="package.json")},
++    )
++    install_pair(inputs, sid, sc, cid, cov)
++    subj = {"universe": U1, "kind": "package", "nativeSubjectId": "demo-app",
++            "packageManifestPath": "package.json"}
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []}, subj, inputs)
++    expect_value(r, "true", "p-package-exists")
++
++
++def test_missing_sidecar_namespaced_file_is_unknown_not_nomatch():
++    fid = fact2("1")
++    sid, sc, cid, cov = paired("imports", "resolved-target", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
++    att = incoming_att("imports", "resolved-target", U1, U1, [sid], [inv_symbol()])
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: _imports_file_fact(fid)},
++        incomingSearchAttestations=[att],
++    )
++    install_pair(inputs, sid, sc, cid, cov)
++    subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
++    r = AM.evaluate_atom({"op": "none", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []}, subj, inputs)
++    expect_value(r, "indeterminate", "c14-missing-sidecar-not-none")
++    r2 = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                           "endpoint": "target", "filters": []}, subj, inputs)
++    expect_value(r2, "indeterminate", "c14-missing-sidecar-exists-unknown")
++
++
++def test_malformed_first_party_evaluation_id_refuses():
++    fid = fact2("1")
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: _imports_file_fact(fid)},
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party",
++                                         evaluation=None)},
++    )
++    def go():
++        AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    expect_admit(go, "TARGET_ATTRIBUTION_SCHEMA", "malformed-null-eval-id")
++
++
++def test_v1_sidecar_refused():
++    fid = fact2("1")
++    sc = sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts")
++    sc["schemaVersion"] = 1
++    del sc["evaluationNativeId"]
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: _imports_file_fact(fid)},
++        targetAttributions={fid: sc},
++    )
++    def go():
++        AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    expect_admit(go, "TARGET_ATTRIBUTION_SCHEMA_VERSION", "v1-sidecar")
++
++
++def test_external_file_is_nomatch_on_inventory_subject():
++    fid = fact2("1")
++    sid, sc, cid, cov = paired("imports", "resolved-target", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: _imports_file_fact(fid, "file:node_modules/left-pad/index.js")},
++        targetAttributions={fid: sidecar(fid, "file:node_modules/left-pad/index.js", kind="file",
++                                         occupancy="external", logical="node_modules/left-pad/index.js")},
++    )
++    install_pair(inputs, sid, sc, cid, cov)
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    if r["value"] == "true":
++        fail("external file must not occupy first-party inventory subject")
++    if r["knownFactIds"]:
++        fail("external file must not be a known hit on inventory file")
++
++
++def test_symbol_exact_id_ephemeral_without_sidecar():
++    fid = fact2("1")
++    sid, sc, cid, cov = paired("imports", "resolved-target", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports"),
++        inventories=[inv_symbol()],
++        facts={fid: {
++            "factId": fid, "relation": "imports", "resolution": "resolved-target",
++            "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
++            "confidenceMillionths": 1000000,
++            "payload": {"importer": "ts-symbol:src/a.ts#g", "specifier": "./a",
++                        "resolvedTarget": "ts-symbol:src/a.ts#f"},
++            "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++        }},
++    )
++    install_pair(inputs, sid, sc, cid, cov)
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "symbol", "nativeSubjectId": "ts-symbol:src/a.ts#f"}, inputs)
++    expect_value(r, "true", "symbol-ephemeral-exact-id")
++
++
++def test_provider_occupancy_conflict_same_producer():
++    fid1, fid2 = fact2("1"), fact2("2")
++    facts = {
++        fid1: _imports_file_fact(fid1),
++        fid2: _imports_file_fact(fid2),
++    }
++    facts[fid2]["payload"] = dict(facts[fid2]["payload"])
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file(), inv_file(path="src/b.ts")],
++        facts=facts,
++        targetAttributions={
++            fid1: sidecar(fid1, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts"),
++            fid2: sidecar(fid2, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/b.ts"),
++        },
++    )
++    def go():
++        AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    expect_admit(go, "TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT", "same-producer-conflict")
++
++
++def test_different_providers_same_opaque_id_are_not_aliases():
++    fid1, fid2 = fact2("1"), fact2("2")
++    f2 = _imports_file_fact(fid2)
++    f2["producerClosure"] = C_PROV2
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid1: _imports_file_fact(fid1), fid2: f2},
++        targetAttributions={
++            fid1: sidecar(fid1, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts"),
++            fid2: sidecar(fid2, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts",
++                          producer=C_PROV2),
++        },
++    )
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    expect_value(r, "true", "cross-provider-opaque-not-alias")
++
++
++def test_wrong_universe_still_nomatch():
++    fid = fact2("1")
++    fact = _imports_file_fact(fid)
++    fact["targetUniverse"] = U2
++    inputs = base_inputs(
++        enumerationPlan=plan_one(cap="imports", kinds=["symbol", "file"]),
++        inventories=[inv_symbol(), inv_file()],
++        facts={fid: fact},
++        targetAttributions={fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="external",
++                                         universe=U2, logical="src/a.ts")},
++    )
++    r = AM.evaluate_atom({"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                          "endpoint": "target", "filters": []},
++                         {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}, inputs)
++    if r["value"] == "true":
++        fail("wrong universe must not match")
++    if r["knownFactIds"]:
++        fail("wrong universe known hit")
++
++
+ def test_invalid_native_carrier_refuses_not_unknown():
+     sid, sc, cid, cov = paired("references", "resolved-binding", U1, U1, ["ts-symbol:src/a.ts#f"], tag="1")
+     sc["snapshotId"] = "snapshot2:" + "g" * 64
+@@ -1589,6 +1818,16 @@
+     test_runtime_unrelated_overload_is_nomatch,
+     test_provider_with_no_scope_does_not_disappear,
+     test_invalid_native_carrier_refuses_not_unknown,
++    test_ordinary_first_party_file_import_target,
++    test_ordinary_first_party_package_import_target,
++    test_missing_sidecar_namespaced_file_is_unknown_not_nomatch,
++    test_malformed_first_party_evaluation_id_refuses,
++    test_v1_sidecar_refused,
++    test_external_file_is_nomatch_on_inventory_subject,
++    test_symbol_exact_id_ephemeral_without_sidecar,
++    test_provider_occupancy_conflict_same_producer,
++    test_different_providers_same_opaque_id_are_not_aliases,
++    test_wrong_universe_still_nomatch,
+ ]
+ 
+ 

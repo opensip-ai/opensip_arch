@@ -1,0 +1,68 @@
+"""Discriminating composition checks; fixtures are NOT complete native-admitted Runs."""
+import copy,hashlib,importlib.util,json
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+spec=importlib.util.spec_from_file_location('composition',HERE/'evaluator_composition_model.v3.py');E=importlib.util.module_from_spec(spec);spec.loader.exec_module(E)
+results=[]
+def check(name,value):
+    results.append({'id':name,'passed':bool(value)})
+    if not value:raise AssertionError(name)
+def reject(name,fn,code):
+    try:fn()
+    except E.C.AdmissionError as exc:check(name,str(exc).startswith(code))
+    else:check(name,False)
+def token(text):return hashlib.sha256(text.encode()).hexdigest()
+def make(kind='file',universes=('one',),atom=None,requirement=None):
+    atom=atom or {'op':'none','relation':'file','minResolution':'enumerated','filters':[]}
+    rule={'ruleId':'r','ruleProgramRef':{'contributionId':'fixture','ruleStableId':'r','semanticsMajor':2,'programDigest':E.sha(atom)},'enabled':True,'severity':'error','gate':True,'subjectEnumeration':{'universe':'syntax','subjectKind':kind},'emitWhen':atom,'evidenceUse':([] if requirement is None else [{'kind':'runtime','requirement':requirement}])}
+    policy={'schemaFamily':'opensip.product.policy','schemaMajor':2,'gateSeverityAtLeast':'error','rules':[rule]}
+    waivers={'schemaFamily':'opensip.product.waivers','schemaMajor':1,'waivers':[]}
+    detector='closure2:'+token('fixture-detector');population={}
+    for u in universes:
+        universe=token(u);native='src/a.ts' if kind=='file' else 'symbol:f'
+        sid=E.M.identifier('evaluation-subject',{'schemaVersion':3,'universe':universe,'kind':kind,'nativeSubjectId':native})
+        row={'nativeSubjectId':native,'kind':kind,'path':'src/a.ts','qualifiedName':'src/a.ts' if kind=='file' else 'f','subjectLanguage':'typescript','signatureTokens':[],'projections':[]}
+        if kind=='symbol':row.update(exported='exported',projections=[{'closureId':detector,'signatureTokens':['function','f','(',')']}])
+        population[sid]={'subjectId':sid,'universe':universe,'kind':kind,'row':row,'collisionPopulationComplete':True}
+    plan={'policyDigest':E.sha(policy),'waiverDigest':E.sha(waivers),'semanticClosures':[detector],'budget':{'unit':'work-units','limit':100000}}
+    enumeration={'state':'complete','inventoryRefs':[],'selectedSubjectIds':E.cset(population),'unresolvedSubjectIds':[],'incompleteInventoryRefs':[]}
+    return {'plan':plan,'planId':'plan2:'+token('plan'),'executionPlanId':'exec-plan2:'+token('exec'),'evaluatorClosure':'closure2:'+token('eval'),
+        'policy':policy,'effectiveWaivers':waivers,'emissionPlan':{'schemaVersion':1,'policyDigest':plan['policyDigest'],'rules':[{'ruleId':'r','contributionId':'fixture','ruleStableId':'r','semanticsMajor':2,'detectorClosure':detector,'stabilityClass':'path-stable','emissionProfile':'declarative-subject-v1'}]},
+        'population':population,'enumerations':{'r':enumeration},'enumerationDeficiencies':{'r':[]},'requiredEvidenceDeficiencies':{'r':[]},'executionDeficiencies':[],'executionInputsDigest':'e'*64,'evaluationInputRefs':[{'domain':'execution-inputs','digest':'e'*64}],
+        'inventoryRowCount':len(population),'inventoryLocatorCount':len(population),'factCount':0,'observationCount':0,'coverageCount':0,'importKinds':{},'closures':{detector:{'kind':'detector'}}}
+def rebind(i):
+    i['plan']['policyDigest']=E.sha(i['policy']);i['emissionPlan']['policyDigest']=i['plan']['policyDigest'];i['plan']['waiverDigest']=E.sha(i['effectiveWaivers'])
+def scanner(value='true',source='native',cause='required-relation-missing'):
+    def scan(rule,subject,node,pid):
+        ds=[] if value!='indeterminate' else [{'source':source,'cause':cause,'subjectId':subject['subjectId'],'predicateId':pid,'inputRefs':[],'evidenceKind':'runtime' if source=='import' else None,'nativeCause':None,'universe':None}]
+        return {'kind':'imported-atom' if source=='import' else 'native-atom','value':value,'matchingFactIds':[],'uncertainFactIds':[],'matchingImportRows':[],'uncertainImportRows':[],'coverageIds':[],'scopeIds':[],'inputRefs':[],'deficiencies':ds}
+    return scan
+
+i=make(universes=('one','two'));a=E.compose(i,scanner());fs=[v for d,v in a['objects'].values() if d=='finding']
+check('two-configurations-two-full-findings',len(fs)==2 and len({f['subjectId'] for f in fs})==2)
+check('two-configurations-one-real-logical-fingerprint',len({f['fingerprint'] for f in fs})==1)
+check('unwaived-gating-known-finding-fails',a['proof']['verdict']=='fail')
+check('exact-output-preimages-replay',E.compare_complete_replay(a['proof'],a,a['objects'],a['blobs']))
+for field,new in [('severity','warning'),('messageCode','changed'),('evidenceRefs',[])]:
+    mutated=copy.deepcopy(a['objects']);fid=next(k for k,(d,v) in mutated.items() if d=='finding');mutated[fid][1][field]=new
+    reject('full-finding-'+field+'-mutation',lambda:E.compare_complete_replay(a['proof'],a,mutated,a['blobs']),'EVALUATOR_COMPLETE_OBJECT_REPLAY')
+mutated=copy.deepcopy(a['blobs']);f=fs[0];params=E.C.parse(mutated[f['parameterDigest']]);params['parameters']['matchingFactCount']=1;mutated[f['parameterDigest']]=E.C.canonical(params)
+reject('same-count-parameter-preimage-mutation',lambda:E.compare_complete_replay(a['proof'],a,a['objects'],mutated),'EVALUATOR_COMPLETE_BLOB_REPLAY')
+i['effectiveWaivers']['waivers']=[{'waiverId':'w','target':{'fingerprint':fs[0]['fingerprint']},'reason':'reviewed','expires':None}];rebind(i);b=E.compose(i,scanner())
+check('fingerprint-waiver-covers-both-occurrences',len(b['proof']['waivedFindingIds'])==2 and b['proof']['verdict']=='pass')
+i['enumerations']['r']['state']='incomplete';i['enumerationDeficiencies']['r']=[{'source':'enumeration','cause':'incomplete-inventory','subjectId':None,'predicateId':None,'inputRefs':[],'evidenceKind':None,'nativeCause':None,'universe':None}]
+b=E.compose(i,scanner());check('waiver-does-not-cure-membership-uncertainty',b['proof']['verdict']=='indeterminate')
+i['effectiveWaivers']['waivers']=[];rebind(i);b=E.compose(i,scanner());check('known-failure-dominates-population-unknown',b['proof']['verdict']=='fail')
+i=make(kind='symbol');next(iter(i['population'].values()))['row']['projections']=[];b=E.compose(i,scanner());f=next(v for d,v in b['objects'].values() if d=='finding')
+check('unmatched-symbol-finding-retained-and-gates',f['fingerprint'] is None and f['correspondence']['reason']=='projection-unavailable' and b['proof']['verdict']=='fail')
+i['effectiveWaivers']['waivers']=[{'waiverId':'w','target':{'ruleId':'r','subjectPath':'src/a.ts'},'reason':'reviewed','expires':None}];rebind(i);b=E.compose(i,scanner());check('path-waiver-can-cover-unmatched-finding',b['proof']['verdict']=='pass' and len(b['proof']['waivedFindingIds'])==1)
+i=make();i['population']={};i['enumerations']['r'].update(state='incomplete',selectedSubjectIds=[]);i['enumerationDeficiencies']['r']=[{'source':'enumeration','cause':'unknown-export-membership','subjectId':None,'predicateId':None,'inputRefs':[],'evidenceKind':None,'nativeCause':None,'universe':None}];b=E.compose(i,scanner());check('unknown-zero-subject-population-not-empty-pass',b['proof']['verdict']=='indeterminate' and not b['proof']['findingIds'])
+i=make(atom={'op':'none','relation':'runtime-observation','minResolution':'observed','filters':[],'evidence':'runtime'},requirement='optional');b=E.compose(i,scanner('indeterminate','import','evidence-kind-unavailable'))
+check('optional-unknown-preserves-truth-non-gating',b['proof']['verdict']=='pass' and b['proof']['predicateProofs'][0]['value']=='indeterminate')
+i['policy']['rules'][0]['evidenceUse'][0]['requirement']='required';rebind(i);b=E.compose(i,scanner('indeterminate','import','evidence-kind-unavailable'));check('required-import-unknown-gates',b['proof']['verdict']=='indeterminate')
+i=make();i['policy']['rules'][0]['enabled']=False;rebind(i);i['enumerations']['r']={'state':'disabled','inventoryRefs':[],'selectedSubjectIds':[],'unresolvedSubjectIds':[],'incompleteInventoryRefs':[]};i['executionDeficiencies']=[{'source':'execution','cause':'provider-unavailable','subjectId':None,'predicateId':None,'inputRefs':[],'evidenceKind':None,'nativeCause':None,'universe':None}]
+b=E.compose(i,lambda *args:(_ for _ in ()).throw(AssertionError('disabled evaluated')));check('disabled-rules-preserve-required-execution-unknown',b['proof']['verdict']=='indeterminate' and b['proof']['ruleResults'][0]['outcome']=='disabled' and not b['proof']['predicateProofs'])
+i=make();i['plan']['budget']['limit']=0;b=E.compose(i,lambda *args:(_ for _ in ()).throw(AssertionError('budget evaluated')));check('budget-preflight-explicit-indeterminate',b['proof']['evaluationState']=='budget-exhausted' and b['proof']['verdict']=='indeterminate' and not b['proof']['findingIds'])
+check('strong-kleene-known-and-false',E.truth('and',['indeterminate','false'])=='false')
+check('strong-kleene-known-or-true',E.truth('or',['indeterminate','true'])=='true')
+print(json.dumps({'standing':'BOUNDED COMPOSITION ONLY: synthesized universe/Plan/closure locators; no native input admission and no full retained Run replay. Mutation checks compare exact output preimages, not reminted full graphs.','results':results,'passed':all(x['passed'] for x in results),'count':len(results)},indent=2))

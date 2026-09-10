@@ -1,0 +1,39 @@
+**Verdict: ACCEPT_REPORT** for final-subject.v2. All five should-fix items and all seven advisories from my first pass are applied accurately, none introduced a factual regression, and the report still concludes NOT READY with no grade, adoption or authorization implied. This remains a review-record acceptance, not full-design acceptance.
+
+**What I checked.** Each edited passage was compared against the source I had already verified, and the four newly introduced source claims were confirmed: the security v8 unit library carries a float-rejecting parse hook and bool-excluding integer checks, v8 §1 names first-party trusted code as the TCB boundary, the SEALED product-boundary chapter lists Windows x86_64 MSVC and a TypeScript plus Rust provider spine, and the canonical-JSON profile is CANDIDATE-NOT-APPLIED with an undetermined register reaching UR-5. AR-08 now cites §§5/9. AR-09 names the stale freeze dependency sentence and routes it through DR-001. AR-14 carries the root-schema-one TR-REPAIR and kernel-attestation admission refusals with no schema-two chain for a stage-one reader. AR-06 now states the conditional container and bind-mount admission and the named excluded filesystems, plus the §8.6 macOS disclosure gap as a companion LOW. AR-07 states the repository-code principal at DR-105. AR-15 names the SEALED chapter and the three command grammars. Line 13 records the AR-02 and AR-10 ranking differences and disclaims unanimity. All gate references now use DR-G identifiers in both REVIEW.md and the register table. The dispositions file records the retained defect classification for SEC-02, SEC-03 and SEC-04. The register file has the same section line numbers as v1 and only the two gate-ID cells differ; START-HERE, the probe script and the probe results are byte-for-byte identical in content to v1. The live recording folder holds every same-directory evidence file the report links, contains no write-report.py, and its REVIEW.md already carries the v2 text.
+
+**One small traceability item remains, introduced by the concurrency move.** The dispositions record for Codex's C-05 still maps only to AR-06 and describes the concurrent-agent lease case, but that sentence now lives at the end of AR-14. A reader following the record to AR-06 will not find it. This is a one-line edit and does not affect the verdict.
+
+```json
+{
+  "reviewer": "Claude Code, model claude-fable-5-1, final independent read-only review of final-subject.v2",
+  "verdict": "ACCEPT_REPORT",
+  "designReadiness": "NOT_READY",
+  "resolvedFindingIds": ["FR-S1", "FR-S2", "FR-S3", "FR-S4", "FR-S5", "FR-A1", "FR-A2", "FR-A3", "FR-A4", "FR-A5", "FR-A6", "FR-A7"],
+  "remainingRequestedChanges": [],
+  "mustFix": [],
+  "shouldFix": [
+    {"id": "FR2-S1", "target": "finding-dispositions.json record originalId C-05", "change": "Point the concurrent-agent lease/workload part of C-05 at AR-14 (for example reconciledFinding 'AR-06; concurrency case at AR-14'), since REVIEW.md v2 moved that sentence from AR-06 to the end of AR-14 with owners DR-107/125 and DR-G18", "evidence": "final-subject.v2 REVIEW.md line 137 versus line 65-69; finding-dispositions.json lines 36-40; codex-independent-findings.md C-05", "affectsVerdict": false}
+  ],
+  "advisory": [
+    {"id": "FR2-A1", "note": "Register annotation row for AR-14 lists DR-107 with DR-110/111/112/130; REVIEW.md AR-14 additionally names DR-125 and DR-G18 for the concurrency case. Optional alignment at the next register refresh; not required for this record", "evidence": "final-subject.v2 08-decision-and-readiness-register.md line 464; REVIEW.md line 137"},
+    {"id": "FR2-A2", "note": "Register annotation row for AR-06 lists DR-126 with DR-119 while REVIEW.md AR-06 also names DR-G13/DR-G22; unchanged from v1 and harmless", "evidence": "register line 457; REVIEW.md line 69"}
+  ],
+  "regressionCheck": {
+    "editedSectionsVerified": ["line 13 alignment/ranking note", "AR-01 security exact-type pattern and permission-policy carrier", "AR-02/AR-03/AR-04/AR-05 DR-G IDs and OD-112-3 citation", "AR-06 filesystem wording, companion LOW, concurrency removal", "AR-07 principal outside first-party TCB", "AR-08 §§5/9", "AR-09 stale freeze dependency statement and canonical-JSON link", "AR-14 root-schema transition case and concurrency sentence", "AR-15 SEALED chapter and command grammars", "Validation table DR-G13 naming", "register lines 455-456 gate IDs", "dispositions SEC-02/03/04"],
+    "unchangedVerified": ["START-HERE.md identical to v1", "reproduce-probes.py and reproduced-probes.json identical to v1", "register section line numbers 18-540 identical to v1; only the two gate-ID cells differ", "all other AR sections, 'What remains sound', validation counts and correction order identical to v1"],
+    "newSourceClaimsConfirmed": ["security_unit_lib_v8.py lines 59-62, 177, 262-270 (FLOAT_FORBIDDEN parse hook, bool-excluding int checks)", "security-completion.v8.md lines 99, 107 (first-party trusted code boundary)", "docs/coop/architecture/01-product-boundary.md lines 3, 49, 51 (SEALED; TypeScript and Rust providers; Windows x86_64 MSVC)", "docs/coop/artifacts/canonical-json-profile.v1.json line 6 CANDIDATE-NOT-APPLIED, undeterminedRegister at 681 through UR-5 at 707", "13-evidence-workflows-and-product-contracts.md lines 170-176 (§5) and 272-280 (§9)", "security_unit_lib_v8.py lines 250-258 TR-REPAIR/kernelAttestationKeys admission", "host-foundation-completion.v2.md lines 121-126 filesystem admission", "security-completion.v1.md lines 395-400 OD-112-3"],
+    "recordingFolder": "/Users/sb/code/opensip-ai/opensip_arch/docs/coop/architecture-depth-review contains subject-manifest.json, three lens reports, three challenge reports, five baseline reports, codex findings and probes, reproduce-probes.py, reproduced-probes.json, review-subject.v1/v2 snapshots; no write-report.py; its REVIEW.md carries v2 text; alignment.md and validation.json absent as expected downstream"
+  },
+  "agreement": {
+    "readiness": "NOT_READY",
+    "architectureToPreserve": "Common host authority with pure evaluator; facts/findings/Coverage/verdict/outcome separation; candidate-until-complete-transaction provider output; sealed inputs and refusal of ambient substitution; advisory judgments never Control verdicts; fence-then-lease and non-blocking census; trust floors, deny-by-absence policy and honest confinement disclosure",
+    "principalCorrections": "AR-01..AR-16 as written in v2 with their lead rows; AR-01/AR-02 reproduced defects; AR-12 HIGH contract counterexample with truthful unknown fallback; corrections against counterevidence retained; AR-02 HIGH-versus-MEDIUM and AR-10 combined MEDIUM/HIGH remain explicitly recorded differences, not unanimity",
+    "scopeLimits": "Reference-model and contract review only; no implemented host, platform measurement, release qualification or repair; frozen bytes untouched; register and START-HERE are living navigation documents changed only by insertion and two gate-ID cells; alignment/validation/index/inventory files are mechanical downstream recording; this acceptance is of the review record, not of the design, any contract, or implementation authorization"
+  },
+  "coverage": {
+    "read": ["final-subject.v2 REVIEW.md, finding-dispositions.json, reproduce-probes.py, reproduced-probes.json, START-HERE.md in full; register lines 436-475 and section heading map", "live recording folder listing and REVIEW.md phrase check"],
+    "limits": ["No execution, no hash computation; byte identity of unchanged files asserted from full-content reads and line-number comparison, not digests", "Only the edited passages and their new source claims were re-verified; the remaining AR content relies on the first-pass verification against the original corpus", "Live recording folder read only for file presence and one phrase check; its other files were not re-read"]
+  }
+}
+```

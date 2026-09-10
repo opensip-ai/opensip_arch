@@ -1,0 +1,181 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v13/docs/v2/contracts/product-v1/identity-and-evidence.md	2026-09-07 02:29:55
++++ /tmp/opensip-design-corrections/candidate-subject.v14/docs/v2/contracts/product-v1/identity-and-evidence.md	2026-09-07 08:12:26
+@@ -233,12 +233,13 @@
+ a mismatched provider claim mints neither Coverage nor Run (native §4).
+ 
+ Native contexts have explicit H domains: `native.context.typescript.v2` over
+-TypeScriptNativeContextV2 and `native.context.rust.v2` over NativeContextV2.
++TypeScriptNativeContextV2, `native.context.rust.v2` over NativeContextV2, and
++`native.context.syntax.v2` over the installed grammar bundle (native §1.2).
+ Native records carry `sha256:<H hex>`; `plan.nativeContextDigests` carries the
+ sorted unique bare 64-hex suffixes for selected, admitted contexts. These are
+ **H digests**, not raw SHA256 of context JSON. Native universe identities follow
+-native §11's own H domain — `native.semantic-universe.typescript.v2` over
+-TypeScriptUniverseV2ResolvedInputs — and `fact` and `subject-scope`
++native §11's own H domains — for example `native.semantic-universe.typescript.v2`
++over TypeScriptUniverseV2ResolvedInputs — and `fact` and `subject-scope`
+ `sourceUniverse`/`targetUniverse` carry its bare 64-hex suffix. A native
+ `sha256:` text form is never a foundation typed Ref domain.
+ When a field specifically names a raw payload digest, raw SHA256(C(payload))
+@@ -287,15 +288,22 @@
+ describing configuration, crate roots or a lockfile that is not in the analysed
+ snapshot cannot enter a Plan.
+ 
+-Both universe domains native §11 registers are registered here:
+-`native.semantic-universe.typescript.v2` over TypeScriptUniverseV2ResolvedInputs
+-and `native.semantic-universe.rust.v2` over RustUniverseV2ResolvedInputs. A
++**All three** universe domains native §11 registers are registered here:
++`native.semantic-universe.typescript.v2` over TypeScriptUniverseV2ResolvedInputs,
++`native.semantic-universe.rust.v2` over RustUniverseV2ResolvedInputs, and
++`native.semantic-universe.syntax.v2` over the grammar-only universe of native
++§1.2. This sentence and native §11's list both predated the syntax-only universe
++and named two; the machine-readable `domainSets` registry — which is what
++admission and the closure checker actually dispatch on, complete with each
++domain's binding and `languageVersionBinding` — has carried three throughout, and
++these lists are now that registry. A
+ universe must bind a context of **its own language** — the bound context's H
+ domain must be the one its registry row names, in either direction — and every
+ identifier the two records both carry must be equal; for Rust that is
+ `dependencySourceSetId`, `unifiedFeaturesId` and `preparedOutputSetId`. Each
+-domain names its owning binding — `bind_typescript_universe` (native §11) and
+-`bind_rust_universe` (native §2.1/§11) — and Run closure re-runs it over the
++domain names its owning binding — `bind_typescript_universe` (native §11),
++`bind_rust_universe` (native §2.1/§11) and `bind_syntax_universe` (native §1.2) —
++and Run closure re-runs it over the
+ retained universe, the retained context bytes, the retained nested input records
+ and the snapshot inventory, exactly as it re-runs `admit_native_context`. Where
+ the owning contract registers a domain but supplies no binding for it, a universe
+@@ -541,6 +549,23 @@
+ refuses. The class remains closed: a real but unregistered document, and a
+ caller-chosen permissive one, both still refuse.
+ 
++The bounded limitation is **accounted rather than lifted**. Today's two rows are
++distinguishable — `import-source-context.schema.json` and
++`policy-document.schema.json` are different documents with different digests — so
++nothing is ambiguous in this release, and the same `policy-document.schema.json`
++bytes named by `plan.policyDigest` and `plan.waiverDigest` sit under the
++`canonical-record` representation in a *different* payload class, outside this
++key space entirely. What the key forbids is a **future** second `parameter` row
++selecting another `$def` out of a document an existing row already cites; that is
++a refusal (`PAYLOAD_PARAMETER_AMBIGUOUS_ROW`), not a defect, and it is the
++registry declining to choose arbitrarily. Re-keying the class by
++`(document, selector)` would remove the restriction and would change no identity
++today — and is deliberately not done, because no requirement needs such a row,
++and widening a closed key space and retiring an explicit refusal for a case that
++does not exist buys flexibility nothing asked for. If that requirement ever
++arises it is an explicit versioned correction with its own controls, never a
++silent widening and never something an implementer may assume.
++
+ **Where the binding is actually decided, and where it is only asserted.**
+ Registering the row makes a lawful scope parameter admissible at Plan closure;
+ it does not by itself bind the *comparison* context to it. `adopt_baseline`
+@@ -752,7 +777,54 @@
+ | `package` | `manifestPath` must be in that inventory. |
+ | `vcs-change` | `path` must be in that inventory **unless** `changeKind` is `deleted`, where the path is by definition absent from the analysed snapshot. |
+ | `clones` | the framed body-identity join below. |
++
++**How many anchors a fact carries is decided per relation, and the inventory
++class carries none.** `fact.anchors` has no `minItems`, and only `clones` ever
++stated a cardinality, so both the `file` row's every-anchor clause above and
++native §1.2's every-anchor-path rule are universally quantified over an array of
++unstated length — *vacuously true* at zero anchors, permitting and forbidding
++nothing. Both spellings of one `file@enumerated` claim consequently closed a Run
++with different `fact2` identities. The relation registry now carries a closed
++`anchorLaw` on every relation:
++
++| Class | Relations | Anchors | Why |
++|---|---|---|---|
++| `source-text` | `declares`, `literal`, `control-flow`, `imports`, `references`, `calls`, `types`, `reachability`, `unresolved-edge` | **≥ 1** | The fact was read from source text; an unanchored one names no file that could have been read. No *additional relation-specific* maximum and no canonical extent beyond the common schema bounds (`fact.anchors` keeps its `maxItems: 100000` and `uniqueItems`): which spans a producer cites is a real statement about what it read, so differing citations are *different* semantic descriptors and no cross-provider identity is promised. |
++| `body-identity` | `clones` | **= 1** | Exactly the body span the identity is over (unchanged). |
++| `inventory` | `file`, `package`, `vcs-change` | **= 0** | The claim's whole semantic input is the payload, already bound to the snapshot by the joins in this table. An anchor could only restate part of an already-joined claim on an axis nothing derives — one semantic input, several spellings, several identities. |
++
++Zero is also the only cardinality *every* inventoried path can satisfy: a path
++no bundled grammar reads, an extensionless path, and a `vcs-change` on a
++`deleted` path, which the row above places outside the snapshot entirely and
++which therefore cannot bear an anchor at all.
++
++**The raw-byte boundary.** An inventory claim retains its path, content digest
++and byte length **without anyone decoding the bytes**. With the class at zero
++anchors the `ANCHOR_SOURCE` / `ANCHOR_RANGE` / `ANCHOR_UTF8` checks never run for
++such a fact — they iterate the anchors — while the `inventoried-file` join above
++still does, and it only hashes and measures. An **empty** file and a **non-UTF8
++binary** file are therefore ordinary inventory, at an extensionless path as
++readily as any other, and requiring bytes to parse as code or as UTF-8 merely to
++record their path and hash would be a narrowing this contract never intended.
++The code-span laws keep exactly the scope they had: the *same* non-UTF8 bytes
++still refuse as a `source-text` anchor (`ANCHOR_UTF8`), and the digest, length
++and path joins still refuse a wrong claim about those bytes.
+ 
++**Where a location comes from, now that inventory facts carry no anchors.**
++Nothing reads `fact.anchors` as a finding location, so removing them removes no
++route and no new flexibility is added. A finding locates through
++`finding-fingerprint.subjectKey.logicalPath`; an inventory claim's own location
++is its payload `path`, joined to the snapshot inventory by the table above; and
++`finding`, `finding-fingerprint`, `proof-bundle` and `predicate-witness` carry no
++anchor field at all. A finding over a zero-anchor inventory fact closes a Run and
++is located by exactly those existing records. It closes two live gaps as well as
++the spelling one: the "unanchored code fact" rule was enforced only inside the
++syntax-universe guard, so such a fact closed a Run under a TypeScript or Rust
++universe; and `anchorPathField` sat only on the `file` row, so a `package`
++payload anchored into an unrelated file closed a Run. The `file` row's clause is
++retained as the narrower statement it always was — under this cardinality it is
++subsumed rather than reached (`FACT_ANCHOR_CARDINALITY`).
++
+ `vcs-change.previousPath` is the one declared exemption. A pre-rename path names
+ a state **before** the analysed snapshot; it is a historical observation, not a
+ current source claim, and joining it to this snapshot's inventory would refuse
+@@ -879,7 +951,22 @@
+ identifier. The frame's `languageId` and the record's are taken from one
+ derivation, so they cannot disagree; the frame's must also be a language the
+ universe's binding declares that engine produces, so a `rust` frame under a
+-TypeScript universe refuses. No JavaScript body is rewritten as TypeScript, and
++TypeScript universe refuses.
++
++Spelled exactly, so the relation registry, the domain registry and this section
++are one sentence: the `languageId` is
++`languageVersionBinding.bodyLanguageByVariant[<the variant the dialect suffix
++table selects from this anchor's path, longest match>]` where the row's
++`dialect.form` is `closed-suffix-table`, and `languageVersionBinding.bodyLanguage`
++for any other dialect form. It is **never** the universe domain row's own
++`language` field, which names the engine: that reading yields `typescript` for
++every `.js` body, and `syntax` — a value the closed `languageId` enum does not
++contain — for every body under `native.semantic-universe.syntax.v2`, so a
++TS-hosted JavaScript body would get the wrong clone identity and a compiler-free
++syntax Run would have no admissible body identity at all. The clones registry's
++`bodyIdentityJoin.languageIdSource` previously carried that engine reading; it
++now carries this one, and each domain row's own `bodyLanguageLaw` has always
++said the same. No JavaScript body is rewritten as TypeScript, and
+ §6.4's `cross-tsjs` candidate-only projection is untouched — it remains a
+ separate candidate mode, never a shared identity.
+ 
+@@ -892,7 +979,11 @@
+ specifications are FACT-IDENTITY's to write.
+ - A `clones` fact carries **exactly one** anchor: the body span the identity is
+   over. Zero would leave the claim unattached, and several would make the L0
+-  recomputation a choice — the arbitrary-anchor defect in another form.
++  recomputation a choice — the arbitrary-anchor defect in another form. This is
++  the `body-identity` row of the registry `anchorLaw` above, which is the single
++  enforcing statement; `bodyIdentityJoin.anchorCardinality` is a declared mirror
++  of it and the join checks that the two **agree** rather than refusing the same
++  fault twice under two names (`RELATION_ANCHOR_LAW_DRIFT`).
+ 
+ The split is honest and stated rather than blurred. At `L0-verbatim` the
+ canonical payload **is** the raw body-span bytes, so the host **recomputes** it
+@@ -1005,8 +1096,15 @@
+ so this changes no identity, replay or determinism property; what it fixes is
+ that two conforming implementations would otherwise disagree on *admission*.
+ Every view's facts/scopes/Coverage agree on Plan source, universes,
+-relation/rung and producer; every source anchor must name an inventoried blob.
+-Coverage scopes partition the claimed universe without overlaps or omissions.
++relation/rung and producer; every source anchor must name an inventoried blob,
++and the number of anchors must be the one the relation registry's `anchorLaw`
++states for that relation. Coverage scopes partition the claimed universe without
++overlaps or omissions, and a `complete` result for a rung the registry marks
++total over the inventory (`file@enumerated`) must carry a fact for every
++inventoried subject it claims to have examined — a fact that agrees with **that
++scope** on its own snapshot, relation, rung and *both* universes. The fact/scope
++join above is existential, so in a view carrying two universes a fact of one
++lawfully sits beside a scope of the other and must not discharge its obligation.
+ No arbitrary payload schema supplied by an import becomes an admitted schema.
+ 
+ ## 4. Evaluation and proof verification

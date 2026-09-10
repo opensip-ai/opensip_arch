@@ -1,0 +1,1 @@
+I’ll diagnose consumer11’s refused claims against frozen candidate24 and the original kit, writing only under `grok-blind11-diagnosis.v1`.I’ll write and run a measured diagnostic probe: re-check the five exact exports, then inject only the omitted schema bytes on labeled copies.

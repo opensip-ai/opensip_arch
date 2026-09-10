@@ -1,0 +1,773 @@
+{
+  "artifact": "opensip.fact-identity-policy",
+  "version": 2,
+  "supersedes": 1,
+  "status": "BINDING-CANDIDATE (independently reviewed and adjudicated; Phase 1B coordinator recommends SEAL-WITH-CHANGES for the v1 ladder/byte-grammar scope)",
+  "author": "agent-3",
+  "purpose": "Bind body-hash normalisation identity, canonical bytes, transitions, anchors, and budgets while excluding untrusted imperative execution and retracting runtime-authority overclaims.",
+  "reviewStatus": "INDEPENDENT REVIEW COMPLETE for the normalized-body v2 base — Reviewer 2 findings R2-FI-01..06 adjudicated by Agent A; Phase 1B coordinator closure is fact-identity-policy.freeze-closure-coordinator.v1.json. The later factRecordIdentityBoundaryV1 repair for R5R-DLTS-02/R6R-IP02-01 awaits independent rereview.",
+  "decisionDependencies": [
+    {
+      "claim": "C-1",
+      "status": "SEALED",
+      "supplies": "predicate-relative sufficiency"
+    },
+    {
+      "claim": "C-2",
+      "status": "CANDIDATE (contract-complete)",
+      "supplies": "requiredness and Coverage consumption"
+    },
+    {
+      "claim": "FACT-PLANE",
+      "status": "CANDIDATE (contract-complete)",
+      "supplies": "the deficiency vocabulary an unimplementable level must report into"
+    },
+    {
+      "claim": "EVIDENCE",
+      "status": "CANDIDATE",
+      "supplies": "span identity separate from retained bytes"
+    },
+    {
+      "claim": "ARCH.PROBE-CONTRACT",
+      "status": "REOPENED",
+      "supplies": "the capability substrate this artifact must NOT pretend to have"
+    },
+    {
+      "claim": "TM",
+      "status": "CANDIDATE",
+      "refs": [
+        "V1",
+        "V4",
+        "V7",
+        "R7"
+      ],
+      "note": "v1 cited TM.F3, which threat-model v2 renumbered. Every reference is checked against the LIVE model by FI-TM (B-FI-08)."
+    }
+  ],
+  "theCapabilityClaim": {
+    "v1Defect": "B-FI-05, critical. v1 listed what the imperative Rule API does not hand you \u2014 filesystem, network, spawn, clock, entropy, storage, cross-rule results \u2014 and called that an absence of ambient authority. That is Error 2 for the third time in this exercise: a narrow handle does not confine LINKED code, which reaches the same capabilities through its own imports, transitive dependencies, module globals, native calls, or an injected collaborator.",
+    "accurateClaim": "For linked first-party rules: **these capabilities are NOT PROVIDED BY the Rule API, and the rule's direct dependency closure is audited.** That is an integrity control, not a security boundary, and it is the strongest true statement available without a restricted runtime.",
+    "whatWouldMakeItABoundary": "Executing every imperative rule in a named capability-restricted process or component runtime, with direct, transitive AND dynamic reach tested there. That runtime does not exist; ARCH.PROBE-CONTRACT is REOPENED over exactly this.",
+    "conformanceConsequence": "FI-07 is marked implementable:false and its blocker named. v1 asserted it as a passing closure analysis, which would have been a paper seal.",
+    "whatIsStillTrue": "The API not providing a capability still means an ordinary rule cannot casually acquire one, and dependency-closure audit still catches the common case. The claim is narrower, not empty.",
+    "thirdPartyImperativeRules": {
+      "status": "EXCLUDED_UNTIL_RESTRICTED_RUNTIME",
+      "rule": "Untrusted/third-party imperative rules are disabled for authoritative Runs until a named capability-restricted runtime is selected and tested over direct, transitive, dynamic, native, and collaborator reach. Linked first-party rules remain TCB code under dependency audit.",
+      "architectureSummaryMustSay": "API supplies facts only; linked first-party rules are accepted TCB; dependency audit is integrity control; third-party imperative rules are excluded until ARCH.PROBE-CONTRACT resolves."
+    }
+  },
+  "normalisationLadder": {
+    "form": "A ladder of named, independently versioned levels, not one policy.",
+    "why": "Exact-duplicate and near-duplicate detection want different normalisation; forcing one loses precision or recall permanently.",
+    "levels": [
+      {
+        "level": "L0-verbatim",
+        "normalises": "nothing \u2014 raw bytes of the body span",
+        "use": "provenance and exact-byte identity"
+      },
+      {
+        "level": "L1-lexical",
+        "normalises": "insignificant whitespace and line endings",
+        "use": "DEFAULT for exact-duplicate detection"
+      },
+      {
+        "level": "L2-comment-insensitive",
+        "normalises": "L1 plus non-directive comments",
+        "use": "opt-in"
+      },
+      {
+        "level": "L3-identifier-insensitive",
+        "normalises": "L2 plus consistent renaming of LOCAL bindings",
+        "use": "opt-in; near-duplicate only"
+      }
+    ],
+    "defaultLevel": "L1-lexical",
+    "rules": [
+      {
+        "id": "BH-1",
+        "rule": "Each level is separately versioned. Changing L2's comment grammar does not touch L1 identities."
+      },
+      {
+        "id": "BH-2",
+        "rule": "The level and its version are part of the fact's identity and enter the derivation key. Two levels are two facts, never one fact computed differently."
+      },
+      {
+        "id": "BH-3",
+        "rule": "A finding records the level that produced it. Comparing a baseline entry pinned to L1 against an L2 result is a typed mismatch, not a diff."
+      },
+      {
+        "id": "BH-4",
+        "rule": "Adding a level is schema-additive and changes no existing identity."
+      },
+      {
+        "id": "BH-5",
+        "rule": "Changing an EXISTING level's algorithm requires the custody transition protocol below. There is no migrator that can invent the old identity from the new one."
+      },
+      {
+        "id": "BH-6",
+        "rule": "The L0 span LOCATION is retrievable for any finding at any level. Retrieving its BYTES is a separate, retention-governed act (B-FI-04)."
+      }
+    ]
+  },
+  "custodyTransition": {
+    "v1Defect": "B-FI-01 and B-FI-02, both critical. v1 said the ladder was reversible because levels are additive. Additivity avoids silent false net-new findings; it does NOT preserve the user's ratchet, because the hard transition is merely deferred to baseline re-capture. And BH-5 demanded a migrator that may have no information from which to compute the new identity at all.",
+    "narrowerTruth": "Level addition is SCHEMA-ADDITIVE, not CUSTODY-REVERSIBLE.",
+    "protocol": {
+      "additiveLevel": {
+        "userImpact": "none",
+        "requires": "nothing \u2014 existing identities are untouched"
+      },
+      "algorithmChangeToExistingLevel": {
+        "step1": "Continue evaluating the OLD level version for a declared support window. Both versions are live; identities do not collide because the version is in the identity (BH-2).",
+        "step2": "Emit the new version's grouping as a PREVIEW, never as policy.",
+        "step3": "Require explicit user acceptance before the new version acquires policy identity.",
+        "step4": "On acceptance, record the transition with a many-to-many group mapping between old and new duplicate groups.",
+        "ifNoWitness": "Where no retained witness supports a mapping, the comparison is reported INDETERMINATE and re-baselining is required. This is stated rather than papered: a migrator that cannot see the old inputs cannot produce the old identity, and pretending otherwise is how a silent re-identification ships."
+      },
+      "migrationWitness": {
+        "minimum": [
+          "oldLevelVersionId",
+          "newLevelVersionId",
+          "acceptanceId",
+          "oldGroupIds (content-addressed)",
+          "newGroupIds (content-addressed)",
+          "edges: list of {oldGroupId, newGroupId, class: split|merge|stable|unmatched-old|unmatched-new}",
+          "occurrenceAnchors: L0 span-location set per group",
+          "oldGroupCardinality",
+          "newGroupCardinality",
+          "deterministicEdgeOrder: sort by oldGroupId, newGroupId, class"
+        ],
+        "projection": {
+          "userFacing": "deterministic split/merge summaries with drill-down to occurrence anchors",
+          "forbids": "one-to-one falsification of a many-to-many relation"
+        },
+        "custody": "user-side, alongside the baseline",
+        "honesty": "This witness supports a many-to-many mapping. It does NOT support recomputing an old identity from new inputs."
+      },
+      "groupTransitionModel": "MANY-TO-MANY. A normalisation change can split one group, merge two, or both. User readability is supplied by deterministic split/merge summaries plus drill-down, not by falsifying the relation as one-to-one."
+    }
+  },
+  "languageCapability": {
+    "v1Defect": "B-FI-03. v1 named L1/L2/L3 as if they were language-independent. 'Insignificant whitespace' is not a language-independent notion, and neither is 'comment'.",
+    "rule": "Each level is implementable per language at a declared capability. A language that cannot implement a level MUST report Coverage with the fact-plane deficiency vocabulary \u2014 never a silent approximation.",
+    "matrix": [
+      {
+        "language": "typescript",
+        "L1": "full",
+        "L2": "full-provisional",
+        "L3": "full-provisional",
+        "note": "R2-FI-05: L2/L3 full only after directive/JSDoc corpora; provisional until then."
+      },
+      {
+        "language": "rust",
+        "L1": "full",
+        "L2": "full-provisional",
+        "L3": "full-provisional",
+        "note": "R2-FI-05: doc-comment/macro/name-resolution make L2/L3 corpus-dependent."
+      },
+      {
+        "language": "python",
+        "L1": "restricted",
+        "L2": "restricted",
+        "L3": "unavailable",
+        "note": "Indentation is SIGNIFICANT, so L1 may not normalise leading whitespace. L3 needs binding resolution beyond the syntax tier."
+      },
+      {
+        "language": "go",
+        "L1": "full-provisional",
+        "L2": "restricted",
+        "L3": "unavailable",
+        "note": "Build-constraint comments are directives, not comments. R2-FI-05: semicolon insertion requires token-aware L1; provisional until measured."
+      }
+    ],
+    "significantLayoutRule": "A level MUST NOT normalise layout that is semantically significant in the target language. Python indentation is the canonical case; anything inside a string literal is universal.",
+    "directiveRule": "Comment-shaped DIRECTIVES are classified separately from removable comments and are NEVER removed at L2. Examples: Go build constraints, TypeScript triple-slash references and ts-ignore, Rust inner attributes and doc comments feeding cfg, Python encoding declarations and type comments. Removing a directive changes meaning, so removing it at a level advertised as comment-insensitive would make two semantically different bodies identical.",
+    "neverNormalise": [
+      "string and template literal contents",
+      "regex literals",
+      "any comment-shaped directive",
+      "layout that is significant in the language"
+    ],
+    "onUnavailable": {
+      "deficiency": "language-tier-unsupported",
+      "mustBeInFactPlaneVocabulary": true
+    },
+    "capabilityGrades": {
+      "full": "the contract requires full language semantics; an implementation may advertise this grade only after adversarial golden-corpus agreement across two producers",
+      "full-provisional": "judgment from language spec; MUST be treated as restricted for shipping identity claims until measured",
+      "restricted": "known semantic caveats; identity equivalence only within declared constraints",
+      "unavailable": "must emit language-tier-unsupported deficiency; never silent approximation"
+    },
+    "supportedLanguages": [
+      "typescript",
+      "rust",
+      "python",
+      "go"
+    ],
+    "v1ShippingLanguages": [
+      "typescript",
+      "rust"
+    ],
+    "productScopeRule": "supportedLanguages is the architecture capability matrix, not the v1 installed-language set. v1 admits TypeScript and Rust only. Python or Go identity production requires an explicit later product scope change plus the corresponding corpus evidence before admission.",
+    "bindingRule": "Exactly one matrix row per supportedLanguages entry. Every (language, level) cell MUST have a levelFixture whose expected capability equals the matrix cell (full-provisional may fixture as restricted for shipping behavior). Deleting a row or desynchronizing a fixture fails FI-CAP (R2-FI-02)."
+  },
+  "anchorValidation": {
+    "v1Defect": "B-FI-06. v1 said an imperative rule 'cannot compute or influence a fingerprint'. It cannot MINT the final fingerprint \u2014 it does not choose the hash. But it chooses the ANCHORS, so a buggy or hostile rule can still destabilise or collide its own identities by emitting different or fabricated anchors.",
+    "accurateClaim": "A rule cannot mint a fingerprint. The HOST resolves and validates every typed anchor before computing one.",
+    "hostObligations": [
+      "resolve each anchor reference against retained facts and snapshot provenance",
+      "reject anchors that do not resolve \u2014 a fabricated anchor is a rule defect, not a finding",
+      "reject anchors outside the rule's declared scope",
+      "canonicalise anchors before hashing",
+      "enforce a per-rule-family anchor schema, so a rule cannot silently change anchor shape between versions"
+    ],
+    "residual": "A rule can still emit fewer anchors than it should, producing unstable-but-valid identities. That is a rule quality problem, detectable by fingerprint churn, and not something the host can prevent."
+  },
+  "budgetModel": {
+    "v1Defect": "B-FI-07. v1 let exhaustion produce a Coverage entry over whatever findings had already been emitted. Different scheduling then authorises different partial prefixes, and every outcome looks valid.",
+    "transactionality": "Rule output is BUFFERED. On exhaustion the entire rule partition is discarded and reported, unless the rule contract explicitly supports complete pages with a continuation token. A partial prefix is never policy input.",
+    "dimensions": [
+      {
+        "budget": "rowsExamined",
+        "class": "deterministic",
+        "why": "the real cost driver, and reproducible"
+      },
+      {
+        "budget": "queryCount",
+        "class": "deterministic",
+        "why": "bounds fan-out"
+      },
+      {
+        "budget": "fuel",
+        "class": "deterministic",
+        "why": "bounds non-terminating logic reproducibly"
+      },
+      {
+        "budget": "memory",
+        "class": "deterministic"
+      },
+      {
+        "budget": "findingCardinality",
+        "class": "deterministic",
+        "threatModelRef": "V4",
+        "why": "the finding channel is exfiltration bandwidth and a denial-of-merge vector"
+      },
+      {
+        "budget": "anchorSize",
+        "class": "deterministic",
+        "threatModelRef": "V4"
+      },
+      {
+        "budget": "wallClock",
+        "class": "host-safety-backstop-only",
+        "why": "NOT a semantic limit \u2014 it varies by machine. Recorded in Coverage when it fires, never used to define a valid partial result."
+      }
+    ],
+    "semanticLimitRule": "Only deterministic budgets define outcomes. Wall clock is a backstop whose firing is recorded and which forces the same whole-partition discard.",
+    "onExhaustion": {
+      "requiredRule": "Coverage entry plus policy indeterminate",
+      "optionalRule": "Coverage entry plus diagnostic, isolated",
+      "rule": "Exhaustion NEVER silently truncates. Truncation without a marker converts a budget into a correctness bug."
+    },
+    "attribution": "Exhaustion names the rule and, where determinable, the input that drove it."
+  },
+  "spanIdentityVersusBytes": {
+    "v1Defect": "B-FI-04. v1 made L0 byte retrievability an unconditional property of fact identity, which silently upgrades a structural-retention Run into a source archive \u2014 one duplicate rule and the retained set approaches read-set size.",
+    "separation": {
+      "identity": "L0 span LOCATION plus a content commitment. Always retained; contains no source bytes.",
+      "bytes": "Retrieved only when the Run's retention policy authorises it, and reported UNAVAILABLE after degradation rather than silently missing."
+    },
+    "rule": "Byte retention is never an unconditional consequence of fact identity.",
+    "threatModelRef": "V1"
+  },
+  "levelFixtures": [
+    {
+      "id": "python-l1-restricted",
+      "valid": true,
+      "language": "python",
+      "level": "L1",
+      "capability": "restricted",
+      "why": "indentation is significant, so leading whitespace may not be normalised"
+    },
+    {
+      "id": "python-l3-unavailable",
+      "valid": true,
+      "language": "python",
+      "level": "L3",
+      "capability": "unavailable",
+      "expectDeficiency": "language-tier-unsupported"
+    },
+    {
+      "id": "go-l2-restricted",
+      "valid": true,
+      "language": "go",
+      "level": "L2",
+      "capability": "restricted",
+      "why": "build-constraint comments are directives and are never removed"
+    },
+    {
+      "id": "typescript-l3-full",
+      "valid": true,
+      "language": "typescript",
+      "level": "L3",
+      "capability": "restricted",
+      "matrixCapability": "full-provisional"
+    },
+    {
+      "id": "reject-unavailable-without-deficiency",
+      "valid": false,
+      "violates": "FI-CAP",
+      "language": "python",
+      "level": "L3",
+      "capability": "unavailable",
+      "expectDeficiency": null,
+      "why": "an unimplementable level must report Coverage, never approximate silently"
+    },
+    {
+      "id": "reject-deficiency-outside-factplane",
+      "valid": false,
+      "violates": "FI-CAP",
+      "language": "python",
+      "level": "L3",
+      "capability": "unavailable",
+      "expectDeficiency": "normalisation-too-hard",
+      "why": "a deficiency the fact plane cannot express is a Coverage state with no way to terminate"
+    },
+    {
+      "id": "typescript-l1-full",
+      "valid": true,
+      "language": "typescript",
+      "level": "L1",
+      "capability": "full",
+      "matrixCapability": "full",
+      "why": "matrix cell typescript/L1=full; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "typescript-l2-restricted",
+      "valid": true,
+      "language": "typescript",
+      "level": "L2",
+      "capability": "restricted",
+      "matrixCapability": "full-provisional",
+      "why": "matrix cell typescript/L2=full-provisional; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "rust-l1-full",
+      "valid": true,
+      "language": "rust",
+      "level": "L1",
+      "capability": "full",
+      "matrixCapability": "full",
+      "why": "matrix cell rust/L1=full; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "rust-l2-restricted",
+      "valid": true,
+      "language": "rust",
+      "level": "L2",
+      "capability": "restricted",
+      "matrixCapability": "full-provisional",
+      "why": "matrix cell rust/L2=full-provisional; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "rust-l3-restricted",
+      "valid": true,
+      "language": "rust",
+      "level": "L3",
+      "capability": "restricted",
+      "matrixCapability": "full-provisional",
+      "why": "matrix cell rust/L3=full-provisional; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "python-l2-restricted",
+      "valid": true,
+      "language": "python",
+      "level": "L2",
+      "capability": "restricted",
+      "matrixCapability": "restricted",
+      "why": "matrix cell python/L2=restricted; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "go-l1-restricted",
+      "valid": true,
+      "language": "go",
+      "level": "L1",
+      "capability": "restricted",
+      "matrixCapability": "full-provisional",
+      "why": "matrix cell go/L1=full-provisional; shipping treats full-provisional as restricted"
+    },
+    {
+      "id": "go-l3-unavailable",
+      "valid": true,
+      "language": "go",
+      "level": "L3",
+      "capability": "unavailable",
+      "matrixCapability": "unavailable",
+      "why": "matrix cell go/L3=unavailable; shipping treats full-provisional as restricted",
+      "expectDeficiency": "language-tier-unsupported"
+    }
+  ],
+  "transitionFixtures": [
+    {
+      "id": "additive-level-no-impact",
+      "valid": true,
+      "change": "add-level",
+      "userAcceptance": false,
+      "dualEmit": false,
+      "comparison": "unaffected"
+    },
+    {
+      "id": "algorithm-change-with-protocol",
+      "valid": true,
+      "change": "algorithm-change",
+      "userAcceptance": true,
+      "dualEmit": true,
+      "witness": true,
+      "comparison": "many-to-many"
+    },
+    {
+      "id": "algorithm-change-no-witness",
+      "valid": true,
+      "change": "algorithm-change",
+      "userAcceptance": true,
+      "dualEmit": true,
+      "witness": false,
+      "comparison": "indeterminate",
+      "why": "honest outcome when nothing supports a mapping"
+    },
+    {
+      "id": "reject-algorithm-change-without-dual-emit",
+      "valid": false,
+      "violates": "FI-CT",
+      "change": "algorithm-change",
+      "userAcceptance": true,
+      "dualEmit": false,
+      "witness": true,
+      "comparison": "many-to-many"
+    },
+    {
+      "id": "reject-algorithm-change-without-acceptance",
+      "valid": false,
+      "violates": "FI-CT",
+      "change": "algorithm-change",
+      "userAcceptance": false,
+      "dualEmit": true,
+      "witness": true,
+      "comparison": "many-to-many"
+    },
+    {
+      "id": "reject-silent-reidentification",
+      "valid": false,
+      "violates": "FI-CT",
+      "change": "algorithm-change",
+      "userAcceptance": true,
+      "dualEmit": true,
+      "witness": false,
+      "comparison": "many-to-many",
+      "why": "claiming a mapping with no witness is exactly the silent re-identification the protocol exists to prevent"
+    },
+    {
+      "id": "reject-empty-witness-minimum",
+      "valid": false,
+      "change": "algorithm-change",
+      "dualEmit": true,
+      "userAcceptance": true,
+      "witness": false,
+      "comparison": "many-to-many",
+      "violates": "FI-CT",
+      "why": "empty/missing witness cannot claim many-to-many mapping (R2-FI-06)"
+    }
+  ],
+  "conformanceTests": [
+    {
+      "id": "FI-01",
+      "implementable": true,
+      "assert": "Two normalisation levels over one body produce two distinct fact identities, both retained."
+    },
+    {
+      "id": "FI-02",
+      "implementable": true,
+      "assert": "A finding records its level; comparing an L1-pinned baseline against an L2 result is a typed mismatch, not a diff."
+    },
+    {
+      "id": "FI-03",
+      "implementable": true,
+      "assert": "Adding a level changes no existing level's identities."
+    },
+    {
+      "id": "FI-04",
+      "implementable": true,
+      "assert": "An algorithm change to an existing level without dual-emit and explicit user acceptance is refused by the release gate."
+    },
+    {
+      "id": "FI-05",
+      "implementable": true,
+      "assert": "The L0 span LOCATION is retrievable for any finding at any level; byte retrieval is retention-governed and reports unavailable after degradation."
+    },
+    {
+      "id": "FI-06",
+      "implementable": true,
+      "assert": "An imperative rule querying outside its declared requirements receives a typed error, not a wider result set."
+    },
+    {
+      "id": "FI-07",
+      "implementable": false,
+      "requiresMechanism": "ARCH.PROBE-CONTRACT (REOPENED) \u2014 a capability-restricted runtime",
+      "assert": "An imperative rule has no reachable filesystem, network, spawn, clock, entropy, storage or cross-rule access, tested over direct, transitive AND dynamic paths.",
+      "note": "B-FI-05. v1 asserted this as a passing closure analysis. For LINKED code a dependency audit is an integrity control, not a security boundary, and claiming otherwise is Error 2."
+    },
+    {
+      "id": "FI-08",
+      "implementable": true,
+      "assert": "Exhausting any deterministic budget discards the whole rule partition and produces a Coverage entry; findings are never silently truncated and no partial prefix becomes policy input."
+    },
+    {
+      "id": "FI-09",
+      "implementable": true,
+      "assert": "A rule cannot MINT a fingerprint. An unresolvable or out-of-scope anchor is rejected as a rule defect before any fingerprint is computed."
+    },
+    {
+      "id": "FI-10",
+      "implementable": true,
+      "assert": "A rule declared non-deterministic is excluded from digest-equality claims and its findings are marked."
+    },
+    {
+      "id": "FI-11",
+      "implementable": true,
+      "assert": "A level a language cannot implement reports Coverage with a fact-plane deficiency; it never approximates silently."
+    },
+    {
+      "id": "FI-12",
+      "implementable": true,
+      "assert": "No level normalises a comment-shaped directive, a string literal's contents, or layout significant in the language."
+    },
+    {
+      "id": "FI-13",
+      "implementable": true,
+      "assert": "Two independent producers implementing the published canonicalisation agree byte-for-byte on every golden corpus entry."
+    },
+    {
+      "id": "FI-14",
+      "implementable": true,
+      "assert": "Wall clock never defines a valid partial result; its firing is recorded in Coverage and forces the same whole-partition discard."
+    }
+  ],
+  "dischargeStatus": {
+    "rule": "A property may be SPECIFIED by an implementable test declaration. It may be DISCHARGED only when status is DEMONSTRATED: retained evidence that the test ran against its required domain and its negative control failed. implementable:true alone is NOT discharge (R2-FI-01).",
+    "properties": [
+      {
+        "property": "duplicate identity is stable across versions",
+        "dischargedBy": [
+          "FI-01",
+          "FI-03",
+          "FI-13"
+        ],
+        "status": "SPECIFIED",
+        "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+        "note": "R2-FI-01: DISCHARGED revoked \u2014 FI-13 has no retained per-language golden corpus execution record."
+      },
+      {
+        "property": "a normalisation change cannot silently re-identify a user's baseline",
+        "dischargedBy": [
+          "FI-02",
+          "FI-04"
+        ],
+        "status": "SPECIFIED",
+        "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+        "note": "R2-FI-01: implementable tests specify the property; DISCHARGED requires demonstrated execution evidence which does not exist yet."
+      },
+      {
+        "property": "the language capability tier is observable",
+        "dischargedBy": [
+          "FI-11",
+          "FI-12"
+        ],
+        "status": "SPECIFIED",
+        "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+        "note": "R2-FI-01/05: matrix is judgment, not measured corpus demonstration."
+      },
+      {
+        "property": "budgets cannot become correctness bugs",
+        "dischargedBy": [
+          "FI-08",
+          "FI-14"
+        ],
+        "status": "SPECIFIED",
+        "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+        "note": "R2-FI-01: implementable tests specify the property; DISCHARGED requires demonstrated execution evidence which does not exist yet."
+      },
+      {
+        "property": "a rule cannot influence its own identity",
+        "dischargedBy": [
+          "FI-09"
+        ],
+        "status": "PARTIAL",
+        "note": "B-FI-06: the host prevents MINTING and fabricated anchors. A rule emitting too few valid anchors still yields unstable identities, which is a rule quality problem visible as fingerprint churn."
+      },
+      {
+        "property": "imperative rules hold no ambient authority",
+        "dischargedBy": [],
+        "status": "NOT DISCHARGED",
+        "note": "B-FI-05. FI-07 is unimplementable. The true claim is that the Rule API does not PROVIDE these capabilities and the direct dependency closure is audited \u2014 an integrity control, not a boundary."
+      },
+      {
+        "property": "fact identity does not force byte retention",
+        "dischargedBy": [
+          "FI-05"
+        ],
+        "status": "SPECIFIED",
+        "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+        "note": "R2-FI-01: implementable tests specify the property; DISCHARGED requires demonstrated execution evidence which does not exist yet."
+      }
+    ],
+    "grades": [
+      "UNSPECIFIED",
+      "SPECIFIED",
+      "IMPLEMENTABLE",
+      "QUALIFIED",
+      "DEMONSTRATED",
+      "PARTIAL",
+      "NOT DISCHARGED",
+      "DISCHARGED"
+    ]
+  },
+  "resolves": {
+    "B-FI-01": "RESOLVED \u2014 the narrower truth is stated: level addition is schema-additive, not custody-reversible. A four-step transition protocol with dual-emit, preview, and explicit user acceptance replaces the reversibility claim.",
+    "B-FI-02": "RESOLVED \u2014 the migration witness is specified at its honest minimum, group transitions are modelled MANY-TO-MANY, and where no witness supports a mapping the comparison is INDETERMINATE and re-baselining is required. No migrator is asked to invent an old identity.",
+    "B-FI-03": "RESOLVED \u2014 a per-language capability matrix, a significant-layout rule, and a directive classification separate from removable comments. An unimplementable level reports a fact-plane deficiency.",
+    "B-FI-04": "RESOLVED \u2014 span LOCATION identity is separated from byte retrieval; byte retention is never an unconditional consequence of fact identity.",
+    "B-FI-05": "RESOLVED BY RETRACTION \u2014 the absence claim is withdrawn. FI-07 is implementable:false with its blocker named, and the sealed property moves to NOT DISCHARGED. The accurate claim is 'not provided by the API, dependency closure audited'.",
+    "B-FI-06": "RESOLVED \u2014 'cannot compute or influence' becomes 'cannot MINT', with five host obligations for anchor resolution and validation, and the residual instability stated.",
+    "B-FI-07": "RESOLVED \u2014 rule output is transactional and the whole partition is discarded on exhaustion; deterministic budgets define semantics and wall clock is a recorded backstop only.",
+    "B-FI-08": "RESOLVED \u2014 TM.F3 replaced with live v2 references, checked mechanically by FI-TM; the body-identity hazard is stated as this artifact's own claim; C-2 dependency now points at the adjudicated v3.",
+    "B-FI-09": "RESOLVED \u2014 a four-step byte-level canonicalisation with length-prefixed framing and domain separation, an explicit collision policy, and a per-language adversarial golden corpus requirement."
+  },
+  "peerReviewClosure": [
+    {
+      "question": "Does the language capability matrix survive independent derivation?",
+      "disposition": "CLOSED WITH PROVISIONAL CELLS — risky unmeasured cells ship as restricted until adversarial corpora qualify them.",
+      "evidence": "fact-identity-policy.v2.blind-reviewer2.precompare.json plus fact-identity-policy.v2.review-reviewer2.json"
+    },
+    {
+      "question": "Is many-to-many the right group transition model?",
+      "disposition": "CLOSED — it is the lossless relation; deterministic split/merge summaries and drill-down supply readability."
+    },
+    {
+      "question": "Can the imperative escape hatch ship without a restricted runtime?",
+      "disposition": "CLOSED BY EXCLUSION — third-party/untrusted imperative rules are excluded; linked first-party code remains TCB under integrity audit only."
+    },
+    {
+      "question": "Do absent FI-13 corpora reopen the byte grammar?",
+      "disposition": "NO — corpus execution remains implementation/qualification evidence. Identity properties stay SPECIFIED, not DEMONSTRATED."
+    }
+  ],
+  "knownLimitations": [
+    "The canonicalisation construction is specified; the per-language golden corpora it requires do not exist. FI-CANON checks the requirement is declared, not that the corpus is populated.",
+    "The language capability matrix covers four languages and is judgment, not measurement.",
+    "FI-07 is unimplementable and the corresponding property is NOT DISCHARGED. Third-party/untrusted imperative rules are excluded from v1 rather than shipped under a false confinement claim.",
+    "A rule emitting too few anchors still produces unstable identities; the host cannot prevent that.",
+    "The generic FACT-ID-V1 vectors are executable architecture oracles, not an independently implemented Rust host or provider qualification record.",
+    "Initial authorship was solo; the current binding has independent review, adjudication, and coordinator closure."
+  ],
+  "factRecordIdentityBoundaryV1": {
+    "id": "opensip.fact-record-identity-boundary.v1",
+    "purpose": "Keep normalized source-body identity and generic admitted-fact identity as two composable contracts. A clone payload may carry a normalized body identity; the host then mints a distinct FACT-ID-V1 for the complete admitted fact record.",
+    "normalizedBodyIdentity": {
+      "contractId": "opensip.normalized-body-identity.v1",
+      "source": "fact-identity-policy.v2.json#canonicalisationSchema",
+      "domainTag": "opensip.fact-identity.v1",
+      "owner": "FACT-IDENTITY",
+      "input": "one normalized source body span plus level/language/version components",
+      "outputRepresentation": "sha256:<64 lowercase hexadecimal characters>"
+    },
+    "genericFactRecordIdentity": {
+      "contractId": "opensip.fact-id.v1",
+      "source": "fact-plane.v1.json#factRecordContractV1.factIdContract",
+      "relationRegistrySource": "fact-plane.v1.json#factRecordContractV1.relationPayloadSchemaRegistryV1",
+      "candidateMappingSource": "fact-plane.v1.json#factRecordContractV1.candidateToAdmittedMapping",
+      "domainTag": "opensip.fact-id\u0000",
+      "owner": "Rust host only",
+      "input": "the exact fourteen-field admitted FactRecordV1 semantic preimage"
+    },
+    "clonePayloadJoin": {
+      "relation": "clones",
+      "schemaId": "opensip.relation.clones.v1",
+      "field": "bodyIdentity",
+      "fieldType": "Sha256Text",
+      "rule": "The normalized body identity is payload data inside a clones fact. FACT-ID-V1 wraps the complete clone fact and can never equal or substitute for bodyIdentity by type or domain."
+    },
+    "providerProfiles": [
+      {"providerId": "rust-semantic", "language": "rust"},
+      {"providerId": "typescript-semantic", "language": "typescript"}
+    ],
+    "separationRules": [
+      "The two domain tags and contract identifiers are distinct and immutable within v1.",
+      "Normalized body identity never hashes FactEnvelope, relation payload, universes, confidence or anchors.",
+      "FACT-ID-V1 never re-runs body normalization; it hashes the already validated relation payload bytes and anchors, including bodyIdentity only when the relation schema carries it.",
+      "A provider may compute a candidate bodyIdentity under the pinned body grammar but never mints FACT-ID-V1; the host validates both boundaries."
+    ],
+    "assurance": "IMPLEMENTABLE_UNEXECUTED; exact FACT-ID-V1 vectors live in FACT-PLANE and normalized-body corpora remain implementation evidence"
+  },
+  "canonicalisationSchema": {
+    "contractId": "opensip.normalized-body-identity.v1",
+    "v1Defect": "B-FI-09. v1 named levels but published no byte-level construction, so two independent producers could implement different hashes and both claim conformance \u2014 destroying exactly the cross-version and cross-platform identity stability the ladder exists to provide.",
+    "construction": {
+      "step1": "Extract the body span at L0 byte boundaries.",
+      "step2": "For L0, the canonical payload is the raw body-span bytes with no tokenisation. For L1-L3, apply the level's declared transform to the versioned language token stream. Token boundaries, canonical kind IDs, and replacements are part of the level-version specification.",
+      "step3": "Serialise the selected payload with the byteGrammar below: raw length-prefixed bytes for L0, or a count-framed stream of length-prefixed canonical kind/value byte pairs for L1-L3.",
+      "step4": "Hash with DOMAIN SEPARATION over a FULLY FRAMED preimage: H(len-prefixed domainTag || len-prefixed levelId || len-prefixed levelVersion || len-prefixed languageId || len-prefixed languageVersion || len-prefixed payload). Unframed concatenation of the identity components is FORBIDDEN (R2-FI-03)."
+    },
+    "collisionPolicy": "A hash collision between two distinct canonical payloads is a HOST DEFECT, reported as such and never resolved by preferring one. Framing makes distinct canonical payloads produce distinct preimages; an intended normalisation equivalence may map different source spans to the same canonical payload.",
+    "outputRepresentation": "sha256:<64 lowercase hexadecimal characters>",
+    "goldenCorpusRequirement": "Each implementation must supply a versioned corpus for every language it admits, including adversarial significant whitespace, comment-shaped directives, string literals containing comment syntax, Unicode normalisation, and mixed line endings. TypeScript and Rust are required for v1; other matrix rows require evidence before a later product admission. FI-CANON checks that this obligation remains declared; retained corpus contents and execution records are implementation/qualification evidence, not architecture evidence fabricated by this checker.",
+    "byteGrammar": {
+      "algorithm": "SHA-256",
+      "domainTag": "opensip.fact-identity.v1",
+      "encoding": "UTF-8 source bytes as read from the snapshot; no re-encoding",
+      "unicodeNormalization": "none at L0; NFC only if a level transform explicitly declares it",
+      "lineEndings": "L0 preserves CR/LF/CRLF as in the snapshot bytes; L1+ may normalise only where the language treats them as insignificant whitespace",
+      "bodySpanBoundary": "half-open byte offsets [start,end) into the snapshot file blob; end exclusive",
+      "levelVersionDefinition": "raw 32-byte SHA-256 content digest of the canonical level specification, including per-language lexical boundary rules, canonical token-kind registry, directive classification, transform order, and replacement byte rules; a human semantic-version label alone is insufficient",
+      "identifierEncoding": {
+        "domainTag": "exact ASCII bytes of the fixed domainTag literal",
+        "levelId": "exact ASCII bytes of the enumerated normalisationLadder.level value",
+        "levelVersion": "raw 32-byte digest defined by levelVersionDefinition, not hexadecimal display text",
+        "languageId": "lowercase ASCII bytes of the languageCapability.matrix language id",
+        "languageVersion": "exact canonical identity bytes supplied by ResolvedInputs/PlanId, not a human display string"
+      },
+      "payloadEncodingByLevel": {
+        "L0-verbatim": "u32be raw_byte_len || exact snapshot body-span bytes; tokenisation is forbidden",
+        "L1-lexical": "framedTokenStream",
+        "L2-comment-insensitive": "framedTokenStream",
+        "L3-identifier-insensitive": "framedTokenStream"
+      },
+      "tokenKindDefinition": "kind_id is the non-empty UTF-8 canonical identifier from the token-kind registry committed by levelVersion; producer/toolchain numeric enum ordinals are forbidden",
+      "tokenValueDefinition": "value_bytes are the exact source lexeme bytes unless the level specification replaces them with declared canonical ASCII bytes; no implicit Unicode or encoding conversion is permitted",
+      "tokenEncoding": "each token = u16be kind_id_len || kind_id_bytes || u32be value_len || value_bytes",
+      "streamFraming": "u32be token_count || token*",
+      "domainSeparatedPreimage": [
+        "u8 tag_len || tag_bytes (domainTag)",
+        "u8 levelId_len || levelId_bytes",
+        "u8 levelVersion_len || levelVersion_bytes",
+        "u8 languageId_len || languageId_bytes",
+        "u8 languageVersion_len || languageVersion_bytes",
+        "u32be payload_len || payload_bytes"
+      ],
+      "languageVersionDefinition": "the language toolchain/mode identity recorded in PlanId / ResolvedInputs for the provider interpreting the body span (e.g. typescript@X, rustc@Y edition Z); this identity remains framed for L0 even though its payload is raw bytes",
+      "forbidden": "raw string concatenation of levelId||levelVersion||languageId||languageVersion without length prefixes; tokenising L0; raw producer/toolchain numeric token-kind ordinals"
+    }
+  },
+  "adjudicationRevision": {
+    "by": "agent-a",
+    "date": "2026-07-31",
+    "resolves": [
+      "R2-FI-01",
+      "R2-FI-02",
+      "R2-FI-03",
+      "R2-FI-04",
+      "R2-FI-05",
+      "R2-FI-06"
+    ],
+    "note": "Discharge grades separated; matrix bound to fixtures; full/provisional capability cells; framed canonical domain components; transition witness schema expanded; third-party imperative rules excluded until runtime."
+  }
+}

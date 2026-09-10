@@ -1,0 +1,61 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/workflows/query_projection_model.v3.py	2026-09-08 16:14:51
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/workflows/query_projection_model.v3.py	2026-09-09 00:11:30
+@@ -736,21 +736,55 @@
+         target_universe = fact["sourceUniverse"]
+     kinds = table["targetKinds"]
+     package_path = None
++    occupancy = None
+     if len(kinds) == 1:
+         tkind = kinds[0]
++        if target_attr:
++            occupancy = target_attr.get("occupancy")
++            if target_attr.get("kind") not in (None, tkind, "unknown") and target_attr.get("kind") not in kinds:
++                return None, {
++                    "kind": "unprojectable-fact",
++                    "factId": fact_id,
++                    "note": "target attribution kind disagrees with table",
++                }
+     else:
+-        if not target_attr or target_attr.get("kind") not in kinds:
++        if not target_attr or target_attr.get("schemaVersion") == 1:
+             return None, {
+                 "kind": "unprojectable-fact",
+                 "factId": fact_id,
+-                "note": "imports target kind requires admitted TargetAttributionV1",
++                "note": "imports target kind requires admitted TargetAttributionV2",
+             }
++        if target_attr.get("kind") not in kinds:
++            return None, {
++                "kind": "unprojectable-fact",
++                "factId": fact_id,
++                "note": "imports target kind requires admitted TargetAttributionV2",
++            }
+         tkind = target_attr["kind"]
++        occupancy = target_attr.get("occupancy")
+         package_path = target_attr.get("packageManifestPath")
++    if occupancy == "unknown":
++        return None, {
++            "kind": "unprojectable-fact",
++            "factId": fact_id,
++            "note": "unknown occupancy is not a graph endpoint",
++        }
++    if occupancy == "first-party":
++        native = target_attr.get("evaluationNativeId")
++        if not native:
++            return None, {
++                "kind": "unprojectable-fact",
++                "factId": fact_id,
++                "note": "first-party occupancy missing evaluationNativeId",
++            }
++    else:
++        native = payload[tgt_field]
++        if tkind == "package":
++            package_path = (target_attr or {}).get("packageManifestPath")
+     target = {
+         "universe": target_universe,
+         "kind": tkind,
+-        "nativeSubjectId": payload[tgt_field],
++        "nativeSubjectId": native,
+     }
+     if tkind == "package":
+         if not package_path:

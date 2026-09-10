@@ -1,0 +1,991 @@
+--- a/docs/coop/design-corrections/foundation/check-identity.py
++++ b/docs/coop/design-corrections/foundation/check-identity.py
+@@ -20,6 +20,31 @@
+     else:check(name,False)
+ # Every negative that could plausibly refuse at an earlier join asserts its EXACT refusal cause,
+ # so a refusal at the wrong place is never counted as coverage of the intended one.
++def assert_complete(entry,**extra):
++    """Inject a CONSISTENTLY asserted `complete` Coverage claim, in place.
++
++    RC-6 (CB8-MUST-3) refuses `coverage=complete` beside `examinedExhaustive=false`, and it runs at
++    the PRODUCER boundary - one layer before every Run-closure capability/dialect prerequisite. A
++    vector that flipped `coverage` alone on an entry the producer had built as an honest `unknown`
++    would therefore stop at RC-6 and would no longer reach the guard it was written to exercise:
++    the deeper guard would be masked and the control would silently stop measuring it.
++
++    So the lie is made INTERNALLY COHERENT: the entry also asserts that it examined the partition
++    exhaustively. That is a strictly more adversarial provider - one that lies consistently - and it
++    leaves the guard under test as the only thing that can refuse it. RC-6's own vectors assert the
++    INCOHERENT pair on purpose and are separate."""
++    entry.update(coverage='complete',deficiency=None,nativeCause=None,**extra)
++    entry['resolutionCompleteness']=dict(entry['resolutionCompleteness'],examinedExhaustive=True)
++    return entry
++
++def _refusal_text(fn):
++    """The EXACT refusal string an attempt produced, so a control can assert what a boundary did
++    NOT say as well as what it did. A control that only asserts a token is present cannot notice
++    that a second, earlier guard is now answering for the one under test."""
++    try:fn()
++    except (ValueError,KeyError,TypeError,C.ValidationError) as exc:return str(exc)
++    raise AssertionError('expected a refusal')
++
+ def not_admitted(fn):
+     try:fn()
+     except (ValueError,KeyError,TypeError,C.ValidationError):return True
+@@ -1209,6 +1234,288 @@
+       len({hashlib.sha256((H.parent/row['document']).read_bytes()).hexdigest()
+            for row in M.PAYLOADS['classes']['parameter']['rows'].values()})
+       ==len(M.PAYLOADS['classes']['parameter']['rows']))
++
++# ------------------------------------------- CB8-MUST-1: AT MOST ONE selected parameter per row
++# The registry closed WHICH documents a parameter may cite and refused two REGISTRY ROWS under one
++# document digest (PAYLOAD_PARAMETER_AMBIGUOUS_ROW). Nothing constrained how many SPEC ENTRIES may
++# cite ONE row. A Plan could therefore select two DISTINCT ScopeDocumentV1 payloads under the one
++# registered digest: identity closure admitted both, the workflow binding verifier is EXISTENTIAL
++# and was satisfied by either, and both entered analysisSpecDigest and so PlanId - two conforming
++# hosts binding different scope policies from one admitted Plan. These controls drive the actual
++# reference boundaries, not a restatement of the rule.
++SCOPE_DOCUMENT_B={'schemaFamily':'opensip.product.scope','schemaMajor':1,
++                  'include':['src/**/*.ts'],'exclude':['src/generated/**']}
++IMPORT_CONTEXT_SCHEMA_BYTES=(H/'import-source-context.schema.json').read_bytes()
++IMPORT_CONTEXT={'schemaVersion':1,'declaredBuildIds':[]}
++def parameter_row(schema_bytes,payload_value):
++    return {'schemaDigest':hashlib.sha256(schema_bytes).hexdigest(),
++            'payloadDigest':hashlib.sha256(C.canonical(payload_value)).hexdigest()}
++_SCOPE_ROW_A=parameter_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT)
++_SCOPE_ROW_B=parameter_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT_B)
++_IMPORT_ROW_A=parameter_row(IMPORT_CONTEXT_SCHEMA_BYTES,IMPORT_CONTEXT)
++_IMPORT_ROW_B=parameter_row(IMPORT_CONTEXT_SCHEMA_BYTES,{'schemaVersion':1,'declaredBuildIds':['b1']})
++check('the-two-scope-parameter-candidates-are-genuinely-distinct-payloads',
++      _SCOPE_ROW_A['schemaDigest']==_SCOPE_ROW_B['schemaDigest'] and
++      _SCOPE_ROW_A['payloadDigest']!=_SCOPE_ROW_B['payloadDigest'])
++# SOURCE PROVENANCE. The bound is READ from the owning registry, never restated in code, and the
++# model refuses rather than assuming it if the registry stops publishing it.
++check('the-selection-cardinality-law-is-published-by-the-owning-registry',
++      M.PAYLOADS['classes']['parameter']['selectionCardinality']['atMostOnePerSpec'] is True and
++      'PAYLOAD_PARAMETER_AMBIGUOUS_ROW answers the second and never constrained the first'
++      in M.PAYLOADS['classes']['parameter']['selectionCardinality']['law'])
++def _with_unpublished_law(fn):
++    law=M.PAYLOADS['classes']['parameter']['selectionCardinality']
++    saved=law['atMostOnePerSpec'];law['atMostOnePerSpec']='at most one'
++    try:return fn()
++    finally:law['atMostOnePerSpec']=saved
++rejects_because('the-model-refuses-rather-than-assuming-an-unpublished-selection-law',
++    lambda:_with_unpublished_law(lambda:M.admit_parameter_selection([_SCOPE_ROW_A])),
++    'PARAMETER_SELECTION_LAW_UNPUBLISHED')
++# DIRECT HELPER, over rows alone: no Run graph, no blobs, no host state - which is why one function
++# can serve the pre-Plan boundary and retained Run closure and cannot drift between them.
++rejects_because('the-selection-helper-refuses-two-distinct-scope-rows',
++    lambda:M.admit_parameter_selection([_SCOPE_ROW_A,_SCOPE_ROW_B]),
++    'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1')
++check('the-selection-helper-admits-zero-parameters',M.admit_parameter_selection([])==[])
++check('the-selection-helper-admits-exactly-one-scope-parameter',
++      M.admit_parameter_selection([_SCOPE_ROW_A])==[_SCOPE_ROW_A])
++check('the-selection-helper-admits-one-row-of-each-registered-kind',
++      len(M.admit_parameter_selection([_SCOPE_ROW_A,_IMPORT_ROW_A]))==2)
++# The OTHER registered row keeps its own zero/one/multiple rule, now total rather than reachable
++# only from the import derivation.
++rejects_because('the-selection-helper-refuses-two-import-source-context-rows',
++    lambda:M.admit_parameter_selection([_IMPORT_ROW_A,_IMPORT_ROW_B]),
++    'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:foundation/import-source-context.schema.json')
++# NO EXTRA AUTHORITY. An entry citing a document with no registry row is not this rule's business:
++# the payload admission owns it and names it, so this guard neither widens the closed class nor
++# invents a refusal for a case another guard already answers more precisely.
++check('the-selection-helper-leaves-an-unregistered-document-to-the-payload-admission',
++      len(M.admit_parameter_selection([{'schemaDigest':'a'*64,'payloadDigest':'b'*64},
++                                       {'schemaDigest':'a'*64,'payloadDigest':'c'*64}]))==2)
++rejects_because('an-unregistered-parameter-document-still-refuses-at-the-closure-by-its-own-name',
++    lambda:run_with_parameter((H/'identity-schemas.v2.json').read_bytes(),SCOPE_DOCUMENT),
++    'PAYLOAD_PARAMETER_UNREGISTERED')
++# THE RETAINED RUN CLOSURE, over the retained analysis-spec record - the boundary the blind
++# consumer's graph actually cleared.
++def run_with_parameters(rows):
++    run,objects,blobs=build(resolved=True,has_match=True)
++    plan=copy.deepcopy(objects[run['planId']][1])
++    analysis=C.parse(blobs[plan['analysisSpecDigest']])
++    for row in rows:
++        put_blob(blobs,row['_schema']);put_blob(blobs,row['_payload'])
++    analysis['parameters']=sorted([{'schemaDigest':r['schemaDigest'],'payloadDigest':r['payloadDigest']}
++                                   for r in rows],key=C.canonical)
++    plan['analysisSpecDigest']=put_blob(blobs,analysis)
++    rekey_plan(objects,blobs,run,plan)
++    return M.close_run(run,objects,blobs)
++def _row(schema_bytes,payload_value):
++    return dict(parameter_row(schema_bytes,payload_value),_schema=schema_bytes,_payload=payload_value)
++check('the-retained-closure-still-admits-one-selected-scope-parameter',
++      run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT)]).startswith('run2:'))
++check('the-retained-closure-still-admits-no-selected-parameter-at-all',
++      run_with_parameters([]).startswith('run2:'))
++rejects_because('the-retained-closure-refuses-two-distinct-selected-scope-parameters',
++    lambda:run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT),
++                                _row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT_B)]),
++    'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1')
++check('the-retained-closure-admits-one-scope-parameter-beside-one-import-source-context',
++      run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT),
++                           _row(IMPORT_CONTEXT_SCHEMA_BYTES,IMPORT_CONTEXT)]).startswith('run2:'))
++# EXACT DUPLICATES ARE A DIFFERENT DEFECT and are separately accounted. Two byte-identical entries
++# are a malformed record, and the retained analysis-spec is schema-validated before this guard, so
++# uniqueItems refuses them FIRST and the ambiguity key is never reported for them. Measured, not
++# assumed: the bare helper - which is not a boundary and re-runs no schema - would report the
++# ambiguity for the same rows, and that difference is exactly why the boundary order matters.
++rejects_because('two-byte-identical-scope-parameters-refuse-on-the-schema-not-the-selection-law',
++    lambda:run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT),
++                                _row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT)]),
++    "'uniqueItems'")
++check('the-whole-item-duplicate-refusal-is-not-the-selection-ambiguity',
++      not_admitted(lambda:run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT),
++                                               _row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT)]))
++      and 'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS' not in
++          _refusal_text(lambda:run_with_parameters([_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT),
++                                                    _row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT)])))
++# THE PRE-PLAN BOUNDARY. The same law, the same function, over a spec no Run has yet been built for.
++def _spec(rows,capabilities=None):
++    return {'schemaVersion':2,'policyPackIds':[],
++            'requestedCapabilities':capabilities if capabilities is not None else [],
++            'parameters':sorted([{'schemaDigest':r['schemaDigest'],'payloadDigest':r['payloadDigest']}
++                                 for r in rows],key=C.canonical)}
++check('the-pre-plan-boundary-admits-one-selected-scope-parameter',
++      N.admit_analysis_spec(_spec([_SCOPE_ROW_A]))['schemaVersion']==2)
++rejects_because('the-pre-plan-boundary-refuses-two-distinct-selected-scope-parameters',
++    lambda:N.admit_analysis_spec(_spec([_SCOPE_ROW_A,_SCOPE_ROW_B])),
++    'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1')
++check('the-pre-plan-boundary-and-the-retained-closure-name-the-same-refusal',
++      _refusal_text(lambda:N.admit_analysis_spec(_spec([_SCOPE_ROW_A,_SCOPE_ROW_B])))==
++      _refusal_text(lambda:M.admit_parameter_selection([_SCOPE_ROW_A,_SCOPE_ROW_B])))
++rejects_because('the-pre-plan-boundary-keeps-the-schema-first-answer-for-a-whole-item-duplicate',
++    lambda:N.admit_analysis_spec({'schemaVersion':2,'policyPackIds':[],'requestedCapabilities':[],
++                                  'parameters':[{'schemaDigest':_SCOPE_ROW_A['schemaDigest'],
++                                                 'payloadDigest':_SCOPE_ROW_A['payloadDigest']}]*2}),
++    "'uniqueItems'")
++# THE BOUNDED WORKFLOW BINDING VERIFIER, called DIRECTLY - it may be handed a spec no closure in
++# this process admitted, so it cannot rely on the closure having run.
++def _refusal(fn):
++    try:fn()
++    except W.Refusal as exc:return exc
++    raise AssertionError('expected a Refusal')
++check('the-scope-binding-verifier-refuses-an-ambiguous-selection-before-any-digest-match',
++      _refusal(lambda:W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT)
++               ).error_code=='CONFIG.INVALID')
++check('the-ambiguity-refusal-is-not-laundered-by-supplying-either-candidate',
++      all(_refusal(lambda d=doc:W.verify_scope_parameter_binding(
++              _spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),d)).detail=='CONFIG.INVALID'
++          for doc in (SCOPE_DOCUMENT,SCOPE_DOCUMENT_B)))
++# PUBLIC ROUTING, with no new vocabulary: both members are already in the closed registries.
++_COMMON_SCHEMA=json.loads((H.parent/'workflows/schemas/common.schema.json').read_text())
++check('the-scope-ambiguity-refusal-uses-only-registered-public-vocabulary',
++      'CONFIG.INVALID' in _COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'] and
++      'CONFIG.INVALID' in _COMMON_SCHEMA['$defs']['D9ErrorCode']['enum'])
++# Not merely a registered spelling: the whole termination is validated against the REAL public
++# carrier, through the owning unit's own pinned-closure validator.
++def _step_termination_admits(term):
++    try:W.validate_import_record('workflows/schemas/common.schema.json','#/$defs/StepTermination',term)
++    except W.Refusal:return False
++    return True
++_AMBIGUITY_TERMINATION=_refusal(lambda:W.verify_scope_parameter_binding(
++    _spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT)).termination()
++check('the-scope-ambiguity-termination-is-admitted-by-the-real-public-carrier-schema',
++      _step_termination_admits(_AMBIGUITY_TERMINATION))
++# and the validator is live rather than vacuous: an unregistered detail on the same shape refuses.
++check('the-public-carrier-schema-would-have-refused-an-unregistered-detail',
++      not _step_termination_admits({**_AMBIGUITY_TERMINATION,
++          'domainDetail':{**_AMBIGUITY_TERMINATION['domainDetail'],
++                          'code':'BASELINE.SCOPE_PARAMETER_AMBIGUOUS'}}))
++# It also invents no NEW detail: the ambiguity reuses a code the file already emits elsewhere.
++check('the-scope-ambiguity-detail-is-a-code-this-model-already-published',
++      (H.parent/'workflows/workflows_model.v1.py').read_text().count("'CONFIG.INVALID', 'CONFIG.INVALID'")==1
++      and (H.parent/'workflows/workflows_model.v1.py').read_text().count("CONFIG.INVALID")>2)
++check('the-scope-ambiguity-termination-validates-as-a-real-step-termination',
++      _refusal(lambda:W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT)
++               ).termination()['domainDetail']['code']=='CONFIG.INVALID')
++# PRESERVED, exactly: the two existing typed reasons keep their codes, details and reachability.
++check('the-verifier-still-refuses-a-spec-that-selects-no-scope-parameter',
++      _refusal(lambda:W.verify_scope_parameter_binding(_spec([]),SCOPE_DOCUMENT)).detail==
++      'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER')
++check('the-verifier-still-refuses-an-unselected-document-under-one-selected-row',
++      _refusal(lambda:W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A]),SCOPE_DOCUMENT_B)).detail==
++      'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
++check('the-verifier-still-verifies-the-one-selected-scope-document',
++      W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A]),SCOPE_DOCUMENT)==
++      _SCOPE_ROW_A['payloadDigest'])
++# NO SUBSTITUTE AND NO DEFAULT. Zero selection stays legal for an ordinary analysis and is never
++# filled in from the foundation scope-descriptor, which is a different record under no parameter row.
++check('zero-selection-is-not-silently-filled-from-the-plan-scope-descriptor',
++      _refusal(lambda:W.verify_scope_parameter_binding(
++          _spec([]),{'schemaVersion':2,'workspaceRoots':['.'],'pathPrefixes':['.'],
++                     'excludedPathPrefixes':[]})).detail=='BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER')
++
++# --- V20-ROOT-3: the two PRESERVED details are now REGISTERED, so the real carrier can carry them.
++# Before this correction both names were emitted straight into the public DomainDetail.code position
++# while being members of NEITHER public-detail-registry.v1.json NOR the mirrored DomainDetailCode
++# enum, so common.schema.json#/$defs/StepTermination REFUSED both terminations and these two
++# refusals - the only two the verifier reaches for a well-formed single-row spec - had no public
++# route at all. Registration preserves every emission exactly; what changes is admissibility.
++_PUBLIC_REGISTRY=json.loads((H.parent/'public-detail-registry.v1.json').read_text())
++_PUBLIC_RECORDS={r['code'] for r in _PUBLIC_REGISTRY['records']}
++_SCOPE_DETAILS=('BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER','BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
++check('both-scope-binding-details-are-members-of-the-closed-public-detail-registry',
++      all(c in _PUBLIC_RECORDS for c in _SCOPE_DETAILS))
++check('both-scope-binding-details-are-members-of-the-mirrored-closed-schema-enum',
++      all(c in _COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'] for c in _SCOPE_DETAILS))
++check('the-registry-and-the-mirrored-enum-still-agree-exactly-after-the-registration',
++      sorted(_PUBLIC_RECORDS)==_COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'])
++check('the-registration-added-exactly-these-two-members-and-nothing-else',
++      len(_PUBLIC_RECORDS)==289 and
++      {c for c in _PUBLIC_RECORDS if c.startswith('BASELINE.SCOPE')}==set(_SCOPE_DETAILS))
++check('both-are-owned-by-workflows-and-carry-the-mirroring-selector',
++      all(r['owner']=='workflows' and
++          r['selector']=='workflows/schemas/common.schema.json#/$defs/DomainDetailCode'
++          for r in _PUBLIC_REGISTRY['records'] if r['code'] in _SCOPE_DETAILS))
++# They are NOT internal aliases: an alias normalizes an internal decision key that may not appear as
++# a public DomainDetailCode, and these two are emitted by their owner directly into that position.
++check('neither-scope-binding-detail-is-an-internal-alias',
++      not ({a['internalCode'] for a in _PUBLIC_REGISTRY['internalAliases']}&set(_SCOPE_DETAILS)))
++# THE DIRECT VERIFIER, on the ACTUAL Refusal objects - not on hand-written code strings.
++_NOT_SELECTED_REF=_refusal(lambda:W.verify_scope_parameter_binding(_spec([]),SCOPE_DOCUMENT))
++_MISMATCH_REF=_refusal(lambda:W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A]),SCOPE_DOCUMENT_B))
++check('the-direct-verifier-refusals-keep-their-exact-preserved-error-code-and-detail',
++      [(r.error_code,r.detail) for r in (_NOT_SELECTED_REF,_MISMATCH_REF)]==
++      [('REQUEST.PRECONDITION_FAILED','BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER'),
++       ('REQUEST.PRECONDITION_FAILED','BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')])
++check('the-two-conditions-stay-distinct-and-neither-collapses-onto-the-ambiguity-code',
++      len({_NOT_SELECTED_REF.detail,_MISMATCH_REF.detail,'CONFIG.INVALID'})==3)
++check('the-preserved-remedy-strings-are-unchanged-and-name-their-own-condition',
++      _NOT_SELECTED_REF.remedy=='the analysis spec selects no ScopeDocumentV1 parameter' and
++      _MISMATCH_REF.remedy=='the supplied scope document is not the selected scope parameter')
++check('both-direct-verifier-terminations-are-admitted-by-the-real-public-carrier-schema',
++      all(_step_termination_admits(r.termination()) for r in (_NOT_SELECTED_REF,_MISMATCH_REF)))
++# and the full public FAILURE surface, not just the termination: a kind=failure CommandEnvelope
++# REQUIRES a nonempty errors array of DomainDetail, so a detail the enum refuses breaks that too.
++_ENVELOPE_SCHEMA='workflows/schemas/command-envelope.schema.json'
++def _scope_failure_envelope(ref):
++    t=ref.termination()
++    return {'schemaFamily':'opensip.product.envelope','schemaMajor':2,'kind':'failure',
++            'requestId':'req1_'+'b'*32,'termination':t,'exitCode':W.EXIT[t['class']],
++            'errors':[t['domainDetail']]}
++def _envelope_admits(env):
++    try:W.validate_import_record(_ENVELOPE_SCHEMA,'',env)
++    except W.Refusal:return False
++    return True
++check('both-scope-binding-refusals-compose-a-schema-admitted-failure-envelope',
++      all(_envelope_admits(_scope_failure_envelope(r)) for r in (_NOT_SELECTED_REF,_MISMATCH_REF)))
++check('the-composed-envelopes-carry-exit-code-2-for-request-rejected',
++      all(_scope_failure_envelope(r)['exitCode']==2 for r in (_NOT_SELECTED_REF,_MISMATCH_REF)))
++# NON-VACUITY, on both surfaces: an UNREGISTERED detail on the same two shapes still refuses. The
++# probe name is deliberately one this correction did NOT register.
++_UNREGISTERED='BASELINE.SCOPE_PARAMETER_AMBIGUOUS'
++check('the-unregistered-probe-name-really-is-outside-both-closed-registries',
++      _UNREGISTERED not in _PUBLIC_RECORDS and
++      _UNREGISTERED not in _COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'])
++def _with_detail(ref,code):
++    t=ref.termination();t['domainDetail']=dict(t['domainDetail'],code=code);return t
++check('an-unregistered-detail-on-the-same-termination-shape-is-still-refused-by-the-carrier',
++      not any(_step_termination_admits(_with_detail(r,_UNREGISTERED))
++              for r in (_NOT_SELECTED_REF,_MISMATCH_REF)))
++check('an-unregistered-detail-on-the-same-envelope-shape-is-still-refused',
++      not any(_envelope_admits({**_scope_failure_envelope(r),
++                                'termination':_with_detail(r,_UNREGISTERED),
++                                'errors':[_with_detail(r,_UNREGISTERED)['domainDetail']]})
++              for r in (_NOT_SELECTED_REF,_MISMATCH_REF)))
++# THE CALLER. `adopt_baseline` is the caller the contract names, and it reaches the verifier only
++# when the retained analysis-spec is supplied. These run it for real and take what it raises: the
++# refusal must PROPAGATE out of the caller with its detail intact and reach the public carrier from
++# there, which is the actual public path rather than a helper-only claim.
++_ADOPT_RUN={'authority':'authoritative','availability':'retained','snapshotId':'snap1','runId':'run2:x'}
++def _adopt(spec_rows,document):
++    return W.adopt_baseline(_ADOPT_RUN,'plan2:x','proj',{'schemaVersion':1,'rules':[]},document,
++                            {'schemaVersion':1,'waivers':[]},[],[],[],[],{},'0.0.0',
++                            analysis_spec=_spec(spec_rows))
++_ADOPT_NOT_SELECTED=_refusal(lambda:_adopt([],SCOPE_DOCUMENT))
++_ADOPT_MISMATCH=_refusal(lambda:_adopt([_SCOPE_ROW_A],SCOPE_DOCUMENT_B))
++check('adopt_baseline-propagates-the-missing-selection-refusal-unchanged',
++      (_ADOPT_NOT_SELECTED.error_code,_ADOPT_NOT_SELECTED.detail)==
++      ('REQUEST.PRECONDITION_FAILED','BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER'))
++check('adopt_baseline-propagates-the-digest-mismatch-refusal-unchanged',
++      (_ADOPT_MISMATCH.error_code,_ADOPT_MISMATCH.detail)==
++      ('REQUEST.PRECONDITION_FAILED','BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH'))
++check('both-adopt_baseline-refusals-reach-the-real-carrier-and-the-failure-envelope',
++      all(_step_termination_admits(r.termination()) and _envelope_admits(_scope_failure_envelope(r))
++          for r in (_ADOPT_NOT_SELECTED,_ADOPT_MISMATCH)))
++# NOT VACUOUS: the same caller with the SELECTED document does not raise either scope refusal, so
++# the two controls above are measuring the binding and not some unrelated precondition.
++def _adopt_scope_detail(spec_rows,document):
++    try:_adopt(spec_rows,document)
++    except W.Refusal as exc:return exc.detail
++    return None
++check('adopt_baseline-with-the-selected-document-returns-without-any-refusal',
++      _adopt_scope_detail([_SCOPE_ROW_A],SCOPE_DOCUMENT) is None)
++# And the ambiguity refusal introduced by the earlier correction is untouched by the registration.
++check('the-ambiguity-refusal-still-uses-config-invalid-after-the-registration',
++      _refusal(lambda:W.verify_scope_parameter_binding(
++          _spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT)).detail=='CONFIG.INVALID')
+ 
+ # --------------------------------------------------- policy atom relation/rung closed AT THE CLOSURE
+ # The Run closure admits the Plan's PolicyDocumentV1 and the proof's compiled RuleProgramV1. Their
+@@ -2376,8 +2683,7 @@
+ for _label,_rel,_path in [('data-grammar-declares','declares','README.md'),
+                           ('semantic-references','references','src/plain.rs')]:
+     rejects_because('injected-false-complete-for-an-unavailable-capability-refuses.'+_label,
+-        lambda r=_rel,p=_path:inject_syntax_coverage(r,p,
+-            lambda e:e.update(coverage='complete',deficiency=None,nativeCause=None)),
++        lambda r=_rel,p=_path:inject_syntax_coverage(r,p,assert_complete),
+         'SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE:')
+     # A wrong or null cause under `language-tier-unsupported` is now refused ONE LAYER EARLIER and
+     # without reference to this scope: the deficiency-cause registry closes that row to exactly
+@@ -2516,11 +2822,11 @@
+ # path's suffix IS in the dialect table but no selected grammar row owns it (below).
+ rejects_because('injected-false-complete-for-a-markdown-scoped-clone-refuses',
+     lambda:inject_syntax_coverage('clones','README.md',
+-        lambda e:e.update(coverage='complete',deficiency=None,nativeCause=None)),
++        assert_complete),
+     'native.coverage-source-variant-unsupported-complete:clones@normalized-body-hash:capability-missing')
+ rejects_because('injected-false-complete-for-a-markdown-scoped-clone-refuses-at-the-producer-boundary',
+     lambda:inject_syntax_coverage('clones','README.md',
+-        lambda e:e.update(coverage='complete',deficiency=None,nativeCause=None)),
++        assert_complete),
+     'COVERAGE_PRODUCER_ADMISSION:')
+ # The grammar guard's OWN case, which the dialect table provably cannot reach: `.tsx` stays in the
+ # syntax dialect table while its grammar row is dropped from the bundle, so the source-variant law
+@@ -2652,7 +2958,7 @@
+     return M.close_run(run,objects,blobs)
+ rejects_because('injected-false-complete-for-a-package-json-clone-scope-refuses',
+     lambda:ts_clone_injection('package.json',
+-        lambda e:e.update(coverage='complete',deficiency=None,nativeCause=None)),
++        assert_complete),
+     'native.coverage-source-variant-unsupported-complete:clones@normalized-body-hash:capability-missing')
+ rejects_because('injected-wrong-cause-for-an-unsupported-source-variant-refuses',
+     lambda:ts_clone_injection('package.json',lambda e:e.update(nativeCause='no-program-unit')),
+@@ -2678,25 +2984,25 @@
+                                       _PROD_COVERAGE['payloadSchemaDigest'],dialect)
+ check('the-producer-boundary-admits-the-disclosed-unsupported-scope',
+       _producer({})['result']=='ADMIT')
++_COMPLETE_CLAIM=assert_complete(copy.deepcopy(_PROD_PAYLOAD['entry']))
++_COMPLETE_CLAIM={k:_COMPLETE_CLAIM[k] for k in ('coverage','deficiency','nativeCause','resolutionCompleteness')}
+ check('the-producer-boundary-refuses-a-false-complete-for-an-unsupported-scope',
+       any(r.startswith('native.coverage-source-variant-unsupported-complete:')
+-          for r in _producer({'coverage':'complete','deficiency':None,'nativeCause':None})['refusals']))
++          for r in _producer(_COMPLETE_CLAIM)['refusals']))
+ check('the-producer-boundary-refuses-an-undisclosed-unsupported-scope',
+       any(r.startswith('native.coverage-source-variant-deficiency-mismatch:')
+           for r in _producer({'deficiency':None,'nativeCause':None})['refusals']))
+ check('the-producer-boundary-makes-no-capability-claim-without-the-owning-dialect',
+       not any(r.startswith('native.coverage-source-variant-')
+-              for r in _producer({'coverage':'complete','deficiency':None,'nativeCause':None},
+-                                 dialect=None)['refusals']))
++              for r in _producer(_COMPLETE_CLAIM,dialect=None)['refusals']))
+ check('the-producer-boundary-derivation-ignores-a-payload-asserted-derivation-kind',
+       any(r.startswith('native.coverage-source-variant-unsupported-complete:')
+-          for r in _producer({'coverage':'complete','deficiency':None,'nativeCause':None,
+-                              'derivationKinds':['annotated']})['refusals']))
++          for r in _producer(dict(_COMPLETE_CLAIM,derivationKinds=['annotated']))['refusals']))
+ # The answer tracks the OWNING REGISTRY and nothing else: the identical payload and identical scope
+ # admit under a dialect whose table does register this suffix. So the refusal above is a property of
+ # the universe's published table, not of anything the claim says about itself.
+ check('the-producer-boundary-answer-follows-the-registered-table-not-the-claim',
+-      _producer({'coverage':'complete','deficiency':None,'nativeCause':None},
++      _producer(_COMPLETE_CLAIM,
+                 dialect=dict(_TS_DIALECT,table=dict(_TS_DIALECT['table'],**{'.json':'ts'})))['result']=='ADMIT')
+ 
+ # --- OUTPUT PROJECTION. The disclosure is not cosmetic: it is what turns a silent success into a
+@@ -3173,7 +3479,7 @@
+ # envelope requires a nonempty errors array and these four routes had no code naming their remedy.
+ # Claiming `no new public code` would now be false, so the control states what is true instead.
+ check('exactly-four-public-detail-codes-are-added-and-each-is-named',
+-      len(PUBLIC_CODES)==287 and
++      len(PUBLIC_CODES)==289 and
+       {'native.capability-spec-invalid','native.release-declaration-invalid',
+        'native.coverage-cause-unsupported','HOST.INVARIANT_VIOLATED'}<=PUBLIC_CODES and
+       'four different things for a caller to do next' in PUBLIC['newInThisCorrection'])
+@@ -3427,7 +3733,7 @@
+       'narrow' in _T['domainDetail']['remedy'] and 'no capability was truncated'
+       in _T['domainDetail']['remedy'] and 'default is unchanged' in _T['domainDetail']['remedy'])
+ check('no-new-public-detail-code-is-introduced-for-this-boundary',
+-      len(PUBLIC_CODES)==287 and 'PROJECT.SCOPE_LIMIT' in PUBLIC_CODES)
++      len(PUBLIC_CODES)==289 and 'PROJECT.SCOPE_LIMIT' in PUBLIC_CODES)
+ # The EXPLICIT path through the COMPLETE analysis-spec boundary, not a raw list handed to the
+ # vocabulary helper. An earlier revision of these controls called admit_requested_capabilities with a
+ # bare array, which is not what an explicitly supplied spec traverses: such a spec reaches
+@@ -4152,7 +4458,7 @@
+       _default['provenance']=='DEFAULTED' and _default['previewDefaultsUsed'] is False)
+ rejects_because('default-selection-refuses-a-duplicate-request-rather-than-deduping',
+     lambda:N.default_capability_selection(_units+_units,[dict(r) for r in GOOD_REGISTRY]),
+-    'DUPLICATE_REQUESTED_CAPABILITY')
++    'native.requested-capability-duplicate-ownership-tuple:')
+ check('requested-capabilities-stay-in-canonical-set-order-not-discovery-order',
+       _default['analysisSpec']['requestedCapabilities']
+       ==sorted(_default['analysisSpec']['requestedCapabilities'],key=C.canonical))
+@@ -5979,8 +6285,7 @@
+             mutate=lambda e:e.update(deficiency='budget-exhausted',nativeCause=None),**k)),
+         'native.coverage-cause-carrier-unsupported:budget-exhausted')
+     rejects_because('clone-disclosure-false-complete-refuses.'+label,
+-        lambda k=kw:M.close_run(*disclosure_graph(
+-            mutate=lambda e:e.update(coverage='complete',deficiency=None,nativeCause=None),**k)),
++        lambda k=kw:M.close_run(*disclosure_graph(mutate=assert_complete,**k)),
+         'COVERAGE_DIALECT_PREREQUISITE:clones:')
+     # The view stays empty and no body identity is fabricated to satisfy the disclosure.
+     _r,_o,_b=disclosure_graph(**kw)
+@@ -6644,6 +6949,565 @@
+       M.RELATIONS['clones']['bodyIdentityJoin']['inheritedFrom'].startswith(
+           'docs/coop/artifacts/fact-identity-policy.v2.json#/canonicalisationSchema'))
+ 
++# =============================================================== CB8-SHOULD-2: the ownership tuple
++# Two requestedCapabilities rows carried the same (capabilityId, languageMode, workspaceRoot) and
++# disagreed on `required`. uniqueItems saw two DISTINCT items and admitted them; the native
++# vocabulary helper judged each row alone and admitted them; and both entered analysisSpecDigest
++# and therefore PlanId, so the contradiction was COMMITTED. `required` decides whether a missing
++# Coverage entry contributes indeterminate, so the undetermined value is not cosmetic.
++_CAP_A={'capabilityId':'inventory','languageMode':'ts-tsconfig','workspaceRoot':'.','required':False}
++_CAP_B=dict(_CAP_A,required=True)
++_CAP_TUPLE_KEY='native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.'
++def _caps(rows):return sorted(rows,key=C.canonical)
++# SOURCE PROVENANCE: the law is published in the record's OWNING schema, not invented in code.
++_ANALYSIS_SPEC_SCHEMA=M.SCHEMA['$defs']['analysis-spec']['properties']['requestedCapabilities']
++check('the-ownership-tuple-law-is-published-by-the-owning-schema',
++      _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple']==
++      ['capabilityId','languageMode','workspaceRoot'] and
++      'no last-wins, no order dependence and no merge' in
++      _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['law'])
++check('the-published-tuple-names-request-fields-and-excludes-requiredness',
++      all(field in _ANALYSIS_SPEC_SCHEMA['items']['properties']
++          for field in _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple']) and
++      'required' not in _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple'])
++# DIRECT HELPER - the one function BOTH the pre-Plan boundary and retained Run closure call.
++rejects_because('the-capability-helper-refuses-two-rows-over-one-ownership-tuple',
++    lambda:N.admit_requested_capabilities(_caps([_CAP_A,_CAP_B])),_CAP_TUPLE_KEY)
++# VALID NEAR-NEIGHBOURS. Only the tuple is constrained; requiredness itself is untouched.
++check('the-same-capability-on-another-workspace-root-stays-legal',
++      len(N.admit_requested_capabilities(_caps([_CAP_A,dict(_CAP_B,workspaceRoot='pkg/a')])))==2)
++check('the-same-capability-in-another-registered-mode-stays-legal',
++      len(N.admit_requested_capabilities(_caps([_CAP_A,dict(_CAP_B,languageMode='js-allowjs')])))==2)
++check('different-capabilities-on-one-unit-stay-legal',
++      len(N.admit_requested_capabilities(_caps([_CAP_A,dict(_CAP_B,capabilityId='syntax')])))==2)
++check('a-single-row-may-still-be-required-false',
++      N.admit_requested_capabilities([_CAP_A])==[_CAP_A])
++check('a-single-row-may-still-be-required-true',
++      N.admit_requested_capabilities([_CAP_B])==[_CAP_B])
++# DIAGNOSTIC PRECEDENCE, measured. Two rows cannot contend for ownership of a cell that is not a
++# registered cell at all, so the vocabulary keeps its more specific refusal; and an oversized
++# request keeps the published cardinality-first special route at the request boundary.
++check('an-unregistered-capability-outranks-the-tuple-rule',
++      _refusal_text(lambda:N.admit_requested_capabilities(
++          _caps([dict(_CAP_A,capabilityId='made-up'),_CAP_A,_CAP_B])))==
++      'native.requested-capability-unregistered:made-up')
++check('an-oversized-request-keeps-its-cardinality-first-route',
++      'PROJECT.SCOPE_LIMIT' in _refusal_text(lambda:N.admit_analysis_spec(
++          {'schemaVersion':2,'policyPackIds':[],'parameters':[],
++           'requestedCapabilities':_caps([dict(_CAP_A,workspaceRoot='r%04d'%i)
++                                          for i in range(N.requested_capability_bound()+1)]+[_CAP_B])})))
++# WHOLE-ITEM DUPLICATES stay the schema's refusal at every real boundary. The bare vocabulary
++# helper is not a boundary and re-runs no schema, so it reports the tuple key for them; that
++# difference is measured rather than assumed.
++rejects_because('the-pre-plan-boundary-keeps-the-schema-first-answer-for-a-duplicate-capability-row',
++    lambda:N.admit_analysis_spec({'schemaVersion':2,'policyPackIds':[],'parameters':[],
++                                  'requestedCapabilities':[_CAP_A,dict(_CAP_A)]}),
++    "'uniqueItems'")
++check('the-bare-vocabulary-helper-is-not-the-schema-and-says-so-by-its-answer',
++      _refusal_text(lambda:N.admit_requested_capabilities([_CAP_A,dict(_CAP_A)]))==_CAP_TUPLE_KEY)
++# THE PRE-PLAN BOUNDARY.
++rejects_because('the-pre-plan-boundary-refuses-two-rows-over-one-ownership-tuple',
++    lambda:N.admit_analysis_spec({'schemaVersion':2,'policyPackIds':[],'parameters':[],
++                                  'requestedCapabilities':_caps([_CAP_A,_CAP_B])}),_CAP_TUPLE_KEY)
++# THE RETAINED RUN CLOSURE, over the retained analysis-spec - the boundary that must agree.
++def run_with_capabilities(rows):
++    run,objects,blobs=build(resolved=True,has_match=True)
++    plan=copy.deepcopy(objects[run['planId']][1])
++    analysis=C.parse(blobs[plan['analysisSpecDigest']])
++    analysis['requestedCapabilities']=_caps(rows)
++    plan['analysisSpecDigest']=put_blob(blobs,analysis)
++    rekey_plan(objects,blobs,run,plan)
++    return M.close_run(run,objects,blobs)
++_BASE_CAPS=None
++def _base_capabilities():
++    global _BASE_CAPS
++    if _BASE_CAPS is None:
++        run,objects,blobs=build(resolved=True,has_match=True)
++        _BASE_CAPS=C.parse(blobs[objects[run['planId']][1]['analysisSpecDigest']])['requestedCapabilities']
++    return copy.deepcopy(_BASE_CAPS)
++check('the-capability-harness-positive-control-closes',
++      run_with_capabilities(_base_capabilities()).startswith('run2:'))
++rejects_because('the-retained-closure-refuses-two-rows-over-one-ownership-tuple',
++    lambda:run_with_capabilities(_base_capabilities()+
++        [dict(_base_capabilities()[0],required=not _base_capabilities()[0]['required'])]),
++    'ANALYSIS_SPEC_CAPABILITY:'+ 'native.requested-capability-duplicate-ownership-tuple:')
++check('the-pre-plan-boundary-and-the-retained-closure-agree-on-the-tuple-key',
++      _CAP_TUPLE_KEY in _refusal_text(lambda:N.admit_analysis_spec(
++          {'schemaVersion':2,'policyPackIds':[],'parameters':[],
++           'requestedCapabilities':_caps([_CAP_A,_CAP_B])})) and
++      _CAP_TUPLE_KEY.split(':')[0] in _refusal_text(lambda:N.admit_requested_capabilities(
++          _caps([_CAP_A,_CAP_B]))))
++# DEFAULT CONSTRUCTION. Co-located roots in one mode produce BYTE-IDENTICAL rows, so the existing
++# whole-item guard already owns them and no analysis is silently lost to a dedupe; and the default
++# the matrix fixes never emits two rows for one tuple in the first place.
++_NOT_SELECTED={(c['capability'],c['mode']) for c in N.CAPABILITY_MATRIX['cells']
++               if c['state']=='NOT-SELECTED'}
++_DEFAULT_REGISTRY=sorted(({'capabilityId':c['id'],
++                           'languageModes':sorted(m for m in N.CAPABILITY_MATRIX['languageModes']
++                                                  if (c['id'],m) not in _NOT_SELECTED)}
++                          for c in N.CAPABILITY_MATRIX['capabilities']),
++                         key=lambda r:r['capabilityId'].encode())
++_DEFAULT=N.default_capability_selection([{'rootPath':'.','languageMode':'ts-tsconfig',
++                                          'languageFamily':'typescript'}],_DEFAULT_REGISTRY)
++_DEFAULT_ROWS=_DEFAULT['analysisSpec']['requestedCapabilities']
++check('the-matrix-fixed-default-emits-unique-ownership-tuples',
++      len({(r['capabilityId'],r['languageMode'],r['workspaceRoot']) for r in _DEFAULT_ROWS})
++      ==len(_DEFAULT_ROWS))
++check('the-matrix-fixed-default-still-passes-the-tuple-law',
++      N.admit_requested_capabilities(_DEFAULT_ROWS)==_DEFAULT_ROWS)
++rejects_because('two-co-located-units-in-one-mode-refuse-rather-than-silently-dedupe',
++    lambda:N.default_capability_selection(
++        [{'rootPath':'.','languageMode':'ts-tsconfig','languageFamily':'typescript'},
++         {'rootPath':'.','languageMode':'ts-tsconfig','languageFamily':'typescript'}],_DEFAULT_REGISTRY),
++    'native.requested-capability-duplicate-ownership-tuple:')
++# V20-ROOT-4. That refusal is now PUBLICLY ROUTABLE, which it was not: the guard used to raise a
++# bespoke DUPLICATE_REQUESTED_CAPABILITY with no row in x-opensip-public-route-registry, so
++# public_termination_for and failure_envelope_errors both refused it, so this duplicate-selection
++# refusal had no derivable public termination. These controls take the ACTUAL error
++# the ACTUAL call raises and carry it all the way to the real schemas.
++def _default_dupe_key():
++    try:N.default_capability_selection(
++        [{'rootPath':'.','languageMode':'ts-tsconfig','languageFamily':'typescript'},
++         {'rootPath':'.','languageMode':'ts-tsconfig','languageFamily':'typescript'}],_DEFAULT_REGISTRY)
++    except N.AdmissionError as exc:return str(exc)
++    raise AssertionError('two co-located units in one mode did not refuse')
++_DUPE_RAW=_default_dupe_key()
++check('the-default-construction-refusal-normalizes-to-the-registered-tuple-key',
++      N.normalize_internal_key(_DUPE_RAW)[0]=='native.requested-capability-duplicate-ownership-tuple')
++check('the-default-construction-refusal-names-the-offending-ownership-tuple-as-its-subject',
++      N.normalize_internal_key(_DUPE_RAW)[1].endswith(':ts-tsconfig:.'))
++# The bespoke key is no longer RAISED anywhere. It is still named once, in the comment that records
++# why it was replaced; deleting that account would hide the change, so the control targets the raise.
++check('the-bespoke-unregistered-key-is-no-longer-raised-anywhere-in-the-model',
++      'AdmissionError("DUPLICATE_REQUESTED_CAPABILITY")' not in
++      (H.parent/'native/native_evidence_model.v2.py').read_text())
++rejects_because('the-bespoke-key-is-not-derivable-as-a-public-route-either',
++    lambda:N.public_termination_for('DUPLICATE_REQUESTED_CAPABILITY','host-generated-internal-layer'),
++    'native.public-route-key-unregistered:DUPLICATE_REQUESTED_CAPABILITY')
++# The SAME rows meet the SAME key at the shared vocabulary helper, so the default-construction path
++# and the explicitly-supplied-spec path publish one vocabulary rather than two.
++def _helper_dupe_key():
++    try:N.admit_requested_capabilities(
++        [{'capabilityId':'inventory','languageMode':'ts-tsconfig','workspaceRoot':'.','required':True}]*2)
++    except N.AdmissionError as exc:return str(exc)
++    raise AssertionError('the vocabulary helper did not refuse a duplicate ownership tuple')
++# The two paths name the same KEY and the same SUBJECT SHAPE. The offending tuples themselves differ
++# by capabilityId - the default selects the whole matrix and reports the first duplicated tuple in
++# sorted order, the helper here is handed one row - and asserting the whole strings equal would be
++# asserting the fixture, not the vocabulary.
++check('the-default-path-and-the-vocabulary-helper-publish-one-vocabulary-not-two',
++      N.normalize_internal_key(_DUPE_RAW)[0]==N.normalize_internal_key(_helper_dupe_key())[0]
++      =='native.requested-capability-duplicate-ownership-tuple' and
++      all(len(N.normalize_internal_key(raw)[1].split(':'))==3 and
++          N.normalize_internal_key(raw)[1].endswith(':ts-tsconfig:.')
++          for raw in (_DUPE_RAW,_helper_dupe_key())))
++# Every possible origin now composes a real termination AND a real failure envelope for it.
++def _dupe_terms():
++    row=N.PUBLIC_ROUTE_REGISTRY['keys']['native.requested-capability-duplicate-ownership-tuple']
++    return {o:N.public_termination_for(_DUPE_RAW,o) for o in row['possibleOrigins']}
++_DUPE_TERMS=_dupe_terms()
++check('every-origin-derives-a-public-termination-for-the-default-construction-refusal',
++      len(_DUPE_TERMS)==3 and all(t is not None for t in _DUPE_TERMS.values()))
++check('the-host-generated-origin-is-the-host-invariant-fault-the-route-was-written-for',
++      _DUPE_TERMS['host-generated-internal-layer']==
++      {'class':'operational-failed','errorCode':'SYSTEM.OUTCOME.ILLEGAL_STATE',
++       'faultCause':'host-invariant'})
++check('the-configured-origin-carries-the-config-invalid-detail-with-the-tuple-subject',
++      _DUPE_TERMS['external-configuration']['domainDetail']['code']=='CONFIG.INVALID' and
++      _DUPE_TERMS['external-configuration']['domainDetail']['subject'].endswith(':ts-tsconfig:.'))
++check('a-caller-still-cannot-launder-this-refusal-into-an-origin-it-cannot-have',
++      not_admitted(lambda:N.public_termination_for(_DUPE_RAW,'authenticated-release-declaration'))
++      and not_admitted(lambda:N.public_termination_for(_DUPE_RAW)))
++check('two-co-located-units-in-different-modes-still-select-both',
++      len(N.default_capability_selection(
++          [{'rootPath':'.','languageMode':'ts-tsconfig','languageFamily':'typescript'},
++           {'rootPath':'.','languageMode':'js-allowjs','languageFamily':'javascript'}],
++          _DEFAULT_REGISTRY)['analysisSpec']['requestedCapabilities'])
++      >len(_DEFAULT_ROWS))
++# PUBLIC ROUTING: the existing origin-dependent request/config/host-generated routes carry it, and
++# no public DomainDetailCode member is added anywhere.
++_CAP_ROUTE=N.PUBLIC_ROUTE_REGISTRY['keys']['native.requested-capability-duplicate-ownership-tuple']
++check('the-new-internal-key-is-registered-in-the-origin-dependent-route-registry',
++      _CAP_ROUTE['originDependent'] is True and
++      set(_CAP_ROUTE['possibleOrigins'])=={'external-configuration','externally-supplied-spec',
++                                           'host-generated-internal-layer'})
++check('the-configured-origin-routes-to-the-existing-config-invalid-detail',
++      N.public_termination_for(_CAP_TUPLE_KEY,'external-configuration')==
++      {'class':'request-rejected','errorCode':'CONFIG.INVALID',
++       'domainDetail':{'code':'CONFIG.INVALID',
++                       'remedy':N.PUBLIC_ROUTE_REMEDIES['CONFIG.INVALID'],
++                       'subject':_CAP_TUPLE_KEY}})
++# A remedy is keyed by CODE, so one string serves every key routing to it. Both strings this key
++# reuses must therefore stay true for the ownership-tuple condition as well as for the
++# unregistered-name condition they were written for.
++check('every-remedy-this-key-reuses-states-the-ownership-tuple-condition-too',
++      all('(capabilityId, languageMode, workspaceRoot)' in N.PUBLIC_ROUTE_REMEDIES[code]
++          for code in ('CONFIG.INVALID','native.capability-spec-invalid')))
++check('the-widened-remedies-still-state-their-original-condition',
++      'registered capability id from the native capability matrix'
++      in N.PUBLIC_ROUTE_REMEDIES['CONFIG.INVALID'] and
++      'this release does not register' in N.PUBLIC_ROUTE_REMEDIES['native.capability-spec-invalid'])
++check('the-externally-supplied-spec-origin-is-a-precondition-failure-with-no-detail',
++      N.public_termination_for(_CAP_TUPLE_KEY,'externally-supplied-spec')==
++      {'class':'request-rejected','errorCode':'REQUEST.PRECONDITION_FAILED'})
++check('the-host-generated-origin-is-a-host-invariant-operational-fault',
++      N.public_termination_for(_CAP_TUPLE_KEY,'host-generated-internal-layer')==
++      {'class':'operational-failed','errorCode':'SYSTEM.OUTCOME.ILLEGAL_STATE',
++       'faultCause':'host-invariant'})
++rejects_because('an-origin-dependent-tuple-refusal-cannot-be-derived-without-an-origin',
++    lambda:N.public_termination_for(_CAP_TUPLE_KEY),'native.public-route-origin-required')
++rejects_because('the-tuple-key-refuses-an-origin-it-cannot-have',
++    lambda:N.public_termination_for(_CAP_TUPLE_KEY,'authenticated-release-declaration'),
++    'native.public-route-origin-not-possible')
++check('every-tuple-origin-composes-a-complete-failure-envelope',
++      all(N.failure_envelope_errors(_CAP_TUPLE_KEY,origin) and
++          all(e['code'] in _COMMON_SCHEMA['$defs']['DomainDetailCode']['enum']
++              for e in N.failure_envelope_errors(_CAP_TUPLE_KEY,origin))
++          for origin in _CAP_ROUTE['possibleOrigins']))
++check('the-tuple-key-adds-no-public-domain-detail-member',
++      set(_COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'])==
++      {r['code'] for r in json.loads((H.parent/'public-detail-registry.v1.json').read_text())['records']})
++check('an-origin-dependent-key-is-correctly-absent-from-the-context-free-alias-map',
++      'native.requested-capability-duplicate-ownership-tuple' not in
++      {a['internalCode'] for a in
++       json.loads((H.parent/'public-detail-registry.v1.json').read_text())['internalAliases']})
++# V20-ROOT-4, the COMPOSED public surface for the DEFAULT-CONSTRUCTION refusal specifically: not the
++# synthetic tuple string the block above uses, but the string the real call actually raised.
++check('the-default-construction-terminations-are-admitted-by-the-real-carrier-schema',
++      all(admits(COMMON,'#/$defs/StepTermination',t) for t in _DUPE_TERMS.values()))
++check('every-origin-composes-a-nonempty-registered-errors-array-for-it',
++      all(N.failure_envelope_errors(_DUPE_RAW,o) and
++          all(e['code'] in PUBLIC_CODES for e in N.failure_envelope_errors(_DUPE_RAW,o))
++          for o in _DUPE_TERMS))
++check('every-origin-composes-a-schema-admitted-failure-envelope-for-it',
++      all(admits(ENVELOPE,'',{'schemaFamily':'opensip.product.envelope','schemaMajor':2,
++                              'kind':'failure','requestId':'req1_'+'c'*32,
++                              'termination':_DUPE_TERMS[o],'exitCode':W.EXIT[_DUPE_TERMS[o]['class']],
++                              'errors':N.failure_envelope_errors(_DUPE_RAW,o)})
++          for o in _DUPE_TERMS))
++# V20-ROOT-5 assessed, not redesigned. PUBLIC_ROUTE_REMEDIES is keyed by CODE, so every remedy a key
++# reaches must stay true for EVERY key that reaches it. This is the maintenance constraint stated as
++# a control over the codes THIS key reaches, including from the default-construction path.
++check('every-remedy-reachable-from-the-duplicate-tuple-key-states-the-tuple-condition',
++      all('(capabilityId, languageMode, workspaceRoot)' in
++          N.PUBLIC_ROUTE_REMEDIES[e['code']]
++          for o in _DUPE_TERMS for e in N.failure_envelope_errors(_DUPE_RAW,o)
++          if e['code'] in ('CONFIG.INVALID','native.capability-spec-invalid')))
++check('the-host-invariant-remedy-is-true-of-a-host-built-default-selection',
++      'the host produced an invalid internal record'
++      in N.PUBLIC_ROUTE_REMEDIES['HOST.INVARIANT_VIOLATED'] and
++      N.failure_envelope_errors(_DUPE_RAW,'host-generated-internal-layer')[0]['code']
++      =='HOST.INVARIANT_VIOLATED')
++# REACHABILITY, stated honestly and measured rather than asserted: the ACTUAL discovery instrument
++# cannot emit two units sharing (rootPath, languageMode) - one rust unit and one tsjs unit per
++# directory, and their modes are disjoint - so this refusal is a HOST INVARIANT over the default
++# path, not something an admitted repository can provoke. The guard is kept because a host bug of
++# that shape must refuse publicly rather than dedupe silently or die in a generic schema error.
++_DISCOVERED=N.discover_units({'Cargo.toml':{'sha256':'a'*64},'package.json':{'sha256':'b'*64},
++                              'apps/x/tsconfig.json':{'sha256':'c'*64},
++                              'apps/x/jsconfig.json':{'sha256':'d'*64},
++                              'apps/x/package.json':{'sha256':'e'*64},
++                              'apps/y/tsconfig.json':{'sha256':'f'*64,'allowJs':True},
++                              'apps/z/jsconfig.json':{'sha256':'0'*64}})['units']
++check('co-located-markers-discover-one-unit-per-family-with-disjoint-language-modes',
++      len({(u['rootPath'],u['languageMode']) for u in _DISCOVERED})==len(_DISCOVERED))
++check('the-actual-discovery-output-drives-a-default-selection-without-any-duplicate',
++      len(N.default_capability_selection(_DISCOVERED,_DEFAULT_REGISTRY)
++          ['analysisSpec']['requestedCapabilities'])>0)
++# V20-ROOT-5 as a TOTAL control rather than a comment. Every registered key, at every origin it
++# declares, composes its envelope errors; every emitted code is a closed-registry member; and every
++# emitted remedy is EXACTLY the table's entry for that code - which is what `keyed by code` means and
++# what makes a shared string a real constraint rather than a coincidence.
++_ROUTE_KEYS=N.PUBLIC_ROUTE_REGISTRY['keys']
++def _route_pairs():
++    for key,row in _ROUTE_KEYS.items():
++        if row.get('notATermination'):continue
++        for origin in row['possibleOrigins']:
++            yield key,origin
++_ROUTE_PAIRS=sorted(_route_pairs())
++check('every-registered-route-pair-composes-nonempty-envelope-errors',
++      len(_ROUTE_PAIRS)>=len(_ROUTE_KEYS) and
++      all(N.failure_envelope_errors(k,o) for k,o in _ROUTE_PAIRS))
++check('every-envelope-error-code-across-the-whole-route-registry-is-registered',
++      all(e['code'] in PUBLIC_CODES
++          for k,o in _ROUTE_PAIRS for e in N.failure_envelope_errors(k,o)))
++check('every-emitted-remedy-is-exactly-the-tables-entry-for-its-code',
++      all(e['remedy']==N.PUBLIC_ROUTE_REMEDIES[e['code']]
++          for k,o in _ROUTE_PAIRS for e in N.failure_envelope_errors(k,o)))
++# The constraint has teeth only where a code IS shared, so the sharing is measured, not assumed.
++_CODE_KEYS={}
++for _k,_o in _ROUTE_PAIRS:
++    for _e in N.failure_envelope_errors(_k,_o):
++        _CODE_KEYS.setdefault(_e['code'],set()).add(_k)
++check('at-least-two-public-codes-really-are-shared-by-several-internal-keys',
++      len([c for c,ks in _CODE_KEYS.items() if len(ks)>1])>=2)
++check('the-ownership-tuple-key-is-one-of-the-keys-sharing-both-widened-strings',
++      all('native.requested-capability-duplicate-ownership-tuple' in
++          _CODE_KEYS.get(code,set()) and len(_CODE_KEYS[code])>1
++          for code in ('CONFIG.INVALID','native.capability-spec-invalid')))
++check('every-shared-code-states-the-condition-of-every-key-that-reaches-it',
++      all('(capabilityId, languageMode, workspaceRoot)' in N.PUBLIC_ROUTE_REMEDIES[code]
++          for code in ('CONFIG.INVALID','native.capability-spec-invalid')
++          if 'native.requested-capability-duplicate-ownership-tuple' in _CODE_KEYS.get(code,set())))
++# The constraint is now published law, not only a source comment.
++check('the-remedy-keying-constraint-is-published-in-the-route-registry',
++      'remedyKeyingConstraint' in N.PUBLIC_ROUTE_REGISTRY and
++      'keyed by PUBLIC CODE' in N.PUBLIC_ROUTE_REGISTRY['remedyKeyingConstraint'] and
++      'deliberately NOT taken' in N.PUBLIC_ROUTE_REGISTRY['remedyKeyingConstraint'])
++
++# ============================================== CB8-MUST-3: RC-6, the coverage/examination join
++# `coverage` and `resolutionCompleteness.examinedExhaustive` are the two committed encodings of the
++# section 4.1 claim-1 question, and no rule joined them: a sealed `file@enumerated` entry claimed
++# `complete` while denying that the partition was examined exhaustively, and closed a full Run.
++# RC-2 reads examinedExhaustive only for a RESOLVED rung, so on the twelve non-resolved pairs
++# nothing read it at all.
++def _rc(state,exhaustive,**extra):
++    return {'state':state,'attempted':extra.pop('attempted',False),'examinedExhaustive':exhaustive,
++            'stageTerminal':extra.pop('stageTerminal','complete'),
++            'unresolvedEdgeCount':extra.pop('unresolvedEdgeCount',0),
++            'unresolvedEdgeClasses':extra.pop('unresolvedEdgeClasses',[])}
++def _entry(relation,rung,coverage,exhaustive,state='not-applicable',**extra):
++    return {'relation':relation,'resolution':rung,'coverage':coverage,'examinedSubjects':[],
++            'resolutionCompleteness':_rc(state,exhaustive,**extra)}
++def _rc6_faults(entry,facts=()):
++    return [f for f in N.coverage_bijection([entry],list(facts)) if f['fault'].startswith('RC-6')]
++# SOURCE PROVENANCE, in the owning schema.
++_COVERAGE_PROPERTY=json.loads((H.parent/'native/native-evidence.schemas.v2.json').read_text())[
++    '$defs']['ViewEntryV3']['properties']['coverage']
++check('rc6-is-published-on-the-owning-coverage-property',
++      'coverage=complete REQUIRES resolutionCompleteness.examinedExhaustive=true'
++      in _COVERAGE_PROPERTY['description'] and
++      'It is an IMPLICATION, never an equality' in _COVERAGE_PROPERTY['description'])
++# THE RULE, on the exact reproduced shape.
++check('rc6-refuses-a-complete-claim-over-a-non-exhaustive-examination',
++      _rc6_faults(_entry('file','enumerated','complete',False)))
++check('rc6-admits-a-complete-claim-over-an-exhaustive-examination',
++      not _rc6_faults(_entry('file','enumerated','complete',True)))
++# AN IMPLICATION, NOT AN EQUALITY. Both `unknown` positives are preserved, deliberately: a host may
++# examine the committed partition exhaustively and still answer `unknown` because the evidence it
++# needs is MISSING rather than unexamined. Banning that would force a host to understate its own
++# examination in order to report an honest unknown.
++check('rc6-leaves-an-unknown-answer-over-an-exhaustive-examination-lawful',
++      not _rc6_faults(_entry('file','enumerated','unknown',True)))
++check('rc6-leaves-an-unknown-answer-over-a-partial-examination-lawful',
++      not _rc6_faults(_entry('file','enumerated','unknown',False)))
++# TOTAL over every registered pair, resolved or not, and for a FACT-FREE scope over an empty
++# examined set - which is precisely the shape a fact guard cannot protect.
++_REGISTERED_PAIRS=[(rel,rung) for rel,row in M.RELATIONS.items() for rung in row['ladder']]
++check('the-registered-pair-set-is-the-thirteen-relation-ladders',len(_REGISTERED_PAIRS)==17)
++check('rc6-refuses-a-false-complete-on-every-registered-pair',
++      all(_rc6_faults(_entry(rel,rung,'complete',False,
++                             state='not-applicable' if rung not in N.RESOLVED_RUNGS else 'partial'))
++          for rel,rung in _REGISTERED_PAIRS))
++check('rc6-admits-an-exhaustive-complete-on-every-non-resolved-registered-pair',
++      all(not _rc6_faults(_entry(rel,rung,'complete',True))
++          for rel,rung in _REGISTERED_PAIRS if rung not in N.RESOLVED_RUNGS))
++check('rc6-needs-no-fact-to-decide-a-fact-free-scope',
++      _rc6_faults(_entry('file','enumerated','complete',False),facts=[])==
++      _rc6_faults(_entry('file','enumerated','complete',False),
++                  facts=[{'relation':'calls','referrer':'a.ts','edgeKind':'reflective-access'}]))
++# ENUMERATION IS NOT RESOLUTION. RC-3 and the RC-1/RC-2 positives are untouched.
++check('rc3-complete-coverage-with-incomplete-resolution-is-still-lawful',
++      not N.coverage_bijection([{'relation':'references','resolution':'resolved-binding',
++          'coverage':'complete','examinedSubjects':['b.ts'],
++          'resolutionCompleteness':_rc('incomplete',True,attempted=True,unresolvedEdgeCount=1,
++                                       unresolvedEdgeClasses=['computed-member-access'])}],
++          [{'referrer':'b.ts','relation':'references','edgeKind':'computed-member-access'}]))
++check('a-not-applicable-rung-may-still-retain-a-non-complete-stage-terminal',
++      not _rc6_faults(_entry('file','enumerated','complete',True,stageTerminal='budget-exhausted')))
++check('rc2-still-refuses-a-complete-resolution-state-without-an-exhaustive-examination',
++      any(f['fault'].startswith('RC-2') for f in N.coverage_bijection(
++          [_entry('references','resolved-binding','unknown',False,state='complete',attempted=True)],[])))
++check('rc6-and-rc2-are-independent-and-both-report-on-one-doubly-bad-entry',
++      len({f['fault'][:4] for f in N.coverage_bijection(
++          [_entry('references','resolved-binding','complete',False,state='complete',attempted=True)],[])})
++      ==2)
++check('rc0-still-outranks-rc6-for-an-unregistered-pair',
++      [f['fault'][:4] for f in N.coverage_bijection(
++          [_entry('unresolved-edge','enumerated','complete',False)],[])]==['RC-0'])
++# NO UNIVERSAL-ABSENCE AUTHORITY is invented: an empty fact set never makes anything complete, and
++# RC-6 decides only the join it names.
++check('an-empty-fact-set-still-cannot-make-a-skipped-stage-complete',
++      any(f['fault'].startswith('RC-2') for f in N.coverage_bijection(
++          [_entry('calls','resolved-callee','unknown',True,state='complete',attempted=False)],[])))
++# THE PRODUCER BOUNDARY, called with a real scope descriptor and payload.
++_RC6_RUN,_RC6_OBJECTS,_RC6_BLOBS=build(resolved=True,has_match=True)
++_RC6_COVERAGE=next(v for k,(d,v) in _RC6_OBJECTS.items() if d=='coverage')
++_RC6_SCOPE=_RC6_OBJECTS[_RC6_COVERAGE['scopeId']][1]
++_RC6_PAYLOAD=C.parse(_RC6_BLOBS[_RC6_COVERAGE['payloadDigest']])
++def _rc6_producer(mutate):
++    payload=copy.deepcopy(_RC6_PAYLOAD);mutate(payload['entry'])
++    return N.admit_coverage_result_v3(payload,_RC6_SCOPE,[],_RC6_COVERAGE['payloadSchemaDigest'])
++check('the-producer-boundary-positive-control-admits',_rc6_producer(lambda e:None)['result']=='ADMIT')
++check('the-producer-boundary-refuses-a-complete-claim-over-a-non-exhaustive-examination',
++      any(f['fault'].startswith('RC-6') for f in _rc6_producer(
++          lambda e:e['resolutionCompleteness'].update(examinedExhaustive=False))['faults']))
++# THE RETAINED RUN CLOSURE re-runs that same producer admission over the retained scope.
++rejects_because('the-retained-closure-refuses-a-complete-claim-over-a-non-exhaustive-examination',
++    lambda:coverage_payload_mutation(
++        lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False)),
++    'COVERAGE_PRODUCER_ADMISSION:')
++# THE EXACT REPRODUCED VECTOR at retained closure: a file@enumerated entry, whose rung is NOT
++# resolved - so RC-2 never reads examinedExhaustive there and RC-6 is the only rule that can refuse
++# it. It is asserted for BOTH universes that mint the pair, and the fault list is asserted to be
++# RC-6 ALONE, so this cannot be satisfied by some other guard answering first.
++def file_scope_closure(mutate,universe='typescript'):
++    run,objects,blobs=build(resolved=True,has_match=True,relation='file',universe_language=universe)
++    key=next(k for k,(d,v) in objects.items() if d=='coverage')
++    coverage=copy.deepcopy(objects[key][1]);payload=C.parse(blobs[coverage['payloadDigest']])
++    mutate(payload)
++    coverage['payloadDigest']=put_blob(blobs,payload)
++    rekey(objects,key,coverage,run);resync_witness(objects,blobs,run)
++    return M.close_run(run,objects,blobs)
++for _universe in ('typescript','syntax'):
++    check('a-file-enumerated-run-closes-honestly.'+_universe,
++          file_scope_closure(lambda p:None,_universe).startswith('run2:'))
++    rejects_because('the-reproduced-file-enumerated-false-complete-refuses-at-closure.'+_universe,
++        lambda u=_universe:file_scope_closure(
++            lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False),u),
++        "COVERAGE_PRODUCER_ADMISSION:{'entry': 'file@enumerated', 'fault': 'RC-6:")
++    check('rc6-is-the-only-fault-reported-for-the-reproduced-vector.'+_universe,
++          _refusal_text(lambda u=_universe:file_scope_closure(
++              lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False),u)
++          ).count("'fault':")==1)
++check('the-retained-closure-names-rc6-as-the-reason',
++      'RC-6' in _refusal_text(lambda:coverage_payload_mutation(
++          lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False))))
++# PUBLIC ROUTE COMPOSITION: it joins the EXISTING coverage-bijection carrier. No new internal key
++# and no new public detail is introduced for RC-6.
++check('an-rc6-disagreement-routes-on-the-existing-provider-protocol-violation-carrier',
++      N.D9_MAP['native.coverage-bijection-mismatch']['code']=='PROVIDER.PROTOCOL_VIOLATION' and
++      N.D9_MAP['native.coverage-bijection-mismatch']['class']=='operational-failed' and
++      N.D9_MAP['native.coverage-bijection-mismatch']['exitCode']==4)
++check('rc6-registers-no-new-public-route-key',
++      'RC-6' not in json.dumps(N.PUBLIC_ROUTE_REGISTRY) and
++      not any('rc6' in k or 'examined' in k for k in N.PUBLIC_ROUTE_REGISTRY['keys']))
++
++# ------------------------------------------------- the published prose says what the code does
++# Every rule above is a claim the OWNING CONTRACT must also state. These controls assert the exact
++# published sentences, so source and prose cannot drift apart silently - and they assert what the
++# prose must NOT say as well, because the RC-1 sentence that left the RC-6 join unstated was an
++# accurate half-truth rather than an error.
++_CONTRACTS=H.parent.parent.parent/'v2/contracts/product-v1'
++_IDENTITY_MD=(_CONTRACTS/'identity-and-evidence.md').read_text()
++_NATIVE_MD=(_CONTRACTS/'native-evidence.md').read_text()
++check('the-identity-contract-publishes-the-parameter-selection-cardinality',
++      '**one Plan selects at most\none parameter per registered row.**' in _IDENTITY_MD and
++      '**no** first-listed or last-listed winner and **no** merge' in _IDENTITY_MD)
++check('the-identity-contract-keeps-zero-selection-legal-and-unsubstituted',
++      'Zero is legal' in _IDENTITY_MD and
++      'never stands in for `ScopeDocumentV1`' in _IDENTITY_MD)
++check('the-identity-contract-separates-the-whole-item-duplicate',
++      'Two **byte-identical** entries\nare a different defect' in _IDENTITY_MD)
++check('the-identity-contract-names-the-three-enforcing-boundaries',
++      'ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS' in _IDENTITY_MD and
++      'independently in the bounded workflow binding verifier' in _IDENTITY_MD)
++check('the-native-contract-publishes-the-ownership-tuple-law',
++      '**names one cell of work for one\n  unit**' in _NATIVE_MD and
++      'no last-wins, no order dependence and no\n  merge of requiredness' in _NATIVE_MD)
++check('the-native-contract-keeps-the-legal-near-neighbours-explicit',
++      'different registered `languageMode` is a different cell and remains legal' in _NATIVE_MD)
++check('the-native-contract-registers-the-tuple-route-without-a-new-public-detail',
++      'native.requested-capability-duplicate-ownership-tuple' in _NATIVE_MD and
++      'adds **no** public `DomainDetailCode` member' in _NATIVE_MD)
++check('the-native-contract-publishes-rc6-as-an-implication',
++      'It is an **implication, never an equality**' in _NATIVE_MD and
++      '`coverage=complete`\n  **requires** `resolutionCompleteness.examinedExhaustive=true`' in _NATIVE_MD)
++check('the-native-contract-keeps-enumeration-and-resolution-apart',
++      '**Enumeration completeness and resolution completeness stay different claims.**' in _NATIVE_MD)
++check('the-rc1-sentence-no-longer-reads-as-leaving-examinedExhaustive-unconstrained',
++      'It is **not** unconstrained: RC-6 below' in _NATIVE_MD and
++      _NATIVE_MD.count('`examinedExhaustive` stays the independent examined-partition')==1)
++
++# Stage-domain publication and registered-schema declarations: complete identity/schema/closure
++# checks, not semantic proof replay. Controls remint hostile claims before entering close_run.
++# A fragment may declare selected schemas, but each must name a current registered document.
++# This is a fixture-drift guard, not evidence that the fragment is a sealed or replayed Run.
++check('v20-native-view-fixture-declares-current-registered-schemas',
++      bool(NATIVE_FIXTURES['coverageView']['schemaDigests']) and
++      set(NATIVE_FIXTURES['coverageView']['schemaDigests'])<=M.registered_schema_documents())
++_v20_domains=SCHEMA['$defs']['Domain']['enum']
++check('v20-domain-vocabularies-and-registry-agree',
++      set(_v20_domains)==set(SCHEMA['$defs']['Ref']['properties']['domain']['enum'])==set(M.DIGESTS['byDomain']) and
++      len(_v20_domains)==len(set(_v20_domains)))
++_v20_members=M.DIGESTS['closureMembership']
++check('v20-closure-membership-map-covers-registered-closure-fields',
++      set(_v20_members['direct'])|set(_v20_members['equalToDirect'])|set(_v20_members['selectedThroughOtherInput'])==set(M.DIGESTS['closureKinds']['byField']))
++
++def v20_stage_graph(spec_domains,stage_domains):
++    run,objects,blobs=build()
++    eid=objects[run['evaluationSealId']][1]['executionPlanId']
++    execution=copy.deepcopy(objects[eid][1])
++    spec=C.parse(blobs[execution['stages'][0]['stageSpecDigest']])
++    spec['outputDomains']=spec_domains
++    execution['stages'][0]['stageSpecDigest']=put_blob(blobs,spec)
++    execution['stages'][0]['outputDomains']=stage_domains
++    # Deliberately mint the hostile execution record without its constructor's schema check.
++    # The complete graph still has correct content identities. Restore the constructor BEFORE
++    # close_run, which must independently refuse the retained record's illegal domain.
++    saved_identifier=M.identifier
++    def hostile_execution_identifier(domain,value):
++        if domain=='execution-plan':return M.PREFIX[domain]+':'+C.identity(domain,value)
++        return saved_identifier(domain,value)
++    M.identifier=hostile_execution_identifier
++    try:rekey(objects,eid,execution,run)
++    finally:M.identifier=saved_identifier
++    return run,objects,blobs
++
++def v20_closure_result(name,graph,exception=None,detail=None):
++    # Construction remains outside the catch, so a bad fixture cannot count as a refused Run.
++    run,objects,blobs=graph
++    try:
++        result=M.close_run(run,objects,blobs)
++    except Exception as exc:
++        check(name,exception is not None and type(exc) is exception and
++              (detail is None or str(exc)==detail))
++    else:
++        check(name,exception is None and type(result) is str and result.startswith('run2:'))
++
++for name,left,right in [('registered',['view'],['view']),('empty',[],[])]:
++    v20_closure_result('v20-stage-domains-'+name,v20_stage_graph(left,right))
++for name,left,right in [('case-sensitive',['View'],['View']),('identifier-prefix',['view2'],['view2']),
++                        ('spec-only-invalid',['View'],['view']),('execution-only-invalid',['view'],['View'])]:
++    v20_closure_result('v20-stage-domains-refuse-'+name,v20_stage_graph(left,right),C.ValidationError)
++v20_closure_result('v20-stage-domains-retain-equality-join',v20_stage_graph(['fact'],['view']),
++                   C.AdmissionError,'STAGE_SPEC_OUTPUT_DOMAIN_JOIN')
++
++def v20_schema_graph(site,selection):
++    run,objects,blobs=build()
++    registered=(H/'import-source-context.schema.json').read_bytes()
++    arbitrary=b'not a registered schema document\n'
++    raw=arbitrary if selection in ('unregistered','missing') else registered
++    digest=put_blob(blobs,raw)
++    if selection=='missing':del blobs[digest]
++    if site=='view':
++        vid=objects[run['evidenceId']][1]['viewIds'][0];view=copy.deepcopy(objects[vid][1])
++        if selection=='empty':view['schemaDigests']=[]
++        elif selection=='omit-member-coverage-schema':
++            used=objects[view['coverageIds'][0]][1]['payloadSchemaDigest']
++            view['schemaDigests']=[d for d in view['schemaDigests'] if d!=used]
++        elif selection=='unregistered-only':
++            digest=put_blob(blobs,arbitrary);view['schemaDigests']=[digest]
++        else:view['schemaDigests']=sorted(set(view['schemaDigests'])|{digest},key=C.canonical)
++        rekey(objects,vid,view,run)
++    else:
++        pid=objects[run['evaluationSealId']][1]['proofBundleId'];proof=copy.deepcopy(objects[pid][1])
++        proof['evaluationInputRefs']=sorted(proof['evaluationInputRefs']+[{'domain':'schema','digest':digest}],key=C.canonical)
++        rekey(objects,pid,proof,run)
++    return (run,objects,blobs),digest
++
++for site in ['view','schema-ref']:
++    for selection in ['registered-extra','unregistered','missing']:
++        graph,digest=v20_schema_graph(site,selection)
++        exc,detail=(None,None) if selection=='registered-extra' else (
++            (M.EvidenceUnavailable,'EVIDENCE_UNAVAILABLE:'+digest) if selection=='missing' else
++            (C.AdmissionError,'SCHEMA_DOCUMENT_UNREGISTERED:'+digest))
++        v20_closure_result('v20-schema-'+site+'-'+selection,graph,exc,detail)
++for selection in ['empty','omit-member-coverage-schema','unregistered-only']:
++    graph,digest=v20_schema_graph('view',selection)
++    exc,detail=(C.AdmissionError,'SCHEMA_DOCUMENT_UNREGISTERED:'+digest) if selection=='unregistered-only' else (None,None)
++    v20_closure_result('v20-schema-view-'+selection,graph,exc,detail)
++
+ report={'standing':'design-reference-only','productQualification':False,'limits':[
+     'finite single-atom rule interpreter over the REAL closed PolicyDocumentV1/RuleProgramV1 DSL; not full declarative-language qualification',
+     'relation and Coverage payload schema REGISTRATION remains the native/workflow adapter boundary; identity checks retention, canonicality and validation under the retained document',

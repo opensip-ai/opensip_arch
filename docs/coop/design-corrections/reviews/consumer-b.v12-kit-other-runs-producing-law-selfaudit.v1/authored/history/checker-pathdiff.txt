@@ -1,0 +1,302 @@
+diff -ru checker-original/main.py checker/main.py
+--- checker-original/main.py	2026-09-08 23:20:48
++++ checker/main.py	2026-09-08 23:52:53
+@@ -21,7 +21,7 @@
+ from checker.store import load_store
+ from checker.replay import IndependentReplay
+ 
+-OUT = Path("/tmp/opensip-design-corrections/consumer-b.v12-fresh-other-runs-full-review.v1/output")
++OUT = Path("/tmp/opensip-design-corrections/consumer-b.v12-kit-other-runs-producing-law-selfaudit.v1/output")
+ 
+ 
+ def main() -> int:
+Only in checker: producing_laws.py
+diff -ru checker-original/replay.py checker/replay.py
+--- checker-original/replay.py	2026-09-08 23:27:55
++++ checker/replay.py	2026-09-08 23:57:19
+@@ -37,6 +37,7 @@
+     validate_against,
+ )
+ from .store import Store, decode_record
++from .producing_laws import ProducingLawAudit, canonical_ref_set
+ 
+ DOMAIN_TO_DEF = {
+     "snapshot": "snapshot",
+@@ -121,39 +122,60 @@
+         self.snapshot_paths: dict[str, dict[str, Any]] = {}
+         self.claimed_proof: Any = None
+         self.claimed_run: Any = None
++        self.closure_kinds: dict[str, str] = {}
++        self._producing_audit = None
++        self._producing_coverage: list = []
+ 
+     def run(self) -> dict[str, Any]:
+         raw = self.layer_raw()
+         structural = LayerResult("structural", "notReached")
++        producing = LayerResult("producing", "notReached")
+         semantic = LayerResult("fullsemantic", "notReached")
+         if raw.status == "REFUSED":
+-            return self._finish(raw, structural, semantic)
++            return self._finish(raw, structural, semantic, producing)
+         structural = self.layer_structural()
+         if structural.status == "REFUSED":
+-            # later layer is diagnostic only; never PASS through failed admission
++            producing.status = "notReached"
++            producing.note("structural refused; producing-law layer notReached")
+             try:
+-                semantic = self.layer_semantic()
+-                if semantic.status == "PASS":
+-                    semantic.status = "DIAGNOSTIC"
+-                    semantic.note("structural refused; semantic results are diagnostic and not admission")
++                semantic = self.layer_semantic(producing_gate=False)
++                semantic.status = "DIAGNOSTIC"
++                semantic.note("structural refused; semantic results are diagnostic and not admission")
+             except Exception as e:
+                 semantic.status = "notReached"
+                 semantic.note(f"semantic notReached after structural refusal: {type(e).__name__}: {e}")
+-            return self._finish(raw, structural, semantic)
+-        semantic = self.layer_semantic()
+-        return self._finish(raw, structural, semantic)
++            return self._finish(raw, structural, semantic, producing)
++        producing = self.layer_producing()
++        if producing.status == "REFUSED":
++            try:
++                semantic = self.layer_semantic(producing_gate=False)
++                semantic.status = "DIAGNOSTIC"
++                semantic.note("producing-law refused; semantic results are diagnostic and not admission")
++            except Exception as e:
++                semantic.status = "notReached"
++                semantic.note(f"semantic notReached after producing refusal: {type(e).__name__}: {e}")
++            return self._finish(raw, structural, semantic, producing)
++        semantic = self.layer_semantic(producing_gate=True)
++        return self._finish(raw, structural, semantic, producing)
+ 
+-    def _finish(self, raw, structural, semantic) -> dict[str, Any]:
+-        statuses = [raw.status, structural.status, semantic.status]
++    def _finish(self, raw, structural, semantic, producing=None) -> dict[str, Any]:
++        if producing is None:
++            producing = LayerResult("producing", "notReached")
++        statuses = [raw.status, structural.status, producing.status, semantic.status]
+         if "REFUSED" in statuses:
+             scoped = "FOUR_RUN_REFUSED"
+-        elif "notReached" in statuses:
++        elif "notReached" in statuses or "DIAGNOSTIC" in statuses:
+             scoped = "FOUR_RUN_INCOMPLETE"
+         elif all(s == "PASS" for s in statuses):
+             scoped = "FOUR_RUN_FULL_ADMIT"
+         else:
+             scoped = "FOUR_RUN_INCOMPLETE"
+-        first = raw.first_refusal or structural.first_refusal or semantic.first_refusal
++        first = (
++            raw.first_refusal
++            or structural.first_refusal
++            or producing.first_refusal
++            or (semantic.first_refusal if semantic.status == "REFUSED" else None)
++        )
+         return {
+             "exportName": self.store.name,
+             "exportPath": self.store.path,
+@@ -163,11 +185,22 @@
+             "layers": {
+                 "raw": _layer_dict(raw),
+                 "structural": _layer_dict(structural),
++                "producing": _layer_dict(producing),
+                 "fullsemantic": _layer_dict(semantic),
+             },
++            "producingLawCoverage": getattr(self, "_producing_coverage", []),
+             "scopedRunVerdict": scoped,
+             "firstRefusal": first,
+-            "notReached": [n for n, s in (("structural", structural.status), ("fullsemantic", semantic.status)) if s == "notReached"],
++            "notReached": [
++                n
++                for n, s in (
++                    ("structural", structural.status),
++                    ("producing", producing.status),
++                    ("fullsemantic", semantic.status),
++                )
++                if s == "notReached"
++            ],
++            "withdrawnOriginalGrade": None,
+         }
+ 
+     # ----- RAW -----
+@@ -567,6 +600,7 @@
+             md = payload.get("manifestDigest")
+             if md and md not in self.store.blobs:
+                 L.refuse("CLOSURE_MANIFEST_MISSING", md, closure=cid)
++        self.closure_kinds = kinds
+         L.operands["closureKinds"] = kinds
+ 
+     def _join_native_contexts(self, L: LayerResult, plan: dict[str, Any]) -> None:
+@@ -1409,8 +1443,24 @@
+         if "runId" in seal:
+             L.refuse("ACYCLIC_SEAL", "seal names run")
+ 
++    def layer_producing(self) -> LayerResult:
++        L = LayerResult("producing", "PASS")
++        audit = ProducingLawAudit(self)
++        self._producing_audit = audit
++        try:
++            audit.check_prerequisites(L)
++        except Exception as e:
++            L.refuse("PRODUCING_EXCEPTION", f"{type(e).__name__}: {e}")
++        self._producing_coverage = audit.coverage_rows
++        L.operands["producingLawRowCount"] = len(audit.coverage_rows)
++        L.operands["producingLawRefused"] = [r for r in audit.coverage_rows if r.get("status") == "REFUSED"]
++        L.operands["producingLawExecuted"] = sum(1 for r in audit.coverage_rows if r.get("status") in ("PASS", "executed"))
++        if L.first_refusal:
++            L.status = "REFUSED"
++        return L
++
+     # ----- FULL SEMANTIC -----
+-    def layer_semantic(self) -> LayerResult:
++    def layer_semantic(self, producing_gate: bool = True) -> LayerResult:
+         L = LayerResult("fullsemantic", "PASS")
+         plan_id = self.claimed_run["planId"]
+         plan = self.by_typed[plan_id]["payload"]
+@@ -1442,7 +1492,7 @@
+         inventories = self._collect_inventories(L)
+         L.operands["inventoryCount"] = len(inventories)
+         self._check_enumeration_joins(L, plan, aspec, enum_plan, inventories)
+-        if L.first_refusal:
++        if L.first_refusal and producing_gate:
+             return L
+ 
+         ei_digest = proof.get("executionInputsDigest")
+@@ -1451,7 +1501,7 @@
+             L.refuse("EI_NOT_BOUND", ei_digest)
+             return L
+         self._check_execution_inputs(L, plan, enum_plan, ei, inventories)
+-        if L.first_refusal:
++        if L.first_refusal and producing_gate:
+             return L
+ 
+         # program
+@@ -1479,11 +1529,16 @@
+         computed_proof = self._compose(L, plan, policy, program, emission, enum_plan, inventories, scope_doc, ei, proof)
+         L.operands["computedProof"] = _proof_summary(computed_proof)
+         L.operands["claimedProof"] = _proof_summary(proof)
+-        # compare complete proof fields (not counts-only)
+-        mismatches = _proof_compare(computed_proof, proof)
+-        L.operands["proofCompare"] = mismatches
+-        if mismatches:
+-            L.refuse("PROOF_MISMATCH", mismatches[0], all=mismatches[:20])
++        audit = getattr(self, "_producing_audit", None)
++        if audit is None:
++            audit = ProducingLawAudit(self)
++            self._producing_audit = audit
++        # Complete C-equality of proof + reminted evidence/seal/run. Selected-field
++        # projection / witnessDigest / sorted cause pairs are not admission.
++        audit.complete_bundle_compare(L, computed_proof, proof)
++        self._producing_coverage = audit.coverage_rows
++        L.operands["proofCEquality"] = L.operands.get("proofCEquality")
++        L.operands["projectionCompareKeptForHistory"] = _proof_compare(computed_proof, proof)
+         if L.first_refusal:
+             L.status = "REFUSED"
+         return L
+@@ -1751,12 +1806,16 @@
+             selected, unresolved, relevant, incomplete = self._enumerate_subjects(
+                 L, domain, kind, se, scope_doc, enum_plan, inventories
+             )
++            inv_refs = canonical_ref_set([{"domain": "subject-inventory", "digest": d} for d in relevant if isinstance(d, str)])
++            inc_refs = canonical_ref_set(
++                [{"domain": "subject-inventory", "digest": d} for d in incomplete if isinstance(d, str)]
++            )
+             enum_rec = {
++                "incompleteInventoryRefs": inc_refs,
++                "inventoryRefs": inv_refs,
++                "selectedSubjectIds": sorted([s["subjectId"] for s in selected]),
+                 "state": "complete" if not incomplete and not unresolved else "incomplete",
+-                "selectedSubjectIds": [s["subjectId"] for s in selected],
+-                "unresolvedSubjectIds": unresolved,
+-                "relevantInventoryRefs": relevant,
+-                "incompleteInventoryRefs": incomplete,
++                "unresolvedSubjectIds": sorted([u for u in unresolved if isinstance(u, str) and str(u).startswith("subject3:")]),
+             }
+             atom = rule.get("emitWhen") or {}
+             # program-predicate identity from the admitted RuleProgramV2 node
+@@ -1795,18 +1854,23 @@
+                     "deficiencies": witness.get("deficiencies") or [],
+                     "kind": "native-atom",
+                 }
++                input_refs = []
++                for cid in witness_rec.get("coverageIds") or []:
++                    digest = cid.split(":", 1)[1] if isinstance(cid, str) and ":" in cid else cid
++                    input_refs.append({"digest": digest, "domain": "coverage"})
++                # atom contract: input refs are retained roots or view members
++                for key, rec in self.by_typed.items():
++                    if key.startswith("view2:") and rec:
++                        input_refs.append({"digest": key.split(":", 1)[1], "domain": "view"})
+                 pred = {
++                    "inputRefs": canonical_ref_set(input_refs),
++                    "operation": atom.get("op"),
++                    "predicateId": "p",
+                     "ruleId": rule["ruleId"],
++                    "scopeIds": sorted(witness.get("scopeIds") or []),
+                     "subjectId": subj["subjectId"],
+-                    "predicateId": "p",
+-                    "operation": atom.get("op"),
+                     "value": _kleene_str(value),
+-                    "scopeIds": witness.get("scopeIds") or [],
+-                    "inputRefs": witness.get("inputRefs") or [],
+                     "witnessDigest": sha256(encode_c(witness_rec)),
+-                    "programPredicateDigest": program_predicate_digest,
+-                    "matchingFactIds": witness_rec["matchingFactIds"],
+-                    "coverageIds": witness_rec["coverageIds"],
+                 }
+                 predicate_proofs.append(pred)
+                 # claimed witness comparison is later via proof fields
+@@ -1849,20 +1913,20 @@
+             verdict = "pass"
+ 
+         computed = {
+-            "schemaVersion": 3,
++            "evaluationInputRefs": [],  # filled independently in complete_bundle_compare
++            "evaluationState": "evaluated",
++            "evaluatorClosure": None,
++            "executionDeficiencies": exec_defs,
++            "executionInputsDigest": None,
++            "executionPlanId": None,
++            "findingIds": [],
+             "planId": self.claimed_run["planId"],
+-            "executionPlanId": claimed_proof.get("executionPlanId"),
+-            "evaluatorClosure": claimed_proof.get("evaluatorClosure"),
+-            "ruleProgramDigest": claimed_proof.get("ruleProgramDigest"),
+-            "evaluationInputRefs": claimed_proof.get("evaluationInputRefs"),
+-            "executionInputsDigest": claimed_proof.get("executionInputsDigest"),
+             "predicateProofs": predicate_proofs,
+-            "findingIds": [],
+-            "verdict": verdict,
+-            "evaluationState": "evaluated",
++            "ruleProgramDigest": None,
+             "ruleResults": rule_results,
++            "schemaVersion": 3,
++            "verdict": verdict,
+             "waivedFindingIds": [],
+-            "executionDeficiencies": exec_defs,
+         }
+         L.operands["computedVerdict"] = verdict
+         L.operands["computedPredicateProofs"] = predicate_proofs
+@@ -1881,15 +1945,18 @@
+                 continue
+             if o.get("state") == "complete":
+                 continue
++            inv_refs = canonical_ref_set(
++                [{"domain": "subject-inventory", "digest": d} for d in (o.get("inventoryDigests") or [])]
++            )
+             rec = {
+-                "source": "native" if o.get("deficiency") in self.owners.evaluator_deficiencies.get("sources", {}).get("native", []) or True else "execution",
+                 "cause": o.get("deficiency") or "required-cell-unsatisfied",
+-                "nativeCause": o.get("nativeCause"),
+                 "evidenceKind": None,
+-                "universe": o.get("universe"),
++                "inputRefs": inv_refs,
++                "nativeCause": o.get("nativeCause"),
+                 "predicateId": None,
++                "source": "native",
+                 "subjectId": None,
+-                "inputRefs": [],
++                "universe": o.get("universe"),
+             }
+             # required-cell-unsatisfied is execution source
+             if rec["cause"] not in (self.owners.evaluator_deficiencies.get("sources") or {}).get("native", []):

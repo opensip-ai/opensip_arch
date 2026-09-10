@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.occupancy-companion.1",
+  "title": "OccupancyCompanionV1 — worker occupancy claim bound to one FactCandidateV1 before fact2 exists",
+  "description": "CURRENT selected worker occupancy product. Emitted on FactBatchV3 alongside unchanged FactCandidateV1, associated only by candidateOrdinal in that batch. NOT a TargetAttributionV2. NOT a protocol3 frame of its own. Does not carry planId, sourceFactId, or producerClosure: those do not exist at worker emit time and are host-filled by mechanical projection after fact2 mint. Historical COMPLETE58 ProviderTargetAttributionReturnV2 as a wrapper-built envelope after fact2 mint is withdrawn as the delivery interface because the compiler-native table cannot cross a closed FactBatch of already-encoded opaque payloads.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "candidateOrdinal",
+    "targetUniverseId",
+    "targetNativeId",
+    "kind",
+    "occupancy",
+    "exported",
+    "logicalPath",
+    "packageManifestPath",
+    "evaluationNativeId"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "candidateOrdinal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615,
+      "description": "Must equal FactCandidateV1.candidateOrdinal of a candidate in THIS FactBatchV3. Transport association only. Never enters fact2 identity. uint64, not a narrowed 1e6 bound."
+    },
+    "targetUniverseId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Exact byte-equal to the associated FactCandidateV1.targetUniverseId. Host projects V2.targetUniverse from the minted fact, never from a second host guess."
+    },
+    "targetNativeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Must equal the associated candidate's decoded relation payload field named by evaluator-projection-registry relations[relation].targetNativeIdField at that resolution. Opaque payload copy. Not occupancy identity for file/package."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["file", "symbol", "package", "unknown"]
+    },
+    "occupancy": {
+      "type": "string",
+      "enum": ["first-party", "external", "unknown"]
+    },
+    "exported": {
+      "oneOf": [
+        {"type": "string", "enum": ["exported", "not-exported", "unknown"]},
+        {"type": "null"}
+      ]
+    },
+    "logicalPath": {
+      "oneOf": [
+        {"$ref": "#/$defs/LogicalPath"},
+        {"type": "null"}
+      ]
+    },
+    "packageManifestPath": {
+      "oneOf": [
+        {"$ref": "#/$defs/LogicalPath"},
+        {"type": "null"}
+      ]
+    },
+    "evaluationNativeId": {
+      "oneOf": [
+        {"type": "string", "minLength": 1, "maxLength": 4096},
+        {"type": "null"}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "symbol"}}},
+      "then": {
+        "properties": {"exported": {"type": "string", "enum": ["exported", "not-exported", "unknown"]}},
+        "not": {"properties": {"exported": {"type": "null"}}}
+      }
+    },
+    {
+      "if": {"properties": {"kind": {"enum": ["file", "package", "unknown"]}}},
+      "then": {"properties": {"exported": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"occupancy": {"const": "first-party"}}},
+      "then": {
+        "properties": {
+          "logicalPath": {"type": "null"},
+          "evaluationNativeId": {"type": "string", "minLength": 1, "maxLength": 4096}
+        },
+        "not": {"properties": {"evaluationNativeId": {"type": "null"}}}
+      }
+    },
+    {
+      "if": {"properties": {"occupancy": {"enum": ["external", "unknown"]}}},
+      "then": {"properties": {"evaluationNativeId": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"kind": {"enum": ["file", "symbol", "unknown"]}}},
+      "then": {"properties": {"packageManifestPath": {"type": "null"}}}
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {"const": "package"},
+          "occupancy": {"enum": ["first-party", "external"]}
+        }
+      },
+      "then": {
+        "properties": {
+          "packageManifestPath": {"$ref": "#/$defs/LogicalPath"},
+          "logicalPath": {"type": "null"}
+        },
+        "not": {"properties": {"packageManifestPath": {"type": "null"}}}
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {"const": "package"},
+          "occupancy": {"const": "unknown"}
+        }
+      },
+      "then": {
+        "properties": {
+          "packageManifestPath": {"type": "null"},
+          "logicalPath": {"type": "null"},
+          "evaluationNativeId": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {"pattern": "(^|/)\\.\\.?(/|$)"}
+    }
+  },
+  "x-opensip-order-vocabulary": {
+    "candidateOrdinal": {
+      "appliesTo": [
+        "FactBatchV3.candidates",
+        "FactBatchV3.occupancyCompanions"
+      ],
+      "keys": "each item.candidateOrdinal",
+      "type": "integer",
+      "law": "unique strictly increasing by candidateOrdinal (sorted unique integers). Gaps are lawful at this annotation.",
+      "not": "contiguous 0..n-1. Contiguous candidate-stream 0..n-1 across FactBatch frames of one requested stage is a separate host join against DispatchBindingV1.expectedFirstCandidateOrdinal and later batch continuation. The annotation does not encode that stream law.",
+      "implementation": "canonical.py exact_order token candidateOrdinal. Empty arrays admit. Reverse order refuses. Duplicate candidateOrdinal refuses. Non-integer candidateOrdinal refuses.",
+      "semanticJoin": "Each occupancyCompanions[i].candidateOrdinal MUST name a candidates[j].candidateOrdinal in THIS batch (PROVIDER_RETURN_UNKNOWN_CANDIDATE otherwise). Association is before fact2 exists."
+    }
+  },
+  "x-opensip-wire": {
+    "carrier": "FactBatchV3.occupancyCompanions",
+    "capabilityToken": "target-attribution-v2",
+    "historicalFactCandidateV1": "unchanged; additionalProperties false; no occupancy field",
+    "historicalFactBatchV2": "unchanged closed payload when the token is not negotiated",
+    "notAFrame": "OccupancyCompanionV1 is not itself a protocol3 frame. FactBatch remains the ANALYZING worker-to-host frame.",
+    "protocolMajor": "rust-semantic remains 3; typescript-semantic remains 2; payload version of FactBatch is capability-gated, not a silent field add under FactBatchV2",
+    "stageId": "FactBatchV3.stageId is C-2 TEXT of the current requested stage, not this companion's field"
+  }
+}

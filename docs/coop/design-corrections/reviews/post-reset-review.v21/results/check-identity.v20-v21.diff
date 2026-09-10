@@ -1,0 +1,64 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v20/docs/coop/design-corrections/foundation/check-identity.py	2026-09-08 01:46:07
++++ /tmp/opensip-design-corrections/candidate-subject.v21/docs/coop/design-corrections/foundation/check-identity.py	2026-09-08 03:25:06
+@@ -1368,6 +1368,50 @@
+       all(_refusal(lambda d=doc:W.verify_scope_parameter_binding(
+               _spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),d)).detail=='CONFIG.INVALID'
+           for doc in (SCOPE_DOCUMENT,SCOPE_DOCUMENT_B)))
++# THE ORDER ITSELF, which neither control above decides. Both supply one of the two CANDIDATE
++# documents, and for a candidate the payload comparison SUCCEEDS, so the ambiguity is reached and
++# refused whether the at-most-one guard runs before or after that comparison - those two checks
++# hold under either ordering and therefore cannot hold the order. A document that is NEITHER
++# candidate is what discriminates: with the guard first the answer is the spec's ambiguity; with
++# the guard moved after the match the same spec is misreported as an ordinary digest mismatch,
++# blaming the supplied document for a defect that belongs to the spec alone.
++SCOPE_DOCUMENT_C={'schemaFamily':'opensip.product.scope','schemaMajor':1,
++                  'include':['src/**/*.ts'],'exclude':['src/legacy/**']}
++_SCOPE_ROW_C=parameter_row(POLICY_DOCUMENT_BYTES,SCOPE_DOCUMENT_C)
++def _scope_document_admits(doc):
++    try:W.validate_import_record('workflows/schemas/policy-document.schema.json',
++                                 '#/$defs/ScopeDocumentV1',doc)
++    except W.Refusal:return False
++    return True
++# A REAL third scope document: admitted by the same pinned selector as the other two and citing the
++# same registered schema, not a malformed payload that would refuse for some unrelated reason.
++check('the-third-scope-document-is-schema-admitted-and-is-neither-of-the-two-candidates',
++      _scope_document_admits(SCOPE_DOCUMENT_C) and
++      _SCOPE_ROW_C['schemaDigest']==_SCOPE_ROW_A['schemaDigest'] and
++      len({_SCOPE_ROW_A['payloadDigest'],_SCOPE_ROW_B['payloadDigest'],
++           _SCOPE_ROW_C['payloadDigest']})==3)
++_AMBIGUOUS_NONCANDIDATE=_refusal(lambda:W.verify_scope_parameter_binding(
++    _spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT_C))
++check('an-ambiguous-spec-refuses-as-ambiguous-even-for-a-document-that-is-neither-candidate',
++      (_AMBIGUOUS_NONCANDIDATE.error_code,_AMBIGUOUS_NONCANDIDATE.detail)==
++      ('CONFIG.INVALID','CONFIG.INVALID'))
++# and that document is not simply always answered that way: under ONE selected row it is the
++# ordinary mismatch, so the check above pins PRECEDENCE and not a property of SCOPE_DOCUMENT_C.
++_SINGLE_NONCANDIDATE=_refusal(lambda:W.verify_scope_parameter_binding(
++    _spec([_SCOPE_ROW_A]),SCOPE_DOCUMENT_C))
++check('the-same-non-candidate-document-under-one-selected-row-is-an-ordinary-digest-mismatch',
++      (_SINGLE_NONCANDIDATE.error_code,_SINGLE_NONCANDIDATE.detail)==
++      ('REQUEST.PRECONDITION_FAILED','BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH'))
++# THREE row multiplicities, ONE supplied document, THREE distinct answers: none, one, more than one.
++check('the-three-answers-for-one-non-candidate-document-stay-distinct-by-row-multiplicity',
++      [_refusal(lambda:W.verify_scope_parameter_binding(_spec([]),SCOPE_DOCUMENT_C)).detail,
++       _SINGLE_NONCANDIDATE.detail,_AMBIGUOUS_NONCANDIDATE.detail]==
++      ['BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER',
++       'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH','CONFIG.INVALID'])
++# and refusal is not all that can happen to it: as the ONE selected row it verifies like any other.
++check('the-third-document-verifies-when-it-is-itself-the-one-selected-parameter',
++      W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_C]),SCOPE_DOCUMENT_C)==
++      _SCOPE_ROW_C['payloadDigest'])
+ # PUBLIC ROUTING, with no new vocabulary: both members are already in the closed registries.
+ _COMMON_SCHEMA=json.loads((H.parent/'workflows/schemas/common.schema.json').read_text())
+ check('the-scope-ambiguity-refusal-uses-only-registered-public-vocabulary',
+@@ -1388,10 +1432,6 @@
+       not _step_termination_admits({**_AMBIGUITY_TERMINATION,
+           'domainDetail':{**_AMBIGUITY_TERMINATION['domainDetail'],
+                           'code':'BASELINE.SCOPE_PARAMETER_AMBIGUOUS'}}))
+-# It also invents no NEW detail: the ambiguity reuses a code the file already emits elsewhere.
+-check('the-scope-ambiguity-detail-is-a-code-this-model-already-published',
+-      (H.parent/'workflows/workflows_model.v1.py').read_text().count("'CONFIG.INVALID', 'CONFIG.INVALID'")==1
+-      and (H.parent/'workflows/workflows_model.v1.py').read_text().count("CONFIG.INVALID")>2)
+ check('the-scope-ambiguity-termination-validates-as-a-real-step-termination',
+       _refusal(lambda:W.verify_scope_parameter_binding(_spec([_SCOPE_ROW_A,_SCOPE_ROW_B]),SCOPE_DOCUMENT)
+                ).termination()['domainDetail']['code']=='CONFIG.INVALID')

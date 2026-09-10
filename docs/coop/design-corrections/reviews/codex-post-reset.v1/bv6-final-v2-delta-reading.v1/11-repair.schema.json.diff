@@ -1,0 +1,426 @@
+--- finalv1/docs/coop/design-corrections/workflows/schemas/repair.schema.json
++++ finalv2/docs/coop/design-corrections/workflows/schemas/repair.schema.json
+@@ -4,175 +4,227 @@
+   "title": "Repair preview/apply/verify records: RepairPlanV1, RepairApplyJournalV1, MutationReceiptV1 (PROPOSED, revised)",
+   "description": "Preview, apply and verify are three separately authorized steps. A RepairPlan is a content-identified, snapshot-bound, non-applying artifact (H('workflow.repair-plan', descriptor)); it requires an AUTHORITATIVE evidence Run whose availability is retained and whose sealed assurance is replayable. Apply is a host-owned mutation bound to the exact repairPlanId and snapshotId with a journaled same-directory-temp/rename protocol, per-file preimage verification and rollback. Verify always admits a fresh snapshot after apply and seals a new authoritative Run; it never reuses the pre-apply Run. Identity descriptors exclude RequestId, ExecutionId, clocks and receipts. Bounds: at most 4096 target files, at most 16 MiB per postimage, at most 64 MiB total postimage bytes per plan.",
+   "x-opensip-mutation-operation-map": {
+-    "standing": "Normative and CLOSED. THE map from the closed command-name vocabulary (workflows/command-inventory.v1.json#/commands[].name, the declared SOLE command list) to #/$defs/MutationOperation. It adds no command, no operation, no request class and no step kind, and it widens no accepted request: it publishes a derivation a consumer previously had to guess. It is written out rather than computed by name matching because three rows are renames that any name-matching rule would get wrong.",
+-    "whyItIsOwed": "`mutationClass` is a PUBLIC envelope field (MutationReceiptProjection.operation), workflows section 1 makes MutationReplayScopeV1.operation equal to MutationParams.mutationClass, and that scope is the whole preimage of the published idempotencyKey H(workflow.mutation-intent, scope). The Command record carries no mutationClass field, so nothing in the contracts derived the expected value for a command. The impact is BOUNDED and that is why this is a SHOULD, not a MUST: requestId is host-minted and unique per invocation, so the key is scoped to one request, a spelling difference cannot cause a false or missed dedupe ACROSS hosts, and the key grants no authority. What was lost is a consumer's ability to derive the expected value from the contracts alone.",
+-    "rule": "A command mints an operation only through a mutating STEP, and the step kind decides which surface carries it. `mutation` steps carry it as MutationParams.mutationClass and as MutationReplayScopeV1.operation; the `repair-apply`, `import` and `native-preparation` steps are their own step kinds with their own params and carry their operation on the receipt only. A command with no mutating step mints no operation and is absent from byCommand - it is not mapped to a null.",
++    "standing": "Normative and CLOSED. It publishes FOUR different things that an earlier revision conflated or left undefined, and keeps them apart by name: (1) which MutationOperation each step KIND writes to its required receipt, (2) which operation each current command's generic `mutation` step emits, (3) the one operation excluded from the generic fields, and (4) the ACTUAL admissible domain of the generic operation field, which is a property of the schema and is NOT the set of tokens today's commands emit. It adds no command, no operation, no request class, no step kind and no receipt, and it narrows no field.",
++    "theConflationThisReplaces": "The earlier `genericMutationClasses` listed twenty COMMAND NAMES while the annotations on MutationParams.mutationClass and MutationReplayScopeV1.operation called that list the exact admissible operation set. Those are different vocabularies and they differ in nine places: three listed names (baseline-upgrade, policy-init, waive) are refused by the operation enum, and six admitted operation tokens (baseline-upgrade-apply, config-write, import, native-preparation, policy-write, waiver-change) were absent from the list. The lists below are named for what they actually are.",
++    "emissionRule": "Which operation a receipt carries is a deterministic function of the STEP KIND, per byStepKindReceiptOperation. Only the generic `mutation` step additionally carries the operation in a request field (MutationParams.mutationClass) and in a replay scope; the other three step kinds carry it on the receipt alone, under their own params and their own idempotency law. A command with none of these four step kinds mints no operation at all.",
++    "byCommandGenericMutationStep": {
++      "baseline-adopt": {
++        "operation": "baseline-adopt",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation"
++      },
++      "baseline-export": {
++        "operation": "baseline-export",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation"
++      },
++      "baseline-upgrade": {
++        "operation": "baseline-upgrade-apply",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation",
++        "note": "RENAME. The command runs `analysis` then `mutation`; the operation names the APPLY half, because the analysis half mints a Run and no mutation."
++      },
++      "core-repair": {
++        "operation": "core-repair",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "core-rollback": {
++        "operation": "core-rollback",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "core-update": {
++        "operation": "core-update",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "install": {
++        "operation": "install",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "policy-init": {
++        "operation": "policy-write",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation",
++        "note": "RENAME. `policy-init` is the command that writes a policy document for the first time; the operation is the effect class `policy-write`, which is why one operation covers it. It is NOT `config-write`: product configuration is a different document with no command here."
++      },
++      "purge": {
++        "operation": "purge",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation"
++      },
++      "repair-recover": {
++        "operation": "repair-recover",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation"
++      },
++      "review-join": {
++        "operation": "review-join",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation"
++      },
++      "store-gc": {
++        "operation": "store-gc",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "store-migrate": {
++        "operation": "store-migrate",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "store-rollback": {
++        "operation": "store-rollback",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "trust-import": {
++        "operation": "trust-import",
++        "mintedByStepKind": "mutation",
++        "requestClass": "trust"
++      },
++      "trust-recovery-challenge": {
++        "operation": "trust-recovery-challenge",
++        "mintedByStepKind": "mutation",
++        "requestClass": "trust"
++      },
++      "trust-recovery-import": {
++        "operation": "trust-recovery-import",
++        "mintedByStepKind": "mutation",
++        "requestClass": "trust"
++      },
++      "trust-refresh": {
++        "operation": "trust-refresh",
++        "mintedByStepKind": "mutation",
++        "requestClass": "trust"
++      },
++      "update": {
++        "operation": "update",
++        "mintedByStepKind": "mutation",
++        "requestClass": "lifecycle"
++      },
++      "waive": {
++        "operation": "waiver-change",
++        "mintedByStepKind": "mutation",
++        "requestClass": "mutation",
++        "note": "RENAME. `waive` adds a waiver; the operation is the effect class `waiver-change`, which also covers the amendment and revocation this same command performs."
++      }
++    },
++    "dedicatedStepOperations": {
++      "repair-apply": {
++        "command": "repair-apply",
++        "stepKind": "repair-apply",
++        "citations": [
++          "invocation-record.schema.json#/$defs/RepairApplyParams - its own step params",
++          "repair.schema.json#/$defs/MutationReceiptV1.operation - the receipt field it is written to",
++          "workflows-and-surfaces.md section 1 - the dedicated content-derived idempotency recipe"
++        ],
++        "excludedFromGeneric": true,
++        "note": "Refused as MutationParams.mutationClass and as MutationReplayScopeV1.operation by an explicit `not` beside each $ref. Listing it here does NOT make it admissible there, and a control holds both refusals."
++      }
++    },
++    "admissibleGenericFieldDomain": {
++      "fields": [
++        "invocation-record.schema.json#/$defs/MutationParams/properties/mutationClass",
++        "invocation-record.schema.json#/$defs/MutationReplayScopeV1/properties/operation"
++      ],
++      "operations": [
++        "baseline-adopt",
++        "baseline-export",
++        "baseline-upgrade-apply",
++        "config-write",
++        "core-repair",
++        "core-rollback",
++        "core-update",
++        "import",
++        "install",
++        "native-preparation",
++        "policy-write",
++        "purge",
++        "repair-recover",
++        "review-join",
++        "store-gc",
++        "store-migrate",
++        "store-rollback",
++        "trust-import",
++        "trust-recovery-challenge",
++        "trust-recovery-import",
++        "trust-refresh",
++        "update",
++        "waiver-change"
++      ],
++      "rule": "Every MutationOperation member EXCEPT repair-apply, which both fields refuse by an explicit `not`. This is the SCHEMA's domain and is deliberately WIDER than the set of tokens today's commands emit: narrowing a generic field to the current emitters would silently remove admissible values that no finding asked to remove, and would have to change again whenever a command is added. Complete MutationParams additionally require operation-specific fields for the core-* / store-* / repair-recover operations; those are per-operation requirements, not enum exclusions."
++    },
+     "renamedRows": {
+       "baseline-upgrade": "baseline-upgrade-apply",
+       "native-prepare": "native-preparation",
+       "policy-init": "policy-write",
+       "waive": "waiver-change"
+     },
+-    "byCommand": {
+-      "baseline-adopt": {
+-        "operation": "baseline-adopt",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation"
+-      },
+-      "baseline-export": {
+-        "operation": "baseline-export",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation"
+-      },
+-      "baseline-upgrade": {
+-        "operation": "baseline-upgrade-apply",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation",
+-        "note": "RENAME. The command runs `analysis` then `mutation`; the operation names the APPLY half, because the analysis half mints a Run and no mutation."
+-      },
+-      "core-repair": {
+-        "operation": "core-repair",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "core-rollback": {
+-        "operation": "core-rollback",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "core-update": {
+-        "operation": "core-update",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
++    "renamedRowsNote": "FOUR commands, not three. The three mutation-CLASS renames are baseline-upgrade, policy-init and waive; `native-prepare` is a fourth, in request class `execution`, whose `native-preparation` step carries the operation of the same name. Counting only the mutation-class commands would leave one command's operation still underivable, which is the defect this map exists to close, so the row is published with the other three. This set is held EQUAL to the commands whose name is not itself a MutationOperation member, so a future rename cannot be added to the vocabulary without appearing here.",
++    "injectivityIsNotAssumed": "This map is NOT an inverse map and must not be read backwards. The `import` operation is bound by STEP KIND, so BOTH the `import` command and the `analyze` command emit it - a worked case of two commands sharing one operation, which is exactly why injectivity is not assumed. The twenty generic `mutation` rows happen to carry twenty distinct operations, and that is recorded as an observation about the current inventory, not as a law: an operation is an effect class and a command is a surface.",
++    "notARequestGrammar": "Nothing here decides which commands a host accepts, which request class a command has, or which authorizations it needs. Those stay with command-inventory.v1.json and the security unit. This map answers exactly one question: given a command name, which MutationOperation does its mutating step carry.",
++    "enforcedAt": "check_workflows.v1.py: every step-kind binding names a real step kind and a registered operation; the generic rows are exactly the commands with a `mutation` step; each row names a real step and request class of that command; both results that require a receiptId are checked to require it; the admissible field domain is verified by ADMITTING every one of its operations at the actual field schema and REFUSING the excluded one; and the one operation with no command is recomputed rather than restated.",
++    "receiptOperationIsRequiredNotOptional": "There is exactly ONE receipt domain, `workflow.mutation-receipt` (workflows section 10), ReceiptId is `receipt2:`, and MutationReceiptV1 REQUIRES `operation` typed as MutationOperation. invocation-record ImportResult and NativePreparationResult BOTH require `receiptId`. So an import step and a native-preparation step each already owe a receipt carrying an operation, and what was missing was the binding that says WHICH one. An earlier revision of this map inferred the opposite from the reference model - that no emitter existed - and disclosed `import` and `native-preparation` as operations with no published emitter. That inference was wrong: the absence of a Python emitter in a reference model is a QUALIFICATION limit, not evidence that a required receipt has no operation. The binding is published below.",
++    "byStepKindReceiptOperation": {
++      "mutation": {
++        "operation": "the command row in byCommandGenericMutationStep",
++        "carriedBy": [
++          "invocation-record MutationParams.mutationClass",
++          "invocation-record MutationReplayScopeV1.operation (equal to it)",
++          "repair MutationReceiptV1.operation"
++        ],
++        "citations": [
++          "workflows-and-surfaces.md section 1 - generic mutation idempotence and the H(workflow.mutation-intent, MutationReplayScopeV1) key"
++        ]
++      },
++      "repair-apply": {
++        "operation": "repair-apply",
++        "carriedBy": [
++          "repair MutationReceiptV1.operation"
++        ],
++        "citations": [
++          "invocation-record RepairApplyParams - its own step params",
++          "workflows-and-surfaces.md section 1 - the dedicated content-derived idempotency recipe, explicitly excluded from generic MutationParams"
++        ],
++        "excludedFromGenericFields": true
+       },
+       "import": {
+         "operation": "import",
+-        "mintedByStepKind": "import",
+-        "requestClass": "mutation",
+-        "note": "The `import` command's mutating step is an `import` step, not a generic `mutation` step, so its operation appears on the receipt and never as MutationParams.mutationClass."
+-      },
+-      "install": {
+-        "operation": "install",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "native-prepare": {
++        "carriedBy": [
++          "repair MutationReceiptV1.operation, named by ImportResult.receiptId"
++        ],
++        "citations": [
++          "invocation-record ImportResult - `receiptId` is REQUIRED",
++          "workflows-and-surfaces.md section 4 - `opensip import KIND PATH` is a mutation step with an import receipt",
++          "workflows-and-surfaces.md section 10 - workflow.mutation-receipt is the one receipt domain"
++        ],
++        "appliesToEveryImportStep": "The binding is by STEP KIND, not by command request class, so the import step of the `analyze` command (requestClass analysis) carries the same operation as the import step of the `import` command. `analyze` therefore needs no exception and none is made: it was never a defect in the map, it was a missing step-kind law, and an earlier revision subtracted it in the checker instead.",
++        "notGenericReplay": "An import step is NOT a generic mutation step: it carries ImportParams, not MutationParams, so it mints no MutationReplayScopeV1 and no H(workflow.mutation-intent) key, and its retryPolicy is `none` by schema (section 1). Its custody and source-correspondence joins (nofollow open of the UserInputPath, mandatory SourceCorrespondence, StalenessRule) are unchanged and are not replay machinery."
++      },
++      "native-preparation": {
+         "operation": "native-preparation",
+-        "mintedByStepKind": "native-preparation",
+-        "requestClass": "execution",
+-        "note": "The command's mutating step is a `native-preparation` step, not a generic `mutation` step; its operation appears on the receipt and never as MutationParams.mutationClass."
+-      },
+-      "policy-init": {
+-        "operation": "policy-write",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation",
+-        "note": "RENAME. `policy-init` is the command that writes a policy document for the first time; the operation is the effect class `policy-write`, which is why one operation covers it. It is NOT `config-write`: product configuration is a different document with no command here."
+-      },
+-      "purge": {
+-        "operation": "purge",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation"
+-      },
+-      "repair-apply": {
+-        "operation": "repair-apply",
+-        "mintedByStepKind": "repair-apply",
+-        "requestClass": "mutation",
+-        "note": "DEDICATED, and EXCLUDED from the generic path: repair apply is its own `repair-apply` step with its own content-derived idempotency key, and `repair-apply` is refused as MutationParams.mutationClass and as MutationReplayScopeV1.operation. It is in this map because it is a real command/operation pair, not to enable it there."
+-      },
+-      "repair-recover": {
+-        "operation": "repair-recover",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation"
+-      },
+-      "review-join": {
+-        "operation": "review-join",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation"
+-      },
+-      "store-gc": {
+-        "operation": "store-gc",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "store-migrate": {
+-        "operation": "store-migrate",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "store-rollback": {
+-        "operation": "store-rollback",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "trust-import": {
+-        "operation": "trust-import",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "trust"
+-      },
+-      "trust-recovery-challenge": {
+-        "operation": "trust-recovery-challenge",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "trust"
+-      },
+-      "trust-recovery-import": {
+-        "operation": "trust-recovery-import",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "trust"
+-      },
+-      "trust-refresh": {
+-        "operation": "trust-refresh",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "trust"
+-      },
+-      "update": {
+-        "operation": "update",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "lifecycle"
+-      },
+-      "waive": {
+-        "operation": "waiver-change",
+-        "mintedByStepKind": "mutation",
+-        "requestClass": "mutation",
+-        "note": "RENAME. `waive` adds a waiver; the operation is the effect class `waiver-change`, which also covers the amendment and revocation this same command performs."
+-      }
+-    },
+-    "genericMutationClasses": [
+-      "baseline-adopt",
+-      "baseline-export",
+-      "baseline-upgrade",
+-      "core-repair",
+-      "core-rollback",
+-      "core-update",
+-      "install",
+-      "policy-init",
+-      "purge",
+-      "repair-recover",
+-      "review-join",
+-      "store-gc",
+-      "store-migrate",
+-      "store-rollback",
+-      "trust-import",
+-      "trust-recovery-challenge",
+-      "trust-recovery-import",
+-      "trust-refresh",
+-      "update",
+-      "waive"
+-    ],
+-    "excludedFromGenericMutation": {
+-      "operations": [
+-        "repair-apply"
+-      ],
+-      "rule": "repair-apply is refused by MutationParams.mutationClass and by MutationReplayScopeV1.operation, both of which carry an explicit `not: {const: repair-apply}` beside the $ref. Repair apply is a dedicated step whose idempotency key is the raw SHA-256 of C({operation, projectId, repairPlanId, baseSnapshotId}) - content-derived, not request-scoped. Publishing this map DOES NOT make it available there, and a control holds that."
+-    },
+-    "operationsWithNoCommand": {
++        "carriedBy": [
++          "repair MutationReceiptV1.operation, named by NativePreparationResult.receiptId"
++        ],
++        "citations": [
++          "invocation-record NativePreparationResult - `receiptId` is REQUIRED",
++          "native-evidence.md section 14 - a completed preparation returns an execution receipt and one admitted prepared import, never a Run",
++          "workflows-and-surfaces.md section 12 - per-owner native preparation, delegated to native section 14 and security S15"
++        ],
++        "notGenericReplay": "A native-preparation step carries NativePreparationParams, not MutationParams. It mints no generic replay scope, its retryPolicy is `none` by schema and there is NO automatic retry (native section 5.4). A fresh preparation is a NEW authorized execution under its own AuthorizedExecutionV2 and security grant set - never a delivery replay of a prior receipt, and this binding grants no permission that the security unit does not already admit."
++      }
++    },
++    "operationsWithNoCommandInThisInventory": {
+       "operations": [
+         "config-write"
+       ],
+-      "disclosure": "`config-write` is a member of the MutationOperation vocabulary that NO command in the closed inventory mints. It is stated rather than removed or invented a command for: removing an operation member is a vocabulary change this correction does not own, and no command writes product configuration today. A receipt carrying it would come from a surface outside this inventory. This is a disclosure, not an authorization to mint one."
+-    },
+-    "notARequestGrammar": "Nothing here decides which commands a host accepts, which request class a command has, or which authorizations it needs. Those stay with command-inventory.v1.json and the security unit. This map answers exactly one question: given a command name, which MutationOperation does its mutating step carry.",
+-    "enforcedAt": "check_workflows.v1.py: the map is total over every inventory command with a mutating step, carries no command outside the inventory, every value is a MutationOperation member, the step kind it names is actually one of that command's steps, the operations with no command are exactly the disclosed set, and repair-apply stays schema-refused in both generic positions.",
+-    "renamedRowsNote": "FOUR commands, not three. The three mutation-CLASS renames are baseline-upgrade, policy-init and waive; `native-prepare` is a fourth, in request class `execution`, whose `native-preparation` step carries the operation of the same name. Counting only the mutation-class commands would leave one command's operation still underivable, which is the defect this map exists to close, so the row is published with the other three. This set is held EQUAL to the commands whose name is not itself a MutationOperation member, so a future rename cannot be added to the vocabulary without appearing here."
++      "disclosure": "`config-write` is the one MutationOperation member no step kind binds and no command in this inventory emits: nothing here writes product configuration. It is disclosed rather than removed - a vocabulary change this correction does not own - and it remains admissible in the generic field, because narrowing a generic domain to today's emitters would remove a value no finding asked to remove.",
++      "scopeOfTheSearch": "The current command inventory, the four step-kind bindings above, and the non-review source tree of this subject snapshot. It is not a claim about every historical file or revision."
++    },
++    "whatIsNotClaimed": "The reference model in this kit emits a MutationReceiptV1 only for repair-apply. It does not exercise a production import or native-preparation receipt emitter, and this map does not claim it does. That is a stated QUALIFICATION limit of the reference evidence, and it is deliberately distinguished from the design law above, which is normative and complete: the receipt is required, its operation is required, and the value each step kind writes is now published."
+   },
+   "$defs": {
+     "MutationOperation": {
+@@ -203,7 +255,7 @@
+         "core-rollback",
+         "native-preparation"
+       ],
+-      "description": "The closed effect-class vocabulary of a mutating step. Which command mints which member is published beside this enum at #/x-opensip-mutation-operation-map; four commands do NOT share their operation's name (baseline-upgrade -> baseline-upgrade-apply, policy-init -> policy-write, waive -> waiver-change, and the execution-class native-prepare -> native-preparation), so name matching is not the derivation. `repair-apply` is a dedicated operation refused in the generic MutationParams and MutationReplayScopeV1 positions; `config-write` is currently minted by no command in the inventory.",
++      "description": "The closed effect-class vocabulary of a mutating step. Which operation each STEP KIND writes to its required receipt is published beside this enum at #/x-opensip-mutation-operation-map/byStepKindReceiptOperation, and which operation each current command's generic `mutation` step emits is at #/x-opensip-mutation-operation-map/byCommandGenericMutationStep; four commands do NOT share their operation's name, so name matching is not the derivation, and `import` is emitted by two commands, so the map is not invertible. Neither map is the admissible domain of the generic operation field: #/x-opensip-mutation-operation-map/admissibleGenericFieldDomain is, and it is every member here except `repair-apply`. `config-write` is the one member no step kind binds.",
+       "x-opensip-vocabulary": {
+         "commandAuthority": "workflows/command-inventory.v1.json#/commands[].name",
+         "map": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommand",
+@@ -375,14 +427,23 @@
+           "type": "boolean"
+         },
+         "deficiency": {
+-          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/NativeSufficiencyDeficiency",
+-          "description": "The reason THIS requirement is unsatisfied, in the native per-requirement sufficiency vocabulary. OWNERSHIP: the value is produced by native-evidence.md section 4.6 `sufficiency_v2` for this requirement against the evidence Run named by RepairPlanDescriptor.evidenceRunId, and repair CONSUMES it; preview mints no sufficiency verdict of its own and never re-derives one from the descriptor. PRESENCE IS NOT OPTIONAL AND IS NOT FREE: the field is REQUIRED exactly when satisfied is false and FORBIDDEN when satisfied is true, enforced by the allOf below, because sufficiency_v2 is total - it returns {satisfied:true, disclosures} with no deficiency, or {satisfied:false, deficiency} with exactly one member of this vocabulary. Omitting it under satisfied=false previously dropped the only disclosure of WHY a repair is inapplicable while leaving the record schema-valid. WHY NOT D9Deficiency, which this field previously named: four of the nine outcomes sufficiency_v2 emits - derivation-policy-unmet, external-consumers-unknown, input-closure-incomplete, resolution-incomplete - are not members of it, so the field could not express its own producer's result; the only conforming alternatives were to write the D9-mapped `verdict-indeterminate` for all four (destroying the distinction, and in particular conflating `resolution-incomplete` - the outcome that decides a destructive unused-code repair - with three unrelated ones), or to omit the field. Retyping this ONE per-requirement field is the repair; D9Deficiency itself is unchanged and still carries every whole-Run and comparison-step termination. THIS FIELD IS NOT AN AUTHORIZATION: the sealed Run named by evidenceRunId remains the authority, `applicable` is still false whenever any requirement is unsatisfied, and apply still requires a security authorization bound to the exact repairPlanId. Editing or deleting it cannot make a plan applicable - it mints a different repairPlanId, which no authorization names.",
++          "oneOf": [
++            {
++              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/NativeSufficiencyDeficiency"
++            },
++            {
++              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ImportedRequirementDeficiency"
++            }
++          ],
++          "description": "The reason THIS requirement is unsatisfied, in the vocabulary of THIS requirement's evidence PLANE. Repair admits a requirement over either plane, so the field carries either vocabulary and the plane is decided AT ADMISSION from the relation's registry membership - never guessed from the value and never left to the reader. NATIVE plane (the thirteen relations of foundation/relation-payload-schemas.v2.json): the value is a DeficiencyV2 member produced by native-evidence.md section 4.6 `sufficiency_v2` for this requirement against the evidence Run named by evidenceRunId. IMPORTED plane (`runtime-observation`, `history-change`): the value is an ImportedRequirementDeficiency produced under imported-evidence.schema.json#/x-opensip-imported-requirement-law, because those relations mint no fact2 and have no Coverage entry, so sufficiency_v2 has nothing to range over and is not asked. A cross-plane value is REFUSED at admission: the two vocabularies are disjoint in meaning as well as in membership. THE SCHEMA ALONE CANNOT DECIDE THIS and does not pretend to - `relation` is a CanonicalIdentifier rather than an enum, so no keyword here can look up which registry it belongs to, and this oneOf therefore admits either vocabulary on either relation. The plane check is the admission's, and that limit is stated rather than implied. WHAT THIS FIELD CARRIES: it is the satisfaction/deficiency PROJECTION of its producer's full result, not that result. `sufficiency_v2` also returns `causes` on both branches and may return `disclosures` on a failing branch; those stay with the producer and the retained Coverage and are deliberately not copied here. PRESENCE IS TYPED, NOT OPTIONAL: `deficiency` is REQUIRED exactly when `satisfied` is false and FORBIDDEN when it is true, enforced by the allOf below. `additionalProperties: false` plus that law means an explicit `null` is refused in BOTH branches - a present key with a null value is not an absent key - and `satisfied` must be an actual boolean. WHY NOT D9Deficiency, which this field named before: four of the nine native outcomes are not members of it, so the field could not express its own producer's result, and its D9-mapped value is the same `verdict-indeterminate` for all four - conflating `resolution-incomplete`, the outcome that decides a destructive unused-code repair, with three unrelated causes. D9Deficiency is unchanged and still carries every whole-Run and comparison-step termination. THIS FIELD IS NOT AN AUTHORIZATION: the sealed Run named by evidenceRunId remains the authority, `applicable` is false whenever any requirement is unsatisfied, EVERY delete and EVERY replace is decided against that Run's own native ClosedWorldV2 before any descriptor exists - which no imported requirement can change - and apply requires a security authorization bound to the exact repairPlanId, which every edit to this value moves.",
+           "x-opensip-vocabulary": {
+-            "authority": "native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2",
+-            "mirroredAs": "urn:opensip:product-v1:workflows:common#/$defs/NativeSufficiencyDeficiency",
+-            "law": "native/native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry/perRequirementConsumerBoundary",
+-            "producer": "native-evidence.md section 4.6 sufficiency_v2, per requirement",
+-            "admittedBy": "workflows_model.admit_evidence_requirement, called by repair_preview before any descriptor exists"
++            "nativePlaneAuthority": "native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2",
++            "importedPlaneAuthority": "workflows/schemas/imported-evidence.schema.json#/x-opensip-imported-requirement-law/outcomes",
++            "planeDecidedBy": "the relation registry the relation belongs to, read at admission by workflows_model.admit_evidence_requirement; the same separation the imported-evidence evidenceDeclarationRule already makes. It is NOT decidable by this schema, because `relation` is not an enum here.",
++            "producers": [
++              "native-evidence.md section 4.6 sufficiency_v2 (native plane)",
++              "workflows_model.imported_requirement_outcome (imported plane)"
++            ]
+           }
+         }
+       },

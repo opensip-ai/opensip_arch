@@ -1,0 +1,1721 @@
+{
+ "review": "post-reset-review.v18",
+ "subjectManifestSha256": "cd6e828c22c6bc0ecf07ab8fe1f4bd5d1a5a8726708e0deffac99960bdc25a44",
+ "verdict": "ACCEPT",
+ "verdictScope": "Independent acceptance of the frozen v18 SOURCE bytes only. This is not a blind review, not an application, not a readiness reconciliation and not product qualification. A fresh blind consumer review and a complete independent application remain required after this source ACCEPT.",
+ "reviewerStanding": "Fresh independent Claude review. I authored none of the subject and am not the v17 independent reviewer, the blind reviewer, or the v18 source coauthor. Read-only on source, reviews and history; all writes confined to /tmp/opensip-design-corrections/post-reset-review.v18.",
+ "newMustIssues": [],
+ "newShouldIssues": [],
+ "newAdvisories": [
+  {
+   "id": "V18-ADV-1",
+   "severity": "advisory (nonblocking)",
+   "title": "Coauthor rationale \"each handler is already paired with a post-try refusal-membership check\" is overbroad",
+   "finding": "The handoff justifies the guard as \"the checker's own law\" on the basis that each of the ten handlers is already paired with a post-try `if 'refusal' in exp: check(cid, False, \"no refusal\")`. I checked all ten. That pairing exists at only 4 of 10 sites (checker lines 171, 384, 1112, 1226). At the other 6 (407, 1158, 1171, 1203, 1320, 1360) there is no such post-try membership check.",
+   "whyNonblocking": "This is an accuracy defect in a justification sentence inside a review record, not in the executable delta. The correction is independently correct on its own merits and my controls demonstrate its effect at all ten sites, including the six unpaired ones, where the guard is if anything more valuable because no other mechanism detected an unexpected detail-free refusal there.",
+   "owningSelector": {
+    "path": "docs/coop/design-corrections/reviews/v18-checker-coauthor.v1/handoff.json",
+    "sha256": "4af23cbda4f4b01d3ebf455c609d6933e946cee7f092fb5fcbb9299050ac0fe6",
+    "selector": "/theDefect/whyTheGuardIsTheCheckersOwnLaw"
+   },
+   "counterexample": "checker line 1203 (repair.verify): the statement following the try is must_valid(cid + '.verify-result-schema', ...), not a refusal-membership check.'"
+  },
+  {
+   "id": "V18-ADV-2",
+   "severity": "advisory (nonblocking)",
+   "title": "One same-class absent/explicit-null conflation remains unguarded, at the import errorCode conjunct",
+   "finding": "checker line 384 retains `(case['expect'].get('errorCode') is None or case['expect']['errorCode'] == x.error_code)`. A deliberate `errorCode: null` is indistinguishable from an absent errorCode, which is the same defaulting conflation the ten guards were added to remove.",
+   "whyNonblocking": "I scoped this before raising it. Refusal.__init__ takes error_code as a required positional and every one of the 83 raise sites supplies a non-null code, so \"expect no error code\" is not a satisfiable expectation; and no case in the frozen corpus declares errorCode: null (6 cases carry errorCode, all named). The expression is therefore dead rather than a live false-pass vector, and unlike the ten it cannot pass on its own because the guarded refusal-detail conjunct must still match.",
+   "owningSelector": {
+    "path": "docs/coop/design-corrections/workflows/check_workflows.v1.py",
+    "sha256": "2ac26ab8194993358b529a764eb3f9f852f4f4385d2f31bff5a203da123e6392",
+    "selector": "line 384, importCases handler"
+   },
+   "suggestionForAFuturePass": "If an explicit-null errorCode is ever meant to be expressible, guard it as `('errorCode' not in case['expect'] or ...)`. Not proposed here; it is outside the bounded v18 scope and would change no current verdict."
+  },
+  {
+   "id": "V18-ADV-3",
+   "severity": "advisory (nonblocking)",
+   "title": "Coauthor's first completeness heuristic contains a dead exclusion term",
+   "finding": "In probes/scan_nullable_compares.py, `is_get` requires `len(n.args) == 1`, so the later `defaulted = any(len(n.args) > 1 for n, _ in getsides)` can never be True. Two-argument `.get(key, default)` calls are not merely un-excluded, they are invisible to that scan entirely, so the scan cannot support a completeness claim over them.",
+   "whyNonblocking": "The conclusion happens to be sound here: I counted 39 two-argument `.get` calls in the checker and 0 of them participate in an equality comparison inside an except handler, so nothing was missed. My own independent census, which does not use that heuristic, independently reaches the same set of exactly ten. The method does not establish the claim; the claim is nonetheless true.",
+   "owningSelector": {
+    "path": "docs/coop/design-corrections/reviews/v18-checker-coauthor.v1/probes/scan_nullable_compares.py",
+    "selector": "defaulted = any(len(n.args) > 1 ...)"
+   }
+  }
+ ],
+ "priorFindingDispositions": [
+  {
+   "id": "CB6-MUST-1",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-MUST-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-MUST-2",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-MUST-2"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-SHOULD-1",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-SHOULD-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-SHOULD-2",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-SHOULD-2"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-ADV-1",
+   "originalSeverity": "ADVISORY",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-ADV-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-ADV-2",
+   "originalSeverity": "ADVISORY",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-ADV-2"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-ADV-3",
+   "originalSeverity": "ADVISORY",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/priorFindingDispositions/CB6-ADV-3"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-01",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-01"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-02",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-02"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-03",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-03"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-04",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-04"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-05",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-05"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-06",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-06"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-07",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-07"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-BV6-08",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CX-BV6-08"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-NEW-1",
+   "originalSeverity": "observation",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CB6-NEW-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-NEW-2",
+   "originalSeverity": "observation",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CB6-NEW-2"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-NEW-3",
+   "originalSeverity": "limitation",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CB6-NEW-3"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CB6-NEW-4",
+   "originalSeverity": "observation",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/CB6-NEW-4"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V3-RECEIPT",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V3-RECEIPT"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V3-IMPORT-BINDING",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V3-IMPORT-BINDING"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V3-IMPORT-CAUSE",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V3-IMPORT-CAUSE"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V3-IMPORT-SEMANTICS",
+   "originalSeverity": "MUST",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V3-IMPORT-SEMANTICS"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V3-PRECISION",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V3-PRECISION"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V4-CR-1",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V4-CR-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "BV6-V5-CR-1",
+   "originalSeverity": "SHOULD",
+   "dispositionByThisReview": "PRESERVED-UNCHANGED-SOURCE",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/additionalSourceFindingDispositions/BV6-V5-CR-1"
+   },
+   "basis": "The owning bytes for this finding are byte-identical v17->v18. I verified independently that all 42 law-bearing files (product contracts, schemas, models, case corpus) are unchanged and that the sole executable delta is ten AND-conjuncts in the reference checker, which can only strengthen a check. I therefore preserve the v17 resolution at its exact prior reference rather than re-deriving it.",
+   "scope": "Preservation by unchanged source plus monotonic delta. Not a fresh re-verification of the original finding evidence, and not an application or readiness grade."
+  },
+  {
+   "id": "CX-V17-REFUSAL-EXPECTATION",
+   "originalSeverity": "SHOULD (root)",
+   "originalReviewerSeverity": "advisory (nonblocking), as V17-ADV-3",
+   "dispositionByThisReview": "RESOLVED-VERIFIED-INDEPENDENTLY",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/codex-post-reset.v1/review-assessment.v17.json",
+    "sha256": "13c35078898fd3d7359a413f6f70357fe33ca4b70a98fb12302c7824f7270b32",
+    "selector": "/unresolvedRootShouldIssues/0"
+   },
+   "severityDisagreementPreserved": "The independent v17 reviewer graded this advisory (nonblocking). Root graded it SHOULD and withheld promotion; the source coauthor independently agreed SHOULD. That disagreement stands in the record. The v17 reviewer did NOT regrade its own advisory, and nothing here should be read as such. My own independent grade agrees with SHOULD, as a new judgement of my own, because a detail-free refusal made the whole suite exit 0 green.",
+   "basis": "My own AST rollback proof shows rolling back exactly the ten guard conjuncts in the v18 checker reproduces the v17 AST exactly, and that v17 contained zero guards of that shape. My own handler census over all 23 except-handlers counts 10 unguarded defaulting expected-refusal comparisons in v17 and 0 in v18. My own controls demonstrate a real false pass removed in all ten contexts, with zero regressions.",
+   "verifiedAgainst": {
+    "path": "docs/coop/design-corrections/workflows/check_workflows.v1.py",
+    "beforeSha256": "2fe3143944ff256c84d6ef3f09be685868a22e7937e7f4bb21e4b717b523d17d",
+    "afterSha256": "2ac26ab8194993358b529a764eb3f9f852f4f4385d2f31bff5a203da123e6392"
+   }
+  },
+  {
+   "id": "V17-ADV-1",
+   "originalSeverity": "advisory (nonblocking)",
+   "dispositionByThisReview": "ACCOUNTED-VERIFIED-AT-ORIGINAL-SEVERITY",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/newAdvisories/0"
+   },
+   "basis": "I read the consumers directly. Both call sites index IMPORTED_REQUIREMENT_LAW['perKindApplicability'][req['relation']] by a validated relation key (workflows_model.v1.py:1012 and :1148), and requirement_plane resolves the plane from EVIDENCE_RELATIONS registry membership, never from a naming convention, with admit_atom refusing an unregistered relation first. The embedded `rule` key is therefore unreachable as a relation and is inert metadata. No silent relocation was performed: the schema still carries `rule` and the file is byte-identical to v17.",
+   "scope": "Source inspection of the consumer join. Not a host or product qualification."
+  },
+  {
+   "id": "V17-ADV-2",
+   "originalSeverity": "advisory (nonblocking)",
+   "dispositionByThisReview": "RESOLVED-VERIFIED",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/newAdvisories/1"
+   },
+   "basis": "I swept all 107 declared {path,sha256} joins in the v18 governance records against actual frozen bytes. 102 resolve exactly, 1 is a subject-manifest digest, and the 4 that do not match file bytes are each explicitly labelled historical as-of pins that carry a separate currentSource which DOES resolve. Item 44 (V14-ADV-2) now labels its ef0c244e sourceCorrection as historical as-of-v16 and binds currentSource 53380a2455490e07 for foundation/relation-payload-schemas.v2.json, which I confirmed equals the actual v18 bytes. The frozen v17 advisory account file is not in the changed-path set, so the original is untouched.",
+   "scope": "Digest-join and provenance verification. Distinguishes review-file digests, subject-manifest digests and historical as-of references."
+  },
+  {
+   "id": "V17-ADV-3",
+   "originalSeverity": "advisory (nonblocking)",
+   "dispositionByThisReview": "CORRECTION-IMPLEMENTED-AND-INDEPENDENTLY-VERIFIED",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/newAdvisories/2"
+   },
+   "basis": "The original advisory severity is preserved verbatim in the v18 records. The root CX-V17-REFUSAL-EXPECTATION required correction is implemented at all ten sites and verified by my own proofs and controls above.",
+   "scope": "Same executable evidence as CX-V17-REFUSAL-EXPECTATION."
+  },
+  {
+   "id": "V18-OBS-1",
+   "originalSeverity": "observation, not required",
+   "dispositionByThisReview": "AGREED-NONBLOCKING",
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/v18-checker-coauthor.v1/handoff.json",
+    "sha256": "4af23cbda4f4b01d3ebf455c609d6933e946cee7f092fb5fcbb9299050ac0fe6",
+    "selector": "/nonBlockingObservation"
+   },
+   "basis": "Reproduced. In my p14 variant A the emitted row is the failing check id with detail null, exactly as observed. The check id names the failing control and the verdict is correct, so this is a reference-test diagnostic convenience only. No public contract, schema, model or case expectation is involved, and no product failure composition changes.",
+   "scope": "Optional future diagnostic richness. Not an unperformed qualification gate."
+  }
+ ],
+ "priorFindingAccounting": {
+  "v17ResolvedFindingsPreserved": 26,
+  "method": "Preserved by exact prior reference plus my own byte-identity and monotonicity proof, not by re-deriving each original finding and not by trusting the v17 ACCEPT headline.",
+  "newRootAndAdvisoryItemsDisposed": [
+   "CX-V17-REFUSAL-EXPECTATION",
+   "V17-ADV-1",
+   "V17-ADV-2",
+   "V17-ADV-3",
+   "V18-OBS-1"
+  ],
+  "everyOriginalSeverityPreserved": true,
+  "noSeverityDowngraded": true,
+  "newAdvisoriesRaisedByThisReview": 3
+ },
+ "executableDelta": {
+  "declaredScope": "Ten membership guards in workflows/check_workflows.v1.py",
+  "independentlyVerified": true,
+  "file": {
+   "path": "docs/coop/design-corrections/workflows/check_workflows.v1.py",
+   "beforeSha256": "2fe3143944ff256c84d6ef3f09be685868a22e7937e7f4bb21e4b717b523d17d",
+   "afterSha256": "2ac26ab8194993358b529a764eb3f9f852f4f4385d2f31bff5a203da123e6392",
+   "linesBefore": 1423,
+   "linesAfter": 1423,
+   "diffHunks": 10
+  },
+  "exactAstProof": {
+   "method": "Rolled back every BoolOp of the shape (K in D and RHS) -> RHS, restricted to sites where RHS actually reads key K, then compared full AST dumps.",
+   "guardSitesInV18": 10,
+   "guardSitesInV17": 0,
+   "rolledBackV18AstEqualsV17Ast": true,
+   "note": "A first, looser transformer over-matched a pre-existing unrelated conjunct (`'sarif' in c['formats'] and ...` at line 1340) and reported 11 sites and AST inequality. That attempt is preserved; the restricted transformer is the proof."
+  },
+  "handlerCensus": {
+   "totalExceptHandlers": 23,
+   "handlersWithAnExpectedRefusalComparison": 10,
+   "unguardedDefaultingComparisonsInV17": 10,
+   "unguardedDefaultingComparisonsInV18": 0,
+   "noEquivalentMissedWithinChecker": true
+  },
+  "guards": [
+   {
+    "context": "invocation",
+    "checkerLine": 171,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "run_invocation",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 24,
+     "sampleNewlyCaughtCheckIds": [
+      "invocation.audit-10k-inherited-plus-one-net-new-exit-1.refusal",
+      "invocation.audit-10k-inherited-run-fail-comparison-pass-exit-0.refusal"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at run_invocation and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "import (with optional errorCode conjunct)",
+    "checkerLine": 384,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "build_import",
+    "inspected": true,
+    "myControl": {
+     "injection": "call#2",
+     "falsePassRowsRemovedByGuard": 1,
+     "sampleNewlyCaughtCheckIds": [
+      "import.same-payload-different-correspondence-different-wrapper.refusal"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at build_import and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "source-mapping (reversed comparison order)",
+    "checkerLine": 407,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "admit_source_mapping",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 1,
+     "sampleNewlyCaughtCheckIds": [
+      "source-mapping.mapping-joins-snapshot-inventory"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at admit_source_mapping and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "repair.preview",
+    "checkerLine": 1112,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "repair_preview",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 25,
+     "sampleNewlyCaughtCheckIds": [
+      "repair.apply-completes-and-tree-matches-postimages",
+      "repair.apply-fault-mid-rename-rolls-back"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at repair_preview and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "repair.recover",
+    "checkerLine": 1158,
+    "guardedKey": "recoverRefusal",
+    "modelEntryPoint": "repair_recover",
+    "inspected": true,
+    "myControl": {
+     "injection": "call#2",
+     "falsePassRowsRemovedByGuard": 1,
+     "sampleNewlyCaughtCheckIds": [
+      "repair.recover-from-applying-journal-rolls-back"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at repair_recover and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "repair.apply",
+    "checkerLine": 1171,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "repair_apply",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 6,
+     "sampleNewlyCaughtCheckIds": [
+      "repair.apply-completes-and-tree-matches-postimages",
+      "repair.apply-fault-mid-rename-rolls-back"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at repair_apply and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "repair.verify",
+    "checkerLine": 1203,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "repair_verify",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 3,
+     "sampleNewlyCaughtCheckIds": [
+      "repair.apply-completes-and-tree-matches-postimages.verify",
+      "repair.verify-link-is-separate-from-immutable-receipt.verify"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at repair_verify and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "test-execution",
+    "checkerLine": 1226,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "admit_test_execution",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 3,
+     "sampleNewlyCaughtCheckIds": [
+      "test.admitted-disclosed-not-confined",
+      "test.interactive-consent-outside-ci-admits"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at admit_test_execution and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "render",
+    "checkerLine": 1320,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "render",
+    "inspected": true,
+    "myControl": {
+     "injection": "render call #4 (earlier calls are outside any try)",
+     "falsePassRowsRemovedByGuard": 1,
+     "sampleNewlyCaughtCheckIds": [
+      "render.analyze-parity-across-five-formats"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at render and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   },
+   {
+    "context": "review",
+    "checkerLine": 1360,
+    "guardedKey": "refusal",
+    "modelEntryPoint": "review_join",
+    "inspected": true,
+    "myControl": {
+     "injection": "unconditional",
+     "falsePassRowsRemovedByGuard": 4,
+     "sampleNewlyCaughtCheckIds": [
+      "review.exact-365-calendar-days-admitted",
+      "review.expired-suppression-resurfaces-with-flag"
+     ],
+     "oldOnlyFailures": 0
+    },
+    "basis": "I injected a detail-None Refusal at review_join and ran the v17 and v18 checkers over the identical tree; rows passing under v17 and failing under v18 are actual false passes the guard removes."
+   }
+  ],
+  "monotonicity": "Each guard is added as the first conjunct of an AND whose second conjunct is the unchanged v17 expression, so the new condition implies the old one. A guard can only turn a pass into a failure, never a failure into a pass. Confirmed empirically: zero old-only failures across all ten context controls."
+ },
+ "myControls": {
+  "standing": "Authored by me. Root's 100 synthetic handler-body executions and the coauthor's single corpus injection are supporting evidence, not my oracle.",
+  "falsePassDemonstratedInContexts": "10 of 10",
+  "totalFalsePassRowsRemoved": 69,
+  "regressions": 0,
+  "nullSemanticsTruthTable": {
+   "basis": "Pure corpus change, no model patching, using the model's own detail-None refusal at workflows_model.v1.py:1539 (repair_preview, 'target fingerprint not in the evidence Run') reached by a case runOverride emptying run['findings'].",
+   "A_noRefusalKey": {
+    "v17": "PASS (false pass, suite exit 0)",
+    "v18": "FAIL (exit 1)"
+   },
+   "B_explicitNull": {
+    "v17": "PASS",
+    "v18": "PASS",
+    "meaning": "deliberate null remains legal"
+   },
+   "C_wrongNamedRefusal": {
+    "v17": "FAIL",
+    "v18": "FAIL",
+    "meaning": "named negative preserved"
+   },
+   "D_untouchedCorpus": {
+    "v17": "PASS",
+    "v18": "PASS",
+    "meaning": "no regression"
+   },
+   "allFourMatchIntendedSemantics": true
+  },
+  "liveReachability": {
+   "raiseRefusalSites": 83,
+   "sitesWhereDetailIsNone": 10,
+   "note": "Detail-None refusals are live in the current model, so the v17 defect was reachable, not merely theoretical. The frozen corpus does not currently trigger one, which is why the unchanged suite passed under both checkers."
+  }
+ },
+ "custody": {
+  "subjectManifest": {
+   "path": "docs/coop/design-corrections/reviews/candidate-subject.v18.json",
+   "sha256": "cd6e828c22c6bc0ecf07ab8fe1f4bd5d1a5a8726708e0deffac99960bdc25a44",
+   "bytes": 1907291
+  },
+  "verifiedBefore": {
+   "declaredFiles": 7864,
+   "hashMismatches": 0,
+   "lengthMismatches": 0,
+   "missing": 0,
+   "undeclaredExtras": 0,
+   "summedBytes": 544831302,
+   "declaredTotalBytes": 544831302
+  },
+  "verifiedAfter": {
+   "identicalToBefore": true,
+   "manifestRehashUnchanged": true
+  },
+  "transitivePins": {
+   "pinFiles": 4,
+   "totalPinEntries": 1308,
+   "verifiedAgainstActualBytes": 1308,
+   "mismatched": 0,
+   "unresolved": 0,
+   "v17ToV18PinChanges": "only check_workflows.v1.py (all four pin files) and correction-crosswalk.proposed.json (security, workflows). No repinning was performed by me and none was needed."
+  },
+  "disposableCopy": {
+   "root": "/tmp/opensip-design-corrections/post-reset-review.v18/disposable-copy",
+   "basis": "FULL exact copy of all 7864 files, not a partial extract",
+   "inventoryAfterAllSixRuns": "added 0, removed 0, changed 0 versus frozen",
+   "note": "Regenerated reports were byte-identical to the frozen ones, so the copy returned to byte identity with the snapshot."
+  },
+  "writeScope": "/tmp/opensip-design-corrections/post-reset-review.v18 only. No live repository byte and no frozen snapshot byte was written at any point."
+ },
+ "referenceChecks": {
+  "standing": "Reference counts are calls and cases, not product qualification.",
+  "commandsReproduced": 6,
+  "exitsMatchedDeclared": 6,
+  "sourceShasMatchedDeclared": 6,
+  "generatedReportsByteIdenticalToFrozen": true,
+  "stdoutByteIdenticalToFrozenLogs": true,
+  "repinningPerformed": false,
+  "note": "I ran the full six through run-reference-checks.py wrappers, so the source-pin gate WAS exercised in my reproduction. The coauthor invoked the checker directly and explicitly did not exercise that gate; its 1219-file copies intentionally omit 6452 review files (v17 carries 1216 non-review plus 6455 review files). I closed that gap with a full copy."
+ },
+ "lawPreservation": {
+  "method": "Byte identity plus delta monotonicity, not an ACCEPT headline and not counts.",
+  "changedPathsV17ToV18": 11,
+  "lawBearingFilesChanged": 0,
+  "lawBearingFilesInV18": 42,
+  "lawBearingFilesByteIdenticalToV17": 42,
+  "categories": {
+   "executable-checker": 1,
+   "source-pin": 4,
+   "generated-report": 3,
+   "narrative-record": 1,
+   "review-record": 1,
+   "crosswalk-record": 1
+  },
+  "preservedLaws": [
+   "zero-config discovery and installed capability availability",
+   "typed config and TS logical node kinds",
+   "language-specific native evidence and provider/body/dialect ownership",
+   "clone progression and confidence",
+   "import/runtime/history/test evidence authority",
+   "per-requirement native-9 / imported-7 causes with lossless producer/consumer vocabulary",
+   "coverage partition within the full owning tuple and conditional file totality",
+   "stable identity and typed canonical closure",
+   "baseline changed-code audit",
+   "command/operation/generic-vs-repair replay",
+   "immutable Run and current availability",
+   "public failure composition",
+   "authorization and output failure after a committed Run"
+  ],
+  "basis": "Every contract, schema, model and case-corpus file carrying these laws is byte-identical v17->v18, so none can have been weakened. The one executable change is confined to a reference harness and is monotonically stricter, so no law that was enforced in v17 is unenforced in v18. I did not infer this from the v17 verdict.",
+  "newRequiredGapsFound": 0
+ },
+ "arDispositions": {
+  "AR-01": {
+   "id": "AR-01",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-01"
+   }
+  },
+  "AR-02": {
+   "id": "AR-02",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-02"
+   }
+  },
+  "AR-03": {
+   "id": "AR-03",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-03"
+   }
+  },
+  "AR-04": {
+   "id": "AR-04",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-04"
+   }
+  },
+  "AR-05": {
+   "id": "AR-05",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-05"
+   }
+  },
+  "AR-06": {
+   "id": "AR-06",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-06"
+   }
+  },
+  "AR-07": {
+   "id": "AR-07",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-07"
+   }
+  },
+  "AR-08": {
+   "id": "AR-08",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-08"
+   }
+  },
+  "AR-09": {
+   "id": "AR-09",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-09"
+   }
+  },
+  "AR-10": {
+   "id": "AR-10",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-10"
+   }
+  },
+  "AR-11": {
+   "id": "AR-11",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-11"
+   }
+  },
+  "AR-12": {
+   "id": "AR-12",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-12"
+   }
+  },
+  "AR-13": {
+   "id": "AR-13",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-13"
+   }
+  },
+  "AR-14": {
+   "id": "AR-14",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-14"
+   }
+  },
+  "AR-15": {
+   "id": "AR-15",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-15"
+   }
+  },
+  "AR-16": {
+   "id": "AR-16",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "AR owning document docs/coop/architecture-depth-review/REVIEW.md is byte-identical v17->v18 (verified against both manifests). correction-crosswalk.proposed.json did change, but I diffed it leaf-by-leaf: 64 changed leaves are all latestCompletedReview pointers and 96 added leaves are appended historicalReviews entries, with 0 removals. Every obligation, selector, owner, unit, contract and status field is unchanged.",
+   "scope": "Preservation only; review-routing moved, obligation did not. This is not a new grade.",
+   "authority": "The row's own owner and the separately reviewed application. Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/arDispositions/AR-16"
+   }
+  }
+ },
+ "fwDispositions": {
+  "FW-01": {
+   "id": "FW-01",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-01"
+   }
+  },
+  "FW-02": {
+   "id": "FW-02",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-02"
+   }
+  },
+  "FW-03": {
+   "id": "FW-03",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-03"
+   }
+  },
+  "FW-04": {
+   "id": "FW-04",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-04"
+   }
+  },
+  "FW-05": {
+   "id": "FW-05",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-05"
+   }
+  },
+  "FW-06": {
+   "id": "FW-06",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-06"
+   }
+  },
+  "FW-07": {
+   "id": "FW-07",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-07"
+   }
+  },
+  "FW-08": {
+   "id": "FW-08",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-08"
+   }
+  },
+  "FW-09": {
+   "id": "FW-09",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-09"
+   }
+  },
+  "FW-10": {
+   "id": "FW-10",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-10"
+   }
+  },
+  "FW-11": {
+   "id": "FW-11",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-11"
+   }
+  },
+  "FW-12": {
+   "id": "FW-12",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-12"
+   }
+  },
+  "FW-13": {
+   "id": "FW-13",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-13"
+   }
+  },
+  "FW-14": {
+   "id": "FW-14",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-14"
+   }
+  },
+  "FW-15": {
+   "id": "FW-15",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "current-source-map.proposed.md is byte-identical v17->v18 and absent from the 11-path changed set I computed from the two manifests.",
+   "scope": "Preservation only.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/fwDispositions/FW-15"
+   }
+  }
+ },
+ "inheritedResidualDispositions": {
+  "DR-001": {
+   "id": "DR-001",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-001"
+   }
+  },
+  "DR-002": {
+   "id": "DR-002",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-002"
+   }
+  },
+  "DR-003": {
+   "id": "DR-003",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-003"
+   }
+  },
+  "DR-004": {
+   "id": "DR-004",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-004"
+   }
+  },
+  "DR-005": {
+   "id": "DR-005",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-005"
+   }
+  },
+  "DR-006": {
+   "id": "DR-006",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-006"
+   }
+  },
+  "DR-007": {
+   "id": "DR-007",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-007"
+   }
+  },
+  "DR-008": {
+   "id": "DR-008",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-008"
+   }
+  },
+  "DR-009": {
+   "id": "DR-009",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-009"
+   }
+  },
+  "DR-010": {
+   "id": "DR-010",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-010"
+   }
+  },
+  "DR-011": {
+   "id": "DR-011",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011"
+   }
+  },
+  "DR-011-R01": {
+   "id": "DR-011-R01",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R01"
+   }
+  },
+  "DR-011-R02": {
+   "id": "DR-011-R02",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R02"
+   }
+  },
+  "DR-011-R03": {
+   "id": "DR-011-R03",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R03"
+   }
+  },
+  "DR-011-R04": {
+   "id": "DR-011-R04",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R04"
+   }
+  },
+  "DR-011-R05": {
+   "id": "DR-011-R05",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R05"
+   }
+  },
+  "DR-011-R06": {
+   "id": "DR-011-R06",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R06"
+   }
+  },
+  "DR-011-R07": {
+   "id": "DR-011-R07",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R07"
+   }
+  },
+  "DR-011-R08": {
+   "id": "DR-011-R08",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R08"
+   }
+  },
+  "DR-011-R09": {
+   "id": "DR-011-R09",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R09"
+   }
+  },
+  "DR-011-R10": {
+   "id": "DR-011-R10",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R10"
+   }
+  },
+  "DR-011-R11": {
+   "id": "DR-011-R11",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R11"
+   }
+  },
+  "DR-011-R12": {
+   "id": "DR-011-R12",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R12"
+   }
+  },
+  "DR-011-R13": {
+   "id": "DR-011-R13",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R13"
+   }
+  },
+  "DR-011-R14": {
+   "id": "DR-011-R14",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R14"
+   }
+  },
+  "DR-011-R15": {
+   "id": "DR-011-R15",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R15"
+   }
+  },
+  "DR-011-R16": {
+   "id": "DR-011-R16",
+   "disposition": "CARRIED-UNCHANGED",
+   "basis": "inherited-residuals.proposed.md and inherited-row-sources.proposed.json are both byte-identical v17->v18.",
+   "scope": "Preservation only. DR-011-R10 in particular still requires a fresh blind implementer litmus that this review does not supply; DR-012 is header prose, explicitly excluded, not a row.",
+   "authority": "Not this review's to grant.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/inheritedResidualDispositions/DR-011-R16"
+   }
+  }
+ },
+ "scopedReviewOwnerDispositions": {
+  "DR-201": {
+   "id": "DR-201",
+   "disposition": "ROUTING-ASSESSED-ONLY-NOT-APPLIED",
+   "basis": "Owning register docs/v2/architecture/08-decision-and-readiness-register.md is byte-identical v17->v18 (verified against both manifests). The row's own historical scoped disposition stands unchanged as history. Only review routing was assessed.",
+   "scope": "Routing assessment of a scoped review owner. NOT a grade and NOT a final application outcome.",
+   "authority": "The row's own owner and the separately reviewed application.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/scopedReviewOwnerDispositions/DR-201"
+   }
+  },
+  "DR-202": {
+   "id": "DR-202",
+   "disposition": "ROUTING-ASSESSED-ONLY-NOT-APPLIED",
+   "basis": "Owning register docs/v2/architecture/08-decision-and-readiness-register.md is byte-identical v17->v18 (verified against both manifests). The row's own historical scoped disposition stands unchanged as history. Only review routing was assessed.",
+   "scope": "Routing assessment of a scoped review owner. NOT a grade and NOT a final application outcome.",
+   "authority": "The row's own owner and the separately reviewed application.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/scopedReviewOwnerDispositions/DR-202"
+   }
+  },
+  "DR-203": {
+   "id": "DR-203",
+   "disposition": "ROUTING-ASSESSED-ONLY-NOT-APPLIED",
+   "basis": "Owning register docs/v2/architecture/08-decision-and-readiness-register.md is byte-identical v17->v18 (verified against both manifests). The row's own historical scoped disposition stands unchanged as history. Only review routing was assessed.",
+   "scope": "Routing assessment of a scoped review owner. NOT a grade and NOT a final application outcome.",
+   "authority": "The row's own owner and the separately reviewed application.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/scopedReviewOwnerDispositions/DR-203"
+   }
+  },
+  "DR-204": {
+   "id": "DR-204",
+   "disposition": "ROUTING-ASSESSED-ONLY-NOT-APPLIED",
+   "basis": "Owning register docs/v2/architecture/08-decision-and-readiness-register.md is byte-identical v17->v18 (verified against both manifests). The row's own historical scoped disposition stands unchanged as history. Only review routing was assessed.",
+   "scope": "Routing assessment of a scoped review owner. NOT a grade and NOT a final application outcome.",
+   "authority": "The row's own owner and the separately reviewed application.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/scopedReviewOwnerDispositions/DR-204"
+   }
+  },
+  "DR-205": {
+   "id": "DR-205",
+   "disposition": "ROUTING-ASSESSED-ONLY-NOT-APPLIED",
+   "basis": "Owning register docs/v2/architecture/08-decision-and-readiness-register.md is byte-identical v17->v18 (verified against both manifests). The row's own historical scoped disposition stands unchanged as history. Only review routing was assessed.",
+   "scope": "Routing assessment of a scoped review owner. NOT a grade and NOT a final application outcome.",
+   "authority": "The row's own owner and the separately reviewed application.",
+   "appliedByThisReview": false,
+   "finalApplicationOutcomeGranted": false,
+   "priorReference": {
+    "path": "docs/coop/design-corrections/reviews/post-reset-review.v17-clarification.v1/review.json",
+    "sha256": "7acde2944740ff150a5bbcad9a48d1a20ac7a5e1e21755d5674dcf7721628904",
+    "selector": "/scopedReviewOwnerDispositions/DR-205"
+   }
+  }
+ },
+ "ownerRoutingScopeStatement": "For the five DR-201..205 scoped review owner rows only review routing was assessed. Each literally sets appliedByThisReview=false and finalApplicationOutcomeGranted=false. Carried or routing-only status is not a new grade.",
+ "registers": {
+  "arRows": 16,
+  "fwRows": 15,
+  "inheritedResiduals": 27,
+  "inheritedResidualNote": "DR-001..011 plus the DR-011 subledger R01..R16. DR-012 is header prose explicitly excluded, not a table row.",
+  "evaluationSubresiduals": 30,
+  "scopedReviewOwners": 5,
+  "qualificationGates": 32,
+  "gateIds": "DR-G01..DR-G32",
+  "gatesDemonstrated": 0,
+  "gatesQualified": 0,
+  "gatesImplementationHarnessAuthored": 0,
+  "allGatesRemainUnperformed": true,
+  "gatesPerformedByThisReview": 0,
+  "gatesFileByteIdenticalV17ToV18": true,
+  "verification": "I read qualification-gates.proposed.json directly in the v18 snapshot: 32 rows, and 0 rows carry a non-false value for demonstrated, qualified or implementationHarnessAuthored.",
+  "d372": {
+   "applied": false,
+   "condition5": "NOT MET",
+   "basis": "docs/coop/design-corrections/README.md states D-372 has not been applied and the central readiness register is unchanged; the register document is byte-identical v17->v18."
+  },
+  "selectedMachineIdsAndLanguagePaths": "Four selected macOS/Linux machine IDs and the TS/JS/Rust/bounded-grammar paths are retained unchanged; their owning files are byte-identical v17->v18. Carried, not regraded by me."
+ },
+ "evidenceKindDistinctions": {
+  "measuredSchemaOrHelper": "Schema validity and helper-level checks inside the reference suite.",
+  "fullClosure": "Only where a full admitted Run closure was actually computed; partial helper inputs are not admitted native or full Runs.",
+  "caseInjection": "My ten-context controls and the four-variant truth table. These are corpus and model-entry injections, not product Runs.",
+  "sourceInspection": "The AST proofs, handler census, pin joins and register byte-identity checks.",
+  "hostQualification": "NONE performed. No product host measurement exists and I manufactured none.",
+  "firstActualRefusalBoundary": "The model raises 83 refusals, 10 with a null detail; the first actual boundary I exercised is repair_preview at workflows_model.v1.py:1539.",
+  "v17ClosureDenominatorNote": "The earlier v17 CL3 mixed denominators: 177 of 240 relation/cause cross-product controls plus 14 presence/carryability equals 191, where a full sweep would be 254 with the extra 14. I did not repeat the v17 full probe suite, because no new concern requires it; 7 p06 controls actually exercised full closure and other authorization/config/key claims remain static or helper-level as originally qualified."
+ },
+ "failedAttempts": [
+  {
+   "id": "failed-attempt-01",
+   "file": "probes/failed-attempt-01-p11-unconditional-injection.py",
+   "whatFailed": "Parsed the report `failed` field as a list of rows; in these runs it is a count, so every context reported 0 failures and 0 deltas.",
+   "correction": "Parsed the `FAIL <id> <detail>` lines from stdout instead (p12)."
+  },
+  {
+   "id": "failed-attempt-02",
+   "file": "probes/failed-attempt-02-p22-regex-monotonicity.py",
+   "whatFailed": "A regex restatement of the monotonicity pairing matched 0 of 7 changed check-call strings because of nested parentheses.",
+   "correction": "Not repaired; the p04 AST rollback equality already proves the same property exactly."
+  },
+  {
+   "id": "failed-attempt-03",
+   "file": "probes/p04_exact_ast_proof.py (guarded_by predicate)",
+   "whatFailed": "An ancestor-walk predicate reported all ten guarded sites as unguarded.",
+   "correction": "Rebuilt with an explicit parent map in p05, which yields V17=10 and V18=0."
+  },
+  {
+   "id": "failed-attempt-04",
+   "file": "logs/p13-render-control.json",
+   "whatFailed": "Injecting at render call #1..#3 escaped uncaught, because M.render is also called outside any try. 3 attempts preserved.",
+   "correction": "Swept the call index; call #4 lands inside the guarded renderCases try."
+  },
+  {
+   "id": "failed-attempt-05",
+   "file": "probes/p08.out",
+   "whatFailed": "Counted a positional Constant None as \"has a detail\", concluding 0 detail-free raise sites and wrongly framing the defect as latent.",
+   "correction": "Re-measured in p10: 10 of 83 raise sites pass detail=None, so the defect is live-reachable."
+  }
+ ],
+ "evidenceHonesty": [
+  "I verified the delta myself rather than trusting the root or coauthor claims, and I found the coauthor rationale overbroad and its first heuristic partly dead while still reaching the same set of ten.",
+  "Reference check counts are calls and cases. They are not product qualification.",
+  "46 handler line hits in the coauthor trace show reachability only, not coverage of all null edge cases. My controls add the discriminating behaviour the trace does not establish.",
+  "No implementation, commit, push, publication or readiness change is part of this review.",
+  "I claim no blind agreement, no application agreement and no readiness agreement."
+ ],
+ "standing": "PROPOSED independent source ACCEPT of the frozen v18 candidate. No promotion is conferred.",
+ "requiredNextActs": [
+  "A fresh blind consumer review of these exact v18 bytes. No blind pass has accepted v17 or v18 yet, and the prior v16 ACCEPT did not survive blind 6; all blind-6 and earlier corrections remain in view.",
+  "A complete, independently reviewed application and readiness reconciliation.",
+  "D-372 application and the 32 qualification gates remain entirely unperformed."
+ ],
+ "implementationAuthorized": false,
+ "readinessChanged": false,
+ "productQualification": false,
+ "blindAgreementClaimed": false,
+ "applicationAgreementClaimed": false
+}

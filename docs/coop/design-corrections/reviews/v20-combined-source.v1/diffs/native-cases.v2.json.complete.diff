@@ -1,0 +1,765 @@
+--- before/docs/coop/design-corrections/native/native-cases.v2.json
++++ after/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -26,7 +26,10 @@
+   "PR-MUST-3": "post-reset review MUST-3: one shared discovery rule (../discovery-defaults.py); dependency/VCS/Cargo-output trees pruned by exact segment; installed manifests are never units; typed cap; `.` sentinel normalization shared with security",
+   "PR-SHOULD-4": "post-reset review SHOULD-4: sufficiency v2 evaluates the confidence floor for every requirement; no one-rung existential shortcut",
+   "PR2-P3": "post-reset review v2 P3: native unit discovery consumes the security instrument's admitted boundary inventory (nested repositories, nested projects, custody exclusions); units/memberships at or below a boundary are outside the project; explicit roots crossing a boundary refuse; the Plan scope names the boundaries; the standalone instrument discloses source=none",
+-  "PR2-P22": "post-reset review v2 P22: an explicit Cargo workspace root keeps its member packages folded and their target output pruned; explicit roots are unit selection, never loss of Cargo workspace semantics"
++  "PR2-P22": "post-reset review v2 P22: an explicit Cargo workspace root keeps its member packages folded and their target output pruned; explicit roots are unit selection, never loss of Cargo workspace semantics",
++  "CB8-MUST-1": "analysis-spec/stage-spec parameter SELECTION cardinality: at most one selected parameter per registered payload-registry row. Owned by foundation identity-schemas.v2.json#/x-opensip-payload-registry/classes/parameter/selectionCardinality and identity-and-evidence section 3; enforced at this unit's pre-Plan admit_analysis_spec, at retained Run closure, and independently in the workflow scope binding verifier.",
++  "CB8-SHOULD-2": "analysis-spec requestedCapabilities ownership tuple (capabilityId, languageMode, workspaceRoot) is unique within one spec. Published in foundation identity-schemas.v2.json#/$defs/analysis-spec and native-evidence section 1.4; enforced in admit_requested_capabilities, which both the pre-Plan boundary and retained Run closure call; routed by x-opensip-public-route-registry key native.requested-capability-duplicate-ownership-tuple.",
++  "CB8-MUST-3": "RC-6: coverage=complete requires resolutionCompleteness.examinedExhaustive=true, at the producer boundary and again at retained Run closure. An implication, never an equality: coverage=unknown constrains examinedExhaustive in neither direction."
+  },
+  "fixtures": {
+   "rust3": [
+@@ -4397,7 +4400,7 @@
+    ],
+    "producerClosure": "closure2:d1990f97a1f4fe7b8e86da8c03c9dd3f7d536c14aa4a6f9eedab07f34cd961b0",
+    "schemaDigests": [
+-    "5665e5dd92cd022040142a63d8e183cc258f678baf8f0674f8da9ebe0302a7a4"
++    "b1fff36d7c09afaecdf2e043ddcb8c88791b13a7bbb58822651e2654f34dc5c8"
+    ]
+   },
+   "unresolvedEdgeFact": {
+@@ -20694,6 +20697,741 @@
+     "$floor.satisfied": false,
+     "$floor.deficiency": "confidence-floor-unmet"
+    }
++  },
++  {
++   "id": "cb8-duplicate-capability-ownership-tuple-refused",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "negative",
++   "note": "Two rows for ONE (capabilityId, languageMode, workspaceRoot) disagreeing only on `required`. uniqueItems sees two DISTINCT items and admits them, and the per-row vocabulary loop judges each alone, so nothing refused this before; both rows enter analysisSpecDigest and therefore PlanId, so the undetermined requiredness is COMMITTED.",
++   "steps": [
++    {
++     "fn": "admit_requested_capabilities",
++     "args": {
++      "requested": [
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       },
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": true
++       }
++      ]
++     },
++     "expectError": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++     "bind": "e"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "cb8-duplicate-capability-tuple-refused-at-the-pre-plan-boundary",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "negative",
++   "note": "The SAME law at the analysis-spec boundary. admit_requested_capabilities is the helper BOTH this boundary and retained Run closure call, so the two agree by construction.",
++   "steps": [
++    {
++     "fn": "admit_analysis_spec",
++     "args": {
++      "spec": {
++       "schemaVersion": 2,
++       "requestedCapabilities": [
++        {
++         "capabilityId": "inventory",
++         "languageMode": "ts-tsconfig",
++         "workspaceRoot": ".",
++         "required": false
++        },
++        {
++         "capabilityId": "inventory",
++         "languageMode": "ts-tsconfig",
++         "workspaceRoot": ".",
++         "required": true
++        }
++       ],
++       "policyPackIds": [],
++       "parameters": []
++      }
++     },
++     "expectError": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++     "bind": "e"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "cb8-same-capability-on-another-workspace-root-admitted",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "positive",
++   "note": "Only the tuple is constrained. A different unit root is a different cell.",
++   "steps": [
++    {
++     "fn": "admit_requested_capabilities",
++     "args": {
++      "requested": [
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       },
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": "pkg/a",
++        "required": true
++       }
++      ]
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.1.workspaceRoot": "pkg/a"
++   }
++  },
++  {
++   "id": "cb8-same-capability-in-another-registered-mode-admitted",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_requested_capabilities",
++     "args": {
++      "requested": [
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       },
++       {
++        "capabilityId": "inventory",
++        "languageMode": "js-allowjs",
++        "workspaceRoot": ".",
++        "required": true
++       }
++      ]
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.1.languageMode": "js-allowjs"
++   }
++  },
++  {
++   "id": "cb8-different-capabilities-on-one-unit-admitted",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_requested_capabilities",
++     "args": {
++      "requested": [
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       },
++       {
++        "capabilityId": "syntax",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": true
++       }
++      ]
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.1.capabilityId": "syntax"
++   }
++  },
++  {
++   "id": "cb8-unregistered-capability-outranks-the-ownership-tuple-rule",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "negative",
++   "note": "DIAGNOSTIC PRECEDENCE. Two rows cannot contend for ownership of a cell that is not a registered cell at all, so the vocabulary keeps its own more specific refusal.",
++   "steps": [
++    {
++     "fn": "admit_requested_capabilities",
++     "args": {
++      "requested": [
++       {
++        "capabilityId": "made-up",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       },
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": true
++       },
++       {
++        "capabilityId": "inventory",
++        "languageMode": "ts-tsconfig",
++        "workspaceRoot": ".",
++        "required": false
++       }
++      ]
++     },
++     "expectError": "native.requested-capability-unregistered:made-up",
++     "bind": "e"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "cb8-duplicate-tuple-public-route-is-origin-dependent",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "positive",
++   "note": "The existing external-configuration / externally-supplied-spec / host-generated routes carry the refusal; no public DomainDetailCode member is added.",
++   "steps": [
++    {
++     "fn": "public_termination_for",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "external-configuration"
++     },
++     "bind": "cfg"
++    },
++    {
++     "fn": "public_termination_for",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "externally-supplied-spec"
++     },
++     "bind": "ext"
++    },
++    {
++     "fn": "public_termination_for",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "host-generated-internal-layer"
++     },
++     "bind": "host"
++    }
++   ],
++   "expect": {
++    "$cfg.errorCode": "CONFIG.INVALID",
++    "$cfg.domainDetail.code": "CONFIG.INVALID",
++    "$ext.class": "request-rejected",
++    "$ext.errorCode": "REQUEST.PRECONDITION_FAILED",
++    "$host.class": "operational-failed",
++    "$host.faultCause": "host-invariant",
++    "$host.errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE"
++   }
++  },
++  {
++   "id": "cb8-duplicate-tuple-origin-cannot-be-guessed",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "public_termination_for",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:."
++     },
++     "expectError": "native.public-route-origin-required",
++     "bind": "e"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "cb8-duplicate-tuple-refuses-an-origin-it-cannot-have",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "public_termination_for",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "authenticated-release-declaration"
++     },
++     "expectError": "native.public-route-origin-not-possible",
++     "bind": "e"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "cb8-duplicate-tuple-composes-a-complete-failure-envelope",
++   "feedback": [
++    "CB8-SHOULD-2"
++   ],
++   "kind": "positive",
++   "note": "A kind=failure CommandEnvelope requires a NONEMPTY errors array even where the termination lawfully carries no detail.",
++   "steps": [
++    {
++     "fn": "failure_envelope_errors",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "externally-supplied-spec"
++     },
++     "bind": "ext"
++    },
++    {
++     "fn": "failure_envelope_errors",
++     "args": {
++      "internal_key": "native.requested-capability-duplicate-ownership-tuple:inventory:ts-tsconfig:.",
++      "origin": "host-generated-internal-layer"
++     },
++     "bind": "host"
++    }
++   ],
++   "expect": {
++    "$ext.0.code": "native.capability-spec-invalid",
++    "$host.0.code": "HOST.INVARIANT_VIOLATED"
++   }
++  },
++  {
++   "id": "cb8-two-scope-parameters-refused-at-the-pre-plan-boundary",
++   "feedback": [
++    "CB8-MUST-1"
++   ],
++   "kind": "negative",
++   "note": "The exact reproduced vector: two DISTINCT ScopeDocumentV1 payloads under the ONE registered document digest. The registry refused two REGISTRY ROWS for one digest (PAYLOAD_PARAMETER_AMBIGUOUS_ROW) and never constrained two SPEC ENTRIES citing one row. The digests are re-derived in the first three steps so this case cannot drift from the documents it names.",
++   "steps": [
++    {
++     "fn": "schemaDocumentDigest",
++     "args": {
++      "path": "docs/coop/design-corrections/workflows/schemas/policy-document.schema.json"
++     },
++     "bind": "pd"
++    },
++    {
++     "fn": "rawSha256Canonical",
++     "args": {
++      "value": {
++       "schemaFamily": "opensip.product.scope",
++       "schemaMajor": 1,
++       "include": [
++        "src/**"
++       ],
++       "exclude": []
++      }
++     },
++     "bind": "a"
++    },
++    {
++     "fn": "rawSha256Canonical",
++     "args": {
++      "value": {
++       "schemaFamily": "opensip.product.scope",
++       "schemaMajor": 1,
++       "include": [
++        "src/**"
++       ],
++       "exclude": [
++        "src/generated/**"
++       ]
++      }
++     },
++     "bind": "b"
++    },
++    {
++     "fn": "admit_analysis_spec",
++     "args": {
++      "spec": {
++       "schemaVersion": 2,
++       "requestedCapabilities": [],
++       "policyPackIds": [],
++       "parameters": [
++        {
++         "schemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
++         "payloadDigest": "339fad4452401e3a4ee43bcaf01bde2d2edf18391e9e329de5c343acb136a5aa"
++        },
++        {
++         "schemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
++         "payloadDigest": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8"
++        }
++       ]
++      }
++     },
++     "expectError": "ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1",
++     "bind": "e"
++    }
++   ],
++   "expect": {
++    "$pd": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
++    "$a": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8",
++    "$b": "339fad4452401e3a4ee43bcaf01bde2d2edf18391e9e329de5c343acb136a5aa"
++   }
++  },
++  {
++   "id": "cb8-one-scope-parameter-still-admitted-at-the-pre-plan-boundary",
++   "feedback": [
++    "CB8-MUST-1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_analysis_spec",
++     "args": {
++      "spec": {
++       "schemaVersion": 2,
++       "requestedCapabilities": [],
++       "policyPackIds": [],
++       "parameters": [
++        {
++         "schemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
++         "payloadDigest": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8"
++        }
++       ]
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.parameters.0.payloadDigest": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8"
++   }
++  },
++  {
++   "id": "cb8-zero-scope-parameters-remain-legal",
++   "feedback": [
++    "CB8-MUST-1"
++   ],
++   "kind": "positive",
++   "note": "An ordinary analysis that needs no scope-policy input selects none. No default is invented and the foundation scope-descriptor never substitutes.",
++   "steps": [
++    {
++     "fn": "admit_analysis_spec",
++     "args": {
++      "spec": {
++       "schemaVersion": 2,
++       "requestedCapabilities": [],
++       "policyPackIds": [],
++       "parameters": []
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.parameters": []
++   }
++  },
++  {
++   "id": "cb8-rc6-complete-coverage-needs-an-exhaustive-examination",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "negative",
++   "note": "The reproduced shape: file@enumerated claiming coverage=complete while its own record says the examined partition was not exhaustive. RC-2 reads examinedExhaustive for a RESOLVED rung only, so on the twelve non-resolved pairs nothing read it at all. FACT-FREE and over an empty examined set, which is exactly what a fact guard cannot protect.",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "file",
++        "resolution": "enumerated",
++        "coverage": "complete",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": false,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": [
++     {
++      "entry": "file@enumerated",
++      "fault": "RC-6: coverage=complete claims the examined partition is total, so examinedExhaustive must be true"
++     }
++    ]
++   }
++  },
++  {
++   "id": "cb8-rc6-exhaustive-complete-coverage-is-admitted",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "file",
++        "resolution": "enumerated",
++        "coverage": "complete",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": true,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": []
++   }
++  },
++  {
++   "id": "cb8-rc6-is-an-implication-not-an-equality",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "positive",
++   "note": "BOTH unknown positives are preserved deliberately. A host may examine the committed partition exhaustively and still answer `unknown` because the evidence it needs is MISSING rather than unexamined - ambiguous or missing Rust compilation ownership, an undeclared or unservable capability, an unlisted source variant. Banning that pair would force a host to understate its own examination to report an honest unknown.",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "file",
++        "resolution": "enumerated",
++        "coverage": "unknown",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": true,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       },
++       {
++        "relation": "file",
++        "resolution": "enumerated",
++        "coverage": "unknown",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": false,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": []
++   }
++  },
++  {
++   "id": "cb8-rc6-does-not-equate-enumeration-with-resolution",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "positive",
++   "note": "RC-3: coverage=complete beside resolutionCompleteness.state=incomplete over real unresolved edges is the EXPECTED result for most JavaScript and non-prepared Rust, and stays lawful.",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "references",
++        "resolution": "resolved-binding",
++        "coverage": "complete",
++        "examinedSubjects": [
++         "b.ts"
++        ],
++        "resolutionCompleteness": {
++         "state": "incomplete",
++         "attempted": true,
++         "examinedExhaustive": true,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 1,
++         "unresolvedEdgeClasses": [
++          "computed-member-access"
++         ]
++        }
++       }
++      ],
++      "unresolved_facts": [
++       {
++        "referrer": "b.ts",
++        "relation": "references",
++        "edgeKind": "computed-member-access"
++       }
++      ]
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": []
++   }
++  },
++  {
++   "id": "cb8-rc6-leaves-stage-terminal-free-on-a-non-resolved-rung",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "file",
++        "resolution": "enumerated",
++        "coverage": "complete",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": true,
++         "stageTerminal": "budget-exhausted",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": []
++   }
++  },
++  {
++   "id": "cb8-rc6-and-rc2-are-independent-claims",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "negative",
++   "note": "They read different things and both report: RC-6 the examination claim, RC-2 the resolution claim.",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "references",
++        "resolution": "resolved-binding",
++        "coverage": "complete",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "complete",
++         "attempted": true,
++         "examinedExhaustive": false,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": [
++     {
++      "entry": "references@resolved-binding",
++      "fault": "RC-6: coverage=complete claims the examined partition is total, so examinedExhaustive must be true"
++     },
++     {
++      "entry": "references@resolved-binding",
++      "fault": "RC-2: complete requires attempted, exhaustive examination and a complete stage"
++     }
++    ]
++   }
++  },
++  {
++   "id": "cb8-rc0-still-outranks-rc6-for-an-unregistered-pair",
++   "feedback": [
++    "CB8-MUST-3"
++   ],
++   "kind": "negative",
++   "note": "RC-0 stays first: not-applicable is a claim about a REGISTERED pair and is never a fallback for one the registry does not know, and RC-6 assigns nothing to an unrecognised pair either.",
++   "steps": [
++    {
++     "fn": "coverage_bijection",
++     "args": {
++      "entries": [
++       {
++        "relation": "unresolved-edge",
++        "resolution": "enumerated",
++        "coverage": "complete",
++        "examinedSubjects": [],
++        "resolutionCompleteness": {
++         "state": "not-applicable",
++         "attempted": false,
++         "examinedExhaustive": false,
++         "stageTerminal": "complete",
++         "unresolvedEdgeCount": 0,
++         "unresolvedEdgeClasses": []
++        }
++       }
++      ],
++      "unresolved_facts": []
++     },
++     "bind": "b"
++    }
++   ],
++   "expect": {
++    "$b": [
++     {
++      "entry": "unresolved-edge@enumerated",
++      "fault": "RC-0: rung is not a member of this relation's own ladder"
++     }
++    ]
++   }
+   }
+  ],
+  "revision": "Blind-consumer corrections: M-1 subjectScopeCommitment producing recipe and admitted producer boundary; M-2 closed TypeScript native context."

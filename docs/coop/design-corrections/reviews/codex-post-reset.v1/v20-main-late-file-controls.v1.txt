@@ -1,0 +1,23 @@
+# THE EXACT REPRODUCED VECTOR at retained closure: a file@enumerated entry, whose rung is NOT
+# resolved - so RC-2 never reads examinedExhaustive there and RC-6 is the only rule that can refuse
+# it. It is asserted for BOTH universes that mint the pair, and the fault list is asserted to be
+# RC-6 ALONE, so this cannot be satisfied by some other guard answering first.
+def file_scope_closure(mutate,universe='typescript'):
+    run,objects,blobs=build(resolved=True,has_match=True,relation='file',universe_language=universe)
+    key=next(k for k,(d,v) in objects.items() if d=='coverage')
+    coverage=copy.deepcopy(objects[key][1]);payload=C.parse(blobs[coverage['payloadDigest']])
+    mutate(payload)
+    coverage['payloadDigest']=put_blob(blobs,payload)
+    rekey(objects,key,coverage,run);resync_witness(objects,blobs,run)
+    return M.close_run(run,objects,blobs)
+for _universe in ('typescript','syntax'):
+    check('a-file-enumerated-run-closes-honestly.'+_universe,
+          file_scope_closure(lambda p:None,_universe).startswith('run2:'))
+    rejects_because('the-reproduced-file-enumerated-false-complete-refuses-at-closure.'+_universe,
+        lambda u=_universe:file_scope_closure(
+            lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False),u),
+        "COVERAGE_PRODUCER_ADMISSION:{'entry': 'file@enumerated', 'fault': 'RC-6:")
+    check('rc6-is-the-only-fault-reported-for-the-reproduced-vector.'+_universe,
+          _refusal_text(lambda u=_universe:file_scope_closure(
+              lambda p:p['entry']['resolutionCompleteness'].update(examinedExhaustive=False),u)
+          ).count("'fault':")==1)

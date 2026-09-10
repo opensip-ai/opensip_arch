@@ -1,0 +1,3 @@
+# Captured in-progress Run coverage admission counterexamples
+
+Codex coauthor probes, not independent review or acceptance. Exact current source deltas over immutable frozen v7 are retained; the copied worktree is disposable. The valid control closes. Both schema-valid altered CoverageResultV3 payloads are refused by actual native admission but admitted by the captured identity closure and committed by EvidenceStore with replay. Preserve these original outcomes; a correction requires a separately retained final-source recheck. Actual store/OS/TCB observations are synthetic reference inputs, not product qualification.

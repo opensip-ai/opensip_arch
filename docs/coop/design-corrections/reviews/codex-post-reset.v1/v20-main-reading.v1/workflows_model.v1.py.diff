@@ -1,0 +1,44 @@
+--- before/docs/coop/design-corrections/workflows/workflows_model.v1.py
++++ after/docs/coop/design-corrections/workflows/workflows_model.v1.py
+@@ -669,13 +669,40 @@
+     A parameter row is `{schemaDigest, payloadDigest}`. The row must cite the registered
+     ScopeDocumentV1 document AND carry this document's canonical digest as its payload; a document
+     that is not a selected parameter, or one cited under a different schema, refuses. Returns the
+-    verified digest."""
++    verified digest.
++
++    CARDINALITY, published by the foundation payload registry
++    (`x-opensip-payload-registry/classes/parameter/selectionCardinality`) and enforced here as
++    well: a spec selects AT MOST ONE ScopeDocumentV1 parameter. ZERO is a legal spec for an
++    ordinary analysis - it is refused HERE only because this caller has asked to be BOUND to a
++    scope policy, and that refusal is unchanged. MORE THAN ONE is refused before any payload
++    comparison, because this verifier is EXISTENTIAL over the selected rows and two distinct
++    entries each satisfy it, so a `verified` digest would prove selection of one document while
++    another was equally selected. The foundation closure refuses the same spec independently; this
++    check exists so a DIRECT caller is not relying on that closure having run in this process."""
+     document = raw_sha((Path(__file__).resolve().parent.parent / SCOPE_DOCUMENT_SCHEMA).read_bytes())
+     digest = doc_digest(scope)
+     rows = [row for row in analysis_spec.get('parameters', []) if row.get('schemaDigest') == document]
+     if not rows:
+         raise Refusal('REQUEST.PRECONDITION_FAILED', 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER',
+                       'the analysis spec selects no ScopeDocumentV1 parameter')
++    # AT MOST ONE, checked BEFORE the payload match and independently of the foundation closure
++    # (CB8-MUST-1). This function is reachable directly - `adopt_baseline(..., analysis_spec=...)`
++    # is one caller and a host verifying a retained spec is another - so it may see a spec no Run
++    # closure in this process admitted, and it must not rely on that closure having run. Order is
++    # the point: checking the digest first would let a caller who happens to hold one of two
++    # candidate documents obtain a `verified` digest, which is precisely the existential proof that
++    # made two spec entries indistinguishable. Both entries satisfy `any(...)` separately, so the
++    # ambiguity has to be refused before the match is attempted, not after.
++    #
++    # PUBLIC ROUTE, no new vocabulary: CONFIG.INVALID is a member of the closed D9 error codes AND
++    # of the closed public DomainDetailCode registry, and it is the code the native route registry
++    # already assigns to an invalid caller-supplied selection record. The two existing refusals
++    # above and below keep their exact codes, details and reachability.
++    if len(rows) > 1:
++        raise Refusal('CONFIG.INVALID', 'CONFIG.INVALID',
++                      'the analysis spec selects more than one ScopeDocumentV1 parameter; state exactly one',
++                      subject='parameters[schemaDigest=' + document + ']x' + str(len(rows)))
+     if not any(row.get('payloadDigest') == digest for row in rows):
+         raise Refusal('REQUEST.PRECONDITION_FAILED', 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH',
+                       'the supplied scope document is not the selected scope parameter')

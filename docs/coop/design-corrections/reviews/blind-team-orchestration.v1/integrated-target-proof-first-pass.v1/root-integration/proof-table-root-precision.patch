@@ -1,0 +1,47 @@
+--- before/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
++++ after/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
+@@ -103,7 +103,7 @@
+ `predicate-witness` has no `inputRefs` field (`additionalProperties: false`). The composition sentence “each atom's witness binds the complete admitted evaluation input selection, retaining availability and empty-population inputs as well as hits” **projects** onto `predicateProofs[].inputRefs` as follows.
+ 
+ - **Atomic node** (`exists` / `none` / `count-at-most` / `all-covered`): `inputRefs = EI` (the complete admitted evaluation input selection). This is the evaluator3 profile output field. It is not the atom-model internal consumed-ref subset (`evaluate_atom.evaluationInputRefs`, Coverage ids actually scanned). Those internal arrays are not proof fields and are not a second profile.
+-- **Boolean node** (`and` / `or` / `not`): `inputRefs = Cset(union of immediate children's `inputRefs`)`. With the atomic rule above this equals `EI`; the union algorithm is still the boolean law (so a future atomic subset would union, but this profile's atoms emit `EI`).
++- **Boolean node** (`and` / `or` / `not`): `inputRefs = Cset(union of immediate children's `inputRefs`)`. With the atomic rule above this equals `EI`; the union algorithm is still the boolean law (this profile's atoms emit `EI`).
+ - Witnesses cannot add roots outside `EI`.
+ - **Not hits-only.** Empty owed imports, empty inventories, and unused Coverage remain members of `EI` and therefore of every atomic `inputRefs`.
+ - Optimization or physical scan order MUST NOT change `inputRefs`. Whole-selection is the stable semantic-ID discriminator.
+@@ -155,7 +155,7 @@
+ | Condition | `source` | `cause` | `subjectId` | `predicateId` | `inputRefs` | `evidenceKind` | `nativeCause` | `universe` |
+ |---|---|---|---|---|---|---|---|---|
+ | no inventory locator of the rule's portable domain and primary kind (`export` → symbol) | `enumeration` | `no-covering-program` | null | null | `[]` | null | null | null |
+-| relevant inventory `state≠complete` | `enumeration` | `incomplete-inventory` | null | null | `[{domain:subject-inventory, digest:C(inventory)}]` | null | inventory `nativeCause` | null |
++| relevant inventory `state≠complete` | `enumeration` | `incomplete-inventory` | null | null | `[{domain:subject-inventory, digest:SHA-256(C(inventory))}]` | null | inventory `nativeCause` | null |
+ | same inventory and `inventory.deficiency=source-syntax-invalid` | `enumeration` | `source-syntax-invalid` | null | null | same single inventory ref | null | null | null |
+ | export selection and row `exported=unknown` | `enumeration` | `unknown-export-membership` | that subject3 | null | that inventory ref | null | null | null |
+ 
+@@ -173,7 +173,7 @@
+ 
+ Let `plane` be `import` if the atom is imported-atom, else `native`. Let `atomEI = EI` (whole selection; not the internal consumed subset).
+ 
+-1. For each atom `causes[]` member whose `code` is in the registry for `plane`: emit `{source:plane, cause:code, subjectId: this subject3, predicateId: this address, inputRefs: atomEI, evidenceKind: node.evidence if plane=import else null, nativeCause: cause.nativeCause, universe: cause.universe if present else null}`. Import `evidenceKind` must equal the atom's evidence kind.
++1. Every atom `causes[]` member must have its `code` in the registry for `plane` and its `evidenceKind` equal to the atom evidence kind on the import plane, null otherwise; disagreement refuses admission (`EVALUATOR_ATOM_CAUSE_UNREGISTERED` or `EVALUATOR_ATOM_CAUSE_PLANE_JOIN`), never silently drops the cause. For each admitted member emit `{source:plane, cause:code, subjectId: this subject3, predicateId: this address, inputRefs: atomEI, evidenceKind: node.evidence if plane=import else null, nativeCause: cause.nativeCause, universe: cause.universe if present else null}`. Import `evidenceKind` must equal the atom's evidence kind.
+ 2. For each atom `nativeDeficiencies[]` member (a `DeficiencyV2` from sufficiency_v2): emit `{source:native, cause:that DeficiencyV2, subjectId, predicateId, inputRefs: atomEI, evidenceKind:null, nativeCause:null, universe:null}`.
+ 3. For each atom `coverageIds` member whose Coverage payload `entry.deficiency` is non-null: emit `{source:native, cause:entry.deficiency, subjectId, predicateId, inputRefs:[{domain:coverage, digest: coverage H suffix}], evidenceKind:null, nativeCause:entry.nativeCause, universe: Coverage key sourceUniverse}`. This overwrites only this item's `inputRefs` to that Coverage; it does not change §9.2.
+ 
+@@ -214,7 +214,7 @@
+ | Failure class | Internal `row.deficiency` | Originating `row.inputRefs` |
+ |---|---|---|
+ | Required inventory not `complete` | inventory `deficiency` (`DeficiencyV2` or `source-syntax-invalid`) | `[{domain:subject-inventory, digest: that inventory C digest}]`. Keep every such sibling inventory of the cell. |
+-| Required enumerator unselected or binding `universe=null` | binding `UnavailableProgramBindingV1.deficiency` | inventories of that cell if still present as source items; otherwise `[]` |
++| Required enumerator unselected or binding `universe=null` | binding `UnavailableProgramBindingV1.deficiency` | `[]` for this binding/enumerator item. Each non-complete same-cell inventory contributes a separate inventory item with its own deficiency, nativeCause and single inventory ref as above; never attach those inventory refs to the binding carrier. |
+ | Required candidate envelope `partial` or `unavailable` | candidate `deficiency` | `[{domain:candidate-producer-result, digest: envelope digest}]` |
+ | Required native account not complete, Coverage records exist | each Coverage `entry.deficiency`, or if null the account summary `deficiency` (empty returned partitions use `provider-unavailable`) | `[{domain:coverage, digest: that Coverage H suffix}]` **per Coverage record**. Keep every Coverage of that account. Missing expected subjects (`source-path` / `package-name` / `symbol`) still emit per returned Coverage record with that summary `deficiency`. |
+ | Required native account not complete, no Coverage records | account summary `deficiency` (`provider-unavailable` when empty) | `[{domain:coverage, digest: hx} for hx in the account's named coverageIds]` (empty if none named) |
+@@ -224,7 +224,7 @@
+ 
+ Sibling source records and `nativeCause` pairs stay with their originating refs. Two Coverage of the same relation with different carriers remain two internal rows and two proof items because their Coverage digests differ.
+ 
+-**Internal full-coordinate uniqueness vs proof-record uniqueness.** Internal `requiredCellDeficiencies` are unique by `C` of the whole internal row, which includes `cellOrdinal`, `programOrdinal`, `relation`, `resolution`, `capabilityId`. Proof items have no those coordinates. Proof `Cset` uniqueness is of the evaluation-deficiency record in §9.6 steps 1–7. When two internal rows bridge to **byte-identical** proof records they carry identical proof-level information (same cause, carrier, universe, and same `XI` plus originating refs). Distinct cell/relation coordinates remain on hashed `ExecutionInputsV1.nativeCoverageAccounts` and `cellOutcomes`. Adding proof fields is not required unless a graph is shown where two bridged records are identical **and** existing law still requires two proof items; no such operand is admitted here. Example: two unsupported-typed relations on one required cell with the same matrix `DeficiencyV2`, same `nativeCause`, same universe, and empty originating refs bridge to one proof item; both accounts remain on ExecutionInputsV1.
++**Internal full-coordinate uniqueness vs proof-record uniqueness.** Internal `requiredCellDeficiencies` are unique by `C` of the whole internal row, which includes `cellOrdinal`, `programOrdinal`, `relation`, `resolution`, `capabilityId`. Proof items have no those coordinates. Proof `Cset` uniqueness is of the evaluation-deficiency record in §9.6 steps 1–7. When two internal rows bridge to **byte-identical** proof records they carry identical proof-level information (same cause, carrier, universe, and same `XI` plus originating refs). Distinct cell/relation coordinates remain on hashed `ExecutionInputsV1.nativeCoverageAccounts` and `cellOutcomes`. Example: two unsupported-typed relations on one required cell with the same matrix `DeficiencyV2`, same `nativeCause`, same universe, and empty originating refs bridge to one proof item; both accounts remain on ExecutionInputsV1.
+ 
+ **Work-budget-exhausted** (composition, not a requiredCellDeficiencies row): `{source:execution, cause:work-budget-exhausted, subjectId:null, predicateId:null, inputRefs:EI, evidenceKind:null, nativeCause:null, universe:null}` appended to `executionDeficiencies` when §3 preflight exceeds budget. (RuleResult copy of this cause uses empty `inputRefs` as in §9.5.)
+ 

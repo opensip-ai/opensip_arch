@@ -1,0 +1,13 @@
+## Latest — mutually agreed v17 source INTEGRATED; canonical6 ACTIVE
+
+NOTREADY; noindependentv17acceptance/blind/applicationyet. Actualcoauthorv6COMPLETED11turns0denials0subagents, sameUUID4b48ccdd-92fb-4f92-9db2-ac8942f796d6. FULLhandoffJSON/MD/receipt/exactannotationdiff/structuralprobe+broadscan source/resultsread. ASSENTtrue changesRequiredempty; rootcoauthor-assessment-bv6-v6.json finalSourceAssenttrue. All17hashesverified, allpriorroot/source/polishreviewchainpreserved. V6retained36files832publicblocks1copyrootwork. Newnative-schemahash9a5f33f49728726cc20fc36c6a26071647578e08d445c29574ebb83c9651944c. Otherfinal17hashesactualhandoff. Noidentitybyte-stabilityclaim.
+
+assess-integrate-bv6-v17.py EXECUTED: exact17integratedwithsource-before-v17beforeimages, successor-source-assessment.v17.json/source-integration.v17.json. Originalv1andallv16frozenfilesreverifiedfirst. prepare-records-v17.py EXECUTED4required/55advisories/16crosswalk;READMEv17notready. refresh-pins-v6 EXECUTED AFTERallsource/records:1099foundation+73security+71native+65workflow=1308pins.
+
+Canonical6 run-final-v17.py ACTIVE unifiedexecsession23200; output/tmp/opensip-design-corrections/final-reference-v17-complete. DO NOT rerun/overwrite; pollwrite_stdin. Sixsequentialcommandsarefoundationaggregate,security,native,workflowaggregate,workflowsurface,integration. Need inspectexit/results. Then record-v17.py → record-technical-v17.py (bothpreparedread) → freeze-next.py --previous v16 --version v17 --previous-sha ca5f36d421fb38d264f49fc6b2e1eeffee5bbe8182a7fe25bd50787244042ee9 --author-session4b48... (withproperargspacing). FinalsealvalidatesLIVEandCOPYpinsafterALLrecording/history, keepsfrozen16unchanged. v17NOTFROZENYET.
+
+Then launch-review-v17.py (preparedFULLREAD) actualfreshindependent; allrequired/advice/additionalcases+fullcontracts/AR/FW/inherited/owners literalrouting scope. FreshNEWblindv7AFTERindependent+rootacceptance; launcherpreparedstrongblindmethod noauthororacle. Rootfullactualreport/source/probe/custodyreview required, noheadlineassent.
+
+Fullapplication stage.v3/application-review.v2 UNASSEMBLED. After successoracceptance adaptguards/account andassemble16AR15FW28condition2rows27inherited30eval5owners32falsegates+D372;freshactualfullapplicationreview/rootassessment;finalizeractivationLAST;appliedverification. FiveownerroutingassessmentsNOTgrades. Preserve dirtytree/history. No productimplementation/commit/push/publication/qualification. Condition5 NOTMET. Noexternalblocker.
+
+[Previousguide](resume-history-through-bv6-coauthor-v6.v1.md) preservesallpriorcoauthor/rootpatch/probehistory,limitsandpreparedhelpers.

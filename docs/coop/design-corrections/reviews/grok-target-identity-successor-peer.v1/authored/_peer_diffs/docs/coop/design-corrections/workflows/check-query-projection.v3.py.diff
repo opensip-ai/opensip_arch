@@ -1,0 +1,70 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/workflows/check-query-projection.v3.py	2026-09-08 16:14:51
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/workflows/check-query-projection.v3.py	2026-09-09 00:20:33
+@@ -40,7 +40,7 @@
+     "historical workflows/schemas/graph-query.schema.json is not this owner and is not edited",
+     "root owns workflows-and-surfaces.md §8, launchers, source pins, and shared inventory count guards",
+     "no all-suite pin rerun; no independent ACCEPT claimed by this checker",
+-    "imports@resolved-target multi-kind attribution is table law; TS semantic fixture does not mint imports facts",
++    "imports@resolved-target multi-kind attribution is TargetAttributionV2 occupancy-identity table law; owner-admitted imports file occupancy uses execute_graph_query after close_run",
+     "native incomplete resolutionState is mapped from completeness_from_stage; the semantic fixture unresolved path remains not-attempted",
+ ]
+ 
+@@ -643,7 +643,58 @@
+             check("missing-host-request-id-is-reference-precondition", True)
+     except Q.ReferenceCallPrecondition:
+         check("missing-host-request-id-is-reference-precondition", True)
++
++    ig = S.build_ts_semantic_graph(
++        atom={"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++              "endpoint": "target", "filters": []},
++        subject_kind="file", has_declares=False, has_references_fact=False, second_partition=False,
++    )
++    irun, iobjects, iblobs, iactual = replay.close_positive(ig)
++    irun_key = iactual["runId"]
++    iproject = irun["projectId"]
++    ihost = host_obs(latestRunId=irun_key)
++    file_ep = ep(ig["u1"], "file", "a.ts")
++    namespaced_ep = ep(ig["u1"], "file", "file:a.ts")
+ 
++    def iex(req, h=None):
++        used = h if h is not None else ihost
++        if "requestId" not in used:
++            used = dict(host_obs(), **used)
++        return Q.execute_graph_query(req, irun, iobjects, iblobs, host=used)
++
++    in_imp = iex(request("graph.neighbors", iproject, {"runId": irun_key}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": file_ep,
++    }))
++    check("owner-imports-file-occupies-inventory-vertex",
++          len(in_imp["items"]) == 1 and in_imp["items"][0]["target"]["nativeSubjectId"] == "a.ts",
++          in_imp["items"])
++    refuse("owner-imports-namespaced-id-not-inventory-vertex", lambda: iex(request("graph.neighbors", iproject, {"runId": irun_key}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": namespaced_ep,
++    })), "REQUEST.PRECONDITION_FAILED", "QUERY.ENDPOINT_UNKNOWN")
++    isolated_pkg = None
++    for item in ig["inputs"]["population"].values():
++        if item["kind"] == "package":
++            isolated_pkg = ep(item["universe"], "package", item["row"]["nativeSubjectId"], item["row"]["path"])
++            break
++    if isolated_pkg:
++        pkg_n = iex(request("graph.neighbors", iproject, {"runId": irun_key}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": isolated_pkg,
++        }))
++        check("owner-imports-isolated-package-inventory-empty-not-absence",
++              pkg_n["items"] == [] and pkg_n["termination"]["class"] == "success", pkg_n)
++    path_imp = iex(request("graph.path", iproject, {"runId": irun_key}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "outgoing",
++        "start": ep(ig["u1"], "symbol", ig["foo"]), "target": file_ep, "maxDepth": 8,
++    }))
++    check("owner-imports-path-source-to-file-occupancy",
++          len(path_imp["items"]) == 1 and path_imp["items"][0]["hopCount"] == 1, path_imp["items"])
++    reach_imp = iex(request("graph.reach", iproject, {"runId": irun_key}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "outgoing",
++        "start": ep(ig["u1"], "symbol", ig["foo"]), "maxDepth": 8,
++    }))
++    reach_ids = [row["endpoint"]["nativeSubjectId"] for row in reach_imp["items"]]
++    check("owner-imports-reach-includes-file-occupancy", "a.ts" in reach_ids and "file:a.ts" not in reach_ids, reach_ids)
++
+     plan_digest = hashlib.sha256((foundation / "enumeration-plan.schema.v1.json").read_bytes()).hexdigest()
+     check("enumeration-plan-row-is-registered-digest", Q.identity3().parameter_row_of(plan_digest) == Q.ENUM_PLAN_ROW, Q.identity3().parameter_row_of(plan_digest))
+     duck_payload = {"cells": [{"programBindings": [{"ordinal": 0, "universe": "a" * 64}]}]}

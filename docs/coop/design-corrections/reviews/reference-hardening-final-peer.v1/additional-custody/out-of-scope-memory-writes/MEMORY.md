@@ -1,0 +1,1 @@
+- [Reference suite needs CPython 3.12](reference-suite-needs-cpython-312.md) — the checks refuse on Unicode 16 (default python3 3.14); build a uv venv on cpython-3.12.

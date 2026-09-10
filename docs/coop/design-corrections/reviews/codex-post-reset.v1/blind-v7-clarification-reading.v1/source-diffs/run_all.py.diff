@@ -1,0 +1,104 @@
+--- /tmp/opensip-design-corrections/consumer-b.v7/output/work/run_all.py
++++ /tmp/opensip-design-corrections/consumer-b.v7-clarification.v1/output/work/run_all.py
+@@ -22,6 +22,9 @@
+ import vec_public as V                 # noqa: E402
+ import vec_authz as A                  # noqa: E402
+ import vec_selfcheck as SC             # noqa: E402
++import vec_repair_clarify as RC        # noqa: E402
++import vec_bounds_clarify as BC        # noqa: E402
++import vec_scope_audit as SA           # noqa: E402
+ from oslib import C, H, sha256hex, raw_digest, Refused   # noqa: E402
+ 
+ OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+@@ -29,6 +32,7 @@
+ os.makedirs(VEC, exist_ok=True)
+ 
+ RESULTS = {"tool": "blind-consumer-b.v7 independent reference",
++           "pass": "CLARIFICATION v1 (post-review, after root feedback)",
+            "subjectSha256Manifest": "consumer-input-manifest.json (verified)"}
+ 
+ 
+@@ -57,7 +61,8 @@
+ def run_closure(kit, run_id):
+     c = G.Closure(kit.w)
+     errs = c.close_run(run_id)
+-    return {"checks": c.checks, "errors": errs, "admitted": not errs}
++    return {"checks": c.checks, "errors": errs, "admitted": not errs,
++            "objectAdmissionCoverage": getattr(c, "objectAdmissionCoverage", None)}
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -331,7 +336,12 @@
+               "raw-payload-offered-as-an-h-identity", "altered-frame",
+               "missing-preimage", "unregistered-h-domain",
+               "unregistered-h-domain-in-plan",
+-              "clone-level-specification-not-retained"]:
++              "clone-level-specification-not-retained",
++              # CLARIFICATION v1 discriminating negatives for the two laws the
++              # ORIGINAL closure did not enforce
++              "finding-evidence-refs-unordered",
++              "finding-cites-a-fact-outside-the-evaluated-view",
++              "finding-parameter-message-code-mismatch"]:
+         r = vec_ts.build(m)
+         res = run_closure(r["kit"], r["run"])
+         ts_negs[m] = {"refused": bool(res["errors"]),
+@@ -411,7 +421,13 @@
+                     ("code", "data-grammar-claims-code"),
+                     ("code", "select-a-grammar-not-in-the-bundle"),
+                     ("code", "grammar-version-not-from-manifest"),
+-                    ("code", "hidden-context")]:
++                    ("code", "hidden-context"),
++                    # CLARIFICATION v1 discriminating negatives for native S1.2
++                    # tree MEMBERSHIP (not mere CAS retention)
++                    ("code", "grammar-definition-outside-the-closure-tree"),
++                    ("code", "grammar-bundle-manifest-outside-the-closure-tree"),
++                    ("code", "normalizer-spec-outside-the-closure-tree"),
++                    ("data", "grammar-definition-outside-the-closure-tree")]:
+         r = vec_syntax.build(kind, m)
+         res = run_closure(r["kit"], r["run"])
+         syn_negs[kind + "/" + m] = {
+@@ -523,11 +539,29 @@
+         "declaredOrderAdmission": O.admit_ordered(
+             "identity", "#/$defs/subject-scope", reversed_scope)[:2]}
+     R["selfChecks"] = sc
++    # ---- CLARIFICATION v1 additions ---------------------------------------
++    R["clarificationV1"] = {
++        "item2_repairCauseCarrier": RC.build(),
++        "item3_planBoundReachability": BC.build()}
+ 
+     # ---- the TypeScript body-dialect classification probe -----------------
++    # CLARIFICATION v1: exported as a COMPLETE graph so its claimed closure is
++    # independently inspectable, now that the unrelated helper errors
++    # (evidenceRefs ordering, grammar-tree membership) are corrected.
+     probe = vec_ts.build("ts-clones-scope-over-an-unlisted-suffix")
+     pres = run_closure(probe["kit"], probe["run"])
++    pres_export = export("RUN-TS-MUST1-PROBE", probe["kit"], probe["run"])
++    runs["RUN-TS-MUST1-PROBE"] = dict(
++        pres, runId=probe["run"], planId=probe["plan"],
++        universes=probe["universes"], contexts=probe["contexts"],
++        capabilityManifestId=probe["capabilityManifestId"],
++        export=pres_export,
++        note="CB7-MUST-1 probe: a clones@normalized-body-hash scope over the "
++             "inventoried path package.json under a TypeScript universe, "
++             "coverage complete, deficiency null, no fact for that subject")
+     R["typescriptVariantUnknownProbe"] = {
++        "exportedAs": "RUN-TS-MUST1-PROBE",
++        "export": pres_export,
+         "scopeSubject": "package.json",
+         "runClosesWithCompleteAndNoFact": pres["admitted"],
+         "checks": pres["checks"], "errors": pres["errors"],
+@@ -537,7 +571,13 @@
+              if x.startswith("body-language")],
+         "note": "no published law decides whether this scope owes a disclosure"}
+ 
+-    with open(os.path.join(OUT, "vector-results.json"), "w") as f:
++    # item 4 scope audit needs the results it audits, so write once, measure,
++    # then write the final file including the audit.
++    tmp = os.path.join(OUT, "vector-results.json")
++    with open(tmp, "w") as f:
++        json.dump(R, f, indent=1, sort_keys=True)
++    R["clarificationV1"]["item4_reportingScopeAudit"] = SA.measure(tmp)
++    with open(tmp, "w") as f:
+         json.dump(R, f, indent=1, sort_keys=True)
+ 
+     # console summary

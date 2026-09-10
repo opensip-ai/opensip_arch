@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:review",
+  "title": "Bounded candidate \u2192 inspect \u2192 review flow (Map side, advisory) (PROPOSED)",
+  "description": "A candidateId hashes projectId, kind and a stable finding fingerprint or native advisory sourceFingerprint, excluding RunId; the Candidate record names the current sealed Run separately. A review suppression therefore follows unchanged evidence across Runs and expires by actual calendar date (maximum 365 days). Advisory sourceFingerprint is a producer-defined digest of the relevant normalized source regions/observation identity, not a path alone; changed evidence resurfaces. Reviews cannot change Control verdicts or authorize repair.",
+  "$defs": {
+    "CandidateKind": {
+      "type": "string",
+      "enum": [
+        "finding",
+        "clone-candidate",
+        "low-confidence-unused",
+        "runtime-unhit",
+        "history-stale"
+      ]
+    },
+    "EvidenceLevel": {
+      "type": "string",
+      "enum": [
+        "proof-backed",
+        "partial-coverage",
+        "advisory-only"
+      ]
+    },
+    "Candidate": {
+      "type": "object",
+      "description": "candidateId = 'candidate2:' + H('workflow.candidate', {runId, kind, fingerprint|subjectKey}).",
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "runId",
+        "kind",
+        "evidenceLevel",
+        "subjectPath",
+        "controlBearing",
+        "suppressed"
+      ],
+      "properties": {
+        "candidateId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CandidateId"
+        },
+        "runId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "kind": {
+          "$ref": "#/$defs/CandidateKind"
+        },
+        "fingerprint": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Fingerprint"
+        },
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "evidenceLevel": {
+          "$ref": "#/$defs/EvidenceLevel"
+        },
+        "subjectPath": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "controlBearing": {
+          "type": "boolean",
+          "description": "true only for kind=finding on a gating rule; every other candidate is Map-only"
+        },
+        "suppressed": {
+          "type": "boolean"
+        },
+        "suppressedBy": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "previouslyReviewed": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "finding"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fingerprint",
+              "ruleId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "not": {
+                  "const": "finding"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "controlBearing": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "InspectionBundle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "runId",
+        "facts",
+        "coverageIds",
+        "importIds",
+        "limitations",
+        "advisory"
+      ],
+      "properties": {
+        "candidateId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CandidateId"
+        },
+        "runId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "facts": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "string",
+            "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "coverageIds": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CoverageId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "importIds": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ImportId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "advisory": {
+          "const": true
+        }
+      }
+    },
+    "ReviewerPrincipal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "id"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "human",
+            "model",
+            "policy-rule"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "modelClosureId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "model"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "modelClosureId"
+            ]
+          }
+        }
+      ]
+    },
+    "ReviewDisposition": {
+      "type": "object",
+      "description": "The effect of a review-join mutation. Advisory by construction: it has no verdict, run, baseline or authorization field, and the schema admits none.",
+      "additionalProperties": false,
+      "required": [
+        "candidateId",
+        "disposition",
+        "reviewer",
+        "note",
+        "suppressUntil",
+        "advisory"
+      ],
+      "properties": {
+        "candidateId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CandidateId"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "reject",
+            "defer"
+          ]
+        },
+        "reviewer": {
+          "$ref": "#/$defs/ReviewerPrincipal"
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "suppressUntil": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "at most 365 days after the disposition date; null for accept"
+        },
+        "advisory": {
+          "const": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "enum": [
+                  "reject",
+                  "defer"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "suppressUntil": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ReviewBrief": {
+      "type": "object",
+      "description": "Output of review-brief: an ordered, bounded, advisory list. Model-produced ordering or text is labelled with the model closure and never alters candidates.",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "candidates",
+        "producer",
+        "advisory",
+        "truncated"
+      ],
+      "properties": {
+        "runId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "candidates": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CandidateId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "producer": {
+          "$ref": "#/$defs/ReviewerPrincipal"
+        },
+        "advisory": {
+          "const": true
+        },
+        "truncated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

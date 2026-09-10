@@ -1,0 +1,89 @@
+--- interim
++++ final
+@@ -296,7 +296,7 @@
+             "dependsOn": [],
+             "dependencyGate": "completed",
+             "retryPolicy": "idempotent-retry",
+-            "params": analysis_params("audit", "primary"),
++            "params": analysis_params("default", "primary"),
+         },
+         {
+             "stepId": 1,
+@@ -305,7 +305,7 @@
+             "dependsOn": [0],
+             "dependencyGate": "completed",
+             "retryPolicy": "idempotent-retry",
+-            "params": analysis_params("pivot", "pivot"),
++            "params": analysis_params("fit", "primary"),
+         },
+     ],
+ }
+@@ -402,10 +402,13 @@
+ n_base2 = cfg_node("tsconfig.strict.json", "other", {"compilerOptions": {"noImplicitAny": True}}, ["tsconfig.base.json"])
+ n_custom = cfg_node("tsconfig.app.json", "other", {"extends": ["tsconfig.strict.json", "tsconfig.base.json"]}, ["tsconfig.strict.json", "tsconfig.base.json"])
+ # repeated base: app extends strict then base; strict also extends base — precedence retained
+-g_custom, d_custom, b_custom = graph_from_nodes("tsconfig.app.json", [n_base1, n_base2, n_custom])
++g_custom, d_custom, b_custom = graph_from_nodes(
++    "tsconfig.app.json",
++    sorted([n_base1, n_base2, n_custom], key=lambda n: n["path"].encode()),
++)
+ n_js_base = cfg_node("tsconfig.shared.json", "other", {"compilerOptions": {"allowJs": True}}, [])
+ n_js = cfg_node("jsconfig.json", "jsconfig", {"extends": "./tsconfig.shared.json"}, ["tsconfig.shared.json"])
+-g_js, d_js, b_js = graph_from_nodes("jsconfig.json", [n_js_base, n_js])
++g_js, d_js, b_js = graph_from_nodes("jsconfig.json", sorted([n_js_base, n_js], key=lambda n: n["path"].encode()))
+ 
+ for rel, g, d, note in [
+     ("vectors/config-synthesized.json", g_syn, d_syn, "js-synthesized: entryConfigPath null, nodes empty; digest binds on universe as tsconfigGraphHash only if a universe is built"),
+@@ -517,6 +520,8 @@
+     }
+     if reason:
+         desc["wholeIndeterminateReason"] = reason
++        desc["remedy"] = domain_detail("COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE", "bind the missing required evidence and re-compare")
++        desc["correspondenceCoverage"] = []
+     cid = "comparison2:" + sha256_hex(desc)
+     return {"comparisonResultId": cid, "descriptor": desc}
+ 
+@@ -578,6 +583,7 @@
+     "detectorId": "opensip.rules.syntax-pilot",
+     "presence": {**presence_e0, "B": True, "E0": True, "E4": False},
+     "classification": "DETECTION-DELTA",
++    "direction": "appeared",
+     "subsequentDeltas": [],
+     "liveInCurrent": False,
+     "gates": False,
+@@ -727,11 +733,24 @@
+     "evidenceRequirements": [],
+     "permittedEditScope": [],
+     "applicable": False,
+-    "unmetPreconditions": ["no-matched-fingerprint-target"],
++    "unmetPreconditions": [],
+     "limitations": ["preview-is-not-apply"],
+ }
+ # fill likely enums by validating
+-repair_plan = {"repairPlanId": "repair2:" + sha256_hex(repair_desc), "descriptor": repair_desc}
++repair_desc["evidenceOrigin"] = "native-analysis"
++repair_desc["closedWorld"] = {
++    "exportsClosed": "unknown",
++    "entryPointsRecognized": "none",
++    "nonliteralLoading": "none",
++    "externalConsumers": "unknown",
++    "deadCodeRepairEligible": False,
++}
++repair_desc["targets"] = [FINGER]
++repair_desc["evidenceRequirements"] = [
++    {"relation": "file", "minResolution": "enumerated", "completeness": "complete", "satisfied": True}
++]
++repair_desc["permittedEditScope"] = ["hello.rs"]
++repair_plan = {"repairPlanId": "repairplan2:" + sha256_hex(repair_desc), "descriptor": repair_desc}
+ dump("vectors/repair-descriptor.json", repair_plan)
+ c_rep = chk("repair-plan", repair_plan, REP, "#/$defs/RepairPlanV1")
+ record("R-REPAIR-DESCRIPTOR", "vectors/repair-descriptor.json", [c_rep])
+@@ -1079,7 +1098,7 @@
+     "direction": "outgoing",
+     "start": start_ep,
+     "target": start_ep,
+-    "maxDepth": 0,
++    "maxDepth": 1,
+ }
+ reach_params = {
+     "relation": "file",

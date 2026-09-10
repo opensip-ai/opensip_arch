@@ -1,0 +1,11 @@
+from pathlib import Path
+import json,importlib.util,hashlib,sys
+root=Path(sys.argv[1]).resolve();dc=root/'docs/coop/design-corrections';p=dc/'workflows/workflows_model.v1.py';sp=importlib.util.spec_from_file_location('bv6_map',p);W=importlib.util.module_from_spec(sp);sp.loader.exec_module(W)
+schema=json.loads((dc/'workflows/schemas/repair.schema.json').read_text());m=schema['x-opensip-mutation-operation-map'];ops=schema['$defs']['MutationOperation']['enum'];rows=[]
+for operation in sorted(set(ops)|set(m['genericMutationClasses'])):
+ params={'kind':'mutation','mutationClass':operation,'idempotencyKey':'a'*64}
+ try:W.validate_import_record('workflows/schemas/invocation-record.schema.json','#/$defs/MutationParams/properties/mutationClass',operation);result='ADMIT'
+ except Exception as e:result='REFUSE:'+str(e)
+ rows.append({'operation':operation,'listedInGenericMutationClasses':operation in m['genericMutationClasses'],'actualSchema':result})
+inv=json.loads((dc/'workflows/command-inventory.v1.json').read_text())['commands'];mutating={'mutation','repair-apply','import','native-preparation'}
+print(json.dumps({'standing':'Provisional root draft schema/map comparison; not a final finding until final bytes assessed. No replay authority or host effects executed.','sourceRoot':str(root),'schemaSha256':hashlib.sha256((dc/'workflows/schemas/repair.schema.json').read_bytes()).hexdigest(),'checks':rows,'limitation':'Property-schema admission only. First probe used incomplete whole params and six additional refusals were missing operation-specific fields; those are harness limits, not enum exclusions.','unmappedCommandsWithNamedMutatingStep':[{'name':c['name'],'steps':c['steps'],'requestClass':c['requestClass']} for c in inv if set(c['steps'])&mutating and c['name'] not in m['byCommand']],'interpretation':'Map genericMutationClasses contains command names, while annotation calls it the exact admissible operation set. Compare actual23 property-schema-admitted operations (complete MutationParams has additional per-operation fields, which this property check does not admit); three listed command names refuse and six admitted operation names are absent. Analyze is absent despite import step; checker subtracts analyze explicitly, so normative exception/emission rule must be accounted rather than inferred from checker.'},indent=2))

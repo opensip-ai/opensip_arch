@@ -1,0 +1,42 @@
+--- before/docs/coop/design-corrections/foundation/identity-model.py
++++ after/docs/coop/design-corrections/foundation/identity-model.py
+@@ -619,6 +619,21 @@
+         super().__init__('REGENERATION_MISMATCH')
+ 
+ 
++_REGISTERED_SCHEMA_DOCUMENTS=None
++def registered_schema_documents():
++    """The closed set of payload-registry schema DOCUMENTS, keyed by the raw SHA-256 of their exact
++    full bytes. Derived from the ONE registry (`x-opensip-payload-registry`) and from nowhere else,
++    so a row added there is registered here with no second list to drift from it."""
++    global _REGISTERED_SCHEMA_DOCUMENTS
++    if _REGISTERED_SCHEMA_DOCUMENTS is None:
++        documents=set()
++        for body in PAYLOADS['classes'].values():
++            if 'document' in body:documents.add(body['document'])
++            for row in body.get('rows',{}).values():documents.add(row['document'])
++        _REGISTERED_SCHEMA_DOCUMENTS={hashlib.sha256((HERE.parent/d).read_bytes()).hexdigest() for d in sorted(documents)}
++    return _REGISTERED_SCHEMA_DOCUMENTS
++
++
+ def close_run(run,objects,blobs):
+     """objects maps exact typed identity to (domain, descriptor). No caller ID is trusted."""
+     return open_run_closure(run,objects,blobs)[0]
+@@ -705,7 +720,16 @@
+             # fragment: recomputed at its stated location by an explicit join below.
+             # owner-retained: the named owning contract retains and admits the bytes.
+             return
+-        if representation=='raw-artifact':blob(value);return
++        if representation=='raw-artifact':
++            blob(value)
++            # A raw artifact is retained bytes and nothing more. Where the annotation says the
++            # artifact is a REGISTERED SCHEMA DOCUMENT, section 3's closed payload registry decides
++            # which bytes those are; retention alone would let any retained blob stand there. This
++            # is a membership test on the SELECTED set, never a derivation of it: which registered
++            # documents a producer names stays the producer's own declaration.
++            if annotation.get('artifactClass')=='registered-schema-document' and value not in registered_schema_documents():
++                raise C.AdmissionError('SCHEMA_DOCUMENT_UNREGISTERED:'+value)
++            return
+         if representation=='capability-manifest-id':capability_ids.add(value);return
+         if representation=='by-domain':
+             if type(siblings) is not dict or 'domain' not in siblings:raise C.AdmissionError('REF_DOMAIN_MISSING')

@@ -1,0 +1,304 @@
+--- finalv2/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ v3/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -743,70 +743,142 @@
+     _schema_ok, _ = valid(U + 'repair#/$defs/EvidenceRequirement', _req)
+     check('repair.boundary-and-schema-agree.%d' % _i, _schema_ok == (_expect == 'ADMIT'),
+           'schema=%s boundary=%s' % (_schema_ok, _expect))
+-# CX-BV6-03. The IMPORTED plane has its own producer, its own per-kind projections and its own
+-# input bindings. Every input is bound to an owning field: targets come from the PLAN, all-versus-any
+-# from the requirement's EXISTING `completeness`, required-versus-optional from evidenceUse. History
+-# is never projected through the runtime fields.
++# CX-BV6-03 / BV6-V3-IMPORT-*. The IMPORTED plane has its own producer, its own per-kind
++# projections, and a DETERMINISTIC join from plan target FINGERPRINTS to payload subjects. Targets
++# are `finding-key2:` identities; RuntimeSubject keys on {path, symbol?} and HistorySubject on
++# {path}. An earlier revision read the payload maps directly by the target string, which equated a
++# finding-key identity with a LogicalPath.
+ _IMP_LAW = SCHEMAS[U + 'imported-evidence']['x-opensip-imported-requirement-law']
++_FP1 = 'finding-key2:' + '1' * 64
++_FP2 = 'finding-key2:' + '2' * 64
++_FINDINGS = {_FP1: {'fingerprint': _FP1}, _FP2: {'fingerprint': _FP2}}
++def _fp_descriptor(path, qualified):
++    return {'schemaVersion': 2, 'ruleStableId': 'r', 'detectorSemanticsMajor': 1,
++            'relatedSubjectKeys': [],
++            'subjectKey': {'language': 'typescript', 'kind': 'function', 'logicalPath': path,
++                           'qualifiedName': qualified, 'discriminator': 'd'}}
++_DESCS = {_FP1: _fp_descriptor('src/a.ts', 'seen'), _FP2: _fp_descriptor('src/b.ts', 'missing')}
++_RT_ROWS = [{'path': 'src/a.ts', 'symbol': 'seen', 'observability': 'observed-hit'}]
++_RT_UNOBS = _RT_ROWS + [{'path': 'src/b.ts', 'symbol': 'missing', 'observability': 'unobservable'}]
++_HS_ROWS = [{'path': 'src/a.ts'}]
+ _RT_EV = {'available': True, 'consumable': True, 'windowSatisfiesRequirement': True,
+           'observationWindow': {'startUtc': '2026-09-01T00:00:00Z', 'endUtc': '2026-09-02T00:00:00Z'},
+-          'observedPopulation': 'synthetic', 'observability': {'seen': 'observed-hit'}}
++          'observedPopulation': 'synthetic'}
+ _HS_EV = {'available': True, 'consumable': True, 'rangeSatisfiesRequirement': True,
+-          'covered': {'seen': True}, 'present': {'seen': True},
+-          'revisionRange': {'from': None, 'to': 'a' * 40, 'commitCount': 3, 'truncated': False}}
++          'revisionRange': {'from': None, 'to': 'a' * 40, 'commitCount': 3, 'truncated': False},
++          'covered': {_FP1: True, _FP2: False}}
+ def _imp_req(rel='runtime-observation', completeness='complete'):
+     return {'relation': rel, 'minResolution': 'observed', 'completeness': completeness}
+-def _imp(rel, completeness, targets, ev, **kw):
++def _project(kind, rows, targets=(_FP1, _FP2), descs=None, findings=None):
++    return M.project_targets_to_imported_subjects(
++        list(targets), kind, _FINDINGS if findings is None else findings,
++        _DESCS if descs is None else descs, rows)
++def _outcome(rel, completeness, kind, rows, ev, targets=(_FP1, _FP2), required=True):
+     try:
+-        r = M.imported_requirement_outcome(_imp_req(rel, completeness), targets, ev, **kw)
++        r = M.imported_requirement_outcome(_imp_req(rel, completeness),
++                                           _project(kind, rows, targets), ev, required)
+         return r.get('deficiency') or ('SATISFIED:' + r.get('satisfiedBy', '')), r
+     except M.Refusal as exc:
+         return 'REFUSE:' + exc.remedy.split(':')[0], None
+-# The all-versus-any law, both directions. A draft of this producer used any() unconditionally and
+-# admitted a `complete` requirement while one target was unsupported; root demonstrated it.
+-check('repair.imported-complete-requires-every-target',
+-      _imp('runtime-observation', 'complete', ['seen', 'missing'], _RT_EV)[0]
++def _refusal(fn):
++    try:
++        fn(); return None
++    except M.Refusal as exc:
++        return exc.remedy.split(':')[0]
++# The join itself: a target is projected through the RETAINED finding-fingerprint subjectKey.
++_P = _project('runtime', _RT_ROWS, (_FP1,))
++check('repair.the-target-projection-reads-the-retained-fingerprint-subject-key',
++      _P[_FP1]['logicalPath'] == 'src/a.ts' and _P[_FP1]['matched'] is True
++      and _P[_FP1]['subjectQualifiedName'] == 'seen')
++# SYMBOL granularity is preserved: a symbol-keyed row for a DIFFERENT symbol does not match.
++check('repair.a-symbol-keyed-row-for-another-symbol-does-not-match-the-target',
++      _project('runtime', [{'path': 'src/a.ts', 'symbol': 'other', 'observability': 'observed-hit'}],
++               (_FP1,))[_FP1]['matched'] is False)
++# HISTORY has no symbol field, so a symbol target is answered at FILE granularity and that widening
++# is disclosed rather than hidden.
++check('repair.history-widening-to-file-is-disclosed-per-target',
++      _project('history', _HS_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is True
++      and _project('history', _HS_ROWS, (_FP1,))[_FP1]['answerGranularity'] == 'file'
++      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is False)
++_HW = _outcome('history-change', 'complete', 'history', _HS_ROWS, _HS_EV, (_FP1,))[1]
++check('repair.the-widening-reaches-the-outcome-disclosure',
++      any(d['kind'] == 'granularity-widened-to-file' and d['targets'] == [_FP1]
++          for d in _HW['disclosures']))
++# Ambiguity refuses; it is not resolved by choosing one.
++check('repair.the-projection-refuses-an-ambiguous-target',
++      _refusal(lambda: _project('runtime',
++                                _RT_ROWS + [{'path': 'src/a.ts', 'observability': 'observed-hit'}],
++                                (_FP1,))) == 'native.imported-projection-ambiguous-target')
++check('repair.the-projection-refuses-a-target-not-in-the-evidence-run',
++      _refusal(lambda: _project('runtime', _RT_ROWS, ('finding-key2:' + '9' * 64,)))
++      == 'native.imported-projection-target-not-in-evidence-run')
++check('repair.the-projection-refuses-a-missing-retained-fingerprint-preimage',
++      _refusal(lambda: _project('runtime', _RT_ROWS, (_FP1,), descs={}))
++      == 'native.imported-projection-fingerprint-preimage-missing')
++# ALL versus ANY, and the corrected partial semantics. An earlier revision vetoed on ANY
++# unobservable or uncovered target BEFORE the ANY test, so a lawful partial refused.
++check('repair.partial-acceptable-is-satisfied-with-one-supported-and-one-unobservable-target',
++      _outcome('runtime-observation', 'partial-acceptable', 'runtime', _RT_UNOBS, _RT_EV)[0]
++      == 'SATISFIED:bounded-observation')
++check('repair.partial-acceptable-is-satisfied-with-one-supported-and-one-uncovered-target',
++      _outcome('history-change', 'partial-acceptable', 'history', _HS_ROWS, _HS_EV)[0]
++      == 'SATISFIED:bounded-observation')
++check('repair.complete-still-names-the-unobservable-target-as-the-cause',
++      _outcome('runtime-observation', 'complete', 'runtime', _RT_UNOBS, _RT_EV)[0]
++      == 'subject-not-observable')
++check('repair.complete-still-names-a-missing-target-as-absent',
++      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS, _RT_EV)[0]
+       == 'import-absent-for-requirement')
+-check('repair.imported-partial-acceptable-requires-at-least-one-target',
+-      _imp('runtime-observation', 'partial-acceptable', ['seen', 'missing'], _RT_EV)[0]
++check('repair.complete-still-names-an-uncovered-history-target',
++      _outcome('history-change', 'complete', 'history', _HS_ROWS, _HS_EV)[0]
++      == 'history-outside-collection-scope')
++check('repair.complete-is-satisfied-when-every-target-is-supported',
++      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS, _RT_EV, (_FP1,))[0]
+       == 'SATISFIED:bounded-observation')
+-check('repair.imported-complete-is-satisfied-when-every-target-is-supported',
+-      _imp('runtime-observation', 'complete', ['seen'], _RT_EV)[0] == 'SATISFIED:bounded-observation')
+-check('repair.imported-projection-refuses-a-plan-with-no-targets-rather-than-satisfying-vacuously',
+-      _imp('runtime-observation', 'complete', [], _RT_EV)[0]
+-      == 'REFUSE:native.imported-outcome-without-targets')
+-# A satisfied outcome is not necessarily POSITIVE: observable-unhit is bounded NEGATIVE evidence and
+-# the disclosure carries which polarity satisfied it.
+-_UNHIT = _imp('runtime-observation', 'complete', ['seen'],
+-              dict(_RT_EV, observability={'seen': 'observable-unhit'}))
+-check('repair.bounded-negative-observable-unhit-can-satisfy-and-says-so',
++# BOUNDS are a property of the observation, not of the target count, so they apply in both modes.
++check('repair.an-insufficient-window-applies-under-partial-acceptable-too',
++      _outcome('runtime-observation', 'partial-acceptable', 'runtime', _RT_UNOBS,
++               dict(_RT_EV, windowSatisfiesRequirement=False))[0] == 'observation-window-insufficient')
++check('repair.an-insufficient-history-range-applies-under-partial-acceptable-too',
++      _outcome('history-change', 'partial-acceptable', 'history', _HS_ROWS,
++               dict(_HS_EV, rangeSatisfiesRequirement=False))[0] == 'history-range-insufficient')
++# Bounded-negative evidence satisfies and the polarity is disclosed, not collapsed.
++_UNHIT = _outcome('runtime-observation', 'complete', 'runtime',
++                  [{'path': 'src/a.ts', 'symbol': 'seen', 'observability': 'observable-unhit'}],
++                  _RT_EV, (_FP1,))
++check('repair.bounded-negative-observable-unhit-satisfies-and-discloses-its-polarity',
+       _UNHIT[0] == 'SATISFIED:bounded-observation'
+       and _UNHIT[1]['disclosures'][0]['polarity'] == ['observable-unhit']
+       and _UNHIT[1]['disclosures'][0]['observedPopulation'] == 'synthetic')
+-# Optional absence is satisfied BY ABSENCE and is labelled as such; REQUIRED is never defaulted.
+-_OPT = _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, available=False), required=False)
+-check('repair.optional-imported-absence-is-satisfied-by-absence-not-by-evidence',
+-      _OPT[0] == 'SATISFIED:declared-optional-absence'
+-      and _OPT[1]['disclosures'][0]['code'] == 'IMPORT.ABSENT_FOR_PREDICATE')
+-check('repair.an-unsupplied-evidence-use-declaration-is-required-never-optional',
+-      _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, available=False))[0]
++# The evidenceUse declaration reaches this boundary as a TYPED BOOLEAN. There is no `unknown` state
++# and no falsy value is read as `optional`; an earlier revision accepted None and 0 as optional.
++check('repair.optional-absence-is-satisfied-by-absence-not-by-evidence',
++      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
++               dict(_RT_EV, available=False), (_FP1,), required=False)[0]
++      == 'SATISFIED:declared-optional-absence')
++check('repair.a-required-declaration-still-reports-the-absent-kind',
++      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
++               dict(_RT_EV, available=False), (_FP1,), required=True)[0]
+       == 'evidence-kind-unavailable')
+-for _delta, _want in ((dict(consumable=False), 'import-unmapped-only'),
+-                      (dict(observability={'seen': 'unobservable'}), 'subject-not-observable'),
+-                      (dict(observability={'seen': 'unmapped'}), 'subject-not-observable'),
+-                      (dict(windowSatisfiesRequirement=False), 'observation-window-insufficient')):
+-    check('repair.imported-runtime-outcome.' + _want,
+-          _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, **_delta))[0] == _want)
+-# HISTORY has its OWN projection: HistoryPayloadV1 carries revisionRange and collectionScope and has
+-# no observationWindow, observedPopulation or observability, so the runtime projection is never
+-# applied to it and neither relation can report the other's outcomes.
+-check('repair.history-is-satisfied-through-its-own-projection',
+-      _imp('history-change', 'complete', ['seen'], _HS_EV)[0] == 'SATISFIED:bounded-observation')
+-for _delta, _want in ((dict(covered={'seen': True}), 'history-outside-collection-scope'),
+-                      (dict(rangeSatisfiesRequirement=False), 'history-range-insufficient')):
+-    _t = ['seen', 'other'] if _want == 'history-outside-collection-scope' else ['seen']
+-    check('repair.imported-history-outcome.' + _want,
+-          _imp('history-change', 'complete', _t, dict(_HS_EV, **_delta))[0] == _want)
++for _flag in (None, 0, 1, 'yes'):
++    check('repair.a-non-boolean-evidence-use-declaration-refuses.' + repr(_flag),
++          _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
++                   dict(_RT_EV, available=False), (_FP1,), required=_flag)[0]
++          == 'REFUSE:native.imported-required-declaration-not-boolean')
++# The CONSUMER decides the PER-KIND law, not merely the broad plane. Root's final-v2 controls showed
++# a runtime relation admitting a history outcome and the reverse.
++for _rel, _cause, _expect in (('runtime-observation', 'history-range-insufficient', 'REFUSE'),
++                              ('history-change', 'subject-not-observable', 'REFUSE'),
++                              ('runtime-observation', 'subject-not-observable', 'ADMIT'),
++                              ('history-change', 'history-range-insufficient', 'ADMIT'),
++                              ('runtime-observation', 'import-unmapped-only', 'ADMIT'),
++                              ('history-change', 'evidence-kind-unavailable', 'ADMIT')):
++    _r = dict(_imp_req(_rel), satisfied=False, deficiency=_cause)
++    _got = _refusal(lambda r=_r: M.admit_evidence_requirement(r))
++    check('repair.consumer-per-kind.' + _rel + '.' + _cause,
++          (_got is None) == (_expect == 'ADMIT')
++          and (_got is None or _got == 'native.sufficiency-outcome-not-applicable-to-kind'),
++          str(_got))
+ check('repair.the-two-imported-kinds-report-only-their-own-outcomes',
+       set(_IMP_LAW['perKindApplicability']['runtime-observation'])
+       & set(_IMP_LAW['perKindApplicability']['history-change'])
+@@ -818,14 +890,48 @@
+ check('repair.every-imported-outcome-names-its-owning-payload-field',
+       all(r['boundTo'] and r['groundedIn'] and r['appliesTo'] for r in _IMP_LAW['outcomes'].values())
+       and set(_IMP_LAW['outcomes']) == set(_IMP_LAW['precedence']))
+-check('repair.the-input-binding-names-the-owning-field-for-every-input',
+-      {'targets', 'allVersusAny', 'requiredVersusOptional', 'windowDemand', 'admittedInputsOnly'}
+-      <= set(_IMP_LAW['inputBinding'])
+-      and 'RepairPlanDescriptor.targets' in _IMP_LAW['inputBinding']['targets']
+-      and 'completeness' in _IMP_LAW['inputBinding']['allVersusAny'])
++# The published input bindings name real owners, and the two corrected ones say what they are.
++# STRUCTURAL, not prose: the law publishes a projection block with an entry per input it reads, and
++# RecipeRef genuinely has no window-demand field for the demand to have come from.
++check('repair.the-projection-block-and-every-input-binding-are-published',
++      set(_IMP_LAW['inputBinding'])
++      == {'standing', 'targets', 'allVersusAny', 'requiredVersusOptional', 'windowDemand',
++          'admittedInputsOnly'}
++      and {'standing', 'deterministicProjection', 'granularityIsReportedNotClassified',
++           'referenceProjection'} <= set(_IMP_LAW['targetSubjectProjection']))
++check('repair.recipe-ref-has-no-window-demand-field-so-the-closure-must-own-it',
++      set(SCHEMAS[U + 'repair']['$defs']['RecipeRef']['properties'])
++      == {'contributionId', 'recipeId', 'recipeVersion', 'closureId'}
++      and 'closureId' in SCHEMAS[U + 'repair']['$defs']['RecipeRef']['required'])
++# The target vocabulary and the payload subject vocabularies are genuinely different types, which is
++# why a projection is needed at all. This is the machine-readable form of that claim.
++check('repair.targets-and-payload-subjects-are-different-vocabularies',
++      SCHEMAS[U + 'common']['$defs']['Fingerprint']['pattern'].startswith('^finding-key2:')
++      and set(SCHEMAS[U + 'imported-evidence']['$defs']['RuntimeSubject']['required'])
++          == {'path', 'observability'}
++      and 'symbol' in SCHEMAS[U + 'imported-evidence']['$defs']['RuntimeSubject']['properties']
++      and 'symbol' not in SCHEMAS[U + 'imported-evidence']['$defs']['HistorySubject']['properties']
++      and SCHEMAS[U + 'repair']['$defs']['RepairPlanDescriptor']['properties']['targets']['items']
++          ['$ref'].endswith('Fingerprint'))
++# A path-only runtime row answers a keyed subject only at FILE granularity, and says so.
++_PATHONLY = _project('runtime', [{'path': 'src/a.ts', 'observability': 'observed-hit'}], (_FP1,))
++check('repair.a-path-only-runtime-row-is-a-file-level-answer-not-a-symbol-level-one',
++      _PATHONLY[_FP1]['matched'] is True
++      and _PATHONLY[_FP1]['answerGranularity'] == 'file'
++      and _PATHONLY[_FP1]['granularityWidenedToFile'] is True
++      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['answerGranularity'] == 'symbol'
++      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is False)
++_PO_OUT = M.imported_requirement_outcome(
++    _imp_req(), _PATHONLY, _RT_EV, True)
++check('repair.a-file-level-answer-to-a-keyed-subject-reaches-the-outcome-disclosure',
++      _PO_OUT['satisfied'] is True
++      and any(d['kind'] == 'granularity-widened-to-file' and d['targets'] == [_FP1]
++              for d in _PO_OUT['disclosures']))
+ check('repair.the-imported-producer-refuses-a-native-relation',
+-      _imp('references', 'complete', ['seen'], _RT_EV)[0]
+-      == 'REFUSE:native.imported-outcome-for-native-relation')
++      _refusal(lambda: M.imported_requirement_outcome(
++          {'relation': 'references', 'minResolution': 'resolved-binding', 'completeness': 'complete'},
++          _project('runtime', _RT_ROWS, (_FP1,)), _RT_EV, True))
++      == 'native.imported-outcome-for-native-relation')
+ check('repair.the-plane-is-read-from-registry-membership-not-from-the-value',
+       M.requirement_plane('runtime-observation') == 'imported'
+       and M.requirement_plane('history-change') == 'imported'
+@@ -923,14 +1029,46 @@
+                  U + 'invocation-record#/$defs/MutationReplayScopeV1', dict(_SCOPE, operation=_op))
+     must_invalid('workflow.generic-mutation-class-refuses.' + _op,
+                  U + 'invocation-record#/$defs/MutationParams/properties/mutationClass', _op)
+-check('workflow.every-step-kind-binding-cites-its-owning-result-or-params',
+-      all(_BY_STEP[k]['citations'] for k in _BY_STEP)
+-      and any('RepairApplyParams' in c for c in _BY_STEP['repair-apply']['citations'])
+-      and any('ImportResult' in c for c in _BY_STEP['import']['citations'])
+-      and any('NativePreparationResult' in c for c in _BY_STEP['native-preparation']['citations'])
+-      and _BY_STEP['repair-apply']['excludedFromGenericFields'] is True)
+-check('workflow.the-reference-model-limit-is-stated-not-confused-with-the-design-law',
+-      'whatIsNotClaimed' in _MAP and 'QUALIFICATION limit' in _MAP['whatIsNotClaimed'])
++# STRUCTURAL: every binding carries a non-empty citation list and the dedicated one carries its
++# exclusion flag. Which document each citation names is a review obligation, not a substring test.
++check('workflow.every-step-kind-binding-carries-citations-and-the-dedicated-exclusion-flag',
++      all(isinstance(_BY_STEP[k]['citations'], list) and _BY_STEP[k]['citations'] for k in _BY_STEP)
++      and _BY_STEP['repair-apply']['excludedFromGenericFields'] is True
++      and 'excludedFromGenericFields' not in _BY_STEP['import']
++      and 'excludedFromGenericFields' not in _BY_STEP['native-preparation'])
++check('workflow.the-reference-model-limit-is-recorded-beside-the-key-law',
++      'whatIsNotClaimed' in _MAP['receiptIdempotencyKeyByStepKind'])
++# BV6-V3-RECEIPT. MutationReceiptV1 requires BOTH operation and idempotencyKey. An earlier revision
++# bound only the operation and said the non-generic step kinds mint no H(workflow.mutation-intent)
++# key at all, leaving a REQUIRED field underdetermined for import and native-preparation.
++_KEYS = _MAP['receiptIdempotencyKeyByStepKind']['recipes']
++check('workflow.the-mutation-receipt-requires-both-operation-and-idempotency-key',
++      {'operation', 'idempotencyKey'} <= set(SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['required']))
++check('workflow.every-step-kind-has-a-published-key-recipe-and-lookup-meaning',
++      set(_KEYS) == set(_BY_STEP)
++      and all(_KEYS[k]['key'] and _KEYS[k]['lookupMeaning'] for k in _KEYS))
++# The key recipe for the two non-generic kinds is the EXISTING published one over the EXISTING
++# closed scope record, which is admissible precisely because the generic field domain was not
++# narrowed to the current emitters.
++_SCOPE_KEY = lambda op: M.mutation_replay_key(M.mutation_replay_scope(C['REQ'], 2, C['PRJ'], op))
++for _k in ('import', 'native-preparation'):
++    must_valid('workflow.the-receipt-key-scope-record-is-schema-valid.' + _k,
++               U + 'invocation-record#/$defs/MutationReplayScopeV1',
++               dict(_SCOPE, operation=_BY_STEP[_k]['operation']))
++    check('workflow.the-published-key-recipe-is-computable-for.' + _k,
++          len(_SCOPE_KEY(_BY_STEP[_k]['operation'])) == 64)
++check('workflow.the-non-generic-receipt-keys-differ-from-each-other-and-from-a-generic-one',
++      len({_SCOPE_KEY(o) for o in ('import', 'native-preparation', 'purge')}) == 3)
++check('workflow.native-preparation-lookup-is-not-replay-and-import-is-delivery-only',
++      'NOT REPLAY' in _KEYS['native-preparation']['lookupMeaning']
++      and 'NEW EXPLICIT AUTHORIZED EXECUTION' in _KEYS['native-preparation']['lookupMeaning']
++      and 'DELIVERY ONLY' in _KEYS['import']['lookupMeaning'])
++# The map's authority pointers must resolve inside this document; a pointer to a key an earlier
++# revision removed is a dangling current authority, which is what this control exists to catch.
++check('workflow.every-mutation-operation-authority-pointer-resolves',
++      all(p.rsplit('/', 1)[1] in _MAP
++          for k, p in SCHEMAS[U + 'repair']['$defs']['MutationOperation']['x-opensip-vocabulary'].items()
++          if 'x-opensip-mutation-operation-map/' in str(p)))
+ # Injectivity is an observation about today's inventory, not a law, so it is recorded as one.
+ check('workflow.the-current-generic-rows-happen-to-be-injective-which-is-not-assumed-as-a-law',
+       len({r['operation'] for r in _BY_COMMAND.values()}) == len(_BY_COMMAND)

@@ -1,0 +1,74 @@
+--- read-initial/vec_selfcheck.py
++++ completed/vec_selfcheck.py
+@@ -240,3 +240,71 @@
+             "relationDigestLaw": relation_digest_law(),
+             "importMirrorDifferential": import_mirror_differential(),
+             "boundArithmetic": bound_arithmetic()}
++
++
++def cardinality_boundaries():
++    """native S14 publishes a typed PROJECT.SCOPE_LIMIT refusal for FOUR
++    bounded selection arrays across TWO record families.  These are reachable
++    boundaries on a THIRD family (`plan`) with no published typed refusal."""
++    i = O.doc("identity")["$defs"]
++    sc = i["semantic-configuration"]["properties"]
++    published = {"scope-descriptor.workspaceRoots":
++                     i["scope-descriptor"]["properties"]["workspaceRoots"]["maxItems"],
++                 "scope-descriptor.pathPrefixes":
++                     i["scope-descriptor"]["properties"]["pathPrefixes"]["maxItems"],
++                 "scope-descriptor.excludedPathPrefixes":
++                     i["scope-descriptor"]["properties"]["excludedPathPrefixes"]["maxItems"],
++                 "analysis-spec.requestedCapabilities":
++                     i["analysis-spec"]["properties"]["requestedCapabilities"]["maxItems"]}
++    unpublished = {"plan.nativeContextDigests":
++                       i["plan"]["properties"]["nativeContextDigests"]["maxItems"],
++                   "plan.semanticClosures":
++                       i["plan"]["properties"]["semanticClosures"]["maxItems"],
++                   "plan.importIds": i["plan"]["properties"]["importIds"]["maxItems"]}
++
++    base = {"schemaVersion": 2, "snapshotId": "snapshot2:" + "11" * 32,
++            "capabilityManifestId": "22" * 32, "semanticClosures": [],
++            "analysisSpecDigest": "33" * 32, "resolvedConfigDigest": "44" * 32,
++            "nativeContextDigests": [], "importIds": [],
++            "policyDigest": "55" * 32, "waiverDigest": "66" * 32,
++            "scopeDigest": "77" * 32,
++            "budget": {"unit": "work-units", "limit": 1},
++            "semanticGrantDigest": "88" * 32,
++            "capabilityManifestBytesDigest": "99" * 32}
++
++    ctx129 = sorted("%064x" % n for n in range(129))
++    over_ctx = dict(base, nativeContextDigests=ctx129)
++    imp257 = sorted("import2:%064x" % n for n in range(257))
++    over_imp = dict(base, importIds=imp257)
++    errs_ctx = O.validate("identity", "#/$defs/plan", over_ctx)
++    errs_imp = O.validate("identity", "#/$defs/plan", over_imp)
++    return {
++        "publishedTypedRefusalFields": published,
++        "unpublishedPlanBounds": unpublished,
++        "reachability": {
++            "129 distinct TypeScript units with an explicit "
++            "analysis.capabilities=[inventory] override": {
++                "requestedCapabilityRows": 129,
++                "requestedCapabilitiesBound": published[
++                    "analysis-spec.requestedCapabilities"],
++                "admittedByThatBound": True,
++                "workspaceRoots": 129,
++                "workspaceRootsBound": published["scope-descriptor.workspaceRoots"],
++                "admittedByThatBound2": True,
++                "distinctNativeContexts": 129,
++                "planBound": unpublished["plan.nativeContextDigests"],
++                "expressible": False},
++            "1024 already-admitted import2 IDs in the resolved configuration": {
++                "configurationBound": sc["evidence"]["properties"]["importIds"]["maxItems"],
++                "planBound": unpublished["plan.importIds"],
++                "expressibleAbove": unpublished["plan.importIds"]}},
++        "genericSchemaFaultForOverflow": {
++            "nativeContextDigests": errs_ctx,
++            "importIds": errs_imp,
++            "namesFieldCountAndLimit": all(
++                ("129" in " ".join(errs_ctx)) or ("128" in " ".join(errs_ctx))
++                for _ in [0])},
++        "note": "native S14: 'a maxItems breach is reported generically, "
++                "restating the entire instance and naming no field, count or "
++                "limit; an oversized ordinary selection is not a malformed "
++                "record and is not published as one'."}

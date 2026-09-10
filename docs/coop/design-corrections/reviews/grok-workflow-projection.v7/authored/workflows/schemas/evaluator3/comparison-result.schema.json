@@ -1,0 +1,1052 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:comparison:2",
+  "title": "ComparisonResult schemaMajor 2 — evaluator3 unmatched + correspondence coverage",
+  "description": "Explicit successor to versioning-policy.v8.json#comparisonSchema.ComparisonResult. Attribution follows a fixed pivot chain over CURRENT source: E0 = (prior detector, prior policy, prior scope, prior waivers); E1 = (current detector, prior policy/scope/waivers); E2 = (current detector, current policy, prior scope/waivers); E3 = (current detector/policy/scope, prior waivers); E4 = current Run. Baseline B is the artifact's entry set. Each entry's classification is the FIRST axis in the order code→detection→policy→scope→waiver at which its presence (or waived status, for the waiver axis) changes, and later axes are recorded in subsequentDeltas, so a code regression cannot be hidden under a simultaneous policy, scope, waiver or evidence change. E1..E3 are pure re-evaluations of retained current facts under the baseline's embedded context documents (fresh CI needs no origin store). E0 requires a runnable admitted prior detector closure; when it is unavailable and the detector changed without a declared exact semantic compatibility, every entry of that detector is INDETERMINATE with a typed reason. Gate semantics are selected by the named audit profile, never by enum precedence. Whole-comparison indeterminacy performs no comparison and emits zero entries. Evaluator3: schemaMajor 2 because unmatchedOccurrences and correspondenceCoverage are identity-bearing. Unmatched records are not classified as UNCHANGED, CODE-NET-NEW, CODE-FIXED or resolved. Known matched CODE-NET-NEW still fails even when gating correspondence deficiencies exist. Historical schemaMajor 1 is refused, never coerced to empty unmatched.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "comparisonResultId",
+    "descriptor"
+  ],
+  "properties": {
+    "comparisonResultId": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+    },
+    "descriptor": {
+      "$ref": "#/$defs/ComparisonDescriptor"
+    }
+  },
+  "$defs": {
+    "AuditProfileName": {
+      "type": "string",
+      "enum": [
+        "code-regression",
+        "policy-change",
+        "full-current",
+        "report-only"
+      ]
+    },
+    "AuditProfile": {
+      "type": "object",
+      "description": "Explicit, visible gate semantics. code-regression (default for audit): gates CODE-NET-NEW on rules gating under baseline OR current policy; a new waiver added in the same change does not suppress it. policy-change: additionally gates findings newly live through POLICY/SCOPE/WAIVER deltas (used to review a policy change; code regressions still gate). full-current: every live unwaived gating finding on the current side gates, whatever its axis. report-only: nothing gates; verdict is pass or indeterminate only.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "gateCodeNetNew",
+        "gateNewlyLiveByPolicyAxes",
+        "gateAllCurrentLive",
+        "newWaiverSuppressesCodeNetNew",
+        "gateRuleUnder"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/AuditProfileName"
+        },
+        "gateCodeNetNew": {
+          "type": "boolean"
+        },
+        "gateNewlyLiveByPolicyAxes": {
+          "type": "boolean"
+        },
+        "gateAllCurrentLive": {
+          "type": "boolean"
+        },
+        "newWaiverSuppressesCodeNetNew": {
+          "type": "boolean"
+        },
+        "gateRuleUnder": {
+          "type": "string",
+          "enum": [
+            "baseline-or-current",
+            "current-only"
+          ]
+        }
+      }
+    },
+    "EvaluationContext": {
+      "type": "object",
+      "description": "Digests of the evaluation context on one side. policyDigest = raw SHA-256 of the canonical PolicyDocumentV1 bytes (equals plan.policyDigest); waiverSetDigest = raw SHA-256 of the canonical RESOLVED WaiverSetV1 bytes (equals plan.waiverDigest); scopeDigest = raw SHA-256 of the canonical ScopeDocumentV1 bytes (the workflow glob scope-policy document, bound as an analysis-spec parameter; distinct from plan.scopeDigest, which is the foundation scope-descriptor). All three are retained blobs. detectorClosureIds are closure2 identities. evidenceAvailability lists the exact imports, kinds and required relations actually bound on that side.",
+      "additionalProperties": false,
+      "required": [
+        "policyDigest",
+        "scopeDigest",
+        "waiverSetDigest",
+        "detectorClosureIds",
+        "evidenceAvailability"
+      ],
+      "properties": {
+        "policyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "scopeDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "waiverSetDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "detectorClosureIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "evidenceAvailability": {
+          "$ref": "#/$defs/EvidenceAvailability"
+        }
+      }
+    },
+    "EvidenceAvailability": {
+      "type": "object",
+      "description": "Evidence actually bound on one side. imports lists the exact import2 identities (each already binds payload content, correspondence, scope and observation digests) so that the evidence axis compares identities, not kind presence: the same kind with different payload/correspondence/scope/window is a changed axis. importKinds is derived from imports and retained for the rule evidenceUse join.",
+      "additionalProperties": false,
+      "required": [
+        "importKinds",
+        "relations",
+        "imports"
+      ],
+      "properties": {
+        "importKinds": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "relations": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "imports": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/BoundImport"
+          },
+          "description": "sorted ascending by importId",
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "BoundImport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "importId",
+        "payloadDigest",
+        "sourceCorrespondenceDigest",
+        "scopeDigest",
+        "observationDigest"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+        },
+        "payloadDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "sourceCorrespondenceDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "scopeDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "observationDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        }
+      }
+    },
+    "ExecutionDeficiency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "cause",
+        "subjectId",
+        "predicateId",
+        "inputRefs",
+        "evidenceKind",
+        "nativeCause",
+        "universe"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": [
+            "enumeration",
+            "native",
+            "import",
+            "execution",
+            "correspondence"
+          ]
+        },
+        "cause": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "subjectId": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SubjectId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "predicateId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inputRefs": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "domain",
+              "digest"
+            ],
+            "properties": {
+              "domain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "digest": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+              }
+            }
+          },
+          "x-opensip-order": "canonical-set"
+        },
+        "evidenceKind": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "test",
+                "runtime",
+                "history",
+                "dependency",
+                "prepared"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeCause": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "universe": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "description": "Drift-checked copy of foundation3 evaluation-deficiency required fields. Full Run replay is a prerequisite. Not a Comparison RuleDeficiency cause key."
+    },
+    "RuleDeficiency": {
+      "type": "object",
+      "description": "Current-side rule deficiency independent of classified matched entries. correspondence-incomplete covers unmatched findings and semantic population unknown (unavailable inventory record or no-covering-program) including zero-finding rules. A missing expected inventory POINTER is not this cause: that is structural admission refusal.",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "gating",
+        "cause"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "gating": {
+          "type": "boolean"
+        },
+        "cause": {
+          "type": "string",
+          "enum": [
+            "required-coverage-unsatisfied",
+            "required-coverage-unknown",
+            "required-evidence-unavailable",
+            "correspondence-incomplete"
+          ]
+        }
+      }
+    },
+    "RuleCoverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "requiredCoverage",
+        "enabled",
+        "gating",
+        "evidenceUse"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "requiredCoverage": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequiredCoverage"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "gating": {
+          "type": "boolean",
+          "description": "true when the rule's effective severity under this side's policy fails the gate"
+        },
+        "evidenceUse": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/EvidenceUse"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "DetectorDisposition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detectorId",
+        "baselineClosureId",
+        "currentClosureId",
+        "baselineSemanticsMajor",
+        "currentSemanticsMajor",
+        "method"
+      ],
+      "properties": {
+        "detectorId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "baselineClosureId": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null only for method=detector-added"
+        },
+        "currentClosureId": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null when the current detector was removed, including indeterminate removal without an admitted pivot."
+        },
+        "baselineSemanticsMajor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "currentSemanticsMajor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "identical-closure",
+            "declared-compatible",
+            "three-way-pivot",
+            "detector-added",
+            "detector-removed",
+            "indeterminate"
+          ],
+          "description": "Identical or explicitly compatible closures permit two-way comparison. Changed or removed baseline detectors require a committed current-trusted E0 pivot over current source; removal sets E1..E4 false but preserves measured E0. New detectors set E0 false. Missing pivot is indeterminate; removal cannot hide code regressions."
+        },
+        "pivotRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+        },
+        "indeterminateReason": {
+          "$ref": "#/$defs/IndeterminateReason"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "const": "three-way-pivot"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pivotRunId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "const": "indeterminate"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "indeterminateReason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "const": "detector-added"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "baselineClosureId": {
+                "type": "null"
+              },
+              "currentClosureId": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "const": "detector-removed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "currentClosureId": {
+                "type": "null"
+              },
+              "baselineClosureId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pivotRunId"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "method": {
+                "enum": [
+                  "identical-closure",
+                  "declared-compatible",
+                  "three-way-pivot"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "baselineClosureId": {
+                "type": "string"
+              },
+              "currentClosureId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "IndeterminateReason": {
+      "type": "string",
+      "enum": [
+        "pivot-detector-unavailable",
+        "pivot-closure-revoked",
+        "pivot-closure-incompatible",
+        "pivot-run-not-committed",
+        "pivot-detector-nondeterministic",
+        "pivot-reevaluation-unavailable",
+        "baseline-recipe-unsupported",
+        "baseline-project-unmapped",
+        "baseline-context-document-missing",
+        "baseline-schema-major-unsupported",
+        "required-evidence-unavailable",
+        "evidence-availability-changed",
+        "evidence-content-changed",
+        "fingerprint-migration-only"
+      ]
+    },
+    "Axis": {
+      "type": "string",
+      "enum": [
+        "code",
+        "detection",
+        "policy",
+        "scope",
+        "waiver",
+        "evidence"
+      ]
+    },
+    "Classification": {
+      "type": "string",
+      "enum": [
+        "UNCHANGED",
+        "CODE-NET-NEW",
+        "CODE-FIXED",
+        "DETECTION-DELTA",
+        "POLICY-DELTA",
+        "SCOPE-DELTA",
+        "WAIVER-DELTA",
+        "EVIDENCE-DELTA",
+        "INDETERMINATE"
+      ]
+    },
+    "PivotPresence": {
+      "type": "object",
+      "description": "Presence of the fingerprint at each pivot. null = pivot not available. waivedB/waivedC record waiver status on the two real sides.",
+      "additionalProperties": false,
+      "required": [
+        "B",
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4",
+        "waivedB",
+        "waivedC"
+      ],
+      "properties": {
+        "B": {
+          "type": "boolean"
+        },
+        "E0": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "E1": {
+          "type": "boolean"
+        },
+        "E2": {
+          "type": "boolean"
+        },
+        "E3": {
+          "type": "boolean"
+        },
+        "E4": {
+          "type": "boolean"
+        },
+        "waivedB": {
+          "type": "boolean"
+        },
+        "waivedC": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fingerprint",
+        "ruleId",
+        "detectorId",
+        "presence",
+        "classification",
+        "subsequentDeltas",
+        "liveInCurrent",
+        "gates"
+      ],
+      "properties": {
+        "fingerprint": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
+        },
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "detectorId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "presence": {
+          "$ref": "#/$defs/PivotPresence"
+        },
+        "classification": {
+          "$ref": "#/$defs/Classification"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "appeared",
+            "vanished",
+            "waiver-added",
+            "waiver-removed"
+          ]
+        },
+        "subsequentDeltas": {
+          "type": "array",
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/Axis"
+          },
+          "description": "axes after the classifying axis at which presence/waiver status changed again; a CODE-NET-NEW entry with subsequentDeltas [policy] is a code regression hidden by a policy change and still gates",
+          "x-opensip-order": "sequence"
+        },
+        "indeterminateReason": {
+          "$ref": "#/$defs/IndeterminateReason"
+        },
+        "liveInCurrent": {
+          "type": "boolean",
+          "description": "present in E4 and not waived on the current side"
+        },
+        "gates": {
+          "type": "boolean"
+        },
+        "gateReason": {
+          "type": "string",
+          "enum": [
+            "code-net-new",
+            "code-net-new-policy-hidden",
+            "newly-live-policy-axis",
+            "current-live",
+            "indeterminate-gating-rule"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "const": "INDETERMINATE"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "indeterminateReason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "classification": {
+                "enum": [
+                  "CODE-NET-NEW",
+                  "CODE-FIXED",
+                  "DETECTION-DELTA",
+                  "POLICY-DELTA",
+                  "SCOPE-DELTA",
+                  "EVIDENCE-DELTA",
+                  "WAIVER-DELTA"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "direction"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "gates": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "gateReason"
+            ]
+          }
+        }
+      ]
+    },
+    "ComparisonDescriptor": {
+      "type": "object",
+      "description": "Identity-bearing: H('workflow.comparison', descriptor). Excludes RequestId/ExecutionId/clocks/receipts.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "baselineId",
+        "currentRunId",
+        "currentSnapshotId",
+        "auditProfile",
+        "projectCorrespondence",
+        "comparisonPerformed",
+        "baselineContext",
+        "currentContext",
+        "contextDelta",
+        "pivotsAvailable",
+        "detectors",
+        "ruleDeficiencies",
+        "entries",
+        "counts",
+        "verdict",
+        "unmatchedOccurrences",
+        "correspondenceCoverage",
+        "currentEvaluationState",
+        "currentExecutionDeficiencies"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.comparison"
+        },
+        "schemaMajor": {
+          "const": 2
+        },
+        "baselineId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+        },
+        "currentRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+        },
+        "currentSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+        },
+        "auditProfile": {
+          "$ref": "#/$defs/AuditProfile"
+        },
+        "projectCorrespondence": {
+          "type": "string",
+          "enum": [
+            "same-project",
+            "declared",
+            "unmapped"
+          ]
+        },
+        "comparisonPerformed": {
+          "type": "boolean"
+        },
+        "wholeIndeterminateReason": {
+          "$ref": "#/$defs/IndeterminateReason"
+        },
+        "remedy": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+        },
+        "baselineContext": {
+          "$ref": "#/$defs/EvaluationContext"
+        },
+        "currentContext": {
+          "$ref": "#/$defs/EvaluationContext"
+        },
+        "contextDelta": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "codeChanged",
+            "detectorChanged",
+            "policyChanged",
+            "scopeChanged",
+            "waiversChanged",
+            "evidenceAvailabilityChanged"
+          ],
+          "properties": {
+            "codeChanged": {
+              "type": "boolean"
+            },
+            "detectorChanged": {
+              "type": "boolean"
+            },
+            "policyChanged": {
+              "type": "boolean"
+            },
+            "scopeChanged": {
+              "type": "boolean"
+            },
+            "waiversChanged": {
+              "type": "boolean"
+            },
+            "evidenceAvailabilityChanged": {
+              "type": "boolean"
+            }
+          }
+        },
+        "pivotsAvailable": {
+          "type": "object",
+          "description": "Derived from what was actually bound, never assumed: E0 from the detector dispositions; E1..E3 are 'available' only when the current side supplied a bound re-evaluation result for that pivot (boundPivots), 'not-needed' when that axis is unchanged, else 'unavailable' (every entry INDETERMINATE pivot-reevaluation-unavailable).",
+          "additionalProperties": false,
+          "required": [
+            "E0",
+            "E1",
+            "E2",
+            "E3"
+          ],
+          "properties": {
+            "E0": {
+              "type": "string",
+              "enum": [
+                "available",
+                "not-needed",
+                "unavailable"
+              ]
+            },
+            "E1": {
+              "type": "string",
+              "enum": [
+                "available",
+                "not-needed",
+                "unavailable"
+              ]
+            },
+            "E2": {
+              "type": "string",
+              "enum": [
+                "available",
+                "not-needed",
+                "unavailable"
+              ]
+            },
+            "E3": {
+              "type": "string",
+              "enum": [
+                "available",
+                "not-needed",
+                "unavailable"
+              ]
+            }
+          }
+        },
+        "detectors": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/DetectorDisposition"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "ruleDeficiencies": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/RuleDeficiency"
+          },
+          "description": "sorted by ruleId; a gating deficiency yields verdict indeterminate even with zero entries",
+          "x-opensip-order": "sequence"
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 3145728,
+          "items": {
+            "$ref": "#/$defs/Entry"
+          },
+          "description": "sorted strictly ascending by fingerprint UTF-8 bytes",
+          "x-opensip-order": "sequence"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "UNCHANGED",
+            "CODE-NET-NEW",
+            "CODE-FIXED",
+            "DETECTION-DELTA",
+            "POLICY-DELTA",
+            "SCOPE-DELTA",
+            "WAIVER-DELTA",
+            "EVIDENCE-DELTA",
+            "INDETERMINATE",
+            "gating"
+          ],
+          "properties": {
+            "UNCHANGED": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "CODE-NET-NEW": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "CODE-FIXED": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "DETECTION-DELTA": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "POLICY-DELTA": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "SCOPE-DELTA": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "WAIVER-DELTA": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "EVIDENCE-DELTA": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "INDETERMINATE": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "gating": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            }
+          }
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate"
+          ]
+        },
+        "d9Deficiency": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+        },
+        "unmatchedOccurrences": {
+          "type": "array",
+          "maxItems": 3145728,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UnmatchedOccurrence"
+          },
+          "uniqueItems": true,
+          "x-opensip-order": {
+            "by": [
+              "side",
+              "findingId"
+            ]
+          },
+          "description": "Union of baseline and current unmatched findings. Not comparison entries and not classified as UNCHANGED, CODE-NET-NEW, or CODE-FIXED."
+        },
+        "correspondenceCoverage": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CorrespondenceCoverage"
+          },
+          "x-opensip-order": {
+            "by": [
+              "ruleId"
+            ]
+          }
+        },
+        "currentEvaluationState": {
+          "type": "string",
+          "enum": [
+            "evaluated",
+            "budget-exhausted"
+          ],
+          "description": "Admitted current proof evaluationState. Independent of rule gating."
+        },
+        "currentExecutionDeficiencies": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/ExecutionDeficiency"
+          },
+          "description": "Exact current proof executionDeficiencies (source-specific causes). Not collapsed into ruleDeficiencies. Execution unknown is independent of policy gating; matched CODE-NET-NEW fail still dominates.",
+          "x-opensip-order": "sequence"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "comparisonPerformed": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "wholeIndeterminateReason",
+              "remedy"
+            ],
+            "properties": {
+              "entries": {
+                "maxItems": 0
+              },
+              "verdict": {
+                "const": "indeterminate"
+              },
+              "unmatchedOccurrences": {
+                "maxItems": 0
+              },
+              "correspondenceCoverage": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

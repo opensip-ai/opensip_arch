@@ -1,0 +1,1295 @@
+{
+  "artifact": "opensip.fact-plane",
+  "version": "v1",
+  "status": "CANDIDATE-REPAIRED-PENDING-INDEPENDENT-REREVIEW",
+  "author": "agent-3",
+  "purpose": "Make C-1 buildable. C-1 sealed the PRINCIPLE that fact sufficiency is predicate-relative with no global tier ordering; it did not say what a fact is, what a requirement declares, or how sufficiency is decided. Under consumer B that gap is a week-one fork, so this is the binding contract.",
+  "reviewStatus": "The C-1 sufficiency base has prior review/adjudication recorded elsewhere. The later FactEnvelope closure and factRecordContractV1 repairs for R6-IP02-01, R6R-IP02-01 and R5R-DLTS-02 await independent rereview. The same-author risk remains explicit: --selftest makes mutations load-bearing, while independent implementations must reproduce FACT-ID-V1 and relation-payload CBOR before qualification.",
+  "decisionDependencies": [
+    {
+      "claim": "C-1",
+      "status": "SEALED",
+      "supplies": "sufficiency is predicate-relative; no global quality ordering over tiers"
+    },
+    {
+      "claim": "D9",
+      "status": "CANDIDATE (contract-complete)",
+      "supplies": "the Coverage reason-code vocabulary this contract's deficiencies must map into"
+    },
+    {
+      "claim": "P-4",
+      "status": "SEALED",
+      "supplies": "two semantic providers (TypeScript, Rust); every other language is a capability tier, disclosed loudly"
+    },
+    {
+      "claim": "C-2",
+      "status": "CANDIDATE",
+      "supplies": "the planner stage that consumes requirements and builds the least sufficient fact view"
+    }
+  ],
+  "theOrderingSubtlety": {
+    "problem": "C-1 says there is NO global quality ordering over fact tiers. A naive schema contradicts that immediately, because 'minimum resolution' sounds like a global ladder inventory < syntax < semantic.",
+    "resolution": "Ordering is PER-RELATION and never global. Each relation declares its own totally-ordered resolution ladder. `declares` has a one-rung ladder because syntax is authoritative for it and no stronger form exists. `references` has two rungs because a name match and a resolved binding are genuinely different strengths OF THE SAME RELATION. Nothing orders a rung of one relation against a rung of another, and nothing orders the layers.",
+    "whyThisIsTheWholePoint": "It is what makes 'a syntax fact is authoritative, not a degraded semantic fact' mechanically true rather than a slogan. A requirement for `declares` at `syntactic` is FULLY satisfied and can never be reported as degraded, because its ladder has no higher rung to be degraded against.",
+    "checked": "F6 rejects any cross-relation resolution comparison; F7 rejects any global rank field on layers."
+  },
+  "factEnvelope": {
+    "rule": "Every fact carries this envelope. A fact without it cannot be admitted, because none of its downstream trust properties would be checkable.",
+    "closed": true,
+    "additionalProperties": false,
+    "requiredFields": [
+      "factId",
+      "snapshotId",
+      "relation",
+      "layer",
+      "producer",
+      "producerVersion",
+      "schemaVersion",
+      "resolution",
+      "confidence"
+    ],
+    "optionalFields": [
+      "span",
+      "language"
+    ],
+    "unknownFieldOutcome": "FACT_ENVELOPE_UNKNOWN_FIELD",
+    "fields": {
+      "factId": {
+        "type": "string",
+        "format": "FACT-ID-V1",
+        "why": "host-only opensip.fact-id.v1 over the exact admitted envelope+payload semantic input; provider candidates never mint it"
+      },
+      "snapshotId": {
+        "type": "string",
+        "format": "ContentDigest",
+        "why": "which worktree state this fact describes"
+      },
+      "relation": {
+        "type": "string",
+        "why": "the relation this fact instantiates; must be in relationRegistry"
+      },
+      "layer": {
+        "type": "string",
+        "enum": [
+          "inventory",
+          "syntax",
+          "semantic",
+          "derived",
+          "language-namespace"
+        ],
+        "why": "descriptive grouping ONLY \u2014 carries no ordering (F7)"
+      },
+      "producer": {
+        "type": "string",
+        "why": "which extractor emitted it; bundled semantic candidates use exactly typescript-semantic or rust-semantic"
+      },
+      "producerVersion": {
+        "type": "string",
+        "why": "changing the producer changes the fact even at identical source bytes"
+      },
+      "schemaVersion": {
+        "type": "integer",
+        "why": "the relation payload schema version selected from opensip.relation-payload-registry.v1"
+      },
+      "span": {
+        "type": "object",
+        "format": "opensip.source-span.v1",
+        "optional": true,
+        "why": "deterministic primary projection from validated source-span anchors; absent for facts with no source span and never an independent identity input"
+      },
+      "resolution": {
+        "type": "string",
+        "why": "which rung of THIS relation's ladder produced it"
+      },
+      "confidence": {
+        "type": "number",
+        "range": "[0,1]",
+        "why": "exact rational confidenceMillionths/1000000; FACT-ID-V1 hashes the integer millionths so no floating-point rendering enters identity"
+      },
+      "language": {
+        "type": "string",
+        "optional": true,
+        "why": "absent for language-neutral inventory facts"
+      }
+    },
+    "forbidden": [
+      "quality",
+      "tier",
+      "degraded",
+      "rank"
+    ],
+    "forbiddenRationale": "Each of these words names a GLOBAL judgment about a fact. C-1 forbids exactly that. A fact is authoritative for the predicates its resolution satisfies and insufficient for the rest; it is never globally 'low quality'."
+  },
+  "factEnvelopeFixtures": [
+    {
+      "id": "fact-envelope-valid-minimal",
+      "valid": true,
+      "envelope": {
+        "factId": "fact:sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "snapshotId": "snap1:sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "relation": "declares",
+        "layer": "syntax",
+        "producer": "typescript-semantic",
+        "producerVersion": "1.0.0",
+        "schemaVersion": 1,
+        "resolution": "syntactic",
+        "confidence": 1.0
+      }
+    },
+    {
+      "id": "fact-envelope-reject-request-id",
+      "valid": false,
+      "expected": "FACT_ENVELOPE_UNKNOWN_FIELD",
+      "addField": {
+        "requestId": "req1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    },
+    {
+      "id": "fact-envelope-reject-arbitrary-extension",
+      "valid": false,
+      "expected": "FACT_ENVELOPE_UNKNOWN_FIELD",
+      "addField": {
+        "futureMetadata": true
+      }
+    }
+  ],
+  "factRecordContractV1": {
+    "contractId": "opensip.fact-record.v1",
+    "owner": "FACT-PLANE",
+    "status": "BINDING-CANDIDATE-IMPLEMENTABLE-UNEXECUTED",
+    "purpose": "Bind the one host admission boundary shared by bundled TypeScript and Rust semantic providers: a provider emits a closed candidate, the host validates the relation payload and anchors against this registry, constructs one closed FactRecordV1, and alone mints FACT-ID-V1.",
+    "componentIds": {
+      "factCandidate": "opensip.fact-candidate.v1",
+      "relationPayloadRegistry": "opensip.relation-payload-registry.v1",
+      "candidateAdmission": "opensip.fact-candidate-admission.v1",
+      "factId": "opensip.fact-id.v1",
+      "sourceSpan": "opensip.source-span.v1",
+      "anchorRef": "opensip.anchor-ref.v1"
+    },
+    "providerProfiles": [
+      {
+        "providerId": "rust-semantic",
+        "language": "rust"
+      },
+      {
+        "providerId": "typescript-semantic",
+        "language": "typescript"
+      }
+    ],
+    "candidateSchema": {
+      "id": "opensip.fact-candidate.v1",
+      "closed": true,
+      "additionalProperties": false,
+      "required": [
+        "candidateOrdinal",
+        "relation",
+        "resolution",
+        "layer",
+        "producer",
+        "producerVersion",
+        "schemaVersion",
+        "language",
+        "sourceUniverseId",
+        "targetUniverseId",
+        "confidenceMillionths",
+        "relationSchemaId",
+        "canonicalRelationPayload",
+        "anchors"
+      ],
+      "optional": [],
+      "transportRepresentation": "canonicalRelationPayload is a deterministic-CBOR byte string. JSON vectors transcribe those bytes as canonicalRelationPayloadHex; that transcription is not an additional wire field.",
+      "fields": {
+        "candidateOrdinal": "uint64 contiguous within the attributed stage; transport-only and excluded from FactRecordV1 and FACT-ID-V1",
+        "relation": "exact key in relationPayloadSchemaRegistryV1.schemas and relationRegistry.relations",
+        "resolution": "exact rung of the candidate relation's relationRegistry ladder",
+        "layer": "exact relationRegistry layer for relation",
+        "producer": "exact providerId in providerProfiles and equal to admitted host context",
+        "producerVersion": "non-empty NFC provider build identity equal to admitted host context",
+        "schemaVersion": "uint64 exactly equal to the selected host registry entry",
+        "language": "exact providerProfiles language and equal to admitted host context",
+        "sourceUniverseId": "canonical sha256:<64 lowercase hex> and exact admitted source universe",
+        "targetUniverseId": "non-empty NFC canonical universe identity selected from the host-admitted target domain",
+        "confidenceMillionths": "uint64 0..1000000; the sole identity representation of confidence",
+        "relationSchemaId": "exact host registry schemaId for relation and schemaVersion; provider-local schema names are invalid",
+        "canonicalRelationPayload": "canonical deterministic-CBOR bytes which decode once to the selected exact closed relation payload schema",
+        "anchors": "non-empty canonical sorted unique array of opensip.anchor-ref.v1"
+      }
+    },
+    "hostAdmissionContextSchema": {
+      "closed": true,
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "snapshotId",
+        "stageId",
+        "providerId",
+        "providerVersion",
+        "language",
+        "sourceUniverseId",
+        "requestedRelations",
+        "allowedTargetUniverseIds",
+        "snapshotFiles",
+        "alreadyAdmittedFactIds"
+      ],
+      "optional": [],
+      "requestIdRule": "RequestId is validated for operational correlation and is never copied into FactRecordV1 or FACT-ID-V1 input.",
+      "domainRules": [
+        "providerId/providerVersion/language/sourceUniverseId are copied from the verified ExecutionPlan and provider handshake, never trusted from the candidate",
+        "requestedRelations and allowedTargetUniverseIds are host-derived from the admitted stage and exact requested Coverage domain",
+        "snapshotFiles is the sealed Snapshot read set; alreadyAdmittedFactIds is the host store view before this candidate"
+      ]
+    },
+    "sourceSpanSchema": {
+      "id": "opensip.source-span.v1",
+      "closed": true,
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "startByte",
+        "endByte"
+      ],
+      "optional": [],
+      "rule": "path is a normalized project-relative NFC path in the sealed Snapshot and [startByte,endByte) is a non-empty in-bounds byte interval. Line/column coordinates are projections, never identity inputs."
+    },
+    "anchorSchema": {
+      "id": "opensip.anchor-ref.v1",
+      "closed": true,
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "snapshotId",
+        "path",
+        "contentSha256",
+        "startByte",
+        "endByte",
+        "factId"
+      ],
+      "optional": [],
+      "variants": {
+        "source-span": "kind=source-span; snapshotId/path/contentSha256/startByte/endByte are non-null and match one sealed Snapshot file; factId is null",
+        "fact-ref": "kind=fact-ref; factId is one canonical already-admitted FACT-ID-V1 value; every other field is null"
+      },
+      "ordering": "Sort ascending by CVE1(anchor) bytes and reject duplicates before admission. A fact-ref may name only a fact admitted before this candidate, preventing cycles."
+    },
+    "admittedRecordSchema": {
+      "id": "opensip.fact-record.v1",
+      "closed": true,
+      "additionalProperties": false,
+      "required": [
+        "envelope",
+        "payload"
+      ],
+      "optional": [],
+      "envelope": "the exact closed factEnvelope object; factId is host-computed, SnapshotId is host-injected, confidence is the exact rational confidenceMillionths/1000000, and span is the deterministic primary-span projection below",
+      "payload": {
+        "closed": true,
+        "additionalProperties": false,
+        "required": [
+          "sourceUniverseId",
+          "targetUniverseId",
+          "relationSchemaId",
+          "canonicalRelationPayload",
+          "anchors"
+        ],
+        "optional": [],
+        "fields": {
+          "sourceUniverseId": "validated candidate sourceUniverseId",
+          "targetUniverseId": "validated candidate targetUniverseId",
+          "relationSchemaId": "validated host registry schemaId",
+          "canonicalRelationPayload": "lowercase even-length hexadecimal transcription of the exact admitted deterministic-CBOR payload bytes",
+          "anchors": "validated canonical opensip.anchor-ref.v1 array"
+        }
+      },
+      "primarySpanProjection": "If one or more source-span anchors exist, choose the minimum tuple (UTF-8 path bytes,startByte,endByte,contentSha256 bytes) and project exactly {path,startByte,endByte}; otherwise omit envelope.span. This redundant projection is recomputed on decode and is not a separate FACT-ID-V1 field."
+    },
+    "relationPayloadSchemaRegistryV1": {
+      "id": "opensip.relation-payload-registry.v1",
+      "version": 1,
+      "closed": true,
+      "schemaAuthority": "The Rust host owns this registry. Provider artifacts may implement these schemaIds but cannot add, replace, relax, or select another schema for an authoritative v1 Run.",
+      "canonicalPayloadEncoding": {
+        "standard": "RFC 8949 deterministic CBOR restricted profile",
+        "types": [
+          "null",
+          "false",
+          "true",
+          "uint64",
+          "NFC UTF-8 text",
+          "definite array",
+          "definite text-keyed map"
+        ],
+        "mapOrder": "ascending unsigned lexicographic order of each key's deterministic-CBOR bytes",
+        "forbidden": [
+          "negative integers",
+          "floating point",
+          "byte strings inside relation payloads",
+          "tags",
+          "indefinite lengths",
+          "duplicate keys",
+          "non-NFC text",
+          "unknown fields"
+        ],
+        "admission": "Decode once under the selected closed schema, validate types/enums/resolution rules, re-encode, and require byte-for-byte equality."
+      },
+      "sharedTypes": {
+        "CanonicalPath": "non-empty NFC project-relative path, slash separators, no empty/dot/dot-dot segment, no leading slash or backslash",
+        "CanonicalText": "non-empty NFC text with no C0/C1 control characters",
+        "SubjectIdV1": "CanonicalText containing a non-empty lowercase ASCII namespace followed by ':' and a non-empty opaque NFC identity",
+        "DigestHex": "64 lowercase hexadecimal characters",
+        "Sha256Text": "sha256: followed by 64 lowercase hexadecimal characters",
+        "UInt64": "integer 0..18446744073709551615"
+      },
+      "schemas": {
+        "file": {
+          "schemaId": "opensip.relation.file.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["path", "contentSha256", "byteLength"],
+          "optional": [],
+          "fields": {"path": "CanonicalPath", "contentSha256": "DigestHex", "byteLength": "UInt64"},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "package": {
+          "schemaId": "opensip.relation.package.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["packageName", "packageVersion", "manifestPath"],
+          "optional": [],
+          "fields": {"packageName": "CanonicalText", "packageVersion": "CanonicalText", "manifestPath": "CanonicalPath"},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "vcs-change": {
+          "schemaId": "opensip.relation.vcs-change.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["path", "changeKind"],
+          "optional": ["previousPath"],
+          "fields": {"path": "CanonicalPath", "changeKind": "ChangeKindV1", "previousPath": "CanonicalPath"},
+          "enums": {"ChangeKindV1": ["added", "modified", "deleted", "renamed"]},
+          "fieldRules": ["previousPath is required exactly when changeKind=renamed and forbidden otherwise"],
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "declares": {
+          "schemaId": "opensip.relation.declares.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["container", "declared", "declarationKind"],
+          "optional": [],
+          "fields": {"container": "SubjectIdV1", "declared": "SubjectIdV1", "declarationKind": "DeclarationKindV1"},
+          "enums": {"DeclarationKindV1": ["module", "namespace", "type", "function", "method", "field", "variable", "parameter"]},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "literal": {
+          "schemaId": "opensip.relation.literal.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["owner", "literalKind", "valueText"],
+          "optional": [],
+          "fields": {"owner": "SubjectIdV1", "literalKind": "LiteralKindV1", "valueText": "CanonicalText"},
+          "enums": {"LiteralKindV1": ["string", "number", "boolean", "null", "regex", "template"]},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "control-flow": {
+          "schemaId": "opensip.relation.control-flow.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["from", "to", "edgeKind"],
+          "optional": [],
+          "fields": {"from": "SubjectIdV1", "to": "SubjectIdV1", "edgeKind": "ControlFlowEdgeKindV1"},
+          "enums": {"ControlFlowEdgeKindV1": ["fallthrough", "branch-true", "branch-false", "loop", "return", "throw", "exception"]},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "imports": {
+          "schemaId": "opensip.relation.imports.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["importer", "specifier"],
+          "optional": ["resolvedTarget"],
+          "fields": {"importer": "SubjectIdV1", "specifier": "CanonicalText", "resolvedTarget": "SubjectIdV1"},
+          "universeRule": "admitted-target",
+          "resolutionRules": {"syntactic-specifier": {"required": [], "forbidden": ["resolvedTarget"]}, "resolved-target": {"required": ["resolvedTarget"], "forbidden": []}}
+        },
+        "references": {
+          "schemaId": "opensip.relation.references.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["referrer", "name"],
+          "optional": ["resolvedBinding"],
+          "fields": {"referrer": "SubjectIdV1", "name": "CanonicalText", "resolvedBinding": "SubjectIdV1"},
+          "universeRule": "admitted-target",
+          "resolutionRules": {"syntactic-name-match": {"required": [], "forbidden": ["resolvedBinding"]}, "resolved-binding": {"required": ["resolvedBinding"], "forbidden": []}}
+        },
+        "calls": {
+          "schemaId": "opensip.relation.calls.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["caller", "calleeText"],
+          "optional": ["resolvedCallee"],
+          "fields": {"caller": "SubjectIdV1", "calleeText": "CanonicalText", "resolvedCallee": "SubjectIdV1"},
+          "universeRule": "admitted-target",
+          "resolutionRules": {"syntactic-callee-name": {"required": [], "forbidden": ["resolvedCallee"]}, "resolved-callee": {"required": ["resolvedCallee"], "forbidden": []}}
+        },
+        "types": {
+          "schemaId": "opensip.relation.types.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["subject", "typeText"],
+          "optional": ["checkedType"],
+          "fields": {"subject": "SubjectIdV1", "typeText": "CanonicalText", "checkedType": "SubjectIdV1"},
+          "universeRule": "same-only",
+          "resolutionRules": {"annotated": {"required": [], "forbidden": ["checkedType"]}, "checked": {"required": ["checkedType"], "forbidden": []}}
+        },
+        "reachability": {
+          "schemaId": "opensip.relation.reachability.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["origin", "reachable"],
+          "optional": [],
+          "fields": {"origin": "SubjectIdV1", "reachable": "SubjectIdV1"},
+          "universeRule": "same-only",
+          "resolutionRules": {}
+        },
+        "clones": {
+          "schemaId": "opensip.relation.clones.v1",
+          "schemaVersion": 1,
+          "closed": true,
+          "required": ["bodyIdentity", "normalisationLevel", "normalisationVersion"],
+          "optional": [],
+          "fields": {"bodyIdentity": "Sha256Text", "normalisationLevel": "NormalisationLevelV1", "normalisationVersion": "DigestHex"},
+          "enums": {"NormalisationLevelV1": ["L0-verbatim", "L1-lexical", "L2-comment-insensitive", "L3-identifier-insensitive"]},
+          "universeRule": "same-only",
+          "resolutionRules": {},
+          "bodyIdentityBoundary": "bodyIdentity is produced by FACT-IDENTITY's normalized body-span grammar. It is payload data inside the generic fact record; it is never an alias for FACT-ID-V1."
+        }
+      }
+    },
+    "candidateToAdmittedMapping": {
+      "id": "opensip.fact-candidate-admission.v1",
+      "fieldDestinations": {
+        "candidateOrdinal": null,
+        "relation": "envelope.relation",
+        "resolution": "envelope.resolution",
+        "layer": "envelope.layer",
+        "producer": "envelope.producer",
+        "producerVersion": "envelope.producerVersion",
+        "schemaVersion": "envelope.schemaVersion",
+        "language": "envelope.language",
+        "sourceUniverseId": "payload.sourceUniverseId",
+        "targetUniverseId": "payload.targetUniverseId",
+        "confidenceMillionths": "envelope.confidence",
+        "relationSchemaId": "payload.relationSchemaId",
+        "canonicalRelationPayload": "payload.canonicalRelationPayload",
+        "anchors": "payload.anchors"
+      },
+      "hostInjected": {
+        "snapshotId": "envelope.snapshotId from the sealed host context",
+        "factId": "envelope.factId from FACT-ID-V1 after every other field validates"
+      },
+      "derived": {
+        "confidence": "exact rational confidenceMillionths/1000000; FACT-ID-V1 hashes the integer millionths, never an implementation floating-point rendering",
+        "span": "admittedRecordSchema.primarySpanProjection; absent when there is no source-span anchor",
+        "canonicalRelationPayload": "lowercase hex of the exact validated deterministic-CBOR candidate bytes"
+      },
+      "authorityRules": [
+        "candidateOrdinal is validated for stream order, then discarded and cannot affect fact identity",
+        "candidate producer/provider/language/source values must equal the verified host context; equality never upgrades them into authority",
+        "relationSchemaId and schemaVersion are selected by the host registry from relation, not resolved inside a provider artifact",
+        "every source-span and fact-ref anchor is resolved by the host before FACT-ID-V1 computation",
+        "no candidate field, including a candidate-supplied factId extension, may bypass host construction"
+      ]
+    },
+    "factIdContract": {
+      "id": "opensip.fact-id.v1",
+      "owner": "Rust host only",
+      "algorithm": "SHA-256",
+      "representation": "fact:sha256:<64 lowercase hexadecimal characters>",
+      "regex": "^fact:sha256:[0-9a-f]{64}$",
+      "canonicalValueEncoding": {
+        "id": "CVE1",
+        "normativeSource": "resolved-inputs.v2.json#planIdContract.canonicalValueEncoding",
+        "rule": "Use the exact closed CVE1 grammar from PLAN-ID-V1. canonicalRelationPayload enters as lowercase hexadecimal text because CVE1 intentionally has no byte-string type."
+      },
+      "preimageFraming": {
+        "domainBytes": "UTF-8 bytes 6f70656e7369702e666163742d696400 (ASCII opensip.fact-id followed by one NUL byte)",
+        "recipeVersion": 1,
+        "recipeVersionEncoding": "unsigned 16-bit big-endian",
+        "fieldCountEncoding": "unsigned 16-bit big-endian",
+        "fieldFrame": "one unsigned 8-bit tag || unsigned 32-bit big-endian CVE1 byte length || CVE1(value)",
+        "preimage": "domainBytes || u16be(1) || u16be(14) || fourteen field frames in ascending tag order",
+        "digest": "SHA-256 over the exact preimage bytes; no text hex, BOM, newline, outer record, RequestId, ExecutionId, candidate ordinal, stage/batch order, or derived span is included"
+      },
+      "preimageFields": [
+        {"tag": 1, "name": "snapshotId"},
+        {"tag": 2, "name": "relation"},
+        {"tag": 3, "name": "layer"},
+        {"tag": 4, "name": "producer"},
+        {"tag": 5, "name": "producerVersion"},
+        {"tag": 6, "name": "schemaVersion"},
+        {"tag": 7, "name": "resolution"},
+        {"tag": 8, "name": "confidenceMillionths"},
+        {"tag": 9, "name": "language"},
+        {"tag": 10, "name": "sourceUniverseId"},
+        {"tag": 11, "name": "targetUniverseId"},
+        {"tag": 12, "name": "relationSchemaId"},
+        {"tag": 13, "name": "canonicalRelationPayload"},
+        {"tag": 14, "name": "anchors"}
+      ],
+      "excludedInputs": [
+        "factId",
+        "RequestId",
+        "ExecutionId",
+        "RunId",
+        "candidateOrdinal",
+        "stageId",
+        "batchIndex",
+        "arrival order",
+        "wall clock",
+        "envelope.span",
+        "floating-point confidence rendering"
+      ],
+      "collisionRule": "If one FACT-ID-V1 digest is observed for two distinct validated preimages, reject both as a host integrity defect; never pick one or salt/retry."
+    },
+    "vectors": [
+      {
+        "id": "fact-id-v1-typescript-declares",
+        "context": {
+          "requestId": "req1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "snapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6",
+          "stageId": "ts-declares",
+          "providerId": "typescript-semantic",
+          "providerVersion": "typescript-provider:1",
+          "language": "typescript",
+          "sourceUniverseId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "requestedRelations": ["declares"],
+          "allowedTargetUniverseIds": ["sha256:1111111111111111111111111111111111111111111111111111111111111111"],
+          "snapshotFiles": [{"path": "src/a.ts", "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "byteLength": 20}],
+          "alreadyAdmittedFactIds": []
+        },
+        "candidate": {
+          "candidateOrdinal": 0,
+          "relation": "declares",
+          "resolution": "syntactic",
+          "layer": "syntax",
+          "producer": "typescript-semantic",
+          "producerVersion": "typescript-provider:1",
+          "schemaVersion": 1,
+          "language": "typescript",
+          "sourceUniverseId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "targetUniverseId": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "confidenceMillionths": 1000000,
+          "relationSchemaId": "opensip.relation.declares.v1",
+          "canonicalRelationPayloadHex": "a3686465636c617265646e73796d3a66756e6374696f6e3a6669636f6e7461696e65727373796d3a6d6f64756c653a7372632f612e74736f6465636c61726174696f6e4b696e646866756e6374696f6e",
+          "decodedRelationPayload": {"container": "sym:module:src/a.ts", "declared": "sym:function:f", "declarationKind": "function"},
+          "anchors": [{"kind": "source-span", "snapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6", "path": "src/a.ts", "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "startByte": 0, "endByte": 10, "factId": null}]
+        },
+        "expectedPreimageByteLength": 940,
+        "expectedFactId": "fact:sha256:3e03d85a3782f4938182eaa5e850a9a84311107b6ed9d9855eccaa52803ba59e"
+      },
+      {
+        "id": "fact-id-v1-rust-cross-universe-call",
+        "context": {
+          "requestId": "req1_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "snapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6",
+          "stageId": "rust-calls",
+          "providerId": "rust-semantic",
+          "providerVersion": "rust-provider:1",
+          "language": "rust",
+          "sourceUniverseId": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "requestedRelations": ["calls"],
+          "allowedTargetUniverseIds": ["sha256:2222222222222222222222222222222222222222222222222222222222222222", "sha256:3333333333333333333333333333333333333333333333333333333333333333"],
+          "snapshotFiles": [{"path": "src/lib.rs", "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "byteLength": 64}],
+          "alreadyAdmittedFactIds": []
+        },
+        "candidate": {
+          "candidateOrdinal": 0,
+          "relation": "calls",
+          "resolution": "resolved-callee",
+          "layer": "semantic",
+          "producer": "rust-semantic",
+          "producerVersion": "rust-provider:1",
+          "schemaVersion": 1,
+          "language": "rust",
+          "sourceUniverseId": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "targetUniverseId": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "confidenceMillionths": 950000,
+          "relationSchemaId": "opensip.relation.calls.v1",
+          "canonicalRelationPayloadHex": "a36663616c6c65727173796d3a66756e6374696f6e3a6d61696e6a63616c6c6565546578746668656c7065726e7265736f6c76656443616c6c65657373796d3a66756e6374696f6e3a68656c706572",
+          "decodedRelationPayload": {"caller": "sym:function:main", "calleeText": "helper", "resolvedCallee": "sym:function:helper"},
+          "anchors": [{"kind": "source-span", "snapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6", "path": "src/lib.rs", "contentSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "startByte": 4, "endByte": 18, "factId": null}]
+        },
+        "expectedPreimageByteLength": 924,
+        "expectedFactId": "fact:sha256:792bb5ba256aa994ecdcb9fd5a53834a362fdc6bf92af27085d53ac7bb56c49b"
+      }
+    ],
+    "negativeFixtures": [
+      {"id": "reject-unknown-relation-schema", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.relationSchemaId", "value": "opensip.relation.unknown.v1"}, "expected": "FACT_RELATION_SCHEMA_UNKNOWN"},
+      {"id": "reject-schema-version-mismatch", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.schemaVersion", "value": 2}, "expected": "FACT_RELATION_SCHEMA_MISMATCH"},
+      {"id": "reject-payload-unknown-field", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.decodedRelationPayload.futureField", "value": true}, "expected": "FACT_RELATION_PAYLOAD_INVALID"},
+      {"id": "reject-payload-malformed-field", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.decodedRelationPayload.declared", "value": 7}, "expected": "FACT_RELATION_PAYLOAD_INVALID"},
+      {"id": "reject-unknown-relation", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.relation", "value": "vibes"}, "expected": "FACT_RELATION_UNKNOWN"},
+      {"id": "reject-relation-schema-cross-wire", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.relation", "value": "calls"}, "expected": "FACT_RELATION_SCHEMA_MISMATCH"},
+      {"id": "reject-source-universe-substitution", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.sourceUniverseId", "value": "sha256:9999999999999999999999999999999999999999999999999999999999999999"}, "expected": "FACT_SOURCE_UNIVERSE_MISMATCH"},
+      {"id": "reject-target-outside-admitted-domain", "baseVectorId": "fact-id-v1-rust-cross-universe-call", "set": {"path": "candidate.targetUniverseId", "value": "sha256:9999999999999999999999999999999999999999999999999999999999999999"}, "expected": "FACT_TARGET_UNIVERSE_NOT_ADMITTED"},
+      {"id": "reject-same-only-cross-universe", "baseVectorId": "fact-id-v1-typescript-declares", "setMany": [{"path": "context.allowedTargetUniverseIds", "value": ["sha256:1111111111111111111111111111111111111111111111111111111111111111", "sha256:9999999999999999999999999999999999999999999999999999999999999999"]}, {"path": "candidate.targetUniverseId", "value": "sha256:9999999999999999999999999999999999999999999999999999999999999999"}], "expected": "FACT_TARGET_UNIVERSE_MISMATCH"},
+      {"id": "reject-anchor-unknown-field", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.anchors.0.requestId", "value": "req1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "expected": "FACT_ANCHOR_INVALID"},
+      {"id": "reject-anchor-out-of-bounds", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.anchors.0.endByte", "value": 21}, "expected": "FACT_ANCHOR_INVALID"},
+      {"id": "reject-anchor-content-substitution", "baseVectorId": "fact-id-v1-typescript-declares", "set": {"path": "candidate.anchors.0.contentSha256", "value": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}, "expected": "FACT_ANCHOR_INVALID"}
+    ],
+    "requestIdInvarianceVector": {
+      "id": "fact-id-v1-request-id-invariance",
+      "baseVectorId": "fact-id-v1-typescript-declares",
+      "requestIds": [
+        "req1_0123456789abcdef0123456789abcdef",
+        "req1_fedcba9876543210fedcba9876543210"
+      ],
+      "expectedFactIds": [
+        "fact:sha256:3e03d85a3782f4938182eaa5e850a9a84311107b6ed9d9855eccaa52803ba59e",
+        "fact:sha256:3e03d85a3782f4938182eaa5e850a9a84311107b6ed9d9855eccaa52803ba59e"
+      ],
+      "rule": "The checker admits the same candidate twice through two distinct canonical RequestIds and recomputes FACT-ID-V1 from the exact mapped record. Both results must equal the base vector oracle. Equal RequestIds, malformed RequestIds, noncanonical fact strings, or equality-only junk are rejected."
+    },
+    "c1Boundary": {
+      "rule": "The payload registry gives each relation a closed body shape; it does not order relations, layers, or payload schemas. Resolution remains checked only against that relation's own ladder, so C-1's predicate-relative sufficiency and one-rung authority are unchanged.",
+      "forbiddenGlobalFields": ["quality", "tier", "degraded", "rank"]
+    },
+    "assurance": {
+      "state": "IMPLEMENTABLE_UNEXECUTED",
+      "independentImplementationRequirement": "Port the vectors in an implementation that does not import check-fact-plane.py; match payload CBOR, preimage length and FACT-ID-V1 bytes for both providers, then execute every negative fixture.",
+      "notClaimed": ["product qualification", "release demonstration", "provider corpus equivalence"]
+    }
+  },
+  "relationRegistry": {
+    "rule": "A relation's ladder is a total order over ITS OWN resolution methods, listed weakest-first. A one-rung ladder is not a deficiency; it means the relation is fully determined at that rung.",
+    "relations": {
+      "file": {
+        "layer": "inventory",
+        "ladder": [
+          "enumerated"
+        ],
+        "note": "one rung \u2014 a file is present or it is not"
+      },
+      "package": {
+        "layer": "inventory",
+        "ladder": [
+          "manifest-declared"
+        ],
+        "note": "one rung"
+      },
+      "vcs-change": {
+        "layer": "inventory",
+        "ladder": [
+          "vcs-reported"
+        ],
+        "note": "one rung"
+      },
+      "declares": {
+        "layer": "syntax",
+        "ladder": [
+          "syntactic"
+        ],
+        "note": "ONE RUNG. Syntax is authoritative for what a file declares. This is the canonical C-1 case: it can never be reported as degraded."
+      },
+      "literal": {
+        "layer": "syntax",
+        "ladder": [
+          "syntactic"
+        ],
+        "note": "one rung"
+      },
+      "control-flow": {
+        "layer": "syntax",
+        "ladder": [
+          "syntactic"
+        ],
+        "note": "one rung"
+      },
+      "imports": {
+        "layer": "semantic",
+        "ladder": [
+          "syntactic-specifier",
+          "resolved-target"
+        ],
+        "note": "a specifier string is a real fact; resolving it to a target is strictly more"
+      },
+      "references": {
+        "layer": "semantic",
+        "ladder": [
+          "syntactic-name-match",
+          "resolved-binding"
+        ],
+        "note": "the two-rung case that motivates the ladder at all"
+      },
+      "calls": {
+        "layer": "semantic",
+        "ladder": [
+          "syntactic-callee-name",
+          "resolved-callee"
+        ],
+        "note": "two rungs"
+      },
+      "types": {
+        "layer": "semantic",
+        "ladder": [
+          "annotated",
+          "checked"
+        ],
+        "note": "an annotation is authored; a checked type is derived by a type checker"
+      },
+      "reachability": {
+        "layer": "derived",
+        "ladder": [
+          "from-resolved-calls"
+        ],
+        "note": "one rung, but it DEPENDS on calls at resolved-callee \u2014 a dependency is not a ladder rung"
+      },
+      "clones": {
+        "layer": "derived",
+        "ladder": [
+          "normalized-body-hash"
+        ],
+        "note": "one rung"
+      }
+    },
+    "dependsOn": {
+      "reachability": [
+        {
+          "relation": "calls",
+          "minResolution": "resolved-callee"
+        }
+      ],
+      "clones": [
+        {
+          "relation": "declares",
+          "minResolution": "syntactic"
+        }
+      ]
+    },
+    "dependencyVsLadderNote": "A derived relation requiring another relation at a rung is a DEPENDENCY, not evidence of a global ordering. reachability needs resolved calls; that says nothing about whether `declares` outranks `literal`."
+  },
+  "requirementSchema": {
+    "rule": "Every rule and query declares what it needs. The planner materialises a relation because a requirement names it \u2014 never because a tier is nominally primary.",
+    "fields": {
+      "relation": {
+        "required": true,
+        "why": "must exist in relationRegistry"
+      },
+      "minResolution": {
+        "required": true,
+        "why": "a rung of THAT relation's ladder; cross-relation values are rejected by F6"
+      },
+      "minConfidence": {
+        "required": false,
+        "default": 0.0
+      },
+      "completeness": {
+        "required": true,
+        "enum": [
+          "complete",
+          "partial-ok"
+        ],
+        "why": "whether the predicate needs the whole subject set or tolerates a partial view. A universal-negative predicate needs complete; an existential one does not."
+      },
+      "scope": {
+        "required": false,
+        "why": "narrows the subject set; absent means the run's scope"
+      }
+    }
+  },
+  "sufficiency": {
+    "rule": "A requirement is SATISFIED when the available view supplies the relation at a rung >= minResolution in that relation's ladder, at confidence >= minConfidence, and at the demanded completeness. Otherwise it is UNSATISFIED with exactly one deficiency.",
+    "deficiencyDiscrimination": {
+      "why": "TO-7: a code is a remedy class. These five are separated because their remedies differ. confidence-floor-unmet was added by R1-FP-01 adjudication: aliasing confidence shortfall to required-relation-missing told callers to widen scope, which is the wrong remedy.",
+      "order": "Evaluated in this order; first match wins. The order is by REMEDY SPECIFICITY \u2014 the most specific actionable cause is reported.",
+      "cases": [
+        {
+          "deficiency": "language-tier-unsupported",
+          "when": "the relation's required rung is not implementable for this language at all (no provider exists or ever will under P-4)",
+          "remedy": "none available; the predicate cannot run here"
+        },
+        {
+          "deficiency": "provider-unavailable",
+          "when": "a provider for this rung exists for this language but is not installed or not enabled",
+          "remedy": "install or enable the provider"
+        },
+        {
+          "deficiency": "budget-exhausted",
+          "when": "extraction began and hit a resource cap, so the view is incomplete and its completeness is unknown",
+          "remedy": "raise the budget or narrow scope"
+        },
+        {
+          "deficiency": "confidence-floor-unmet",
+          "when": "the relation is present at a sufficient rung and coverage, but entry.confidence is below the requirement minConfidence floor",
+          "remedy": "improve the producer (higher-confidence extraction) or explicitly lower the floor with user acceptance"
+        },
+        {
+          "deficiency": "required-relation-missing",
+          "when": "the relation is absent from the view for any other reason, including scope that excludes its subjects (NOT confidence shortfall \u2014 that is confidence-floor-unmet)",
+          "remedy": "widen scope so the relation can be derived"
+        }
+      ]
+    },
+    "completenessRule": "completeness=complete is satisfied only when the view's coverage for that relation is 'complete'. A view whose coverage is 'unknown' NEVER satisfies complete \u2014 an unavailable result must not masquerade as a clean one. This is the fact-plane face of TO-5.",
+    "authoritativeRule": "A requirement whose minResolution is the TOP rung of a one-rung ladder is satisfied outright and MUST NOT be reported with any deficiency. This is C-1 made mechanical (F8)."
+  },
+  "deficiencyVocabulary": {
+    "closed": true,
+    "values": [
+      "required-relation-missing",
+      "provider-unavailable",
+      "language-tier-unsupported",
+      "budget-exhausted",
+      "confidence-floor-unmet"
+    ],
+    "mustBeSubsetOf": "d9-exit-contract.v1.6.json#scenarioAxesSchema.properties.deficiency.enum",
+    "why": "A fact-plane deficiency that D9 cannot express would be a Coverage state with no way to terminate. F9 checks this against the live D9 artifact rather than restating it, so the two cannot drift.",
+    "notIncluded": {
+      "convergence-exhausted": "a snapshot property, not a fact-view property",
+      "baseline-recipe-unsupported": "a comparison property",
+      "verdict-indeterminate": "a policy property",
+      "query-completeness-unmet": "a caller-contract property; the fact-plane analogue is required-relation-missing with completeness=complete"
+    }
+  },
+  "profiles": {
+    "rule": "Profiles may STRENGTHEN requirements; they may never weaken them.",
+    "mayRaise": [
+      "minResolution (to a higher rung of the same relation's ladder)",
+      "minConfidence",
+      "completeness (partial-ok -> complete)"
+    ],
+    "mayNotLower": "any of the above",
+    "mayNotMaterialise": "A profile that names a relation no requirement consumes does NOT cause materialisation. Labels do not create consumers \u2014 this is the cost discipline C-1 kept from the rejected position 2.",
+    "why": "A profile is a policy floor ('full analysis demands resolved references'). If it could lower a floor, a rule's declared need would stop being a guarantee and finding trustworthiness would become unauditable."
+  },
+  "goldenCases": [
+    {
+      "id": "syntax-relation-is-authoritative",
+      "scenario": "a predicate needs what a file declares; only syntax facts exist; this must be FULLY satisfied, not degraded",
+      "requirement": {
+        "relation": "declares",
+        "minResolution": "syntactic",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "declares": {
+          "resolution": "syntactic",
+          "confidence": 1.0,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": true
+      }
+    },
+    {
+      "id": "syntax-relation-complete-demand",
+      "scenario": "a universal-negative predicate over declarations needs the whole subject set and has it",
+      "requirement": {
+        "relation": "declares",
+        "minResolution": "syntactic",
+        "completeness": "complete"
+      },
+      "view": {
+        "declares": {
+          "resolution": "syntactic",
+          "confidence": 1.0,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": true
+      }
+    },
+    {
+      "id": "unknown-coverage-never-satisfies-complete",
+      "scenario": "coverage is unknown and the predicate demands complete; an unavailable result must not read as clean",
+      "requirement": {
+        "relation": "declares",
+        "minResolution": "syntactic",
+        "completeness": "complete"
+      },
+      "view": {
+        "declares": {
+          "resolution": "syntactic",
+          "confidence": 1.0,
+          "coverage": "unknown"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "required-relation-missing"
+      }
+    },
+    {
+      "id": "resolved-references-with-provider",
+      "scenario": "a reachability-adjacent predicate needs resolved bindings and TypeScript supplies them",
+      "requirement": {
+        "relation": "references",
+        "minResolution": "resolved-binding",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "references": {
+          "resolution": "resolved-binding",
+          "confidence": 0.95,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": true
+      }
+    },
+    {
+      "id": "name-match-does-not-satisfy-resolved",
+      "scenario": "only syntactic name matching is available but the predicate needs a resolved binding; the provider is installable",
+      "requirement": {
+        "relation": "references",
+        "minResolution": "resolved-binding",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "references": {
+          "resolution": "syntactic-name-match",
+          "confidence": 0.6,
+          "coverage": "complete",
+          "rungUnavailableBecause": "provider-not-installed"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "provider-unavailable"
+      }
+    },
+    {
+      "id": "language-has-no-semantic-tier",
+      "scenario": "P-4 ships two semantic providers; a third language needs resolved calls and never will have them",
+      "requirement": {
+        "relation": "calls",
+        "minResolution": "resolved-callee",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "calls": {
+          "resolution": "syntactic-callee-name",
+          "confidence": 0.5,
+          "coverage": "complete",
+          "rungUnavailableBecause": "language-tier"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "language-tier-unsupported"
+      }
+    },
+    {
+      "id": "budget-exhausted-mid-extraction",
+      "scenario": "extraction started and hit a cap, so completeness is unknown for a reason distinct from absence",
+      "requirement": {
+        "relation": "references",
+        "minResolution": "resolved-binding",
+        "completeness": "complete"
+      },
+      "view": {
+        "references": {
+          "resolution": "resolved-binding",
+          "confidence": 0.9,
+          "coverage": "unknown",
+          "rungUnavailableBecause": "budget"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "budget-exhausted"
+      }
+    },
+    {
+      "id": "relation-absent-entirely",
+      "scenario": "the predicate needs a relation the view does not contain at all",
+      "requirement": {
+        "relation": "types",
+        "minResolution": "checked",
+        "completeness": "partial-ok"
+      },
+      "view": {},
+      "expected": {
+        "satisfied": false,
+        "deficiency": "required-relation-missing"
+      }
+    },
+    {
+      "id": "confidence-floor-unmet",
+      "scenario": "the rung and coverage are sufficient but confidence 0.4 is below the declared floor 0.9; deficiency is confidence-floor-unmet (remedy: improve producer or lower floor), NOT required-relation-missing",
+      "requirement": {
+        "relation": "types",
+        "minResolution": "annotated",
+        "minConfidence": 0.9,
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "types": {
+          "resolution": "annotated",
+          "confidence": 0.4,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "confidence-floor-unmet"
+      }
+    },
+    {
+      "id": "higher-rung-satisfies-lower-demand",
+      "scenario": "a predicate needing only a specifier string is satisfied by a resolved target \u2014 ladders are monotone upward",
+      "requirement": {
+        "relation": "imports",
+        "minResolution": "syntactic-specifier",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "imports": {
+          "resolution": "resolved-target",
+          "confidence": 1.0,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": true
+      }
+    },
+    {
+      "id": "derived-relation-dependency-met",
+      "scenario": "reachability is available because calls were resolved",
+      "requirement": {
+        "relation": "reachability",
+        "minResolution": "from-resolved-calls",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "reachability": {
+          "resolution": "from-resolved-calls",
+          "confidence": 1.0,
+          "coverage": "complete"
+        },
+        "calls": {
+          "resolution": "resolved-callee",
+          "confidence": 0.95,
+          "coverage": "complete"
+        }
+      },
+      "expected": {
+        "satisfied": true
+      }
+    },
+    {
+      "id": "derived-relation-dependency-unmet",
+      "scenario": "reachability is claimed but calls are only syntactic, so the dependency is violated",
+      "requirement": {
+        "relation": "reachability",
+        "minResolution": "from-resolved-calls",
+        "completeness": "partial-ok"
+      },
+      "view": {
+        "reachability": {
+          "resolution": "from-resolved-calls",
+          "confidence": 1.0,
+          "coverage": "complete"
+        },
+        "calls": {
+          "resolution": "syntactic-callee-name",
+          "confidence": 0.5,
+          "coverage": "complete",
+          "rungUnavailableBecause": "provider-not-installed"
+        }
+      },
+      "expected": {
+        "satisfied": false,
+        "deficiency": "provider-unavailable"
+      }
+    }
+  ],
+  "profileGoldens": [
+    {
+      "id": "profile-may-raise-resolution",
+      "base": {
+        "relation": "references",
+        "minResolution": "syntactic-name-match",
+        "completeness": "partial-ok"
+      },
+      "profile": {
+        "relation": "references",
+        "minResolution": "resolved-binding"
+      },
+      "expected": {
+        "accepted": true,
+        "effective": {
+          "minResolution": "resolved-binding"
+        }
+      }
+    },
+    {
+      "id": "profile-may-not-lower-resolution",
+      "base": {
+        "relation": "references",
+        "minResolution": "resolved-binding",
+        "completeness": "partial-ok"
+      },
+      "profile": {
+        "relation": "references",
+        "minResolution": "syntactic-name-match"
+      },
+      "expected": {
+        "accepted": false,
+        "reason": "profiles may strengthen, never weaken"
+      }
+    },
+    {
+      "id": "profile-may-raise-completeness",
+      "base": {
+        "relation": "declares",
+        "minResolution": "syntactic",
+        "completeness": "partial-ok"
+      },
+      "profile": {
+        "relation": "declares",
+        "completeness": "complete"
+      },
+      "expected": {
+        "accepted": true,
+        "effective": {
+          "completeness": "complete"
+        }
+      }
+    },
+    {
+      "id": "profile-may-not-lower-completeness",
+      "base": {
+        "relation": "declares",
+        "minResolution": "syntactic",
+        "completeness": "complete"
+      },
+      "profile": {
+        "relation": "declares",
+        "completeness": "partial-ok"
+      },
+      "expected": {
+        "accepted": false,
+        "reason": "profiles may strengthen, never weaken"
+      }
+    },
+    {
+      "id": "profile-alone-does-not-materialise",
+      "base": null,
+      "profile": {
+        "relation": "types",
+        "minResolution": "checked"
+      },
+      "expected": {
+        "accepted": true,
+        "materialises": false,
+        "reason": "no requirement consumes types; a label is not a consumer"
+      }
+    }
+  ],
+  "invariants": [
+    {
+      "id": "F1",
+      "text": "Every fact carries the exact closed envelope; a fact missing a required field or carrying any undeclared field, including RequestId, is inadmissible with FACT_ENVELOPE_UNKNOWN_FIELD for the latter case."
+    },
+    {
+      "id": "F2",
+      "text": "Every relation in the registry has a non-empty, duplicate-free resolution ladder."
+    },
+    {
+      "id": "F3",
+      "text": "Every requirement's minResolution is a rung of ITS OWN relation's ladder."
+    },
+    {
+      "id": "F4",
+      "text": "Sufficiency yields exactly one deficiency when unsatisfied, and none when satisfied."
+    },
+    {
+      "id": "F5",
+      "text": "completeness=complete is never satisfied by coverage=unknown."
+    },
+    {
+      "id": "F6",
+      "text": "No resolution value is ever compared across relations. There is no global ladder."
+    },
+    {
+      "id": "F7",
+      "text": "Layers carry no rank field and are never ordered."
+    },
+    {
+      "id": "F8",
+      "text": "A requirement at the top rung of a one-rung ladder is satisfied outright and can carry no deficiency \u2014 a syntax fact is authoritative, not degraded."
+    },
+    {
+      "id": "F9",
+      "text": "The deficiency vocabulary is a subset of D9's deficiency enum, checked against the live D9 artifact."
+    },
+    {
+      "id": "F10",
+      "text": "Profiles may raise a floor and never lower one; a profile naming an unconsumed relation does not materialise it."
+    },
+    {
+      "id": "F11",
+      "text": "A derived relation is satisfied only when its declared dependencies are satisfied at their required rungs."
+    },
+    {
+      "id": "F12",
+      "text": "Every bundled TypeScript/Rust candidate is mapped through opensip.fact-candidate-admission.v1 into one exact closed opensip.fact-record.v1; unknown/malformed relations, schemas, payloads, universes or anchors reject before admission."
+    },
+    {
+      "id": "F13",
+      "text": "Only the Rust host mints FACT-ID-V1 from the exact fourteen-field, domain-separated, framed semantic preimage; provider ordinal, operational identities and derived span are excluded."
+    },
+    {
+      "id": "F14",
+      "text": "Changing only a distinct canonical RequestId recomputes the same exact FACT-ID-V1; equal inputs, malformed IDs and equality-only junk vectors reject."
+    }
+  ],
+  "conformanceClaims": [
+    {
+      "claim": "Every golden's satisfied/deficiency verdict is reproduced by the pure sufficiency function, and the deficiency vocabulary agrees with the live D9 contract.",
+      "reproduce": "python3 artifacts/check-fact-plane.py",
+      "mutationProof": "python3 artifacts/check-fact-plane.py --selftest"
+    },
+    {
+      "claim": "The v1 relation payload registry, TypeScript/Rust candidate mapping and FACT-ID-V1 vectors reproduce exactly, while every malformed schema/payload/universe/anchor and RequestId leak rejects.",
+      "reproduce": "python3 artifacts/check-fact-plane.py",
+      "mutationProof": "python3 artifacts/check-fact-plane.py --selftest",
+      "assurance": "IMPLEMENTABLE_UNEXECUTED; a non-Python port remains required before qualification"
+    }
+  ],
+  "peerReviewRequired": [
+    "Blind re-authoring of the expected verdicts for the 12 sufficiency goldens. The goldens and the sufficiency function share one author, which is the exact trap that let D9 v1.5 report 39/39 while carrying a semantically false golden.",
+    "Is the four-way deficiency discrimination right, and is 'first match wins by remedy specificity' the correct resolution order? A view can be both provider-unavailable and budget-exhausted.",
+    "Is the relation registry the right set? It was derived from what the architecture documents already name, not from an independent analysis of what predicates need.",
+    "F8 is the mechanical form of C-1's central claim. If it is wrong, C-1 is not implementable as stated.",
+    "Independent re-author of sufficiency goldens after any discrimination table change (R1-FP-02).",
+    "Independently implement deterministic relation-payload CBOR and FACT-ID-V1 without importing check-fact-plane.py; reproduce both provider vectors and every rejection fixture."
+  ],
+  "knownLimitations": [
+    "The v1 relation and payload-schema registry is closed over these twelve relations. A later relation or payload shape requires a new versioned registry/schema entry and cannot arrive as an unknown optional field.",
+    "Confidence is typed as a number in [0,1] but this contract does not say how any producer computes one. A floor over an uncomputed number is not yet meaningful.",
+    "The deficiency resolution order is a judgment about remedy specificity, not a measurement. A view with two simultaneous causes reports the more specific one, which may not be the one the user can act on fastest.",
+    "Subject-set commitment \u2014 what makes completeness=complete checkable rather than asserted \u2014 is named here but specified in the retention/evidence surface, which is still REOPENED. Until that lands, F5 constrains the verdict but nothing proves the underlying coverage value is honest.",
+    "Authored solo. Every absence claim in this artifact is unverified in the sense the log records against this author.",
+    "R1-FP-03: F5 constrains the sufficiency verdict against reported coverage values; honesty of coverage=complete for universal negatives is owned by EVIDENCE subject-set commitment / verificationRequirement. Do not publish authoritative no-match claims until that surface is implemented."
+  ],
+  "adjudicationRevision": {
+    "by": "agent-a-as-c",
+    "date": "2026-07-31",
+    "resolves": [
+      "R1-FP-01",
+      "R1-FP-02",
+      "R1-FP-03"
+    ],
+    "note": "confidence-floor-unmet first-class; F5 honesty cross-linked to EVIDENCE."
+  }
+}

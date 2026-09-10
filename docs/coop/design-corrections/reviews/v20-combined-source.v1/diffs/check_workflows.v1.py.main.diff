@@ -1,0 +1,63 @@
+--- before/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ after/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -248,6 +248,40 @@
+ check('baseline.scope-binding-refuses-a-row-cited-under-another-schema',
+       _binding_refusal({'schemaVersion': 2, 'parameters': [dict(_SCOPE_ROW, schemaDigest='0' * 64)]},
+                        POL['scopeAll']) == 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER')
++# CB8-MUST-1. The verifier is EXISTENTIAL over the selected rows, so two DISTINCT entries citing
++# the one registered ScopeDocumentV1 document each satisfied it separately: whichever document the
++# caller happened to hold came back "verified" while another was equally selected. Nothing else in
++# the graph decided which was the Plan's scope policy, and both entered analysisSpecDigest and so
++# PlanId. The ambiguity is refused BEFORE any payload comparison, on the existing public
++# CONFIG.INVALID carrier and detail - no new DomainDetailCode member is proposed.
++_SCOPE_ROW_OTHER = {'schemaDigest': _SCOPE_DOC_DIGEST, 'payloadDigest': M.doc_digest(POL['scopeNoLegacy'])}
++_AMBIGUOUS_SPEC = {'schemaVersion': 2, 'parameters': [_SCOPE_ROW, _SCOPE_ROW_OTHER]}
++def _binding_exception(spec, scope):
++    try:
++        M.verify_scope_parameter_binding(spec, scope); return None
++    except M.Refusal as exc:
++        return exc
++check('baseline.the-two-candidate-scope-rows-are-genuinely-distinct-payloads',
++      _SCOPE_ROW['schemaDigest'] == _SCOPE_ROW_OTHER['schemaDigest'] and
++      _SCOPE_ROW['payloadDigest'] != _SCOPE_ROW_OTHER['payloadDigest'])
++check('baseline.scope-binding-refuses-an-ambiguous-selection',
++      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeAll']) == 'CONFIG.INVALID')
++check('baseline.the-ambiguity-is-not-laundered-by-supplying-either-candidate',
++      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeAll']) ==
++      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeNoLegacy']) == 'CONFIG.INVALID')
++check('baseline.the-ambiguity-refusal-uses-a-registered-public-error-code',
++      _binding_exception(_AMBIGUOUS_SPEC, POL['scopeAll']).error_code == 'CONFIG.INVALID' and
++      'CONFIG.INVALID' in json.loads((HERE / 'schemas' / 'common.schema.json').read_text())
++      ['$defs']['D9ErrorCode']['enum'])
++must_valid('baseline.the-ambiguity-termination-is-a-real-step-termination',
++           U + 'common#/$defs/StepTermination',
++           _binding_exception(_AMBIGUOUS_SPEC, POL['scopeAll']).termination())
++check('baseline.the-single-selection-and-zero-selection-answers-are-unchanged',
++      _binding_refusal(_SPEC, POL['scopeAll']) is None and
++      _binding_refusal({'schemaVersion': 2, 'parameters': []}, POL['scopeAll'])
++      == 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER' and
++      _binding_refusal(_SPEC, POL['scopeNoLegacy']) == 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
++
+ # End to end: adopt_baseline verifies when given the spec, and refuses the mismatched document.
+ _run = {'authority': 'authoritative', 'availability': 'retained', 'snapshotId': C['SNAP0'], 'runId': C['RUN0']}
+ _ctx = {'detectorClosureIds': [d['closureId'] for d in BS['detectorClosure']],
+@@ -267,6 +301,19 @@
+ except M.Refusal as exc:
+     check('baseline.adopt-refuses-an-unselected-scope-document',
+           exc.detail == 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH', str(exc.detail))
++# The ACTUAL caller carries the ambiguity refusal too when it is handed the spec; and the
++# unverified path is UNCHANGED - it remains a caller assertion, and this correction adds no join
++# there that the contract does not claim.
++try:
++    _adopt(POL['scopeAll'], _AMBIGUOUS_SPEC)
++    check('baseline.adopt-refuses-an-ambiguous-scope-selection', False, 'admitted')
++except M.Refusal as exc:
++    check('baseline.adopt-refuses-an-ambiguous-scope-selection',
++          exc.detail == 'CONFIG.INVALID', str(exc.detail))
++check('baseline.without-the-spec-the-scope-binding-is-still-only-a-caller-assertion',
++      make_baseline(POL['basePolicy'], POL['scopeAll'], POL['waiversFp2'],
++                    CASES['ruleCoverage']['full'])['descriptor']['context']['scopeDigest']
++      == M.doc_digest(POL['scopeAll']))
+ # The two scope records stay different things: the repository extent walked (foundation
+ # scope-descriptor, plan.scopeDigest) versus the operator's include/exclude glob policy.
+ check('baseline.operator-glob-scope-is-not-the-repository-scope-descriptor',

@@ -1,0 +1,97 @@
+--- preserved-completed-pilot6/evaluator.py
++++ author-copy/evaluator.py
+@@ -1,4 +1,6 @@
+-"""Independent evaluator3 replay from composition §9 and atom-evaluation-contract.
++"""Author-assisted partial evaluator, based on prior consumer work; not independently accepted.
++
++This helper is not a complete implementation of the evaluator contract.
+ 
+ Derives subjects, predicate values, witnesses, findings, and the complete proof
+ bundle from retained program + evidence. No caller-authored truth.
+@@ -158,6 +160,7 @@
+         "value": value,
+         "matchingFactIds": cset(hits),
+         "coverageIds": cset([cid for cid, _ in covs]),
++        "scopeIds": cset([rec["scopeId"] for rec,cid in zip(coverages,cov_ids) if cid in {c for c,_ in covs}]),
+         "deficiencies": defs,
+     }
+ 
+@@ -201,6 +204,7 @@
+             "matchingFactIds": [],
+             "coverageIds": [],
+             "childPredicateIds": cset(child_ids),
++            "scopeIds": cset([scope for cid in child_ids for scope in results[cid]["scopeIds"]]),
+             "deficiencies": cset(defs),
+         }
+         return results
+@@ -215,6 +219,7 @@
+             "matchingFactIds": [],
+             "coverageIds": [],
+             "childPredicateIds": cset([cid]),
++            "scopeIds": results[cid]["scopeIds"],
+             "deficiencies": list(results[cid].get("deficiencies") or []),
+         }
+         return results
+@@ -335,7 +340,7 @@
+                     "predicateId": addr,
+                     "operation": op,
+                     "inputRefs": ei_refs if op in ("exists", "none", "count-at-most", "all-covered") else cset(sum((tree[c].get("_inputRefs") or ei_refs for c in child), [])),
+-                    "scopeIds": cset(scopes),
++                    "scopeIds": cset(tr["scopeIds"]),
+                     "value": tr["value"],
+                     "witnessDigest": wdig,
+                 }
+@@ -460,30 +465,31 @@
+         "resolution-incomplete",
+         "work-budget-exhausted",
+     }
++    # Author fixture correction: §9.6 keeps each returned Coverage carrier separate.
++    # This partial helper still does not establish census completeness or inventory/
++    # binding/candidate deficiencies; complete frozen owner replay remains required.
+     exec_defs = []
+-    for o in ei.get("cellOutcomes") or []:
+-        if not o.get("required") or o.get("state") == "complete":
++    by_cov = {h.suffix(cid): rec for cid, rec in zip(cov_ids, coverages)}
++    outcomes_by_pair = {(o["cellOrdinal"],o["programOrdinal"]):o for o in ei["cellOutcomes"]}
++    for acc in ei["nativeCoverageAccounts"]:
++        outcome = outcomes_by_pair[(acc["cellOrdinal"],acc["programOrdinal"])]
++        if not outcome["required"] or acc["applicability"] != "supported-available":
+             continue
+-        d = o.get("deficiency")
+-        cause = d if d in exec_causes else "required-cell-unsatisfied"
+-        orig = []
+-        for acc in ei.get("nativeCoverageAccounts") or []:
+-            if acc.get("cellOrdinal") != o.get("cellOrdinal"):
+-                continue
+-            for hx in acc.get("coverageIds") or []:
+-                orig.append({"domain": "coverage", "digest": hx})
+-        exec_defs.append(
+-            {
+-                "source": "execution",
+-                "cause": cause,
+-                "subjectId": None,
+-                "predicateId": None,
+-                "inputRefs": cset([xi] + orig),
+-                "evidenceKind": None,
+-                "nativeCause": o.get("nativeCause"),
+-                "universe": o.get("universe"),
+-            }
+-        )
++        records = [(hx, by_cov[hx]["_payload"]["entry"]) for hx in acc["coverageIds"]]
++        if records and all(e["coverage"] == "complete" and e["resolutionCompleteness"]["examinedExhaustive"] for _,e in records):
++            continue
++        fallback = (records[0][1]["deficiency"] if records else None) or "provider-unavailable"
++        carriers = [(hx, e["deficiency"] or fallback, e["nativeCause"]) for hx,e in records]
++        if not carriers:
++            carriers = [(None, fallback, None)]
++        for hx, cause, native_cause in carriers:
++            if cause not in exec_causes:
++                if cause not in (None, "source-syntax-invalid"):
++                    raise ValueError("Unregistered execution deficiency: " + str(cause))
++                cause = "required-cell-unsatisfied"
++            exec_defs.append({"source":"execution", "cause":cause, "subjectId":None,
++                "predicateId":None, "inputRefs":cset([xi]+([{"domain":"coverage","digest":hx}] if hx else [])),
++                "evidenceKind":None, "nativeCause":native_cause, "universe":outcome["universe"]})
+     if exec_defs and verdict == "pass":
+         verdict = "indeterminate"
+     # fail still dominates

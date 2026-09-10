@@ -1,0 +1,814 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:imported-evidence",
+  "title": "Imported evidence: one foundation import2 wrapper, typed payloads as content (PROPOSED, revised)",
+  "description": "Import is an operational admission step (import custody), never an analysis Run. There is exactly ONE import identity: importId = H('import', foundation import descriptor) from foundation/identity-schemas.v2.json#/$defs/import (schemaVersion 2). The typed payload records here (runtime, test, history) and native's typed records (dependency-source, prepared-output, and native's runtime-coverage/test-results/history payload grammars) are PAYLOADS: their bytes are referenced by payloadDigest (raw SHA-256 of the canonical payload bytes) and their registered schema by payloadSchemaDigest. The wrapper's identity therefore differs from the payload content hash, and one payload can appear under two wrappers only if correspondence/producer/adapter/scope also agree, which is the intended meaning. Hostile-input bounds: artifact at most 268435456 bytes; at most 1048576 subjects; at most 4096 blobs; JSON depth at most 32; strict UTF-8, no duplicate keys, no float lexemes, no surrogates. Observed no-hits during one window are never universal non-use; only observable-unhit subjects may be consumed by a predicate, and only with the window/population disclosed.",
+  "$defs": {
+    "ImportKind": {
+      "type": "string",
+      "enum": [
+        "runtime",
+        "test",
+        "history",
+        "dependency",
+        "prepared"
+      ]
+    },
+    "Staleness": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale",
+        "wrong-build",
+        "unmapped",
+        "unverifiable"
+      ]
+    },
+    "PayloadBinding": {
+      "type": "object",
+      "description": "Closed table row: which registered payload schema each import kind admits and which contract owns the payload semantics.",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "payloadDomain",
+        "owner"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/ImportKind"
+        },
+        "payloadDomain": {
+          "type": "string",
+          "enum": [
+            "workflow.import-payload.runtime.v1",
+            "workflow.import-payload.test.v1",
+            "workflow.import-payload.history.v1",
+            "native.import-payload.dependency-source.v1",
+            "native.import-payload.prepared-output.v1"
+          ],
+          "description": "ONE registry, five rows: runtime/test/history admit ONLY the workflow payload domains (native's runtime-coverage/test-results/history adapter grammars are normalized by native into these payloads BEFORE import and are not import payload domains); dependency/prepared admit ONLY native.import-payload.dependency-source.v1 / native.import-payload.prepared-output.v1 (native-evidence.md \u00a77 spellings)."
+        },
+        "owner": {
+          "type": "string",
+          "enum": [
+            "workflow",
+            "native"
+          ]
+        },
+        "schemaDocument": {
+          "type": "string",
+          "enum": [
+            "workflows/schemas/imported-evidence.schema.json",
+            "workflows/schemas/test-execution.schema.json",
+            "native/native-evidence.schemas.v2.json"
+          ],
+          "description": "the registered schema DOCUMENT whose exact complete bytes hash to payloadSchemaDigest (raw SHA-256 of the file bytes; no canonical-schema hash exists)"
+        },
+        "selector": {
+          "type": "string",
+          "pattern": "^#/\\$defs/[A-Za-z0-9]+(?![\\s\\S])",
+          "description": "JSON pointer of the payload $def inside schemaDocument; the selector identifies the definition, the digest binds the document bytes"
+        }
+      }
+    },
+    "PayloadRegistryV1": {
+      "type": "object",
+      "description": "The one closed import payload registry. Exactly these five rows exist; any other (kind, payloadDomain) pair is IMPORT.KIND_PAYLOAD_MISMATCH and a domain with no row is IMPORT.PAYLOAD_SCHEMA_UNREGISTERED.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "rows"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.import-payload-registry"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "rows": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "allOf": [
+              {
+                "$ref": "#/$defs/PayloadBinding"
+              },
+              {
+                "required": [
+                  "schemaDocument",
+                  "selector"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    "SourceMappingV1": {
+      "type": "object",
+      "description": "The one closed mapping artifact that makes vcs-revision/declared-build evidence consumable. Producing recipe: the adapter that generated the runtime/test artifact emits, for every generated path it observed, the digest of the generated bytes and the digest and path of the snapshot source it was built from; the host admits the mapping only when every sourceSha256 equals the snapshot2 inventory digest of sourcePath (else IMPORT.SOURCE_MAPPING_REQUIRED and the evidence stays unmapped-only). Digest: raw SHA-256 of the canonical bytes, retained as a blob and carried in SourceCorrespondence.sourceMappingDigest.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "snapshotId",
+        "producerClosure",
+        "entries"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.source-mapping"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "snapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "producerClosure": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1048576,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "generatedPath",
+              "generatedSha256",
+              "sourcePath",
+              "sourceSha256"
+            ],
+            "properties": {
+              "generatedPath": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "generatedSha256": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+              },
+              "sourcePath": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "sourceSha256": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+              }
+            }
+          },
+          "description": "sorted ascending by generatedPath; generatedPath unique"
+        }
+      }
+    },
+    "ImportScopeDescriptor": {
+      "type": "object",
+      "description": "Exact mirror of foundation identity-schemas.v2.json#/$defs/scope-descriptor. wrapper.scopeDigest = raw SHA-256 of the canonical bytes of this record (the same producing rule as plan.scopeDigest); retained as a blob. There is no separate workflow import-scope domain.",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "workspaceRoots",
+        "pathPrefixes",
+        "excludedPathPrefixes"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "workspaceRoots": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 1024,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "pathPrefixes": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 65536,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "excludedPathPrefixes": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 65536,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "ImportObservationV1": {
+      "type": "object",
+      "description": "Closed preimage of wrapper.observationDigest (raw SHA-256 of canonical bytes; retained blob). Null members mean the observation semantics do not apply to the kind.",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "window",
+        "population",
+        "selection",
+        "revisionRange"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/ImportKind"
+        },
+        "window": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "startUtc",
+                "endUtc"
+              ],
+              "properties": {
+                "startUtc": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcTimestamp"
+                },
+                "endUtc": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcTimestamp"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "population": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "test-suite",
+                "staging-traffic",
+                "production-traffic",
+                "synthetic",
+                "unknown"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selection": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "mode",
+                "completenessEstablished"
+              ],
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "full",
+                    "impact-selected",
+                    "explicit"
+                  ]
+                },
+                "completenessEstablished": {
+                  "type": "boolean"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revisionRange": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "from",
+                "to"
+              ],
+              "properties": {
+                "from": {
+                  "oneOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "BuildIdentityV1": {
+      "type": "object",
+      "description": "Closed preimage of wrapper.buildDigest (raw SHA-256 of canonical bytes; retained blob).",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "buildIdentity"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "buildIdentity": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "Producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "ImportWrapperV2": {
+      "type": "object",
+      "description": "Exact mirror of foundation import descriptor fields (schemaVersion 2). Every auxiliary digest is a raw SHA-256 of the canonical bytes of an exact closed record retained as a blob (identity-and-evidence \u00a72 auxiliary-digest rule); none is an H(domain) identity: payloadSchemaDigest = raw SHA-256 of the exact registered schema DOCUMENT bytes (PayloadRegistryV1 row); payloadDigest = raw SHA-256 of the canonical payload bytes; sourceCorrespondenceDigest = raw SHA-256 of canonical common#SourceCorrespondence; buildDigest = raw SHA-256 of canonical BuildIdentityV1; scopeDigest = raw SHA-256 of canonical ImportScopeDescriptor (= foundation scope-descriptor); observationDigest = raw SHA-256 of canonical ImportObservationV1. importId = 'import2:' + H('import', this object) is the only H-domain identity in an import. No hidden metadata: every field is one of these thirteen.",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "payloadSchemaDigest",
+        "payloadDigest",
+        "sourceCorrespondenceDigest",
+        "buildDigest",
+        "producerClosure",
+        "adapterClosure",
+        "blobs",
+        "scopeDigest",
+        "observationDigest",
+        "completeness",
+        "omissions"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "kind": {
+          "$ref": "#/$defs/ImportKind"
+        },
+        "payloadSchemaDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "payloadDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "sourceCorrespondenceDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "buildDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "producerClosure": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        },
+        "adapterClosure": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        },
+        "blobs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Blob"
+          }
+        },
+        "scopeDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "observationDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "omissions": {
+          "type": "array",
+          "maxItems": 1024,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "ImportedEvidenceRecordV1": {
+      "type": "object",
+      "description": "Operational custody record joining the wrapper, its payload binding, the resolved correspondence and staleness for a given Plan. Only importId enters the Plan (plan.importIds).",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "importId",
+        "wrapper",
+        "payloadBinding",
+        "correspondence",
+        "projectId",
+        "sourcePath",
+        "receiptId"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.imported-evidence"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ImportId"
+        },
+        "wrapper": {
+          "$ref": "#/$defs/ImportWrapperV2"
+        },
+        "payloadBinding": {
+          "$ref": "#/$defs/PayloadBinding"
+        },
+        "correspondence": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SourceCorrespondence"
+        },
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+        },
+        "sourcePath": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UserInputPath"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        }
+      }
+    },
+    "RuntimeSubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "observability"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "symbol": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "observability": {
+          "type": "string",
+          "enum": [
+            "observed-hit",
+            "observable-unhit",
+            "unobservable",
+            "unmapped"
+          ],
+          "description": "unobservable: the capture could not observe this subject (no source map, not instrumented); unmapped: no correspondence to an inventoried source path. Neither is ever an unhit signal."
+        },
+        "hits": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+        },
+        "mappingGap": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observability": {
+                "const": "observed-hit"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "hits"
+            ],
+            "properties": {
+              "hits": {
+                "minimum": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observability": {
+                "const": "observable-unhit"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "hits"
+            ],
+            "properties": {
+              "hits": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observability": {
+                "enum": [
+                  "unobservable",
+                  "unmapped"
+                ]
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "hits"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "RuntimePayloadV1": {
+      "type": "object",
+      "description": "Payload domain workflow.import-payload.runtime.v1. Its raw canonical bytes hash to wrapper.payloadDigest.",
+      "additionalProperties": false,
+      "required": [
+        "payloadDomain",
+        "format",
+        "observationWindow",
+        "observedPopulation",
+        "subjects",
+        "mappingGaps"
+      ],
+      "properties": {
+        "payloadDomain": {
+          "const": "workflow.import-payload.runtime.v1"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "v8-json",
+            "istanbul-json",
+            "lcov",
+            "llvm-cov-json"
+          ]
+        },
+        "observationWindow": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "startUtc",
+            "endUtc"
+          ],
+          "properties": {
+            "startUtc": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcTimestamp"
+            },
+            "endUtc": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcTimestamp"
+            }
+          }
+        },
+        "observedPopulation": {
+          "type": "string",
+          "enum": [
+            "test-suite",
+            "staging-traffic",
+            "production-traffic",
+            "synthetic",
+            "unknown"
+          ]
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1048576,
+          "items": {
+            "$ref": "#/$defs/RuntimeSubject"
+          },
+          "description": "sorted strictly ascending by (path, symbol) UTF-8 bytes"
+        },
+        "mappingGaps": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+          }
+        }
+      }
+    },
+    "HistoryPayloadV1": {
+      "type": "object",
+      "description": "Payload domain workflow.import-payload.history.v1. Advisory priority input only.",
+      "additionalProperties": false,
+      "required": [
+        "payloadDomain",
+        "vcsSystem",
+        "revisionRange",
+        "collectionScope",
+        "subjects"
+      ],
+      "properties": {
+        "payloadDomain": {
+          "const": "workflow.import-payload.history.v1"
+        },
+        "vcsSystem": {
+          "type": "string",
+          "enum": [
+            "git"
+          ]
+        },
+        "revisionRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "from",
+            "to",
+            "commitCount",
+            "truncated"
+          ],
+          "properties": {
+            "from": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "to": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+            },
+            "commitCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          }
+        },
+        "collectionScope": {
+          "type": "string",
+          "enum": [
+            "all-paths",
+            "in-scope-paths",
+            "listed-paths"
+          ]
+        },
+        "subjects": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1048576,
+          "items": {
+            "$ref": "#/$defs/HistorySubject"
+          }
+        }
+      }
+    },
+    "HistorySubject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "changeCount",
+        "lastChangedCommit"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "changeCount": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+        },
+        "lastChangedCommit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+        },
+        "renamedFrom": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        }
+      }
+    },
+    "TestPayloadV1": {
+      "$ref": "urn:opensip:product-v1:workflows:test-execution#/$defs/TestPayloadV1"
+    },
+    "StalenessRule": {
+      "type": "object",
+      "description": "Closed decision table row for staleness classification relative to a Plan's snapshot binding.",
+      "additionalProperties": false,
+      "required": [
+        "correspondenceKind",
+        "condition",
+        "staleness",
+        "usable"
+      ],
+      "properties": {
+        "correspondenceKind": {
+          "type": "string",
+          "enum": [
+            "exact-snapshot",
+            "vcs-revision"
+          ]
+        },
+        "condition": {
+          "type": "string",
+          "enum": [
+            "snapshot-equal",
+            "snapshot-differs",
+            "commit-equal-clean-mapped",
+            "commit-equal-clean-unmapped",
+            "commit-equal-dirty",
+            "commit-differs",
+            "build-identity-differs",
+            "artifact-corrupt"
+          ],
+          "description": "commit-equal-clean-mapped: commit equal, clean, and an admitted SourceMappingV1 joins every generated path to the Plan snapshot by digest \u2192 current/consumable. commit-equal-clean-unmapped: commit and clean flag alone \u2192 current/unmapped-only (a commit string cannot prove byte correspondence)."
+        },
+        "staleness": {
+          "$ref": "#/$defs/Staleness"
+        },
+        "usable": {
+          "type": "string",
+          "enum": [
+            "consumable",
+            "unmapped-only",
+            "refused"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,657 @@
+Only in work/docs: START-HERE.md
+Only in work/docs: catalog
+Only in work/docs/coop: COORDINATOR-DECISIONS.md
+Only in work/docs/coop: architecture-depth-review
+Only in work/docs/coop: artifacts
+Only in work/docs/coop: completion
+Only in work/docs/coop/design-corrections: D-372-corrections.proposed.md
+Only in work/docs/coop/design-corrections: JOINT-INTERFACES.md
+Only in work/docs/coop/design-corrections: README.md
+Only in work/docs/coop/design-corrections: check-integration.py
+Only in work/docs/coop/design-corrections: correction-crosswalk.proposed.json
+Only in work/docs/coop/design-corrections: current-source-map.proposed.md
+Only in work/docs/coop/design-corrections: discovery-defaults.py
+Only in work/docs/coop/design-corrections: evaluation-residual-dispositions.proposed.json
+Only in work/docs/coop/design-corrections/foundation: README.md
+Only in work/docs/coop/design-corrections/foundation: array-order-report.json
+Only in work/docs/coop/design-corrections/foundation: canonical.py
+Only in work/docs/coop/design-corrections/foundation: check-array-orders.py
+Only in work/docs/coop/design-corrections/foundation: check-foundation.py
+Only in work/docs/coop/design-corrections/foundation: check-identity.py
+Only in work/docs/coop/design-corrections/foundation: check-product-configuration.py
+Only in work/docs/coop/design-corrections/foundation: check-product-quality.py
+Only in work/docs/coop/design-corrections/foundation: foundation-report.json
+Only in work/docs/coop/design-corrections/foundation: g13-result-schema.v5.json
+Only in work/docs/coop/design-corrections/foundation: g13-validator.v5.py
+Only in work/docs/coop/design-corrections/foundation: host-foundation-model.v2.py
+diff -u -r before-images/released-v1/docs/coop/design-corrections/foundation/identity-model.py work/docs/coop/design-corrections/foundation/identity-model.py
+--- before-images/released-v1/docs/coop/design-corrections/foundation/identity-model.py	2026-09-07 10:12:13
++++ work/docs/coop/design-corrections/foundation/identity-model.py	2026-09-07 12:25:11
+@@ -1412,6 +1412,16 @@
+                 try:raw[:a].decode('utf8');raw[a:b].decode('utf8')
+                 except UnicodeError as exc:raise C.AdmissionError('ANCHOR_UTF8') from exc
+         if any(cid not in evidence['coverageIds'] for cid in view['coverageIds']):raise C.AdmissionError('VIEW_COVERAGE_JOIN')
++        # Every RETAINED subject-scope this view names must carry a REGISTERED (relation, rung) pair,
++        # whether or not a Coverage wrapper or an unresolved-edge fact happens to reach the native
++        # producer guard below. The scope constructor enforces the same closed law, but retained bytes
++        # do not have to have come through that constructor, and a scope with no coverage reaches no
++        # other membership check at all. Membership is against THAT relation's own ladder: the flat
++        # rung vocabulary the schema enum publishes is necessary and never sufficient.
++        for sid in view['scopeIds']:
++            retained_scope=get(sid,'subject-scope')
++            if native_admission()._rung_index(retained_scope['relation'],retained_scope['resolution']) is None:
++                raise C.AdmissionError('SUBJECT_SCOPE_RUNG_NOT_IN_RELATION_LADDER:'+retained_scope['relation']+'@'+retained_scope['resolution'])
+         for cid in view['coverageIds']:
+             coverage=get(cid,'coverage')
+             if coverage['scopeId'] not in view['scopeIds']:raise C.AdmissionError('COVERAGE_SCOPE_JOIN')
+Only in work/docs/coop/design-corrections/foundation: identity-report.json
+diff -u -r before-images/released-v1/docs/coop/design-corrections/foundation/identity-schemas.v2.json work/docs/coop/design-corrections/foundation/identity-schemas.v2.json
+--- before-images/released-v1/docs/coop/design-corrections/foundation/identity-schemas.v2.json	2026-09-07 11:43:22
++++ work/docs/coop/design-corrections/foundation/identity-schemas.v2.json	2026-09-07 12:26:39
+@@ -19,7 +19,7 @@
+       "not": {
+         "pattern": "(^|/)\\.\\.?(/|$)"
+       },
+-      "description": "The logical-path grammar identity-and-evidence section 3 already states: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segment, each segment at most 255 characters. It was previously stated only in prose and enforced imperatively for scope-descriptor alone. WHERE IT IS $ref-ENFORCED IN THIS BUNDLE: exactly two fields, #/$defs/Blob/properties/path and #/$defs/import-blob/properties/path. That is a statement about schema enforcement points, not about which paths are accepted - the constraint itself is unchanged by this description. fact/anchors[]/path and finding-fingerprint/subjectKey/logicalPath stay plain bounded strings here and acquire the same grammar by JOIN rather than by $ref: an anchor path must be an inventoried snapshot path and inventory rows ARE Blob. The three scope-descriptor path arrays deliberately cannot reference it, because `.` alone denotes the admitted project root and this grammar forbids a dot segment. Byte-identical in constraint to workflows/schemas/common.schema.json#/$defs/LogicalPath, which is what makes the import blob rows an exact mirror."
++      "description": "The logical-path grammar identity-and-evidence section 3 already states: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segment, each segment at most 255 characters. THREE DIFFERENT ENFORCEMENTS EXIST AND THEY ARE NOT EQUIVALENT; this description states only where each applies and changes no accepted path set. (1) DIRECT $ref, exactly two fields: #/$defs/Blob/properties/path and #/$defs/import-blob/properties/path. Only these carry the full declarative grammar, INCLUDING the at-most-255-characters-per-segment bound. (2) fact/anchors[]/path: a plain bounded string here, additionally subject to the imperative recursive check in foundation/identity-model.py `ordered()` AND to a real snapshot JOIN - an anchor path must be an inventoried snapshot path, and inventory rows ARE Blob, so the declarative grammar reaches it through that join. (3) finding-fingerprint/subjectKey/logicalPath: a plain bounded string subject to the SAME imperative `ordered()` check and to NO snapshot join. `ordered()` refuses, for any string under a key named `path` or `logicalPath` at any depth, a leading slash, a backslash, a NUL and any empty/dot/dot-dot segment - and it does NOT enforce the per-segment 255 maximum. So (3) is not equivalently constrained to (1), and no snapshot join is claimed for it. The three scope-descriptor path arrays deliberately reference none of this, because `.` alone denotes the admitted project root and this grammar forbids a dot segment. Byte-identical in constraint to workflows/schemas/common.schema.json#/$defs/LogicalPath, which is what makes the import blob rows an exact mirror."
+     },
+     "U64": {
+       "type": "integer",
+Only in work/docs/coop/design-corrections/foundation: import-source-context.schema.json
+Only in work/docs/coop/design-corrections/foundation: product-configuration-model.py
+Only in work/docs/coop/design-corrections/foundation: product-configuration-report.json
+Only in work/docs/coop/design-corrections/foundation: product-configuration.schema.v2.json
+Only in work/docs/coop/design-corrections/foundation: product-quality-report.json
+Only in work/docs/coop/design-corrections/foundation: product-quality-report.schema.v3.json
+Only in work/docs/coop/design-corrections/foundation: product-quality-validator.py
+Only in work/docs/coop/design-corrections/foundation: relation-payload-schemas.v2.json
+Only in work/docs/coop/design-corrections/foundation: run-reference-checks.py
+Only in work/docs/coop/design-corrections/foundation: source-pins.v1.json
+Only in work/docs/coop/design-corrections/foundation: validation-report.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v1.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v10.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v11.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v12.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v13.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v14.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v15.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v2.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v3.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v4.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v5.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v6.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v7.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v8.json
+Only in work/docs/coop/design-corrections: historical-preservation-report.v9.json
+Only in work/docs/coop/design-corrections: inherited-residuals.proposed.md
+Only in work/docs/coop/design-corrections: inherited-row-sources.proposed.json
+Only in work/docs/coop/design-corrections: integration-fixtures.py
+Only in work/docs/coop/design-corrections: integration-host-model.py
+Only in work/docs/coop/design-corrections: integration-issues.md
+Only in work/docs/coop/design-corrections: integration-report.v1.json
+Only in work/docs/coop/design-corrections/native: README.md
+diff -u -r before-images/released-v1/docs/coop/design-corrections/native/capability-manifest-domains.v2.json work/docs/coop/design-corrections/native/capability-manifest-domains.v2.json
+--- before-images/released-v1/docs/coop/design-corrections/native/capability-manifest-domains.v2.json	2026-09-07 11:40:45
++++ work/docs/coop/design-corrections/native/capability-manifest-domains.v2.json	2026-09-07 12:16:30
+@@ -131,7 +131,7 @@
+       ],
+       "memberCount": 8,
+       "source": "delivery.v2#platformMatrix.supported[].platformId (5, measured) and delivery.v2#platformMatrix.bestEffort[].platformId (2, measured), plus the aggregate token 'all-supported'.",
+-      "inheritedVocabularyIsBROADERThanTheSelectedPRODUCT": "This domain is the INHERITED delivery vocabulary, reproduced verbatim, and it is deliberately not narrowed here. The selected product promises exactly FOUR machine platform ids - linux-x86_64-gnu, linux-aarch64-gnu, macos-aarch64, macos-x86_64 - which is the one machine platform vocabulary security S8 publishes and the native matrix platformFamilies use; admission-and-qualification section 5 item 1 states that Windows is not selected. windows-x86_64-msvc, windows-aarch64-msvc and linux-x86_64-musl are therefore members of this ENCODING domain and of no product promise.",
++      "inheritedVocabularyIsBROADERThanTheSelectedPRODUCT": "This domain is the INHERITED delivery vocabulary, reproduced verbatim, and it is deliberately not narrowed here. The selected product promises exactly FOUR machine platform ids - linux-x86_64-gnu, linux-aarch64-gnu, macos-aarch64, macos-x86_64. The OWNING authority for that selection is the security unit's S8 platform table, which is the one machine platform vocabulary, together with native-capability-matrix.v2.json platformFamilies, which carries the identical four ids. S8 is also where Windows is excluded: it names Windows among the populations outside the selected support population, for which the core refuses rather than degrades. (The blind consumer-B v5 review cited admission-and-qualification section 5 item 1 for that exclusion; that citation is not where the selection lives. The review's own bytes remain the historical record and are not edited - this entry simply cites the actual owner.) windows-x86_64-msvc, windows-aarch64-msvc and linux-x86_64-musl are therefore members of this ENCODING domain and of no product promise.",
+       "whatAMemberOfThisDOMAINDoesNOTGrant": "Admitting a platformId here admits a capability manifest SCALAR under ADM-DOMAIN. It is not a platform admission, not a qualification lane, not a supported population and not a licence to run anywhere: platform admission is the security owner's (S8 platform_admit and the signed PlatformProfileSetV1) and a request naming an unselected platform is refused there, whatever a manifest declared. A provider declaring a capability for an unselected platform therefore obtains no product capability on it; nothing downstream reads this domain as a support claim.",
+       "accountedOpenItem": "delivery.v4 already discloses the mismatch as DUD-V4-9. This entry repeats that accounting in the current source so a reader of the successor registry alone does not have to recover it from the historical artifact. Narrowing the inherited members is NOT done here: it would change an inherited encoding domain, and therefore the admissibility of historical committed bytes, to fix a documentation gap."
+     },
+Only in work/docs/coop/design-corrections/native: check_native_evidence.v2.py
+Only in work/docs/coop/design-corrections/native: initial-author-response.json
+Only in work/docs/coop/design-corrections/native: native-capability-matrix.v2.json
+Only in work/docs/coop/design-corrections/native: native-cases.v2.json
+Only in work/docs/coop/design-corrections/native: native-evidence-report.v2.json
+diff -u -r before-images/released-v1/docs/coop/design-corrections/native/native-evidence.schemas.v2.json work/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
+--- before-images/released-v1/docs/coop/design-corrections/native/native-evidence.schemas.v2.json	2026-09-07 11:42:15
++++ work/docs/coop/design-corrections/native/native-evidence.schemas.v2.json	2026-09-07 12:17:13
+@@ -739,7 +739,7 @@
+    ]
+   },
+   "ResolutionCompletenessState": {
+-   "description": "Which member is legal on a given entry is decided by RC-1 (native-evidence.md section 4.3) and is NOT schema-decidable: applicability is total over the registered (relation, rung) pairs and turns on membership of the RUNG in the closed five-member resolved set (resolved-target, resolved-binding, resolved-callee, checked, from-resolved-calls), never on the relation ladder length. A resolved rung must never be not-applicable - reachability@from-resolved-calls is a one-rung relation whose single rung IS resolved - and every other registered rung, including unresolved-edge@observed and types@annotated as well as the syntactic rungs, is not-applicable with attempted=false, unresolvedEdgeCount=0 and unresolvedEdgeClasses=[]. An unregistered relation or rung refuses at admission; not-applicable is never a fallback for one.",
++   "description": "Which member is legal on a given entry is decided by RC-1 (native-evidence.md section 4.3) and is NOT schema-decidable: applicability is total over the registered (relation, rung) pairs and turns on membership of the RUNG in the closed five-member resolved set (resolved-target, resolved-binding, resolved-callee, checked, from-resolved-calls), never on the relation ladder length. A resolved rung must never be not-applicable - reachability@from-resolved-calls is a one-rung relation whose single rung IS resolved - and every other registered rung, including unresolved-edge@observed and types@annotated as well as the syntactic rungs, is not-applicable with attempted=false, unresolvedEdgeCount=0 and unresolvedEdgeClasses=[]. RC-0 runs first and is relation-specific: the pair must be registered, meaning the rung is a member of THAT relation's own ladder, so unresolved-edge@enumerated is refused although both tokens are registered. That check and the not-applicable minting law (attempted false, count 0, empty class list) are enforced by coverage_bijection at the producer boundary AND again at retained Run closure, and they hold for a FACT-FREE entry over an empty examined scope. not-applicable is never a fallback for an unregistered pair. stageTerminal is deliberately not constrained: a not-applicable entry may retain the stage terminal its producer observed.",
+    "type": "string",
+    "enum": [
+     "complete",
+@@ -5843,7 +5843,7 @@
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+-     "description": "Declaration-file BASENAME of a `.d.ts` member of the admitted stdlib closure tree, e.g. lib.es2022.d.ts - not a lib name and not a tree path. The row set is the COMPLETE inventory of those members, selected or not, so the selection never narrows it; a tree with two paths sharing a basename refuses native.native-context-stdlib-tree-ambiguous-basename:<basename> because the libSelection join published in native-evidence.md section 2.4, component(n) = \"lib.\" + fold(n) + \".d.ts\", would not have a unique target."
++     "description": "Declaration-file BASENAME of a `.d.ts` member of the admitted stdlib closure tree, e.g. lib.es2022.d.ts - not a lib name and not a tree path. The row set is the COMPLETE inventory of those members, selected or not, so the selection never narrows it; a tree with two paths sharing a basename refuses native.native-context-stdlib-tree-ambiguous-basename:<basename> because the libSelection join published in native-evidence.md section 2.4, component(n) = \"lib.\" + fold(n) + \".d.ts\" with fold the full non-tailored default lowercase mapping, would not have a unique target."
+     },
+     "sha256": {
+      "$ref": "#/$defs/DigestHex",
+@@ -5925,7 +5925,7 @@
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+-     "description": "The effective `lib` NAMES the resolved compilerOptions select (after target defaulting), sorted by the raw UTF-8 bytes of the retained unfolded names. These are lib names (es2022, dom), NOT declaration-file names. native-evidence.md section 2.4 publishes the join to standardLibraryComponentDigests: with fold(n) the Unicode simple lowercase mapping of n - the same single fold the honoredOptions.lib agreement uses - component(n) = \"lib.\" + fold(n) + \".d.ts\", and every component(n) must be an element of the declared component set, else native.native-context-lib-not-retained:<n>. The mapping is one-directional: a component is never mapped back into a selected name, and this array is never re-spelled into file names. The folded name set must also equal the folded honoredOptions.lib set; a duplicate under fold refuses native.native-context-field-mismatch:duplicate-lib-selection.",
++     "description": "The effective `lib` NAMES the resolved compilerOptions select (after target defaulting), sorted by the raw UTF-8 bytes of the retained unfolded names. These are lib names (es2022, dom), NOT declaration-file names. native-evidence.md section 2.4 publishes the join to standardLibraryComponentDigests: with fold(n) the Unicode Default Case Conversion toLowercase(X) - the FULL, non-tailored, context-sensitive default lowercase mapping, NOT Simple_Lowercase_Mapping and NOT Case_Folding, bound to native_evidence_model.v2.UNICODE_CASE_DATA_VERSION and implemented by lib_name_fold; the same single fold the honoredOptions.lib agreement uses - component(n) = \"lib.\" + fold(n) + \".d.ts\", and every component(n) must be an element of the declared component set, else native.native-context-lib-not-retained:<n>. The mapping is one-directional: a component is never mapped back into a selected name, and this array is never re-spelled into file names. The folded name set must also equal the folded honoredOptions.lib set; a duplicate under fold refuses native.native-context-field-mismatch:duplicate-lib-selection.",
+      "x-opensip-order": "utf8"
+     }
+    }
+diff -u -r before-images/released-v1/docs/coop/design-corrections/native/native_evidence_model.v2.py work/docs/coop/design-corrections/native/native_evidence_model.v2.py
+--- before-images/released-v1/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-07 11:53:51
++++ work/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-07 12:24:59
+@@ -523,7 +523,78 @@
+ UNRESOLVED_EDGE_KINDS = SCHEMAS["$defs"]["UnresolvedEdgeKindV1"]["enum"]
+ RC_STATES = ["complete", "incomplete", "partial", "not-attempted", "not-applicable"]
+ 
++# ---------------------------------------------------------------------------
++# The TypeScript `lib` name fold (native-evidence section 2.4). ONE operation serves both the
++# honoredOptions.lib agreement and the stdlib component join, so it is named once here rather than
++# spelled `.lower()` at three call sites where it could silently diverge.
++# ---------------------------------------------------------------------------
+ 
++UNICODE_CASE_DATA_VERSION = "15.0.0"   # the UCD version this reference derivation is bound to
++
++
++class ReferenceEnvironmentError(Exception):
++    """A REFERENCE-ENVIRONMENT precondition failed - the host is not equipped to decide.
++
++    Deliberately NOT an AdmissionError. An AdmissionError says something about the caller's input;
++    this says the environment cannot produce a conforming answer at all, which is a host-invariant /
++    environment fault (section 10 routes those to operational-failed, exit 4) and must never be
++    reported as an ordinary typed refusal about a `lib` selection.
++    """
++
++
++def lib_name_fold(name: str) -> str:
++    """Unicode Default Case Conversion `toLowercase(X)` - FULL, non-tailored, context-sensitive.
++
++    This is the operation the admission ACTUALLY performs, published rather than approximated:
++
++      * FULL, not Simple_Lowercase_Mapping. U+0130 folds to U+0069 U+0307, two code points, through
++        SpecialCasing.txt; the simple mapping in UnicodeData.txt field 13 gives the single U+0069.
++      * CONTEXT-SENSITIVE. Greek capital sigma folds to U+03C2 in final position and U+03C3
++        otherwise (the Final_Sigma condition); no simple per-code-point mapping can do this.
++      * NOT Case_Folding. U+00DF folds to itself here; `casefold` would give "ss".
++      * NON-TAILORED, i.e. the root locale. No Turkish/Azeri dotless-i, no Lithuanian tailoring; the
++        result must not depend on an ambient locale.
++
++    VERSION CUSTODY AND ITS REAL CONSEQUENCE. The result is determined by the Unicode case data the
++    host uses, so the operation is deterministic GIVEN a case-data version, and this reference is
++    bound to UNICODE_CASE_DATA_VERSION. A host whose case data differs can fold differently for a
++    code point that is unassigned in one version (an unassigned code point folds to itself) or whose
++    mapping changed between them; that divergence is real and is disclosed here rather than assumed
++    away. `unicode_case_data_agreement()` reports the running version against the declared one so a
++    drifting runtime is visible instead of silently changing an admission outcome. No input is
++    narrowed to ASCII to avoid the question - it happens to be true that every `lib` name in the
++    pinned compiler's own option vocabulary is ASCII, where the full, simple and folded operations
++    all coincide, but that is a fact about the current vocabulary and not a restriction on the field.
++
++    THE BINDING IS EFFECTIVE, NOT ADVERTISED. Declaring a version while folding with whatever data
++    the runtime happens to carry would leave the determinism claim unenforced, so this refuses to
++    produce a result at all when the declared data is unavailable. The refusal is a
++    ReferenceEnvironmentError, never an AdmissionError: different Unicode data is an environment
++    fault, not a malformed `lib` selection, and it must not be laundered into a typed refusal about
++    caller input. THE PORTABILITY LIMIT IS THE POINT: this reference derivation runs only where the
++    declared case data is present, and that is disclosed rather than hidden behind a fold that would
++    silently return a different answer.
++    """
++    if unicodedata.unidata_version != UNICODE_CASE_DATA_VERSION:
++        raise ReferenceEnvironmentError(
++            "UNICODE_CASE_DATA_VERSION:declared=" + UNICODE_CASE_DATA_VERSION
++            + ":running=" + unicodedata.unidata_version
++            + ":the published fold is bound to the declared case data and this environment cannot"
++              " reproduce it; this is an environment fault, not a lib-selection refusal")
++    return name.lower()
++
++
++def unicode_case_data_agreement() -> dict:
++    """Report the running case data against the declared binding.
++
++    This is the DISCLOSURE; `lib_name_fold` is the GATE. The two are separate on purpose: a report
++    that nobody consults would not make the admission deterministic, so the fold itself refuses
++    rather than relying on anyone reading this.
++    """
++    return {"declared": UNICODE_CASE_DATA_VERSION, "running": unicodedata.unidata_version,
++            "agrees": unicodedata.unidata_version == UNICODE_CASE_DATA_VERSION}
++
++
+ def _rung_index(relation: str, rung: str) -> int | None:
+     ladder = LADDERS.get(relation)
+     return None if ladder is None or rung not in ladder else ladder.index(rung)
+@@ -1045,16 +1116,36 @@
+ 
+ 
+ def coverage_bijection(entries: list[dict], unresolved_facts: list[dict]) -> list[dict]:
+-    """Host recheck after admission. Returns faults (empty = consistent)."""
++    """Host recheck after admission. Returns faults (empty = consistent).
++
++    RC-0 is membership, and it runs FIRST because every later rule is relation-relative. The rung
++    vocabulary is shared across relations, so a schema-valid `resolution` proves nothing about the
++    entry's own relation: `unresolved-edge@enumerated` names two registered tokens and no registered
++    PAIR. Membership is decided against THAT relation's own `ladder` (the single authority read into
++    LADDERS), exactly as it is for a fact, and there is no empty-ladder fallback. This check is
++    deliberately independent of `unresolved_facts`: a fact guard cannot protect a FACT-FREE coverage
++    entry over an empty or non-matching examined scope, which is precisely the shape that closed a
++    full retained Run before this rule existed.
++
++    RC-1's not-applicable minting law is then enforced, not merely generated: a non-resolved rung
++    carries NO resolution claim at all, so `attempted` is false, the count is zero and the class list
++    is empty. `stageTerminal` is deliberately NOT constrained here - a not-applicable entry may
++    honestly retain the stage terminal its producer observed (`complete`, `budget-exhausted`, ...),
++    and `examinedExhaustive` remains the independent examined-partition claim of section 4.1.
++    """
+     faults: list[dict] = []
+     for entry in entries:
+         rel, rung, rc = entry["relation"], entry["resolution"], entry["resolutionCompleteness"]
+         name = rel + "@" + rung
++        if _rung_index(rel, rung) is None:
++            faults.append({"entry": name, "fault": "RC-0: rung is not a member of this relation's own ladder"}); continue
+         if rc["state"] not in RC_STATES:
+             faults.append({"entry": name, "fault": "RC-0: state outside closed enum"}); continue
+         if rung not in RESOLVED_RUNGS:
+             if rc["state"] != "not-applicable" or rc["unresolvedEdgeCount"] != 0:
+                 faults.append({"entry": name, "fault": "RC-1: not-applicable rung carries a completeness claim"})
++            elif rc.get("attempted") or rc.get("unresolvedEdgeClasses"):
++                faults.append({"entry": name, "fault": "RC-1: not-applicable makes no resolution claim, so attempted must be false and the class list empty"})
+             continue
+         if rc["state"] == "not-applicable":
+             faults.append({"entry": name, "fault": "RC-1: resolved rung must not claim not-applicable"}); continue
+@@ -1067,9 +1158,21 @@
+                 faults.append({"entry": name, "fault": "RC-2: complete requires attempted, exhaustive examination and a complete stage"})
+             elif count != 0 or rc["unresolvedEdgeCount"] != 0:
+                 faults.append({"entry": name, "fault": f"RC-2: complete claimed but {count} unresolved-edge facts admitted"})
++            elif rc["unresolvedEdgeClasses"]:
++                # The count and the class list are ONE observation of the same admitted facts, and
++                # `incomplete`/`partial` already require both to match exactly. `complete` checked the
++                # count alone, so a zero count could be carried beside a non-empty class list - a
++                # contradiction the cause registry's own rule (the list retains the full APPLICABLE
++                # set) forbids, and one that closed a full retained Run.
++                faults.append({"entry": name, "fault": "RC-2: complete claims zero unresolved edges, so the class list must be empty"})
+         elif rc["state"] == "not-attempted":
+             if rc.get("attempted") or rc["unresolvedEdgeCount"] != 0:
+                 faults.append({"entry": name, "fault": "RC-2: not-attempted cannot carry counts or attempted=true"})
++            elif rc["unresolvedEdgeClasses"]:
++                # The analogous law, and its exact limit: a SKIPPED stage observed nothing, so it can
++                # report no class. This says nothing about `partial` or `incomplete`, which are honest
++                # observations that DO carry their classes, and it converts neither into completeness.
++                faults.append({"entry": name, "fault": "RC-2: not-attempted observed nothing, so the class list must be empty"})
+         elif rc["state"] in ("incomplete", "partial"):
+             if rc["unresolvedEdgeCount"] != count or sorted(rc["unresolvedEdgeClasses"]) != classes:
+                 faults.append({"entry": name, "fault": f"RC-2: {rc['state']} claims {rc['unresolvedEdgeCount']} but {count} facts admitted"})
+@@ -1099,6 +1202,11 @@
+     """
+     if type(subjects) is not list or any(type(s) is not str for s in subjects):
+         raise AdmissionError("SUBJECT_SCOPE_SUBJECTS")
++    # The scope names the (relation, rung) the examined partition is FOR, so the pair must be a
++    # registered one before anything is enumerated against it. Membership is against THAT relation's
++    # own ladder: the flat rung vocabulary the schema enum publishes is necessary, never sufficient.
++    if _rung_index(relation, rung) is None:
++        raise AdmissionError("SUBJECT_SCOPE_RUNG_NOT_IN_RELATION_LADDER:" + relation + "@" + rung)
+     ordered_subjects = sorted(subjects, key=C.canonical)
+     if len(set(subjects)) != len(subjects):
+         raise AdmissionError("SUBJECT_SCOPE_DUPLICATE_SUBJECT")
+@@ -1912,12 +2020,12 @@
+             refusals.append("native.native-context-field-mismatch:moduleResolutionMode")
+         # Effective lib names are case-insensitive in the compiler. Each record retains its
+         # specified order for hashing; their selected name sets must describe the same input.
+-        selected = [x.lower() for x in toolchain["libSelection"]]
++        selected = [lib_name_fold(x) for x in toolchain["libSelection"]]
+         if len(set(selected)) != len(selected):
+             refusals.append("native.native-context-field-mismatch:duplicate-lib-selection")
+         if toolchain["libSelection"] != sorted(toolchain["libSelection"], key=lambda x: x.encode("utf-8")):
+             refusals.append("native.native-context-field-mismatch:lib-selection-order")
+-        if options["lib"] is not None and set(selected) != {x.lower() for x in options["lib"]}:
++        if options["lib"] is not None and set(selected) != {lib_name_fold(x) for x in options["lib"]}:
+             refusals.append("native.native-context-field-mismatch:libSelection")
+         components = [x["component"] for x in toolchain["standardLibraryComponentDigests"]]
+         if components != sorted(components, key=lambda x: x.encode("utf-8")) or len(set(components)) != len(components):
+@@ -1940,7 +2048,7 @@
+             for name in sorted(set(by_component) - declared):
+                 refusals.append("native.native-context-stdlib-inventory-incomplete:" + name)
+             for lib in toolchain["libSelection"]:
+-                if "lib.%s.d.ts" % lib.lower() not in declared:
++                if "lib.%s.d.ts" % lib_name_fold(lib) not in declared:
+                     refusals.append("native.native-context-lib-not-retained:" + lib)
+         compiler_closure = retained(tools["closureId"], "toolchain", "toolClosure.closureId")
+         digests = {b["sha256"] for b in compiler_closure["tree"]} if compiler_closure else set()
+@@ -3614,12 +3722,18 @@
+     generic ValidationError that restates the entire instance - measured at ~265 000 characters for a 1034-row
+     spec - naming no field, no count and no limit. An oversized ORDINARY SELECTION is not a malformed record and
+     must not be published that way. Everything a schema is genuinely better at - unknown properties, wrong types,
+-    a missing field, a missing schemaVersion - still refuses at step 2 exactly as before, for every request that
+-    REACHES step 2: that is, whenever `requestedCapabilities` is within its bound. The order is exact and
+-    cardinality-first, so a spec that is BOTH oversized and malformed refuses with the cardinality result and
+-    reports its schema fault on a later, narrowed request; both routes are request-rejected / exit 2, the
+-    malformed spec is refused either way, and no Plan or Run is minted. One condition is reordered for one
+-    shape; none is added.
++    a missing field, a missing schemaVersion - still refuses at step 2 exactly as before, for every input that
++    REACHES step 2. Step 1 refuses ONLY an actual JSON array over its bound, so a missing field, a null, a
++    boolean, a number, a string, an object, and an in-bound array malformed some other way all reach step 2
++    untouched. The order is exact and cardinality-first, so an input that is BOTH an oversized array and
++    otherwise malformed refuses with the cardinality result and reports its schema fault on a later, narrowed
++    request; the malformed spec is refused either way and no Plan or Run is minted for the refused step. The two
++    routes are NOT the same public termination: the cardinality refusal is origin-independent request-rejected /
++    exit 2 (REQUEST.UNSATISFIABLE, PROJECT.SCOPE_LIMIT), while the schema refusal keeps section 10's
++    ORIGIN-DEPENDENT routing - request-rejected / exit 2 for an externally supplied or retained spec, but
++    operational-failed / exit 4 (SYSTEM.OUTCOME.ILLEGAL_STATE, faultCause host-invariant) for a host-generated
++    internal layer minting its own invalid spec. Reordering never converts one into the other. One condition is
++    reordered for one shape; none is added.
+ 
+     An earlier revision guarded cardinality inside `admit_requested_capabilities` alone, and the published claim
+     of an analysis-spec-wide guard was an overclaim: an explicitly supplied spec validates through
+Only in work/docs/coop/design-corrections/native: source-pins.v2.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v10.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v11.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v12.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v13.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v14.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v15.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v3.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v4.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v5.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v6.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v7.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v8.proposed.json
+Only in work/docs/coop/design-corrections: post-reset-dispositions.v9.proposed.json
+Only in work/docs/coop/design-corrections: public-detail-registry.v1.json
+Only in work/docs/coop/design-corrections: qualification-gates.proposed.json
+Only in work/docs/coop/design-corrections: reviews
+Only in work/docs/coop/design-corrections: security
+Only in work/docs/coop/design-corrections: task-opening.json
+Only in work/docs/coop/design-corrections: validation-summary.v1.json
+Only in work/docs/coop/design-corrections/workflows: README.md
+Only in work/docs/coop/design-corrections/workflows: check_workflows.v1.py
+Only in work/docs/coop/design-corrections/workflows: command-inventory.v1.json
+Only in work/docs/coop/design-corrections/workflows: initial-author-response.json
+Only in work/docs/coop/design-corrections/workflows: obligation-map.v1.json
+Only in work/docs/coop/design-corrections/workflows: run-reference-checks.py
+Only in work/docs/coop/design-corrections/workflows/schemas: baseline-artifact.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: command-envelope.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: command-inventory.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: common.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: comparison-result.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: graph-query.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: imported-evidence.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: invocation-record.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: policy-document.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: policy-test.schema.json
+diff -u -r before-images/released-v1/docs/coop/design-corrections/workflows/schemas/repair.schema.json work/docs/coop/design-corrections/workflows/schemas/repair.schema.json
+--- before-images/released-v1/docs/coop/design-corrections/workflows/schemas/repair.schema.json	2026-09-07 11:42:45
++++ work/docs/coop/design-corrections/workflows/schemas/repair.schema.json	2026-09-07 12:15:07
+@@ -268,7 +268,7 @@
+         },
+         "closedWorld": {
+           "type": "object",
+-          "description": "The five-field PROJECTION of the evidence Run's native ClosedWorldV2 (native-evidence.md \u00a74.5) - not a copy. ClosedWorldV2 is closed at SEVEN required members and a literal copy is REFUSED here (dynamicDispatch and reasons are not properties of this record). The projection is exactly {deadCodeRepairEligible, exportsClosed, entryPointsRecognized, nonliteralLoading, externalConsumers}, each taken unchanged from that same Run's ClosedWorldV2, with dynamicDispatch and reasons dropped. AUTHORITY: the destructive-repair prerequisite is decided against the FULL seven-member ClosedWorldV2 of the evidence Run BEFORE this projection is built - repair preview reads deadCodeRepairEligible there and reports the native reasons in the unmet-precondition remedy - so these five fields are a descriptor projection carried for display and for the repairplan2 identity, and are never the input to the gate. Deleting or editing a field of this record therefore cannot bypass the gate: a missing required member is schema-invalid, any edit mints a different repairPlanId, and apply requires a security authorization bound to the exact repairPlanId. Deletion or replacement of an exported subject requires deadCodeRepairEligible=true, which native sets only with exportsClosed=closed, entryPointsRecognized=all and nonliteralLoading=none; otherwise REPAIR.CLOSED_WORLD_NOT_ESTABLISHED.",
++          "description": "The five-field PROJECTION of the evidence Run's native ClosedWorldV2 (native-evidence.md \u00a74.5) - not a copy. ClosedWorldV2 is closed at SEVEN required members and a literal copy is REFUSED here (dynamicDispatch and reasons are not properties of this record). The projection is exactly {deadCodeRepairEligible, exportsClosed, entryPointsRecognized, nonliteralLoading, externalConsumers}, each taken unchanged from that same Run's ClosedWorldV2, with dynamicDispatch and reasons dropped. AUTHORITY: the prerequisite for an unsafe edit - EVERY delete and EVERY replace in the plan, not only exported subjects - is decided against the evidence Run's own ClosedWorldV2 BEFORE this projection is built: preview reads deadCodeRepairEligible there and reports that record's reasons in the unmet-precondition remedy. dynamicDispatch stays with the native evidence and is NOT a global veto: native section 4.5 affected_targets and section 4.6 make dynamic-edge effects TARGET-RELATIVE, so it bears on universal negatives about the subjects a dynamic edge can reach, not on unrelated targets. These five fields are therefore a descriptor projection carried for display and for the repairplan2 identity; the projection grants no evidence authority of its own and is never the input to the gate. Deleting or editing a field of this record therefore cannot bypass the gate: a missing required member is schema-invalid, any edit mints a different repairPlanId, and apply requires a security authorization bound to the exact repairPlanId. Deletion or replacement of an exported subject requires deadCodeRepairEligible=true, which native sets only with exportsClosed=closed, entryPointsRecognized=all and nonliteralLoading=none; otherwise REPAIR.CLOSED_WORLD_NOT_ESTABLISHED.",
+           "additionalProperties": false,
+           "required": [
+             "deadCodeRepairEligible",
+Only in work/docs/coop/design-corrections/workflows/schemas: review.schema.json
+Only in work/docs/coop/design-corrections/workflows/schemas: test-execution.schema.json
+Only in work/docs/coop/design-corrections/workflows: source-pins.v1.json
+diff -u -r before-images/released-v1/docs/coop/design-corrections/workflows/workflow-cases.v1.json work/docs/coop/design-corrections/workflows/workflow-cases.v1.json
+--- before-images/released-v1/docs/coop/design-corrections/workflows/workflow-cases.v1.json	2026-09-07 10:12:18
++++ work/docs/coop/design-corrections/workflows/workflow-cases.v1.json	2026-09-07 12:15:46
+@@ -7623,6 +7623,7 @@
+         "entryPointsRecognized": "all",
+         "nonliteralLoading": "none",
+         "externalConsumers": "none-declared",
++        "dynamicDispatch": "not-applicable",
+         "reasons": []
+       },
+       "evidenceOrigin": "native-analysis"
+@@ -7826,6 +7827,7 @@
+           "entryPointsRecognized": "partial",
+           "nonliteralLoading": "none",
+           "externalConsumers": "unknown",
++          "dynamicDispatch": "not-applicable",
+           "reasons": [
+             "config-requires-evaluation"
+           ]
+Only in work/docs/coop/design-corrections/workflows: workflows-report.v1.json
+Only in work/docs/coop/design-corrections/workflows: workflows-validation-report.json
+diff -u -r before-images/released-v1/docs/coop/design-corrections/workflows/workflows_model.v1.py work/docs/coop/design-corrections/workflows/workflows_model.v1.py
+--- before-images/released-v1/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-07 11:53:51
++++ work/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-07 12:15:07
+@@ -1194,9 +1194,14 @@
+ def repair_preview(project_id, snapshot_tree, run, recipe, targets, edits, evidence_requirements, permitted_scope, trust, ephemeral=False):
+     """trust: the security unit's current admitted closure set {closureId: 'admitted'|'revoked'}; ABSENCE is not admission.
+     run carries the evidence Run's own native ClosedWorldV2 (native-evidence section 4.5, SEVEN members) and
+-    evidenceOrigin. The unsafe-repair gate below reads that FULL record - deadCodeRepairEligible and reasons -
+-    BEFORE any descriptor exists; RepairPlanDescriptor.closedWorld is the five-field PROJECTION of it, closed by
+-    repair.schema.json, so a literal seven-member copy is refused there and no descriptor field is the gate."""
++    evidenceOrigin, ALREADY ADMITTED by the owning native contract: this workflow helper consumes that record,
++    it does not re-admit it, and it is not the place where a malformed native record would be caught.
++    The unsafe-repair gate below covers EVERY delete and EVERY replace edit (UNSAFE_ACTIONS), reads
++    deadCodeRepairEligible from that record and reports its reasons, BEFORE any descriptor exists.
++    RepairPlanDescriptor.closedWorld is the five-field PROJECTION of it, closed by repair.schema.json, so a
++    literal seven-member copy is refused there and no descriptor field is the gate. dynamicDispatch is NOT a
++    global veto: native section 4.5 affected_targets makes dynamic-edge effects target-relative, and each
++    evidence requirement is judged on its own relation and rung below."""
+     unmet = []
+     if ephemeral or run.get('authority') != 'authoritative':
+         raise Refusal('REQUEST.PRECONDITION_FAILED', 'REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE', 'run an authoritative analysis first')
+@@ -1243,8 +1248,11 @@
+             unmet.append({'code': 'REPAIR.EVIDENCE_RUN_UNAVAILABLE', 'remedy': 'evidence requirement unsatisfied: ' + req['relation']})
+     desc = {'schemaFamily': 'opensip.product.repair-plan', 'schemaMajor': 1, 'projectId': project_id, 'snapshotId': snap, 'evidenceRunId': run['runId'], 'planId': run['planId'], 'recipe': recipe,
+             'recipeTrust': recipe_trust, 'evidenceOrigin': origin,
+-            # the published 7 -> 5 projection: dynamicDispatch and reasons are dropped, and the gate above
+-            # already consumed them, so deleting a field here can never reach an unmade decision
++            # the published 7 -> 5 projection: dynamicDispatch and reasons are dropped. The gate above
++            # has already read deadCodeRepairEligible and reported reasons from the evidence Run's OWN
++            # record, so deleting a field here can never reach an unmade decision. dynamicDispatch is
++            # not read as a veto at all: native section 4.5 affected_targets makes its effect
++            # target-relative, and it stays with the native evidence for the requirements that need it
+             'closedWorld': {k: cw[k] for k in ('deadCodeRepairEligible', 'exportsClosed', 'entryPointsRecognized', 'nonliteralLoading', 'externalConsumers')},
+             'targets': sorted(targets), 'edits': norm, 'totalPostimageBytes': sum(x['postimageBytes'] for x in norm), 'evidenceRequirements': evidence_requirements, 'permittedEditScope': sorted(permitted_scope),
+             'applicable': not unmet, 'unmetPreconditions': unmet, 'limitations': ['external consumers outside the sealed snapshot are not observed']}
+Only in work/docs/v2: architecture
+Only in work/docs/v2/contracts/product-v1: README.md
+Only in work/docs/v2/contracts/product-v1: admission-and-qualification.md
+diff -u -r before-images/released-v1/docs/v2/contracts/product-v1/native-evidence.md work/docs/v2/contracts/product-v1/native-evidence.md
+--- before-images/released-v1/docs/v2/contracts/product-v1/native-evidence.md	2026-09-07 11:46:55
++++ work/docs/v2/contracts/product-v1/native-evidence.md	2026-09-07 12:17:13
+@@ -1071,12 +1071,43 @@
+ 
+ | Rule | Statement |
+ |---|---|
+-| Fold | `fold(n)` is the Unicode simple lowercase mapping of `n`'s code points. It is the **same single fold** the honored-`lib` agreement below uses, and this section defines no other: no NFC/NFKC step, no trimming, no alias table, no prefix or suffix matching |
++| Fold | `fold(n)` is Unicode **Default Case Conversion `toLowercase(X)`**: the **full**, **non-tailored**, **context-sensitive** default lowercase mapping (Unicode Standard §3.13 / UAX #21). It is the **same single fold** the honored-`lib` agreement below uses, and this section defines no other: no NFC/NFKC step, no trimming, no alias table, no prefix or suffix matching. Reference implementation `native_evidence_model.v2.lib_name_fold` |
+ | Mapping | `component(n) = "lib." + fold(n) + ".d.ts"`. Total, deterministic and **one-directional**: a selected name maps to exactly one component basename, and a component is never mapped back into a selected name |
+ | Membership | for every `n` in `libSelection`, `component(n)` must be an element of the declared `component` set. A name whose component is absent refuses `native.native-context-lib-not-retained:<n>` — §10 route `request-rejected` (2) / `REQUEST.PRECONDITION_FAILED`, before PlanId |
+ | Equality | `{fold(n) : n ∈ libSelection}` must equal `{fold(m) : m ∈ honoredOptions.lib}`. `honoredOptions.lib` is required and non-empty in the closed resolved context, so this agreement always applies and is **not** weakened by the mapping. Two `libSelection` entries with the same fold refuse `native.native-context-field-mismatch:duplicate-lib-selection`; a set disagreement refuses `native.native-context-field-mismatch:libSelection` |
+ | Order | `libSelection` is sorted by the raw UTF-8 bytes of the **retained, unfolded** names; `standardLibraryComponentDigests` by the raw UTF-8 bytes of `component`. Each record keeps its own specified order for hashing — folding is a comparison, never a rewrite of a retained value, and neither array is re-spelled into the other's vocabulary |
+ 
++**What `fold` is, and what it is not.** The three plausible operations are genuinely different
++and only one of them is the one this admission performs, so it is named rather than approximated.
++
++| Discriminator | `fold` (**full default lowercase**) | simple lowercase | case folding |
++|---|---|---|---|
++| `U+0130` LATIN CAPITAL LETTER I WITH DOT ABOVE | `U+0069 U+0307` — **two** code points, through `SpecialCasing.txt` | `U+0069`, one code point | `U+0069 U+0307` |
++| `U+039F U+03A3` (sigma in **final** position) | `U+03BF U+03C2` — the `Final_Sigma` condition | `U+03BF U+03C3` | `U+03BF U+03C3` |
++| `U+03A3 U+039F` (sigma **not** final) | `U+03C3 U+03BF` | `U+03C3 U+03BF` | `U+03C3 U+03BF` |
++| `U+00DF` LATIN SMALL LETTER SHARP S | `U+00DF` — unchanged | `U+00DF` | `U+0073 U+0073` |
++
++So `fold` is **not** `Simple_Lowercase_Mapping` (it expands, and it is position-dependent) and
++**not** `Case_Folding` (sharp s is unchanged). It is **non-tailored** — the root locale, with no
++Turkish/Azeri dotless-i and no Lithuanian tailoring — so the result must never depend on an ambient
++locale, an environment variable or a host language setting.
++
++**Version custody, and the portability consequence it does not hide.** The result of a default case
++conversion is determined by the Unicode case data the host carries, so `fold` is deterministic
++**given a case-data version**, and this design binds the reference derivation to one:
++`native_evidence_model.v2.UNICODE_CASE_DATA_VERSION`, currently **UCD 15.0.0**, the version the
++table above was measured against. Two hosts on different case data can fold the same name
++differently — for a code point unassigned in one of them (an unassigned code point folds to itself),
++or for one whose mapping changed between the versions — and because `libSelection` enters the
++context descriptor and therefore `PlanId`, that would be an admission divergence, not a cosmetic
++one. This contract does **not** claim the fold is invariant across every runtime. It requires the
++version to be a declared, checkable property rather than whatever the runtime happens to ship:
++`unicode_case_data_agreement()` reports the running version against the declared one so drift is
++disclosed instead of silently changing an outcome. Nothing here narrows the field to ASCII to
++sidestep the question — it is simply true that every `lib` name in the pinned compiler's own option
++vocabulary is ASCII, where all three operations above coincide, and that is a fact about the current
++vocabulary rather than a constraint on the value.
++
+ **Custody: the two arrays answer different questions.** `libSelection` is the
+ *configuration-facing* record of what the resolved options selected, and it is
+ what the universe/config agreement is checked against.
+@@ -1584,26 +1615,56 @@
+     `ViewEntryV3` and the matrix advertises the capability `SUPPORTED-DESIGN` in
+     five of six language modes — and because `observed` is **not** a resolved
+     rung: the relation records the edges resolution did *not* close, so it makes
+-    no resolution claim of its own. A `complete` or a `not-attempted` entry there
+-    would let two conforming producers mint two different `coverage2` payload
+-    digests for one observation of one universe.
++    no resolution claim of its own. Stated precisely, and no more strongly than
++    the evidence allows: RC-1 as previously written refused **neither** a
++    `complete` nor a `not-attempted` entry on this pair, so two conforming
++    implementations could commit **different** Coverage records — and therefore
++    different `coverage2` identities — for the same underlying Coverage question.
++    Those alternatives are *not* two spellings of one identical record: `complete`
++    and `not-attempted` necessarily differ in `attempted` as well as in `state`,
++    and the blind consumer-B v5 vector's two candidates also differed in other
++    committed fields. This is a determinacy gap in the contract, **not** a digest
++    collision and not a divergence over byte-identical observations.
+   - `reachability` is the case that shows why ladder length is not the rule: it is
+     a **one-rung** relation whose single rung `from-resolved-calls` **is**
+     resolved, so it is never `not-applicable`.
+   - a relation or a rung outside the closed registered vocabulary refuses on the
+     schema enum, and a rung belonging to **another** relation's ladder is never a
+-    live value: `membershipRule` decides membership against *that* relation's own
+-    `ladder`, fact admission refuses such a fact, and a Requirement or view use
+-    resolves no ladder index for it (`required-relation-missing`). RC-1 assigns
+-    **no** state to an unrecognised pair: `not-applicable` is a claim about a
+-    *registered* pair and is never a fallback for one the registry does not know.
++    live value anywhere: `membershipRule` decides membership against *that*
++    relation's own `ladder`, and that pair check is applied to the subject scope
++    when it is minted, to the Coverage entry at the producer boundary and again at
++    retained closure (RC-0 below), to a fact at fact admission, and to a
++    Requirement or view use, which resolves no ladder index for it
++    (`required-relation-missing`). RC-1 assigns **no** state to an unrecognised
++    pair: `not-applicable` is a claim about a *registered* pair and is never a
++    fallback for one the registry does not know.
+ 
+-  The host recheck (`coverage_bijection`) refuses an entry on a non-resolved rung
+-  whose `state` is not `not-applicable` or whose `unresolvedEdgeCount` is not `0`,
+-  and refuses `not-applicable` on a resolved rung. A `not-applicable` entry is
+-  *not* `complete`: it makes no resolution claim at all. It is a statement about
+-  **resolution only** — the same entry's `coverage` keeps its own independent
+-  value over the examined partition (§4.1, RC-3).
++  **RC-0 runs first and is relation-specific.** Before any state rule, the entry's
++  own `(relation, rung)` must be a **registered pair**: the rung must be a member
++  of *that relation's* `ladder`. The rung vocabulary is shared across relations, so
++  a schema-valid `resolution` proves nothing — `unresolved-edge@enumerated` names
++  two registered tokens and no registered pair, and it is refused. This check is
++  independent of any fact: a **fact-free** entry, over an empty or non-matching
++  examined scope, is judged the same way, because a fact-admission guard cannot
++  protect a Coverage entry that cites no fact.
++
++  The host recheck (`coverage_bijection`) therefore refuses, on a non-resolved
++  rung, an entry whose `state` is not `not-applicable`, whose
++  `unresolvedEdgeCount` is not `0`, whose `attempted` is not `false`, or whose
++  `unresolvedEdgeClasses` is non-empty; and it refuses `not-applicable` on a
++  resolved rung. It is run at **both** boundaries: the producer boundary
++  (`admit_coverage_result_v3`) and retained Run closure, which re-runs that same
++  admission over the retained scope and facts — so a contradictory entry can
++  neither be minted nor carried into a sealed Run.
++
++  Two fields are deliberately **not** constrained by RC-1. `stageTerminal` stays
++  free: a `not-applicable` entry may honestly retain the stage terminal its
++  producer observed (`complete`, `budget-exhausted`, …), and the generator
++  preserves it. `examinedExhaustive` stays the independent examined-partition
++  claim of §4.1. A `not-applicable` entry is *not* `complete`: it makes no
++  resolution claim at all. It is a statement about **resolution only** — the same
++  entry's `coverage` keeps its own independent value over the examined partition
++  (§4.1, RC-3).
+ - **RC-2 (corrected, feedback 6)** `state=complete` requires **all** of:
+   `attempted=true`, `examinedExhaustive=true`, `stageTerminal=complete`, and zero
+   admitted `unresolved-edge` facts whose relation matches and whose referrer is in
+@@ -2353,7 +2414,7 @@
+ | execution not authorized (CI without policy; missing live boundaries; no bundled linker; over-claimed enforcement; revocation mid-step) | `linker-unavailable` where applicable | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `native.execution-not-authorized` |
+ | explicit Config2/CLI workspace root without a language marker; explicit root violating the shared path grammar; explicit root at or below an admitted boundary (nested repository/project, custody-excluded directory) | | `request-rejected` (2) | `CONFIG.INVALID` | `native.explicit-root-without-marker` (missing marker); `PROJECT.EXPLICIT_PATH_INVALID` (grammar or boundary crossing) |
+ | admitted boundary inventory whose pruned trees do not equal the ones derived from the marker inventory (not produced by security over this inventory) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `PROJECT.DISCOVERY_INVENTORY_MISMATCH` |
+-| capability/identity mismatch at HelloAck; OpenUniverse before negotiation; coverage bijection or RC-2 precondition mismatch; **subject-scope commitment, coverage key or examined-partition mismatch at the producer boundary** (§4.1a: `native.subject-scope-commitment-mismatch`, `native.coverage-key-scope-mismatch:<field>`, `native.examined-universe-commitment-mismatch`, `native.examined-universe-subject-count-mismatch`, `native.coverage-entry-key-mismatch`); a `view2` naming a `coverage2` that was never admitted at that boundary or whose subject scope is outside the view (`native.coverage-not-admitted-at-producer-boundary`, `native.coverage-subject-scope-outside-view`); **worker fault** (process fault, ProviderFault, crash) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record |
++| capability/identity mismatch at HelloAck; OpenUniverse before negotiation; coverage bijection faults, including an RC-0 pair whose rung is not on that relation's own ladder, an RC-1 not-applicable entry carrying a resolution claim, or an RC-2 precondition mismatch; **subject-scope commitment, coverage key or examined-partition mismatch at the producer boundary** (§4.1a: `native.subject-scope-commitment-mismatch`, `native.coverage-key-scope-mismatch:<field>`, `native.examined-universe-commitment-mismatch`, `native.examined-universe-subject-count-mismatch`, `native.coverage-entry-key-mismatch`); a `view2` naming a `coverage2` that was never admitted at that boundary or whose subject scope is outside the view (`native.coverage-not-admitted-at-producer-boundary`, `native.coverage-subject-scope-outside-view`); **worker fault** (process fault, ProviderFault, crash) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record |
+ | native context whose stdlib/rust-dev-llvm/tool closure is unretained, recomputes to a different identity, has the wrong kind, or whose suffix, component, `libSelection`, tool-member or compiler-version join fails (§2.3, §2.4: `native.native-context-closure-unretained`, `native.native-context-closure-identity-mismatch`, `native.native-context-closure-kind-mismatch`, `native.native-context-stdlib-tree-mismatch`, `native.native-context-lib-not-retained`, `native.native-context-tool-not-in-closure`, `native.native-context-compiler-version-not-from-manifest`); a universe bound to a context this host did not mint or to the other language's record (`native.universe-context-binding-mismatch`, `native.native-context-language-mismatch`) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | request detail (before PlanId; no worker is spawned) |
+ | preparation bound exceeded | | `operational-failed` (4) | `HOST.IO_FAILURE` | `native.prepare-bound-exceeded` |
+ | ambient Cargo config in an ancestor; environment override present | | `operational-failed` (4) | `HOST.IO_FAILURE` | `native.ambient-cargo-config` |
+@@ -3011,7 +3072,7 @@
+ 
+ A **bounded selection array** that exceeds its published schema bound refuses REQUEST.UNSATISFIABLE (request-rejected, exit2), public detail PROJECT.SCOPE_LIMIT and subject `field:count>limit`; it is never truncated. **Four** fields are bounded this way, across **two record families**, and the subject always names which one overflowed. The **scope descriptor** family contributes three: workspaceRoots has limit1024 (distinct roots after co-located unit deduplication), and pathPrefixes/excludedPathPrefixes each65536; thus1025..4096 valid discovered unit roots produce this typed scope refusal, while more than4096 first-party unit directories produce PROJECT.WORKSPACE_UNIT_LIMIT earlier. The **analysis-spec** array `requestedCapabilities` has limit1024, and it overflows for a reason worth stating: the matrix-fixed default requests one row per (discovered unit, capability whose cell is not NOT-SELECTED), which is11 capabilities per TypeScript unit and10 per Rust unit, so93 TypeScript units fit, at1023 rows - one row under the bound, not exactly at it - and94 do not, at1034. Units94..1024 are therefore ordinary repositories the scope law admits and the default analysis cannot express, and they refuse HERE rather than through a generic schema exception that names no field, count or limit. The public code is shared across host/native scope admission; callers must narrow explicit selection — for `requestedCapabilities` that means fewer workspace roots for the invocation, or an explicit `analysis.capabilities` selection carrying its own provenance. Native ScopeRefusal retains detail, D9 and observed bound fields for the host's closed termination projection, and is already field-generic, so all four fields use one law and one code: the remedy class is identical — narrow the selection explicitly, nothing was truncated — which is why widening it across the second record family adds no public code.
+ 
+-The **pre-Plan admission order** is published, because it is what makes the typed refusal reachable. A complete `analysis-spec` - defaulted or explicitly supplied - is admitted in three steps: **bounded selection cardinality first**, then generic schema validation of the whole record, then the closed native capability vocabulary. Cardinality precedes schema validation because a `maxItems` breach is reported generically, restating the entire instance and naming no field, count or limit; an oversized ordinary selection is not a malformed record and is not published as one. The first step is **conditional on the field actually being a JSON array in an object**, and nothing is coerced: a missing field, a null, a boolean, a number, a string or an object proceeds untouched to the schema step and refuses there as the malformed record it is. Without that condition a 1025-character string would be published as 1025 capabilities, which is a misclassification and not a scope limit. Everything a schema is genuinely better at - an unknown property, a wrong type, a missing field, a missing `schemaVersion` - still refuses at the schema step exactly as before, **for every request that reaches that step**: that is, whenever the bounded selection array is within its published bound. The ordering is exact and cardinality-first, so a request that is *both* oversized and malformed refuses with the cardinality result - `PROJECT.SCOPE_LIMIT`, subject `field:count>limit` - and its schema fault is reported on a later, narrowed request rather than in the same one. Nothing is lost or misclassified by that: both routes are request-rejected / exit2, the malformed spec is refused either way, no Plan or Run is minted, and the refusal that does fire states a true fact about the instance. One condition is reordered for one shape, and none is added. This order is the **request** boundary only. Validation of a **retained** `analysis-spec` payload at Run closure is a different question with a different answer - an oversized array there means corruption rather than an oversized request - and nothing here changes it: Run closure schema-validates the retained record before any capability vocabulary admission, so an over-long retained array already refuses there.
++The **pre-Plan admission order** is published, because it is what makes the typed refusal reachable. A complete `analysis-spec` - defaulted or explicitly supplied - is admitted in three steps: **bounded selection cardinality first**, then generic schema validation of the whole record, then the closed native capability vocabulary. Cardinality precedes schema validation because a `maxItems` breach is reported generically, restating the entire instance and naming no field, count or limit; an oversized ordinary selection is not a malformed record and is not published as one. The first step is **conditional on the field actually being a JSON array in an object**, and nothing is coerced: a missing field, a null, a boolean, a number, a string or an object proceeds untouched to the schema step and refuses there as the malformed record it is. Without that condition a 1025-character string would be published as 1025 capabilities, which is a misclassification and not a scope limit. Everything a schema is genuinely better at - an unknown property, a wrong type, a missing field, a missing `schemaVersion` - still refuses at the schema step exactly as before, **for every input that reaches that step**. Which inputs those are follows from the condition, not from the bound alone: step 1 refuses **only** an actual JSON array that is over its bound, so a spec whose `requestedCapabilities` is **absent, null, a boolean, a number, a string or an object** proceeds untouched to the schema step and refuses there as the malformed record it is, and so does an array **within** its bound that is malformed in any other way. The ordering is exact and cardinality-first, so an input that is *both* an oversized array and otherwise malformed refuses with the cardinality result - `PROJECT.SCOPE_LIMIT`, subject `field:count>limit` - and its schema fault is reported on a later, narrowed request rather than in the same one. Nothing is lost or misclassified by that: the malformed spec is refused either way, no Plan or Run is minted for the refused step, and the refusal that does fire states a true fact about the instance. **The two routes are not, however, the same public termination, and this paragraph does not flatten them.** The cardinality refusal is origin-independent - `request-rejected` (2), `REQUEST.UNSATISFIABLE`, `PROJECT.SCOPE_LIMIT` - because an oversized ordinary selection is not malformed. The schema refusal keeps §10's **origin-dependent** routing: an externally supplied or retained spec is `request-rejected` (2) / `REQUEST.PRECONDITION_FAILED`, while a host-generated internal layer minting its own invalid spec is **`operational-failed` (4)** / `SYSTEM.OUTCOME.ILLEGAL_STATE` with `faultCause: host-invariant`. Reordering the two steps therefore never converts a host-invariant fault into a request rejection, and never the reverse. One condition is reordered for one shape, and none is added. This order is the **request** boundary only. Validation of a **retained** `analysis-spec` payload at Run closure is a different question with a different answer - an oversized array there means corruption rather than an oversized request - and nothing here changes it: Run closure schema-validates the retained record before any capability vocabulary admission, so an over-long retained array already refuses there.
+ 
+ What this refusal is **not**. It is not a truncation: no capability is dropped, no root is dropped, and the matrix-fixed default and every advertised capability promise are unchanged. It is not a host defect: the host computed the default correctly and the *request* simply cannot be expressed within a published bound, so it is `request-rejected`/`REQUEST.UNSATISFIABLE` and never `host-invariant`. It is not a licence to shard the invocation, execute extra steps or raise a bound — any of those would be a new product capability and none is selected here. And it is **pre-Plan for the analysis step it refuses**: that step mints no `plan2` and no `run2`. That is a statement about the step, not about attribution - the request and the invocation keep their ordinary operational attribution under the workflow law, and any earlier step of the same invocation that already committed an outcome keeps it. A pure helper `ValidationError` is not a public termination, which is exactly why the typed refusal exists.
+ 
+Only in work/docs/v2/contracts/product-v1: security-and-lifecycle.md
+diff -u -r before-images/released-v1/docs/v2/contracts/product-v1/workflows-and-surfaces.md work/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+--- before-images/released-v1/docs/v2/contracts/product-v1/workflows-and-surfaces.md	2026-09-07 11:42:56
++++ work/docs/v2/contracts/product-v1/workflows-and-surfaces.md	2026-09-07 12:26:39
+@@ -406,23 +406,45 @@
+ signal alone never authorizes deletion. Preview never writes.
+ 
+ **The closed-world gate reads the evidence Run; the descriptor carries a
+-projection.** An unsafe edit — `delete`, and `replace` of an exported subject —
+-is decided against the evidence Run's **full** native `ClosedWorldV2` (native
+-§4.5), all seven members including `dynamicDispatch` and `reasons`, **before** any
+-descriptor is built: `deadCodeRepairEligible=false` reports
+-`REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` with the native `reasons` in its remedy,
+-and an `imported-prepared-declared` evidence origin reports the same code, because
+-a DECLARED prepared expansion is not authority for an unsafe repair.
+-`RepairPlanDescriptor.closedWorld` is then the **five-field projection** of that
+-record — `deadCodeRepairEligible`, `exportsClosed`, `entryPointsRecognized`,
+-`nonliteralLoading`, `externalConsumers`, with `dynamicDispatch` and `reasons`
+-dropped — and `repair.schema.json` closes it at exactly those five, so a literal
+-copy of `ClosedWorldV2` is refused there. The projection is a **descriptor, not
+-evidence**: no edit to it can make a plan applicable, since the whole descriptor
+-is the preimage of `repairPlanId` (`H('workflow.repair-plan', descriptor)`) and
+-apply requires a security authorization bound to that exact `repairPlanId`, base
+-snapshot and project. The authority stays the sealed Run named by
+-`evidenceRunId`.
++projection.** The guard covers **every `delete` and every `replace` edit** in the
++plan — the unsafe-action set is those two actions, without qualification, and this
++paragraph narrows it in no way. If the plan contains one, the prerequisite is
++decided against the evidence Run's own native `ClosedWorldV2` (native §4.5) —
++the record that contract closes at seven members — **before** any descriptor is
++built: `deadCodeRepairEligible=false` reports
++`REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` with that record's own `reasons` in the
++remedy, and an `imported-prepared-declared` evidence origin reports the same code,
++because a DECLARED prepared expansion is not authority for an unsafe repair.
++
++`dynamicDispatch` is **not** a global veto and must not be read as one. Native
++§4.5 makes dynamic-edge effects **target-relative**: `affected_targets` marks the
++subjects a dynamic edge could reach, and §4.6 turns that into
++`resolution-incomplete` for a universal negative **about an affected subject**.
++So a present dynamic edge disqualifies the claims that depend on the subjects it
++reaches; it does not by itself disqualify an unrelated target in the same Run.
++The roles here are distinct and are not merged: preview **admits** each evidence
++requirement's `relation`/`minResolution` against the registered vocabulary and its
++relation's own ladder (`admit_atom`, which is vocabulary admission, not an
++evidence judgement), and then **consumes** that requirement's own `satisfied`
++value; the semantic sufficiency behind it is owned by native §4.6
++`sufficiency_v2` and the §4.5 affected-target evidence, per requirement, and is
++never collapsed into one flag.
++
++`RepairPlanDescriptor.closedWorld` is then the **five-field projection** of the
++evidence record — `deadCodeRepairEligible`, `exportsClosed`,
++`entryPointsRecognized`, `nonliteralLoading`, `externalConsumers`, with
++`dynamicDispatch` and `reasons` dropped — and `repair.schema.json` closes it at
++exactly those five, so a literal copy of `ClosedWorldV2` is refused there. **The
++projection grants no evidence authority of its own.** It is a descriptor: no edit
++to it can make a plan applicable, since the whole descriptor is the preimage of
++`repairPlanId` (`H('workflow.repair-plan', descriptor)`) and apply requires a
++security authorization bound to that exact `repairPlanId`, base snapshot and
++project. The authority stays the sealed Run named by `evidenceRunId`: the
++prerequisite above is decided against **that** Run's own full record, including
++the two members the descriptor does not carry. No claim is made here that a later
++step re-reads it — `repair verify` seals a **new** Run over the freshly
++re-snapshotted tree (`appliedSnapshotId` → `verifiedSnapshotId`) and compares
++remaining and net-new findings; it does not re-open the original evidence Run.
+ 
+ **Apply** (`repair-apply`, mutation) is bound to the exact `repairPlanId`, base
+ snapshot and project by a security-unit authorization (`REPAIR.CONSENT_NOT_BOUND`);

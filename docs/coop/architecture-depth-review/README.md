@@ -1,0 +1,17 @@
+# Architecture depth-review record
+
+Read [the joint audit report](REVIEW.md) for the 16 reconciled findings, strengths, validation limits and correction order. The [central readiness register](../../v2/architecture/08-decision-and-readiness-register.md#unified-product-design-readiness) remains the only readiness checklist. Full intended-product design remains NOT_READY for implementation.
+
+[Codex–Claude agreement](alignment.md) records final ACCEPT_REPORT with zero must-fix and zero should-fix items. This accepts the audit, not the full design. Original severity differences and corrected observations remain visible.
+
+## Evidence map
+
+- [Original subject manifest](subject-manifest.json): 9,363 files, 384,546,056 bytes; docs and selected root text in the post-D-371 working tree. This is the available snapshot, not the number of files read and not a copy of every repository directory. The original isolated snapshot is at `/tmp/opensip-depth-review-20260905/subject`; this record retains the manifest and reviewed navigation before-images rather than duplicating 388 MB of source evidence.
+- [Semantic lens](semantic-report.md), [security lens](security-report.md), [product lens](product-report.md), followed by [semantic](semantic-challenge-report.md), [security](security-challenge-report.md), and [product](product-challenge-report.md) counter-reviews. Matching prompts and raw CLI JSON responses are retained beside them. Cold passes used three separate actual Claude sessions; each counter-review resumed its corresponding session.
+- [Codex independent findings](codex-independent-findings.md), written before reconciling the Claude lens reports; [finding dispositions](finding-dispositions.json) map all 36 initial observations to 16 final findings. Initial prose is historical evidence and may contain claims withdrawn or narrowed in the final report.
+- [Tool-request coverage](coverage-tool-record.json): actual Read/Grep/Glob requests for the cold/counter-review sessions. These are requests, not proof of complete-file reading or successful execution. Reviewer reports state substantive coverage and omissions.
+- [Portable adversarial probe](reproduce-probes.py), [reproduced observations](reproduced-probes.json), and the five `*-baseline-report.json` files cited by the report. The 1,816 original checks pass while added probes expose admission/validation gaps; none is production qualification.
+- [First report review](final-review.v1-report.md) and [final report review](final-review.v3-report.md), with the intervening [second review](final-review.v2-report.md), fixed subject manifests and copies under `review-subject.v1/`, `review-subject.v2/` and `review-subject.v3/`. No reviewed subject was edited while under review.
+- [Snapshot verification](snapshot-verification.json) and [final recording validation](validation.json): hash, source-preservation, JSON, links, traceability and narrow inventory checks, separate from Claude's semantic review.
+
+The stale temporary `write-report.py` draft is intentionally excluded. It is not a generator for the retained report. Frozen D-369/D-370/D-371 subjects and acceptance records are preserved. Existing-file edits for this audit are the START-HERE link, central-register audit annotation, and a narrow inventory/classification refresh for those two paths and the report. Other preexisting working-tree changes are outside this audit's recording scope. No implementation, commit or push is part of this review delivery.

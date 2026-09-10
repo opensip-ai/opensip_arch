@@ -1,0 +1,45 @@
+--- released-v1/docs/coop/design-corrections/foundation/identity-model.py
++++ current-v2/docs/coop/design-corrections/foundation/identity-model.py
+@@ -852,9 +852,11 @@
+ 
+         * `source-text` (the nine code relations): at least one span, because the fact was READ from
+           source text and an unanchored code fact names no file that could have been read. There is
+-          deliberately no upper bound and no canonical extent - which spans a producer cites is a
+-          real choice about what it read, so differing citations are DIFFERENT semantic descriptors
+-          and nothing here promises they mint one identity.
++          no ADDITIONAL relation-specific maximum and no canonical extent beyond the common schema
++          bounds - fact.anchors keeps its maxItems 100000 and uniqueItems - so what is declined is a
++          per-relation ceiling, not the shared one. Which spans a producer cites is a real choice
++          about what it read, so differing citations are DIFFERENT semantic descriptors and nothing
++          here promises they mint one identity.
+         * `body-identity` (`clones`): exactly one, the body span the identity is over. The
+           bodyIdentityJoin still enforces this too, over the same anchor it recomputes L0 from.
+         * `inventory` (`file`, `package`, `vcs-change`): exactly zero. The claim's whole semantic
+@@ -893,7 +895,17 @@
+         only `file` has one. A subject the snapshot does not contain is owed nothing - the host
+         examined the question and the file is genuinely absent - and an `unknown` result with its
+         disclosed deficiency is owed nothing either, which keeps a partially examined inventory
+-        representable."""
++        representable.
++
++        A fact discharges THIS scope's obligation only if it agrees with the scope on every
++        coordinate the registry's `matchOn` lists - the four CoverageKeyV2 coordinates other than
++        the commitment itself, plus the owning snapshot. Matching relation and rung ALONE is not
++        enough in a view carrying more than one universe: the view-level fact/scope join above is
++        EXISTENTIAL, so a TypeScript file fact is lawfully in a view that also carries a
++        syntax-universe scope, and it then paid that scope's missing-file obligation. A complete Run
++        exhibited exactly that. Totality is a claim about what THIS universe examined, so it must be
++        discharged by evidence produced in THIS universe: a fact from another universe is a
++        different interpretation of the same bytes, not the same observation."""
+         row=(RELATIONS.get(scope['relation']) or {}).get('coverageTotality')
+         if row is None or scope['resolution']!=row['rung']:return
+         if coverage_payload['entry']['coverage']!='complete':return
+@@ -901,7 +913,7 @@
+         claimed=set()
+         for fact_id in view['facts']:
+             fact=get(fact_id,'fact')
+-            if fact['relation']!=scope['relation'] or fact['resolution']!=scope['resolution']:continue
++            if any(fact[field]!=scope[field] for field in row['matchOn']):continue
+             payload=registered_payload(fact['payloadDigest'],
+                 {'payloadClass':'relation','keyedBy':['relation'],'schemaDigestField':'payloadSchemaDigest'},fact)
+             claimed.add(payload[row['pathField']])

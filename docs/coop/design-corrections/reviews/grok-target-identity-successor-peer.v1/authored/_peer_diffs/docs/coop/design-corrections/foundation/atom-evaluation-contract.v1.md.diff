@@ -1,0 +1,73 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md	2026-09-09 00:15:59
+@@ -1,13 +1,17 @@
+ # Atom evaluation contract — v1
+ 
+ This appendix is incorporated by product identity-and-evidence §4. It defines
+-`evaluator-projection-registry.v1.json`, `target-attribution.schema.v1.json`,
+-`incoming-search.schema.v1.json`, and `atom_model.v1.py`. Composition, proof,
+-finding and gate rules are in the incorporated composition contract. Complete
+-Run admission combines these laws; atom checks alone are not full replay.
+-Acceptance and qualification are recorded separately.
++`evaluator-projection-registry.v1.json`, `target-attribution.schema.v2.json`
++(current selected attribution schema), `incoming-search.schema.v1.json`, and
++`atom_model.v1.py`. Historical `target-attribution.schema.v1.json` remains a
++retained document and is refused by this successor (`TARGET_ATTRIBUTION_SCHEMA_VERSION`).
++Frozen24 remains replayable only under its own frozen selected V1 schema/profile.
++Composition, proof, finding and gate rules are in the incorporated composition
++contract. Complete Run admission combines these laws; atom checks alone are not
++full replay. Acceptance and qualification are recorded separately.
+ 
+-Native fact payload `$defs` are not extended.
++Native fact payload `$defs` are not extended. Evaluator output profile remains 3:
++evaluation-subject, finding3, proof3, and run3 recipes are unchanged.
+ 
+ ---
+ 
+@@ -25,20 +29,26 @@
+ 
+ ## 2. Target attribution
+ 
+-Sidecar `TargetAttributionV1` is **provider attestation**. Host derivation is an **ephemeral projection**, never written as this record and never claimed as provider output. Both are checked when a sidecar exists.
++Sidecar `TargetAttributionV2` is **provider attestation** captured as a host-derived typed input. The fact-producing Plan-selected provider emits the record as a typed companion of the source fact; the host captures admitted bytes into `hostCapture.hostDerivedRefs` with `domain=target-attribution`. This is a shared platform capture law, not a protocol3 frame and not a per-language mode. Host derivation is an **ephemeral projection on exact inventory native-id equality of `targetNativeId` only**, never written as this record and never claimed as provider output. Both are checked when a sidecar exists. Host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling to invent kind, occupancy, or `evaluationNativeId`.
+ 
+-`packageManifestPath` is an explicit nullable sidecar coordinate. It is required non-null for a **known first-party package** (`occupancy=first-party` and `kind=package`) and must exact-match one inventory row `(packageName=targetNativeId, path=packageManifestPath)`. Ambiguity stays occupancy unknown. `logicalPath` MUST NOT invent a first-party package path.
++`evaluationNativeId` is the occupancy-compare field. It is required non-null iff `occupancy=first-party` and MUST be null otherwise. File: LogicalPath matching inventory `nativeSubjectId`. Package: attested `packageName`. Symbol: SubjectIdV1 MUST byte-equal `targetNativeId`. Malformed first-party sidecars (null `evaluationNativeId`, missing first-party `packageManifestPath`, nonunique/unadmitted inventory join) are **admission refusals**, not accepted unknown.
+ 
+-Derivation uniqueness: DISTINCT admitted identities — file/symbol triple `(*U_t*, kind, nativeId)`, package quadruple `(*U_t*, package, packageName, packageManifestPath)` — across capability inventories. Duplicate equivalent observations of the same identity are **one** identity, not ambiguity.
++`packageManifestPath` is the sole package coordinate (no `evaluationPackageManifestPath`). Required non-null for `kind=package` and `occupancy=first-party` (inventory join of `(packageName=evaluationNativeId, path=packageManifestPath)`). Required non-null for `kind=package` and `occupancy=external` (query endpoint coordinate so GraphEndpoint `kind=package` is representable; not a first-party inventory join). MUST be null when occupancy=unknown or kind is not package.
+ 
+-Join refusals (sidecar vs independently known inventory): known kind mismatch; known exported mismatch; `occupancy=external` while ephemeral is first-party; `occupancy=first-party` while no exact inventory identity (`TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY`); sourceFact/plan/rung/producer joins including `TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG`. **Unknown sidecar fields cannot override known ephemeral fields.**
++`logicalPath` is a non-authoritative hint only when occupancy is external or unknown and kind is file or symbol. MUST be null on first-party occupancy and MUST be null when kind=package.
+ 
++Derivation uniqueness for **ephemeral** exact-id projection: DISTINCT admitted identities whose `nativeSubjectId` **exactly equals** payload `targetNativeId`. This is the existing symbol (and accidental C15 colon-path) authority. Size 0: ephemeral occupancy is not first-party. Absent sidecar then yields occupancy unknown, **not** payload-inequality nomatch.
++
++Join refusals (sidecar vs independently known inventory): known kind mismatch; known exported mismatch; `occupancy=external` while ephemeral is first-party; `occupancy=first-party` while no unique inventory identity of `evaluationNativeId` (`TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY`); schemaVersion≠2 (`TARGET_ATTRIBUTION_SCHEMA_VERSION`); sourceFact/plan/rung/producer joins including `TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG`. **Unknown sidecar fields cannot override known ephemeral fields.** Prefer independently known ephemeral fields; fill remaining unknown from sidecar.
++
+ All sidecars in `inputs.targetAttributions` are admitted globally (`admit_atom_inputs`) even when unused by the current atom. No ignored sidecar hidden by relation nonmatch.
+ 
+ `producerClosure` must equal `fact.producerClosure` and that closure’s **kind=provider**. Old `kind=evaluator` fixtures are not native fact producers (`TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER`). No invented provider-kind alias.
+ 
+-Native-id compare is first: payload target field ≠ *N* ⇒ known nonmatch even if kind unknown.
++Uniqueness: at most one sidecar per `(planId, sourceFactId)`. Additional conflict: two first-party V2 records in one Plan that share `(producerClosure, targetUniverse, targetNativeId)` and disagree on occupancy identity refuse `TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT`. This is one provider contradicting itself. Unrelated providers’ equal opaque strings are not one identity and are not aliases.
+ 
++Occupancy-identity compare for `endpoint=target`: payload target field must be present; `fact.targetUniverse` ≠ *U* ⇒ known nomatch; occupancy=external ⇒ known nomatch for first-party *E*; occupancy unknown or missing occupancy identity ⇒ unknown, **not** payload-inequality nomatch, unless kind is known and ≠ *E.kind* (known kind nomatch); occupancy=first-party MATCH iff *E* equals `(U, kind, evaluationNativeId, packageManifestPath or empty)`. Source occupancy is unchanged.
++
+ ---
+ 
+ ## 3. Endpoints and filters
+@@ -149,7 +159,7 @@
+ 
+ `evaluate_atom(atom, subject, inputs) -> AtomResult`
+ 
+-`admit_atom_inputs(inputs)` globally admits closed inputs even when the policy has no atoms: IncomingSearchV1, TargetAttributionV1 (unused members included), every `planSelectedImportIds` wrapper/scope/flag, and observation/payload joins. Missing selected wrappers refuse `ATOM_IMPORT_WRAPPER_MISSING`. Closed input keys are `evaluator-projection-registry.v1.json#/closedAtomInputs.keys`. `coverageScopes` is `coverage2 → scope2`. `importFlagsAdapter` is `import2 → {consumable, staleness}`.
++`admit_atom_inputs(inputs)` globally admits closed inputs even when the policy has no atoms: IncomingSearchV1, TargetAttributionV2 (unused members included), every `planSelectedImportIds` wrapper/scope/flag, and observation/payload joins. Missing selected wrappers refuse `ATOM_IMPORT_WRAPPER_MISSING`. Closed input keys are `evaluator-projection-registry.v1.json#/closedAtomInputs.keys`. `coverageScopes` is `coverage2 → scope2`. `importFlagsAdapter` is `import2 → {consumable, staleness}`.
+ 
+ - Full scan of owner-admitted facts/imports/scopes/Coverage. No producer expected matches, no oracle/callback flags (`ATOM_ORACLE_FLAG_REFUSED`).
+ - Reuses `native_evidence_model.v2.sufficiency_v2` on constructed view entries. Does not call repair `imported_requirement_outcome` (fingerprint-target projection); import polarity follows the same observability/consumability law.
+@@ -160,4 +170,4 @@
+ 
+ ## 9. Conceptual cases (implemented in `check-atoms.v1.py`)
+ 
+-Known-hit partial ⇒ none false; missing runtime observable ⇒ unknown; history empty complete all-paths ⇒ covered; scope *S*→*V* does not omit incoming owed *S* for *U*; source kind vs incoming target kind; equal nativeId different *U* no match; two-cap identical inventory lookup not ambiguous; conflicting sidecar refuses; all-covered non-resolved N/A plus resolved partial; wrong enum `neq` admission; tests exit 1 empty; optional unknown disclosure; known count>*N* partial; two same-name packages distinguished by manifest path; mixed-atom incoming attestations globally admitted; examinedExhaustive false never complete; unmatched scope detected beside a paired sibling; duplicate inventory observations are not overloads; first-party sidecar absent from inventory refuses; import workspaceRoots∧pathPrefixes intersection; history duplicate path retains every ordinal; contrary runtime window/pop refuses; admit_atom_inputs missing wrapper with no atom refuses.
++Known-hit partial ⇒ none false; missing runtime observable ⇒ unknown; history empty complete all-paths ⇒ covered; scope *S*→*V* does not omit incoming owed *S* for *U*; source kind vs incoming target kind; equal nativeId different *U* no match; two-cap identical inventory lookup not ambiguous; conflicting sidecar refuses; all-covered non-resolved N/A plus resolved partial; wrong enum `neq` admission; tests exit 1 empty; optional unknown disclosure; known count>*N* partial; two same-name packages distinguished by manifest path; mixed-atom incoming attestations globally admitted; examinedExhaustive false never complete; unmatched scope detected beside a paired sibling; duplicate inventory observations are not overloads; first-party sidecar absent from inventory refuses; import workspaceRoots∧pathPrefixes intersection; history duplicate path retains every ordinal; contrary runtime window/pop refuses; admit_atom_inputs missing wrapper with no atom refuses; ordinary first-party FILE/PACKAGE import targets with schema-admitted SubjectIdV1 payloads and V2 `evaluationNativeId` mapping; missing sidecar namespaced file is unknown not none; malformed first-party sidecar is admission refusal; V1 sidecars refused; exact-id symbol ephemeral without sidecar remains first-party; same-provider occupancy conflict refused; different providers’ equal opaque ids are not aliases.

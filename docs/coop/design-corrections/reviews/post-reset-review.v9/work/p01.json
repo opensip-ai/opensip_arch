@@ -1,0 +1,244 @@
+{
+ "probe": "p01_relation_boundary_sweep",
+ "standing": "independent reviewer probe; design/reference reading, no qualification",
+ "documentSha256": "7b3dcd0671d6352106a8d513f5d0cffed2f513e3f037c35739d572f1e3395b20",
+ "documentBytes": 31206,
+ "digestLawPresent": true,
+ "digestLawScope": null,
+ "digestLawKeys": [
+  "enforcement",
+  "representations",
+  "residueRule",
+  "retention",
+  "standing"
+ ],
+ "relationCount": 13,
+ "relationsWithSnapshotJoins": [
+  "file",
+  "package",
+  "vcs-change"
+ ],
+ "relationsWithEmptySnapshotJoins": [
+  "calls",
+  "clones",
+  "control-flow",
+  "declares",
+  "imports",
+  "literal",
+  "reachability",
+  "references",
+  "types",
+  "unresolved-edge"
+ ],
+ "relationsWithNoSnapshotJoinsKey": [],
+ "fields": [
+  {
+   "def": "ClonesPayloadV1",
+   "field": "bodyIdentity",
+   "shape": "prefixed-Sha256Text",
+   "ref": "#/$defs/Sha256Text",
+   "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+   "annotation": {
+    "representation": "framed-body-identity",
+    "domain": "opensip.fact-identity.v1",
+    "codec": "SHA-256 over the fully framed domain-separated preimage: u8 len||domainTag, u8 len||levelId, u8 len||levelVersion (RAW 32 bytes, not hexadecimal display text), u8 len||languageId, u8 len||languageVersion, u32be len||payload. Unframed concatenation is FORBIDDEN.",
+    "payloadEncoding": {
+     "L0-verbatim": "u32be raw_byte_len || exact snapshot body-span bytes; tokenisation forbidden",
+     "L1-lexical": "framedTokenStream",
+     "L2-comment-insensitive": "framedTokenStream",
+     "L3-identifier-insensitive": "framedTokenStream"
+    },
+    "retention": "provider-output-retained",
+    "authority": "FACT-IDENTITY",
+    "inheritedFrom": "docs/coop/artifacts/fact-identity-policy.v2.json#/canonicalisationSchema",
+    "join": "the frame is retained under the 64-hex suffix, so SHA-256(retained frame) equals it; the closure parses the frame and requires domainTag, levelId == normalisationLevel, levelVersion == the RAW 32 digest bytes of normalisationVersion, languageId from the fact sourceUniverse domain row, languageVersion == the RAW 32 digest bytes of the recomputed body-language-version projection, and at L0-verbatim the payload equals the enclosing fact anchor span bytes",
+    "neverEquals": "FACT-ID-V1. The fact identity wraps the complete clone fact and can never equal or substitute for bodyIdentity, by type or by domain (docs/coop/artifacts/fact-identity-policy.v2.json#/factRecordIdentityBoundaryV1/clonePayloadJoin)."
+   },
+   "relation": "clones",
+   "joinedBy": [],
+   "retention": "provider-output-retained",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "UNGOVERNED-annotated-but-unjoined"
+  },
+  {
+   "def": "ClonesPayloadV1",
+   "field": "normalisationVersion",
+   "shape": "bare-DigestHex",
+   "ref": "#/$defs/DigestHex",
+   "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+   "annotation": {
+    "representation": "raw-artifact",
+    "artifact": "the exact retained canonical LEVEL SPECIFICATION bytes for this normalisation level: per-language lexical boundary rules, canonical token-kind registry, directive classification, transform order and replacement byte rules",
+    "codec": "raw bytes",
+    "retention": "preimage",
+    "authority": "FACT-IDENTITY normalisation ladder",
+    "inheritedFrom": "docs/coop/artifacts/fact-identity-policy.v2.json#/canonicalisationSchema/byteGrammar/levelVersionDefinition",
+    "note": "A human semantic-version label alone is insufficient, and this is never an opaque caller hash."
+   },
+   "relation": "clones",
+   "joinedBy": [
+    {
+     "join": "bodyIdentityJoin",
+     "role": "levelVersionField"
+    }
+   ],
+   "retention": "preimage",
+   "hasAnnotation": true,
+   "annotationReason": "A human semantic-version label alone is insufficient, and this is never an opaque caller hash.",
+   "classification": "joined"
+  },
+  {
+   "def": "FilePayloadV1",
+   "field": "contentSha256",
+   "shape": "bare-DigestHex",
+   "ref": "#/$defs/DigestHex",
+   "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+   "annotation": {
+    "representation": "raw-artifact",
+    "artifact": "the exact retained source bytes of that inventoried path",
+    "codec": "raw bytes",
+    "retention": "preimage",
+    "authority": "foundation",
+    "join": "must equal the inventory row sha256 for path, and the retained blob must exist"
+   },
+   "relation": "file",
+   "joinedBy": [
+    {
+     "join": "inventoried-file",
+     "role": "digestField"
+    }
+   ],
+   "retention": "preimage",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "joined"
+  },
+  {
+   "def": "FilePayloadV1",
+   "field": "path",
+   "shape": "path",
+   "ref": "#/$defs/CanonicalPath",
+   "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])",
+   "annotation": {
+    "representation": "snapshot-path",
+    "retention": "snapshot-inventoried",
+    "authority": "foundation",
+    "join": "must be a path in the enclosing fact snapshot source inventory"
+   },
+   "relation": "file",
+   "joinedBy": [
+    {
+     "join": "inventoried-file",
+     "role": "pathField"
+    },
+    {
+     "join": "inventoried-file",
+     "role": "anchorPathField"
+    }
+   ],
+   "retention": "snapshot-inventoried",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "joined"
+  },
+  {
+   "def": "PackagePayloadV1",
+   "field": "manifestPath",
+   "shape": "path",
+   "ref": "#/$defs/CanonicalPath",
+   "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])",
+   "annotation": {
+    "representation": "snapshot-path",
+    "retention": "snapshot-inventoried",
+    "authority": "foundation",
+    "join": "must be a path in the enclosing fact snapshot source inventory"
+   },
+   "relation": "package",
+   "joinedBy": [
+    {
+     "join": "inventoried-path",
+     "role": "pathField"
+    }
+   ],
+   "retention": "snapshot-inventoried",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "joined"
+  },
+  {
+   "def": "VcsChangePayloadV1",
+   "field": "path",
+   "shape": "path",
+   "ref": "#/$defs/CanonicalPath",
+   "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])",
+   "annotation": {
+    "representation": "snapshot-path",
+    "retention": "snapshot-inventoried",
+    "authority": "foundation",
+    "join": "must be a path in the enclosing fact snapshot source inventory UNLESS changeKind is deleted, in which case the path is by definition absent from the analysed snapshot"
+   },
+   "relation": "vcs-change",
+   "joinedBy": [
+    {
+     "join": "inventoried-path",
+     "role": "pathField"
+    }
+   ],
+   "retention": "snapshot-inventoried",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "joined"
+  },
+  {
+   "def": "VcsChangePayloadV1",
+   "field": "previousPath",
+   "shape": "path",
+   "ref": "#/$defs/CanonicalPath",
+   "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])",
+   "annotation": {
+    "representation": "snapshot-path",
+    "retention": "not-joined",
+    "authority": "vcs-observation",
+    "join": "the pre-rename path names a state BEFORE the analysed snapshot and is deliberately not joined to it; it is provenance, and claiming otherwise would refuse every honest rename"
+   },
+   "relation": "vcs-change",
+   "joinedBy": [],
+   "retention": "not-joined",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "declared-not-joined-no-reason"
+  }
+ ],
+ "ungoverned": [
+  {
+   "def": "ClonesPayloadV1",
+   "field": "bodyIdentity",
+   "shape": "prefixed-Sha256Text",
+   "ref": "#/$defs/Sha256Text",
+   "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+   "annotation": {
+    "representation": "framed-body-identity",
+    "domain": "opensip.fact-identity.v1",
+    "codec": "SHA-256 over the fully framed domain-separated preimage: u8 len||domainTag, u8 len||levelId, u8 len||levelVersion (RAW 32 bytes, not hexadecimal display text), u8 len||languageId, u8 len||languageVersion, u32be len||payload. Unframed concatenation is FORBIDDEN.",
+    "payloadEncoding": {
+     "L0-verbatim": "u32be raw_byte_len || exact snapshot body-span bytes; tokenisation forbidden",
+     "L1-lexical": "framedTokenStream",
+     "L2-comment-insensitive": "framedTokenStream",
+     "L3-identifier-insensitive": "framedTokenStream"
+    },
+    "retention": "provider-output-retained",
+    "authority": "FACT-IDENTITY",
+    "inheritedFrom": "docs/coop/artifacts/fact-identity-policy.v2.json#/canonicalisationSchema",
+    "join": "the frame is retained under the 64-hex suffix, so SHA-256(retained frame) equals it; the closure parses the frame and requires domainTag, levelId == normalisationLevel, levelVersion == the RAW 32 digest bytes of normalisationVersion, languageId from the fact sourceUniverse domain row, languageVersion == the RAW 32 digest bytes of the recomputed body-language-version projection, and at L0-verbatim the payload equals the enclosing fact anchor span bytes",
+    "neverEquals": "FACT-ID-V1. The fact identity wraps the complete clone fact and can never equal or substitute for bodyIdentity, by type or by domain (docs/coop/artifacts/fact-identity-policy.v2.json#/factRecordIdentityBoundaryV1/clonePayloadJoin)."
+   },
+   "relation": "clones",
+   "joinedBy": [],
+   "retention": "provider-output-retained",
+   "hasAnnotation": true,
+   "annotationReason": null,
+   "classification": "UNGOVERNED-annotated-but-unjoined"
+  }
+ ]
+}

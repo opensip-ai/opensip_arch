@@ -1,0 +1,121 @@
+--- a/docs/coop/design-corrections/foundation/identity-model.py
++++ b/docs/coop/design-corrections/foundation/identity-model.py
+@@ -69,6 +69,62 @@
+     try:C.ExactValidator({'$ref':by_path[document]['$id']+selector},registry=registry).validate(value)
+     except C.ValidationError as exc:raise C.AdmissionError('REGISTERED_RECORD:'+selector) from exc
+     return value
++
++_PARAMETER_ROW_DIGESTS=None
++def parameter_row_of(schema_digest):
++    """The closed `parameter` registry row a spec entry's schemaDigest resolves to, or None.
++
++    It is the SAME resolution `registry_row` performs inside a closure, hoisted so the two
++    boundaries that own the SELECTION law can ask the question without a Run graph. The digest is
++    the raw SHA-256 of the row document's exact full bytes, and it is computed from the registry
++    rather than restated, so a row added to `x-opensip-payload-registry` is covered here with no
++    further edit. `PAYLOAD_PARAMETER_AMBIGUOUS_ROW` - two ROWS one digest resolves to - is a
++    different question and stays where it is; this returns None for that case and lets the closure
++    raise its own, more specific refusal."""
++    global _PARAMETER_ROW_DIGESTS
++    if _PARAMETER_ROW_DIGESTS is None:
++        _PARAMETER_ROW_DIGESTS={}
++        for key,row in PAYLOADS['classes']['parameter']['rows'].items():
++            digest=hashlib.sha256((HERE.parent/row['document']).read_bytes()).hexdigest()
++            _PARAMETER_ROW_DIGESTS.setdefault(digest,[]).append(key)
++    rows=_PARAMETER_ROW_DIGESTS.get(schema_digest)
++    return rows[0] if rows is not None and len(rows)==1 else None
++
++def admit_parameter_selection(parameters):
++    """AT MOST ONE selected parameter per registered row, for ONE spec (CB8-MUST-1).
++
++    A parameter row is a Plan INPUT and its payload is the value the analysis runs with. Two
++    entries resolving to one row put two values in one input slot, and nothing in the graph decides
++    which is the Plan's: both are admitted by identity closure, both satisfy the existential
++    workflow scope binding verifier, and both enter analysisSpecDigest and therefore PlanId. The
++    registry law already refuses an arbitrary selection between two ROWS
++    (PAYLOAD_PARAMETER_AMBIGUOUS_ROW); this is the same refusal one level down, over two SPEC
++    ENTRIES, which that rule never constrained.
++
++    NO DEFAULT, no first-listed or last-listed winner and no merge: the caller states one
++    parameter or none. ZERO stays legal - an ordinary analysis that needs no scope-policy input
++    selects none and closes - and a caller that DOES need one still meets the explicit
++    missing-selection refusal at the workflow binding verifier, so absence is never silently
++    substituted and the foundation scope-descriptor never stands in for ScopeDocumentV1.
++
++    Whole-item duplicates are a DIFFERENT and already-answered defect: `parameters` is uniqueItems
++    with x-opensip-order canonical-set, so two byte-identical entries refuse on the schema and on
++    the collection order law before this is reached. This owns only DISTINCT entries citing one
++    row, which neither of those can see. An entry citing an unregistered document is left alone
++    here too: the payload admission owns that and names it (PAYLOAD_PARAMETER_UNREGISTERED).
++
++    Pure over the parameters array: no Run graph, no blobs and no host state, which is why the
++    pre-Plan boundary and retained Run closure can both call exactly this."""
++    if PAYLOADS['classes']['parameter']['selectionCardinality']['atMostOnePerSpec'] is not True:
++        raise C.AdmissionError('PARAMETER_SELECTION_LAW_UNPUBLISHED')
++    seen={}
++    for entry in parameters:
++        row=parameter_row_of(entry['schemaDigest'])
++        if row is None:continue
++        seen[row]=seen.get(row,0)+1
++    for row in sorted(seen):
++        if seen[row]>1:raise C.AdmissionError('ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS:'+row)
++    return parameters
+ 
+ def ordered(value,path=()):
+     if type(value) is dict:
+@@ -563,6 +619,21 @@
+         super().__init__('REGENERATION_MISMATCH')
+ 
+ 
++_REGISTERED_SCHEMA_DOCUMENTS=None
++def registered_schema_documents():
++    """The closed set of payload-registry schema DOCUMENTS, keyed by the raw SHA-256 of their exact
++    full bytes. Derived from the ONE registry (`x-opensip-payload-registry`) and from nowhere else,
++    so a row added there is registered here with no second list to drift from it."""
++    global _REGISTERED_SCHEMA_DOCUMENTS
++    if _REGISTERED_SCHEMA_DOCUMENTS is None:
++        documents=set()
++        for body in PAYLOADS['classes'].values():
++            if 'document' in body:documents.add(body['document'])
++            for row in body.get('rows',{}).values():documents.add(row['document'])
++        _REGISTERED_SCHEMA_DOCUMENTS={hashlib.sha256((HERE.parent/d).read_bytes()).hexdigest() for d in sorted(documents)}
++    return _REGISTERED_SCHEMA_DOCUMENTS
++
++
+ def close_run(run,objects,blobs):
+     """objects maps exact typed identity to (domain, descriptor). No caller ID is trusted."""
+     return open_run_closure(run,objects,blobs)[0]
+@@ -649,7 +720,16 @@
+             # fragment: recomputed at its stated location by an explicit join below.
+             # owner-retained: the named owning contract retains and admits the bytes.
+             return
+-        if representation=='raw-artifact':blob(value);return
++        if representation=='raw-artifact':
++            blob(value)
++            # A raw artifact is retained bytes and nothing more. Where the annotation says the
++            # artifact is a REGISTERED SCHEMA DOCUMENT, section 3's closed payload registry decides
++            # which bytes those are; retention alone would let any retained blob stand there. This
++            # is a membership test on the SELECTED set, never a derivation of it: which registered
++            # documents a producer names stays the producer's own declaration.
++            if annotation.get('artifactClass')=='registered-schema-document' and value not in registered_schema_documents():
++                raise C.AdmissionError('SCHEMA_DOCUMENT_UNREGISTERED:'+value)
++            return
+         if representation=='capability-manifest-id':capability_ids.add(value);return
+         if representation=='by-domain':
+             if type(siblings) is not dict or 'domain' not in siblings:raise C.AdmissionError('REF_DOMAIN_MISSING')
+@@ -1588,6 +1668,15 @@
+                     if imports.classify_staleness(corr,binding)['usable']!='consumable':raise C.AdmissionError('IMPORT_VCS_JOIN')
+             except imports.Refusal as exc:
+                 raise C.AdmissionError('IMPORT_CORRESPONDENCE_SHAPE') from exc
++    # MOST SPECIFIC FIRST, then the total backstop. The import row's own guard above
++    # (IMPORT_SOURCE_CONTEXT_MULTIPLE) runs inside the derivation that CONSUMES that row and keeps
++    # its name there, unchanged. This is the registry-wide selection law: at most one selected
++    # parameter per registered row, for EVERY row and EVERY Plan - including a Plan with no
++    # selected import, which the guard above never reaches. Two DISTINCT entries citing the one
++    # registered ScopeDocumentV1 document were admitted here and by the workflow binding verifier,
++    # with nothing deciding which was the Plan's scope policy; that is what this closes. Zero
++    # remains legal and no default is invented.
++    admit_parameter_selection(analysis_spec['parameters'])
+     for field,domain in [('coverageIds','coverage'),('importIds','import'),('findingIds','finding')]:
+         for key in evidence[field]:get(key,domain)
+     get(seal['evaluatorClosure'],'closure')

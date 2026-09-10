@@ -1,0 +1,206 @@
+{
+  "status": "PROPOSED-DESIGN-CARRIER-V2-LCR1-LCR2-REPAIR",
+  "sourcePins": [
+    {
+      "path": "docs/coop/completion/lifecycle-carrier.schema.v2.sql",
+      "sha256": "5dd21ad3ada78d3b8efa5fd492e3e2af90b3c6f97c4c7db3180f3c8581dd8247"
+    },
+    {
+      "path": "docs/coop/artifacts/lifecycle-generation-contract.v2.json",
+      "sha256": "a5f9d6a35f83d64687cdd2a00ec3106251ae407e54a5538727c086dd8f9ab77b"
+    },
+    {
+      "path": "docs/coop/artifacts/state-class-contract.v11.json",
+      "sha256": "b5456c63e865b53738b1f11f46a898438afca7890a6069a8653aad6ea78d86bb"
+    },
+    {
+      "path": "docs/coop/completion/lifecycle-carrier.independent-review.v1.json",
+      "sha256": "ace457e88901d2ac56167cb734e0fc31bcf6aa6263936e0b724afd4d77b60ddc"
+    }
+  ],
+  "authorityDependency": "Parent distribution-runtime-completion final \u00a75 plus security successor must apply the epoch/fence agreement. Security v1 root/index pair is insufficient; this candidate explicitly proposes four fields and awaits paired adoption.",
+  "database": {
+    "file": "lifecycle.sqlite",
+    "schemaMajor": 1,
+    "requiredPragmas": {
+      "foreign_keys": 1,
+      "journal_mode": "wal",
+      "synchronous": 2,
+      "user_version": 1,
+      "encoding": "UTF-8",
+      "recursive_triggers": 1
+    },
+    "library": "SQLite>=3.37.0 (STRICT syntax floor); exact bundled build is pinned release inventory, not a floating minimum promise",
+    "separateFiles": [
+      "trust.sqlite",
+      "per-project/grant-journal.sqlite"
+    ],
+    "crossDatabaseAtomicityClaim": false,
+    "tables": [
+      "generation",
+      "project_registry",
+      "project_selection",
+      "operation_lease",
+      "transition",
+      "quarantine"
+    ],
+    "conflictPolicy": "Only explicit INSERT/UPDATE/DELETE operations under the named guards are legal. INSERT OR REPLACE, REPLACE and UPSERT cannot replace an existing identity; BEFORE INSERT collision guards cover primary keys and every unique/partial index. UPDATE collision/immutability guards and recursive_triggers=ON protect update replacement paths. Re-check all required pragmas on every connection before any statement. Setting recursive_triggers=OFF is outside the connection contract; negative probes demonstrate collision defenses still hold under this fault.",
+    "textGrammar": "Every TEXT column explicitly rejects embedded U+0000. UUID, digest, hex and decimal grammar lengths count BLOB bytes under required UTF-8 encoding. GLOB alone or character length truncated at NUL is never the sole grammar check."
+  },
+  "localIdentity": {
+    "generation.id": "random canonical lowercase RFC4122 UUIDv4",
+    "project_selection.projectKey": "Opaque nonempty host-issued project key, 1..1024 UTF-8 bytes, NUL forbidden; preferred new issuance is random UUIDv4 but syntax is not required. Foreign key into host-owned project_registry, never directly a filesystem path.",
+    "operation_lease.leaseId": "random local UUIDv4",
+    "operation_lease.supervisorBootId": "random supervisor-instance UUIDv4, not a PID",
+    "transition.txId": "random local UUIDv4",
+    "forbiddenInference": "None are PlanId, RunId, evidence identity, consent or grant. Canonicalization of this local identity syntax does not activate deferred D9 recipes.",
+    "project_registry.namespaceId": "Immutable random local UUIDv4, used as the safe bounded directory component; no key bytes are interpolated into a path."
+  },
+  "epoch": {
+    "fields": [
+      "rootVersion",
+      "indexSnapshotVersion",
+      "revocationVersion",
+      "permissionPolicyDigest"
+    ],
+    "storage": "four typed generation columns forming one closed tuple; all NULL only before verification or in an unverified quarantine; all non-NULL for VERIFIED/READY",
+    "integerRule": "First three are signed-metadata version integers in 1..9223372036854775807, matching security UR-2 i64 domain and SQLite INTEGER. Absent current root/index/revocation document cannot yield READY.",
+    "equality": "all four fields must equal current verifier state; a revocation-only change invalidates old tickets even if root/index unchanged",
+    "permissionPolicy": "public digest identifying applied policy bytes, never a grant or secret",
+    "refresh": "READY may remain READY with a newly issued exact current verification ticket and updated epoch; pinned immutable bytes/path/digests cannot change"
+  },
+  "callbacks": [
+    {
+      "name": "lifecycle_writer_authorized",
+      "arity": 0,
+      "contract": "1 only while this connection holds the permanent install-root exclusive writer lock; zero otherwise. All lifecycle, current-trust and applied-permission-policy writers use that fence; lock order is install-root then project journal lock. Callback absence/error refuses mutation."
+    },
+    {
+      "name": "lifecycle_verified_generation",
+      "arity": 8,
+      "contract": "Arguments (local generation UUID, manifest digest, lock digest, platform, rootVersion,indexSnapshotVersion,revocationVersion,permissionPolicyDigest). Return 1 only for an unconsumed-or-retained exact verification ticket issued by the trusted host verifier for the same immutable object handles under exactly the CURRENT four-field epoch, while holding the install-root fence. Equality uses the entire tuple, never lexicographic less-than or root/index alone. No ticket is inferred from SQLite values or an untrusted caller boolean. Existing current-trust checks are executed before READY, selection and operation lease acquisition."
+    },
+    {
+      "name": "lifecycle_durable_ready",
+      "arity": 2,
+      "contract": "Arguments (generation UUID, immutable path). Return 1 only after files/directories are closed against writes, exact content verified, same-filesystem rename to that unused generation path completed and parent directory durably synced. No path-name existence shortcut. SQLite cannot prove these filesystem operations."
+    },
+    {
+      "name": "lifecycle_gc_authorized",
+      "arity": 1,
+      "contract": "Argument generation UUID. Return 1 only under the install-root fence after complete no-follow root census proves no project/operation/retained-evidence-or-operational-record/rollback/prepared-migration/retention root, or permits removing the final quarantine metadata in that same deletion transaction. SQLite FKs independently reject surviving database references. Existing lease locks must be proven free before reaping; PID alone is insufficient. OS lease probes MUST be nonblocking under the install-root fence (flock LOCK_EX|LOCK_NB or the same nonblocking platform lock primitive). Busy/ambiguous means retain and release the fence; never wait for a long-lived operation while holding the lifecycle fence, because that operation may require the fence to terminate."
+    },
+    {
+      "name": "lifecycle_transition_prune_authorized",
+      "arity": 1,
+      "contract": "Argument transition UUID. Return 1 only after terminal COMMITTED/ABORTED history is no longer a required rollback/prepared/retention root under current policy. Initial reader support minimum remains 90 days AND one subsequent host minor; this schema adds no shorter retention period. Current trust can refuse use while bytes remain retained."
+    },
+    {
+      "name": "lifecycle_lease_acquired",
+      "arity": 3,
+      "contract": "Arguments (lease UUID, supervisorBoot UUID, processStartToken). Return 1 only while the supervisor holds that dedicated OS lease-lock descriptor and the install-root fence. Child inheritance is forbidden. processStartToken is a diagnostic identity label, not a liveness proof."
+    },
+    {
+      "name": "lifecycle_lease_release_authorized",
+      "arity": 1,
+      "contract": "Argument lease UUID. Return 1 only for explicit owner release after operation terminal handling, or demonstrated OS lock release proving supervisor death. Must hold install-root fence. Never authorize by PID disappearance/reuse alone."
+    },
+    {
+      "name": "lifecycle_project_root_verified",
+      "arity": 8,
+      "contract": "Arguments (projectKey,namespaceId,platform,rootPathBytesHex,deviceId,inodeId,birthSeconds,birthNanoseconds). Return 1 only for an exact host-issued binding observation from a directory handle opened by the current trusted request under the install-root fence. Decode native path bytes strictly, reject embedded NUL, require absolute canonical path bytes obtained by the host, and compare opened-handle device/inode/birth identity. Key never comes from .opensip or any customer-controlled identity file. Registration allocates a fresh key and namespaceId inside the host registry; an explicit same-object rename may change path bytes only after proving the same handle identity."
+    },
+    {
+      "name": "lifecycle_project_binding",
+      "arity": 1,
+      "contract": "Argument opaque projectKey. Return 1 only if the current operation holds an open directory capability for the exact ACTIVE registry object and namespace that key names, freshly checked under the writer fence. A caller supplying a registered key from another root does not acquire its namespace. New operation may not rely on a prior process cache or a path string alone."
+    },
+    {
+      "name": "lifecycle_generation_project_scope",
+      "arity": 3,
+      "contract": "Arguments (projectKey,generation UUID,lockDigest). Return 1 only after reading the exact verified lock bytes pinned by lockDigest: scopeContext {projectKey:K,allowedScopes:[project,global]} must have K equal the current ACTIVE root-bound key; {projectKey:null,allowedScopes:[global]} may serve any current root only if no resolved tuple has project scope. Reject all other combinations. Scope interpretation is from the applied lock schema/solver, not a caller-provided boolean or independent filename. Guard selection and new operation-lease acquisition; existence of two registered projects does not authorize cross-project lock reuse."
+    }
+  ],
+  "writeProtocols": {
+    "prepare": "Under writer fence insert PREPARING generation with null epoch; insert PREPARING transition carrying projectKey and expected old selected generation (NULL for first selection). Tree writes occur in private staging/<generation UUID>. SQL record does not expose executable authority.",
+    "verify": "Host validates complete manifest/lock/dependency/permission/executable/state closure under current trust, obtains exact ticket, updates generation to VERIFIED and four epoch fields, then transition to VERIFIED.",
+    "ready": "After the exact durable filesystem rename/sync sequence, update generation VERIFIED->READY, then transition VERIFIED->READY. Both guards require the same ticket and durable-ready receipt.",
+    "publish": "BEGIN IMMEDIATE; INSERT/UPDATE project_selection with expected old selection represented by matching READY transition. Selection trigger atomically marks that transition COMMITTED. COMMIT with synchronous FULL before acknowledging. CAS mismatch is refusal and retry begins from re-resolution, never rewriting the old-generation identity.",
+    "rollback": "Create a new local transition to the retained verified generation, refresh its epoch/ticket under current trust, advance transition through VERIFIED/READY and publish as above. Trust database is never restored. State compatibility remains separately checked.",
+    "operation": "While writer fence held, acquire dedicated non-inherited OS lease lock, read selected current verified generation, INSERT operation_lease. Release writer fence only afterward. The lease row is immutable for operation lifetime; selection can later move independently.",
+    "quarantine": "BEGIN IMMEDIATE; delete all selections of the generation; insert immutable quarantine record. AFTER INSERT transitions generation to QUARANTINED, retaining operation leases as roots until termination/reaping. COMMIT. New leases/selection refuse; old operation shutdown is an external supervision obligation.",
+    "abort": "Transition PREPARING/VERIFIED/READY -> ABORTED. Old selection stays untouched. Candidate remains a retained root until explicit abort cleanup and retention authorization; never auto-delete prepared bytes.",
+    "gc": "Under writer fence verify OS lease/root census, prune only terminal authorized transition history and allowed quarantine records in one transaction, delete unreferenced generation row. FK RESTRICT protects all surviving local references. Durable SQL deletion precedes unlinking orphaned generation bytes; crash leaves an unselected orphan, never an admitted generation by directory name. Physical removal is journaled by the host lifecycle operation and must be injected in G18; this DDL is not its OS implementation."
+  },
+  "readProtocol": "Direct SELECT is diagnostic only. A runnable generation is obtained only through guarded operation_lease acquisition after current verifier ticket checks under writer fence. SQLite cannot revoke a running child or invalidate raw snapshots; supervision enforces revocation and cancellation.",
+  "limits": [
+    {
+      "field": "processStartToken",
+      "value": 256,
+      "unit": "Unicode characters",
+      "inclusive": true,
+      "owner": "Lifecycle + security under delegated completion",
+      "meaning": "Bounded opaque diagnostic label; never used as liveness authority",
+      "rationale": "Fits OS process birth marker plus diagnostic prefix within a bounded operational record; maximum encoded UTF-8 size is 1024 bytes",
+      "executionGate": "G18",
+      "boundaryCases": [
+        "start-token-256",
+        "start-token-257"
+      ]
+    },
+    {
+      "field": "projectKey",
+      "value": 1024,
+      "unit": "UTF-8 bytes",
+      "inclusive": true,
+      "owner": "Lifecycle + security / parent lock-input contract",
+      "meaning": "Opaque registry key bound and checked by length(CAST(projectKey AS BLOB)) with verified UTF-8 database encoding, not Unicode character count",
+      "rationale": "Matches the parent declared key carrier and permits bounded opaque keys without putting them into filesystem paths",
+      "executionGate": "G18",
+      "boundaryCases": [
+        "project-key-1024-bytes",
+        "project-key-1025-bytes",
+        "project-key-unicode-1024-bytes"
+      ]
+    }
+  ],
+  "reviewLimits": [
+    "No grant-journal or trust schema is defined or mutated here.",
+    "Callback observations are not SQL-proven security facts; the paired security/host contract supplies them.",
+    "Foreign keys must be enabled and verified on every connection before BEGIN; their PRAGMA is connection-local.",
+    "No trigger can protect against an attacker with authority to replace the database/schema/callback implementation; host-owned filesystem/process isolation remains DR-126.",
+    "Local SQLite crash results cover process death, not power-loss or four-platform filesystem qualification.",
+    "Existing qualification-design-lifecycle.v1 remains a narrower frozen thirteen-event witness, not superseded execution proof.",
+    "Directory device/inode/birth and current-root callback observations in this checker are synthetic fixtures, not measured macOS/Linux identity qualification. Production Linux roots without STATX_BTIME refuse binding; platform/filesystem conformance must exercise this explicitly."
+  ],
+  "projectRegistry": {
+    "storage": "project_registry in host-owned lifecycle.sqlite (SC-OPS), within the same host-only permissions as lifecycle metadata. Additional sixth table is explicit successor to the illustrative five-table list.",
+    "closedFields": [
+      "projectKey",
+      "namespaceId",
+      "platform",
+      "rootPathBytesHex",
+      "deviceId",
+      "inodeId",
+      "birthSeconds",
+      "birthNanoseconds",
+      "status"
+    ],
+    "nativeIdentity": {
+      "macos": "Open the canonical project directory, retain its descriptor, fstat for st_dev/st_ino/st_birthtimespec.tv_sec/tv_nsec; compare all four values and canonical native path bytes with registry. A changed inode/incarnation is a different object.",
+      "linux": "Open the canonical project directory, retain its descriptor, statx(fd, empty path, AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_BTIME) and filesystem device major/minor identity; require returned STATX_BTIME. The canonical deviceId is unsigned decimal Linux makedev(major,minor), inodeId is unsigned decimal stx_ino, birthSeconds/nanoseconds from stx_btime. Missing reliable birth identity yields ROOT-IDENTITY-UNAVAILABLE and no project namespace binding; never replace it with mtime, ctime or a caller marker."
+    },
+    "locator": "For registered key K, look up namespaceId N in host registry while current root binding is verified. Exact grant path is <host-owned project-state-root>/projects/<N>/grant-journal.sqlite. N is canonical lowercase UUIDv4. Key K may contain Unicode or slash-like characters and is NEVER interpolated into filesystem paths. No project-controlled key file is read as authority.",
+    "newRoot": "A previously unknown canonical root/object gets a fresh opaque key and namespace UUID generated by the host, never a repository marker. Under the install fence, create the fresh namespace directory at its exact UUID path (exclusive no-follow creation, host-owned mode0700), fsync it and its parent, then BEGIN IMMEDIATE, insert verified registry binding, COMMIT FULL, and only then return the key/open a journal. A crash before registry commit leaves an unregistered orphan directory that cannot confer authority; a committed registry binding never precedes durable directory creation. If directory ownership/mode/no-follow verification fails, refuse.",
+    "rename": "Same device/inode/birth identity plus retained opened handle permits an explicit host-observed rootPathBytesHex update under the same key. Changing object identity cannot update a row; retire old binding and register a new key/namespace with no grant carryover.",
+    "retirement": "Deactivate project selection first; mark registry row RETIRED. Existing operation leases retain roots until explicit termination/reaping. RETIRED keys/namespaces cannot be revived or reassigned. Tombstone rows remain; automatic deletion is forbidden in this preview carrier.",
+    "uniqueness": "ACTIVE canonical locators and ACTIVE platform/device/inode/birth tuples are each unique. This prevents two live project keys naming the same object or locator.",
+    "snapshotBoundary": "An operation retains the verified root handle through lease acquisition. Path rename/replacement afterward cannot retarget the operation. New operations reopen/revalidate and cannot inherit a namespace on matching name alone.",
+    "namespaceCrashCleanup": "Only unregistered namespace UUID directories with no retained journal/witness/root can be cleaned under the same nonblocking census and install fence. An existing directory cannot be adopted as a freshly generated namespace. Retiring a replaced root and registering its new object use one registry transaction after fresh namespace durability; no old grants carry over."
+  },
+  "reviewRepair": {
+    "LCR-1": "Required and asserted recursive_triggers=1; direct insertion collision guards on all six tables and all unique identities; registry update collision guard; retained replacement/tombstone/lease/retention repros.",
+    "LCR-2": "Explicit NUL rejection on every TEXT field and BLOB-byte grammar lengths, with real-SQL prefix/middle/suffix and byte-boundary cases.",
+    "LCR-S1": "Scope callback now inspects synthetic lock resolved[] scopes; global context plus any project-scoped tuple refuses."
+  }
+}

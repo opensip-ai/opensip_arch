@@ -1,0 +1,154 @@
+{
+  "standing": "SYNTHETIC root documents and asserted signer sets evaluated by security_lifecycle_model_v1.verify_root_chain. The model decides threshold, ordering, expiry, schema-reader and anti-rollback rules over asserted signer key-ids; cryptographic signature verification remains the accepted v8 verify_envelope boundary and is not re-modelled here. Expected values were authored by hand from security-and-lifecycle.md S5 before execution (same author, not an independent oracle).",
+  "model": "root-chain",
+  "keys": {
+    "k1": "1111111111111111111111111111111111111111111111111111111111111111",
+    "k2": "2222222222222222222222222222222222222222222222222222222222222222",
+    "k3": "3333333333333333333333333333333333333333333333333333333333333333",
+    "k4": "4444444444444444444444444444444444444444444444444444444444444444",
+    "k5": "5555555555555555555555555555555555555555555555555555555555555555",
+    "k6": "6666666666666666666666666666666666666666666666666666666666666666",
+    "k7": "7777777777777777777777777777777777777777777777777777777777777777",
+    "k8": "8888888888888888888888888888888888888888888888888888888888888888",
+    "k9": "9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "roots": {
+    "R1": {"rootSchema": 1, "rootVersion": 1, "previousRootVersion": null, "issuedAt": "2026-10-01T00:00:00Z", "expiresAt": "2027-10-01T00:00:00Z",
+           "rootKeys": ["$k1", "$k2", "$k3"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "typed-absence-DR-110", "keys": [], "threshold": 0, "namespaces": []}}},
+    "R2": {"rootSchema": 1, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2027-06-01T00:00:00Z", "expiresAt": "2028-04-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "typed-absence-DR-110", "keys": [], "threshold": 0, "namespaces": []}}},
+    "R3": {"rootSchema": 1, "rootVersion": 3, "previousRootVersion": 2, "issuedAt": "2028-03-01T00:00:00Z", "expiresAt": "2029-03-01T00:00:00Z",
+           "rootKeys": ["$k4", "$k5", "$k6"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "typed-absence-DR-110", "keys": [], "threshold": 0, "namespaces": []}}},
+    "R2backdated": {"rootSchema": 1, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2026-09-01T00:00:00Z", "expiresAt": "2027-09-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "typed-absence-DR-110", "keys": [], "threshold": 0, "namespaces": []}}},
+    "R2schema2": {"rootSchema": 2, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2027-06-01T00:00:00Z", "expiresAt": "2028-04-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "active", "keys": ["$k7", "$k8", "$k9"], "threshold": 2, "namespaces": ["opensip.repair"]}}},
+    "R2schema2weakRepair": {"rootSchema": 2, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2027-06-01T00:00:00Z", "expiresAt": "2028-04-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "active", "keys": ["$k7", "$k8"], "threshold": 1, "namespaces": ["opensip.repair"]}}},
+    "R2schema2reusedKey": {"rootSchema": 2, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2027-06-01T00:00:00Z", "expiresAt": "2028-04-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "active", "keys": ["$k2", "$k7", "$k8"], "threshold": 2, "namespaces": ["opensip.repair"]}}},
+    "R2schema1activeRepair": {"rootSchema": 1, "rootVersion": 2, "previousRootVersion": 1, "issuedAt": "2027-06-01T00:00:00Z", "expiresAt": "2028-04-01T00:00:00Z",
+           "rootKeys": ["$k2", "$k3", "$k4"], "rootThreshold": 2, "kernelAttestationKeys": [],
+           "roles": {"TR-REPAIR": {"standing": "active", "keys": ["$k7", "$k8", "$k9"], "threshold": 2, "namespaces": ["opensip.repair"]}}}
+  },
+  "cases": [
+    {
+      "id": "expired-root-valid-chain-through-expired-intermediate",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2", "$k3"]}, {"root": "$R3", "signers": ["$k2", "$k3", "$k4", "$k5"]}],
+                "tEval": "2028-04-15T00:00:00Z", "wall": "2028-04-15T00:00:00Z"},
+      "expect": {"result": "ACCEPT", "acceptedVersion": 3, "lastAcceptedIssuedAt": "2028-03-01T00:00:00Z", "links.length": 2,
+                 "links.0.prevExpiryConsulted": false, "links.1.prevExpiryConsulted": false, "links.1.oldThresholdMet": true, "links.1.newThresholdMet": true}
+    },
+    {
+      "id": "chain-gap-refused-state-unchanged",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R3", "signers": ["$k2", "$k3", "$k4", "$k5"]}],
+                "tEval": "2028-04-15T00:00:00Z", "wall": "2028-04-15T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.CHAIN_GAP", "acceptedVersion": 1, "stateUnchanged": true}
+    },
+    {
+      "id": "final-root-expired-refused",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2", "$k3"]}, {"root": "$R3", "signers": ["$k2", "$k3", "$k4", "$k5"]}],
+                "tEval": "2029-06-01T00:00:00Z", "wall": "2029-06-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.FINAL_EXPIRED", "acceptedVersion": 1, "stateUnchanged": true}
+    },
+    {
+      "id": "final-root-issued-in-the-future-refused",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2", "$k3"]}, {"root": "$R3", "signers": ["$k2", "$k3", "$k4", "$k5"]}],
+                "tEval": "2028-02-01T00:00:00Z", "wall": "2028-02-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.FINAL_FUTURE", "acceptedVersion": 1}
+    },
+    {
+      "id": "old-root-threshold-not-met",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k4"]}],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.CHAIN_OLD_THRESHOLD", "acceptedVersion": 1}
+    },
+    {
+      "id": "new-root-threshold-not-met-two-old-one-new",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2"]}],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.CHAIN_NEW_THRESHOLD", "acceptedVersion": 1}
+    },
+    {
+      "id": "revoked-key-is-excluded-from-the-old-threshold",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2", "$k4"]}], "revokedKeys": ["$k1"],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.CHAIN_OLD_THRESHOLD"}
+    },
+    {
+      "id": "revoked-key-control-with-enough-remaining-signers",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2", "signers": ["$k1", "$k2", "$k3", "$k4"]}], "revokedKeys": ["$k1"],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "ACCEPT", "acceptedVersion": 2, "lastAcceptedIssuedAt": "2027-06-01T00:00:00Z"}
+    },
+    {
+      "id": "backdated-successor-refused",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2backdated", "signers": ["$k1", "$k2", "$k3"]}],
+                "tEval": "2027-01-01T00:00:00Z", "wall": "2027-01-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.CHAIN_BACKDATED"}
+    },
+    {
+      "id": "schema2-root-refused-by-schema1-reader-typed-not-corruption",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2schema2", "signers": ["$k1", "$k2", "$k3"]}], "readerSchemas": [1],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.SCHEMA_UNSUPPORTED", "acceptedVersion": 1, "stateUnchanged": true}
+    },
+    {
+      "id": "schema2-root-with-active-repair-accepted-by-dual-reader",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2schema2", "signers": ["$k1", "$k2", "$k3"]}], "readerSchemas": [1, 2],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "ACCEPT", "acceptedVersion": 2}
+    },
+    {
+      "id": "schema2-active-repair-below-key-policy-refused",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2schema2weakRepair", "signers": ["$k1", "$k2", "$k3"]}], "readerSchemas": [1, 2],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.ROLE_THRESHOLD_POLICY:TR-REPAIR"}
+    },
+    {
+      "id": "schema2-repair-key-reused-from-root-keys-refused",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2schema2reusedKey", "signers": ["$k1", "$k2", "$k3"]}], "readerSchemas": [1, 2],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.KEY_REUSED_ACROSS_ROLES:TR-REPAIR"}
+    },
+    {
+      "id": "schema1-root-with-active-repair-refused-unchanged-rule",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"},
+                "chain": [{"root": "$R2schema1activeRepair", "signers": ["$k1", "$k2", "$k3"]}], "readerSchemas": [1, 2],
+                "tEval": "2027-07-01T00:00:00Z", "wall": "2027-07-01T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.TR_REPAIR_MUST_BE_TYPED_ABSENCE"}
+    },
+    {
+      "id": "expired-root-without-chain-refuses-with-remedy",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"}, "chain": [],
+                "tEval": "2028-01-15T00:00:00Z", "wall": "2028-01-15T00:00:00Z"},
+      "expect": {"result": "REFUSE", "refusal": "ROOT.EXPIRED_NO_CHAIN", "acceptedVersion": 1}
+    },
+    {
+      "id": "valid-root-without-chain-accepts",
+      "input": {"state": {"acceptedVersion": 1, "acceptedRoot": "$R1"}, "chain": [],
+                "tEval": "2027-01-01T00:00:00Z", "wall": "2027-01-01T00:00:00Z"},
+      "expect": {"result": "ACCEPT", "acceptedVersion": 1, "lastAcceptedIssuedAt": "2026-10-01T00:00:00Z"}
+    }
+  ]
+}

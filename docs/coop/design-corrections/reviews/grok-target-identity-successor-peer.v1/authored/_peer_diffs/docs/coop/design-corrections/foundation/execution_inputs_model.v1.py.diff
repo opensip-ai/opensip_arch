@@ -1,0 +1,44 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py	2026-09-09 00:14:14
+@@ -85,6 +85,7 @@
+     "EXECUTION_INPUTS_ENUMERATOR",
+     "EXECUTION_INPUTS_HOST_DERIVED",
+     "EXECUTION_INPUTS_CANDIDATE_SOURCE",
++    "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN",
+ )
+ 
+ RELATIONS = json.loads((HERE / "relation-payload-schemas.v2.json").read_text(encoding="utf-8"))[
+@@ -833,6 +834,33 @@
+         elif ref["domain"] in domain_maps:
+             supplied, req = domain_maps[ref["domain"]]
+             locate_blob(ref["digest"], supplied, req)
++
++    fact_index = {}
++    for hx, view in resolved_views.items():
++        if not isinstance(view, dict):
++            continue
++        for fid in view.get("facts") or []:
++            rec = objects.get(fid)
++            if rec and rec[0] == "fact":
++                fact_index[fid] = rec[1]
++    for ref in selected:
++        if ref.get("domain") != "target-attribution":
++            continue
++        rec = (target_attributions or {}).get(ref["digest"])
++        if rec is None:
++            continue
++        if rec.get("schemaVersion") != 2:
++            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
++            continue
++        fid = rec.get("sourceFactId")
++        fact = fact_index.get(fid)
++        if fact is None:
++            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
++            continue
++        if rec.get("producerClosure") != fact.get("producerClosure"):
++            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
++        if rec.get("planId") != plan_id:
++            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
+ 
+     if views is not None:
+         if set(views) != set(resolved_views):

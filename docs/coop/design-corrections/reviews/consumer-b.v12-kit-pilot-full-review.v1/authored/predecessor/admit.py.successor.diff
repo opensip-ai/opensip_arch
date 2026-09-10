@@ -1,0 +1,80 @@
+--- /tmp/opensip-design-corrections/consumer-b.v12-kit-pilot-full-review.v1/output/predecessor/standalone-checker-source/admit.py	2026-09-08 22:30:47
++++ /tmp/opensip-design-corrections/consumer-b.v12-kit-pilot-full-review.v1/output/standalone-checker/admit.py	2026-09-08 23:13:07
+@@ -78,6 +78,7 @@
+         self.policy: dict | None = None
+         self.rule_program: dict | None = None
+         self.cap_bytes: bytes | None = None
++        self.replay_result: dict | str = "UNEXECUTED"
+ 
+     def law(self, law_id: str, citation: str, description: str) -> Law:
+         if law_id not in self.laws:
+@@ -141,6 +142,8 @@
+             self._phase_component()
+             self._phase_execution_inputs()
+             self._phase_joins()
++            self.structural_ok = self.first_refusal is None
++            self._phase_replay()
+         except AdmissionError as e:
+             if self.first_refusal is None:
+                 self.first_refusal = {
+@@ -163,14 +166,29 @@
+                     "citation": "checker implementation (not a kit law)",
+                     "operands": {"traceback": traceback.format_exc()},
+                 }
+-        verdict = "ADMIT" if self.first_refusal is None else "REFUSE"
++        structural_ok = getattr(self, "structural_ok", self.first_refusal is None and getattr(self, "replay_result", "UNEXECUTED") == "UNEXECUTED")
++        # If replay refused, first_refusal is the semantic mismatch; structural_ok was captured before replay.
++        if not hasattr(self, "structural_ok"):
++            self.structural_ok = False
++        replay = getattr(self, "replay_result", "UNEXECUTED")
++        structural_verdict = "ADMIT" if self.structural_ok else "REFUSE"
++        if not self.structural_ok:
++            overall = "REFUSE"
++        elif isinstance(replay, dict) and replay.get("status") == "REPLAY_MATCH":
++            overall = "ADMIT"
++        elif isinstance(replay, dict) and replay.get("status") == "REPLAY_REFUSE":
++            overall = "SEMANTIC_REFUSE"
++        else:
++            overall = "INCOMPLETE"
+         return {
+             "graph": self.graph_name,
+             "claimedRunId": self.store.claimed_run_id,
+             "storeSha256": self.store.file_sha256,
+             "storeBytes": self.store.file_bytes,
+-            "verdict": verdict,
++            "verdict": overall,
++            "structuralVerdict": structural_verdict,
+             "firstRefusal": self.first_refusal,
++            "structuralFirstRefusal": None if self.structural_ok else self.first_refusal,
+             "diagnostics": self.diagnostics,
+             "laws": {
+                 lid: {
+@@ -181,7 +199,7 @@
+                 }
+                 for lid, law in self.laws.items()
+             },
+-            "replay": "UNEXECUTED",
++            "replay": replay,
+             "reachedTypedRecordCounts": {
+                 "facts": len(self.facts),
+                 "scopes": len(self.scopes),
+@@ -1740,22 +1758,33 @@
+                 man = admit_json_bytes(raw, profile="metadata", citation=citation)
+             except AdmissionError as e:
+                 self.refuse("L-MANIFEST-METADATA-PROFILE", e.code, "component manifest refused under opensip-metadata-canonical.1 / metadata profile (must not use product C decoder)", citation, e.operands)
+-            # required fields from prose table
+-            for n in required:
+-                if n not in man:
+-                    self.refuse("L-MANIFEST-FIELD", "COMPONENT_MANIFEST_REQUIRED_FIELD", "required manifestSchema field missing", citation, {"field": n, "closure": digest})
++            # Run-closure consumes S1's delivery selector, not the install-registry
++            # uniqueness fields (stableId vs live index). Predecessor helper treated
++            # every prose `required` flag as a Run-closure refusal; S1 names
++            # platforms[] {os, arch, tree TreeCommitment, entrypoint} plus RJ-3.
+             if man.get("kind") != "component":
+                 self.refuse("L-MANIFEST-KIND", "COMPONENT_KIND", "manifest.kind initial vocabulary is 'component'", citation, {"kind": man.get("kind")})
+             if "signature" in man or "signatures" in man:
+                 self.refuse("L-MANIFEST-SIG-EMBEDDED", "MANIFEST_EMBEDDED_SIGNATURE", "manifest carries no signature field; envelope is detached", citation, {})
+-            # TreeCommitment projection
+             platforms = man.get("platforms") or man.get("platform") or []
+             if isinstance(platforms, dict):
+                 platforms = [platforms]

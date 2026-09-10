@@ -1,0 +1,852 @@
+[
+  {
+    "timestamp": "2026-09-08T04:27:28.117Z",
+    "messageUuid": "af5aacda-452f-4e3d-852c-d21d14b2ab11",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_016Xz1SovNHiMB7wS5gvEwkk",
+      "name": "Bash",
+      "input": {
+        "command": "mkdir -p /tmp/opensip-design-corrections/v19-subject-coauthor.v1/{out/probes,out/evidence,out/disposable} && cat /tmp/opensip-design-corrections/codex-post-reset.v1/probe-v19-invocation-subject.v2.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:29.549Z",
+    "messageUuid": "3bada714-e7d1-40bf-81e9-81c75e8f4d91",
+    "block": {
+      "tool_use_id": "toolu_016Xz1SovNHiMB7wS5gvEwkk",
+      "type": "tool_result",
+      "content": "from pathlib import Path\nimport importlib.util,json,copy,hashlib\nbase=Path('/tmp/opensip-design-corrections');root=base/'v19-native-coauthor.v1/work';dc=root/'docs/coop/design-corrections';out=base/'codex-post-reset.v1/v19-invocation-subject.v2';out.mkdir(exist_ok=False)\ndef load(name,p):\n s=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m\nN=load('scope_probe_native',dc/'native/native_evidence_model.v2.py');W=load('scope_probe_workflows',dc/'workflows/workflows_model.v1.py')\ncases=json.loads((dc/'workflows/workflow-cases.v1.json').read_text());case=copy.deepcopy(cases['invocationCases'][0]);const=cases['constants']\ndef expand(v):\n if isinstance(v,str) and v.startswith('$'):return const[v[1:]]\n if isinstance(v,list):return [expand(x) for x in v]\n if isinstance(v,dict):return {k:expand(x) for k,x in v.items()}\n return v\ncase=expand(case);step=case['steps'][0];steps=[dict(stepId=i,kind=step['kind'],requirement=step['requirement'],dependsOn=[] if i==0 else [0],dependencyGate='completed',retryPolicy=step['retry'],params=step['params']) for i in range(2)]\nrecord=dict(schemaFamily='opensip.product.invocation',schemaMajor=1,requestId=const['REQ'],projectId=const['PRJ'],workflow={'kind':'builtin','name':'analyze'},mode=case['mode'],orderedSteps=steps)\nrows=[]\nfor field,count,prefix in [('semanticClosures',129,'closure2:'),('nativeContextDigests',129,''),('importIds',257,'import2:')]:\n try:N.admit_plan_selection_cardinality({field:[prefix+('%064x'%i) for i in range(count)]})\n except N.ScopeRefusal as exc:termination=N.scope_refusal_termination(exc)\n else:raise AssertionError('expected actual refusal')\n detail=termination['domainDetail'];observation={'event':'rejected','errorCode':termination['errorCode'],'detail':detail['code'],'subject':detail['subject'],'remedy':detail['remedy']}\n script={'0':case['script']['0'],'1':[observation]};result,exit_code=W.run_invocation(record,script)\n r=result['stepResults'];assert r[0]['result']==case['script']['0'][0]['result'];assert r[1]['outcome']=='rejected' and 'result' not in r[1] and 'derivation' not in r[1]['attempts'][0]\n rows.append({'field':field,'nativeTermination':termination,'workflowTermination':r[1]['termination'],'subjectPreserved':r[1]['termination'].get('domainDetail',{}).get('subject')==detail['subject'],'earlierResultPreserved':True,'refusedStepHasNoResultOrDerivation':True,'record':record,'script':script,'result':result})\nreport={'standing':'Actual reference composition over synthetic trusted invocation observations and IDs; no product host, earlier Run closure, or OS execution. Native cardinality function raises real exception; its actual typed fields supplied to existing workflow rejected observation.','sourceHashes':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [dc/'native/native_evidence_model.v2.py',dc/'workflows/workflows_model.v1.py']},'rows':rows}\n(out/'result.json').write_text(json.dumps(report,indent=2)+'\\n');print(json.dumps([{k:r[k] for k in ['field','subjectPreserved','earlierResultPreserved','refusedStepHasNoResultOrDerivation']} for r in rows],indent=2))",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:33.999Z",
+    "messageUuid": "d671623a-2ded-4b46-8cc3-d7d24aa96526",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01JS6jdgLx1eMQDhC8t2hSKn",
+      "name": "Bash",
+      "input": {
+        "command": "/tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('/tmp/opensip-design-corrections/codex-post-reset.v1/v19-invocation-subject.v2/result.json').read_text())\nprint(d['standing']); print(json.dumps(d['sourceHashes'],indent=1))\nfor r in d['rows']:\n    print('---',r['field'],'subjectPreserved',r['subjectPreserved'])\n    print('  native   :',json.dumps(r['nativeTermination']))\n    print('  workflow :',json.dumps(r['workflowTermination']))\n\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:34.089Z",
+    "messageUuid": "0365c968-b8db-4cfe-a51b-60430306b17b",
+    "block": {
+      "tool_use_id": "toolu_01JS6jdgLx1eMQDhC8t2hSKn",
+      "type": "tool_result",
+      "content": "Actual reference composition over synthetic trusted invocation observations and IDs; no product host, earlier Run closure, or OS execution. Native cardinality function raises real exception; its actual typed fields supplied to existing workflow rejected observation.\n{\n \"docs/coop/design-corrections/native/native_evidence_model.v2.py\": \"2fa50d9748d9f9bba1849b84f03fd61806cbd1f61353860e9bf50e7158024edc\",\n \"docs/coop/design-corrections/workflows/workflows_model.v1.py\": \"a268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd\"\n}\n--- semanticClosures subjectPreserved False\n  native   : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"subject\": \"semanticClosures:129>128\", \"remedy\": \"narrow the rule selection explicitly - fewer policy packs, or packs sharing one rule closure, for this invocation; no closure was truncated\"}}\n  workflow : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the rule selection explicitly - fewer policy packs, or packs sharing one rule closure, for this invocation; no closure was truncated\"}}\n--- nativeContextDigests subjectPreserved False\n  native   : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"subject\": \"nativeContextDigests:129>128\", \"remedy\": \"narrow the analysis explicitly - fewer workspace roots for this invocation; no context was truncated, and units that genuinely share one compiler closure, standard library and effective options already collapse to one member\"}}\n  workflow : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the analysis explicitly - fewer workspace roots for this invocation; no context was truncated, and units that genuinely share one compiler closure, standard library and effective options already collapse to one member\"}}\n--- importIds subjectPreserved False\n  native   : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"subject\": \"importIds:257>256\", \"remedy\": \"narrow the imported-evidence selection explicitly - fewer evidence.importIds in the resolved semantic configuration for this invocation; no import was truncated\"}}\n  workflow : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the imported-evidence selection explicitly - fewer evidence.importIds in the resolved semantic configuration for this invocation; no import was truncated\"}}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:38.272Z",
+    "messageUuid": "6e6deb73-3e2a-476c-8a4d-75b58d8b55cb",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01UomVhCJhPCDGZZq1JVD5DZ",
+      "name": "Bash",
+      "input": {
+        "command": "F=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py; ls -la $F && grep -n \"def run_invocation\" -A 120 $F | head -160"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:38.336Z",
+    "messageUuid": "6830f7bb-3c58-4467-860b-1c28e1e8c7d9",
+    "block": {
+      "tool_use_id": "toolu_01UomVhCJhPCDGZZq1JVD5DZ",
+      "type": "tool_result",
+      "content": "-rw-r--r--  1 sb  wheel  134041 Sep  7 18:36 /tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py\n273:def run_invocation(record, script):\n274-    \"\"\"record: InvocationRecordV1 without stepResults/termination. script: {stepId: [attempt observations...]},\n275-    optional 'cancelAt': {'stepId': k, 'signal': 'SIGINT'} meaning the signal arrives before step k starts.\"\"\"\n276-    steps = record['orderedSteps']\n277-    validate_dag(steps)\n278-    mode = record['mode']\n279-    results, outcomes = [], {}\n280-    cancel = script.get('cancelAt')\n281-    cancelled_from = None\n282-    for s in steps:\n283-        sid = s['stepId']\n284-        if cancel and sid >= cancel['stepId'] and cancelled_from is None:\n285-            cancelled_from = sid\n286-        if cancelled_from is not None:\n287-            results.append({'stepId': sid, 'outcome': 'cancelled', 'attempts': [], 'termination': {'class': 'interrupted', 'signal': cancel['signal']}})\n288-            outcomes[sid] = 'cancelled'\n289-            continue\n290-        # dependency gate\n291-        gate_ok, skip = True, None\n292-        for d in s['dependsOn']:\n293-            o = outcomes[d]\n294-            if o == 'cancelled':\n295-                gate_ok, skip = False, 'dependency-cancelled'\n296-            elif s['dependencyGate'] == 'completed' and o != 'completed':\n297-                gate_ok, skip = False, 'dependency-not-completed'\n298-            elif s['dependencyGate'] == 'terminal' and o not in ('completed', 'rejected', 'failed', 'skipped', 'abandoned'):\n299-                gate_ok, skip = False, 'dependency-not-terminal'\n300-        if not gate_ok:\n301-            results.append({'stepId': sid, 'outcome': 'skipped', 'attempts': [], 'skipReason': skip, 'termination': {'class': 'request-rejected', 'errorCode': 'REQUEST.PRECONDITION_FAILED'}})\n302-            outcomes[sid] = 'skipped'\n303-            continue\n304-        # ephemeral authority law\n305-        p = s['params']\n306-        if mode['ephemeral'] and (s['kind'] in ('repair-preview', 'repair-apply', 'verify') or (s['kind'] == 'mutation' and p.get('mutationClass') in ('baseline-adopt', 'baseline-upgrade-apply'))):\n307-            t = Refusal('REQUEST.UNSATISFIABLE', 'WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY', 'drop --ephemeral').termination()\n308-            results.append({'stepId': sid, 'outcome': 'rejected', 'attempts': [], 'termination': t})\n309-            outcomes[sid] = 'rejected'\n310-            continue\n311-        attempts, final = [], None\n312-        obs_list = script.get(str(sid), [{'event': 'completed', 'result': {'kind': 'query', 'items': 0, 'truncated': False, 'completenessMet': True, 'advisory': False}}])\n313-        for n, obs in enumerate(obs_list, 1):\n314-            a = {'executionId': _exec_id(record['requestId'], sid, n), 'outcome': 'completed'}\n315-            if 'installationJournalRefs' in obs:\n316-                if s['kind'] != 'mutation' or p['mutationClass'] not in ('core-update', 'core-repair', 'core-rollback', 'store-migrate', 'store-rollback'):\n317-                    raise ValueError('installation journal belongs only to an installation mutation attempt')\n318-                a['installationJournalRefs'] = obs['installationJournalRefs']\n319-                if 'installationRecoveryStartRef' in obs:\n320-                    a['installationRecoveryStartRef'] = obs['installationRecoveryStartRef']\n321-                    if not a['installationJournalRefs'] or a['installationJournalRefs'][0] != a['installationRecoveryStartRef']:\n322-                        raise ValueError('recovery history must start with its observed durable revision')\n323-                validate_import_record('workflows/schemas/invocation-record.schema.json', '#/$defs/Attempt', a)\n324-            if obs['event'] == 'completed':\n325-                if s['kind'] in ('analysis', 'verify'):\n326-                    a['derivation'] = obs.get('derivation', {'planId': 'plan2:' + '0' * 64, 'executionPlanId': 'exec-plan2:' + '0' * 64, 'stageCount': 1, 'stagesCompleted': 1})\n327-                attempts.append(a)\n328-                res = obs['result']\n329-                if s['kind'] == 'analysis' and p['durability'] == 'ephemeral' and res.get('authority') != 'ephemeral':\n330-                    raise ValueError('script error: ephemeral analysis must yield an ephemeral result')\n331-                if s['kind'] == 'analysis' and res.get('authority') == 'ephemeral' and 'runId' in res:\n332-                    raise ValueError('script error: ephemeral result carries a runId')\n333-                if obs.get('termination'):\n334-                    term = obs['termination']\n335-                elif s['kind'] in ('analysis', 'verify'):\n336-                    term = analysis_termination(res, p.get('verdictGate', 'self') if s['kind'] == 'analysis' else 'self')\n337-                elif s['kind'] == 'comparison':\n338-                    if res.get('kind') != 'comparison':\n339-                        raise ValueError('script error: comparison step must yield a ComparisonStepResult')\n340-                    term = comparison_termination(res)\n341-                else:\n342-                    term = {'class': 'success'}\n343-                final = ('completed', res, term)\n344-                break\n345-            if obs['event'] == 'rejected':\n346-                a['outcome'] = 'rejected'\n347-                attempts.append(a)\n348-                final = ('rejected', None, terminate(obs))\n349-                break\n350-            if obs['event'] == 'operational-fault':\n351-                a['outcome'] = 'failed'\n352-                a['faultCause'] = obs['faultCause']\n353-                attempts.append(a)\n354-                can_retry = s['retryPolicy'] == 'idempotent-retry' and s['kind'] in RETRYABLE_KINDS and obs['faultCause'] == 'ledger-busy' and n < MAX_ATTEMPTS and n < len(obs_list)\n355-                if can_retry:\n356-                    a['retried'] = True\n357-                    continue\n358-                t = terminate(obs)\n359-                if n >= MAX_ATTEMPTS and obs['faultCause'] == 'ledger-busy':\n360-                    t['domainDetail'] = {'code': 'WORKFLOW.RETRY_BUDGET_EXHAUSTED', 'remedy': 'ledger still busy after 3 attempts; retry later'}\n361-                final = ('failed', None, t)\n362-                break\n363-            raise ValueError('unknown script event ' + obs['event'])\n364-        outcome, res, term = final\n365-        r = {'stepId': sid, 'outcome': outcome, 'attempts': attempts, 'termination': term}\n366-        if res is not None:\n367-            r['result'] = res\n368-        results.append(r)\n369-        outcomes[sid] = outcome\n370-    # aggregate\n371-    required = [r for r, s in zip(results, steps) if s['requirement'] == 'required']\n372-    settled = all(r['outcome'] in ('completed', 'rejected', 'failed', 'skipped', 'abandoned') for r in required)\n373-    if cancel and not settled:\n374-        agg = {'class': 'interrupted', 'signal': cancel['signal']}\n375-        committed = [r['result']['runId'] for r in required if r['outcome'] == 'completed' and r.get('result', {}).get('runId')]\n376-        if committed:\n377-            agg['runId'] = committed[-1]\n378-        phase = 'before-settle'\n379-    else:\n380-        classes = [r['termination']['class'] for r in required if r['outcome'] != 'skipped']\n381-        pick = next((c for c in AGGREGATE_ORDER if c in classes), 'success')\n382-        agg = next(r['termination'] for r in required if r['outcome'] != 'skipped' and r['termination']['class'] == pick) if classes else {'class': 'success'}\n383-        matching=[r['termination'] for r in required if r['outcome']!='skipped' and r['termination']['class']==pick]\n384-        agg = dict(next((t for t in matching if t.get('domainDetail')),agg))\n385-        phase = 'after-settle' if cancel else 'none'\n386-    out = dict(record)\n387-    out['stepResults'] = results\n388-    out['termination'] = agg\n389-    out['terminationEmitted'] = True\n390-    if cancel:\n391-        out['cancellation'] = {'requested': True, 'signal': cancel['signal'], 'phase': phase}\n392-    return out, exit_code(agg)\n393-",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:42.125Z",
+    "messageUuid": "ed4c773c-0681-4b03-9ecd-7e0e5d4c061e",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_0143bB1V71bXbjhsgCTBsFhv",
+      "name": "Bash",
+      "input": {
+        "command": "F=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py; grep -n \"^def terminate\\|^def exit_code\\|class Refusal\" -A 30 $F | head -70"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:42.179Z",
+    "messageUuid": "b67afcb5-6e81-4a83-9660-6c4783e5e089",
+    "block": {
+      "tool_use_id": "toolu_0143bB1V71bXbjhsgCTBsFhv",
+      "type": "tool_result",
+      "content": "72:class Refusal(Exception):\n73-    def __init__(self, error_code, detail=None, remedy='see contract', subject=None):\n74-        super().__init__(error_code)\n75-        self.error_code, self.detail, self.remedy, self.subject = error_code, detail, remedy, subject\n76-    def termination(self):\n77-        t = {'class': 'request-rejected', 'errorCode': self.error_code}\n78-        if self.detail:\n79-            t['domainDetail'] = {'code': self.detail, 'remedy': self.remedy}\n80-            if self.subject:\n81-                t['domainDetail']['subject'] = self.subject\n82-        return t\n83-\n84-# ----------------------------------------------------------------------------- generic mutation replay scope\n85-\n86-def mutation_replay_scope(request_id, step_id, project_id, operation):\n87-    scope = {'schemaVersion': 1, 'requestId': request_id, 'stepId': step_id,\n88-             'projectId': project_id, 'operation': operation}\n89-    validate_import_record('workflows/schemas/invocation-record.schema.json', '#/$defs/MutationReplayScopeV1', scope)\n90-    return scope\n91-\n92-def mutation_replay_key(scope):\n93-    validate_import_record('workflows/schemas/invocation-record.schema.json', '#/$defs/MutationReplayScopeV1', scope)\n94-    return canonical.identity('workflow.mutation-intent', scope)\n95-\n96-def admit_mutation_replay_key(params, scope):\n97-    \"\"\"Scope comes from the retained host invocation; never caller-selected receipt lookup input.\n98-    This pure join does not admit the effect, authorize it, or implement a mutation ledger.\n99-    \"\"\"\n100-    validate_import_record('workflows/schemas/invocation-record.schema.json', '#/$defs/MutationParams', params)\n101-    key = mutation_replay_key(scope)\n102-    if params['mutationClass'] != scope['operation'] or params['idempotencyKey'] != key:\n--\n143:def terminate(obs):\n144-    \"\"\"Observation \u2192 StepTermination. obs = {'event': ..., ...}. Only lawful existing D9 codes.\"\"\"\n145-    e = obs['event']\n146-    detail = obs.get('detail')\n147-    def dd(t, remedy='see contract'):\n148-        if detail:\n149-            t['domainDetail'] = {'code': detail, 'remedy': obs.get('remedy', remedy)}\n150-        return t\n151-    if e == 'completed-analysis':\n152-        v = obs['verdict']\n153-        if v == 'fail':\n154-            return {'class': 'policy-failed', 'runId': obs['runId']} if obs.get('runId') else {'class': 'policy-failed', 'authority': 'ephemeral'}\n155-        if v == 'indeterminate':\n156-            return dd({'class': 'indeterminate', 'reasonCodes': obs.get('reasonCodes', ['VERDICT.INDETERMINATE']), **({'runId': obs['runId']} if obs.get('runId') else {})})\n157-        return {'class': 'success', **({'runId': obs['runId']} if obs.get('runId') else {})}\n158-    if e == 'provider-unavailable':\n159-        return dd({'class': 'indeterminate', 'reasonCodes': ['COVERAGE.PROVIDER_UNAVAILABLE']})\n160-    if e == 'baseline-unsupported':\n161-        return dd({'class': 'indeterminate', 'reasonCodes': ['BASELINE.RECIPE_UNSUPPORTED']})\n162-    if e == 'query-completeness-unmet':\n163-        return dd({'class': 'indeterminate', 'reasonCodes': ['QUERY.COMPLETENESS_UNMET']})\n164-    if e == 'operational-fault':\n165-        cause = obs['faultCause']\n166-        t = {'class': 'operational-failed', 'errorCode': FAULT_TO_ERROR[cause], 'faultCause': cause}\n167-        if obs.get('runId'):\n168-            t['runId'] = obs['runId']\n169-        return dd(t)\n170-    if e == 'rejected':\n171-        return dd({'class': 'request-rejected', 'errorCode': obs['errorCode']})\n172-    if e == 'interrupted':\n173-        t = {'class': 'interrupted', 'signal': obs['signal']}\n--\n217:def exit_code(termination):\n218-    return EXIT[termination['class']]\n219-\n220-# ----------------------------------------------------------------------------- invocation lifecycle\n221-\n222-def validate_dag(steps):",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:48.787Z",
+    "messageUuid": "5b6393a1-8f13-46f2-a585-86d5b2fabfa5",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_018gYxfJsB6XfUrDA9bzuC2G",
+      "name": "Bash",
+      "input": {
+        "command": "C=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/schemas/common.schema.json; /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('$C').read_text())\nprint(json.dumps(d['\\$defs']['DomainDetail'],indent=1))\nprint('--- StepTermination ---')\nprint(json.dumps(d['\\$defs']['StepTermination'],indent=1)[:1800])\n\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:48.867Z",
+    "messageUuid": "9767d036-8d86-47f5-9887-b74a52d38cfb",
+    "block": {
+      "tool_use_id": "toolu_018gYxfJsB6XfUrDA9bzuC2G",
+      "type": "tool_result",
+      "content": "{\n \"type\": \"object\",\n \"additionalProperties\": false,\n \"required\": [\n  \"code\",\n  \"remedy\"\n ],\n \"properties\": {\n  \"code\": {\n   \"$ref\": \"#/$defs/DomainDetailCode\"\n  },\n  \"remedy\": {\n   \"$ref\": \"#/$defs/BoundedText\"\n  },\n  \"subject\": {\n   \"$ref\": \"#/$defs/BoundedText\"\n  },\n  \"purgeDisclosure\": {\n   \"$ref\": \"#/$defs/PinnedPurgeDisclosure\"\n  }\n },\n \"allOf\": [\n  {\n   \"if\": {\n    \"properties\": {\n     \"code\": {\n      \"const\": \"evidence.pinned\"\n     }\n    }\n   },\n   \"then\": {\n    \"required\": [\n     \"subject\",\n     \"purgeDisclosure\"\n    ]\n   },\n   \"else\": {\n    \"not\": {\n     \"required\": [\n      \"purgeDisclosure\"\n     ]\n    }\n   }\n  }\n ]\n}\n--- StepTermination ---\n{\n \"type\": \"object\",\n \"description\": \"D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.\",\n \"additionalProperties\": false,\n \"required\": [\n  \"class\"\n ],\n \"properties\": {\n  \"class\": {\n   \"$ref\": \"#/$defs/D9Class\"\n  },\n  \"authority\": {\n   \"type\": \"string\",\n   \"enum\": [\n    \"authoritative\",\n    \"ephemeral\"\n   ]\n  },\n  \"errorCode\": {\n   \"$ref\": \"#/$defs/D9ErrorCode\"\n  },\n  \"faultCause\": {\n   \"$ref\": \"#/$defs/D9FaultCause\"\n  },\n  \"reasonCodes\": {\n   \"type\": \"array\",\n   \"minItems\": 1,\n   \"maxItems\": 9,\n   \"uniqueItems\": true,\n   \"items\": {\n    \"$ref\": \"#/$defs/D9ReasonCode\"\n   },\n   \"x-opensip-order\": \"sequence\"\n  },\n  \"runId\": {\n   \"$ref\": \"#/$defs/RunId\"\n  },\n  \"executionId\": {\n   \"$ref\": \"#/$defs/ExecutionId\"\n  },\n  \"coverageId\": {\n   \"$ref\": \"#/$defs/CoverageId\"\n  },\n  \"signal\": {\n   \"$ref\": \"#/$defs/D9Signal\"\n  },\n  \"domainDetail\": {\n   \"$ref\": \"#/$defs/DomainDetail\"\n  }\n },\n \"allOf\": [\n  {\n   \"if\": {\n    \"properties\": {\n     \"class\": {\n      \"const\": \"success\"\n     }\n    }\n   },\n   \"then\": {\n    \"not\": {\n     \"anyOf\": [\n      {\n       \"required\": [\n        \"errorCode\"\n       ]\n      },\n      {\n       \"required\": [\n        \"reasonCodes\"\n       ]\n      },\n      {\n       \"required\": [\n        \"signal\"\n       ]\n      }\n     ]\n    }\n   }\n  },\n  {\n   \"if\": {",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:56.984Z",
+    "messageUuid": "52d59254-34d3-4cab-aa99-6f58a8e4a629",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01FQWuP2KVDX8iTjRGPk9miZ",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18; grep -n \"subject\" $B/docs/v2/contracts/product-v1/workflows-and-surfaces.md | grep -i \"domaindetail\\|detail\\|bounded\\|names\\|carries\" | head -20; echo '--- native S14 sentence ---'; grep -o \"public detail PROJECT.SCOPE_LIMIT and subject \\`field:count>limit\\`[^.]*\\.[^.]*\\.\" $B/docs/v2/contracts/product-v1/native-evidence.md | head -2"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:57.084Z",
+    "messageUuid": "d1ff98a4-fdbb-4f7a-aba1-0ff5587aa4a3",
+    "block": {
+      "tool_use_id": "toolu_01FQWuP2KVDX8iTjRGPk9miZ",
+      "type": "tool_result",
+      "content": "1046:in bounded `subject`/`remedy` fields, never as newly invented codes. The canonical\n1054:termination and `errors`. The detail's `subject` equals the requested RunId and\n1123:The public-detail registry separates public records from internal decision aliases. Host projection always emits PROJECT.WORKSPACE_UNIT_LIMIT for the shared discovery cap (security, shared-helper and native paths) and PROJECT.EXPLICIT_PATH_INVALID for malformed explicit roots; diagnostic counts/reasons travel in subject. Internal WORKSPACE_UNIT_LIMIT, native.too-many-units and native.explicit-root-grammar are never public enum values. The native table key provider-unavailable/capability-missing projects as native.capability-unavailable. The removed pre-Plan projection refusal is retired with no alias. Thus the same shared condition has one machine detail code independent of the instrument that detected it.\n--- native S14 sentence ---\npublic detail PROJECT.SCOPE_LIMIT and subject `field:count>limit`; it is never truncated. **Four** fields are bounded this way, across **two record families**, and the subject always names which one overflowed.",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:59.499Z",
+    "messageUuid": "7cd6af51-0b4b-490b-9677-f48065e0da36",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01Fkgge2yj6L74N5FUTqvCpE",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18; sed -n '1040,1060p' $B/docs/v2/contracts/product-v1/workflows-and-surfaces.md"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:27:59.546Z",
+    "messageUuid": "894257af-62bf-4693-a92b-7d302e3b60a9",
+    "block": {
+      "tool_use_id": "toolu_01Fkgge2yj6L74N5FUTqvCpE",
+      "type": "tool_result",
+      "content": "The public `DomainDetailCode` vocabulary is the single closed\n`public-detail-registry.v1.json` registry shared by identity, security, native\nanalysis and workflows. The common schema is generated or drift-checked against\nits exact entries. Owners register stable details before emitting them; an\nunknown detail refuses admission. Dynamic paths or refusal explanations travel\nin bounded `subject`/`remedy` fields, never as newly invented codes. The canonical\nstorage detail is `storage.backup-choice-required`; the earlier uppercase draft\nspelling is not admitted. `evidence.expired`, `evidence.purged`, `evidence.missing`\nand `evidence.corrupt` retain their distinct meaning in query results.\n\n`evidence.pinned` is the foundation-owned refusal for a direct purge blocked by\nactive pins. It projects as `request-rejected`, `REQUEST.PRECONDITION_FAILED`,\nexit 2, in a failure CommandEnvelope with that DomainDetail in both the\ntermination and `errors`. The detail's `subject` equals the requested RunId and\nits required `purgeDisclosure` is the closed common-schema\n`PinnedPurgeDisclosure`: the same RunId, the complete current `activePins`\ninventory sorted uniquely by UTF-8 `pinId`, and the three ordered consequences\n`named-pins-revoked`, `dependent-evidence-replay-unavailable`,\n`sealed-history-retained`. Each operational pin name identifies a host-ledger\npin scoped to this Run and declares `baseline`, `repair-prerequisite`,",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:28:15.012Z",
+    "messageUuid": "95157b1b-fa23-49c8-9ef3-33c8bae9b382",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01AJ5MMzSKTfJJVZ6e3nRMrG",
+      "name": "Bash",
+      "input": {
+        "command": "C=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/schemas/common.schema.json; /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('$C').read_text())['\\$defs']\nprint('BoundedText',json.dumps(d['BoundedText']))\n\"; echo '--- who else builds domainDetail in the model ---'; grep -n \"domainDetail\" /tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py | head -20"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:28:15.052Z",
+    "messageUuid": "74b22f51-df00-4dbe-8703-a1245a06ddfd",
+    "block": {
+      "tool_use_id": "toolu_01AJ5MMzSKTfJJVZ6e3nRMrG",
+      "type": "tool_result",
+      "content": "BoundedText {\"type\": \"string\", \"maxLength\": 1024}\n--- who else builds domainDetail in the model ---\n79:            t['domainDetail'] = {'code': self.detail, 'remedy': self.remedy}\n81:                t['domainDetail']['subject'] = self.subject\n123:    term = {'class': 'request-rejected', 'errorCode': 'REQUEST.PRECONDITION_FAILED', 'domainDetail': detail}\n133:    detail = term.get('domainDetail', {})\n149:            t['domainDetail'] = {'code': detail, 'remedy': obs.get('remedy', remedy)}\n182:            t['domainDetail'] = {'code': 'DOCTOR.DEFECTS_FOUND', 'remedy': 'inspect doctor.defects; exit 0 means the report was produced'}\n201:            t['domainDetail'] = res['remedy']\n360:                    t['domainDetail'] = {'code': 'WORKFLOW.RETRY_BUDGET_EXHAUSTED', 'remedy': 'ledger still busy after 3 attempts; retry later'}\n384:        agg = dict(next((t for t in matching if t.get('domainDetail')),agg))\n1456:        res.update(resolverAccepted=False, resolverRefusals=[r.termination()['domainDetail']], effectivePolicyDigest=res['candidatePolicyDigest'],\n1595:        r['domainDetail'] = detail\n1683:_BLOCKED_TERM = {'class': 'operational-failed', 'errorCode': 'HOST.IO_FAILURE', 'faultCause': 'host-io', 'domainDetail': {'code': 'REPAIR.RECOVERY_BLOCKED', 'remedy': 'inspect the listed paths manually; the journal is retained'}}\n1753:                return j, 'refuse', 'INDETERMINATE', {'class': 'operational-failed', 'errorCode': 'LEDGER.CORRUPT', 'faultCause': 'ledger-corrupt', 'domainDetail': {'code': 'REPAIR.PREIMAGE_CORRUPT', 'remedy': 'restore the exact retained preimage blob before recovery; no target was changed'}}\n1769:                return j, 'requires-broker', 'INDETERMINATE', {'class': 'operational-failed', 'errorCode': 'HOST.IO_FAILURE', 'faultCause': 'host-io', 'domainDetail': {'code': 'REPAIR.RECOVERY_REQUIRES_BROKER', 'remedy': 'the retained preimage blob is not readable here; the exact restore intent is returned and nothing was changed'}}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:28:25.341Z",
+    "messageUuid": "9e4743a3-eb1e-4581-8825-3ea01c71bb40",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01PiJwZznrWkXPuw7XX6E9Wa",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && B=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py && V=/tmp/opensip-design-corrections/v19-native-coauthor.v1/work/docs/coop/design-corrections/workflows/workflows_model.v1.py && shasum -a 256 $B $V | sed 's|/tmp/opensip-design-corrections/||' && cp $B workflow.before.py && shasum -a 256 workflow.before.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:28:25.497Z",
+    "messageUuid": "ce925897-fa2e-4129-84e0-9d4815b9248d",
+    "block": {
+      "tool_use_id": "toolu_01PiJwZznrWkXPuw7XX6E9Wa",
+      "type": "tool_result",
+      "content": "a268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd  candidate-subject.v18/docs/coop/design-corrections/workflows/workflows_model.v1.py\na268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd  v19-native-coauthor.v1/work/docs/coop/design-corrections/workflows/workflows_model.v1.py\na268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd  workflow.before.py",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:00.987Z",
+    "messageUuid": "1f7c35d8-d979-429c-9a00-f13f3b63b09d",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01YVvpdWKtcMDmwACTRMGCvJ",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/make_proposed.py",
+        "content": "\"\"\"Produce workflow.proposed.py from the exact frozen18 bytes. One site, one conditional.\"\"\"\nimport hashlib\nimport pathlib\n\nROOT = pathlib.Path('/tmp/opensip-design-corrections/v19-subject-coauthor.v1')\nbefore = (ROOT / 'workflow.before.py').read_text(encoding='utf-8')\n\nOLD = \"\"\"    def dd(t, remedy='see contract'):\n        if detail:\n            t['domainDetail'] = {'code': detail, 'remedy': obs.get('remedy', remedy)}\n        return t\n\"\"\"\nNEW = \"\"\"    def dd(t, remedy='see contract'):\n        if detail:\n            t['domainDetail'] = {'code': detail, 'remedy': obs.get('remedy', remedy)}\n            # The DYNAMIC half of the disclosure, carried when the observation actually has one.\n            # The public detail vocabulary is CLOSED and the workflows contract says what carries the\n            # rest: \\\"Dynamic paths or refusal explanations travel in bounded `subject`/`remedy`\n            # fields, never as newly invented codes.\\\" This rebuilt the DomainDetail field by field\n            # and copied only two of the three, so a producer whose whole promise is its subject lost\n            # it at the envelope. Native section 14's bounded selection refusal is the live case: it\n            # promises `field:count>limit` and that \\\"the subject always names which one overflowed\\\",\n            # and without this line every bounded field arrived as the same indistinguishable\n            # PROJECT.SCOPE_LIMIT - leaving a caller who needs to know WHICH bound was hit with only\n            # the new code that same sentence forbids.\n            #\n            # `Refusal.termination()` above already carries a subject onto the identical shape. Two\n            # producers of one record disagreeing about one of its fields is the defect; this is that\n            # existing rule applied at the observation boundary, not a new one, and the truthiness\n            # test is deliberately the same one `Refusal.termination()` uses so the two agree on\n            # every input including the empty string.\n            #\n            # STRICTLY ADDITIVE: an observation carrying no subject produces the byte-identical\n            # termination it produced before. `subject` is an already-published optional\n            # `BoundedText` on the common-schema DomainDetail, so nothing here needs a schema, code\n            # or contract change. What this does NOT do is admit the value: a malformed trusted\n            # observation supplying a non-string or over-length subject yields a DomainDetail the\n            # published schema refuses, exactly as it does for a malformed `remedy` or `detail`, and\n            # this line makes no admission claim on its behalf.\n            if obs.get('subject'):\n                t['domainDetail']['subject'] = obs['subject']\n        return t\n\"\"\"\nassert before.count(OLD) == 1, 'anchor'\nafter = before.replace(OLD, NEW)\n(ROOT / 'workflow.proposed.py').write_text(after, encoding='utf-8')\nprint('before', hashlib.sha256(before.encode()).hexdigest())\nprint('after ', hashlib.sha256(after.encode()).hexdigest())\nprint('added lines', after.count('\\n') - before.count('\\n'))\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:01.131Z",
+    "messageUuid": "270c7bb9-cc66-4367-839a-290672c3ea4a",
+    "block": {
+      "tool_use_id": "toolu_01YVvpdWKtcMDmwACTRMGCvJ",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/make_proposed.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:05.825Z",
+    "messageUuid": "842cbafc-8db1-4c09-8562-7cae12b014e9",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01BQWy1mLnCsn1fD5KSVAT67",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B out/probes/make_proposed.py && /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport ast,pathlib\nast.parse(pathlib.Path('workflow.proposed.py').read_text());print('parse ok')\n\" && diff <(/tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport ast,pathlib;print(ast.dump(ast.parse(pathlib.Path('workflow.before.py').read_text())))\") <(/tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport ast,pathlib;print(ast.dump(ast.parse(pathlib.Path('workflow.proposed.py').read_text())))\") >/dev/null && echo \"AST identical (unexpected)\" || echo \"AST differs (expected: one If node added)\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:06.086Z",
+    "messageUuid": "ebe10bd0-809d-4d81-8a74-8ee545eec843",
+    "block": {
+      "tool_use_id": "toolu_01BQWy1mLnCsn1fD5KSVAT67",
+      "type": "tool_result",
+      "content": "before a268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd\nafter  53ec304c692226659cea730403dd382cc2e54c7e9aea65be445672feaf129eb5\nadded lines 26\nparse ok\nAST differs (expected: one If node added)",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:17.471Z",
+    "messageUuid": "6f9a9d3a-babc-42d4-8096-b9927416019c",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_018LCxs8bdfgMtKhThq9ubRE",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows; grep -n \"def validate_import_record\" -A 20 $B/workflows_model.v1.py | head -28; echo '--- invocation schema defs ---'; /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('$B/schemas/invocation-record.schema.json').read_text())\nprint(list(d.get('\\$defs',{})));print('root keys',[k for k in d if not k.startswith('\\$')][:10])\n\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:17.541Z",
+    "messageUuid": "6036ee86-ce89-4226-bd87-c088a8007229",
+    "block": {
+      "tool_use_id": "toolu_018LCxs8bdfgMtKhThq9ubRE",
+      "type": "tool_result",
+      "content": "749:def validate_import_record(document, selector, value):\n750-    \"\"\"Only local, pinned schema-closure resources; never resolve an input URL.\"\"\"\n751-    from referencing import Registry, Resource\n752-    from referencing.jsonschema import DRAFT202012\n753-    from jsonschema import ValidationError\n754-    root = Path(__file__).resolve().parent.parent\n755-    paths = list((root / 'workflows' / 'schemas').glob('*.schema.json'))\n756-    paths += [root / 'native' / 'native-evidence.schemas.v2.json', root / 'foundation' / 'identity-schemas.v2.json']\n757-    docs = {p: canonical.parse(p.read_bytes()) for p in paths}\n758-    registry = Registry().with_resources((d['$id'], Resource(contents=d, specification=DRAFT202012)) for d in docs.values())\n759-    try:\n760-        canonical.typed(value)\n761-        canonical.ExactValidator({'$ref': docs[root / document]['$id'] + selector}, registry=registry).validate(value)\n762-    except (ValidationError, canonical.AdmissionError) as exc:\n763-        raise Refusal('CONFIG.INVALID', 'IMPORT.ARTIFACT_CORRUPT', 'input does not satisfy the pinned ' + selector) from exc\n764-\n765-def build_import(kind, payload, payload_domain, registered_schemas, correspondence, producer_closure, adapter_closure, blobs, scope, observation, build=None):\n766-    \"\"\"registered_schemas: {payloadDomain: exact schema DOCUMENT bytes}. scope: ImportScopeDescriptor (foundation scope-descriptor);\n767-    observation: ImportObservationV1. Every auxiliary digest is raw SHA-256 of canonical bytes; the preimages are returned as blobs.\"\"\"\n768-    if correspondence is None:\n769-        raise Refusal('CONFIG.INVALID', 'IMPORT.MAPPING_REQUIRED', 'pass --snapshot or --commit')\n--- invocation schema defs ---\n['WorkflowRef', 'Mode', 'StepKind', 'StepSpec', 'StepParams', 'AnalysisParams', 'VerifyParams', 'QueryParams', 'RenderParams', 'ImportParams', 'RepairPreviewParams', 'RepairApplyParams', 'TestExecutionParams', 'MutationParams', 'ExportDeliveryParams', 'DoctorParams', 'Attempt', 'DerivationBinding', 'StepOutcome', 'StepResult', 'ComparisonParams', 'ComparisonStepResult', 'StepDomainResult', 'AnalysisResult', 'VerificationOutcome', 'QueryResult', 'RenderResult', 'ImportResult', 'RepairPreviewResult', 'RepairApplyResult', 'TestExecutionResult', 'MutationResult', 'ExportDeliveryResult', 'DoctorResult', 'Cancellation', 'RetentionDisclosure', 'NativePreparationParams', 'NativePreparationResult', 'CoreTransitionIntentV1', 'RepairRecoveryIntentV1', 'MutationReplayScopeV1']\nroot keys ['title', 'description', 'type', 'additionalProperties', 'required', 'properties']",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:28.897Z",
+    "messageUuid": "bbf9b972-d6c5-438f-81c8-e8e2516e4d54",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_016FQ8DJ5V7D8iz2XmCQZeJm",
+      "name": "Bash",
+      "input": {
+        "command": "head -30 /tmp/opensip-design-corrections/v19-subject-coauthor.v1/workflow.before.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:28.948Z",
+    "messageUuid": "3f1c7945-759a-4f14-9c75-c47fb551f3f4",
+    "block": {
+      "tool_use_id": "toolu_016FQ8DJ5V7D8iz2XmCQZeJm",
+      "type": "tool_result",
+      "content": "\"\"\"Workflows-and-surfaces reference model (design evidence, not a host runtime).\n\nImplements the normative semantics of docs/v2/contracts/product-v1/workflows-and-surfaces.md\nover synthetic, trusted inputs. Every H-identity uses foundation/canonical.py (exact typed\nadmission and the joint H(domain, descriptor) recipe); every auxiliary digest is a raw SHA-256\nof canonical bytes exactly as identity-and-evidence \u00a72 prescribes. Nothing here executes a\nprovider, a repository, a renderer or a filesystem; journals, trees and stores are in-memory dicts.\n\nTyped TCB observation boundaries (every one is a trusted model INPUT, never a measurement):\n  trust map          {closureId: 'admitted'|'revoked'} - the security unit's current admitted closure set\n  grant record       an already-admitted RepoExecutionGrantV2 projection; the security model is not re-run\n  truth table        the security owner's per-platform effect table (S10)\n  host closures      presence/trust/protocol/platform of pivot closures on the comparing host\n  pivot presence     E0..E4 presence per fingerprint, supplied by the case, not computed by detectors\n  live tree          an in-memory {LogicalPath: bytes} dict standing in for O_NOFOLLOW custody reads\n  native closed-world / evidence origin - the evidence Run's own native ClosedWorldV2 (all seven members),\n                        read here and not derived; the repair DESCRIPTOR carries only its five-field projection\nSYNTHETIC fixture adapters (never production recipes, never presented as admitted proof):\n  synthetic_execution_id      fixture adapter only; production uses the foundation fresh CSPRNG operational-ID recipe\n  fixture_tree_snapshot_id    snapshot2 with ZERO config/scope/vcs digests; a fixture adapter only\n  SYNTHETIC_VERIFY_*          placeholder plan/evidence/seal ids inside repair_verify results\n\"\"\"\nimport hashlib\nimport sys\nfrom pathlib import Path\n\nsys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'foundation'))\nimport canonical  # noqa: E402\n\n# ----------------------------------------------------------------------------- identities",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:33.821Z",
+    "messageUuid": "8daf2280-4c2f-4e15-9fe5-b019bf703a15",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_017RYAQWztswpUJbdSrMKbVM",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && SRC=/tmp/opensip-design-corrections/v19-native-coauthor.v1/work/docs/coop/design-corrections && for V in before proposed; do D=out/disposable/dc-$V; rm -rf $D; mkdir -p $D/workflows; for e in \"$SRC\"/*; do n=$(basename \"$e\"); [ \"$n\" = workflows ] && continue; ln -s \"$e\" \"$D/$n\"; done; for e in \"$SRC\"/workflows/*; do n=$(basename \"$e\"); [ \"$n\" = workflows_model.v1.py ] && continue; ln -s \"$e\" \"$D/workflows/$n\"; done; cp workflow.$V.py \"$D/workflows/workflows_model.v1.py\"; done && ls out/disposable/dc-proposed && echo '---' && ls out/disposable/dc-proposed/workflows | head"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:29:34.455Z",
+    "messageUuid": "ea8d4fd7-4de9-4d7d-a220-29227e2c5ac1",
+    "block": {
+      "tool_use_id": "toolu_017RYAQWztswpUJbdSrMKbVM",
+      "type": "tool_result",
+      "content": "D-372-corrections.proposed.md\nJOINT-INTERFACES.md\nREADME.md\ncheck-integration.py\ncorrection-crosswalk.proposed.json\ncurrent-source-map.proposed.md\ndiscovery-defaults.py\nevaluation-residual-dispositions.proposed.json\nfoundation\nhistorical-preservation-report.v1.json\nhistorical-preservation-report.v10.json\nhistorical-preservation-report.v11.json\nhistorical-preservation-report.v12.json\nhistorical-preservation-report.v13.json\nhistorical-preservation-report.v14.json\nhistorical-preservation-report.v15.json\nhistorical-preservation-report.v16.json\nhistorical-preservation-report.v17.json\nhistorical-preservation-report.v18.json\nhistorical-preservation-report.v2.json\nhistorical-preservation-report.v3.json\nhistorical-preservation-report.v4.json\nhistorical-preservation-report.v5.json\nhistorical-preservation-report.v6.json\nhistorical-preservation-report.v7.json\nhistorical-preservation-report.v8.json\nhistorical-preservation-report.v9.json\ninherited-residuals.proposed.md\ninherited-row-sources.proposed.json\nintegration-fixtures.py\nintegration-host-model.py\nintegration-issues.md\nintegration-report.v1.json\nnative\npost-reset-dispositions.proposed.json\npost-reset-dispositions.v10.proposed.json\npost-reset-dispositions.v11.proposed.json\npost-reset-dispositions.v12.proposed.json\npost-reset-dispositions.v13.proposed.json\npost-reset-dispositions.v14.proposed.json\npost-reset-dispositions.v15.proposed.json\npost-reset-dispositions.v16.proposed.json\npost-reset-dispositions.v17.proposed.json\npost-reset-dispositions.v18.proposed.json\npost-reset-dispositions.v3.proposed.json\npost-reset-dispositions.v4.proposed.json\npost-reset-dispositions.v5.proposed.json\npost-reset-dispositions.v6.proposed.json\npost-reset-dispositions.v7.proposed.json\npost-reset-dispositions.v8.proposed.json\npost-reset-dispositions.v9.proposed.json\npublic-detail-registry.v1.json\nqualification-gates.proposed.json\nreviews\nsecurity\ntask-opening.json\nvalidation-summary.v1.json\nworkflows\n---\nREADME.md\ncheck_workflows.v1.py\ncommand-inventory.v1.json\ninitial-author-response.json\nobligation-map.v1.json\nrun-reference-checks.py\nschemas\nsource-pins.v1.json\nworkflow-cases.v1.json\nworkflows-report.v1.json",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:41.201Z",
+    "messageUuid": "28f86a8f-3b16-448a-9a68-fe4a95a8d7d5",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_014UGi8mGdR7Qiqv61uU1k46",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/probe-subject-preservation.v1.py",
+        "content": "\"\"\"Bounded probe for the workflow DomainDetail.subject loss root identified.\n\nWHAT IS REAL HERE. `N.admit_plan_selection_cardinality`, `N.admit_requested_capability_cardinality`,\n`N.unit_scope_descriptor` and `N.scope_refusal_termination` are invoked for real and raise real\nexceptions; their ACTUAL typed fields are the observation supplied to `W.run_invocation`, and the\nreturned records are validated against the PUBLISHED pinned schemas.\n\nWHAT IS SYNTHETIC. Every invocation record, requestId/projectId, step script and earlier committed\nstep result is a synthetic trusted fixture observation taken from `workflow-cases.v1.json`. Nothing\nhere closes an earlier Run, executes a provider, compiler, OS or filesystem, or qualifies a host.\n`W.synthetic_execution_id` is the module's own declared fixture adapter. The 'earlier committed\nresult preserved' rows are about the invocation record the model returns, not about any Run.\n\nThe BEFORE and PROPOSED workflow models are loaded side by side from two shadow trees whose only\ndiffering file is `workflows/workflows_model.v1.py`, so every comparison is that one edit.\n\"\"\"\nimport copy\nimport hashlib\nimport importlib.util\nimport json\nimport pathlib\nimport sys\n\nROOT = pathlib.Path('/tmp/opensip-design-corrections/v19-subject-coauthor.v1')\nNATIVE_WORK = pathlib.Path('/tmp/opensip-design-corrections/v19-native-coauthor.v1/work/docs/coop/design-corrections')\nOUT = ROOT / 'out/evidence'\nOUT.mkdir(parents=True, exist_ok=True)\n\nresults = []\ndef check(name, value, extra=None):\n    row = {'id': name, 'passed': bool(value)}\n    if extra is not None:\n        row['observed'] = extra\n    results.append(row)\n    return bool(value)\n\n\ndef load(name, path):\n    spec = importlib.util.spec_from_file_location(name, path)\n    module = importlib.util.module_from_spec(spec)\n    sys.modules[name] = module\n    spec.loader.exec_module(module)\n    return module\n\n\n# N is READ-ONLY from the completed v19 native work; it is not part of this turn's delta.\nN = load('probe_native', NATIVE_WORK / 'native/native_evidence_model.v2.py')\nW_BEFORE = load('probe_wf_before', ROOT / 'out/disposable/dc-before/workflows/workflows_model.v1.py')\nW_AFTER = load('probe_wf_after', ROOT / 'out/disposable/dc-proposed/workflows/workflows_model.v1.py')\n\nCASES = json.loads((NATIVE_WORK / 'workflows/workflow-cases.v1.json').read_text())\nCONST = CASES['constants']\n\n\ndef expand(v):\n    if isinstance(v, str) and v.startswith('$'):\n        return CONST[v[1:]]\n    if isinstance(v, list):\n        return [expand(x) for x in v]\n    if isinstance(v, dict):\n        return {k: expand(x) for k, x in v.items()}\n    return v\n\n\nBASE_CASE = expand(copy.deepcopy(CASES['invocationCases'][0]))\nSTEP = BASE_CASE['steps'][0]\n\n\ndef record_of(step_count=2):\n    steps = [dict(stepId=i, kind=STEP['kind'], requirement=STEP['requirement'],\n                  dependsOn=[] if i == 0 else [0], dependencyGate='completed',\n                  retryPolicy=STEP['retry'], params=STEP['params']) for i in range(step_count)]\n    return dict(schemaFamily='opensip.product.invocation', schemaMajor=1, requestId=CONST['REQ'],\n                projectId=CONST['PRJ'], workflow={'kind': 'builtin', 'name': 'analyze'},\n                mode=BASE_CASE['mode'], orderedSteps=steps)\n\n\n# --------------------------------------------------------------------- the ACTUAL native refusals\ndef native_scope_termination(kind, field):\n    \"\"\"Invoke the real producer and project the real ScopeRefusal. No termination is hand-written.\"\"\"\n    if kind == 'plan':\n        counts = {'semanticClosures': ('closure2:', 129), 'nativeContextDigests': ('', 129),\n                  'importIds': ('import2:', 257)}\n        prefix, count = counts[field]\n        call = lambda: N.admit_plan_selection_cardinality(\n            {field: [prefix + ('%064x' % i) for i in range(count)]})\n    elif kind == 'requestedCapabilities':\n        call = lambda: N.admit_requested_capability_cardinality(\n            [{'capabilityId': 'references', 'languageMode': 'ts-tsconfig',\n              'workspaceRoot': 'r%05d' % i, 'required': True}\n             for i in range(N.requested_capability_bound() + 1)])\n    elif kind == 'workspaceRoots':\n        call = lambda: N.unit_scope_descriptor(\n            [{'rootPath': 'r%05d' % i, 'languageMode': 'ts-tsconfig', 'languageFamily': 'tsjs'}\n             for i in range(1025)], [])\n    else:\n        raise AssertionError(kind)\n    try:\n        call()\n    except N.ScopeRefusal as exc:\n        return exc, N.scope_refusal_termination(exc)\n    raise AssertionError('expected a real ScopeRefusal for ' + kind + '/' + str(field))\n\n\nBOUNDED = [('plan', 'semanticClosures'), ('plan', 'nativeContextDigests'), ('plan', 'importIds'),\n           ('requestedCapabilities', 'requestedCapabilities'), ('workspaceRoots', 'workspaceRoots')]\n\nrows = []\nfor kind, field in BOUNDED:\n    refusal, termination = native_scope_termination(kind, field)\n    detail = termination['domainDetail']\n    observation = {'event': 'rejected', 'errorCode': termination['errorCode'],\n                   'detail': detail['code'], 'subject': detail['subject'], 'remedy': detail['remedy']}\n    record = record_of()\n    script = {'0': BASE_CASE['script']['0'], '1': [observation]}\n\n    before_result, before_exit = W_BEFORE.run_invocation(copy.deepcopy(record), copy.deepcopy(script))\n    after_result, after_exit = W_AFTER.run_invocation(copy.deepcopy(record), copy.deepcopy(script))\n\n    step_term = after_result['stepResults'][1]['termination']\n    agg = after_result['termination']\n    expected_subject = '%s:%d>%d' % (refusal.subject['field'], refusal.subject['count'],\n                                     refusal.subject['limit'])\n\n    # the exact subject the published scope refusal promises, per step AND in the aggregate\n    check('exact-subject-retained-per-step.' + field,\n          step_term['domainDetail'].get('subject') == detail['subject'] == expected_subject,\n          {'subject': step_term['domainDetail'].get('subject')})\n    check('exact-subject-retained-in-aggregate-termination.' + field,\n          agg.get('domainDetail', {}).get('subject') == expected_subject)\n    check('the-before-model-dropped-this-subject.' + field,\n          'subject' not in before_result['stepResults'][1]['termination']['domainDetail'])\n    # everything else about the envelope is unchanged\n    check('exit-code-is-2-and-unchanged.' + field, after_exit == before_exit == 2,\n          {'before': before_exit, 'after': after_exit})\n    check('error-code-detail-and-remedy-unchanged.' + field,\n          step_term['class'] == 'request-rejected' and\n          step_term['errorCode'] == 'REQUEST.UNSATISFIABLE' == termination['errorCode'] and\n          step_term['domainDetail']['code'] == 'PROJECT.SCOPE_LIMIT' == detail['code'] and\n          step_term['domainDetail']['remedy'] == detail['remedy'])\n    check('the-remedy-is-this-fields-own.' + field,\n          detail['remedy'] == N.SCOPE_LIMIT_REMEDY[field])\n    # the refused step mints nothing, and the earlier committed step keeps its result\n    check('refused-step-has-no-result-or-derivation.' + field,\n          'result' not in after_result['stepResults'][1] and\n          all('derivation' not in a for a in after_result['stepResults'][1]['attempts']) and\n          after_result['stepResults'][1]['outcome'] == 'rejected')\n    check('earlier-committed-step-result-preserved.' + field,\n          after_result['stepResults'][0]['result'] == BASE_CASE['script']['0'][0]['result'] ==\n          before_result['stepResults'][0]['result'])\n    # the ONLY difference between the two models' whole returned records is the subject\n    stripped = copy.deepcopy(after_result)\n    stripped['stepResults'][1]['termination']['domainDetail'].pop('subject')\n    stripped['termination'] = dict(stripped['stepResults'][1]['termination'])\n    check('the-edit-changes-exactly-one-field-of-the-whole-record.' + field,\n          stripped == before_result,\n          {'note': 'after-record with the subject removed equals the before-record byte for byte'})\n    # PUBLISHED SCHEMAS, not a hand-written shape assertion\n    schema_ok = True\n    try:\n        W_AFTER.validate_import_record('workflows/schemas/common.schema.json',\n                                       '#/$defs/StepTermination', step_term)\n        W_AFTER.validate_import_record('workflows/schemas/common.schema.json',\n                                       '#/$defs/StepTermination', agg)\n        W_AFTER.validate_import_record('workflows/schemas/common.schema.json',\n                                       '#/$defs/DomainDetail', step_term['domainDetail'])\n        W_AFTER.validate_import_record('workflows/schemas/invocation-record.schema.json',\n                                       '', after_result)\n    except Exception as exc:                                    # noqa: BLE001 - recorded, not hidden\n        schema_ok = repr(exc)[:400]\n    check('returned-termination-and-invocation-validate-against-published-schemas.' + field,\n          schema_ok is True, {'error': None if schema_ok is True else schema_ok})\n\n    rows.append({'kind': kind, 'field': field, 'nativeTermination': termination,\n                 'beforeStepTermination': before_result['stepResults'][1]['termination'],\n                 'afterStepTermination': step_term, 'afterAggregate': agg,\n                 'exit': after_exit, 'expectedSubject': expected_subject})\n\n# -------------------------------------------------- BACKWARD EQUALITY where no subject is supplied\n# Every existing invocation case, run through BOTH models. None of them carries a subject, so the\n# proposed model must return byte-identical records; this is the regression surface of the edit.\nsame, differing = 0, []\nfor case in CASES['invocationCases']:\n    case = expand(copy.deepcopy(case))\n    steps = [dict(stepId=i, kind=s['kind'], requirement=s['requirement'],\n                  dependsOn=s.get('dependsOn', [] if i == 0 else [i - 1]),\n                  dependencyGate=s.get('dependencyGate', 'completed'), retryPolicy=s['retry'],\n                  params=s['params']) for i, s in enumerate(case['steps'])]\n    rec = dict(schemaFamily='opensip.product.invocation', schemaMajor=1, requestId=CONST['REQ'],\n               projectId=CONST['PRJ'], workflow={'kind': 'builtin', 'name': 'analyze'},\n               mode=case['mode'], orderedSteps=steps)\n    try:\n        b = W_BEFORE.run_invocation(copy.deepcopy(rec), copy.deepcopy(case['script']))\n    except Exception as exc:                                    # noqa: BLE001\n        b = ('raised', repr(exc)[:200])\n    try:\n        a = W_AFTER.run_invocation(copy.deepcopy(rec), copy.deepcopy(case['script']))\n    except Exception as exc:                                    # noqa: BLE001\n        a = ('raised', repr(exc)[:200])\n    if a == b:\n        same += 1\n    else:\n        differing.append(case.get('id', '?'))\ncheck('every-existing-invocation-case-is-byte-identical-under-the-edit',\n      not differing and same == len(CASES['invocationCases']),\n      {'identical': same, 'total': len(CASES['invocationCases']), 'differing': differing})\n\n# The other observation events that reach `dd`, each with NO subject: unchanged.\nNO_SUBJECT = [\n    {'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE', 'detail': 'PROJECT.SCOPE_LIMIT',\n     'remedy': 'narrow the selection'},\n    {'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE'},\n    {'event': 'provider-unavailable', 'detail': 'native.capability-unavailable'},\n    {'event': 'baseline-unsupported', 'detail': 'BASELINE.RECIPE_UNSUPPORTED'},\n    {'event': 'query-completeness-unmet', 'detail': 'QUERY.COMPLETENESS_UNMET'},\n    {'event': 'operational-fault', 'faultCause': 'host-io', 'detail': 'REPAIR.RECOVERY_BLOCKED'},\n    {'event': 'completed-analysis', 'verdict': 'indeterminate', 'detail': 'PROJECT.SCOPE_LIMIT'},\n]\ncheck('every-dd-carrying-event-without-a-subject-is-unchanged',\n      all(W_BEFORE.terminate(copy.deepcopy(o)) == W_AFTER.terminate(copy.deepcopy(o))\n          for o in NO_SUBJECT))\ncheck('a-detailless-observation-still-produces-no-domain-detail',\n      'domainDetail' not in W_AFTER.terminate({'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE'}))\n\n# ------------------------------------------------- the two producers of one shape now agree\n# `Refusal.termination()` already carried a subject onto the identical record. The edit uses the SAME\n# truthiness test, so the two agree on present, absent and empty-string subjects alike.\nfor label, subject in (('present', 'importIds:257>256'), ('absent', None), ('empty', '')):\n    ref = W_AFTER.Refusal('REQUEST.UNSATISFIABLE', 'PROJECT.SCOPE_LIMIT', 'narrow it',\n                          subject).termination()\n    obs = {'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE', 'detail': 'PROJECT.SCOPE_LIMIT',\n           'remedy': 'narrow it'}\n    if subject is not None:\n        obs['subject'] = subject\n    check('the-two-producers-of-one-termination-now-agree.' + label,\n          W_AFTER.terminate(obs) == ref, {'termination': W_AFTER.terminate(obs)})\ncheck('the-before-model-disagreed-with-its-own-sibling-producer',\n      W_BEFORE.terminate({'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',\n                          'detail': 'PROJECT.SCOPE_LIMIT', 'remedy': 'narrow it',\n                          'subject': 'importIds:257>256'}) !=\n      W_BEFORE.Refusal('REQUEST.UNSATISFIABLE', 'PROJECT.SCOPE_LIMIT', 'narrow it',\n                       'importIds:257>256').termination())\n\n# ------------------------------------------------------- honest limits, asserted rather than implied\n# The edit COPIES; it does not admit. A malformed trusted observation still yields a record the\n# published schema refuses, and this probe states that rather than claiming otherwise.\nbad = W_AFTER.terminate({'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',\n                         'detail': 'PROJECT.SCOPE_LIMIT', 'remedy': 'r', 'subject': 'x' * 2000})\nrefused = False\ntry:\n    W_AFTER.validate_import_record('workflows/schemas/common.schema.json', '#/$defs/DomainDetail',\n                                   bad['domainDetail'])\nexcept Exception:                                               # noqa: BLE001\n    refused = True\ncheck('an-over-length-subject-from-a-malformed-observation-is-still-refused-by-the-schema-not-by-this-edit',\n      refused and len(bad['domainDetail']['subject']) == 2000)\n\nreport = {\n    'probe': 'v19-subject-coauthor.v1 subject preservation',\n    'standing': ('Actual reference composition. The native cardinality producers raise real '\n                 'exceptions and their real typed fields are the observation; the returned records '\n                 'are validated against the published pinned schemas. Invocation records, IDs, step '\n                 'scripts and the earlier committed step result are SYNTHETIC trusted fixture '\n                 'observations from workflow-cases.v1.json. No product host, no earlier Run closure, '\n                 'no provider, compiler, OS or filesystem execution, and no qualification.'),\n    'syntheticAdapters': ['W.synthetic_execution_id (the module\\'s own declared fixture adapter)',\n                          'workflow-cases.v1.json constants REQ/PRJ and step scripts',\n                          'the earlier completed step result, supplied by the case script'],\n    'sourceHashes': {\n        'workflow.before.py': hashlib.sha256((ROOT / 'workflow.before.py').read_bytes()).hexdigest(),\n        'workflow.proposed.py': hashlib.sha256((ROOT / 'workflow.proposed.py').read_bytes()).hexdigest(),\n        'native_evidence_model.v2.py (read-only, from the completed v19 work)':\n            hashlib.sha256((NATIVE_WORK / 'native/native_evidence_model.v2.py').read_bytes()).hexdigest(),\n    },\n    'passed': sum(1 for r in results if r['passed']),\n    'failed': [r for r in results if not r['passed']],\n    'checks': results,\n    'boundedFieldRows': rows,\n}\n(OUT / 'probe-result.json').write_text(json.dumps(report, indent=1) + '\\n', encoding='utf-8')\nprint(json.dumps({'passed': report['passed'], 'failed': len(report['failed']),\n                  'failedIds': [r['id'] for r in report['failed']]}, indent=1))\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:41.328Z",
+    "messageUuid": "7160caa6-1b35-4fbe-82a5-15aece202359",
+    "block": {
+      "tool_use_id": "toolu_014UGi8mGdR7Qiqv61uU1k46",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/probe-subject-preservation.v1.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:44.219Z",
+    "messageUuid": "d23c9884-ad51-42f1-bf38-ce80e7bb2b42",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01UksyBkcabJEGPgag1hCAx7",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B out/probes/probe-subject-preservation.v1.py 2>&1 | tail -25"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:44.630Z",
+    "messageUuid": "4bbacc50-8fc1-4aea-af33-cb30e462437e",
+    "block": {
+      "tool_use_id": "toolu_01UksyBkcabJEGPgag1hCAx7",
+      "type": "tool_result",
+      "content": "{\n \"passed\": 58,\n \"failed\": 0,\n \"failedIds\": []\n}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:51.260Z",
+    "messageUuid": "470c686d-7d1c-472e-b683-be44593bc6b0",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01MaaeHxcapMDSE5w3e9stgF",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('out/evidence/probe-result.json').read_text())\nfor c in d['checks']:\n    if 'observed' in c: print(('PASS' if c['passed'] else 'FAIL'),c['id'],'|',json.dumps(c['observed'])[:180])\nprint()\nr=d['boundedFieldRows'][2]\nprint('importIds before:',json.dumps(r['beforeStepTermination']))\nprint('importIds after :',json.dumps(r['afterStepTermination']))\nprint('aggregate       :',json.dumps(r['afterAggregate'])[:200])\n\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:30:51.328Z",
+    "messageUuid": "283e6c17-575d-4388-b743-b56051dfd4ce",
+    "block": {
+      "tool_use_id": "toolu_01MaaeHxcapMDSE5w3e9stgF",
+      "type": "tool_result",
+      "content": "PASS exact-subject-retained-per-step.semanticClosures | {\"subject\": \"semanticClosures:129>128\"}\nPASS exit-code-is-2-and-unchanged.semanticClosures | {\"before\": 2, \"after\": 2}\nPASS the-edit-changes-exactly-one-field-of-the-whole-record.semanticClosures | {\"note\": \"after-record with the subject removed equals the before-record byte for byte\"}\nPASS returned-termination-and-invocation-validate-against-published-schemas.semanticClosures | {\"error\": null}\nPASS exact-subject-retained-per-step.nativeContextDigests | {\"subject\": \"nativeContextDigests:129>128\"}\nPASS exit-code-is-2-and-unchanged.nativeContextDigests | {\"before\": 2, \"after\": 2}\nPASS the-edit-changes-exactly-one-field-of-the-whole-record.nativeContextDigests | {\"note\": \"after-record with the subject removed equals the before-record byte for byte\"}\nPASS returned-termination-and-invocation-validate-against-published-schemas.nativeContextDigests | {\"error\": null}\nPASS exact-subject-retained-per-step.importIds | {\"subject\": \"importIds:257>256\"}\nPASS exit-code-is-2-and-unchanged.importIds | {\"before\": 2, \"after\": 2}\nPASS the-edit-changes-exactly-one-field-of-the-whole-record.importIds | {\"note\": \"after-record with the subject removed equals the before-record byte for byte\"}\nPASS returned-termination-and-invocation-validate-against-published-schemas.importIds | {\"error\": null}\nPASS exact-subject-retained-per-step.requestedCapabilities | {\"subject\": \"requestedCapabilities:1025>1024\"}\nPASS exit-code-is-2-and-unchanged.requestedCapabilities | {\"before\": 2, \"after\": 2}\nPASS the-edit-changes-exactly-one-field-of-the-whole-record.requestedCapabilities | {\"note\": \"after-record with the subject removed equals the before-record byte for byte\"}\nPASS returned-termination-and-invocation-validate-against-published-schemas.requestedCapabilities | {\"error\": null}\nPASS exact-subject-retained-per-step.workspaceRoots | {\"subject\": \"workspaceRoots:1025>1024\"}\nPASS exit-code-is-2-and-unchanged.workspaceRoots | {\"before\": 2, \"after\": 2}\nPASS the-edit-changes-exactly-one-field-of-the-whole-record.workspaceRoots | {\"note\": \"after-record with the subject removed equals the before-record byte for byte\"}\nPASS returned-termination-and-invocation-validate-against-published-schemas.workspaceRoots | {\"error\": null}\nPASS every-existing-invocation-case-is-byte-identical-under-the-edit | {\"identical\": 32, \"total\": 32, \"differing\": []}\nPASS the-two-producers-of-one-termination-now-agree.present | {\"termination\": {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow it\", \"subject\": \"importIds:257\nPASS the-two-producers-of-one-termination-now-agree.absent | {\"termination\": {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow it\"}}}\nPASS the-two-producers-of-one-termination-now-agree.empty | {\"termination\": {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow it\"}}}\n\nimportIds before: {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the imported-evidence selection explicitly - fewer evidence.importIds in the resolved semantic configuration for this invocation; no import was truncated\"}}\nimportIds after : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the imported-evidence selection explicitly - fewer evidence.importIds in the resolved semantic configuration for this invocation; no import was truncated\", \"subject\": \"importIds:257>256\"}}\naggregate       : {\"class\": \"request-rejected\", \"errorCode\": \"REQUEST.UNSATISFIABLE\", \"domainDetail\": {\"code\": \"PROJECT.SCOPE_LIMIT\", \"remedy\": \"narrow the imported-evidence selection explicitly - fewer evidence.import",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:02.764Z",
+    "messageUuid": "89a94709-3e22-4dac-8d84-afe32865ccc1",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_0148AcgRy22Mgmv4gbvNeMji",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B - <<'PY'\nimport importlib.util,sys,pathlib,copy,json\ndef load(n,p):\n    s=importlib.util.spec_from_file_location(n,p);m=importlib.util.module_from_spec(s);sys.modules[n]=m;s.loader.exec_module(m);return m\nW=load('w',pathlib.Path('out/disposable/dc-proposed/workflows/workflows_model.v1.py'))\ndef try_v(doc,sel,val):\n    try: W.validate_import_record(doc,sel,val); return 'ADMIT'\n    except Exception as e: return 'REFUSE:'+type(e).__name__\n# meta-controls: the validator is LIVE, not a no-op\nprint('valid DomainDetail          ',try_v('workflows/schemas/common.schema.json','#/$defs/DomainDetail',{'code':'PROJECT.SCOPE_LIMIT','remedy':'r','subject':'importIds:257>256'}))\nprint('unknown detail code         ',try_v('workflows/schemas/common.schema.json','#/$defs/DomainDetail',{'code':'NOT.A.REGISTERED_CODE','remedy':'r'}))\nprint('subject wrong type          ',try_v('workflows/schemas/common.schema.json','#/$defs/DomainDetail',{'code':'PROJECT.SCOPE_LIMIT','remedy':'r','subject':7}))\nprint('subject over 1024           ',try_v('workflows/schemas/common.schema.json','#/$defs/DomainDetail',{'code':'PROJECT.SCOPE_LIMIT','remedy':'r','subject':'x'*2000}))\nprint('undeclared extra property   ',try_v('workflows/schemas/common.schema.json','#/$defs/DomainDetail',{'code':'PROJECT.SCOPE_LIMIT','remedy':'r','notAField':1}))\nprint(\"invocation root sel '' empty\",try_v('workflows/schemas/invocation-record.schema.json','',{'nope':1}))\nPY"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:02.998Z",
+    "messageUuid": "2c205dfe-5040-425d-938c-aa97ced97049",
+    "block": {
+      "tool_use_id": "toolu_0148AcgRy22Mgmv4gbvNeMji",
+      "type": "tool_result",
+      "content": "valid DomainDetail           ADMIT\nunknown detail code          REFUSE:Refusal\nsubject wrong type           REFUSE:Refusal\nsubject over 1024            REFUSE:Refusal\nundeclared extra property    REFUSE:Refusal\ninvocation root sel '' empty REFUSE:Refusal",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:07.588Z",
+    "messageUuid": "bc463169-ed51-4562-9b8f-7aeb0fc0ac65",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01HCa1cq8q91asboGVYMBtig",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections/workflows; grep -n \"^def \\|^check\\|^results\\|^SWEEPS\\|sweep\" $B/check_workflows.v1.py | head -30; echo '--- tail ---'; tail -25 $B/check_workflows.v1.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:07.630Z",
+    "messageUuid": "0e5a5076-f64e-43a3-a22d-1c6e86c4ab5e",
+    "block": {
+      "tool_use_id": "toolu_01HCa1cq8q91asboGVYMBtig",
+      "type": "tool_result",
+      "content": "27:def check(cid, ok, detail=''):\n41:def validator(ref):\n45:def valid(ref, value):\n53:def must_valid(cid, ref, value):\n57:def must_invalid(cid, ref, value):\n69:def synthetic_recovery_projection(journal, plan):\n87:def sub(o):\n106:check('schemas.compiled', len(SCHEMAS) == 13, str(len(SCHEMAS)))\n107:check('foundation.import-def-present', 'import' in FOUNDATION['$defs'])\n130:check('inventory.every-command-once', sorted(names) == sorted(enum) and len(set(names)) == len(names))\n137:check('inventory.default-is-durable-authoritative', next(c for c in INV['commands'] if c['name'] == 'default')['authority'] == 'authoritative-default')\n138:check('inventory.has-lifecycle-and-doctor', {'install', 'update', 'doctor', 'purge'} <= set(names))\n140:check('inventory.golden-ids-unique', len(set(gold_ids)) == len(gold_ids))\n149:check('golden.doctor-defects-exit-zero', M.exit_code(M.terminate(CASES['goldenObservations']['doctor-defects-found'])) == 0)\n150:check('golden.unavailable-3-vs-delivery-4', M.exit_code(M.terminate(CASES['goldenObservations']['default-missing-required-closure'])) == 3 and M.exit_code(M.terminate(CASES['goldenObservations']['default-closure-bytes-corrupt'])) == 4)\n153:def build_record(case, rid):\n207:check('invocation.step-bound-64', SCHEMAS[U + 'invocation-record']['properties']['orderedSteps']['maxItems'] == 64 and SCHEMAS[U + 'common']['$defs']['StepId']['maximum'] == 63)\n208:check('invocation.derivation-bound-1024', SCHEMAS[U + 'invocation-record']['$defs']['DerivationBinding']['properties']['stageCount']['maximum'] == 1024 and FOUNDATION['$defs']['execution-plan']['properties']['stages']['maxItems'] == 1024)\n209:check('invocation.ephemeral-union-closed', all('runId' not in b['properties'] for b in SCHEMAS[U + 'invocation-record']['$defs']['AnalysisResult']['oneOf'] if b['properties']['authority']['const'] == 'ephemeral'))\n212:def fixture_evidence(value,overrides=None):\n218:def make_baseline(policy, scope, waivers, rule_cov, project=C['PRJ'], evidence=None):\n236:def _binding_refusal(spec, scope):\n241:check('baseline.scope-binding-verified-when-the-analysis-spec-is-supplied',\n243:check('baseline.scope-binding-refuses-a-non-selected-document',\n245:check('baseline.scope-binding-refuses-when-no-scope-parameter-is-selected',\n248:check('baseline.scope-binding-refuses-a-row-cited-under-another-schema',\n255:def _adopt(scope, spec):\n260:check('baseline.adopt-with-verified-scope-parameter-succeeds',\n262:check('baseline.verified-and-asserted-paths-agree-on-the-descriptor',\n272:check('baseline.operator-glob-scope-is-not-the-repository-scope-descriptor',\n--- tail ---\n    for s in fb['schemas']:\n        check(f'obligation-map.point-{fb[\"point\"]}.schema-exists.{s}', (HERE / 'schemas' / s).is_file())\ncheck('obligation-map.all-nine-feedback-points', sorted(fb['point'] for fb in OMAP['feedback']) == list(range(1, 10)))\ncheck('obligation-map.ar-obligations', sorted(o['id'] for o in OMAP['obligations']) == ['AR-08', 'AR-10', 'AR-11', 'AR-13', 'AR-16'])\n\n# ----------------------------------------------------------------------------- report\na = argparse.ArgumentParser(); a.add_argument('--report', required=True); args = a.parse_args()\nfailed = [c for c in CHECKS if not c['ok']]\nreport = {\n    'unit': 'workflows-and-surfaces', 'standing': 'PROPOSED reference evidence; NOT SELF-ACCEPTED; not product qualification',\n    'python': sys.version.split()[0], 'schemaCount': len(SCHEMAS), 'checkCount': len(CHECKS), 'passed': len(CHECKS) - len(failed), 'failed': failed,\n    'boundaries': [\n        'All inputs are synthetic trusted model inputs; presence sets for pivots E0..E4 are supplied by the case, not computed by running detectors.',\n        'No provider, repository code, renderer, ledger or filesystem is executed; journals and trees are in-memory.',\n        'Expected values and mixed-author corrections require fresh independent Claude review; passing this checker is not acceptance.',\n        'Security-unit grant admission is stubbed by an already-admitted grant record; the security model is not re-executed here.'\n    ],\n    'productQualification': False,\n    'sourceSha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(HERE.glob('*.py')) + sorted(HERE.glob('*.json')) + sorted((HERE / 'schemas').glob('*.json')) if 'report' not in p.name and p.name != 'initial-author-response.json'}\n}\nPath(args.report).write_text(json.dumps(report, indent=2) + '\\n')\nprint(json.dumps({'checks': len(CHECKS), 'passed': report['passed'], 'failed': len(failed)}))\nfor f in failed[:40]:\n    print('FAIL', f['id'], f['detail'])\nsys.exit(1 if failed else 0)",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:17.857Z",
+    "messageUuid": "37bf7333-48d2-4295-8195-6ca88dde54f4",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01T7jsz3ee2f3b6iHqMrNMoA",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections; sed -n '27,60p' $B/workflows/check_workflows.v1.py; echo '--- U / M / C ---'; grep -n \"^U = \\|^M = \\|^C = \\|^CASES = \\|^HERE\" $B/workflows/check_workflows.v1.py | head; echo '--- check-integration imports ---'; grep -n \"^N = \\|^W = \\|^S = \\|^M = \\|def check\" $B/check-integration.py | head"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:17.910Z",
+    "messageUuid": "8fce0db4-d85f-472f-8efc-504d91d2df40",
+    "block": {
+      "tool_use_id": "toolu_01T7jsz3ee2f3b6iHqMrNMoA",
+      "type": "tool_result",
+      "content": "def check(cid, ok, detail=''):\n    CHECKS.append({'id': cid, 'ok': bool(ok), 'detail': detail if not ok else ''})\n    return ok\n\n# ----------------------------------------------------------------------------- schema registry\nSCHEMAS = {}\nfor p in sorted(glob.glob(str(HERE / 'schemas' / '*.schema.json'))):\n    s = canonical.parse(Path(p).read_bytes())\n    Draft202012Validator.check_schema(s)\n    SCHEMAS[s['$id']] = s\nFOUNDATION = canonical.parse((HERE.parent / 'foundation' / 'identity-schemas.v2.json').read_bytes())\nREG = Registry().with_resources([(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()] + [(FOUNDATION['$id'], Resource(contents=FOUNDATION, specification=DRAFT202012))])\nU = 'urn:opensip:product-v1:workflows:'\n\ndef validator(ref):\n    sid, _, frag = ref.partition('#')\n    return canonical.ExactValidator({'$ref': sid + '#' + frag} if frag else {'$ref': sid}, registry=REG)\n\ndef valid(ref, value):\n    try:\n        canonical.typed(value)\n        validator(ref).validate(value)\n        return True, ''\n    except (ValidationError, canonical.AdmissionError) as e:\n        return False, str(e).splitlines()[0][:200]\n\ndef must_valid(cid, ref, value):\n    ok, why = valid(ref, value)\n    return check(cid, ok, why)\n\ndef must_invalid(cid, ref, value):\n    ok, _ = valid(ref, value)\n    return check(cid, not ok, 'unexpectedly valid')\n\n--- U / M / C ---\n14:HERE = Path(__file__).resolve().parent\n22:M = importlib.util.module_from_spec(spec)\n39:U = 'urn:opensip:product-v1:workflows:'\n80:C = dict(RAW['constants'])\n101:CASES = sub(RAW)\n--- check-integration imports ---\n12:M = importlib.util.module_from_spec(spec); spec.loader.exec_module(M)\n15:def check(name, condition):",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:20.397Z",
+    "messageUuid": "72af54dd-dcf2-4ca2-8abe-1f6509652c02",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01PWqhVUxVRgJsHirxyK3cFc",
+      "name": "Bash",
+      "input": {
+        "command": "B=/tmp/opensip-design-corrections/candidate-subject.v18/docs/coop/design-corrections; sed -n '1,30p' $B/check-integration.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:31:20.446Z",
+    "messageUuid": "f0e6241b-17e9-4fcd-b39c-2be556ef298b",
+    "block": {
+      "tool_use_id": "toolu_01PWqhVUxVRgJsHirxyK3cFc",
+      "type": "tool_result",
+      "content": "\"\"\"Cross-unit reference checks; synthetic TCB inputs, not independent acceptance.\"\"\"\nimport argparse\nimport copy\nimport hashlib\nimport importlib.util\nimport json\nfrom pathlib import Path\nfrom jsonschema import ValidationError\n\nHERE = Path(__file__).resolve().parent\nspec = importlib.util.spec_from_file_location('integration_host', HERE / 'integration-host-model.py')\nM = importlib.util.module_from_spec(spec); spec.loader.exec_module(M)\nchecks = []\n\ndef check(name, condition):\n    checks.append({'id': name, 'passed': bool(condition)})\n\ndef refuses(name, fn):\n    try:\n        fn()\n    except (ValueError, ValidationError, M.C.AdmissionError, M.W.Refusal, M.N.C.AdmissionError, M.N.IM.C.AdmissionError):\n        check(name, True)\n    else:\n        check(name, False)\n\nnf = M.C.parse((HERE / 'native/native-cases.v2.json').read_bytes())['fixtures']\nsf = M.C.parse((HERE / 'security/execution-principal-cases.v1.json').read_bytes())\nwf = M.C.parse((HERE / 'workflows/workflow-cases.v1.json').read_bytes())\n\ndef bind(grant, ctx):",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:32:08.861Z",
+    "messageUuid": "010a5500-b3f7-47e3-bb9c-1c71361e8130",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01YXihyYyQEcfxHFyVSnekE5",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/checks/check_workflows.subject.block.py",
+        "content": "# ============================================================================================\n# PROPOSED DURABLE BLOCK for docs/coop/design-corrections/workflows/check_workflows.v1.py\n# Insert anywhere after the `golden.*` termination checks; it uses only names that file already\n# binds (check, must_valid, must_invalid, M, U). Root integrates; nothing is inserted here.\n# ============================================================================================\n# ------------------------------------------------- DomainDetail.subject survives `terminate`\n# The public detail vocabulary is CLOSED, and this contract states what carries the rest:\n# \"Dynamic paths or refusal explanations travel in bounded `subject`/`remedy` fields, never as\n# newly invented codes.\" `terminate` rebuilds a DomainDetail from an observation field by field\n# and copied only two of the three, so a producer whose entire disclosure IS its subject lost it\n# at the envelope. Native section 14's bounded selection refusal is the live case: it promises\n# `field:count>limit` and that \"the subject always names which one overflowed\", yet every bounded\n# field arrived as one indistinguishable PROJECT.SCOPE_LIMIT - leaving a caller who needs to know\n# WHICH bound was hit only the newly invented code the sentence above forbids.\n_SUBJECT_OBS = {'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',\n                'detail': 'PROJECT.SCOPE_LIMIT', 'remedy': 'narrow the selection explicitly',\n                'subject': 'importIds:257>256'}\n_SUBJECT_TERM = M.terminate(dict(_SUBJECT_OBS))\ncheck('termination.observed-subject-is-carried-exactly',\n      _SUBJECT_TERM['domainDetail'].get('subject') == _SUBJECT_OBS['subject'],\n      str(_SUBJECT_TERM))\nmust_valid('termination.subject-carrying-detail-is-schema-valid',\n           U + 'common#/$defs/StepTermination', _SUBJECT_TERM)\n# STRICTLY ADDITIVE: an observation with no subject yields exactly what it always yielded.\ncheck('termination.absent-subject-adds-no-field',\n      M.terminate({k: v for k, v in _SUBJECT_OBS.items() if k != 'subject'})\n      == {'class': 'request-rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',\n          'domainDetail': {'code': 'PROJECT.SCOPE_LIMIT',\n                           'remedy': 'narrow the selection explicitly'}})\ncheck('termination.detailless-observation-still-has-no-domain-detail',\n      'domainDetail' not in M.terminate({'event': 'rejected',\n                                         'errorCode': 'REQUEST.UNSATISFIABLE'}))\n# ONE record, ONE rule. `Refusal.termination()` already carried a subject onto this exact shape;\n# two producers of one record disagreeing about one of its fields was the defect, so they are\n# held equal on a present, an absent and an empty subject alike.\nfor _label, _subject in (('present', 'importIds:257>256'), ('absent', None), ('empty', '')):\n    _obs = {k: v for k, v in _SUBJECT_OBS.items() if k != 'subject'}\n    if _subject is not None:\n        _obs['subject'] = _subject\n    check('termination.both-producers-of-one-termination-agree.' + _label,\n          M.terminate(_obs) == M.Refusal(_SUBJECT_OBS['errorCode'], _SUBJECT_OBS['detail'],\n                                         _SUBJECT_OBS['remedy'], _subject).termination())\n# The subject is COPIED, never ADMITTED. A malformed trusted observation is still the schema's to\n# refuse, exactly as it is for a malformed `remedy` or `detail`; this makes no admission claim.\nmust_invalid('termination.over-length-observed-subject-is-still-refused-by-the-schema',\n             U + 'common#/$defs/DomainDetail',\n             M.terminate(dict(_SUBJECT_OBS, subject='x' * 2000))['domainDetail'])\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:32:08.978Z",
+    "messageUuid": "67ddc4f2-8e3f-450d-9867-f11fb71118d4",
+    "block": {
+      "tool_use_id": "toolu_01YXihyYyQEcfxHFyVSnekE5",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/checks/check_workflows.subject.block.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:32:27.806Z",
+    "messageUuid": "29839571-3e54-4a05-908c-edabb96ee493",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01VZXAQ35potDq4XtZ57TFJp",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/checks/check_integration.subject.block.py",
+        "content": "# ============================================================================================\n# PROPOSED DURABLE BLOCK for docs/coop/design-corrections/check-integration.py\n# Insert beside the other cross-unit joins; it uses only names that file already binds\n# (check, M -> integration-host-model, whose M.N is the native model and M.W the workflows\n# model). Root integrates; nothing is inserted here.\n# ============================================================================================\n# ------------------- the exact bounded-selection subject survives the workflow envelope (H-join)\n# Native OWNS the refusal and its subject; workflows OWNS the envelope a caller actually reads.\n# Neither unit's own suite can see the seam, because each is correct on its own side: native\n# projects `field:count>limit`, workflows carries a DomainDetail. The composition is where the\n# promise \"the subject always names which one overflowed\" is either kept or silently lost, so it\n# is asserted HERE, over the ACTUAL producer rather than a hand-written termination.\ndef scope_limit_observation(field, count, prefix):\n    \"\"\"Invoke the real native bounded-selection boundary and project its real typed refusal.\"\"\"\n    try:\n        M.N.admit_plan_selection_cardinality({field: [prefix + ('%064x' % i) for i in range(count)]})\n    except M.N.ScopeRefusal as exc:\n        termination = M.N.scope_refusal_termination(exc)\n        detail = termination['domainDetail']\n        return detail, {'event': 'rejected', 'errorCode': termination['errorCode'],\n                        'detail': detail['code'], 'subject': detail['subject'],\n                        'remedy': detail['remedy']}\n    raise AssertionError('expected an actual ScopeRefusal for ' + field)\n\nfor _field, _count, _prefix in (('semanticClosures', 129, 'closure2:'),\n                                ('nativeContextDigests', 129, ''),\n                                ('importIds', 257, 'import2:')):\n    _detail, _obs = scope_limit_observation(_field, _count, _prefix)\n    _term = M.W.terminate(dict(_obs))\n    check('native-scope-limit-subject-survives-the-workflow-envelope.' + _field,\n          _term['domainDetail'].get('subject') == _detail['subject']\n          == _field + ':' + str(_count) + '>' + str(M.N.plan_selection_bound(_field)))\n    check('native-scope-limit-public-route-is-unchanged-across-the-seam.' + _field,\n          _term['class'] == 'request-rejected'\n          and _term['errorCode'] == 'REQUEST.UNSATISFIABLE'\n          and _term['domainDetail']['code'] == 'PROJECT.SCOPE_LIMIT'\n          and _term['domainDetail']['remedy'] == M.N.SCOPE_LIMIT_REMEDY[_field]\n          and M.W.exit_code(_term) == 2)\n# The two bounded fields that predate the Plan arrays cross the same seam, so the join is a\n# property of the shared law rather than of the three new fields.\nfor _field, _refuse in (('requestedCapabilities',\n                         lambda: M.N.admit_requested_capability_cardinality(\n                             [{'capabilityId': 'references', 'languageMode': 'ts-tsconfig',\n                               'workspaceRoot': 'r%05d' % i, 'required': True}\n                              for i in range(M.N.requested_capability_bound() + 1)])),\n                        ('workspaceRoots',\n                         lambda: M.N.unit_scope_descriptor(\n                             [{'rootPath': 'r%05d' % i, 'languageMode': 'ts-tsconfig',\n                               'languageFamily': 'tsjs'} for i in range(1025)], []))):\n    try:\n        _refuse()\n        _observed = None\n    except M.N.ScopeRefusal as _exc:\n        _d = M.N.scope_refusal_termination(_exc)['domainDetail']\n        _observed = M.W.terminate({'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',\n                                   'detail': _d['code'], 'subject': _d['subject'],\n                                   'remedy': _d['remedy']})['domainDetail'].get('subject')\n    check('inherited-scope-limit-subject-survives-the-workflow-envelope.' + _field,\n          _observed == _field + ':1025>1024')\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:32:27.929Z",
+    "messageUuid": "97987245-0495-44d4-8357-5fe3ca3f6d8c",
+    "block": {
+      "tool_use_id": "toolu_01VZXAQ35potDq4XtZ57TFJp",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/checks/check_integration.subject.block.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:01.032Z",
+    "messageUuid": "ff12c2d2-7525-44ed-8224-17f37025f0ff",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_0142MC3owTNHb4tooVQSUTWX",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/verify-durable-blocks.py",
+        "content": "\"\"\"Verify the two proposed durable blocks WITHOUT rerunning either suite.\n\nTwo independent guarantees:\n  1. NAME RESOLUTION - every module-level free name each block references is actually bound by its\n     target checker (collected statically from that checker's own module-level assignments, defs,\n     imports and comprehension targets). This is what catches a block that would NameError.\n  2. EXECUTION - each block is exec'd against a faithful namespace built from the real modules, so\n     its assertions are really evaluated. The blocks report through `check`, so a failing assertion\n     shows up as a failing row rather than an exception.\nNo suite report is produced and no pin is touched.\n\"\"\"\nimport ast\nimport builtins\nimport importlib.util\nimport json\nimport pathlib\nimport sys\n\nROOT = pathlib.Path('/tmp/opensip-design-corrections/v19-subject-coauthor.v1')\nDC = pathlib.Path('/tmp/opensip-design-corrections/v19-native-coauthor.v1/work/docs/coop/design-corrections')\nPROPOSED_DC = ROOT / 'out/disposable/dc-proposed'\n\nout = {'nameResolution': {}, 'execution': {}}\n\n\ndef bound_names(path):\n    \"\"\"Module-level names a file binds: imports, defs, classes, assignments, for/with targets.\"\"\"\n    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))\n    names = set()\n\n    def add_target(t):\n        for node in ast.walk(t):\n            if isinstance(node, ast.Name):\n                names.add(node.id)\n\n    for node in tree.body:\n        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):\n            names.add(node.name)\n        elif isinstance(node, ast.Import):\n            for a in node.names:\n                names.add(a.asname or a.name.split('.')[0])\n        elif isinstance(node, ast.ImportFrom):\n            for a in node.names:\n                names.add(a.asname or a.name)\n        elif isinstance(node, ast.Assign):\n            for t in node.targets:\n                add_target(t)\n        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):\n            add_target(node.target)\n        elif isinstance(node, (ast.For, ast.AsyncFor)):\n            add_target(node.target)\n        elif isinstance(node, ast.With):\n            for item in node.items:\n                if item.optional_vars is not None:\n                    add_target(item.optional_vars)\n        elif isinstance(node, (ast.If, ast.Try)):\n            for sub in ast.walk(node):\n                if isinstance(sub, ast.Assign):\n                    for t in sub.targets:\n                        add_target(t)\n                elif isinstance(sub, (ast.FunctionDef, ast.ClassDef)):\n                    names.add(sub.name)\n    return names\n\n\ndef free_names(path):\n    \"\"\"Module-level names a block READS without binding them itself.\"\"\"\n    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))\n    bound, read = bound_names(path), set()\n    for node in ast.walk(tree):\n        if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load):\n            read.add(node.id)\n        if isinstance(node, (ast.FunctionDef, ast.Lambda)):\n            for a in node.args.args + node.args.kwonlyargs:\n                bound.add(a.arg)\n        if isinstance(node, ast.comprehension):\n            for n in ast.walk(node.target):\n                if isinstance(n, ast.Name):\n                    bound.add(n.id)\n        if isinstance(node, ast.ExceptHandler) and node.name:\n            bound.add(node.name)\n    return {n for n in read - bound if not hasattr(builtins, n)}\n\n\nfor block, target in (('checks/check_workflows.subject.block.py', 'workflows/check_workflows.v1.py'),\n                      ('checks/check_integration.subject.block.py', 'check-integration.py')):\n    needed = free_names(ROOT / block)\n    have = bound_names(DC / target)\n    missing = sorted(needed - have)\n    out['nameResolution'][block] = {'target': target, 'needs': sorted(needed),\n                                    'missingInTarget': missing, 'resolves': not missing}\n\n# --------------------------------------------------------------------------------- execution\ndef load(name, path):\n    spec = importlib.util.spec_from_file_location(name, path)\n    mod = importlib.util.module_from_spec(spec)\n    sys.modules[name] = mod\n    spec.loader.exec_module(mod)\n    return mod\n\n\nW = load('verify_wf', PROPOSED_DC / 'workflows/workflows_model.v1.py')\nHOST = load('verify_host', PROPOSED_DC / 'integration-host-model.py')\nassert HOST.W is not None and HOST.N is not None\n\n# --- workflows checker namespace: check / must_valid / must_invalid / M / U, built the same way\nimport glob                                                                     # noqa: E402\nfrom jsonschema import Draft202012Validator                                     # noqa: E402\nfrom referencing import Registry, Resource                                      # noqa: E402\nfrom referencing.jsonschema import DRAFT202012                                  # noqa: E402\n\ncanonical = load('verify_canonical', DC / 'foundation/canonical.py')\nSCHEMAS = {}\nfor p in sorted(glob.glob(str(DC / 'workflows/schemas/*.schema.json'))):\n    s = canonical.parse(pathlib.Path(p).read_bytes())\n    Draft202012Validator.check_schema(s)\n    SCHEMAS[s['$id']] = s\nFOUNDATION = canonical.parse((DC / 'foundation/identity-schemas.v2.json').read_bytes())\nREG = Registry().with_resources(\n    [(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()]\n    + [(FOUNDATION['$id'], Resource(contents=FOUNDATION, specification=DRAFT202012))])\n\n\ndef run_block(block, namespace, rows):\n    src = (ROOT / block).read_text(encoding='utf-8')\n    try:\n        exec(compile(src, str(ROOT / block), 'exec'), namespace)               # noqa: S102\n    except Exception as exc:                                                    # noqa: BLE001\n        return {'raised': repr(exc)[:400], 'rows': rows}\n    return {'raised': None, 'rows': rows}\n\n\nrows_a = []\ndef check_a(cid, ok, detail=''):\n    rows_a.append({'id': cid, 'ok': bool(ok), 'detail': detail if not ok else ''})\n    return ok\n\n\ndef valid_a(ref, value):\n    sid, _, frag = ref.partition('#')\n    try:\n        canonical.typed(value)\n        canonical.ExactValidator({'$ref': sid + '#' + frag} if frag else {'$ref': sid},\n                                 registry=REG).validate(value)\n        return True, ''\n    except Exception as e:                                                      # noqa: BLE001\n        return False, str(e).splitlines()[0][:200]\n\n\nns_a = {'check': check_a, 'M': W, 'U': 'urn:opensip:product-v1:workflows:',\n        'must_valid': lambda cid, ref, v: check_a(cid, *(lambda r: (r[0], r[1]))(valid_a(ref, v))),\n        'must_invalid': lambda cid, ref, v: check_a(cid, not valid_a(ref, v)[0], 'unexpectedly valid')}\nout['execution']['checks/check_workflows.subject.block.py'] = run_block(\n    'checks/check_workflows.subject.block.py', ns_a, rows_a)\n\nrows_b = []\ndef check_b(name, condition):\n    rows_b.append({'id': name, 'ok': bool(condition), 'detail': ''})\n\n\nns_b = {'check': check_b, 'M': HOST}\nout['execution']['checks/check_integration.subject.block.py'] = run_block(\n    'checks/check_integration.subject.block.py', ns_b, rows_b)\n\nfor block, res in out['execution'].items():\n    res['passed'] = sum(1 for r in res['rows'] if r['ok'])\n    res['failed'] = [r for r in res['rows'] if not r['ok']]\n\nout['note'] = ('Namespaces are reconstructed faithfully from the real modules; neither suite was '\n               'run and no report or pin was written. The workflows namespace rebuilds the same '\n               'schema registry that checker builds.')\n(ROOT / 'out/evidence/durable-block-verification.json').write_text(\n    json.dumps(out, indent=1) + '\\n', encoding='utf-8')\nprint(json.dumps({b: {'resolves': v['resolves'], 'missing': v['missingInTarget']}\n                  for b, v in out['nameResolution'].items()}, indent=1))\nprint(json.dumps({b: {'raised': v['raised'], 'passed': v['passed'],\n                      'failed': [r['id'] for r in v['failed']]}\n                  for b, v in out['execution'].items()}, indent=1))\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:01.152Z",
+    "messageUuid": "fe30b40a-6f9a-4998-92be-e6bdaf7928dc",
+    "block": {
+      "tool_use_id": "toolu_0142MC3owTNHb4tooVQSUTWX",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/verify-durable-blocks.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:04.801Z",
+    "messageUuid": "e0ad441e-c61f-4478-b68d-af5cf954030e",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_012kqXpBVAF1646Dzdviu8zS",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B out/probes/verify-durable-blocks.py 2>&1 | tail -30"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:05.154Z",
+    "messageUuid": "4939a7da-3720-44b5-a6d6-9e8a602eec06",
+    "block": {
+      "tool_use_id": "toolu_012kqXpBVAF1646Dzdviu8zS",
+      "type": "tool_result",
+      "content": " \"checks/check_integration.subject.block.py\": {\n  \"resolves\": false,\n  \"missing\": [\n   \"_d\",\n   \"_detail\",\n   \"_obs\",\n   \"_observed\",\n   \"_term\",\n   \"termination\"\n  ]\n }\n}\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 8,\n  \"failed\": []\n },\n \"checks/check_integration.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 3,\n  \"failed\": [\n   \"native-scope-limit-subject-survives-the-workflow-envelope.semanticClosures\",\n   \"native-scope-limit-subject-survives-the-workflow-envelope.nativeContextDigests\",\n   \"native-scope-limit-subject-survives-the-workflow-envelope.importIds\",\n   \"inherited-scope-limit-subject-survives-the-workflow-envelope.requestedCapabilities\",\n   \"inherited-scope-limit-subject-survives-the-workflow-envelope.workspaceRoots\"\n  ]\n }\n}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:31.199Z",
+    "messageUuid": "823a3e49-4aaa-4ec2-8b9b-7b5d5db9a21e",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01GY34u6m816BQjAFXc4LFpi",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && SRC=/tmp/opensip-design-corrections/v19-native-coauthor.v1/work/docs/coop/design-corrections && for V in before proposed; do D=out/disposable/dc-$V; rm -f $D/integration-host-model.py; cp \"$SRC/integration-host-model.py\" \"$D/integration-host-model.py\"; done && /tmp/opensip-architecture-review-env/bin/python -I -B - <<'PY'\nimport pathlib\np=pathlib.Path('out/probes/verify-durable-blocks.py')\ns=p.read_text()\nOLD=\"\"\"def free_names(path):\n    \\\"\\\"\\\"Module-level names a block READS without binding them itself.\\\"\\\"\\\"\n    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))\n    bound, read = bound_names(path), set()\"\"\"\nNEW=\"\"\"def free_names(path):\n    \\\"\\\"\\\"Names a block READS without binding them ANYWHERE in itself.\n\n    A block binds inside for-bodies, try-bodies and its own functions too, so unlike `bound_names`\n    - which answers the different question of what a TARGET module exposes at module level - this\n    walks the whole tree. An earlier revision reused the module-level collector here and reported\n    six of the block's own locals as unresolved.\n    \\\"\\\"\\\"\n    tree = ast.parse(pathlib.Path(path).read_text(encoding='utf-8'))\n    read = set()\n    bound = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)}\n    bound |= {n.name for n in ast.walk(tree)\n              if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}\"\"\"\nassert s.count(OLD)==1\np.write_text(s.replace(OLD,NEW))\nprint('analyzer fixed')\nPY\n/tmp/opensip-architecture-review-env/bin/python -I -B out/probes/verify-durable-blocks.py 2>&1 | tail -30"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:31.629Z",
+    "messageUuid": "825529c3-0827-4520-ab60-72c8e7833399",
+    "block": {
+      "tool_use_id": "toolu_01GY34u6m816BQjAFXc4LFpi",
+      "type": "tool_result",
+      "content": "analyzer fixed\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"resolves\": true,\n  \"missing\": []\n },\n \"checks/check_integration.subject.block.py\": {\n  \"resolves\": true,\n  \"missing\": []\n }\n}\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 8,\n  \"failed\": []\n },\n \"checks/check_integration.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 8,\n  \"failed\": []\n }\n}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:50.498Z",
+    "messageUuid": "db91851f-9827-4752-a5d5-6cb2a17cf25a",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01JPe1SXUKXkkBMjoJxHmo5P",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B - <<'PY'\nimport pathlib\np=pathlib.Path('out/probes/verify-durable-blocks.py')\ns=p.read_text()\nOLD=\"\"\"for block, res in out['execution'].items():\"\"\"\nNEW=\"\"\"# DISCRIMINATION. A control that passes against the unpatched model would prove nothing, so both\n# blocks are re-run against the BEFORE model and are required to FAIL there. (The first run of this\n# verifier discovered the same thing by accident: `integration-host-model.py` calls\n# Path(__file__).resolve(), which followed the shadow tree's symlink back to the unpatched module,\n# so the block was silently graded against the wrong bytes. Both shadow trees now hold a real copy\n# of that file, and this section makes the negative deliberate.)\nBEFORE_DC = ROOT / 'out/disposable/dc-before'\nW_BEFORE = load('verify_wf_before', BEFORE_DC / 'workflows/workflows_model.v1.py')\nHOST_BEFORE = load('verify_host_before', BEFORE_DC / 'integration-host-model.py')\nneg = {}\nfor label, block, ns in (\n        ('checks/check_workflows.subject.block.py', 'checks/check_workflows.subject.block.py',\n         dict(ns_a, M=W_BEFORE)),\n        ('checks/check_integration.subject.block.py', 'checks/check_integration.subject.block.py',\n         dict(ns_b, M=HOST_BEFORE))):\n    rows = []\n    if 'workflows' in label:\n        ns['check'] = lambda cid, ok, detail='', _r=rows: _r.append({'id': cid, 'ok': bool(ok)})\n        ns['must_valid'] = lambda cid, ref, v, _r=rows: _r.append(\n            {'id': cid, 'ok': valid_a(ref, v)[0]})\n        ns['must_invalid'] = lambda cid, ref, v, _r=rows: _r.append(\n            {'id': cid, 'ok': not valid_a(ref, v)[0]})\n    else:\n        ns['check'] = lambda name, condition, _r=rows: _r.append({'id': name, 'ok': bool(condition)})\n    res = run_block(block, dict(ns), rows)\n    neg[label] = {'raised': res['raised'],\n                  'failedAgainstBeforeModel': [r['id'] for r in rows if not r['ok']],\n                  'passedAgainstBeforeModel': [r['id'] for r in rows if r['ok']]}\n    neg[label]['discriminates'] = bool(neg[label]['failedAgainstBeforeModel'])\nout['discriminationAgainstBeforeModel'] = neg\n\nfor block, res in out['execution'].items():\"\"\"\nassert s.count(OLD)==1\ns=s.replace(OLD,NEW,1)\nOLD2=\"\"\"print(json.dumps({b: {'raised': v['raised'], 'passed': v['passed'],\"\"\"\nNEW2=\"\"\"print(json.dumps({b: {'discriminates': v['discriminates'],\n                      'failsOnBefore': len(v['failedAgainstBeforeModel'])}\n                  for b, v in out['discriminationAgainstBeforeModel'].items()}, indent=1))\nprint(json.dumps({b: {'raised': v['raised'], 'passed': v['passed'],\"\"\"\nassert s.count(OLD2)==1\np.write_text(s.replace(OLD2,NEW2,1))\nprint('ok')\nPY\n/tmp/opensip-architecture-review-env/bin/python -I -B out/probes/verify-durable-blocks.py 2>&1 | tail -32"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:50.920Z",
+    "messageUuid": "6945a515-737e-4d68-bc8e-992d3619958f",
+    "block": {
+      "tool_use_id": "toolu_01JPe1SXUKXkkBMjoJxHmo5P",
+      "type": "tool_result",
+      "content": "ok\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"resolves\": true,\n  \"missing\": []\n },\n \"checks/check_integration.subject.block.py\": {\n  \"resolves\": true,\n  \"missing\": []\n }\n}\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"discriminates\": true,\n  \"failsOnBefore\": 3\n },\n \"checks/check_integration.subject.block.py\": {\n  \"discriminates\": true,\n  \"failsOnBefore\": 5\n }\n}\n{\n \"checks/check_workflows.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 8,\n  \"failed\": []\n },\n \"checks/check_integration.subject.block.py\": {\n  \"raised\": null,\n  \"passed\": 8,\n  \"failed\": []\n }\n}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:55.443Z",
+    "messageUuid": "251651c0-3f15-4035-8bc0-58c56e69fc58",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01GHfR1NUcvgTioGSkt1Hub5",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('out/evidence/durable-block-verification.json').read_text())\nfor k,v in d['discriminationAgainstBeforeModel'].items():\n    print(k); print('  fail-on-before:',v['failedAgainstBeforeModel']); print('  pass-on-before:',v['passedAgainstBeforeModel'])\n\""
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:33:55.516Z",
+    "messageUuid": "340979d9-f720-48dc-8cb3-dc22f0183ae4",
+    "block": {
+      "tool_use_id": "toolu_01GHfR1NUcvgTioGSkt1Hub5",
+      "type": "tool_result",
+      "content": "checks/check_workflows.subject.block.py\n  fail-on-before: ['termination.observed-subject-is-carried-exactly', 'termination.both-producers-of-one-termination-agree.present', 'termination.over-length-observed-subject-is-still-refused-by-the-schema']\n  pass-on-before: ['termination.subject-carrying-detail-is-schema-valid', 'termination.absent-subject-adds-no-field', 'termination.detailless-observation-still-has-no-domain-detail', 'termination.both-producers-of-one-termination-agree.absent', 'termination.both-producers-of-one-termination-agree.empty']\nchecks/check_integration.subject.block.py\n  fail-on-before: ['native-scope-limit-subject-survives-the-workflow-envelope.semanticClosures', 'native-scope-limit-subject-survives-the-workflow-envelope.nativeContextDigests', 'native-scope-limit-subject-survives-the-workflow-envelope.importIds', 'inherited-scope-limit-subject-survives-the-workflow-envelope.requestedCapabilities', 'inherited-scope-limit-subject-survives-the-workflow-envelope.workspaceRoots']\n  pass-on-before: ['native-scope-limit-public-route-is-unchanged-across-the-seam.semanticClosures', 'native-scope-limit-public-route-is-unchanged-across-the-seam.nativeContextDigests', 'native-scope-limit-public-route-is-unchanged-across-the-seam.importIds']",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:34:09.166Z",
+    "messageUuid": "9aafe953-f3c7-4783-acf5-3ef5f6f1e37d",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01E5EzZzLrmDtCwVZhU9RbvZ",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B - <<'PY'\nimport pathlib\np=pathlib.Path('out/probes/probe-subject-preservation.v1.py')\ns=p.read_text()\nOLD=\"\"\"report = {\"\"\"\nNEW=\"\"\"# ------------------------------------------------------- META: the schema validator is LIVE here\n# A validation control that never refuses anything proves nothing, so the validator used above is\n# shown to admit a well-formed record and to refuse an unregistered code, a wrong-typed subject, an\n# over-length subject, an undeclared property and a non-record at the invocation root selector.\ndef _validates(doc, sel, val):\n    try:\n        W_AFTER.validate_import_record(doc, sel, val)\n        return 'ADMIT'\n    except Exception:                                           # noqa: BLE001\n        return 'REFUSE'\n\n\n_CS = 'workflows/schemas/common.schema.json'\n_DD = '#/$defs/DomainDetail'\n_meta = {\n    'well-formed-detail': _validates(_CS, _DD, {'code': 'PROJECT.SCOPE_LIMIT', 'remedy': 'r',\n                                                'subject': 'importIds:257>256'}),\n    'unregistered-code': _validates(_CS, _DD, {'code': 'NOT.A.REGISTERED_CODE', 'remedy': 'r'}),\n    'subject-wrong-type': _validates(_CS, _DD, {'code': 'PROJECT.SCOPE_LIMIT', 'remedy': 'r',\n                                                'subject': 7}),\n    'subject-over-length': _validates(_CS, _DD, {'code': 'PROJECT.SCOPE_LIMIT', 'remedy': 'r',\n                                                 'subject': 'x' * 2000}),\n    'undeclared-property': _validates(_CS, _DD, {'code': 'PROJECT.SCOPE_LIMIT', 'remedy': 'r',\n                                                 'notAField': 1}),\n    'invocation-root-selector-on-a-non-record':\n        _validates('workflows/schemas/invocation-record.schema.json', '', {'nope': 1}),\n}\ncheck('the-schema-validator-used-above-is-live-and-discriminating',\n      _meta['well-formed-detail'] == 'ADMIT' and\n      all(v == 'REFUSE' for k, v in _meta.items() if k != 'well-formed-detail'), _meta)\n\nreport = {\"\"\"\nassert s.count(OLD)==1\np.write_text(s.replace(OLD,NEW,1))\nprint('ok')\nPY\n/tmp/opensip-architecture-review-env/bin/python -I -B out/probes/probe-subject-preservation.v1.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:34:09.512Z",
+    "messageUuid": "2b8f977a-cd42-469b-8f74-eee049f19944",
+    "block": {
+      "tool_use_id": "toolu_01E5EzZzLrmDtCwVZhU9RbvZ",
+      "type": "tool_result",
+      "content": "ok\n{\n \"passed\": 59,\n \"failed\": 0,\n \"failedIds\": []\n}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:34:14.124Z",
+    "messageUuid": "4cc84e08-7b61-487e-90fd-2e07fbf7774d",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_014fFHFsKeXZnhTwt4S1HATU",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && shasum -a 256 workflow.before.py workflow.proposed.py checks/*.py out/probes/*.py | sed 's|  | |' && echo '--- diff ---' && diff workflow.before.py workflow.proposed.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:34:14.198Z",
+    "messageUuid": "71f07661-a18e-4903-bb25-cfb4069fc0a9",
+    "block": {
+      "tool_use_id": "toolu_014fFHFsKeXZnhTwt4S1HATU",
+      "type": "tool_result",
+      "content": "a268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd workflow.before.py\n53ec304c692226659cea730403dd382cc2e54c7e9aea65be445672feaf129eb5 workflow.proposed.py\n95dde3167738f42c411aabefc9ea2fb9111d112d5f1738af6f4bf81daf7f27bb checks/check_integration.subject.block.py\nc873ec4e8118bc03f5f52de23e8d7fdae988e6112f32b837421b56b36a5bf5d0 checks/check_workflows.subject.block.py\n095be44d82b844b489312b3784962baa5670425188b8644ac43e9d0ee8f279e8 out/probes/make_proposed.py\nb2d4f4d5d59ee9abe1a28202703fa1cf417eeac5a7b5ee2c1b4844ad9aad7a86 out/probes/probe-subject-preservation.v1.py\n7dd21b2b29e690f1d826320868184aacfe007e5a2024f74fb0de119ec02e6dfd out/probes/verify-durable-blocks.py\n--- diff ---\n149a150,175\n>             # The DYNAMIC half of the disclosure, carried when the observation actually has one.\n>             # The public detail vocabulary is CLOSED and the workflows contract says what carries the\n>             # rest: \"Dynamic paths or refusal explanations travel in bounded `subject`/`remedy`\n>             # fields, never as newly invented codes.\" This rebuilt the DomainDetail field by field\n>             # and copied only two of the three, so a producer whose whole promise is its subject lost\n>             # it at the envelope. Native section 14's bounded selection refusal is the live case: it\n>             # promises `field:count>limit` and that \"the subject always names which one overflowed\",\n>             # and without this line every bounded field arrived as the same indistinguishable\n>             # PROJECT.SCOPE_LIMIT - leaving a caller who needs to know WHICH bound was hit with only\n>             # the new code that same sentence forbids.\n>             #\n>             # `Refusal.termination()` above already carries a subject onto the identical shape. Two\n>             # producers of one record disagreeing about one of its fields is the defect; this is that\n>             # existing rule applied at the observation boundary, not a new one, and the truthiness\n>             # test is deliberately the same one `Refusal.termination()` uses so the two agree on\n>             # every input including the empty string.\n>             #\n>             # STRICTLY ADDITIVE: an observation carrying no subject produces the byte-identical\n>             # termination it produced before. `subject` is an already-published optional\n>             # `BoundedText` on the common-schema DomainDetail, so nothing here needs a schema, code\n>             # or contract change. What this does NOT do is admit the value: a malformed trusted\n>             # observation supplying a non-string or over-length subject yields a DomainDetail the\n>             # published schema refuses, exactly as it does for a malformed `remedy` or `detail`, and\n>             # this line makes no admission claim on its behalf.\n>             if obs.get('subject'):\n>                 t['domainDetail']['subject'] = obs['subject']",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:35:27.506Z",
+    "messageUuid": "c906d620-83a0-44ad-8e67-f07540a6c803",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01SjgUn4oDHsXf2B8e216Ysy",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/build_handoff.py",
+        "content": "import hashlib, json, pathlib\n\nROOT = pathlib.Path('/tmp/opensip-design-corrections/v19-subject-coauthor.v1')\nsha = lambda rel: hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()\nprobe = json.loads((ROOT / 'out/evidence/probe-result.json').read_text())\nblocks = json.loads((ROOT / 'out/evidence/durable-block-verification.json').read_text())\n\ndoc = {\n \"handoff\": \"opensip.design-corrections.v19-subject-coauthor.v1\",\n \"role\": \"actual Claude SOURCE COAUTHOR continuing with Codex; NOT independent acceptance. The v19 native handoff is completed and immutable and nothing in it was altered.\",\n \"standing\": \"PROPOSED single-site source delta to the workflows reference model, plus two proposed durable check blocks. No grade, no acceptance, no pin, no commit, no governance record. A fresh independent candidate review and a NEW blind review will assess the combined frozen bytes later.\",\n \"writeScope\": \"/tmp/opensip-design-corrections/v19-subject-coauthor.v1 only. The v19 native work tree and the frozen18 subject were READ, never written.\",\n\n \"rootFindingAssessment\": {\n  \"verdict\": \"AGREED - a real mismatch with the exact subject the published scope refusal promises\",\n  \"reproduced\": \"Independently, over all THREE Plan fields and the two inherited bounded fields, from the actual producers rather than from root's result file.\",\n  \"theDefect\": \"`terminate()`'s local `dd` helper REBUILDS a DomainDetail from the observation field by field - `{'code': detail, 'remedy': obs.get('remedy', remedy)}` - and never copies `obs['subject']`. Everything else about the envelope was already correct, which is exactly why neither unit's own suite could see it.\",\n  \"whyItIsAMismatchAndNotAStyleChoice\": [\n   \"NATIVE S14 PROMISES IT. The owning sentence is 'public detail PROJECT.SCOPE_LIMIT and subject `field:count>limit` ... and the subject always names which one overflowed.' At the envelope a caller actually reads, it named nothing: all five bounded fields arrived as one indistinguishable PROJECT.SCOPE_LIMIT.\",\n   \"THE WORKFLOWS CONTRACT NAMES THE CARRIER. 'Dynamic paths or refusal explanations travel in bounded `subject`/`remedy` fields, never as newly invented codes.' Dropping half that carrier leaves a consumer who must distinguish two overflows with only the newly invented code the same sentence forbids. The loss defeats the mechanism the contract designates.\",\n   \"THE MODULE ALREADY DISAGREED WITH ITSELF. `Refusal.termination()` builds the identical StepTermination shape and DOES carry `subject` when present. Two producers of one record disagreeing about one of its fields is the defect; the fix removes the disagreement rather than adding a rule.\",\n   \"THE SCHEMA WAS ALREADY BUILT FOR IT. `subject` is an existing optional `BoundedText` on the common-schema DomainDetail, and the `evidence.pinned` branch makes it REQUIRED there, so the field is load-bearing published surface, not decoration.\"\n  ],\n  \"scopeOfTheDefect\": \"Exactly one site. The other DomainDetail carriers in the module (`Refusal.termination()`, and the two paths that pass a whole detail dict through at lines 123 and 1595 of the frozen file) preserve it. `dd` is the only place that reconstructs a DomainDetail from an observation, and therefore the only place a field can be dropped.\"\n },\n\n \"proposedFix\": {\n  \"file\": \"docs/coop/design-corrections/workflows/workflows_model.v1.py\",\n  \"site\": \"the local `dd` helper inside `terminate()`\",\n  \"change\": \"Inside the existing `if detail:` branch, after the DomainDetail is created, conditionally copy the observation's subject: `if obs.get('subject'): t['domainDetail']['subject'] = obs['subject']`. Two lines of code and a comment block.\",\n  \"beforeSha256\": sha('workflow.before.py'),\n  \"afterSha256\": sha('workflow.proposed.py'),\n  \"addedLines\": 26,\n  \"noSchemaCodeOrContractChange\": \"Confirmed. `subject` is already a published optional DomainDetail property; no schema file, no DomainDetailCode, no contract sentence and no public route is touched.\",\n  \"oneDeliberateDivergenceFromRootsSketch\": {\n   \"rootSketch\": \"`if 'subject' in obs` copies the exact value.\",\n   \"asProposed\": \"`if obs.get('subject'):` - the same truthiness test `Refusal.termination()` already uses.\",\n   \"why\": \"Identical for every well-formed observation. It differs only on an explicit `subject: None` (which presence-testing would copy, producing a DomainDetail the schema refuses for a wrong type - manufacturing an invalid record out of a merely sloppy one) and on `subject: ''` (which carries no disclosure and which the sibling producer also drops). Choosing the sibling's exact test is what makes the 'two producers of one record agree' control true on ALL THREE of present, absent and empty rather than on two of them. If root prefers the literal presence test, the only behavioural difference is those two edge shapes and I do not object; the empty-string row of the control would then need inverting.\"\n  },\n  \"whatItDeliberatelyDoesNotDo\": \"It COPIES; it does not ADMIT. A malformed trusted observation carrying a non-string or over-length subject still yields a record the published schema refuses - exactly as it already does for a malformed `remedy` or `detail`. No universal schema-admission claim is made for trusted observations, and a control asserts the refusal is the schema's rather than this edit's.\"\n },\n\n \"ownBoundedProbe\": {\n  \"file\": \"out/probes/probe-subject-preservation.v1.py\",\n  \"sha256\": sha('out/probes/probe-subject-preservation.v1.py'),\n  \"output\": \"out/evidence/probe-result.json\",\n  \"passed\": probe['passed'],\n  \"failed\": len(probe['failed']),\n  \"method\": \"The BEFORE and PROPOSED workflow models are loaded side by side from two shadow trees whose only differing file is workflows_model.v1.py, so every comparison isolates that one edit. N is read-only from the completed v19 native work.\",\n  \"whatIsReal\": [\n   \"N.admit_plan_selection_cardinality, N.admit_requested_capability_cardinality and N.unit_scope_descriptor are invoked and raise real ScopeRefusals; no termination is hand-written.\",\n   \"N.scope_refusal_termination projects them, and its ACTUAL typed fields are the rejected observation handed to W.run_invocation.\",\n   \"The returned StepTermination, aggregate termination, DomainDetail and whole InvocationRecord are validated against the PUBLISHED pinned schemas through the model's own validate_import_record.\"\n  ],\n  \"syntheticAdapters\": [\n   \"Every invocation record, requestId/projectId, orderedSteps and step script is a synthetic trusted fixture observation from workflow-cases.v1.json.\",\n   \"The earlier COMPLETED step result is supplied by that case script; 'earlier committed result preserved' is a statement about the returned invocation record, NOT about any Run closure.\",\n   \"W.synthetic_execution_id is the module's own declared fixture adapter.\",\n   \"No product host, provider, compiler, OS or filesystem is executed, and nothing is qualified.\"\n  ],\n  \"coverage\": {\n   \"allThreePlanFields\": [\"semanticClosures:129>128\", \"nativeContextDigests:129>128\", \"importIds:257>256\"],\n   \"inheritedBoundedFields\": [\"requestedCapabilities:1025>1024\", \"workspaceRoots:1025>1024\"],\n   \"perField\": [\"exact subject retained per step\", \"exact subject retained in the AGGREGATE termination\", \"the before-model demonstrably dropped it\", \"exit code 2 and unchanged\", \"class/errorCode/detail/remedy unchanged\", \"the remedy is this field's own\", \"refused step has no result and no derivation\", \"earlier completed step result preserved\", \"the after-record with the subject removed equals the before-record byte for byte\", \"termination and invocation validate against the published schemas\"],\n   \"backwardEquality\": \"All 32 existing invocation cases in workflow-cases.v1.json run through BOTH models and are byte-identical, plus seven dd-carrying observation events with no subject, plus a detailless observation that still produces no domainDetail.\",\n   \"producerParity\": \"terminate() and Refusal.termination() are held equal on present, absent and empty subjects; the before model is shown to disagree with its own sibling.\",\n   \"metaControl\": \"The schema validator used above is shown to be LIVE: it admits a well-formed detail and refuses an unregistered code, a wrong-typed subject, an over-length subject, an undeclared property and a non-record at the invocation root selector. A validation control that never refuses would have proved nothing.\"\n  }\n },\n\n \"proposedDurableChecks\": {\n  \"note\": \"Two small blocks, delivered as files for ROOT to integrate. Nothing was inserted into any checker and neither suite was run.\",\n  \"blocks\": [\n   {\"file\": \"checks/check_workflows.subject.block.py\", \"sha256\": sha('checks/check_workflows.subject.block.py'),\n    \"target\": \"docs/coop/design-corrections/workflows/check_workflows.v1.py\",\n    \"rows\": 8, \"usesOnlyNamesTheTargetBinds\": True, \"importsNoOtherUnit\": True,\n    \"content\": \"Workflow-side only: the subject is carried exactly, the carrying detail is schema-valid, an absent subject adds no field, a detailless observation still has no domainDetail, the two producers agree on present/absent/empty, and an over-length observed subject is still the SCHEMA's to refuse.\"},\n   {\"file\": \"checks/check_integration.subject.block.py\", \"sha256\": sha('checks/check_integration.subject.block.py'),\n    \"target\": \"docs/coop/design-corrections/check-integration.py\",\n    \"rows\": 8, \"usesOnlyNamesTheTargetBinds\": True,\n    \"content\": \"The cross-unit seam, over the ACTUAL native producer: for all three Plan fields and both inherited bounded fields, the exact `field:count>limit` subject survives the workflow envelope, and the class/errorCode/detail/remedy/exit-2 route is unchanged across the seam.\",\n    \"whyThere\": \"Native owns the refusal and its subject; workflows owns the envelope a caller reads. Each unit is correct on its own side, so only the composition can see the seam - which is why neither unit's suite caught it and why the durable control belongs in the cross-unit checker.\"}\n  ],\n  \"verification\": {\n   \"file\": \"out/probes/verify-durable-blocks.py\",\n   \"sha256\": sha('out/probes/verify-durable-blocks.py'),\n   \"output\": \"out/evidence/durable-block-verification.json\",\n   \"nameResolution\": {b: v['resolves'] for b, v in blocks['nameResolution'].items()},\n   \"executionPassed\": {b: v['passed'] for b, v in blocks['execution'].items()},\n   \"executionFailed\": {b: [r['id'] for r in v['failed']] for b, v in blocks['execution'].items()},\n   \"discriminationAgainstBeforeModel\": {b: v['failedAgainstBeforeModel'] for b, v in blocks['discriminationAgainstBeforeModel'].items()},\n   \"method\": \"Neither suite was run, per instruction. Instead: (1) STATIC - every free name each block references is shown to be bound at module level by its target checker, which is what catches a block that would NameError on integration; (2) EXECUTION - each block is exec'd against a namespace faithfully rebuilt from the real modules (the workflows namespace rebuilds the same schema registry that checker builds); (3) DISCRIMINATION - both blocks are re-run against the BEFORE model and are required to FAIL there, so neither is vacuously true.\",\n   \"discriminationReading\": \"Against the before model the workflows block fails 3 of 8 and the integration block fails 5 of 8. The rows that pass on BOTH models are exactly the backward-compatibility rows (absent subject, detailless observation, and the unchanged class/errorCode/remedy/exit route), which is the correct pattern: they must not change.\"\n  }\n },\n\n \"technicalAssent\": {\n  \"value\": True,\n  \"scope\": \"I assent to the exact proposed bytes of workflow.proposed.py and to the two durable check blocks as delivered. This is an author's assent to his own delta and is not review, acceptance or qualification. I am not the independent reviewer of these changes.\",\n  \"notAssentedTo\": [\n   \"Any claim that this validates malformed trusted observations, or that the workflow model now admits a subject rather than copying one.\",\n   \"Any claim about earlier full Run closure, a product host, or OS/compiler/provider behaviour. Everything here is reference composition over synthetic trusted observations.\",\n   \"Pins, records, lineage, freeze and integration, which root owns.\",\n   \"The v19 native handoff, which is completed and immutable and was not altered.\"\n  ]\n },\n \"changesRequired\": [\n  {\"id\": \"V19S-ROOT-1\", \"owner\": \"root\", \"statement\": \"Integrate workflow.proposed.py at docs/coop/design-corrections/workflows/workflows_model.v1.py. Its digest changes, so the workflows, security, native and foundation pin ledgers that carry it need resealing with the rest of the v19 integration; no pin was edited here.\"},\n  {\"id\": \"V19S-ROOT-2\", \"owner\": \"root\", \"statement\": \"Place the two durable blocks. They are delivered as separate files precisely because their insertion points are root's to choose; each uses only names its target already binds and neither adds an import.\"},\n  {\"id\": \"V19S-ROOT-3\", \"owner\": \"root\", \"statement\": \"Decide the one deliberate divergence from the sketched conditional (truthiness, matching Refusal.termination(), versus literal key presence). The behavioural difference is confined to `subject: None` and `subject: ''`; the reasoning is recorded above and either is acceptable to me.\"}\n ],\n \"limitations\": [\n  \"One site was changed. The rest of `terminate()` and every other termination producer is untouched, and no other observation field was audited for a similar loss beyond confirming that `dd` is the only place a DomainDetail is reconstructed field by field.\",\n  \"The six canonical suites and the pin gate were NOT run, per instruction. Backward equality is evidenced by all 32 existing invocation cases being byte-identical under the edit, not by a suite result.\",\n  \"The durable blocks were verified by static name resolution plus faithful-namespace execution, not by running their target checkers. That is weaker than a real suite run and is stated as such.\",\n  \"My first shadow tree symlinked `integration-host-model.py`, and its `Path(__file__).resolve()` followed the link back to the unpatched module, so the integration block was briefly graded against the wrong bytes. Both trees now hold a real copy, and the accident was turned into the deliberate discrimination control above. Preserved rather than hidden.\",\n  \"My first name-resolution analyzer reported six of a block's own locals as unresolved because it reused the module-level collector for the block's side of the comparison. Fixed to walk the whole tree; both the failure and the fix are preserved in the probe file's docstring.\"\n ],\n \"files\": {\n  \"workflow.before.py\": {\"sha256\": sha('workflow.before.py'), \"note\": \"exact frozen18 bytes, and byte-identical to the copy in the v19 native work tree, which I never edited\"},\n  \"workflow.proposed.py\": {\"sha256\": sha('workflow.proposed.py')},\n  \"checks/check_workflows.subject.block.py\": {\"sha256\": sha('checks/check_workflows.subject.block.py')},\n  \"checks/check_integration.subject.block.py\": {\"sha256\": sha('checks/check_integration.subject.block.py')},\n  \"out/probes/make_proposed.py\": {\"sha256\": sha('out/probes/make_proposed.py')},\n  \"out/probes/probe-subject-preservation.v1.py\": {\"sha256\": sha('out/probes/probe-subject-preservation.v1.py')},\n  \"out/probes/verify-durable-blocks.py\": {\"sha256\": sha('out/probes/verify-durable-blocks.py')},\n  \"out/evidence/probe-result.json\": {\"sha256\": sha('out/evidence/probe-result.json')},\n  \"out/evidence/durable-block-verification.json\": {\"sha256\": sha('out/evidence/durable-block-verification.json')},\n  \"out/disposable/dc-before, out/disposable/dc-proposed\": {\"note\": \"DISPOSABLE shadow trees; symlinks to the v19 native work tree except for real copies of workflows_model.v1.py (before/proposed) and integration-host-model.py. Not proposed for application.\"}\n }\n}\n(ROOT / 'handoff.json').write_text(json.dumps(doc, indent=1, ensure_ascii=False) + '\\n', encoding='utf-8')\nprint('wrote handoff.json')\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:35:27.647Z",
+    "messageUuid": "56ae3dc4-e367-4fc0-bd96-b25d3764a7d8",
+    "block": {
+      "tool_use_id": "toolu_01SjgUn4oDHsXf2B8e216Ysy",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/out/probes/build_handoff.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:35:30.757Z",
+    "messageUuid": "e055b1d9-3c61-469c-9452-ea1e6c13e279",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01KSXZ1gbKgAgpyjteRAmdEV",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && /tmp/opensip-architecture-review-env/bin/python -I -B out/probes/build_handoff.py"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:35:30.835Z",
+    "messageUuid": "061eea89-e5f3-4466-ac41-30a1ed46b970",
+    "block": {
+      "tool_use_id": "toolu_01KSXZ1gbKgAgpyjteRAmdEV",
+      "type": "tool_result",
+      "content": "wrote handoff.json",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:36:11.759Z",
+    "messageUuid": "ff1b1c28-4f8b-403c-87a0-7806f15fb906",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01BwufxGKaGo6LQizD2tG4By",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1/handoff.md",
+        "content": "# v19 subject coauthor \u2014 handoff\n\n**Role.** Actual Claude, source coauthor with Codex. Not independent acceptance. The v19 native\nhandoff is completed and immutable and nothing in it was altered; the only writes are under\n`/tmp/opensip-design-corrections/v19-subject-coauthor.v1`. No pins, commits, governance or product\nimplementation. `technicalAssent.value` is `true` and is an author's assent to his own bytes.\n\n## Is root's identified loss real? Yes \u2014 and on four independent grounds\n\nI reproduced it from the actual producers rather than from root's result file, across all three Plan\nfields **and** the two inherited bounded fields. `terminate()`'s local `dd` helper **rebuilds** a\nDomainDetail from the observation field by field \u2014\n`{'code': detail, 'remedy': obs.get('remedy', remedy)}` \u2014 and never copies `obs['subject']`.\nEverything else about the envelope was already right, which is precisely why neither unit's own\nsuite could see it.\n\n1. **Native \u00a714 promises the subject.** Its owning sentence is \"public detail `PROJECT.SCOPE_LIMIT`\n   and subject `field:count>limit` \u2026 and **the subject always names which one overflowed**.\" At the\n   envelope a caller actually reads, it named nothing: all five bounded fields arrived as one\n   indistinguishable `PROJECT.SCOPE_LIMIT`.\n2. **The workflows contract names `subject` as the carrier.** \"Dynamic paths or refusal explanations\n   travel in bounded `subject`/`remedy` fields, **never as newly invented codes**.\" Dropping half\n   that carrier leaves a consumer who must distinguish two overflows holding only the newly invented\n   code the same sentence forbids. The loss defeats the mechanism the contract designates.\n3. **The module already disagreed with itself.** `Refusal.termination()` builds the *identical*\n   StepTermination shape and **does** carry `subject` when present. Two producers of one record\n   disagreeing about one of its fields is the defect; the fix removes a disagreement rather than\n   adding a rule.\n4. **The schema was already built for it.** `subject` is an existing optional `BoundedText` on the\n   common-schema `DomainDetail`, and the `evidence.pinned` branch makes it *required* there \u2014 so it\n   is load-bearing published surface, not decoration.\n\n**Scope of the defect: exactly one site.** The module's other DomainDetail carriers\n(`Refusal.termination()`, and the two paths that pass a whole detail dict through) preserve it.\n`dd` is the only place a DomainDetail is reconstructed field by field, and therefore the only place a\nfield can be dropped.\n\n## The fix\n\nInside the existing `if detail:` branch, after the DomainDetail is created:\n\n```python\nif obs.get('subject'):\n    t['domainDetail']['subject'] = obs['subject']\n```\n\nTwo lines plus a comment block. `workflow.before.py` \u2192 `workflow.proposed.py`:\n\n| | sha256 |\n|---|---|\n| before (exact frozen18, and byte-identical to the copy in the v19 native work tree I never edited) | `a268aa4b9e9089a51104365a6c82faf5b01602b84b1dd5adbf0384810e25f7bd` |\n| proposed | `53ec304c692226659cea730403dd382cc2e54c7e9aea65be445672feaf129eb5` |\n\n**No schema, code or contract change** \u2014 confirmed; `subject` is already published as optional.\nIt **copies, it does not admit**: a malformed trusted observation carrying a non-string or\nover-length subject still yields a record the published schema refuses, exactly as it already does\nfor a malformed `remedy` or `detail`. A control asserts that the refusal is the schema's and not this\nedit's, so no universal schema-admission claim is made.\n\n**One deliberate divergence from root's sketch.** Root suggested `if 'subject' in obs`. I used\n`if obs.get('subject'):` \u2014 the *same* truthiness test `Refusal.termination()` already uses. They are\nidentical for every well-formed observation and differ only on an explicit `subject: None` (which\npresence-testing would copy, manufacturing a schema-invalid record out of a merely sloppy one) and\non `subject: ''` (which carries no disclosure and which the sibling also drops). Matching the sibling\nis what makes the \"two producers of one record agree\" control true on **all three** of present,\nabsent and empty rather than two of them. If root prefers the literal presence test, the only\nbehavioural difference is those two edge shapes and I do not object; the empty-string row would then\nneed inverting. Recorded as `V19S-ROOT-3`.\n\n## Probe \u2014 59/59\n\n`out/probes/probe-subject-preservation.v1.py` \u2192 `out/evidence/probe-result.json`. Before and\nproposed models are loaded side by side from two shadow trees whose only differing file is\n`workflows_model.v1.py`, so every comparison isolates the one edit. `N` is read-only from the\ncompleted v19 native work.\n\n**Real:** `N.admit_plan_selection_cardinality`, `N.admit_requested_capability_cardinality` and\n`N.unit_scope_descriptor` are invoked and raise real `ScopeRefusal`s; `N.scope_refusal_termination`\nprojects them and its actual typed fields are the observation handed to `W.run_invocation`. The\nreturned `StepTermination`, aggregate termination, `DomainDetail` and whole `InvocationRecord` are\nvalidated against the **published pinned schemas** via the model's own `validate_import_record`.\n\n**Synthetic:** every invocation record, requestId/projectId, `orderedSteps` and step script is a\ntrusted fixture observation from `workflow-cases.v1.json`; the earlier *completed* step result is\nsupplied by that script, so \"earlier committed result preserved\" is a statement about the returned\ninvocation record, **not** about any Run closure. `W.synthetic_execution_id` is the module's own\ndeclared fixture adapter. No product host, provider, compiler, OS or filesystem is executed.\n\nPer field \u2014 `semanticClosures:129>128`, `nativeContextDigests:129>128`, `importIds:257>256`,\n`requestedCapabilities:1025>1024`, `workspaceRoots:1025>1024` \u2014 the probe asserts: the exact subject\nis retained **per step and in the aggregate termination**; the before model demonstrably dropped it;\nexit code is 2 and unchanged; class, errorCode, detail and remedy are unchanged; the remedy is that\nfield's own; the refused step has **no result and no derivation**; the earlier completed step keeps\nits result; the after-record **with the subject removed equals the before-record byte for byte**; and\nboth records validate against the published schemas.\n\nBackward equality: **all 32** existing invocation cases run through both models are byte-identical,\nplus seven `dd`-carrying observation events with no subject, plus a detailless observation that still\nproduces no `domainDetail`. A meta-control shows the schema validator is **live** \u2014 it admits a\nwell-formed detail and refuses an unregistered code, a wrong-typed subject, an over-length subject,\nan undeclared property and a non-record at the invocation root selector \u2014 because a validation\ncontrol that never refuses would prove nothing.\n\n## Durable checks \u2014 delivered, not inserted\n\nTwo small blocks for root to place; neither suite was run.\n\n- `checks/check_workflows.subject.block.py` (8 rows) \u2014 workflow-side only, no cross-unit import.\n- `checks/check_integration.subject.block.py` (8 rows) \u2014 the cross-unit seam over the **actual**\n  native producer. It belongs there because native owns the refusal and its subject while workflows\n  owns the envelope: each unit is correct on its own side, so only the composition can see the seam,\n  which is exactly why neither unit's suite caught this.\n\n`out/probes/verify-durable-blocks.py` establishes three things without running either suite:\n**static** \u2014 every free name each block references is bound at module level by its target checker\n(what catches a block that would `NameError` on integration): both resolve; **execution** \u2014 each\nblock is exec'd against a namespace faithfully rebuilt from the real modules (the workflows namespace\nrebuilds the same schema registry that checker builds): 8/8 and 8/8; **discrimination** \u2014 both are\nre-run against the **before** model and required to fail there: 3/8 and 5/8 fail. The rows that pass\non *both* models are exactly the backward-compatibility rows, which is the correct pattern.\n\n## Limitations, including two of my own errors\n\n- One site changed; no other observation field was audited for a similar loss beyond confirming that\n  `dd` is the only place a DomainDetail is reconstructed field by field.\n- The six suites and the pin gate were **not** run, per instruction. Backward equality rests on the\n  32 invocation cases, not on a suite result.\n- The durable blocks were verified by static resolution plus faithful-namespace execution \u2014 weaker\n  than a real suite run, and stated as such.\n- **My first shadow tree symlinked `integration-host-model.py`**, whose `Path(__file__).resolve()`\n  followed the link back to the unpatched module, so the integration block was briefly graded against\n  the wrong bytes and correctly failed. Both trees now hold a real copy, and I turned the accident\n  into the deliberate discrimination control above.\n- **My first name-resolution analyzer** reported six of a block's own locals as unresolved because it\n  reused the module-level collector for the block's own side. Fixed to walk the whole tree; both the\n  failure and the fix are preserved in the probe.\n\n**Root owns:** integrating `workflow.proposed.py` and resealing the ledgers that carry it, placing\nthe two blocks, and the truthiness-versus-presence decision (`V19S-ROOT-1/2/3`).\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:36:11.901Z",
+    "messageUuid": "485d0401-a108-4aef-9668-065cf968ef47",
+    "block": {
+      "tool_use_id": "toolu_01BwufxGKaGo6LQizD2tG4By",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-subject-coauthor.v1/handoff.md (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:36:16.661Z",
+    "messageUuid": "d6ea4bf3-741b-43f0-8ac6-1cb3c5fca965",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01VxrFr6GrXAdTPSa3SGazsQ",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-subject-coauthor.v1 && wc -w handoff.md && /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,pathlib\nd=json.loads(pathlib.Path('handoff.json').read_text())\nprint('json ok | assent',d['technicalAssent']['value'],'| verdict:',d['rootFindingAssessment']['verdict'])\nprint('changesRequired:',[c['id'] for c in d['changesRequired']])\nprint('probe',d['ownBoundedProbe']['passed'],'passed /',d['ownBoundedProbe']['failed'],'failed')\nprint('blocks exec',d['proposedDurableChecks']['verification']['executionPassed'])\n\" && find . -type f -not -path './out/disposable/*' | sort"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:36:16.744Z",
+    "messageUuid": "14a89c96-9c9c-4662-9ac3-4531d5d395b0",
+    "block": {
+      "tool_use_id": "toolu_01VxrFr6GrXAdTPSa3SGazsQ",
+      "type": "tool_result",
+      "content": "    1306 handoff.md\njson ok | assent True | verdict: AGREED - a real mismatch with the exact subject the published scope refusal promises\nchangesRequired: ['V19S-ROOT-1', 'V19S-ROOT-2', 'V19S-ROOT-3']\nprobe 59 passed / 0 failed\nblocks exec {'checks/check_workflows.subject.block.py': 8, 'checks/check_integration.subject.block.py': 8}\n./checks/check_integration.subject.block.py\n./checks/check_workflows.subject.block.py\n./handoff.json\n./handoff.md\n./out/evidence/durable-block-verification.json\n./out/evidence/probe-result.json\n./out/probes/build_handoff.py\n./out/probes/make_proposed.py\n./out/probes/probe-subject-preservation.v1.py\n./out/probes/verify-durable-blocks.py\n./process.json\n./prompt.txt\n./response.json\n./stderr.log\n./workflow.before.py\n./workflow.proposed.py",
+      "is_error": false
+    }
+  }
+]

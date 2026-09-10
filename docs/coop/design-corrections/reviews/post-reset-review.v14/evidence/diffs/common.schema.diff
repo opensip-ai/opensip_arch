@@ -1,0 +1,147 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v13/docs/coop/design-corrections/workflows/schemas/common.schema.json	2026-09-07 02:29:55
++++ /tmp/opensip-design-corrections/candidate-subject.v14/docs/coop/design-corrections/workflows/schemas/common.schema.json	2026-09-07 08:12:26
+@@ -215,8 +215,10 @@
+         "delivery-required",
+         "output-serialization",
+         "extension-install-io",
+-        "serve-protocol"
+-      ]
++        "serve-protocol",
++        "host-invariant"
++      ],
++      "description": "Which operational fault applies. `host-invariant` is the successor member and its scope is narrow: the closed D9ErrorCode vocabulary already published SYSTEM.OUTCOME.ILLEGAL_STATE with no cause mapping to it, so the host-INVARIANT subtype specifically had no representable operational-failed termination, because that class requires BOTH an errorCode and a non-none faultCause. Other host-fault causes - host-io, ledger-corrupt, provider-protocol and the rest - already existed and were always representable. PRECISION: codeMaps.rule's `total and injective` is a property of the DECLARED CAUSE DOMAIN, so an errorCode without a preimage was never a violation of totality, and this member does not `make the maps total`. It adds no error code, class, exit code or reason code, but it IS a vocabulary extension: faultCause grows by one. The inherited docs/coop/artifacts/d9-exit-contract.v1.14.json is HISTORICAL and unchanged, so its own enum still omits the member; the selected composition is native-evidence.schemas.v2.json#/x-opensip-public-route-registry/hostInvariantSuccessor and publishing the successor D9 artifact belongs to that unit. Borrowing host-io for a host invariant violation is refused by contract: an I/O failure and an invariant violation are different remedies."
+     },
+     "D9Deficiency": {
+       "type": "string",
+@@ -367,6 +369,7 @@
+         "GRANT.SHAPE",
+         "GRANT.SNAPSHOT_MISMATCH",
+         "GRANT.TOOL_CLOSURE_MISMATCH",
++        "HOST.INVARIANT_VIOLATED",
+         "HOST.IO_FAILURE",
+         "IMPORT.ABSENT_FOR_PREDICATE",
+         "IMPORT.ARTIFACT_CORRUPT",
+@@ -540,14 +543,17 @@
+         "input-closure-incomplete",
+         "native.ambient-cargo-config",
+         "native.capability-mismatch-hello-ack",
++        "native.capability-spec-invalid",
+         "native.capability-unavailable",
+         "native.coverage-bijection-mismatch",
++        "native.coverage-cause-unsupported",
+         "native.execution-not-authorized",
+         "native.explicit-root-without-marker",
+         "native.framework-unrecognized",
+         "native.identity-not-negotiated",
+         "native.prepare-bound-exceeded",
+         "native.prepared-output-not-inert",
++        "native.release-declaration-invalid",
+         "native.stale-import",
+         "native.stale-prepared-output",
+         "native.worker-fault",
+@@ -600,7 +606,70 @@
+           }
+         }
+       ]
++    },
++    "CapabilityAvailabilityNoticeV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "code",
++        "capabilityId",
++        "languageMode",
++        "workspaceRoot",
++        "remedy"
++      ],
++      "properties": {
++        "code": {
++          "const": "native.capability-unavailable",
++          "description": "This typed record declares exactly one condition - a capability the selected product requires that this release did not declare available - so its code is that condition, not any DomainDetailCode. An earlier revision referenced the whole enum and admitted CONFIG.INVALID on a release-absence notice."
++        },
++        "capabilityId": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 128,
++          "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
++        },
++        "languageMode": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 128
++        },
++        "workspaceRoot": {
++          "$ref": "#/$defs/UserInputPath"
++        },
++        "remedy": {
++          "$ref": "#/$defs/BoundedText"
++        }
++      },
++      "description": "One capability the selected product requires that this release did not declare available, for ONE requested unit. The ownership tuple is carried in TYPED FIELDS - capabilityId, languageMode and the unit's own workspaceRoot - and is never concatenated into `subject`: workspaceRoot is a UserInputPath bounded at 4096 while BoundedText is 1024, so a concatenated subject could silently truncate a path and collapse two distinct requested units into one indistinguishable notice. Advisory: it terminates nothing, mints no Coverage, grants no Control verdict or repair authority, and is never a clone Candidate."
+     },
++    "CapabilityAvailabilityV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "stepCount",
++        "totalNoticeCount",
++        "steps"
++      ],
++      "properties": {
++        "stepCount": {
++          "$ref": "#/$defs/Uint53"
++        },
++        "totalNoticeCount": {
++          "$ref": "#/$defs/Uint53"
++        },
++        "steps": {
++          "type": "array",
++          "minItems": 0,
++          "maxItems": 64,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/CapabilityAvailabilityStepV1"
++          },
++          "x-opensip-order": "sequence"
++        }
++      },
++      "description": "The invocation's availability account, composed PER STEP. An earlier revision used one flat array bounded at 1024 and argued it could not truncate because that is the analysis-spec bound - but 1024 is per analysis-spec, not per invocation, and a named multi-step invocation carries up to 64 steps: two admitted selections of 1023 requests each compose 2046 notices and the flat array refused. Composing per step preserves every valid admitted invocation: each step keeps its own bounded collection, `steps` is bounded by the invocation step bound (StepId 0..63), and no notice is ever discarded to fit. `totalNoticeCount` is the sum of the step counts and is authoritative for a caller counting absences across the invocation. A step that made no selection - a skipped step, or a non-analysis step - contributes NO entry; a step that selected and found nothing absent contributes an entry with an empty array, which is the positive statement that it checked. A retried step keeps ONE entry, for the attempt whose selection the invocation retained."
++    },
+     "StepTermination": {
+       "type": "object",
+       "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.",
+@@ -1095,6 +1164,34 @@
+           "x-opensip-order": "sequence"
+         }
+       }
++    },
++    "CapabilityAvailabilityStepV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "stepId",
++        "noticeCount",
++        "notices"
++      ],
++      "properties": {
++        "stepId": {
++          "$ref": "#/$defs/StepId"
++        },
++        "noticeCount": {
++          "$ref": "#/$defs/Uint53"
++        },
++        "notices": {
++          "type": "array",
++          "minItems": 0,
++          "maxItems": 1024,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/CapabilityAvailabilityNoticeV1"
++          },
++          "x-opensip-order": "sequence"
++        }
++      },
++      "description": "The availability account of ONE analysis step's own selection, associated with that step by stepId. `notices` is bounded at 1024 because that is the analysis-spec requestedCapabilities bound and one selection produces at most one absence per requested row, so a STEP's collection can never truncate and its noticeCount always equals its array length. The same ownership tuple may recur in different steps - two steps may select the same unit - so uniqueness is within a step, never across the invocation."
+     }
+   }
+ }

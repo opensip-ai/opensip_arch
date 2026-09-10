@@ -1,0 +1,64 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py	2026-09-09 00:13:33
+@@ -378,7 +378,7 @@
+     if atom["relation"] in ("file", "package"):
+         cells = [inv_cell]
+     else:
+-        rel_cap = "syntax" if atom["relation"] == "declares" else "references"
++        rel_cap = {"declares": "syntax", "imports": "imports"}.get(atom["relation"], "references")
+         sym_cell = {
+             "capabilityId": rel_cap, "languageMode": "ts-tsconfig", "workspaceRoot": ".",
+             "required": True, "kinds": ["symbol"],
+@@ -491,8 +491,8 @@
+          "signatureTokens": ["function", "bar", "(", ")"],
+          "projections": [{"closureId": detector, "signatureTokens": ["function", "bar", "(", ")"]}]},
+     ]
+-    if any(c["capabilityId"] in ("syntax", "references") for c in cells):
+-        sym_cell_i = next(i for i, c in enumerate(cells) if c["capabilityId"] in ("syntax", "references"))
++    if any(c["capabilityId"] in ("syntax", "references", "imports") for c in cells):
++        sym_cell_i = next(i for i, c in enumerate(cells) if c["capabilityId"] in ("syntax", "references", "imports"))
+         sym_inv = {"schemaVersion": 1, "planId": plan_id, "parameterDigest": enum_digest,
+                    "cellOrdinal": sym_cell_i, "programOrdinal": 0, "kind": "symbol", "state": "complete",
+                    "deficiency": None, "nativeCause": None, "examinedPaths": symbol_ext_u1,
+@@ -601,10 +601,11 @@
+         if target_sidecar and ref_payloads:
+             fid, payload, tu = ref_payloads[0]
+             sidecar = {
+-                "schemaVersion": 1, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+                 "targetUniverse": tu, "targetNativeId": payload["resolvedBinding"],
+                 "kind": "symbol", "occupancy": "first-party", "exported": "exported",
+                 "logicalPath": None, "packageManifestPath": None,
++                "evaluationNativeId": payload["resolvedBinding"],
+             }
+             sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
+         if incoming_search:
+@@ -639,6 +640,28 @@
+                 }
+                 sidecar_refs.append({"domain": "incoming-search", "digest": blob(att)})
+ 
++    if atom["relation"] == "imports":
++        s_imp = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
++                    relation="imports", resolution="resolved-target", enumeratorClosure=provider,
++                    subjects=E.cset([foo]))
++        raw = sources["a.ts"]
++        anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
++        payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
++        fid = add("fact", snapshotId=snapshot, relation="imports", resolution="resolved-target",
++                  sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
++                  payloadSchemaDigest=relation_schema, payloadDigest=blob(payload),
++                  anchors=[anchor], confidenceMillionths=1000000)
++        cid_imp, _ = mint_coverage(s_imp, True)
++        mint_view(s_imp, [fid], cid_imp)
++        sidecar = {
++            "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++            "targetUniverse": u1, "targetNativeId": "file:a.ts",
++            "kind": "file", "occupancy": "first-party", "exported": None,
++            "logicalPath": None, "packageManifestPath": None,
++            "evaluationNativeId": "a.ts",
++        }
++        sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++
+     if atom["relation"] == "package" or complete_required_inventory:
+         pkg_fact_rows = [r for d, inv in inventory_results if inv["kind"] == "package" for r in inv["rows"]]
+         subjects = E.cset(r["nativeSubjectId"] for r in pkg_fact_rows)

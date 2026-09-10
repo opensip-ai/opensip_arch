@@ -1,0 +1,142 @@
+--- a/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
++++ b/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
+@@ -84,7 +84,7 @@
+ 
+ This section is the normative field mapping from admitted inputs to evaluator3 proof, witness, finding, evidence, seal, Run and policy-derivation bytes. It publishes the current intended bridge. It does not add an evaluator profile, change native extraction, Kleene, gates, the budget formula, or output identity recipes. Reference models remain reconstruction evidence; a normative-only consumer reproduces the fields below without reading those models.
+ 
+-**Notation.** `C(x)` is product canonical UTF-8 JSON (`canonical.py`: sorted keys, compact separators, exact typed JSON). `Cset(X)` is the unique members of X keyed by `C(member)`, ordered by those canonical bytes. That is schema `uniqueItems` plus `x-opensip-order: canonical-set`. `ProofInputRef` is `{domain, digest}` with `digest` a 64-hex and `domain` a member of `#/$defs/ProofInputRef/properties/domain/enum`. H prefixes are stripped from `digest` (the 64-hex is the suffix). Let `EI` be `proof.evaluationInputRefs`. Let `XI` be the unique `ProofInputRef` in `EI` with `domain=execution-inputs`.
++**Notation.** `C(x)` is product canonical UTF-8 JSON (identity-and-evidence §3: sorted keys, compact separators, exact typed JSON). `Cset(X)` is the unique members of X keyed by `C(member)`, ordered by those canonical bytes. That is schema `uniqueItems` plus `x-opensip-order: canonical-set`. `ProofInputRef` is `{domain, digest}` with `digest` a 64-hex and `domain` a member of `#/$defs/ProofInputRef/properties/domain/enum`. H prefixes are stripped from `digest` (the 64-hex is the suffix). Let `EI` be `proof.evaluationInputRefs`. Let `XI` be the unique `ProofInputRef` in `EI` with `domain=execution-inputs`.
+ 
+ ### 9.1 Proof identity and selection
+ 
+@@ -251,9 +251,53 @@
+ 
+ `proof.findingIds = Cset` of minted finding3 H ids. `proof.waivedFindingIds = Cset` of those whose fingerprint or exact `(ruleId, subjectPath)` matches an effective WaiverSet target.
+ 
+-**Semantic evidence3:** `{schemaVersion:3, planId, viewIds: Cset(view2:d for {domain:view,digest:d} in EI), coverageIds: Cset(coverage ids named by those views ∪ {coverage2:d for domain=coverage in EI}), importIds: Plan.importIds in Plan array order then admitted as the Plan-selected set (equal as a set to plan.importIds; schema canonical-set orders the stored array by C of each id string), findingIds: proof.findingIds, proofBundleId}`. `importIds` is the exact Plan import selection, **not** an evaluated subset and **not** `EI`. Matched/uncertain observation addresses live on witnesses. Atomic `predicateProofs[].inputRefs` may contain every selected import under §9.2 without those imports being “consulted” Coverage/observation evidence.
+-
+-**Seal3 / Run3 / policy-derivation3:** existing identity recipes. Seal `verdict` equals `proof.verdict`. Evidence, seal and Run H ids are `identifier` of those descriptors. Policy-derivation3 copies `planId`, `proofBundleId`, `policyDigest`, `waiverDigest`, `verdict` from the fully replayed Run.
++**Semantic evidence3:** `{schemaVersion:3, planId, viewIds: Cset(view2:d for {domain:view,digest:d} in EI), coverageIds: Cset(coverage ids named by those views ∪ {coverage2:d for domain=coverage in EI}), importIds: Cset(plan.importIds), findingIds: proof.findingIds, proofBundleId}`. `importIds` is the exact Plan import selection, **not** an evaluated subset and **not** `EI`. Matched/uncertain observation addresses live on witnesses. Atomic `predicateProofs[].inputRefs` may contain every selected import under §9.2 without those imports being “consulted” Coverage/observation evidence.
++
++**Output identities.** Use the existing identity-and-evidence §3 framed hash, without changing its meaning:
++
++`H(D,X) = SHA256(ASCII("opensip.product.v1") ‖ 00 ‖ ASCII(D) ‖ 00 ‖ uint64BE(byteLength(C(X))) ‖ C(X))`.
++
++The typed identifier, written `ID(D,X)` below, is `prefix(D) + ":" + lowercaseHex(H(D,X))`. `H` is the digest, not the prefixed identifier. The existing domain/prefix table supplies these output mappings:
++
++| Domain D | prefix(D) |
++|---|---|
++| `evaluation-subject` | `subject3` |
++| `finding-fingerprint` | `finding-key2` |
++| `finding` | `finding3` |
++| `proof-bundle` | `proof3` |
++| `semantic-evidence` | `evidence3` |
++| `evaluation-seal` | `seal3` |
++| `run` | `run3` |
++| `policy-derivation` | `policy-derivation3` |
++
++All these identifiers use the complete admitted descriptor X. Finding and waived-finding arrays contain the canonical set of the corresponding `finding3` identifiers. Witnesses, program-predicate records and parameter records instead use their specified raw SHA-256 of canonical-record bytes; do not apply this frame to them.
++
++**Seal3** has exactly these fields:
++
++| Field | Exact value |
++|---|---|
++| `schemaVersion` | `3` |
++| `planId` | `proof.planId` |
++| `executionPlanId` | `proof.executionPlanId` |
++| `evidenceId` | `ID(semantic-evidence, evidence3)` |
++| `evaluatorClosure` | `proof.evaluatorClosure` |
++| `policyDigest` | admitted Plan `policyDigest` |
++| `proofBundleId` | `ID(proof-bundle, proof)` |
++| `verdict` | `proof.verdict` |
++
++**Run3** has exactly these fields:
++
++| Field | Exact value |
++|---|---|
++| `schemaVersion` | `3` |
++| `projectId` | admitted snapshot `projectId` |
++| `snapshotId` | admitted Plan `snapshotId` |
++| `planId` | `proof.planId` |
++| `evidenceId` | seal `evidenceId` |
++| `evaluationSealId` | `ID(evaluation-seal, seal3)` |
++| `capabilityManifestId` | admitted Plan `capabilityManifestId`, retaining its declared capability-manifest-id recipe |
++
++**Policy-derivation3** is exactly `{schemaVersion:3, planId:run.planId, proofBundleId:seal.proofBundleId, policyDigest:plan.policyDigest, waiverDigest:plan.waiverDigest, verdict:proof.verdict}` from this fully replayed Run, its admitted Plan and seal, and its recomputed proof. Its typed identifier is `ID(policy-derivation, descriptor)`. A different policy or waiver set requires its own admitted Plan and Run; it cannot be substituted under the original identities.
+ 
+ **Verdict / evaluationState:** §3 and §5 unchanged. Any nonempty `proof.executionDeficiencies` makes sealed verdict at least indeterminate (fail still dominates).
+ 
+--- a/docs/coop/design-corrections/foundation/identity-schemas.v3.json
++++ b/docs/coop/design-corrections/foundation/identity-schemas.v3.json
+@@ -1018,7 +1018,7 @@
+           },
+           "uniqueItems": true,
+           "x-opensip-order": "canonical-set",
+-          "description": "Root predicate-witness digest; descendant known and uncertain facts; descendant witness coverageIds (consulted); descendant matching/uncertain observation importIds; and every evaluationInputRefs member with domain=import. Enumeration/execution inventory refs stay on the proof. composition §9.7."
++          "description": "Root predicate-witness digest; descendant known and uncertain facts; descendant witness coverageIds (consulted); descendant matching/uncertain observation importIds; and every evaluationInputRefs member with domain=import. Enumeration/execution inventory refs stay on the proof. composition \u00a79.7."
+         },
+         "ruleId": {
+           "$ref": "#/$defs/Text"
+@@ -1185,7 +1185,7 @@
+           },
+           "uniqueItems": true,
+           "x-opensip-order": "canonical-set",
+-          "description": "Complete admitted selection: ExecutionInputsV1.selectedRefs plus the one execution-inputs ref. Not an evaluated subset. Atomic predicateProofs[].inputRefs copy this whole set (composition §9.2)."
++          "description": "Complete admitted selection: ExecutionInputsV1.selectedRefs plus the one execution-inputs ref. Not an evaluated subset. Atomic predicateProofs[].inputRefs copy this whole set (composition \u00a79.2)."
+         },
+         "predicateProofs": {
+           "type": "array",
+@@ -1238,7 +1238,7 @@
+                 },
+                 "uniqueItems": true,
+                 "x-opensip-order": "canonical-set",
+-                "description": "Atomic: equal to proof.evaluationInputRefs (whole admitted selection, including empty-population inputs). Boolean: canonical union of immediate children. Projection of the witness-binding sentence; witnesses have no inputRefs field. Not the atom internal consumed-ref subset. composition §9.2."
++                "description": "Atomic: equal to proof.evaluationInputRefs (whole admitted selection, including empty-population inputs). Boolean: canonical union of immediate children. Projection of the witness-binding sentence; witnesses have no inputRefs field. Not the atom internal consumed-ref subset. composition \u00a79.2."
+               },
+               "scopeIds": {
+                 "type": "array",
+@@ -1330,7 +1330,7 @@
+             "$ref": "#/$defs/evaluation-deficiency"
+           },
+           "x-opensip-order": "canonical-set",
+-          "description": "Required-execution assessment items even when all rules are disabled, plus work-budget-exhausted. source=execution is the assessment layer. cause is row.deficiency if it is an execution-registry member, else required-cell-unsatisfied for null/source-syntax-invalid. inputRefs are the ExecutionInputsV1 ref plus originating Coverage/inventory/candidate refs. subjectId and predicateId are null. composition §9.6. Internal requiredCellDeficiencies tokens native-work-incomplete/unsupported-typed are not proof causes."
++          "description": "Required-execution assessment items even when all rules are disabled, plus work-budget-exhausted. source=execution is the assessment layer. cause is row.deficiency if it is an execution-registry member, else required-cell-unsatisfied for null/source-syntax-invalid. inputRefs are the ExecutionInputsV1 ref plus originating Coverage/inventory/candidate refs. subjectId and predicateId are null. composition \u00a79.6. Internal requiredCellDeficiencies tokens native-work-incomplete/unsupported-typed are not proof causes."
+         },
+         "executionInputsDigest": {
+           "type": "string",
+@@ -1395,7 +1395,7 @@
+           },
+           "uniqueItems": true,
+           "x-opensip-order": "canonical-set",
+-          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. This array is not an evaluated subset and is not proof.evaluationInputRefs (that field is the complete selectedRefs plus the execution-inputs ref). A selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority. Matched and uncertain observation addresses live on predicate-witness matchingImportRows/uncertainImportRows. Atomic predicateProofs[].inputRefs copy the whole evaluationInputRefs under composition §9.2 and therefore may list every selected import without those imports being consulted observation evidence."
++          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. This array is not an evaluated subset and is not proof.evaluationInputRefs (that field is the complete selectedRefs plus the execution-inputs ref). A selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority. Matched and uncertain observation addresses live on predicate-witness matchingImportRows/uncertainImportRows. Atomic predicateProofs[].inputRefs copy the whole evaluationInputRefs under composition \u00a79.2 and therefore may list every selected import without those imports being consulted observation evidence."
+         },
+         "findingIds": {
+           "type": "array",
+@@ -1989,7 +1989,7 @@
+           ]
+         }
+       },
+-      "description": "Version3 witness. No inputRefs field: the complete admitted evaluation input selection is projected onto predicateProofs[].inputRefs (composition §9.2). Native atoms carry native matches/uncertain matches and Coverage; imported atoms carry observation addresses, never fact2; boolean nodes carry children and empty match/Coverage arrays. coverageIds and matching/uncertain sets are consulted evidence and may be narrower than evaluationInputRefs. Exact source-specific plane/operation constraints and complete replay are evaluator admission laws.",
++      "description": "Version3 witness. No inputRefs field: the complete admitted evaluation input selection is projected onto predicateProofs[].inputRefs (composition \u00a79.2). Native atoms carry native matches/uncertain matches and Coverage; imported atoms carry observation addresses, never fact2; boolean nodes carry children and empty match/Coverage arrays. coverageIds and matching/uncertain sets are consulted evidence and may be narrower than evaluationInputRefs. Exact source-specific plane/operation constraints and complete replay are evaluator admission laws.",
+       "allOf": [
+         {
+           "if": {
+@@ -2755,7 +2755,7 @@
+         "operation",
+         "nodeDigest"
+       ],
+-      "description": "The closed record digested by predicate-witness.programPredicateDigest. It addresses ONE predicate node of the admitted RuleProgramV1; it introduces no second policy language. predicateId is the node address: the rule root is \"p\", the i-th operand of an and/or node at address a is a+\".\"+i (zero-based, shortest decimal), and the operand of a not node at address a is a+\".0\".",
++      "description": "The closed record digested by predicate-witness.programPredicateDigest. It addresses ONE predicate node of the admitted RuleProgramV2; it introduces no second policy language. predicateId is the node address: the rule root is \"p\", the i-th operand of an and/or node at address a is a+\".\"+i (zero-based, shortest decimal), and the operand of a not node at address a is a+\".0\".",
+       "properties": {
+         "schemaVersion": {
+           "const": 2
+@@ -3440,7 +3440,7 @@
+           ]
+         }
+       },
+-      "description": "Closed replayed deficiency with explicit origin. evidenceKind is data provenance bound to the policy atom/declaration, not a gating flag. Native carrier, universe, subject, predicate and inputRefs are rederived from admitted inputs per composition §9.5–§9.6. Execution-assessment items use source=execution and inputRefs = ExecutionInputsV1 ref plus originating row refs. Atom items on a native/import plane copy evaluationInputRefs except Coverage-entry items which name that Coverage.",
++      "description": "Closed replayed deficiency with explicit origin. evidenceKind is data provenance bound to the policy atom/declaration, not a gating flag. Native carrier, universe, subject, predicate and inputRefs are rederived from admitted inputs per composition \u00a79.5\u2013\u00a79.6. Execution-assessment items use source=execution and inputRefs = ExecutionInputsV1 ref plus originating row refs. Atom items on a native/import plane copy evaluationInputRefs except Coverage-entry items which name that Coverage.",
+       "allOf": [
+         {
+           "if": {

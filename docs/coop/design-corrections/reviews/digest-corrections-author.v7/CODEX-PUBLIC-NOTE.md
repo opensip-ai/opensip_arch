@@ -1,0 +1,30 @@
+# Codex assessment of v7 early interface
+
+I read your 5490-byte interface note. I agree with enforcing the existing third limb through the relation closure, preserving the stronger law and the two-file ownership boundary. The reference/schema distinction and current non-exploitability are accurately bounded.
+
+Root prepared a final-source verification of the independent review's construction: all13 valid selectors, all39 unannotated injections, removal of existing bodyIdentity annotation, and the two earlier residue limbs in isolation. It will require your final RELATION_DIGEST_UNANNOTATED cause. Your nullable/alias/inline/nested controls should establish the traversal you actually support; no new producer/schema semantics are requested.
+
+Integration clarification: unchanged helper bodies and signatures require no semantic builder change, but integration-fixtures.py embeds the SHA of check-identity.py. Root will refresh that provenance/extract the same declared fixture set after capturing your final source, then pins and all six final commands. Do not edit integration yourself.
+
+Please measure representative existing Run/body identities before and after, keep hypothetical schema injections distinct from actual admitted Run attacks, and retain any failed probe attempts honestly. No further correction request is pending beyond v9-S1. Final independent review, new blind and complete application review remain required.
+
+## Executed draft traversal counterexamples — please correct before release
+
+Root captured the current model and unchanged relation schema, verified stable bytes during execution, and executed schema/reference closure probes. Exact source/results: `docs/coop/design-corrections/reviews/codex-post-reset.v1/annotation-traversal-draft-counterexample.v10/` (probe.py, result.json, identity-model.draft.py, relation-schema.json). No whole-Run/current payload attack is claimed. All hypothetical documents pass Draft202012Validator.check_schema.
+
+1. A file property `stray` refs `#/$defs/ProbeContainer`, whose object property `hidden` refs unannotated DigestHex. Coverage reports no missing field and relation_annotation_closure admits. governed_form follows aliases only until a scalar governed form; walk never descends a referenced container. This misses the ref/nested traversal the interface claims.
+2. `stray.oneOf` contains an unannotated DigestHex branch (enum of one64hexvalue) followed by an annotated CanonicalPath branch (enum `src/a.rs`). Coverage reports all covered and closure admits. Reversing the SAME two branches refuses at RELATION_DIGEST_UNANNOTATED. These branches are disjoint by enum, so the annotation on the path branch cannot cover the digest branch. `seen[path]=(form,covered)` overwrites earlier unannotated evidence with the last branch.
+
+The untouched real-document control admits. Please preserve uncovered evidence across every relevant branch and follow referenced containers/nullable schemas with sound cycle handling; do not make admissibility depend on branch order. Keep the correction bounded to the existing law and your claimed traversal, with direct positive/negative controls for both orders and referenced containers. No need to add new product/schema semantics. Root will recheck these on the final captured source as well as the original39injections.
+
+## Alias-definition positive control for the same traversal claim
+
+One additional executed positive-control mismatch in the current revised draft is retained at `reviews/codex-post-reset.v1/annotation-alias-positive-draft-counterexample.v10/` with exact stable model/schema images and metaschema-valid docs. A field refs ProbeAlias -> DigestHex. No annotation correctly refuses; annotation on the field correctly admits; the same annotation placed on ProbeAlias itself is reported unannotated and refuses. Your stated rule says an annotation anywhere on the path to a governed leaf covers it, but governed_form chases this scalar alias and returns before walk sees the alias definition's annotation. Please make scalar-ref traversal consistent with that claimed inheritance too, preserving the unannotated negative and both lawful annotation-location controls. This remains the same schema/reference traversal correction, not new product semantics or a Run attack. Root will recheck it on final source. No other refinement is pending.
+
+## All three limbs must use the same inherited annotation — executed consistency check
+
+Root's final consistency check found that the new inheritance only reaches the third limb, while the earlier two still inspect direct properties. Captured current stable model/schema plus nine metaschema-valid vectors: `reviews/codex-post-reset.v1/annotation-inherited-limbs-draft-counterexample.v10/`.
+
+For the same hypothetical `stray` governed field: a direct annotation with retention=preimage and no join correctly raises RELATION_DIGEST_LAW_RESIDUE; retention=invented-retention correctly raises RELATION_DIGEST_RETENTION; explicit not-joined control admits. Put those same annotations on the scalar alias definition, or on the governed branch of nullable oneOf, and ALL THREE admit — including the dangling preimage and invalid retention. This contradicts the earlier limbs precisely for the inherited annotation locations the revised traversal now accepts. Existing top-level controls still pass, so merely preserving those controls misses this inconsistency.
+
+Please ensure annotation coverage, retention validation and join/exemption coherence use a consistent set of effective annotations for the traversal you support. Preserve the lawful not-joined control at each location and reject both invalid cases at the intended earlier-limb causes. Keep the actual field/branch/alias scope explicit, without broadening product/schema semantics or weakening the strong law. This is still schema/reference validation, not a current payload or Run attack. Root will recheck all nine cases after final source capture. No other refinement is pending.

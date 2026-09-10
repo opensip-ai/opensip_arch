@@ -1,0 +1,349 @@
+"""Constructors for complete positive Run descriptor graphs.
+
+Every observation a provider, compiler, filesystem or OS would make is a
+SYNTHETIC TRUSTED OBSERVATION supplied here.  None of it is measurement, and
+none of it is native enforcement proof.
+"""
+from __future__ import annotations
+
+import hashlib
+
+import canon as K
+import kit
+import native as N
+from evaluator import address_nodes, replay, EvalView
+from store import Store, Refusal, split_id
+
+PROJECT_ID = "prj1-" + "3f" * 32
+
+
+# ---------------------------------------------------------------------------
+# closures (synthetic signed components)
+# ---------------------------------------------------------------------------
+
+def make_closure(store, kind, files, semantic_version, protocol_major=3,
+                 platform="linux-x86_64-gnu"):
+    tree = []
+    for path, data in sorted(files.items()):
+        d = store.put_blob(data)
+        tree.append({"path": path, "sha256": d, "bytes": len(data)})
+    tree.sort(key=lambda r: r["path"].encode("utf-8"))
+    manifest_body = K.C({"kind": kind, "semanticVersion": semantic_version,
+                         "platform": platform, "tree": tree})
+    manifest_digest = store.put_blob(manifest_body)
+    desc = {"schemaVersion": 2, "kind": kind, "manifestDigest": manifest_digest,
+            "tree": tree, "semanticVersion": semantic_version,
+            "protocolMajor": protocol_major, "platform": platform}
+    cid = store.put_identity("closure", desc)
+    return cid, desc
+
+
+# ---------------------------------------------------------------------------
+# snapshot
+# ---------------------------------------------------------------------------
+
+def make_snapshot(store, files: dict[str, bytes], scope_descriptor, config,
+                  vcs_kind="git", commit="a" * 40, dirty=False):
+    inventory = []
+    for path, data in files.items():
+        d = store.put_blob(data)
+        inventory.append({"path": path, "sha256": d, "bytes": len(data)})
+    inventory.sort(key=lambda r: r["path"].encode("utf-8"))
+    inv_digest = store.put_record(inventory)
+    vcs = {"schemaVersion": 2, "kind": vcs_kind,
+           "commitId": None if vcs_kind == "none" else commit,
+           "dirty": dirty, "sourceInventoryDigest": inv_digest}
+    vcs_digest = store.put_record(vcs)
+    scope_digest = store.put_record(scope_descriptor)
+    config_digest = store.put_record(config)
+    desc = {"schemaVersion": 2, "projectId": PROJECT_ID,
+            "sourceInventory": inventory, "resolvedConfigDigest": config_digest,
+            "scopeDigest": scope_digest, "vcsDigest": vcs_digest}
+    sid = store.put_identity("snapshot", desc)
+    return sid, desc, inventory
+
+
+def default_config(capabilities, budget_limit=100000, profile="default"):
+    return {
+        "analysis": {"profileId": profile,
+                     "capabilities": sorted(capabilities),
+                     "budget": {"unit": "work-units", "limit": budget_limit}},
+        "components": {}, "discovery": {}, "policy": {}, "evidence": {},
+    }
+
+
+def scope_descriptor(roots, prefixes=(), excluded=()):
+    return {"schemaVersion": 2,
+            "workspaceRoots": sorted(set(roots), key=lambda s: s.encode()),
+            "pathPrefixes": sorted(set(prefixes), key=lambda s: s.encode()),
+            "excludedPathPrefixes": sorted(set(excluded), key=lambda s: s.encode())}
+
+
+# ---------------------------------------------------------------------------
+# capability manifest (CVE1, admitted under capability-manifest-domains.v2)
+# ---------------------------------------------------------------------------
+
+def capability_manifest(providers, absent=()):
+    """CapabilityManifestV1 (capability-manifest-domains.v2 recordShape):
+    {schemaVersion, profile, providers[], coverageForAbsent[]}."""
+    return {"schemaVersion": 1, "profile": "cb9-default",
+            "providers": list(providers), "coverageForAbsent": list(absent)}
+
+
+def provider_capability(provider_id, language, relations, platform_ids):
+    return {"providerId": provider_id, "language": language,
+            "providerVersionSource": "closure-manifest.semanticVersion",
+            "toolchainIdentitySource": "native-context.toolchain",
+            "relations": dict(relations), "platformIds": list(platform_ids)}
+
+
+def absent_capability(provider_id, language, relation_ids, coverage_state,
+                      deficiency):
+    return {"providerId": provider_id, "language": language,
+            "relationIds": list(relation_ids), "coverageState": coverage_state,
+            "deficiency": deficiency}
+
+
+def commit_capability_manifest(store, manifest):
+    """ADM-* gates run BEFORE encoding; CVE1 then encodes the committed bytes
+    and the identity is SHA256(domain || 00 || committedBytes)."""
+    admit_capability_manifest(manifest)
+    committed = K.cve1(manifest)
+    digest = store.put_blob(committed)
+    return K.capability_manifest_id(committed), digest, committed
+
+
+# --- the four inherited gates, in their inherited order ---------------------
+
+REGS = kit.doc("capability-domains")["registries"]
+RECORD_SHAPE = kit.doc("capability-domains")["recordShape"]
+DECLARED_OPEN = set(kit.doc("capability-domains")["declaredOPEN"])
+DECODER_BOUNDS = kit.doc("capability-domains")["decoderBounds"]
+
+
+def admit_capability_manifest(manifest):
+    _adm_type(manifest)
+    _adm_closed(manifest)
+    _adm_domain(manifest)
+    _adm_order(manifest)
+    return True
+
+
+def _exact_int(v, where):
+    if isinstance(v, bool) or not isinstance(v, int):
+        raise Refusal("ADM-TYPE", f"{where}: not a JSON integer")
+
+
+def _exact_str(v, where):
+    if not isinstance(v, str):
+        raise Refusal("ADM-TYPE", f"{where}: not a JSON string")
+
+
+def _adm_type(m):
+    _exact_int(m.get("schemaVersion"), "CapabilityManifestV1.schemaVersion")
+    _exact_str(m.get("profile"), "CapabilityManifestV1.profile")
+    for i, p in enumerate(m.get("providers", [])):
+        for k in ("providerId", "language", "providerVersionSource",
+                  "toolchainIdentitySource"):
+            _exact_str(p.get(k), f"providers[{i}].{k}")
+        for rk, rv in p.get("relations", {}).items():
+            _exact_str(rk, f"providers[{i}].relations key")
+            _exact_str(rv, f"providers[{i}].relations[{rk}]")
+        for j, pid in enumerate(p.get("platformIds", [])):
+            _exact_str(pid, f"providers[{i}].platformIds[{j}]")
+    for i, a in enumerate(m.get("coverageForAbsent", [])):
+        for k in ("providerId", "language", "coverageState", "deficiency"):
+            _exact_str(a.get(k), f"coverageForAbsent[{i}].{k}")
+        for j, rid in enumerate(a.get("relationIds", [])):
+            _exact_str(rid, f"coverageForAbsent[{i}].relationIds[{j}]")
+
+
+def _closed_record(obj, name, where):
+    keys = set(RECORD_SHAPE[name]["requiredKeys"])
+    got = set(obj)
+    if got != keys:
+        raise Refusal("ADM-CLOSED",
+                      f"{where}: {sorted(got ^ keys)} (record {name} is closed)")
+
+
+def _adm_closed(m):
+    _closed_record(m, "CapabilityManifestV1", "$")
+    for i, p in enumerate(m["providers"]):
+        _closed_record(p, "ProviderCapability", f"providers[{i}]")
+        if not isinstance(p["relations"], dict):
+            raise Refusal("ADM-CLOSED", f"providers[{i}].relations is a MAP")
+    for i, a in enumerate(m["coverageForAbsent"]):
+        _closed_record(a, "AbsentCapability", f"coverageForAbsent[{i}]")
+
+
+def _adm_domain(m):
+    rel = set(REGS["RELATION-DOMAIN-V2"]["members"])
+    ladders = REGS["RELATION-LADDER-DOMAIN-V2"]["ladders"]
+    plats = set(REGS["PLATFORM-ID-DOMAIN-V1"]["members"])
+    defs_ = set(REGS["DEFICIENCY-DOMAIN-V1"]["members"])
+    cov = set(REGS["COVERAGE-STATE-DOMAIN-V1"]["members"])
+    # drift check: the ladder mirror must equal the single authority, in order
+    for r, lad in ladders.items():
+        auth = kit.RELATIONS[r]["ladder"]
+        if lad != auth:
+            raise Refusal("RELATION_LADDER_DRIFT", f"{r}: {lad} != {auth}")
+    for i, p in enumerate(m["providers"]):
+        for rk, rv in p["relations"].items():
+            if rk not in rel:
+                raise Refusal("ADM-DOMAIN", f"providers[{i}].relations key {rk}")
+            if rv not in ladders[rk]:
+                raise Refusal("ADM-DOMAIN",
+                              f"providers[{i}].relations[{rk}] = {rv} is a rung of another relation")
+        for pid in p["platformIds"]:
+            if pid not in plats:
+                raise Refusal("ADM-DOMAIN", f"providers[{i}].platformIds {pid}")
+    for i, a in enumerate(m["coverageForAbsent"]):
+        for rid in a["relationIds"]:
+            if rid not in rel:
+                raise Refusal("ADM-DOMAIN", f"coverageForAbsent[{i}].relationIds {rid}")
+        if a["coverageState"] not in cov:
+            raise Refusal("ADM-DOMAIN", f"coverageForAbsent[{i}].coverageState")
+        if a["deficiency"] not in defs_:
+            raise Refusal("ADM-DOMAIN", f"coverageForAbsent[{i}].deficiency")
+
+
+def _strict_bytes(seq, where):
+    b = [x.encode("utf-8") for x in seq]
+    for x, y in zip(b, b[1:]):
+        if x >= y:
+            raise Refusal("RELEASE.CAPABILITY_MANIFEST_NOT_CANONICAL", where)
+
+
+def _adm_order(m):
+    """Declared traversal order (capability-manifest-domains traversalOrder);
+    declared sort keys from delivery.v4 declaredSortKeys."""
+    for i, p in enumerate(m["providers"]):
+        _strict_bytes(p["platformIds"], f"providers[{i}].platformIds")
+    for i, a in enumerate(m["coverageForAbsent"]):
+        _strict_bytes(a["relationIds"], f"coverageForAbsent[{i}].relationIds")
+    _strict_bytes([p["providerId"] for p in m["providers"]], "providers")
+    _strict_bytes([a["providerId"] for a in m["coverageForAbsent"]],
+                  "coverageForAbsent")
+
+
+# ---------------------------------------------------------------------------
+# plan / views / evidence / seal / run
+# ---------------------------------------------------------------------------
+
+def make_plan(store, snapshot_id, snapshot, capability_manifest_id,
+              capability_bytes_digest, semantic_closures, analysis_spec,
+              native_context_digests, policy_digest, waiver_digest,
+              semantic_grant_digest, budget, import_ids=()):
+    spec_digest = store.put_record(analysis_spec)
+    desc = {"schemaVersion": 2, "snapshotId": snapshot_id,
+            "capabilityManifestId": capability_manifest_id,
+            "semanticClosures": sorted(set(semantic_closures), key=K.C),
+            "analysisSpecDigest": spec_digest,
+            "resolvedConfigDigest": snapshot["resolvedConfigDigest"],
+            "nativeContextDigests": sorted(set(native_context_digests), key=K.C),
+            "importIds": sorted(set(import_ids), key=K.C),
+            "policyDigest": policy_digest, "waiverDigest": waiver_digest,
+            "scopeDigest": snapshot["scopeDigest"], "budget": budget,
+            "semanticGrantDigest": semantic_grant_digest,
+            "capabilityManifestBytesDigest": capability_bytes_digest}
+    return store.put_identity("plan", desc), desc
+
+
+def make_scope(store, snapshot_id, source_universe, target_universe, relation,
+               rung, enumerator_closure, subjects):
+    desc = {"schemaVersion": 2, "snapshotId": snapshot_id,
+            "sourceUniverse": source_universe, "targetUniverse": target_universe,
+            "relation": relation, "resolution": rung,
+            "enumeratorClosure": enumerator_closure,
+            "subjects": sorted(set(subjects), key=K.C)}
+    return store.put_identity("subject-scope", desc), desc
+
+
+def make_fact(store, snapshot_id, relation, rung, source_universe,
+              target_universe, producer_closure, payload, anchors,
+              confidence=1000000):
+    payload_digest = store.put_record(payload)
+    desc = {"schemaVersion": 2, "snapshotId": snapshot_id, "relation": relation,
+            "resolution": rung, "sourceUniverse": source_universe,
+            "targetUniverse": target_universe, "producerClosure": producer_closure,
+            "payloadSchemaDigest": kit.doc_digest("relation"),
+            "payloadDigest": payload_digest,
+            "anchors": sorted(anchors, key=K.C),
+            "confidenceMillionths": confidence}
+    return store.put_identity("fact", desc), desc
+
+
+def coverage_entry(relation, rung, commitment, subject_count, *,
+                   coverage="complete", state=None, attempted=None,
+                   examined_exhaustive=True, stage_terminal="complete",
+                   edge_count=0, edge_classes=(), deficiency=None,
+                   native_cause=None, derivation_kinds=(), confidence=1000000,
+                   closed_world=None, force=False):
+    resolved = rung in kit.RESOLVED_RUNGS
+    if state is None:
+        state = "complete" if resolved else "not-applicable"
+    if attempted is None:
+        attempted = resolved and state in ("complete", "incomplete", "partial")
+    if not resolved and not force:
+        attempted, edge_count, edge_classes, stage_terminal = \
+            False, 0, (), stage_terminal
+    cw = closed_world or {
+        "exportsClosed": "closed", "entryPointsRecognized": "all",
+        "nonliteralLoading": "none", "externalConsumers": "none-declared",
+        "dynamicDispatch": "not-applicable", "reasons": [],
+        "deadCodeRepairEligible": True}
+    return {"relation": relation, "resolution": rung, "coverage": coverage,
+            "examinedUniverse": {"subjectScopeCommitment": commitment,
+                                 "subjectCount": subject_count},
+            "resolutionCompleteness": {
+                "state": state, "attempted": attempted,
+                "examinedExhaustive": examined_exhaustive,
+                "stageTerminal": stage_terminal,
+                "unresolvedEdgeCount": edge_count,
+                "unresolvedEdgeClasses": sorted(edge_classes)},
+            "closedWorld": cw,
+            "derivationKinds": sorted(derivation_kinds),
+            "confidenceMillionths": confidence,
+            "deficiency": deficiency, "nativeCause": native_cause}
+
+
+def make_coverage(store, scope_id, scope, entry):
+    payload = {"schemaVersion": 3,
+               "key": {"relation": scope["relation"], "resolution": scope["resolution"],
+                       "sourceUniverse": scope["sourceUniverse"],
+                       "targetUniverse": scope["targetUniverse"],
+                       "subjectScopeCommitment": "sha256:" + split_id(scope_id, "scope2")},
+               "entry": entry}
+    payload_digest = store.put_record(payload)
+    desc = {"schemaVersion": 2, "scopeId": scope_id,
+            "payloadSchemaDigest": kit.doc_digest("native"),
+            "payloadDigest": payload_digest}
+    return store.put_identity("coverage", desc), desc, payload
+
+
+def make_view(store, plan_id, scope_ids, fact_ids, coverage_ids, producer_closure,
+              schema_digests=None):
+    desc = {"schemaVersion": 2, "planId": plan_id,
+            "scopeIds": sorted(set(scope_ids), key=K.C),
+            "facts": sorted(set(fact_ids), key=K.C),
+            "coverageIds": sorted(set(coverage_ids), key=K.C),
+            "producerClosure": producer_closure,
+            "schemaDigests": sorted(set(schema_digests or
+                                        [kit.doc_digest("relation"),
+                                         kit.doc_digest("native")]), key=K.C)}
+    return store.put_identity("view", desc), desc
+
+
+def make_stage(store, plan_id, producer_closure, operation, output_domains,
+               output_schema_digest, parameters=()):
+    spec = {"schemaVersion": 2, "planId": plan_id,
+            "producerClosure": producer_closure, "operation": operation,
+            "parameters": sorted(parameters, key=K.C),
+            "outputDomains": sorted(set(output_domains), key=K.C),
+            "outputSchemaDigest": output_schema_digest}
+    return store.put_record(spec), spec
+
+
+def make_exec_plan(store, plan_id, stages):
+    desc = {"schemaVersion": 2, "planId": plan_id, "stages": stages}
+    return store.put_identity("execution-plan", desc), desc

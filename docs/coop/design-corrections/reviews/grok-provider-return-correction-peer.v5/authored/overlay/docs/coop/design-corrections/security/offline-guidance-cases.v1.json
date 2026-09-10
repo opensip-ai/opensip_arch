@@ -1,0 +1,168 @@
+{
+  "standing": "SYNTHETIC trust records evaluated by security_lifecycle_model_v1.offline_guidance (AR-16 disclosure). Expected values were authored by hand from security-and-lifecycle.md S11 before execution (same author, not an independent oracle).",
+  "model": "offline-guidance",
+  "cases": [
+    {
+      "id": "normal-posture-74-days-remaining",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-01-05T00:00:00Z"
+      },
+      "expect": {
+        "posture": "NORMAL",
+        "daysUntilContinuationStops": 74,
+        "daysUntilInstallStops": 74,
+        "warning": false,
+        "doctor.exit": 0,
+        "doctor.outcomeWhenDefectFound": "OC-2",
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "warning-window-ten-days",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-03-10T00:00:00Z"
+      },
+      "expect": {
+        "posture": "NORMAL",
+        "daysUntilContinuationStops": 10,
+        "warning": true,
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "continuation-only-catalog-expired-revocation-fresh",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2027-03-01T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-03-21T00:00:00Z"
+      },
+      "expect": {
+        "posture": "CONTINUATION-ONLY",
+        "daysUntilInstallStops": 0,
+        "daysUntilContinuationStops": 70,
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "refuses-all-after-ninety-days",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-03-21T00:00:00Z"
+      },
+      "expect": {
+        "posture": "REFUSES-ALL-OPERATIONS",
+        "daysUntilContinuationStops": 0,
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "exactly-ninety-days-is-still-fresh-but-catalog-expired",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-03-20T00:00:00Z"
+      },
+      "expect": {
+        "posture": "CONTINUATION-ONLY",
+        "daysUntilContinuationStops": 0,
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "root-expired-refuses-all-with-chain-remedy",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2027-09-01T00:00:00Z",
+          "catalogExpiresAt": "2027-11-30T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-10-01T00:00:00Z"
+      },
+      "expect": {
+        "posture": "REFUSES-ALL-OPERATIONS",
+        "daysUntilRootExpires": 0,
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "no-user-waiver-exists",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-01-05T00:00:00Z"
+      },
+      "expect": {
+        "userWaiver": "NONE: the OD-112-4 G08 waiver is a release-gate waiver held by product and release authority; it never extends an install's freshness floor",
+        "doctor.exit": 0,
+        "doctor.writes": []
+      }
+    },
+    {
+      "id": "windows-are-explicit-in-every-report",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2026-12-20T00:00:00Z",
+          "catalogExpiresAt": "2027-03-20T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2026-12-22T00:00:00Z"
+      },
+      "expect": {
+        "posture": "NORMAL",
+        "windows.revocationFreshDays": 90,
+        "windows.catalogExpiryDays": 90,
+        "windows.rootExpiryDays": 365,
+        "daysUntilContinuationStops": 88,
+        "daysUntilInstallStops": 88,
+        "daysUntilRootExpires": 283,
+        "doctor.outcomeWhenDefectFound": "OC-2",
+        "doctor.exit": 0
+      }
+    },
+    {
+      "id": "root-expiring-before-revocation-staleness-bounds-continuation",
+      "input": {
+        "record": {
+          "revocationIssuedAt": "2027-09-20T00:00:00Z",
+          "catalogExpiresAt": "2027-12-19T00:00:00Z",
+          "rootExpiresAt": "2027-10-01T00:00:00Z"
+        },
+        "tEval": "2027-09-25T00:00:00Z"
+      },
+      "expect": {
+        "posture": "NORMAL",
+        "daysUntilContinuationStops": 6,
+        "daysUntilInstallStops": 6,
+        "warning": true
+      }
+    }
+  ]
+}

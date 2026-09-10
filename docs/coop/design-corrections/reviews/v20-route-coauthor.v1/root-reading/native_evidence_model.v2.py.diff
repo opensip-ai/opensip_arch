@@ -1,0 +1,40 @@
+--- docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -4168,9 +4168,35 @@
+                                    **UNDECLARED_CAPABILITY_ACCOUNT})
+     # `analysis-spec.requestedCapabilities` is x-opensip-order: canonical-set, so the emitted array is in
+     # canonical-byte order, not discovery order; a duplicate row refuses rather than silently deduping.
++    #
++    # IT REFUSES UNDER THE REGISTERED KEY, which it did not always do. This guard used to raise a bespoke
++    # `DUPLICATE_REQUESTED_CAPABILITY`, which had NO row in x-opensip-public-route-registry - so
++    # `public_termination_for` and `failure_envelope_errors` both refused it
++    # (`native.public-route-key-unregistered`) and a host holding this refusal could derive no public
++    # termination for it at all. The condition is not a new one: it is exactly the registered
++    # `native.requested-capability-duplicate-ownership-tuple`, whose host-generated route is written for
++    # this very call site - "default construction that emitted two rows for one cell". Naming that key
++    # here gives the refusal the origin-dependent route it always should have had, and adds no public
++    # DomainDetailCode member.
++    #
++    # THE TUPLE IS THE NAME OF THE DEFECT, so it is the tuple that is reported. Every row this function
++    # builds carries `required: True` literally, so for THESE rows a byte-identical duplicate and an
++    # ownership-tuple duplicate are the same set; detecting on the tuple states the law that is actually
++    # named and produces the same subject format `admit_requested_capabilities` produces, so the two
++    # guards cannot drift in what they publish.
++    #
++    # THE POSITION IS UNCHANGED, and deliberately. `requestedCapabilities` is `uniqueItems`, so without
++    # this guard these rows would refuse inside `admit_analysis_spec` as a generic schema ValidationError
++    # restating the whole instance - the same reason the cardinality guard precedes generic validation.
++    # NO ORIGIN IS GUESSED: this helper emits the internal key alone, and the host calls
++    # `public_termination_for(key, origin)` with the origin it already holds.
+     requested = sorted(requested, key=C.canonical)
+-    if len({C.canonical(r) for r in requested}) != len(requested):
+-        raise AdmissionError("DUPLICATE_REQUESTED_CAPABILITY")
++    owners: dict[tuple[str, str, str], int] = {}
++    for row in requested:
++        tuple_key = (row["capabilityId"], row["languageMode"], row["workspaceRoot"])
++        owners[tuple_key] = owners.get(tuple_key, 0) + 1
++    for tuple_key in sorted(k for k, n in owners.items() if n > 1):
++        raise AdmissionError("native.requested-capability-duplicate-ownership-tuple:" + ":".join(tuple_key))
+     # The default path takes the SAME pre-Plan boundary an explicitly supplied spec takes - cardinality before
+     # generic schema validation before vocabulary - so a defaulted spec is judged exactly as a configured one
+     # and neither has a guard the other lacks.

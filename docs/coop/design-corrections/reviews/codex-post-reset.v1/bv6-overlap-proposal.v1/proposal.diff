@@ -1,0 +1,20 @@
+--- v16/docs/coop/design-corrections/foundation/identity-model.py
++++ root-proposal/docs/coop/design-corrections/foundation/identity-model.py
+@@ -1392,8 +1392,17 @@
+         view=get(key,'view')
+         if view['planId']!=run['planId']:raise C.AdmissionError('VIEW_PLAN_JOIN')
+         if view['producerClosure'] not in plan['semanticClosures']:raise C.AdmissionError('UNSELECTED_PRODUCER')
++        # Root proposal, pending actual coauthor scope assessment: partition subjects WITHIN each
++        # view, grouped by the same snapshot/relation/rung/source and target universe. A producer's
++        # admission of one Coverage entry cannot decide this between-scopes property. Distinct views
++        # may reuse the same scope; distinct tuples may interpret the same spelling independently.
++        partition_subjects={}
+         for scope_id in view['scopeIds']:
+             scope=get(scope_id,'subject-scope')
++            partition=tuple(scope[field] for field in ('snapshotId','relation','resolution','sourceUniverse','targetUniverse'))
++            seen_subjects=partition_subjects.setdefault(partition,set())
++            if seen_subjects.intersection(scope['subjects']):raise C.AdmissionError('SUBJECT_SCOPE_PARTITION_OVERLAP')
++            seen_subjects.update(scope['subjects'])
+             if scope['snapshotId']!=run['snapshotId']:raise C.AdmissionError('SCOPE_SOURCE_JOIN')
+             if scope['enumeratorClosure'] not in plan['semanticClosures']:raise C.AdmissionError('UNSELECTED_ENUMERATOR')
+             if get(scope['enumeratorClosure'],'closure')['kind']!=DIGESTS['closureKinds']['byField']['subject-scope.enumeratorClosure']:

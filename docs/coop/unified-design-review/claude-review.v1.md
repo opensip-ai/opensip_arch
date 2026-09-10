@@ -1,0 +1,62 @@
+All reads are complete; nothing further depends on another result. Verdict: **CHANGES_REQUIRED** on two small points, both one-sentence corrections in file 08's new section. No MUST_FIX. The direction, scope, row set, truthfulness, and custody handling are otherwise sound, and I agree with both refinements to my advice.
+
+**FR371-S1 (SHOULD_FIX).** Location: register snapshot, "Unified product design readiness" lines 385-391, against the retained snapshot rule at lines 480-484 ("Changing that membership requires a scoped D-002 successor of the D-132 clause 3 / D-134 form"). Problem: the new section replaces the 23-row set with a 28-row set but never states that D-371 is that scoped successor, and the D-371 correction paragraph at lines 435-439 addresses only the stale MET counts, not the membership rule. Consequence: the sole readiness register contains a live-sounding rule under which its own new row set reads as unlawfully adopted. Required change: add one sentence to the section, for example "D-371, user-directed and independently reviewed, is the scoped D-002/D-134 successor for condition-2 membership under the intended-product target; the 2026-09-05 snapshot's membership rule below is retained as the preview-era record."
+
+**FR371-S2 (SHOULD_FIX).** Location: register snapshot table row at line 407 (owners DR-103/105/106/107/117/124/125), against the scope chapter line 42 ("optional Map/provider integration boundaries are designed now") and the section's own rule at lines 415-417. Problem: the act introduces advisory Map integration contracts as an in-scope refinement, but no table row names that boundary as an obligation. Chapter 13 §11 already routes it to DR-109/124 for state ownership and DR-117 for product boundary. Consequence: a scope-chapter promise with no visible owner, which the section itself says must not happen. Required change: extend row 6's obligation text with "and the advisory Map/agent integration boundary (citation of Control results, authority order, separate exit-code family, no Control dependency on Map)", adding DR-109 to that row's owners or cross-referencing row 1.
+
+```json
+{
+  "reviewer": "Claude (Anthropic), model claude-fable-5-1 (Fable 5.1)",
+  "authorOfSubject": "Codex",
+  "authoredNoneOfSubjectBytes": true,
+  "subjectManifestPath": "docs/coop/unified-design-review/subject.v1.json",
+  "verdict": "CHANGES_REQUIRED",
+  "must_fix_count": 0,
+  "should_fix_count": 2,
+  "findings": [
+    {
+      "id": "FR371-S1",
+      "severity": "SHOULD_FIX",
+      "location": "subject.v1 08-decision-and-readiness-register.md lines 385-391 vs lines 480-484 and 435-439",
+      "problem": "The 28-row condition-2 set is declared as replacing D-002/D-134's 23-row set, but the register's retained rule that membership changes require a scoped D-002 successor of the D-132/D-134 form is not reconciled; D-371 is never named as that successor inside file 08.",
+      "consequence": "An auditor applying the register's own rule would read the intended-product row set as unlawfully adopted; the coordinator record alone cannot cure a contradiction inside the sole readiness checklist.",
+      "requiredChange": "One sentence in the 'Unified product design readiness' section stating that D-371 (user-directed, independently reviewed) is the scoped D-002/D-134 successor for condition-2 membership under the intended-product target, and that the snapshot's membership rule is retained as the preview-era record."
+    },
+    {
+      "id": "FR371-S2",
+      "severity": "SHOULD_FIX",
+      "location": "subject.v1 08-decision-and-readiness-register.md table row at line 407; scope chapter line 42; section rule at lines 415-417",
+      "problem": "The act's refinement placing advisory Map/provider integration contracts in scope is promised by the scope chapter, but no obligation row in file 08 names the Map/agent integration boundary or its owner, contrary to the section's own rule that scope-chapter promises must have owners.",
+      "consequence": "A scope promise with no tracked owner cannot be accepted or lawfully excluded later; chapter 13 §11 already routes it to DR-109/124 and DR-117, so the omission is a mapping gap, not a missing row.",
+      "requiredChange": "Extend row 6's obligation text to name the advisory Map/agent integration boundary (Control-result citation, authority order, separate exit-code family, no Control dependency on Map) and add DR-109 to its owners or cross-reference row 1."
+    }
+  ],
+  "verified": [
+    "Row integrity: '| DR-' line count 97 before, 104 after; the difference is exactly the 7 new obligation rows. 17 'SATISFIED 2026-09-04 (D-369)' markers and 6 deferral-limb dispositions unchanged. Section headings unchanged apart from the added section and the 3-line header expansion. No D-371 text inside any existing row cell.",
+    "Condition-2 arithmetic: DR-101–107 (7) + DR-109–115 (7) + DR-117–127 (11) + DR-130/131/133 (3) = 28; excluded DR-108/116/128/129 (4); 28 + 4 = 32 V2 rows. Exclusions match the scope chapter's exclusion row.",
+    "Truthfulness: header, START-HERE, file 10 preface, file 12 preface, and the full-product condition table all state IN PROGRESS / NOT MET; no new SATISFIED grade; no completion or qualification claim; preview retained as historical milestone.",
+    "Language generalization: file 10's common-contract vs native-implementation split, the installed/applicable/executed/sufficient distinction, host-evaluated sufficiency with provider unable to assign verdicts, and 'discovery resolves to host inventory or an existing provider role' are correct and match C-1 and DR-133. Bounded to TypeScript and Rust roles; no all-languages promise.",
+    "Links: #unified-product-design-readiness, #language-independent-contracts-native-implementations, and #d-371--one-product-design-implemented-in-stages resolve to the stated headings by slug rule; the D-371 anchor is a forward reference the act names exactly as a recording precondition. No D-371 coordinator entry exists yet, which is correct pre-review.",
+    "Custody chain: before digests for 08, 12, START-HERE and file 10 equal the D-370 protected/after values; chapter 13, v2 README, root README and chapters 00–04 show no modification and chapter 13 contains no D-371 text.",
+    "Existing owners suffice: zero duplicate rows created; chapter 13 capabilities are mapped onto existing rows with the D-371 table as their full-product acceptance obligation; the act commits to adding a row only for a genuinely unowned contract."
+  ],
+  "notes": [
+    "Expected old-checker consequence after application, to be recorded per the act: register/current-custody DIVERGED; documents/docs/v2/architecture/08-decision-and-readiness-register.md/current-custody DIVERGED; documents/docs/v2/architecture/12-architecture-completion-goal.md/current-custody DIVERGED; documents/README.md/current-custody pre-existing. START-HERE and file 10 are not among the twelve, so no other custody change is expected; anything else is unexplained.",
+    "Nonblocking: the retained '### Current position — measured snapshot, 2026-09-05' heading still says 'Current position' beneath the new full-product condition table; the D-371 correction paragraph mitigates it. Retitle at the next register edit.",
+    "Nonblocking: file 10's new preface should say the bounded selection is binding as recorded by D-371 while the historical map below remains non-binding; the old status block's 'non-binding' label now sits under it unscoped.",
+    "Nonblocking: START-HERE 'What was finally accepted?' still answers with the preview; 'What was accepted so far?' would read more honestly.",
+    "Nonblocking: the user's quoted agreement refers to 'this approach'; the review README should pin what the user was shown so the direction's provenance is concrete.",
+    "Unverified with read-only tools: all SHA-256 values; that chapter 13 bytes equal the D-370 pin (only absence of D-371 text was checked); whether JavaScript belongs to the TypeScript role is a DR-118 cell decision, correctly hedged in file 10."
+  ],
+  "recordingConditionsIfAccepted": [
+    "Coordinator entry with exact heading '## D-371 — one product design, implemented in stages', decision text, fixed-subject and actual verdict hashes.",
+    "Review README naming initial advice, reconciliation, final review, precise edited files and limitations.",
+    "Narrow inventory/classification refresh for the four documents, the coordinator record and the new README; no repository rescan claim; prior delta history preserved.",
+    "Fixed-subject hash, local and fragment link, and patch-whitespace validation.",
+    "Measured old-checker failure set recorded against the expected set above, with the root README divergence distinguished and no repin of the D-369 application."
+  ],
+  "alignment": "I agree with the direction and with both refinements: an explicit reviewed file 12 preface is better than leaving a document titled 'completion goal' stating a superseded goal, and designing the advisory Map integration boundary now, without a bundled model or a Map application, is cheap and consistent with MAP-VS-CONTROL. I also accept the act's stricter rule that no implementation starts before full design acceptance. The two findings are mapping and authority-statement gaps inside file 08, not disagreements with scope. Full recipe acceptance, the identity/evidence/retention closures, and the DR-117/118/119 cells remain later substantive work, exactly as the act says.",
+  "readinessEffect": "None as a grade. The register header and target change from preview-complete to intended-product IN PROGRESS; the condition-2 affected set becomes 28 rows for the current target; conditions 1, 2, 3 and 5 are NOT MET and 4 is REASSESS for that target. D-369 and D-370 records and grades are retained unchanged.",
+  "qualificationClaim": false
+}
+```

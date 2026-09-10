@@ -1,0 +1,52 @@
+# Resume — frozen v15 independent Claude review ACTIVE; NOT ready
+
+## Latest actual status — overrides pre-freeze operational history below
+
+freeze-next.py COMPLETED successfully. v15 manifest SHA256 **5ec7928426c7a91e323240337dc382c4de32bd4e5f2626eba92c8991067b365f**, **6363 files / 407813339 bytes**, immutable `/tmp/opensip-design-corrections/candidate-subject.v15`; manifest/archive retained. All1308 live and copied pins verified after recording. Six final reference commands passed before this seal. Do not edit frozen files or review work copies.
+
+launch-review-v15.py EXECUTED: actual fresh independent **PID47059**, UUID **7954d0b3-0895-4506-ad06-08f320d35fe8**, `/tmp/opensip-design-corrections/post-reset-review.v15`. discover-review-v15.py EXECUTED; metadata and public log `/Users/sb/.claude/projects/-Users-sb-code-opensip-ai-opensip-arch/7954d0b3-0895-4506-ad06-08f320d35fe8.jsonl`. status-review-v15.py prepared. No final review/response yet. This is the ONLY active Claude session; both predecessor review and advisory coauthor follow-up finished. Do not relaunch.
+
+Next: wait for substantive final review while continuing independent application preparation. Full read, retain every source-copy delta/public artifact using prepared retain-independent-v15.py, and assess actual findings/limits. Zero MUST/SHOULD and real root assent are required before NEW blindv5; no result inferred. No further live normative edits after v15 freeze. Application remains ineligible. No product implementation, commit, push or readiness change.
+
+Additional preparation while v15 runs: prepare-blind-v5-custody.py EXECUTED to create (only prepare) discover-consumer-b-v5.py, status-consumer-b-v5.py, retain-blind-v5.py --version v5 --parent v15. The latter checks fresh command/session and exact copy stability. No consumer launched. Appbase prepare-v15-support-custody.py EXECUTED to amend only future apply-v15-advisory-records.py so the eventual support includes all prior v14/v15 preparation records/source and before-image; v15-support-custody-preparation.v1.json records it. No application stage or validation executed.
+
+Review progress at17:25UTC: actual v15 reviewer has THREE complete source copies so far: `v14-bytes`6047files (extracted from original v14 archive), `copy-run1`6363 and `copy-run2`6363. Reinspect final layout before retention; generic v15-based delta accounts reconstruct old v14 too but root must state its actual provenance. First run failed shell quoting (treated Python+flags as one executable; exit127 BEFORE any checker ran), original6logs retained. Second run completed and root byte-compared all6logs to retainedfinal-reference.v15: all identical. Reviewer still writing independent probes; NO final verdict. New harness binds12exact source hashes and loads pure models without importing/executing the entire check-identity suite on every probe. Do not edit its harness/copies/frozen inputs or infer full review acceptance from reproduction.
+
+## Pre-freeze operational history (completed actions now superseded above)
+
+CONTINUE user-authorized architecture/design/schema/reference work with ACTUAL Claude. No product implementation, commits/push/publication. Preserve dirty tree/history. Condition5 NOT MET, no external blocker. CLI /Users/sb/.local/bin/claude; Python /tmp/opensip-architecture-review-env/bin/python -I -B. Public tool_use/tool_result only, LF JSONL split; no private thinking. Commentary/waits <=60sec. Do not end merely while Claude runs.
+
+## Immediately next
+
+No active Claude at this guide's writing (~17:10UTC). All source/records/pins and six finalchecks COMPLETE. Freeze-next.py --previous v14 --version v15 --previous-sha 45b1e128ca51d114895f3c406cc92575e6efe95051bf319023dc1f3180c2f92c --author-session 77758b10-d7ba-4868-9d42-ae0b13e84cb6 is NEXT. It verifies all live/copiedpins after ALLrecording plus originalv14manifestfiles. Then launch-review-v15.py NEWactualindependent, discover-review-v15.py and status-review-v15.py (prepared). Never overwrite existingfreeze/process; inspect actual filesystem first if resuming.
+
+On completed independentv15: retain-independent-v15.py --copy-root peractualfullcopy (prepared, forbidspriorv14UUIDtoo), FULLREADactualreview/MD/successfulresponse, assess all findings and scope, honest requiredcorrections ifany. ZeroMUST0SHOULD plus actualrootdesign-assent.v15 toexactfrozenbytes beforeNEWblind via launch-consumer-b-v5.py v15 v5. No blind/application has been run. No design-assent.v14/v15 yet. Promotingoldv14isnotallowed: rootfoundpostfreezeissuescorrectedinsuccessor.
+
+## Completed v15 source and final evidence
+
+Actualcoauthorv4 session77758b10-d7ba-4868-9d42-ae0b13e84cb6 completed/retained/integrated FIVE sourcefiles and root54declarationfixture adjustment. Exact historical details in guides below, originalcoauthor-assessment-bv4-v4.json unchanged. Includes original-invocation typed availability mirrors and conditional actual-array pre-Plan default/explicit spec bound;93TSunits1023rows admit,94TS1034refuse typed PROJECT.SCOPE_LIMIT; explicit1024/1025; malformedfields preservedschemahandling. Root17case finalcontrols allhold; limits synthetic reference, no actualhost/renderer.
+
+Actual follow-up v14-advisory-clarification.v1 FINISHED canonicalclaude-opus-5,38turns,0permissiondenials. SamecoauthorUUID, notindependent. FullassessmentJSON17558B/MD9426B andresponse READ. Original combined technicalAssentFALSEbecause ADV1rootproposal repeatedreview's wrongsection13citation. Claude explicitly assented ADV2 and supplied exactADV1alternative with substantive rationale. Root adopted exactalternative, not original rejectedproposal. No additionalreviewround needed for adoption of Claude's own precise proposal. Retained15files74publictoolblocks sincefollowupstart; all partialsourcebefore/proposed/alternativefiles, notcompletecopy.
+
+Integrated twoexactclarifications:
+native-evidence.md706b7e0fc94bb1467e33c9f75d5406046e32ab9859f57f08a1f6642dfbdc7d46 (Claudealternative: lawfulprojection versus fourrefusalcodes laterinSAMEsection10);
+relation-payload-schemas.v2.json ef0c244e7817e8bda6039ec66fc3180114f8e9997b3eacee4fe313c7f3d737b8 (producerMUST remains, referenceonlyexhibitsretainedclosure).
+Bothadvisoriesretainoriginalseverity. Originalreviewwrongsection13androotrejectedproposalretainedverbatim; rootqualifiesactualsection10paragraph2376/section13starts2750. OptionalheadingobservationFU4hasnofinding/severity; noextrachange.
+
+EXECUTEDintegrate-v14-advisory-clarification.py ->advisory-integration.v15.json, successor-source-assessment.v15.json CUMULATIVESIXfiles fromfrozenv14, v14-review-and-v15-correction-assessment.json (0requireditems isVACUOUS; twoactualrootcorrectionsseparate), retainedactualassessment. Preparedtoolsadaptedforcumulativeaccount; originalv4assentneverextendedbyinference. RootadoptsClaudealternativewhilepreservingliteraltechnicalAssentfalseonoriginalproposal.
+
+EXECUTEDprepare-records-v15.py BEFORErefresh-pins-v6.py:45advisories,16crosswalkrows/currentREADME/proposeddispositions; all4pins1099+73+71+65=1308. EXECUTEDrun-final-v15.py /tmp/opensip-design-corrections/final-reference-v15-complete: ALLSIXPASS. EXECUTEDrecord-v15.py andrecord-technical-v15.py, no pinnedinputchangedwhile recording. Retainedfinal-reference.v15/exactsources/cumulativeassessment/tools+preparedtoolbeforeimages. Actualcounts foundation1679=(231+1331+24+28+65);identity1331passingcalls1319distinct12extra;security456+10sweeps;native347/66matrix/0qualified;workflow1598;integration365.31historicalfilesunchanged. FU3pinrefresh/checksfollowuprecorded; finalfreezealllive/copiedsealstillrequired.
+
+## Completed independent predecessor v14
+
+ActualfreshUUID46ea25c0-21fc-4be6-9b57-61e46c61d64d FINISHED159turns/0permissiondenials/claude-opus-5. ACCEPT0MUST0SHOULD2ADV. Manifest45b1e128ca51d114895f3c406cc92575e6efe95051bf319023dc1f3180c2f92c6047files373681736bytes; reviewSHA857b2e3a1342c79146bf09f4c598fcd31d26995e16b96b0faa3c4deab8bd84a1; MDSHA947c5ed547d5393cb01c9cd07301b3cf81c00e419aa432a3fc1b8ad77a87cd30. FullJSON/MD/responseREADandrootv14-final-review-read.jsonqualifiesalllimits. Retained58files316publictoolblocks; solecompleteworkcopy6047unchanged;6commandsreproduce/1308pins/212finalindependentprobecases. Earlierfailedharnessattemptsretained. Noactualhost/rendererqualification; p8purefailure+mapperinspectionnotfreshcommittedRunexecution. Control-flow/literalregistryonly;universecoordinatesjoint-only. Reviewer didNOTdiscoverrootpostfreezeavailabilitymirror/cardinalityissues; olderACCEPTneveracceptsv15.
+
+16AR15FW CARRIED-UNCHANGED/gradedfalse;27inherited30evalpreservationonly;5DR201..205routingonly/notapplied;32gatesfalse. Futurefullapplicationreviewmustactuallygradeproposedoutcomes.
+
+## Application remains INELIGIBLE
+
+Appbase /tmp/opensip-design-corrections/application-assembly.v1; stage.v3/application-review.v2 unused. Need acceptedactualsuccessor+NEWblindzeroM/S. Oldappreviewfullyread:allM1..7/S1..6/A1/A2;16AR15FW28condition2rows27inherited30eval5owners32falsegates/D372actualact.17draftbeforeimages/8userhistorydirtytrackedfilespreserved;2nativeDOCpinintersections. D3696329PASS6CONTEXT3FAILstayshistorical. apply-v15-advisory-records.pypreparedonly; actualaccepteddesignassentmustcarry45historical/newplusanyactualv15advisories; accountfutureblindadvisoriesseparately. Oldv13/v14updatersineligible. Correctfinalizer files/docs/coop/design-corrections/finalize-application.v1.py,activationLAST.
+
+Chain: assemble-records.py ->actualv15advisoryupdater+newblindadvisories ->prepare-validation.py(6commands+20selftests/2DOCpins) ->build-inventories ->assess-links ->freeze-application ->NEWactualfullapplicationreview ->retain/rootassess0M/S ->exactreviewedfinalizeractivationLAST ->6postapplychecks+verify-applied(currentcounts/links/catalog/oldD369custody). No implementation/commit/push.
+
+History: [through finalv15checks](resume-history-through-v15-final-checks.v1.md), [through independentv14completion](resume-history-through-v14-independent-completion.v1.md), [v4sourceintegration](resume-history-through-v4-publication-integration.v1.md), [applicationearlierguide](resume-history-through-blind-v4.v1.md). Allhelpers /tmp/opensip-design-corrections/codex-post-reset.v1. Useroriginalv1 e7403b702d419f381be1cdbee7b886303fb43106b86985bc2f8ec63f5687a0ac1192filesalreadyverifiedthisretry.15Fallowideas7original8new, commonlanguage-neutralarchitecture plusboundednativeTS/JS/Rust/grammar. Continue to actual completion.

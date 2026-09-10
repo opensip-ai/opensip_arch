@@ -1,0 +1,346 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:baseline-artifact",
+  "title": "BaselineArtifactV1 \u2014 portable, self-contained baseline for fresh-CI comparison (PROPOSED, revised)",
+  "description": "Tracked project intent (default path opensip.baseline.json). The identity-bearing descriptor pins origin ProjectId, source snapshot2, the authoritative Run (never an ephemeral result), the fingerprint recipe, every contributing detector's closure2 plus the exact pivot closure set (detector executable, evaluator, stdlib/toolchain, registered schemas) needed to run it again, the embedded policy/scope/waiver documents that let a fresh CI host re-evaluate current facts under baseline context (E1..E3), rule coverage and the sorted entries. Comparison never requires the origin machine's Run store. Bounds: at most 1048576 entries; serialized artifact at most 268435456 bytes; at most 64 detectors; at most 1 MiB per embedded context document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baselineId",
+    "descriptor",
+    "custody"
+  ],
+  "properties": {
+    "baselineId": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BaselineId"
+    },
+    "descriptor": {
+      "$ref": "#/$defs/BaselineDescriptor"
+    },
+    "custody": {
+      "$ref": "#/$defs/Custody"
+    }
+  },
+  "$defs": {
+    "BaselineDescriptor": {
+      "type": "object",
+      "description": "Identity-bearing: H('workflow.baseline', descriptor). Excludes RequestId, ExecutionId, clocks, receipts, host release and signatures.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "originProjectId",
+        "source",
+        "runId",
+        "planId",
+        "fingerprintRecipe",
+        "detectorClosure",
+        "pivotClosure",
+        "context",
+        "contextDocuments",
+        "ruleCoverage",
+        "entries"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.baseline"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "originProjectId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotId"
+          ],
+          "properties": {
+            "snapshotId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+            },
+            "vcsRevision": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/VcsRevision"
+            }
+          }
+        },
+        "runId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "planId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/PlanId"
+        },
+        "fingerprintRecipe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "domain",
+            "recipeMajor"
+          ],
+          "properties": {
+            "domain": {
+              "const": "finding-fingerprint"
+            },
+            "recipeMajor": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 65535
+            }
+          }
+        },
+        "detectorClosure": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/DetectorClosureEntry"
+          }
+        },
+        "pivotClosure": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/PivotClosureEntry"
+          },
+          "description": "Complete executable closure required to run E0: every detector, the evaluator, stdlib/toolchain closures and registered schema digests. Fact dual-emission (legacy fingerprints) is fingerprint migration only and never appears here."
+        },
+        "context": {
+          "$ref": "urn:opensip:product-v1:workflows:comparison-result#/$defs/EvaluationContext"
+        },
+        "contextDocuments": {
+          "type": "object",
+          "description": "Embedded typed documents whose digests equal context.*Digest. They make E1..E3 computable on a fresh CI host.",
+          "additionalProperties": false,
+          "required": [
+            "policy",
+            "scope",
+            "waivers"
+          ],
+          "properties": {
+            "policy": {
+              "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/PolicyDocumentV1"
+            },
+            "scope": {
+              "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/ScopeDocumentV1"
+            },
+            "waivers": {
+              "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
+            }
+          }
+        },
+        "ruleCoverage": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:comparison-result#/$defs/RuleCoverage"
+          }
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1048576,
+          "items": {
+            "$ref": "#/$defs/BaselineEntry"
+          },
+          "description": "sorted strictly ascending by fingerprint UTF-8 bytes; duplicates rejected"
+        }
+      }
+    },
+    "DetectorClosureEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "detectorId",
+        "closureId",
+        "semanticsMajor",
+        "semanticVersion",
+        "contributionId",
+        "manifestDigest"
+      ],
+      "properties": {
+        "detectorId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "closureId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        },
+        "semanticsMajor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "semanticVersion": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SemanticVersion"
+        },
+        "contributionId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ContributionId"
+        },
+        "manifestDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        }
+      }
+    },
+    "PivotClosureEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "closureId",
+        "kind",
+        "manifestDigest",
+        "protocolMajor",
+        "platform"
+      ],
+      "properties": {
+        "closureId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "detector",
+            "evaluator",
+            "toolchain",
+            "stdlib",
+            "schema-set"
+          ]
+        },
+        "manifestDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "protocolMajor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "platform": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "BaselineEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fingerprint",
+        "ruleId",
+        "detectorId",
+        "stabilityClass",
+        "subjectPath",
+        "waived"
+      ],
+      "properties": {
+        "fingerprint": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Fingerprint"
+        },
+        "legacyFingerprint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "present only inside a fingerprint dual-emission window; supplies identity migration, never a prior executable algorithm"
+        },
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "detectorId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "stabilityClass": {
+          "type": "string",
+          "enum": [
+            "rename-stable",
+            "path-stable",
+            "span-fallback"
+          ]
+        },
+        "subjectPath": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "waived": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Custody": {
+      "type": "object",
+      "description": "Non-identity custody envelope. Time and host release are disclosure only; they never enter baselineId.",
+      "additionalProperties": false,
+      "required": [
+        "exportedByHostRelease",
+        "exportedAtUtc",
+        "runRetainedAtExport",
+        "retentionPins"
+      ],
+      "properties": {
+        "exportedByHostRelease": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SemanticVersion"
+        },
+        "exportedAtUtc": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcTimestamp"
+        },
+        "runRetainedAtExport": {
+          "type": "boolean"
+        },
+        "retentionPins": {
+          "type": "array",
+          "maxItems": 320,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^(run2|closure2):[0-9a-f]{64}(?![\\s\\S])"
+          },
+          "description": "retention roots the origin host pinned at adoption: the Run and every pivot closure; loss of a pin is disclosed as availability partial, never as a silent two-way fallback"
+        },
+        "closureBundle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "bytes"
+          ],
+          "properties": {
+            "path": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UserInputPath"
+            },
+            "sha256": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967296
+            }
+          },
+          "description": "optional signed portable bundle carrying the pivot closure bytes for a fresh CI host; its signature/trust admission is the security unit's contract"
+        },
+        "signature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "scheme",
+            "keyId",
+            "value"
+          ],
+          "properties": {
+            "scheme": {
+              "const": "ed25519"
+            },
+            "keyId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            "value": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{128}(?![\\s\\S])"
+            }
+          }
+        }
+      }
+    }
+  }
+}

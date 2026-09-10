@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.target-attribution.1",
+  "title": "TargetAttributionV1 — Plan-bound sidecar INPUT for resolved target endpoints (DRAFT, isolated successor)",
+  "description": "Typed separate INPUT record. It is NOT a native fact payload field and MUST NOT be added to foundation/relation-payload-schemas.v2.json $defs. Bound to PlanId + source fact2 + the producing provider closure. Points at the fact; the fact has no backlink (no cycle). Identity is raw SHA-256 of C(this record); not an H-domain. Provider attribution truth is trusted after host join validation. First-party inventory lookup MAY derive an equivalent record when unambiguous; otherwise this sidecar or kind/occupancy unknown. Never parse SubjectIdV1 spelling to invent kind or occupancy. Standing: draft only; frozen21 and live repo untouched. Root owns ProofInputRef domain integration.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planId",
+    "sourceFactId",
+    "producerClosure",
+    "targetUniverse",
+    "targetNativeId",
+    "kind",
+    "occupancy",
+    "exported",
+    "logicalPath"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "The Plan whose evaluation consumes this input. Closure requires the named fact2 to belong to this Plan's views. planId is a locator, not hashed as a parent into EnumerationPlanV1."
+    },
+    "sourceFactId": {
+      "type": "string",
+      "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "The native fact whose target endpoint this record attributes. Unique with planId: at most one TargetAttributionV1 per (planId, sourceFactId)."
+    },
+    "producerClosure": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Must equal the source fact's producerClosure. The named closure must be Plan-selected. This is the trusted attribution producer, not a second fact mint."
+    },
+    "targetUniverse": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+        "representation": "h-identity",
+        "retention": "preimage",
+        "authority": "native",
+        "domainSet": "native-semantic-universe"
+      },
+      "description": "Bare 64-hex suffix of the TARGET endpoint universe. Must equal sourceFact.targetUniverse. Never silently swapped with sourceUniverse."
+    },
+    "targetNativeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "Exact native target identity copied from the fact payload's resolved target-id field (resolvedTarget / resolvedBinding / resolvedCallee / to / reachable). Compare this to the current evaluation subject's nativeSubjectId BEFORE kind/occupancy: a different nativeId is a known nonmatch even if kind is unknown."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "file",
+        "symbol",
+        "package",
+        "unknown"
+      ],
+      "description": "Stored kinds are file|symbol|package. unknown is explicit metadata, not a fourth subject kind and not export. export is NOT a token here."
+    },
+    "occupancy": {
+      "type": "string",
+      "enum": [
+        "first-party",
+        "external",
+        "unknown"
+      ],
+      "description": "first-party: targetNativeId is a first-party inventory subject of targetUniverse. external: attributed outside first-party inventory. unknown: producer/host could not decide. unknown occupancy is NOT occupancy=external and is NOT a false match."
+    },
+    "exported": {
+      "oneOf": [
+        {
+          "type": "string",
+          "enum": [
+            "exported",
+            "not-exported",
+            "unknown"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Tri-state for kind=symbol only (same tokens as subject-inventory InventoryRowV1.exported). MUST be null when kind is file, package, or unknown."
+    },
+    "logicalPath": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/LogicalPath"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Optional ONLY when occupancy is external or unknown. MUST be null when occupancy=first-party (path lives on the inventory row). Never an invented first-party snapshot path for an external target."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "symbol"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exported": {
+            "type": "string",
+            "enum": [
+              "exported",
+              "not-exported",
+              "unknown"
+            ]
+          }
+        },
+        "not": {
+          "properties": {
+            "exported": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "file",
+              "package",
+              "unknown"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exported": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "occupancy": {
+            "const": "first-party"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "logicalPath": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "Byte-identical constraint to identity-schemas.v2.json#/$defs/LogicalPath."
+    }
+  },
+  "x-opensip-identity": {
+    "digest": "raw SHA-256 of C(TargetAttributionV1)",
+    "representation": "canonical-record",
+    "retention": "preimage",
+    "hDomain": null,
+    "uniqueness": [
+      "planId",
+      "sourceFactId"
+    ],
+    "proofInputRef": {
+      "standing": "NEW, pending root ProofInputRef / byDomain integration",
+      "proposedDomain": "target-attribution",
+      "not": [
+        "blob",
+        "fact-payload",
+        "import-observation-row"
+      ]
+    }
+  },
+  "x-opensip-join-law": {
+    "standing": "Host validates; provider kind/occupancy/exported truth is trusted after joins succeed.",
+    "joins": [
+      "planId names a retained Plan",
+      "sourceFactId is a fact2 of that Plan",
+      "producerClosure equals fact.producerClosure and is Plan-selected",
+      "targetUniverse equals fact.targetUniverse",
+      "targetNativeId equals the payload field named by evaluator-projection-registry.v1.json relations[fact.relation].targetNativeIdField at fact.resolution",
+      "occupancy=first-party implies targetNativeId is a nativeSubjectId in some SubjectInventoryV1 of that Plan whose universe (via EnumerationPlan program binding) equals targetUniverse",
+      "occupancy=first-party and kind in {file,symbol,package} implies that inventory row's kind equals this kind",
+      "logicalPath when present is not required to be in the snapshot inventory (external/unknown only)"
+    ],
+    "derivation": {
+      "when": "endpoint=target evaluation of a fact whose targetNativeIdField is present, and exactly one SubjectInventoryV1 row of this Plan has nativeSubjectId=targetNativeId under a program binding whose universe equals fact.targetUniverse",
+      "action": "host MAY materialize this record with occupancy=first-party, kind=that row.kind, exported=row.exported or null, logicalPath=null, producerClosure=fact.producerClosure",
+      "otherwise": "require a retained sidecar, or evaluate kind/occupancy as unknown. NEVER parse namespace:opaque SubjectIdV1 spelling."
+    },
+    "absence": "Missing sidecar when derivation is not unambiguous is metadata unknown: not nomatch, not false. Different targetNativeId vs current nativeSubjectId is known nomatch even if kind/occupancy unknown.",
+    "noBacklink": "fact2 descriptors are unchanged. This record names sourceFactId; no fact field names an attribution digest."
+  },
+  "x-opensip-new-internal-faults": {
+    "standing": "NEW/internal pending root public-detail / D9 route-registry integration. Not existing DomainDetailCode members.",
+    "keys": [
+      "TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN",
+      "TARGET_ATTRIBUTION_PRODUCER_MISMATCH",
+      "TARGET_ATTRIBUTION_UNIVERSE_MISMATCH",
+      "TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH",
+      "TARGET_ATTRIBUTION_DUPLICATE_FACT",
+      "TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY",
+      "TARGET_ATTRIBUTION_KIND_INVENTORY_DISAGREEMENT",
+      "TARGET_ATTRIBUTION_LOGICAL_PATH_ON_FIRST_PARTY",
+      "TARGET_ATTRIBUTION_EXPORTED_NOT_SYMBOL",
+      "TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG"
+    ]
+  }
+}

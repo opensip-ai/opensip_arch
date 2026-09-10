@@ -1,0 +1,388 @@
+[
+  {
+    "timestamp": "2026-09-08T04:08:50.646Z",
+    "messageUuid": "388dc0ae-54ce-45cb-a441-191cdbe8dfa1",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01SUaczFMUJYDQ69rq5c5xks",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && ls -la; echo \"=== files ===\"; find . -type f | head -20",
+        "description": "List working dir"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:08:52.602Z",
+    "messageUuid": "4a60611f-4e1d-492a-b0f6-d260922135ba",
+    "block": {
+      "tool_use_id": "toolu_01SUaczFMUJYDQ69rq5c5xks",
+      "type": "tool_result",
+      "content": "total 576\ndrwxr-xr-x    8 sb  wheel     256 Sep  7 21:08 .\ndrwxr-xr-x  259 sb  wheel    8288 Sep  7 21:08 ..\n-rw-r--r--    1 sb  wheel  272563 Sep  7 21:08 native_evidence_model.v2.py\n-rw-r--r--    1 sb  wheel     536 Sep  7 21:08 process.json\n-rw-r--r--    1 sb  wheel    2618 Sep  7 21:08 prompt.txt\n-rw-r--r--    1 sb  wheel   11458 Sep  7 21:08 protocol3-transitions.v1.json\n-rw-r--r--    1 sb  wheel       0 Sep  7 21:08 response.json\n-rw-r--r--    1 sb  wheel       0 Sep  7 21:08 stderr.log\n=== files ===\n./stderr.log\n./prompt.txt\n./native_evidence_model.v2.py\n./process.json\n./response.json\n./protocol3-transitions.v1.json",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:08:56.362Z",
+    "messageUuid": "da78f449-8992-47bc-bd40-1ec66c0fba4c",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_017mV4YMdTnmYP7Pi3fwN3Vp",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && shasum -a 256 native_evidence_model.v2.py protocol3-transitions.v1.json && python3 -c \"\nimport json\nd=json.load(open('protocol3-transitions.v1.json'))\nprint('top keys:',list(d.keys()))\nfor k,v in d.items():\n    if k!='transitions': print('--',k,':',json.dumps(v)[:700])\nprint('transitions count:',len(d.get('transitions',[])))\n\"",
+        "description": "Hash inputs and inspect artifact structure"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:08:56.453Z",
+    "messageUuid": "dd7c4898-0c27-49d6-9425-40ada06511e3",
+    "block": {
+      "tool_use_id": "toolu_017mV4YMdTnmYP7Pi3fwN3Vp",
+      "type": "tool_result",
+      "content": "2fa50d9748d9f9bba1849b84f03fd61806cbd1f61353860e9bf50e7158024edc  native_evidence_model.v2.py\n2fce5656601904551eae810ff664da5924094c67bcf66c905a337fc126d6b98b  protocol3-transitions.v1.json\ntop keys: ['artifact', 'version', 'status', 'standing', 'purpose', 'consumedBy', 'phases', 'matchLaw', 'wildcards', 'preMatchLaw', 'noMatchLaw', 'guardLaw', 'stateUpdates', 'stageDependentTransitions', 'terminalLaw', 'ownedByProse', 'ruleCount', 'rules']\n-- artifact : \"opensip.native-evidence.protocol3-transitions\"\n-- version : 1\n-- status : \"PROPOSED\"\n-- standing : \"NORMATIVE and CLOSED. The Rust major-3 provider protocol transition table of native-evidence section 9.2, published here so an independent consumer can reconstruct the host state machine WITHOUT reading author code. It states existing behaviour exactly; it is not a protocol redesign, adds no frame, no phase and no terminal, and changes no wire format.\"\n-- purpose : \"Section 9.2 named this table and described its frames in prose, but the 34 transition rows, their ORDER, their guards and their terminal semantics existed only inside native_evidence_model.v2.PROTOCOL3_RULES, which a review kit that excludes author code cannot read. The rows below are the same rows, and the reference model READS them from this document rather than carrying a second copy, so there is one authority and no transcription to drift.\"\n-- consumedBy : \"docs/coop/design-corrections/native/native_evidence_model.v2.py (PROTOCOL3_PHASES, PROTOCOL3_RULES, protocol3_run)\"\n-- phases : [\"START\", \"WAIT_HELLO_ACK\", \"READY_OPEN_UNIVERSE\", \"WAIT_UNIVERSE_ACCEPTED\", \"READY_SNAPSHOT_MANIFEST\", \"RECEIVING_SNAPSHOT\", \"WAIT_SNAPSHOT_ACCEPTED\", \"READY_DEPENDENCY_MANIFEST\", \"RECEIVING_DEPENDENCY\", \"WAIT_DEPENDENCY_ACCEPTED\", \"READY_PREPARED_MANIFEST\", \"RECEIVING_PREPARED\", \"WAIT_PREPARED_ACCEPTED\", \"WAIT_NATIVE_CONTEXT_VERIFIED\", \"READY_ANALYZE\", \"ANALYZING\", \"READY_COMPLETE\", \"WAIT_CANCELLED\", \"WAIT_ZERO_EXIT\", \"WAIT_EOF\", \"DONE\", \"FAULT\"]\n-- matchLaw : \"FIRST MATCH WINS in the declared `rules` order. A row matches when (a) its `phase` equals the current phase, or is the wildcard `*PRE_COMPLETE` and the current phase is a member of that wildcard's `phases`; AND (b) its `frame` equals the incoming frame; AND (c) every key of its `guard` equals the identically named field of the current state. Order is therefore load-bearing: the three `WAIT_SNAPSHOT_ACCEPTED` rows P3-08..P3-10 are distinguished only by their guards, and P3-14/P3-15 likewise, so reordering or re-sorting these rows changes which transition a conforming host takes.\"\n-- wildcards : {\"*ANY\": \"A phase wildcard used ONLY by the two catch-all rows P3-33 and P3-34. They are never reached by the matching loop above, which skips `*ANY` rows; they are applied by the two code paths named in `preMatchLaw` and `noMatchLaw` and are published as rows so that the trace vocabulary is complete.\", \"*PRE_COMPLETE\": {\"meaning\": \"Any phase in which the exchange has begun and has not yet reached a terminal.\", \"derivation\": \"`phases[1:17]` of the published `phases` list - from WAIT_HELLO_ACK through READY_COMPLETE inclusive.\", \"phases\": [\"WAIT_HELLO_ACK\", \"READY_OPEN_UNIVERSE\", \"WAIT_UNIVERSE_ACCEPTED\", \"READY_SNAPSHOT_MANIFEST\", \"RECEIVING_SNAPSHOT\", \"WAIT_SNAPSHOT_ACCEPTED\", \"READY_DEPEND\n-- preMatchLaw : [\"FAULT is ABSORBING: once the phase is FAULT every further event is recorded as `FAULT-absorb` and nothing transitions.\", \"In WAIT_ZERO_EXIT, WAIT_EOF or DONE, any frame other than `zero-exit`, `eof` or a `*PROCESS_FAULT` member is a post-terminal frame and goes to FAULT with trace `post-terminal-frame`.\", \"Any `*PROCESS_FAULT` member goes to FAULT with trace `P3-33` from ANY phase, which is what row P3-33 states.\"]\n-- noMatchLaw : \"An event matching no row goes to FAULT with trace `P3-34`, which is what the final fallback row states. There is no default transition and no silent ignore.\"\n-- guardLaw : \"Guard keys name fields of the host's own transition state and are compared for EXACT equality; all keys of a row's guard must hold for that row to match. `identityNegotiated` is set true only when the HelloAck frame's capabilities contain every identity token, so OpenUniverse - which carries snapshot2 and plan2 - is unreachable before negotiation and the run faults with no source byte sent.\"\n-- stateUpdates : [{\"onFrame\": \"HelloAck\", \"sets\": \"identityNegotiated = every identity token is present in the frame's `capabilities`\"}, {\"onFrame\": \"OpenUniverse\", \"sets\": \"dependencyMode and preparedMode from the frame's booleans; these are the guards P3-08..P3-10 and P3-14..P3-15 select on\"}, {\"onFrame\": \"Analyze\", \"sets\": \"stageCount = the invocation's stage count; stageIndex = 0\"}, {\"onFrames\": [\"DependencySourceChunk\", \"DependencySourceManifest\", \"OpenUniverse\", \"PreparedOutputChunk\", \"PreparedOutputManifest\", \"SnapshotFileChunk\", \"SnapshotManifest\"], \"sets\": \"sourceBytesSent = true; this is the observable that proves no source byte preceded negotiation\"}]\n-- stageDependentTransitions : {\"ANALYZING_OR_READY_COMPLETE\": \"The `next` of row P3-24 (CoverageV3 in ANALYZING) is NOT a phase. It increments both stageIndex and stagesCompleted and then resolves to READY_COMPLETE when stageIndex equals stageCount, and to ANALYZING otherwise. Without this the table cannot be interpreted at all for a multi-stage analysis: one CoverageV3 per stage is expected, and only the last one may be followed by Complete.\"}\n-- terminalLaw : \"A row carrying `terminal` records that terminalKind on the state as it transitions. The five terminal kinds are exactly those appearing in `rules`. Reaching a terminal does not end the exchange: the worker must still be observed at `zero-exit` and then `eof` (P3-31, P3-32) to reach DONE, and any other frame in between is the post-terminal fault above.\"\n-- ownedByProse : [\"What each frame's PAYLOAD is and how it is validated (section 9.2's frame table and the payload schemas). This document is transitions only.\", \"The identity token set that decides `identityNegotiated`, which is negotiated in section 9.1 and is not a transition.\", \"The mapping from a terminalKind to stage authority, D9 class and exit code (section 10 / `stage_authority`, `run_termination`).\", \"The chunking, custody and digest obligations behind the manifest/chunk/seal frames (sections 3 and 5).\", \"The stage COUNT itself, which is an invocation property supplied to the transition system, not a value the table can derive.\"]\n-- ruleCount : 34\n-- rules : [{\"id\": \"P3-01\", \"phase\": \"START\", \"frame\": \"Hello\", \"next\": \"WAIT_HELLO_ACK\"}, {\"id\": \"P3-02\", \"phase\": \"WAIT_HELLO_ACK\", \"frame\": \"HelloAck\", \"next\": \"READY_OPEN_UNIVERSE\"}, {\"id\": \"P3-03\", \"phase\": \"READY_OPEN_UNIVERSE\", \"frame\": \"OpenUniverse\", \"guard\": {\"identityNegotiated\": true}, \"next\": \"WAIT_UNIVERSE_ACCEPTED\"}, {\"id\": \"P3-04\", \"phase\": \"WAIT_UNIVERSE_ACCEPTED\", \"frame\": \"UniverseAccepted\", \"next\": \"READY_SNAPSHOT_MANIFEST\"}, {\"id\": \"P3-05\", \"phase\": \"READY_SNAPSHOT_MANIFEST\", \"frame\": \"SnapshotManifest\", \"next\": \"RECEIVING_SNAPSHOT\"}, {\"id\": \"P3-06\", \"phase\": \"RECEIVING_SNAPSHOT\", \"frame\": \"SnapshotFileChunk\", \"next\": \"RECEIVING_SNAPSHOT\"}, {\"id\": \"P3-07\", \"phase\": \"RECEIVING_SNAPS\ntransitions count: 0",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:00.650Z",
+    "messageUuid": "f7f913ad-89a2-442f-a620-7a7c3e7ca0a9",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01FYGcjaiaWQeC6s4LFoCSDA",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && grep -n \"def protocol3_run\\|PROTOCOL3_RULES\\s*=\\|PROTOCOL3_PHASES\\s*=\\|PROTOCOL3_TRANSITIONS\" native_evidence_model.v2.py | head",
+        "description": "Locate protocol3_run and table loading"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:00.715Z",
+    "messageUuid": "f312d3d2-b861-4f00-a7af-9d380cc984f0",
+    "block": {
+      "tool_use_id": "toolu_01FYGcjaiaWQeC6s4LFoCSDA",
+      "type": "tool_result",
+      "content": "411:PROTOCOL3_TRANSITIONS = json.loads((HERE / \"protocol3-transitions.v1.json\").read_text(encoding=\"utf-8\"))\n412:PROTOCOL3_PHASES: list[str] = list(PROTOCOL3_TRANSITIONS[\"phases\"])\n413:PROTOCOL3_RULES: list[dict] = [dict(row) for row in PROTOCOL3_TRANSITIONS[\"rules\"]]\n416:_PRE_COMPLETE = list(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PRE_COMPLETE\"][\"phases\"])\n417:_PROCESS_FAULTS = set(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PROCESS_FAULT\"][\"frames\"])\n418:_SOURCE_FRAMES = {frame for update in PROTOCOL3_TRANSITIONS[\"stateUpdates\"]\n422:def protocol3_run(events: list[dict], stage_count: int = 1, rules: list[dict] | None = None) -> dict:",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:03.504Z",
+    "messageUuid": "68fb43f5-573b-4166-a176-facb0f815632",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_016HMiXqMifWHEd67fmm4sKN",
+      "name": "Read",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/native_evidence_model.v2.py",
+        "offset": 405,
+        "limit": 105
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:03.514Z",
+    "messageUuid": "792d7f60-9143-4ce3-93a7-b419332a68b7",
+    "block": {
+      "tool_use_id": "toolu_016HMiXqMifWHEd67fmm4sKN",
+      "type": "tool_result",
+      "content": "405\t# their guards and their terminal semantics lived only in this file, which a review kit that excludes\n406\t# author code cannot read. The rows now have ONE authority - the artifact - and this module consumes\n407\t# it, so there is no transcription that could drift and no second copy to keep in step. The wildcard\n408\t# vocabulary, the first-match-wins rule, the stage-dependent `ANALYZING_OR_READY_COMPLETE` transition\n409\t# and the list of what remains prose-owned are published beside the rows, because none of them can be\n410\t# inferred from the rows alone.\n411\tPROTOCOL3_TRANSITIONS = json.loads((HERE / \"protocol3-transitions.v1.json\").read_text(encoding=\"utf-8\"))\n412\tPROTOCOL3_PHASES: list[str] = list(PROTOCOL3_TRANSITIONS[\"phases\"])\n413\tPROTOCOL3_RULES: list[dict] = [dict(row) for row in PROTOCOL3_TRANSITIONS[\"rules\"]]\n414\t# `*PRE_COMPLETE` is published as an explicit phase list AND as its derivation from the phase order;\n415\t# the drift control asserts the two still agree, so neither can move without the other.\n416\t_PRE_COMPLETE = list(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PRE_COMPLETE\"][\"phases\"])\n417\t_PROCESS_FAULTS = set(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PROCESS_FAULT\"][\"frames\"])\n418\t_SOURCE_FRAMES = {frame for update in PROTOCOL3_TRANSITIONS[\"stateUpdates\"]\n419\t                  for frame in update.get(\"onFrames\", ())}\n420\t\n421\t\n422\tdef protocol3_run(events: list[dict], stage_count: int = 1, rules: list[dict] | None = None) -> dict:\n423\t    \"\"\"Host-side transition system. OpenUniverse (which carries snapshot2 and plan2) is admitted only\n424\t    after HelloAck negotiated every identity token; otherwise the run FAULTs with no disclosure.\n425\t\n426\t    `rules` defaults to the PUBLISHED table and exists so a control can drive this same interpreter\n427\t    with a PERMUTED table and observe that the published ORDER is load-bearing rather than incidental.\n428\t    Nothing in the product supplies it; a caller passing None is the only production shape.\"\"\"\n429\t    state = {\"phase\": \"START\", \"dependencyMode\": False, \"preparedMode\": False, \"identityNegotiated\": False,\n430\t             \"stageIndex\": 0, \"stageCount\": 0, \"terminalKind\": None, \"sourceBytesSent\": False,\n431\t             \"stagesCompleted\": 0}\n432\t    trace: list[str] = []\n433\t    for ev in events:\n434\t        phase, frame = state[\"phase\"], ev[\"frame\"]\n435\t        if phase == \"FAULT\":\n436\t            trace.append(\"FAULT-absorb\"); continue\n437\t        if phase in (\"WAIT_ZERO_EXIT\", \"WAIT_EOF\", \"DONE\") and frame not in (\"zero-exit\", \"eof\") and frame not in _PROCESS_FAULTS:\n438\t            state[\"phase\"] = \"FAULT\"; trace.append(\"post-terminal-frame\"); continue\n439\t        if frame in _PROCESS_FAULTS:\n440\t            state[\"phase\"] = \"FAULT\"; trace.append(\"P3-33\"); continue\n441\t        matched = None\n442\t        for rule in (PROTOCOL3_RULES if rules is None else rules):\n443\t            rp = rule[\"phase\"]\n444\t            if rp == \"*ANY\":\n445\t                continue\n446\t            if rp == \"*PRE_COMPLETE\":\n447\t                if phase not in _PRE_COMPLETE:\n448\t                    continue\n449\t            elif rp != phase:\n450\t                continue\n451\t            if rule[\"frame\"] != frame:\n452\t                continue\n453\t            if any(state.get(k) != v for k, v in rule.get(\"guard\", {}).items()):\n454\t                continue\n455\t            matched = rule; break\n456\t        if matched is None:\n457\t            state[\"phase\"] = \"FAULT\"; trace.append(\"P3-34\"); continue\n458\t        if frame == \"HelloAck\":\n459\t            state[\"identityNegotiated\"] = all(t in ev.get(\"capabilities\", []) for t in IDENTITY_TOKENS)\n460\t        if frame == \"OpenUniverse\":\n461\t            state[\"dependencyMode\"] = bool(ev.get(\"dependencyMode\", False))\n462\t            state[\"preparedMode\"] = bool(ev.get(\"preparedMode\", False))\n463\t        if frame == \"Analyze\":\n464\t            state[\"stageCount\"] = stage_count; state[\"stageIndex\"] = 0\n465\t        if frame in _SOURCE_FRAMES:\n466\t            state[\"sourceBytesSent\"] = True\n467\t        nxt = matched[\"next\"]\n468\t        if nxt == \"ANALYZING_OR_READY_COMPLETE\":\n469\t            state[\"stageIndex\"] += 1; state[\"stagesCompleted\"] += 1\n470\t            nxt = \"READY_COMPLETE\" if state[\"stageIndex\"] == state[\"stageCount\"] else \"ANALYZING\"\n471\t        if \"terminal\" in matched:\n472\t            state[\"terminalKind\"] = matched[\"terminal\"]\n473\t        state[\"phase\"] = nxt; trace.append(matched[\"id\"])\n474\t    return {\"finalPhase\": state[\"phase\"], \"terminalKind\": state[\"terminalKind\"], \"sourceBytesSent\": state[\"sourceBytesSent\"],\n475\t            \"stagesCompleted\": state[\"stagesCompleted\"], \"identityNegotiated\": state[\"identityNegotiated\"], \"trace\": trace}\n476\t\n477\t\n478\t# ---------------------------------------------------------------------------\n479\t# Relation registry, resolution completeness, sufficiency (feedback 6, 7, 12)\n480\t# ---------------------------------------------------------------------------\n481\t\n482\t_RELATION_REGISTRY = json.loads(\n483\t    (FOUNDATION / \"relation-payload-schemas.v2.json\").read_text(encoding=\"utf-8\")\n484\t)[\"x-opensip-relation-registry\"]\n485\t\n486\t# Read from the single authority rather than restated here. This module previously carried its own\n487\t# copy; that made four independent ladder sources (inherited fact-plane, this dict, the capability\n488\t# domain registry, and the foundation registry that the identity contract actually names), and they\n489\t# had already drifted -- the capability registry's arrays were alphabetised, reversing calls,\n490\t# imports and references. Order is load-bearing here: _rung_index compares ladder positions.\n491\tLADDERS: dict[str, list[str]] = {\n492\t    name: list(row[\"ladder\"]) for name, row in _RELATION_REGISTRY[\"relations\"].items()\n493\t}\n494\tDEPENDS_ON = {\"reachability\": [{\"relation\": \"calls\", \"minResolution\": \"resolved-callee\"}],\n495\t              \"clones\": [{\"relation\": \"declares\", \"minResolution\": \"syntactic\"}]}\n496\tRESOLVED_RUNGS = {\"resolved-target\", \"resolved-binding\", \"resolved-callee\", \"checked\", \"from-resolved-calls\"}\n497\tPRECEDENCE_V1 = [\"language-tier-unsupported\", \"provider-unavailable\", \"budget-exhausted\", \"confidence-floor-unmet\", \"required-relation-missing\"]\n498\tPRECEDENCE_V2 = [\"language-tier-unsupported\", \"provider-unavailable\", \"input-closure-incomplete\", \"budget-exhausted\",\n499\t                 \"confidence-floor-unmet\", \"derivation-policy-unmet\", \"resolution-incomplete\", \"external-consumers-unknown\", \"required-relation-missing\"]\n500\tRUNG_CAUSE = {\"language-tier\": \"language-tier-unsupported\", \"provider-not-installed\": \"provider-unavailable\",\n501\t              \"budget\": \"budget-exhausted\", \"input-closure\": \"input-closure-incomplete\"}\n502\tUNRESOLVED_EDGE_KINDS = SCHEMAS[\"$defs\"][\"UnresolvedEdgeKindV1\"][\"enum\"]\n503\tRC_STATES = [\"complete\", \"incomplete\", \"partial\", \"not-attempted\", \"not-applicable\"]\n504\t\n505\t# ---------------------------------------------------------------------------\n506\t# The TypeScript `lib` name fold (native-evidence section 2.4). ONE operation serves both the\n507\t# honoredOptions.lib agreement and the stdlib component join, so it is named once here rather than\n508\t# spelled `.lower()` at three call sites where it could silently diverge.\n509\t# ---------------------------------------------------------------------------"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:29.868Z",
+    "messageUuid": "f5965013-2340-4aec-a5ff-8740616df0b3",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01BCgXyUQuCRT76XFGM58SYu",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && python3 -c \"\nimport json\nd=json.load(open('protocol3-transitions.v1.json'))\nfor r in d['rules']:\n    if r['id'] in ('P3-07','P3-08','P3-09','P3-10','P3-11','P3-13','P3-14','P3-15','P3-16','P3-24'):\n        print(json.dumps(r))\n\"",
+        "description": "Print the guard-distinguished rows"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:29.911Z",
+    "messageUuid": "9941dcaa-2a47-47fa-a23f-cad5df47d729",
+    "block": {
+      "tool_use_id": "toolu_01BCgXyUQuCRT76XFGM58SYu",
+      "type": "tool_result",
+      "content": "{\"id\": \"P3-07\", \"phase\": \"RECEIVING_SNAPSHOT\", \"frame\": \"SnapshotSeal\", \"next\": \"WAIT_SNAPSHOT_ACCEPTED\"}\n{\"id\": \"P3-08\", \"phase\": \"WAIT_SNAPSHOT_ACCEPTED\", \"frame\": \"SnapshotAccepted\", \"guard\": {\"dependencyMode\": true}, \"next\": \"READY_DEPENDENCY_MANIFEST\"}\n{\"id\": \"P3-09\", \"phase\": \"WAIT_SNAPSHOT_ACCEPTED\", \"frame\": \"SnapshotAccepted\", \"guard\": {\"dependencyMode\": false, \"preparedMode\": true}, \"next\": \"READY_PREPARED_MANIFEST\"}\n{\"id\": \"P3-10\", \"phase\": \"WAIT_SNAPSHOT_ACCEPTED\", \"frame\": \"SnapshotAccepted\", \"guard\": {\"dependencyMode\": false, \"preparedMode\": false}, \"next\": \"WAIT_NATIVE_CONTEXT_VERIFIED\"}\n{\"id\": \"P3-11\", \"phase\": \"READY_DEPENDENCY_MANIFEST\", \"frame\": \"DependencySourceManifest\", \"next\": \"RECEIVING_DEPENDENCY\"}\n{\"id\": \"P3-13\", \"phase\": \"RECEIVING_DEPENDENCY\", \"frame\": \"DependencySourceSeal\", \"next\": \"WAIT_DEPENDENCY_ACCEPTED\"}\n{\"id\": \"P3-14\", \"phase\": \"WAIT_DEPENDENCY_ACCEPTED\", \"frame\": \"DependencySourceAccepted\", \"guard\": {\"preparedMode\": true}, \"next\": \"READY_PREPARED_MANIFEST\"}\n{\"id\": \"P3-15\", \"phase\": \"WAIT_DEPENDENCY_ACCEPTED\", \"frame\": \"DependencySourceAccepted\", \"guard\": {\"preparedMode\": false}, \"next\": \"WAIT_NATIVE_CONTEXT_VERIFIED\"}\n{\"id\": \"P3-16\", \"phase\": \"READY_PREPARED_MANIFEST\", \"frame\": \"PreparedOutputManifest\", \"next\": \"RECEIVING_PREPARED\"}\n{\"id\": \"P3-24\", \"phase\": \"ANALYZING\", \"frame\": \"CoverageV3\", \"next\": \"ANALYZING_OR_READY_COMPLETE\"}",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:56.866Z",
+    "messageUuid": "dcc4a84a-25ce-42e3-831c-35a07f65e3f9",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01GEtq8nP7C6aU66WeYvX6yN",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/check_order.py",
+        "content": "\"\"\"Bounded static check over the published table only: which row pairs can BOTH match one\n(phase, frame, guard-state), i.e. where declaration order is actually load-bearing.\n\nNo host, no environment, no suite. Pure enumeration over the published rows and the three\nboolean state fields any guard names.\n\"\"\"\nimport itertools\nimport json\nfrom pathlib import Path\n\nD = json.loads(Path('protocol3-transitions.v1.json').read_text())\nRULES = D['rules']\nPRE = D['wildcards']['*PRE_COMPLETE']['phases']\nPHASES = D['phases']\n\nguard_keys = sorted({k for r in RULES for k in r.get('guard', {})})\nprint('guard keys used by the table:', guard_keys)\nprint('guard values used:', sorted({repr(v) for r in RULES for v in r.get('guard', {}).values()}))\n\ndef phases_of(r):\n    p = r['phase']\n    if p == '*ANY':\n        return set()          # skipped by the matching loop\n    if p == '*PRE_COMPLETE':\n        return set(PRE)\n    return {p}\n\ndef matches(r, phase, frame, st):\n    return phase in phases_of(r) and r['frame'] == frame and \\\n        all(st.get(k) == v for k, v in r.get('guard', {}).items())\n\nstates = [dict(zip(guard_keys, combo)) for combo in itertools.product([True, False], repeat=len(guard_keys))]\nframes = sorted({r['frame'] for r in RULES})\n\noverlaps = []\nfor i, a in enumerate(RULES):\n    for b in RULES[i + 1:]:\n        for phase in PHASES:\n            for frame in frames:\n                for st in states:\n                    if matches(a, phase, frame, st) and matches(b, phase, frame, st):\n                        overlaps.append((a['id'], b['id'], phase, frame, dict(st)))\n                        break\n                else:\n                    continue\n                break\n            else:\n                continue\n            break\n\nprint('\\n--- row pairs that can both match one (phase, frame, state) ---')\nif not overlaps:\n    print('NONE')\nfor o in overlaps:\n    print('  %s vs %s  phase=%s frame=%s state=%s' % o)\n\ndef group_report(ids):\n    rows = [r for r in RULES if r['id'] in ids]\n    print('\\n--- group %s ---' % ','.join(ids))\n    phase = rows[0]['phase']; frame = rows[0]['frame']\n    for st in states:\n        hits = [r['id'] for r in rows if matches(r, phase, frame, st)]\n        rel = {k: st[k] for k in guard_keys if any(k in r.get('guard', {}) for r in rows)}\n        print('   %-46s -> %s' % (rel, hits or ['<none>']))\n    total = all(any(matches(r, phase, frame, st) for r in rows) for st in states)\n    disjoint = all(sum(matches(r, phase, frame, st) for r in rows) <= 1 for st in states)\n    print('   pairwise disjoint: %s   total over the boolean square: %s' % (disjoint, total))\n    return disjoint, total\n\ng1 = group_report(['P3-08', 'P3-09', 'P3-10'])\ng2 = group_report(['P3-14', 'P3-15'])\nprint('\\nBOTH GROUPS DISJOINT AND TOTAL:', g1 == (True, True) and g2 == (True, True))\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:56.982Z",
+    "messageUuid": "2321a3f5-ab1e-44ef-800b-33622f80d86b",
+    "block": {
+      "tool_use_id": "toolu_01GEtq8nP7C6aU66WeYvX6yN",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/check_order.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:59.315Z",
+    "messageUuid": "7f8b1d1c-ae1c-4cf6-8d53-32af05b85e68",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01Q8D1ciDA7RuW6Gj7jfbAZ8",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && python3 -B check_order.py",
+        "description": "Run bounded static order check"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:09:59.675Z",
+    "messageUuid": "eb526e1d-4f0d-4aae-a765-4d98b34acf27",
+    "block": {
+      "tool_use_id": "toolu_01Q8D1ciDA7RuW6Gj7jfbAZ8",
+      "type": "tool_result",
+      "content": "guard keys used by the table: ['dependencyMode', 'identityNegotiated', 'preparedMode']\nguard values used: ['False', 'True']\n\n--- row pairs that can both match one (phase, frame, state) ---\nNONE\n\n--- group P3-08,P3-09,P3-10 ---\n   {'dependencyMode': True, 'preparedMode': True} -> ['P3-08']\n   {'dependencyMode': True, 'preparedMode': False} -> ['P3-08']\n   {'dependencyMode': True, 'preparedMode': True} -> ['P3-08']\n   {'dependencyMode': True, 'preparedMode': False} -> ['P3-08']\n   {'dependencyMode': False, 'preparedMode': True} -> ['P3-09']\n   {'dependencyMode': False, 'preparedMode': False} -> ['P3-10']\n   {'dependencyMode': False, 'preparedMode': True} -> ['P3-09']\n   {'dependencyMode': False, 'preparedMode': False} -> ['P3-10']\n   pairwise disjoint: True   total over the boolean square: True\n\n--- group P3-14,P3-15 ---\n   {'preparedMode': True}                         -> ['P3-14']\n   {'preparedMode': False}                        -> ['P3-15']\n   {'preparedMode': True}                         -> ['P3-14']\n   {'preparedMode': False}                        -> ['P3-15']\n   {'preparedMode': True}                         -> ['P3-14']\n   {'preparedMode': False}                        -> ['P3-15']\n   {'preparedMode': True}                         -> ['P3-14']\n   {'preparedMode': False}                        -> ['P3-15']\n   pairwise disjoint: True   total over the boolean square: True\n\nBOTH GROUPS DISJOINT AND TOTAL: True",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:10:57.243Z",
+    "messageUuid": "c3cf1e96-3d60-48ae-a691-27e8b70e4f2b",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_015nQ9xhqTn6wUhzEfbaSDMY",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && grep -n \"protocol3-transitions\\|PROTOCOL3_TRANSITIONS\" native_evidence_model.v2.py; echo \"=== keys consumed ===\"; grep -o 'PROTOCOL3_TRANSITIONS\\[[^]]*\\]' native_evidence_model.v2.py | sort -u",
+        "description": "Check all consumers of the artifact"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:10:57.292Z",
+    "messageUuid": "5e692671-98cf-4d5d-a9dd-1a3650cd4170",
+    "block": {
+      "tool_use_id": "toolu_015nQ9xhqTn6wUhzEfbaSDMY",
+      "type": "tool_result",
+      "content": "411:PROTOCOL3_TRANSITIONS = json.loads((HERE / \"protocol3-transitions.v1.json\").read_text(encoding=\"utf-8\"))\n412:PROTOCOL3_PHASES: list[str] = list(PROTOCOL3_TRANSITIONS[\"phases\"])\n413:PROTOCOL3_RULES: list[dict] = [dict(row) for row in PROTOCOL3_TRANSITIONS[\"rules\"]]\n416:_PRE_COMPLETE = list(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PRE_COMPLETE\"][\"phases\"])\n417:_PROCESS_FAULTS = set(PROTOCOL3_TRANSITIONS[\"wildcards\"][\"*PROCESS_FAULT\"][\"frames\"])\n418:_SOURCE_FRAMES = {frame for update in PROTOCOL3_TRANSITIONS[\"stateUpdates\"]\n=== keys consumed ===\nPROTOCOL3_TRANSITIONS[\"phases\"]\nPROTOCOL3_TRANSITIONS[\"rules\"]\nPROTOCOL3_TRANSITIONS[\"stateUpdates\"]\nPROTOCOL3_TRANSITIONS[\"wildcards\"]",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:06.468Z",
+    "messageUuid": "46ca252b-9ee0-4f89-85ff-f60b609dbaf6",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01FCpUvNrFmyu8nfpjFGsxUY",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && head -c 400 protocol3-transitions.v1.json; echo; echo \"---\"; python3 -c \"\nimport json\nraw=open('protocol3-transitions.v1.json').read()\nd=json.loads(raw)\nprint('roundtrip indent=1 equal:', json.dumps(d,indent=1,ensure_ascii=False)+'\\n'==raw)\nprint('roundtrip indent=2 equal:', json.dumps(d,indent=2,ensure_ascii=False)+'\\n'==raw)\n\"",
+        "description": "Determine artifact JSON formatting"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:06.511Z",
+    "messageUuid": "9c0f5d4e-ec52-409f-b6fb-8969122b2e3e",
+    "block": {
+      "tool_use_id": "toolu_01FCpUvNrFmyu8nfpjFGsxUY",
+      "type": "tool_result",
+      "content": "{\n \"artifact\": \"opensip.native-evidence.protocol3-transitions\",\n \"version\": 1,\n \"status\": \"PROPOSED\",\n \"standing\": \"NORMATIVE and CLOSED. The Rust major-3 provider protocol transition table of native-evidence section 9.2, published here so an independent consumer can reconstruct the host state machine WITHOUT reading author code. It states existing behaviour exactly; it is not a protocol redesign,\n---\nroundtrip indent=1 equal: True\nroundtrip indent=2 equal: False",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:35.130Z",
+    "messageUuid": "01447e7d-0781-4607-894f-a49c4c5e03e1",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01VaANDShEx5PBCPnhidJwT8",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/build.py",
+        "content": "\"\"\"Emit the three bounded artifacts for the protocol-3 initial-state publication correction.\n\nBounded static work only: no host, no environment, no suite. The captured model and artifact\nare read-only and are not modified here.\n\"\"\"\nimport ast\nimport hashlib\nimport json\nfrom pathlib import Path\n\nHERE = Path(__file__).resolve().parent\nART = HERE / 'protocol3-transitions.v1.json'\nMODEL = HERE / 'native_evidence_model.v2.py'\nraw_art = ART.read_text(encoding='utf-8')\nraw_model = MODEL.read_bytes()\nD = json.loads(raw_art)\n\n# ---------------------------------------------------------------- the model's own literal, via AST\ntree = ast.parse(raw_model.decode('utf-8'))\nfn = next(n for n in ast.walk(tree)\n          if isinstance(n, ast.FunctionDef) and n.name == 'protocol3_run')\nassign = next(n for n in fn.body\n              if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', None) == 'state')\nMODEL_LITERAL = ast.literal_eval(assign.value)\nassert assign.lineno == 429 and assign.end_lineno == 431, (assign.lineno, assign.end_lineno)\nassert all(isinstance(v, (str, bool, int, type(None))) for v in MODEL_LITERAL.values()), \\\n    'a non-scalar would make dict() an incomplete copy'\nassert len(MODEL_LITERAL) == 9, len(MODEL_LITERAL)\n\n# ---------------------------------------------------------------- correction 1: initialState\nOLD_MATCHLAW_TAIL = (\n    \" Order is therefore load-bearing: the three `WAIT_SNAPSHOT_ACCEPTED` rows P3-08..P3-10 are\"\n    \" distinguished only by their guards, and P3-14/P3-15 likewise, so reordering or re-sorting these\"\n    \" rows changes which transition a conforming host takes.\"\n)\nNEW_MATCHLAW_TAIL = (\n    \" First match in the declared order is NORMATIVE and a conforming host must implement it. It is\"\n    \" not, however, what separates the guarded rows of one phase and frame: the three\"\n    \" `WAIT_SNAPSHOT_ACCEPTED` rows P3-08..P3-10, and the pair P3-14/P3-15, are distinguished only by\"\n    \" their guards, and within each set those guards are mutually exclusive and exhaustive over the\"\n    \" admitted boolean state, so exactly one row of the set matches and re-ordering a set among itself\"\n    \" is not observable. Declaration order is what fixes the reading against `preMatchLaw` and what\"\n    \" keeps it stable if a row is ever added.\"\n)\nassert D['matchLaw'].endswith(OLD_MATCHLAW_TAIL), 'matchLaw tail not found verbatim'\n\nINITIAL_STATE = dict(MODEL_LITERAL)\nORDER = [\n    \"Begin with a fresh copy of `initialState` and an EMPTY trace. Every value in `initialState` is a\"\n    \" scalar, so a shallow copy is a complete one.\",\n    \"For each event, apply `preMatchLaw` FIRST, in the order its entries are listed. The order of those\"\n    \" entries is load-bearing: a `*PROCESS_FAULT` frame arriving when the phase is ALREADY FAULT is\"\n    \" absorbed by the first entry and traced `FAULT-absorb`, not `P3-33`.\",\n    \"If no `preMatchLaw` entry applies, select a row by `matchLaw`. If no row matches, apply\"\n    \" `noMatchLaw`.\",\n    \"On a successful row match, in this order: (1) apply the `stateUpdates` of the incoming frame;\"\n    \" (2) resolve the row's `next`, including the `stageDependentTransitions` increment when `next` is\"\n    \" `ANALYZING_OR_READY_COMPLETE`; (3) record `terminalKind` if the row carries `terminal`; (4) set\"\n    \" `phase` to the resolved next and append the row's `id` to the trace.\",\n]\n\nOUT = {}\nfor k, v in D.items():\n    OUT[k] = v\n    if k == 'phases':\n        OUT['initialState'] = INITIAL_STATE\n        OUT['initializationAndUpdateOrder'] = ORDER\nOUT['matchLaw'] = D['matchLaw'][:-len(OLD_MATCHLAW_TAIL)] + NEW_MATCHLAW_TAIL\n\n# every pre-existing field except matchLaw is byte-identical, and all 34 rows are untouched\nassert json.dumps(OUT['rules'], sort_keys=True) == json.dumps(D['rules'], sort_keys=True)\nassert OUT['ruleCount'] == len(OUT['rules']) == 34\nfor k in D:\n    if k != 'matchLaw':\n        assert json.dumps(OUT[k], sort_keys=True) == json.dumps(D[k], sort_keys=True), k\nassert set(OUT) - set(D) == {'initialState', 'initializationAndUpdateOrder'}\n\nproposed = json.dumps(OUT, indent=1, ensure_ascii=False) + '\\n'\n(HERE / 'protocol3-transitions.proposed.json').write_text(proposed, encoding='utf-8')\n\n# the published value must survive a JSON round-trip as the SAME object the model builds today\nassert json.loads(proposed)['initialState'] == MODEL_LITERAL\n\n# ---------------------------------------------------------------- correction 2: the model splice\nBEFORE = (\n    b'    state = {\"phase\": \"START\", \"dependencyMode\": False, \"preparedMode\": False, \"identityNegotiated\": False,\\n'\n    b'             \"stageIndex\": 0, \"stageCount\": 0, \"terminalKind\": None, \"sourceBytesSent\": False,\\n'\n    b'             \"stagesCompleted\": 0}\\n'\n)\nAFTER = b'    state = dict(PROTOCOL3_TRANSITIONS[\"initialState\"])\\n'\nassert raw_model.count(BEFORE) == 1, raw_model.count(BEFORE)\nspliced = raw_model.replace(BEFORE, AFTER)\nassert spliced.count(AFTER) == 1 and spliced.replace(AFTER, BEFORE) == raw_model\nassert ast.literal_eval(ast.parse(b'D = {' + BEFORE.split(b'{', 1)[1]).body[0].value) == MODEL_LITERAL\nast.parse(spliced)  # the spliced module still parses\n\n(HERE / 'initial-state-before.py').write_bytes(BEFORE)\n(HERE / 'initial-state-after.py').write_bytes(AFTER)\n\ndef rep(tag, b):\n    print('%-34s bytes=%-7d sha256=%s' % (tag, len(b), hashlib.sha256(b).hexdigest()))\n\nprint('model literal (9 scalars):', json.dumps(MODEL_LITERAL))\nprint('published initialState == model literal:', INITIAL_STATE == MODEL_LITERAL)\nprint('rows preserved:', len(OUT['rules']), 'added keys:', sorted(set(OUT) - set(D)))\nprint()\nrep('protocol3-transitions.v1.json', raw_art.encode())\nrep('protocol3-transitions.proposed', proposed.encode())\nrep('initial-state-before.py', BEFORE)\nrep('initial-state-after.py', AFTER)\nrep('native_evidence_model.v2.py', raw_model)\nrep('spliced model (NOT written)', spliced)\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:35.270Z",
+    "messageUuid": "9b384d05-1f65-4ba1-9ce6-42dcf98efd4b",
+    "block": {
+      "tool_use_id": "toolu_01VaANDShEx5PBCPnhidJwT8",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/build.py (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:37.316Z",
+    "messageUuid": "3d02466f-fb4a-47af-8487-5ec74076750d",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01NJVMcqLy1531oteuVPQS8t",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && python3 -B build.py",
+        "description": "Build artifacts with verification"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:37.442Z",
+    "messageUuid": "af49632a-753f-4230-a002-a75a3e05581f",
+    "block": {
+      "tool_use_id": "toolu_01NJVMcqLy1531oteuVPQS8t",
+      "type": "tool_result",
+      "content": "model literal (9 scalars): {\"phase\": \"START\", \"dependencyMode\": false, \"preparedMode\": false, \"identityNegotiated\": false, \"stageIndex\": 0, \"stageCount\": 0, \"terminalKind\": null, \"sourceBytesSent\": false, \"stagesCompleted\": 0}\npublished initialState == model literal: True\nrows preserved: 34 added keys: ['initialState', 'initializationAndUpdateOrder']\n\nprotocol3-transitions.v1.json      bytes=11458   sha256=2fce5656601904551eae810ff664da5924094c67bcf66c905a337fc126d6b98b\nprotocol3-transitions.proposed     bytes=12970   sha256=6311b06d5616520309f214f2e6d4125fac6bdafa5b8628270fc810f86ac80ac9\ninitial-state-before.py            bytes=238     sha256=ec20cb161987781ce123a883f5bbfaa61425e72089ea4ab92b89b8a493b27351\ninitial-state-after.py             bytes=56      sha256=aa2d7f4031156fbed2cd5519426aa84434abb49d88d485e9910708646676ed9a\nnative_evidence_model.v2.py        bytes=272563  sha256=2fa50d9748d9f9bba1849b84f03fd61806cbd1f61353860e9bf50e7158024edc\nspliced model (NOT written)        bytes=272381  sha256=4837f6604ba43dfdbbb6e20bdb63153403fc985ab9aa5e5ac740f5cf5d2c7813",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:44.944Z",
+    "messageUuid": "cca95791-2485-4b8b-9257-5d30c9233a45",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_012xXKPqGRdx3FkMJUYuFrT2",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && diff <(python3 -c \"\nimport json;d=json.load(open('protocol3-transitions.v1.json'));print(json.dumps(d,indent=1,ensure_ascii=False))\") <(python3 -c \"\nimport json;d=json.load(open('protocol3-transitions.proposed.json'));print(json.dumps(d,indent=1,ensure_ascii=False))\") | head -40",
+        "description": "Show exact artifact diff"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:11:45.093Z",
+    "messageUuid": "72e7484d-9382-48e2-bf11-d886498c86eb",
+    "block": {
+      "tool_use_id": "toolu_012xXKPqGRdx3FkMJUYuFrT2",
+      "type": "tool_result",
+      "content": "32c32,49\n<  \"matchLaw\": \"FIRST MATCH WINS in the declared `rules` order. A row matches when (a) its `phase` equals the current phase, or is the wildcard `*PRE_COMPLETE` and the current phase is a member of that wildcard's `phases`; AND (b) its `frame` equals the incoming frame; AND (c) every key of its `guard` equals the identically named field of the current state. Order is therefore load-bearing: the three `WAIT_SNAPSHOT_ACCEPTED` rows P3-08..P3-10 are distinguished only by their guards, and P3-14/P3-15 likewise, so reordering or re-sorting these rows changes which transition a conforming host takes.\",\n---\n>  \"initialState\": {\n>   \"phase\": \"START\",\n>   \"dependencyMode\": false,\n>   \"preparedMode\": false,\n>   \"identityNegotiated\": false,\n>   \"stageIndex\": 0,\n>   \"stageCount\": 0,\n>   \"terminalKind\": null,\n>   \"sourceBytesSent\": false,\n>   \"stagesCompleted\": 0\n>  },\n>  \"initializationAndUpdateOrder\": [\n>   \"Begin with a fresh copy of `initialState` and an EMPTY trace. Every value in `initialState` is a scalar, so a shallow copy is a complete one.\",\n>   \"For each event, apply `preMatchLaw` FIRST, in the order its entries are listed. The order of those entries is load-bearing: a `*PROCESS_FAULT` frame arriving when the phase is ALREADY FAULT is absorbed by the first entry and traced `FAULT-absorb`, not `P3-33`.\",\n>   \"If no `preMatchLaw` entry applies, select a row by `matchLaw`. If no row matches, apply `noMatchLaw`.\",\n>   \"On a successful row match, in this order: (1) apply the `stateUpdates` of the incoming frame; (2) resolve the row's `next`, including the `stageDependentTransitions` increment when `next` is `ANALYZING_OR_READY_COMPLETE`; (3) record `terminalKind` if the row carries `terminal`; (4) set `phase` to the resolved next and append the row's `id` to the trace.\"\n>  ],\n>  \"matchLaw\": \"FIRST MATCH WINS in the declared `rules` order. A row matches when (a) its `phase` equals the current phase, or is the wildcard `*PRE_COMPLETE` and the current phase is a member of that wildcard's `phases`; AND (b) its `frame` equals the incoming frame; AND (c) every key of its `guard` equals the identically named field of the current state. First match in the declared order is NORMATIVE and a conforming host must implement it. It is not, however, what separates the guarded rows of one phase and frame: the three `WAIT_SNAPSHOT_ACCEPTED` rows P3-08..P3-10, and the pair P3-14/P3-15, are distinguished only by their guards, and within each set those guards are mutually exclusive and exhaustive over the admitted boolean state, so exactly one row of the set matches and re-ordering a set among itself is not observable. Declaration order is what fixes the reading against `preMatchLaw` and what keeps it stable if a row is ever added.\",",
+      "is_error": false
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:27.094Z",
+    "messageUuid": "9ac12ae4-b83b-4d10-81fc-6d184cda2a39",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01Y8LHgKygsov9fBYQLU6aKc",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/handoff.json",
+        "content": "{\n  \"role\": \"bounded SOURCE coauthor \u2014 protocol-3 initial-state publication completeness\",\n  \"standing\": \"Source coauthorship only; no independent, blind or readiness claim. Inputs are read-only captures of proposed, not frozen or accepted, source. The main author's active copy and all prior outputs were not touched. No environment was built and no suite was run.\",\n  \"assessment\": {\n    \"doesPublicationNeedThis\": \"YES. The artifact's own promise is code-free reconstruction, and it cannot be met without initialState. `guardLaw` advertises the security property that OpenUniverse is unreachable before negotiation, but P3-03 guards `identityNegotiated: true` and nothing published says that field starts false \u2014 a consumer defaulting it true reconstructs a host that admits OpenUniverse pre-negotiation and defeats exactly the property the artifact advertises. The same holds for P3-08..P3-10 and P3-14/P3-15, which select on dependencyMode/preparedMode with no published starting value, and for stagesCompleted/stageIndex, which the artifact increments without ever stating their origin. Nine fields and the empty trace existed only in excluded author code.\",\n    \"doesTheProposedOrderMatchSource\": \"YES, exactly. native_evidence_model.v2.protocol3_run: state+trace initialised (:429-432); preMatchLaw in its published order (:435 FAULT-absorb, :437 post-terminal, :439 process-fault); match loop (:441-455); noMatch (:456-457); frame stateUpdates (:458-466); next resolution incl. the stage-dependent increment (:467-470); terminalKind (:471-472); phase then trace (:473). Root's recited order is the source order step for step.\",\n    \"matchLawSentenceIsFalse\": \"CONFIRMED, and I verified it rather than accepting it. A bounded static enumeration over the published rows and the three guard fields (check_order.py) shows P3-08 {dependencyMode:true}, P3-09 {dependencyMode:false, preparedMode:true} and P3-10 {dependencyMode:false, preparedMode:false} are pairwise disjoint AND exhaustive over the boolean square, as are P3-14/P3-15 on preparedMode. Exactly one row of each set matches every admitted state, so re-ordering a set among itself is not observable. The old sentence claimed the opposite.\"\n  },\n  \"strongerFindingThanProposed\": {\n    \"result\": \"Across the whole 34-row table, NO pair of rows can both match one (phase, frame, guard-state). First-match-wins never actually disambiguates anything in the table as published.\",\n    \"method\": \"check_order.py enumerates every row pair against every phase, every frame in the table and all 8 assignments of the three guard fields (dependencyMode, identityNegotiated, preparedMode), applying the published *PRE_COMPLETE expansion and skipping *ANY rows as the matching loop does.\",\n    \"whyIDidNotPublishIt\": \"It is a property of today's rows, not a law: adding one overlapping row would falsify it, and publishing it as normative would invite a future consumer to rely on order-independence. The replacement keeps declaration order NORMATIVE and states only the local disjointness root asked for.\",\n    \"whereOrderIsGenuinelyLoadBearing\": \"Not among the rows, but between preMatchLaw entries: entry 1 (phase already FAULT) and entry 3 (any *PROCESS_FAULT frame 'from ANY phase') both apply to a process-fault frame arriving in FAULT, and the source resolves it to FAULT-absorb at :435 before :439. As published those two entries conflict with no stated precedence; the new initializationAndUpdateOrder states it.\"\n  },\n  \"changes\": {\n    \"artifact\": [\n      \"ADDED initialState \u2014 the nine fields, values byte-equal to the model literal, verified by AST extraction of the `state = {...}` assignment in protocol3_run and by JSON round-trip.\",\n      \"ADDED initializationAndUpdateOrder \u2014 four ordered entries reciting fresh state + empty trace, preMatchLaw first in its listed order (with the FAULT-absorb precedence that resolves the existing conflict), matchLaw then noMatchLaw, and the four post-match steps.\",\n      \"REPLACED the final sentence of matchLaw only. Everything before it is unchanged.\"\n    ],\n    \"preserved\": \"All 34 rows byte-identical (asserted). Every pre-existing key except matchLaw byte-identical (asserted). Key set grows by exactly {initialState, initializationAndUpdateOrder}. ruleCount still 34. No new guard, frame, phase, terminal or stage-count semantics; no schema or host qualification demand; matching rules not redesigned.\",\n    \"model\": \"One exact splice: the three-line state literal becomes `state = dict(PROTOCOL3_TRANSITIONS[\\\"initialState\\\"])`, removing the duplicate authority. All nine values are scalars (str/bool/int/None, asserted), so the shallow copy is a complete one and per-call isolation is preserved. The spliced module was re-parsed with ast to confirm it still parses. Behaviour is unchanged by construction: the published dict is equal to the literal it replaces.\"\n  },\n  \"hashes\": {\n    \"protocol3-transitions.v1.json\": \"2fce5656601904551eae810ff664da5924094c67bcf66c905a337fc126d6b98b\",\n    \"protocol3-transitions.proposed.json\": \"6311b06d5616520309f214f2e6d4125fac6bdafa5b8628270fc810f86ac80ac9\",\n    \"initial-state-before.py\": \"ec20cb161987781ce123a883f5bbfaa61425e72089ea4ab92b89b8a493b27351\",\n    \"initial-state-after.py\": \"aa2d7f4031156fbed2cd5519426aa84434abb49d88d485e9910708646676ed9a\",\n    \"native_evidence_model.v2.py\": \"2fa50d9748d9f9bba1849b84f03fd61806cbd1f61353860e9bf50e7158024edc\",\n    \"splicedModel\": \"4837f6604ba43dfdbbb6e20bdb63153403fc985ab9aa5e5ac740f5cf5d2c7813\",\n    \"splicedModelNote\": \"Rebase arithmetic only, NOT written. Valid only against the captured bytes.\"\n  },\n  \"rebaseNotes\": [\n    \"The model consumes only four artifact keys (phases, rules, wildcards, stateUpdates), so the two additions are inert for it. If a control OUTSIDE my capture asserts an exact key set or a digest of protocol3-transitions.v1.json, that control must be updated with this change \u2014 I could not see it and do not claim it passes.\",\n    \"The splice anchor is a 3-line literal occurring exactly once at lines 429-431 of the captured model. If it no longer matches, protocol3_run changed and this must not be blind-applied.\",\n    \"Root's before18/after19 transition differential is the right check for the model splice; I ran no dynamic protocol run and claim none.\"\n  ],\n  \"wroteOnly\": \"/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1\"\n}\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:27.211Z",
+    "messageUuid": "2ce8bb89-cc63-4f52-9f69-dddbbd8d7f63",
+    "block": {
+      "tool_use_id": "toolu_01Y8LHgKygsov9fBYQLU6aKc",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/handoff.json (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:48.991Z",
+    "messageUuid": "6362f1f5-e2fd-48db-8101-c56f8f90a3e0",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01NaXnYmBrq1cXkxLwBhdDAH",
+      "name": "Write",
+      "input": {
+        "file_path": "/tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/handoff.md",
+        "content": "# Protocol-3 initial-state publication correction \u2014 source coauthor\n\nSource coauthorship only; no independent, blind or readiness claim. Inputs are read-only\ncaptures of proposed source. The main author's copy and all prior outputs are untouched.\nNo environment built, no suite run.\n\n## Does publication need this? Yes\n\nThe artifact promises code-free reconstruction and cannot deliver it without\n`initialState`. `guardLaw` advertises that OpenUniverse is unreachable before negotiation \u2014\nbut P3-03 guards `identityNegotiated: true` and **nothing published says that field starts\nfalse**. A consumer defaulting it true reconstructs a host that admits OpenUniverse\npre-negotiation, defeating the exact property the artifact advertises. Same for\nP3-08..P3-10 and P3-14/P3-15, which select on `dependencyMode`/`preparedMode` with no\npublished origin, and for `stagesCompleted`/`stageIndex`, which the artifact increments\nwithout ever stating where they start.\n\n## Does the proposed order match source? Exactly\n\n`protocol3_run`: state + trace initialised (`:429-432`); `preMatchLaw` in its published\norder (`:435` FAULT-absorb, `:437` post-terminal, `:439` process-fault); match loop\n(`:441-455`); noMatch (`:456-457`); frame `stateUpdates` (`:458-466`); `next` resolution\nincluding the stage-dependent increment (`:467-470`); `terminalKind` (`:471-472`); phase\nthen trace (`:473`). Root's recital is the source order step for step.\n\n## The `matchLaw` sentence is false \u2014 confirmed, not assumed\n\nI verified it with a bounded static enumeration (`check_order.py`). P3-08\n`{dependencyMode:true}`, P3-09 `{dependencyMode:false, preparedMode:true}`, P3-10\n`{dependencyMode:false, preparedMode:false}` are pairwise **disjoint and exhaustive** over\nthe boolean square; P3-14/P3-15 likewise on `preparedMode`. Exactly one row of each set\nmatches any admitted state, so re-ordering a set among itself is unobservable. The old\nsentence claimed the opposite.\n\n**Stronger finding, deliberately not published.** Across the whole 34-row table, *no* pair\nof rows can both match one (phase, frame, guard-state) \u2014 first-match-wins never\ndisambiguates anything as published. I kept this out of the artifact because it is a\nproperty of today's rows, not a law: one overlapping row would falsify it, and publishing\nit would invite consumers to rely on order-independence. The replacement keeps declaration\norder **normative** and states only the local disjointness.\n\n**Where order genuinely is load-bearing** is not among the rows but between `preMatchLaw`\nentries: entry 1 (phase already FAULT) and entry 3 (any `*PROCESS_FAULT` \"from ANY phase\")\nboth cover a process-fault frame arriving in FAULT, and the source resolves it to\n`FAULT-absorb` at `:435` before `:439`. As published those two entries conflict with no\nstated precedence \u2014 the new `initializationAndUpdateOrder` resolves that existing gap.\n\n## Changes\n\nArtifact: **added** `initialState` (nine fields, AST-extracted from the model literal and\nround-trip verified) and `initializationAndUpdateOrder` (four ordered entries); **replaced\nthe final sentence of `matchLaw` only**. All 34 rows byte-identical; every other\npre-existing key byte-identical; key set grows by exactly those two; `ruleCount` still 34.\nNo new guard, frame, phase, terminal or stage-count semantics.\n\nModel: one splice \u2014 the three-line literal becomes\n`state = dict(PROTOCOL3_TRANSITIONS[\"initialState\"])`. All nine values are scalars\n(asserted), so the shallow copy is complete and per-call isolation holds; the spliced\nmodule re-parses under `ast`. Behaviour unchanged by construction: the published dict\nequals the literal it replaces.\n\n## Hashes\n\n| artifact | sha256 |\n|---|---|\n| `protocol3-transitions.v1.json` (in) | `2fce5656601904551eae810ff664da5924094c67bcf66c905a337fc126d6b98b` |\n| `protocol3-transitions.proposed.json` | `6311b06d5616520309f214f2e6d4125fac6bdafa5b8628270fc810f86ac80ac9` |\n| `initial-state-before.py` (occurs once) | `ec20cb161987781ce123a883f5bbfaa61425e72089ea4ab92b89b8a493b27351` |\n| `initial-state-after.py` | `aa2d7f4031156fbed2cd5519426aa84434abb49d88d485e9910708646676ed9a` |\n| `native_evidence_model.v2.py` (in) | `2fa50d9748d9f9bba1849b84f03fd61806cbd1f61353860e9bf50e7158024edc` |\n| spliced model \u2014 **rebase arithmetic only, not written** | `4837f6604ba43dfdbbb6e20bdb63153403fc985ab9aa5e5ac740f5cf5d2c7813` |\n\n**Rebase.** The model consumes only `phases`, `rules`, `wildcards`, `stateUpdates`, so the\ntwo additions are inert for it. If a control outside my capture asserts an exact key set or\na digest of the artifact, it must be updated \u2014 I could not see it and do not claim it\npasses. The splice anchor occurs exactly once at `:429-431`; if it no longer matches,\n`protocol3_run` changed and it must not be blind-applied. Your before18/after19 differential\nis the right check for the splice; I ran no dynamic protocol run and claim none.\n"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:49.075Z",
+    "messageUuid": "d88f2e6f-2770-472f-b3f4-e05164f15394",
+    "block": {
+      "tool_use_id": "toolu_01NaXnYmBrq1cXkxLwBhdDAH",
+      "type": "tool_result",
+      "content": "File created successfully at: /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1/handoff.md (file state is current in your context \u2014 no need to Read it back)"
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:53.443Z",
+    "messageUuid": "10a71a86-8fdc-4da2-8fbc-4899d2541ae9",
+    "block": {
+      "type": "tool_use",
+      "id": "toolu_01BVcW1wpZqJX2NrRGoMJxvm",
+      "name": "Bash",
+      "input": {
+        "command": "cd /tmp/opensip-design-corrections/v19-protocol-initial-coauthor.v1 && python3 -c \"\nimport json;json.load(open('handoff.json'));json.load(open('protocol3-transitions.proposed.json'));print('JSON OK')\nprint('handoff.md words:',len(open('handoff.md').read().split()))\" && shasum -a 256 protocol3-transitions.proposed.json initial-state-before.py initial-state-after.py handoff.json handoff.md check_order.py build.py && echo \"inputs unmodified: $(find . -maxdepth 1 \\( -name native_evidence_model.v2.py -o -name protocol3-transitions.v1.json \\) -newermt '2026-09-07 21:09' | wc -l)\"",
+        "description": "Validate deliverables and confirm inputs unmodified"
+      },
+      "caller": {
+        "type": "direct"
+      }
+    }
+  },
+  {
+    "timestamp": "2026-09-08T04:12:53.514Z",
+    "messageUuid": "72826e6e-4564-401b-8c86-1e7e1145bf56",
+    "block": {
+      "tool_use_id": "toolu_01BVcW1wpZqJX2NrRGoMJxvm",
+      "type": "tool_result",
+      "content": "JSON OK\nhandoff.md words: 620\n6311b06d5616520309f214f2e6d4125fac6bdafa5b8628270fc810f86ac80ac9  protocol3-transitions.proposed.json\nec20cb161987781ce123a883f5bbfaa61425e72089ea4ab92b89b8a493b27351  initial-state-before.py\naa2d7f4031156fbed2cd5519426aa84434abb49d88d485e9910708646676ed9a  initial-state-after.py\ne55746a654423708e93d248dbe32885e981ede2011843ba4f69607580652bbc0  handoff.json\nb830cdabe83b517f9404246f8ffe846d0dd3142ca21e49565481629e02b00f93  handoff.md\nf32f598b4daa0d1bee5a8bab7d4fbc250a9a4b8d8971343bae2c75113915c899  check_order.py\ne09f3ba66c9c72826175bb8e8d7d6d18a42eb6761881992ecee4cf50d76d316d  build.py\ninputs unmodified:        0",
+      "is_error": false
+    }
+  }
+]

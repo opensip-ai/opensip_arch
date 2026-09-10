@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:graph-query",
+  "title": "Bounded read-only graph/query operations over one sealed view (PROPOSED, revised)",
+  "description": "Every query names one ProjectId and exactly one sealed view selector. Operations are a closed set; parameters are closed per operation. Bounds: page size 1..1000 (default 100); at most 100000 items per operation; traversal depth at most 64; at most 1000000 visited nodes. A bound reached under completeness=required is QUERY.COMPLETENESS_UNMET (indeterminate); under best-effort it is a visible truncation with a stable cursor. Queries never materialise facts, invoke a provider, allocate an attempt, seal a Run, derive policy or choose termination. Advisory operations are marked in the response context and can never carry a verdict.",
+  "$defs": {
+    "View": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "runId"
+          ],
+          "properties": {
+            "runId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "snapshotId"
+          ],
+          "properties": {
+            "snapshotId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "latest"
+          ],
+          "properties": {
+            "latest": {
+              "const": true
+            }
+          },
+          "description": "a resolver, never an authority: the response must carry the resolved id; empty domain is request-rejected"
+        }
+      ]
+    },
+    "Page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "size"
+      ],
+      "properties": {
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "cursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "Operation": {
+      "type": "string",
+      "enum": [
+        "run.show",
+        "run.list",
+        "finding.list",
+        "finding.show",
+        "fact.list",
+        "coverage.show",
+        "artifact.get",
+        "graph.neighbors",
+        "graph.path",
+        "graph.reach",
+        "baseline.show",
+        "comparison.show",
+        "comparison.diff",
+        "candidate.list",
+        "inspection.show",
+        "review.brief",
+        "policy.effective",
+        "import.show",
+        "receipt.show",
+        "availability.show"
+      ]
+    },
+    "AdvisoryOperation": {
+      "type": "string",
+      "enum": [
+        "comparison.diff",
+        "candidate.list",
+        "inspection.show",
+        "review.brief"
+      ]
+    },
+    "Bounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxPageSize",
+        "defaultPageSize",
+        "maxItemsPerOperation",
+        "maxTraversalDepth",
+        "maxVisitedNodes"
+      ],
+      "properties": {
+        "maxPageSize": {
+          "const": 1000
+        },
+        "defaultPageSize": {
+          "const": 100
+        },
+        "maxItemsPerOperation": {
+          "const": 100000
+        },
+        "maxTraversalDepth": {
+          "const": 64
+        },
+        "maxVisitedNodes": {
+          "const": 1000000
+        }
+      }
+    },
+    "GraphQueryRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "projectId",
+        "view",
+        "operation",
+        "params",
+        "completeness",
+        "page"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.query"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+        },
+        "view": {
+          "$ref": "#/$defs/View"
+        },
+        "operation": {
+          "$ref": "#/$defs/Operation"
+        },
+        "params": {
+          "$ref": "#/$defs/Params"
+        },
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "required",
+            "best-effort"
+          ]
+        },
+        "page": {
+          "$ref": "#/$defs/Page"
+        },
+        "fieldSelection": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "Params": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "relation": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "subject": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "target": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "outgoing",
+            "incoming",
+            "both"
+          ]
+        },
+        "maxDepth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "fingerprint": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Fingerprint"
+        },
+        "artifactRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "domain",
+            "digest"
+          ],
+          "properties": {
+            "domain": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "digest": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            }
+          }
+        },
+        "otherRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "baselineId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BaselineId"
+        },
+        "comparisonResultId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ComparisonResultId"
+        },
+        "candidateId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CandidateId"
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ImportId"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "includeSuppressed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "GraphQueryResponseContext": {
+      "type": "object",
+      "description": "Mandatory response context: resolved project root and view, exact Coverage, availability, truncation and next cursor.",
+      "additionalProperties": false,
+      "required": [
+        "projectId",
+        "resolvedView",
+        "coverage",
+        "availability",
+        "truncated",
+        "totalItems",
+        "advisory"
+      ],
+      "properties": {
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+        },
+        "resolvedView": {
+          "$ref": "#/$defs/View"
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "availability": {
+          "type": "string",
+          "enum": [
+            "retained",
+            "partial",
+            "expired",
+            "purged",
+            "corrupt",
+            "unavailable"
+          ]
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "totalItems": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+        },
+        "nextCursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "advisory": {
+          "type": "boolean",
+          "description": "true exactly for AdvisoryOperation members: Map-side views that never carry Control verdicts"
+        }
+      }
+    }
+  }
+}

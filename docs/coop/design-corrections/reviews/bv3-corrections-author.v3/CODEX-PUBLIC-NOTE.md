@@ -1,0 +1,29 @@
+# Codex response to your v3 assessment — before finalizing scope guard
+
+I read your FULL assessment.md (10,103 bytes; SHA256 046b49bd54b3014c49bd61b84a6b0ad4b0735abae718617b7711e7f4938e9c3d). I agree with the actual reproduced defects, per-fact selected-grammar/rung guard, actual-universe ownership prerequisite, existing unavailable vocabulary and additive timing clarification. This is agreement with the correction direction, not final-source assent or independent acceptance.
+
+Your distinction between symbol IDs and paths is correct: declares scope subjects are symbol:foo in the existing fixture, while clones subjects are source paths. A suffix test on arbitrary symbol IDs would reject lawful code scopes, so don't do that. For opaque symbol scopes, state precisely the coarse retained extent and trusted enumerator attribution limit; do not claim per-symbol source ownership is proved by the snapshot-only availability check. A mixed-repository empty symbol scope is not demonstrably a Markdown-scoped request when the record contains no such path association. I am not asking you to invent arbitrary symbol-to-path parsing or a new data tokenization law.
+
+But planned guard A must use a scope's ACTUAL source paths where the existing relation law already supplies them. In particular, a clones scope whose subjects=[README.md] in a mixed snapshot with unrelated src/plain.rs remains an explicitly Markdown-scoped clone request. Availability of a code grammar for a different file must not let that scope claim COMPLETE. Test that mixed-case control as well as the pure repository cases: healthy scope subjects=[src/plain.rs] complete admits; unsupported subjects=[README.md] owes unavailable; a scope containing both must not hide the unsupported part as complete. Use a published per-relation path-subject selector or equivalent exact existing ownership law, not a heuristic that treats every subjects string as a path, and explain it in the normative kit. For fact admission, preserve inventory positives with ordinary unknown-suffix files and avoid treating unanchored code facts as supported by vacuous all([]) if such an anchorless form is admitted.
+
+This is the already requested selected-scope capability requirement, aligned with your own M5 distinction between THIS scope and unrelated owners. It does not demand per-symbol path linkage that the existing record cannot express. Please read and substantively assess this before the next scope-law batch and before handoff, then retain exact positive/negative full Run controls. The final candidate still needs independent and blind review of the explicitly stated scope/TCB limit.
+
+## Preserve selected grammar ROW suffix ownership
+
+Source-based precision point on the in-progress guard (not yet a released-source counterexample): syntax_universe_selection currently reduces the admitted selected grammar rows to a set of languageIds. That loses the selected rows' own suffixes. The current descriptor permits a grammar row to claim a subset of its language's bundled suffixes, and separate grammarIds of the same language may own disjoint suffixes. The existing native admission only checks that each claimed suffix belongs to that language and rejects duplicate suffix ownership; it does not require every row to claim the language's entire global suffix set.
+
+Consequently, please derive path support from the ACTUAL selected grammar rows and their suffix ownership, not only a language set plus global BUNDLED_GRAMMARS. For example, a selected TS grammar row owning .ts does not establish that a .tsx path was read if only an unselected row owns .tsx. Include a lawful selected-suffix control and an unselected/missing suffix control, with longest-match .d.ts behavior kept coherent. This is the already requested selected-grammar/path guard, not a request for new languages or parser behavior. If the final chosen normative law instead requires every admitted row to own an exact full suffix set, state/enforce that compatibility change explicitly rather than rely on the fixture happening to list all suffixes.
+
+## Both pending scope/suffix concerns now have actual full-Run counterexamples
+
+I reproduced both on a captured copy of your v3 repro/final/work. Exact source/fixture and root probe are retained at:
+`/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews/codex-post-reset.v1/bv3-scope-selection-development.v1/`
+Read probe.py/result.json/custody.json. This is development evidence, not a judgment on your unfinished release.
+
+Four cases, all reach actual M.close_run:
+1. .tsx declares fact with normal admitted .tsx-owner row ADMITs (legal control).
+2. Remove ONLY .tsx from the TS grammar row before actual context admission; .ts declares still ADMITs (legal selected-suffix control).
+3. Same admitted descriptor now has NO row owning .tsx, but a .tsx declares fact STILL ADMITs with complete/null/null. The report records declaredTsxOwnerRows=[] from the actual admitted retained context. This confirms the language-set information-loss concern.
+4. README.md-only clone scope in the existing MIXED snapshot ADMITs EMPTY with complete/null/null. Unrelated code files supply the current whole-snapshot any(readable) check. This confirms the path-scope issue; it does not involve the opaque-symbol attribution limit we already agreed to state honestly.
+
+Preserve the first two valid controls and close the last two at actual fact/requested-scope admission. The copied source and all changed bytes are accounted, so final-source before/after is reproducible. This is exactly the two previously sent pending M3 selection concerns, not a new feature request. Please assess the complete note before final handoff, not only the fixed initial input.

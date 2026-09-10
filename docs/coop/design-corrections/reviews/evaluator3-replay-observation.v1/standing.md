@@ -1,0 +1,1 @@
+Observed interim execution: 20 synthetic full graphs admitted and replayed; four fully reminted semantic mutations refused after owner admission. Exact final source/export custody is pending completion of concurrent Grok corrections. This receipt alone does not establish acceptance of subsequent bytes or real extraction qualification.

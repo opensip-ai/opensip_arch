@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.fact-batch.3",
+  "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
+  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. FactCandidateV1 members are the historical closed candidate (opensip.fact-candidate.v1); occupancy is a PARALLEL companion array, not a FactCandidate field. When the token is absent, the historical FactBatchV2 payload (no occupancyCompanions, no schemaVersion) remains required. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION. This is not a silent extension of FactBatchV2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "analysisOrdinal",
+    "stageOrdinal",
+    "batchIndex",
+    "candidates",
+    "occupancyCompanions"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "analysisOrdinal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "stageOrdinal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535,
+      "description": "Joins retained execution-plan.stages[].ordinal of the Analyze stage that requested this output. Historical FactBatchV2.stageId is not this field and is not reinterpreted."
+    },
+    "batchIndex": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "candidates": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidateOrdinal",
+          "relation",
+          "resolution",
+          "layer",
+          "producer",
+          "producerVersion",
+          "schemaVersion",
+          "language",
+          "sourceUniverseId",
+          "targetUniverseId",
+          "confidenceMillionths",
+          "relationSchemaId",
+          "canonicalRelationPayloadHex",
+          "anchors"
+        ],
+        "properties": {
+          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 1000000},
+          "relation": {"type": "string", "minLength": 1, "maxLength": 64},
+          "resolution": {"type": "string", "minLength": 1, "maxLength": 64},
+          "layer": {"type": "string", "minLength": 1, "maxLength": 64},
+          "producer": {"type": "string", "minLength": 1, "maxLength": 128},
+          "producerVersion": {"type": "string", "minLength": 1, "maxLength": 256},
+          "schemaVersion": {"type": "integer", "minimum": 1},
+          "language": {"type": "string", "minLength": 1, "maxLength": 64},
+          "sourceUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "targetUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "confidenceMillionths": {"type": "integer", "minimum": 0, "maximum": 1000000},
+          "relationSchemaId": {"type": "string", "minLength": 1, "maxLength": 256},
+          "canonicalRelationPayloadHex": {
+            "type": "string",
+            "pattern": "^[0-9a-f]+(?![\\s\\S])",
+            "minLength": 2,
+            "description": "JSON-vector transcription of FactCandidateV1.canonicalRelationPayload bytes (fact-plane.v1). Not an additional wire field on CBOR transport. Host decodes once to the closed relation payload. Reference controls use canonical JSON UTF-8 bytes of the decoded payload as the transcription preimage."
+          },
+          "anchors": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {"type": "object"}
+          }
+        }
+      },
+      "description": "Non-empty. Contiguous unique candidateOrdinal, nondecreasing. Unchanged FactCandidateV1 membership. No occupancy field. Order is admission-owned (integer ordinals; not utf-8 field-order)."
+    },
+    "occupancyCompanions": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["schemaVersion", "candidateOrdinal", "targetNativeId", "kind", "occupancy"],
+        "properties": {
+          "schemaVersion": {"const": 1},
+          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 1000000}
+        }
+      },
+      "description": "Zero or more OccupancyCompanionV1. Length MUST be <= candidates length. Every candidateOrdinal MUST name a candidate in this batch. Empty array is lawful (all occupancy unknown except exact-id ephemeral). Duplicate candidateOrdinal refuses. Extra ordinal refuses. Order is admission-owned by integer candidateOrdinal."
+    }
+  },
+  "x-opensip-negotiation": {
+    "token": "target-attribution-v2",
+    "whenPresent": "FactBatch payload MUST admit as this schema",
+    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions). Occupancy unknown except exact-id ephemeral.",
+    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and by len(candidates).",
+    "protocolMajorUnchanged": true,
+    "newFrame": false,
+    "transitionTable": "P3-23 ANALYZING FactBatch stays. Payload validation is prose-owned beside the 34 rows, as §9.2 already states for frame payloads."
+  }
+}

@@ -1,0 +1,52 @@
+--- released-v1/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ current-v2/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -789,14 +789,35 @@
+ 
+ | Class | Relations | Anchors | Why |
+ |---|---|---|---|
+-| `source-text` | `declares`, `literal`, `control-flow`, `imports`, `references`, `calls`, `types`, `reachability`, `unresolved-edge` | **≥ 1** | The fact was read from source text; an unanchored one names no file that could have been read. No upper bound and no canonical extent: which spans a producer cites is a real statement about what it read, so differing citations are *different* semantic descriptors and no cross-provider identity is promised. |
++| `source-text` | `declares`, `literal`, `control-flow`, `imports`, `references`, `calls`, `types`, `reachability`, `unresolved-edge` | **≥ 1** | The fact was read from source text; an unanchored one names no file that could have been read. No *additional relation-specific* maximum and no canonical extent beyond the common schema bounds (`fact.anchors` keeps its `maxItems: 100000` and `uniqueItems`): which spans a producer cites is a real statement about what it read, so differing citations are *different* semantic descriptors and no cross-provider identity is promised. |
+ | `body-identity` | `clones` | **= 1** | Exactly the body span the identity is over (unchanged). |
+ | `inventory` | `file`, `package`, `vcs-change` | **= 0** | The claim's whole semantic input is the payload, already bound to the snapshot by the joins in this table. An anchor could only restate part of an already-joined claim on an axis nothing derives — one semantic input, several spellings, several identities. |
+ 
+ Zero is also the only cardinality *every* inventoried path can satisfy: a path
+ no bundled grammar reads, an extensionless path, and a `vcs-change` on a
+ `deleted` path, which the row above places outside the snapshot entirely and
+-which therefore cannot bear an anchor at all. It closes two live gaps as well as
++which therefore cannot bear an anchor at all.
++
++**The raw-byte boundary.** An inventory claim retains its path, content digest
++and byte length **without anyone decoding the bytes**. With the class at zero
++anchors the `ANCHOR_SOURCE` / `ANCHOR_RANGE` / `ANCHOR_UTF8` checks never run for
++such a fact — they iterate the anchors — while the `inventoried-file` join above
++still does, and it only hashes and measures. An **empty** file and a **non-UTF8
++binary** file are therefore ordinary inventory, at an extensionless path as
++readily as any other, and requiring bytes to parse as code or as UTF-8 merely to
++record their path and hash would be a narrowing this contract never intended.
++The code-span laws keep exactly the scope they had: the *same* non-UTF8 bytes
++still refuse as a `source-text` anchor (`ANCHOR_UTF8`), and the digest, length
++and path joins still refuse a wrong claim about those bytes.
++
++**Where a location comes from, now that inventory facts carry no anchors.**
++Nothing reads `fact.anchors` as a finding location, so removing them removes no
++route and no new flexibility is added. A finding locates through
++`finding-fingerprint.subjectKey.logicalPath`; an inventory claim's own location
++is its payload `path`, joined to the snapshot inventory by the table above; and
++`finding`, `finding-fingerprint`, `proof-bundle` and `predicate-witness` carry no
++anchor field at all. A finding over a zero-anchor inventory fact closes a Run and
++is located by exactly those existing records. It closes two live gaps as well as
+ the spelling one: the "unanchored code fact" rule was enforced only inside the
+ syntax-universe guard, so such a fact closed a Run under a TypeScript or Rust
+ universe; and `anchorPathField` sat only on the `file` row, so a `package`
+@@ -1080,7 +1101,10 @@
+ states for that relation. Coverage scopes partition the claimed universe without
+ overlaps or omissions, and a `complete` result for a rung the registry marks
+ total over the inventory (`file@enumerated`) must carry a fact for every
+-inventoried subject it claims to have examined.
++inventoried subject it claims to have examined — a fact that agrees with **that
++scope** on its own snapshot, relation, rung and *both* universes. The fact/scope
++join above is existential, so in a view carrying two universes a fact of one
++lawfully sits beside a scope of the other and must not discharge its obligation.
+ No arbitrary payload schema supplied by an import becomes an admitted schema.
+ 
+ ## 4. Evaluation and proof verification

@@ -1,0 +1,69 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v13/docs/v2/contracts/product-v1/workflows-and-surfaces.md	2026-09-07 02:29:55
++++ /tmp/opensip-design-corrections/candidate-subject.v14/docs/v2/contracts/product-v1/workflows-and-surfaces.md	2026-09-07 08:12:26
+@@ -536,7 +536,56 @@
+ platform, project marker and the offline window. A produced report is `success` (0)
+ even when defects are found (detail `DOCTOR.DEFECTS_FOUND`); CI must inspect
+ `doctor.defectsFound`. Only an unproducible report is `HOST.IO_FAILURE` (4).
++
++A `doctor` report is a **different invocation** and therefore cannot deliver the
++absences of an analysis invocation; `DoctorResult.defects[]` remains the
++environment report it always was.
++
++**Release-availability absence rides the invocation that selected it.**
++`CommandEnvelope.availability` (`CapabilityAvailabilityV1` =
++`{stepCount, totalNoticeCount, steps[]}`, each step
++`CapabilityAvailabilityStepV1` = `{stepId, noticeCount, notices[]}`) carries
++every capability the selected product requires (native §1.4) that this release
++did not declare available, for **every requested unit of every analysis step** —
++a single-step command projects one step, and a named multi-step invocation
++projects one entry per analysis step that made a selection. Each notice carries the complete ownership tuple in **typed
++fields** — `capabilityId`, `languageMode`, `workspaceRoot` — with the existing
++code `native.capability-unavailable` (a `const`, since the record declares one
++condition); the tuple is never concatenated into a `subject`, because
++`workspaceRoot` is a `UserInputPath` bounded at 4096 while `BoundedText` is 1024
++and a truncated path would collapse two distinct units into one indistinguishable
++notice. The collection is composed **per step** —
++`{stepCount, totalNoticeCount, steps[≤64]}`, each step
++`{stepId, noticeCount, notices[≤1024]}` — because 1024 is the
++`analysis-spec.requestedCapabilities` bound and *not* an invocation-wide one: two
++admitted selections of 1023 requests each compose 2046 notices, and no notice is
++discarded to fit. A step that made no selection contributes no entry, a step that
++found nothing absent contributes an empty entry, and the same tuple may recur in
++different steps. Order is the selection's own.
++
++Envelope membership alone would **not** deliver it: `render` selects a command's
++declared `parityFields`, so `capability-availability` is a declared parity field
++of **every** `requestClass: analysis` command — `default`, `analyze`, `fit`,
++`audit` and `repair-verify` — and every applicable renderer carries it: human,
++JSON, SARIF, HTML and agent. Because it is *declared*, it is also **required**:
++the host projection must be total over the command's parity fields, so a caller
++whose invocation selected nothing supplies the explicit empty collection
++(`{stepCount: 0, totalNoticeCount: 0, steps: []}`) rather than omitting the
++field, and an omission is a required-delivery operational fault under the law
++above, never a successful partial rendering.
+ 
++It is **advisory** — it terminates nothing, mints no Coverage, grants no Control
++verdict or repair authority, and is never a clone `Candidate`, since published
++Candidate records represent actual candidates. `AnalysisResult` is a closed union
++and is not widened to carry it.
++
++**Failure envelopes carry their errors.** A `kind=failure` envelope requires a
++nonempty `errors` array of `DomainDetail`; where a step termination's optional
++`domainDetail` is absent, the composition in native §10 supplies the array from
++the route's own detail code, and where it is present `errors` is exactly that
++detail so the two surfaces never disagree. Before a Plan or Run exists no run
++envelope is fabricated.
++
+ ---
+ 
+ ## 9. D9 goldens and typed detail (AR-16)
+@@ -547,7 +596,8 @@
+ `runId` or `authority=ephemeral`; request-rejected/operational-failed carry
+ `errorCode` (operational also a non-none `faultCause` from the observation:
+ host-io, ledger-busy, ledger-corrupt, cas-link, provider-protocol, durability-commit,
+-delivery-required, output-serialization, extension-install-io, serve-protocol);
++delivery-required, output-serialization, extension-install-io, serve-protocol,
++host-invariant);
+ indeterminate carries `reasonCodes`; interrupted carries `signal` and a `runId` only
+ when a Run was committed before the interrupt. `DomainDetailCode` is explanatory
+ detail beside an existing code, never a termination code. Selected goldens (the complete retained set

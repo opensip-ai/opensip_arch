@@ -1,0 +1,353 @@
+{
+  "standing": "SYNTHETIC durable footprints and trust records evaluated by security_lifecycle_model_v1.migration_recover, .migrate_floors and .rollback_floors (AR-14). Bridge under test: stage-2 core reads root schemas {1,2} and state decoders v1 (read-only source) and v2 (writer); floors (root/index/revocation counters, evalHighWater, lastAccepted, recoveryEpochSerial) move forward only in both directions. Expected values were authored by hand from security-and-lifecycle.md S9 before execution (same author, not an independent oracle). No filesystem or database was touched.",
+  "recoverCases": [
+    {
+      "id": "no-migration-in-progress",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": null
+          },
+          "new": {
+            "dir": "absent",
+            "state": null
+          }
+        }
+      },
+      "expect": {
+        "action": "NO-MIGRATION-IN-PROGRESS"
+      }
+    },
+    {
+      "id": "crash-during-prepare-aborts",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": null
+          },
+          "new": {
+            "dir": "migrating",
+            "state": "PREPARING"
+          }
+        }
+      },
+      "expect": {
+        "action": "ABORT"
+      }
+    },
+    {
+      "id": "crash-after-prepare-before-old-store-fenced-aborts",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": null
+          },
+          "new": {
+            "dir": "migrating",
+            "state": "PREPARED"
+          }
+        }
+      },
+      "expect": {
+        "action": "ABORT"
+      }
+    },
+    {
+      "id": "crash-after-old-store-fenced-resumes-commit-from-step-3",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": "RESTORED"
+          },
+          "new": {
+            "dir": "migrating",
+            "state": "PREPARED"
+          }
+        }
+      },
+      "expect": {
+        "action": "RESUME-COMMIT",
+        "fromStep": 3
+      }
+    },
+    {
+      "id": "crash-after-commit-marker-resumes-final-rename",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": "RESTORED"
+          },
+          "new": {
+            "dir": "migrating",
+            "state": "COMMITTED"
+          }
+        }
+      },
+      "expect": {
+        "action": "RESUME-COMMIT",
+        "fromStep": 4
+      }
+    },
+    {
+      "id": "completed-migration-done-old-root-retained",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": "RESTORED"
+          },
+          "new": {
+            "dir": "final",
+            "state": "COMMITTED"
+          }
+        }
+      },
+      "expect": {
+        "action": "DONE",
+        "oldRootRetainedDays": 30
+      }
+    },
+    {
+      "id": "final-and-migrating-coexist-quarantine",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": "RESTORED"
+          },
+          "new": {
+            "dir": "both",
+            "state": "COMMITTED"
+          }
+        }
+      },
+      "expect": {
+        "action": "QUARANTINE",
+        "refusal": "MIGRATION.CORRUPT",
+        "d9": {
+          "class": "operational-failed",
+          "exit": 4,
+          "code": "LEDGER.CORRUPT"
+        }
+      }
+    },
+    {
+      "id": "unknown-migration-state-quarantine",
+      "model": "migration-recover",
+      "input": {
+        "footprint": {
+          "old": {
+            "present": true,
+            "unbootstrappedReason": null
+          },
+          "new": {
+            "dir": "migrating",
+            "state": "WEIRD"
+          }
+        }
+      },
+      "expect": {
+        "action": "QUARANTINE",
+        "refusal": "MIGRATION.CORRUPT"
+      }
+    }
+  ],
+  "floorCases": [
+    {
+      "id": "floors-copied-forward-only-old-store-fenced",
+      "model": "migrate-floors",
+      "input": {
+        "oldTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2027-01-05T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "coreEmbeddedChainMax": 5
+      },
+      "expect": {
+        "result": "COPIED",
+        "floorsLowered": false,
+        "oldStoreMark": "RESTORED",
+        "newTrust.rootVersion": 3,
+        "newTrust.evalHighWater": "2027-01-05T00:00:00Z",
+        "newTrust.anchor": null,
+        "newTrust.recoveryEpochSerial": 0,
+        "newTrust.pendingRecoveryChallenge": null,
+        "bridge.stage2.rootReaders": [
+          1,
+          2
+        ],
+        "bridge.stage1.rootReaders": [
+          1
+        ]
+      }
+    },
+    {
+      "id": "old-floor-above-core-chain-refuses-typed",
+      "model": "migrate-floors",
+      "input": {
+        "oldTrust": {
+          "rootVersion": 7,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2027-01-05T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "coreEmbeddedChainMax": 5
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusal": "ROOT.FLOOR_ABOVE_CORE",
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.SCHEMA_MAJOR_UNSUPPORTED"
+        }
+      }
+    }
+  ],
+  "rollbackCases": [
+    {
+      "id": "rollback-inside-window-copies-floors-back-forward-only",
+      "model": "rollback-floors",
+      "input": {
+        "newTrust": {
+          "rootVersion": 4,
+          "indexSnapshotVersion": 11,
+          "revocationVersion": 5,
+          "evalHighWater": "2027-01-20T00:00:00Z",
+          "lastAccepted": "2027-01-19T00:00:00Z",
+          "recoveryEpochSerial": 0,
+          "acceptedRootSchema": 1
+        },
+        "oldTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2027-01-05T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "oldCoreChainMax": 5
+      },
+      "expect": {
+        "result": "ROLLED-BACK",
+        "floorsLowered": false,
+        "oldTrustAfter.rootVersion": 4,
+        "oldTrustAfter.revocationVersion": 5,
+        "oldTrustAfter.evalHighWater": "2027-01-20T00:00:00Z",
+        "oldTrustAfter.lastAccepted": "2027-01-19T00:00:00Z",
+        "oldTrustAfter.anchor": null,
+        "oldTrustAfter.roles": "ST-UNBOOTSTRAPPED:RESTORED"
+      }
+    },
+    {
+      "id": "rollback-after-schema-2-root-accepted-refuses-old-core-cannot-verify",
+      "model": "rollback-floors",
+      "input": {
+        "newTrust": {
+          "rootVersion": 4,
+          "indexSnapshotVersion": 11,
+          "revocationVersion": 5,
+          "evalHighWater": "2027-01-20T00:00:00Z",
+          "lastAccepted": "2027-01-19T00:00:00Z",
+          "recoveryEpochSerial": 0,
+          "acceptedRootSchema": 2
+        },
+        "oldTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2027-01-05T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "oldCoreChainMax": 5
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusal": "ROOT.FLOOR_ABOVE_CORE",
+        "oldTrustAfter": null,
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.SCHEMA_MAJOR_UNSUPPORTED"
+        }
+      }
+    },
+    {
+      "id": "rollback-with-root-beyond-old-core-chain-refuses",
+      "model": "rollback-floors",
+      "input": {
+        "newTrust": {
+          "rootVersion": 6,
+          "indexSnapshotVersion": 11,
+          "revocationVersion": 5,
+          "evalHighWater": "2027-01-20T00:00:00Z",
+          "lastAccepted": "2027-01-19T00:00:00Z",
+          "recoveryEpochSerial": 0,
+          "acceptedRootSchema": 1
+        },
+        "oldTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2027-01-05T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "oldCoreChainMax": 5
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusal": "ROOT.FLOOR_ABOVE_CORE"
+      }
+    },
+    {
+      "id": "rollback-preserves-recovery-epoch-serial-forward",
+      "model": "rollback-floors",
+      "input": {
+        "newTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2026-12-23T00:00:00Z",
+          "lastAccepted": "2026-12-23T00:00:00Z",
+          "recoveryEpochSerial": 1,
+          "acceptedRootSchema": 1
+        },
+        "oldTrust": {
+          "rootVersion": 3,
+          "indexSnapshotVersion": 9,
+          "revocationVersion": 4,
+          "evalHighWater": "2031-01-01T00:00:00Z",
+          "lastAccepted": "2026-12-20T00:00:00Z",
+          "recoveryEpochSerial": 0
+        },
+        "oldCoreChainMax": 5
+      },
+      "expect": {
+        "result": "ROLLED-BACK",
+        "oldTrustAfter.recoveryEpochSerial": 1,
+        "oldTrustAfter.evalHighWater": "2031-01-01T00:00:00Z",
+        "oldTrustAfter.lastAccepted": "2026-12-23T00:00:00Z"
+      }
+    }
+  ]
+}

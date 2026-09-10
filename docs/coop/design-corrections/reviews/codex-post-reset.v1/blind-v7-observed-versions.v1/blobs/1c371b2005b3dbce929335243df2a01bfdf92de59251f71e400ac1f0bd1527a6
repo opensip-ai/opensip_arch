@@ -1,0 +1,650 @@
+"""Public-surface, workflow and lifecycle vectors (blind consumer B, v7).
+
+Zero-config selection and availability disclosure, failure envelopes for every
+originating boundary, the pinned-purge refusal, mutation replay scope versus the
+repair-apply key, the ScopeDocumentV1 scope-policy comparison axis, the repair
+descriptor projection, and the D9 extension check against the inherited artifact.
+"""
+
+import hashlib
+import json
+
+import oslib as O
+import graph as G
+import build as B
+from oslib import C, H, sha256hex, raw_digest
+
+MATRIX = O.doc("matrix")
+CAPS = [c["id"] for c in MATRIX["capabilities"]]
+CELL = {(c["capability"], c["mode"]): c for c in MATRIX["cells"]}
+INV = O.doc("command-inventory")
+COMMANDS = {c["name"]: c for c in INV["commands"]}
+PDR = O.doc("public-detail-registry")
+DDC = set(O.doc("common")["$defs"]["DomainDetailCode"]["enum"])
+
+REQ = "req1_" + "b3" * 16
+PROJECT = B.PROJECT
+
+
+# ---------------------------------------------------------------------------
+# 1. Zero-config selection over several workspace units
+# ---------------------------------------------------------------------------
+def default_selection(units):
+    """native S1.4: for each discovered unit request every capability whose
+    (capability, unit languageMode) cell is not NOT-SELECTED, required=true,
+    provenance DEFAULTED.  UNSUPPORTED-TYPED cells are included deliberately."""
+    rows = []
+    for root, mode in units:
+        for cap in CAPS:
+            cell = CELL[(cap, mode)]
+            if cell["state"] == "NOT-SELECTED":
+                continue
+            rows.append({"capabilityId": cap, "languageMode": mode,
+                         "workspaceRoot": root, "required": True})
+    return sorted(rows, key=lambda r: C(r))
+
+
+def release_absence_notices(step_id, rows, declared):
+    """The public availability leaf for ONE analysis step's selection."""
+    notices = []
+    for r in rows:
+        if (r["capabilityId"], r["languageMode"]) in declared:
+            continue
+        cap = r["capabilityId"]
+        candidate_only = MATRIX["capabilities"][CAPS.index(cap)]["relations"] == []
+        notices.append({
+            "code": "native.capability-unavailable",
+            "capabilityId": cap,
+            "languageMode": r["languageMode"],
+            "workspaceRoot": r["workspaceRoot"],
+            "remedy": ("this release declares no provider for this capability; "
+                       "it has no Coverage entry because it is candidate-only"
+                       if candidate_only else
+                       "this release declares no provider for this capability; "
+                       "its Coverage carries the disclosed unavailable pair")})
+    return {"stepId": step_id, "noticeCount": len(notices), "notices": notices}
+
+
+def capability_availability(steps):
+    return {"stepCount": len(steps),
+            "totalNoticeCount": sum(s["noticeCount"] for s in steps),
+            "steps": steps}
+
+
+def build_availability_vectors():
+    out = {}
+    units = [(".", "ts-tsconfig"), ("crates/core", "rust-cargo"),
+             ("docs", "syntax-only")]
+    sel_all = default_selection(units)
+    out["defaultSelectionRowCount"] = len(sel_all)
+    out["defaultSelectionPerMode"] = {
+        m: len([c for c in CAPS if CELL[(c, m)]["state"] != "NOT-SELECTED"])
+        for _, m in units}
+
+    # The installed release declares LESS than the product requires.
+    declared = set()
+    for cap in CAPS:
+        for _, mode in units:
+            if CELL[(cap, mode)]["state"] == "NOT-SELECTED":
+                continue
+            if cap in ("clones-near", "clones-cross-tsjs"):
+                continue                       # candidate-only, not declared
+            if cap == "types" and mode == "rust-cargo":
+                continue                       # a fact-producing absence
+            declared.add((cap, mode))
+
+    # single-step command: one analysis step
+    s0 = release_absence_notices(0, sel_all, declared)
+    out["singleStep"] = capability_availability([s0])
+    # named multi-step invocation: DIFFERENT selections at different steps
+    s1 = release_absence_notices(1, default_selection([(".", "ts-tsconfig")]),
+                                 declared)
+    s3 = release_absence_notices(3, default_selection(
+        [("crates/core", "rust-cargo")]), declared)
+    out["multiStep"] = capability_availability([s1, s3])
+    # a step that selected and found nothing absent contributes an EMPTY entry
+    out["emptyEntry"] = capability_availability(
+        [release_absence_notices(0, default_selection([(".", "ts-tsconfig")]),
+                                 set((c, "ts-tsconfig") for c in CAPS))])
+    out["noSelection"] = capability_availability([])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 2. Command envelopes: originating boundary decides class and code
+# ---------------------------------------------------------------------------
+def envelope(kind, termination, exit_code, **extra):
+    e = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 2,
+         "kind": kind, "requestId": REQ, "termination": termination,
+         "exitCode": exit_code}
+    e.update(extra)
+    return e
+
+
+def bounded_subject(raw):
+    """native S10 bounded diagnostic projection, counting UNICODE SCALARS."""
+    if len(raw) <= 1024:
+        return raw
+    marker = "...#sha256:"
+    head = 1024 - len(marker) - 64
+    return raw[:head] + marker + hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def failure_envelopes():
+    out = {}
+    # (a) EXTERNAL CONFIGURATION: the user configured an unregistered capability
+    key = "native.requested-capability-unregistered:made-up-capability"
+    subj = key.split(":", 1)[1]
+    det = {"code": "CONFIG.INVALID",
+           "remedy": "remove or correct analysis.capabilities in opensip.json",
+           "subject": bounded_subject(subj)}
+    out["external-configuration"] = envelope(
+        "failure", {"class": "request-rejected", "errorCode": "CONFIG.INVALID",
+                    "domainDetail": det}, 2, errors=[det])
+
+    # (b) EXTERNALLY SUPPLIED / RETAINED SPEC, origin known external:
+    #     no public DomainDetailCode names the condition, so domainDetail is
+    #     lawfully ABSENT on the termination and the envelope's errors array is
+    #     supplied from the route's own envelopeDetail.
+    det_b = {"code": "native.capability-spec-invalid",
+             "remedy": "supply an analysis specification whose capabilities are "
+                       "registered in the native capability matrix",
+             "subject": bounded_subject("made-up-capability")}
+    out["externally-supplied-spec"] = envelope(
+        "failure", {"class": "request-rejected",
+                    "errorCode": "REQUEST.PRECONDITION_FAILED"}, 2,
+        errors=[det_b])
+
+    # (c) HOST-GENERATED INTERNAL LAYER: a host bug minting its own invalid spec
+    det_c = {"code": "HOST.INVARIANT_VIOLATED",
+             "remedy": "report this host defect with the retained operational "
+                       "diagnostic record",
+             "subject": bounded_subject("analysis-spec")}
+    out["host-generated-internal"] = envelope(
+        "failure", {"class": "operational-failed",
+                    "errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE",
+                    "faultCause": "host-invariant"}, 4, errors=[det_c])
+
+    # (d) PRODUCER BOUNDARY: a Coverage cause/carrier violation
+    det_d = {"code": "native.coverage-cause-unsupported",
+             "remedy": "the provider emitted a deficiency/cause pair the "
+                       "registry does not permit; re-run with a conforming "
+                       "provider",
+             "subject": bounded_subject(
+                 "native.coverage-cause-not-for-deficiency:"
+                 "input-closure-incomplete:capability-missing".split(":", 1)[1])}
+    out["producer-boundary"] = envelope(
+        "failure", {"class": "operational-failed",
+                    "errorCode": "PROVIDER.PROTOCOL_VIOLATION",
+                    "faultCause": "provider-protocol"}, 4, errors=[det_d])
+
+    # (e) a well-formed request for a NOT-SELECTED cell is origin-independent
+    det_e = {"code": "PROVIDER.NOT_SELECTED",
+             "remedy": "clones-cross-tsjs is outside D-371 for rust-cargo; "
+                       "remove it from the request",
+             "subject": bounded_subject("clones-cross-tsjs@rust-cargo")}
+    out["not-selected-cell"] = envelope(
+        "failure", {"class": "request-rejected",
+                    "errorCode": "REQUEST.UNSATISFIABLE",
+                    "domainDetail": det_e}, 2, errors=[det_e])
+
+    # (f) the BOUNDED diagnostic projection: a structurally valid 4096-char
+    #     languageMode overflows BoundedText(1024)
+    long_mode = "m" * 4096
+    raw = "native.requested-capability-mode-unregistered:" + long_mode
+    sub = bounded_subject(raw.split(":", 1)[1])
+    det_f = {"code": "CONFIG.INVALID",
+             "remedy": "use a registered language mode",
+             "subject": sub}
+    out["bounded-subject"] = envelope(
+        "failure", {"class": "request-rejected", "errorCode": "CONFIG.INVALID",
+                    "domainDetail": det_f}, 2, errors=[det_f])
+    out["_boundedSubjectLen"] = len(sub)
+    out["_boundedSubjectDigest"] = sub[-64:]
+    out["_boundedSubjectDigestIsOfUntruncated"] = (
+        sub[-64:] == hashlib.sha256(long_mode.encode("utf-8")).hexdigest())
+
+    # (g) required-output failure AFTER a committed Run
+    det_g = {"code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
+             "remedy": "re-render the retained Run; the Run is unchanged"}
+    out["required-delivery-after-commit"] = envelope(
+        "failure", {"class": "operational-failed",
+                    "errorCode": "DELIVERY.REQUIRED_FAILED",
+                    "faultCause": "delivery-required",
+                    "runId": "run2:" + "1c" * 32,
+                    "domainDetail": det_g}, 4, errors=[det_g])
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 3. Pinned purge refusal (identity S5 + workflows S12)
+# ---------------------------------------------------------------------------
+def pinned_purge_refusal(run_id, pins):
+    disc = {"runId": run_id,
+            "activePins": sorted(pins, key=lambda p: p["pinId"].encode("utf-8")),
+            "consequences": ["named-pins-revoked",
+                             "dependent-evidence-replay-unavailable",
+                             "sealed-history-retained"]}
+    det = {"code": "evidence.pinned",
+           "remedy": "revoke the named pins through the explicit destructive "
+                     "purge authorization, or purge a Run that is not pinned",
+           "subject": run_id, "purgeDisclosure": disc}
+    return envelope("failure",
+                    {"class": "request-rejected",
+                     "errorCode": "REQUEST.PRECONDITION_FAILED",
+                     "domainDetail": det}, 2, errors=[det])
+
+
+# ---------------------------------------------------------------------------
+# 4. Generic mutation replay scope vs the distinct repair-apply key
+# ---------------------------------------------------------------------------
+def mutation_keys():
+    scope = {"schemaVersion": 1, "requestId": REQ, "stepId": 2,
+             "projectId": PROJECT, "operation": "waiver-change"}
+    generic_key = H("workflow.mutation-intent", scope)     # BARE 64-hex
+    repair_plan_id = "repairplan2:" + "7e" * 32
+    base_snapshot = "snapshot2:" + "5a" * 32
+    apply_pre = {"operation": "repair-apply", "projectId": PROJECT,
+                 "repairPlanId": repair_plan_id,
+                 "baseSnapshotId": base_snapshot}
+    apply_key = raw_digest(apply_pre)                      # RAW SHA-256 of C()
+    # a DIFFERENT fresh request never deduplicates the first one's mutation
+    scope2 = dict(scope, requestId="req1_" + "c4" * 16)
+    return {"replayScope": scope,
+            "replayScopeCanonicalBytes": C(scope).decode(),
+            "genericIdempotencyKey": generic_key,
+            "genericKeyIsBare64Hex": len(generic_key) == 64,
+            "freshRequestKey": H("workflow.mutation-intent", scope2),
+            "freshRequestKeyDiffers":
+                H("workflow.mutation-intent", scope2) != generic_key,
+            "repairApplyPreimage": apply_pre,
+            "repairApplyPreimageBytes": C(apply_pre).decode(),
+            "repairApplyKey": apply_key,
+            "recipesAreDifferent": apply_key != generic_key,
+            "repairApplyIsRawNotH":
+                apply_key != H("workflow.mutation-intent", apply_pre)}
+
+
+# ---------------------------------------------------------------------------
+# 5. The ScopeDocumentV1 scope-policy parameter and the E2->E3 comparison axis
+# ---------------------------------------------------------------------------
+SCOPE_DOC_SCHEMA_DIGEST = O.doc_digest("policy-document")
+
+
+def scope_policy_parameter(include, exclude):
+    """identity S3 payload registry, `parameter` class, row
+    workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1."""
+    doc = {"schemaFamily": "opensip.product.scope", "schemaMajor": 1,
+           "include": list(include), "exclude": list(exclude)}
+    errs = O.validate("policy-document", "#/$defs/ScopeDocumentV1", doc)
+    assert not errs, errs
+    return doc, {"schemaDigest": SCOPE_DOC_SCHEMA_DIGEST,
+                 "payloadDigest": raw_digest(doc)}
+
+
+def comparison_scope_axis():
+    """Two Plans differing ONLY in the bound scope-policy parameter."""
+    kit = B.Kit()
+    w = kit.w
+    kit.file("src/a.ts", "export const a = 1;\n")
+    kit.file("src/generated/big.ts", "export const g = 1;\n")
+
+    prov, _ = kit.closure("provider", {"bin/p": b"p\n"}, "1.0.0")
+    ev_, _ = kit.closure("evaluator", {"bin/e": b"e\n"}, "1.0.0")
+    det, _ = kit.closure("detector", {"r.json": b"{}\n"}, "1.0.0")
+
+    scope_desc = {"schemaVersion": 2, "workspaceRoots": ["."],
+                  "pathPrefixes": [], "excludedPathPrefixes": [".git"]}
+    budget = {"unit": "work-units", "limit": 1000}
+    config = {"analysis": {"profileId": "default", "capabilities": ["inventory"],
+                           "budget": dict(budget)},
+              "components": {}, "discovery": {}, "policy": {}, "evidence": {}}
+    grant = {"schemaVersion": 2, "projectId": w.projectId,
+             "principals": [{"kind": "first-party", "closureId": prov,
+                             "ownerSourceDigest": None}],
+             "analysisOperations": ["read-source"],
+             "scopeDigest": w.record(scope_desc)}
+    snap_id, snap = kit.snapshot(config, scope_desc)
+    policy, pd, waivers, wd, program, rpd, rule = B.policy_and_program(kit)
+    cm, cmb, cmbd, cap_id = B.capability_manifest(kit, [
+        {"providerId": "typescript-semantic", "language": "typescript",
+         "providerVersionSource": "signed-closure-manifest",
+         "toolchainIdentitySource": "native-context-v2",
+         "relations": {"file": "enumerated"},
+         "platformIds": ["macos-aarch64"]}])
+
+    doc_a, param_a = scope_policy_parameter(["src/**"], [])
+    doc_b, param_b = scope_policy_parameter(["src/**"], ["src/generated/**"])
+    w.record(doc_a)
+    w.record(doc_b)
+    w.raw(O.doc_bytes("policy-document"))
+
+    def spec_with(param):
+        return {"schemaVersion": 2,
+                "requestedCapabilities": [
+                    {"capabilityId": "inventory", "languageMode": "ts-tsconfig",
+                     "workspaceRoot": ".", "required": True}],
+                "policyPackIds": ["opensip.builtin"],
+                "parameters": [param]}
+
+    plans = {}
+    for name, param in (("A", param_a), ("B", param_b)):
+        spec = spec_with(param)
+        pid, _ = B.plan(kit, snap_id, cmbd, cap_id, [prov, ev_, det],
+                        w.record(spec), w.record(config), [], [], pd, wd,
+                        w.record(scope_desc), budget, w.record(grant))
+        plans[name] = pid
+
+    # the comparison contexts differ ONLY at scopeDigest
+    base_ctx = {"policyDigest": pd, "scopeDigest": raw_digest(doc_a),
+                "waiverSetDigest": wd, "detectorClosureIds": [det],
+                "evidenceAvailability": {"importKinds": [], "relations": [],
+                                         "imports": []}}
+    cur_ctx = dict(base_ctx, scopeDigest=raw_digest(doc_b))
+    fp = "finding-key2:" + "9f" * 32
+    desc = {"schemaFamily": "opensip.product.comparison", "schemaMajor": 1,
+            "baselineId": "baseline2:" + "aa" * 32,
+            "currentRunId": "run2:" + "bb" * 32,
+            "currentSnapshotId": snap_id,
+            "auditProfile": {"name": "code-regression", "gateCodeNetNew": True,
+                             "gateNewlyLiveByPolicyAxes": False,
+                             "gateAllCurrentLive": False,
+                             "newWaiverSuppressesCodeNetNew": False,
+                             "gateRuleUnder": "baseline-or-current"},
+            "projectCorrespondence": "same-project", "comparisonPerformed": True,
+            "baselineContext": base_ctx, "currentContext": cur_ctx,
+            "contextDelta": {"codeChanged": False, "detectorChanged": False,
+                             "policyChanged": False, "scopeChanged": True,
+                             "waiversChanged": False,
+                             "evidenceAvailabilityChanged": False},
+            "pivotsAvailable": {"E0": "not-needed", "E1": "not-needed",
+                                "E2": "not-needed", "E3": "available"},
+            "detectors": [{"detectorId": "inventory-present",
+                           "baselineClosureId": det, "currentClosureId": det,
+                           "baselineSemanticsMajor": 1,
+                           "currentSemanticsMajor": 1,
+                           "method": "identical-closure"}],
+            "ruleDeficiencies": [],
+            "entries": [{"fingerprint": fp, "ruleId": "inventory-present",
+                         "detectorId": "inventory-present",
+                         "presence": {"B": True, "E0": None, "E1": True,
+                                      "E2": True, "E3": False, "E4": False,
+                                      "waivedB": False, "waivedC": False},
+                         "classification": "SCOPE-DELTA",
+                         "direction": "vanished",
+                         "subsequentDeltas": [], "liveInCurrent": False,
+                         "gates": False}],
+            "counts": {"UNCHANGED": 0, "CODE-NET-NEW": 0, "CODE-FIXED": 0,
+                       "DETECTION-DELTA": 0, "POLICY-DELTA": 0,
+                       "SCOPE-DELTA": 1, "WAIVER-DELTA": 0,
+                       "EVIDENCE-DELTA": 0, "INDETERMINATE": 0, "gating": 0},
+            "verdict": "pass"}
+    cid = "comparison2:" + H("workflow.comparison", desc)
+    result = {"comparisonResultId": cid, "descriptor": desc}
+    return {"kit": kit, "planA": plans["A"], "planB": plans["B"],
+            "scopeDocumentA": doc_a, "scopeDocumentB": doc_b,
+            "parameterA": param_a, "parameterB": param_b,
+            "foundationScopeDescriptorDigest": raw_digest(scope_desc),
+            "comparison": result,
+            "plansDiffer": plans["A"] != plans["B"],
+            "foundationScopeUnchanged": True}
+
+
+# ---------------------------------------------------------------------------
+# 6. Repair descriptor projection from ORIGINAL native evidence
+# ---------------------------------------------------------------------------
+NATIVE_RELATIONS = set(G.RELATIONS.keys())
+IMPORTED_RELATIONS = {"runtime-observation", "history-change"}
+
+
+def admit_evidence_requirement(req):
+    """workflows S6: the PLANE is decided at admission from the relation's
+    registry membership, never from the value; the two vocabularies are
+    disjoint and a cross-plane value refuses."""
+    faults = []
+    rel = req["relation"]
+    if rel in NATIVE_RELATIONS:
+        plane = "native"
+        ladder = G.RELATIONS[rel]["ladder"]
+        if req["minResolution"] not in ladder:
+            faults.append("ATOM_MIN_RESOLUTION_NOT_ON_RELATION_LADDER:%s@%s"
+                          % (rel, req["minResolution"]))
+        allowed = set(O.doc("common")["$defs"]["NativeSufficiencyDeficiency"]["enum"])
+    elif rel in IMPORTED_RELATIONS:
+        plane = "imported"
+        if req["minResolution"] != "observed":
+            faults.append("IMPORTED_RELATION_RUNG_NOT_ON_LADDER:%s@%s"
+                          % (rel, req["minResolution"]))
+        allowed = set(O.doc("common")["$defs"]["ImportedRequirementDeficiency"]["enum"])
+    else:
+        return ["EVIDENCE_REQUIREMENT_RELATION_UNREGISTERED:" + rel], None
+    if req["satisfied"] is False:
+        if "deficiency" not in req:
+            faults.append("EVIDENCE_REQUIREMENT_DEFICIENCY_REQUIRED")
+        elif req["deficiency"] not in allowed:
+            faults.append("EVIDENCE_REQUIREMENT_CROSS_PLANE_VALUE:%s/%s"
+                          % (plane, req["deficiency"]))
+    elif "deficiency" in req:
+        faults.append("EVIDENCE_REQUIREMENT_DEFICIENCY_FORBIDDEN")
+    faults += ["SCHEMA:" + m for m in
+               O.validate("repair", "#/$defs/EvidenceRequirement", req)]
+    return faults, plane
+
+
+def repair_projection(closed_world, requirements, edits, recipe_trust="admitted",
+                      evidence_origin="native-analysis"):
+    proj = {k: closed_world[k] for k in
+            ("deadCodeRepairEligible", "exportsClosed", "entryPointsRecognized",
+             "nonliteralLoading", "externalConsumers")}
+    unsafe = [e for e in edits if e["action"] in ("delete", "replace")]
+    unmet = []
+    # the gate is decided against the EVIDENCE RUN's own ClosedWorldV2, before
+    # any descriptor is built
+    if unsafe and (not closed_world["deadCodeRepairEligible"]
+                   or evidence_origin == "imported-prepared-declared"):
+        unmet.append({"code": "REPAIR.CLOSED_WORLD_NOT_ESTABLISHED",
+                      "remedy": "; ".join(closed_world["reasons"])
+                                or "establish native closed-world evidence",
+                      "subject": "delete/replace"})
+    if recipe_trust != "admitted":
+        unmet.append({"code": "REPAIR.RECIPE_TRUST_REVOKED"
+                              if recipe_trust == "revoked"
+                              else "REPAIR.RECIPE_TRUST_REVOKED",
+                      "remedy": "re-admit the recipe closure under current trust"})
+    for r in requirements:
+        if not r["satisfied"]:
+            unmet.append({"code": "REPAIR.EVIDENCE_REQUIREMENT_UNSATISFIED"
+                          if "REPAIR.EVIDENCE_REQUIREMENT_UNSATISFIED" in DDC
+                          else "REPAIR.CLOSED_WORLD_NOT_ESTABLISHED",
+                          "remedy": "requirement over %s@%s reports %s"
+                                    % (r["relation"], r["minResolution"],
+                                       r.get("deficiency")),
+                          "subject": r["relation"]})
+    return proj, unmet, not unmet
+
+
+def build_repair_vectors():
+    out = {}
+    # the ORIGINAL native evidence record (seven members), from a Run
+    cw_eligible = {"exportsClosed": "closed", "entryPointsRecognized": "all",
+                   "nonliteralLoading": "none",
+                   "externalConsumers": "none-declared",
+                   "dynamicDispatch": "present", "reasons": [],
+                   "deadCodeRepairEligible": True}
+    cw_open = {"exportsClosed": "open", "entryPointsRecognized": "partial",
+               "nonliteralLoading": "present",
+               "externalConsumers": "possible",
+               "dynamicDispatch": "present",
+               "reasons": ["manifest publishes exports",
+                           "nonliteral loading observed"],
+               "deadCodeRepairEligible": False}
+    reqs_ok = [{"relation": "references", "minResolution": "resolved-binding",
+                "completeness": "complete", "satisfied": True},
+               {"relation": "runtime-observation", "minResolution": "observed",
+                "completeness": "partial-acceptable", "satisfied": True}]
+    reqs_bad = [{"relation": "references", "minResolution": "resolved-binding",
+                 "completeness": "complete", "satisfied": False,
+                 "deficiency": "resolution-incomplete"},
+                {"relation": "history-change", "minResolution": "observed",
+                 "completeness": "complete", "satisfied": False,
+                 "deficiency": "import-revision-range-insufficient"}]
+    cross = [{"relation": "references", "minResolution": "resolved-binding",
+              "completeness": "complete", "satisfied": False,
+              "deficiency": "import-unmapped-only"},
+             {"relation": "runtime-observation", "minResolution": "observed",
+              "completeness": "complete", "satisfied": False,
+              "deficiency": "resolution-incomplete"}]
+    wrong_rung = [{"relation": "declares", "minResolution": "resolved-callee",
+                   "completeness": "complete", "satisfied": True}]
+
+    admissions = {}
+    for label, rs in (("valid", reqs_ok), ("valid-unsatisfied", reqs_bad),
+                      ("cross-plane", cross), ("rung-of-another-relation",
+                                               wrong_rung)):
+        admissions[label] = [admit_evidence_requirement(r)[0] for r in rs]
+    out["evidenceRequirementAdmission"] = admissions
+
+    edits_delete = [{"path": "src/dead.ts", "action": "delete",
+                     "preimageDigest": sha256hex(b"dead\n"),
+                     "postimageDigest": None, "postimageBytes": 0}]
+    for label, cw, rs, origin in (
+            ("eligible", cw_eligible, reqs_ok, "native-analysis"),
+            ("closed-world-not-established", cw_open, reqs_ok, "native-analysis"),
+            ("declared-prepared-origin", cw_eligible, reqs_ok,
+             "imported-prepared-declared"),
+            ("unsatisfied-requirement", cw_eligible, reqs_bad,
+             "native-analysis")):
+        proj, unmet, applicable = repair_projection(cw, rs, edits_delete,
+                                                    evidence_origin=origin)
+        desc = {"schemaFamily": "opensip.product.repair-plan", "schemaMajor": 1,
+                "projectId": PROJECT, "snapshotId": "snapshot2:" + "3d" * 32,
+                "evidenceRunId": "run2:" + "4e" * 32,
+                "planId": "plan2:" + "5f" * 32,
+                "recipe": {"contributionId": "opensip.first-party",
+                           "recipeId": "remove-unused-export",
+                           "recipeVersion": "1.0.0",
+                           "closureId": "closure2:" + "6a" * 32},
+                "recipeTrust": "admitted", "evidenceOrigin": origin,
+                "closedWorld": proj, "targets": ["finding-key2:" + "7b" * 32],
+                "edits": edits_delete, "totalPostimageBytes": 0,
+                "evidenceRequirements": rs,
+                "permittedEditScope": ["src/**"],
+                "applicable": applicable, "unmetPreconditions": unmet,
+                "limitations": ["a candidate is never a deletion prerequisite"]}
+        rid = "repairplan2:" + H("workflow.repair-plan", desc)
+        out.setdefault("plans", {})[label] = {
+            "repairPlanId": rid, "descriptor": desc,
+            "schemaErrors": O.validate("repair", "#/$defs/RepairPlanV1",
+                                       {"repairPlanId": rid, "descriptor": desc}),
+            "applicable": applicable,
+            "unmetCodes": [u["code"] for u in unmet],
+            "projectionOmits": ["dynamicDispatch", "reasons"]}
+    # a literal copy of ClosedWorldV2 is REFUSED in the descriptor projection
+    bad = dict(out["plans"]["eligible"]["descriptor"])
+    bad["closedWorld"] = dict(cw_eligible)
+    out["literalClosedWorldCopyRefused"] = O.validate(
+        "repair", "#/$defs/RepairPlanDescriptor", bad)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 7. Relation-specific minimum-resolution predicates
+# ---------------------------------------------------------------------------
+def min_resolution_table():
+    """Derive the complete registered (relation, rung) applicability table and
+    the state-dependent count/class/attempt rules (native S4.3 RC-0/RC-1)."""
+    rows = []
+    for rel in sorted(G.RELATIONS):
+        for rung in G.RELATIONS[rel]["ladder"]:
+            resolved = rung in G.RESOLVED_RUNGS
+            rows.append({
+                "relation": rel, "rung": rung, "ladderIndex":
+                    G.RELATIONS[rel]["ladder"].index(rung),
+                "resolvedRung": resolved,
+                "resolutionCompletenessState":
+                    "one of complete/incomplete/partial/not-attempted"
+                    if resolved else "not-applicable",
+                "attempted": None if resolved else False,
+                "unresolvedEdgeCount": None if resolved else 0,
+                "unresolvedEdgeClasses": None if resolved else [],
+                "anchorClass": G.RELATIONS[rel]["anchorLaw"]["class"],
+                "anchorCardinality":
+                    G.RELATIONS[rel]["anchorLaw"].get("cardinality",
+                        ">= %d" % G.RELATIONS[rel]["anchorLaw"].get("minimum", 0)),
+                "subjectKind": G.RELATIONS[rel].get("subjectKind"),
+                "universeRule": G.RELATIONS[rel]["universeRule"],
+                "coverageTotality": bool(G.RELATIONS[rel].get("coverageTotality")),
+            })
+    return rows
+
+
+def min_resolution_predicates():
+    """Qualifying and insufficient facts/Coverage at syntactic, resolved and
+    type levels, per relation ladder index (no global rank exists)."""
+    cases = []
+
+    def sat(rel, have, want):
+        ladder = G.RELATIONS[rel]["ladder"]
+        if want not in ladder:
+            return "REFUSED:minResolution not a rung of %s" % rel
+        if have not in ladder:
+            return "REFUSED:fact rung not a rung of %s" % rel
+        return ladder.index(have) >= ladder.index(want)
+
+    for rel, have, want, label in [
+            ("declares", "syntactic", "syntactic", "syntactic qualifies"),
+            ("references", "syntactic-name-match", "resolved-binding",
+             "syntactic fact is INSUFFICIENT for a resolved demand"),
+            ("references", "resolved-binding", "resolved-binding",
+             "resolved qualifies"),
+            ("types", "annotated", "checked",
+             "annotated is INSUFFICIENT for a type demand"),
+            ("types", "checked", "checked", "checked qualifies"),
+            ("imports", "resolved-target", "syntactic-specifier",
+             "a stronger rung satisfies a weaker demand"),
+            ("declares", "resolved-callee", "syntactic",
+             "a rung of ANOTHER relation is refused, not ranked"),
+            ("clones", "normalized-body-hash", "checked",
+             "cross-relation comparison is an admission refusal"),
+    ]:
+        cases.append({"relation": rel, "factRung": have, "minResolution": want,
+                      "result": sat(rel, have, want), "label": label})
+    return cases
+
+
+# ---------------------------------------------------------------------------
+# 8. D9 extension check against the inherited artifact
+# ---------------------------------------------------------------------------
+def d9_extension_check():
+    d9 = O.doc("d9")
+    common = O.doc("common")["$defs"]
+    inherited_causes = set(d9["codeMaps"]["faultCauseToErrorCode"])
+    inherited_axis = set(d9["scenarioAxesSchema"]["properties"]["faultCause"]["enum"])
+    successor = set(common["D9FaultCause"]["enum"])
+    added = sorted(successor - inherited_axis)
+    return {
+        "inheritedFaultCauseToErrorCode": sorted(inherited_causes),
+        "inheritedScenarioAxisEnum": sorted(inherited_axis),
+        "successorD9FaultCause": sorted(successor),
+        "addedByTheSuccessor": added,
+        "addedIsExactlyHostInvariant": added == ["host-invariant"],
+        "hostInvariantHasNoInheritedErrorCodeMapping":
+            "host-invariant" not in inherited_causes,
+        "mappedErrorCodeExistsInInheritedVocabulary":
+            "SYSTEM.OUTCOME.ILLEGAL_STATE" in set(d9["codeVocabulary"]["errorCodes"])
+            if isinstance(d9.get("codeVocabulary"), dict)
+            and "errorCodes" in d9.get("codeVocabulary", {}) else None,
+        "classToExitCodeUnchanged":
+            d9["classToExitCode"] == {"success": 0, "policy-failed": 1,
+                                      "request-rejected": 2, "indeterminate": 3,
+                                      "operational-failed": 4, "interrupted": 130},
+        "successorClassEnumEqualsInherited":
+            set(common["D9Class"]["enum"]) == set(d9["classToExitCode"]),
+        "reasonCodesUnchanged":
+            set(common["D9ReasonCode"]["enum"])
+            == set(d9["codeMaps"]["deficiencyToReasonCode"].values()),
+        "errorCodesSupersetCheck": sorted(
+            set(common["D9ErrorCode"]["enum"])
+            - set(d9["codeMaps"]["faultCauseToErrorCode"].values())
+            - set(d9["codeMaps"]["rejectionCauseToErrorCode"].values())),
+    }

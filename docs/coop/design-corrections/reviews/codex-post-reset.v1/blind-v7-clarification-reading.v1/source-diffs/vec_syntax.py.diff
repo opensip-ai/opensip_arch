@@ -1,0 +1,90 @@
+--- /tmp/opensip-design-corrections/consumer-b.v7/output/work/vec_syntax.py
++++ /tmp/opensip-design-corrections/consumer-b.v7-clarification.v1/output/work/vec_syntax.py
+@@ -17,12 +17,29 @@
+ from oslib import C, H, sha256hex
+ 
+ JS_BODY = b"function pad(n) {\n  return String(n);\n}\n"
+-GRAMMAR_TREE = {"grammars/javascript.bin": b"js-grammar-blob\n",
+-                "grammars/markdown.bin": b"md-grammar-blob\n",
+-                "grammars/json.bin": b"json-grammar-blob\n",
+-                "grammars/toml.bin": b"toml-grammar-blob\n",
+-                "grammars/yaml.bin": b"yaml-grammar-blob\n",
+-                "spec/normalizer.txt": b"normalizer-spec\n"}
++# CLARIFICATION v1 (root feedback item 1).  native S1.2 requires "every grammar
++# definition, the bundle manifest and the normalizer specification present in
++# the RETAINED TREE" of the admitted kind=grammar closure.  The ORIGINAL builder
++# put unrelated placeholder bytes in the tree and retained the actual
++# bundleDigest / grammarDigest bytes as loose CAS blobs, so the declared members
++# were absent from their own closure tree.  The tree is now BUILT FROM the exact
++# bytes the bundle declares.
++GRAMMAR_BUNDLE_MANIFEST = b"opensip grammar bundle manifest v4.2.0\n"
++GRAMMAR_NORMALIZER_SPEC = (b"opensip grammar normalizer specification v1.0.0\n"
++                           b"clone normalisation levels L0-L3\n")
++
++
++def grammar_definition_bytes(lang):
++    return ("opensip grammar definition: %s v1.0.0\n" % lang).encode("utf-8")
++
++
++def grammar_tree(langs):
++    """The exact tree members native S1.2 requires to be present."""
++    tree = {"bundle/manifest.json": GRAMMAR_BUNDLE_MANIFEST,
++            "spec/normalizer.txt": GRAMMAR_NORMALIZER_SPEC}
++    for lang in langs:
++        tree["grammars/%s.grammar" % lang] = grammar_definition_bytes(lang)
++    return tree
+ 
+ 
+ def _grammar_row(kit, lang, digest_bytes):
+@@ -52,12 +69,26 @@
+         selected = ["g.json", "g.markdown", "g.toml", "g.yaml"]
+         langs = ["json", "markdown", "toml", "yaml"]
+ 
+-    gclosure, gdesc = kit.closure("grammar", GRAMMAR_TREE, "4.2.0")
++    tree = grammar_tree(langs)
++    if mutate == "grammar-definition-outside-the-closure-tree":
++        # DISCRIMINATING NEGATIVE: the definition bytes are retained in the CAS
++        # but the declared tree carries an unrelated placeholder instead.
++        tree = dict(tree)
++        for lang in langs:
++            tree.pop("grammars/%s.grammar" % lang, None)
++        tree["grammars/placeholder.bin"] = b"placeholder\n"
++    if mutate == "grammar-bundle-manifest-outside-the-closure-tree":
++        tree = dict(tree)
++        tree.pop("bundle/manifest.json", None)
++    if mutate == "normalizer-spec-outside-the-closure-tree":
++        tree = dict(tree)
++        tree.pop("spec/normalizer.txt", None)
++    gclosure, gdesc = kit.closure("grammar", tree, "4.2.0")
+     prov_id, _ = kit.closure("provider", {"bin/syntax": b"provider\n"}, "1.0.0")
+     eval_id, _ = kit.closure("evaluator", {"bin/eval": b"evaluator\n"}, "1.0.0")
+     det_id, _ = kit.closure("detector", {"rules/inv.json": b"{}\n"}, "1.0.0")
+ 
+-    rows = sorted([_grammar_row(kit, l, ("grammar:" + l).encode())
++    rows = sorted([_grammar_row(kit, l, grammar_definition_bytes(l))
+                    for l in langs], key=lambda r: r["grammarId"].encode())
+     if mutate == "data-grammar-claims-code":
+         for r in rows:
+@@ -68,11 +99,11 @@
+               "parserVersion": ("9.9.9"
+                                 if mutate == "grammar-version-not-from-manifest"
+                                 else "4.2.0"),
+-              "bundleDigest": w.raw(b"grammar-bundle-manifest\n"),
++              "bundleDigest": w.raw(GRAMMAR_BUNDLE_MANIFEST),
+               "grammars": rows,
+               "normalizer": {"normalizerId": "grammar-normalizer",
+                              "normalizerVersion": "1.0.0",
+-                             "specificationDigest": w.raw(b"normalizer-spec\n")}}
++                             "specificationDigest": w.raw(GRAMMAR_NORMALIZER_SPEC)}}
+     ctx = {"schemaVersion": 2, "grammarBundle": bundle}
+     ctx_ref, ctx_hx = kit.mint_native("native.context.syntax.v2", ctx)
+ 
+@@ -210,7 +241,7 @@
+                     {"domain": "schema", "digest": G.NATIVE_DOC_DIGEST}]
+     proof_id, finding_ids = B.build_proof(
+         kit, plan_id, exec_plan_id, eval_id, det_id, rule, rpd, view_id,
+-        facts[0], covs[0][0], extra_inputs)
++        facts[0], covs[0][0], extra_inputs, mutate=mutate)
+     ev_id = B.evidence(kit, plan_id, [view_id], [c[0] for c in covs], [],
+                        finding_ids, proof_id)
+     seal_id, run_id = B.seal_and_run(kit, plan_id, exec_plan_id, ev_id, eval_id,

@@ -1,0 +1,133 @@
+import hashlib, json, pathlib
+
+ROOT = pathlib.Path('/tmp/opensip-design-corrections/v19-subject-coauthor.v1')
+sha = lambda rel: hashlib.sha256((ROOT / rel).read_bytes()).hexdigest()
+probe = json.loads((ROOT / 'out/evidence/probe-result.json').read_text())
+blocks = json.loads((ROOT / 'out/evidence/durable-block-verification.json').read_text())
+
+doc = {
+ "handoff": "opensip.design-corrections.v19-subject-coauthor.v1",
+ "role": "actual Claude SOURCE COAUTHOR continuing with Codex; NOT independent acceptance. The v19 native handoff is completed and immutable and nothing in it was altered.",
+ "standing": "PROPOSED single-site source delta to the workflows reference model, plus two proposed durable check blocks. No grade, no acceptance, no pin, no commit, no governance record. A fresh independent candidate review and a NEW blind review will assess the combined frozen bytes later.",
+ "writeScope": "/tmp/opensip-design-corrections/v19-subject-coauthor.v1 only. The v19 native work tree and the frozen18 subject were READ, never written.",
+
+ "rootFindingAssessment": {
+  "verdict": "AGREED - a real mismatch with the exact subject the published scope refusal promises",
+  "reproduced": "Independently, over all THREE Plan fields and the two inherited bounded fields, from the actual producers rather than from root's result file.",
+  "theDefect": "`terminate()`'s local `dd` helper REBUILDS a DomainDetail from the observation field by field - `{'code': detail, 'remedy': obs.get('remedy', remedy)}` - and never copies `obs['subject']`. Everything else about the envelope was already correct, which is exactly why neither unit's own suite could see it.",
+  "whyItIsAMismatchAndNotAStyleChoice": [
+   "NATIVE S14 PROMISES IT. The owning sentence is 'public detail PROJECT.SCOPE_LIMIT and subject `field:count>limit` ... and the subject always names which one overflowed.' At the envelope a caller actually reads, it named nothing: all five bounded fields arrived as one indistinguishable PROJECT.SCOPE_LIMIT.",
+   "THE WORKFLOWS CONTRACT NAMES THE CARRIER. 'Dynamic paths or refusal explanations travel in bounded `subject`/`remedy` fields, never as newly invented codes.' Dropping half that carrier leaves a consumer who must distinguish two overflows with only the newly invented code the same sentence forbids. The loss defeats the mechanism the contract designates.",
+   "THE MODULE ALREADY DISAGREED WITH ITSELF. `Refusal.termination()` builds the identical StepTermination shape and DOES carry `subject` when present. Two producers of one record disagreeing about one of its fields is the defect; the fix removes the disagreement rather than adding a rule.",
+   "THE SCHEMA WAS ALREADY BUILT FOR IT. `subject` is an existing optional `BoundedText` on the common-schema DomainDetail, and the `evidence.pinned` branch makes it REQUIRED there, so the field is load-bearing published surface, not decoration."
+  ],
+  "scopeOfTheDefect": "Exactly one site. The other DomainDetail carriers in the module (`Refusal.termination()`, and the two paths that pass a whole detail dict through at lines 123 and 1595 of the frozen file) preserve it. `dd` is the only place that reconstructs a DomainDetail from an observation, and therefore the only place a field can be dropped."
+ },
+
+ "proposedFix": {
+  "file": "docs/coop/design-corrections/workflows/workflows_model.v1.py",
+  "site": "the local `dd` helper inside `terminate()`",
+  "change": "Inside the existing `if detail:` branch, after the DomainDetail is created, conditionally copy the observation's subject: `if obs.get('subject'): t['domainDetail']['subject'] = obs['subject']`. Two lines of code and a comment block.",
+  "beforeSha256": sha('workflow.before.py'),
+  "afterSha256": sha('workflow.proposed.py'),
+  "addedLines": 26,
+  "noSchemaCodeOrContractChange": "Confirmed. `subject` is already a published optional DomainDetail property; no schema file, no DomainDetailCode, no contract sentence and no public route is touched.",
+  "oneDeliberateDivergenceFromRootsSketch": {
+   "rootSketch": "`if 'subject' in obs` copies the exact value.",
+   "asProposed": "`if obs.get('subject'):` - the same truthiness test `Refusal.termination()` already uses.",
+   "why": "Identical for every well-formed observation. It differs only on an explicit `subject: None` (which presence-testing would copy, producing a DomainDetail the schema refuses for a wrong type - manufacturing an invalid record out of a merely sloppy one) and on `subject: ''` (which carries no disclosure and which the sibling producer also drops). Choosing the sibling's exact test is what makes the 'two producers of one record agree' control true on ALL THREE of present, absent and empty rather than on two of them. If root prefers the literal presence test, the only behavioural difference is those two edge shapes and I do not object; the empty-string row of the control would then need inverting."
+  },
+  "whatItDeliberatelyDoesNotDo": "It COPIES; it does not ADMIT. A malformed trusted observation carrying a non-string or over-length subject still yields a record the published schema refuses - exactly as it already does for a malformed `remedy` or `detail`. No universal schema-admission claim is made for trusted observations, and a control asserts the refusal is the schema's rather than this edit's."
+ },
+
+ "ownBoundedProbe": {
+  "file": "out/probes/probe-subject-preservation.v1.py",
+  "sha256": sha('out/probes/probe-subject-preservation.v1.py'),
+  "output": "out/evidence/probe-result.json",
+  "passed": probe['passed'],
+  "failed": len(probe['failed']),
+  "method": "The BEFORE and PROPOSED workflow models are loaded side by side from two shadow trees whose only differing file is workflows_model.v1.py, so every comparison isolates that one edit. N is read-only from the completed v19 native work.",
+  "whatIsReal": [
+   "N.admit_plan_selection_cardinality, N.admit_requested_capability_cardinality and N.unit_scope_descriptor are invoked and raise real ScopeRefusals; no termination is hand-written.",
+   "N.scope_refusal_termination projects them, and its ACTUAL typed fields are the rejected observation handed to W.run_invocation.",
+   "The returned StepTermination, aggregate termination, DomainDetail and whole InvocationRecord are validated against the PUBLISHED pinned schemas through the model's own validate_import_record."
+  ],
+  "syntheticAdapters": [
+   "Every invocation record, requestId/projectId, orderedSteps and step script is a synthetic trusted fixture observation from workflow-cases.v1.json.",
+   "The earlier COMPLETED step result is supplied by that case script; 'earlier committed result preserved' is a statement about the returned invocation record, NOT about any Run closure.",
+   "W.synthetic_execution_id is the module's own declared fixture adapter.",
+   "No product host, provider, compiler, OS or filesystem is executed, and nothing is qualified."
+  ],
+  "coverage": {
+   "allThreePlanFields": ["semanticClosures:129>128", "nativeContextDigests:129>128", "importIds:257>256"],
+   "inheritedBoundedFields": ["requestedCapabilities:1025>1024", "workspaceRoots:1025>1024"],
+   "perField": ["exact subject retained per step", "exact subject retained in the AGGREGATE termination", "the before-model demonstrably dropped it", "exit code 2 and unchanged", "class/errorCode/detail/remedy unchanged", "the remedy is this field's own", "refused step has no result and no derivation", "earlier completed step result preserved", "the after-record with the subject removed equals the before-record byte for byte", "termination and invocation validate against the published schemas"],
+   "backwardEquality": "All 32 existing invocation cases in workflow-cases.v1.json run through BOTH models and are byte-identical, plus seven dd-carrying observation events with no subject, plus a detailless observation that still produces no domainDetail.",
+   "producerParity": "terminate() and Refusal.termination() are held equal on present, absent and empty subjects; the before model is shown to disagree with its own sibling.",
+   "metaControl": "The schema validator used above is shown to be LIVE: it admits a well-formed detail and refuses an unregistered code, a wrong-typed subject, an over-length subject, an undeclared property and a non-record at the invocation root selector. A validation control that never refuses would have proved nothing."
+  }
+ },
+
+ "proposedDurableChecks": {
+  "note": "Two small blocks, delivered as files for ROOT to integrate. Nothing was inserted into any checker and neither suite was run.",
+  "blocks": [
+   {"file": "checks/check_workflows.subject.block.py", "sha256": sha('checks/check_workflows.subject.block.py'),
+    "target": "docs/coop/design-corrections/workflows/check_workflows.v1.py",
+    "rows": 8, "usesOnlyNamesTheTargetBinds": True, "importsNoOtherUnit": True,
+    "content": "Workflow-side only: the subject is carried exactly, the carrying detail is schema-valid, an absent subject adds no field, a detailless observation still has no domainDetail, the two producers agree on present/absent/empty, and an over-length observed subject is still the SCHEMA's to refuse."},
+   {"file": "checks/check_integration.subject.block.py", "sha256": sha('checks/check_integration.subject.block.py'),
+    "target": "docs/coop/design-corrections/check-integration.py",
+    "rows": 8, "usesOnlyNamesTheTargetBinds": True,
+    "content": "The cross-unit seam, over the ACTUAL native producer: for all three Plan fields and both inherited bounded fields, the exact `field:count>limit` subject survives the workflow envelope, and the class/errorCode/detail/remedy/exit-2 route is unchanged across the seam.",
+    "whyThere": "Native owns the refusal and its subject; workflows owns the envelope a caller reads. Each unit is correct on its own side, so only the composition can see the seam - which is why neither unit's suite caught it and why the durable control belongs in the cross-unit checker."}
+  ],
+  "verification": {
+   "file": "out/probes/verify-durable-blocks.py",
+   "sha256": sha('out/probes/verify-durable-blocks.py'),
+   "output": "out/evidence/durable-block-verification.json",
+   "nameResolution": {b: v['resolves'] for b, v in blocks['nameResolution'].items()},
+   "executionPassed": {b: v['passed'] for b, v in blocks['execution'].items()},
+   "executionFailed": {b: [r['id'] for r in v['failed']] for b, v in blocks['execution'].items()},
+   "discriminationAgainstBeforeModel": {b: v['failedAgainstBeforeModel'] for b, v in blocks['discriminationAgainstBeforeModel'].items()},
+   "method": "Neither suite was run, per instruction. Instead: (1) STATIC - every free name each block references is shown to be bound at module level by its target checker, which is what catches a block that would NameError on integration; (2) EXECUTION - each block is exec'd against a namespace faithfully rebuilt from the real modules (the workflows namespace rebuilds the same schema registry that checker builds); (3) DISCRIMINATION - both blocks are re-run against the BEFORE model and are required to FAIL there, so neither is vacuously true.",
+   "discriminationReading": "Against the before model the workflows block fails 3 of 8 and the integration block fails 5 of 8. The rows that pass on BOTH models are exactly the backward-compatibility rows (absent subject, detailless observation, and the unchanged class/errorCode/remedy/exit route), which is the correct pattern: they must not change."
+  }
+ },
+
+ "technicalAssent": {
+  "value": True,
+  "scope": "I assent to the exact proposed bytes of workflow.proposed.py and to the two durable check blocks as delivered. This is an author's assent to his own delta and is not review, acceptance or qualification. I am not the independent reviewer of these changes.",
+  "notAssentedTo": [
+   "Any claim that this validates malformed trusted observations, or that the workflow model now admits a subject rather than copying one.",
+   "Any claim about earlier full Run closure, a product host, or OS/compiler/provider behaviour. Everything here is reference composition over synthetic trusted observations.",
+   "Pins, records, lineage, freeze and integration, which root owns.",
+   "The v19 native handoff, which is completed and immutable and was not altered."
+  ]
+ },
+ "changesRequired": [
+  {"id": "V19S-ROOT-1", "owner": "root", "statement": "Integrate workflow.proposed.py at docs/coop/design-corrections/workflows/workflows_model.v1.py. Its digest changes, so the workflows, security, native and foundation pin ledgers that carry it need resealing with the rest of the v19 integration; no pin was edited here."},
+  {"id": "V19S-ROOT-2", "owner": "root", "statement": "Place the two durable blocks. They are delivered as separate files precisely because their insertion points are root's to choose; each uses only names its target already binds and neither adds an import."},
+  {"id": "V19S-ROOT-3", "owner": "root", "statement": "Decide the one deliberate divergence from the sketched conditional (truthiness, matching Refusal.termination(), versus literal key presence). The behavioural difference is confined to `subject: None` and `subject: ''`; the reasoning is recorded above and either is acceptable to me."}
+ ],
+ "limitations": [
+  "One site was changed. The rest of `terminate()` and every other termination producer is untouched, and no other observation field was audited for a similar loss beyond confirming that `dd` is the only place a DomainDetail is reconstructed field by field.",
+  "The six canonical suites and the pin gate were NOT run, per instruction. Backward equality is evidenced by all 32 existing invocation cases being byte-identical under the edit, not by a suite result.",
+  "The durable blocks were verified by static name resolution plus faithful-namespace execution, not by running their target checkers. That is weaker than a real suite run and is stated as such.",
+  "My first shadow tree symlinked `integration-host-model.py`, and its `Path(__file__).resolve()` followed the link back to the unpatched module, so the integration block was briefly graded against the wrong bytes. Both trees now hold a real copy, and the accident was turned into the deliberate discrimination control above. Preserved rather than hidden.",
+  "My first name-resolution analyzer reported six of a block's own locals as unresolved because it reused the module-level collector for the block's side of the comparison. Fixed to walk the whole tree; both the failure and the fix are preserved in the probe file's docstring."
+ ],
+ "files": {
+  "workflow.before.py": {"sha256": sha('workflow.before.py'), "note": "exact frozen18 bytes, and byte-identical to the copy in the v19 native work tree, which I never edited"},
+  "workflow.proposed.py": {"sha256": sha('workflow.proposed.py')},
+  "checks/check_workflows.subject.block.py": {"sha256": sha('checks/check_workflows.subject.block.py')},
+  "checks/check_integration.subject.block.py": {"sha256": sha('checks/check_integration.subject.block.py')},
+  "out/probes/make_proposed.py": {"sha256": sha('out/probes/make_proposed.py')},
+  "out/probes/probe-subject-preservation.v1.py": {"sha256": sha('out/probes/probe-subject-preservation.v1.py')},
+  "out/probes/verify-durable-blocks.py": {"sha256": sha('out/probes/verify-durable-blocks.py')},
+  "out/evidence/probe-result.json": {"sha256": sha('out/evidence/probe-result.json')},
+  "out/evidence/durable-block-verification.json": {"sha256": sha('out/evidence/durable-block-verification.json')},
+  "out/disposable/dc-before, out/disposable/dc-proposed": {"note": "DISPOSABLE shadow trees; symlinks to the v19 native work tree except for real copies of workflows_model.v1.py (before/proposed) and integration-host-model.py. Not proposed for application."}
+ }
+}
+(ROOT / 'handoff.json').write_text(json.dumps(doc, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+print('wrote handoff.json')

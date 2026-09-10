@@ -1,0 +1,135 @@
+--- released-v1/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ current-v2/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -609,6 +609,28 @@
+ # `capability-missing` is an existing NativeCause. No new vocabulary is introduced.
+ UNAVAILABLE_CAPABILITY_DISCLOSURE = {"deficiency": "language-tier-unsupported",
+                                      "nativeCause": "capability-missing"}
++# The SELECTION-BOUNDARY availability account for a capability the SELECTED PRODUCT requires and this RELEASE
++# does not declare - a staged or development build that has not shipped the provider yet.
++#
++# It is deliberately NOT shaped like a Coverage entry and is NOT a CoverageResultV3, for two reasons that would
++# each make a blanket pair wrong:
++#
++# * PRECEDENCE. A capability can be undeclared AND unservable by the admitted universe at once - references under
++#   syntax-only is both. syntax_capability_prerequisite DERIVES language-tier-unsupported / capability-missing
++#   for that scope and refuses anything else, and PRECEDENCE_V2 ranks language-tier-unsupported (0) ahead of
++#   provider-unavailable (1). Emitting the release pair as the final answer would either be refused by that guard
++#   or would weaken it. The final Coverage pair stays the owning derivation's, under the published precedence.
++# * CANDIDATE-ONLY CAPABILITIES. clones-near and clones-cross-tsjs have EMPTY matrix `relations`: they are
++#   candidate-only (section 6.1 authority), mint no fact and no relation@rung, and therefore have no Coverage
++#   entry to carry anything. Requiring an owed Coverage pair for them would mean fabricating a relation.
++#
++# So this record says only what the selection boundary knows: the capability is required by the product and this
++# release did not declare it. `candidateDeficiency` is the deficiency that applies WHEN no more specific one
++# does, and it is marked as subject to precedence rather than asserted as the outcome.
++UNDECLARED_CAPABILITY_ACCOUNT = {"declared": False,
++                                 "candidateDeficiency": "provider-unavailable",
++                                 "candidateNativeCause": "capability-missing",
++                                 "subjectToPrecedence": True}
+ 
+ 
+ def grammar_of_path(path: str, selected_rows) -> dict | None:
+@@ -708,6 +730,14 @@
+     if row is None:
+         return ["native.coverage-cause-registry-row-missing:" + deficiency]
+     faults: list[str] = []
++    # Some deficiencies exist only for one relation because their OWNING law does. Section 4.7 and
++    # sufficiency_v2 apply derivationPolicy only where `rel == "types"`, so no other relation's entry
++    # can be short of a derivation policy. Checking the carrier alone let a `references` entry that
++    # merely carried the same array value declare it, and a complete Run admitted exactly that.
++    # This is declaration SUPPORT: it does not decide whether a requirement demands the deficiency.
++    if "relations" in row and entry["relation"] not in row["relations"]:
++        faults.append("native.coverage-cause-relation-not-in-scope:" + deficiency + ":"
++                      + entry["relation"] + ":owned-by=" + ",".join(row["relations"]))
+     rule = row["nativeCause"]
+     if rule == "must-be-null":
+         if cause is not None:
+@@ -3321,20 +3351,62 @@
+     return requested
+ 
+ 
++def required_default_capabilities(language_mode: str) -> list[str]:
++    """The capabilities the `default` profile MUST request for a unit in this mode.
++
++    Fixed by the MATRIX, never by a release declaration: every capability whose (capability, mode) cell is not
++    NOT-SELECTED, which is the published definition of the D-371 selected product (`NOT-SELECTED` means
++    `outside D-371; no promise`). UNSUPPORTED-TYPED cells are INCLUDED on purpose - the matrix says such a cell
++    `refuses with the named deficiency; never silently narrows`, and the way it never silently narrows is that
++    the default asks for it and the Run answers with the disclosed unavailable pair. Omitting it would leave a
++    consumer with no record that the capability exists and was not served."""
++    state = {(c["capability"], c["mode"]): c["state"] for c in CAPABILITY_MATRIX["cells"]}
++    return sorted(c["id"] for c in CAPABILITY_MATRIX["capabilities"]
++                  if state.get((c["id"], language_mode)) != "NOT-SELECTED")
++
++
+ def default_capability_selection(units: list[dict], registry: list[dict]) -> dict:
+-    """Native default discovery (review v2 item 6): the FULL registered TS/JS/Rust capability set from the
+-    authenticated release declaration registry (TRUSTED INPUT rows {capabilityId, languageModes[]}) is selected
+-    for every unit whose mode the capability applies to. There is no preview-typescript constant and no
+-    TypeScript-only default. Output validates against the foundation analysis-spec record.
+-
+-    The registry is admitted against the published capability vocabulary before any row is read, so the
+-    DEFAULT and EXPLICIT paths agree on one spelling by construction rather than by convention."""
++    """Native default discovery (review v2 item 6): the FULL registered TS/JS/Rust capability set is selected
++    for every discovered unit. There is no preview-typescript constant and no TypeScript-only default. Output
++    validates against the foundation analysis-spec record.
++
++    WHAT THE REGISTRY IS, AND WHAT IT IS NOT. The authenticated release declaration registry (TRUSTED INPUT rows
++    {capabilityId, languageModes[]}) is an AVAILABILITY statement over a fixed obligation - which capabilities
++    this build ships - and never a redefinition of the obligation itself. An earlier revision drove the default
++    FROM the registry, so a staged build shipping three rows silently requested three capabilities and looked
++    conformant: the D-371 selected product quietly shrank with nothing disclosed anywhere. admission 1.1 and
++    native 1.4 both say the default is the complete intended product, so the default is now derived from the
++    matrix and the registry only decides what is AVAILABLE.
++
++    A required capability the release does not declare is DISCLOSED, not dropped: it is still requested, and the
++    selection boundary records the absence. What that absence PROJECTS to is not decided here - a fact-producing
++    capability projects onto its relation@rung Coverage, whose final (deficiency, nativeCause) is the owning
++    derivation's under the published precedence, so a capability that is BOTH undeclared and unservable by the
++    admitted universe keeps the more specific language-tier-unsupported; a candidate-only capability has no
++    Coverage entry at all and its account is the selection record itself. Declaring availability is not
++    qualification: no cell is promoted and platformQualified stays false.
++
++    Explicit user configuration overrides the REQUEST, not this obligation, and an override is a recorded choice
++    with its own provenance rather than a silent narrowing."""
+     admit_release_capability_registry(registry)
+-    requested = []
++    available = {(r["capabilityId"], mode) for r in registry for mode in r["languageModes"]}
++    requested, undeclared = [], []
+     for u in units:
+-        for r in registry:
+-            if u["languageMode"] in r["languageModes"]:
+-                requested.append({"capabilityId": r["capabilityId"], "languageMode": u["languageMode"], "workspaceRoot": u["rootPath"] or ".", "required": True})
++        mode = u["languageMode"]
++        for capability in required_default_capabilities(mode):
++            requested.append({"capabilityId": capability, "languageMode": mode,
++                              "workspaceRoot": u["rootPath"] or ".", "required": True})
++            if (capability, mode) not in available:
++                # The PROJECTION differs by capability kind and is named rather than assumed: a fact-producing
++                # capability projects onto its own relation@rung Coverage entries, a candidate-only one onto no
++                # Coverage at all, so its account is the selection record itself.
++                relations = next(c["relations"] for c in CAPABILITY_MATRIX["capabilities"]
++                                 if c["id"] == capability)
++                undeclared.append({"capabilityId": capability, "languageMode": mode,
++                                   "workspaceRoot": u["rootPath"] or ".",
++                                   "projection": "coverage-entry" if relations else "selection-account-only",
++                                   "relations": [r[0] + "@" + r[1] for r in relations],
++                                   **UNDECLARED_CAPABILITY_ACCOUNT})
+     # `analysis-spec.requestedCapabilities` is x-opensip-order: canonical-set, so the emitted array is in
+     # canonical-byte order, not discovery order; a duplicate row refuses rather than silently deduping.
+     requested = sorted(requested, key=C.canonical)
+@@ -3343,7 +3415,13 @@
+     spec = {"schemaVersion": 2, "requestedCapabilities": requested, "policyPackIds": [], "parameters": []}
+     validate_foundation("analysis-spec", spec)
+     families = sorted({u["languageFamily"] for u in units})
+-    return {"analysisSpec": spec, "familiesSelected": families, "previewDefaultsUsed": False, "provenance": "DEFAULTED"}
++    return {"analysisSpec": spec, "familiesSelected": families, "previewDefaultsUsed": False,
++            "provenance": "DEFAULTED",
++            # The availability account at the SELECTION boundary, machine-readable rather than implied. It is
++            # not a Coverage result and does not decide one; see UNDECLARED_CAPABILITY_ACCOUNT. Empty when the
++            # release declares everything the selected product requires for the discovered modes.
++            "undeclaredCapabilities": sorted(undeclared, key=C.canonical),
++            "defaultIsCompleteSelectedProduct": True}
+ 
+ 
+ def join_unit_coverage(per_unit: list[dict]) -> dict:

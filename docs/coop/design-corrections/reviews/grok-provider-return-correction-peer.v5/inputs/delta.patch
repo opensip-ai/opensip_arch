@@ -1,0 +1,1577 @@
+--- before/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md
++++ after/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md
+@@ -29,7 +29,7 @@
+ 
+ ## 2. Target attribution
+ 
+-Sidecar `TargetAttributionV2` is **provider attestation** captured as a host-derived typed input. CURRENT delivery is worker `OccupancyCompanionV1` on negotiated `FactBatchV3`, associated by `candidateOrdinal` before fact2 exists. `FactBatch.stageId` is C-2 text of the requested stage; host `DispatchBindingV1` carries `retainedStageOrdinal` separately because Analyze may be a subset of Plan stages. `buffer_fact_batch_occupancy` runs during ANALYZING (dispatch required; receipts/views not yet constructed). The host owning entry `bind_worker_occupancy` mechanically projects `TargetAttributionV2` after mint and `stageReceipt`, filling `planId` / `sourceFactId` / `producerClosure` from retained Plan, execution-plan stage spec, and selected views named on receipt `outputRefs`. Current-batch fact admission is separate from combined occupancy-conflict on `prior_records`. COMPLETE58 `ProviderTargetAttributionReturnV2` as a wrapper-built envelope after fact2 mint is historical and is not worker delivery: the compiler-native table cannot cross a closed FactBatch of already-encoded opaque payloads. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host derivation is an **ephemeral projection on exact inventory native-id equality of `targetNativeId` only**. Host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling. `origin=host-internal` on a caller-built envelope refuses capture (`PROVIDER_RETURN_HOST_AUTHORED`).
++Sidecar `TargetAttributionV2` is **provider attestation** captured as a host-derived typed input. Delivery is worker `OccupancyCompanionV1` on negotiated `FactBatchV3`, associated by `candidateOrdinal` before fact2 exists. `FactBatch.stageId` is C-2 text of the requested stage; host `DispatchBindingV1` carries `retainedStageOrdinal` separately because Analyze may be a subset of Plan stages. `buffer_fact_batch_occupancy` runs during ANALYZING (dispatch required; receipts/views not yet constructed). The host owning entry `bind_worker_occupancy` mechanically projects `TargetAttributionV2` after mint and `stageReceipt`, filling `planId` / `sourceFactId` / `producerClosure` from retained Plan, execution-plan stage spec, and selected views named on receipt `outputRefs`. Current-batch fact admission is separate from combined occupancy-conflict on `prior_records`. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host derivation is an **ephemeral projection on exact inventory native-id equality of `targetNativeId` only**. Host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling. `origin=host-internal` on a caller-built envelope refuses capture (`PROVIDER_RETURN_HOST_AUTHORED`).
+ 
+ `evaluationNativeId` is the occupancy-compare field. It is required non-null iff `occupancy=first-party` and MUST be null otherwise. File: LogicalPath matching inventory `nativeSubjectId`. Package: attested `packageName`. Symbol: SubjectIdV1 MUST byte-equal `targetNativeId`. Malformed first-party sidecars (null `evaluationNativeId`, missing first-party `packageManifestPath`, nonunique/unadmitted inventory join) are **admission refusals**, not accepted unknown.
+ 
+--- before/docs/coop/design-corrections/foundation/check-array-orders.py
++++ after/docs/coop/design-corrections/foundation/check-array-orders.py
+@@ -24,7 +24,6 @@
+     *sorted((DC/'workflows/schemas').glob('*.json')),
+     *sorted((DC/'workflows/schemas/evaluator3').glob('*.json')),
+ ]))
+-files=[p for p in files if p.is_file()]
+ coverage=[]
+ for path in files:
+     found=list(arrays(json.loads(path.read_text())))
+--- before/docs/coop/design-corrections/foundation/check-provider-attribution-return.v2.py
++++ after/docs/coop/design-corrections/foundation/check-provider-attribution-return.v2.py
+@@ -972,7 +972,24 @@
+         fail("M3 close APIs failed after successful bind: " + close_error)
+ 
+ 
++def test_candidate_stream_contiguous_but_companions_may_be_sparse():
++    args = owners(fact2("1"))
++    def buffer(ordinals, companions):
++        return M.buffer_fact_batch_occupancy(
++            batch([candidate(o) for o in ordinals], companions),
++            negotiated_tokens=args["negotiated_tokens"], dispatch=args["dispatch"])
++    if buffer([0, 1, 2], [companion(0), companion(2)])["status"] != "buffered":
++        fail("sparse companions on contiguous candidates")
++    expect_key(lambda: buffer([0, 2], []), "PROVIDER_RETURN_CANDIDATE_STREAM", "in-batch gap")
++    args["dispatch"]["expectedFirstCandidateOrdinal"] = 3
++    args["dispatch"]["expectedBatchIndex"] = 1
++    later = batch([candidate(3), candidate(4)], [], batch_index=1)
++    if M.buffer_fact_batch_occupancy(later, negotiated_tokens=args["negotiated_tokens"],
++                                    dispatch=args["dispatch"])["status"] != "buffered":
++        fail("later batch contiguous continuation")
++
+ CASES = [
++    test_candidate_stream_contiguous_but_companions_may_be_sparse,
+     test_pipeline_positive_file_first_party,
+     test_cbor_hex_is_not_canonical_json_utf8,
+     test_enumerator_need_not_equal_fact_producer,
+--- before/docs/coop/design-corrections/foundation/check-replay.v3.py
++++ after/docs/coop/design-corrections/foundation/check-replay.v3.py
+@@ -181,7 +181,10 @@
+   unmatched_count=sum(objects[fid][1]['fingerprint'] is None for fid in proof['findingIds'])
+   assert (actual['verdict'],actual['findingCount'],unmatched_count)==(want,count,unmatched),(name,actual,unmatched_count)
+   exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'unmatchedFindings':unmatched_count})
+- report={'standing':'synthetic admitted native inputs; bounded complete-output replay controls; no real extraction qualification','passed':True,'count':len(rows),'checks':rows}
++ kind_controls=load('closure_field_kind_controls3','closure_field_kind_controls.v3.py')
++ import types
++ rows.extend(kind_controls.run_controls(types.SimpleNamespace(M=M,C=C,F=F,R=R,positive=positive)))
++ report={'standing':'synthetic admitted native inputs; bounded complete-output replay and explicitly scoped closure-role controls; no real extraction qualification','passed':True,'count':len(rows),'checks':rows}
+  if len(sys.argv)>1:
+   if len(sys.argv)!=3 or sys.argv[1]!='--export-dir':raise SystemExit('usage: check-replay.v3.py [--export-dir NEW_DIRECTORY]')
+   directory=Path(sys.argv[2]);directory.mkdir(parents=True,exist_ok=False)
+--- before/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
++++ after/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
+@@ -41,7 +41,7 @@
+ 
+ For each subject with emitWhen=true emit exactly one full finding3 occurrence. Distinct selected universes keep distinct subject3 IDs and findings. messageCode is the rule's value if present, otherwise ruleId. The rule emission binding supplies detectorClosure; severity is the resolved rule severity. The finding's explicit ruleId disambiguates multiple policy rules sharing a detector contribution.
+ 
+-The declarative-subject-v1 parameter record is `{schemaVersion:2,messageCode,parameters:{ruleId,subjectPath,qualifiedName,subjectKind,subjectLanguage,matchingFactCount,matchingImportCount}}`. Counts are distinct union of all descendant atom known matches, including branches whose truth did not control the root; counts never include uncertain matches. EvidenceRefs are exactly the root predicate-witness plus every descendant known/uncertain fact, used Coverage and selected import ID; enumeration input references remain in the proof. Full replay recomputes every value and citation. This fixed emission profile does not claim to reconstruct arbitrary third-party detector parameter templates.
++The declarative-subject-v1 parameter record is `{schemaVersion:2,messageCode,parameters:{ruleId,subjectPath,qualifiedName,subjectKind,subjectLanguage,matchingFactCount,matchingImportCount}}`. Counts are distinct union of all descendant atom known matches, including branches whose truth did not control the root; counts never include uncertain matches. EvidenceRefs are exactly the root predicate-witness digest; every descendant known and uncertain fact; every descendant witness Coverage id (consulted, and allowed to be narrower than evaluationInputRefs); every descendant matching/uncertain observation importId; and every evaluationInputRefs member with domain=import (under whole-selection this equals the Plan import set). Observation addresses themselves remain on the witness. Enumeration and execution inventory refs remain on the proof. See §9.7. Full replay recomputes every value and citation. This fixed emission profile does not claim to reconstruct arbitrary third-party detector parameter templates.
+ 
+ File/package discriminator is SHA256(C([])); their qualifiedName is admitted path/package name. Symbol uses this detectorClosure's nonempty ordered signatureTokens. Collision class is `(universe,subjectLanguage,kind,path,qualifiedName,detectorClosure)` across the independently enumerated population, not merely subjects which emitted. Identical projected signatures among distinct native IDs, empty/missing projection, anonymous unavailable name, or incomplete collision-class population cannot establish stable correspondence. Duplicate observations of the SAME subject3 are not a collision. Across distinct universes, independently equal logical descriptors may yield one stable fingerprint.
+ 
+@@ -73,18 +73,240 @@
+ 
+ ## 8. Source-specific deficiency and public fault accounts
+ 
+-The schema's evaluator-deficiency-registry is closed by source and exact cause. Every import deficiency carries evidenceKind (the atom/declaration's actual kind) even when no wrapper exists; a missing import pointer is not needed to identify which required declaration it failed. Other sources carry evidenceKind=null. NativeCause is a separately typed nullable owner carrier and cannot widen DeficiencyV2. All inputRefs are exact supporting roots and all non-null subject/predicate addresses belong to this rule's independent evaluation. Required/optional relevance is derived from policy; no gating flag is accepted in a deficiency. The origin is recomputed during replay, not inferred from text prefixes.
++The schema's evaluator-deficiency-registry is closed by source and exact cause. Every import deficiency carries evidenceKind (the atom/declaration's actual kind) even when no wrapper exists; a missing import pointer is not needed to identify which required declaration it failed. Other sources carry evidenceKind=null. NativeCause is a separately typed nullable owner carrier and cannot widen DeficiencyV2. Required-execution `inputRefs` are the canonical set of the ExecutionInputsV1 ref plus each originating Coverage, inventory, or candidate ref from the internal requiredCellDeficiencies row, as specified in §9.6. Atom, enumeration, correspondence and required-import deficiency `inputRefs` follow §9.5. All non-null subject/predicate addresses belong to this rule's independent evaluation; cell-level execution deficiencies have null addresses. Required/optional relevance is derived from policy; no gating flag is accepted in a deficiency. The origin is recomputed during replay, not inferred from text prefixes.
+ 
+ EVALUATION.WORK_BUDGET_EXHAUSTED is an indeterminate semantic disclosure with remedy to raise/narrow the admitted analysis work budget. It is separate from a native provider cell budget-exhausted carrier. EVALUATION.OUTPUT_BOUND_EXCEEDED is operational with OUTPUT.SERIALIZATION_FAILED, never HOST.IO_FAILURE. Owner-profile parameter selection errors and unknown policy tokens are caller CONFIG.INVALID / REQUEST.PRECONDITION_FAILED as individually registered. A absent expected retained pointer, lost bytes behind a valid pointer, and supplied invalid bytes have separate input-graph/retention/admission routes. They are not semantic unavailable inventory states. The concrete route registry must identify caller configuration, retained-input and producer/output phases, because the same schema defect in caller configuration and host-generated output has different operational meaning.
+ 
+ Workflow output namespace3 uses Run3/Evidence3/Finding3 and explicit baseline2/comparison2/review2/query2 schema dispatch. Historical profile2 is preserved and cannot be read as an empty unmatched-population assertion. Fingerprint2 and unchanged native/input identities retain their exact owners. The workflow projection appendix owns the full schema map and surface parity checks.
+ 
+ 
++## 9. Proof and evidence output field derivation
++
++This section is the normative field mapping from admitted inputs to evaluator3 proof, witness, finding, evidence, seal, Run and policy-derivation bytes. It publishes the current intended bridge. It does not add an evaluator profile, change native extraction, Kleene, gates, the budget formula, or output identity recipes. Reference models remain reconstruction evidence; a normative-only consumer reproduces the fields below without reading those models.
++
++**Notation.** `C(x)` is product canonical UTF-8 JSON (identity-and-evidence §3: sorted keys, compact separators, exact typed JSON). `Cset(X)` is the unique members of X keyed by `C(member)`, ordered by those canonical bytes. That is schema `uniqueItems` plus `x-opensip-order: canonical-set`. `ProofInputRef` is `{domain, digest}` with `digest` a 64-hex and `domain` a member of `#/$defs/ProofInputRef/properties/domain/enum`. H prefixes are stripped from `digest` (the 64-hex is the suffix). Let `EI` be `proof.evaluationInputRefs`. Let `XI` be the unique `ProofInputRef` in `EI` with `domain=execution-inputs`.
++
++### 9.1 Proof identity and selection
++
++| Field | Exact bytes |
++|---|---|
++| `schemaVersion` | `3` |
++| `planId` | admitted Plan H (`plan2:` + 64-hex) |
++| `executionPlanId` | admitted execution-plan H (`exec-plan2:` + 64-hex) |
++| `evaluatorClosure` | the Plan-selected closure of kind `evaluator` |
++| `executionInputsDigest` | raw SHA-256 of `C(ExecutionInputsV1)` of the unique retained execution-inputs blob named by `XI` |
++| `evaluationInputRefs` | `Cset(ExecutionInputsV1.selectedRefs ∪ {XI})`. Forbidden members: proof-bundle, finding, evaluation-seal, run, semantic-evidence. Every Plan `importIds` member appears as `{domain:import, digest:suffix}`. |
++| `ruleProgramDigest` | raw SHA-256 of `C(RuleProgramV2)` where RuleProgramV2 is `{schemaVersion:2, policyDigest: SHA-256 of C(PolicyDocumentV2), rules:[{ruleId, ruleProgramRef, emitWhen} for each policy.rules member in policy order]}`. `ruleProgramRef` is the policy object's `ruleProgramRef` (includes `programDigest`). |
++
++### 9.2 Atomic and boolean `predicateProofs[].inputRefs` (whole admitted selection)
++
++`predicate-witness` has no `inputRefs` field (`additionalProperties: false`). The composition sentence “each atom's witness binds the complete admitted evaluation input selection, retaining availability and empty-population inputs as well as hits” **projects** onto `predicateProofs[].inputRefs` as follows.
++
++- **Atomic node** (`exists` / `none` / `count-at-most` / `all-covered`): `inputRefs = EI` (the complete admitted evaluation input selection). This is the evaluator3 profile output field. It is not the atom-model internal consumed-ref subset (`evaluate_atom.evaluationInputRefs`, Coverage ids actually scanned). Those internal arrays are not proof fields and are not a second profile.
++- **Boolean node** (`and` / `or` / `not`): `inputRefs = Cset(union of immediate children's `inputRefs`)`. With the atomic rule above this equals `EI`; the union algorithm is still the boolean law (this profile's atoms emit `EI`).
++- Witnesses cannot add roots outside `EI`.
++- **Not hits-only.** Empty owed imports, empty inventories, and unused Coverage remain members of `EI` and therefore of every atomic `inputRefs`.
++- Optimization or physical scan order MUST NOT change `inputRefs`. Whole-selection is the stable semantic-ID discriminator.
++
++### 9.3 Witness fields that may be narrower
++
++These are consulted evidence, not a second input-selection law. They may be a proper subset of `EI` without contradiction.
++
++| Witness field | Atomic | Boolean |
++|---|---|---|
++| `kind` | `native-atom` or `imported-atom` from the atom plane | `boolean` |
++| `matchingFactIds` / `uncertainFactIds` | `Cset` of atom known / uncertain fact2 ids; imported-atom empty | empty |
++| `matchingImportRows` / `uncertainImportRows` | `Cset` of atom known / uncertain `ObservationAddressV1`; native-atom empty | empty |
++| `coverageIds` | `Cset` of Coverage H ids the atom completeness/matching law returned | empty |
++| `scopeIds` on **predicateProof** (not on witness) | `Cset` of scope2 ids the atom completeness law returned | `Cset` of union of children's `scopeIds` |
++| `countLimit` | node `n` if `count-at-most`, else null | null |
++| `childPredicateIds` | empty | `Cset` of immediate child addresses from the program-predicate address law |
++| `programPredicateDigest` | raw SHA-256 of `C({schemaVersion:2, ruleProgramDigest, ruleId, predicateId, operation, nodeDigest})` with `nodeDigest` = raw SHA-256 of `C(the Predicate node)` and `operation` = node `op` | same |
++| `schemaVersion` | `3` | `3` |
++| `deficiencies` | `Cset` of evaluation-deficiency records in §9.5 | `Cset` of union of children's `deficiencies` |
++
++Uncertain matches and deficiencies are retained even when a known value dominates. Root-indeterminate blocking causes are computed from indeterminate children's deficiencies for gating; they are not a stored field.
++
++### 9.4 Predicate-proof population, order, value
++
++If the budget preflight of §3 exceeds Plan budget: `predicateProofs=[]`, `findingIds=[]`, `evaluationState=budget-exhausted`, and §9.6 emits the execution `work-budget-exhausted` item. Disabled rules emit no predicate proofs.
++
++Otherwise, for every enabled policy rule and every `selectedSubjectIds` member, evaluate the entire `emitWhen` tree postorder. One `predicateProofs[]` item per node:
++
++| Field | Bytes |
++|---|---|
++| `ruleId` | the policy rule id |
++| `subjectId` | subject3 of that selected subject |
++| `predicateId` | program-predicate address (`p`, `a.i`, `a.0`) |
++| `operation` | node `op` |
++| `inputRefs` | §9.2 |
++| `scopeIds` | §9.3 |
++| `value` | Kleene / atom determinate-evidence law of §3 and identity-and-evidence §4 |
++| `witnessDigest` | raw SHA-256 of `C(predicate-witness)` |
++
++Array order: `x-opensip-order: predicate` = strictly increasing UTF-8 tuples `(ruleId, subjectId, predicateId)`.
++
++### 9.5 Witness and ruleResult deficiencies (non-execution)
++
++Each evaluation-deficiency is `{source, cause, subjectId, predicateId, inputRefs, evidenceKind, nativeCause, universe}` with closed source×cause membership. `Cset` uniqueness is of that whole record.
++
++**Enumeration** (per enabled rule; disabled rules have `deficiencies=[]`):
++
++| Condition | `source` | `cause` | `subjectId` | `predicateId` | `inputRefs` | `evidenceKind` | `nativeCause` | `universe` |
++|---|---|---|---|---|---|---|---|---|
++| no inventory locator of the rule's portable domain and primary kind (`export` → symbol) | `enumeration` | `no-covering-program` | null | null | `[]` | null | null | null |
++| relevant inventory `state≠complete` | `enumeration` | `incomplete-inventory` | null | null | `[{domain:subject-inventory, digest:SHA-256(C(inventory))}]` | null | inventory `nativeCause` | null |
++| same inventory and `inventory.deficiency=source-syntax-invalid` | `enumeration` | `source-syntax-invalid` | null | null | same single inventory ref | null | null | null |
++| export selection and row `exported=unknown` | `enumeration` | `unknown-export-membership` | that subject3 | null | that inventory ref | null | null | null |
++
++Relevant inventories are every retained inventory whose `kind` equals the rule primary kind and whose cell `languageMode` maps to the rule's portable universe domain. `ruleResults[].enumeration.inventoryRefs = Cset` of those inventory refs (including unavailable). `incompleteInventoryRefs = Cset` of those whose `state≠complete`. `selectedSubjectIds` / `unresolvedSubjectIds` as composition §2. `state` is `incomplete` if any enumeration deficiency exists, else `complete`. Include/exclude globs apply to inventory `row.path`; include absent or `[]` means all paths; exclusion wins; optional ScopeDocumentV1 intersects.
++
++**Required import (policy `evidenceUse`, enabled rules only):**
++
++| Condition | `source` | `cause` | addresses | `inputRefs` | `evidenceKind` | `nativeCause` | `universe` |
++|---|---|---|---|---|---|---|---|
++| `requirement=required` and that `kind` is not among Plan-selected import wrapper kinds | `import` | `evidence-kind-unavailable` | null / null | `[]` | the declared `evidenceUse.kind` | null | null |
++
++No import pointer is required. Optional `evidenceUse` entries emit nothing here.
++
++**Atom-mapped (per atomic node, copied onto that node's witness and into the rule's `deficiencies`):**
++
++Let `plane` be `import` if the atom is imported-atom, else `native`. Let `atomEI = EI` (whole selection; not the internal consumed subset).
++
++1. Every atom `causes[]` member must have its `code` in the registry for `plane` and its `evidenceKind` equal to the atom evidence kind on the import plane, null otherwise; disagreement refuses admission (`EVALUATOR_ATOM_CAUSE_UNREGISTERED` or `EVALUATOR_ATOM_CAUSE_PLANE_JOIN`), never silently drops the cause. For each admitted member emit `{source:plane, cause:code, subjectId: this subject3, predicateId: this address, inputRefs: atomEI, evidenceKind: node.evidence if plane=import else null, nativeCause: cause.nativeCause, universe: cause.universe if present else null}`. Import `evidenceKind` must equal the atom's evidence kind.
++2. For each atom `nativeDeficiencies[]` member (a `DeficiencyV2` from sufficiency_v2): emit `{source:native, cause:that DeficiencyV2, subjectId, predicateId, inputRefs: atomEI, evidenceKind:null, nativeCause:null, universe:null}`.
++3. For each atom `coverageIds` member whose Coverage payload `entry.deficiency` is non-null: emit `{source:native, cause:entry.deficiency, subjectId, predicateId, inputRefs:[{domain:coverage, digest: coverage H suffix}], evidenceKind:null, nativeCause:entry.nativeCause, universe: Coverage key sourceUniverse}`. This overwrites only this item's `inputRefs` to that Coverage; it does not change §9.2.
++
++Boolean nodes do not invent causes; they `Cset`-union children. Structural atom codes `omitted-selected-wrapper` / `missing-expected-inventory` refuse admission and are not semantic proof causes.
++
++**Correspondence** (only when emitWhen is true and a finding is minted):
++
++| Condition from composition §4 correspondence | `source` | `cause` | `subjectId` | `predicateId` | `inputRefs` | `evidenceKind` | `nativeCause` | `universe` |
++|---|---|---|---|---|---|---|---|---|
++| symbol missing detector projection or empty `signatureTokens` | `correspondence` | `projection-unavailable` | that subject3 | `p` | the rule's `enumeration.inventoryRefs` | null | null | null |
++| collision-class population incomplete | `correspondence` | `population-incomplete` | that subject3 | `p` | same inventory refs | null | null | null |
++| two distinct native ids share the projected signature | `correspondence` | `signature-ambiguous` | that subject3 | `p` | same inventory refs | null | null | null |
++
++File/package use discriminator `SHA-256(C([]))` and do not emit correspondence deficiencies. Registry member `anonymous-subject` remains closed membership; the current correspondence algorithm classifies empty symbol tokens as `projection-unavailable`.
++
++**Work-budget on a ruleResult** (when §3 preflight exceeds budget): one additional `{source:execution, cause:work-budget-exhausted, subjectId:null, predicateId:null, inputRefs:[], evidenceKind:null, nativeCause:null, universe:null}` on that enabled rule. Disabled rules stay disabled with empty deficiencies.
++
++`ruleResults` has one item per policy rule, ordered by `ruleId` UTF-8. `findingIds` on the rule is `Cset` of minted finding3 ids. `outcome` follows §5.
++
++### 9.6 `proof.executionDeficiencies` — required-execution bridge
++
++`requiredCellDeficiencies` and `derivedAccounts` are **internal admission-result records**, not `evaluation-deficiency`. They may use internal `cause` tokens `native-work-incomplete` and `unsupported-typed`. Those tokens are **not** proof `cause` values.
++
++**Bridge (applied to every internal `requiredCellDeficiencies` row before proof emission):**
++
++1. `source` := `execution` (assessment layer for required execution cells; not a claim that the raw evidence provider is “execution”).
++2. Let `d = row.deficiency` (the typed `DeficiencyV2` or `null` or enumeration-local `source-syntax-invalid`).
++3. If `d` is a member of `x-opensip-evaluator-deficiency-registry.sources.execution`, proof `cause := d`. Else if `d` is `null` or `source-syntax-invalid`, proof `cause := required-cell-unsatisfied`. Else admission refuses `EVALUATOR_EXECUTION_CAUSE_UNREGISTERED` (not a semantic proof).
++4. `nativeCause := row.nativeCause` (owner `NativeCause` or null; not unzipped from a later sibling).
++5. `universe :=` that row's enumeration binding `universe` (64-hex suffix or null).
++6. `subjectId` := null; `predicateId` := null; `evidenceKind` := null.
++7. `inputRefs := Cset({XI} ∪ row.inputRefs)`. `XI` is committed execution-context. `row.inputRefs` are the originating Coverage, inventory, or candidate refs. `XI` does not replace them.
++
++Every native `DeficiencyV2` member is a member of both the execution and native cause registries. Native-registry evaluator diagnostics (`uncovered-expected-source-subject`, `coverage-unknown`, …) are atom/witness causes (§9.5), not `DeficiencyV2` carriers, and are not this bridge's `cause`.
++
++**Originating `row.inputRefs` by failure class** (internal row construction; proof refs are those plus `XI`):
++
++| Failure class | Internal `row.deficiency` | Originating `row.inputRefs` |
++|---|---|---|
++| Required inventory not `complete` | inventory `deficiency` (`DeficiencyV2` or `source-syntax-invalid`) | `[{domain:subject-inventory, digest: that inventory C digest}]`. Keep every such sibling inventory of the cell. |
++| Required enumerator unselected or binding `universe=null` | binding `UnavailableProgramBindingV1.deficiency` | `[]` for this binding/enumerator item. Each non-complete same-cell inventory contributes a separate inventory item with its own deficiency, nativeCause and single inventory ref as above; never attach those inventory refs to the binding carrier. |
++| Required candidate envelope `partial` or `unavailable` | candidate `deficiency` | `[{domain:candidate-producer-result, digest: envelope digest}]` |
++| Required native account not complete, Coverage records exist | each Coverage `entry.deficiency`, or if null the account summary `deficiency` (empty returned partitions use `provider-unavailable`) | `[{domain:coverage, digest: that Coverage H suffix}]` **per Coverage record**. Keep every Coverage of that account. Missing expected subjects (`source-path` / `package-name` / `symbol`) still emit per returned Coverage record with that summary `deficiency`. |
++| Required native account not complete, no Coverage records | account summary `deficiency` (`provider-unavailable` when empty) | `[{domain:coverage, digest: hx} for hx in the account's named coverageIds]` (empty if none named) |
++| Required unsupported-typed matrix cell | matrix cell `deficiency` | `[]` (no fabricated Coverage) |
++| Required unavailable-unselected / unavailable-null-universe account | binding `deficiency` | `[]` |
++| Inapplicable-VCS | (not required-unsatisfied; no row) | — |
++
++Sibling source records and `nativeCause` pairs stay with their originating refs. Two Coverage of the same relation with different carriers remain two internal rows and two proof items because their Coverage digests differ.
++
++**Internal full-coordinate uniqueness vs proof-record uniqueness.** Internal `requiredCellDeficiencies` are unique by `C` of the whole internal row, which includes `cellOrdinal`, `programOrdinal`, `relation`, `resolution`, `capabilityId`. Proof items have no those coordinates. Proof `Cset` uniqueness is of the evaluation-deficiency record in §9.6 steps 1–7. When two internal rows bridge to **byte-identical** proof records they carry identical proof-level information (same cause, carrier, universe, and same `XI` plus originating refs). Distinct cell/relation coordinates remain on hashed `ExecutionInputsV1.nativeCoverageAccounts` and `cellOutcomes`. Example: two unsupported-typed relations on one required cell with the same matrix `DeficiencyV2`, same `nativeCause`, same universe, and empty originating refs bridge to one proof item; both accounts remain on ExecutionInputsV1.
++
++**Work-budget-exhausted** (composition, not a requiredCellDeficiencies row): `{source:execution, cause:work-budget-exhausted, subjectId:null, predicateId:null, inputRefs:EI, evidenceKind:null, nativeCause:null, universe:null}` appended to `executionDeficiencies` when §3 preflight exceeds budget. (RuleResult copy of this cause uses empty `inputRefs` as in §9.5.)
++
++`proof.executionDeficiencies = Cset` of the bridged required-cell items plus the optional budget item. Required cells still contribute when all rules are disabled.
++
++### 9.7 Findings, evidence, seal, Run
++
++**Finding** (one per selected subject with emitWhen value `true`; none when budget-exhausted):
++
++| Field | Bytes |
++|---|---|
++| `schemaVersion` | `3` |
++| `fingerprint` | finding-key2 H if correspondence succeeded, else null |
++| `correspondence.state` | `matched` iff fingerprint non-null, else `unmatched` |
++| `correspondence.reason` | null if matched; else the correspondence cause of §9.5 |
++| `ruleClosure` | emission binding `detectorClosure` |
++| `ruleId` | policy rule id |
++| `subjectId` | subject3 |
++| `subject` | `{language: row.subjectLanguage, kind, logicalPath: row.path, qualifiedName: row.qualifiedName}` |
++| `messageCode` | rule `messageCode` if present, else `ruleId` |
++| `parameterDigest` | raw SHA-256 of `C({schemaVersion:2, messageCode, parameters:{ruleId, subjectPath:row.path, qualifiedName, subjectKind, subjectLanguage, matchingFactCount, matchingImportCount}})` with counts = distinct union of descendant atom **known** matches (not uncertain) |
++| `severity` | resolved rule severity |
++| `evidenceRefs` | `Cset` of FindingEvidenceRef: `{domain:predicate-witness, digest: root witnessDigest}`; `{domain:fact, digest: fact2 suffix}` for every descendant known and uncertain fact id; `{domain:coverage, digest: coverage suffix}` for every descendant **witness** `coverageIds` member (consulted, may be narrower than `EI`); `{domain:import, digest: import2 suffix}` for every descendant matching/uncertain observation `importId` **and** every `EI` member with `domain=import`. Under whole-selection the import set equals Plan `importIds` suffixes. Observation addresses themselves remain on the witness, not on `evidenceRefs`. Enumeration/execution inventory refs stay on the proof, not on `evidenceRefs`. |
++
++`proof.findingIds = Cset` of minted finding3 H ids. `proof.waivedFindingIds = Cset` of those whose fingerprint or exact `(ruleId, subjectPath)` matches an effective WaiverSet target.
++
++**Semantic evidence3:** `{schemaVersion:3, planId, viewIds: Cset(view2:d for {domain:view,digest:d} in EI), coverageIds: Cset(coverage ids named by those views ∪ {coverage2:d for domain=coverage in EI}), importIds: Cset(plan.importIds), findingIds: proof.findingIds, proofBundleId}`. `importIds` is the exact Plan import selection, **not** an evaluated subset and **not** `EI`. Matched/uncertain observation addresses live on witnesses. Atomic `predicateProofs[].inputRefs` may contain every selected import under §9.2 without those imports being “consulted” Coverage/observation evidence.
++
++**Output identities.** Use the existing identity-and-evidence §3 framed hash, without changing its meaning:
++
++`H(D,X) = SHA256(ASCII("opensip.product.v1") ‖ 00 ‖ ASCII(D) ‖ 00 ‖ uint64BE(byteLength(C(X))) ‖ C(X))`.
++
++The typed identifier, written `ID(D,X)` below, is `prefix(D) + ":" + lowercaseHex(H(D,X))`. `H` is the digest, not the prefixed identifier. The existing domain/prefix table supplies these output mappings:
++
++| Domain D | prefix(D) |
++|---|---|
++| `evaluation-subject` | `subject3` |
++| `finding-fingerprint` | `finding-key2` |
++| `finding` | `finding3` |
++| `proof-bundle` | `proof3` |
++| `semantic-evidence` | `evidence3` |
++| `evaluation-seal` | `seal3` |
++| `run` | `run3` |
++| `policy-derivation` | `policy-derivation3` |
++
++All these identifiers use the complete admitted descriptor X. Finding and waived-finding arrays contain the canonical set of the corresponding `finding3` identifiers. Witnesses, program-predicate records and parameter records instead use their specified raw SHA-256 of canonical-record bytes; do not apply this frame to them.
++
++**Seal3** has exactly these fields:
++
++| Field | Exact value |
++|---|---|
++| `schemaVersion` | `3` |
++| `planId` | `proof.planId` |
++| `executionPlanId` | `proof.executionPlanId` |
++| `evidenceId` | `ID(semantic-evidence, evidence3)` |
++| `evaluatorClosure` | `proof.evaluatorClosure` |
++| `policyDigest` | admitted Plan `policyDigest` |
++| `proofBundleId` | `ID(proof-bundle, proof)` |
++| `verdict` | `proof.verdict` |
++
++**Run3** has exactly these fields:
++
++| Field | Exact value |
++|---|---|
++| `schemaVersion` | `3` |
++| `projectId` | admitted snapshot `projectId` |
++| `snapshotId` | admitted Plan `snapshotId` |
++| `planId` | `proof.planId` |
++| `evidenceId` | seal `evidenceId` |
++| `evaluationSealId` | `ID(evaluation-seal, seal3)` |
++| `capabilityManifestId` | admitted Plan `capabilityManifestId`, retaining its declared capability-manifest-id recipe |
++
++**Policy-derivation3** is exactly `{schemaVersion:3, planId:run.planId, proofBundleId:seal.proofBundleId, policyDigest:plan.policyDigest, waiverDigest:plan.waiverDigest, verdict:proof.verdict}` from this fully replayed Run, its admitted Plan and seal, and its recomputed proof. Its typed identifier is `ID(policy-derivation, descriptor)`. A different policy or waiver set requires its own admitted Plan and Run; it cannot be substituted under the original identities.
++
++**Verdict / evaluationState:** §3 and §5 unchanged. Any nonempty `proof.executionDeficiencies` makes sealed verdict at least indeterminate (fail still dominates).
++
++
+ ## Retained input selection and complete replay
+ 
+ `evaluator_input_model.v3.py` reconstructs the composition inputs using the native/schema/identity owner's admitted closure. It reads no claimed finding, witness value or verdict. Every selected Plan import is an evaluation input, including a wrapper whose scope has no matching subject; omission is structural. A non-null ImportObservation member must agree with the same claim in its canonical payload: runtime window/population, test selection, history range endpoints. Observation kind must equal wrapper kind, and members inapplicable to that kind are null. Null is undisclosed information; it is not a contrary positive assertion and is never filled with a fictional observation. The canonical payload remains the owner of its own declared selection/range/window.
+ 
+-Each atom's witness binds the complete admitted evaluation input selection, retaining availability and empty-population inputs as well as hits. Coverage deficiencies retain their original native cause and source universe. Inputs are immutable preimages; a retained native extraction assertion remains provider evidence, and replay does not rerun a compiler to establish extraction truth.
++Each atom is evaluated against the complete admitted evaluation input selection, retaining availability and empty-population inputs as well as hits. `predicate-witness` has no `inputRefs` field. That complete selection is projected onto every atomic `predicateProofs[].inputRefs` as specified in §9; boolean nodes take the canonical union of immediate children. Atom-model consumed-ref subsets are not evaluator3 proof fields. Coverage deficiencies retain their original native cause and source universe. Inputs are immutable preimages; a retained native extraction assertion remains provider evidence, and replay does not rerun a compiler to establish extraction truth.
+ 
+ `evaluator_replay_model.v3.py` first admits the retained owner graph, reconstructs inputs, invokes the actual atom scanner and composes complete outputs. It compares every recomputed proof field and every output object/blob preimage, then independently reconstructs semantic evidence, seal and Run. It compares full finding identities, message/parameter bytes, severity, citations, waivers and enumeration outcomes, not counts. The authoritative evidence view set equals selected view inputs; its coverage set is the union of those views' coverage plus explicit admitted coverage inputs. Additional retained unreachable objects do not become authoritative findings.
+ 
+--- before/docs/coop/design-corrections/foundation/evaluator-projection-registry.v1.json
++++ after/docs/coop/design-corrections/foundation/evaluator-projection-registry.v1.json
+@@ -714,7 +714,7 @@
+       "examination": "per-source-universe exhaustive examination of independently enumerated source subjects (SubjectInventoryV1 + scopes). Missing expected source subjects or missing Coverage entry for the owed (relation,minResolution,U,*) => unknown."
+     },
+     "incoming": {
+-      "bind": "current E=(U,K,N) occupies the evaluation occupancy identity after TargetAttributionV2 occupancy-identity compare (exact-id ephemeral projection when payload native id uniquely equals an inventory native id). TargetAttributionV2 records are host projections of worker OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2), bound by candidateOrdinal then minted fact2. FactBatch.stageId is C-2 text correlated via DispatchBindingV1; Analyze request ordinal is not retained execution-plan ordinal. COMPLETE58 post-fact2 envelope is not delivery. Independently known ephemeral first-party identity cannot be overwritten by a contradictory sidecar (TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT). Payload string inequality is not occupancy nomatch when the inventory grammar of E.kind is not SubjectIdV1. fact.targetUniverse must equal U for a MATCH. Owed SOURCE programs are EnumerationPlan bindings, NEVER the set of fact.sourceUniverse values. Selected attribution schema is TargetAttributionV2; schemaVersion=1 sidecars refuse. Missing sidecar does not restore historical payload-vs-N nomatch.",
++      "bind": "current E=(U,K,N) occupies the evaluation occupancy identity after TargetAttributionV2 occupancy-identity compare (exact-id ephemeral projection when payload native id uniquely equals an inventory native id). TargetAttributionV2 records are host projections of worker OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2), bound by candidateOrdinal then minted fact2. FactBatch.stageId is C-2 text correlated via DispatchBindingV1; Analyze request ordinal is not retained execution-plan ordinal. Independently known ephemeral first-party identity cannot be overwritten by a contradictory sidecar (TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT). Payload string inequality is not occupancy nomatch when the inventory grammar of E.kind is not SubjectIdV1. fact.targetUniverse must equal U for a MATCH. Owed SOURCE programs are EnumerationPlan bindings, NEVER the set of fact.sourceUniverse values. Selected attribution schema is TargetAttributionV2; schemaVersion=1 sidecars refuse. Missing sidecar does not restore historical payload-vs-N nomatch.",
+       "owedSources": "every same-family owed source program, including those with zero matching facts. Unavailable binding remains an unknown obligation.",
+       "scopes": "ALL selected scopes of (relation, minResolution-or-above on that ladder, sourceUniverse=S) REGARDLESS of scope.targetUniverse. Do NOT require a scope or Coverage key (S, targetUniverse=U). That would demand an empty Cartesian (S,U) record when S searched other targets. coveragePartitionLaw disjointness is per full key (snapshot, relation, resolution, sourceUniverse, targetUniverse), not global-S.",
+       "sourcePresence": "Union of independently enumerated SOURCE subjects appearing in those S-scopes. A source subject may appear in multiple targetUniverse partitions; UNION presence, never SUM of counts across T.",
+--- before/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
++++ after/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
+@@ -21,7 +21,7 @@
+     exec(compile(ast.Module(body=body,type_ignores=[]),str(p),'exec'),scope)
+     return types.SimpleNamespace(**scope)
+ 
+-def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True):
++def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True, import_producer_kind='provider', import_adapter_kind='adapter'):
+     H=fixture_helpers();N=H.N;objects={};blobs={}
+     def blob(value):
+         raw=value if type(value) is bytes else C.canonical(value)
+@@ -77,9 +77,11 @@
+     cap=H.CURRENT_CAPABILITY_MANIFEST_BYTES;cap_digest=blob(cap);cap_id=hashlib.sha256(b'opensip.capability-manifest.v1\0'+cap).hexdigest()
+     import_ids=[]
+     W=M.workflow_admission()
++    adapter=add('closure',kind=import_adapter_kind,manifestDigest=blob(b'import adapter fixture manifest'),tree=[],semanticVersion='1.0.0',protocolMajor=3,platform='any') if import_specs else None
++    import_provider=provider if import_producer_kind=='provider' else add('closure',kind=import_producer_kind,manifestDigest=blob(b'import producer fixture manifest'),tree=[],semanticVersion='1.0.0',protocolMajor=3,platform='any')
+     for item in import_specs or []:
+         kind=item['kind'];payload=item['payload'];schema_doc=W.registry_row(kind,payload['payloadDomain'])['schemaDocument'];raw=(HERE.parent/schema_doc).read_bytes()
+-        built=W.build_import(kind,payload,payload['payloadDomain'],{payload['payloadDomain']:raw},{'kind':'exact-snapshot','snapshotId':snapshot},provider,provider,[],item.get('scope') or C.parse(blobs[scope]),item['observation'])
++        built=W.build_import(kind,payload,payload['payloadDomain'],{payload['payloadDomain']:raw},{'kind':'exact-snapshot','snapshotId':snapshot},import_provider,adapter,[],item.get('scope') or C.parse(blobs[scope]),item['observation'])
+         blob(raw);blob(payload)
+         for body in item.get('extra_blobs',[]):blob(body)
+         for retained in built['retainedPreimages'].values():blob(retained)
+--- before/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
++++ after/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
+@@ -275,6 +275,7 @@
+     cross_u_binding="foo",
+     partition_b_target="u1",
+     complete_required_inventory=True,
++    imports_occupancy="mapped-file",
+ ):
+     """TypeScript native-admitted graph: declares and/or references@resolved-binding, or package.
+ 
+@@ -643,24 +644,40 @@
+     if atom["relation"] == "imports":
+         s_imp = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                     relation="imports", resolution="resolved-target", enumeratorClosure=provider,
+-                    subjects=E.cset([foo]))
++                    subjects=E.cset([foo, bar]))
+         raw = sources["a.ts"]
+         anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
+-        payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
++        if imports_occupancy in ("exact-id-symbol", "unknown-sidecar-symbol"):
++            payload = {"importer": bar, "specifier": "./a", "resolvedTarget": foo}
++            target_native = foo
++        else:
++            payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
++            target_native = "file:a.ts"
+         fid = add("fact", snapshotId=snapshot, relation="imports", resolution="resolved-target",
+                   sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                   payloadSchemaDigest=relation_schema, payloadDigest=blob(payload),
+                   anchors=[anchor], confidenceMillionths=1000000)
+         cid_imp, _ = mint_coverage(s_imp, True)
+         mint_view(s_imp, [fid], cid_imp)
+-        sidecar = {
+-            "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+-            "targetUniverse": u1, "targetNativeId": "file:a.ts",
+-            "kind": "file", "occupancy": "first-party", "exported": None,
+-            "logicalPath": None, "packageManifestPath": None,
+-            "evaluationNativeId": "a.ts",
+-        }
+-        sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        if imports_occupancy == "mapped-file":
++            sidecar = {
++                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++                "targetUniverse": u1, "targetNativeId": target_native,
++                "kind": "file", "occupancy": "first-party", "exported": None,
++                "logicalPath": None, "packageManifestPath": None,
++                "evaluationNativeId": "a.ts",
++            }
++            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        elif imports_occupancy == "unknown-sidecar-symbol":
++            sidecar = {
++                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++                "targetUniverse": u1, "targetNativeId": target_native,
++                "kind": "unknown", "occupancy": "unknown", "exported": None,
++                "logicalPath": None, "packageManifestPath": None,
++                "evaluationNativeId": None,
++            }
++            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        # exact-id-symbol and unmapped-file: no sidecar; occupancy is ephemeral or unknown.
+ 
+     if atom["relation"] == "package" or complete_required_inventory:
+         pkg_fact_rows = [r for d, inv in inventory_results if inv["kind"] == "package" for r in inv["rows"]]
+--- before/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ after/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -65,7 +65,7 @@
+ | any inventory `partial`, or any supported-available account not complete | `partial` |
+ | all inventories complete, every account complete/inapplicable/unsupported, candidate complete if owed | `complete` |
+ 
+-Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** (first retained source) and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. Empty `kinds` is not complete-empty work.
++Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** (first retained source) and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. `requiredCellDeficiencies` and `derivedAccounts` are internal admission-result records, not schema `evaluation-deficiency`; they may use internal tokens `native-work-incomplete` / `unsupported-typed` that are not proof `cause` values. The proof bridge (composition §9.6) reads `row.deficiency` (a `DeficiencyV2`, `null`, or `source-syntax-invalid`), maps `null`/`source-syntax-invalid` to proof cause `required-cell-unsatisfied`, keeps `source=execution` as the required-execution assessment layer, and sets proof `inputRefs` to the canonical set of the ExecutionInputsV1 ref plus each originating `row.inputRefs`. Inventory failure originating refs are `subject-inventory` digests. Native-account failure originating refs are Coverage digests from `coverageRecords` (or named `coverageIds` when no records exist). Candidate failure originating refs are `candidate-producer-result` digests. The ExecutionInputsV1 ref is committed execution context, not a replacement for those originating refs. Empty `kinds` is not complete-empty work.
+ 
+ `derive_outcome` threads the binding carrier explicitly (`UnavailableProgramBindingV1.deficiency` / `nativeCause`). Unselected or `universe=null` **does not discard** same-cell inventory items. A selected unavailable binding may be `budget-exhausted` or `input-closure-incomplete` rather than generic `provider-unavailable`; the original typed pair is kept with inventory coordinates. Host join requires the outcome pair to be a member of those source pairs, not equal only to a first unzipped cause.
+ 
+@@ -80,7 +80,7 @@
+ | `unavailable-unselected` / `unavailable-null-universe` | none — do not fabricate Coverage at null U |
+ | `inapplicable-vcs` | none; admitted VCS observation `kind=none` is the basis |
+ 
+-Required unsupported / unavailable / incomplete work is **semantic indeterminate** (`requiredCellDeficiencies`). Admission retains **all** native causes on `derivedAccounts[].nativeCauses` and the exact per-Coverage triples on `derivedAccounts[].coverageRecords`. `requiredCellDeficiencies` is **canonical-record unique**: every distinct cause and coordinate is kept (two partial inventories, or two Coverage of the same relation with different carriers, must both survive). Dedup on `(cell, program, cause, relation)` is forbidden because it drops the second inventory/rung/source. Required unsupported-typed stays an explicit matrix pair. Complete extraction with RC-3 resolution-incomplete stays native: account complete is extraction completeness; do not manufacture a carrier.
++Required unsupported / unavailable / incomplete work is **semantic indeterminate** (`requiredCellDeficiencies`). Admission retains **all** native causes on `derivedAccounts[].nativeCauses` and the exact per-Coverage triples on `derivedAccounts[].coverageRecords`. `requiredCellDeficiencies` is **canonical-record unique**: every distinct cause and coordinate is kept (two partial inventories, or two Coverage of the same relation with different carriers, must both survive). Dedup on `(cell, program, cause, relation)` is forbidden because it drops the second inventory/rung/source. That uniqueness is of the **internal** admission row, which includes cell/program/relation/resolution coordinates. Proof `executionDeficiencies` uniqueness is canonical-set of the bridged evaluation-deficiency record (composition §9.6), which has no those coordinates. Distinct originating Coverage/inventory/candidate refs keep distinct proof items. Byte-identical bridged records carry identical proof-level information; remaining cell/relation coordinates stay on hashed ExecutionInputsV1 `nativeCoverageAccounts` / `cellOutcomes`. Required unsupported-typed stays an explicit matrix pair. Complete extraction with RC-3 resolution-incomplete stays native: account complete is extraction completeness; do not manufacture a carrier.
+ 
+ Population/exhaustiveness evidence for source coverage is the native owner handle per partition (Scope2 + inventory join). Global missing expected subjects still needs a reconstruct join; this unit does not invent that census.
+ 
+@@ -92,7 +92,7 @@
+ 
+ Complete `examinedPaths` equals the Plan `candidateSourcePaths` of **this** program binding, not the whole snapshot and not the union of sibling programs. Empty kinds/extents are not a complete-empty census: the Plan field must be present (explicit `[]` is a selected zero-path census). Complete-empty candidate still requires the retained envelope with `sourceBodies=[]`, `groupDigests=[]`, and `examinedPaths` equal that Plan census. Candidate near/cross-TSJS remain owner capability boundaries.
+ 
+-`hostCapture.hostDerivedRefs` is the explicit custody set for inventories, candidate envelopes, target-attribution, and incoming-search. Those domains are not stage products of a view-only stage. selectedRefs blob-domain members equal this set. TargetAttributionV2 members are **host projections** of worker `OccupancyCompanionV1` records delivered on negotiated `FactBatchV3` (`native/fact-batch.schema.v3.json`), bound by `candidateOrdinal` to the minted fact2 of that candidate. COMPLETE58 `ProviderTargetAttributionReturnV2` as a wrapper-built envelope after fact2 mint is historical and is not worker delivery. The owning entry is `bind_worker_occupancy`. `producerClosure` is rederived from the execution-plan stage spec, not from a caller scalar. The fact MUST appear in a selected view of that provider. schemaVersion=1 attributions refuse. Origin is a fault-observation field, not an admit blessing.
++`hostCapture.hostDerivedRefs` is the explicit custody set for inventories, candidate envelopes, target-attribution, and incoming-search. Those domains are not stage products of a view-only stage. selectedRefs blob-domain members equal this set. TargetAttributionV2 members are **host projections** of worker `OccupancyCompanionV1` records delivered on negotiated `FactBatchV3` (`native/fact-batch.schema.v3.json`), bound by `candidateOrdinal` to the minted fact2 of that candidate. The owning entry is `bind_worker_occupancy`. `producerClosure` is rederived from the execution-plan stage spec, not from a caller scalar. The fact MUST appear in a selected view of that provider. schemaVersion=1 attributions refuse. Origin is a fault-observation field, not an admit blessing.
+ 
+ ## 7. Incorporated wiring (not fictional stage outputs)
+ 
+--- before/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ after/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -655,6 +655,27 @@
+     return _COMPLETE_REPLAY.replay(run,objects,blobs)['runId']
+ 
+ 
++def admit_closure_field_kinds(record_kind,value,get_closure):
++    """Enforce the published kind of each closure-bearing field of this record.
++
++    Identity and retention of closure2 do not establish its role. Resolve the
++    actual retained descriptor on every owning-record admission, using the one
++    published field registry. Membership in Plan remains a separate join.
++    Cache and regeneration keys share the published cache-key record schema.
++    Native nested records retain their own context/closure-join admission.
++    """
++    if record_kind=='regeneration-key':record_kind='cache-key'
++    prefix=record_kind+'.'
++    for name,expected in DIGESTS['closureKinds']['byField'].items():
++        if not name.startswith(prefix):continue
++        field=name[len(prefix):]
++        closure=get_closure(value[field])
++        if closure['kind']!=expected:
++            if name=='subject-scope.enumeratorClosure':
++                raise C.AdmissionError('ENUMERATOR_CLOSURE_KIND')
++            raise C.AdmissionError('CLOSURE_FIELD_KIND:'+name+':'+expected)
++
++
+ def open_run_closure(run,objects,blobs):
+     """Admit retained identity/schema/native joins and expose this closure's resolvers.
+ 
+@@ -667,6 +688,7 @@
+         if key not in objects:raise EvidenceUnavailable(key)
+         actual_domain,value=objects[key]
+         if actual_domain!=domain or identifier(domain,value)!=key:raise C.AdmissionError('REFERENCE_IDENTITY')
++        admit_closure_field_kinds(domain,value,lambda cid:get(cid,'closure'))
+         return value
+     seen=set();parsed={};native_contexts={};native_universes={};capability_ids=set()
+ 
+@@ -785,6 +807,7 @@
+             for name in ['workspaceRoots','pathPrefixes','excludedPathPrefixes']:
+                 for path in value[name]:
+                     if path!='.' and (path.startswith('/') or '\\' in path or '\x00' in path or any(v in ['', '.', '..'] for v in path.split('/'))):raise C.AdmissionError('SCOPE_LOGICAL_PATH')
++        admit_closure_field_kinds(kind,value,lambda cid:get(cid,'closure'))
+         parsed[('local',digest,kind)]=value
+         walk(SCHEMA['$defs'][kind],value)
+         return value
+@@ -1750,6 +1773,7 @@
+     run_id=close_run(run,objects,blobs)
+     _,closure=open_run_closure(run,objects,blobs)
+     identity=cache_key(domain,key)
++    admit_closure_field_kinds(domain,key,lambda cid:closure['get'](cid,'closure'))
+     plan=closure['plan']
+     if key['planId']!=run['planId']:raise C.AdmissionError('CACHE_PLAN_JOIN')
+     if key['stageSpecDigest'] not in {stage['stageSpecDigest'] for stage in closure['execution']['stages']}:
+--- before/docs/coop/design-corrections/foundation/identity-schemas.v3.json
++++ after/docs/coop/design-corrections/foundation/identity-schemas.v3.json
+@@ -1017,7 +1017,8 @@
+             "$ref": "#/$defs/FindingEvidenceRef"
+           },
+           "uniqueItems": true,
+-          "x-opensip-order": "canonical-set"
++          "x-opensip-order": "canonical-set",
++          "description": "Root predicate-witness digest; descendant known and uncertain facts; descendant witness coverageIds (consulted); descendant matching/uncertain observation importIds; and every evaluationInputRefs member with domain=import. Enumeration/execution inventory refs stay on the proof. composition \u00a79.7."
+         },
+         "ruleId": {
+           "$ref": "#/$defs/Text"
+@@ -1183,7 +1184,8 @@
+             "$ref": "#/$defs/ProofInputRef"
+           },
+           "uniqueItems": true,
+-          "x-opensip-order": "canonical-set"
++          "x-opensip-order": "canonical-set",
++          "description": "Complete admitted selection: ExecutionInputsV1.selectedRefs plus the one execution-inputs ref. Not an evaluated subset. Atomic predicateProofs[].inputRefs copy this whole set (composition \u00a79.2)."
+         },
+         "predicateProofs": {
+           "type": "array",
+@@ -1235,7 +1237,8 @@
+                   "$ref": "#/$defs/ProofInputRef"
+                 },
+                 "uniqueItems": true,
+-                "x-opensip-order": "canonical-set"
++                "x-opensip-order": "canonical-set",
++                "description": "Atomic: equal to proof.evaluationInputRefs (whole admitted selection, including empty-population inputs). Boolean: canonical union of immediate children. Projection of the witness-binding sentence; witnesses have no inputRefs field. Not the atom internal consumed-ref subset. composition \u00a79.2."
+               },
+               "scopeIds": {
+                 "type": "array",
+@@ -1326,7 +1329,8 @@
+           "items": {
+             "$ref": "#/$defs/evaluation-deficiency"
+           },
+-          "x-opensip-order": "canonical-set"
++          "x-opensip-order": "canonical-set",
++          "description": "Required-execution assessment items even when all rules are disabled, plus work-budget-exhausted. source=execution is the assessment layer. cause is row.deficiency if it is an execution-registry member, else required-cell-unsatisfied for null/source-syntax-invalid. inputRefs are the ExecutionInputsV1 ref plus originating Coverage/inventory/candidate refs. subjectId and predicateId are null. composition \u00a79.6. Internal requiredCellDeficiencies tokens native-work-incomplete/unsupported-typed are not proof causes."
+         },
+         "executionInputsDigest": {
+           "type": "string",
+@@ -1391,7 +1395,7 @@
+           },
+           "uniqueItems": true,
+           "x-opensip-order": "canonical-set",
+-          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. The evaluated SUBSET is named separately by proof-bundle.evaluationInputRefs; a selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority."
++          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. This array is not an evaluated subset and is not proof.evaluationInputRefs (that field is the complete selectedRefs plus the execution-inputs ref). A selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority. Matched and uncertain observation addresses live on predicate-witness matchingImportRows/uncertainImportRows. Atomic predicateProofs[].inputRefs copy the whole evaluationInputRefs under composition \u00a79.2 and therefore may list every selected import without those imports being consulted observation evidence."
+         },
+         "findingIds": {
+           "type": "array",
+@@ -1985,7 +1989,7 @@
+           ]
+         }
+       },
+-      "description": "Version3 witness. Native atoms carry native matches/uncertain matches and Coverage; imported atoms carry observation addresses, never fact2; boolean nodes carry children and empty match/Coverage arrays. Exact source-specific plane/operation constraints and complete replay are evaluator admission laws.",
++      "description": "Version3 witness. No inputRefs field: the complete admitted evaluation input selection is projected onto predicateProofs[].inputRefs (composition \u00a79.2). Native atoms carry native matches/uncertain matches and Coverage; imported atoms carry observation addresses, never fact2; boolean nodes carry children and empty match/Coverage arrays. coverageIds and matching/uncertain sets are consulted evidence and may be narrower than evaluationInputRefs. Exact source-specific plane/operation constraints and complete replay are evaluator admission laws.",
+       "allOf": [
+         {
+           "if": {
+@@ -2751,7 +2755,7 @@
+         "operation",
+         "nodeDigest"
+       ],
+-      "description": "The closed record digested by predicate-witness.programPredicateDigest. It addresses ONE predicate node of the admitted RuleProgramV1; it introduces no second policy language. predicateId is the node address: the rule root is \"p\", the i-th operand of an and/or node at address a is a+\".\"+i (zero-based, shortest decimal), and the operand of a not node at address a is a+\".0\".",
++      "description": "The closed record digested by predicate-witness.programPredicateDigest. It addresses ONE predicate node of the admitted RuleProgramV2; it introduces no second policy language. predicateId is the node address: the rule root is \"p\", the i-th operand of an and/or node at address a is a+\".\"+i (zero-based, shortest decimal), and the operand of a not node at address a is a+\".0\".",
+       "properties": {
+         "schemaVersion": {
+           "const": 2
+@@ -3436,7 +3440,7 @@
+           ]
+         }
+       },
+-      "description": "Closed replayed deficiency with explicit origin. evidenceKind is data provenance bound to the policy atom/declaration, not a gating flag. Native carrier, universe, subject, predicate and supporting roots are rederived from admitted inputs.",
++      "description": "Closed replayed deficiency with explicit origin. evidenceKind is data provenance bound to the policy atom/declaration, not a gating flag. Native carrier, universe, subject, predicate and inputRefs are rederived from admitted inputs per composition \u00a79.5\u2013\u00a79.6. Execution-assessment items use source=execution and inputRefs = ExecutionInputsV1 ref plus originating row refs. Atom items on a native/import plane copy evaluationInputRefs except Coverage-entry items which name that Coverage.",
+       "allOf": [
+         {
+           "if": {
+--- before/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json
++++ after/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json
+@@ -1,8 +1,8 @@
+ {
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "opensip.product.provider-target-attribution-return.2",
+-  "title": "ProviderTargetAttributionReturnV2 — HISTORICAL COMPLETE58 host projection shape, not worker delivery",
+-  "description": "WITHDRAWN as the worker delivery interface (COMPLETE58). A caller-built envelope of TargetAttributionV2 cannot be the provider invocation: FactCandidateV1 already carries opaque encoded resolvedTarget, and planId/sourceFactId/producerClosure do not exist until the host mints fact2. CURRENT delivery is OccupancyCompanionV1 on negotiated FactBatchV3 (native/occupancy-companion.schema.v1.json, native/fact-batch.schema.v3.json). Host bind_worker_occupancy mechanically projects this V2 shape after mint. This document remains the captured-record join shape and the internal-fault registry. NOT a digest-domain. NOT a protocol3 frame. origin is a fault-observation field, not an admit blessing.",
++  "title": "ProviderTargetAttributionReturnV2 \u2014 non-wire projection shape and internal fault registry",
++  "description": "This envelope is not an accepted worker delivery interface, digest domain or Run preimage. Worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3. The host fills Plan/stage provenance and the minted fact identity to project TargetAttributionV2 records. The envelope shape remains available to validate diagnostic inputs; the current capture and fault laws are declared below. An envelope alone cannot authorize capture.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -62,7 +62,7 @@
+     "capturedRecord": "foundation/target-attribution.schema.v2.json"
+   },
+   "x-opensip-return-law": {
+-    "standing": "COMPLETE58 adapter-envelope is historical and is not worker delivery. CURRENT channel is negotiated FactBatchV3 occupancy companions plus host mechanical projection. Protocol3 frame name FactBatch is unchanged; payload version is capability-gated by token target-attribution-v2. Historical FactBatchV2/FactCandidateV1 stay closed when the token is absent.",
++    "standing": "Current delivery is negotiated FactBatchV3 occupancy companions plus host mechanical projection. The frame name FactBatch is unchanged. Historical FactBatchV2/FactCandidateV1 stay closed when the token is absent. The envelope schema is not the worker channel.",
+     "boundary": {
+       "compilerWorkerTransport": "FactCandidateV1 unchanged. When Hello negotiates target-attribution-v2, FactBatch payload is FactBatchV3 carrying occupancyCompanions associated by candidateOrdinal BEFORE fact2 exists. When the token is absent, FactBatchV2 remains and occupancy is unknown except exact-id ephemeral.",
+       "providerWrapper": "The language wrapper RUNS IN THE WORKER process, before FactBatch emit, while compiler-native resolution is still in memory. It encodes opaque SubjectIdV1 into FactCandidateV1.canonicalRelationPayload AND emits OccupancyCompanionV1 in the same batch. It does not run after host fact2 mint. There is no post-FactBatch shared table.",
+@@ -77,11 +77,11 @@
+         "dispatch": "required DispatchBindingV1 host TCB observation (native/dispatch-binding.schema.v1.json). Omitting it refuses PROVIDER_RETURN_DISPATCH. Carries retainedStageOrdinal, analyzeRequestOrdinal, expectedStageId, expectedAnalysisOrdinal, expectedBatchIndex, expectedFirstCandidateOrdinal, producerClosure, stageSpecDigest.",
+         "planId": "retained Plan locator; must equal dispatch.planId",
+         "execution_plan": "retained execution-plan descriptor; lookup uses dispatch.retainedStageOrdinal, never integer(batch.stageId)",
+-        "stage_specs": "map of stageSpecDigest → stage spec carrying producerClosure",
+-        "closures": "retained closure2 → {kind}",
++        "stage_specs": "map of stageSpecDigest \u2192 stage spec carrying producerClosure",
++        "closures": "retained closure2 \u2192 {kind}",
+         "views": "required at capture; retained views of this producer; sourceFactId MUST be a member and that view MUST appear in the matching receipt.outputRefs",
+         "stage_receipts": "required at capture; hostCapture.stageReceipts. MUST NOT be required at buffer_fact_batch_occupancy during ANALYZING.",
+-        "minted_by_ordinal": "host mint map candidateOrdinal → fact2 of THIS batch only, verified against this batch's candidates. Prior-batch facts are not required in this map.",
++        "minted_by_ordinal": "host mint map candidateOrdinal \u2192 fact2 of THIS batch only, verified against this batch's candidates. Prior-batch facts are not required in this map.",
+         "inventories": "admitted SubjectInventoryV1",
+         "enumerationPlan": "EnumerationPlanV1",
+         "prior_records": "already-captured TargetAttributionV2 from prior batches of this Plan. Combined occupancy-conflict uses sidecars only (AM._admit_provider_occupancy_conflicts does not use facts). Current-batch TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN uses THIS batch mint map only."
+@@ -89,11 +89,10 @@
+       "output": {
+         "status": "omitted | admitted",
+         "records": "the admitted TargetAttributionV2 list (empty when omitted or empty records)",
+-        "hostDerivedRefs": "canonical-set of {domain:target-attribution, digest:raw-sha256-of-C(record)} — empty when omitted",
+-        "blobs": "map digest → C(record) bytes for those refs. Envelope itself is never a blob/selectedRefs member"
++        "hostDerivedRefs": "canonical-set of {domain:target-attribution, digest:raw-sha256-of-C(record)} \u2014 empty when omitted",
++        "blobs": "map digest \u2192 C(record) bytes for those refs. Envelope itself is never a blob/selectedRefs member"
+       },
+       "notInputs": [
+-        "compiler worker frames",
+         "SubjectIdV1 namespace parse",
+         "host.cache / host.standing / host.targetAttributions",
+         "arbitrary host filesystem or package-manager data claimed as provider attestation"
+@@ -102,27 +101,28 @@
+     "order": {
+       "envelopeRecords": "strict unique utf-8 of sourceFactId",
+       "captureRefs": "canonical-set of {domain,digest}",
+-      "atomic": "admit every record then capture every record, or refuse the whole envelope. No partial hostDerivedRefs from a refused envelope"
++      "atomic": "Admit every companion in this batch then capture the projected records, or refuse this batch occupancy capture without partial hostDerivedRefs."
+     },
+     "joins": [
+-      "envelope.planId equals invocation planId and each record.planId",
+-      "envelope.producerClosure equals invocation producerClosure, each record.producerClosure, and each named fact.producerClosure",
+-      "closures[producerClosure].kind = provider",
+-      "historical COMPLETE58 envelope.stageOrdinal is not FactBatch.stageId; capture joins dispatch.retainedStageOrdinal to execution-plan.stages[].ordinal and hostCapture.stageReceipts[ordinal]",
+-      "each record.sourceFactId is a member of invocation facts (PROVIDER_RETURN_UNKNOWN_FACT / TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN otherwise)",
+-      "each named fact is on a resolved binary-id rung (registry targetNativeIdField present and fact.resolution in endpointTargetRungs); syntactic-only facts MUST be omitted (TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG if included)",
+-      "each record admits as TargetAttributionV2 including inventory first-party join and ephemeral-identity conflict law"
++      "dispatch.planId equals the retained Plan, execution-plan and stage-spec planId",
++      "dispatch.retainedStageOrdinal selects the retained stage and its matching receipt; Analyze request ordinal is a separate coordinate",
++      "batch.stageId, analysisOrdinal and batchIndex equal the required dispatch observations; candidate ordinals form the contiguous stream starting at expectedFirstCandidateOrdinal",
++      "stageSpecDigest authenticates the selected stage spec; its producerClosure equals dispatch.producerClosure and closures[producerClosure].kind is provider",
++      "each companion names a candidate in this batch and agrees with its target universe and decoded relation target field",
++      "each projected sourceFactId is the corresponding admitted mint from this-batch mint map and belongs to a selected view of the producer named on the matching receipt outputRefs",
++      "each named fact is on a registry-supported binary-id rung; each projected record admits as TargetAttributionV2 including inventory and ephemeral-identity joins",
++      "current-batch admission precedes combined provider-occupancy conflict checks against already-admitted prior records of this Plan"
+     ],
+     "missingAndIncomplete": {
+-      "missingEnvelope": "lawful. No target-attribution refs are captured from this producer/stage. Occupancy unknown except exact-id ephemeral first-party. NOT required-output-pointer-omitted. NOT a protocol violation.",
+-      "presentEmptyOrPartial": "lawful. Omitted facts of this producer remain occupancy unknown except exact-id ephemeral. A present envelope is not required to cover every minted fact.",
+-      "extraRecord": "a record whose sourceFactId is not in this producer's minted facts refuses",
+-      "syntaxOnlyFacts": "MUST be omitted from records"
++      "missingToken": "Historical FactBatchV2; no companion capture. Occupancy unknown except exact-id ephemeral.",
++      "emptyOrPartialCompanions": "Lawful omission of unlisted candidates; no required-output-pointer-omitted.",
++      "extraCompanion": "An ordinal absent from this batch refuses.",
++      "syntaxOnlyFacts": "Companions for unsupported syntactic rungs refuse."
+     },
+     "errorHandling": {
+-      "atomicRefuse": "any envelope or record refusal captures nothing from this envelope",
++      "atomicRefuse": "Any companion or projection refusal captures nothing from this batch.",
+       "internalKeysRemainInternal": "TARGET_ATTRIBUTION_* and PROVIDER_RETURN_* stay internal diagnostic keys in retained diagnostic bytes. They are not DomainDetailCode members and are not D9 codes.",
+-      "publicRoute": "existing evaluator-fault observation {condition, origin}. Provider-emitted malformed records/envelope: condition=input-schema-invalid, origin=provider-return → operational-failed PROVIDER.PROTOCOL_VIOLATION faultCause=provider-protocol detail=EVALUATION.INPUT_REFUSED. Provider-emitted join/conflict: condition=input-join-invalid, origin=provider-return → same public detail. Host-invented mapping: origin=host-internal → operational-failed SYSTEM.OUTCOME.ILLEGAL_STATE faultCause=host-invariant detail=HOST.INVARIANT_VIOLATED. Exact routes: evaluator-fault-observation.schema.v3.json x-opensip-routes. LIVE D9 successor-artifact remains a future host obligation and is not discharged by this route.",
++      "publicRoute": "existing evaluator-fault observation {condition, origin}. Provider-emitted malformed batch/companions/projected records: condition=input-schema-invalid, origin=provider-return \u2192 operational-failed PROVIDER.PROTOCOL_VIOLATION faultCause=provider-protocol detail=EVALUATION.INPUT_REFUSED. Provider-emitted join/conflict: condition=input-join-invalid, origin=provider-return \u2192 same public detail. Host-invented mapping: origin=host-internal \u2192 operational-failed SYSTEM.OUTCOME.ILLEGAL_STATE faultCause=host-invariant detail=HOST.INVARIANT_VIOLATED. Exact routes: evaluator-fault-observation.schema.v3.json x-opensip-routes. LIVE D9 successor-artifact remains a future host obligation and is not discharged by this route.",
+       "not": [
+         "new DomainDetailCode",
+         "new D9 code",
+@@ -136,7 +136,7 @@
+       "modes": {
+         "ts-tsconfig / js-allowjs / js-synthesized": {
+           "worker": "typescript-semantic protocol major 2. Unchanged frames.",
+-          "wrapper": "TypeScript/JavaScript semantic wrapper. After fact2 mint, emit one V2 record per minted resolved-target/resolved-binding/resolved-callee/to/reachable fact that the compiler-native resolution table can attribute, or omit that fact (unknown).",
++          "wrapper": "In-worker wrapper emits OccupancyCompanionV1 while encoding the corresponding opaque candidate payload, before FactBatch emission. Omit candidates the compiler cannot attribute, or report unknown occupancy.",
+           "fileFirstParty": "compiler resolved a first-party program file whose inventory nativeSubjectId is LogicalPath P: occupancy=first-party, kind=file, evaluationNativeId=P, logicalPath=null. evaluationNativeId is the inventory spelling, NOT the opaque payload string (except the accidental C15 case where inventory N already equals SubjectIdV1 and therefore P equals targetNativeId).",
+           "fileExternal": "compiler resolved outside first-party inventory: occupancy=external, kind=file, evaluationNativeId=null, logicalPath MAY be a non-authoritative hint",
+           "packageFirstParty": "compiler resolved a first-party package: occupancy=first-party, kind=package, evaluationNativeId=packageName, packageManifestPath=inventory row.path, logicalPath=null",
+@@ -147,7 +147,7 @@
+         },
+         "rust-cargo / rust-cargo-prepared": {
+           "worker": "rust-semantic protocol major 3. Unchanged frames including FactBatch and CoverageV3.",
+-          "wrapper": "Rust semantic wrapper. Same envelope and occupancy law. rustc/cargo resolved path vs package fills the compiler-native resolution table during the same encoding that writes SubjectIdV1 payloads.",
++          "wrapper": "In-worker Rust wrapper emits the same occupancy companion while encoding the rustc/cargo-resolved candidate payload.",
+           "fileFirstParty": "first-party crate source file in inventory: occupancy=first-party, kind=file, evaluationNativeId=inventory LogicalPath",
+           "packageFirstParty": "first-party workspace package: occupancy=first-party, kind=package, evaluationNativeId=packageName, packageManifestPath=row.path",
+           "packageExternal": "crates.io / external crate: occupancy=external, kind=package, packageManifestPath=query coordinate",
+@@ -155,12 +155,12 @@
+           "syntacticRungs": "omit"
+         },
+         "syntax-only": {
+-          "wrapper": "syntax-only provider. MUST omit this envelope, or omit every file/package occupancy record.",
+-          "symbols": "control-flow@syntactic and reachability may identity-map or omit; MUST NOT invent file/package occupancy from specifier text",
++          "wrapper": "Omit the attribution token; no occupancy companion delivery.",
++          "symbols": "Exact-id ephemeral projection may resolve symbols; do not invent file/package occupancy from specifier text.",
+           "never": "do not advertise resolved imports/file/package occupancy from syntax-only"
+         },
+         "clone-candidate": {
+-          "wrapper": "clone/candidate producers are not occupancy-mapping producers of resolved binary-id facts. MUST omit this envelope. Candidate member IDs are never evaluation-subject identity."
++          "wrapper": "Omit the attribution token. Candidate member identities are not evaluation-subject identities."
+         }
+       },
+       "never": [
+@@ -174,7 +174,7 @@
+     },
+     "ephemeralIdentityConflict": {
+       "id": "C15",
+-      "law": "If ephemeral exact-id occupancy is first-party identity I_eph AND sidecar occupancy is first-party identity I_sc AND I_eph ≠ I_sc, refuse TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT. Independently known identity cannot be silently rewritten by a contradictory provider mapping. Occupancy identity is (kind, evaluationNativeId) for file/symbol and (kind, evaluationNativeId, packageManifestPath) for package.",
++      "law": "If ephemeral exact-id occupancy is first-party identity I_eph AND sidecar occupancy is first-party identity I_sc AND I_eph \u2260 I_sc, refuse TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT. Independently known identity cannot be silently rewritten by a contradictory provider mapping. Occupancy identity is (kind, evaluationNativeId) for file/symbol and (kind, evaluationNativeId, packageManifestPath) for package.",
+       "reproducibleOperand": "Inventory contains file nativeSubjectId=file:src/a.ts (SubjectIdV1 spelling that is also a LogicalPath) AND file nativeSubjectId=src/b.ts. Payload resolvedTarget exactly equals file:src/a.ts, so ephemeral I_eph is first-party file:src/a.ts. Sidecar occupancy=first-party evaluationNativeId=src/b.ts joins the other inventory row. Join of kind/exists succeeds; identity disagrees. Refuse. Do not overwrite ephemeral nativeId with src/b.ts.",
+       "agreement": "Sidecar first-party identity equal to I_eph is admitted (sidecar+ephemeral). Sidecar occupancy=unknown keeps ephemeral. Sidecar occupancy=external while ephemeral is first-party remains TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY."
+     }
+--- before/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py
++++ after/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py
+@@ -291,6 +291,9 @@
+         raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_STREAM", "unique-increasing")
+     if ords and ords[0] != dispatch["expectedFirstCandidateOrdinal"]:
+         raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_STREAM", "expectedFirstCandidateOrdinal")
++    first = dispatch["expectedFirstCandidateOrdinal"]
++    if ords != list(range(first, first + len(ords))):
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_STREAM", "contiguous candidate stream")
+     return candidates
+ 
+ 
+--- before/docs/coop/design-corrections/foundation/shared-profile-decisions.v1.md
++++ after/docs/coop/design-corrections/foundation/shared-profile-decisions.v1.md
+@@ -7,5 +7,5 @@
+ - Evaluation deficiency now requires evidenceKind, nativeCause, universe (nullable as schema). Import missing-wrapper cases still name exact evidenceKind for required/optional authority; no text-prefix inference or gating boolean. Root owns schema/adapter.
+ - PolicyDocumentV2 schemaMajor2 and RuleProgramV2 schemaVersion2 (policy-document.v2.schema.json) own atom endpoint/test filters; Scope/Waiver1 unchanged owner.
+ - Required emission/enum params per evaluator3, fingerprintnamespace stableId+major unique includingdisabled. ScopeDocument globs intersect selection; no-covering-program unknown, missingexpectedrecord structuralrefusal.
+-- Reference standing, not product qualification: `check-enumeration.v1`, `check-atoms.v1`, `check-semantic-replay.v3`, and `check-provider-attribution-return.v2` are current reference evidence on synthetic fixtures (including one owner-admitted imports/file first-party graph). They do not qualify a live compiler, do not discharge LIVE D9, and do not freeze the profile. Full independent replay of a live compiler, OS/compiler qualification, and pin seal remain future product qualification. This document does not give final assent.
+-- Current selected target-attribution schema is TargetAttributionV2 (`evaluationNativeId` occupancy identity). CURRENT worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3 (token `target-attribution-v2`, an additional optional capability beside the four identity tokens). Host `buffer_fact_batch_occupancy` runs during ANALYZING against `DispatchBindingV1`; `bind_worker_occupancy` projects V2 after mint from retained Plan/stage/view/receipt. FactBatch.stageId remains C-2 text; Analyze request ordinal is not retained execution-plan ordinal. COMPLETE58 post-fact2 envelope is historical and is not delivery. Historical V1 sidecars refuse. Missing sidecar does not restore payload-vs-N nomatch. Independently known exact-id identity cannot be overwritten by a contradictory sidecar (`TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`). Evaluator output profile remains 3. Frozen24 remains historical under its own selected V1 schema/profile.
++- Reference standing, not product qualification: `check-enumeration.v1`, `check-atoms.v1`, `check-semantic-replay.v3`, and `check-provider-attribution-return.v2` are current reference evidence on synthetic fixtures (including one owner-admitted imports/file first-party graph). They do not qualify a live compiler, do not discharge LIVE D9, and do not freeze the profile. Live compiler replay and OS/compiler qualification remain future product qualification. Source sealing and final design review are separate design acceptance obligations. This document does not give final assent.
++- Current selected target-attribution schema is TargetAttributionV2 (`evaluationNativeId` occupancy identity). Worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3 (token `target-attribution-v2`, an additional optional capability beside the four identity tokens). Host `buffer_fact_batch_occupancy` runs during ANALYZING against `DispatchBindingV1`; `bind_worker_occupancy` projects V2 after mint from retained Plan/stage/view/receipt. FactBatch.stageId remains C-2 text; Analyze request ordinal is not retained execution-plan ordinal. Historical V1 sidecars refuse. Missing sidecar does not restore payload-vs-N nomatch. Independently known exact-id identity cannot be overwritten by a contradictory sidecar (`TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`). Evaluator output profile remains 3. Frozen24 remains historical under its own selected V1 schema/profile.
+--- before/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json
++++ after/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json
+@@ -366,7 +366,7 @@
+     "evaluationSubject": "subject3 / evaluation-subject is (universe, kind, nativeSubjectId); PACKAGE ONLY adds required packageManifestPath from inventory row.path. File/symbol shape unchanged.",
+     "payloadPlane": "targetNativeId is the opaque payload copy. Unchanged ImportsPayloadV1 SubjectIdV1 grammar.",
+     "occupancyPlane": "MatchingFacts for endpoint=target compare E to occupancy identity, not to targetNativeId, except where those strings are already the same grammar (symbol exact-id).",
+-    "producerReturn": "CURRENT worker product is OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2, additional optional capability beside the four identity tokens), associated by candidateOrdinal before fact2 exists. FactBatch.stageId is C-2 text of the requested stage, correlated via host DispatchBindingV1 (retainedStageOrdinal is not Analyze request ordinal). Host buffer_fact_batch_occupancy runs during ANALYZING; bind_worker_occupancy projects THIS record after mint and stageReceipt, filling planId/sourceFactId/producerClosure from retained Plan/execution-plan stage spec/selected view whose digest is on receipt.outputRefs. COMPLETE58 ProviderTargetAttributionReturnV2 wrapper envelope after fact2 mint is historical and is not delivery. Host captures projected records into hostCapture.hostDerivedRefs domain=target-attribution. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host MUST NOT parse SubjectIdV1 to invent this record. origin is not an admit blessing.",
++    "producerReturn": "The worker product is OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2, additional optional capability beside the four identity tokens), associated by candidateOrdinal before fact2 exists. FactBatch.stageId is C-2 text of the requested stage, correlated via host DispatchBindingV1 (retainedStageOrdinal is not Analyze request ordinal). Host buffer_fact_batch_occupancy runs during ANALYZING; bind_worker_occupancy projects THIS record after mint and stageReceipt, filling planId/sourceFactId/producerClosure from retained Plan/execution-plan stage spec/selected view whose digest is on receipt.outputRefs. Host captures projected records into hostCapture.hostDerivedRefs domain=target-attribution. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host MUST NOT parse SubjectIdV1 to invent this record. origin is not an admit blessing.",
+     "producerClosureKind": "producerClosure equals fact.producerClosure and closures[pc].kind=provider. TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER otherwise.",
+     "joins": [
+       "planId names a retained Plan",
+--- before/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json
++++ after/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json
+@@ -1,8 +1,8 @@
+ {
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "opensip.product.occupancy-companion.1",
+-  "title": "OccupancyCompanionV1 — worker occupancy claim bound to one FactCandidateV1 before fact2 exists",
+-  "description": "CURRENT selected worker occupancy product. Emitted on FactBatchV3 alongside unchanged FactCandidateV1, associated only by candidateOrdinal in that batch. NOT a TargetAttributionV2. NOT a protocol3 frame of its own. Does not carry planId, sourceFactId, or producerClosure: those do not exist at worker emit time and are host-filled by mechanical projection after fact2 mint. Historical COMPLETE58 ProviderTargetAttributionReturnV2 as a wrapper-built envelope after fact2 mint is withdrawn as the delivery interface because the compiler-native table cannot cross a closed FactBatch of already-encoded opaque payloads.",
++  "title": "OccupancyCompanionV1 \u2014 worker occupancy claim bound to one FactCandidateV1 before fact2 exists",
++  "description": "Worker occupancy product emitted on FactBatchV3 alongside unchanged FactCandidateV1, associated by candidateOrdinal in that batch. It is not TargetAttributionV2 or a frame of its own. It omits planId, sourceFactId and producerClosure; the host projects those fields from retained Plan/stage provenance and the corresponding minted fact.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -41,94 +41,239 @@
+     },
+     "kind": {
+       "type": "string",
+-      "enum": ["file", "symbol", "package", "unknown"]
++      "enum": [
++        "file",
++        "symbol",
++        "package",
++        "unknown"
++      ]
+     },
+     "occupancy": {
+       "type": "string",
+-      "enum": ["first-party", "external", "unknown"]
++      "enum": [
++        "first-party",
++        "external",
++        "unknown"
++      ]
+     },
+     "exported": {
+       "oneOf": [
+-        {"type": "string", "enum": ["exported", "not-exported", "unknown"]},
+-        {"type": "null"}
++        {
++          "type": "string",
++          "enum": [
++            "exported",
++            "not-exported",
++            "unknown"
++          ]
++        },
++        {
++          "type": "null"
++        }
+       ]
+     },
+     "logicalPath": {
+       "oneOf": [
+-        {"$ref": "#/$defs/LogicalPath"},
+-        {"type": "null"}
++        {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        {
++          "type": "null"
++        }
+       ]
+     },
+     "packageManifestPath": {
+       "oneOf": [
+-        {"$ref": "#/$defs/LogicalPath"},
+-        {"type": "null"}
++        {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        {
++          "type": "null"
++        }
+       ]
+     },
+     "evaluationNativeId": {
+       "oneOf": [
+-        {"type": "string", "minLength": 1, "maxLength": 4096},
+-        {"type": "null"}
++        {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        {
++          "type": "null"
++        }
+       ]
+     }
+   },
+   "allOf": [
+     {
+-      "if": {"properties": {"kind": {"const": "symbol"}}},
+-      "then": {
+-        "properties": {"exported": {"type": "string", "enum": ["exported", "not-exported", "unknown"]}},
+-        "not": {"properties": {"exported": {"type": "null"}}}
+-      }
+-    },
+-    {
+-      "if": {"properties": {"kind": {"enum": ["file", "package", "unknown"]}}},
+-      "then": {"properties": {"exported": {"type": "null"}}}
+-    },
+-    {
+-      "if": {"properties": {"occupancy": {"const": "first-party"}}},
+-      "then": {
+-        "properties": {
+-          "logicalPath": {"type": "null"},
+-          "evaluationNativeId": {"type": "string", "minLength": 1, "maxLength": 4096}
+-        },
+-        "not": {"properties": {"evaluationNativeId": {"type": "null"}}}
+-      }
+-    },
+-    {
+-      "if": {"properties": {"occupancy": {"enum": ["external", "unknown"]}}},
+-      "then": {"properties": {"evaluationNativeId": {"type": "null"}}}
+-    },
+-    {
+-      "if": {"properties": {"kind": {"enum": ["file", "symbol", "unknown"]}}},
+-      "then": {"properties": {"packageManifestPath": {"type": "null"}}}
+-    },
+-    {
+-      "if": {
+-        "properties": {
+-          "kind": {"const": "package"},
+-          "occupancy": {"enum": ["first-party", "external"]}
+-        }
+-      },
+-      "then": {
+-        "properties": {
+-          "packageManifestPath": {"$ref": "#/$defs/LogicalPath"},
+-          "logicalPath": {"type": "null"}
+-        },
+-        "not": {"properties": {"packageManifestPath": {"type": "null"}}}
+-      }
+-    },
+-    {
+-      "if": {
+-        "properties": {
+-          "kind": {"const": "package"},
+-          "occupancy": {"const": "unknown"}
+-        }
+-      },
+-      "then": {
+-        "properties": {
+-          "packageManifestPath": {"type": "null"},
+-          "logicalPath": {"type": "null"},
+-          "evaluationNativeId": {"type": "null"}
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "symbol"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "exported": {
++            "type": "string",
++            "enum": [
++              "exported",
++              "not-exported",
++              "unknown"
++            ]
++          }
++        },
++        "not": {
++          "properties": {
++            "exported": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "enum": [
++              "file",
++              "package",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "exported": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "occupancy": {
++            "const": "first-party"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "logicalPath": {
++            "type": "null"
++          },
++          "evaluationNativeId": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096
++          }
++        },
++        "not": {
++          "properties": {
++            "evaluationNativeId": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "occupancy": {
++            "enum": [
++              "external",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "evaluationNativeId": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "enum": [
++              "file",
++              "symbol",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "package"
++          },
++          "occupancy": {
++            "enum": [
++              "first-party",
++              "external"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "$ref": "#/$defs/LogicalPath"
++          },
++          "logicalPath": {
++            "type": "null"
++          }
++        },
++        "not": {
++          "properties": {
++            "packageManifestPath": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "package"
++          },
++          "occupancy": {
++            "const": "unknown"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "type": "null"
++          },
++          "logicalPath": {
++            "type": "null"
++          },
++          "evaluationNativeId": {
++            "type": "null"
++          }
+         }
+       }
+     }
+@@ -139,7 +284,9 @@
+       "minLength": 1,
+       "maxLength": 4096,
+       "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+-      "not": {"pattern": "(^|/)\\.\\.?(/|$)"}
++      "not": {
++        "pattern": "(^|/)\\.\\.?(/|$)"
++      }
+     }
+   },
+   "x-opensip-order-vocabulary": {
+--- before/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ after/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -40,7 +40,7 @@
+     "historical workflows/schemas/graph-query.schema.json is not this owner and is not edited",
+     "root owns workflows-and-surfaces.md §8, launchers, source pins, and shared inventory count guards",
+     "no all-suite pin rerun; no independent ACCEPT claimed by this checker",
+-    "imports@resolved-target multi-kind attribution is TargetAttributionV2 occupancy-identity table law; owner-admitted imports file occupancy uses execute_graph_query after close_run",
++    "imports@resolved-target uses the same reconciled occupancy as atom matching; owner-admitted execute_graph_query covers mapped file, exact-id symbol without sidecar, unknown sidecar plus unique inventory, and genuine unmapped limitation",
+     "native incomplete resolutionState is mapped from completeness_from_stage; the semantic fixture unresolved path remains not-attempted",
+ ]
+ 
+@@ -695,6 +695,97 @@
+     reach_ids = [row["endpoint"]["nativeSubjectId"] for row in reach_imp["items"]]
+     check("owner-imports-reach-includes-file-occupancy", "a.ts" in reach_ids and "file:a.ts" not in reach_ids, reach_ids)
+ 
++    IMPORTS_EXISTS = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                      "endpoint": "target", "filters": []}
++
++    sg = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="symbol", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="exact-id-symbol",
++    )
++    srun, sobjects, sblobs, sactual = replay.close_positive(sg)
++    shost = host_obs(latestRunId=sactual["runId"])
++
++    def sex(req, run_=None, objects_=None, blobs_=None, h=None):
++        used = h if h is not None else shost
++        if "requestId" not in used:
++            used = dict(host_obs(), **used)
++        return Q.execute_graph_query(
++            req,
++            srun if run_ is None else run_,
++            sobjects if objects_ is None else objects_,
++            sblobs if blobs_ is None else blobs_,
++            host=used,
++        )
++
++    foo_ep = ep(sg["u1"], "symbol", sg["foo"])
++    bar_ep = ep(sg["u1"], "symbol", sg["bar"])
++    sym_in = sex(request("graph.neighbors", srun["projectId"], {"runId": sactual["runId"]}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": foo_ep,
++    }))
++    check("owner-imports-symbol-exact-id-no-sidecar-query",
++          len(sym_in["items"]) == 1 and sym_in["items"][0]["source"]["nativeSubjectId"] == sg["bar"]
++          and sym_in["items"][0]["target"]["nativeSubjectId"] == sg["foo"],
++          sym_in["items"])
++    check("owner-imports-symbol-exact-id-atom-run-agrees",
++          sactual["verdict"] == "fail" and sactual["findingCount"] >= 1,
++          sactual)
++
++    ug = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="symbol", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="unknown-sidecar-symbol",
++    )
++    urun, uobjects, ublobs, uactual = replay.close_positive(ug)
++    uhost = host_obs(latestRunId=uactual["runId"])
++    ufoo = ep(ug["u1"], "symbol", ug["foo"])
++    uin = Q.execute_graph_query(
++        request("graph.neighbors", urun["projectId"], {"runId": uactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": ufoo,
++        }),
++        urun, uobjects, ublobs, host=dict(uhost, targetAttributions={"forged": True}),
++    )
++    check("owner-imports-unknown-sidecar-unique-inventory-query",
++          len(uin["items"]) == 1 and uin["items"][0]["target"]["nativeSubjectId"] == ug["foo"],
++          uin["items"])
++    check("owner-imports-unknown-sidecar-atom-run-agrees",
++          uactual["verdict"] == "fail" and uactual["findingCount"] >= 1,
++          uactual)
++    check("owner-imports-host-targetAttributions-do-not-grant-occupancy",
++          len(uin["items"]) == 1, uin["items"])
++
++    mg = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="file", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="unmapped-file",
++    )
++    mrun, mobjects, mblobs, mactual = replay.close_positive(mg)
++    mhost = host_obs(latestRunId=mactual["runId"])
++    mout = Q.execute_graph_query(
++        request("graph.neighbors", mrun["projectId"], {"runId": mactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "outgoing",
++            "endpoint": ep(mg["u1"], "symbol", mg["foo"]),
++        }),
++        mrun, mobjects, mblobs, host=mhost,
++    )
++    lims = mout["context"]["evidence"]["resolutionLimitations"]
++    check("owner-imports-unmapped-no-exact-id-unprojectable",
++          mout["items"] == [] and any(x.get("kind") == "unprojectable-fact" for x in lims),
++          {"items": mout["items"], "limitations": lims})
++    minc = Q.execute_graph_query(
++        request("graph.neighbors", mrun["projectId"], {"runId": mactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "incoming",
++            "endpoint": ep(mg["u1"], "file", "a.ts"),
++        }),
++        mrun, mobjects, mblobs, host=mhost,
++    )
++    check("owner-imports-unmapped-file-inventory-vertex-empty-not-hit",
++          minc["items"] == [] and minc["termination"]["class"] == "success", minc)
++    check("owner-imports-unmapped-atom-run-not-known-hit",
++          mactual.get("findingCount", 0) == 0,
++          mactual)
++
++    check("owner-imports-mapped-file-atom-run-agrees",
++          iactual["verdict"] == "fail" and iactual["findingCount"] >= 1,
++          iactual)
++
+     plan_digest = hashlib.sha256((foundation / "enumeration-plan.schema.v1.json").read_bytes()).hexdigest()
+     check("enumeration-plan-row-is-registered-digest", Q.identity3().parameter_row_of(plan_digest) == Q.ENUM_PLAN_ROW, Q.identity3().parameter_row_of(plan_digest))
+     duck_payload = {"cells": [{"programBindings": [{"ordinal": 0, "universe": "a" * 64}]}]}
+--- before/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ after/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -55,13 +55,17 @@
+ 
+ **Request law:** an operation whose `relation@minResolution` is not a row of this table is refused (`QUERY.RELATION_UNSUPPORTED`). The operation does not invent edges and does not advertise undefined relations.
+ 
+-**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, imports without TargetAttributionV2 occupancy identity, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request. Occupancy identity is supplied by captured TargetAttributionV2 records projected from worker OccupancyCompanionV1 on negotiated FactBatchV3, or by exact-id ephemeral first-party projection; it is not a host parse of payload spelling.
++**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, missing occupancy mapping with no unique exact-id identity on a multi-kind rung, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request.
++
++Provider occupancy records are captured TargetAttributionV2 projections of worker OccupancyCompanionV1 on negotiated FactBatchV3. Exact-id ephemeral projection follows the same atom reconciliation law; neither path parses payload spelling to invent identity.
++
++Selected occupancy schema is **TargetAttributionV2**. Historical TargetAttributionV1 remains a retained frozen24 document and is **not selected** by this successor: a selected `schemaVersion=1` sidecar causes retained Run admission to refuse under the current atom contract. It cannot reach public edge projection and is not downgraded to an omitted edge. Query does not restore V1 payload-vs-N projection.
+ 
+ | relation | minResolution (rung) | source field | source kind | target field | target kinds | universe rule | graph-projectable |
+ |---|---|---|---|---|---|---|---|
+ | `calls` | `resolved-callee` | `caller` | symbol | `resolvedCallee` | symbol | admitted-target | yes |
+ | `references` | `resolved-binding` | `referrer` | symbol | `resolvedBinding` | symbol | admitted-target | yes |
+-| `imports` | `resolved-target` | `importer` | symbol | `resolvedTarget` | file, symbol, package | admitted-target | yes (target kind and occupancy from admitted TargetAttributionV2; without V2 or with occupancy=unknown the fact is unprojectable) |
++| `imports` | `resolved-target` | `importer` | symbol | `resolvedTarget` | file, symbol, package | admitted-target | yes (target kind and occupancy from the **same reconciled occupancy projection as atom matching**: exact-id ephemeral first-party when payload native id uniquely equals one inventory native id; known ephemeral fields override unknown sidecar attestation; V2 sidecar first-party mapping otherwise. Missing mapping and no unique exact-id → unprojectable. Unknown attestation must not erase a known occupancy identity.) |
+ | `control-flow` | `syntactic` | `from` | symbol | `to` | symbol | same-only | yes |
+ | `reachability` | `from-resolved-calls` | `origin` | symbol | `reachable` | symbol | same-only | yes |
+ | `calls` | `syntactic-callee-name` | | | | | | **no** (request refused) |
+@@ -69,10 +73,15 @@
+ | `imports` | `syntactic-specifier` | | | | | | **no** |
+ | `file` / `package` / `declares` / `literal` / `types` / `unresolved-edge` / `clones` / `vcs-change` | | | | | | | **no** |
+ 
+-Endpoint of a projectable fact (from the fact + payload):
++Endpoint of a projectable fact (from the fact + payload + **reconciled occupancy**):
+ 
+ - source: `universe = fact.sourceUniverse`, `kind = table.sourceKind`, `nativeSubjectId = payload[sourceField]`; `packageManifestPath` only when kind is `package`.
+-- target: `universe = fact.targetUniverse` when universe rule is `admitted-target`, else `fact.sourceUniverse`; single table target kind, or for `imports@resolved-target` the kind from the retained TargetAttributionV2 of `sourceFactId`. Missing/conflicting/unknown-occupancy/V1 attribution → unprojectable fact. First-party occupancy projects `nativeSubjectId = evaluationNativeId` (inventory spelling) and, for packages, `packageManifestPath` from the sidecar inventory join. External occupancy projects `nativeSubjectId = payload.resolvedTarget` (opaque payload id). External packages still require `packageManifestPath` as the GraphEndpoint coordinate (not a first-party inventory join). Unknown occupancy is unprojectable and is not an inventory vertex.
++- Occupancy identity follows [atom evaluation §2](../foundation/atom-evaluation-contract.v1.md#2-target-attribution) and the selected [TargetAttributionV2 join law](../foundation/target-attribution.schema.v2.json) over the admitted Run’s selected `evaluationInputRefs` (`subject-inventory`, `target-attribution`), the plan enumeration binding, and named producer closures. Host `targetAttributions` / cache / standing are not inputs. The host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling to invent kind or occupancy.
++- target universe: `fact.targetUniverse` when universe rule is `admitted-target`, else `fact.sourceUniverse`.
++- **First-party** occupancy projects `nativeSubjectId = reconciled occupancy nativeId` (inventory spelling) and, for packages, `packageManifestPath` from the occupancy projection.
++- **External** occupancy projects `nativeSubjectId = payload target field` (opaque payload id). External packages still require `packageManifestPath` as the GraphEndpoint coordinate (not a first-party inventory join).
++- **Single-kind** rungs (`calls`/`references`/`control-flow`/`reachability`): table kind is the target kind. Unknown occupancy still projects the payload native id as a lawful external/unknown vertex. Known ephemeral first-party still wins over unknown sidecar attestation.
++- **Multi-kind** `imports@resolved-target`: target kind comes from reconciled occupancy. Missing mapping with no unique exact-id occupancy → unprojectable fact (not an inventory vertex). Unknown sidecar occupancy MUST NOT unproject a fact whose ephemeral exact-id occupancy is first-party.
+ 
+ **Order** of neighbor rows is the utf-8 byte tuple `(source.universe, source.kind, source.nativeSubjectId, source.packageManifestPath or "", target…, fact2 id)`. Reach rows order by the endpoint tuple. Path ties among shortest simple paths are the lexicographically least `fact2` id sequence. These tuples are the public order; backend dense integers are not.
+ 
+@@ -172,7 +181,7 @@
+ 1. Admit request (schema major 3, closed params).
+ 2. Require retained `run`/`objects`/`blobs` and call `close_run`.
+ 3. Join request view to the admitted Run (`runId` / `snapshotId` / trusted `latestRunId`).
+-4. Project from admitted views, retained TargetAttributionV2 (`hostCapture.hostDerivedRefs` domain=target-attribution), and retained payloads. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`.
++4. Project from admitted views, retained payloads, selected subject-inventories, and retained TargetAttributionV2 records named by the Run’s `evaluationInputRefs`. Occupancy identity follows the same normative reconciliation and exact-id derivation in atom evaluation §2 and the selected TargetAttributionV2 join law. The reference helper is an implementation of those laws, not an additional normative input. Historical V1 sidecars are not selected. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`. Do not read ambient unselected store blobs.
+ 5. Admit requested endpoints against the vertex domain.
+ 6. Traverse under the single visit-budget law.
+ 7. Disclose retained Coverage, deficiencies, unresolved-edge, and incoming-search records.
+--- before/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ after/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -3,8 +3,13 @@
+ Public execute_graph_query always requires a retained Run and identity-model.v3
+ close_run. host.standing, host.cache, host.targetAttributions and
+ host.evaluationDeficiencies cannot replace that admission or its retained
+-records. Algorithm goldens over already-projected edges use
+-traverse_projected_graph, which is not a public query and does not admit a Run.
++records. Occupancy identity for projected targets uses the same
++atom_model._reconcile_attribution / _ephemeral_target law as atom matching,
++fed only from the admitted Run's selected evaluationInputRefs (inventories,
++sidecars) plus the plan enumeration binding and named producer closures.
++Caller-supplied census is not retained authority. Algorithm goldens over
++already-projected edges use traverse_projected_graph, which is not a public
++query and does not admit a Run.
+ 
+ Does not seal a Run, invoke a provider, change storage generations, or mint
+ negative proof. Public bound constants are schema Bounds; host.testBounds may
+@@ -54,6 +59,7 @@
+ _ID3 = None
+ _REG = None
+ _TABLE = None
++_AM = None
+ 
+ 
+ class ReferenceCallPrecondition(Exception):
+@@ -123,6 +129,23 @@
+         spec.loader.exec_module(mod)
+         _ID3 = mod
+     return _ID3
++
++
++def atom_model():
++    """Share atom occupancy reconciliation. Do not parse SubjectIdV1 namespaces here.
++
++    M2 identity-contradiction work should preserve _reconcile_attribution(fact, spec, inputs)
++    and _ephemeral_target(fact, spec, inputs). Query does not overwrite atom_model.
++    """
++    global _AM
++    if _AM is None:
++        spec = importlib.util.spec_from_file_location(
++            "query_atom_model_v1", HERE.parent / "foundation" / "atom_model.v1.py"
++        )
++        mod = importlib.util.module_from_spec(spec)
++        spec.loader.exec_module(mod)
++        _AM = mod
++    return _AM
+ 
+ 
+ def schema_registry():
+@@ -708,6 +731,43 @@
+     return out
+ 
+ 
++def occupancy_inputs_from_retained(proof, plan, objects, blobs, producer_closures=None):
++    """Atom-shaped occupancy inputs from the admitted Run closure only.
++
++    Inventories and sidecars are the selected evaluationInputRefs. Enumeration
++    is the plan's registered enumeration-plan parameter. Closures are named
++    producer records already in the retained objects map. Host targetAttributions
++    and ambient unselected blobs are not consulted.
++    """
++    inventories = []
++    attributions = {}
++    needed = set(producer_closures or ())
++    for ref in proof.get("evaluationInputRefs") or []:
++        domain = ref.get("domain")
++        digest = ref.get("digest")
++        if domain == "subject-inventory":
++            inventories.append(_blob_payload(blobs, digest, digest))
++        elif domain == "target-attribution":
++            value = _blob_payload(blobs, digest, digest)
++            fid = value.get("sourceFactId")
++            if fid:
++                attributions[fid] = value
++            pc = value.get("producerClosure")
++            if pc:
++                needed.add(pc)
++    closures = {}
++    for cid in needed:
++        rec = objects.get(cid)
++        if rec and rec[0] == "closure":
++            closures[cid] = rec[1]
++    return {
++        "enumerationPlan": load_enumeration_plan(plan, blobs),
++        "inventories": inventories,
++        "targetAttributions": attributions,
++        "closures": closures,
++    }
++
++
+ def retained_incoming_search(proof, blobs, relation, min_resolution):
+     rows = []
+     for ref in proof.get("evaluationInputRefs") or []:
+@@ -719,7 +779,13 @@
+     return rows
+ 
+ 
+-def project_fact(fact_id, fact, payload, table, target_attr=None):
++def project_fact(fact_id, fact, payload, table, occupancy=None):
++    """Project one fact using reconciled occupancy, not raw sidecar fields.
++
++    occupancy is atom_model._reconcile_attribution output (or None).
++    Multi-kind relations need a known occupancy kind. Single-kind relations
++    keep payload native id for external/unknown occupancy.
++    """
+     src_field, tgt_field = table["sourceField"], table["targetField"]
+     if type(payload) is not dict or src_field not in payload or tgt_field not in payload:
+         return None, {"kind": "unprojectable-fact", "factId": fact_id, "note": "payload lacks native endpoint fields"}
+@@ -735,52 +801,54 @@
+     else:
+         target_universe = fact["sourceUniverse"]
+     kinds = table["targetKinds"]
+-    package_path = None
+-    occupancy = None
++    occ = occupancy or {}
++    occ_state = occ.get("occupancy") or "unknown"
++    occ_kind = occ.get("kind") or "unknown"
++    package_path = occ.get("packageManifestPath")
+     if len(kinds) == 1:
+         tkind = kinds[0]
+-        if target_attr:
+-            occupancy = target_attr.get("occupancy")
+-            if target_attr.get("kind") not in (None, tkind, "unknown") and target_attr.get("kind") not in kinds:
++        if occ_kind in STORED_KINDS and occ_kind != tkind:
++            return None, {
++                "kind": "unprojectable-fact",
++                "factId": fact_id,
++                "note": "target attribution kind disagrees with table",
++            }
++        if occ_state == "first-party":
++            native = occ.get("nativeId")
++            if not native:
+                 return None, {
+                     "kind": "unprojectable-fact",
+                     "factId": fact_id,
+-                    "note": "target attribution kind disagrees with table",
++                    "note": "first-party occupancy missing occupancy identity",
+                 }
++        else:
++            native = payload[tgt_field]
++            if tkind != "package":
++                package_path = None
+     else:
+-        if not target_attr or target_attr.get("schemaVersion") == 1:
++        if occ_state == "unknown":
+             return None, {
+                 "kind": "unprojectable-fact",
+                 "factId": fact_id,
+-                "note": "imports target kind requires admitted TargetAttributionV2",
++                "note": "missing occupancy mapping with no unique exact-id identity",
+             }
+-        if target_attr.get("kind") not in kinds:
++        if occ_kind not in kinds:
+             return None, {
+                 "kind": "unprojectable-fact",
+                 "factId": fact_id,
+-                "note": "imports target kind requires admitted TargetAttributionV2",
++                "note": "reconciled occupancy kind is not an imports target kind",
+             }
+-        tkind = target_attr["kind"]
+-        occupancy = target_attr.get("occupancy")
+-        package_path = target_attr.get("packageManifestPath")
+-    if occupancy == "unknown":
+-        return None, {
+-            "kind": "unprojectable-fact",
+-            "factId": fact_id,
+-            "note": "unknown occupancy is not a graph endpoint",
+-        }
+-    if occupancy == "first-party":
+-        native = target_attr.get("evaluationNativeId")
+-        if not native:
+-            return None, {
+-                "kind": "unprojectable-fact",
+-                "factId": fact_id,
+-                "note": "first-party occupancy missing evaluationNativeId",
+-            }
+-    else:
+-        native = payload[tgt_field]
+-        if tkind == "package":
+-            package_path = (target_attr or {}).get("packageManifestPath")
++        tkind = occ_kind
++        if occ_state == "first-party":
++            native = occ.get("nativeId")
++            if not native:
++                return None, {
++                    "kind": "unprojectable-fact",
++                    "factId": fact_id,
++                    "note": "first-party occupancy missing occupancy identity",
++                }
++        else:
++            native = occ.get("payloadNativeId") or payload[tgt_field]
+     target = {
+         "universe": target_universe,
+         "kind": tkind,
+@@ -810,7 +878,16 @@
+     return row, None
+ 
+ 
+-def collect_projected_edges(selected_views, objects, blobs, table, attributions):
++def _reconcile_fact_occupancy(fact, occupancy_inputs):
++    AM = atom_model()
++    spec = AM.REGISTRY["relations"].get(fact.get("relation")) or {}
++    sidecar = (occupancy_inputs.get("targetAttributions") or {}).get(fact.get("factId"))
++    if sidecar is not None and sidecar.get("schemaVersion") == 1:
++        raise AM.AtomAdmissionError("TARGET_ATTRIBUTION_SCHEMA_VERSION")
++    return AM._reconcile_attribution(fact, spec, occupancy_inputs)
++
++
++def collect_projected_edges(selected_views, objects, blobs, table, occupancy_inputs):
+     facts = {}
+     limitations = []
+     coverage_ids = []
+@@ -823,6 +900,7 @@
+             if fid not in facts:
+                 facts[fid] = vid
+     projected = []
++    AM = atom_model()
+     for fid in sorted(facts):
+         fact = _object(objects, fid, "fact", "evidence.missing")
+         payload = _blob_payload(blobs, fact["payloadDigest"], fid)
+@@ -831,7 +909,19 @@
+             if fact.get("relation") == table["relation"]:
+                 limitations.append({"kind": "unsupported-rung-omitted", "factId": fid})
+             continue
+-        row, limitation = project_fact(fid, fact, payload, table, attributions.get(fid))
++        fact_for_occ = dict(fact)
++        fact_for_occ["payload"] = payload
++        fact_for_occ["factId"] = fid
++        try:
++            occupancy = _reconcile_fact_occupancy(fact_for_occ, occupancy_inputs)
++        except AM.AtomAdmissionError as exc:
++            limitations.append({
++                "kind": "unprojectable-fact",
++                "factId": fid,
++                "note": "occupancy admission " + exc.key,
++            })
++            continue
++        row, limitation = project_fact(fid, fact_for_occ, payload, table, occupancy)
+         if limitation:
+             limitations.append(limitation)
+             continue
+@@ -1389,7 +1479,6 @@
+             "evidence.missing",
+         )
+         plan = _object(objects, run["planId"], "plan", "evidence.missing")
+-        attributions = retained_attributions(proof, blobs)
+         selected_views = select_views(
+             evidence.get("viewIds") or [], objects, params, request["params"].get("factViewDigests")
+         )
+@@ -1408,8 +1497,18 @@
+                 "note": "no retained selected fact-view of the declared relation@rung; not an absence claim",
+                 "relation": params["relation"],
+             }]
++        producer_closures = set()
++        for vid in selected_views:
++            view = _object(objects, vid, "view")
++            for fid in view.get("facts") or []:
++                frec = objects.get(fid)
++                if frec and frec[0] == "fact" and frec[1].get("producerClosure"):
++                    producer_closures.add(frec[1]["producerClosure"])
++        occupancy_inputs = occupancy_inputs_from_retained(
++            proof, plan, objects, blobs, producer_closures
++        )
+         projected, proj_limits, sel_cov, sel_scope = collect_projected_edges(
+-            selected_views, objects, blobs, table, attributions
++            selected_views, objects, blobs, table, occupancy_inputs
+         )
+         inv_vertices, ambiguous = inventory_vertices(proof, plan, blobs)
+         for edge in projected:
+--- before/docs/coop/design-corrections/workflows/workflows-report.v1.json
++++ after/docs/coop/design-corrections/workflows/workflows-report.v1.json
+@@ -15,10 +15,10 @@
+   "productQualification": false,
+   "sourceSha256": {
+     "check-comparison-knowledge.v3.py": "3198657d371ded319d4142d191550b9f90a2bf1a3c5e8dc2da0af2342f9533c5",
+-    "check-query-projection.v3.py": "99e64639f9771654fc39283512f0ba19c8f6cf4707a34d5044825c7c6a08fd10",
++    "check-query-projection.v3.py": "f90f100142bcbeaab546aa270365c82b5f9b28f972da152e29cbc3787230054c",
+     "check-workflow-projection.v3.py": "b6facd974017012956f7cb73f011da43da2099a8cada2bf83ec0f43b739df12e",
+     "check_workflows.v1.py": "d1286edb50e0446e39b0b4f897fd7ce4e48b275dac0f952bc400f8e7b2150187",
+-    "query_projection_model.v3.py": "96410295c3bd24de503c7eb0155a9bdd660417e91869952effccede503e5fdc9",
++    "query_projection_model.v3.py": "4c9c91215fb70653ae75b563f6ba38788e410eb4004c4e9765e3bc08e8259e0a",
+     "query_surface_projection.v3.py": "e23c3d0b1037603e5bab16998d0d4c02df4e022498325bc8d1c56b1cb9f804ec",
+     "run-reference-checks.py": "c6bc14742c63824359415ecb9233840c1f223eb936e5a85bfec906768b34690d",
+     "workflow_projection_model.v3.py": "50fef99cee4cd6a196d725b35b046ceb5cce6692f9fdb24ebd7d3bcaeb9903a1",
+@@ -27,7 +27,7 @@
+     "command-inventory.v1.json": "a2ca604bc7176132bbc8f6396a66bfa46cf12d7d3f369bf46aefe82f23149067",
+     "command-inventory.v3.json": "11d8b745235652bbf19d2b1d684e869c4de62b39ca92c1772a99a38fbfbff5f0",
+     "obligation-map.v1.json": "454d75dc4c6af987be8502801b1364db29844e61452f3ce3b5ee402fbf4e7383",
+-    "source-pins.v1.json": "72cd77c292e44c50bf5de7160dbde07dff04bf731405d6669460279c8da47d06",
++    "source-pins.v1.json": "42b36600fa6164ce736711e048ebb40c58d0cebbe91ab9aef560a02868228ec3",
+     "workflow-cases.v1.json": "22b7443048ea5aefff8594ed35ab3ade1fe43594efba31f03e05e76943ae824d",
+     "baseline-artifact.schema.json": "dca7e301ba10e70f4f9c02a330bf9b4314e3ad87fd4c325caadfbb544287606b",
+     "command-envelope.schema.json": "cbd9b083924428aa2e2a52babe89862878387a99a729d0486e68712d6afa0663",
+--- before/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ after/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -1386,9 +1386,13 @@
+ 
+ For each enabled rule and selected subject, evaluate the entire predicate tree
+ in deterministic postorder and retain every node. Predicate-witness records
+-have schemaVersion=3. They bind the exact compiled-program node, admitted input
+-references, matching and uncertain facts or imported observation addresses,
+-Coverage and scope references, typed deficiencies and any quantifier limit.
++have schemaVersion=3. They bind the exact compiled-program node, matching and
++uncertain facts or imported observation addresses, Coverage and scope references,
++typed deficiencies and any quantifier limit. Witnesses have no `inputRefs` field.
++The complete admitted evaluation input selection, including empty-population inputs,
++is projected onto every atomic `predicateProofs[].inputRefs`; boolean nodes take the
++canonical union of immediate children. Consulted witness `coverageIds` and
++predicateProof `scopeIds` may be narrower. See composition §9.
+ Atomic nodes have no children; Boolean children are exactly the immediate
+ grammar children for the same subject and rule. Optimization cannot omit a
+ branch's retained evidence or change the complete reference result.
+--- before/docs/v2/contracts/product-v1/native-evidence.md
++++ after/docs/v2/contracts/product-v1/native-evidence.md
+@@ -76,7 +76,7 @@
+ negotiated `FactBatchV3` (capability token `target-attribution-v2`, §9.6)
+ alongside unchanged `FactCandidateV1`, associated by `candidateOrdinal` before
+ fact2 exists. The host `bind_worker_occupancy` projects `TargetAttributionV2`
+-after mint. COMPLETE58 post-fact2 wrapper envelope is not delivery. Payload
++after mint. Payload
+ grammar is unchanged (`ImportsPayloadV1.resolvedTarget` remains opaque
+ `SubjectIdV1`). Protocol3 frame names stay; FactBatch payload version is
+ capability-gated. The host captures projected V2 bytes into
+@@ -2662,11 +2662,8 @@
+ 
+ ### 9.6 Occupancy companion on negotiated FactBatchV3 (worker product)
+ 
+-COMPLETE58 `ProviderTargetAttributionReturnV2` as a post-fact2 wrapper envelope
+-is not worker delivery. CURRENT delivery is `OccupancyCompanionV1` on
+-negotiated `FactBatchV3`. `FactCandidateV1` already carries opaque encoded
+-`resolvedTarget`; `planId` / `sourceFactId` / `producerClosure` do not exist
+-until the host mints fact2.
++Worker delivery is `OccupancyCompanionV1` on negotiated `FactBatchV3`. `FactCandidateV1` already carries opaque encoded
++`resolvedTarget`; the host supplies `planId` and `producerClosure` from the selected Plan/stage and derives `sourceFactId` when it mints fact2.
+ 
+ **Where the wrapper runs.** Inside the worker, before FactBatch emit, while
+ compiler-native resolution is still in memory. It writes (1) opaque
+@@ -2749,7 +2746,7 @@
+ `(path, blobDigest/contentSha256, startByte, endByte)`, not count. Current-batch
+ `TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN` uses this-batch facts; combined
+ provider-occupancy-conflict then runs on prior+current sidecars
+-(`AM._admit_provider_occupancy_conflicts` does not use facts).
++under the selected TargetAttributionV2 provider-occupancy conflict law.
+ 
+ Provider claims (rederived, not caller scalars): companion occupancy fields;
+ candidate relation/resolution/universes/payload.

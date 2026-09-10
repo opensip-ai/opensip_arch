@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.incoming-search.1",
+  "title": "IncomingSearchV1 — typed INPUT that source universe S searched target universe U at relation@rung (DRAFT)",
+  "description": "Canonical-record INPUT. Not inferred from producer facts. Not an empty Cartesian Coverage key (S,U). Used only when no CoverageResultV3 exists with key (relation, minResolution, sourceUniverse=S, targetUniverse=U). Cannot override a represented Coverage S->U that is partial/unknown. Identity is raw SHA-256 of C(this record). Uniqueness: (planId, providerClosure, sourceUniverse, targetUniverse, relation, minResolution). Standing: isolated successor draft. Root registers the payload-registry / ProofInputRef row.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planId",
+    "providerClosure",
+    "sourceUniverse",
+    "targetUniverse",
+    "relation",
+    "minResolution",
+    "scopeRefs",
+    "expectedInventoryRefs",
+    "completeSearch",
+    "examinedExhaustive",
+    "coverage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "providerClosure": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Plan-selected closure kind=provider that examined S. Not evaluator."
+    },
+    "sourceUniverse": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "targetUniverse": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "minResolution": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "scopeRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "Selected scopes of this relation at EXACT minResolution whose sourceUniverse is S. Any targetUniverse. These are the independently enumerated SOURCE subjects. Not a per-target-subject Cartesian."
+    },
+    "expectedInventoryRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "raw SHA-256 of C(SubjectInventoryV1) for S at the source kind. Partial/unavailable inventories are valid refs; they make population unknown rather than listing fake IDs."
+    },
+    "completeSearch": {
+      "type": "boolean",
+      "description": "true: this source's examination considered target U (whole-source-to-target-universe search, not per-subject Cartesian). false: search of U not established."
+    },
+    "examinedExhaustive": {
+      "type": "boolean"
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "unknown"
+      ]
+    },
+    "resolutionCompleteness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "incomplete",
+            "partial",
+            "not-attempted",
+            "not-applicable"
+          ]
+        },
+        "attempted": {
+          "type": "boolean"
+        },
+        "examinedExhaustive": {
+          "type": "boolean"
+        },
+        "unresolvedEdgeCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolvedEdgeClasses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "closedWorld": {
+      "type": "object"
+    }
+  },
+  "x-opensip-identity": {
+    "digest": "raw SHA-256 of C(IncomingSearchV1)",
+    "representation": "canonical-record",
+    "retention": "preimage",
+    "uniqueness": [
+      "planId",
+      "providerClosure",
+      "sourceUniverse",
+      "targetUniverse",
+      "relation",
+      "minResolution"
+    ],
+    "proofInputRef": {
+      "standing": "NEW, pending root registry integration",
+      "proposedDomain": "incoming-search"
+    }
+  },
+  "x-opensip-law": {
+    "cartesian": "FORBIDDEN. This record attests that source program S searched target universe U as a whole at relation@rung. It does not mint per-target-subject Coverage keys.",
+    "coverageFirst": "If a CoverageResultV3 exists with exact (relation, minResolution, S, U), that Coverage is the search law. Partial/unknown Coverage cannot be overridden by completeSearch=true.",
+    "whenUsed": "Only when no such Coverage exists. Then this admitted record may stand in for the missing S->U search. completeSearch=false or coverage=unknown leaves incoming absence unknown.",
+    "otherPartitions": "Coverage/scopes S->V (V≠U) still count toward source-population union and must be sufficiency-accounted. They do not prove search of U.",
+    "joins": [
+      "planId equals inputs.planId",
+      "providerClosure is Plan-selected, closures[id].kind=provider, and is the enumerator of an available EnumerationPlan binding whose universe=S",
+      "sourceUniverse is that binding",
+      "relation/minResolution equal the atom",
+      "every scopeRefs member exists, relation and resolution exact, sourceUniverse=S",
+      "every expectedInventoryRefs digest names an inputs.inventories record of universe S (locator digest supplied on the inventory as inventoryDigest)"
+    ]
+  },
+  "x-opensip-new-internal-faults": {
+    "standing": "NEW/internal pending root route-registry integration",
+    "keys": [
+      "INCOMING_SEARCH_SCHEMA",
+      "INCOMING_SEARCH_DUPLICATE",
+      "INCOMING_SEARCH_JOIN",
+      "INCOMING_SEARCH_CANNOT_OVERRIDE_PARTIAL",
+      "INCOMING_SEARCH_UNSELECTED_PROVIDER",
+      "INCOMING_SEARCH_SCOPE_MISJOIN",
+      "INCOMING_SEARCH_INVENTORY_MISJOIN"
+    ]
+  }
+}

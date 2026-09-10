@@ -1,0 +1,255 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/atom_model.v1.py	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/atom_model.v1.py	2026-09-09 00:17:18
+@@ -19,7 +19,10 @@
+ CANON_PY = HERE / "canonical.py"
+ REGISTRY = json.loads((HERE / "evaluator-projection-registry.v1.json").read_text(encoding="utf-8"))
+ INCOMING_SEARCH_SCHEMA = json.loads((HERE / "incoming-search.schema.v1.json").read_text(encoding="utf-8"))
+-TARGET_ATTRIBUTION_SCHEMA = json.loads((HERE / "target-attribution.schema.v1.json").read_text(encoding="utf-8"))
++TARGET_ATTRIBUTION_SCHEMA = json.loads((HERE / "target-attribution.schema.v2.json").read_text(encoding="utf-8"))
++TARGET_ATTRIBUTION_V1_SCHEMA = json.loads((HERE / "target-attribution.schema.v1.json").read_text(encoding="utf-8"))
++LOGICAL_PATH_RE = re.compile(r"^[^/\\\u0000]{1,255}(/[^/\\\u0000]{1,255})*\Z")
++SUBJECT_ID_RE = re.compile(r"^[a-z][a-z0-9-]*:[^\u0000-\u001f\u007f-\u009f]+\Z")
+ SCOPE_SCHEMA = {
+     "type": "object",
+     "additionalProperties": False,
+@@ -96,7 +99,7 @@
+     """Global admission of closed inputs, including unused sidecars and selected imports.
+ 
+     Root calls this even when the policy has no atoms. Missing selected wrappers, contrary
+-    observation/payload adapters, and TargetAttributionV1 joins refuse here.
++    observation/payload adapters, and TargetAttributionV2 joins refuse here.
+     """
+     if not isinstance(inputs, dict):
+         raise AtomAdmissionError("ATOM_INPUTS_NOT_RECORD")
+@@ -480,6 +483,8 @@
+     for key, sidecar in items.items():
+         if isinstance(sidecar, list):
+             raise AtomAdmissionError("TARGET_ATTRIBUTION_DUPLICATE_FACT")
++        if sidecar.get("schemaVersion") != 2:
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_SCHEMA_VERSION")
+         try:
+             Draft202012Validator(TARGET_ATTRIBUTION_SCHEMA).validate(sidecar)
+         except ValidationError as exc:
+@@ -495,6 +500,7 @@
+             raise AtomAdmissionError("TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN", fid)
+         spec = REGISTRY["relations"].get(fact.get("relation")) or {}
+         _join_sidecar(fact, spec, sidecar, closures, inputs)
++    _admit_provider_occupancy_conflicts(items, facts)
+ 
+ 
+ def _admit_selected_imports(inputs: dict) -> None:
+@@ -508,6 +514,13 @@
+         _require_wrapper_flags(wrappers[iid], iid, inputs)
+         _import_scope(wrappers[iid], inputs)
+         _join_observation_payload(wrappers[iid], payloads.get(iid), observations.get(iid), iid)
++
++
++def _first_party_identities(evaluation_native_id, universe, kind, inventories, plan, package_manifest_path=None):
++    triples, rows = _distinct_identities(
++        evaluation_native_id, universe, inventories, plan, kind, package_manifest_path
++    )
++    return set(triples), _coherent_rows(rows)
+ 
+ 
+ def _join_sidecar(fact: dict, spec: dict, sidecar: dict, closures: dict, inputs: dict) -> None:
+@@ -526,13 +539,36 @@
+         raise AtomAdmissionError("TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH")
+     if sidecar.get("occupancy") == "first-party" and sidecar.get("logicalPath") is not None:
+         raise AtomAdmissionError("TARGET_ATTRIBUTION_LOGICAL_PATH_ON_FIRST_PARTY")
++    if sidecar.get("kind") == "package" and sidecar.get("logicalPath") is not None:
++        raise AtomAdmissionError("TARGET_ATTRIBUTION_LOGICAL_PATH_ON_PACKAGE")
+     if sidecar.get("kind") != "symbol" and sidecar.get("exported") is not None:
+         raise AtomAdmissionError("TARGET_ATTRIBUTION_EXPORTED_NOT_SYMBOL")
+     if sidecar.get("kind") != "package" and sidecar.get("packageManifestPath") is not None:
+         raise AtomAdmissionError("TARGET_ATTRIBUTION_PACKAGE_MANIFEST_NOT_PACKAGE")
+-    if sidecar.get("kind") == "package" and sidecar.get("occupancy") == "first-party":
++    if sidecar.get("kind") == "package" and sidecar.get("occupancy") in ("first-party", "external"):
+         if not sidecar.get("packageManifestPath"):
+             raise AtomAdmissionError("TARGET_ATTRIBUTION_PACKAGE_MANIFEST_REQUIRED")
++    if sidecar.get("occupancy") == "unknown" and sidecar.get("packageManifestPath") is not None:
++        raise AtomAdmissionError("TARGET_ATTRIBUTION_PACKAGE_PATH_FORBIDDEN")
++    occ = sidecar.get("occupancy")
++    ev = sidecar.get("evaluationNativeId")
++    if occ == "first-party":
++        if ev is None:
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_ID_REQUIRED")
++        sk = sidecar.get("kind")
++        if sk == "file" and not LOGICAL_PATH_RE.match(ev):
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_GRAMMAR", "file")
++        if sk == "symbol":
++            if not SUBJECT_ID_RE.match(ev):
++                raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_GRAMMAR", "symbol")
++            if ev != sidecar.get("targetNativeId"):
++                raise AtomAdmissionError("TARGET_ATTRIBUTION_SYMBOL_EVALUATION_ID_MISMATCH")
++        if sk == "package" and (not isinstance(ev, str) or not ev):
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_GRAMMAR", "package")
++        if sk not in ("file", "symbol", "package"):
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_GRAMMAR", "kind")
++    elif ev is not None:
++        raise AtomAdmissionError("TARGET_ATTRIBUTION_EVALUATION_ID_FORBIDDEN")
+     eph = _ephemeral_target(fact, spec, inputs)
+     identities = eph.get("identities") or set()
+     sk, ek = sidecar.get("kind"), eph.get("kind")
+@@ -544,43 +580,95 @@
+     if sidecar.get("occupancy") == "external" and eph.get("occupancy") == "first-party":
+         raise AtomAdmissionError("TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY")
+     if sidecar.get("occupancy") == "first-party":
+-        want_kind = sk if sk in ("file", "symbol", "package") else None
+-        matched = set()
+-        for ident in identities:
+-            if want_kind and ident[1] != want_kind:
+-                continue
+-            if want_kind == "package":
+-                if ident[3] != sidecar.get("packageManifestPath") or ident[2] != sidecar.get("targetNativeId"):
+-                    continue
+-            matched.add(ident)
++        plan = inputs.get("enumerationPlan")
++        inventories = inputs.get("inventories") or []
++        pmp = sidecar.get("packageManifestPath") if sk == "package" else None
++        matched, _rows = _first_party_identities(
++            ev, fact["targetUniverse"], sk, inventories, plan, pmp
++        )
++        if sk == "package":
++            matched = {i for i in matched if i[1] == "package" and i[2] == ev and i[3] == pmp}
++        else:
++            matched = {i for i in matched if i[1] == sk and i[2] == ev}
+         if len(matched) != 1:
+             raise AtomAdmissionError("TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY")
+ 
+ 
++def _occupancy_key(sidecar: dict) -> tuple:
++    return (
++        sidecar.get("kind"),
++        sidecar.get("evaluationNativeId"),
++        sidecar.get("packageManifestPath") or "",
++    )
++
++
++def _admit_provider_occupancy_conflicts(items: dict, facts: dict) -> None:
++    seen = {}
++    for sidecar in items.values():
++        if not isinstance(sidecar, dict) or sidecar.get("occupancy") != "first-party":
++            continue
++        fact = facts.get(sidecar.get("sourceFactId")) or {}
++        key = (
++            sidecar.get("producerClosure"),
++            sidecar.get("targetUniverse"),
++            sidecar.get("targetNativeId"),
++        )
++        occ = _occupancy_key(sidecar)
++        if key in seen and seen[key] != occ:
++            raise AtomAdmissionError("TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT")
++        seen[key] = occ
++        _ = fact
++
++
+ def _reconcile_attribution(fact: dict, spec: dict, inputs: dict) -> dict:
+     eph = _ephemeral_target(fact, spec, inputs)
+-    sidecar = _sidecar_map(inputs).get(fact["factId"])
++    sidecar = _sidecar_map(inputs).get(fact.get("factId"))
+     if sidecar is None or isinstance(sidecar, list):
+-        return eph
++        return {
++            "kind": eph.get("kind") or "unknown",
++            "occupancy": eph.get("occupancy") or "unknown",
++            "exported": eph.get("exported"),
++            "nativeId": eph.get("nativeId") if eph.get("occupancy") == "first-party" else None,
++            "payloadNativeId": eph.get("nativeId"),
++            "packageManifestPath": eph.get("packageManifestPath"),
++            "source": "ephemeral" if eph.get("occupancy") == "first-party" else "absent",
++        }
+     closures = inputs.get("closures") or {}
+     _join_sidecar(fact, spec, sidecar, closures, inputs)
+     sk, ek = sidecar.get("kind"), eph.get("kind")
+     se, ee = sidecar.get("exported"), eph.get("exported")
+     kind = ek if ek != "unknown" else sk
+-    occ = eph["occupancy"] if eph.get("occupancy") != "unknown" else sidecar.get("occupancy")
+     exported = ee if ee not in (None, "unknown") else se
+-    pmp = eph.get("packageManifestPath")
+-    if pmp is None and kind == "package":
+-        pmp = sidecar.get("packageManifestPath")
+-        identities = eph.get("identities") or set()
+-        if pmp:
+-            matched = [i for i in identities if i[1] == "package" and i[2] == sidecar.get("targetNativeId") and i[3] == pmp]
+-            if len(matched) != 1:
+-                occ, kind = "unknown", "unknown"
+-        elif occ == "first-party":
+-            occ, kind = "unknown", "unknown"
+-    return {"kind": kind, "occupancy": occ, "exported": exported, "nativeId": eph.get("nativeId"),
+-            "packageManifestPath": pmp}
++    if eph.get("occupancy") == "first-party":
++        occ = "first-party"
++        native = eph.get("nativeId")
++        pmp = eph.get("packageManifestPath")
++        source = "ephemeral"
++        if sidecar.get("occupancy") == "first-party":
++            native = sidecar.get("evaluationNativeId")
++            if sidecar.get("kind") == "package":
++                pmp = sidecar.get("packageManifestPath")
++            source = "sidecar+ephemeral"
++        return {"kind": kind, "occupancy": occ, "exported": exported, "nativeId": native,
++                "payloadNativeId": sidecar.get("targetNativeId"), "packageManifestPath": pmp,
++                "source": source}
++    occ = sidecar.get("occupancy") or "unknown"
++    if occ == "first-party":
++        pmp = sidecar.get("packageManifestPath") if kind == "package" else None
++        return {"kind": sidecar.get("kind"), "occupancy": "first-party", "exported": exported,
++                "nativeId": sidecar.get("evaluationNativeId"),
++                "payloadNativeId": sidecar.get("targetNativeId"),
++                "packageManifestPath": pmp, "source": "sidecar"}
++    if occ == "external":
++        pmp = sidecar.get("packageManifestPath") if sidecar.get("kind") == "package" else None
++        return {"kind": sidecar.get("kind"), "occupancy": "external", "exported": exported,
++                "nativeId": sidecar.get("targetNativeId"),
++                "payloadNativeId": sidecar.get("targetNativeId"),
++                "packageManifestPath": pmp, "source": "sidecar"}
++    return {"kind": kind if kind != "unknown" else (sidecar.get("kind") or "unknown"),
++            "occupancy": "unknown", "exported": exported, "nativeId": None,
++            "payloadNativeId": sidecar.get("targetNativeId"),
++            "packageManifestPath": None, "source": "sidecar-unknown"}
+ 
+ 
+ def _source_value(fact: dict, spec: dict):
+@@ -667,22 +755,31 @@
+     if not field:
+         return NOMATCH
+     tid = (fact.get("payload") or {}).get(field)
+-    if tid is None or tid != n or fact.get("targetUniverse") != u:
++    if tid is None:
+         return NOMATCH
+-    attr = _reconcile_attribution(fact, spec, inputs)
+-    if attr.get("occupancy") == "external":
++    if fact.get("targetUniverse") != u:
+         return NOMATCH
++    attr = _reconcile_attribution(fact, spec, inputs)
+     if attr.get("kind") in ("file", "symbol", "package") and attr["kind"] != k:
+         return NOMATCH
+-    if k == "package":
+-        pmp = attr.get("packageManifestPath")
+-        if pmp is None or attr.get("kind") == "unknown" or attr.get("occupancy") == "unknown":
+-            return FUNK
+-        if pmp != subject.get("packageManifestPath"):
++    if attr.get("occupancy") == "external":
++        return NOMATCH
++    if attr.get("occupancy") == "first-party" and attr.get("nativeId") is not None:
++        if attr.get("nativeId") != n:
+             return NOMATCH
+-    if attr.get("kind") == "unknown" or attr.get("occupancy") == "unknown":
+-        return FUNK
+-    return MATCH
++        if k == "package":
++            pmp = attr.get("packageManifestPath")
++            if pmp is None:
++                return FUNK
++            if pmp != subject.get("packageManifestPath"):
++                return NOMATCH
++        return MATCH
++    # Occupancy unknown. Same-grammar exact-id (symbols) remains known nomatch when payload != N
++    # so unrelated symbol facts are not poisoned. File/package inventory grammar is not
++    # SubjectIdV1: payload inequality is not occupancy nomatch.
++    if k == "symbol" and tid != n:
++        return NOMATCH
++    return FUNK
+ 
+ 
+ def _source_kind_of_fact(fact: dict, spec: dict, inputs: dict) -> str | None:

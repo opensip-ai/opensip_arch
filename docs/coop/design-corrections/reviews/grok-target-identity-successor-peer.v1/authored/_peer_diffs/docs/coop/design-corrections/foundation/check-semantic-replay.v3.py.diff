@@ -1,0 +1,55 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v24/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py	2026-09-08 16:14:33
++++ /tmp/opensip-design-corrections/target-identity-successor.v1/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py	2026-09-09 00:15:16
+@@ -156,8 +156,43 @@
+ REFS_NONE_TGT = {"op": "none", "relation": "references", "minResolution": "resolved-binding",
+                  "endpoint": "target", "filters": []}
+ PKG_EXISTS = {"op": "exists", "relation": "package", "minResolution": "manifest-declared", "filters": []}
++IMPORTS_EXISTS_TGT = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                      "endpoint": "target", "filters": []}
++IMPORTS_NONE_TGT = {"op": "none", "relation": "imports", "minResolution": "resolved-target",
++                    "endpoint": "target", "filters": []}
+ 
+ 
++def file_items(graph, universe=None):
++    items = [item for item in graph["inputs"]["population"].values() if item["kind"] == "file"]
++    if universe is not None:
++        items = [item for item in items if item["universe"] == universe]
++    return items
++
++
++def case_imports_file_first_party_exists():
++    g = S.build_ts_semantic_graph(atom=IMPORTS_EXISTS_TGT, subject_kind="file", has_declares=False,
++                                  has_references_fact=False, second_partition=False)
++    run, objects, blobs, actual = close_positive(g)
++    vals = subject_values(run, objects)
++    a_ts = by_native(file_items(g, g["u1"]), "a.ts")
++    assert vals[a_ts["subjectId"]] == "true", vals
++    others = [item for item in file_items(g, g["u1"]) if item["row"]["nativeSubjectId"] != "a.ts"]
++    for item in others:
++        assert vals[item["subjectId"]] != "true", (item["row"]["nativeSubjectId"], vals[item["subjectId"]])
++    assert actual["verdict"] == "fail" and actual["findingCount"] >= 1, actual
++    return g, (run, objects, blobs), actual
++
++
++def case_imports_file_none_false_on_mapped_target():
++    g = S.build_ts_semantic_graph(atom=IMPORTS_NONE_TGT, subject_kind="file", has_declares=False,
++                                  has_references_fact=False, second_partition=False)
++    run, objects, blobs, actual = close_positive(g)
++    vals = subject_values(run, objects)
++    a_ts = by_native(file_items(g, g["u1"]), "a.ts")
++    assert vals[a_ts["subjectId"]] == "false", vals
++    return g, (run, objects, blobs), actual
++
++
+ def case_declares_exists():
+     g = S.build_ts_semantic_graph(atom=DECLARES, has_declares=True, has_references_fact=False,
+                                   second_partition=True)
+@@ -343,6 +378,8 @@
+     ("incoming-attestation-covers-other-partition", case_incoming_attestation_covers_other_partition),
+     ("package-two-manifest-distinct-subject3", case_package_two_manifests),
+     ("package-manifest-path-source-join", case_package_manifest_path_join),
++    ("imports-file-first-party-exists", case_imports_file_first_party_exists),
++    ("imports-file-none-false-on-mapped-target", case_imports_file_none_false_on_mapped_target),
+ ]
+ 
+ 

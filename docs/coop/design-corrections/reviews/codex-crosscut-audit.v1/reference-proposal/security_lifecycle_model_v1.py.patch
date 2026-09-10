@@ -1,0 +1,28 @@
+--- docs/coop/design-corrections/security/security_lifecycle_model_v1.py
++++ docs/coop/design-corrections/security/security_lifecycle_model_v1.py
+@@ -728,11 +728,8 @@
+             # output (`target` directly under a directory holding Cargo.toml) are pruned by exact path segment BEFORE
+             # any custody walk; each pruned tree is recorded once. Installed package manifests therefore never become
+             # units and never count toward the cap. The cap counts first-party marker directories and refuses typed.
+-            enum = DD.enumerate_units(_relative_marker_paths(root))
++            enum = DD.enumerate_units(_relative_marker_paths(root), enforce_limit=False)
+             prov['prunedTrees'] = [{'path': _join(root, t['path']), 'reason': t['reason'], 'markerCount': t['markerCount']} for t in enum['prunedTrees']]
+-            if enum['refusal'] is not None:
+-                return refuse('PROJECT.WORKSPACE_UNIT_LIMIT', root,
+-                              'WORKSPACE_UNIT_LIMIT:%d>%d' % (enum['refusal']['unitCount'], enum['refusal']['limit']))
+             for rel in enum['unitDirs']:
+                 d = root if rel == DD.INTERNAL_ROOT else _join(root, rel)
+                 if _in_nested_repo(d):
+@@ -755,6 +752,12 @@
+                 if not markers:
+                     continue
+                 prov['units'].append({'path': d, 'kind': 'workspace-auto', 'markers': markers})
++            # Count admitted project units after authority/custody exclusions.
++            unit_count = len(prov['units'])
++            if unit_count > DD.MAX_WORKSPACE_UNITS:
++                prov['units'] = []
++                return refuse('PROJECT.WORKSPACE_UNIT_LIMIT', root,
++                              'WORKSPACE_UNIT_LIMIT:%d>%d' % (unit_count, DD.MAX_WORKSPACE_UNITS))
+         return {'status': 'ACCEPT', 'provenance': prov}
+ 
+     if waive and explicit is None:

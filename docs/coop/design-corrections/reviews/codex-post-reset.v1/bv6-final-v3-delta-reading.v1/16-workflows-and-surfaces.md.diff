@@ -1,0 +1,159 @@
+--- finalv2/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ v3/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -113,12 +113,14 @@
+ re-execution. Recovery started in a new request retains its own operational scope
+ and the explicit original journal/intent links required by §§6/12.
+ 
+-**Which operation a step's receipt carries is published, not inferred.** There is
+-one receipt domain, `workflow.mutation-receipt` (§10), and `MutationReceiptV1`
+-**requires** `operation`. `ImportResult` and `NativePreparationResult` both
+-**require** a `receiptId`, so an import step and a native-preparation step each
+-already owe a receipt carrying an operation — what was missing was the binding
+-saying *which*. It is now published as
++**What a step's required receipt carries is published, not inferred.**
++`MutationReceiptV1` **requires** both `operation` and `idempotencyKey`, and
++`ImportResult` and `NativePreparationResult` both **require** a `receiptId`. The
++owning domain for those branches is `workflow.mutation-receipt` — the **mutation**
++receipt domain, not the only `receipt2:` one, since §10 also lists
++`workflow.verification-link`. So an import step and a native-preparation step each
++already owe a receipt carrying **both** required fields, and what was missing was
++the binding for each. The operation binding is published as
+ `repair.schema.json#/x-opensip-mutation-operation-map/byStepKindReceiptOperation`,
+ beside the enum, and it is a deterministic function of the **step kind**:
+ 
+@@ -135,13 +137,32 @@
+ commands**, which is why this map is *not* an inverse map and must not be read
+ backwards. A command with none of these four step kinds mints no operation.
+ 
+-**The three non-generic kinds are not generic replay.** They carry their own
+-params, mint no `MutationReplayScopeV1` and no `H("workflow.mutation-intent")`
+-key, and carry `retryPolicy=none` by schema. Import custody and source
+-correspondence are unchanged, and a fresh native preparation is a **new authorized
+-execution** under its own grant set — never a delivery replay of an earlier
+-receipt, and this binding grants no permission the security unit does not already
+-admit.
++**The idempotency key is bound too, and sharing a recipe is not sharing replay
++authority.** `receiptIdempotencyKeyByStepKind` publishes, per step kind, the exact
++deterministic preimage and the *lookup meaning* separately:
++
++| Step kind | Key | Lookup meaning |
++|---|---|---|
++| `mutation` | `H("workflow.mutation-intent", MutationReplayScopeV1)` | equal COMPLETED receipt permits delivery replay with no second effect |
++| `repair-apply` | raw SHA-256 of `C({operation, projectId, repairPlanId, baseSnapshotId})` | equal completed key performs no second effect |
++| `import` | the same H over the closed scope with `operation: "import"` | **delivery only**, within the same retained invocation; never a cross-request dedupe |
++| `native-preparation` | the same H with `operation: "native-preparation"` | **not replay**: it identifies that step's receipt and authorizes nothing |
++
++No new H domain, record or authority is introduced: `MutationReplayScopeV1.operation`
++**already admits** both tokens — they are two of the 23 — which is a further reason
++that domain stays wider than the current generic emitters. The user-supplied import
++path is deliberately **not** in the preimage, because §4 keeps it out of identity
++entirely, and `ExecutionId` stays out because operational identities are excluded
++from content identity.
++
++**The three non-generic kinds are still not generic replay.** They carry their own
++params rather than `MutationParams`, are not generic `mutation` steps, and carry
++`retryPolicy=none` by schema. Import custody, mandatory source correspondence and
++the staleness disposition are unchanged and re-checked — a receipt substitutes for
++none of them. A fresh native preparation is a **new explicit authorized execution**
++under its own `AuthorizedExecutionV2` and grant set with **no automatic retry**; a
++completed receipt never suppresses one, and this binding grants no permission the
++security unit does not already admit.
+ 
+ Among the generic `mutation` rows, **four** commands do not share their operation's name, so name matching is not
+ the derivation and an implementer had to guess. Three are mutation-class:
+@@ -387,7 +408,25 @@
+ `collectionScope`, which are the only fields `HistoryPayloadV1` has. Neither kind
+ may report the other's outcomes.
+ 
+-Four limits carry over unchanged and are enforced rather than assumed.
++**A repair target is a fingerprint, not a path, and the join is published.**
++`RepairPlanDescriptor.targets` are `finding-key2:` **fingerprints**, while
++`RuntimeSubject` is keyed by `{path, symbol?}` and `HistorySubject` by `{path}`.
++The deterministic projection is
++`imported-evidence.schema.json#/x-opensip-imported-requirement-law/targetSubjectProjection`:
++each target must be a finding of the evidence Run named by `evidenceRunId` (preview
++already refuses one that is not); that `finding-key2` identity is the H identity of
++the retained foundation `finding-fingerprint` descriptor, whose retention is
++`preimage` and whose bytes are therefore re-hashed at Run closure; and its
++`subjectKey` supplies `logicalPath` for file granularity and `qualifiedName` for
++symbol granularity. Runtime matches on the path and, where the payload row carries
++`symbol`, on the qualified name — so a symbol target is **not** served by another
++symbol's row. History has no symbol field, so a symbol target is answered at
++**file** granularity and that widening is **disclosed**, not hidden. More than one
++matching subject **refuses**: an ambiguous projection is not resolved by choosing
++one. A target with no matching subject is unsupported — never satisfied, and never
++read as evidence of non-use.
++
++Five limits carry over and are enforced rather than assumed.
+ **Satisfied does not mean positive**: `observed-hit` is positive execution
+ evidence and `observable-unhit` is *bounded negative* evidence, both can satisfy,
+ and the disclosure records which did. **No imported observation establishes a
+@@ -397,12 +436,21 @@
+ It may still be an **additional required condition** alongside an
+ already-established native basis, so it is wrong to say it never affects
+ applicability; an unsatisfied imported requirement makes an otherwise-eligible
+-plan inapplicable. **Whole-versus-partial** is the requirement's existing
+-`completeness`: `complete` needs every plan target supported, `partial-acceptable`
+-at least one. And **required versus optional** stays where `evidenceUse` puts it —
+-an optional absence remains the `IMPORT.ABSENT_FOR_PREDICATE` disclosure, is
+-satisfied *by absence* rather than by evidence, and an unsupplied declaration is
+-read as **required**, never silently as optional.
++plan inapplicable. **Whole-versus-partial** is decided by the requirement's
++`completeness` field: `complete` needs every plan target supported,
++`partial-acceptable` at least one. That enum already existed, but **this reading of
++it for an imported requirement over plan targets is selected here** and was not
++previously published. A target that is unobservable or outside the history
++collection scope therefore only names the cause *more precisely when the support
++test fails* — it does not veto a lawful `partial-acceptable` requirement that has a
++supported target. **Bounds are separate from support**: an insufficient observation
++window or revision range applies under both completeness values, because it is a
++property of the observation rather than of the target count. And **required versus
++optional** stays where `evidenceUse` puts it — an optional absence remains the
++`IMPORT.ABSENT_FOR_PREDICATE` disclosure and is satisfied *by absence* rather than
++by evidence. That declaration reaches the requirement boundary as a **typed
++boolean**; a non-boolean refuses, so there is no `unknown` state to default and no
++falsy value is read as optional.
+ 
+ ---
+ 
+@@ -526,21 +574,31 @@
+   as `common.schema.json#/$defs/ImportedRequirementDeficiency`; every member names
+   an already-published import condition and is bound to the payload field that
+   grounds it, and each kind reports only the outcomes **its own** payload can
+-  ground (§4). The requirement record gains no field: plan `targets` supply the
+-  per-target scope, its existing `completeness` decides whole-versus-partial, and
+-  `evidenceUse` supplies required-versus-optional.
++  ground — enforced at **both** the producer and this admission (§4). The
++  requirement record gains no field: plan `targets` supply the per-target scope
++  through the published fingerprint projection, `completeness` decides
++  whole-versus-partial under the reading selected in §4, and `evidenceUse` supplies
++  required-versus-optional as a typed boolean. The bounded observation demand is
++  owned by the **admitted recipe closure** named by `recipe.closureId` — `RecipeRef`
++  carries no such wire field and none is claimed.
+ 
+ The two vocabularies are **disjoint**, and a cross-plane value — a native
+ requirement claiming `import-unmapped-only`, or an imported one claiming
+-`resolution-incomplete` — is refused at admission. The schema alone cannot decide
+-this, because `relation` is a canonical identifier rather than an enum; it admits
+-either vocabulary, and the plane check is the admission's. That division is stated
+-rather than implied.
++`resolution-incomplete` — is refused at admission, as is an outcome of the wrong
++imported **kind**, such as a history range cause on a runtime relation. This schema
++**deliberately leaves the authoritative registry lookup to admission**: it admits
++either vocabulary and does not attempt to reproduce the relation registries, which
++it could not fetch rows from in any case. That is a design choice about where the
++authority lives, not a limitation of JSON Schema — a schema *can* branch on a
++property's `const`/`enum` even where the base type is a broader string — and
++duplicating a registry as schema conditionals would create exactly the drift this
++contract set avoids elsewhere. The division is stated rather than implied.
+ 
+ The value carried is the **satisfaction/deficiency projection** of its producer's
+ result, not that result: `sufficiency_v2` also returns `causes` on both branches
+-and may return `disclosures` on a failing branch, and those stay with the producer
+-and the retained Coverage. Presence is **typed**: `deficiency` is **required
++and may return `disclosures` on a failing branch. Those are producer result arrays
++and are fields of no retained record; what is retained is the evidence the
++evaluation read, so the projection drops nothing that was retained. Presence is **typed**: `deficiency` is **required
+ exactly when `satisfied` is false** and **forbidden when it is true**, `satisfied`
+ must be an actual boolean, and an explicit `null` is refused in both branches
+ because a present key with a null value is not an absent key. Both boundaries — the

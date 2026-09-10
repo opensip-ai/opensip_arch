@@ -1,0 +1,201 @@
+--- a/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -955,13 +955,19 @@
+ 
+ # Remedies for the two existing DomainDetailCode members these routes use. Both codes already exist in the closed
+ # public registry; nothing new is proposed and no code is invented.
++#
++# A REMEDY IS KEYED BY CODE, not by internal key, so one string must remain true for EVERY key that routes to
++# that code. Two strings below were written when their code served exactly one condition and said `name a
++# registered capability id`; the ownership-tuple key (CB8-SHOULD-2) routes to the same two codes and is not an
++# unregistered-name error, so those two strings are widened to state both conditions rather than left to give a
++# caller the wrong next step. No code, class, exit code or route changes, and no member is added.
+ PUBLIC_ROUTE_REMEDIES = {
+-    "CONFIG.INVALID": "name a registered capability id from the native capability matrix",
++    "CONFIG.INVALID": "the configured capability selection is invalid: name a registered capability id from the native capability matrix, and state at most one row per (capabilityId, languageMode, workspaceRoot)",
+     "PROVIDER.NOT_SELECTED": "this capability is not selected for that language mode; no promise is made for it",
+     "native.capability-unavailable": "install or enable the provider",
+     # Added because the failure envelope requires a nonempty errors array and these four routes had no code that
+     # named their remedy. Reuse was taken wherever it was honest; these are four different things to do next.
+-    "native.capability-spec-invalid": "the supplied analysis spec names a capability or language mode this release does not register; supply a conforming spec",
++    "native.capability-spec-invalid": "the supplied analysis spec names a capability or language mode this release does not register, or states two rows for one (capabilityId, languageMode, workspaceRoot); supply a conforming spec",
+     "native.release-declaration-invalid": "the installed release declaration is malformed; repair or reinstall the release",
+     "native.coverage-cause-unsupported": "the provider emitted a deficiency its own committed evidence does not support; this is a provider defect",
+     "HOST.INVARIANT_VIOLATED": "the host produced an invalid internal record; report the defect with the retained diagnostic",
+@@ -1190,6 +1196,12 @@
+     entry over an empty or non-matching examined scope, which is precisely the shape that closed a
+     full retained Run before this rule existed.
+ 
++    RC-6 is the join between the two committed encodings of the section 4.1 claim-1 question, and
++    it runs before the rung branch because it is total over every registered pair rather than
++    relative to the resolved set: `coverage=complete` requires `examinedExhaustive=true`. It is an
++    implication, not an equality - a lawful `unknown` may sit beside an exhaustive examination -
++    and it decides nothing about `resolutionCompleteness.state`.
++
+     RC-1's not-applicable minting law is then enforced, not merely generated: a non-resolved rung
+     carries NO resolution claim at all, so `attempted` is false, the count is zero and the class list
+     is empty. `stageTerminal` is deliberately NOT constrained here - a not-applicable entry may
+@@ -1204,6 +1216,43 @@
+             faults.append({"entry": name, "fault": "RC-0: rung is not a member of this relation's own ladder"}); continue
+         if rc["state"] not in RC_STATES:
+             faults.append({"entry": name, "fault": "RC-0: state outside closed enum"}); continue
++        # RC-6 (CB8-MUST-3): `coverage=complete` REQUIRES `examinedExhaustive=true`.
++        #
++        # These are the two encodings of section 4.1 CLAIM 1 - "did we look at every subject?" -
++        # and they had no published join, so a sealed entry could assert `complete` while denying
++        # that the partition was examined exhaustively. It is checked BEFORE the rung branch and
++        # WITHOUT a `continue`, because it is a claim about the EXAMINED PARTITION and is therefore
++        # total over every registered (relation, rung) pair, resolved or not, and independent of
++        # the RC-1/RC-2 state rules that follow. RC-2 reads examinedExhaustive only for a RESOLVED
++        # rung, so on the twelve non-resolved pairs nothing read it at all; `file@enumerated` -
++        # whose complete result carries the COVERAGE_INVENTORY_TOTALITY_OMITS_PATH obligation, keyed
++        # on `coverage` alone - was exactly that shape.
++        #
++        # AN IMPLICATION, NOT AN EQUALITY, and the difference is load-bearing. `examinedExhaustive`
++        # is about the EXAMINATION; `coverage` is the ANSWER over what was examined. A host may
++        # examine the committed partition exhaustively and still answer `unknown`, because the
++        # evidence it needs is missing rather than unexamined - ambiguous or missing Rust
++        # compilation ownership, an undeclared or unservable capability, an unlisted source
++        # variant. Banning `unknown` + `examinedExhaustive=true` would refuse those honest
++        # disclosures and force a host to understate its own examination to report an unknown, so
++        # `coverage=unknown` constrains this field in NEITHER direction. What is impossible is the
++        # converse: a `complete` answer over a partition the producer says it did not examine
++        # exhaustively asserts a totality it disclaims in the same record.
++        #
++        # ENUMERATION IS NOT RESOLUTION. This says nothing about
++        # `resolutionCompleteness.state`: RC-3's `coverage=complete` with `state=incomplete` and
++        # real unresolved edges is the expected result for most JavaScript and non-prepared Rust
++        # and stays lawful, `stageTerminal` stays free on a non-resolved rung, and budget/partial/
++        # not-attempted positives are untouched.
++        #
++        # It reads the field only when the entry CARRIES it. `coverage` is a required member of
++        # ViewEntryV3, so every real entry does and the producer boundary schema-validates before
++        # calling this; the direct-helper cases that pass a bare resolutionCompleteness fragment
++        # make no coverage claim, and inventing one for them would be this checker asserting a
++        # claim the caller never made.
++        if entry.get("coverage") == "complete" and rc.get("examinedExhaustive") is not True:
++            faults.append({"entry": name, "fault": "RC-6: coverage=complete claims the examined partition is "
++                                                   "total, so examinedExhaustive must be true"})
+         if rung not in RESOLVED_RUNGS:
+             if rc["state"] != "not-applicable" or rc["unresolvedEdgeCount"] != 0:
+                 faults.append({"entry": name, "fault": "RC-1: not-applicable rung carries a completeness claim"})
+@@ -3920,6 +3969,9 @@
+          object; a valid array over the bound refuses TYPED here, before generic maxItems validation
+       2. `validate_foundation("analysis-spec", ...)` - generic schema validation of the whole record
+       3. `admit_requested_capabilities` - the closed native vocabulary
++      4. `IM.admit_parameter_selection` - the FOUNDATION payload-registry selection law over
++         `parameters` (at most one selected parameter per registered row), appended so that steps
++         1-3 keep their exact published precedence and no existing route is reclassified
+ 
+     Step 1 is CONDITIONAL, and that condition is not a detail. An earlier revision indexed the key and took its
+     length unconditionally, so a spec missing the field raised KeyError, a null/boolean/integer raised TypeError,
+@@ -3965,6 +4017,18 @@
+         admit_requested_capability_cardinality(requested)
+     validate_foundation("analysis-spec", spec)
+     admit_requested_capabilities(spec["requestedCapabilities"])
++    # STEP 4, APPENDED: the FOUNDATION selection law over the same record - at most one selected
++    # parameter per registered payload-registry row. It is appended rather than interleaved so the
++    # published cardinality-first / schema-second / vocabulary-third order above is preserved
++    # verbatim and no existing route is reclassified: steps 1-3 never read `parameters`, so the two
++    # concerns are independent and only the FIRST-REPORTED fault of a spec that is bad in both ways
++    # is decided by this placement. The rule is FOUNDATION's - it owns x-opensip-payload-registry -
++    # so the foundation's own admission is called rather than restated here, which is what makes
++    # this boundary and retained Run closure agree by construction rather than by review. Its
++    # AdmissionError is the FOUNDATION module's class, deliberately: this boundary already lets
++    # ScopeRefusal and the schema ValidationError out under their owners' names, and laundering a
++    # foundation refusal into a native key would hide which contract refused.
++    IM.admit_parameter_selection(spec["parameters"])
+     return spec
+ 
+ 
+@@ -3990,7 +4054,14 @@
+     CURRENT path the earlier placement was not reachable for an oversized retained array: `admit_run` obtains the
+     retained analysis-spec through `payload(..., "analysis-spec")`, which schema-validates it, so an over-long
+     array refuses there as a ValidationError and never arrives here. Nothing about retained Run closure is changed
+-    by moving the guard."""
++    by moving the guard.
++
++    IT DOES GUARD THE OWNERSHIP TUPLE, and that is not a contradiction of the sentence above. Cardinality is a
++    bound on HOW MANY rows a pre-Plan request may express - a request-selection concern with no meaning for a
++    record that is already retained. Uniqueness of `(capabilityId, languageMode, workspaceRoot)` is a property of
++    what the record MEANS: two rows over one cell leave requiredness undetermined for that cell wherever the
++    record is read, on the request path and at retained Run closure alike. A determinacy law belongs in the
++    helper both boundaries share; a selection bound does not."""
+     known = {c["id"] for c in CAPABILITY_MATRIX["capabilities"]}
+     modes = set(CAPABILITY_MATRIX["languageModes"])
+     not_selected = {(c["capability"], c["mode"]) for c in CAPABILITY_MATRIX["cells"]
+@@ -4006,6 +4077,36 @@
+             # narrow. An UNSUPPORTED-TYPED cell is a different thing entirely: it IS requestable and is
+             # answered with `unknown` plus its own named deficiency and cause.
+             raise AdmissionError("native.requested-capability-mode-not-selected:" + capability + ":" + mode)
++    # THE OWNERSHIP TUPLE IS UNIQUE (CB8-SHOULD-2). `(capabilityId, languageMode, workspaceRoot)` names ONE
++    # cell of work for ONE unit; `required` is that cell's ATTRIBUTE, not part of its name. Two rows over one
++    # tuple differing only in `required` were admitted by the schema (uniqueItems sees two DISTINCT items)
++    # and by this vocabulary loop, and both entered analysisSpecDigest and therefore PlanId - so the
++    # contradiction was COMMITTED. Requiredness decides whether a missing Coverage entry contributes
++    # indeterminate, so an undetermined value there is not cosmetic. There is deliberately NO last-wins, no
++    # order dependence and NO merge of requiredness: the request states one value per cell or it is refused.
++    #
++    # THIS RUNS AFTER THE VOCABULARY LOOP, which is not an accident. Two rows cannot contend for ownership of
++    # a cell that is not a registered (capability, mode) cell at all, so an unregistered capability, an
++    # unregistered mode and a NOT-SELECTED cell each keep their own more specific refusal; appending also
++    # leaves every existing route's reachability exactly as it was.
++    #
++    # THIS IS NOT CARDINALITY, and the separation stated above is intact. Cardinality is how MANY rows a
++    # pre-Plan request may carry - a request-selection bound that belongs at `admit_analysis_spec`.
++    # Uniqueness of the ownership tuple is a DETERMINACY law about the record's own meaning, and it must hold
++    # wherever the record is judged, which is exactly why it lives in the helper that BOTH the pre-Plan
++    # boundary and retained Run closure (identity-model `admit_run` -> ANALYSIS_SPEC_CAPABILITY) call. The
++    # two boundaries agree by construction rather than by review.
++    #
++    # WHOLE-ITEM DUPLICATES ARE SOMEONE ELSE'S REFUSAL and stay that way: `requestedCapabilities` is
++    # uniqueItems with x-opensip-order canonical-set, so two byte-identical rows refuse on the schema at
++    # `validate_foundation` before this helper is reached on the request path, and on the foundation
++    # collection order law on the retained path. This owns only DISTINCT rows over one tuple.
++    owners: dict[tuple[str, str, str], int] = {}
++    for row in requested:
++        key = (row["capabilityId"], row["languageMode"], row["workspaceRoot"])
++        owners[key] = owners.get(key, 0) + 1
++    for key in sorted(k for k, n in owners.items() if n > 1):
++        raise AdmissionError("native.requested-capability-duplicate-ownership-tuple:" + ":".join(key))
+     return requested
+ 
+ 
+@@ -4067,9 +4168,35 @@
+                                    **UNDECLARED_CAPABILITY_ACCOUNT})
+     # `analysis-spec.requestedCapabilities` is x-opensip-order: canonical-set, so the emitted array is in
+     # canonical-byte order, not discovery order; a duplicate row refuses rather than silently deduping.
++    #
++    # IT REFUSES UNDER THE REGISTERED KEY, which it did not always do. This guard used to raise a bespoke
++    # `DUPLICATE_REQUESTED_CAPABILITY`, which had NO row in x-opensip-public-route-registry - so
++    # `public_termination_for` and `failure_envelope_errors` both refused it
++    # (`native.public-route-key-unregistered`) and a host holding this refusal could derive no public
++    # termination for it at all. The condition is not a new one: it is exactly the registered
++    # `native.requested-capability-duplicate-ownership-tuple`, whose host-generated route is written for
++    # this very call site - "default construction that emitted two rows for one cell". Naming that key
++    # here gives the refusal the origin-dependent route it always should have had, and adds no public
++    # DomainDetailCode member.
++    #
++    # THE TUPLE IS THE NAME OF THE DEFECT, so it is the tuple that is reported. Every row this function
++    # builds carries `required: True` literally, so for THESE rows a byte-identical duplicate and an
++    # ownership-tuple duplicate are the same set; detecting on the tuple states the law that is actually
++    # named and produces the same subject format `admit_requested_capabilities` produces, so the two
++    # guards cannot drift in what they publish.
++    #
++    # THE POSITION IS UNCHANGED, and deliberately. `requestedCapabilities` is `uniqueItems`, so without
++    # this guard these rows would refuse inside `admit_analysis_spec` as a generic schema ValidationError
++    # restating the whole instance - the same reason the cardinality guard precedes generic validation.
++    # NO ORIGIN IS GUESSED: this helper emits the internal key alone, and the host calls
++    # `public_termination_for(key, origin)` with the origin it already holds.
+     requested = sorted(requested, key=C.canonical)
+-    if len({C.canonical(r) for r in requested}) != len(requested):
+-        raise AdmissionError("DUPLICATE_REQUESTED_CAPABILITY")
++    owners: dict[tuple[str, str, str], int] = {}
++    for row in requested:
++        tuple_key = (row["capabilityId"], row["languageMode"], row["workspaceRoot"])
++        owners[tuple_key] = owners.get(tuple_key, 0) + 1
++    for tuple_key in sorted(k for k, n in owners.items() if n > 1):
++        raise AdmissionError("native.requested-capability-duplicate-ownership-tuple:" + ":".join(tuple_key))
+     # The default path takes the SAME pre-Plan boundary an explicitly supplied spec takes - cardinality before
+     # generic schema validation before vocabulary - so a defaulted spec is judged exactly as a configured one
+     # and neither has a guard the other lacks.

@@ -1,0 +1,98 @@
+#!/usr/bin/env python3
+"""Full retained-Run candidate-only controls. Not host/compiler qualification.
+
+near_candidate_kw in check-execution-inputs.v1.py is a bounded join fixture only and
+is not a full Run. This checker drives owner ADMIT → R.derive → M.close_run.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+def load(name, file):
+    spec = importlib.util.spec_from_file_location(name, HERE / file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+Cand = load("cand_replay_fix", "evaluator_candidate_fixture.v3.py")
+R = load("cand_replay_ref", "evaluator_replay_model.v3.py")
+S = load("cand_replay_seal", "evaluator_semantic_fixture.v3.py")
+F = Cand.F
+M = R.M
+C = M.C
+rows = []
+
+
+def derive(g):
+    seed, objects, blobs, _ = F.seal_fixture(g)
+    _, owner = M.open_run_closure(seed, objects, blobs)
+    i = g["inputs"]
+    out = R.derive(i["planId"], i["executionPlanId"], i["evaluatorClosure"], i["evaluationInputRefs"], objects, blobs, owner)
+    run, objects, blobs = S.seal_derived(g, out, objects, blobs)
+    result = R.replay(run, objects, blobs)
+    assert M.close_run(run, objects, blobs) == result["runId"]
+    return (run, objects, blobs), result, out["proof"]
+
+
+def semantic_refusal(name, g, key):
+    seed, objects, blobs, _ = F.seal_fixture(g)
+    M.open_run_closure(seed, objects, blobs)
+    try:
+        M.close_run(seed, objects, blobs)
+    except Exception as exc:
+        assert key in str(exc), (name, type(exc).__name__, str(exc))
+        rows.append({"case": name, "ownerAdmission": "ADMIT", "semanticAdmission": "REFUSE", "reason": str(exc)})
+    else:
+        raise AssertionError(name + " accepted")
+
+
+def main():
+    empty = Cand.build_candidate_graph(mode="complete-empty")
+    packed, result, proof = derive(empty)
+    man = C.parse(packed[2][proof["executionInputsDigest"]])
+    cand_rows = [r for r in man["cellOutcomes"] if r["capabilityId"] == "clones-near"]
+    assert result["verdict"] == "pass" and not proof["executionDeficiencies"]
+    assert len(cand_rows) == 1 and cand_rows[0]["state"] == "complete"
+    assert cand_rows[0]["candidateResultDigest"]
+    assert proof["executionInputsDigest"] == empty["executionInputsDigest"]
+    rows.append({"case": "complete-empty-candidate-full-run", "runId": result["runId"],
+                 "verdict": result["verdict"], "digest": proof["executionInputsDigest"]})
+
+    grouped = Cand.build_candidate_graph(mode="group-bearing")
+    _, gres, gproof = derive(grouped)
+    gman = C.parse(grouped["blobs"][gproof["executionInputsDigest"]])
+    env_d = next(r["candidateResultDigest"] for r in gman["cellOutcomes"] if r["capabilityId"] == "clones-near")
+    env = C.parse(grouped["blobs"][env_d])
+    assert gres["verdict"] == "pass" and not gproof["executionDeficiencies"]
+    assert env["groupDigests"] and env["sourceBodies"]
+    group = C.parse(grouped["blobs"][env["groupDigests"][0]])
+    assert group["authority"] == "candidate-only" and group["automaticDeletionEligible"] is False
+    rows.append({"case": "group-bearing-candidate-full-run", "runId": gres["runId"],
+                 "verdict": gres["verdict"], "groupAuthority": group["authority"]})
+
+    missing = Cand.build_candidate_graph(mode="missing")
+    _, mres, mproof = derive(missing)
+    assert mres["verdict"] == "indeterminate" and not mproof["findingIds"] and mproof["executionDeficiencies"]
+    rows.append({"case": "missing-required-candidate-indeterminate", "verdict": mres["verdict"],
+                 "causes": [d.get("cause") for d in mproof["executionDeficiencies"]]})
+
+    forbidden = Cand.build_candidate_graph(mode="forbidden-fact-authority")
+    semantic_refusal("forbidden-fact-authority-group", forbidden, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+
+    report = {
+        "standing": "candidate-only full retained-Run controls; not host/compiler qualification; near_candidate_kw is not a full Run",
+        "passed": True, "count": len(rows), "checks": rows,
+        "nativeMode": "clones-near @ syntax-only SUPPORTED-DESIGN over the public file fixture syntax universe",
+    }
+    print(json.dumps(report, indent=2) + "\n", end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

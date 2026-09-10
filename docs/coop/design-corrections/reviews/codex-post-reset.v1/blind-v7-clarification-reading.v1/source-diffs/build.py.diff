@@ -1,0 +1,46 @@
+--- /tmp/opensip-design-corrections/consumer-b.v7/output/work/build.py
++++ /tmp/opensip-design-corrections/consumer-b.v7-clarification.v1/output/work/build.py
+@@ -219,7 +219,8 @@
+ 
+ 
+ def build_proof(kit, plan_id, exec_plan_id, evaluator, detector, rule, rpd,
+-                view_id, fact_id, coverage_id, extra_inputs, verdict="pass"):
++                view_id, fact_id, coverage_id, extra_inputs, verdict="pass",
++                mutate=""):
+     node = rule["emitWhen"]
+     ppd_rec = {"schemaVersion": 2, "ruleProgramDigest": rpd,
+                "ruleId": rule["ruleId"], "predicateId": "p",
+@@ -245,10 +246,29 @@
+     finding = {"schemaVersion": 2, "fingerprint": fpid, "ruleClosure": detector,
+                "subjectId": "file:src/a.ts", "messageCode": "inventory.present",
+                "parameterDigest": pdg, "severity": "note",
+-               "evidenceRefs": [{"domain": "fact",
+-                                 "digest": fact_id.split(":", 1)[1]},
+-                                {"domain": "coverage",
+-                                 "digest": coverage_id.split(":", 1)[1]}]}
++               # CLARIFICATION v1 (root feedback item 1): evidenceRefs carries
++               # x-opensip-order `canonical-set`
++               # (identity-schemas.v2#/$defs/finding/properties/evidenceRefs),
++               # so it must be STRICTLY ASCENDING by C(item).  The original
++               # builder emitted fact-then-coverage in construction order,
++               # which is ascending only when the fact digest happens to sort
++               # below the coverage digest.
++               "evidenceRefs": sorted(
++                   [{"domain": "fact", "digest": fact_id.split(":", 1)[1]},
++                    {"domain": "coverage", "digest": coverage_id.split(":", 1)[1]}],
++                   key=lambda r: C(r))}
++    if mutate == "finding-evidence-refs-unordered":
++        # DISCRIMINATING NEGATIVE for the order law the ORIGINAL builder broke.
++        finding["evidenceRefs"] = list(reversed(finding["evidenceRefs"]))
++    if mutate == "finding-cites-a-fact-outside-the-evaluated-view":
++        finding["evidenceRefs"] = sorted(
++            [{"domain": "fact", "digest": "ee" * 32},
++             {"domain": "coverage", "digest": coverage_id.split(":", 1)[1]}],
++            key=lambda r: C(r))
++    if mutate == "finding-parameter-message-code-mismatch":
++        bad = {"schemaVersion": 2, "messageCode": "some.other.code",
++               "parameters": {"path": "src/a.ts"}}
++        finding["parameterDigest"] = kit.w.record(bad)
+     find_id, _ = kit.w.mint("finding", finding)
+ 
+     inputs = [{"domain": "view", "digest": view_id.split(":", 1)[1]},

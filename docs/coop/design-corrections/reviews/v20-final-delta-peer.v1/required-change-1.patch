@@ -1,0 +1,37 @@
+Required change 1 (minor, precision): make the strengthened selected-scope positive
+actually reject ANY Refusal, as rootChanges[2] claims.
+
+Rationale: `_adopt_scope_detail` projects a caught Refusal to `exc.detail`, and
+`W.Refusal.__init__` defaults `detail=None` (workflows_model.v1.py:73). `adopt_baseline`
+itself raises such a detail-less Refusal for duplicate baseline entries
+(workflows_model.v1.py:744). Executable probe at the check's own execution point:
+  {"dup_refused": true, "dup_error_code": "CONFIG.INVALID", "dup_detail": null,
+   "dup_detail_is_None": true, "dup_would_pass_new_predicate": true}
+So `... is None` is satisfied both by "returned" and by "refused with no detail". The
+shipped fixture passes entries=[], so this is NOT a live false pass (verified: the call
+returns a dict and raises nothing); it is the predicate being weaker than its own check
+name and than the manifest claim. A sentinel closes it exactly.
+
+Verified: patched variant runs 1592 passed / 0 failed, exit 0.
+`_adopt_scope_detail` has exactly two occurrences (definition + this single use), so the
+sentinel is local and cannot affect any other control.
+
+--- a/docs/coop/design-corrections/foundation/check-identity.py
++++ b/docs/coop/design-corrections/foundation/check-identity.py
+@@ -1509,7 +1509,11 @@
++_NO_REFUSAL=object()
+ def _adopt_scope_detail(spec_rows,document):
++    # Sentinel rather than None: a Refusal may carry detail=None - adopt_baseline's OWN
++    # duplicate-entry guard raises exactly that - so projecting to `.detail` alone cannot
++    # distinguish "refused" from "returned", which is what this positive must assert.
+     try:_adopt(spec_rows,document)
+     except W.Refusal as exc:return exc.detail
+-    return None
++    return _NO_REFUSAL
+ check('adopt_baseline-with-the-selected-document-returns-without-any-refusal',
+-      _adopt_scope_detail([_SCOPE_ROW_A],SCOPE_DOCUMENT) is None)
++      _adopt_scope_detail([_SCOPE_ROW_A],SCOPE_DOCUMENT) is _NO_REFUSAL)
+
+ALTERNATIVE, if root prefers zero code churn at this stage: leave the code and narrow
+rootChanges[2] to "...to reject any Refusal that carries a detail", which is what the
+predicate does. The code patch is the better fix; the claim should not outrun the control.

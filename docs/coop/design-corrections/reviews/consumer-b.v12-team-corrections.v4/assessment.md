@@ -1,0 +1,24 @@
+I’ll start the v4 other-Run pass by verifying kit hashes, continuation inputs, and the four current stores, then freeze syntax-code and scope-v2 so those independent reviews stay byte-identical.Kit and requirements match. Next I’ll path-correct into v4, freeze syntax-code/scope-v2, and preserve the four old Run stores before reading the builders.Path correction and predecessor preservation are done. I’ll read the shared sealer and the four builders next so the rebuilds pick up the same current-law joins.I’ll add a shared sealer for current-law plan/execution/proof joins, then rebuild the four graphs against it instead of treating the old helpers as an oracle.I’ll patch the TypeScript builder first: evaluator membership, view-only stage, full inventories/coverages, then derived proof sealing.I’ll write a full rust-partial builder that keeps clones Coverage unknown and derives a partial cell, then run all four reconstructions.**Verdict: `OTHER_RUNS_READY_FOR_VALIDATOR_RECHECK`**
+
+This is not whole-consumer acceptance. The syntax-code pilot and scope-v2 outputs were left byte-identical (`syntax-code.store.json` still `0a0b2c62…`). Prior helper “complete” claims were treated as non-oracles: unselected evaluator closures, inventories as stage products, hardcoded complete cells, and unretained FACT-IDENTITY frames were existing-law misses and were rebuilt.
+
+## Four new Runs
+
+Each passed independent structural admission, then a fresh-process expected-proof C/identity compare, then a logical-result tamper (semantic refuse, distinct from stale-hash C inequality).
+
+| Run | Store SHA-256 | Run id | Replay |
+|---|---|---|---|
+| TypeScript | `af2238a65afb0b7d82c5dd5ab1278436d55c4bc3087631d407563346593eb4ca` | `run3:97651646…` | pass / C equal |
+| Rust | `e6457494c46b2c8cefc7f6c0779da08de820b26890bc250defe1361b6e29fd4a` | `run3:02f31e57…` | pass / C equal |
+| syntax-data | `e050875685a7a4f706c98982baeafbce3b15f9c6c4c2ff97c2800a820645ec87` | `run3:a8033414…` | pass / C equal |
+| Rust partial clones | `227856b1dec3c4d051677e156b9b3883613a90dee7e1c8db46670bb95a4e1141` | `run3:679b3d19…` | pass / C equal; clones-fact cell **derived partial** |
+
+Original required properties are on the graphs, not in prose: TS `node_modules` + config graph; Rust mixed editions, target edition 2021 ≠ package 2018, same file two L0 identities, `#/Cargo.toml`, 17-entry edition map; syntax-data clones `unknown` + `language-tier-unsupported`/`capability-missing`; rust-partial clones `unknown` + `input-closure-incomplete`/`body-language-owner-unenumerated` with no clone facts.
+
+The four old stores remain under `preserved-failures/*-original/`.
+
+## Remaining obligations
+
+Root admission was not performed. v11 component-manifest stock inhabitance is not claimed. These Plans request explicit capability subsets, not the full default-profile product. Syntax-code and scope-v2 stay frozen for other reviews.
+
+Reviews: `other-runs-completion-review.md` (`07d0acf0…`) and `other-runs-completion-review.json` (`6ea24f9d…`).

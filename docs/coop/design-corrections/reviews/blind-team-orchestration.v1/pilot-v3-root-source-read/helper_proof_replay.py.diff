@@ -1,0 +1,92 @@
+--- helper/proof_replay.py path-adjusted predecessor
++++ helper/proof_replay.py current
+@@ -12,6 +12,7 @@
+ import json
+ from typing import Any
+ 
++from helper.annotated_admit import admit_full_pilot
+ from helper.body_identity import parse_body_identity_frame
+ from helper.canonical import C
+ from helper.closure_admit import (
+@@ -132,6 +133,48 @@
+         raise RuntimeError("no fact universe")
+     uni = parse_native_h(store, uni_hex, "native.semantic-universe.syntax.v2")
+ 
++    exec_plan = parse_typed_h(store, ei["executionPlanId"], "execution-plan")
++    stage_spec = parse_canonical(store, exec_plan["stages"][0]["stageSpecDigest"])
++    analysis_spec = parse_canonical(store, plan["analysisSpecDigest"])
++    emission_plan = None
++    for p in analysis_spec["parameters"]:
++        rec = parse_canonical(store, p["payloadDigest"])
++        if rec.get("schemaVersion") == 1 and "rules" in rec and rec["rules"] and "detectorClosure" in rec["rules"][0]:
++            emission_plan = rec
++    if emission_plan is None:
++        raise RuntimeError("no evaluator-emission-plan in analysis-spec parameters")
++    evidence = parse_typed_h(store, run["evidenceId"], "semantic-evidence")
++    vcs = parse_canonical(store, snapshot["vcsDigest"])
++
++    closures: dict[str, dict] = {}
++    for cid in plan["semanticClosures"]:
++        closures[cid] = parse_typed_h(store, cid, "closure")
++    grammar_cid = ctx["grammarBundle"]["closureId"]
++    if grammar_cid not in closures:
++        closures[grammar_cid] = parse_typed_h(store, grammar_cid, "closure")
++    det_cid = emission_plan["rules"][0]["detectorClosure"]
++    if det_cid not in closures:
++        closures[det_cid] = parse_typed_h(store, det_cid, "closure")
++    eval_cid = ei["evaluatorClosure"]
++    if eval_cid not in closures:
++        closures[eval_cid] = parse_typed_h(store, eval_cid, "closure")
++
++    coverages_h = [parse_typed_h(store, cid, "coverage") for cid in view["coverageIds"]]
++    view_coverages_full = []
++    for cid in view["coverageIds"]:
++        crec = parse_typed_h(store, cid, "coverage")
++        payload = parse_canonical(store, crec["payloadDigest"])
++        view_coverages_full.append(
++            {
++                "id": cid,
++                "digest": cid.split(":", 1)[1],
++                "record": crec,
++                "payload": payload,
++                "entry": payload["entry"],
++            }
++        )
++    scopes_list = [parse_typed_h(store, sid, "subject-scope") for sid in view["scopeIds"]]
++
+     return {
+         "run_id": run_id,
+         "run": run,
+@@ -161,6 +204,17 @@
+         "uni_hex": uni_hex,
+         "evaluator_closure": ei["evaluatorClosure"],
+         "execution_plan_id": ei["executionPlanId"],
++        "execution_plan": exec_plan,
++        "stage_spec": stage_spec,
++        "analysis_spec": analysis_spec,
++        "emission_plan": emission_plan,
++        "evidence": evidence,
++        "vcs": vcs,
++        "closures": closures,
++        "coverages_h": coverages_h,
++        "views_full": [view],
++        "view_coverages_full": view_coverages_full,
++        "scopes": scopes_list,
+     }
+ 
+ 
+@@ -252,6 +306,14 @@
+                     f"{e.code}: {e}",
+                 )
+ 
++    try:
++        full = admit_full_pilot(store, g)
++        for j in full["joins"]:
++            joins.append(j)
++        join("annotated-owner-admission", full["ok"], f"digestHits={full['digestHits']}")
++    except AdmissionError as e:
++        join("annotated-owner-admission", False, f"{e.code}: {e}")
++
+     return {"joins": joins, "ok": all(j["ok"] for j in joins)}
+ 
+ 

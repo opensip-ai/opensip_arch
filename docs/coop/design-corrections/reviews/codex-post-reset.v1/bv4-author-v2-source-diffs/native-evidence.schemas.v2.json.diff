@@ -1,0 +1,229 @@
+--- released-v1/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
++++ current-v2/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
+@@ -8,7 +8,7 @@
+   "whyItIsNeeded": "native-evidence section 10 labels its second column `Cause (nativeCause)` and then fills three of its rows with values that are not NativeCause members: `the unresolved edge classes; partial/not-attempted stage` for `resolution-incomplete`, `exports-open, exports-unknown` for `external-consumers-unknown`, and `compiler-inferred present` for `derivation-policy-unmet`. Each refuses schema validation as a nativeCause (`'computed-member-access' is not valid under any of the given schemas`), so the only representable value was null - which the NativeCause description itself defines as `a disclosure was owed and not made`. Worse, nothing compared the pair to anything: on the frozen reference a `resolution-incomplete` entry carrying the unrelated but schema-valid `lockfile-missing`, or relabelled `capability-missing`, or a `derivation-policy-unmet` with an empty derivationKinds, or an `external-consumers-unknown` over `exportsClosed: closed`, each closed a Run. A cause vocabulary that nothing derives and nothing compares leaves the disclosure optional in practice - the same argument that added the three body-language-* members, carried through to the rest of the table.",
+   "whyNotMoreEnumMembers": "Adding NativeCause members was rejected on the merits, not for compatibility. `resolution-incomplete` has a genuinely SET-VALUED cause: an entry can exhibit up to all sixteen UnresolvedEdgeKindV1 classes at once, and a scalar cannot carry them, so enum members would either lose information or force an arbitrary pick - the multi-cause defect the finding names. All three rows already have closed, structured, independently DERIVED carriers in the same record: unresolvedEdgeClasses (which RC-2 already forces to equal the admitted unresolved-edge facts), ClosedWorldV2.exportsClosed, and derivationKinds. The correction is to NAME those carriers and ENFORCE the join, not to duplicate them in a scalar.",
+   "nullIsNotAnEscape": "Where a row says nativeCause MUST be null, that null no longer records an unmade disclosure: the row names the field that carries the cause instead, and admission REFUSES unless that field actually carries it. A `resolution-incomplete` entry whose resolutionCompleteness claims `complete` is refused, so `null` cannot be used to say nothing.",
+-  "multiCauseAndPrecedence": "An entry carries ONE deficiency and simultaneously carries EVERY carrier. The carriers are structurally independent - unresolvedEdgeClasses is an array holding all applicable classes at once, and closedWorld and derivationKinds are separate fields - so a scalar deficiency loses nothing: the other simultaneous conditions remain fully disclosed in their own fields. Which single member is declared when several apply is the section 10 precedence order, applied by the owning sufficiency evaluation (PRECEDENCE_V2, most specific first) against a REQUIREMENT. That selection is deliberately NOT re-derived from the entry alone, and the limit is stated rather than worked around: several conditions are requirement-relative (external-consumer state matters only for a universal negative about an exported target; the confidence floor lives in the Requirement, not the entry), and RC-3 makes `coverage: complete` with `state: incomplete` and NO deficiency a valid honest entry. Forcing a deficiency from exhibited entry evidence would therefore refuse lawful Runs. What IS decidable from the entry is the direction enforced here: a DECLARED deficiency must be SUPPORTED by the entry's own committed evidence.",
++  "multiCauseAndPrecedence": "An entry carries ONE deficiency and simultaneously carries every carrier this registry names. What each carrier RETAINS differs, and an earlier revision wrongly generalised the strongest case to all of them by saying the scalar `loses nothing`. The accurate statement is per carrier: resolutionCompleteness.unresolvedEdgeClasses is a genuine SET and retains EVERY applicable unresolved class at once, already forced by RC-2 to equal the admitted unresolved-edge facts of the view; closedWorld and derivationKinds are independent fields that retain their own state whatever the deficiency is; but input-closure-incomplete's carrier is a SINGLE SCALAR NativeCause, and a Run can genuinely be missing several inputs at once - two absent crates, or an absent crate AND an unavailable generated file. For that row the retained cause is a SELECTED one, not the full set. See selectedScalarCauseLimitation. Which single deficiency is declared when several apply is the section 10 precedence order, applied by the owning sufficiency evaluation against a REQUIREMENT. That selection is deliberately NOT re-derived from the entry alone, and the limit is stated rather than worked around: several conditions are requirement-relative (external-consumer state matters only for a universal negative about an exported target; the confidence floor lives in the Requirement, not the entry), and RC-3 makes `coverage: complete` with `state: incomplete` and NO deficiency a valid honest entry. Forcing a deficiency from exhibited entry evidence would therefore refuse lawful Runs. What IS decidable from the entry is the direction enforced here: a DECLARED deficiency must be SUPPORTED by the entry's own committed evidence.",
+   "retainedVersusPublicRoute": "Two different routes and neither substitutes for the other. RETAINED: the whole ViewEntryV3 lives inside the coverage2 record, whose payload digest and schema digest the Run commits, so every carrier named below is retained evidence a verifier can re-derive. PUBLIC: the DEFICIENCY is projected outward as its own closed DomainDetailCode - `resolution-incomplete`, `external-consumers-unknown` and `derivation-policy-unmet` are all already members - and the CAUSE travels as typed detail in the coverage2 record the host termination names by its coverageId, exactly as section 10 has always said for the nativeCause-carried rows. No new public code is added and none is needed.",
+   "deficiencies": {
+    "language-tier-unsupported": {
+@@ -66,6 +66,10 @@
+    },
+    "derivation-policy-unmet": {
+     "carrier": "entry.derivationKinds",
++    "relations": [
++     "types"
++    ],
++    "relationLaw": "The OWNING law scopes this deficiency to one relation. Native section 4.7 and sufficiency_v2 apply derivationPolicy only where `rel == \"types\"` and the requirement asks for `declared-only`; there is no derivation policy for any other relation, so no other relation's entry can be short of one. An earlier revision checked the derivationKinds carrier ALONE, and a complete Run therefore admitted this declared deficiency on a `references` entry that merely carried the same array value (root diagnostic: references ADMIT, types ADMIT). An entry whose relation is outside this list cannot declare it.",
+     "nativeCause": "must-be-null",
+     "contains": {
+      "path": [
+@@ -73,7 +77,8 @@
+      ],
+      "member": "compiler-inferred"
+     },
+-    "rule": "Section 10's Cause cell reads `compiler-inferred present`, which is a statement about derivationKinds - a closed three-member set in this same entry - and not a NativeCause. The entry must actually carry compiler-inferred among its derivation kinds."
++    "rule": "Section 10's Cause cell reads `compiler-inferred present`, which is a statement about derivationKinds - a closed three-member set in this same entry - and not a NativeCause. The entry must actually carry compiler-inferred among its derivation kinds.",
++    "thisIsDeclarationSupportNotAnObligation": "Two different assertions, and only the first is enforced. (1) An entry that DECLARES this deficiency must be for relation `types` and must actually carry `compiler-inferred`. (2) Whether a given requirement DEMANDS the deficiency is sufficiency_v2's question against a RequirementV2, and is not derived here. `compiler-inferred` types are exact under the admitted universe and are perfectly valid under `derivationPolicy=any`; they become a deficiency only under `declared-only`. Nothing here imposes declared-only on a valid types entry, and controls hold both directions."
+    },
+    "resolution-incomplete": {
+     "carrier": "entry.resolutionCompleteness",
+@@ -113,7 +118,128 @@
+    }
+   },
+   "noDeficiencyNoCause": "A null deficiency requires a null nativeCause. A cause without a deficiency names why nothing went wrong, which is not a claim this record can carry.",
+-  "enforcedAt": "native_evidence_model admit_coverage_result_v3 - the producer boundary - and therefore again at foundation close_run, which re-runs that exact admission over the RETAINED coverage payload. Refusals are native.coverage-cause-* and are PROVIDER.PROTOCOL_VIOLATION like the other producer-boundary refusals."
++  "enforcedAt": "native_evidence_model admit_coverage_result_v3 - the producer boundary - and therefore again at foundation close_run, which re-runs that exact admission over the RETAINED coverage payload. Refusals are native.coverage-cause-* and are PROVIDER.PROTOCOL_VIOLATION like the other producer-boundary refusals.",
++  "selectedScalarCauseLimitation": "STATED LIMITATION, not a defect to be engineered around. input-closure-incomplete retains ONE NativeCause while several missing inputs may coexist. Provenance of the selection: the producer names the cause it acted on, and Run closure checks that the named cause is lawful for the deficiency - it does not and cannot enumerate the inputs that were not named. What IS fully retained beside it is the rest of the Coverage entry and the Run's own evidence: the missing dependency sources, prepared rows and generated files are retained records in their own right, so a consumer that needs the complete set reads those rather than the scalar. No multi-cause format is introduced merely to make the prose true; the bounded source/ownership laws stay exactly as they are, and the limitation is published so no consumer reads the scalar as exhaustive."
++ },
++ "x-opensip-public-route-registry": {
++  "standing": "Normative and CLOSED. The public route of every internal decision key the capability vocabulary and Coverage cause guards introduce. Nothing here is a new public DomainDetailCode, D9 class, code or exit: each key normalizes at the host boundary to a code ALREADY in the closed public detail registry, which is what that registry's own aliasRule requires (`internal decision keys are normalized at the host boundary and cannot appear in public DomainDetailCode`). Existing precedents for the same mechanism are native.explicit-root-grammar -> PROJECT.EXPLICIT_PATH_INVALID, native.too-many-units -> PROJECT.WORKSPACE_UNIT_LIMIT and provider-unavailable/capability-missing -> native.capability-unavailable.",
++  "phaseAndAuthorityLaw": "The distinction is the EXISTING one. An invalid REQUEST is the caller's analysis-spec being wrong: malformed vocabulary is CONFIG.INVALID, which admission section 1.1 already covers by forbidding configuration that `selects an unregistered capability`, and a well-formed request for a cell that carries no promise is REQUEST.UNSATISFIABLE. An invalid authenticated RELEASE DECLARATION is the HOST'S OWN authenticated input being wrong, before any Plan exists and with no worker spawned - the phase the native context row already occupies - so it is REQUEST.PRECONDITION_FAILED. A user cannot cause the second and a release cannot cause the first.",
++  "unsupportedTypedIsNotOnThisTable": "An UNSUPPORTED-TYPED request is admitted and ANSWERED, never refused: the Run closes and its Coverage carries `unknown` with the cell's own deficiency and cause. A compiler-free references request under syntax-only closes with unknown / language-tier-unsupported / capability-missing; a capability the release has not declared available closes with unknown / provider-unavailable / capability-missing. Neither may be converted into an admission refusal.",
++  "keys": {
++   "native.requested-capability-unregistered": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "see byOriginatingBoundary",
++    "publicDetail": "see byOriginatingBoundary",
++    "phase": "invalid-request",
++    "byOriginatingBoundary": {
++     "external-configuration": {
++      "existingCode": "CONFIG.INVALID",
++      "publicDetail": "CONFIG.INVALID",
++      "why": "invalid external input on the Config2/CLI carrier"
++     },
++     "host-generated-analysis-spec": {
++      "existingCode": "REQUEST.PRECONDITION_FAILED",
++      "publicDetail": "request detail (host invariant fault; no user configuration is at fault)",
++      "why": "an invalid host-generated internal layer, per admission section 1"
++     }
++    }
++   },
++   "native.requested-capability-mode-unregistered": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "see byOriginatingBoundary",
++    "publicDetail": "see byOriginatingBoundary",
++    "phase": "invalid-request",
++    "byOriginatingBoundary": {
++     "external-configuration": {
++      "existingCode": "CONFIG.INVALID",
++      "publicDetail": "CONFIG.INVALID",
++      "why": "invalid external input on the Config2/CLI carrier"
++     },
++     "host-generated-analysis-spec": {
++      "existingCode": "REQUEST.PRECONDITION_FAILED",
++      "publicDetail": "request detail (host invariant fault; no user configuration is at fault)",
++      "why": "an invalid host-generated internal layer, per admission section 1"
++     }
++    }
++   },
++   "native.requested-capability-mode-not-selected": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "REQUEST.UNSATISFIABLE",
++    "publicDetail": "request detail (capability, mode)",
++    "phase": "unsatisfiable-request",
++    "originIndependent": "A well-formed request for a cell that carries no promise is not malformed input from any layer, so this row's code does not vary by originating boundary: nothing is wrong with the value and the request simply cannot be served."
++   },
++   "native.release-capability-unregistered": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "REQUEST.PRECONDITION_FAILED",
++    "publicDetail": "request detail (before PlanId; no worker is spawned)",
++    "phase": "invalid-authenticated-release-declaration"
++   },
++   "native.release-capability-mode-unregistered": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "REQUEST.PRECONDITION_FAILED",
++    "publicDetail": "request detail (before PlanId; no worker is spawned)",
++    "phase": "invalid-authenticated-release-declaration"
++   },
++   "native.release-capability-mode-not-selected": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "REQUEST.PRECONDITION_FAILED",
++    "publicDetail": "request detail (before PlanId; no worker is spawned)",
++    "phase": "invalid-authenticated-release-declaration"
++   },
++   "native.release-capability-duplicate": {
++    "d9Class": "request-rejected (2)",
++    "existingCode": "REQUEST.PRECONDITION_FAILED",
++    "publicDetail": "request detail (before PlanId; no worker is spawned)",
++    "phase": "invalid-authenticated-release-declaration"
++   },
++   "native.coverage-cause-required": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-must-be-null": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-not-for-deficiency": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-carrier-unsupported": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-relation-not-in-scope": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-without-deficiency": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   },
++   "native.coverage-cause-registry-row-missing": {
++    "d9Class": "operational-failed (4)",
++    "existingCode": "PROVIDER.PROTOCOL_VIOLATION",
++    "publicDetail": "operational record",
++    "phase": "producer-boundary"
++   }
++  },
++  "recordsEditOwnedByRoot": "The aliasRule also says an UNKNOWN internal key is refused, so a host normalizer needs these pairs present in public-detail-registry.v1.json#/internalAliases. That file is a RECORDS artifact owned by root integration, not by this contract, and it is deliberately NOT edited here. The exact pairs are published above so the records edit is mechanical: each `keys` entry maps to its `publicDetail`, and every target is already a member of that registry.",
++  "enforcedAt": "native_evidence_model admit_requested_capabilities / admit_release_capability_registry / deficiency_cause_faults, and foundation close_run, which re-runs the requested-capability admission over the retained analysis-spec (ANALYSIS_SPEC_CAPABILITY:) and the producer Coverage admission over the retained payload.",
++  "originatingBoundaryLaw": "admission-and-qualification section 1 already fixes the actor/layer split: `Invalid external input is an admission rejection with the existing carrier's D9 code; an invalid host-generated internal layer is a host invariant fault.` The SAME internal key therefore takes a different public code depending on WHERE the bad value entered, and a blanket request-rejected for every capability fault would contradict that existing law. Three originating boundaries are distinguished, and only they: (a) EXTERNAL configuration - a capability the user configured through Config2/CLI analysis.capabilities - is invalid external input on that carrier, so it takes that carrier's code, CONFIG.INVALID; (b) HOST-GENERATED analysis-spec - a retained or directly supplied spec the host itself produced, refused at the analysis-spec boundary or at Run closure - is an invalid host-generated internal layer and is a HOST INVARIANT FAULT, not a user configuration error, and must not be reported as CONFIG.INVALID; (c) HOST-SUPPLIED AUTHENTICATED RELEASE REGISTRY - a malformed declaration the host supplies before any Plan - is likewise host-supplied and takes the precondition route the native context row already occupies, REQUEST.PRECONDITION_FAILED. The distinction between (b) and (c) is which host input is wrong, and both are separated from (a) by actor.",
++  "helperDoesNotGuessOrigin": "The pure admission helpers - admit_requested_capabilities, admit_release_capability_registry - are passed ROWS and nothing about provenance, so they emit the internal decision key and NOTHING ELSE. Selecting the public code from the originating boundary is the HOST's normalization step, using the event context it already holds, exactly as the aliasRule describes. A helper inventing an origin it was not passed would be a guess, and this table is written so it never has to."
+  },
+  "x-opensip-grammar-capability-registry": {
+   "standing": "Normative and CLOSED. The per-language capability mapping of the bundled grammar set, published here so a consumer can reconstruct it without reading author code. syntaxClass is NOT caller-selected: a grammar row declaring a class other than the one this registry assigns to its languageId is refused at grammar-bundle admission, in both directions.",
+@@ -4166,12 +4292,19 @@
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+-        "standing",
++        "absenceIsDisclosedNotDropped",
++        "absenceProjectionAndPrecedence",
++        "bindingToPlan",
++        "explicitOverride",
++        "hostInputBoundary",
++        "installedAvailabilityVersusQualification",
++        "itIsAvailabilityNotScope",
++        "membershipAuthority",
++        "notASubstituteForAdmission",
++        "requiredDefault",
++        "row",
+         "schema",
+-        "row",
+-        "membershipAuthority",
+-        "bindingToPlan",
+-        "notASubstituteForAdmission"
++        "standing"
+        ],
+        "properties": {
+         "standing": {
+@@ -4200,6 +4333,41 @@
+          "maxLength": 4096
+         },
+         "notASubstituteForAdmission": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "itIsAvailabilityNotScope": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "requiredDefault": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "absenceIsDisclosedNotDropped": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "installedAvailabilityVersusQualification": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "explicitOverride": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "hostInputBoundary": {
++         "type": "string",
++         "minLength": 1,
++         "maxLength": 4096
++        },
++        "absenceProjectionAndPrecedence": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096

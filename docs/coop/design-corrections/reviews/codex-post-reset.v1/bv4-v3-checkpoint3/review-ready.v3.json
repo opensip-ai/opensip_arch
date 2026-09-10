@@ -1,0 +1,347 @@
+{
+ "artifact": "bv4-corrections-author.v3-review-ready.v3",
+ "supersedes": [
+  {
+   "checkpoint": "review-ready.json",
+   "sha256": "3cf9394ff1c1e1dd819d6e694afaba8e065296699c1fdf6e742de3cc0162c187"
+  },
+  {
+   "checkpoint": "review-ready.v2.json",
+   "sha256": "c1613bbf6b39db9269629255c8240489f6f6dc31525e65d4afc5519ef2ff8f8d"
+  }
+ ],
+ "rootFeedbackRead": {
+  "path": "root-review.v2.json",
+  "sha256": "f671df731f4b556b0591af62112e0ff1f21295f42f761b2f5cebf6092d53ade0",
+  "readInFull": true,
+  "verdict": "CHANGES_REQUIRED",
+  "subFindingsAddressed": 6,
+  "probeReadInFull": "/tmp/opensip-design-corrections/bv4-v3-checkpoint2-probes.v1/{probe.py,report.json}"
+ },
+ "standing": "Proposed source and checks complete for root's six checkpoint-2 sub-findings. Source editing STOPPED pending root-review.v3.json. Coauthor technical review; not independent acceptance, not blind acceptance, not user approval, not readiness, not product qualification.",
+ "sourceRoot": "/tmp/opensip-design-corrections/bv4-corrections-author.v3/work",
+ "subFindingDispositions": [
+  {
+   "id": "CX-BV4-DEFAULT-PUBLIC-CARRIER/1 multi-step bound",
+   "position": "AGREE - my no-truncation proof was false",
+   "whatWasWrong": "1024 is the ANALYSIS-SPEC requestedCapabilities bound, not an invocation-wide one. A named multi-step invocation carries up to 64 steps, so two admitted selections of 1023 each compose 2046 notices and the flat 1024 array refused. Root's probe reproduced exactly that.",
+   "correction": "Composition is now PER STEP: CapabilityAvailabilityStepV1 {stepId, noticeCount, notices[<=1024]} and CapabilityAvailabilityV1 {stepCount, totalNoticeCount, steps[<=64]}, bounded by the invocation's own StepId range. No notice is discarded to fit and no invocation-wide request cap is imposed.",
+   "lifecycleLaws": "a step that made no selection contributes NO entry; a step that selected and found nothing absent contributes an EMPTY entry, which is the positive statement that it checked; a retried step contributes one entry for the attempt the invocation retained; the same ownership tuple may recur in different steps, so uniqueness is within a step and never across the invocation.",
+   "verified": [
+    "two-admitted-selections-exceeding-1024-combined-still-compose (1023+1023=2046, ADMIT)",
+    "the-same-notices-flattened-into-one-step-would-refuse-the-analysis-spec-bound",
+    "each-availability-step-is-associated-with-its-owning-step-id",
+    "a-one-step-invocation-projects-a-single-availability-step",
+    "a-step-that-selected-and-found-nothing-keeps-an-empty-entry",
+    "a-step-that-made-no-selection-contributes-no-entry",
+    "the-same-ownership-tuple-may-recur-in-different-steps",
+    "the-total-count-is-the-sum-of-the-step-counts"
+   ]
+  },
+  {
+   "id": "CX-BV4-DEFAULT-PUBLIC-CARRIER/2 renderer parity",
+   "position": "AGREE - envelope membership is not parity",
+   "whatWasWrong": "render selects only a command's declared parityFields, so the collection reached JSON and agent and was omitted by human, SARIF and HTML. Being on the envelope proved nothing about propagation.",
+   "correction": "`capability-availability` is a declared parityField of the analysis commands - default, analyze, fit, audit - in workflows/command-inventory.v1.json, and render projects it for every applicable format. The key is distinct from any existing query/purge availability meaning.",
+   "verified": [
+    "the-analysis-commands-declare-capability-availability-as-a-parity-field",
+    "the-declared-parity-field-reaches-every-applicable-renderer"
+   ]
+  },
+  {
+   "id": "CX-BV4-DEFAULT-PUBLIC-CARRIER/3 notice code",
+   "position": "AGREE - confirmed",
+   "correction": "CapabilityAvailabilityNoticeV1.code is now `const native.capability-unavailable` rather than the whole DomainDetailCode enum, because the typed record declares exactly one condition.",
+   "verified": [
+    "a-release-absence-notice-cannot-carry-a-foreign-detail-code (CONFIG.INVALID now REFUSES)",
+    "the-notice-code-is-a-const-not-the-whole-detail-enum"
+   ]
+  },
+  {
+   "id": "CX-BV4-PUBLIC-ROUTE-COMPLETE/1 overbound subject",
+   "position": "AGREE - confirmed",
+   "whatWasWrong": "a structurally valid 4096-character languageMode produced a 4149-character subject in all three origin routes, and the full failure envelope refused BoundedText maxLength 1024.",
+   "correction": "bounded_subject elides: the registered KEY is preserved verbatim - it selects the code, class and origin - and only the offending value is elided, keeping a leading window plus the full SHA-256 of the untruncated subject so two long values never collide and the retained diagnostic can be matched. Never schema-invalid, never a dropped subject, never reclassified as success.",
+   "verified": [
+    "an-overbound-refused-value-is-elided-not-emitted-whole (4149 -> exactly 1024, in all three origins)",
+    "an-overbound-value-still-composes-an-admitted-envelope-in-every-origin",
+    "elision-preserves-the-code-class-and-origin-and-never-reclassifies-as-success",
+    "two-different-overbound-values-do-not-collide-after-elision",
+    "exact-bound and overbound inputs both exercised through the actual guard"
+   ]
+  },
+  {
+   "id": "CX-BV4-PUBLIC-ROUTE-COMPLETE/2 preview guard and probe honesty",
+   "position": "AGREE on both",
+   "whatWasWrong": "the preview-* release guard raised a prose sentence that the normalizer correctly refused, so an explicitly advertised invalid-release-declaration path had no envelope. AND my p2_envelope.py labelled a hardcoded array `REAL guard outputs` while never invoking a guard - they were representative-string composition tests, and the label was wrong.",
+   "correction": "the guard now raises native.release-capability-preview-constant:<id>, a registered key routed to the release-declaration envelope. p2_envelope.py is relabelled as a composition test in its own text, and a new probe plus a new control drive TEN actual guard invocations through normalization, termination and full envelope - which is how a prose-emitting guard is caught.",
+   "verified": [
+    "every-ACTUAL-guard-refusal-composes-a-schema-admitted-failure-envelope",
+    "the-preview-release-guard-emits-a-registered-key-not-prose",
+    "no-actual-capability-guard-emits-an-unregistered-prose-refusal",
+    "every-representative-guard-string-composes-a-schema-admitted-failure-envelope (renamed honestly)"
+   ]
+  },
+  {
+   "id": "CX-BV4-PUBLIC-ROUTE-COMPLETE/3 D9 mirrors",
+   "position": "AGREE - confirmed",
+   "correction": "common.schema.json D9FaultCause.description and the workflows_model FAULT_TO_ERROR comment now state the narrow law: the host-INVARIANT subtype specifically was unrepresentable, other host-fault causes already existed, `total and injective` is a property of the declared cause domain so this does NOT make the maps total, and faultCause does grow by one member. workflows-and-surfaces section 9's cause enumeration includes host-invariant. Historical v1.14 bytes unchanged.",
+   "verified": [
+    "the-prose-does-not-claim-the-inherited-maps-were-nontotal",
+    "the-selected-d9-composition-adds-exactly-one-fault-cause-and-no-code",
+    "every-inherited-fault-mapping-is-preserved-exactly",
+    "the-historical-d9-artifact-bytes-are-unchanged"
+   ]
+  }
+ ],
+ "authorizedScopeUsed": {
+  "integration-host-model.py": "not edited - no change was needed there",
+  "check-integration.py": "not edited - no change was needed there",
+  "note": "root authorized these two; the parity join was expressible in the inventory data and the workflow render selector, so neither was touched."
+ },
+ "delta": {
+  "aggregateVsFrozenV13": {
+   "changedFiles": [
+    {
+     "path": "docs/coop/design-corrections/foundation/check-identity.py",
+     "beforeSha256": "3a9563fe90b1beb58d65534b43a0ba90807493c349270a4eb4ea3dfd54191031",
+     "afterSha256": "9636bad8e2b46fc136c9ba64164c927e6352565c35c106c838043ac7d7cfda5c"
+    },
+    {
+     "path": "docs/coop/design-corrections/foundation/identity-model.py",
+     "beforeSha256": "998b6be8a7ae2d32209ad912615413475a7270c292e5281426977cd9ef3d9aad",
+     "afterSha256": "fe301a101ee3d05ecfd51338a46ae6a9fcc115478358a00482e239dc83f4816d"
+    },
+    {
+     "path": "docs/coop/design-corrections/foundation/identity-schemas.v2.json",
+     "beforeSha256": "5900c29f4ccffda36fbce539c77306e1869cc84b60f29287931e7dda475bb3d8",
+     "afterSha256": "f127fb117c3f3526fa6fad62a63e203a75e510fc7950f8e3dfd5b736d614e287"
+    },
+    {
+     "path": "docs/coop/design-corrections/foundation/relation-payload-schemas.v2.json",
+     "beforeSha256": "aa058f414dbbef991d66496554d82233dfb35a5a03163f08bb840db2c201d5ab",
+     "afterSha256": "629c2868c3c9e7961e009bc7352d2ca44fab5f75c22c08def3691e48aa92656e"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/check_native_evidence.v2.py",
+     "beforeSha256": "0a3ed9a00ce2c6be13d6de92623e36d6799b798c83ea505ca2ae2b130118d35f",
+     "afterSha256": "eefa5ea20046670c0424e72da97a6ad22d12749871bc37428730bdc283b720d0"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native-capability-matrix.v2.json",
+     "beforeSha256": "d1b44a78619719dd662803d3d1a26c292ca5188cf5852ecc9d9e437fcbe70c4b",
+     "afterSha256": "f6c2f12d170f0c57d5a4fa391b9a435d04286f9dad70ded6b1e3f68ee4556997"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native-cases.v2.json",
+     "beforeSha256": "e1ef7aacfcaeb24f0f9ae09531aeb5b8725c748b0369a9cb978b37ab9703ff34",
+     "afterSha256": "5740aed5ced2120fa2e1b8a88829f9bec96772202470c3c4393c681d9f00dfce"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native-evidence.schemas.v2.json",
+     "beforeSha256": "064a1cef6ba8edaee3aef0499d6b0998a7c49c29c5a6bc057ac53fff6e35e49d",
+     "afterSha256": "d32f05cd8c3b9593faf9b055cfff241e96d1bb3c7a433d23a6dcea574bddf67e"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native_evidence_model.v2.py",
+     "beforeSha256": "63442990fcc9b3b05c1ce232ae57eb06ed1be17f5e326207b7766c4148bc8312",
+     "afterSha256": "96f837cc17a5a93088c59bad7937ed668db24584382bbf169fdf7d5845b94632"
+    },
+    {
+     "path": "docs/coop/design-corrections/public-detail-registry.v1.json",
+     "beforeSha256": "c797245ee6be2eff0ca11e518c20f2ef0fc3d0f4899fb260458a20707b6cef3a",
+     "afterSha256": "e54a395fdf40a33a7db9f94630ae7cc1f79b762014fbef804a9c03a754b53c0f"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/command-inventory.v1.json",
+     "beforeSha256": "d99b656d3dc19c3ea1fa0af9f6414ae57b8e31a8ccf4f770fa5a8c334baabc3d",
+     "afterSha256": "b7895711fe710c6d8ca6270066c33366de008b85ec058f0f576114703fe63487"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/schemas/command-envelope.schema.json",
+     "beforeSha256": "df75aa1d07f8ac335fefd5fe8dc219f568eed5e17570f183f337a54f99545066",
+     "afterSha256": "cbd9b083924428aa2e2a52babe89862878387a99a729d0486e68712d6afa0663"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/schemas/common.schema.json",
+     "beforeSha256": "5373ea83e6de698da7c83dfda33906fca8ba29a51846058adc63bcaf3173ee63",
+     "afterSha256": "3f84dff20cf87bb3c7ada028b7af68566846c5bdee2b070494940cc9abe17a8a"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/workflows_model.v1.py",
+     "beforeSha256": "ffc90360afa664b91212789223495530f417a7b2ab7ff58cd2de169a0d999a61",
+     "afterSha256": "3b22e64f76881784cd003ea805f8c59cc0f9c0ce6b19b64f6e5fbf5150b144b8"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/admission-and-qualification.md",
+     "beforeSha256": "be8c98313b77e5ac4798beb77623f229ab705c15299e6576e921f93537748f66",
+     "afterSha256": "9b39fef9acc94d749dffdc3f9c129af17e908f9ade738aff15b131aa458fdb64"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/identity-and-evidence.md",
+     "beforeSha256": "40c1df53e3484eb5b231b9709d88dacc709a45d989b5a29d14bbbf3f8d100742",
+     "afterSha256": "751de4d460aabcd5bb7f7b163d9286a40d6605e0ab53060a19cc9d7eb1a12407"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/native-evidence.md",
+     "beforeSha256": "d880d8d7d741f07d8ffb29c03b09f1976db0215122c14fc3827c898328325a61",
+     "afterSha256": "8e1c96093ec1c335fd94240c4732ae4478d55bc8a1c937e164b200c47e60a452"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+     "beforeSha256": "8e1870d8330213e8993f4319bc53b1cec606dea000a172052ab88064fb09144a",
+     "afterSha256": "7c95766ae3c2af475ca53259dff81e2009d49fb34175d2f305a144a5f2a7defe"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/workflows-and-surfaces.md",
+     "beforeSha256": "a1aa0201aafa7e4b6a9ad9133a2a686597c781385acc5708b94bad89a8fd3ce9",
+     "afterSha256": "8c3ff166e7aa829c70a2ecb6ad009050334fc24b702cda9e5c414bd3c55ea48e"
+    }
+   ],
+   "changedCount": 19,
+   "additions": [],
+   "deletions": []
+  },
+  "thisTurnVsV2": {
+   "changedFiles": [
+    {
+     "path": "docs/coop/design-corrections/foundation/check-identity.py",
+     "v2Sha256": "2b1b53c21b0b35a39904e55e02e4e8703c3208c544a35e1786d3d316fba1bace",
+     "finalSha256": "9636bad8e2b46fc136c9ba64164c927e6352565c35c106c838043ac7d7cfda5c"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native-cases.v2.json",
+     "v2Sha256": "a2461192f911215af7ff8326cdf75d59a687abf8108f245bc7e77b13ae1141e1",
+     "finalSha256": "5740aed5ced2120fa2e1b8a88829f9bec96772202470c3c4393c681d9f00dfce"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native-evidence.schemas.v2.json",
+     "v2Sha256": "189fcec7624023491bb81babd7f75b5dcb01c187bd9ae08b8b13193a94963cf0",
+     "finalSha256": "d32f05cd8c3b9593faf9b055cfff241e96d1bb3c7a433d23a6dcea574bddf67e"
+    },
+    {
+     "path": "docs/coop/design-corrections/native/native_evidence_model.v2.py",
+     "v2Sha256": "d707b7c14855fc246fa03c3dca7dad649aac8889d4152bf04e35dffea35cab0f",
+     "finalSha256": "96f837cc17a5a93088c59bad7937ed668db24584382bbf169fdf7d5845b94632"
+    },
+    {
+     "path": "docs/coop/design-corrections/public-detail-registry.v1.json",
+     "v2Sha256": "c797245ee6be2eff0ca11e518c20f2ef0fc3d0f4899fb260458a20707b6cef3a",
+     "finalSha256": "e54a395fdf40a33a7db9f94630ae7cc1f79b762014fbef804a9c03a754b53c0f"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/command-inventory.v1.json",
+     "v2Sha256": "d99b656d3dc19c3ea1fa0af9f6414ae57b8e31a8ccf4f770fa5a8c334baabc3d",
+     "finalSha256": "b7895711fe710c6d8ca6270066c33366de008b85ec058f0f576114703fe63487"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/schemas/command-envelope.schema.json",
+     "v2Sha256": "df75aa1d07f8ac335fefd5fe8dc219f568eed5e17570f183f337a54f99545066",
+     "finalSha256": "cbd9b083924428aa2e2a52babe89862878387a99a729d0486e68712d6afa0663"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/schemas/common.schema.json",
+     "v2Sha256": "5373ea83e6de698da7c83dfda33906fca8ba29a51846058adc63bcaf3173ee63",
+     "finalSha256": "3f84dff20cf87bb3c7ada028b7af68566846c5bdee2b070494940cc9abe17a8a"
+    },
+    {
+     "path": "docs/coop/design-corrections/workflows/workflows_model.v1.py",
+     "v2Sha256": "ffc90360afa664b91212789223495530f417a7b2ab7ff58cd2de169a0d999a61",
+     "finalSha256": "3b22e64f76881784cd003ea805f8c59cc0f9c0ce6b19b64f6e5fbf5150b144b8"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/admission-and-qualification.md",
+     "v2Sha256": "d3c89c51115fdcf13046002d44d79d21922f4991d2627645329b3c14b9b2ecca",
+     "finalSha256": "9b39fef9acc94d749dffdc3f9c129af17e908f9ade738aff15b131aa458fdb64"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/native-evidence.md",
+     "v2Sha256": "870cac9a88a5c297f52334d1bfb9eb352ca92695ac86e40cea7bbea1aeeee187",
+     "finalSha256": "8e1c96093ec1c335fd94240c4732ae4478d55bc8a1c937e164b200c47e60a452"
+    },
+    {
+     "path": "docs/v2/contracts/product-v1/workflows-and-surfaces.md",
+     "v2Sha256": "a1aa0201aafa7e4b6a9ad9133a2a686597c781385acc5708b94bad89a8fd3ce9",
+     "finalSha256": "8c3ff166e7aa829c70a2ecb6ad009050334fc24b702cda9e5c414bd3c55ea48e"
+    }
+   ],
+   "changedCount": 12,
+   "additions": [],
+   "deletions": []
+  },
+  "forbiddenPathsTouched": [],
+  "historicalD9Unchanged": true,
+  "historicalD9Sha256": "8dd3303855f49bfdbb2751ee65f54a906405f0654159ebe815472f73cdf7da31"
+ },
+ "beforeImages": {
+  "root": "/tmp/opensip-design-corrections/bv4-corrections-author.v3/before-images",
+  "coversEveryThisTurnEdit": true,
+  "eachEqualsV2ReleasedByte": true
+ },
+ "testPaths": {
+  "referenceChecker": "work/docs/coop/design-corrections/foundation/check-identity.py",
+  "focusedProbes": [
+   "probes/p0_carrier_survey.py",
+   "probes/p1_route.py",
+   "probes/p2_envelope.py",
+   "probes/p3_actual_guards.py"
+  ],
+  "probeLogs": [
+   "logs/p1-route.json",
+   "logs/p2-envelope.json",
+   "logs/p3-actual-guards.json",
+   "logs/suite-c-identity.json",
+   "logs/suite-d-identity.json",
+   "logs/suite-e-identity.json",
+   "logs/suite-f-identity.json",
+   "logs/suite-h-identity.json",
+   "logs/suite-i-identity.json"
+  ],
+  "probeHonesty": "p1_route.py and p2_envelope.py are COMPOSITION tests over representative strings and say so; p3_actual_guards.py INVOKES the guards. The distinction is stated in each file and in the control names."
+ },
+ "finalChecksOnCompletedSource": {
+  "disposableRoot": "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-final-v4",
+  "method": "one run on the completed source in a NEW disposable copy with a measured temporary repin (34 entries over 19 files). All earlier suite directories preserved. Development instrument, NOT accepted pin evidence.",
+  "results": {
+   "check-foundation": "231/231",
+   "check-identity": "1264 passed, 0 failed",
+   "check-product-quality": "24/24",
+   "check-product-configuration": "28/28",
+   "check-array-orders": "65/65",
+   "check_workflows.v1": "1598/1598",
+   "check_native_evidence.v2": "347/347 cases; 66 cells; 0 open objects"
+  },
+  "allExitZero": true,
+  "intermediateFailureRetained": "suite-final-v3 ran 346/347: the corpus case still expected the preview guard's old prose message. The expectation was corrected to the registered key and the directory is preserved."
+ },
+ "preservedIntact": [
+  "totality five-coordinate match",
+  "derivation types relation condition",
+  "RC-3",
+  "existential/positive use",
+  "raw-byte inventory boundary",
+  "matrix-fixed default",
+  "explicit overrides",
+  "language-tier precedence",
+  "body-language selector",
+  "compiler-free references/syntax-only remains admitted"
+ ],
+ "allDisposableCopyRoots": [
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-a",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-b",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-c",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-d",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-e",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-f",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-final",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-final-v2",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-final-v3",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-final-v4",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-full-1",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-g",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-h",
+  "/tmp/opensip-design-corrections/bv4-corrections-author.v3/disposable/suite-i"
+ ],
+ "awaiting": "/tmp/opensip-design-corrections/bv4-corrections-author.v3/root-review.v3.json",
+ "sourceEditingStopped": true
+}

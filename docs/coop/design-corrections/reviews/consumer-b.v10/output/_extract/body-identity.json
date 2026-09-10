@@ -1,0 +1,208 @@
+{
+  "canonicalisationSchema": {
+    "contractId": "opensip.normalized-body-identity.v1",
+    "v1Defect": "B-FI-09. v1 named levels but published no byte-level construction, so two independent producers could implement different hashes and both claim conformance \u2014 destroying exactly the cross-version and cross-platform identity stability the ladder exists to provide.",
+    "construction": {
+      "step1": "Extract the body span at L0 byte boundaries.",
+      "step2": "For L0, the canonical payload is the raw body-span bytes with no tokenisation. For L1-L3, apply the level's declared transform to the versioned language token stream. Token boundaries, canonical kind IDs, and replacements are part of the level-version specification.",
+      "step3": "Serialise the selected payload with the byteGrammar below: raw length-prefixed bytes for L0, or a count-framed stream of length-prefixed canonical kind/value byte pairs for L1-L3.",
+      "step4": "Hash with DOMAIN SEPARATION over a FULLY FRAMED preimage: H(len-prefixed domainTag || len-prefixed levelId || len-prefixed levelVersion || len-prefixed languageId || len-prefixed languageVersion || len-prefixed payload). Unframed concatenation of the identity components is FORBIDDEN (R2-FI-03)."
+    },
+    "collisionPolicy": "A hash collision between two distinct canonical payloads is a HOST DEFECT, reported as such and never resolved by preferring one. Framing makes distinct canonical payloads produce distinct preimages; an intended normalisation equivalence may map different source spans to the same canonical payload.",
+    "outputRepresentation": "sha256:<64 lowercase hexadecimal characters>",
+    "goldenCorpusRequirement": "Each implementation must supply a versioned corpus for every language it admits, including adversarial significant whitespace, comment-shaped directives, string literals containing comment syntax, Unicode normalisation, and mixed line endings. TypeScript and Rust are required for v1; other matrix rows require evidence before a later product admission. FI-CANON checks that this obligation remains declared; retained corpus contents and execution records are implementation/qualification evidence, not architecture evidence fabricated by this checker.",
+    "byteGrammar": {
+      "algorithm": "SHA-256",
+      "domainTag": "opensip.fact-identity.v1",
+      "encoding": "UTF-8 source bytes as read from the snapshot; no re-encoding",
+      "unicodeNormalization": "none at L0; NFC only if a level transform explicitly declares it",
+      "lineEndings": "L0 preserves CR/LF/CRLF as in the snapshot bytes; L1+ may normalise only where the language treats them as insignificant whitespace",
+      "bodySpanBoundary": "half-open byte offsets [start,end) into the snapshot file blob; end exclusive",
+      "levelVersionDefinition": "raw 32-byte SHA-256 content digest of the canonical level specification, including per-language lexical boundary rules, canonical token-kind registry, directive classification, transform order, and replacement byte rules; a human semantic-version label alone is insufficient",
+      "identifierEncoding": {
+        "domainTag": "exact ASCII bytes of the fixed domainTag literal",
+        "levelId": "exact ASCII bytes of the enumerated normalisationLadder.level value",
+        "levelVersion": "raw 32-byte digest defined by levelVersionDefinition, not hexadecimal display text",
+        "languageId": "lowercase ASCII bytes of the languageCapability.matrix language id",
+        "languageVersion": "exact canonical identity bytes supplied by ResolvedInputs/PlanId, not a human display string"
+      },
+      "payloadEncodingByLevel": {
+        "L0-verbatim": "u32be raw_byte_len || exact snapshot body-span bytes; tokenisation is forbidden",
+        "L1-lexical": "framedTokenStream",
+        "L2-comment-insensitive": "framedTokenStream",
+        "L3-identifier-insensitive": "framedTokenStream"
+      },
+      "tokenKindDefinition": "kind_id is the non-empty UTF-8 canonical identifier from the token-kind registry committed by levelVersion; producer/toolchain numeric enum ordinals are forbidden",
+      "tokenValueDefinition": "value_bytes are the exact source lexeme bytes unless the level specification replaces them with declared canonical ASCII bytes; no implicit Unicode or encoding conversion is permitted",
+      "tokenEncoding": "each token = u16be kind_id_len || kind_id_bytes || u32be value_len || value_bytes",
+      "streamFraming": "u32be token_count || token*",
+      "domainSeparatedPreimage": [
+        "u8 tag_len || tag_bytes (domainTag)",
+        "u8 levelId_len || levelId_bytes",
+        "u8 levelVersion_len || levelVersion_bytes",
+        "u8 languageId_len || languageId_bytes",
+        "u8 languageVersion_len || languageVersion_bytes",
+        "u32be payload_len || payload_bytes"
+      ],
+      "languageVersionDefinition": "the language toolchain/mode identity recorded in PlanId / ResolvedInputs for the provider interpreting the body span (e.g. typescript@X, rustc@Y edition Z); this identity remains framed for L0 even though its payload is raw bytes",
+      "forbidden": "raw string concatenation of levelId||levelVersion||languageId||languageVersion without length prefixes; tokenising L0; raw producer/toolchain numeric token-kind ordinals"
+    }
+  },
+  "normalisationLadder": {
+    "form": "A ladder of named, independently versioned levels, not one policy.",
+    "why": "Exact-duplicate and near-duplicate detection want different normalisation; forcing one loses precision or recall permanently.",
+    "levels": [
+      {
+        "level": "L0-verbatim",
+        "normalises": "nothing \u2014 raw bytes of the body span",
+        "use": "provenance and exact-byte identity"
+      },
+      {
+        "level": "L1-lexical",
+        "normalises": "insignificant whitespace and line endings",
+        "use": "DEFAULT for exact-duplicate detection"
+      },
+      {
+        "level": "L2-comment-insensitive",
+        "normalises": "L1 plus non-directive comments",
+        "use": "opt-in"
+      },
+      {
+        "level": "L3-identifier-insensitive",
+        "normalises": "L2 plus consistent renaming of LOCAL bindings",
+        "use": "opt-in; near-duplicate only"
+      }
+    ],
+    "defaultLevel": "L1-lexical",
+    "rules": [
+      {
+        "id": "BH-1",
+        "rule": "Each level is separately versioned. Changing L2's comment grammar does not touch L1 identities."
+      },
+      {
+        "id": "BH-2",
+        "rule": "The level and its version are part of the fact's identity and enter the derivation key. Two levels are two facts, never one fact computed differently."
+      },
+      {
+        "id": "BH-3",
+        "rule": "A finding records the level that produced it. Comparing a baseline entry pinned to L1 against an L2 result is a typed mismatch, not a diff."
+      },
+      {
+        "id": "BH-4",
+        "rule": "Adding a level is schema-additive and changes no existing identity."
+      },
+      {
+        "id": "BH-5",
+        "rule": "Changing an EXISTING level's algorithm requires the custody transition protocol below. There is no migrator that can invent the old identity from the new one."
+      },
+      {
+        "id": "BH-6",
+        "rule": "The L0 span LOCATION is retrievable for any finding at any level. Retrieving its BYTES is a separate, retention-governed act (B-FI-04)."
+      }
+    ]
+  },
+  "factRecordIdentityBoundaryV1": {
+    "id": "opensip.fact-record-identity-boundary.v1",
+    "purpose": "Keep normalized source-body identity and generic admitted-fact identity as two composable contracts. A clone payload may carry a normalized body identity; the host then mints a distinct FACT-ID-V1 for the complete admitted fact record.",
+    "normalizedBodyIdentity": {
+      "contractId": "opensip.normalized-body-identity.v1",
+      "source": "fact-identity-policy.v2.json#canonicalisationSchema",
+      "domainTag": "opensip.fact-identity.v1",
+      "owner": "FACT-IDENTITY",
+      "input": "one normalized source body span plus level/language/version components",
+      "outputRepresentation": "sha256:<64 lowercase hexadecimal characters>"
+    },
+    "genericFactRecordIdentity": {
+      "contractId": "opensip.fact-id.v1",
+      "source": "fact-plane.v1.json#factRecordContractV1.factIdContract",
+      "relationRegistrySource": "fact-plane.v1.json#factRecordContractV1.relationPayloadSchemaRegistryV1",
+      "candidateMappingSource": "fact-plane.v1.json#factRecordContractV1.candidateToAdmittedMapping",
+      "domainTag": "opensip.fact-id\u0000",
+      "owner": "Rust host only",
+      "input": "the exact fourteen-field admitted FactRecordV1 semantic preimage"
+    },
+    "clonePayloadJoin": {
+      "relation": "clones",
+      "schemaId": "opensip.relation.clones.v1",
+      "field": "bodyIdentity",
+      "fieldType": "Sha256Text",
+      "rule": "The normalized body identity is payload data inside a clones fact. FACT-ID-V1 wraps the complete clone fact and can never equal or substitute for bodyIdentity by type or domain."
+    },
+    "providerProfiles": [
+      {
+        "providerId": "rust-semantic",
+        "language": "rust"
+      },
+      {
+        "providerId": "typescript-semantic",
+        "language": "typescript"
+      }
+    ],
+    "separationRules": [
+      "The two domain tags and contract identifiers are distinct and immutable within v1.",
+      "Normalized body identity never hashes FactEnvelope, relation payload, universes, confidence or anchors.",
+      "FACT-ID-V1 never re-runs body normalization; it hashes the already validated relation payload bytes and anchors, including bodyIdentity only when the relation schema carries it.",
+      "A provider may compute a candidate bodyIdentity under the pinned body grammar but never mints FACT-ID-V1; the host validates both boundaries."
+    ],
+    "assurance": "IMPLEMENTABLE_UNEXECUTED; exact FACT-ID-V1 vectors live in FACT-PLANE and normalized-body corpora remain implementation evidence"
+  },
+  "languageCapability": {
+    "rule": "Each level is implementable per language at a declared capability. A language that cannot implement a level MUST report Coverage with the fact-plane deficiency vocabulary \u2014 never a silent approximation.",
+    "matrix": [
+      {
+        "language": "typescript",
+        "L1": "full",
+        "L2": "full-provisional",
+        "L3": "full-provisional",
+        "note": "R2-FI-05: L2/L3 full only after directive/JSDoc corpora; provisional until then."
+      },
+      {
+        "language": "rust",
+        "L1": "full",
+        "L2": "full-provisional",
+        "L3": "full-provisional",
+        "note": "R2-FI-05: doc-comment/macro/name-resolution make L2/L3 corpus-dependent."
+      },
+      {
+        "language": "python",
+        "L1": "restricted",
+        "L2": "restricted",
+        "L3": "unavailable",
+        "note": "Indentation is SIGNIFICANT, so L1 may not normalise leading whitespace. L3 needs binding resolution beyond the syntax tier."
+      },
+      {
+        "language": "go",
+        "L1": "full-provisional",
+        "L2": "restricted",
+        "L3": "unavailable",
+        "note": "Build-constraint comments are directives, not comments. R2-FI-05: semicolon insertion requires token-aware L1; provisional until measured."
+      }
+    ],
+    "significantLayoutRule": "A level MUST NOT normalise layout that is semantically significant in the target language. Python indentation is the canonical case; anything inside a string literal is universal.",
+    "directiveRule": "Comment-shaped DIRECTIVES are classified separately from removable comments and are NEVER removed at L2. Examples: Go build constraints, TypeScript triple-slash references and ts-ignore, Rust inner attributes and doc comments feeding cfg, Python encoding declarations and type comments. Removing a directive changes meaning, so removing it at a level advertised as comment-insensitive would make two semantically different bodies identical.",
+    "neverNormalise": [
+      "string and template literal contents",
+      "regex literals",
+      "any comment-shaped directive",
+      "layout that is significant in the language"
+    ],
+    "onUnavailable": {
+      "deficiency": "language-tier-unsupported",
+      "mustBeInFactPlaneVocabulary": true
+    },
+    "capabilityGrades": {
+      "full": "the contract requires full language semantics; an implementation may advertise this grade only after adversarial golden-corpus agreement across two producers",
+      "full-provisional": "judgment from language spec; MUST be treated as restricted for shipping identity claims until measured",
+      "restricted": "known semantic caveats; identity equivalence only within declared constraints",
+      "unavailable": "must emit language-tier-unsupported deficiency; never silent approximation"
+    },
+    "supportedLanguages": [
+      "typescript",
+      "rust",
+      "python",
+      "go"
+    ],
+    "productScopeRule": "supportedLanguages is the architecture capability matrix, not the v1 installed-language set. v1 admits TypeScript and Rust only. Python or Go identity production requires an explicit later product scope change plus the corresponding corpus evidence before admission.",
+    "bindingRule": "Exactly one matrix row per supportedLanguages entry. Every (language, level) cell MUST have a levelFixture whose expected capability equals the matrix cell (full-provisional may fixture as restricted for shipping behavior). Deleting a row or desynchronizing a fixture fails FI-CAP (R2-FI-02)."
+  }
+}

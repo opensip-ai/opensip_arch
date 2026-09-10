@@ -1,0 +1,410 @@
+{
+ "standing": "Author handoff interface (Claude post-reset author v2) for Codex joins. Owned bytes: security/, native/, discovery-defaults.py, the two contracts. Nothing here is accepted; pins/reports/registry/workflow schemas are Codex's.",
+ "runWith": "/tmp/opensip-architecture-review-env/bin/python -I -B; load modules by path as integration-host-model.py does",
+ "1_repairRecoveryAuthorization": {
+  "issue": "P9 / CX-01 / SHOULD-5: recovery mutation authority was a caller dict bound to plan+requestId and retained as auth:<16hex>",
+  "securityRecord": "security-lifecycle.schemas.v1.json#/schemas/RepairRecoveryAuthorizationV1 (product data, closed)",
+  "admission": "S.admit_recovery_authorization(authz, ctx) -> RecoveryAuthorizationAdmissionV1; ADMIT iff every binding holds; refusals AUTHZ.*; D9 REQUEST.PRECONDITION_FAILED except AUTHZ.RECIPE_CLOSURE_REVOKED -> EXTENSION.ADMISSION_REJECTED",
+  "fullReference": {
+   "grammar": "^security\\.repair-recovery-authorization\\.v1:[0-9a-f]{64}(?![\\s\\S])",
+   "recipe": "'security.repair-recovery-authorization.v1:' + C.identity('security.repair-recovery-authorization.v1', authz)  (foundation product H)",
+   "example": "security.repair-recovery-authorization.v1:a1f909a6fb6334e6a690d7ae9276855205896256a39684a9f471b66e701ab54b"
+  },
+  "journalIdentity": {
+   "function": "S.repair_journal_identity(journal)",
+   "domain": "security.repair-apply-journal-identity.v1",
+   "preimageKeys": [
+    "schemaFamily",
+    "schemaMajor",
+    "requestId",
+    "stepId",
+    "executionId",
+    "repairPlanId",
+    "baseSnapshotId",
+    "authorizationRef"
+   ],
+   "noncircular": "excludes state, stagedPaths, appliedPaths, preimageBlobs, blockedPaths, restoreIntent, appliedSnapshotId, faultCause and recoveryAuthorizationRef; the same journal has one identity in every state",
+   "example": "security.repair-apply-journal-identity.v1:7c478141071408f67b932f63c489c34ff9dbffac82444d4086e42dc86f57a3ee"
+  },
+  "observedJournalState": {
+   "function": "S.repair_journal_state_digest(journal)",
+   "preimage": "raw SHA-256 of canonical {state, stagedPaths, appliedPaths, preimageBlobs} as read under the EXCLUSIVE lease before any recovery write",
+   "replay": "single use: any successful recovery mutation changes state -> AUTHZ.JOURNAL_STATE_MOVED on replay; a crash/requires-broker before the first write leaves it unchanged -> the same authorization resumes inside its lifetime with a fresh recoveryExecutionId",
+   "example": "90cd85abf40347de74315691e27618871084578eafb6c0090aef9f4475fb262c"
+  },
+  "trustedContextInputs": [
+   "projectId",
+   "repairPlanId",
+   "baseSnapshotId",
+   "journal",
+   "recoveryRequestId",
+   "recoveryExecutionId",
+   "ci",
+   "admittedTime",
+   "custodyAdmitted",
+   "policyAdmitsRepair",
+   "recipeClosureId",
+   "revokedClosures",
+   "admittedClosures"
+  ],
+  "ctxExample": {
+   "projectId": "prj1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "repairPlanId": "repairplan2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+   "baseSnapshotId": "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+   "journal": {
+    "schemaFamily": "opensip.product.repair-apply-journal",
+    "schemaMajor": 1,
+    "requestId": "req1_11111111111111111111111111111111",
+    "stepId": 2,
+    "executionId": "exec1_11111111111111111111111111111111",
+    "repairPlanId": "repairplan2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "baseSnapshotId": "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "authorizationRef": "security.repair-apply-authorization.v1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "state": "APPLYING",
+    "stagedPaths": [
+     "src/a.ts",
+     "src/b.ts"
+    ],
+    "appliedPaths": [
+     "src/a.ts"
+    ],
+    "preimageBlobs": [
+     {
+      "path": "src/a.ts",
+      "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+      "bytes": 10
+     },
+     {
+      "path": "src/b.ts",
+      "sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+      "bytes": 12
+     }
+    ]
+   },
+   "recoveryRequestId": "req1_22222222222222222222222222222222",
+   "recoveryExecutionId": "exec1_22222222222222222222222222222222",
+   "ci": false,
+   "admittedTime": "2027-01-10T12:00:00Z",
+   "custodyAdmitted": true,
+   "policyAdmitsRepair": true,
+   "recipeClosureId": "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+   "revokedClosures": [
+    "closure2:9999999999999999999999999999999999999999999999999999999999999999"
+   ],
+   "admittedClosures": [
+    "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+   ]
+  },
+  "authorizationExample": {
+   "authorizationSchema": 1,
+   "kind": "repair-recover",
+   "projectId": "prj1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "repairPlanId": "repairplan2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+   "baseSnapshotId": "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+   "recipeClosureId": "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+   "journalRef": "security.repair-apply-journal-identity.v1:7c478141071408f67b932f63c489c34ff9dbffac82444d4086e42dc86f57a3ee",
+   "journalState": "APPLYING",
+   "observedJournalStateDigest": "90cd85abf40347de74315691e27618871084578eafb6c0090aef9f4475fb262c",
+   "recoveryAction": "roll-back-renamed",
+   "originalRequestId": "req1_11111111111111111111111111111111",
+   "recoveryRequestId": "req1_22222222222222222222222222222222",
+   "recoveryExecutionId": "exec1_22222222222222222222222222222222",
+   "consent": {
+    "mode": "interactive-explicit",
+    "policyRecordId": null,
+    "ci": false
+   },
+   "issuedAt": "2027-01-10T11:30:00Z",
+   "expiresAt": "2027-01-11T11:30:00Z",
+   "leaseMode": "EXCLUSIVE",
+   "mutationBoundary": "host-broker",
+   "repositoryExecution": false,
+   "newEdits": false
+  },
+  "admissionExample": {
+   "result": "ADMIT",
+   "refusals": [],
+   "d9": null,
+   "grantsRepositoryExecution": false,
+   "grantsNewEdits": false,
+   "planScope": "original-plan-only",
+   "leaseMode": "EXCLUSIVE",
+   "mutationBoundary": "host-broker",
+   "action": "roll-back-renamed",
+   "recipeTrustConsulted": false,
+   "journalRef": "security.repair-apply-journal-identity.v1:7c478141071408f67b932f63c489c34ff9dbffac82444d4086e42dc86f57a3ee",
+   "journalStateDigest": "90cd85abf40347de74315691e27618871084578eafb6c0090aef9f4475fb262c",
+   "identityDomain": "security.repair-recovery-authorization.v1",
+   "inspection": "read-only; needs no authorization",
+   "preimagePostimageLaw": "mandatory: every target must be at its plan preimage or postimage before any restore/commit (workflow recovery table); never waived here",
+   "replaySemantics": "single use: a successful recovery mutation changes the observed journal state digest; an unchanged digest (crash before the first write) may resume within the lifetime",
+   "revocationPath": "authority checkpoint before every brokered write; rollback/cleanup proceeds under a revoked recipe; commit refuses AUTHZ.RECIPE_CLOSURE_REVOKED (S6)",
+   "trustedContextInputs": [
+    "projectId",
+    "repairPlanId",
+    "baseSnapshotId",
+    "journal",
+    "recoveryRequestId",
+    "recoveryExecutionId",
+    "ci",
+    "admittedTime",
+    "custodyAdmitted",
+    "policyAdmitsRepair",
+    "recipeClosureId",
+    "revokedClosures",
+    "admittedClosures"
+   ]
+  },
+  "actionTable": {
+   "securityRECOVERY_ACTION_FOR_STATE": {
+    "PREPARING": "discard-temps",
+    "STAGED": "discard-temps",
+    "APPLYING": "roll-back-renamed",
+    "APPLIED": "verify-postimages-and-commit",
+    "INDETERMINATE": "verify-postimages-and-commit"
+   },
+   "terminalStatesAdmitNoMutation": [
+    "COMMITTED",
+    "FAILED_CLEAN",
+    "FAILED_ROLLED_BACK",
+    "RECOVERY_BLOCKED"
+   ],
+   "integrationCheckToRetain": "assert {st: row[0] for st,row in W.RECOVERY_TABLE.items() if row[0] in W.MUTATING_RECOVERY} == S.RECOVERY_ACTION_FOR_STATE"
+  },
+  "trustLaw": "discard-temps / roll-back-renamed never consult recipe trust (a revoked recipe MUST still roll back); verify-postimages-and-commit re-consults it (revoked refuses first, not-admitted refuses)",
+  "codexJoins": [
+   "workflows/schemas/repair.schema.json RepairApplyJournalV1.recoveryAuthorizationRef: replace the free string with common#/$defs/RecoveryAuthorizationRef using the grammar above (full reference, never auth:<16hex>)",
+   "workflows_model.v1.py repair_recover: take the admitted RecoveryAuthorizationAdmissionV1 projection (host-created after S.admit_recovery_authorization over the journal AS READ) instead of a caller dict; write the full reference into the journal; keep the closed recovery table and its preimage/postimage law unchanged",
+   "integration-host-model.py: recovery_authorization_projection(authz, ctx, plan, journal, ref) mirroring repair_authorization_projection: validate_input RepairRecoveryAuthorizationV1, check ref == computed, bind ctx from the rehashed plan and the journal read under the lease, call S.admit_recovery_authorization",
+   "public-detail-registry.v1.json: register the new AUTHZ.* details listed in handoff.json (owner security)",
+   "command-inventory: repair-recover --apply-recovery takes the authorization PATH (or interactive consent) under authorizationClass exclusive-lease; inspection needs none"
+  ]
+ },
+ "2_installationTransition": {
+  "issue": "P10 / SHOULD-6: CoreTransitionIntentV1 admits only core-update|repair|rollback and no record names the journaled lease set",
+  "intentContract": {
+   "record": "security-lifecycle.schemas.v1.json#/schemas/InstallationTransitionIntentV1",
+   "requiredFields": [
+    "fromCoreClosure",
+    "fromStateSchema",
+    "fromStoreGeneration",
+    "operation",
+    "platformProfileSetBodyDigest",
+    "preconditionGeneration",
+    "rollbackDeadline",
+    "schemaVersion",
+    "toCoreClosure",
+    "toStateSchema",
+    "toStoreGeneration"
+   ],
+   "operations": [
+    "core-update",
+    "core-repair",
+    "core-rollback",
+    "store-migrate",
+    "store-rollback"
+   ],
+   "semantics": "S.admit_transition_intent(intent) -> [] or TRANSITION.* refusals: repair keeps closure/schema/store; update changes closure, never lowers schema, schema change selects a new store generation, same schema keeps it; rollback changes closure, never raises schema, needs the host-observed rollbackDeadline; store-migrate keeps the core closure, advances schema, new store generation; store-rollback keeps the core closure, retreats schema, re-selects the retained generation, needs the deadline",
+   "intentDigest": "S.transition_intent_digest(intent) = raw SHA-256 of canonical intent = mutation step inputDescriptorDigest (S15)",
+   "workflowSchemaDelta": "CoreTransitionIntentV1: operation enum += store-migrate, store-rollback; required += fromStoreGeneration, toStoreGeneration (uint64); keep the other nine fields; command inventory store-migrate/store-rollback carry this intent"
+  },
+  "journal": {
+   "record": "security-lifecycle.schemas.v1.json#/schemas/InstallationTransitionJournalV1",
+   "constructor": "S.transition_journal_record(intent, registry) (state LEASED; written only after every lease is held)",
+   "admission": "S.admit_transition_journal(journal, ctx) -> TransitionJournalAdmissionV1; journalRef = security.installation-transition-journal.v1:<H>",
+   "ctxKeys": [
+    "intent",
+    "intentDigest",
+    "namespaceRegistry",
+    "fenceHeld",
+    "leasesHeld",
+    "currentStateSchema",
+    "currentStoreGeneration",
+    "currentCoreGeneration",
+    "admittedTime"
+   ],
+   "scopeLaw": "affects/leaseSet == S.core_transition_affected_namespaces(intent, frozen registry); a caller-chosen smaller set is TRANSITION.SCOPE_MISMATCH and TRANSITION.LEASE_SET_NOT_HELD",
+   "example": {
+    "journalSchema": 1,
+    "kind": "installation-transition",
+    "intentDigest": "81d96bd1c8a1777370f01796903dbf98946a3ffe8d93bcfc2fb80655e0b33c57",
+    "registryDigest": "281a0b69972a2a79b5b070dddf7608135539410093698ef8bb082620bbb8747e",
+    "registry": [
+     "ns-a",
+     "ns-b",
+     "ns-c"
+    ],
+    "affects": "all-registered",
+    "leaseSet": [
+     "ns-a",
+     "ns-b",
+     "ns-c"
+    ],
+    "state": "LEASED",
+    "fenceHeld": true,
+    "writtenAfterAllLeasesHeld": true,
+    "operation": "store-migrate",
+    "fromCoreClosure": "closure2:2222222222222222222222222222222222222222222222222222222222222222",
+    "toCoreClosure": "closure2:2222222222222222222222222222222222222222222222222222222222222222",
+    "fromStateSchema": 1,
+    "toStateSchema": 2,
+    "fromStoreGeneration": 3,
+    "toStoreGeneration": 4,
+    "platformProfileSetBodyDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "preconditionGeneration": 8,
+    "rollbackDeadline": null
+   },
+   "admissionExample": {
+    "result": "ADMIT",
+    "refusals": [],
+    "d9": null,
+    "journalRef": "security.installation-transition-journal.v1:1fcf257691402dc38ae2e2cc85365adf5d5e461ce73307a0d24e804f5617abd8",
+    "affects": "all-registered",
+    "leaseSet": [
+     "ns-a",
+     "ns-b",
+     "ns-c"
+    ],
+    "identityDomain": "security.installation-transition-journal.v1",
+    "fenceHeldThroughout": true,
+    "recovery": "first act under the next fence acquisition, before any project admission (recover_transition_journal)",
+    "trustedContextInputs": [
+     "intent",
+     "intentDigest",
+     "namespaceRegistry",
+     "fenceHeld",
+     "leasesHeld",
+     "currentStateSchema",
+     "currentStoreGeneration",
+     "currentCoreGeneration",
+     "admittedTime"
+    ]
+   }
+  },
+  "recovery": {
+   "function": "S.recover_transition_journal(journal, ctx) -> TransitionRecoveryV1",
+   "ctxKeys": [
+    "namespaceRegistry",
+    "fenceHeld",
+    "leasesReacquired",
+    "storeFootprint"
+   ],
+   "table": {
+    "LEASED": {
+     "action": "ABORT",
+     "journalStateAfter": "ABORTED",
+     "rationale": "intent journaled, nothing prepared: release the journaled lease set; installation unchanged"
+    },
+    "PREPARING": {
+     "action": "ABORT",
+     "journalStateAfter": "ABORTED",
+     "rationale": "preparation incomplete: discard the unpublished generation / migrating root; installation unchanged"
+    },
+    "PREPARED": {
+     "action": "store-footprint",
+     "journalStateAfter": null,
+     "rationale": "prepared: a store operation follows the S9 footprint table (RESUME-COMMIT only when the old store is fenced); a core operation aborts because the published generation was never selected (GC census reclaims it)"
+    },
+    "COMMITTED": {
+     "action": "RESUME-COMMIT",
+     "journalStateAfter": "DONE",
+     "rationale": "commit marker durable: finish the selection switch / final rename; a committed transition is never reversed"
+    },
+    "DONE": {
+     "action": "RELEASE-ONLY",
+     "journalStateAfter": "DONE",
+     "rationale": "transition complete; only the lease set and fence remain to release"
+    },
+    "ABORTED": {
+     "action": "RELEASE-ONLY",
+     "journalStateAfter": "ABORTED",
+     "rationale": "transition aborted; only the lease set and fence remain to release"
+    }
+   },
+   "failClosed": "registry differs -> QUARANTINE MIGRATION.CORRUPT; lease set not exactly re-acquired -> PROJECT.BUSY; no fence -> TRANSITION.FENCE_NOT_HELD; PREPARED store op without footprint -> QUARANTINE"
+  },
+  "leaseSchedule": "lease_schedule op transition-journal {actor, namespaces}: JOURNALED only under the fence after core-transition-acquire of exactly that set",
+  "codexJoins": [
+   "integration-host-model.core_transition_scope: validate the successor intent, call S.admit_transition_intent, S.core_transition_affected_namespaces, then S.transition_journal_record/admit_transition_journal with the registry read under the fence",
+   "workflows: store-migrate/store-rollback commands bind the same intent; the invocation retains journalRef",
+   "public-detail-registry: TRANSITION.* details (owner security); D9 REQUEST.PRECONDITION_FAILED"
+  ]
+ },
+ "3_admittedBoundaryInventory": {
+  "issue": "P3: native discovery ignored security nestedRepositories/nestedProjects; Plan scope did not name them",
+  "securityExport": "S.boundary_inventory(discovery_result) -> AdmittedBoundaryInventoryV1 (relative scope paths; Reject unless status ACCEPT); shared implementation DD.boundary_inventory_from_provenance(provenance)",
+  "nativeConsumption": "N.discover_units(markers, explicit_roots, boundaries) / N.assign_membership(units, files, boundaries) / N.unit_scope_descriptor(units, ignore_paths, prefixes, pruned_trees, boundaries)",
+  "inventoryExample": {
+   "schemaVersion": 1,
+   "source": "security.discovery",
+   "selectedRoot": "/home/alice/repo",
+   "nestedRepositories": [
+    "vendor/lib"
+   ],
+   "nestedProjects": [
+    "apps/site"
+   ],
+   "custodyExcludedUnits": [],
+   "prunedTrees": [
+    {
+     "path": "vendor/lib/node_modules",
+     "reason": "dependency-tree",
+     "markerCount": 1
+    }
+   ]
+  },
+  "nativeOutputExample": {
+   "units": [
+    ""
+   ],
+   "boundaries": {
+    "source": "security.discovery",
+    "nestedRepositories": [
+     "vendor/lib"
+    ],
+    "nestedProjects": [
+     "apps/site"
+    ],
+    "custodyExcludedUnits": [],
+    "excludedUnits": [
+     {
+      "path": "apps/site",
+      "marker": "package.json",
+      "reason": "nested-project",
+      "anchor": "apps/site"
+     },
+     {
+      "path": "apps/site/sub",
+      "marker": "Cargo.toml",
+      "reason": "nested-project",
+      "anchor": "apps/site"
+     },
+     {
+      "path": "vendor/lib",
+      "marker": "package.json",
+      "reason": "nested-repository",
+      "anchor": "vendor/lib"
+     }
+    ],
+    "disclosure": "boundaries admitted by the security discovery instrument (S3) over the same marker inventory; units and memberships at or below a boundary are outside this project"
+   },
+   "prunedTrees": [
+    {
+     "path": "vendor/lib/node_modules",
+     "reason": "dependency-tree",
+     "markerCount": 1
+    }
+   ]
+  },
+  "laws": [
+   "boundaries.prunedTrees must equal the native-derived prunedTrees over the same marker inventory (native.boundary-inventory-mismatch otherwise): caller ignores are never proof of completeness",
+   "explicit root at/below a boundary: native.explicit-root-crosses-boundary (CONFIG.INVALID); security refuses the same join as JOIN_CROSSES_NESTED_*",
+   "boundaries=None is the standalone pure instrument only (boundaries.source = none with disclosure); an operational host composition must pass the security export"
+  ],
+  "codexJoins": [
+   "check-integration.py security-native-shared-unit-roots: feed S.boundary_inventory(sd) to N.discover_units and assert unit roots AND excludedUnits agree (the security sweep admitted-boundary-inventory-joins-security-discovery-and-native-unit-discovery does this over the P3 fixture)",
+   "integration-host-model: compose discovery -> boundary_inventory -> native discovery; convert absolute locators only through DD.relative_locator",
+   "public-detail-registry: native.explicit-root-crosses-boundary (CONFIG.INVALID), native.boundary-inventory-mismatch (REQUEST.PRECONDITION_FAILED)"
+  ]
+ }
+}

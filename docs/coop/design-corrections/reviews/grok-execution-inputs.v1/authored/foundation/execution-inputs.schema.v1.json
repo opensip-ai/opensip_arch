@@ -1,0 +1,726 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.execution-inputs.1",
+  "title": "ExecutionInputsV1 — host-captured evaluator INPUT observation (DRAFT, isolated successor)",
+  "description": "Canonical-record INPUT. Identity is raw SHA-256 of C(this record); not an H-domain. Names Plan, execution-plan and evaluator as locator joins, not parent hashes (no cycle into Plan). Observes what stages returned: selected view/inventory/import/target/incoming refs and one outcome per requested capability cell/program binding. Not producer findings, verdict, proof, or expected matching facts. Self-asserted complete without retained locators is not representable (no complete flag). Standing: draft; frozen21 and live repo untouched. Root registers payload-registry / ProofInputRef later.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planId",
+    "executionPlanId",
+    "evaluatorClosure",
+    "enumerationPlanDigest",
+    "analysisSpecDigest",
+    "hostCapture",
+    "selectedRefs",
+    "cellOutcomes",
+    "nativeCoverageAccounts",
+    "candidateResultRefs"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Locator join to the Plan. This record is a post-Plan evaluator INPUT, not a Plan parameter; it is not hashed into PlanId."
+    },
+    "executionPlanId": {
+      "type": "string",
+      "pattern": "^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "evaluatorClosure": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Plan-selected closure kind=evaluator that will consume these inputs. Not a producer."
+    },
+    "enumerationPlanDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+        "representation": "canonical-record",
+        "record": {
+          "document": "foundation/enumeration-plan.schema.v1.json",
+          "selector": "#"
+        }
+      }
+    },
+    "analysisSpecDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Must equal plan.analysisSpecDigest."
+    },
+    "hostCapture": {
+      "$ref": "#/$defs/HostCaptureV1"
+    },
+    "selectedRefs": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/InputRefV1"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "Exact selected evaluator input roots the host observed stages return. Must equal the returned view/inventory/import/target-attribution/incoming-search set. Forbidden domains: proof-bundle, finding, evaluation-seal, run, semantic-evidence (output backlink)."
+    },
+    "cellOutcomes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "$ref": "#/$defs/CellProgramOutcomeV1"
+      },
+      "x-opensip-order": "ordinal",
+      "description": "Exactly one row per EnumerationPlanV1 cell programBinding, flattened cell order then program ordinal. Zero returned outputs, unavailability and partial are explicit here."
+    },
+    "nativeCoverageAccounts": {
+      "type": "array",
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/NativeCoverageAccountV1"
+      },
+      "x-opensip-order": "sequence",
+      "description": "One account per matrix capabilities[id].relations pair of each requested fact-producing cell/program. Candidate-only capabilities have empty relations and MUST NOT appear here."
+    },
+    "candidateResultRefs": {
+      "type": "array",
+      "maxItems": 1024,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "Raw SHA-256 of C(CandidateProducerResultV1) for every kinds=[] program binding that has a retained stage outcome. Empty only when no candidate-only binding is requested."
+    }
+  },
+  "x-opensip-new-internal-faults": {
+    "standing": "NEW/internal pending root public-registry integration.",
+    "keys": [
+      "EXECUTION_INPUTS_SCHEMA",
+      "EXECUTION_INPUTS_PLAN_JOIN",
+      "EXECUTION_INPUTS_EXECUTION_PLAN_JOIN",
+      "EXECUTION_INPUTS_ENUMERATION_DIGEST",
+      "EXECUTION_INPUTS_EVALUATOR_CLOSURE",
+      "EXECUTION_INPUTS_CELL_TOTALITY",
+      "EXECUTION_INPUTS_VIEW_TOTALITY",
+      "EXECUTION_INPUTS_REF_POINTER",
+      "EXECUTION_INPUTS_REF_LOST_BYTES",
+      "EXECUTION_INPUTS_REF_INVALID_BYTES",
+      "EXECUTION_INPUTS_STAGE_PRODUCER",
+      "EXECUTION_INPUTS_NATIVE_COVERAGE_TOTALITY",
+      "EXECUTION_INPUTS_CANDIDATE_REQUIRED",
+      "EXECUTION_INPUTS_CANDIDATE_EMPTY_COMPLETE",
+      "EXECUTION_INPUTS_OUTPUT_BACKLINK",
+      "EXECUTION_INPUTS_VCS_APPLICABILITY"
+    ]
+  },
+  "$defs": {
+    "DigestHex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      }
+    },
+    "DeficiencyV2": {
+      "type": "string",
+      "enum": [
+        "language-tier-unsupported",
+        "provider-unavailable",
+        "input-closure-incomplete",
+        "budget-exhausted",
+        "confidence-floor-unmet",
+        "derivation-policy-unmet",
+        "resolution-incomplete",
+        "external-consumers-unknown",
+        "required-relation-missing"
+      ],
+      "description": "Copied closed membership of native-evidence.schemas.v2.json#/$defs/DeficiencyV2."
+    },
+    "NativeCause": {
+      "type": "string",
+      "enum": [
+        "body-language-owner-ambiguous",
+        "body-language-owner-unenumerated",
+        "body-language-ownership-missing",
+        "capability-missing",
+        "config-flag-stripped",
+        "generated-file-missing",
+        "generated-file-out-of-bounds",
+        "generated-output-unavailable",
+        "linker-unavailable",
+        "lockfile-missing",
+        "missing-dependency-source",
+        "no-program-unit",
+        "node-modules-outside-read-set",
+        "source-replacement-outside-snapshot"
+      ],
+      "description": "Copied closed membership of native-evidence.schemas.v2.json#/$defs/NativeCause."
+    },
+    "InputRefV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "domain",
+        "digest"
+      ],
+      "properties": {
+        "domain": {
+          "type": "string",
+          "enum": [
+            "view",
+            "import",
+            "coverage",
+            "subject-inventory",
+            "target-attribution",
+            "incoming-search",
+            "candidate-producer-result"
+          ],
+          "description": "Evaluator INPUT roots only. candidate-producer-result is NEW pending root ProofInputRef registration. proof-bundle/finding/evaluation-seal/run/semantic-evidence are forbidden."
+        },
+        "digest": {
+          "$ref": "#/$defs/DigestHex"
+        }
+      }
+    },
+    "HostCaptureV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "custody",
+        "observation",
+        "retainedDigests"
+      ],
+      "description": "Host TCB evidence-store custody of stage-return bytes. Not a producer completeness claim. No clock field.",
+      "properties": {
+        "custody": {
+          "const": "host-tcb-evidence-store"
+        },
+        "observation": {
+          "const": "stage-return"
+        },
+        "retainedDigests": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DigestHex"
+          },
+          "x-opensip-order": "canonical-set"
+        }
+      }
+    },
+    "CellProgramOutcomeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "cellOrdinal",
+        "programOrdinal",
+        "capabilityId",
+        "languageMode",
+        "workspaceRoot",
+        "required",
+        "kinds",
+        "universe",
+        "enumeratorStatus",
+        "state",
+        "deficiency",
+        "nativeCause",
+        "stageOrdinal",
+        "inventoryDigests",
+        "viewDigests",
+        "candidateResultDigest"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "cellOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "programOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "capabilityId": {
+          "type": "string",
+          "enum": [
+            "inventory",
+            "syntax",
+            "imports",
+            "references",
+            "calls",
+            "types",
+            "reachability",
+            "clones-fact",
+            "clones-near",
+            "clones-cross-tsjs",
+            "unresolved-edge"
+          ]
+        },
+        "languageMode": {
+          "type": "string",
+          "enum": [
+            "ts-tsconfig",
+            "js-allowjs",
+            "js-synthesized",
+            "rust-cargo",
+            "rust-cargo-prepared",
+            "syntax-only"
+          ]
+        },
+        "workspaceRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "kinds": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "file",
+              "symbol",
+              "package"
+            ]
+          },
+          "x-opensip-order": "canonical-set"
+        },
+        "universe": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "enumeratorStatus": {
+          "type": "string",
+          "enum": [
+            "selected",
+            "unselected"
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "deficiency": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DeficiencyV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeCause": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NativeCause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stageOrdinal": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1023
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Join to execution-plan.stages[].ordinal when a stage produced this cell's outputs. Null if no stage ran (unselected/unavailable). Unresolved: execution-plan schema does not yet store cellOrdinal."
+        },
+        "inventoryDigests": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DigestHex"
+          },
+          "x-opensip-order": "canonical-set",
+          "description": "Raw C sha of SubjectInventoryV1 rows for this binding. Empty iff kinds=[] ."
+        },
+        "viewDigests": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DigestHex"
+          },
+          "x-opensip-order": "canonical-set",
+          "description": "Bare 64-hex suffixes of view2 records this binding's stage actually returned. Empty is explicit zero-output, not omission from selectedRefs."
+        },
+        "candidateResultDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Required non-null for required kinds=[] bindings. Optional unselected may be null only with state=unavailable."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "deficiency": {
+                "type": "null"
+              },
+              "nativeCause": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "properties": {
+                "deficiency": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "NativeCoverageAccountV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cellOrdinal",
+        "programOrdinal",
+        "relation",
+        "resolution",
+        "sourceUniverse",
+        "targetUniverse",
+        "coverageDigest",
+        "coverage",
+        "resolutionCompletenessState",
+        "examinedExhaustive"
+      ],
+      "description": "Executable account of one matrix relation@rung Coverage for a requested fact-producing binding. Reuses CoverageResultV3 coordinates; does not invent a relation for candidate-only cells. Empty examined + coverage=complete is lawful complete-empty / VCS-absent applicability, not a vacuous pass of unperformed work.",
+      "properties": {
+        "cellOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "programOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "file",
+            "package",
+            "vcs-change",
+            "declares",
+            "literal",
+            "control-flow",
+            "imports",
+            "references",
+            "calls",
+            "types",
+            "reachability",
+            "clones",
+            "unresolved-edge"
+          ]
+        },
+        "resolution": {
+          "type": "string",
+          "enum": [
+            "enumerated",
+            "manifest-declared",
+            "vcs-reported",
+            "syntactic",
+            "normalized-body-hash",
+            "resolved-target",
+            "resolved-binding",
+            "resolved-callee",
+            "checked",
+            "from-resolved-calls",
+            "syntactic-specifier",
+            "syntactic-name-match",
+            "syntactic-callee-name",
+            "annotated",
+            "observed"
+          ]
+        },
+        "sourceUniverse": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "targetUniverse": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverageDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Bare hex of coverage2 when a CoverageResultV3 was retained. Null iff the binding produced no Coverage (unavailable / unselected / UNSUPPORTED-TYPED disclosed without a payload)."
+        },
+        "coverage": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "unknown"
+          ]
+        },
+        "resolutionCompletenessState": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "incomplete",
+            "partial",
+            "not-attempted",
+            "not-applicable"
+          ]
+        },
+        "examinedExhaustive": {
+          "type": "boolean"
+        }
+      }
+    },
+    "CandidateProducerResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "planId",
+        "executionPlanId",
+        "cellOrdinal",
+        "programOrdinal",
+        "capabilityId",
+        "universe",
+        "producerClosure",
+        "state",
+        "deficiency",
+        "nativeCause",
+        "authority",
+        "semanticEquivalenceClaimed",
+        "automaticDeletionEligible",
+        "examinedPaths",
+        "groupDigests"
+      ],
+      "description": "Typed stage-outcome envelope for candidate-only capabilities (clones-near, clones-cross-tsjs). Reuses native CloneCandidateGroupV2 as the group preimage (groupDigests). Empty groupDigests with state=complete is genuine zero-candidate examination only when this envelope itself is retained. Cannot grant autofix or proof authority. Not an untyped results array.",
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "planId": {
+          "type": "string",
+          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "executionPlanId": {
+          "type": "string",
+          "pattern": "^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "cellOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1023
+        },
+        "programOrdinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127
+        },
+        "capabilityId": {
+          "type": "string",
+          "enum": [
+            "clones-near",
+            "clones-cross-tsjs"
+          ]
+        },
+        "universe": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DigestHex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "producerClosure": {
+          "type": "string",
+          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unavailable"
+          ]
+        },
+        "deficiency": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/DeficiencyV2"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nativeCause": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/NativeCause"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority": {
+          "const": "candidate-only"
+        },
+        "semanticEquivalenceClaimed": {
+          "const": false
+        },
+        "automaticDeletionEligible": {
+          "const": false
+        },
+        "examinedPaths": {
+          "type": "array",
+          "maxItems": 100000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/LogicalPath"
+          },
+          "x-opensip-order": "canonical-set"
+        },
+        "groupDigests": {
+          "type": "array",
+          "maxItems": 1000000,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/DigestHex"
+          },
+          "x-opensip-order": "canonical-set",
+          "description": "Raw SHA-256 of C(CloneCandidateGroupV2) retained groups. Empty is lawful when state=complete (no candidates after examination)."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "complete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "deficiency": {
+                "type": "null"
+              },
+              "nativeCause": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "groupDigests": {
+                "maxItems": 0
+              }
+            },
+            "not": {
+              "properties": {
+                "deficiency": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

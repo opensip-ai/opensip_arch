@@ -1,0 +1,60 @@
+--- before/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ after/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -606,6 +606,42 @@
+ arises it is an explicit versioned correction with its own controls, never a
+ silent widening and never something an implementer may assume.
+ 
++**How many entries may cite one row (CB8-MUST-1).** The paragraph above answers
++how many registry ROWS one document digest may resolve to. It does **not** answer
++how many analysis-spec ENTRIES may cite one row, and nothing did: a Plan could
++select two **distinct** `ScopeDocumentV1` payloads under the one registered
++document digest. Identity closure admitted both, the bounded workflow binding
++verifier below is **existential** over the selected rows and was satisfied by
++either, and both entered `analysisSpecDigest` and therefore the `PlanId` — so two
++conforming hosts could bind different scope policies from one admitted Plan and
++attribute the comparison scope axis differently for the same Plan. That is the
++same arbitrary selection `PAYLOAD_PARAMETER_AMBIGUOUS_ROW` refuses, one level
++down.
++
++The rule is therefore stated for the class as a whole: **one Plan selects at most
++one parameter per registered row.** Zero is legal — an ordinary analysis that
++needs no scope-policy input selects none and closes — and there is deliberately
++**no** default, **no** first-listed or last-listed winner and **no** merge. A
++caller that *does* need the binding still meets the explicit missing-selection
++refusal at the verifier, so absence is never silently substituted, and the
++foundation `scope-descriptor` named by `plan.scopeDigest` remains a different
++record that never stands in for `ScopeDocumentV1`. Two **byte-identical** entries
++are a different defect and keep their own answer: `parameters` is `uniqueItems`
++with `x-opensip-order: canonical-set`, so a whole-item duplicate refuses on the
++schema and on the collection order law before any selection question is asked;
++this rule owns only *distinct* entries citing one row.
++
++It is enforced at three places, and the first two call one function so they cannot
++drift: the **pre-Plan** analysis-spec admission boundary, **retained Run closure**
++over the retained analysis-spec (`ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS`),
++and independently in the bounded workflow binding verifier, which may be handed a
++spec no closure in that process admitted. Precedence is most-specific-first: the
++`ImportSourceContextV1` row keeps its own named guard where that guard runs, inside
++the Run-closure import derivation that consumes the row, and this is the total
++backstop that also covers a Plan with no selected import. Nothing about the import
++row's own zero/one/multiple rule changes. A stage-spec carries a subset of the
++Plan's parameters, so the stage case is implied rather than separately guarded.
++
+ **Where the binding is actually decided, and where it is only asserted.**
+ Registering the row makes a lawful scope parameter admissible at Plan closure;
+ it does not by itself bind the *comparison* context to it. `adopt_baseline`
+@@ -624,7 +660,13 @@
+ and proves it: the scope document's canonical digest must be the `payloadDigest`
+ of a selected parameter row citing the registered `ScopeDocumentV1` **document**
+ digest. A document that is not selected, a spec that selects no scope parameter,
+-and a row cited under another schema each refuse with their own typed reason.
++and a row cited under another schema each refuse with their own typed reason. An
++**ambiguous** selection — more than one row citing the registered document — is
++refused *before* any payload comparison, on the existing public `CONFIG.INVALID`
++carrier and detail: the verifier is existential, so each of two distinct entries
++would satisfy it separately, and returning a "verified" digest for one while
++another was equally selected would be the false proof this whole section refuses.
++No new public detail code is introduced for it.
+ When the analysis spec is supplied, `adopt_baseline` performs that verification;
+ when it is not, the scope binding is a **caller assertion** and this contract
+ says so rather than implying a join. Neither path changes the baseline

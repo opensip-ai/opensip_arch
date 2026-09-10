@@ -1,0 +1,362 @@
+{
+  "artifact": "opensip.native-evidence.protocol3-transitions",
+  "version": 1,
+  "status": "PROPOSED",
+  "standing": "NORMATIVE and CLOSED. The Rust major-3 provider protocol transition table of native-evidence section 9.2, published here so an independent consumer can reconstruct the host state machine WITHOUT reading author code. It states existing behaviour exactly; it is not a protocol redesign, adds no frame, no phase and no terminal, and changes no wire format.",
+  "purpose": "Section 9.2 named this table and described its frames in prose, but the 34 transition rows, their ORDER, their guards and their terminal semantics existed only inside native_evidence_model.v2.PROTOCOL3_RULES, which a review kit that excludes author code cannot read. The rows below are the same rows, and the reference model READS them from this document rather than carrying a second copy, so there is one authority and no transcription to drift.",
+  "consumedBy": "docs/coop/design-corrections/native/native_evidence_model.v2.py (PROTOCOL3_PHASES, PROTOCOL3_RULES, protocol3_run)",
+  "phases": [
+    "START",
+    "WAIT_HELLO_ACK",
+    "READY_OPEN_UNIVERSE",
+    "WAIT_UNIVERSE_ACCEPTED",
+    "READY_SNAPSHOT_MANIFEST",
+    "RECEIVING_SNAPSHOT",
+    "WAIT_SNAPSHOT_ACCEPTED",
+    "READY_DEPENDENCY_MANIFEST",
+    "RECEIVING_DEPENDENCY",
+    "WAIT_DEPENDENCY_ACCEPTED",
+    "READY_PREPARED_MANIFEST",
+    "RECEIVING_PREPARED",
+    "WAIT_PREPARED_ACCEPTED",
+    "WAIT_NATIVE_CONTEXT_VERIFIED",
+    "READY_ANALYZE",
+    "ANALYZING",
+    "READY_COMPLETE",
+    "WAIT_CANCELLED",
+    "WAIT_ZERO_EXIT",
+    "WAIT_EOF",
+    "DONE",
+    "FAULT"
+  ],
+  "initialState": {
+    "phase": "START",
+    "dependencyMode": false,
+    "preparedMode": false,
+    "identityNegotiated": false,
+    "stageIndex": 0,
+    "stageCount": 0,
+    "terminalKind": null,
+    "sourceBytesSent": false,
+    "stagesCompleted": 0
+  },
+  "initializationAndUpdateOrder": [
+    "Begin with a fresh copy of `initialState` and an EMPTY trace. Every value in `initialState` is a scalar, so a shallow copy is a complete one.",
+    "For each event, apply `preMatchLaw` FIRST, in the order its entries are listed. The order of those entries is load-bearing: a `*PROCESS_FAULT` frame arriving when the phase is ALREADY FAULT is absorbed by the first entry and traced `FAULT-absorb`, not `P3-33`.",
+    "If no `preMatchLaw` entry applies, select a row by `matchLaw`. If no row matches, apply `noMatchLaw`.",
+    "On a successful row match, in this order: (1) apply the `stateUpdates` of the incoming frame; (2) resolve the row's `next`, including the `stageDependentTransitions` increment when `next` is `ANALYZING_OR_READY_COMPLETE`; (3) record `terminalKind` if the row carries `terminal`; (4) set `phase` to the resolved next and append the row's `id` to the trace."
+  ],
+  "matchLaw": "FIRST MATCH WINS in the declared `rules` order. A row matches when (a) its `phase` equals the current phase, or is the wildcard `*PRE_COMPLETE` and the current phase is a member of that wildcard's `phases`; AND (b) its `frame` equals the incoming frame; AND (c) every key of its `guard` equals the identically named field of the current state. The rows are in fact PAIRWISE DISJOINT - no two can match one (phase, frame, state) at once - so first-match-wins currently resolves no ambiguity and a consumer that re-sorts the rows still takes the same transition. Where several rows DO share a phase and a frame - the three WAIT_SNAPSHOT_ACCEPTED rows P3-08..P3-10, and the pair P3-14/P3-15 - they are separated by MUTUALLY EXCLUSIVE guards rather than by position. The declared order is published so a trace is reproducible and so the rule is stated for any FUTURE row that did overlap; a control asserts the disjointness, so such a row would be caught rather than silently resolved by where it happened to be written.",
+  "wildcards": {
+    "*ANY": "A phase wildcard used ONLY by the two catch-all rows P3-33 and P3-34. They are never reached by the matching loop above, which skips `*ANY` rows; they are applied by the two code paths named in `preMatchLaw` and `noMatchLaw` and are published as rows so that the trace vocabulary is complete.",
+    "*PRE_COMPLETE": {
+      "meaning": "Any phase in which the exchange has begun and has not yet reached a terminal.",
+      "derivation": "`phases[1:17]` of the published `phases` list - from WAIT_HELLO_ACK through READY_COMPLETE inclusive.",
+      "phases": [
+        "WAIT_HELLO_ACK",
+        "READY_OPEN_UNIVERSE",
+        "WAIT_UNIVERSE_ACCEPTED",
+        "READY_SNAPSHOT_MANIFEST",
+        "RECEIVING_SNAPSHOT",
+        "WAIT_SNAPSHOT_ACCEPTED",
+        "READY_DEPENDENCY_MANIFEST",
+        "RECEIVING_DEPENDENCY",
+        "WAIT_DEPENDENCY_ACCEPTED",
+        "READY_PREPARED_MANIFEST",
+        "RECEIVING_PREPARED",
+        "WAIT_PREPARED_ACCEPTED",
+        "WAIT_NATIVE_CONTEXT_VERIFIED",
+        "READY_ANALYZE",
+        "ANALYZING",
+        "READY_COMPLETE"
+      ]
+    },
+    "*": "A frame wildcard matching ANY frame; it appears only in the final fallback row P3-34.",
+    "*PROCESS_FAULT": {
+      "meaning": "Not a protocol frame at all: an out-of-band process observation.",
+      "frames": [
+        "deadline",
+        "nonzero-exit",
+        "signal-death",
+        "stdout-byte"
+      ]
+    }
+  },
+  "preMatchLaw": [
+    "FAULT is ABSORBING: once the phase is FAULT every further event is recorded as `FAULT-absorb` and nothing transitions.",
+    "In WAIT_ZERO_EXIT, WAIT_EOF or DONE, any frame other than `zero-exit`, `eof` or a `*PROCESS_FAULT` member is a post-terminal frame and goes to FAULT with trace `post-terminal-frame`.",
+    "Any `*PROCESS_FAULT` member goes to FAULT with trace `P3-33` from ANY phase, which is what row P3-33 states."
+  ],
+  "noMatchLaw": "An event matching no row goes to FAULT with trace `P3-34`, which is what the final fallback row states. There is no default transition and no silent ignore.",
+  "guardLaw": "Guard keys name fields of the host's own transition state and are compared for EXACT equality; all keys of a row's guard must hold for that row to match. `identityNegotiated` is set true only when the HelloAck frame's capabilities contain every identity token, so OpenUniverse - which carries snapshot2 and plan2 - is unreachable before negotiation and the run faults with no source byte sent.",
+  "stateUpdates": [
+    {
+      "onFrame": "HelloAck",
+      "sets": "identityNegotiated = every identity token is present in the frame's `capabilities`"
+    },
+    {
+      "onFrame": "OpenUniverse",
+      "sets": "dependencyMode and preparedMode from the frame's booleans; these are the guards P3-08..P3-10 and P3-14..P3-15 select on"
+    },
+    {
+      "onFrame": "Analyze",
+      "sets": "stageCount = the invocation's stage count; stageIndex = 0"
+    },
+    {
+      "onFrames": [
+        "DependencySourceChunk",
+        "DependencySourceManifest",
+        "OpenUniverse",
+        "PreparedOutputChunk",
+        "PreparedOutputManifest",
+        "SnapshotFileChunk",
+        "SnapshotManifest"
+      ],
+      "sets": "sourceBytesSent = true; this is the observable that proves no source byte preceded negotiation"
+    }
+  ],
+  "stageDependentTransitions": {
+    "ANALYZING_OR_READY_COMPLETE": "The `next` of row P3-24 (CoverageV3 in ANALYZING) is NOT a phase. It increments both stageIndex and stagesCompleted and then resolves to READY_COMPLETE when stageIndex equals stageCount, and to ANALYZING otherwise. Without this the table cannot be interpreted at all for a multi-stage analysis: one CoverageV3 per stage is expected, and only the last one may be followed by Complete."
+  },
+  "terminalLaw": "A row carrying `terminal` records that terminalKind on the state as it transitions. The five terminal kinds are exactly those appearing in `rules`. Reaching a terminal does not end the exchange: the worker must still be observed at `zero-exit` and then `eof` (P3-31, P3-32) to reach DONE, and any other frame in between is the post-terminal fault above.",
+  "ownedByProse": [
+    "What each frame's PAYLOAD is and how it is validated (section 9.2's frame table and the payload schemas). This document is transitions only.",
+    "The identity token set that decides `identityNegotiated`, which is negotiated in section 9.1 and is not a transition.",
+    "The mapping from a terminalKind to stage authority, D9 class and exit code (section 10 / `stage_authority`, `run_termination`).",
+    "The chunking, custody and digest obligations behind the manifest/chunk/seal frames (sections 3 and 5).",
+    "The stage COUNT itself, which is an invocation property supplied to the transition system, not a value the table can derive."
+  ],
+  "ruleCount": 34,
+  "rules": [
+    {
+      "id": "P3-01",
+      "phase": "START",
+      "frame": "Hello",
+      "next": "WAIT_HELLO_ACK"
+    },
+    {
+      "id": "P3-02",
+      "phase": "WAIT_HELLO_ACK",
+      "frame": "HelloAck",
+      "next": "READY_OPEN_UNIVERSE"
+    },
+    {
+      "id": "P3-03",
+      "phase": "READY_OPEN_UNIVERSE",
+      "frame": "OpenUniverse",
+      "guard": {
+        "identityNegotiated": true
+      },
+      "next": "WAIT_UNIVERSE_ACCEPTED"
+    },
+    {
+      "id": "P3-04",
+      "phase": "WAIT_UNIVERSE_ACCEPTED",
+      "frame": "UniverseAccepted",
+      "next": "READY_SNAPSHOT_MANIFEST"
+    },
+    {
+      "id": "P3-05",
+      "phase": "READY_SNAPSHOT_MANIFEST",
+      "frame": "SnapshotManifest",
+      "next": "RECEIVING_SNAPSHOT"
+    },
+    {
+      "id": "P3-06",
+      "phase": "RECEIVING_SNAPSHOT",
+      "frame": "SnapshotFileChunk",
+      "next": "RECEIVING_SNAPSHOT"
+    },
+    {
+      "id": "P3-07",
+      "phase": "RECEIVING_SNAPSHOT",
+      "frame": "SnapshotSeal",
+      "next": "WAIT_SNAPSHOT_ACCEPTED"
+    },
+    {
+      "id": "P3-08",
+      "phase": "WAIT_SNAPSHOT_ACCEPTED",
+      "frame": "SnapshotAccepted",
+      "guard": {
+        "dependencyMode": true
+      },
+      "next": "READY_DEPENDENCY_MANIFEST"
+    },
+    {
+      "id": "P3-09",
+      "phase": "WAIT_SNAPSHOT_ACCEPTED",
+      "frame": "SnapshotAccepted",
+      "guard": {
+        "dependencyMode": false,
+        "preparedMode": true
+      },
+      "next": "READY_PREPARED_MANIFEST"
+    },
+    {
+      "id": "P3-10",
+      "phase": "WAIT_SNAPSHOT_ACCEPTED",
+      "frame": "SnapshotAccepted",
+      "guard": {
+        "dependencyMode": false,
+        "preparedMode": false
+      },
+      "next": "WAIT_NATIVE_CONTEXT_VERIFIED"
+    },
+    {
+      "id": "P3-11",
+      "phase": "READY_DEPENDENCY_MANIFEST",
+      "frame": "DependencySourceManifest",
+      "next": "RECEIVING_DEPENDENCY"
+    },
+    {
+      "id": "P3-12",
+      "phase": "RECEIVING_DEPENDENCY",
+      "frame": "DependencySourceChunk",
+      "next": "RECEIVING_DEPENDENCY"
+    },
+    {
+      "id": "P3-13",
+      "phase": "RECEIVING_DEPENDENCY",
+      "frame": "DependencySourceSeal",
+      "next": "WAIT_DEPENDENCY_ACCEPTED"
+    },
+    {
+      "id": "P3-14",
+      "phase": "WAIT_DEPENDENCY_ACCEPTED",
+      "frame": "DependencySourceAccepted",
+      "guard": {
+        "preparedMode": true
+      },
+      "next": "READY_PREPARED_MANIFEST"
+    },
+    {
+      "id": "P3-15",
+      "phase": "WAIT_DEPENDENCY_ACCEPTED",
+      "frame": "DependencySourceAccepted",
+      "guard": {
+        "preparedMode": false
+      },
+      "next": "WAIT_NATIVE_CONTEXT_VERIFIED"
+    },
+    {
+      "id": "P3-16",
+      "phase": "READY_PREPARED_MANIFEST",
+      "frame": "PreparedOutputManifest",
+      "next": "RECEIVING_PREPARED"
+    },
+    {
+      "id": "P3-17",
+      "phase": "RECEIVING_PREPARED",
+      "frame": "PreparedOutputChunk",
+      "next": "RECEIVING_PREPARED"
+    },
+    {
+      "id": "P3-18",
+      "phase": "RECEIVING_PREPARED",
+      "frame": "PreparedOutputSeal",
+      "next": "WAIT_PREPARED_ACCEPTED"
+    },
+    {
+      "id": "P3-19",
+      "phase": "WAIT_PREPARED_ACCEPTED",
+      "frame": "PreparedOutputAccepted",
+      "next": "WAIT_NATIVE_CONTEXT_VERIFIED"
+    },
+    {
+      "id": "P3-20",
+      "phase": "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "frame": "NativeContextVerified",
+      "next": "READY_ANALYZE"
+    },
+    {
+      "id": "P3-21",
+      "phase": "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "frame": "Unavailable",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "unavailable"
+    },
+    {
+      "id": "P3-22",
+      "phase": "READY_ANALYZE",
+      "frame": "Analyze",
+      "next": "ANALYZING"
+    },
+    {
+      "id": "P3-23",
+      "phase": "ANALYZING",
+      "frame": "FactBatch",
+      "next": "ANALYZING"
+    },
+    {
+      "id": "P3-24",
+      "phase": "ANALYZING",
+      "frame": "CoverageV3",
+      "next": "ANALYZING_OR_READY_COMPLETE"
+    },
+    {
+      "id": "P3-25",
+      "phase": "ANALYZING",
+      "frame": "Unavailable",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "unavailable"
+    },
+    {
+      "id": "P3-26",
+      "phase": "ANALYZING",
+      "frame": "BudgetExhausted",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "budget-exhausted"
+    },
+    {
+      "id": "P3-27",
+      "phase": "READY_COMPLETE",
+      "frame": "Complete",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "complete"
+    },
+    {
+      "id": "P3-28",
+      "phase": "*PRE_COMPLETE",
+      "frame": "ProviderFault",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "provider-fault"
+    },
+    {
+      "id": "P3-29",
+      "phase": "*PRE_COMPLETE",
+      "frame": "Cancel",
+      "next": "WAIT_CANCELLED"
+    },
+    {
+      "id": "P3-30",
+      "phase": "WAIT_CANCELLED",
+      "frame": "Cancelled",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "cancelled"
+    },
+    {
+      "id": "P3-31",
+      "phase": "WAIT_ZERO_EXIT",
+      "frame": "zero-exit",
+      "next": "WAIT_EOF"
+    },
+    {
+      "id": "P3-32",
+      "phase": "WAIT_EOF",
+      "frame": "eof",
+      "next": "DONE"
+    },
+    {
+      "id": "P3-33",
+      "phase": "*ANY",
+      "frame": "*PROCESS_FAULT",
+      "next": "FAULT"
+    },
+    {
+      "id": "P3-34",
+      "phase": "*ANY",
+      "frame": "*",
+      "next": "FAULT"
+    }
+  ]
+}

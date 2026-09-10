@@ -1,0 +1,342 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "opensip.product.incoming-search.1",
+  "title": "IncomingSearchV1 — typed INPUT that source universe S searched target universe U at relation@rung (DRAFT)",
+  "description": "Canonical-record INPUT. Not inferred from producer facts. Not an empty Cartesian Coverage key (S,U). Used only when no CoverageResultV3 exists with key (relation, minResolution, sourceUniverse=S, targetUniverse=U). Cannot override a represented Coverage S->U that is partial/unknown. Identity is raw SHA-256 of C(this record). Uniqueness: (planId, providerClosure, sourceUniverse, targetUniverse, relation, minResolution). Standing: isolated successor draft. Root registers the payload-registry / ProofInputRef row. Globally admitted by OWN registered relation/rung; an atom consumes only attestations of its relation@minResolution. ResolutionCompletenessV2 and ClosedWorldV2 are copied exact native owner types (native-evidence.schemas.v2.json); no invented open objects and no default resolved-complete.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "planId",
+    "providerClosure",
+    "sourceUniverse",
+    "targetUniverse",
+    "relation",
+    "minResolution",
+    "scopeRefs",
+    "expectedInventoryRefs",
+    "completeSearch",
+    "examinedExhaustive",
+    "coverage",
+    "resolutionCompleteness",
+    "closedWorld"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "planId": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "providerClosure": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Plan-selected closure kind=provider that examined S. Not evaluator. Must equal each named scope's enumeratorClosure."
+    },
+    "sourceUniverse": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "targetUniverse": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "relation": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "minResolution": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "scopeRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "Exact union of selected scopes of THIS attestation's relation at EXACT minResolution whose sourceUniverse is S (any targetUniverse). Independently enumerated SOURCE subjects. Not a per-target-subject Cartesian."
+    },
+    "expectedInventoryRefs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "x-opensip-order": "canonical-set",
+      "description": "Exact union of raw SHA-256 of C(SubjectInventoryV1) for S at the source kind of this relation. Not a caller-added inventoryDigest field. Partial/unavailable inventories are valid refs; they make population unknown rather than listing fake IDs. Empty expected set is a misjoin, never a skipped check."
+    },
+    "completeSearch": {
+      "type": "boolean",
+      "description": "true: this source's examination considered target U (whole-source-to-target-universe search, not per-subject Cartesian). false: search of U not established. true is refused unless examinedExhaustive is true."
+    },
+    "examinedExhaustive": {
+      "type": "boolean",
+      "description": "false must never prove complete search. coverage=complete and completeSearch=true both require this true (native RC-6 analogue)."
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "unknown"
+      ]
+    },
+    "resolutionCompleteness": {
+      "$ref": "#/$defs/ResolutionCompletenessV2"
+    },
+    "closedWorld": {
+      "$ref": "#/$defs/ClosedWorldV2"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "coverage": {
+            "const": "complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "examinedExhaustive": {
+            "const": true
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "completeSearch": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "examinedExhaustive": {
+            "const": true
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ResolutionCompletenessState": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "incomplete",
+        "partial",
+        "not-attempted",
+        "not-applicable"
+      ]
+    },
+    "StageTerminal": {
+      "type": "string",
+      "enum": [
+        "complete",
+        "unavailable",
+        "budget-exhausted",
+        "provider-fault",
+        "cancelled",
+        "crash"
+      ]
+    },
+    "UnresolvedEdgeKindV1": {
+      "type": "string",
+      "enum": [
+        "computed-member-access",
+        "dynamic-import-nonliteral",
+        "require-nonliteral",
+        "indirect-eval",
+        "reflective-access",
+        "untyped-any-call",
+        "unresolved-module-specifier",
+        "external-module-boundary",
+        "structural-dispatch",
+        "trait-object-dynamic-dispatch",
+        "generic-bound-dispatch",
+        "macro-expansion-unavailable",
+        "build-script-generated-unavailable",
+        "cfg-excluded-region",
+        "ffi-extern",
+        "entry-point-unrecognized"
+      ]
+    },
+    "ResolutionCompletenessV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempted",
+        "examinedExhaustive",
+        "stageTerminal",
+        "state",
+        "unresolvedEdgeClasses",
+        "unresolvedEdgeCount"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/ResolutionCompletenessState"
+        },
+        "attempted": {
+          "type": "boolean"
+        },
+        "examinedExhaustive": {
+          "type": "boolean"
+        },
+        "stageTerminal": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/StageTerminal"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "unresolvedEdgeCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "unresolvedEdgeClasses": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/UnresolvedEdgeKindV1"
+          },
+          "maxItems": 16,
+          "minItems": 0,
+          "uniqueItems": true,
+          "x-opensip-order": "utf8"
+        }
+      }
+    },
+    "ClosedWorldV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "deadCodeRepairEligible",
+        "dynamicDispatch",
+        "entryPointsRecognized",
+        "exportsClosed",
+        "externalConsumers",
+        "nonliteralLoading",
+        "reasons"
+      ],
+      "properties": {
+        "exportsClosed": {
+          "type": "string",
+          "enum": [
+            "closed",
+            "open",
+            "unknown"
+          ]
+        },
+        "entryPointsRecognized": {
+          "type": "string",
+          "enum": [
+            "all",
+            "partial",
+            "none"
+          ]
+        },
+        "nonliteralLoading": {
+          "type": "string",
+          "enum": [
+            "none",
+            "present"
+          ]
+        },
+        "externalConsumers": {
+          "type": "string",
+          "enum": [
+            "none-declared",
+            "possible",
+            "unknown"
+          ]
+        },
+        "dynamicDispatch": {
+          "type": "string",
+          "enum": [
+            "resolved",
+            "present",
+            "not-applicable"
+          ]
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 64,
+          "minItems": 0,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "deadCodeRepairEligible": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "x-opensip-identity": {
+    "digest": "raw SHA-256 of C(IncomingSearchV1)",
+    "representation": "canonical-record",
+    "retention": "preimage",
+    "uniqueness": [
+      "planId",
+      "providerClosure",
+      "sourceUniverse",
+      "targetUniverse",
+      "relation",
+      "minResolution"
+    ],
+    "proofInputRef": {
+      "standing": "NEW, pending root registry integration",
+      "proposedDomain": "incoming-search"
+    }
+  },
+  "x-opensip-law": {
+    "cartesian": "FORBIDDEN. This record attests that source program S searched target universe U as a whole at relation@rung. It does not mint per-target-subject Coverage keys.",
+    "coverageFirst": "If a CoverageResultV3 exists with exact (relation, minResolution, S, U), that Coverage is the search law. Partial/unknown Coverage cannot be overridden by completeSearch=true.",
+    "whenUsed": "Only when no such Coverage exists. Then this admitted record may stand in for the missing S->U search. completeSearch=false, coverage=unknown, or examinedExhaustive=false leaves incoming absence unknown. Dependency sufficiency uses actual DEPENDS_ON Coverage of S, never a fictional complete dependency entry.",
+    "otherPartitions": "Coverage/scopes S->V (V≠U) still count toward source-population union and must be sufficiency-accounted per scope. They do not prove search of U.",
+    "globalAdmit": "Admit every attestation against its OWN registered relation and ladder rung, then consume only those matching the current atom. Mixed-atom policies are ordinary.",
+    "inventoryDigest": "expectedInventoryRefs are raw SHA-256 of C(SubjectInventoryV1) computed from the inventory record (schema fields only). Caller-added inventoryDigest is not an authority. Exact set equality with inventories of (sourceUniverse, source kind). Missing inventories are a misjoin, never a skipped check.",
+    "joins": [
+      "planId equals inputs.planId",
+      "providerClosure is Plan-selected, closures[id].kind=provider, and is the enumerator of an available EnumerationPlan binding whose universe=S for capabilityForRelation[att.relation]",
+      "sourceUniverse is that binding",
+      "relation is registered; minResolution is a member of THAT relation's ladder (not the current atom's relation)",
+      "scopeRefs is the exact union of inputs.scopes members with relation and resolution exact and sourceUniverse=S; each enumeratorClosure equals providerClosure",
+      "expectedInventoryRefs is the exact union of raw C digests of SubjectInventoryV1 of universe S at the source kind",
+      "resolutionCompleteness/closedWorld validate as native ResolutionCompletenessV2 / ClosedWorldV2; RC-1 applies (non-resolved rung is not-applicable; resolved rung is never not-applicable); no default resolved-complete"
+    ]
+  },
+  "x-opensip-new-internal-faults": {
+    "standing": "NEW/internal pending root route-registry integration",
+    "keys": [
+      "INCOMING_SEARCH_SCHEMA",
+      "INCOMING_SEARCH_DUPLICATE",
+      "INCOMING_SEARCH_JOIN",
+      "INCOMING_SEARCH_CANNOT_OVERRIDE_PARTIAL",
+      "INCOMING_SEARCH_UNSELECTED_PROVIDER",
+      "INCOMING_SEARCH_SCOPE_MISJOIN",
+      "INCOMING_SEARCH_INVENTORY_MISJOIN"
+    ]
+  }
+}

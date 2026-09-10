@@ -1,0 +1,36 @@
+"""Bounded root correction of remaining copies of already agreed v3 laws. No integration."""
+from pathlib import Path
+import ast,datetime,difflib,hashlib,json,shutil
+base=Path('/tmp/opensip-design-corrections');old=base/'bv6-corrections-author.v3';out=base/'bv6-root-final-polish.v1';root=Path.cwd();ev=root/'docs/coop/design-corrections/reviews/codex-post-reset.v1'
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+h=json.loads((old/'handoff.json').read_text());assert h['technicalAssent']['value'] and not json.loads((old/'response.json').read_text())['is_error']
+for r in h['changedSource']['files']:assert sha(old/'work'/r['path'])==r['v3Sha256']
+assert not out.exists();out.mkdir();shutil.copytree(old/'work',out/'work');W=out/'work'
+def replace(p,old,new):
+ s=p.read_text();assert s.count(old)==1,(p,old);p.write_text(s.replace(old,new))
+p=W/'docs/v2/contracts/product-v1/workflows-and-surfaces.md'
+replace(p,'entirely, and `ExecutionId` stays out because operational identities are excluded\nfrom content identity.','entirely. The receipt key is operational and already contains `RequestId`.\n`ExecutionId` stays out because this key is scoped to one admitted invocation and\nstep; each attempt keeps its separate `ExecutionId`. These immutable bindings\ngrant no execution or retry authority.')
+replace(p,"Among the generic `mutation` rows, **four** commands do not share their operation's name, so name matching is not\nthe derivation and an implementer had to guess. Three are mutation-class:","Across these step kinds, **four** commands do not share their operation's name,\nso the operation cannot be derived by name matching. Three use generic mutation steps:")
+replace(p,'`collectionScope`, which are the only fields `HistoryPayloadV1` has. Neither kind\nmay report the other\'s outcomes.','`collectionScope`, which are its bounds fields; `HistoryPayloadV1` also carries\nsubjects and has no runtime observation-window, population or observability\nfields. Neither kind may report the other\'s outcomes.')
+replace(p,"`subjectKey` supplies `logicalPath` for file granularity and `qualifiedName` for\nsymbol granularity. Runtime matches on the path and, where the payload row carries\n`symbol`, on the qualified name — so a symbol target is **not** served by another\nsymbol's row. History has no symbol field, so a symbol target is answered at\n**file** granularity and that widening is **disclosed**, not hidden.","`subjectKey` supplies the path and qualified name used for matching. The projection\ndoes not classify the target by `kind`, whose vocabulary is not closed here. A\nruntime row matches on path and, if it names a symbol, on qualified name; another\nsymbol's row does not match. A runtime row with no symbol and every history row\nprovide **file** granularity, with `granularityWidenedToFile` disclosed in the\nprojection and successful outcome. A symbol-naming runtime row provides the\nformat's path-and-name granularity, not an exact match of the whole subject key:\nneither format distinguishes `language`, `kind` or `discriminator`. Distinct\nfindings can therefore project to the same observation. This stated limit applies\nto every such projection; it cannot establish execution or non-execution of a\nparticular subject variant beyond the captured granularity.")
+p=W/'docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json';d=json.loads(p.read_text());law=d['x-opensip-imported-requirement-law'];proj=law['targetSubjectProjection']
+proj['deterministicProjection'][2]='3. DESCRIPTOR -> SUBJECT KEY. The retained descriptor carries subjectKey = {language, kind, logicalPath, qualifiedName, discriminator}. The projection reads logicalPath and qualifiedName for payload matching and reports the answer granularity; it does not classify the target using the open kind vocabulary.'
+proj['granularityIsReportedNotClassified'] += ' A symbol-naming row represents only the imported format\'s path-and-name granularity: neither imported format distinguishes subjectKey.language, kind or discriminator. Different findings may therefore project to the same observation. This uniform projection limitation does not establish execution or non-execution of a particular subject variant beyond the captured granularity; answerGranularity=symbol is not an exact match of the complete subject key.'
+p.write_text(json.dumps(d,indent=2)+'\n')
+p=W/'docs/coop/design-corrections/workflows/schemas/repair.schema.json'
+replace(p,'workflow.mutation-receipt is the one receipt domain','workflow.mutation-receipt is the owning mutation receipt domain')
+p=W/'docs/coop/design-corrections/workflows/check_workflows.v1.py'
+replace(p,"check('workflow.native-preparation-lookup-is-not-replay-and-import-is-delivery-only',\n      'NOT REPLAY' in _KEYS['native-preparation']['lookupMeaning']\n      and 'NEW EXPLICIT AUTHORIZED EXECUTION' in _KEYS['native-preparation']['lookupMeaning']\n      and 'DELIVERY ONLY' in _KEYS['import']['lookupMeaning'])\n","# Lookup meanings are normative prose reviewed with the owning authorization/recovery contracts.\n# The key computations above do not execute receipt delivery or native preparation.\n")
+p=W/'docs/coop/design-corrections/workflows/workflows_model.v1.py'
+replace(p,'    and a consumer that needs symbol-level evidence can see that it did not get it.','    and a consumer that needs symbol-level evidence can see that it did not get it. A symbol row\n    distinguishes path and qualifiedName only, not language, kind or discriminator: multiple\n    finding subject variants can project to one observation. This uniform limitation does not\n    establish execution or non-execution beyond the granularity the format captured.')
+replace(p,'                # A symbol target answered by file-level history is coarser than the recipe named.','                # A keyed target answered by a file-level import is disclosed for either kind.')
+rows=[];diffdir=out/'delta';diffdir.mkdir()
+for r in h['changedSource']['files']:
+ rel=r['path'];p=W/rel;a=old/'work'/rel
+ if sha(p)!=sha(a):
+  if p.suffix=='.py':assert ast.dump(ast.parse(p.read_text()))==ast.dump(ast.parse(a.read_text())) or p.name=='check_workflows.v1.py'
+  q=diffdir/(str(len(rows)).zfill(2)+'-'+p.name+'.diff');q.write_text(''.join(difflib.unified_diff(a.read_text().splitlines(True),p.read_text().splitlines(True),fromfile='finalv3/'+rel,tofile='root-polish/'+rel)))
+  rows.append({'path':rel,'beforeSha256':sha(a),'afterSha256':sha(p),'diff':str(q.relative_to(out)),'diffSha256':sha(q)})
+assert len(rows)==5
+(out/'proposal.json').write_text(json.dumps({'standing':'Root-authored remaining copies of already agreed receipt/projection/precision laws. Exact Claude substantive review pending. No product behavior implementation.','finalV3HandoffSha256':sha(old/'handoff.json'),'files':rows,'behavioralScope':'No reference model AST changes; one prose-substring check removed. Remaining changes reconcile documentation and describe the existing lossy projection. No new payload field, operation, permission, retry or capability.','requiredReview':'Claude must assess exact source/deltas in context and can disagree; no assent presumed.'},indent=2)+'\n')
+print(json.dumps({'out':str(out),'files':rows},indent=2))

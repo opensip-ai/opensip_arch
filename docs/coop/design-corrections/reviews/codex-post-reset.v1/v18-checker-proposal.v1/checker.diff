@@ -1,0 +1,92 @@
+--- frozen17/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ proposal18/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -168,7 +168,7 @@
+     try:
+         out, code = M.run_invocation(rec, case['script'])
+     except M.Refusal as r:
+-        check(cid + '.refusal', exp.get('refusal') == r.detail, r.detail)
++        check(cid + '.refusal', ('refusal' in exp and exp.get('refusal') == r.detail), r.detail)
+         continue
+     if 'refusal' in exp:
+         check(cid + '.refusal', False, 'no refusal')
+@@ -381,7 +381,7 @@
+     try:
+         r = M.build_import(case['kind'], payload, case['payloadDomain'], regs, case['correspondence'], C['PROD'], C['ADAPT'], [{'path': 'coverage/v8.json', 'sha256': C['H0'], 'bytes': 10}], {'schemaVersion':2,'workspaceRoots':['.'],'pathPrefixes':['src'],'excludedPathPrefixes':[]}, {'window':case.get('window'), 'population':'test-suite', 'completeness':case.get('completeness','partial'),'omissions':case.get('omissions',['dist not instrumented'])})
+     except M.Refusal as x:
+-        check(cid + '.refusal', case['expect'].get('refusal') == x.detail and (case['expect'].get('errorCode') is None or case['expect']['errorCode'] == x.error_code), x.detail)
++        check(cid + '.refusal', ('refusal' in case['expect'] and case['expect'].get('refusal') == x.detail) and (case['expect'].get('errorCode') is None or case['expect']['errorCode'] == x.error_code), x.detail)
+         continue
+     if 'refusal' in case['expect']:
+         check(cid + '.refusal', False, 'no refusal'); continue
+@@ -404,7 +404,7 @@
+         digest = M.admit_source_mapping(case['mapping'], case['inventory'], C['SNAP1'])
+         check('source-mapping.' + case['id'], case['expect'].get('ok') is True and digest == M.doc_digest(case['mapping']))
+     except M.Refusal as exc:
+-        check('source-mapping.' + case['id'], exc.detail == case['expect'].get('refusal'), exc.detail)
++        check('source-mapping.' + case['id'], ('refusal' in case['expect'] and exc.detail == case['expect'].get('refusal')), exc.detail)
+ for case in CASES['stalenessCases']:
+     r = M.classify_staleness(case['correspondence'], case['plan'], corrupt=case.get('corrupt', False))
+     must_valid('staleness.row-schema.' + case['id'], U + 'imported-evidence#/$defs/StalenessRule', r)
+@@ -1109,7 +1109,7 @@
+     try:
+         plan = M.repair_preview(C['PRJ'], tree, run, RS['recipe'], RS['targets'], edits, requirements, scope, trust, ephemeral=case.get('ephemeral', False))
+     except M.Refusal as r:
+-        check(cid, case['expect'].get('refusal') == r.detail, r.detail)
++        check(cid, ('refusal' in case['expect'] and case['expect'].get('refusal') == r.detail), r.detail)
+         # A detail-free refusal is not self-identifying, so the case names the internal decision key
+         # it expects and the control fails if a DIFFERENT refusal happened to fire.
+         if 'expectRemedyContains' in case:
+@@ -1155,7 +1155,7 @@
+         try:
+             j1, action, outcome, term = M.repair_recover(j0, plan, live, C['PRJ'],None if case.get('noPreimageStore') else preimages,None if case.get('noRecoveryAuth') else synthetic_recovery_projection(j0, plan))
+         except M.Refusal as r:
+-            check(cid,exp.get('recoverRefusal')==r.detail,r.detail);continue
++            check(cid,('recoverRefusal' in exp and exp.get('recoverRefusal')==r.detail),r.detail);continue
+         check(cid, action == exp['recoverAction'] and j1['state'] == exp['recoverState'], action + '/' + j1['state'])
+         if 'recoverDetail' in exp: check(cid + '.recovery-detail', term.get('domainDetail',{}).get('code') == exp['recoverDetail'])
+         if exp.get('recoveryTreeUnchanged'): check(cid + '.recovery-no-write', j1.get('_tree',live) == live)
+@@ -1168,7 +1168,7 @@
+     try:
+         journal, receipt, after = M.repair_apply(plan, postimages, live, C['PRJ'], C['REQ'], 2, auth, case.get('ci', False), case.get('consent', 'policy'), receipts,case.get('applyTrust',trust),preimages, fault_after_renames=case.get('faultAfterRenames'), corrupt_path=case.get('corruptPath'))
+     except M.Refusal as r:
+-        check(cid, exp.get('refusal') == r.detail, r.detail)
++        check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail)
+         if exp.get('treeUnchanged'):
+             check(cid + '.tree-unchanged', live == dict(tree, **tree_bytes(case.get('mutateTreeBeforeApply',{}))))
+         continue
+@@ -1200,7 +1200,7 @@
+             v,link = M.repair_verify(receipt, live2, C['PRJ'], 0, 0)
+             must_valid(cid+'.verification-link',U+'repair#/$defs/VerificationLinkV1',link)
+         except M.Refusal as r:
+-            check(cid + '.verify', exp.get('refusal') == r.detail, r.detail); continue
++            check(cid + '.verify', ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+         must_valid(cid + '.verify-result-schema', U + 'invocation-record#/$defs/AnalysisResult', v)
+         check(cid + '.verify', v['verification']['snapshotMatched'] and v['runId'] != RS['run']['runId'] and v['verification']['verifiedSnapshotId'] == receipt['appliedSnapshotId'])
+ check('repair.recovery-table-closed', set(M.RECOVERY_TABLE) == set(SCHEMAS[U + 'repair']['$defs']['JournalState']['enum']))
+@@ -1223,7 +1223,7 @@
+     try:
+         a = M.admit_test_execution(params, ctx)
+     except M.Refusal as r:
+-        check(cid, exp.get('refusal') == r.detail, r.detail); continue
++        check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+     if 'refusal' in exp:
+         check(cid, False, 'no refusal'); continue
+     check(cid, a['admitted'] and a['confinementClaimed'] is False and 'does not prevent network access' in a['disclosure'])
+@@ -1317,7 +1317,7 @@
+     try:
+         rs = [M.render(env, f, cmd) for f in case['formats']]
+     except M.Refusal as r:
+-        check(cid, case['expect'].get('refusal') == r.detail, r.detail); continue
++        check(cid, ('refusal' in case['expect'] and case['expect'].get('refusal') == r.detail), r.detail); continue
+     check(cid + '.parity', M.parity_holds(rs) == case['expect']['parity'])
+     for rendering in rs:
+         if rendering['format'] == 'sarif':
+@@ -1357,7 +1357,7 @@
+         try:
+             disp = M.review_join(target['candidateId'], case['disposition']['disposition'], {'kind': 'human', 'id': 'reviewer-1'}, 'dup of src/a.ts', case.get('reviewDate','2026-09-05'), case['disposition']['until'])
+         except M.Refusal as r:
+-            check(cid, exp.get('refusal') == r.detail, r.detail); continue
++            check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+         must_valid(cid + '.disposition-schema', U + 'review#/$defs/ReviewDisposition', disp)
+         disp['receiptId'] = 'receipt2:' + '2' * 64
+         cands = M.candidates_from_run(C['RUN1'], FINDINGS, ADVISORY, {target['candidateId']: disp}, case['today'], C['PRJ'])

@@ -1,0 +1,7 @@
+# declared-compatible standing (v11)
+
+- Normative: workflows-and-surfaces.md §2: current detector signed manifest lists baseline closure2 as exactly semantically compatible at the same major; fresh host resolves pivot closures from retained generation, installed signed release with the same closure2, or signed closureBundle, all under current trust.
+- Implemented: DetectorManifestV1 is the unsigned body hashed as closure.manifestDigest. compare_admitted fills compatibleWith only from that body when host.closures[id].trust==admitted. Parse hashes exact retained bytes, enforces unique closureId x-opensip-order, and refuses a malformed recognized family. Unsupported family is no declaration. Caller compatibleWith maps are refused. This helper does not verify signatures (host TCB already admitted the closure).
+- Security-owned remainder: Signature envelope, release catalog, and closureBundle verification remain security/identity. Workflows consume the admitted body plus host trust receipt only.
+- Host receipt: DetectorCompatibilityProjection is host-only after TCB admission: closureId, manifestDigest, trustOrigin (retained-generation | installed-signed-release | signed-closure-bundle), compatibleClosures, tree, platform, protocolMajor. Request maps never assert trust.
+- Standing: Typed owner schema under workflows/evaluator3; current-trust receipt is host.closures[].trust plus trustOrigin. Not a cryptographic verifier.

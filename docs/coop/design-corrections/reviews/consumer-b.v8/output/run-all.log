@@ -1,0 +1,441 @@
+=== 0. input manifest: verify all 46 file hashes ===
+manifest files: 46  verified: 46  mismatched: 0  unlisted-on-disk: 0
+parentSubjectSha256 asserted by the manifest: 312db9d904d0ec1f9c91d84137feb3277490b79b07bf3a6d5efc0380caa0f24b
+NOTE: this kit is a declared SUBSET of that parent, so the parent aggregate
+      is NOT recomputable from these bytes; it is an unverifiable assertion
+      of custody, recorded as an input-custody limitation, not a defect.
+
+=== 1. canonical encoder C, H frames, lexical admission, CVE1 ===
+b'{"a":[1,2],"b":1,"z":"x/y"}'
+b'{"s":" \\"\\\\\\u0001\x7f\xe2\x80\xa8"}'
+0ec16b65c5012397b2ee7ec6ca96b5e118e68bf0335893ea814ba364a07fa3fc
+plan2:935b86ef335ac143be27028c2e57d291a38a2ed4b20712c83cdfc6c3d46de5f3
+REFUSE  b'{"a":1,"a":2}' -> LEX_DUPLICATE_KEY a
+REFUSE  b'{"a":1.0}' -> LEX_NUMBER float/exponent token 1.0
+REFUSE  b'{"a":1e0}' -> LEX_NUMBER float/exponent token 1e0
+REFUSE  b'{"a":-0}' -> LEX_NUMBER -0
+REFUSE  b'{"a":NaN}' -> LEX_NUMBER nonfinite token NaN
+REFUSE  b'{"a":"\\ud800"}' -> LEX_SURROGATE d800
+REFUSE  b'{"a":18446744073709551616}' -> LEX_INT_RANGE 18446744073709551616
+REFUSE  b'{"a":01}' -> LEX_NUMBER leading zero 01
+REFUSE  b'\xff\xfe' -> LEX_UTF8 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+depth33 REFUSE LEX_DEPTH depth 33 > 32
+depth32 ADMIT depth= 32
+cve1 1       030000000000000001
+cve1 -1      07ffffffffffffffff
+cve1 'a'     040000000161
+cve1 ['a']   0500000001040000000161
+cve1 {a:T}   060000000104000000016102
+cve1 null/F  00 01
+frame parse ('run', {'schemaVersion': 2})
+payload-as-frame REFUSE FRAME_PREFIX
+l0 payload 00000004613d310a
+
+=== 2. capability-manifest admission (ADM-TYPE/CLOSED/DOMAIN/ORDER) ===
+PASS CB-CM-1 positive minimal manifest -> ADMIT 950b823df11bfd667f443303d966644187e06bc83c16f96eb6d42310ed534227
+PASS CB-CM-2 schemaVersion true is not an integer -> ADM-TYPE CapabilityManifestV1.schemaVersion is not a JSON integer (True)
+PASS CB-CM-3 schemaVersion "1" is not an integer -> ADM-TYPE CapabilityManifestV1.schemaVersion is not a JSON integer ('1')
+PASS CB-CM-4 undeclared key on ProviderCapability -> ADM-CLOSED providers[0] keys ['extra', 'language', 'platformIds', 'providerId', 'providerVersionSource', 'relations', 'toolchainIdentitySource'] != ['language', 'platformIds', 'providerId', 'providerVersionSource', 'relations', 'toolchainIdentitySource']
+PASS CB-CM-5 missing required key on AbsentCapability -> ADM-CLOSED coverageForAbsent[0] keys ['coverageState', 'language', 'providerId', 'relationIds'] != ['coverageState', 'deficiency', 'language', 'providerId', 'relationIds']
+PASS CB-CM-6 rung of another relation's ladder -> ADM-DOMAIN providers[0].relations[declares]='resolved-callee' is not a rung of that relation's ladder ['syntactic']
+PASS CB-CM-7 unregistered relation key -> ADM-DOMAIN providers[0].relations key 'made-up' not in RELATION-DOMAIN-V2
+PASS CB-CM-8 platform id case variant (exact NFC bytes) -> ADM-DOMAIN providers[0].platformIds 'LINUX-X86_64-GNU' not in PLATFORM-ID-DOMAIN-V1
+PASS CB-CM-9a manifest WITHOUT the thirteenth relation -> ADMIT b1e6ef03209ea21932a73d70203b73808ed922925d940a0fd88434a05e43a41b
+PASS CB-CM-9b manifest WITH unresolved-edge@observed -> ADMIT 950b823df11bfd667f443303d966644187e06bc83c16f96eb6d42310ed534227
+PASS CB-CM-9 unresolved-edge is outside the inherited 12 and moves the id: b1e6ef03209ea219 -> 950b823df11bfd66
+PASS CB-CM-10 unsorted relationIds -> ADM-ORDER coverageForAbsent[0].relationIds not strictly ascending / duplicate at 'calls'
+PASS CB-CM-11 unsorted providers -> ADM-ORDER providers not strictly ascending / duplicate at 'p-rust'
+PASS CB-CM-12 duplicate platformId is an ordering violation -> ADM-ORDER providers[0].platformIds not strictly ascending / duplicate at 'macos-aarch64'
+PASS CB-CM-13 TYPE masks ORDER (inherited gate order) -> ADM-TYPE CapabilityManifestV1.schemaVersion is not a JSON integer (True)
+
+-- CVE1 committed-artifact admission --
+PASS CB-CVE-1 exact committed bytes -> ADMIT 950b823df11bfd667f443303d966644187e06bc83c16f96eb6d42310ed534227
+PASS CB-CVE-2 trailing byte -> CVE1_DECODE trailing bytes
+PASS CB-CVE-3 unknown tag -> CVE1_DECODE unknown tag 0x09
+PASS CB-CVE-4 non-NFC string -> CVE1_DECODE non-NFC text
+PASS CB-CVE-5 duplicate map key -> CVE1_DECODE duplicate map key
+PASS CB-CVE-6 unsorted map keys -> CVE1_DECODE unsorted map keys
+PASS CB-CVE-7 CVE1 refuses non-NFC -> non-NFC string is rejected rather than normalised
+PASS CB-CVE-8 C admits the same non-NFC string unchanged -> b'{"k":"e\xcc\x81"}'
+
+capabilityManifestId: 950b823df11bfd667f443303d966644187e06bc83c16f96eb6d42310ed534227
+
+=== 3. TypeScript Run: complete positive graph ===
+RUN run2:9be89fbedcf188d6db39af5137d3f2702c335b65e4089f977abb881a204d05a8
+checks 408 ok True
+
+ts bodyIdentity  sha256:d205afac9672af96de9e3023df7e136f4451ab1194d732d15eaeae46498e5d54
+js bodyIdentity  sha256:0d7220bc3d5cda99fca58009b7b640ea572c612c5e8f542f85f3fbe06d97a96d
+l1 bodyIdentity  sha256:c8f8861264412eb49718936df53bc887904752b39252e0a98010c9ad433a9fdb
+blv ts {"compilerBuild": "def966b88760a39f39f63333ff739fe8240fa095947182d8b9eb0db9840329c7", "compilerName": "typescript", "compilerVersion": "5.6.3", "dialect": {"sourceVariant": "ts"}, "languageId": "typescript", "schemaVersion": 1}
+blv js {"compilerBuild": "def966b88760a39f39f63333ff739fe8240fa095947182d8b9eb0db9840329c7", "compilerName": "typescript", "compilerVersion": "5.6.3", "dialect": {"sourceVariant": "js"}, "languageId": "javascript", "schemaVersion": 1}
+
+=== 4. TypeScript negatives and cross-record laws ===
+PASS CB-TS-POS complete positive Run closes -> None 
+PASS CB-TS-N1 config node kind relabelled against the published path law -> native.config-graph-kind-contradicts-path tsconfig.json declared other derived tsconfig
+PASS CB-TS-N2 stdlib inventory missing an UNSELECTED declaration library -> native.native-context-stdlib-inventory-incomplete lib.dom.d.ts
+PASS CB-TS-N3 compiler version not the admitted closure manifest's -> native.native-context-compiler-version-not-from-manifest 5.6.4 != 5.6.3
+PASS CB-TS-N4 tool digest outside the named closure tree -> native.native-context-tool-not-in-closure compiler
+PASS CB-TS-N5 universe contradicting its admitted context -> native.universe-context-field-mismatch checkJs
+PASS CB-TS-N6 false complete for a clones scope over an unreadable variant -> COVERAGE_SOURCE_VARIANT_UNSUPPORTED_SCOPE clones@normalized-body-hash claimed complete
+PASS CB-TS-N7 complete file@enumerated Coverage omitting an inventoried path -> COVERAGE_INVENTORY_TOTALITY_OMITS_PATH README.md
+PASS CB-TS-N8 altered retained context frame -> H_IDENTITY_MISMATCH 626ee298cd7c83d59683697283d916955e6f15e4716ecb3a580a134efc48ce13
+PASS CB-TS-N9 missing preimage is retention loss -> EVIDENCE_UNAVAILABLE capability manifest artifact
+PASS CB-TS-N10 raw payload offered as an H identity -> UNIVERSE_FRAME FRAME_PREFIX 5234e2a007051a51b576076151793babee330eeadac3bc5b7ad5f6e8ab7882e3
+PASS CB-TS-N11 fully re-framed and re-keyed Run around an unregistered H domain -> H_DOMAIN_UNREGISTERED native.context.python.v2 not in native-context
+PASS CB-TS-N12 hidden hash-valid context outside plan.nativeContextDigests -> PLAN_CONTEXT_SET_MISMATCH retained ['212311925d8c3c51f2ff1e331933eef1f7669ca3e15e6ef71dbf50033c9412e5', '626ee298cd7c83d59683697283d916955e6f15e47
+
+PASS CB-TS-N13 file payload claiming a wrong content hash -> SNAPSHOT_JOIN_DIGEST README.md
+PASS CB-TS-N14 file payload claiming a wrong byte length -> SNAPSHOT_JOIN_LENGTH README.md
+PASS CB-TS-N15 file payload naming a path in no snapshot -> SNAPSHOT_JOIN_PATH_NOT_INVENTORIED file does/not/exist.md
+PASS CB-TS-N16 an INVENTORY fact carrying an anchor (class is exactly zero) -> FACT_ANCHOR_CARDINALITY file inventory class requires exactly 0, saw 1
+PASS CB-TS-N17 an UNANCHORED source-text fact under a TypeScript universe -> FACT_ANCHOR_CARDINALITY declares source-text requires at least 1, saw 0
+PASS CB-TS-N18 a clones fact with two anchors -> FACT_ANCHOR_CARDINALITY clones body-identity requires exactly 1, saw 2
+PASS CB-TS-N19 normalisationVersion drifting from the framed levelVersion -> BODY_FRAME_LEVEL_VERSION 
+PASS CB-TS-N20 the level SPECIFICATION bytes are not retained -> EVIDENCE_UNAVAILABLE level specification bytes
+PASS CB-TS-N21 a .js body framed with the PROVIDER's language instead of the BODY's -> BODY_FRAME_LANGUAGE_ID typescript vs derived javascript
+PASS CB-TS-N22 an L0 payload that is not the enclosing fact's own anchor span -> BODY_L0_PAYLOAD_NOT_ANCHOR_SPAN 
+PASS CB-TS-N23 two scopes of one view sharing a partition key AND a subject -> SUBJECT_SCOPE_PARTITION_OVERLAP clones@normalized-body-hash subject src/a.ts
+PASS CB-TS-N24 a hash-valid fact retained but referenced by NO view is an UNREFERENCED CAS blob: not an evaluation input and NOT a refusal (identity section 3, `Unreferenced CAS blobs are not evaluation inputs`) - deliberately unlike plan.nativeContextDigests, which IS a set equality -> None 
+PASS CB-TS-N25 a predicate witness citing a fact outside the evaluated view -> WITNESS_FACT_OUTSIDE_EVALUATED_VIEW fact2:9fd8c9ad1bd25b837a17b197fac5b55e567f72a7f3b8ce6c1e873d96f5bfd50c
+
+=== 5. TypeScript configuration-graph variants ===
+PASS CB-CFG-1 synthesized configuration (no tsconfig/jsconfig) -> None 
+PASS CB-CFG-2 explicitly selected CUSTOM-NAMED config, multiple ORDERED bases incl. a REPEATED base -> None 
+PASS CB-CFG-3 jsconfig inheriting a shared base with another filename -> None 
+
+CB-CFG-2 entry kind: other -> configOrigin tsconfig
+CB-CFG-2 extendsResolved: ['tsconfig.base.json', 'configs/shared.json', 'tsconfig.base.json']
+CB-CFG-3 entry kind: jsconfig -> configOrigin jsconfig
+CB-CFG-3 base kind (base.settings.json): other
+PASS CB-CFG-N1 dropping the REPEATED base moves tsconfigGraphHash (and therefore the universe) -> None 
+PASS CB-CFG-N1 repeated-base precedence is retained IN THE IDENTITY: cee6f8a4cba6c3fc vs 686d543f30d8ba82
+PASS CB-CFG-N2 custom-named entry relabelled 'tsconfig' -> native.config-graph-kind-contradicts-path configs/app.build.json declared tsconfig derived other
+PASS CB-CFG-N3 a jsconfig entry asserting configOrigin tsconfig -> native.universe-config-origin-not-derived tsconfig vs jsconfig
+
+=== 6. Rust mixed-edition workspace, ownership selection, H preimages ===
+PASS CB-RS-POS1 selection=lib (package default edition 2021) -> None 
+PASS CB-RS-POS2 same physical file, selection=test target edition 2024 -> None 
+PASS CB-RS-POS3 selection widened by an unrelated target; dialect unchanged -> None 
+PASS CB-RS-POS4 ambiguous SELECTED owners: no body, disclosed pair -> None 
+PASS CB-RS-POS5 partial enumeration: no body, disclosed pair -> None 
+PASS CB-RS-POS6 no committed ownership: no clone admissible -> None 
+
+selection=lib      edition -> {'edition': 2021}
+selection=test2024 edition -> {'edition': 2024}
+bodyIdentity lib       sha256:4f0026439e8bdabc6604a66e8ec2db8b1d49ba62aa2d562cba3807dc093f52a0
+bodyIdentity test2024  sha256:ef50d75fa54670817b7100c79ab0a14417e0d57504ceab12112d276f903fceaa
+bodyIdentity lib+bin   sha256:4f0026439e8bdabc6604a66e8ec2db8b1d49ba62aa2d562cba3807dc093f52a0
+PASS CB-RS-STABLE body identity stable across a selection-only change, while sourceUniverse moves
+PASS CB-RS-EDITION-MAP entries: 21 raw map bytes: 438
+
+PASS CB-RS-N1 false complete under partial ownership -> COVERAGE_DIALECT_PREREQUISITE clones claimed complete while body-language-owner-unenumerated
+PASS CB-RS-N2 undisclosed null deficiency under ambiguous ownership -> COVERAGE_DIALECT_PREREQUISITE_UNDISCLOSED ('input-closure-incomplete', 'body-language-owner-ambiguous')
+PASS CB-RS-N3 wrong cause under ambiguous ownership -> COVERAGE_DIALECT_CAUSE_MISMATCH lockfile-missing vs owed body-language-owner-ambiguous
+PASS CB-RS-N4 unrelated budget-exhausted deficiency under partial ownership -> COVERAGE_DIALECT_DEFICIENCY_MISMATCH budget-exhausted vs owed input-closure-incomplete
+PASS CB-RS-N5 cfg set dropping a base cfg -> native.universe-cfgset-drops-base-cfg primary+test
+PASS CB-RS-N6 crate root path outside the analysed snapshot -> UNIVERSE_PATH_OUTSIDE_SNAPSHOT crates/ghost/src/lib.rs
+PASS CB-RS-N7 dependency file-manifest member bytes not retained -> EVIDENCE_UNAVAILABLE source blob for vendor/serde-1.0.0/Cargo.toml
+
+PASS CB-RS-N8 hidden hash-valid Rust context outside plan.nativeContextDigests -> PLAN_CONTEXT_SET_MISMATCH retained ['0200ca6407d809fbbf74eb225646c044186fd71803a252600a0340d7408d99b4', '7dcb1f6a1de280f6bd8a9057adef059e0228e6638d194030863
+PASS CB-RS-N9 a nested dependency record that is not the exact H identity of the retained record of its registered domain -> H_IDENTITY_MISMATCH e0acc13d155b1385fe52cb8b83039a2259d72482c60c7e1e49b1cc460bc8815a
+PASS CB-RS-H DependencySourceSetV1 preimage frame re-hashes to its identity
+PASS CB-RS-H UnifiedFeaturesV1 preimage frame re-hashes to its identity
+PASS CB-RS-H DependencyFileManifestV1 bare-hex identity re-derives: True
+PASS CB-RS-H the three cargo-config digests are pairwise distinct: True
+PASS CB-RS-H unitId is DERIVED from the published four-field preimage: True
+
+=== 7. rust-cargo-prepared and the prepared/execution boundary ===
+PASS CB-PREP-POS rust-cargo-prepared: an admitted PreparedOutputSetV3 of INERT rows, host-prepared resolution, and the prepare-code semantic-grant projection -> None 
+  preparedResolution: host-prepared executionCapableResolution: True
+  preparedOutputSetId: sha256:28745d5c861dd70225becc6e2b52fabc14dd309fbd48a6395d4d5b333af70f44
+PASS CB-PREP-N1 a proc-macro-dylib row relabelled with an inert media type -> native.prepared-output-not-inert row 0 kind proc-macro-dylib is refused REGARDLESS of the media type it claims (text/x-cargo-directives)
+PASS CB-PREP-POS2 imported-inert projects only read-import: prepared bytes in custody never imply a host execution grant -> None 
+PASS CB-PREP-N2 a trusted-repository-code principal projected under imported-inert -> GRANT_PREPARE_CODE_PRINCIPAL_JOIN 
+
+=== 8. compiler-free syntax-only Runs ===
+PASS CB-SX-POS1 mixed grammar-only repository, no TS and no Rust unit -> None 
+  bodyLanguageVersion: {"compilerBuild": "62a22a8731811928c307cc172a099d9749f40cfcad58bd86bb02eec5b06754bb", "compilerName": "opensip-grammars", "compilerVersion": "0.9.0", "dialect": {"grammarVariant": "js"}, "languageId": "javascript", "schemaVersion": 1}
+  selected grammars: ['g-javascript', 'g-markdown', 'g-yaml'] of bundled ['javascript', 'json', 'markdown', 'rust', 'toml', 'typescript', 'yaml']
+PASS CB-SX-POS2 data/document-only repository: inventory complete, code capabilities unavailable -> None 
+PASS CB-SX-N1 false complete empty declares over a data-only repository -> SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE declares@syntactic claimed complete
+PASS CB-SX-N2 false complete clones over a data-document path -> COVERAGE_SOURCE_VARIANT_UNSUPPORTED_SCOPE clones@normalized-body-hash claimed complete
+PASS CB-SX-N3 false complete for a semantic capability no grammar bears -> SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE references@resolved-binding claimed complete
+PASS CB-SX-N4 a Markdown-anchored code fact -> SYNTAX_CAPABILITY_UNSUPPORTED_FACT declares@syntactic docs/notes.md
+PASS CB-SX-N5 a data grammar declaring syntaxClass code -> native.syntax-grammar-class-mismatch markdown declared code
+PASS CB-SX-N6 parserVersion not the grammar closure manifest's -> native.syntax-grammar-version-not-from-manifest 
+PASS CB-SX-N7 selecting a grammar the bundle does not contain -> native.syntax-grammar-not-in-bundle g-python
+PASS CB-SX-N8 an UNSELECTED code grammar lends no capability: clones over a .js path with only data grammars selected -> SYNTAX_CAPABILITY_UNSUPPORTED_FACT clones@normalized-body-hash scripts/tool.js
+PASS CB-SX-N9 hidden hash-valid syntax context outside plan.nativeContextDigests -> PLAN_CONTEXT_SET_MISMATCH
+
+=== 9. imported evidence ===
+PASS CB-IMP-POS a Run with an admitted registered runtime import2 -> None 
+  importId: import2:e310b442b1089b43ea9e66e9b0929f81a0f4b8cccc8c0768126301d7648ddf6b
+PASS CB-IMP-N1 an unregistered payload schema digest -> IMPORT.PAYLOAD_SCHEMA_UNREGISTERED runtime / 0000000000000000000000000000000000000000000000000000000000000000
+PASS CB-IMP-N2 a commit name alone never maps (source mapping is mandatory) -> IMPORT.SOURCE_MAPPING_REQUIRED a commit name alone never maps
+PASS CB-IMP-N3 completeness != complete requires non-empty omissions -> IMPORT_INCOMPLETE_WITHOUT_OMISSIONS 
+PASS CB-IMP-N4 the adapter closure must be of kind adapter -> IMPORT_CLOSURE_KIND provider != adapter
+PASS CB-IMP-N5 a hit count on an UNMAPPED subject never becomes an admissible payload -> ('runtime payload', ["subjects/2: {'path': 'package.json', 'observability': 'unmapped', 'hits': 3} should not be valid under {'required': ['hits']}"])
+
+imported-requirement law keys: ['standing', 'whyItIsOwed', 'twoPlanesOneField', 'outcomes', 'precedence', 'precedenceRule', 'whatThisOutcomeNeverEstablishes', 'whatIsPreserved', 'enforcedAt', 'perKindApplicability', 'inputBinding', 'whatASatisfiedOutcomeMeans']
+imported evidence relations: {"evidenceDeclarationRule": "An atom naming one of these relations MUST carry `evidence` equal to that relation's evidenceKind, and its rule must declare a matching evidenceUse. An atom naming a native fact relation MUST NOT carry `evidence`. This keeps the two planes separable at admission rather than by convention.", "ladderRule": "Same law as native relations: the ladder is that relation's own 
+
+FAILURES: none
+
+=== 9b. findings, fingerprints and the citation closure ===
+PASS CB-FIND-POS a TRUE predicate emits a finding; the Run seals with verdict fail and the finding citations stay inside the closure -> None 
+  finding-key2: finding-key2:bbd40c4d62794bf280ec51caf875c0d3693d5d4dcba675aa585cf57b5bcd75ec
+  finding2    : finding2:4f05f2ffe8d5807692304408da7c166d80a20bac2610a8108f817ad2dbdf71b5
+  discriminator (raw SHA-256 of C(ordered token array)): 9d39092dfbfecacafef7b77d4a7c53e19e3ab93adf6d8a7ce2d97c99eeeb36af
+PASS CB-FIND-N1 a finding citing a fact outside the evaluated view -> FINDING_FACT_OUTSIDE_EVALUATED_VIEW 0000000000000000000000000000000000000000000000000000000000000000
+PASS CB-FIND-N2 a finding citing a raw blob that is not an explicit blob input -> FINDING_BLOB_NOT_AN_EXPLICIT_INPUT de5648528f77a32ad76db51600f58faed33f5631fd6878e2293724ca550d2024
+PASS CB-FIND-N3 finding-parameters messageCode drifting from the finding's -> FINDING_PARAMETER_MESSAGE_CODE 
+PASS CB-FIND-N4 a rule closure that is not of kind detector -> FINDING_RULE_CLOSURE_KIND provider
+
+=== 10. provider protocol major 3 state law and traces ===
+PASS CB-P3-0 the published rows are pairwise disjoint (first-match resolves no ambiguity today)
+PASS CB-P3-1 complete valid Rust trace (dependency mode) -> DONE / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-06', 'P3-07', 'P3-08', 'P3-11', 'P3-12', 'P3-13', 'P3-15', 'P3-20', 'P3-22', 'P3-23', 'P3-24', 'P3-27', 'P3-31',
+PASS CB-P3-2 prepared mode routes through the prepared frames -> DONE / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-08', 'P3-11', 'P3-13', 'P3-14', 'P3-16', 'P3-17', 'P3-18', 'P3-19', 'P3-20', 'P3-22', 'P3-24', 'P3-27',
+PASS CB-P3-3 no dependency and no prepared mode goes straight to context verification -> DONE / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-24', 'P3-27', 'P3-31', 'P3-32']
+PASS CB-P3-4 OpenUniverse before Hello/HelloAck faults with NO source byte sent -> FAULT / None / ['P3-34']
+PASS CB-P3-4a sourceBytesSent is false
+PASS CB-P3-5 a HelloAck lacking an identity token leaves identityNegotiated false, so OpenUniverse is unreachable and no source byte is sent -> FAULT / None / ['P3-01', 'P3-02', 'P3-34']
+PASS CB-P3-5a identityNegotiated false, sourceBytesSent false
+PASS CB-P3-6 Unavailable(native-context-mismatch) BEFORE Analyze is a clean typed terminal -> DONE / unavailable / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-21', 'P3-31', 'P3-32']
+PASS CB-P3-7 Unavailable DURING Analyze: facts before the terminal are admitted and the stage is partial -> DONE / unavailable / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-23', 'P3-25', 'P3-31', 'P3-32']
+PASS CB-P3-8 BudgetExhausted is the other clean typed terminal -> DONE / budget-exhausted / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-23', 'P3-26', 'P3-31', 'P3-32']
+PASS CB-P3-9 cancellation: Cancel -> Cancelled -> terminal, then the process is still observed to zero-exit and EOF -> DONE / cancelled / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-29', 'P3-30', 'P3-31', 'P3-32']
+PASS CB-P3-10 ProviderFault mid-analysis: no facts, no Coverage, no Run -> DONE / provider-fault / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-23', 'P3-28', 'P3-31', 'P3-32']
+PASS CB-P3-11 an out-of-band PROCESS fault goes to FAULT from any phase -> FAULT / None / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-33']
+PASS CB-P3-12 crash mid-stage: signal-death during ANALYZING -> FAULT / None / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-33']
+PASS CB-P3-13 FAULT is ABSORBING: every further event traces FAULT-absorb -> FAULT / None / ['P3-01', 'P3-33', 'FAULT-absorb', 'FAULT-absorb']
+PASS CB-P3-14 a post-terminal FRAME between the terminal and zero-exit faults -> FAULT / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-24', 'P3-27', 'post-terminal-frame']
+PASS CB-P3-15 a process fault AFTER a clean terminal is still a FAULT, not an absorbed no-op -> FAULT / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-24', 'P3-27', 'P3-33']
+PASS CB-P3-16 multi-stage: one CoverageV3 per stage; only the LAST may be followed by Complete -> DONE / complete / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-24', 'P3-23', 'P3-24', 'P3-27', 'P3-31', 'P3-32']
+PASS CB-P3-16a stagesCompleted == stageCount
+PASS CB-P3-17 Complete BEFORE the last stage's CoverageV3 has no matching row -> FAULT / None / ['P3-01', 'P3-02', 'P3-03', 'P3-04', 'P3-05', 'P3-07', 'P3-10', 'P3-20', 'P3-22', 'P3-24', 'P3-34']
+
+FAILURES: none
+
+=== 11. invocation, availability, public failure envelopes, D9 ===
+== A. zero-config selection over multiple workspace units ==
+PASS CB-WF-A0 release declaration admits
+PASS CB-WF-A1 the default requests every non-NOT-SELECTED cell of every unit -> rows=31
+PASS CB-WF-A2 the three NOT-SELECTED cells are never requested
+PASS CB-WF-A3 UNSUPPORTED-TYPED cells ARE requested (answered by disclosure)
+PASS CB-WF-A4 the request is admissible against the matrix
+PASS CB-WF-A5 absence is disclosed, not dropped -> 16 notices
+PASS CB-WF-A6 candidate-only capabilities ride the selection account, not Coverage -> ['clones-cross-tsjs', 'clones-near']
+PASS CB-WF-A7 a fact-producing absence keeps its relation@rung Coverage route
+PASS CB-WF-A8 the ownership tuple is typed and never concatenated: two units requesting the same capability stay distinguishable
+PASS CB-WF-A9 CapabilityAvailabilityV1 (single-step)
+PASS CB-WF-A10 CapabilityAvailabilityV1 (multi-step)
+PASS CB-WF-A11 totalNoticeCount is the exact sum, not a truncation residue
+PASS CB-WF-A12 the same tuple may recur in DIFFERENT steps; uniqueness is within a step
+PASS CB-WF-A13 a step that selected and found nothing absent contributes an EMPTY entry (the positive statement that it checked)
+PASS CB-WF-A14 default: capability-availability is a DECLARED parity field -> ['human', 'json', 'sarif', 'html', 'agent']
+PASS CB-WF-A14 analyze: capability-availability is a DECLARED parity field -> ['human', 'json', 'sarif', 'html', 'agent']
+PASS CB-WF-A14 fit: capability-availability is a DECLARED parity field -> ['human', 'json', 'html', 'agent']
+PASS CB-WF-A14 audit: capability-availability is a DECLARED parity field -> ['human', 'json', 'sarif', 'html', 'agent']
+PASS CB-WF-A14 repair-verify: capability-availability is a DECLARED parity field -> ['human', 'json', 'sarif', 'agent']
+
+== B. the ORIGINAL invocation's disclosure ==
+PASS CB-WF-B1 InvocationRecordV1 for the ORIGINAL zero-config invocation
+PASS CB-WF-B2 CommandEnvelope major 2 (kind=run) carrying availability
+PASS CB-WF-B3 the default command's applicable output formats -> ['human', 'json', 'sarif', 'html', 'agent']
+PASS CB-WF-B4 every advertised SARIF command declares the seven common fields
+PASS CB-WF-B5 exactly four advertised SARIF commands -> ['analyze', 'audit', 'default', 'repair-verify']
+PASS CB-WF-B6 bounded cardinality: at most 64 steps, 3 attempts, StepId 0..63
+PASS CB-WF-B7 named MULTI-STEP invocation (audit): analysis, pivot analysis, comparison, render
+
+== C. public failure envelopes from an actual internal refusal ==
+PASS CB-WF-C configuration input -> request-rejected/CONFIG.INVALID exit 2
+PASS CB-WF-C retained external input -> request-rejected/REQUEST.PRECONDITION_FAILED exit 2
+PASS CB-WF-C host-generated invalid internal record -> operational-failed/SYSTEM.OUTCOME.ILLEGAL_STATE exit 4
+PASS CB-WF-C producer boundary failure -> operational-failed/PROVIDER.PROTOCOL_VIOLATION exit 4
+PASS CB-WF-C well-formed request for a NOT-SELECTED cell -> request-rejected/REQUEST.UNSATISFIABLE exit 2
+PASS CB-WF-C6 an origin a key cannot have refuses -> native.public-route-origin-not-possible:native.release-capability-unregistered@external-configuration
+PASS CB-WF-C7 an unregistered raw key refuses rather than passing through -> native.public-route-key-unregistered:a prose sentence that is not a registered key
+PASS CB-WF-C8 bounded_subject: exactly 1024 code points, key preserved verbatim, SHA-256 of the untruncated UTF-8 -> 1024
+PASS CB-WF-C9 the elided failure envelope is schema-valid
+PASS CB-WF-C10 units: 1024 CODE POINTS, not UTF-8 bytes -> 1024 cp / 1927 bytes
+
+== D. the selected D9 extension against the inherited contract ==
+PASS CB-WF-D1 the inherited d9-exit-contract.v1.14 does NOT carry host-invariant
+PASS CB-WF-D2 the selected composition adds EXACTLY one faultCause member -> ['host-invariant']
+PASS CB-WF-D3 no inherited cause is removed
+PASS CB-WF-D4 the added cause maps to an EXISTING error code
+PASS CB-WF-D5 classes, exit codes and reason codes are unchanged
+PASS CB-WF-D6 codeMaps.rule declared precedence is faultCause > rejectionCause > deficiency
+
+== E. mutation replay scope, repair-apply key, pinned purge ==
+PASS CB-WF-E1 MutationReplayScopeV1
+PASS CB-WF-E2 the generic key is scoped to ONE host-minted request: different fresh requests never deduplicate -> a941e7f3861ce031 vs 9c55193a339683c9
+PASS CB-WF-E3 repair-apply is refused in BOTH generic fields -> ["operation: 'repair-apply' should not be valid under {'const': 'repair-apply'}"]
+PASS CB-WF-E4 the generic field domain is 23 of the 24 MutationOperation members
+PASS CB-WF-E5 repair-apply uses a distinct CONTENT-DERIVED key (raw SHA-256 of C), not the H mutation-intent recipe -> aadf9156d882e951
+PASS CB-WF-E6 import and native-preparation share the RECIPE but not the lookup meaning (delivery-only / not replay)
+PASS CB-WF-E7 complete pinned-purge refusal envelope
+PASS CB-WF-E8 the disclosure names every pin, sorted uniquely by pinId, with the three ORDERED consequences and no aggregate count
+PASS CB-WF-E9 a truncated consequence list refuses -> ["errors/0/purgeDisclosure/consequences: ['named-pins-revoked'] is not the exact const ['named-pins-revoked', 'dependent-evidence-replay-unavailable', 'sealed-h
+PASS CB-WF-E10 an empty activePins refuses (minItems 1) -> ['errors/0/purgeDisclosure/activePins: [] should be non-empty']
+PASS CB-WF-E11 purgeDisclosure is forbidden on any other detail code -> ["errors/0: {'code': 'evidence.purged', 'remedy': 're-run with the explicit destructive purge authorization after reviewing the disclosed pins', 'subject': 'run
+
+FAILURES: none
+
+=== 12. baseline audit, comparison axes, authorization, repair, RC-1 ===
+== F. a real ScopeDocumentV1 bound as an analysis-spec parameter ==
+PASS CB-P3F-0 the registered parameter row names the exact document and selector -> workflows/schemas/policy-document.schema.json #/$defs/ScopeDocumentV1
+PASS CB-P3F-1 ScopeDocumentV1 A
+PASS CB-P3F-2 ScopeDocumentV1 B
+PASS CB-P3F-3A Run with the bound scope parameter closes
+PASS CB-P3F-3B Run with the bound scope parameter closes
+PASS CB-P3F-4 only the SCOPE POLICY changed: plan.scopeDigest (the foundation scope-descriptor = the repository extent actually walked) is IDENTICAL -> a3a1519f45dbc732e2859b3a98d3d677ce392f4e8ae4464cde20efbfe7fe1c14
+PASS CB-P3F-5 the snapshot is identical (same source, same discovery scope)
+PASS CB-P3F-6 the analysis-spec digest and therefore the PlanId and RunId MOVE
+PASS CB-P3F-7 the ScopeDocumentV1 record and the foundation scope-descriptor are DIFFERENT records; neither substitutes for the other
+PASS CB-P3F-8 EvaluationContext.scopeDigest equals the payloadDigest of the SELECTED parameter row citing the registered ScopeDocumentV1 document
+PASS CB-P3F-9 scope-only comparison: the entry is attributed to the SCOPE axis (E2 -> E3), not to code
+PASS CB-P3F-10 comparison2 identity -> comparison2:5ea2e518ca4f7a45201653c31c6b3ce4dfad13953b32eb39b5a1d45fcfd0d46f
+
+PASS CB-P3F-11 MISSING prior detector: typed indeterminacy, never a silent two-way fallback
+PASS CB-P3F-12 EVIDENCE-CHANGED on a gating rule: replacing an artifact of the same kind is still an evidence change and attribution is INDETERMINATE
+PASS CB-P3F-13 EMPTY RESULT: both finding sets empty, but a required re-evaluation is unbound for a gating rule -> indeterminate. Zero emitted findings never establish complete analysis
+
+== G. explicit test / preparation / repair authorization ==
+PASS CB-P3G-1 TestExecutionStepParams, CI, policy-record consent
+PASS CB-P3G-2a a token outside the closed EnforcementValue vocabulary is refused by SHAPE -> ["effects/network: 'ENFORCED-PLATFORM' is not one of ['DISCLOSURE-ONLY', 'ENFORCED-BY-CONSTRUCTION', 'ENFORCED-AT-HOST-BROKER'] (exact typed)"]
+PASS CB-P3G-2b an IN-VOCABULARY value that exceeds the pinned truth table is schema-valid and is refused by the SECURITY decision (TEST.CONFINEMENT_CLAIM_REFUSED), not by the schema -> schema OK; ENFORCED-AT-HOST-BROKER != pinned DISCLOSURE-ONLY
+PASS CB-P3G-3 NativePreparationParams
+PASS CB-P3G-4 the consent mapping is applied only AFTER actual security admission -> interactive-explicit->interactive-consent / policy-record->pre-existing-policy (test); ->interactive / ->policy (repair)
+
+PASS CB-P3G-5 RepairPlanDescriptor: the FIVE-field closedWorld projection
+PASS CB-P3G-6 a literal copy of ClosedWorldV2 (7 fields) is REFUSED there -> ["closedWorld: Additional properties are not allowed ('dynamicDispatch', 'reasons' were unexpected)"]
+PASS CB-P3G-7 the whole descriptor is the repairPlanId preimage, so no edit to the projection can make a plan applicable -> repairplan2:f8740d043b26 vs repairplan2:2fa770c58bc9
+PASS CB-P3G-8 apply is bound to the exact repairPlanId, base snapshot and project
+PASS CB-P3G-9 references -> native plane
+PASS CB-P3G-9 reachability -> native plane
+PASS CB-P3G-9 runtime-observation -> imported plane
+PASS CB-P3G-10 a NATIVE requirement claiming an IMPORTED outcome is refused -> cross-plane value 'import-unmapped-only' on the native plane
+PASS CB-P3G-11 an IMPORTED requirement claiming a NATIVE outcome is refused -> cross-plane value 'resolution-incomplete' on the imported plane
+PASS CB-P3G-12 a rung of ANOTHER relation's ladder is refused, not compared -> minResolution checked is not a rung of references's ladder ['syntactic-name-match', 'resolved-binding']
+PASS CB-P3G-13 an explicit null deficiency is refused in both branches -> an explicit null is refused in both branches
+PASS CB-P3G-14 an unsatisfied requirement makes the plan inapplicable and emits exactly one unmet precondition carrying its own cause
+PASS CB-P3G-15 an unsatisfied requirement with an EMPTY unmetPreconditions is schema-admissible but is not a conforming projection; the emission is decided at admission -> stated division of labour, not a schema fault
+
+== H. purge / replay / required-output failure ==
+PASS CB-P3H-1 regeneration mismatch is an OPERATIONAL refusal (exit 4); it cannot replace the sealed Run
+PASS CB-P3H-2 evidence.expired before evaluation is request-rejected (exit 2)
+PASS CB-P3H-2 evidence.purged before evaluation is request-rejected (exit 2)
+PASS CB-P3H-2 evidence.missing before evaluation is request-rejected (exit 2)
+PASS CB-P3H-2 evidence.corrupt before evaluation is request-rejected (exit 2)
+PASS CB-P3H-3 the SAME evidence detail DURING a selected operation is HOST.IO_FAILURE (exit 4): different event positions, not interchangeable spellings
+PASS CB-P3H-4 required-output failure AFTER commit retains the RunId and rewrites nothing
+PASS CB-P3H-5 the complete public failure envelope for required delivery
+PASS CB-P3H-6 an OPTIONAL export sink failure leaves success (egress never changes a verdict)
+PASS CB-P3H-7 an ephemeral result cannot supply a repair/baseline prerequisite
+
+== I. minimum-resolution predicates at three levels ==
+PASS CB-P3I declares: have syntactic, want syntactic -> True
+PASS CB-P3I references: have syntactic-name-match, want resolved-binding -> False
+PASS CB-P3I references: have resolved-binding, want resolved-binding -> True
+PASS CB-P3I references: have resolved-binding, want syntactic-name-match -> True
+PASS CB-P3I types: have annotated, want checked -> False
+PASS CB-P3I types: have checked, want checked -> True
+PASS CB-P3I types: have checked, want annotated -> True
+PASS CB-P3I-X a rung of ANOTHER relation refuses; it is never a true or false predicate -> ATOM_MIN_RESOLUTION_NOT_IN_RELATION_LADDER:declares@resolved-callee
+PASS CB-P3I-Y a HAVE rung outside this relation's ladder refuses -> CROSS_RELATION_RUNG_COMPARISON:references@checked
+PASS CB-P3I-P exists(matches=1, complete=True) -> true
+PASS CB-P3I-P exists(matches=0, complete=True) -> false
+PASS CB-P3I-P exists(matches=0, complete=False) -> indeterminate
+PASS CB-P3I-P none(matches=1, complete=False) -> false
+PASS CB-P3I-P none(matches=0, complete=True) -> true
+PASS CB-P3I-P none(matches=0, complete=False) -> indeterminate
+PASS CB-P3I-P count-at-most(matches=3, complete=False) -> false
+PASS CB-P3I-P count-at-most(matches=1, complete=True) -> true
+PASS CB-P3I-P count-at-most(matches=1, complete=False) -> indeterminate
+PASS CB-P3I-P all-covered(matches=0, complete=True) -> true
+PASS CB-P3I-P all-covered(matches=0, complete=False) -> indeterminate
+
+== J. the registered relation/rung applicability table ==
+PASS CB-P3J-1 SEVENTEEN registered (relation, rung) pairs over a FIFTEEN-token flat rung vocabulary: schema vocabulary is not relation membership -> 17
+PASS CB-P3J-2 exactly FIVE resolved rungs; the other TWELVE are not-applicable -> [('calls', 'resolved-callee'), ('imports', 'resolved-target'), ('reachability', 'from-resolved-calls'), ('references', 'resolved-binding'), ('types', 'checked')]
+PASS CB-P3J-3 reachability is a ONE-rung relation whose single rung IS resolved: ladder length is not the rule
+PASS CB-P3J-4 unresolved-edge@observed is NOT a resolved rung: the relation records the edges resolution did not close
+PASS CB-P3J-5 only file@enumerated carries a coverageTotality row
+PASS CB-P3J-6 the three inventory relations carry EXACTLY ZERO anchors
+PASS CB-P3J-7 clones carries EXACTLY ONE anchor; the nine source-text relations at least one
+PASS CB-P3J-8 three relations bind a snapshot join; the other ten bind none
+
+FAILURES: none
+
+=== 13. measured design gaps ===
+CB-GAP-1     MUST      the `parameter` payload class is keyed by the cited DOCUMENT digest, so a Plan may select TWO ScopeDocumentV1 parameters and nothing decides which one is the Plan's scope policy
+             observed: the Run CLOSES with 190 checks and no fault; both rows validate under the one registered selector and the existential verifier (`the payloadDigest of A selected parameter row citing the registered ScopeDocumentV1 document digest`) is satisfied by EITHER
+CB-GAP-2     SHOULD    an analysis-spec may carry TWO requestedCapabilities rows for the same (capabilityId, languageMode, workspaceRoot) differing only in `required`
+             observed: schema validation: admits; capability admission: admits
+CB-GAP-3     MUST      `coverage` and `resolutionCompleteness.examinedExhaustive` are TWO committed encodings of ONE claim (section 4.1 claim 1) with no published join, so a sealed entry can assert `complete` and `examinedExhaustive: false` at once
+             observed: the Run CLOSES with 422 checks and no fault
+
+findings recorded: 3
+stage-spec.operation        : {"$ref": "#/$defs/Text"}
+stage-spec.outputDomains[]  : {"$ref": "#/$defs/Text"}
+execution-plan .outputDomains[]: {"type": "string", "minLength": 1, "maxLength": 4096}
+compare: analysis-spec.capabilityId carries x-opensip-vocabulary: True
+
+CB-GAP-4 recorded (has any vocabulary annotation: False )
+
+plan.semanticClosures as I built it: 4
+subject-scope.enumeratorClosure states membership: True
+fact.producerClosure states membership: False (description present: False )
+
+CB-GAP-5 recorded
+
+total findings: 5 [('CB-GAP-1', 'MUST'), ('CB-GAP-2', 'SHOULD'), ('CB-GAP-3', 'MUST'), ('CB-GAP-4', 'SHOULD'), ('CB-GAP-5', 'SHOULD')]
+
+=== 14. object table + blob export, then RE-VERIFY FROM THE EXPORT ALONE ===
+exported 16 runs, 699 distinct retained objects
+
+re-verifying every graph FROM THE EXPORT ALONE:
+  OK  9be89fbe checks=408   CB-RUN-TS  ordinary TypeScript project (node_modules, bare specifi
+  OK  9a10e422 checks=346   CB-RUN-RS-lib  mixed-edition Rust workspace, selection = lib targe
+  OK  076d8a99 checks=346   CB-RUN-RS-test2024  the SAME physical file under the selected test
+  OK  523ced33 checks=347   CB-RUN-RS-libbin  selection widened without changing the effective
+  OK  4a8e00e7 checks=330   CB-RUN-RS-ambiguous  ambiguous selected owners: no body, disclosed
+  OK  e03ce05f checks=329   CB-RUN-RS-partial  partial enumeration: empty clone view, disclose
+  OK  99fd19ca checks=316   CB-RUN-RS-none  no committed ownership: no clone admissible
+  OK  fc2db1d1 checks=308   CB-RUN-SX-mixed  compiler-free grammar-only repository (no TS/Rust
+  OK  673cc195 checks=242   CB-RUN-SX-data  data/document-only repository: inventory complete,
+  OK  b788ee3c checks=171   CB-RUN-CFG-synth  synthesized TypeScript configuration
+  OK  52a601d0 checks=190   CB-RUN-CFG-multibase  custom-named config, ordered bases incl. a r
+  OK  36798a5d checks=176   CB-RUN-CFG-jsconfig  jsconfig inheriting a shared base of another 
+  OK  1a0b85b1 checks=349   CB-RUN-RS-prepared  rust-cargo-prepared: inert PreparedOutputSetV3
+  OK  b38b2d3c checks=349   CB-RUN-RS-imported-inert  imported-inert projects only read-import
+  OK  7a8e9501 checks=172   CB-RUN-FIND  a TRUE predicate emitting a finding; verdict fail
+  OK  1e9dcf54 checks=172   CB-RUN-IMP  a Run with an admitted registered runtime import2
+
+runs re-verified: 16 failed: 0
+
+=== 15. summary ===
+complete positive Runs closed and re-verified from the export: 16
+total closure checks executed over those Runs: 4551
+distinct retained objects in the exported store: 699
+h-identity frames: 497
+canonical records: 474
+raw artifacts: 351
+
+  vectors-capability-manifest.json         20
+  vectors-finding.json                     18
+  vectors-gaps.json                        5
+  vectors-import.json                      6
+  vectors-part3.json                       35
+  vectors-prepared.json                    4
+  vectors-protocol3.json                   17
+  vectors-rust-preimages.json              6
+  vectors-rust-run.json                    13
+  vectors-syntax-run.json                  11
+  vectors-typescript-config.json           6
+  vectors-typescript-run.json              26
+  vectors-workflow-surfaces.json           5
+
+measured design gaps: [('CB-GAP-1', 'MUST'), ('CB-GAP-2', 'SHOULD'), ('CB-GAP-3', 'MUST'), ('CB-GAP-4', 'SHOULD'), ('CB-GAP-5', 'SHOULD')]

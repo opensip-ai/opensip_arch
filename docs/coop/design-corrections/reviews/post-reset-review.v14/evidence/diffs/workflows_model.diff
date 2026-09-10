@@ -1,0 +1,37 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v13/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-07 02:29:55
++++ /tmp/opensip-design-corrections/candidate-subject.v14/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-07 08:12:26
+@@ -54,7 +54,14 @@
+ AGGREGATE_ORDER = ['operational-failed', 'request-rejected', 'policy-failed', 'indeterminate', 'success']
+ FAULT_TO_ERROR = {'host-io': 'HOST.IO_FAILURE', 'ledger-busy': 'LEDGER.BUSY_TIMEOUT', 'ledger-corrupt': 'LEDGER.CORRUPT', 'cas-link': 'CAS.LINK_FAILED',
+                   'provider-protocol': 'PROVIDER.PROTOCOL_VIOLATION', 'durability-commit': 'DURABILITY.COMMIT_FAILED', 'delivery-required': 'DELIVERY.REQUIRED_FAILED',
+-                  'output-serialization': 'OUTPUT.SERIALIZATION_FAILED', 'extension-install-io': 'EXTENSION.INSTALL_IO_FAILED', 'serve-protocol': 'SERVE.PROTOCOL_FAULT'}
++                  'output-serialization': 'OUTPUT.SERIALIZATION_FAILED', 'extension-install-io': 'EXTENSION.INSTALL_IO_FAILED', 'serve-protocol': 'SERVE.PROTOCOL_FAULT',
++                  # Successor member, narrow. SYSTEM.OUTCOME.ILLEGAL_STATE was already in the closed error
++                  # vocabulary with no cause mapping to it, so the host-INVARIANT subtype specifically had no
++                  # representable operational-failed termination (that class requires both an errorCode and a
++                  # non-none faultCause). Other host-fault causes - host-io, ledger-corrupt, provider-protocol -
++                  # already existed and were always representable. No new error code, class or exit code is
++                  # added; faultCause does grow by this one member.
++                  'host-invariant': 'SYSTEM.OUTCOME.ILLEGAL_STATE'}
+ RETRYABLE_KINDS = {'analysis', 'verify', 'query', 'render', 'export-delivery', 'doctor'}
+ NEVER_RETRY_KINDS = {'mutation', 'import', 'repair-apply', 'test-execution', 'repair-preview', 'comparison', 'native-preparation'}
+ TERMINAL_GATE_KINDS = {'render', 'export-delivery'}
+@@ -1517,6 +1524,18 @@
+     formats = command['formats']
+     if fmt not in formats:
+         raise Refusal('REQUEST.UNKNOWN_OPTION', 'OUTPUT.FORMAT_NOT_APPLICABLE', 'use one of ' + ','.join(formats))
++    # Presence in the envelope does NOT make a field part of declared parity: render selects only the
++    # command's declared parityFields. `capability-availability` is declared for the analysis commands so the
++    # release-availability account reaches human, SARIF and HTML too, not only the JSON/agent envelope.
++    #
++    # Access is STRICT and deliberately so. An earlier revision guarded this with `if k in envelope['parity']`
++    # so an old fixture would keep passing, and that silently weakened the inherited required-field behavior for
++    # EVERY declared parity field: a missing required-coverage simply vanished from all five formats instead of
++    # failing. Section 8 is explicit - a missing field or projection exception is a required-delivery operational
++    # fault, never a successful partial rendering - and it also says this KeyError alone is not a public
++    # termination: the host converts it to operational-failed / DELIVERY.REQUIRED_FAILED with
++    # faultCause=delivery-required, retaining a committed RunId. A caller with no selection supplies the explicit
++    # empty availability value rather than omitting the field.
+     parity = {k: envelope['parity'][k] for k in command['parityFields']}
+     if fmt == 'json':
+         return {'format': 'json', 'parity': parity, 'envelope': envelope['envelope']}

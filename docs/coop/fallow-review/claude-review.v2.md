@@ -1,0 +1,63 @@
+All reads are complete and nothing further depends on another result. Verdict: **ACCEPT**, zero MUST_FIX, zero SHOULD_FIX, conditional only on the mechanical recording preconditions the act itself lists.
+
+```json
+{
+  "reviewer": "Claude (Anthropic), model claude-fable-5-1 (Fable 5.1)",
+  "authorOfSubject": "Codex",
+  "authoredNoneOfSubjectBytes": true,
+  "subjectManifestPath": "docs/coop/fallow-review/subject.v2.json",
+  "supersedes": "docs/coop/fallow-review/subject.v1.json (CHANGES_REQUIRED, retained as history)",
+  "verdict": "ACCEPT",
+  "mustFixCount": 0,
+  "shouldFixCount": 0,
+  "findings": [],
+  "priorFindingResolutions": [
+    {
+      "id": "FR-M1",
+      "status": "RESOLVED",
+      "evidence": "Live docs/v2/architecture/README.md contains no D-370 paragraph or table row and matches, line for line, the D-369 after-image text recorded as the 'before' in navigation-edits.v1.json. It is removed from subjectFiles and navigation-edits.v2.json, and appears in protectedCurrentBytes (f9a76096…), so all twelve documentationApplication.expectedDocumentPaths are now protected. Act v2 Decision 4 states preservation of all twelve at task-opening bytes including the V2 README and retains the root README mismatch without claiming correction. Git status no longer lists the v2 README as modified. Reading path preserved via START-HERE step 7, file 10, and the regenerated catalog."
+    },
+    {
+      "id": "FR-S1",
+      "status": "RESOLVED as a stated recording precondition",
+      "evidence": "Act v2 'Recording preconditions' names the exact heading '## D-370 — Fallow-informed product design', requires docs/coop/fallow-review/README.md with the enumerated contents (subject manifest and digests, initial advice, both exchanges and digests, model/read scope and hash limits, author assent, disposition), and requires fragment-aware link checks before adoption is reported complete. The README exists as an explicitly pending record and asserts no acceptance. COORDINATOR-DECISIONS.md still has no D-370 heading, which is correct before recording. The present-tense 'recorded in D-370' sentences in chapter 13, file 10, and the register become true only when precondition (a) below executes; the act makes acceptance conditional on exactly that."
+    },
+    {
+      "id": "FR-S2",
+      "status": "RESOLVED verbatim",
+      "evidence": "Chapter 13 §4 lines 122-124 now read 'source subjects with their content identity (the sealed Snapshot or per-subject content digests)'. Comparing the v1 and v2 snapshots, this is the only change in the chapter; the 'not new durable identifier recipes' sentence is retained. Snapshot and live chapter 13 match line for line."
+    },
+    {
+      "id": "FR-S3",
+      "status": "RESOLVED",
+      "evidence": "Both live inventories carry the five entry edits (START-HERE, FALLOW-BORROW-REGISTER, fallow-review/README, file 10 refreshed to d0beb97e…, chapter 13) and a workingTreeDelta block; the entry digests equal the subject digests. Count arithmetic checks: classification totals 9214 to 9218 equal fileCount before/after; current/architecture 16 to 18 (+register, +chapter 13); current/navigation +1; evidence/units +1; pinnedOrMentionedCount +4. docs/README.md line 3 and root README line 3 do link START-HERE, so its listed inbound references are real. docs/catalog/current-design.md now lists 18 current/architecture entries in lexical order including the register and chapter 13; START-HERE (navigation) and the review README (evidence/units) are correctly not listed. Historical review pins for file 10 (5378cdba…) are untouched elsewhere; the inventory's before/after for that entry records the refresh explicitly."
+    }
+  ],
+  "recordingPreconditions": [
+    "(a) Append a coordinator entry whose heading is exactly '## D-370 — Fallow-informed product design', so the three existing fragment links resolve.",
+    "(b) Complete docs/coop/fallow-review/README.md with the contents the act enumerates, including both subject manifests and digests, claude-initial, both review exchanges and their digests, the actual read scope and hash-verification limits, Codex's author assent as a separate record, and the final disposition.",
+    "(c) Run a fragment-aware link check for the D-370 anchor and the README target and retain its result; the repository's check-catalog-links.py skips fragments and cannot serve as that evidence.",
+    "(d) Refresh only the review-record README content digest in both inventories, per the delta's recordingException, and state the resulting post-recording whole-file digests of document-classification.v1.json and document-inventory.v1.json so the delta's reviewTimeSha256 values are not misread as current.",
+    "(e) Re-run the D-369 checker with the same arguments as d369-before-summary.json and retain the report; the failure set must be exactly documents/README.md/current-custody DIVERGED, with no new D-370-induced failure.",
+    "(f) Record author assent separately from this review; it is not a second independent review."
+  ],
+  "notes": [
+    "Coverage: FW-01..07 and FW-08..15 still map one-to-one to the seven original ideas and eight additional candidates. No design content changed between v1 and v2 except the FR-S2 phrase, so my v1 assessments of genuine adoption, preview compatibility, authority and model boundaries, and policy/delta sufficiency carry over unchanged.",
+    "Nonblocking inaccuracy: the inventory referencedByCount for chapter 13 (3) and the borrow register (1) omit docs/catalog/current-design.md, which links both and which act v2 Decision 4 itself names as a link path. By the delta's own scope statement the counts would be 4 and 2. Consequence is minimal: the entries carry an explicit not-exhaustive disclaimer, no checker consumes the counts, and no custody or authority depends on them. The recordingException forbids changing this at recording, so fold it into the next inventory refresh rather than a v3 cycle.",
+    "Nonblocking: the borrow register's Method line still says Claude 'independently examined both projects'. The register bytes are unchanged from v1 by design; the linked review README and act v2 ('selected sources') state the actual scope, which is the correct place.",
+    "Nonblocking, pre-existing: the catalog says it is generated from the classification manifest, but no generator script is tracked in the repository. The v2 after-image is consistent with that generation rule by inspection; this predates D-370.",
+    "Nonblocking: chapter 13 §3, §4 cross-view citation, and 'discovery producer' notes from the v1 review stand as implementer cautions and are recorded in the review history; none is a defect in the fixed text.",
+    "Unverified with read-only tools: every SHA-256 in subject.v2.json, protectedCurrentBytes, inventory-delta.v2.json (including reviewTimeSha256), and the inventories; the 6331/1 baseline in d369-before-summary.json; register sources S6, S12 and the changelog dates. Content equality was established by full reads: chapter 13 snapshot = live; act v2 snapshot = live; register live = v1 snapshot content; START-HERE and file 10 snapshots = live = navigation-edits.v2 after-images; catalog snapshot = live = after-image; inventory-delta snapshot = live; v2 README live = D-369 after-image text. Codex separately validates hashes.",
+    "This verdict accepts the fixed design text, the act, the navigation edits, and the inventory delta. It does not assert that recording has occurred; provisional records (pending README, absent coordinator entry) grant nothing until preconditions (a) through (f) execute and are retained."
+  ],
+  "explicitAgreementsOrDisagreementsWithReconciliation": [
+    "AGREE: FR-M1 was resolved by the revert option I recommended as smallest; the alternative accounting option was not needed.",
+    "AGREE: treating the coordinator heading, review README, and inventory digest as mechanical recording preconditions inside the act is the right form; it avoids a v3 subject cycle for what is downstream of this verdict.",
+    "AGREE: the FR-S2 phrase was adopted verbatim and names a binding dimension without inventing a recipe.",
+    "AGREE: START-HERE was added to the inventory as new rather than 'refreshed', and reference counts are explicitly scoped rather than claimed as a repository recount. The one omission (the catalog as an inbound reference) is noted above as nonblocking.",
+    "NO DISAGREEMENTS remain with the reconciled positions from exchange 1 (doctor not hosting recommend; Map's own labeled observations; metric honesty as reporting constraint; no file 08 edit; no omission fixture)."
+  ],
+  "readinessEffect": "None. No register row, gate, grade, affected or deferred set, fixture criterion, preview semantic contract, or condition-5 standing changes. With the v2 README restored, the D-369 publication replay is expected to return to its recorded baseline of exactly one pre-existing FAIL (root README current-custody), to be confirmed by precondition (e).",
+  "qualificationClaim": false
+}
+```

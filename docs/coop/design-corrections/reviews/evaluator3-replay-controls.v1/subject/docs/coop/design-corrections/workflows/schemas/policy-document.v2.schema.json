@@ -1,0 +1,985 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:policy-document:2",
+  "title": "Policy and compiled program version2 for evaluator3",
+  "description": "A policy is data. Every construct is a closed object with a fixed 'op' or field set; there is no string expression language, no script, hook, include, or reference to repository code. The predicate grammar is exactly the evaluator's predicate set from the identity contract \u00a74 (exists, none, count-at-most, all-covered, and, or, not) over typed fact-field filters, evaluated with strong Kleene three-valued logic. Bounds: at most 512 rules; at most 64 predicate nodes per rule; nesting depth at most 8; at most 16 filters per atom; at most 4096 waivers. Policy, scope and resolved waiver digests are raw SHA-256 of the canonical closed document bytes, retained as blobs; they are not H-domain identities.",
+  "$defs": {
+    "Severity": {
+      "type": "string",
+      "enum": [
+        "note",
+        "warning",
+        "error"
+      ]
+    },
+    "Rung": {
+      "type": "string",
+      "description": "A resolution rung NAME. This replaces the withdrawn abstract Resolution tier vocabulary (syntax/resolved/type/external), which was disjoint from the rung names every fact, Coverage entry and native RequirementV2 actually carries, had no published mapping onto them, and was compared by a single global rank table across all relations. The inherited C-1 law is that ordering is PER-RELATION and never global, so an abstract tier could only ever be a partial, lossy, relation-dependent renaming of the rung it names; the atom now names the rung directly. This enum is the flat vocabulary and is a NECESSARY condition only: it is exactly the union of the ladders in foundation/relation-payload-schemas.v2.json#/x-opensip-relation-registry (the single ladder authority) and is drift-checked against it. Membership of THIS atom's relation's ladder is the sufficient condition and is enforced at admission, because no schema keyword can express it without restating the ladders and creating another independent source.",
+      "enum": [
+        "enumerated",
+        "manifest-declared",
+        "vcs-reported",
+        "syntactic",
+        "syntactic-specifier",
+        "resolved-target",
+        "syntactic-name-match",
+        "resolved-binding",
+        "syntactic-callee-name",
+        "resolved-callee",
+        "annotated",
+        "checked",
+        "from-resolved-calls",
+        "normalized-body-hash",
+        "observed"
+      ]
+    },
+    "EvidenceUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "requirement"
+      ],
+      "properties": {
+        "kind": {
+          "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+        },
+        "requirement": {
+          "type": "string",
+          "enum": [
+            "required",
+            "optional"
+          ],
+          "description": "required: absent/stale/unmapped evidence makes the rule indeterminate. optional: the rule evaluates without it and discloses IMPORT.ABSENT_FOR_PREDICATE."
+        }
+      }
+    },
+    "FieldFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "field",
+        "cmp",
+        "value"
+      ],
+      "properties": {
+        "field": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "target",
+            "resolution",
+            "universe",
+            "confidenceMillionths",
+            "subjectKind",
+            "targetKind",
+            "observability",
+            "testResult",
+            "exitStatus"
+          ]
+        },
+        "cmp": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "prefix",
+            "glob",
+            "gte",
+            "lte"
+          ]
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "x-opensip-order": "sequence"
+            },
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 64,
+              "uniqueItems": true,
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "x-opensip-order": "sequence"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "const": "confidenceMillionths"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cmp": {
+                "enum": [
+                  "gte",
+                  "lte"
+                ]
+              },
+              "value": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "const": "exitStatus"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "cmp": {
+                "enum": [
+                  "eq",
+                  "neq",
+                  "in",
+                  "gte",
+                  "lte"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "const": "exitStatus"
+              },
+              "cmp": {
+                "const": "in"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 64,
+                "uniqueItems": true,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "field": {
+                "const": "exitStatus"
+              },
+              "cmp": {
+                "enum": [
+                  "eq",
+                  "neq",
+                  "gte",
+                  "lte"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 255
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmp": {
+                "const": "in"
+              },
+              "field": {
+                "not": {
+                  "const": "exitStatus"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cmp": {
+                "enum": [
+                  "eq",
+                  "neq",
+                  "prefix",
+                  "glob"
+                ]
+              },
+              "field": {
+                "not": {
+                  "const": "exitStatus"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "Atom": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "relation",
+        "minResolution",
+        "filters"
+      ],
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "exists",
+            "none",
+            "count-at-most",
+            "all-covered"
+          ]
+        },
+        "relation": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier",
+          "description": "Either one of the thirteen native fact relations closed by foundation/relation-payload-schemas.v2.json#/x-opensip-relation-registry, or one of the imported-evidence relations closed by imported-evidence.schema.json#/x-opensip-evidence-relation-registry. Any other identifier refuses at policy admission. The identifier syntax is all a schema keyword can express here; closed membership is decided at admission against those two registries, which are the authorities."
+        },
+        "minResolution": {
+          "$ref": "#/$defs/Rung",
+          "description": "A rung of THIS atom's relation's ladder. Satisfaction is ladder-index comparison within that one relation: an admitted fact satisfies the atom when its rung's index is at least this rung's index in the same ladder. A rung of another relation is not a weaker or stronger value, it is a refusal."
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/FieldFilter"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "evidence": {
+          "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind",
+          "description": "for atoms over imported evidence subjects (e.g. relation runtime-observation); the rule must declare a matching evidenceUse"
+        },
+        "endpoint": {
+          "type": "string",
+          "enum": [
+            "source",
+            "target"
+          ],
+          "default": "source"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "count-at-most"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "n"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "not": {
+                  "const": "count-at-most"
+                }
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "n"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Predicate": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Atom"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "operands"
+          ],
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "and",
+                "or"
+              ]
+            },
+            "operands": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 16,
+              "items": {
+                "$ref": "#/$defs/Predicate"
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "operand"
+          ],
+          "properties": {
+            "op": {
+              "const": "not"
+            },
+            "operand": {
+              "$ref": "#/$defs/Predicate"
+            }
+          }
+        }
+      ]
+    },
+    "Rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ruleId",
+        "ruleProgramRef",
+        "enabled",
+        "severity",
+        "gate",
+        "subjectEnumeration",
+        "emitWhen",
+        "evidenceUse"
+      ],
+      "properties": {
+        "ruleId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "ruleProgramRef": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contributionId",
+            "ruleStableId",
+            "semanticsMajor",
+            "programDigest"
+          ],
+          "properties": {
+            "contributionId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ContributionId"
+            },
+            "ruleStableId": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+            },
+            "semanticsMajor": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "programDigest": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            }
+          }
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "gate": {
+          "type": "boolean",
+          "description": "true: a finding of this rule fails the verdict when live and unwaived; false: advisory"
+        },
+        "subjectEnumeration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "universe",
+            "subjectKind"
+          ],
+          "properties": {
+            "universe": {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+            },
+            "subjectKind": {
+              "type": "string",
+              "enum": [
+                "file",
+                "symbol",
+                "export",
+                "package"
+              ]
+            },
+            "include": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/GlobPattern"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "exclude": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/GlobPattern"
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        },
+        "emitWhen": {
+          "$ref": "#/$defs/Predicate",
+          "description": "a finding is emitted for a subject when this predicate is TRUE; FALSE is a retained no-match; INDETERMINATE is a typed deficiency for the rule"
+        },
+        "evidenceUse": {
+          "type": "array",
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/EvidenceUse"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "messageCode": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        }
+      }
+    },
+    "ScopeDocumentV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "include",
+        "exclude"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.scope"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "include": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/GlobPattern"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "exclude": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/GlobPattern"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "Waiver": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "waiverId",
+        "target",
+        "reason",
+        "expires"
+      ],
+      "properties": {
+        "waiverId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "target": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "fingerprint"
+              ],
+              "properties": {
+                "fingerprint": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Fingerprint"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "ruleId",
+                "subjectPath"
+              ],
+              "properties": {
+                "ruleId": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+                },
+                "subjectPath": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+                }
+              }
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "expires": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null: no expiry. Expiry is resolved at Plan construction against the admitted trust clock; expired waivers are removed from the effective set and disclosed as POLICY.WAIVER_EXPIRED. Two waivers with an equal target are POLICY.DUPLICATE_WAIVER (request-rejected)."
+        }
+      }
+    },
+    "WaiverSetV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "waivers"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.waivers"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "waivers": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/Waiver"
+          },
+          "description": "sorted ascending by waiverId; waiverId unique",
+          "x-opensip-order": "waiverId"
+        }
+      }
+    },
+    "WaiverResolutionV1": {
+      "type": "object",
+      "description": "Disclosure emitted at Plan construction; operational, not identity-bearing (the resolved effective set's digest is).",
+      "additionalProperties": false,
+      "required": [
+        "asOfDate",
+        "effectiveCount",
+        "expired",
+        "duplicatesRejected"
+      ],
+      "properties": {
+        "asOfDate": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate"
+        },
+        "effectiveCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        },
+        "expired": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "duplicatesRejected": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "PolicyDocumentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "gateSeverityAtLeast",
+        "rules"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.policy"
+        },
+        "schemaMajor": {
+          "const": 2
+        },
+        "gateSeverityAtLeast": {
+          "$ref": "#/$defs/Severity"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/Rule"
+          },
+          "description": "ruleId unique; sorted ascending by ruleId UTF-8 bytes",
+          "x-opensip-order": "ruleId"
+        }
+      }
+    },
+    "RuleProgramV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "policyDigest",
+        "rules"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "policyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "rules": {
+          "type": "array",
+          "maxItems": 512,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ruleId",
+              "ruleProgramRef",
+              "emitWhen"
+            ],
+            "properties": {
+              "ruleId": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+              },
+              "ruleProgramRef": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "contributionId",
+                  "ruleStableId",
+                  "semanticsMajor",
+                  "programDigest"
+                ],
+                "properties": {
+                  "contributionId": {
+                    "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ContributionId"
+                  },
+                  "ruleStableId": {
+                    "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+                  },
+                  "semanticsMajor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "programDigest": {
+                    "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+                  }
+                }
+              },
+              "emitWhen": {
+                "$ref": "#/$defs/Predicate",
+                "description": "a finding is emitted for a subject when this predicate is TRUE; FALSE is a retained no-match; INDETERMINATE is a typed deficiency for the rule"
+              }
+            }
+          },
+          "x-opensip-order": "ruleId"
+        }
+      }
+    },
+    "ObservationAddressV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "importId",
+        "selector",
+        "ordinal"
+      ],
+      "properties": {
+        "importId": {
+          "type": "string",
+          "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "selector": {
+          "type": "string",
+          "enum": [
+            "runtime-subject",
+            "history-subject",
+            "test-case",
+            "test-execution"
+          ]
+        },
+        "ordinal": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1048575
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "selector": {
+                "const": "test-execution"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ordinal": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "selector": {
+                "enum": [
+                  "runtime-subject",
+                  "history-subject",
+                  "test-case"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ordinal": {
+                "type": "integer"
+              }
+            },
+            "not": {
+              "properties": {
+                "ordinal": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "AtomCauseV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "optional-absent",
+            "required-absent",
+            "incomplete-observation",
+            "omitted-selected-wrapper",
+            "unobservable-subject",
+            "unmapped-subject",
+            "import-unmapped-only",
+            "coverage-unknown",
+            "target-metadata-unknown",
+            "target-kind-unknown",
+            "enumeration-unknown",
+            "selector-unbound",
+            "unavailable-program-binding",
+            "uncovered-expected-source-subject",
+            "missing-relation-coverage",
+            "test-completeness-not-established",
+            "null-exit-status",
+            "history-outside-collection-scope",
+            "history-truncated",
+            "observation-window-insufficient"
+          ]
+        },
+        "importId": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "universe": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "AtomSuccessorV1": {
+      "type": "object",
+      "description": "Proposed Atom extension: optional endpoint. Root integrates into policy-document.schema.json. Default source when omitted.",
+      "additionalProperties": false,
+      "required": [
+        "op",
+        "relation",
+        "minResolution",
+        "filters"
+      ],
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "exists",
+            "none",
+            "count-at-most",
+            "all-covered"
+          ]
+        },
+        "relation": {
+          "type": "string"
+        },
+        "minResolution": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": "string",
+          "enum": [
+            "source",
+            "target"
+          ],
+          "default": "source"
+        },
+        "filters": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "$ref": "#/$defs/FieldFilterSuccessorV1"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "n": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "evidence": {
+          "type": "string",
+          "enum": [
+            "runtime",
+            "test",
+            "history"
+          ]
+        }
+      }
+    }
+  },
+  "$ref": "#/$defs/PolicyDocumentV2",
+  "x-opensip-evaluator-registry": "foundation/evaluator-projection-registry.v1.json",
+  "x-opensip-profile-major-law": "PolicyDocumentV2 is explicitly schemaMajor2, RuleProgramV2 schemaVersion2. WaiverSetV1 and ScopeDocumentV1 retain their old owner document and bytes. Policy1 is not silently relabelled or evaluated as policy2."
+}

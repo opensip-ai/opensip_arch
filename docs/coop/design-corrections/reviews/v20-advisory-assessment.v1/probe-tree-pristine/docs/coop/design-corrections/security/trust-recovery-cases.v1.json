@@ -1,0 +1,832 @@
+{
+  "standing": "SYNTHETIC SC-TRUST records, challenges and recovery epochs evaluated by security_lifecycle_model_v1.recovery_challenge and .recovery_apply (AR-04 poisoned-floor recovery). `signers` are asserted key ids (TCB assumption: verify_envelope already accepted their signatures); no signature is computed or verified here. Expected values were authored by hand from security-and-lifecycle.md S4.5 (v2: boot-bound challenge, exact counters, recovery authority, +/-24 h issue skew) before execution (same author, not an independent oracle).",
+  "acceptedRoot": {
+    "rootVersion": 3,
+    "rootKeys": [
+      "1111111111111111111111111111111111111111111111111111111111111111",
+      "2222222222222222222222222222222222222222222222222222222222222222",
+      "3333333333333333333333333333333333333333333333333333333333333333"
+    ],
+    "rootThreshold": 2,
+    "expiresAt": "2027-10-01T00:00:00Z",
+    "_note": "recovery epochs are signed by recoveryAuthority (schema-1 field, disjoint from rootKeys) at its threshold; root keys never count; the accepted root's expiry is deliberately NOT consulted by recovery_apply",
+    "recoveryAuthority": {
+      "keys": [
+        "6666666666666666666666666666666666666666666666666666666666666666",
+        "7777777777777777777777777777777777777777777777777777777777777777",
+        "8888888888888888888888888888888888888888888888888888888888888888",
+        "9999999999999999999999999999999999999999999999999999999999999999",
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      ],
+      "threshold": 3
+    }
+  },
+  "records": {
+    "poisoned": {
+      "evalHighWater": "2031-01-01T00:00:00Z",
+      "lastAccepted": "2026-12-20T00:00:00Z",
+      "anchor": null,
+      "rootVersion": 3,
+      "indexSnapshotVersion": 9,
+      "revocationVersion": 4,
+      "recoveryEpochSerial": 0,
+      "pendingRecoveryChallenge": null,
+      "revocationIssuedAt": "2026-12-20T00:00:00Z",
+      "catalogExpiresAt": "2027-03-20T00:00:00Z",
+      "rootExpiresAt": "2027-10-01T00:00:00Z"
+    },
+    "poisonedPending": {
+      "$from": "poisoned",
+      "pendingRecoveryChallenge": {
+        "nonce": "abababababababababababababababababababababababababababababababab",
+        "recordDigest": "$digestPoisoned",
+        "bootId": "boot-A",
+        "createdMono": 5000,
+        "expiresMono": 91400,
+        "createdWall": "2026-12-23T07:00:00Z"
+      }
+    },
+    "recovered": {
+      "$from": "poisoned",
+      "evalHighWater": "2026-12-23T00:00:00Z",
+      "lastAccepted": "2026-12-23T00:00:00Z",
+      "recoveryEpochSerial": 1,
+      "pendingRecoveryChallenge": null
+    }
+  },
+  "digestNote": "`computed` holds the recordDigest values (domain opensip.metadata.recovery-challenge.1 over the six bound fields under the metadata profile) for the three record variants used below; the checker exposes them as $digestPoisoned/$digestSerial1/$digestHealthy. They are reproducible by security_lifecycle_model_v1._record_digest.",
+  "computed": {
+    "digestPoisoned": "3e317ba003d8c2ec0567ce2fa57dc35ee095ac0042c0bbbc7792ce62d9cd61f9",
+    "digestSerial1": "32e3649ef0051bf495fc97b86a075fda97bafbe8d9038e66a21cd9edcb9f2b7e",
+    "digestHealthy": "92dadc0ad1635f9d30f2095a8b0cc038b0002af149510f0cf19fdfcb338665fa"
+  },
+  "epochBase": {
+    "recoverySchema": 1,
+    "kind": "trust-recovery-epoch",
+    "epochSerial": 1,
+    "issuedAt": "2026-12-23T00:00:00Z",
+    "challenge": {
+      "nonce": "abababababababababababababababababababababababababababababababab",
+      "recordDigest": "$digestPoisoned"
+    },
+    "counters": {
+      "rootVersion": 3,
+      "revocationVersion": 4,
+      "indexSnapshotVersion": 9
+    },
+    "installBinding": "challenge"
+  },
+  "challengeCases": [
+    {
+      "id": "challenge-binds-nonce-and-current-record-digest",
+      "model": "recovery-challenge",
+      "input": {
+        "record": "$poisoned",
+        "nonce": "abababababababababababababababababababababababababababababababab",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "ISSUED",
+        "challenge.challengeSchema": 1,
+        "challenge.kind": "trust-recovery-challenge",
+        "challenge.recordDigest": "$digestPoisoned",
+        "challenge.boundRecord.evalHighWater": "2031-01-01T00:00:00Z",
+        "challenge.boundRecord.rootVersion": 3,
+        "pendingWrite.nonce": "abababababababababababababababababababababababababababababababab",
+        "pendingWrite.bootId": "boot-A",
+        "pendingWrite.expiresMono": 92400,
+        "challenge.createdWall": "2026-12-23T08:00:00Z"
+      }
+    },
+    {
+      "id": "report-only-doctor-cannot-create-a-challenge",
+      "model": "recovery-challenge",
+      "input": {
+        "record": "$poisoned",
+        "nonce": "abababababababababababababababababababababababababababababababab",
+        "reportOnly": true,
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "REPORT_ONLY_CANNOT_CHALLENGE",
+        "challenge": null,
+        "pendingWrite": null,
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "EXTENSION.ADMISSION_REJECTED"
+        }
+      }
+    },
+    {
+      "id": "malformed-nonce-is-a-model-rejection",
+      "model": "recovery-challenge",
+      "input": {
+        "record": "$poisoned",
+        "nonce": "short",
+        "observation": "$observation"
+      },
+      "expectReject": "NONCE_GRAMMAR"
+    }
+  ],
+  "applyCases": [
+    {
+      "id": "signed-epoch-lowers-years-future-floor-to-signed-time-preserving-counters",
+      "model": "recovery-apply",
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1",
+        "record": "TrustClockRecordV1"
+      },
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "APPLIED",
+        "floorLowered": true,
+        "writes.evalHighWater": "2026-12-23T00:00:00Z",
+        "writes.lastAccepted": "2026-12-23T00:00:00Z",
+        "writes.anchor": null,
+        "writes.recoveryEpochSerial": 1,
+        "writes.pendingRecoveryChallenge": null,
+        "writes.audit.recordType": "RECOVERY-EPOCH",
+        "writes.audit.previousEvalHighWater": "2031-01-01T00:00:00Z",
+        "countersUnchanged": true,
+        "revocationEntriesUnchanged": true,
+        "revivesRevokedTrust": false
+      }
+    },
+    {
+      "id": "replay-of-the-same-epoch-after-success-refuses-no-pending-challenge",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$recovered",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "NO_PENDING_CHALLENGE",
+        "writes": [],
+        "floorLowered": false,
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "EXTENSION.ADMISSION_REJECTED"
+        }
+      },
+      "inputSchemas": {
+        "record": "TrustClockRecordV1"
+      }
+    },
+    {
+      "id": "epoch-for-another-install-nonce-mismatch-refuses",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "challenge": {
+            "nonce": "cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd",
+            "recordDigest": "$digestPoisoned"
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "CHALLENGE_MISMATCH",
+        "writes": []
+      }
+    },
+    {
+      "id": "record-changed-since-challenge-refuses-stale-epoch",
+      "model": "recovery-apply",
+      "input": {
+        "record": {
+          "$from": "poisonedPending",
+          "revocationVersion": 5
+        },
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "RECORD_CHANGED_SINCE_CHALLENGE",
+        "writes": []
+      }
+    },
+    {
+      "id": "one-root-signer-below-threshold-refuses",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SIGNATURE_THRESHOLD",
+        "writes": []
+      }
+    },
+    {
+      "id": "revoked-recovery-authority-key-does-not-count-toward-quorum",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "revokedKeys": [
+          "7777777777777777777777777777777777777777777777777777777777777777"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SIGNATURE_THRESHOLD",
+        "writes": []
+      }
+    },
+    {
+      "id": "root-keys-alone-cannot-issue-recovery-only-recovery-authority-counts",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "2222222222222222222222222222222222222222222222222222222222222222",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SIGNATURE_THRESHOLD",
+        "writes": []
+      }
+    },
+    {
+      "id": "counter-downgrade-in-epoch-refuses-revocation-floor-preserved",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "counters": {
+            "rootVersion": 3,
+            "revocationVersion": 3,
+            "indexSnapshotVersion": 9
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "COUNTER_MISMATCH:revocationVersion",
+        "writes": []
+      }
+    },
+    {
+      "id": "root-counter-downgrade-refuses-root-rollback-floor-preserved",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "counters": {
+            "rootVersion": 2,
+            "revocationVersion": 4,
+            "indexSnapshotVersion": 9
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "COUNTER_MISMATCH:rootVersion",
+        "writes": []
+      }
+    },
+    {
+      "id": "epoch-issued-before-last-accepted-refuses-time-downgrade",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "issuedAt": "2026-12-19T00:00:00Z"
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "TIME_BEFORE_LAST_ACCEPTED",
+        "writes": []
+      }
+    },
+    {
+      "id": "epoch-issued-in-the-future-refuses-fails-closed",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "issuedAt": "2026-12-24T09:00:00Z"
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "ISSUED_IN_FUTURE",
+        "writes": []
+      }
+    },
+    {
+      "id": "serial-not-advancing-refuses-even-with-fresh-challenge",
+      "model": "recovery-apply",
+      "input": {
+        "record": {
+          "$from": "poisonedPending",
+          "recoveryEpochSerial": 1,
+          "pendingRecoveryChallenge": {
+            "nonce": "abababababababababababababababababababababababababababababababab",
+            "recordDigest": "$digestSerial1",
+            "bootId": "boot-A",
+            "createdMono": 5000,
+            "expiresMono": 91400,
+            "createdWall": "2026-12-23T07:00:00Z"
+          }
+        },
+        "epoch": {
+          "$from": "epochBase",
+          "challenge": {
+            "nonce": "abababababababababababababababababababababababababababababababab",
+            "recordDigest": "$digestSerial1"
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SERIAL_NOT_ADVANCING",
+        "writes": []
+      }
+    },
+    {
+      "id": "unknown-member-in-epoch-refuses-shape",
+      "model": "recovery-apply",
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false,
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "extra": true
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SHAPE",
+        "writes": []
+      }
+    },
+    {
+      "id": "epoch-without-challenge-binding-refuses-shape-no-unbound-recovery",
+      "model": "recovery-apply",
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false,
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "installBinding": "none"
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "detail": "SHAPE:installBinding",
+        "writes": []
+      }
+    },
+    {
+      "id": "recovery-on-a-healthy-record-is-lawful-and-never-lowers-below-last-accepted",
+      "model": "recovery-apply",
+      "input": {
+        "record": {
+          "$from": "poisonedPending",
+          "evalHighWater": "2026-12-21T10:00:00Z",
+          "pendingRecoveryChallenge": {
+            "nonce": "abababababababababababababababababababababababababababababababab",
+            "recordDigest": "$digestHealthy",
+            "bootId": "boot-A",
+            "createdMono": 5000,
+            "expiresMono": 91400,
+            "createdWall": "2026-12-23T07:00:00Z"
+          }
+        },
+        "epoch": {
+          "$from": "epochBase",
+          "challenge": {
+            "nonce": "abababababababababababababababababababababababababababababababab",
+            "recordDigest": "$digestHealthy"
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "9999999999999999999999999999999999999999999999999999999999999999"
+        ],
+        "acceptedRoot": "$acceptedRoot",
+        "observation": "$observation"
+      },
+      "expect": {
+        "result": "APPLIED",
+        "floorLowered": false,
+        "writes.evalHighWater": "2026-12-23T00:00:00Z"
+      }
+    },
+    {
+      "id": "higher-signed-counter-is-refused-typed-not-silently-advanced-or-discarded",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "counters": {
+            "rootVersion": 3,
+            "revocationVersion": 5,
+            "indexSnapshotVersion": 9
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "COUNTER_MISMATCH:revocationVersion",
+        "countersUnchanged": true
+      }
+    },
+    {
+      "id": "reboot-between-challenge-and-import-invalidates-the-challenge",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": {
+          "wall": "2026-12-23T08:00:00Z",
+          "mono": 100,
+          "bootId": "boot-B"
+        },
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "CHALLENGE_BOOT_CHANGED"
+      }
+    },
+    {
+      "id": "challenge-older-than-24h-monotonic-expires-even-in-the-same-boot",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": {
+          "wall": "2026-12-24T08:00:01Z",
+          "mono": 91401,
+          "bootId": "boot-A"
+        },
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "CHALLENGE_EXPIRED"
+      }
+    },
+    {
+      "id": "monotonic-below-challenge-creation-is-malformed-continuity",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": {
+          "wall": "2026-12-23T08:00:00Z",
+          "mono": 4999,
+          "bootId": "boot-A"
+        },
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "CHALLENGE_CONTINUITY_MALFORMED"
+      }
+    },
+    {
+      "id": "epoch-issued-more-than-24h-before-the-wall-cannot-lower-to-stale-real-time",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "issuedAt": "2026-12-21T00:00:00Z"
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "ISSUED_TOO_OLD_FOR_WALL"
+      }
+    },
+    {
+      "id": "boolean-epoch-serial-is-not-an-integer-shape-before-any-comparison",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "epochSerial": true
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "SHAPE:epochSerial"
+      },
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "boolean-counter-true-is-not-one-refused-before-comparison",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "counters": {
+            "rootVersion": true,
+            "revocationVersion": 4,
+            "indexSnapshotVersion": 9
+          }
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "SHAPE:counters"
+      },
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "integer-one-recovery-schema-as-true-refused",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "recoverySchema": true
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "SHAPE:recoverySchema"
+      },
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "bad-issued-at-grammar-is-shape",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": {
+          "$from": "epochBase",
+          "issuedAt": "2026-12-23"
+        },
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "SHAPE:issuedAt"
+      },
+      "inputSchemas": {
+        "epoch": "TrustRecoveryEpochV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "pending-challenge-record-missing-boot-binding-refuses",
+      "model": "recovery-apply",
+      "input": {
+        "record": {
+          "$from": "poisoned",
+          "pendingRecoveryChallenge": {
+            "nonce": "abababababababababababababababababababababababababababababababab",
+            "recordDigest": "$digestPoisoned"
+          }
+        },
+        "epoch": "$epochBase",
+        "signers": [
+          "6666666666666666666666666666666666666666666666666666666666666666",
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "PENDING_SHAPE"
+      }
+    },
+    {
+      "id": "root-quorum-signers-without-recovery-authority-refuse",
+      "model": "recovery-apply",
+      "input": {
+        "record": "$poisonedPending",
+        "epoch": "$epochBase",
+        "signers": [
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "2222222222222222222222222222222222222222222222222222222222222222",
+          "3333333333333333333333333333333333333333333333333333333333333333"
+        ],
+        "observation": "$observation",
+        "acceptedRoot": "$acceptedRoot"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "writes": [],
+        "floorLowered": false,
+        "detail": "SIGNATURE_THRESHOLD"
+      }
+    }
+  ],
+  "observation": {
+    "wall": "2026-12-23T08:00:00Z",
+    "mono": 6000,
+    "bootId": "boot-A"
+  }
+}

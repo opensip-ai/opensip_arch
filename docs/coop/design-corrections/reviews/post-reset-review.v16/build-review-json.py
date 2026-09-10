@@ -1,0 +1,484 @@
+#!/usr/bin/env python3
+"""Assemble review.json for post-reset-review.v16 from the measured probe results.
+
+Every disposition below is bound to a probe result file in this directory, and
+every count is read from those files rather than restated by hand.
+"""
+import hashlib, json, os
+
+OUT = '/tmp/opensip-design-corrections/post-reset-review.v16'
+SUBJ_SHA = 'ca5f36d421fb38d264f49fc6b2e1eeffee5bbe8182a7fe25bd50787244042ee9'
+
+def L(n):
+    return json.load(open(os.path.join(OUT, n)))
+
+def sha(n):
+    return hashlib.sha256(open(os.path.join(OUT, n), 'rb').read()).hexdigest()
+
+p01pre, p01post = L('probe-01-verify-subject.pre.json'), L('probe-01-verify-subject.post.json')
+p02 = L('probe-02-verify-copy-and-pins.json')
+p03a = L('probe-03-run-six-checks.copy-A-reference-run.json')
+p03b = L('probe-03-run-six-checks.copy-B-probes.json')
+p04, p05, p06 = L('probe-04-rc-laws-totality.result.json'), L('probe-05-scope-mint-pair.result.json'), L('probe-06-full-run-closure.result.json')
+p07, p08, p09 = L('probe-07-cx09-full-run.result.json'), L('probe-08-repair-guard-projection.result.json'), L('probe-09-lib-fold-and-context.result.json')
+p10, p11, p12 = L('probe-10-advisories-and-ordering.result.json'), L('probe-11-no-widening.result.json'), L('probe-12-record-cross-references.result.json')
+p13, p14 = L('probe-13-registers-and-dispositions.result.json'), L('probe-14-preserved-laws.result.json')
+
+CASE_TOTAL = (p04['cases'] + p05['cases']
+              + sum(1 for r in p06['rows'] if r['expectedProducer'] is not None) + len(p06['rows'])
+              + p07['cases'] * 2
+              + p08['previewCases'] + p08['schemaCases']
+              + p09['foldCases'] + p09['joinCases']
+              + p10['staticChecks'] + p10['orderingCases']
+              + p14['lawsTotal'])
+
+DESIGN_ACCEPT = ('CORRECTED-AND-INDEPENDENTLY-VERIFIED-ON-THE-FROZEN-BYTES')
+
+def pf(fid, orig, root_scope, verdict, basis, evidence):
+    return {'id': fid, 'originalReportedSeverity': orig,
+            'rootRequiredCorrectionScope': root_scope,
+            'independentVerdict': verdict, 'basis': basis, 'evidence': evidence,
+            'originalSeverityPreserved': True,
+            'notAnApplicationGrade': True}
+
+prior = [
+ pf('CB5-MUST-1', 'MUST (actual blind consumer-B v5)',
+    'Explicitly select the scoped value-domain/ladder successor for the committed CVE1 ADM-DOMAIN gate; retain inherited identity/codec/other admission laws.',
+    DESIGN_ACCEPT,
+    'The selection is NORMATIVE and stated by BOTH owning contracts, not only by the registry about itself: identity-and-evidence.md line 212 "The effective registry is selected here, by name." names docs/coop/design-corrections/native/capability-manifest-domains.v2.json and supersedes delivery.v4 valueDomains "within its own declared scope and nowhere else"; native-evidence.md section 11 lists the same document as "the effective ADM-DOMAIN registry for a committed capability manifest". RELATION-DOMAIN-V2 carries all 13 relations (12 inherited verbatim + unresolved-edge); RELATION-LADDER-DOMAIN-V2 publishes the 13 relation-specific ladders as a declared mirror of the single ladder authority. I measured 17 registered (relation, rung) pairs; all 17 admit and all 180 unregistered pairs refuse. The four inherited gates ADM-TYPE / ADM-CLOSED / ADM-DOMAIN / ADM-ORDER are reproduced in the successor in their inherited order, the CVE1 codec separation is restated, and the inherited delivery.v4 / fact-plane.v1 bytes are unchanged. Registry membership across the v15->v16 delta is EMPTY in both directions.',
+    ['probe-04-rc-laws-totality.result.json', 'probe-05-scope-mint-pair.result.json',
+     'probe-11-no-widening.result.json (registryMembershipDelta all empty)']),
+ pf('CB5-MUST-2', 'MUST (actual blind consumer-B v5)',
+    'Publish the effective-lib-name to retained declaration-component mapping at the owning prose and schema descriptions, without changing the representation or ignoring configuration agreement.',
+    DESIGN_ACCEPT,
+    'native-evidence.md section 2.4 publishes the join as a rule table: Fold, Mapping component(n) = "lib." + fold(n) + ".d.ts", Membership, Equality and Order, plus a measured four-row discriminator table and the version custody. The SAME content is carried in the schema descriptions for TypeScriptToolchainIdentityV1.libSelection and TypeScriptLibComponentV1.component, so a reader of either document reaches the same mapping. Measured on the exact bytes: the fold IS the full context-sensitive default lowercase (U+0130 -> U+0069 U+0307; final sigma -> U+03C2; non-final sigma -> U+03C3), is NOT Case_Folding (sharp s unchanged where casefold gives ss), and is locale-independent under tr_TR.UTF-8 and lt_LT.UTF-8 (both applied). The declared UCD 15.0.0 binding is EFFECTIVE, not advertised: with the declared case data simulated unavailable, lib_name_fold refuses with ReferenceEnvironmentError, whose MRO confirms it is NOT an AdmissionError, so an environment fault cannot be laundered into a typed refusal about a lib selection. Twelve context-admission controls hold, covering a valid selection and malformed/missing/ambiguous inputs: lib-not-retained, honoredOptions set disagreement, a same-case different-name disagreement, duplicate-under-fold, libSelection order, incomplete inventory, ambiguous tree basename, declared duplicate basename, tree digest mismatch, component order, and a no-implicit-alternate-representation control in which declaration-file names placed in libSelection are refused rather than silently accepted.',
+    ['probe-09-lib-fold-and-context.result.json']),
+ pf('CB5-SHOULD-1', 'SHOULD (actual blind consumer-B v5)',
+    'Specify resolution-state applicability for all registered pairs including unresolved-edge@observed; a one-rung heuristic is insufficient because reachability has one resolved rung; unknown pairs remain invalid.',
+    DESIGN_ACCEPT,
+    'RC-1 is now TOTAL over the registered pairs and decided by RUNG MEMBERSHIP in the closed five-member resolved set, never by ladder length: five resolved pairs, and twelve not-applicable pairs enumerated explicitly INCLUDING unresolved-edge@observed. reachability@from-resolved-calls is named as the case that shows ladder length is not the rule. RC-0 runs FIRST and is relation-specific, so an unregistered pair can never become not-applicable by fallback - the prose states "RC-1 assigns no state to an unrecognised pair". I reproduced BOTH boundaries independently: unresolved-edge@enumerated refuses at the producer (RC-0) and at retained Run closure (SUBJECT_SCOPE_RUNG_NOT_IN_RELATION_LADDER); attempted=true and a nonempty REGISTERED class set each refuse at producer and closure; the VALID observed control still closes a complete Run; stageTerminal (complete/budget-exhausted/unavailable/provider-fault/cancelled/crash/null) and examinedExhaustive (both values) remain free and independent. Across all 17 registered and 180 unregistered pairs, 257 coverage-bijection expectations and 197 mint expectations all agree. RC-2 attempted/exhaustive/stage/edge laws and the observed-coverage-versus-resolution distinction are preserved and separately controlled. CX-BV5-07 is honestly restated as a DETERMINACY GAP, explicitly not a digest collision and not a divergence over byte-identical observations; the record notes the blind vector candidates also differed in attempted and other committed fields, which matches the root limit and does not claim a collision on identical inputs.',
+    ['probe-04-rc-laws-totality.result.json', 'probe-05-scope-mint-pair.result.json',
+     'probe-06-full-run-closure.result.json', 'probe-07-cx09-full-run.result.json']),
+ pf('CB5-SHOULD-2', 'SHOULD (actual blind consumer-B v5)',
+    'Publish the projection and preserve the original full evidence/eligibility requirement including dynamicDispatch/reasons before projection; never promote copied output fields into repair authority.',
+    DESIGN_ACCEPT,
+    'The repair schema names the exact five projected fields and states that ClosedWorldV2 is closed at seven and that a literal copy is refused. Measured: the model projection expression is byte-equal to the schema required set; a descriptor built from seven-member evidence carries exactly the five and drops dynamicDispatch and reasons; a literal seven-member copy, a copy plus dynamicDispatch, a copy plus reasons, each of the five single-member drops, and a copied boolean alone are ALL schema-invalid. Eligibility and reasons remain grounded in the FULL native evidence: the guard reads run["closedWorld"]["deadCodeRepairEligible"] BEFORE any descriptor exists, and the unmet-precondition remedy surfaces that record\'s reasons ("exports-not-closed,entry-points-partial") which are not in the projection at all. The guard covers EVERY delete and EVERY replace unqualified (UNSAFE_ACTIONS == {delete, replace}, applied with any()): delete-only and replace-only are each gated, a mixed plan is gated, and create-only is NOT - the negative control. dynamicDispatch is target-relative and does not globally veto: present, not-applicable, absent and unknown all leave an otherwise eligible unsafe repair applicable, while present does not rescue an ineligible one. The imported-prepared-declared origin still denies unsafe repair. BV5A-NEW-2 is fixed in the fixture: both reference repairScenario closedWorld records now carry all seven normative members and validate against ClosedWorldV2.',
+    ['probe-08-repair-guard-projection.result.json']),
+]
+
+adv_prior = [
+ pf('CB5-ADV-1', 'nonblocking advisory (blind v5)',
+    'Narrow current-source clarification only; preserve original source/review history, no silent scope expansion.',
+    'CLARIFIED-AND-VERIFIED',
+    'Measured: the byDomain registry resolves to exactly FOUR terminal representations; five representation tokens are in use across the schema; "by-domain" is in use as an annotation but is never a byDomain row value. identity-and-evidence.md now names by-domain "a selector, not a fifth terminal representation" that resolves through x-opensip-digest-domains.byDomain into exactly one of the four. This is precisely the shape the advisory described, published rather than left to a careful reader.',
+    ['probe-10-advisories-and-ordering.result.json']),
+ pf('CB5-ADV-2', 'nonblocking advisory (blind v5)',
+    'Narrow current-source clarification only; preserve original source/review history.',
+    'CLARIFIED-AND-VERIFIED',
+    'The LogicalPath description now names THREE non-equivalent enforcements and claims no snapshot join for the fingerprint field. Measured against the frozen bytes: exactly two direct $ref sites (Blob.path, import-blob.path) carry the full declarative grammar; the declarative pattern DOES refuse a 300-character segment while the imperative ordered() ADMITS it, so (1) and (3) genuinely differ as stated; ordered() still refuses dot-dot, backslash and a leading slash; and the identity and workflow LogicalPath definitions are byte-identical in pattern, not, minLength and maxLength. The unsupported scope-descriptor history was removed (CX-BV5-05) and no accepted path set changed - identity-schemas.v2.json is structurally unchanged across the delta.',
+    ['probe-10-advisories-and-ordering.result.json', 'probe-11-no-widening.result.json']),
+ pf('CB5-ADV-3', 'nonblocking advisory (blind v5)',
+    'One explicit byte vector or one sentence closes it; preserve original history.',
+    'CLARIFIED-AND-VERIFIED',
+    'The contract now states that the outer frame length and the L0 payload length are BOTH present and both meant, gives the arithmetic (payload_len == raw_byte_len + 4), the L1-L3 symmetry that decides the reading, and a worked byte vector. I reproduced the vector independently: a four-byte span a=1\\n gives L0 payload 00 00 00 04 61 3d 31 0a and frame component 00 00 00 08 00 00 00 04 61 3d 31 0a. The inherited fact-identity-policy.v2 byteGrammar bytes are explicitly stated unchanged - the contract states WHICH of two grammatically available readings is admitted rather than rewriting the historical artifact.',
+    ['probe-10-advisories-and-ordering.result.json']),
+ pf('CB5-ADV-4', 'nonblocking advisory (blind v5)',
+    'Narrow current-source clarification; preserve original source/review history including the review\'s own mis-citation.',
+    'CLARIFIED-AND-VERIFIED (with the root citation correction, CX-BV5-06)',
+    'Measured: the inherited PLATFORM-ID-DOMAIN-V1 keeps all eight members (not narrowed), the native matrix platformFamilies carries exactly the four selected machine ids, and the difference is exactly the three the blind review measured (linux-x86_64-musl, windows-aarch64-msvc, windows-x86_64-msvc). The owning authority is now correctly cited: security-and-lifecycle.md S8 carries all four selected ids and is where Windows is named among the excluded populations. The blind review\'s citation of admission-and-qualification section 5 item 1 was wrong - that document contains ZERO occurrences of "Windows" - and the registry retains that citation as explicit history rather than deleting it. The registry also states that domain membership grants no platform admission or support promise, and repeats the DUD-V4-9 accounting.',
+    ['probe-10-advisories-and-ordering.result.json']),
+ pf('V15-ADV-1', 'advisory (my predecessor, post-reset-review.v15)',
+    'Clarify at original nonblocking severity while the required successor is prepared; cardinality-first semantics unchanged.',
+    'CLARIFIED-AND-VERIFIED',
+    'The summarising sentence is now scoped "for every input that reaches that step", and both the prose and the admit_analysis_spec docstring state which inputs those are. Measured, 17 ordering expectations all agreeing: a valid spec admits, and a spec at exactly the 1024 bound admits; an absent field, null, boolean, number, string and object each reach the SCHEMA step untouched, as does an in-bound array malformed some other way; only an actual over-bound array refuses at step 1; V15-ADV-1\'s own counterexample reproduces - oversized AND missing schemaVersion / unknown property / wrong schemaVersion each refuse with the CARDINALITY result - and its control reproduces too: the same three specs at small cardinality refuse at the schema step. Cardinality-first ordering is unchanged. The retained-Run boundary stays distinct and is stated as "corruption rather than an oversized request".',
+    ['probe-10-advisories-and-ordering.result.json']),
+]
+
+cx = [
+ ('CX-BV5-01', 'SHOULD (root)', 'Publish deterministic version-bound intended full conversion; not a locale/casefold/ASCII substitution.',
+  'The fold is named once, used at all three former .lower() sites, and GATES on the declared UCD 15.0.0. I measured all four discriminator rows, locale independence, and the effective gate raising a non-AdmissionError ReferenceEnvironmentError. No ASCII narrowing, no locale parameter, no casefold substitution. The portability consequence is published in both prose and docstring rather than hidden.', ['probe-09-lib-fold-and-context.result.json']),
+ ('CX-BV5-02', 'SHOULD (root)', 'Preserve cardinality-first and the actual origin law; stop omitting missing/wrong-shape arrays from schema-reaching inputs and stop flattening host-invariant exit 4 into external request exit 2.',
+  'Both halves corrected in prose AND docstring. Origin-dependent routing is now explicit: cardinality is origin-independent request-rejected (2) / REQUEST.UNSATISFIABLE / PROJECT.SCOPE_LIMIT, while the schema refusal keeps section 10 routing including operational-failed (4) / SYSTEM.OUTCOME.ILLEGAL_STATE with faultCause host-invariant. All six wrong-shape inputs measured reaching the schema step, plus the in-bound-malformed and over-bound controls.', ['probe-10-advisories-and-ordering.result.json']),
+ ('CX-BV5-03', 'SHOULD (root)', 'The guard covers every delete/replace; do not narrow it to exported subjects; preserve full native evidence and target-relative requirements without a global dynamic-dispatch veto.',
+  'Verified at the code and the schema. UNSAFE_ACTIONS is {delete, replace} unqualified; delete-only and replace-only are each gated and create-only is not; dynamicDispatch=present alone does not veto an otherwise eligible unsafe repair. The workflows model has ZERO executable change across the delta - these corrections are entirely docstring and comment, which is exactly what a wording-precision finding should produce.', ['probe-08-repair-guard-projection.result.json', 'probe-11-no-widening.result.json']),
+ ('CX-BV5-04', 'MUST (root)', 'Reconcile the not-applicable minting law at producer AND retained admission; stageTerminal/examined coverage remain independent.',
+  'Enforced, not merely mandated. coverage_bijection refuses attempted=true or a nonempty class list on a non-resolved rung, and open_run_closure re-runs that same admission over retained bytes. I reproduced the refusal at BOTH boundaries and confirmed the valid observed control still closes a complete Run and that stageTerminal and examinedExhaustive stay free.', ['probe-04-rc-laws-totality.result.json', 'probe-06-full-run-closure.result.json']),
+ ('CX-BV5-05', 'SHOULD (root)', 'Describe the exact current schema and imperative obligations without changing accepted sets by accident.',
+  'Three enforcements named; no snapshot join claimed for the fingerprint field; the unsupported history removed. Measured: ordered() admits a 300-character segment and refuses dot-dot; identity-schemas.v2.json is structurally unchanged, so no accepted path set moved.', ['probe-10-advisories-and-ordering.result.json', 'probe-11-no-widening.result.json']),
+ ('CX-BV5-06', 'advisory (root)', 'Cite the actual owning selection, security S8 / native matrix, not admission section 5 item 1.',
+  'Corrected and independently confirmed: S8 carries the four ids and names Windows among the excluded populations; admission-and-qualification.md has zero occurrences of "Windows". The blind review\'s citation is retained as explicit history and its own bytes are untouched.', ['probe-10-advisories-and-ordering.result.json']),
+ ('CX-BV5-07', 'advisory (root)', 'Different changed payloads are not a digest collision or proof of divergence on identical complete observations.',
+  'The RC-1 text now states a determinacy gap and says explicitly that this is NOT a digest collision and NOT a divergence over byte-identical observations, noting that complete and not-attempted necessarily differ in attempted. This matches the root limit exactly; no collision is claimed on identical inputs.', ['probe-10-advisories-and-ordering.result.json']),
+ ('CX-BV5-08', 'MUST (root)', 'Correct relation-specific membership at producer and retained boundaries, including a fact-free invalid coverage pair and retained scopes that bypass the constructor.',
+  'Verified at all FOUR claimed sites. (1) producer boundary: RC-0 runs first and is fact-independent - a fact-free entry over an empty examined scope is judged the same way. (2) retained Run closure re-runs the same admission. (3) subject_scope_descriptor refuses a non-registered pair at mint - 17 positive and 180 negative controls. (4) NEW in identity-model.open_run_closure: every RETAINED scope a view names must carry a registered pair even with no Coverage wrapper and no fact - I built exactly that graph and it refuses, while the same shape with a registered pair closes a complete Run. All 17 registered pairs still admit; nothing was removed.', ['probe-04-rc-laws-totality.result.json', 'probe-05-scope-mint-pair.result.json', 'probe-06-full-run-closure.result.json']),
+ ('CX-BV5-09', 'SHOULD (root)', 'A resolved complete record with zero unresolved facts/count cannot retain a nonempty class set; preserve not-attempted/partial cases.',
+  'Verified through a COMPLETE retained Run on a resolved rung (references@resolved-binding). complete + count 0 + [computed-member-access] now refuses at producer and closure; the clean control admits. The analogous not-attempted hole is closed with its own control. incomplete and partial are untouched: an honest incomplete carrying its classes admits, a class mismatch still refuses, incomplete still needs at least one edge, and all three complete preconditions (attempted, exhaustive, stage) still fire. 24 expectations, all agreeing.', ['probe-07-cx09-full-run.result.json', 'probe-04-rc-laws-totality.result.json']),
+]
+prior += adv_prior          # the four CB5 advisories and the accepted V15-ADV-1
+for cid, sev, scope, basis, ev in cx:
+    prior.append(pf(cid, sev, scope, DESIGN_ACCEPT, basis, ev))
+
+prior += [
+ pf('BV5A-NEW-1', 'advisory as originally reported by the correction coauthor; root re-scoped it as REQUIRED under CX-BV5-08',
+    'Required under CX-BV5-08, including retained scopes without Coverage.',
+    DESIGN_ACCEPT,
+    'The original advisory severity is retained in the record and the root re-scoping is recorded beside it, not substituted for it. Substantively the required correction is in place: a contradictory Coverage entry can no longer close a sealed Run, and the retained-scope-without-Coverage case - the shape the coauthor had not covered - refuses at closure. Verified directly.',
+    ['probe-06-full-run-closure.result.json']),
+ pf('BV5A-NEW-2', 'advisory (correction coauthor)',
+    'Correct the fixture and state the already-admitted native input assumption explicitly; do not infer product host enforcement from a pure workflow helper.',
+    DESIGN_ACCEPT,
+    'Measured: BOTH reference repairScenario closedWorld records now carry all seven normative ClosedWorldV2 members and validate against that definition. This is the ONLY structural (non-prose) change in the entire JSON delta - two added "dynamicDispatch": "not-applicable" values - and it is a narrowing, since the record gains a required member. The repair_preview docstring states the admitted-input assumption explicitly and says it is not the place a malformed native record would be caught. No re-validation call was invented, which is the proportionate response root asked for.',
+    ['probe-08-repair-guard-projection.result.json', 'probe-11-no-widening.result.json']),
+ pf('BV5A-NEW-3', 'corroboration, not a new defect (correction coauthor)',
+    'Restate with its limit: the fixture corroborates the ASCII mapping only.',
+    'ACCOUNTED-AND-VERIFIED',
+    'The record restates it with its limit: the DOM/ES2022 fixture substantiates the mapping and says nothing about simple-versus-full case conversion, and CX-BV5-01 is what settles that. My own measurement agrees - the ASCII lib vocabulary is exactly where all three operations coincide, which is why the non-ASCII discriminators were needed and were separately measured.',
+    ['probe-09-lib-fold-and-context.result.json']),
+ pf('CB5-CLEARED-1', 'considered SHOULD, WITHDRAWN by the blind reviewer itself',
+    'Preserve the withdrawal and its measurement; do not resurrect or silently drop it.',
+    'PRESERVED-AS-WITHDRAWN',
+    'The blind review recorded it under checkedAndCleared with its measured member sets, and the root blind assessment preserves both the withdrawal and the reasoning (the four added DeficiencyV2 members are per-Run or requirement-relative, whereas AbsentCapability.deficiency is a release-level declaration). I did not resurrect it: it is not a finding of mine, and the capability-manifest DEFICIENCY-DOMAIN-V1 membership is unchanged across this delta.',
+    ['probe-11-no-widening.result.json (registryMembershipDelta all empty)']),
+]
+
+# ---- AR / FW / inherited / owner dispositions ----
+rowdelta = p13['rowDelta']
+ar = {}
+for rid in p13['arRowIds']:
+    d = rowdelta[rid]
+    ar[rid] = {
+        'disposition': 'CARRIED-UNCHANGED',
+        'basis': f'Row present in both the frozen v15 crosswalk and the frozen v16 crosswalk. Measured field-by-field, the only fields that differ are {d["changedFields"]} - review-provenance pointers. No obligation, selector, owner, unit, contract, evidence, ownerRows or status field changed. The v15 before-image I diffed against is crosswalk-before-v16.json, whose SHA-256 b825d16f... I verified equals the frozen v15 manifest digest for correction-crosswalk.proposed.json.',
+        'scope': 'Preservation across the v15->v16 delta only. This is NOT a new discharge, closure, grade or final application outcome.',
+        'authority': 'This design/reference review. Grading a readiness or application outcome belongs to the separate full application review, which has not run.',
+        'appliedByThisReview': False,
+        'evidence': 'probe-13-registers-and-dispositions.result.json',
+    }
+fw = {}
+for rid in p13['fwRowIdsInSourceMap']:
+    fw[rid] = {
+        'disposition': 'CARRIED-UNCHANGED',
+        'basis': 'The owning document current-source-map.proposed.md is BYTE-IDENTICAL between the frozen v15 and v16 manifests (397ba583... both sides) and is absent from the 21 modified paths of this delta.',
+        'scope': 'Preservation across this delta only; routing only, not applied.',
+        'authority': 'Design/reference review; routing only. Not a final application outcome.',
+        'appliedByThisReview': False,
+        'evidence': 'probe-13-registers-and-dispositions.result.json',
+    }
+inherited_ids = ([f'DR-{i:03d}' for i in range(1, 12)]
+                 + [f'DR-011-R{i:02d}' for i in range(1, 17)])
+inh = {}
+for rid in inherited_ids:
+    inh[rid] = {
+        'disposition': 'CARRIED-UNCHANGED',
+        'basis': 'Both owning documents are BYTE-IDENTICAL between the frozen v15 and v16 manifests: inherited-residuals.proposed.md (4b2b992b...) and inherited-row-sources.proposed.json (e92b050d...). Neither is among the 21 modified paths. All sixteen DR-011-R rows are present in the owning document.',
+        'scope': 'Preservation across this delta only; no residual is newly closed, discharged or graded.',
+        'authority': 'Design/reference review only.',
+        'appliedByThisReview': False,
+        'evidence': 'probe-13-registers-and-dispositions.result.json',
+    }
+owner = {}
+for rid in ['DR-201', 'DR-202', 'DR-203', 'DR-204', 'DR-205']:
+    owner[rid] = {
+        'disposition': 'ROUTING-ASSESSED-ONLY-NOT-APPLIED',
+        'basis': 'Owner routing sits on crosswalk row AR-15, whose only measured v15->v16 change is the two review-provenance pointers (historicalReviews, latestCompletedReview). Nothing in this delta applies, discharges or grades any of the five. The eleven changed normative files are the correction set; none of them is an owner routing document.',
+        'scope': 'Owner routing as it stands in the frozen v16 crosswalk.',
+        'authority': 'Five owner routing assessments do not grant a final application outcome and are not a grade.',
+        'appliedByThisReview': False,
+        'evidence': 'probe-13-registers-and-dispositions.result.json',
+    }
+
+review = {
+ 'artifact': 'OpenSIP architecture/design/reference independent review',
+ 'version': 'post-reset-review.v16',
+ 'reviewer': 'actual Claude (claude-opus-5), fresh independent session; authored none of the subject bytes',
+ 'notCoauthorOf': ['f6955666-0878-461a-a4e1-2ca2c4f5e824 (correction coauthor)',
+                   '04af6558-0b64-4a99-9fa4-0ca5ad653a27 (blind consumer-B v5)',
+                   '7954d0b3-0895-4506-ad06-08f320d35fe8 (earlier independent review)'],
+ 'subjectManifestSha256': SUBJ_SHA,
+ 'predecessorManifestSha256': p01pre['predecessorManifestSha256'],
+ 'overallVerdict': 'ACCEPT',
+ 'verdictBasis': 'Zero unresolved MUST issues and zero unresolved SHOULD issues against the exact frozen bytes. All four actual blind consumer-B v5 required findings (CB5-MUST-1/2, CB5-SHOULD-1/2), all four CB5 advisories, the accepted V15-ADV-1, all nine root CX-BV5-01..09 points and BV5A-NEW-1/2/3 are individually corrected or accounted, and each was re-derived here against the frozen bytes rather than taken from the candidate\'s own reports. 594 independently authored expectations agree, including complete retained Run admissions as positive controls and refusals reproduced at BOTH the producer boundary and retained Run closure. Two NEW findings are raised, both nonblocking advisories: neither changes any admission outcome, grammar, authority or normative contract. Under the standing rule that any unresolved MUST or SHOULD forces CHANGES_REQUIRED, there is none here, so the verdict is ACCEPT for SOURCE/DESIGN ONLY.',
+ 'acceptanceScope': {
+   'accepts': 'These exact frozen architecture/design/reference bytes as a correct, honest and non-widening disposition of the findings listed above.',
+   'doesNotAccept': [
+     'any application outcome, readiness grade or governance record',
+     'blind reconstructability - a NEW blind consumer v6 on these accepted bytes is still required and this review cannot supply it',
+     'product qualification of any kind',
+     'implementation authorization, commit or push',
+     'any AR/FW/residual/owner row as discharged, closed or graded',
+   ],
+   'coexistence': 'Source/design acceptance coexists with a PENDING, independently reviewed application. This review invents no grade authority.',
+ },
+ 'custody': {
+   'preReview': {k: p01pre[k] for k in ('declaredFileCount', 'observedFilesOnDisk', 'hashMismatchCount', 'lengthMismatchCount', 'missingCount', 'undeclaredCount', 'symlinkCount', 'declaredTotalBytes', 'observedTotalBytesOfDeclared')},
+   'postReview': {k: p01post[k] for k in ('declaredFileCount', 'observedFilesOnDisk', 'hashMismatchCount', 'lengthMismatchCount', 'missingCount', 'undeclaredCount', 'symlinkCount', 'declaredTotalBytes', 'observedTotalBytesOfDeclared')},
+   'subjectUnchangedByThisReview': True,
+   'writeCustody': 'Every byte this review wrote lives under /tmp/opensip-design-corrections/post-reset-review.v16, including both disposable source copies. Nothing was written into the immutable snapshot or the original repository, and no report-writing command was executed inside either.',
+   'namedDisposableCopies': [
+     {'name': 'copy-A-reference-run', 'purpose': 'the six recorded reference-check commands',
+      'byteExactAgainstManifest': p02['copyByteExact'], 'filesVerified': p02['copyFilesChecked'],
+      'inTreeDeltaAfterExecution': p03a['inTreeDelta']['modifiedCount'] + p03a['inTreeDelta']['addedCount'] + p03a['inTreeDelta']['removedCount']},
+     {'name': 'copy-B-probes', 'purpose': 'independent probes plus a second determinism run of the six commands',
+      'inTreeDeltaAfterExecution': p03b['inTreeDelta']['modifiedCount'] + p03b['inTreeDelta']['addedCount'] + p03b['inTreeDelta']['removedCount']},
+   ],
+ },
+ 'sourcePinVerification': {
+   'performedBeforeAnyExecution': True,
+   'pinFiles': [{'pinFile': x['pinFile'], 'entries': x['entries'], 'ok': x['ok'],
+                 'mismatch': x['mismatch'], 'missing': x['missing']} for x in p02['pinFiles']],
+   'totalEntries': p02['pinEntriesTotal'], 'totalOk': p02['pinEntriesOk'],
+   'allValid': p02['pinAllValid'],
+   'referenceCheckSourcesAllMatchDeclared': p02['referenceCheckSourcesAllMatch'],
+   'repinPerformed': False,
+   'note': 'No pin was rewritten under any circumstance. 1099 + 71 + 73 + 65 = 1308 transitive pins verified against the frozen bytes BEFORE execution.',
+ },
+ 'suiteReproduction': {
+   'commandsReproduced': 6,
+   'expectationsAuthoredBeforeExecution': 'expected-outcomes.prewritten.json',
+   'copyA': {'allExitsMatchDeclared': p03a['allExitsMatchDeclared'],
+             'stdoutIdenticalToFrozenLogs': all(r['stdout'].strip() == r['declaredLogContent'].strip() for r in p03a['results']),
+             'inTreeReportsByteIdenticalToFrozen': p03a['inTreeDelta']['modifiedCount'] == 0},
+   'copyB': {'allExitsMatchDeclared': p03b['allExitsMatchDeclared'],
+             'stdoutIdenticalToFrozenLogs': all(r['stdout'].strip() == r['declaredLogContent'].strip() for r in p03b['results']),
+             'inTreeReportsByteIdenticalToFrozen': p03b['inTreeDelta']['modifiedCount'] == 0},
+   'deterministicAcrossTwoIndependentCopies': True,
+   'measuredCounts': {
+     'foundationChecksPassed': 1679,
+     'foundationComponentBreakdown': {'foundation': 231, 'identity': 1331, 'product-quality': 24,
+                                      'product-configuration': 28, 'array-order': 65},
+     'foundationSourcePinsVerified': 1099,
+     'identityPassingCalls': 1331, 'identityDistinctIds': 1319, 'identityDuplicateExtraInstances': 12,
+     'securityPassingCalls': 456, 'securityInvariantSweeps': 10,
+     'nativeCasesPassed': 347, 'nativeMatrixCells': 66, 'nativeQualifiedCells': 0,
+     'workflowSurfaceChecksPassed': 1598, 'workflowsSourcePinsVerified': 65,
+     'integrationChecksPassed': 365,
+   },
+   'countMeaning': 'These are PASSING CALLS, DISTINCT IDS, security invariant sweeps and native cases with their recorded scope. They are not exhaustive test coverage and are NEVER product qualification. I re-derived the foundation component sum (231+1331+24+28+65 = 1679) and the identity account (1331 passing calls over 1319 distinct ids, 12 duplicate extra instances from two ids at seven instances each) from the executed reports rather than accepting the stated totals.',
+   'nativeCheckerNote': 'The native checker writes its report in-tree and ignores --help/--report, so it was executed only inside the disposable copies. In both copies it reproduced the frozen report byte-for-byte.',
+   'failedAttempts': 'None. All six commands reproduced on the first attempt in both copies. My own probe harness failures are recorded separately under failedAttempts at the top level.',
+ },
+ 'failedAttempts': [
+  {'id': 'failed-attempt-01', 'file': 'failed-attempt-01-probe-04-mint-wrong-prefix.result.json',
+   'what': 'My subject-scope mint controls passed snapshotId as sha256:<hex>; the foundation schema requires the snapshot2: prefix, so three POSITIVE controls refused on a ValidationError instead of minting.',
+   'cause': 'MY HARNESS, not a design defect. The negative controls in the same run were already correct and refused with the intended AdmissionError.',
+   'resolution': 'Superseded by probe-05, which uses the correct prefixes and adds all 17 positive and 180 negative controls.'},
+  {'id': 'failed-attempt-02', 'file': 'failed-attempt-02-probe-06-stale-evidence-snapshot.result.json',
+   'what': 'Seven full-Run cases died with KeyError on a view2 id.',
+   'cause': 'MY HARNESS. I deep-copied the evidence record BEFORE rekeying the view, so the snapshot carried a stale, unresolvable view id. The three no-Coverage cases in the same run were unaffected and already agreed.',
+   'resolution': 'Reordered the deepcopy after the view rekey; all 10 cases then agree at both boundaries.'},
+  {'id': 'failed-attempt-03', 'file': 'failed-attempt-03-probe-09-closure-missing-schemaversion.result.json',
+   'what': 'All eleven native-context join cases refused with "schemaVersion is a required property".',
+   'cause': 'MY HARNESS. My closure builder omitted schemaVersion, which the foundation closure schema fixes as const 2; the reference fixture supplies it in its own helper.',
+   'resolution': 'Added schemaVersion 2; the fold half of the same run was already 7/7 and unaffected.'},
+  {'id': 'failed-attempt-04', 'file': 'failed-attempt-04-probe-09-J4-J7-wrong-expectations.result.json',
+   'what': 'Two of my EXPECTATIONS were wrong, not the design. (J4) I expected a lib-selection-order refusal alongside duplicate-under-fold, but ES2022 < dom < es2022 IS ascending by raw UTF-8 bytes, so the order rule is correctly silent - the order is over retained UNFOLDED bytes, not a case-insensitive comparison. (J7) I expected the tree-ambiguous-basename refusal but got the declared-duplicate-component refusal, because my declared inventory itself repeated the basename.',
+   'cause': 'MY EXPECTATIONS. Both observed refusals were correct.',
+   'resolution': 'Corrected J4 expectation; split J7 into an isolated tree-ambiguity case (unique declared basenames) and a new J7b covering the declared-duplicate case. Both now agree, and the design was right in both.'},
+  {'id': 'failed-attempt-05', 'file': 'failed-attempt-05-probe-10-incomplete-capability-row.result.json',
+   'what': 'My two POSITIVE ordering controls refused at the schema step.',
+   'cause': 'MY FIXTURE. My analysis-spec used schemaVersion 1, a two-field capability row and no parameters array; the real schema requires schemaVersion const 2, four members per row and a parameters array.',
+   'resolution': 'Corrected the fixture. The 15 negative/ordering cases in the same run were already correct.'},
+  {'id': 'failed-attempt-06', 'file': 'failed-attempt-06-probe-10-unsorted-canonical-set.result.json',
+   'what': 'My exactly-at-the-bound positive control still refused at the schema step.',
+   'cause': 'MY FIXTURE. requestedCapabilities carries x-opensip-order canonical-set, so a 1024-row array must also be in canonical order; mine was not.',
+   'resolution': 'Sorted the rows canonically; 17/17 then agree.'},
+  {'id': 'failed-attempt-07', 'file': 'failed-attempt-07-probe-12-resolver-missed-record-relative-paths.result.json',
+   'what': 'My cross-reference scan reported 369 unresolved references.',
+   'cause': 'MY RESOLVER. custody.json files list members RELATIVE TO THEIR OWN DIRECTORY, which I did not try.',
+   'resolution': 'Added the record-relative root and broadened the record set; 825 references then resolve with 0 unresolved. This also corrected my initial reading of the 70 source-copy-accounts digest differences, which are correct-as-written disposable-copy state records, not stale pins.'},
+  {'id': 'failed-attempt-08', 'file': 'failed-attempt-08-probe-14-corpus-gap-and-hardwrap.result.json',
+   'what': 'Two of the twelve preserved laws reported a missing anchor.',
+   'cause': 'MY PROBE. One token lives in capability-manifest-domains.v2.json, which I had omitted from the corpus; the other spans a Markdown hard wrap, so a raw substring match missed it - the same class of error the correction coauthor recorded against its own prose probe.',
+   'resolution': 'Added the file and normalised whitespace before matching; 12/12 then anchored.'},
+ ],
+ 'failedAttemptsSummary': 'Eight preserved failed attempts, ALL of them mine - six harness or fixture defects and two wrong expectations of my own. Not one was a design failure, and in every case the correctly-constructed controls in the same run already agreed. Every failed result file is retained alongside the corrected one.',
+ 'independentProbeCaseTotal': CASE_TOTAL,
+ 'independentProbeCasesPassed': CASE_TOTAL,
+ 'independentProbeCasesFailed': 0,
+ 'independentProbes': [
+   {'probe': 'probe-04-rc-laws-totality', 'cases': p04['cases'], 'agree': p04['agree'],
+    'covers': 'RC-0/RC-1/RC-2 over all 17 registered pairs and all 180 unregistered pairs, free-field controls, and the CX-BV5-09 state-specific class law'},
+   {'probe': 'probe-05-scope-mint-pair', 'cases': p05['cases'], 'agree': p05['agree'],
+    'covers': 'subject_scope_descriptor mint-time pair check, 17 positive and 180 negative controls, plus preserved duplicate/type laws'},
+   {'probe': 'probe-06-full-run-closure', 'cases': 17, 'agree': 17,
+    'covers': 'CX-BV5-04/-08 at the producer boundary AND complete retained Run closure, including the fourth site (a retained scope a view names with no Coverage wrapper and no fact)'},
+   {'probe': 'probe-07-cx09-full-run', 'cases': p07['cases'] * 2, 'agree': p07['producerAgree'] + p07['retainedAgree'],
+    'covers': 'CX-BV5-09 on a RESOLVED rung through complete retained Run closure, with all preserved RC-2 laws separately controlled'},
+   {'probe': 'probe-08-repair-guard-projection', 'cases': p08['previewCases'] + p08['schemaCases'],
+    'agree': p08['previewAgree'] + p08['schemaAgree'],
+    'covers': 'CB5-SHOULD-2 / CX-BV5-03 / BV5A-NEW-2: guard scope, full-evidence grounding, dynamicDispatch target-relativity, exact projection, and every way a copied/dropped/detached field could try to authorize destructive repair'},
+   {'probe': 'probe-09-lib-fold-and-context', 'cases': p09['foldCases'] + p09['joinCases'],
+    'agree': p09['foldAgree'] + p09['joinAgree'],
+    'covers': 'CB5-MUST-2 / CX-BV5-01: the fold measured against all three candidate operations, locale independence, the effective version gate, and twelve context-admission controls in both directions'},
+   {'probe': 'probe-10-advisories-and-ordering', 'cases': p10['staticChecks'] + p10['orderingCases'],
+    'agree': p10['staticAgree'] + p10['orderingAgree'],
+    'covers': 'CB5-ADV-1..4, CX-BV5-05/06, V15-ADV-1 and CX-BV5-02'},
+   {'probe': 'probe-14-preserved-laws', 'cases': p14['lawsTotal'], 'agree': p14['lawsWithAllAnchorsPresent'],
+    'covers': 'the twelve explicitly named prior corrections'},
+ ],
+ 'measurementProbes': [
+   {'probe': 'probe-01-verify-subject', 'measures': 'full manifest custody, pre and post review, plus undeclared inventory and symlinks'},
+   {'probe': 'probe-02-verify-copy-and-pins', 'measures': 'disposable copy byte-exactness and all 1308 transitive source pins, before any execution'},
+   {'probe': 'probe-03-run-six-checks', 'measures': 'the six recorded commands in two independent disposable copies'},
+   {'probe': 'probe-11-no-widening', 'measures': 'structural (non-prose) constraint diff of every changed JSON document, executable-line diff of every changed Python model, registry membership delta, and the truthful document-digest movement'},
+   {'probe': 'probe-12-record-cross-references', 'measures': f'all {p12["crossReferencesFound"]} path+digest cross-references inside the v16 governance records'},
+   {'probe': 'probe-13-registers-and-dispositions', 'measures': 'the actual per-row basis for every AR/FW/inherited/owner disposition, the qualification gates and the carried advisory account'},
+ ],
+ 'exactDelta': {
+   'modifiedFiles': 21, 'addedFiles': 476, 'removedFiles': 0,
+   'normativeSourceFiles': 11,
+   'supportingChangedFiles': ['README.md', 'correction-crosswalk.proposed.json',
+                              'validation-summary.v1.json', 'workflows-report.v1.json',
+                              'workflows-validation-report.json', 'reviews/NEXT-REVIEW.md',
+                              'four source-pins files (content-equal length, refreshed digests)'],
+   'noWideningFinding': {
+     'jsonSchemaAndRegistryDocumentsWithZeroStructuralChange': p11['jsonDocumentsWithNoStructuralChange'],
+     'onlyStructuralJsonChange': 'workflow-cases.v1.json gains exactly two "dynamicDispatch": "not-applicable" members - a NARROWING, since the fixture record gains a required member (BV5A-NEW-2)',
+     'registryMembershipDelta': p11['registryMembershipDelta'],
+     'executableLineDelta': {r['path']: f"+{r['executableLinesAdded']}/-{r['executableLinesRemoved']}" for r in p11['pythonReports']},
+     'assessment': 'Every executable change is either a NEW REFUSAL (RC-0 membership, the RC-1 minting law, the two RC-2 class laws, the mint-time pair check, the retained-scope pair check at closure) or the rename of the three .lower() sites to the gated lib_name_fold. The only three removed executable lines are exactly those three .lower() sites. workflows_model.v1.py has ZERO executable change. No grammar, authority or admission was widened.',
+   },
+   'digestHonesty': {
+     'documentDigestsThatMoved': p11['documentDigestsThatMoved'],
+     'statement': 'All eleven normative documents changed bytes, so every document digest derived from them moved. I verified structurally why this matters: a Coverage payloadSchemaDigest IS the raw SHA-256 of native-evidence.schemas.v2.json (measured equal, 2a5fc493...), so a description-only edit necessarily moves every coverage2 and therefore the reference Run identity. These are TRUTHFUL source-bound digest changes and the candidate records describe them as such. They must NOT be described as identical exact semantic inputs, and they are not.',
+     'baselineRunIdIndependentlyReproduced': 'run2:ca67ad740cc98cf508133639d42749fcb9c148f33b42bcf09b5eeb93505b4b01, matching the correction coauthor\'s reported final baseline',
+   },
+ },
+ 'newMustIssues': [],
+ 'newShouldIssues': [],
+ 'newAdvisories': [
+  {
+   'id': 'V16-ADV-1', 'severity': 'advisory (nonblocking)',
+   'title': 'One governance-record digest pin now denotes superseded bytes: advisory-application-account.v16 item V14-ADV-1 pins native-evidence.md at its v15 digest.',
+   'selectors': ['docs/coop/design-corrections/reviews/codex-post-reset.v1/advisory-application-account.v16.proposed.json#/items[43]/sourceCorrection'],
+   'measured': {
+     'citedPath': 'docs/v2/contracts/product-v1/native-evidence.md',
+     'citedSha256': '706b7e0fc94bb1467e33c9f75d5406046e32ab9859f57f08a1f6642dfbdc7d46 (the frozen v15 digest)',
+     'frozenV16Sha256': 'b50c814c4cc3335bec166190fd4468742429b11e2b014fba64eab7a6acbd3fea',
+     'crossReferencesScanned': p12['crossReferencesFound'],
+     'governanceRecordMismatchesFound': 1,
+     'siblingItemV14ADV2Resolves': True,
+   },
+   'whyNotAMustOrShould': 'Nothing normative is affected. This is a provenance pin inside a .proposed.json governance account, not a contract, schema, model or admission law; it cannot change any admission outcome, grammar or authority. The SUBSTANCE of V14-ADV-1 survives verbatim in the current bytes - native-evidence.md still carries "No new public code is added for this projection of a lawful entry\'s deficiency and cause. The refusal branches later in this section separately add four public detail codes; those additions do not change this projection." The original severity is preserved and the item is not dropped. The cost is verification friction: a reader checking the account against the frozen subject finds one pin that does not resolve, with no field saying it is an as-of-v15 historical pin - which is inconsistent with the adjacent item V14-ADV-2, whose pin does resolve only because its file happened not to change in v16.',
+   'distinguishedFrom': 'The other 70 digest differences I found are NOT of this class: they all sit in source-copy-accounts.json records, which by construction record the state of a DISPOSABLE COPY against baseManifestSha256 (frozen v15). Those are correct as written and my first scan mis-scoped them; the corrected scan is retained.',
+   'suggestedRepair': 'Either refresh the pin to the frozen v16 digest, or label it explicitly as the as-of-correction historical digest, the way the account already labels original review bytes as history.',
+   'evidence': 'probe-12-record-cross-references.result.json',
+  },
+  {
+   'id': 'V16-ADV-2', 'severity': 'advisory (nonblocking)',
+   'title': 'The Unicode case-data gate checks unicodedata.unidata_version, which is a same-build proxy for the table str.lower() actually consults; the published custody paragraph does not name the proxy relationship.',
+   'selectors': ['docs/coop/design-corrections/native/native_evidence_model.v2.py#lib_name_fold',
+                 'docs/coop/design-corrections/native/native_evidence_model.v2.py#unicode_case_data_agreement',
+                 'docs/v2/contracts/product-v1/native-evidence.md (section 2.4, "Version custody, and the portability consequence it does not hide")'],
+   'observation': 'lib_name_fold gates on unicodedata.unidata_version and then returns name.lower(). In CPython both come from the same UCD generation step, so on any stock build they cannot disagree and the gate is exactly as effective as the contract claims - which is what I measured. The precision point is that the gate reads a DIFFERENT module\'s declared version rather than the case table the fold itself uses, and the contract paragraph presents unicode_case_data_agreement() as reporting "the running version" without noting that it is a proxy. A reader implementing this in a host where the two can be sourced separately would not learn that from the paragraph.',
+   'whyNotAMustOrShould': 'No admission outcome changes on any conforming build, nothing is unrepresentable, and the substantive correction CX-BV5-01 asked for - naming the operation, making the binding effective, and disclosing the portability consequence - is fully delivered and independently verified. The contract already scopes the claim to "this reference derivation" and already states that a host with different case data can fold differently. This is a precision point of the same class as the previously advisory-graded unqualified-summarising-sentence findings.',
+   'suggestedRepair': 'One clause noting that the reference derivation reads unicodedata.unidata_version as the declared version of the same build\'s case tables, and that a host sourcing the two independently owes its own equivalent binding.',
+   'evidence': 'probe-09-lib-fold-and-context.result.json (versionBindingGate)',
+  },
+ ],
+ 'priorFindingDispositions': prior,
+ 'arDispositions': ar,
+ 'fwDispositions': fw,
+ 'inheritedResidualDispositions': inh,
+ 'scopedReviewOwnerDispositions': owner,
+ 'dispositionCounts': {'ar': len(ar), 'fw': len(fw), 'inheritedResiduals': len(inh),
+                       'scopedReviewOwners': len(owner), 'priorFindings': len(prior)},
+ 'carriedAdvisoryAccount': {
+   'path': 'docs/coop/design-corrections/reviews/codex-post-reset.v1/advisory-application-account.v16.proposed.json',
+   'v15Count': p13['advisoryAccountDelta']['v15Count'],
+   'v16Count': p13['advisoryAccountDelta']['v16Count'],
+   'added': p13['advisoryAccountDelta']['added'],
+   'removed': p13['advisoryAccountDelta']['removed'],
+   'originalSeveritiesPreserved': p13['advisoryAccountDelta']['severitiesPreserved'],
+   'basis': 'Diffed item by item against the v15 account: 45 -> 50, five added (CB5-ADV-1..4 and V15-ADV-1), zero removed, zero severity changed. All 45 pre-existing items differ in exactly ONE added field, currentAssentStanding, whose text states that the item is carried with its exact original severity and that the current assent does not turn carried or routing-only dispositions into new application grades. That is a preservation statement, not a regrade.',
+   'myOwnNewAdvisories': 'V16-ADV-1 and V16-ADV-2 are NOT in this account; they are new in this review and any future application must account for them separately.',
+ },
+ 'productQualificationGates': {
+   'count': p13['qualificationGates']['found'],
+   'demonstrated': p13['qualificationGates']['demonstratedTrue'],
+   'qualified': p13['qualificationGates']['qualifiedTrue'],
+   'platformFamilies': ['linux-x86_64-gnu', 'linux-aarch64-gnu', 'macos-aarch64', 'macos-x86_64'],
+   'basis': 'All 32 gates remain demonstrated:false and qualified:false over exactly the four selected machine ids. Nothing in this delta demonstrates or qualifies a gate, and this review does not.',
+ },
+ 'evaluationSubresiduals': {
+   'count': p13['evaluationSubresidualCount'],
+   'disposition': 'CARRIED-UNCHANGED',
+   'basis': 'The owning file evaluation-residual-dispositions.proposed.json is BYTE-IDENTICAL between the frozen v15 and v16 manifests (8f7d940e... both sides).',
+ },
+ 'applicationAndReadiness': {
+   'D372Applied': False,
+   'condition5': 'NOT MET',
+   'readinessRegisterChanged': False,
+   'implementationAuthorized': False,
+   'basis': 'design-corrections/README.md line 144 still states "D-372 has not been applied and the central readiness register is unchanged", and I verified the v16 README change is purely ADDITIVE - a new eight-line v16 header, zero deleted lines, with the prior content retained under "Earlier progress — historical" and the before-image verified equal to the frozen v15 README. Architecture file 12 still carries the Condition 5 language.',
+   'coherentPendingApplicationAccepted': 'This review may accept a coherent PENDING application. It grades no application outcome, closes nothing, and invents no grade authority.',
+ },
+ 'scopePreservation': {
+   'carriedUnchangedIsNotAGrade': True,
+   'routingOnlyIsNotAGrade': True,
+   'statement': 'CARRIED-UNCHANGED and ROUTING-ASSESSED-ONLY-NOT-APPLIED are preservation statements about a delta. Neither is a new grade and neither is a final application outcome. No AR, FW, residual, subresidual, owner row or qualification gate is discharged, closed or graded by this review.',
+ },
+ 'preservedPriorCorrections': {
+   'lawsChecked': p14['lawsTotal'], 'lawsAnchored': p14['lawsWithAllAnchorsPresent'],
+   'laws': [r['law'] for r in p14['laws']],
+   'basis': 'Each named law has a live anchor in the frozen v16 bytes and a governing suite that executed and passed on those exact bytes, and probe-11 independently established that no schema constraint, registry member or executable behaviour was weakened across the delta.',
+   'scope': 'Preservation evidence. NOT a fresh independent re-derivation of each prior correction from first principles.',
+ },
+ 'limitations': [
+  'Everything measured here is reference admission over synthetic in-memory inputs and the shared construction fixture. No compiler, Cargo, provider, repository, renderer, ledger, operating system, signature verification or product host executed.',
+  'The shared integration fixture was used as CONSTRUCTION data only. Every expected outcome in this review was authored by me from the published contract text before running, and the fixture is never treated as a verdict oracle.',
+  'The unavailable-declared-Unicode-case-data condition was SIMULATED by substituting the module binding. No alternate Unicode case data was installed or executed, and no public host fault route (section 10 operational-failed / exit 4) was exercised - only the exception type and its non-AdmissionError ancestry were measured.',
+  'The published simple-lowercase column of the section 2.4 discriminator table is a UCD property this review does not independently recompute. What I measured is that the fold IS the full context-sensitive mapping and is NOT case folding.',
+  'Locale independence was measured across four setlocale attempts; tr_TR.UTF-8 and lt_LT.UTF-8 both applied on this host, which is what makes the stability measurement meaningful.',
+  'probe-14 establishes anchor presence plus a passing governing suite for the twelve named prior corrections. It is preservation evidence, not a first-principles re-derivation of each.',
+  'Real Python file IO and hashlib SHA-256 executed throughout this review. Where the candidate records say "no filesystem or cryptographic primitive", that is read as no PRODUCT filesystem/TCB/signature/crypto qualification, and I do not repeat that blanket wording as execution evidence.',
+  'Counts reported here are passing calls, distinct IDs, security invariant sweeps and native cases with their recorded scope. None is exhaustive coverage and none is product qualification.',
+  'I ran no agents and spawned no subagents; I made no product implementation change, no fix, no commit and no push, and I edited no subject byte.',
+ ],
+ 'blindReviewAccounting': {
+  'sourceRecord': 'docs/coop/design-corrections/reviews/codex-post-reset.v1/blind-assessment.v5.json',
+  'qualificationsIRead-AndPreserve': [
+    'The reported 58 negative-labelled rows are a reviewer AGGREGATION over mapping entries under negatives/admissionRefusals/pinnedPurgeNegatives. They are NOT 58 demonstrated refusals: the total includes bool/string schemaVersion cases that CVE1 encodes with prose ADM-TYPE obligations, schema-valid forward dependencies and schema-valid pin subsets, and it OMITS the separately named flat ts-negatives (18) and rust-negatives (14) maps. I preserve the reported 58 as a labelled aggregation only and assert no replacement total.',
+    'The 8 closed Run descriptor graphs are correct as reported; the 11 unique runId values an intermediate string scan found include 3 synthetic placeholders inside public-envelope examples, which are not additional closed graphs.',
+    'The blanket no-filesystem / no-cryptographic-primitive wording means no PRODUCT filesystem or TCB qualification. Actual Python file IO and hashlib SHA-256 did execute in that review, as they did in mine.',
+    'Public output examples validate envelopes and reconstructed route mappings; they do not execute real host commit, delivery or renderer behaviour.',
+    'The first inline smoke command was rejected by CLI tool-input validation for control characters before execution; a later file-based smoke ran. That is distinct from the successful CLI receipt reporting zero permission denials.',
+    'CB5-ADV-4 mis-cited admission-and-qualification section 5 item 1 for the Windows exclusion. I independently confirmed that document contains zero occurrences of "Windows" and that security S8 is the actual owner.',
+  ],
+  'originalReportsPreserved': True,
+  'freshBlindStillRequired': 'A NEW blind consumer v6 reconstruction on these accepted normative bytes is a separate act and is still required. This review cannot and does not supply it.',
+ },
+ 'claimsExplicitlyNotMade': [
+   'no blind reconstructability claim',
+   'no application acceptance, no readiness grade, no grade authority',
+   'no product, platform, compiler, storage or cryptographic qualification',
+   'no implicit repository execution, untrusted ecosystem, full Map application or model dependency',
+   'no implementation authorization, commit or push',
+   'no discharge or closure of any AR, FW, residual, subresidual, owner row or qualification gate',
+ ],
+ 'productScopeInView': {
+   'oneCompleteIntendedProductImplementedInStages': True,
+   'modes': 'native TypeScript/JavaScript/Rust plus bounded bundled grammar modes',
+   'selectedMachineIds': 4,
+   'AR': 16, 'FW': 15, 'inheritedResiduals': 27, 'evaluationSubresiduals': 30,
+   'scopedReviewOwners': 5, 'unperformedQualificationGates': 32,
+ },
+ 'requiredNextActs': [
+   'A NEW blind consumer v6 reconstruction over these accepted normative bytes.',
+   'A complete, independently reviewed application and readiness reconciliation.',
+   'The separate final AFTER-ALL-RECORDING live and copied pin seal that the candidate\'s own dispositions record as still mandatory.',
+   'Optionally, the two nonblocking advisory clarifications V16-ADV-1 and V16-ADV-2, at their stated severity.',
+ ],
+ 'readinessChanged': False,
+ 'implementationAuthorized': False,
+ 'productQualification': False,
+ 'applicationAccepted': False,
+ 'blindAccepted': False,
+}
+
+with open(os.path.join(OUT, 'review.json'), 'w') as f:
+    json.dump(review, f, indent=2, sort_keys=False)
+print('wrote review.json', os.path.getsize(os.path.join(OUT, 'review.json')), 'bytes')
+print('caseTotal', CASE_TOTAL)
+print('verdict', review['overallVerdict'])
+print('dispositionCounts', review['dispositionCounts'])

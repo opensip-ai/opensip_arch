@@ -1,0 +1,113 @@
+--- before/docs/coop/design-corrections/foundation/check-identity.py
++++ after/docs/coop/design-corrections/foundation/check-identity.py
+@@ -6861,9 +6861,7 @@
+       ['capabilityId','languageMode','workspaceRoot'] and
+       'no last-wins, no order dependence and no merge' in
+       _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['law'])
+-check('the-published-tuple-is-exactly-the-tuple-the-model-keys-on',
+-      all(field in N.CAPABILITY_MATRIX['capabilities'][0] or True
+-          for field in _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple']) and
++check('the-published-tuple-names-request-fields-and-excludes-requiredness',
+       all(field in _ANALYSIS_SPEC_SCHEMA['items']['properties']
+           for field in _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple']) and
+       'required' not in _ANALYSIS_SPEC_SCHEMA['x-opensip-uniqueness']['ownershipTuple'])
+@@ -6886,7 +6884,7 @@
+ # request keeps the published cardinality-first special route at the request boundary.
+ check('an-unregistered-capability-outranks-the-tuple-rule',
+       _refusal_text(lambda:N.admit_requested_capabilities(
+-          _caps([dict(_CAP_A,capabilityId='made-up'),_CAP_B])))==
++          _caps([dict(_CAP_A,capabilityId='made-up'),_CAP_A,_CAP_B])))==
+       'native.requested-capability-unregistered:made-up')
+ check('an-oversized-request-keeps-its-cardinality-first-route',
+       'PROJECT.SCOPE_LIMIT' in _refusal_text(lambda:N.admit_analysis_spec(
+@@ -7175,6 +7173,90 @@
+       'It is **not** unconstrained: RC-6 below' in _NATIVE_MD and
+       _NATIVE_MD.count('`examinedExhaustive` stays the independent examined-partition')==1)
+ 
++# Stage-domain publication and registered-schema declarations: complete identity/schema/closure
++# checks, not semantic proof replay. Controls remint hostile claims before entering close_run.
++_v20_domains=SCHEMA['$defs']['Domain']['enum']
++check('v20-domain-vocabularies-and-registry-agree',
++      set(_v20_domains)==set(SCHEMA['$defs']['Ref']['properties']['domain']['enum'])==set(M.DIGESTS['byDomain']) and
++      len(_v20_domains)==len(set(_v20_domains)))
++_v20_members=M.DIGESTS['closureMembership']
++check('v20-closure-membership-map-covers-registered-closure-fields',
++      set(_v20_members['direct'])|set(_v20_members['equalToDirect'])|set(_v20_members['selectedThroughOtherInput'])==set(M.DIGESTS['closureKinds']['byField']))
++
++def v20_stage_graph(spec_domains,stage_domains):
++    run,objects,blobs=build()
++    eid=objects[run['evaluationSealId']][1]['executionPlanId']
++    execution=copy.deepcopy(objects[eid][1])
++    spec=C.parse(blobs[execution['stages'][0]['stageSpecDigest']])
++    spec['outputDomains']=spec_domains
++    execution['stages'][0]['stageSpecDigest']=put_blob(blobs,spec)
++    execution['stages'][0]['outputDomains']=stage_domains
++    # Deliberately mint the hostile execution record without its constructor's schema check.
++    # The complete graph still has correct content identities. Restore the constructor BEFORE
++    # close_run, which must independently refuse the retained record's illegal domain.
++    saved_identifier=M.identifier
++    def hostile_execution_identifier(domain,value):
++        if domain=='execution-plan':return M.PREFIX[domain]+':'+C.identity(domain,value)
++        return saved_identifier(domain,value)
++    M.identifier=hostile_execution_identifier
++    try:rekey(objects,eid,execution,run)
++    finally:M.identifier=saved_identifier
++    return run,objects,blobs
++
++def v20_closure_result(name,graph,exception=None,detail=None):
++    # Construction remains outside the catch, so a bad fixture cannot count as a refused Run.
++    run,objects,blobs=graph
++    try:
++        result=M.close_run(run,objects,blobs)
++    except Exception as exc:
++        check(name,exception is not None and type(exc) is exception and
++              (detail is None or str(exc)==detail))
++    else:
++        check(name,exception is None and type(result) is str and result.startswith('run2:'))
++
++for name,left,right in [('registered',['view'],['view']),('empty',[],[])]:
++    v20_closure_result('v20-stage-domains-'+name,v20_stage_graph(left,right))
++for name,left,right in [('case-sensitive',['View'],['View']),('identifier-prefix',['view2'],['view2']),
++                        ('spec-only-invalid',['View'],['view']),('execution-only-invalid',['view'],['View'])]:
++    v20_closure_result('v20-stage-domains-refuse-'+name,v20_stage_graph(left,right),C.ValidationError)
++v20_closure_result('v20-stage-domains-retain-equality-join',v20_stage_graph(['fact'],['view']),
++                   C.AdmissionError,'STAGE_SPEC_OUTPUT_DOMAIN_JOIN')
++
++def v20_schema_graph(site,selection):
++    run,objects,blobs=build()
++    registered=(H/'import-source-context.schema.json').read_bytes()
++    arbitrary=b'not a registered schema document\n'
++    raw=arbitrary if selection in ('unregistered','missing') else registered
++    digest=put_blob(blobs,raw)
++    if selection=='missing':del blobs[digest]
++    if site=='view':
++        vid=objects[run['evidenceId']][1]['viewIds'][0];view=copy.deepcopy(objects[vid][1])
++        if selection=='empty':view['schemaDigests']=[]
++        elif selection=='omit-member-coverage-schema':
++            used=objects[view['coverageIds'][0]][1]['payloadSchemaDigest']
++            view['schemaDigests']=[d for d in view['schemaDigests'] if d!=used]
++        elif selection=='unregistered-only':
++            digest=put_blob(blobs,arbitrary);view['schemaDigests']=[digest]
++        else:view['schemaDigests']=sorted(set(view['schemaDigests'])|{digest},key=C.canonical)
++        rekey(objects,vid,view,run)
++    else:
++        pid=objects[run['evaluationSealId']][1]['proofBundleId'];proof=copy.deepcopy(objects[pid][1])
++        proof['evaluationInputRefs']=sorted(proof['evaluationInputRefs']+[{'domain':'schema','digest':digest}],key=C.canonical)
++        rekey(objects,pid,proof,run)
++    return (run,objects,blobs),digest
++
++for site in ['view','schema-ref']:
++    for selection in ['registered-extra','unregistered','missing']:
++        graph,digest=v20_schema_graph(site,selection)
++        exc,detail=(None,None) if selection=='registered-extra' else (
++            (M.EvidenceUnavailable,'EVIDENCE_UNAVAILABLE:'+digest) if selection=='missing' else
++            (C.AdmissionError,'SCHEMA_DOCUMENT_UNREGISTERED:'+digest))
++        v20_closure_result('v20-schema-'+site+'-'+selection,graph,exc,detail)
++for selection in ['empty','omit-member-coverage-schema','unregistered-only']:
++    graph,digest=v20_schema_graph('view',selection)
++    exc,detail=(C.AdmissionError,'SCHEMA_DOCUMENT_UNREGISTERED:'+digest) if selection=='unregistered-only' else (None,None)
++    v20_closure_result('v20-schema-view-'+selection,graph,exc,detail)
++
+ report={'standing':'design-reference-only','productQualification':False,'limits':[
+     'finite single-atom rule interpreter over the REAL closed PolicyDocumentV1/RuleProgramV1 DSL; not full declarative-language qualification',
+     'relation and Coverage payload schema REGISTRATION remains the native/workflow adapter boundary; identity checks retention, canonicality and validation under the retained document',

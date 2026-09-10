@@ -1,0 +1,187 @@
+# Query projection contract (evaluator3)
+
+This is the intended-design law for advertised `graph.neighbors|path|reach` over an admitted evaluator3 Run. It is not product implementation, not a HydraDB store, and not a rewrite of native absence, `close_run`, sealed Run, atom evaluation, execution replay, SEAL, or storage generations.
+
+Schema: `schemas/evaluator3/graph-query.schema.json` `$id` `urn:opensip:product-v1:workflows:evaluator3:graph-query:3`, `schemaMajor` **3**. All **20** operation names are unchanged. The other **17** operations keep their existing Params bag, owners, and (for snapshot metadata) request-shaped `View` on the response. `finding.show` remains `workflow_projection_model.v3.query_finding`. Historical `workflows/schemas/graph-query.schema.json` is not this owner.
+
+Reference: `query_projection_model.v3.py`. The public entry `execute_graph_query` always requires a retained Run and identity-model.v3 `close_run`. Caller-authored edges, `host.standing`, `host.cache`, `host.targetAttributions`, and `host.evaluationDeficiencies` are not public graph evidence. Internal `traverse_projected_graph` may walk already-projected edges for algorithm goldens; it does not admit a Run.
+
+## 0. What this unit is not
+
+- Not a parallel absence evaluator. Zero neighbor rows is not “no callers.” Native/atom remain owners of incoming search, Coverage, and closed-world.
+- Not a new global database id and not a FactViewId recipe. Endpoints are evaluation-subject tuples. Fact-views are existing `view2:` identities.
+- Not a numeric backend identity or backend default order.
+- Not an exact accelerator presented as a semantic producer (GX-01). Physical CSR/GraphBLAS/SQLite remain private if they preserve exhaustive parity with the canonical fact-view walk for the declared query.
+- Not a change to native/input prefixes (`snapshot2`, `plan2`, `closure2`, `import2`, `fact2`, `view2`) or sealed output prefixes (`run3`, `finding3`, `evidence3`).
+- Not a cache of projected edges. A derived cache is not completeness. GX exact fallback is the admitted fact-view walk.
+
+## 1. Selection: Project, Run, fact-views
+
+The admitted Run is authority. A derived resolver or host index is not permission to answer a different historical selection.
+
+| Selector | Law |
+|---|---|
+| `projectId` | Required. Must equal the admitted Run’s project. |
+| Request `view` | `{runId}` or `{snapshotId}` or `{latest: true}`. |
+| Graph effective view | Unique concrete `run3`. Response `resolvedView` is `{runId}` only. |
+| `{runId}` | Must equal `close_run` identity. |
+| `{snapshotId}` | Must equal `run.snapshotId` of the admitted Run **and** an explicit complete trusted host resolver observation `host.runsForSnapshot[snapshotId]`. Missing or empty observation → `IDENTITY.UNKNOWN` / `QUERY.VIEW_UNKNOWN` (one admitted Run does not prove uniqueness). More than one distinct Run in the observation → `QUERY.VIEW_AMBIGUOUS`. The unique name must be the admitted Run. A stale map that names this Run for a different snapshot is `QUERY.VIEW_UNKNOWN`. The index cannot grant a wrong historical selection. |
+| `{latest: true}` | Explicit trusted host observation `host.latestRunId`. It is never derived from static Run bytes. Missing or unequal to the admitted Run → `IDENTITY.UNKNOWN` / `QUERY.VIEW_UNKNOWN`. Continuation never re-resolves latest. |
+| Fact-view set | Explicit `params.factViewDigests` (each an admitted `view2` of this Run) **or** all admitted views of the Run whose scopes match `relation@minResolution`. Silent “newest provider” is forbidden. A digest not on the Run → `QUERY.FACT_VIEW_UNAVAILABLE`. Explicit admitted digests that are not views of the requested relation@rung remain the selected set; if none of the selected views match, disclose `native-evidence-unavailable`. |
+
+Non-graph snapshot metadata operations (`availability.show`, `run.list`, …) may keep `resolvedView` in request `View` shape. Do not force `{runId}` onto those operations.
+
+## 2. Vertex domain and endpoint admission
+
+A graph endpoint is the tuple `(universe, kind, nativeSubjectId, packageManifestPath or empty)`. No persisted evaluation-subject object is required.
+
+**Vertex domain** of a query is the union of:
+
+1. Subject-inventory rows selected by the admitted proof `evaluationInputRefs` (`domain=subject-inventory`), with universe taken from the EnumerationPlan program binding `(cellOrdinal, programOrdinal)`. Package vertices include `packageManifestPath` from the inventory row path.
+2. Source and target endpoints of facts actually projected for this operation (so an external resolved target that is not first-party inventory remains a lawful vertex).
+
+**Fault precedence** for a requested endpoint:
+
+1. Malformed syntax (not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package) → `QUERY.PARAMS_MALFORMED`.
+2. Package identity without `packageManifestPath`, or a well-formed tuple that matches more than one admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`.
+3. Well-formed complete tuple that matches zero vertices → `QUERY.ENDPOINT_UNKNOWN`. Same native id in other universes does not convert a fully specified unknown tuple into ambiguity.
+4. Otherwise the endpoint is admitted. A known isolated inventory vertex with no incident projected facts is lawful (empty neighbors, or a zero-hop path when start equals target).
+
+Unknown universe or absent native identity must not become a fabricated zero-hop member.
+
+## 3. Supported relation / rung / endpoint projection table
+
+Source: `foundation/evaluator-projection-registry.v1.json` `relations[]` plus `foundation/relation-payload-schemas.v2.json` ladders. Graph projection is **binary native-id rungs only**.
+
+**Request law:** an operation whose `relation@minResolution` is not a row of this table is refused (`QUERY.RELATION_UNSUPPORTED`). The operation does not invent edges and does not advertise undefined relations.
+
+**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, missing occupancy mapping with no unique exact-id identity on a multi-kind rung, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request.
+
+Selected occupancy schema is **TargetAttributionV2**. Historical TargetAttributionV1 remains a retained frozen24 document and is **not selected** by this successor: a selected `schemaVersion=1` sidecar causes retained Run admission to refuse under the current atom contract. It cannot reach public edge projection and is not downgraded to an omitted edge. Query does not restore V1 payload-vs-N projection.
+
+| relation | minResolution (rung) | source field | source kind | target field | target kinds | universe rule | graph-projectable |
+|---|---|---|---|---|---|---|---|
+| `calls` | `resolved-callee` | `caller` | symbol | `resolvedCallee` | symbol | admitted-target | yes |
+| `references` | `resolved-binding` | `referrer` | symbol | `resolvedBinding` | symbol | admitted-target | yes |
+| `imports` | `resolved-target` | `importer` | symbol | `resolvedTarget` | file, symbol, package | admitted-target | yes (target kind and occupancy from the **same reconciled occupancy projection as atom matching**: exact-id ephemeral first-party when payload native id uniquely equals one inventory native id; known ephemeral fields override unknown sidecar attestation; V2 sidecar first-party mapping otherwise. Missing mapping and no unique exact-id → unprojectable. Unknown attestation must not erase a known occupancy identity.) |
+| `control-flow` | `syntactic` | `from` | symbol | `to` | symbol | same-only | yes |
+| `reachability` | `from-resolved-calls` | `origin` | symbol | `reachable` | symbol | same-only | yes |
+| `calls` | `syntactic-callee-name` | | | | | | **no** (request refused) |
+| `references` | `syntactic-name-match` | | | | | | **no** |
+| `imports` | `syntactic-specifier` | | | | | | **no** |
+| `file` / `package` / `declares` / `literal` / `types` / `unresolved-edge` / `clones` / `vcs-change` | | | | | | | **no** |
+
+Endpoint of a projectable fact (from the fact + payload + **reconciled occupancy**):
+
+- source: `universe = fact.sourceUniverse`, `kind = table.sourceKind`, `nativeSubjectId = payload[sourceField]`; `packageManifestPath` only when kind is `package`.
+- Occupancy identity follows [atom evaluation §2](../foundation/atom-evaluation-contract.v1.md#2-target-attribution) and the selected [TargetAttributionV2 join law](../foundation/target-attribution.schema.v2.json) over the admitted Run’s selected `evaluationInputRefs` (`subject-inventory`, `target-attribution`), the plan enumeration binding, and named producer closures. Host `targetAttributions` / cache / standing are not inputs. The host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling to invent kind or occupancy.
+- target universe: `fact.targetUniverse` when universe rule is `admitted-target`, else `fact.sourceUniverse`.
+- **First-party** occupancy projects `nativeSubjectId = reconciled occupancy nativeId` (inventory spelling) and, for packages, `packageManifestPath` from the occupancy projection.
+- **External** occupancy projects `nativeSubjectId = payload target field` (opaque payload id). External packages still require `packageManifestPath` as the GraphEndpoint coordinate (not a first-party inventory join).
+- **Single-kind** rungs (`calls`/`references`/`control-flow`/`reachability`): table kind is the target kind. Unknown occupancy still projects the payload native id as a lawful external/unknown vertex. Known ephemeral first-party still wins over unknown sidecar attestation.
+- **Multi-kind** `imports@resolved-target`: target kind comes from reconciled occupancy. Missing mapping with no unique exact-id occupancy → unprojectable fact (not an inventory vertex). Unknown sidecar occupancy MUST NOT unproject a fact whose ephemeral exact-id occupancy is first-party.
+
+**Order** of neighbor rows is the utf-8 byte tuple `(source.universe, source.kind, source.nativeSubjectId, source.packageManifestPath or "", target…, fact2 id)`. Reach rows order by the endpoint tuple. Path ties among shortest simple paths are the lexicographically least `fact2` id sequence. These tuples are the public order; backend dense integers are not.
+
+## 4. Closed parameters per graph operation
+
+Uniform closed request params. Extra properties refuse. LogicalPath `subject`/`target` and the non-graph bag are forbidden on graph ops (`QUERY.PARAMS_MALFORMED`).
+
+| Operation | Required | Optional | Result unit | Cycle / duplicate | Path / start law |
+|---|---|---|---|---|---|
+| `graph.neighbors` | `relation`, `minResolution`, `direction`, `endpoint` | `factViewDigests` | one row per distinct admitted `fact2` (two provenances = two rows) | same `fact2` once | incidence at the admitted endpoint |
+| `graph.path` | plus `start`, `target`, `maxDepth` | `factViewDigests` | at most one simple path | no repeated endpoint except zero-hop | **admitted** `start==target` → one empty-edge path. Otherwise canonical BFS: adjacency is `fact2` id order, cap checked before entering an unvisited vertex, `maxDepth` ends expansion. The first BFS reach of the target is the selected shortest hop-count path and the lex-least `fact2` sequence among those shortest paths; search stops there. Remaining unvisited branches are not owed and must not truncate a proven witness. If the cap hits before the target is reached, no path is claimed. No optional closing cycle. |
+| `graph.reach` | `start`, `maxDepth` | `includeStart` (admission default **false**), `factViewDigests` | distinct admitted endpoints reachable within `maxDepth` | start excluded unless `includeStart=true` | membership, not paths |
+
+`direction`: `outgoing` follows source→target; `incoming` follows reverse; `both` treats the projected edge as undirected.
+
+`maxDepth` is **semantic** (GX-01). Required completeness means complete **within that declared depth**.
+
+The canonical bounded walk for `graph.path` and `graph.reach` uses a FIFO
+breadth-first frontier starting at the admitted start vertex. For each expanded
+vertex, process eligible directed hops in ascending UTF-8 `fact2`-id order.
+Enter each endpoint at most once, checking the visited cap before first entry;
+enqueue a newly reached endpoint with its parent depth plus one. Do not expand
+endpoints at `maxDepth`. For `graph.reach`, rows retain first-discovery depth
+and `viaFactId`, then are sorted by the public endpoint tuple before the
+produced-item prefix and paging. `includeStart` adds the depth-zero row with no
+`viaFactId`. Reach stops at the first owed unvisited endpoint that cannot enter
+under the cap, preserving the canonical discovered prefix. `graph.path` keeps
+its zero-hop law and stops at its first canonical target hit; branches remaining
+after that witness is established are not owed work. If the cap prevents entry
+before a target witness is established, path returns no claimed path and reports
+unfinished traversal. Other backend strategies must reproduce the same result
+and disclosure for the declared bounds; physical acceleration stays private.
+
+## 5. Cursor, paging, and work bounds
+
+Public bound constants (schema `Bounds`; unchanged):
+
+| Constant | Value |
+|---|---|
+| maxPageSize | 1000 |
+| defaultPageSize | 100 |
+| maxItemsPerOperation | 100000 |
+| maxTraversalDepth | 64 |
+| maxVisitedNodes | 1000000 |
+
+`host.testBounds` may only lower visited/produced caps for reference controls. Public constants do not change.
+
+**Visited-node law.** `visitedNodes` is the number of distinct canonical endpoints **entered** during this logical operation. Fact-id scans are not visits. Check the cap **before** entering an unvisited endpoint; do not increment past the cap. Neighbors enter only the query endpoint. Path and reach enter start, then each newly reached endpoint. Zero-hop path with `maxVisitedNodes=1` is exactly-at-cap complete when no further vertex is owed. One-edge path with `maxVisitedNodes=1` does not enter the target (`visitedNodes=1`, `truncated-bound` if that hop is owed).
+
+**Produced-item law.** `maxItemsPerOperation` counts result units of the logical operation, not per page, and does not reset on continuation. Take the canonical prefix. Remaining units after the prefix are owed work (`countBasis=lower-bound`).
+
+**Cursor.** Opaque token, max 256 chars. Reference form `q3.<runId-64hex>.<selectionHash64>.<position>` binds project+Run+fact-views+operation+effective params (including materialized `includeStart` default)+order+position. The token grants no authority: parameters and view membership are independently admitted. Continuation requires request `view.{runId}` equal to the bound Run. Rebuild from the same available closure is allowed. Cache presence must not change result, count, or completeness; this reference strong path does not read `host.cache`.
+
+**Page fullness** is `truncated-page`, `truncated=false`. It is not operation truncation. Empty `nextCursor` is not native closed-world. Completeness is `traversalCoverage=complete` and `countBasis=exact`. Exactly-at-cap with an empty owed frontier is complete, not incomplete. A cursor cannot continue past the caps.
+
+`completeness=required` plus `truncated-bound` → StepTermination class `indeterminate`, `reasonCodes: ["QUERY.COMPLETENESS_UNMET"]`.
+
+## 6. totalItems and Q3 disclosure
+
+`totalItems` is qualified by `countBasis` `exact|lower-bound`. A produced prefix is never an unqualified total.
+
+Graph operations require `GraphEvidenceDisclosure` derived from the retained closure:
+
+- `coverageIds` / `scopeIds` from selected views **and** other retained Coverage whose key relation is the declared query relation.
+- `deficiencyCitations` copy admitted `executionDeficiencies` with exact `source` (`enumeration|native|import|execution|correspondence`), exact `cause`, and exact `inputRefs`. Unknown source is not coerced to `execution`. `inputRefs` are not dropped.
+- `resolutionLimitations` preserve native `resolutionCompleteness.state` including `incomplete`, `partial`, and `not-attempted` (`kind` `resolution-incomplete` still names the incomplete stage). `unresolvedEdgeCount` (not `unresolvedCount`), `examinedExhaustive`, `attempted`, and Coverage `coverage` / `deficiency` are copied. IncomingSearchV1 attestations of the declared relation are cited when search is not complete. Unresolved-edge facts on the Run are cited even when default view selection is another relation. When no **selected** fact-view matches the requested `relation@minResolution` (empty auto-selection, or explicit `factViewDigests` whose scopes are another relation/rung), emit `native-evidence-unavailable` with that relation and rung. All-closure deficiency citations do not substitute for that disclosure. That is not an absence claim and not a second absence evaluator. Caller-authored limitation arrays are not used.
+
+`advisory` is schema-`const false` for graph.*.
+
+## 7. Faults (CommandEnvelope kind=failure)
+
+`QueryRefusal.termination()` is a StepTermination. The public failure carrier is CommandEnvelope major 3, `kind=failure`, nonempty `errors` of registered DomainDetail, and **no** `run` field. A query does not mint a Run. Reading an old Run does not commit a new Run. `runId` appears on termination only for indeterminate completeness of an already admitted Run.
+
+Failure `requestId` is an already reserved host observation (`host.requestId`, `req1_` + 32 hex). It is never hashed from request bytes and this reference model does not implement CSPRNG. Missing or malformed host RequestId is a **reference-call precondition** (`ReferenceCallPrecondition`), distinct from public request refusal. Optional envelope `projectId` is included only when the request projectId is schema-admitted; malformed projectId is omitted.
+
+Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. `purged` / `expired` / `unavailable` / `corrupt` **refuse** access (`HOST.IO_FAILURE` / `evidence.*`). The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge.
+
+| Condition | class | errorCode / reason | domainDetail |
+|---|---|---|---|
+| schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+| malformed graph params / extra properties / LogicalPath endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
+| unsupported relation or non-projectable request rung | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.RELATION_UNSUPPORTED` |
+| malformed-complete but ambiguous endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
+| well-formed endpoint outside the vertex domain | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_UNKNOWN` |
+| two Runs named for one snapshot | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.VIEW_AMBIGUOUS` |
+| empty, missing, stale, or mismatched latest/snapshot/run selector | request-rejected | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |
+| cursor bind mismatch | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.CURSOR_MISMATCH` |
+| view2 not admitted on this Run | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.FACT_VIEW_UNAVAILABLE` |
+| missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+| corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
+| work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |
+
+## 8. Strong wrapper versus internal traversal
+
+`execute_graph_query(request, run, objects, blobs, host)`:
+
+1. Admit request (schema major 3, closed params).
+2. Require retained `run`/`objects`/`blobs` and call `close_run`.
+3. Join request view to the admitted Run (`runId` / `snapshotId` / trusted `latestRunId`).
+4. Project from admitted views, retained payloads, selected subject-inventories, and retained TargetAttributionV2 records named by the Run’s `evaluationInputRefs`. Occupancy identity follows the same normative reconciliation and exact-id derivation in atom evaluation §2 and the selected TargetAttributionV2 join law. The reference helper is an implementation of those laws, not an additional normative input. Historical V1 sidecars are not selected. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`. Do not read ambient unselected store blobs.
+5. Admit requested endpoints against the vertex domain.
+6. Traverse under the single visit-budget law.
+7. Disclose retained Coverage, deficiencies, unresolved-edge, and incoming-search records.
+
+`traverse_projected_graph` walks caller-supplied projected edges for algorithm goldens only.

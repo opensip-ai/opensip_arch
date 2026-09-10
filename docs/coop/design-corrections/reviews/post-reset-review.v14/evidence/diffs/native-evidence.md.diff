@@ -1,0 +1,716 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v13/docs/v2/contracts/product-v1/native-evidence.md	2026-09-07 02:29:55
++++ /tmp/opensip-design-corrections/candidate-subject.v14/docs/v2/contracts/product-v1/native-evidence.md	2026-09-07 08:12:26
+@@ -91,8 +91,14 @@
+ ### 1.1 Cell coordinates
+ 
+ A cell is `capability × languageMode × platformFamily`. The machine-readable
+-matrix is `native/native-capability-matrix.v2.json` (60 cells, validated by
+-`NativeCapabilityMatrixV2`). Platform families are exactly the four `platformId`
++matrix is `native/native-capability-matrix.v2.json`, validated by
++`NativeCapabilityMatrixV2`; its `cells` array is the **complete product** of its
++own `capabilities` and `languageModes`, and the reference checks hold it to
++exactly that product rather than to a number written here. (A literal count in
++this prose said `60` while the matrix held 66; a second hand-maintained counter
++would only go stale again, so the count is derived from the two arrays and
++reported by the checks instead of restated.) Platform families are exactly the
++four `platformId`
+ values in the delivery release inventory: `linux-x86_64-gnu`,
+ `linux-aarch64-gnu`, `macos-aarch64`, `macos-x86_64`. The OS/kernel/libc/filesystem
+ *baseline* that qualifies a machine into a family is owned by the security unit
+@@ -232,7 +238,22 @@
+   registry capability set contains that `relation@rung`. The anchor is the file
+   the body was actually read from, so a Markdown-anchored code fact refuses in a
+   mixed repository exactly as it does in a data-only one
+-  (`SYNTAX_CAPABILITY_UNSUPPORTED_FACT`).
++  (`SYNTAX_CAPABILITY_UNSUPPORTED_FACT`). **Inventory capabilities are exempt
++  here as well as at the scope boundary below** — the exemption belongs to the
++  *relation*, not to the boundary. An earlier revision wrote this bullet as an
++  unconditional every-anchor rule and stated the exemption only in the scope
++  bullet, so the two bullets contradicted each other: a literal implementer
++  refused a `file@enumerated` fact for `tool/main.py` while the scope bullet had
++  just promised that the same path's inventory Coverage was unconditionally
++  `complete` — an inventoried file that is authoritatively absent. An inventory
++  fact is not read by a grammar at all; it *is* the inventory row, the manifest
++  declaration or the VCS observation, so there is no grammar for it to be gated
++  on. (The relation registry's `anchorLaw` independently gives the inventory
++  class **zero** anchors, so such a fact names no anchor path for this bullet to
++  test either; the two laws agree and neither leans on the other.) The exemption
++  is from grammar ownership **only**: the relation's snapshot joins, own-scope
++  attribution and the anchor law all still bind, and no code fact becomes
++  admissible because some other anchor in the Run sits on a supported path.
+ - **Every requested scope, including an empty view.** A `subject-scope` under a
+   syntax universe is judged on its committed **examined extent** — the source
+   inventory of the snapshot it names. **Inventory** capabilities
+@@ -244,7 +265,84 @@
+   selected `code` grammar. A capability no selected grammar bears is unavailable —
+   which is every semantic rung and `unresolved-edge` under a syntax universe,
+   exactly as the matrix already says.
++
++**A promised inventory capability represents every inventoried path, and a
++`complete` inventory result may not hide an omitted one.** These are two halves
++of one promise and the second was missing. `file@enumerated` is **total** over
++the snapshot inventory: a snapshot inventories exactly the files it contains, so
++every inventoried path has exactly one `file` fact, and over a **complete**
++`file@enumerated` Coverage the predicate `exists file where path=P` is
++authoritative. A complete result that retains no fact for an inventoried subject
++therefore asserts that an inventoried file is absent, and that graph closed —
++nothing derived the obligation, so nothing compared it. A `complete`
++`file@enumerated` Coverage must now carry an admitted `file@enumerated` fact for
++every one of its subjects that the snapshot inventory contains
++(`COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`), derived at Run closure from the
++retained view's own facts and the retained inventory.
+ 
++**A fact discharges the obligation of the scope it actually belongs to.** The
++match is on every coordinate the registry's `matchOn` lists — the four
++`CoverageKeyV2` coordinates other than the commitment itself
++(`relation`, `resolution`, `sourceUniverse`, `targetUniverse`) plus the owning
++`snapshotId`. Matching relation and rung *alone* is not enough in a view carrying
++more than one universe, and this is not hypothetical: the view-level fact/scope
++join is **existential** — each fact need only agree with *some* scope on relation,
++rung and both universes — so a TypeScript `file` fact is lawfully present in a
++view that also carries a syntax-universe `file@enumerated` scope, and while the
++match was two-coordinate it *paid that scope's missing-file obligation*. A
++complete Run exhibited exactly that: two `complete` scopes over `a.ts`, only the
++TypeScript fact, admitted. Totality is a claim about what **this** universe
++examined, so it must be discharged by evidence produced in this universe; a fact
++from another universe is a different interpretation of the same bytes, not the
++same observation. The two-universe Run in which *each* scope carries its own fact
++remains lawful and is retained as a positive control. `snapshotId` is listed
++although Run closure already forces it on every fact and scope: this law reads one
++scope's obligation out of a *shared* view, and a join that silently leans on an
++invariant enforced elsewhere is the same implicit coupling that produced the
++cross-universe defect.
++
++Two things the law deliberately does not require: a subject the snapshot does
++**not** contain is owed nothing —
++the host examined the question and the file is genuinely absent, which is the
++one case a universal negative over inventory exists to serve — and an `unknown`
++result carrying its disclosed deficiency is owed nothing, which keeps a
++partially examined inventory representable rather than forcing a false
++`complete`. `package@manifest-declared` and `vcs-change@vcs-reported` are **not**
++total and owe nothing: most paths declare no package and most were not changed,
++so their empty results are ordinary findings. Which relations owe totality is
++stated in the relation registry (`coverageTotality`), where only `file` has a
++row, and never inferred.
++
++**How many spans a fact cites is a registry law, not an implementer's choice.**
++`fact.anchors` carried no `minItems`, and only `clones` ever stated a
++cardinality, so every published predicate over the array — the `file` row's
++`anchorPathField`, and the every-anchor rule above — was universally quantified
++and therefore *vacuously true* at zero anchors. It neither permitted nor forbade
++the unanchored spelling, and both spellings of one `file@enumerated` claim closed
++a Run with different `fact2` identities. The relation registry now carries a
++closed `anchorLaw` on every relation, in three classes: `source-text` (the nine
++code relations) needs **at least one** span, because a code fact is read from
++source text and an unanchored one names no file that could have been read;
++`body-identity` (`clones`) is **exactly one**, unchanged; and `inventory`
++(`file`, `package`, `vcs-change`) is **exactly zero**, because such a fact's
++whole semantic input is its payload, which the relation's own snapshot joins
++already bind. Zero is also the only cardinality *every* inventoried path can
++satisfy — including a `vcs-change` whose `changeKind` is `deleted`, whose path is
++by construction not in the snapshot and can carry no anchor at all. The
++`source-text` class deliberately imposes **no additional relation-specific
++maximum** and no canonical extent *beyond the common schema bounds* —
++`fact.anchors` already carries `maxItems: 100000` and `uniqueItems`, and those
++continue to apply to every relation; what the class declines is a per-relation
++ceiling or a canonical span set, not the shared one. Which spans a producer cites
++is a real statement about what it read, so two producers citing different spans
++have produced different semantic descriptors and legitimately mint different
++identities. Nothing here promises cross-provider anchor identity for code facts. Two things this also closes that the previous
++wording did not: an unanchored *code* fact was refused only inside this
++syntax-universe guard and closed a Run under a TypeScript or Rust universe, and
++`anchorPathField` existed only on the `file` row, so a `package` fact anchored
++into an unrelated file closed a Run. One law now covers every relation in every
++universe (`FACT_ANCHOR_CARDINALITY`).
++
+ An **unselected** grammar lends no capability: selection is committed in the
+ universe identity, so a bundle that ships a Rust grammar the universe did not
+ select cannot make `declares@syntactic` available for `.rs` files.
+@@ -528,7 +626,194 @@
+ is no `preview-typescript` constant and no TypeScript-only default; a registry row
+ spelled `preview-*` is refused
+ (`units-default-capabilities-full-tsjs-rust-registry-no-preview`).
++
++**The capability vocabulary, its authority and its spelling (CB4-SHOULD-2).**
++`analysis-spec.requestedCapabilities[].capabilityId` was `$ref: Text` and enters
++`PlanId` through `analysisSpecDigest`, and no document named the vocabulary it is
++drawn from. Three spellings were consequently in live use in one release: the
++reference default-selection corpus emitted `relation@rung`
++(`clones@normalized-body-hash`), the foundation reference fixture emitted a bare
++relation name (`references`), and the capability matrix publishes `inventory`,
++`syntax`, `clones-fact`, `clones-near`, `clones-cross-tsjs`, `unresolved-edge`.
++Two conforming hosts requesting the same analysis of the same unit therefore mint
++different `analysisSpecDigest`s, different `PlanId`s and different `RunId`s, which
++defeats independent replay across machines. The `languageMode` sibling was
++already closed against a registered map at Run closure; the capability was not.
++
++- **Authority.** `native/native-capability-matrix.v2.json#/capabilities[].id`,
++  closed at eleven members, with the law published beside it at
++  `#/capabilityIdLaw`. The same vocabulary serves
++  `product-configuration.analysis.capabilities`, whose item pattern
++  `^[a-z][a-z0-9._:-]*$` already contained no `@` — so the `relation@rung`
++  spelling was never admissible at the configuration layer and is now refused by
++  shape at the analysis-spec layer too, before membership is consulted.
++- **A capability id is not a `relation@rung`.** They are different concepts and
++  are not equated. A capability is a *requestable unit of work* and may cover
++  several relations (`inventory` covers `file@enumerated`,
++  `package@manifest-declared` and `vcs-change@vcs-reported`; `syntax` covers the
++  three syntactic rungs) or none at all (`clones-near` and `clones-cross-tsjs`
++  are candidate-only and bear no fact relation). A `relation@rung` is a
++  *fact/Coverage coordinate*: it is what `CoverageKeyV2`, the §1.3 table, the
++  grammar-capability registry and the relation ladders speak. The bridge in both
++  directions is the matrix's own `capabilities[].relations`, so an implementer
++  never has to guess one from the other.
++- **Mode applicability.** A request names a capability *and* a `languageMode`.
++  The `(capability, mode)` cell must exist — the table is the complete product of
++  the eleven capabilities and the six modes, so it always does for registered
++  members — and its state must not be `NOT-SELECTED`, which means "outside D-371;
++  no promise" and is an *unsatisfiable* request rather than a disclosable one.
++  An `UNSUPPORTED-TYPED` cell is a different thing entirely: it **is**
++  requestable and is answered with `unknown` plus its own named deficiency and
++  cause, never refused. Today's three `NOT-SELECTED` cells are
++  `clones-cross-tsjs` under `rust-cargo`, `rust-cargo-prepared` and `syntax-only`.
++- **The release declaration registry.** Its *content* stays an authenticated
++  input — which rows a release ships is not a contract constant — but its schema
++  (`native-evidence.schemas.v2.json#/$defs/ReleaseCapabilityRegistryV1`, rows
++  `{capabilityId, languageModes[]}`), its membership authority (`capabilityId` ∈
++  the matrix ids; every mode registered with a cell that is not `NOT-SELECTED`),
++  its canonical spelling and its binding to the Plan are normative. A duplicate
++  `capabilityId` refuses rather than merging, because two rows declaring
++  different applicable modes for one capability would leave default selection
++  ambiguous.
++
++**The registry states availability; it never states scope.** An earlier revision
++said "the registry may declare a **subset** of the matrix — a release need not
++ship everything". That sentence was written about *membership* and reads as
++permission about *scope*, and it is corrected here, because the default was
++driven **from** the registry: a staged build shipping three rows silently
++requested three capabilities and still looked conformant. That is the D-371
++selected product quietly shrinking with nothing disclosed anywhere, against this
++section's own promise that the default is the full registered set and against
++admission §1.1's complete intended product.
++
++- **Required default (fixed by the matrix, not by a release).** For each
++  discovered unit the `default` profile **must** request every capability whose
++  `(capability, unit languageMode)` cell is not `NOT-SELECTED` — the published
++  definition of the selected product, since `NOT-SELECTED` means "outside D-371;
++  no promise". `UNSUPPORTED-TYPED` cells are **included deliberately**: the matrix
++  says such a cell "refuses with the named deficiency; never silently narrows",
++  and the way it never silently narrows is that the default asks and the Run
++  answers with the disclosed unavailable pair. Omitting it would leave a consumer
++  with no record that the capability exists and was not served.
++- **Absence is disclosed, not dropped — and delivered.** A capability the product
++  requires and this release does not declare available is still requested, and the
++  selection boundary records the absence in `default_capability_selection`'s
++  `undeclaredCapabilities`. That record is an **availability account, not a
++  `CoverageResultV3`** and not a final `(deficiency, nativeCause)` pair — and, on
++  its own, it is a helper return, not something a consumer receives. An earlier
++  revision stopped there and called it "machine-readable"; an in-memory result is
++  not a delivered disclosure.
++- **The public carrier, named — and it delivers in *this* invocation.** One
++  analysis step's selection produces the `{noticeCount, notices[]}` leaf
++  (`release_absence_notices`); adding its `stepId` forms a
++  `CapabilityAvailabilityStepV1`, and the invocation's steps compose
++  `CapabilityAvailabilityV1` = `{stepCount, totalNoticeCount, steps[]}`
++  (`invocation_availability`), carried on **`CommandEnvelope.availability`**.
++  Each notice carries the **complete ownership tuple in typed fields** —
++  `capabilityId`, `languageMode` and the unit's own `workspaceRoot` — with the
++  code `native.capability-unavailable` and the registered remedy. Two things this
++  fixes: an earlier revision concatenated `<capabilityId> @ <languageMode>` into
++  a `subject` and **discarded `workspaceRoot`**, so two units requesting the same
++  capability collapsed into one indistinguishable notice; and it had no carrier
++  for *multiple* absences in the original invocation at all, since
++  `StepTermination.domainDetail` is singular and a `doctor` report is a
++  **different invocation**. The tuple is never concatenated: `workspaceRoot` is a
++  `UserInputPath` bounded at 4096 while `BoundedText` is 1024, so concatenation
++  could silently truncate a path.
++- **Composed per step, because 1024 is the analysis-spec bound.** Each analysis
++  step's own selection becomes a `CapabilityAvailabilityStepV1`
++  (`{stepId, noticeCount, notices[≤1024]}`), and the invocation carries
++  `{stepCount, totalNoticeCount, steps[≤64]}`. A *step's* collection cannot
++  truncate — 1024 is exactly the `analysis-spec.requestedCapabilities` bound and
++  one selection yields at most one absence per requested row — but the invocation
++  is **not** bounded by that number: a named multi-step invocation carries up to
++  64 steps, and two admitted selections of 1023 requests each compose 2046
++  notices, which one flat 1024 array refused. Composing per step preserves every
++  valid admitted invocation and **discards no notice to fit**; `steps` is bounded
++  by the invocation's own step bound (`StepId` 0–63).
++- **Association, order and count.** Each entry names the `stepId` whose selection
++  produced it. A step that made **no** selection contributes no entry; a step
++  that selected and found nothing absent contributes an entry with an **empty**
++  array, which is the positive statement that it checked; a retried step
++  contributes one entry, for the attempt whose selection the invocation retained.
++  The same ownership tuple may recur in **different** steps, so uniqueness is
++  within a step and never across the invocation. `noticeCount` equals each step's
++  array length and `totalNoticeCount` is their sum — stated invariants, not a
++  truncation policy. Order is the selection's own, under
++  `x-opensip-order: sequence`. `AnalysisResult` is a closed union and is **not**
++  widened.
++- **The notice's code is its condition.** `code` is `const
++  native.capability-unavailable`, not the whole `DomainDetailCode` enum: this
++  typed record declares exactly one condition, and an earlier revision admitted
++  `CONFIG.INVALID` on a release-absence notice.
++- **Declared parity, not merely envelope membership.** Being present on the
++  envelope does not make a field part of renderer parity — `render` selects only
++  a command's declared `parityFields`, so the collection reached JSON and agent
++  and was omitted by human, SARIF and HTML. `capability-availability` is now a
++  declared parity field of every `requestClass: analysis` command (`default`,
++  `analyze`, `fit`, `audit`, `repair-verify`), so every applicable renderer
++  carries it.
++- **Authority limits.** The disclosure is **advisory**: it terminates nothing,
++  mints no Coverage, creates no Control verdict and no repair authority, and
++  fabricates no clone `Candidate` — the published Candidate records represent
++  actual candidates, so an absent provider can never be one. Nothing here
++  truncates: a step's `notices` is bounded by the analysis-spec request bound it
++  can never exceed, and `steps` by the invocation's own step bound, so
++  `noticeCount` and `totalNoticeCount` are exact rather than a residue of a
++  dropped tail.
++- **Which capabilities use which route.** A **fact-producing** capability keeps
++  its `relation@rung` Coverage under the existing precedence, and this detail
++  does not replace it. A **candidate-only** capability has no Coverage entry at
++  all, so this detail is its *only* public route. No new vocabulary, no new
++  public code, **no preview or default exception**.
++- **What an absence projects to, and what wins when two apply.** Neither case may
++  be assumed. *Precedence*: a capability can be undeclared **and** unservable by
++  the admitted universe at once — `references` under `syntax-only` is both. The
++  syntax capability prerequisite *derives* `language-tier-unsupported` /
++  `capability-missing` for such a scope and refuses anything else, and §10's
++  precedence ranks `language-tier-unsupported` ahead of `provider-unavailable`,
++  so the more specific one wins and the release-absence account never overrides
++  it. Where no more specific deficiency applies, `provider-unavailable` with
++  `capability-missing` is the applicable pair on the existing
++  `COVERAGE.PROVIDER_UNAVAILABLE` route. *Candidate-only capabilities*:
++  `clones-near` and `clones-cross-tsjs` have **empty** matrix `relations` — they
++  are candidate-only by §6.1 authority, mint no fact and no `relation@rung`, and
++  therefore have **no Coverage entry** that could carry a pair; requiring one
++  would mean fabricating a relation. Their account is the selection record itself
++  (`projection: selection-account-only`), while fact-producing capabilities carry
++  `projection: coverage-entry` and name the exact `relation@rung` coordinates
++  they project onto. An availability account may be shared by all capabilities;
++  it is automatically a Coverage result for none of them.
++- **Availability is not qualification.** Declaring a capability cannot promote a
++  cell: `platformQualified` stays false, no cell is `QUALIFIED`, and
++  `SUPPORTED-DESIGN` remains "contracted behavior, corpus named, qualification
++  pending" whatever a release declares. A staged or development build shipping
++  fewer providers is an availability fact disclosed per request — not a narrowed
++  product and not a completed release qualification.
++- **Explicit configuration overrides the request, not the obligation.**
++  `product-configuration.analysis.capabilities` uses this same vocabulary; an
++  override is a recorded choice with its own provenance (the default's is
++  `DEFAULTED`). A user narrowing their own analysis is visible; a host silently
++  narrowing the product would not be.
++- **The host input boundary, honestly.** *Which* rows a release ships is an
++  authenticated input this contract cannot measure, and nothing here qualifies a
++  build, an installer or a provider. What is contract is the obligation the
++  default must meet, the membership the declaration is held to, and the
++  disclosure an absence owes.
++- **Closed at admission, not only in the helper.** The default helper is one
++  producer of an `analysis-spec`, not the authority. The same vocabulary is
++  closed again at Plan/Run closure over the **retained** `analysis-spec`
++  (`ANALYSIS_SPEC_CAPABILITY:native.requested-capability-*`), so an explicitly
++  configured or hand-built spec is judged by exactly the rule a defaulted one is,
++  and the default and explicit paths agree on one spelling by construction. The
++  foundation keeps its own fault for an unregistered *mode*; native owns which
++  capabilities exist and which cells this product promises anything for.
+ 
++No capability is added, removed or renamed, no cell state changes, and all six
++advertised modes, the three native contexts and the full default-selected
++product stay exactly as representable as before. What is new is the authority
++for a field that had none.
++
+ **Backup custody join.** Dependency-source files, inert prepared rows and
+ generated-file blobs are host CAS objects under the one host storage root; they
+ inherit the identity-and-evidence §5 backup-managed-storage choice
+@@ -1261,7 +1546,12 @@
+   `rc2-not-applicable-zero-count-is-not-complete`, `protocol3-crash-mid-stage-is-not-complete`.
+ - **RC-3** `coverage=complete` with `state=incomplete` is a valid, honest entry:
+   the examined partition is exhaustive and resolution is not. It is the expected
+-  result for most real JavaScript and for non-prepared Rust.
++  result for most real JavaScript and for non-prepared Rust. Such an entry owes
++  **no** deficiency and therefore no cause; when a host *does* declare
++  `resolution-incomplete`, `resolutionCompleteness` is the field that carries the
++  reason — the `state`, and `unresolvedEdgeClasses` for *all* applicable classes
++  at once — and `nativeCause` is `null` by design. §10 closes which field carries
++  which deficiency's cause and enforces it.
+ - **RC-4** Derived relations inherit: `reachability` counts `calls` edges over the
+   same examined set; classes propagate.
+ - **RC-5** `maxUnresolvedEdgesPerStage = 1000000`; exceeding it is
+@@ -1425,7 +1715,46 @@
+ table**; this contract never asserts an `ENFORCED-PLATFORM` value itself, and the
+ model refuses a record that claims more than the pinned table (`permission-truth-tables.v9.json`:
+ `network`/`subprocess`/`filesystemWrite` `DISCLOSURE-ONLY`; `environment`
+-`ENFORCED-BY-CONSTRUCTION`). The mandatory pre-execution sentence, in human and
++`ENFORCED-BY-CONSTRUCTION`).
++
++**Which token each effect name is copied from (CB4-ADV-3).** The four effect
++names here are `effects` field names; the pinned table is over seven closed
++permission **tokens**, and the correspondence was determinate by elimination but
++published nowhere, so an implementer had to infer it. It is stated:
++
++| `effects` field | Permission token | `ENFORCED` in v9 (child-process) | What the value means |
++|---|---|---|---|
++| `subprocess` | `PT-PROC-EXEC-DECLARED` | `DISCLOSURE-ONLY` | No mechanism prevents the effect; the record states what was asked and answered. |
++| `filesystemWrite` | `PT-FS-WRITE-HOST-STATE` | `DISCLOSURE-ONLY` | Same. See the scope note below. |
++| `network` | `PT-NET-EGRESS` | `DISCLOSURE-ONLY` | Same. |
++| `environment` | `PT-ENV-READ` | `ENFORCED-BY-CONSTRUCTION` | The child's environment is constructed by the host, so the capability is never conferred *in this execution mode*. |
++
++Three scope facts travel with that table and none of them may be dropped:
++
++1. **The values are per execution mode.** `native.prepare` runs owners as child
++   processes, so the `child-process` column is the applicable one. In v9's
++   `in-host-process` mode *every* token including `PT-ENV-READ` is
++   `DISCLOSURE-ONLY`, because a component sharing the host's address space shares
++   its environment. Quoting `ENFORCED-BY-CONSTRUCTION` without its mode would
++   over-claim.
++2. **`PT-FS-WRITE-HOST-STATE` is not repository filesystem authority.** The token
++   names the *host's own state store*. Neither it nor any grant over it confers
++   authority over the repository tree, and its `DISCLOSURE-ONLY` value says
++   precisely that nothing prevents writes anywhere: the executing code holds the
++   invoking user's ambient authority throughout. `filesystemWrite` here is a
++   disclosure of that fact, never a scoping of it.
++3. **`PT-HOST-EFFECT-BROKERED` is deliberately unprojected.** It is the one token
++   whose v9 value is `ENFORCED-AT-HOST-BROKER`, and no `effects` field carries
++   it, because repository code under `native.prepare` is not routed through a
++   host broker. `EnforcementV1` admits the value, so the vocabulary is not
++   narrowed; nothing in this contract claims it. The two read-only tokens
++   (`PT-FS-READ-PROJECT`, `PT-FS-READ-COMPONENT`) are likewise unprojected: they
++   are not effects this record authorizes.
++
++Confinement is never claimed, and every value above remains the security owner's
++to change: if a primitive is later measured on a platform, only that cell moves.
++
++The mandatory pre-execution sentence, in human and
+ JSON output: "Build scripts and procedural macros from N packages will run with
+ your user's authority. OpenSIP does not prevent network access or other effects on
+ this platform." followed, when applicable, by "Packages with declared
+@@ -1824,15 +2153,128 @@
+ `nativeCause`) that the host termination names by its `coverageId`; no D9 enum
+ changes anywhere.
+ 
+-| Native detail | Cause (`nativeCause`) | D9 class (host-owned) | Existing code | Typed detail carrier |
++**The Cause column is not one field.** This column previously read `Cause
++(nativeCause)` throughout, and three of its rows then named values the closed
++`NativeCause` enum cannot express: `computed-member-access`, `exports-open` and
++`compiler-inferred` each fail schema validation as a `nativeCause`. The only
++representable value for those rows was `null` — which that enum's own
++description defines as *a disclosure was owed and not made*, the exact argument
++that added the three `body-language-*` members. Worse, nothing compared the pair
++to anything, so a `resolution-incomplete` entry carrying the unrelated but
++schema-valid `lockfile-missing`, or relabelled `capability-missing`, or a
++`derivation-policy-unmet` over an empty `derivationKinds`, each closed a Run.
++
++The correction names the carrier per row rather than adding enum members, and
++that is a decision on the merits, not on compatibility: `resolution-incomplete`
++has a genuinely **set-valued** cause — an entry can exhibit up to all sixteen
++`UnresolvedEdgeKindV1` classes at once — so a scalar could only lose information
++or force an arbitrary pick, which is the multi-cause defect itself. All three
++rows already have closed, structured, independently derived carriers **in the
++same entry**: `resolutionCompleteness` (whose `unresolvedEdgeClasses` RC-2
++already forces to equal the admitted `unresolved-edge` facts of the view),
++`closedWorld.exportsClosed`, and `derivationKinds`. **No enum changes anywhere** —
++not `NativeCause`, not `DeficiencyV2`, not `UnresolvedEdgeKindV1`, not the public
++`DomainDetailCode` registry, and no D9 class, code or exit.
++
++Where the Carrier column says a field other than `nativeCause`, `nativeCause` is
++`null` **by design** and that null is no longer an escape: admission refuses
++unless the named field actually carries the cause. The pairing is closed in
++`native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry`, derived
++at the producer boundary in `admit_coverage_result_v3` and therefore re-derived
++at retained Run closure, which re-runs that exact admission over the retained
++payload (`native.coverage-cause-*`, `PROVIDER.PROTOCOL_VIOLATION`).
++
++| Native detail | Cause carrier and lawful value | `nativeCause` | D9 class (host-owned) | Existing code | Typed detail carrier |
++|---|---|---|---|---|---|
++| `input-closure-incomplete` | `entry.nativeCause` — one of `missing-dependency-source`, `lockfile-missing`, `source-replacement-outside-snapshot`, `generated-output-unavailable`, `generated-file-missing`, `generated-file-out-of-bounds`, `no-program-unit`, `node-modules-outside-read-set`, `config-flag-stripped`, `body-language-ownership-missing`, `body-language-owner-unenumerated`, `body-language-owner-ambiguous` | **required** | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `resolution-incomplete` | `entry.resolutionCompleteness` — `state` ∈ {`incomplete`, `partial`, `not-attempted`} names the stage condition, and `unresolvedEdgeClasses` carries **every** applicable class at once | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `external-consumers-unknown` | `entry.closedWorld.exportsClosed` ∈ {`open`, `unknown`} — the values the old cell spelled `exports-open`, `exports-unknown` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `derivation-policy-unmet` | relation **must be `types`** (§4.7 / `sufficiency_v2` give no other relation a derivation policy) **and** `entry.derivationKinds` must contain `compiler-inferred` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `provider-unavailable` | `entry.nativeCause` — `capability-missing` or `linker-unavailable` where one applies; the row is otherwise self-describing (incl. missing identity tokens) | optional | `indeterminate` (3) | `COVERAGE.PROVIDER_UNAVAILABLE` | coverage2 record |
++| `language-tier-unsupported` | `entry.nativeCause` = `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law); **no other cause is lawful here** | **required** | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `budget-exhausted` | `entry.resolutionCompleteness.stageTerminal` = `budget-exhausted` — the stage terminal the old cell referred to parenthetically | `null` | `indeterminate` (3) | `COVERAGE.BUDGET_EXHAUSTED` | coverage2 record |
++| `confidence-floor-unmet` | **none in the entry** — the floor is `RequirementV2.minConfidenceMillionths` and the entry carries only its own `confidenceMillionths`, so the comparison is the sufficiency evaluation's. Stated as a limit rather than given an invented entry-level predicate | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `required-relation-missing` | **none in the entry** — a sufficiency verdict about a relation the view carries *no* entry for, so an entry can never be its own evidence | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++
++A `null` deficiency requires a `null` cause: a cause without a deficiency names
++why nothing went wrong.
++
++**Some rows are scoped by relation, because their owning law is.** `§4.7` and
++`sufficiency_v2` apply `derivationPolicy` only where the relation is `types` and
++the requirement asks `declared-only`; no other relation has a derivation policy,
++so no other relation's entry can be short of one. Checking the `derivationKinds`
++carrier *alone* let a `references` entry that merely carried the same array value
++declare this deficiency, and a complete Run admitted it. The registry row now
++carries the owning `relations` list and admission refuses an entry outside it.
++
++This is **declaration support, not an obligation**, and the two must not be
++confused. Enforced: an entry that *declares* `derivation-policy-unmet` is for
++`types` and actually carries `compiler-inferred`. Not enforced, and deliberately
++so: whether a given requirement *demands* it. `compiler-inferred` types are exact
++under the admitted universe, carry no probabilistic confidence, and are entirely
++valid under `derivationPolicy=any`; they become a deficiency only under
++`declared-only`, which is `sufficiency_v2`'s question against a `RequirementV2`
++and is never derived from a Coverage entry. Both directions are held by controls.
++
++**Multiple simultaneous causes, and precedence.** An entry carries **one**
++deficiency and **every** carrier at the same time — but *what each carrier
++retains differs*, and an earlier revision of this paragraph generalised the
++strongest case to all of them by saying the scalar "loses nothing". Accurately,
++per carrier:
++
++- `resolutionCompleteness.unresolvedEdgeClasses` is a genuine **set** and retains
++  *every* applicable unresolved class at once, already forced by RC-2 to equal
++  the admitted `unresolved-edge` facts of the view. Here nothing is lost, and
++  this is why enum members would have been the wrong fix.
++- `closedWorld` and `derivationKinds` are independent fields that retain their
++  own state whatever the declared deficiency is.
++- `input-closure-incomplete`'s carrier is a **single scalar** `NativeCause`, and
++  a Run can genuinely be missing several inputs at once — two absent crates, or
++  an absent crate *and* an unavailable generated file. For that row the retained
++  cause is a **selected** one, not the full set.
++
++**The selected-scalar limitation, stated rather than engineered around.** The
++producer names the cause it acted on; Run closure checks that the named cause is
++lawful for the deficiency and cannot enumerate the inputs that were not named.
++What *is* fully retained beside it is the rest of the entry and the Run's own
++evidence — the missing dependency sources, prepared rows and generated files are
++retained records in their own right — so a consumer needing the complete set
++reads those, not the scalar. **No multi-cause format is introduced** merely to
++make this paragraph true: the bounded source and ownership laws are unchanged and
++the limitation is published so no consumer reads the scalar as exhaustive.
++
++Which single member is declared when several
++apply is the precedence order above, applied by the owning sufficiency
++evaluation against a **Requirement**. That selection is deliberately **not**
++re-derived from the entry alone, and the limit is stated rather than worked
++around: several conditions are requirement-relative (external-consumer state
++matters only for a universal negative about an exported target; the confidence
++floor lives in the Requirement), and **RC-3** makes `coverage: complete` with
++`state: incomplete` and *no* deficiency a valid honest entry. Forcing a
++deficiency out of exhibited entry evidence would refuse lawful Runs. What is
++decidable from the entry, and what is therefore enforced, is the other
++direction: a **declared** deficiency must be **supported** by the entry's own
++committed evidence.
++
++**Retained and public routes are different, and both are named.** *Retained*:
++the whole `ViewEntryV3` lives inside the `coverage2` record whose payload and
++schema digests the Run commits, so every carrier above is retained evidence a
++verifier re-derives. *Public*: the **deficiency** projects outward as its own
++closed `DomainDetailCode` — `resolution-incomplete`, `external-consumers-unknown`
++and `derivation-policy-unmet` are already members — and the **cause** travels as
++typed detail in the `coverage2` record the host termination names by its
++`coverageId`, exactly as this section has always said for the
++`nativeCause`-carried rows. No new public code is added and none is needed.
++
++### Admission and event routes (existing; unchanged rows)
++
++These are the pre-existing five-column routes. They were left running on after the
++new deficiency table above with no header of their own; the header is restored and
++the rows are untouched. The two closing rows carry the admission conditions the
++capability-vocabulary guard introduced.
++
++| Condition | Cause (`nativeCause`) | D9 class (host-owned) | Existing code | Typed detail carrier |
+ |---|---|---|---|---|
+-| `input-closure-incomplete` | `missing-dependency-source`, `lockfile-missing`, `source-replacement-outside-snapshot`, `generated-output-unavailable`, `generated-file-missing`, `generated-file-out-of-bounds`, `no-program-unit`, `node-modules-outside-read-set`, `config-flag-stripped`, `body-language-ownership-missing`, `body-language-owner-unenumerated`, `body-language-owner-ambiguous` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `resolution-incomplete` | the unresolved edge classes; `partial`/`not-attempted` stage | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `external-consumers-unknown` | `exports-open`, `exports-unknown` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `derivation-policy-unmet` | `compiler-inferred` present | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `provider-unavailable` / `capability-missing` (incl. missing identity tokens) | | `indeterminate` (3) | `COVERAGE.PROVIDER_UNAVAILABLE` | coverage2 record |
+-| `language-tier-unsupported` | `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law) | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `budget-exhausted` (stage terminal) | | `indeterminate` (3) | `COVERAGE.BUDGET_EXHAUSTED` | coverage2 record |
+ | stale prepared/import row selected explicitly; non-inert prepared row | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | details `native.stale-prepared-output` / `native.stale-import` / `native.prepared-output-not-inert` |
+ | execution not authorized (CI without policy; missing live boundaries; no bundled linker; over-claimed enforcement; revocation mid-step) | `linker-unavailable` where applicable | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `native.execution-not-authorized` |
+ | explicit Config2/CLI workspace root without a language marker; explicit root violating the shared path grammar; explicit root at or below an admitted boundary (nested repository/project, custody-excluded directory) | | `request-rejected` (2) | `CONFIG.INVALID` | `native.explicit-root-without-marker` (missing marker); `PROJECT.EXPLICIT_PATH_INVALID` (grammar or boundary crossing) |
+@@ -1844,10 +2286,182 @@
+ | more than 4096 first-party workspace unit directories (`PROJECT.WORKSPACE_UNIT_LIMIT`, with `unitCount`/`limit`; installed dependencies never count) / too many recognizers | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | request detail |
+ | shared scope array exceeds its bound (workspaceRoots1024, pathPrefixes/excludedPathPrefixes65536), without truncation | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, subject `field:count>limit` |
+ | unrecognized framework | | none (disclosure) | none | disclosure |
++| **invalid capability REQUEST** in `analysis-spec.requestedCapabilities`: an id outside the closed matrix vocabulary or a mis-shaped spelling (`native.requested-capability-unregistered`), or a `languageMode` outside the registered set (`native.requested-capability-mode-unregistered`) | | `request-rejected` (2) | `CONFIG.INVALID` | `CONFIG.INVALID`; the internal key normalizes at the host boundary |
++| **unsatisfiable capability REQUEST**: id and mode both registered, but the `(capability, mode)` cell is `NOT-SELECTED` — outside D-371, no promise to serve (`native.requested-capability-mode-not-selected`) | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | request detail (capability, mode) |
++| **invalid authenticated RELEASE DECLARATION**: a row naming a capability the matrix does not register, a mode outside the registered set, a mode whose cell is `NOT-SELECTED`, a duplicate `capabilityId`, or a `preview-*` spelling (`native.release-capability-unregistered`, `…-mode-unregistered`, `…-mode-not-selected`, `…-duplicate`) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | request detail (before PlanId; no worker is spawned) |
++| **producer Coverage cause/carrier refusal** at the native producer boundary and again at Run closure (`native.coverage-cause-required`, `…-must-be-null`, `…-not-for-deficiency`, `…-carrier-unsupported`, `…-relation-not-in-scope`, `…-without-deficiency`, `…-registry-row-missing`) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record |
+ 
+ Exit 0 is never used for any row above; an unmapped detail is a model error, not
+ a silent success (`d9-unknown-detail-never-exit-zero`). Cancellation follows D9.
+ 
++**How the internal keys reach the public surface.** The carrier is
++`common.schema.json#/$defs/StepTermination` — `class` plus
++`errorCode`/`faultCause`/`reasonCodes`, with `domainDetail` **optional** — not a
++bare `DomainDetail`. An earlier revision published prose here (`request detail
++…`, `operational record`) as if it were a public detail code; it is not, and 14
++of 16 branch targets refused the real schema. Where an existing closed
++`DomainDetailCode` member names the condition it is carried; where none does,
++`domainDetail` is lawfully **absent** — the `errorCode` already names the
++condition — and the internal decision key is retained in the operational
++diagnostic record. Every branch below derives a StepTermination that validates
++against the real schema (`public_termination_for(key, origin)`); the closed
++route table is
++`native-evidence.schemas.v2.json#/x-opensip-public-route-registry`.
++
++**The originating boundary decides the class and code, and it is the existing
++law.** Admission §1 fixes the actor/layer split — "Invalid external input is an
++admission rejection with the existing carrier's D9 code; an invalid
++host-generated internal layer is a host invariant fault" — and the inherited
++`d9-exit-contract.v1.14` completes it: `nonAnalysisDerivation` rule 2 puts
++authored-config errors and failed preconditions in `request-rejected`, **rule 5
++puts host failures in `operational-failed`**, and `axes.domainCondition`
++separates `host-fault` from `precondition-failed`.
++
++| Originating boundary | Class | Existing code | `domainDetail` |
++|---|---|---|---|
++| **External configuration** — a capability the user configured through Config2/CLI `analysis.capabilities` | `request-rejected` (2) | `CONFIG.INVALID` | `CONFIG.INVALID` |
++| **Externally supplied or retained spec**, origin *known* external | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | absent; key in the operational record |
++| **Host-generated internal layer** — a host *bug* minting its own invalid spec | **`operational-failed` (4)** | `SYSTEM.OUTCOME.ILLEGAL_STATE`, `faultCause: host-invariant` | absent; key in the operational record |
++| **Authenticated release declaration** — malformed host-supplied registry, before any Plan | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | absent; key in the operational record |
++| **Producer boundary** — a Coverage cause/carrier violation | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION`, `faultCause: provider-protocol` | absent; key in the operational record |
++
++A well-formed request for a `NOT-SELECTED` cell is **origin-independent**:
++nothing is malformed, so it is `request-rejected` / `REQUEST.UNSATISFIABLE` with
++the existing detail `PROVIDER.NOT_SELECTED`, whichever boundary it arrived from.
++Each key declares the boundaries at which it *can* arise and any other is
++refused, so a release declaration cannot be reported as a user's configuration
++error, nor the reverse.
++
++**The selected D9 composition, published here rather than deferred.** It
++inherits `d9-exit-contract.v1.14.json` **unchanged** and adds exactly one thing:
++the `faultCause` `host-invariant`, mapped to the **existing** error code
++`SYSTEM.OUTCOME.ILLEGAL_STATE`. What was unrepresentable was the
++**host-*invariant* subtype specifically** — other host-fault causes such as
++`host-io`, `ledger-corrupt` and `provider-protocol` already existed and were
++always representable — because `StepTermination` requires `operational-failed` to
++carry *both* an `errorCode` and a non-`none` `faultCause`, and no declared cause
++named a host invariant violation. Borrowing `host-io` for it would be a different
++remedy.
++
++Two precisions the earlier wording got wrong. `codeMaps.rule`'s "total and
++injective" is a property of the **declared cause domain** — every declared cause
++has exactly one code — and does **not** require every `errorCode` to have a
++preimage, so an error code without a cause was never a violation of totality; the
++claim that the maps were non-total was wrong. And while existing classes, exit
++codes, reason codes and error codes are unchanged, this **is** a D9 vocabulary
++extension: `faultCause` grows by one member, and saying otherwise would be false.
++The schema, the workflow mapper and the route registry must agree, every
++inherited mapping and golden is preserved, and an unknown cause still refuses.
++`docs/coop/artifacts/d9-exit-contract.v1.14.json` keeps its bytes; publishing the
++successor D9 **artifact** remains that unit's, and this is the normative law the
++product source carries meanwhile.
++
++**The admission helpers are not passed an origin and do not guess one.**
++`admit_requested_capabilities`, `admit_release_capability_registry` and
++`deficiency_cause_faults` receive rows and nothing about provenance, so they emit
++the internal decision key **alone**. `public_termination_for(key, origin)` is the
++derivation the **host** calls with the context it already holds.
++
++**A termination alone does not complete the public failure surface.** The
++`kind=failure` `CommandEnvelope` requires a **nonempty** `errors` array of
++`DomainDetail`, so a route that lawfully leaves `termination.domainDetail` absent
++still owes the envelope a detail — a minimal failure envelope built from the
++externally-supplied and host-generated routes refused *"`errors` is a required
++property"*. `failure_envelope_errors` composes it: where the termination carries
++a detail, `errors` is **exactly that detail**, so the two surfaces can never
++disagree; where it does not, the route's own `envelopeDetail` supplies one.
++Before a Plan or Run exists **no run envelope is fabricated** — the failure
++envelope carries the termination, its errors and the request id, nothing else.
++
++Four `DomainDetailCode` members are **added** for this, rather than borrowing an
++unrelated remedy: `native.capability-spec-invalid`,
++`native.release-declaration-invalid`, `native.coverage-cause-unsupported` and
++`HOST.INVARIANT_VIOLATED`. "A supplied spec names an unregistered capability",
++"the installed release declaration is malformed", "the provider emitted an
++unsupported deficiency/cause pair" and "the host violated its own invariant" are
++four different things for a caller to do next. Reuse was taken wherever it was
++honest: external configuration keeps `CONFIG.INVALID`, and a `NOT-SELECTED` cell
++keeps `PROVIDER.NOT_SELECTED`.
++
++**A refused value can exceed the diagnostic bound, and the projection is
++bounded.** `DomainDetail.subject` is `BoundedText` (1024) while a *structurally
++valid* `languageMode` may be 4096 characters; the composed subject then reached
++4149 and made the whole failure envelope schema-invalid at
++`termination.domainDetail.subject` or `errors[0].subject`. `bounded_subject`
++elides: the registered **key** is preserved verbatim — it selects the code, the
++class and the origin — and only the offending value is elided, keeping a leading
++window plus the SHA-256 of the untruncated subject's UTF-8 bytes. Emitting the untruncated
++string would be schema-invalid, dropping the subject would lose attribution, and
++reclassifying the input error as success would be false. The code, class and
++origin are never changed by the elision.
++
++The encoding is normative, and its **units** are stated because they differ
++between the two operations. Let `raw` be the composed subject
++`<registered key>[:<value>]` as an **admitted Unicode scalar string**. Length and
++slicing count **Unicode code points**, which is what `BoundedText`'s JSON Schema
++`maxLength` counts — not UTF-8 bytes and not UTF-16 code units. If
++`len(raw) ≤ 1024` the subject **is** `raw`. Otherwise it is
++
++```
++raw[: 1024 − len("...#sha256:") − 64] + "...#sha256:" + hex(SHA256(raw.encode("utf-8")))
++```
++
++— the marker `...#sha256:` is ASCII, the digest is exactly 64 lowercase hex
++characters, the SHA-256 input is exactly `raw` encoded as UTF-8 with **no**
++additional normalization, and the result is exactly 1024 code points. A
++non-ASCII value therefore has a UTF-8 byte length that may exceed 1024 while its
++scalar length does not, and the two operations must not be conflated.
++
++Two distinct long values are distinguished under the **ordinary
++collision-resistance assumption** for SHA-256; this is not a claim that collision
++is impossible. **The guarantee is confined to what is published** — the bounded
++subject and its digest. This contract does **not** promise a separate retained
++store of the untruncated value and names none; a host that keeps its own
++operational log may match it by recomputing this digest, which is why the digest
++is published at all.
++
++**Guard output is colon-suffixed, and normalization is defined for it.** The
++guards emit `native.requested-capability-unregistered:made-up-capability` and
++`native.coverage-cause-not-for-deficiency:input-closure-incomplete:capability-missing`,
++so a normalizer matching the whole string would find no registered key.
++`normalize_internal_key` matches the **longest registered key followed by a
++colon** and takes the remainder as the subject, which is what reaches
++`DomainDetail.subject` so a caller sees *which* value was refused. A raw string
++matching no registered key **refuses** rather than passing through, as the public
++registry's `aliasRule` requires of an unknown key, and an origin a key cannot
++have refuses too. Every guard must therefore emit a *registered* key: the
++`preview-*` release guard emitted a prose sentence, which this section had always
++listed as an invalid release declaration yet which the normalizer correctly
++refused, so it now emits `native.release-capability-preview-constant:<id>` and
++routes like every other release fault.
++
++**Only context-free keys are aliased.** `internalAliases` in the public detail
++registry is a context-free map, so it carries only a key whose public detail is
++the same at *every* origin: `native.requested-capability-mode-not-selected` →
++`PROVIDER.NOT_SELECTED` and `native.release-capability-undeclared` →
++`native.capability-unavailable`, both already registry members. An
++origin-dependent key cannot be expressed there — `CONFIG.INVALID` when
++configured, no detail when the host produced it — and a key whose detail is
++absent never surfaces as a `DomainDetailCode` at all. An earlier revision claimed
++all fourteen belonged in that map and that the edit was mechanical; both claims
++were wrong. **Four** public `DomainDetailCode` members *are* added, named and
++justified above — an earlier revision of this paragraph still claimed none was,
++which the same section had already contradicted — and no D9 class, exit code,
++reason code or error code changes.
++
++**`UNSUPPORTED-TYPED` is not on any of these routes.** It is a lawful, admitted
++request that is *answered*: the Run closes and the Coverage carries `unknown`
++with the deficiency the **owning derivation** selects under the §10 precedence.
++For a relation the admitted universe cannot serve at all — a compiler-free
++`references` request under `syntax-only` — that is `language-tier-unsupported`
++with `capability-missing`, and it **outranks** `provider-unavailable`. A
++capability the release merely did not declare available carries
++`provider-unavailable` with `capability-missing` only where no more specific
++deficiency applies, and a **candidate-only** capability has no Coverage entry at
++all — its public route is the advisory `native.capability-unavailable` detail
++described in §1.4. Neither case is a refusal, and neither may be converted into
++one.
++
+ **Clones ownership disclosure is typed, not null (CB3-MUST-5).** §11's
+ `scopeVersusEnumeration` requires that a clones scope which cannot determine a
+ body dialect mint no body identity, report the incompleteness in its Coverage,
+@@ -1926,7 +2540,9 @@
+ All are `H(domain, descriptor)` under the foundation recipe, hex-encoded as
+ `sha256:<64 hex>` where a `Sha256Text` is required:
+ `native.semantic-universe.rust.v2`, `native.semantic-universe.typescript.v2`,
+-`native.context.rust.v2`, `native.context.typescript.v2`, `native.dependency-source-set.v1`,
++**`native.semantic-universe.syntax.v2`**, `native.context.rust.v2`,
++`native.context.typescript.v2`, **`native.context.syntax.v2`**,
++`native.dependency-source-set.v1`,
+ `native.dependency-file-manifest.v1`, `native.unified-features.rust.v1`,
+ `native.cargo-config-projection.v2` (over `CargoConfigProjectionV2`, §3.3 — the
+ domain `rust-v2.configProjectionSha256` carries the suffix of),

@@ -1,0 +1,142 @@
+--- finalv1/docs/v2/contracts/product-v1/native-evidence.md
++++ finalv2/docs/v2/contracts/product-v1/native-evidence.md
+@@ -120,9 +120,17 @@
+ | `rust-cargo-prepared` | as above, plus an admitted `PreparedOutputSetV3` of inert rows | `rust-v2` with `preparedOutputSetId` non-null | Expansions and directives are consumed as data; a site without a row is an unresolved edge (§3.6). |
+ | `syntax-only` | any file whose extension maps to a bundled grammar | `syntax-v2` (grammar-only; no compiler) | Inventory/syntax/clones only; semantic rungs `language-tier-unsupported`. |
+ 
+-**This table selects a MODE inside a unit; it does not discover units.** Every
+-row's Recognition cell is read **after** §1.4 U-1 has yielded a unit, and none of
+-them mints one. U-1 is the specific model — the closed `WorkspaceUnitV2` record,
++**This table selects a MODE; it does not discover units.** No Recognition cell
++mints a unit. For the five rows that name a **compilation** universe —
++`ts-tsconfig`, `js-allowjs`, `js-synthesized`, `rust-cargo` and
++`rust-cargo-prepared` — the cell is read **after** §1.4 U-1 has yielded a unit of
++that language family, because those modes describe a program and a program needs
++one. **`syntax-only` carries no such prerequisite and must not be read as if it
++did:** it is the compiler-free path, it has no compilation unit at all (§1.2's
++third-universe paragraph and §6.3's grammar dialect branch both depend on that),
++and it is exactly what serves a repository in which U-1 yields **no** TS or Rust
++unit. A file reached that way is `syntax-only` membership with `unitOrdinal: null`
++under U-4, not a member of an invented unit. U-1 is the specific model — the closed `WorkspaceUnitV2` record,
+ the exactly-once `FileMembershipRowV1` law and the marker precedence
+ `tsconfig.json` > `jsconfig.json` > `package.json` — and a `tsjs` unit exists only
+ where a directory holds one of those three markers. So a directory of bare `.js`
+@@ -331,12 +339,16 @@
+ stated in the relation registry (`coverageTotality`), where only `file` has a
+ row, and never inferred. This is the specific rule that identity §3's "partition
+ the claimed universe without overlaps or omissions" defers to: the **disjointness**
+-half is general and applies within the full owning
+-`(snapshotId, relation, resolution, sourceUniverse, targetUniverse)` tuple, while
+-the **omission** half is discharged only where this registry carries a row. For
+-the nine `symbol`-kind relations it carries none, and the reason is the trust
+-boundary stated below — symbol-to-file attribution is not re-derivable from the
+-retained Run — so no omission obligation exists there and none is invented.
++half is general, applies within the full owning
++`(snapshotId, relation, resolution, sourceUniverse, targetUniverse)` tuple, and is
++decided at retained Run closure against the registry's own
++`coveragePartitionLaw`; the **omission** half is discharged only where this
++registry carries a `coverageTotality` row. For the nine `symbol`-kind relations it
++carries none, and the reason is the trust boundary stated below — symbol-to-file
++attribution is not re-derivable from the retained Run — so no omission obligation
++exists there and none is invented. Disjointness still applies to them, because it
++asks a different question: not what was examined, but whether one interpretation
++claimed a subject twice.
+ 
+ **How many spans a fact cites is a registry law, not an implementer's choice.**
+ `fact.anchors` carried no `minItems`, and only `clones` ever stated a
+@@ -979,10 +991,10 @@
+ to the **entry and to every non-entry node** alike:
+ `packages/web/tsconfig.json` reached as a base is `tsconfig`, and
+ `tsconfig.build.json` reached as a base is `other` — the widespread
+-`tsconfig*.json` naming convention has no specified meaning and is deliberately
+-**not** the rule, since `tsconfig.json` and `jsconfig.json` are the only two
+-basenames the language recognizes by name. `other` is an ordinary value, not a
+-defect: an explicitly selected custom-named configuration is an `other` entry that
++`tsconfig*.json` naming convention is deliberately **not** the rule, because the
++exact table is total and decidable from the retained path alone while a prefix
++rule would additionally have to decide `jsconfig.build.json`, an extensionless
++`tsconfig` and `tsconfig.jsonc`. `other` is an ordinary value, not a defect: an explicitly selected custom-named configuration is an `other` entry that
+ still derives `configOrigin=tsconfig`.
+ 
+ This had to be written down rather than left to "the schema and native
+@@ -997,7 +1009,9 @@
+ `capabilityId` vocabulary was closed for and is closed the same way. A node whose
+ declared kind is not the derived one refuses
+ (`native.config-graph-kind-contradicts-path`), so neither the entry nor a base can
+-be relabelled.
++be relabelled. A candidate digest may already have been computed and compared when
++that fault is raised — the universe is simply never **admitted**, and no identity
++is accepted, while any fault stands.
+ 
+ Added: `schemaVersion=2`, `languageMode`, `configOrigin`,
+ `synthesizerVersion`, `synthesizedOptions`, `packageModuleType`, `allowJs`,
+@@ -1827,14 +1841,20 @@
+ checks that v2 and the retained v1 oracle both yield `confidence-floor-unmet`
+ for `clones` at 100000 under floor 900000, and `satisfied` at 1000000.
+ 
+-**Where a per-requirement outcome travels, and in which vocabulary.** The result
+-shape is closed and total: `{satisfied: true, disclosures}` with **no**
+-deficiency, or `{satisfied: false, deficiency}` carrying exactly **one**
+-`DeficiencyV2` member chosen by the §10 precedence over every applicable cause.
+-There is no third shape, so a record that consumes this result has no lawful
+-reason to omit the value. A consumer record carrying **one requirement's own**
+-outcome therefore carries `DeficiencyV2` and **never** `D9Deficiency`: four of
+-these nine members — `derivation-policy-unmet`, `external-consumers-unknown`,
++**Where a per-requirement outcome travels, and in which vocabulary.** The full
++result of `sufficiency_v2` is `{satisfied, deficiency?, disclosures, causes}`:
++`causes` is returned on **both** branches — empty when satisfied — and
++`disclosures` may be non-empty on the **failing** branch as well as the satisfied
++one. What a consumer record carries is the **satisfaction/deficiency projection**
++of that result: `satisfied`, and exactly one `DeficiencyV2` member when it is
++false, chosen by the §10 precedence over every applicable cause. `causes` and
++`disclosures` are **not** projected — they stay with the producer and with the
++retained Coverage, and nothing here licenses dropping them. The projection is
++total in the only sense a consumer needs: a failing requirement always has exactly
++one reported outcome, so omitting the value is never lawful.
++
++That projected value is a `DeficiencyV2` member and **never** `D9Deficiency`: four
++of these nine — `derivation-policy-unmet`, `external-consumers-unknown`,
+ `input-closure-incomplete`, `resolution-incomplete` — have no `D9Deficiency`
+ member at all, and the D9-mapped value for all four is the same
+ `verdict-indeterminate`, so a D9-typed per-requirement field could only be
+@@ -1846,12 +1866,25 @@
+ when `satisfied` is false**; the ownership, the mirror and the presence law are
+ published in
+ `native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry/perRequirementConsumerBoundary`.
++
++**This section owns the NATIVE relations only.** `sufficiency_v2` ranges over a
++native **view**, so it is defined exactly for the thirteen native fact relations.
++Repair also admits a requirement over the two **imported-evidence** relations
++(`runtime-observation`, `history-change`), which mint no `fact2`, carry no
++`sourceUniverse`/`targetUniverse` and have no Coverage entry — asked about one of
++them, `sufficiency_v2` would only report `required-relation-missing`, which says
++nothing true about an import. Those requirements have their own producer and their
++own outcome vocabulary, owned by
++`imported-evidence.schema.json#/x-opensip-imported-requirement-law`; the two
++vocabularies are disjoint and a cross-plane value is refused at admission. This
++section is not that law and does not decide those relations.
++
+ Three things stay distinct and none replaces another: this **outcome**; the
+ **public D9 termination** of the Run or step that carries the requirement, which
+ is unchanged and still the §10 class/code columns; and the Coverage entry's own
+ retained **cause carrier**, which the requirement record does not copy — several
+ outcomes are requirement-relative and `required-relation-missing` has no entry at
+-all. `D9Deficiency` is not widened to carry any of this.
++all. `D9Deficiency`'s enum is not widened to carry any of this.
+ 
+ ### 4.7 Positive coverage case (`positive-static-consumer`)
+ 
+@@ -1898,8 +1931,11 @@
+ deliberate and is what keeps §4.6 step 3 reachable: the floor comparison is the
+ sufficiency evaluation's, it runs for **every** relation, and it must still decide
+ correctly against an entry a conforming native provider would never have emitted —
+-an imported or non-native contribution, or a defective provider. The named
+-regression case
++a defective or non-conforming provider, and the defensive fixture below. No
++*imported* route is offered as an example and none is implied: imported evidence
++is a separate plane that mints no `ViewEntryV3` at all (§7, workflows §4), so it
++could not supply one of these values, and inventing such a path to explain the
++wider domain would be fabricating a mechanism. The named regression case
+ `sufficiency-v2-confidence-floor-precedes-one-rung-existential-shortcut` is
+ exactly that: a hand-built evaluator input, **not** a `ViewEntryV3` and **not**
+ provider emission, exercising `clones` at 100000 against a floor of 900000 so that

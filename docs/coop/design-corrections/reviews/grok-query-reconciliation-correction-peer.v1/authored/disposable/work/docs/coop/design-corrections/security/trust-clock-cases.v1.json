@@ -1,0 +1,180 @@
+{
+  "standing": "SYNTHETIC clock observations evaluated by the pure model security_lifecycle_model_v1.clock_decision (AR-04). Rule under test: admitted time A = max(lastAccepted, accepted witness, presented root issue time); a wall beyond A + 90 d is REFUSED before evaluation and before any write; a plausible wall evaluates at tEval = max(evalHighWater, wall, A) and writes exactly tEval as the floor. Existing expiry/freshness boundaries are unchanged. TCB assumptions: payload times are issue times of signature-verified documents; wall/mono/bootId are OS reads; the sleep-inclusive monotonic source is a qualification obligation. Expected values were authored by hand from security-and-lifecycle.md S4 before execution (same author, not an independent oracle). No OS clock was changed.",
+  "model": "clock",
+  "baseRecord": {
+    "evalHighWater": "2026-12-21T10:00:00Z",
+    "lastAccepted": "2026-12-20T00:00:00Z",
+    "anchor": {"bootId": "boot-A", "mono": 1000, "wall": "2026-12-21T10:00:00Z"},
+    "revocationIssuedAt": "2026-12-20T00:00:00Z",
+    "catalogExpiresAt": "2027-03-20T00:00:00Z",
+    "rootExpiresAt": "2027-10-01T00:00:00Z",
+    "_plausibilityLimit": "2027-03-20T00:00:00Z = lastAccepted + 90 d"
+  },
+  "cases": [
+    {
+      "id": "steady-state-advances-floor-and-anchor",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 83800, "bootId": "boot-A"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2026-12-22T09:00:00Z", "floorWrite": "2026-12-22T09:00:00Z", "floorAdvance": "ADVANCE", "writes": ["evalHighWater", "anchor"], "anchorWrite": {"bootId": "boot-A", "mono": 83800, "wall": "2026-12-22T09:00:00Z"}, "lastAcceptedWrite": null, "admittedTimeReference": "2026-12-20T00:00:00Z", "plausibilityLimit": "2027-03-20T00:00:00Z", "findings.length": 0, "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}, "trustFreshness.daysRemaining": 87, "trustFreshness.warning": false, "continuity.available": true, "continuity.deviationSeconds": 0}
+    },
+    {
+      "id": "future-clock-year-jump-in-session-refused-before-any-write",
+      "input": {"record": "$base", "observation": {"wall": "2028-01-01T00:00:00Z", "mono": 83800, "bootId": "boot-A"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "in-session", "floorAdvance": "WITHHELD", "floorWrite": null, "evaluationTime": null, "anchorWrite": null, "lastAcceptedWrite": null, "writes": [], "states": null, "findings.0.status": "CLOCK-EXCURSION-FORWARD", "findings.0.kind": "in-session", "d9": {"class": "request-rejected", "exit": 2, "code": "REQUEST.PRECONDITION_FAILED"}}
+    },
+    {
+      "id": "future-clock-year-jump-after-reboot-refused-before-any-write-not-clamped",
+      "input": {"record": "$base", "observation": {"wall": "2028-01-01T00:00:00Z", "mono": 500, "bootId": "boot-B"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "beyond-horizon", "floorAdvance": "WITHHELD", "floorWrite": null, "evaluationTime": null, "anchorWrite": null, "writes": [], "states": null, "continuity.available": false, "plausibilityLimit": "2027-03-20T00:00:00Z", "findings.0.kind": "beyond-horizon", "d9": {"class": "request-rejected", "exit": 2, "code": "REQUEST.PRECONDITION_FAILED"}}
+    },
+    {
+      "id": "correction-after-refused-excursion-continues-from-the-unchanged-floor",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 600, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2026-12-22T09:00:00Z", "floorWrite": "2026-12-22T09:00:00Z", "floorAdvance": "ADVANCE", "findings.length": 0, "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}}
+    },
+    {
+      "id": "eighty-nine-days-forward-after-reboot-is-plausible-and-bounded",
+      "input": {"record": "$base", "observation": {"wall": "2027-03-19T00:00:00Z", "mono": 500, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2027-03-19T00:00:00Z", "floorWrite": "2027-03-19T00:00:00Z", "floorAdvance": "ADVANCE", "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}, "trustFreshness.daysRemaining": 1, "trustFreshness.warning": true}
+    },
+    {
+      "id": "exactly-ninety-days-after-last-accepted-is-plausible",
+      "input": {"record": "$base", "observation": {"wall": "2027-03-20T00:00:00Z", "mono": 500, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2027-03-20T00:00:00Z", "floorWrite": "2027-03-20T00:00:00Z", "states": {"rootExpired": false, "catalogExpired": true, "revocationStale": false}, "trustFreshness.daysRemaining": 0}
+    },
+    {
+      "id": "one-second-past-ninety-days-is-refused-not-held",
+      "input": {"record": "$base", "observation": {"wall": "2027-03-20T00:00:01Z", "mono": 500, "bootId": "boot-B"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "beyond-horizon", "writes": [], "floorWrite": null}
+    },
+    {
+      "id": "dormant-100-days-no-payload-refuses-with-payload-remedy",
+      "input": {"record": {"$from": "base", "anchor": null}, "observation": {"wall": "2027-03-31T00:00:00Z", "mono": 50, "bootId": "boot-C"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "beyond-horizon", "writes": [], "floorWrite": null, "anchorWrite": null}
+    },
+    {
+      "id": "dormant-100-days-with-fresh-payload-advances-and-heals",
+      "input": {"record": {"$from": "base", "anchor": null}, "observation": {"wall": "2027-03-31T00:00:00Z", "mono": 50, "bootId": "boot-C"}, "payload": {"newestIssuedAt": "2027-03-30T00:00:00Z", "presentedRootIssuedAt": null, "revocationIssuedAt": "2027-03-30T00:00:00Z", "catalogExpiresAt": "2027-06-28T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}},
+      "expect": {"decision": "PROCEED", "witness.accepted": true, "admittedTimeReference": "2027-03-30T00:00:00Z", "evaluationTime": "2027-03-31T00:00:00Z", "floorWrite": "2027-03-31T00:00:00Z", "floorAdvance": "ADVANCE", "lastAcceptedWrite": "2027-03-30T00:00:00Z", "writes": ["evalHighWater", "anchor", "lastAccepted"], "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}, "trustFreshness.daysRemaining": 89}
+    },
+    {
+      "id": "payload-issued-in-the-future-refuses-under-existing-fc-future-rule",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 83800, "bootId": "boot-A"}, "payload": {"newestIssuedAt": "2026-12-24T00:00:00Z", "presentedRootIssuedAt": null}},
+      "expect": {"decision": "REFUSE", "refusal": "PAYLOAD-NOT-ADMISSIBLE", "refusalKind": "payload-future", "witness.accepted": false, "witness.reason": "issued-in-future", "writes": [], "d9": {"class": "request-rejected", "exit": 2, "code": "EXTENSION.ADMISSION_REJECTED"}}
+    },
+    {
+      "id": "stale-payload-cannot-witness-a-forward-clock",
+      "input": {"record": "$base", "observation": {"wall": "2028-01-01T00:00:00Z", "mono": 500, "bootId": "boot-B"}, "payload": {"newestIssuedAt": "2026-12-19T00:00:00Z", "presentedRootIssuedAt": null}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "beyond-horizon", "witness.accepted": false, "witness.reason": "older-than-lastAccepted", "admittedTimeReference": "2026-12-20T00:00:00Z", "writes": []}
+    },
+    {
+      "id": "in-session-forward-jump-30-days-refused",
+      "input": {"record": "$base", "observation": {"wall": "2027-01-21T10:00:00Z", "mono": 1000, "bootId": "boot-A"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "in-session", "continuity.deviationSeconds": 2678400, "writes": []}
+    },
+    {
+      "id": "in-session-forward-jump-with-witness-after-expected-time-accepted",
+      "input": {"record": "$base", "observation": {"wall": "2027-01-21T10:00:00Z", "mono": 1000, "bootId": "boot-A"}, "payload": {"newestIssuedAt": "2027-01-20T00:00:00Z", "presentedRootIssuedAt": null}},
+      "expect": {"decision": "PROCEED", "witness.accepted": true, "evaluationTime": "2027-01-21T10:00:00Z", "floorWrite": "2027-01-21T10:00:00Z", "lastAcceptedWrite": "2027-01-20T00:00:00Z", "anchorWrite": {"bootId": "boot-A", "mono": 1000, "wall": "2027-01-21T10:00:00Z"}, "findings.length": 0}
+    },
+    {
+      "id": "in-session-forward-jump-with-witness-before-expected-time-still-refused",
+      "input": {"record": "$base", "observation": {"wall": "2027-01-21T10:00:00Z", "mono": 1000, "bootId": "boot-A"}, "payload": {"newestIssuedAt": "2026-12-21T00:00:00Z", "presentedRootIssuedAt": null}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "in-session", "witness.accepted": true, "writes": []}
+    },
+    {
+      "id": "suspend-40-days-with-sleep-inclusive-monotonic-is-not-an-excursion",
+      "input": {"record": "$base", "observation": {"wall": "2027-01-30T10:00:00Z", "mono": 3457000, "bootId": "boot-A"}},
+      "expect": {"decision": "PROCEED", "continuity.available": true, "continuity.deviationSeconds": 0, "evaluationTime": "2027-01-30T10:00:00Z", "floorWrite": "2027-01-30T10:00:00Z", "findings.length": 0}
+    },
+    {
+      "id": "backward-in-session-is-a-finding-not-a-refusal-floor-holds",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-19T10:00:00Z", "mono": 1500, "bootId": "boot-A"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2026-12-21T10:00:00Z", "floorWrite": "2026-12-21T10:00:00Z", "floorAdvance": "NONE", "findings.0.status": "CLOCK-REGRESSION-IN-SESSION", "findings.1.status": "CLOCK-REGRESSION", "anchorWrite": null, "writes": ["evalHighWater"]}
+    },
+    {
+      "id": "restart-between-observation-and-decision-carries-floor",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-21T09:00:00Z", "mono": 30, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2026-12-21T10:00:00Z", "floorWrite": "2026-12-21T10:00:00Z", "floorAdvance": "NONE", "findings.0.status": "CLOCK-REGRESSION", "anchorWrite": {"bootId": "boot-B", "mono": 30, "wall": "2026-12-21T09:00:00Z"}}
+    },
+    {
+      "id": "fresh-install-without-payload-refuses-no-admitted-time-context-nothing-written",
+      "input": {"record": {"evalHighWater": null, "lastAccepted": null, "anchor": null, "revocationIssuedAt": null, "catalogExpiresAt": null, "rootExpiresAt": null}, "observation": {"wall": "2026-12-21T10:00:00Z", "mono": 10, "bootId": "boot-N"}},
+      "expect": {"decision": "REFUSE", "refusal": "TRUST.NO_ADMITTED_TIME_CONTEXT", "refusalKind": "fresh-no-context", "floorWrite": null, "writes": [], "states": null, "d9": {"class": "request-rejected", "exit": 2, "code": "REQUEST.PRECONDITION_FAILED"}}
+    },
+    {
+      "id": "fresh-install-with-bootstrap-payload-initialises-floor-and-evaluates-states",
+      "input": {"record": {"evalHighWater": null, "lastAccepted": null, "anchor": null, "revocationIssuedAt": null, "catalogExpiresAt": null, "rootExpiresAt": null}, "observation": {"wall": "2026-12-21T10:00:00Z", "mono": 10, "bootId": "boot-N"}, "payload": {"newestIssuedAt": "2026-12-20T00:00:00Z", "presentedRootIssuedAt": "2026-10-01T00:00:00Z", "revocationIssuedAt": "2026-12-20T00:00:00Z", "catalogExpiresAt": "2027-03-20T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}},
+      "expect": {"decision": "PROCEED", "admittedTimeReference": "2026-12-20T00:00:00Z", "evaluationTime": "2026-12-21T10:00:00Z", "floorWrite": "2026-12-21T10:00:00Z", "floorAdvance": "INIT", "lastAcceptedWrite": "2026-12-20T00:00:00Z", "writes": ["evalHighWater", "anchor", "lastAccepted"], "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}}
+    },
+    {
+      "id": "fresh-install-with-stale-bootstrap-payload-evaluates-stale-not-false",
+      "input": {"record": {"evalHighWater": null, "lastAccepted": null, "anchor": null, "revocationIssuedAt": null, "catalogExpiresAt": null, "rootExpiresAt": null}, "observation": {"wall": "2027-03-01T10:00:00Z", "mono": 10, "bootId": "boot-N"}, "payload": {"newestIssuedAt": "2026-12-20T00:00:00Z", "presentedRootIssuedAt": "2026-10-01T00:00:00Z", "revocationIssuedAt": "2026-11-01T00:00:00Z", "catalogExpiresAt": "2027-01-30T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2027-03-01T10:00:00Z", "floorAdvance": "INIT", "states": {"rootExpired": false, "catalogExpired": true, "revocationStale": true}}
+    },
+    {
+      "id": "fresh-install-far-future-wall-refused-no-poisoned-floor-initialised",
+      "input": {"record": {"evalHighWater": null, "lastAccepted": null, "anchor": null, "revocationIssuedAt": null, "catalogExpiresAt": null, "rootExpiresAt": null}, "observation": {"wall": "2031-01-01T00:00:00Z", "mono": 10, "bootId": "boot-N"}, "payload": {"newestIssuedAt": "2026-12-20T00:00:00Z", "presentedRootIssuedAt": "2026-10-01T00:00:00Z", "revocationIssuedAt": "2026-12-20T00:00:00Z", "catalogExpiresAt": "2027-03-20T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}},
+      "expect": {"decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "refusalKind": "fresh-beyond-horizon", "floorWrite": null, "floorAdvance": "WITHHELD", "writes": [], "d9": {"class": "request-rejected", "exit": 2, "code": "REQUEST.PRECONDITION_FAILED"}}
+    },
+    {
+      "id": "fresh-install-report-only-returns-no-actionable-write-fields",
+      "input": {"record": {"evalHighWater": null, "lastAccepted": null, "anchor": null, "revocationIssuedAt": null, "catalogExpiresAt": null, "rootExpiresAt": null}, "observation": {"wall": "2026-12-21T10:00:00Z", "mono": 10, "bootId": "boot-N"}, "payload": {"newestIssuedAt": "2026-12-20T00:00:00Z", "presentedRootIssuedAt": null, "revocationIssuedAt": "2026-12-20T00:00:00Z", "catalogExpiresAt": "2027-03-20T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}, "reportOnly": true},
+      "expect": {"evaluationMode": "report-only", "decision": "PROCEED", "evaluationTime": "2026-12-21T10:00:00Z", "floorWrite": null, "floorAdvance": "NOT-APPLICABLE", "anchorWrite": null, "lastAcceptedWrite": null, "writes": [], "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}}
+    },
+    {
+      "id": "poisoned-floor-ordinary-evaluation-proceeds-expired-with-recovery-remedy",
+      "input": {"record": {"$from": "base", "evalHighWater": "2031-01-01T00:00:00Z", "anchor": null}, "observation": {"wall": "2026-12-23T08:00:00Z", "mono": 900, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2031-01-01T00:00:00Z", "floorWrite": "2031-01-01T00:00:00Z", "floorAdvance": "NONE", "findings.0.status": "CLOCK-REGRESSION", "findings.1.status": "TRUST.FLOOR_AHEAD_OF_WALL", "states": {"rootExpired": true, "catalogExpired": true, "revocationStale": true}, "trustFreshness.daysRemaining": 0}
+    },
+    {
+      "id": "poisoned-floor-ordinary-fresh-payload-does-not-heal-only-recovery-epoch-can",
+      "input": {"record": {"$from": "base", "evalHighWater": "2031-01-01T00:00:00Z", "anchor": null}, "observation": {"wall": "2026-12-23T08:00:00Z", "mono": 900, "bootId": "boot-B"}, "payload": {"newestIssuedAt": "2026-12-23T00:00:00Z", "presentedRootIssuedAt": null, "revocationIssuedAt": "2026-12-23T00:00:00Z", "catalogExpiresAt": "2027-03-23T00:00:00Z", "rootExpiresAt": "2027-10-01T00:00:00Z"}},
+      "expect": {"decision": "PROCEED", "witness.accepted": true, "evaluationTime": "2031-01-01T00:00:00Z", "floorWrite": "2031-01-01T00:00:00Z", "floorAdvance": "NONE", "lastAcceptedWrite": "2026-12-23T00:00:00Z", "states": {"rootExpired": true, "catalogExpired": true, "revocationStale": true}, "findings.1.status": "TRUST.FLOOR_AHEAD_OF_WALL"}
+    },
+    {
+      "id": "poisoned-floor-report-only-doctor-discloses-and-writes-nothing",
+      "input": {"record": {"$from": "base", "evalHighWater": "2031-01-01T00:00:00Z", "anchor": null}, "observation": {"wall": "2026-12-23T08:00:00Z", "mono": 900, "bootId": "boot-B"}, "reportOnly": true},
+      "expect": {"evaluationMode": "report-only", "decision": "PROCEED", "floorWrite": null, "writes": [], "findings.1.status": "TRUST.FLOOR_AHEAD_OF_WALL", "states.rootExpired": true}
+    },
+    {
+      "id": "after-recovery-epoch-next-evaluation-runs-at-real-time",
+      "input": {"record": {"$from": "base", "evalHighWater": "2026-12-23T00:00:00Z", "lastAccepted": "2026-12-23T00:00:00Z", "anchor": null, "revocationIssuedAt": "2026-12-23T00:00:00Z", "catalogExpiresAt": "2027-03-23T00:00:00Z"}, "observation": {"wall": "2026-12-23T08:00:00Z", "mono": 900, "bootId": "boot-B"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2026-12-23T08:00:00Z", "floorWrite": "2026-12-23T08:00:00Z", "floorAdvance": "ADVANCE", "findings.length": 0, "states": {"rootExpired": false, "catalogExpired": false, "revocationStale": false}, "trustFreshness.daysRemaining": 89}
+    },
+    {
+      "id": "repeated-reboots-cannot-freeze-payload-freshness-floor-never-lowers",
+      "input": {"record": {"$from": "base", "evalHighWater": "2027-03-25T00:00:00Z", "anchor": null}, "observation": {"wall": "2026-12-22T00:00:00Z", "mono": 5, "bootId": "boot-Q"}},
+      "expect": {"decision": "PROCEED", "evaluationTime": "2027-03-25T00:00:00Z", "floorWrite": "2027-03-25T00:00:00Z", "floorAdvance": "NONE", "findings.0.status": "CLOCK-REGRESSION", "states": {"rootExpired": false, "catalogExpired": true, "revocationStale": true}}
+    },
+    {
+      "id": "monotonic-went-backwards-in-same-boot-is-a-finding",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 900, "bootId": "boot-A"}},
+      "expect": {"decision": "PROCEED", "findings.0.status": "CLOCK-CONTINUITY-MALFORMED", "continuity.available": false, "evaluationTime": "2026-12-22T09:00:00Z"}
+    },
+    {
+      "id": "report-only-doctor-never-writes-on-ordinary-record",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 83800, "bootId": "boot-A"}, "reportOnly": true},
+      "expect": {"evaluationMode": "report-only", "decision": "PROCEED", "evaluationTime": "2026-12-22T09:00:00Z", "floorWrite": null, "floorAdvance": "NOT-APPLICABLE", "anchorWrite": null, "writes": []}
+    },
+    {
+      "id": "report-only-excursion-is-reported-as-would-refuse-without-writes",
+      "input": {"record": "$base", "observation": {"wall": "2028-01-01T00:00:00Z", "mono": 500, "bootId": "boot-B"}, "reportOnly": true},
+      "expect": {"evaluationMode": "report-only", "decision": "REFUSE", "refusal": "CLOCK-EXCURSION-FORWARD", "findings.0.wouldRefuse": true, "writes": [], "floorWrite": null}
+    },
+    {
+      "id": "trust-warning-window-ten-days-before-cliff",
+      "input": {"record": {"$from": "base", "anchor": null}, "observation": {"wall": "2027-03-10T00:00:00Z", "mono": 5, "bootId": "boot-W"}},
+      "expect": {"decision": "PROCEED", "trustFreshness.daysRemaining": 10, "trustFreshness.warning": true}
+    },
+    {
+      "id": "record-with-floor-but-no-last-accepted-is-malformed",
+      "input": {"record": {"$from": "base", "lastAccepted": null}, "observation": {"wall": "2026-12-22T09:00:00Z", "mono": 83800, "bootId": "boot-A"}},
+      "expectReject": "RECORD_LAST_ACCEPTED_REQUIRED"
+    },
+    {
+      "id": "malformed-monotonic-is-a-model-rejection",
+      "input": {"record": "$base", "observation": {"wall": "2026-12-22T09:00:00Z", "mono": true, "bootId": "boot-A"}},
+      "expectReject": "MONOTONIC_MALFORMED"
+    }
+  ]
+}

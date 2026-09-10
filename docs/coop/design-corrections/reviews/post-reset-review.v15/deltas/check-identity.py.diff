@@ -1,0 +1,268 @@
+--- /tmp/opensip-design-corrections/post-reset-review.v15/v14-bytes/docs/coop/design-corrections/foundation/check-identity.py	2026-09-07 08:12:17
++++ /tmp/opensip-design-corrections/candidate-subject.v15/docs/coop/design-corrections/foundation/check-identity.py	2026-09-07 10:12:13
+@@ -1,7 +1,7 @@
+ """Independent finite-relation replay and identity/lifecycle adversarial examples.
+ Not a full native protocol implementation or an OS durability qualification.
+ """
+-import argparse,copy,hashlib,importlib.util,json,re,sys
++import argparse,copy,hashlib,importlib.util,inspect,json,re,sys
+ from pathlib import Path
+ H=Path(__file__).resolve().parent
+ spec=importlib.util.spec_from_file_location('idmodel',H/'identity-model.py');M=importlib.util.module_from_spec(spec);spec.loader.exec_module(M)
+@@ -3147,6 +3147,256 @@
+          'description':SCHEMA_WORKFLOW_COMMON['$defs']['CapabilityAvailabilityNoticeV1']
+                         ['properties']['code']['description']})
+ # --- declared renderer parity: envelope membership does NOT imply propagation.
++# =============================================================================================
++# BOUNDED SELECTION CARDINALITY. scope-descriptor.workspaceRoots admits up to 1024 unit roots while
++# the matrix-fixed default requests 11 capabilities per TypeScript unit, so 93 units fit (1023 rows)
++# and 94 do not (1034). Units 94..1024 were an ordinary, reachable band that the scope law ADMITS
++# and the default analysis could not express, and the only outcome was a generic ValidationError of
++# ~265000 characters naming no field, count or limit. A pure helper exception is not a public
++# termination, so the condition now refuses TYPED through the already field-generic ScopeRefusal.
++_TS_CAPS=len(N.required_default_capabilities('ts-tsconfig'))
++_CAP_BOUND=N.requested_capability_bound()
++def _units(n):
++    return [{'rootPath':'apps/u%03d'%i,'languageMode':'ts-tsconfig','languageFamily':'tsjs'} for i in range(n)]
++def _default(n):return N.default_capability_selection(_units(n),[])
++check('the-published-bounds-are-read-from-the-schemas-not-restated',
++      _CAP_BOUND==M.SCHEMA['$defs']['analysis-spec']['properties']['requestedCapabilities']['maxItems']==1024
++      and M.SCHEMA['$defs']['scope-descriptor']['properties']['workspaceRoots']['maxItems']==1024
++      and _TS_CAPS==11)
++# the fitting positive control, at the exact boundary
++check('the-largest-fitting-default-selection-still-admits',
++      len(_default(_CAP_BOUND//_TS_CAPS)['analysisSpec']['requestedCapabilities'])==1023)
++check('a-small-ordinary-default-selection-is-untouched',
++      len(_default(1)['analysisSpec']['requestedCapabilities'])==_TS_CAPS)
++# the overflow, with the exact observed field/count/limit
++def _overflow(n=94):
++    try:_default(n)
++    except N.ScopeRefusal as exc:return exc
++    raise AssertionError('the default selection did not refuse at %d units'%n)
++_REF=_overflow()
++check('an-oversized-default-refuses-typed-with-the-exact-field-count-and-limit',
++      _REF.detail=='PROJECT.SCOPE_LIMIT' and
++      _REF.subject=={'field':'requestedCapabilities','count':1034,'limit':1024} and
++      str(_REF)=='PROJECT.SCOPE_LIMIT:requestedCapabilities:1034>1024')
++check('the-refusal-is-request-rejected-unsatisfiable-not-a-host-fault',
++      _REF.d9['class']=='request-rejected' and _REF.d9['exitCode']==2
++      and _REF.d9['code']=='REQUEST.UNSATISFIABLE'
++      and _REF.d9['code']!='SYSTEM.OUTCOME.ILLEGAL_STATE')
++check('the-generic-schema-exception-is-never-the-public-path',
++      not_admitted(lambda:_default(94)) and isinstance(_REF,N.ScopeRefusal))
++# the ACTUAL public termination and full failure envelope
++def _scope_envelope(refusal):
++    t=N.scope_refusal_termination(refusal)
++    return t,{'schemaFamily':'opensip.product.envelope','schemaMajor':2,'kind':'failure',
++              'requestId':'req1_'+'a'*32,'termination':t,'exitCode':W.EXIT[t['class']],
++              'errors':[t['domainDetail']]}
++_T,_ENVELOPE=_scope_envelope(_REF)
++check('the-scope-refusal-composes-a-schema-admitted-termination-and-failure-envelope',
++      admits(COMMON,'#/$defs/StepTermination',_T) and admits(ENVELOPE,'',_ENVELOPE))
++check('the-public-subject-states-the-observed-bound-exactly',
++      _T['domainDetail']['subject']=='requestedCapabilities:1034>1024'
++      and _T['domainDetail']['code']=='PROJECT.SCOPE_LIMIT'
++      and _T['domainDetail']['code'] in PUBLIC_CODES)
++check('the-remedy-names-narrowing-and-denies-truncation',
++      'narrow' in _T['domainDetail']['remedy'] and 'no capability was truncated'
++      in _T['domainDetail']['remedy'] and 'default is unchanged' in _T['domainDetail']['remedy'])
++check('no-new-public-detail-code-is-introduced-for-this-boundary',
++      len(PUBLIC_CODES)==287 and 'PROJECT.SCOPE_LIMIT' in PUBLIC_CODES)
++# The EXPLICIT path through the COMPLETE analysis-spec boundary, not a raw list handed to the
++# vocabulary helper. An earlier revision of these controls called admit_requested_capabilities with a
++# bare array, which is not what an explicitly supplied spec traverses: such a spec reaches
++# validate_foundation FIRST, so the guard was never on its path and the claim of an analysis-spec-wide
++# guard was an overclaim. admit_analysis_spec is the owning pre-Plan boundary and is what is tested.
++_EXPLICIT=[{'capabilityId':'inventory','languageMode':'ts-tsconfig','workspaceRoot':'apps/u%04d'%i,
++            'required':True} for i in range(_CAP_BOUND+1)]
++_spec=lambda rows:{'schemaVersion':2,'requestedCapabilities':rows,'policyPackIds':[],'parameters':[]}
++def _explicit_overflow():
++    try:N.admit_analysis_spec(_spec(_EXPLICIT))
++    except N.ScopeRefusal as exc:return exc
++    raise AssertionError('an explicit over-long analysis-spec did not refuse')
++check('a-complete-explicitly-supplied-over-long-spec-gets-the-same-typed-refusal',
++      _explicit_overflow().subject=={'field':'requestedCapabilities','count':1025,'limit':1024})
++check('a-complete-explicit-spec-at-exactly-the-bound-still-admits',
++      N.admit_analysis_spec(_spec(_EXPLICIT[:_CAP_BOUND]))['requestedCapabilities']==_EXPLICIT[:_CAP_BOUND])
++# ORDER. Cardinality is guarded BEFORE generic schema validation, so the oversized selection never
++# reaches the ~265000-character generic exception; and the schema still owns everything it is better
++# at, which is shown by a spec that is over-long AND malformed refusing on cardinality, while a
++# well-sized malformed spec still refuses on the schema.
++def _raises(fn):
++    try:fn()
++    except Exception as exc:return exc
++    raise AssertionError('expected a refusal')
++check('cardinality-is-guarded-before-generic-schema-validation',
++      isinstance(_raises(lambda:N.admit_analysis_spec(
++          {'schemaVersion':2,'requestedCapabilities':_EXPLICIT,'policyPackIds':[],
++           'parameters':[],'unknownProperty':True})),N.ScopeRefusal))
++check('the-schema-still-owns-shape-faults-at-an-admitted-size',
++      not isinstance(_raises(lambda:N.admit_analysis_spec(
++          {'schemaVersion':2,'requestedCapabilities':_EXPLICIT[:4],'policyPackIds':[],
++           'parameters':[],'unknownProperty':True})),N.ScopeRefusal))
++# The cardinality precheck is CONDITIONAL on the field being an actual JSON array in an object. An
++# earlier revision indexed the key and took its length unconditionally: a missing field raised
++# KeyError, a null/boolean/integer raised TypeError, and a 1025-CHARACTER STRING was published as
++# 1025 capabilities with a full typed refusal and a schema-admitted failure envelope - a
++# misclassification, not a scope limit. Every non-array shape must reach the schema untouched, and
++# nothing may be coerced on the way.
++_MALFORMED={}
++_MALFORMED['missing-requested-capabilities']={'schemaVersion':2,'policyPackIds':[],'parameters':[]}
++for _label,_value in [('null',None),('boolean',True),('integer',7),('short-string','bad'),
++                      ('oversized-string','x'*(_CAP_BOUND+1)),('object',{})]:
++    _MALFORMED['wrong-type-'+_label]=_spec(_value)
++_MALFORMED['missing-schema-version']={'requestedCapabilities':_EXPLICIT[:1],'policyPackIds':[],
++                                      'parameters':[]}
++_UNTOUCHED=json.loads(json.dumps(_MALFORMED))
++for _label,_bad in sorted(_MALFORMED.items()):
++    check('a-malformed-spec-refuses-on-the-schema-not-as-a-scope-limit--'+_label,
++          type(_raises(lambda _b=_bad:N.admit_analysis_spec(_b))).__name__=='ValidationError')
++# Compared against a snapshot taken BEFORE the calls, so this can actually fail.
++check('no-malformed-spec-is-coerced-or-repaired-on-the-way-to-the-schema',_MALFORMED==_UNTOUCHED)
++# An ACTUAL array over the bound stays on the typed path even when its items are malformed: the count
++# is genuine, so the caller is told which field overflowed by how much rather than being handed the
++# whole instance back. The item faults are not lost - they refuse on the narrowed selection.
++check('an-actual-oversized-array-of-malformed-items-still-refuses-typed',
++      isinstance(_raises(lambda:N.admit_analysis_spec(_spec(['a']*(_CAP_BOUND+1)))),N.ScopeRefusal))
++check('the-same-malformed-items-within-the-bound-refuse-on-the-schema',
++      type(_raises(lambda:N.admit_analysis_spec(_spec(['a']*4)))).__name__=='ValidationError')
++check('the-vocabulary-still-refuses-after-the-schema-at-an-admitted-size',
++      'native.requested-capability-unregistered' in str(_raises(lambda:N.admit_analysis_spec(
++          _spec([{'capabilityId':'not-a-capability','languageMode':'ts-tsconfig',
++                  'workspaceRoot':'apps/a','required':True}])))))
++# The RETAINED-payload path is a SEPARATE concern and is left alone. admit_requested_capabilities runs
++# over both an incoming request and a retained analysis-spec at Run closure, so cardinality - a
++# pre-Plan request-selection question - lives at the request boundary instead. That is an
++# architectural separation and nothing more: on the CURRENT path an oversized retained array never
++# reaches this helper, because admit_run obtains the record through payload(..., 'analysis-spec'),
++# which schema-validates it first. An earlier note here claimed the old placement would have
++# reclassified retained corruption as a request refusal; that was not reachable and is withdrawn.
++check('the-retained-record-is-schema-validated-before-any-capability-vocabulary-admission',
++      (lambda src:src.index("C.validate(schema,value)")
++       < src.index("admit_requested_capabilities(analysis_spec['requestedCapabilities'])"))
++      ((H/'identity-model.py').read_text()))
++check('an-oversized-retained-analysis-spec-refuses-on-the-schema-at-run-closure',
++      type(_raises(lambda:N.validate_foundation('analysis-spec',_spec(_EXPLICIT)))).__name__
++      =='ValidationError')
++check('the-shared-vocabulary-helper-raises-no-scope-refusal-on-an-oversized-array',
++      N.admit_requested_capabilities(_EXPLICIT)==_EXPLICIT)
++# the pre-existing scope-array refusal is unchanged and shares one law
++def _scope_array_overflow():
++    try:N.unit_scope_descriptor([{'rootPath':'r%05d'%i,'languageMode':'ts-tsconfig','languageFamily':'tsjs'}
++                                 for i in range(1025)],[])
++    except N.ScopeRefusal as exc:return exc
++    raise AssertionError('the scope array did not refuse')
++check('the-inherited-scope-array-refusal-is-unchanged-and-shares-the-code',
++      (lambda e:e.detail=='PROJECT.SCOPE_LIMIT' and e.subject['field']=='workspaceRoots'
++       and e.subject['count']==1025 and N.scope_refusal_termination(e)['errorCode']=='REQUEST.UNSATISFIABLE')
++      (_scope_array_overflow()))
++check('one-law-serves-four-bounded-fields-across-two-record-families',
++      set(N.SCOPE_LIMIT_REMEDY)=={'workspaceRoots','pathPrefixes','excludedPathPrefixes',
++                                  'requestedCapabilities'}
++      and set(list(M.SCHEMA['$defs']['scope-descriptor']['properties'])) >= {'workspaceRoots',
++          'pathPrefixes','excludedPathPrefixes'}
++      and 'requestedCapabilities' in M.SCHEMA['$defs']['analysis-spec']['properties'])
++# the widened published meaning is stated, not silently stretched
++_NATIVE_MD=(H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text()
++_para=lambda opening:' '.join(next(b for b in _NATIVE_MD.split('\n\n') if opening in b).split())
++_SCOPE_PARA=_para('A **bounded selection array** that exceeds')
++check('the-published-law-states-the-widened-meaning-over-four-fields',
++      'requestedCapabilities' in _SCOPE_PARA and 'workspaceRoots' in _SCOPE_PARA
++      and '**Four** fields' in _SCOPE_PARA and 'two record families' in _SCOPE_PARA
++      and 'bounded selection array' in _SCOPE_PARA and 'adds no public code' in _SCOPE_PARA)
++check('the-published-law-states-the-fitting-count-without-claiming-it-fills-the-bound',
++      'fit, at1023 rows - one row under the bound, not exactly at it' in _SCOPE_PARA
++      and 'fit exactly' not in _SCOPE_PARA)
++check('the-published-law-denies-truncation-host-fault-and-new-capability',
++      (lambda t:'not a truncation' in t and 'never `host-invariant`' in t and 'shard' in t)
++      (_para('What this refusal is **not**')))
++# the pre-Plan claim is SCOPED: it is a statement about the refused step, not about attribution
++check('the-published-no-mint-claim-is-scoped-to-the-refused-step',
++      (lambda t:'pre-Plan for the analysis step it refuses' in t
++       and 'keep their ordinary operational attribution' in t
++       and 'already committed an outcome keeps it' in t
++       and 'nothing is retained to attribute' not in t)
++      (_para('What this refusal is **not**')))
++check('the-published-admission-order-is-stated-with-the-retained-path-excluded',
++      (lambda t:'bounded selection cardinality first' in t
++       and 'then generic schema validation' in t and 'then the closed native capability' in t
++       and 'retained' in t and 'means corruption rather than an oversized request' in t)
++      (_para('The **pre-Plan admission order** is published')))
++# =============================================================================================
++# AVAILABILITY CARRIER MIRROR. Three contracts state one law: admission 1.1, native 1.4 and
++# workflows 8. A freeze shipped with admission 1.1 still naming the SUPERSEDED checkpoint-1 carrier
++# - a singular StepTermination.domainDetail, or a DoctorResult.defects[] report from a DIFFERENT
++# invocation - while the other two named the selected per-step collection. A file-wide substring or
++# a count cannot catch that, because the same file legitimately contains correct text; the check has
++# to be bound to the OWNING PARAGRAPH and compared ACROSS the files that state the same law.
++CONTRACTS=H.parents[2]/'v2/contracts/product-v1'
++def owning_paragraph(path,opening):
++    """The one blank-line-delimited paragraph whose first line contains `opening`."""
++    paragraphs=[b for b in (CONTRACTS/path).read_text().split('\n\n') if opening in b]
++    if len(paragraphs)!=1:raise AssertionError('paragraph anchor is not unique: '+opening)
++    return ' '.join(paragraphs[0].split())
++SELECTED_CARRIER=('CommandEnvelope.availability','CapabilityAvailabilityV1','workspaceRoot')
++SUPERSEDED_CARRIER=('DoctorResult.defects','StepTermination.domainDetail')
++_ADMISSION=owning_paragraph('admission-and-qualification.md','The registry states **availability**, never scope')
++check('the-admission-availability-paragraph-names-the-selected-carrier',
++      all(token in _ADMISSION for token in SELECTED_CARRIER))
++check('the-admission-paragraph-names-a-superseded-carrier-only-to-repudiate-it',
++      all(token not in _ADMISSION or 'Earlier revisions of this paragraph named' in _ADMISSION
++          for token in SUPERSEDED_CARRIER)
++      and 'neither can deliver this' in _ADMISSION)
++check('the-admission-paragraph-preserves-the-advisory-authority-limit',
++      'advisory' in _ADMISSION and 'terminates nothing' in _ADMISSION
++      and 'mints no Coverage' in _ADMISSION)
++check('the-admission-paragraph-names-every-analysis-surface-not-a-fixed-list',
++      'every' in _ADMISSION and 'requestClass: analysis' in _ADMISSION)
++# The registry is availability, never scope - in the OPENING sentence too, which is where the
++# pre-correction reading survived.
++_OPENING=owning_paragraph('admission-and-qualification.md','The authenticated release declaration registry supplies')
++check('the-admission-opening-sentence-does-not-claim-the-registry-fixes-scope',
++      'available' in _OPENING and 'does **not** fix the request' in _OPENING
++      and 'exact applicable TS/JS/Rust capabilities' not in _OPENING)
++# All three statements of one law agree on the carrier.
++_NATIVE=owning_paragraph('native-evidence.md','**The public carrier, named')
++_WORKFLOWS=owning_paragraph('workflows-and-surfaces.md','**Release-availability absence rides the invocation')
++check('all-three-contracts-name-the-same-availability-carrier',
++      all(all(token in para for token in ('CommandEnvelope.availability','CapabilityAvailabilityV1'))
++          for para in (_ADMISSION,_NATIVE,_WORKFLOWS)))
++check('no-contract-still-presents-the-superseded-carrier-as-the-live-route',
++      all(('DoctorResult.defects' not in para and 'StepTermination.domainDetail' not in para)
++          or ('Earlier revision' in para or 'earlier revision' in para or 'different\ninvocation' in para
++              or 'different invocation' in para)
++          for para in (_ADMISSION,_NATIVE,_WORKFLOWS)))
++# The prose contracts are not the only authoritative-looking statements of this law. A machine-read
++# route annotation and a live reference docstring both described the superseded route after the
++# contracts were corrected, so the mirror is checked where a reader would actually look it up.
++_ROUTE=json.loads((H.parent/'native/native-evidence.schemas.v2.json').read_text()
++                  )['x-opensip-public-route-registry']['keys']['native.release-capability-undeclared']
++check('the-route-annotation-names-the-original-invocation-carrier',
++      all(token in _ROUTE['route']['operationalCarrier']
++          for token in ('CommandEnvelope.availability','CapabilityAvailabilityV1',
++                        'ORIGINAL invocation','workspaceRoot')))
++check('the-route-annotation-limits-the-superseded-carrier-instead-of-presenting-it',
++      'neither is this route' in _ROUTE['route']['operationalCarrier']
++      and 'DIFFERENT invocation' in _ROUTE['route']['operationalCarrier'])
++check('the-route-annotation-keeps-its-code-and-advisory-authority',
++      _ROUTE['route']['domainDetail']=='native.capability-unavailable'
++      and _ROUTE['notATermination'] is True and 'Advisory' in _ROUTE['route']['why'])
++# The legacy projection helper may remain, but it may not claim to be the route, and it may not claim
++# a composition that does not happen. This is checked against the ACTUAL composition, not the prose.
++_DETAILS_DOC=' '.join(N.release_absence_details.__doc__.split())
++check('the-legacy-detail-helper-declares-itself-superseded-and-names-the-replacement',
++      _DETAILS_DOC.startswith('SUPERSEDED, NON-AUTHORITATIVE')
++      and 'release_absence_notices' in _DETAILS_DOC
++      and 'CommandEnvelope.availability' in _DETAILS_DOC
++      and 'THIS IS NOT THE PUBLIC AVAILABILITY ROUTE' in _DETAILS_DOC)
++check('the-legacy-detail-helper-does-not-claim-a-composition-that-does-not-happen',
++      '`invocation_availability` calls `release_absence_notices`, never this helper' in _DETAILS_DOC
++      and 'release_absence_notices' in inspect.getsource(N.invocation_availability)
++      and 'release_absence_details' not in inspect.getsource(N.invocation_availability))
++check('the-legacy-detail-helper-states-why-it-cannot-carry-the-account',
++      'DISCARDS workspaceRoot' in _DETAILS_DOC
++      and 'workspaceRoot' not in json.dumps(N.release_absence_details(
++          [{'capabilityId':'calls','languageMode':'ts-tsconfig','workspaceRoot':'apps/a'}])))
+ _INVENTORY=json.loads((H.parent/'workflows/command-inventory.v1.json').read_text())
+ # EVERY analysis command, not a four-name exception: repair-verify is requestClass=analysis, runs a
+ # fresh verification analysis and advertises SARIF/HTML, so it selects capabilities like the rest.

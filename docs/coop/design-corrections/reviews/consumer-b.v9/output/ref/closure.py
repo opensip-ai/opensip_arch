@@ -1,0 +1,987 @@
+"""Retained Run closure, reconstructed from the five product contracts.
+
+Nothing here is executed against a repository, compiler, provider or SQLite:
+"the admission is re-decided over retained descriptors alone" (identity S3).
+"""
+from __future__ import annotations
+
+import hashlib
+
+import canon as K
+import kit
+import native as N
+from evaluator import EvalView, address_nodes, replay
+from store import Refusal, split_id
+
+
+def _rel_row(relation):
+    row = kit.RELATIONS.get(relation)
+    if row is None:
+        raise Refusal("RELATION_UNREGISTERED", relation)
+    return row
+
+
+def registered_pair(relation, rung):
+    """RC-0 / membershipRule: the rung must be a member of THAT relation's ladder."""
+    row = _rel_row(relation)
+    ladder = row.get("ladder")
+    if not ladder:
+        raise Refusal("RELATION_LADDER_MISSING", relation)
+    if rung not in ladder:
+        raise Refusal("RUNG_NOT_IN_RELATION_LADDER", f"{relation}@{rung}")
+    return row
+
+
+class RunClosure:
+    def __init__(self, store, run_id):
+        self.store = store
+        self.run_id = run_id
+        self.notes = []
+        self.universes = {}          # bare hex -> (domain, descriptor)
+        self.contexts = {}           # bare hex -> (domain, descriptor)
+
+    # -- helpers ------------------------------------------------------------
+    def obj(self, tid, domain):
+        hexd = split_id(tid, kit.DOMAIN_PREFIX[domain])
+        dom, desc = self.store.load_frame(hexd, {domain}, tid)
+        doc_key, sel = kit.IDENTITY_DOMAIN_SELECTOR[domain]
+        kit.validate(doc_key, sel, desc, tid)
+        if K.H(domain, desc) != hexd:
+            raise Refusal("IDENTITY_MISMATCH", tid)
+        return desc
+
+    def record(self, digest, doc_key, selector, where):
+        return self.store.get_record(digest, doc_key, selector, where)
+
+    # -- entry point --------------------------------------------------------
+    def close(self):
+        s = self.store
+        run = self.obj(self.run_id, "run")
+        seal = self.obj(run["evaluationSealId"], "evaluation-seal")
+        evidence = self.obj(run["evidenceId"], "semantic-evidence")
+        plan = self.obj(run["planId"], "plan")
+        snapshot = self.obj(run["snapshotId"], "snapshot")
+        proof = self.obj(seal["proofBundleId"], "proof-bundle")
+        exec_plan = self.obj(seal["executionPlanId"], "execution-plan")
+
+        # --- acyclic graph joins (identity S3) ---
+        if seal["planId"] != run["planId"] or evidence["planId"] != run["planId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "seal/evidence planId")
+        if seal["evidenceId"] != run["evidenceId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "seal.evidenceId")
+        if evidence["proofBundleId"] != seal["proofBundleId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "evidence.proofBundleId")
+        if proof["planId"] != run["planId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "proof.planId")
+        if proof["executionPlanId"] != seal["executionPlanId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "proof.executionPlanId")
+        if exec_plan["planId"] != run["planId"]:
+            raise Refusal("REFERENCE_PLAN_JOIN", "exec-plan.planId")
+        if seal["verdict"] != proof["verdict"]:
+            raise Refusal("SEAL_VERDICT_MISMATCH", seal["verdict"])
+        if plan["snapshotId"] != run["snapshotId"]:
+            raise Refusal("REFERENCE_SOURCE_JOIN", "plan.snapshotId")
+        if run["capabilityManifestId"] != plan["capabilityManifestId"]:
+            raise Refusal("CAPABILITY_MANIFEST_JOIN", "run vs plan")
+        if seal["evaluatorClosure"] != proof["evaluatorClosure"]:
+            raise Refusal("EVALUATOR_CLOSURE_JOIN", "")
+        if seal["policyDigest"] != plan["policyDigest"]:
+            raise Refusal("POLICY_JOIN", "seal vs plan")
+
+        # --- snapshot ---
+        inventory = snapshot["sourceInventory"]
+        K.check_order("path", inventory, "snapshot.sourceInventory")
+        for row in inventory:
+            blob = s.get_blob(row["sha256"])
+            if len(blob) != row["bytes"]:
+                raise Refusal("INVENTORY_LENGTH_MISMATCH", row["path"])
+        vcs = self.record(snapshot["vcsDigest"], "identity",
+                          "#/$defs/vcs-observation", "vcs")
+        if vcs["sourceInventoryDigest"] != K.canonical_record_digest(inventory):
+            raise Refusal("VCS_INVENTORY_DIGEST_MISMATCH", "")
+        if not s.has_blob(vcs["sourceInventoryDigest"]):
+            raise Refusal("EVIDENCE_UNAVAILABLE", "source-inventory record")
+        if (vcs["kind"] == "none") != (vcs["commitId"] is None):
+            raise Refusal("VCS_COMMIT_KIND_MISMATCH", vcs["kind"])
+        if snapshot["projectId"] != run["projectId"]:
+            raise Refusal("REFERENCE_SOURCE_JOIN", "projectId")
+        inv = {r["path"]: r for r in inventory}
+
+        # --- Plan-side records ---
+        config = self.record(plan["resolvedConfigDigest"], "identity",
+                             "#/$defs/semantic-configuration", "config")
+        if snapshot["resolvedConfigDigest"] != plan["resolvedConfigDigest"]:
+            raise Refusal("CONFIG_JOIN", "snapshot vs plan")
+        if snapshot["scopeDigest"] != plan["scopeDigest"]:
+            raise Refusal("SCOPE_JOIN", "snapshot vs plan")
+        # "The Plan's deterministic budget must equal, exactly and by type, the
+        #  analysis.budget of the committed resolved semantic configuration."
+        cb = config["analysis"]["budget"]
+        if plan["budget"] != cb or type(plan["budget"]["limit"]) is not type(cb["limit"]):
+            raise Refusal("PLAN_BUDGET_CONTRADICTS_CONFIGURATION", K.C(plan["budget"]).decode())
+        spec = self.record(plan["analysisSpecDigest"], "identity",
+                           "#/$defs/analysis-spec", "analysis-spec")
+        self.admit_analysis_spec(spec)
+        self.record(plan["scopeDigest"], "identity", "#/$defs/scope-descriptor", "scope")
+        grant = self.record(plan["semanticGrantDigest"], "identity",
+                            "#/$defs/semantic-grant", "semantic-grant")
+        if grant["projectId"] != run["projectId"]:
+            raise Refusal("GRANT_PROJECT_JOIN", grant["projectId"])
+        if grant["scopeDigest"] != plan["scopeDigest"]:
+            raise Refusal("GRANT_SCOPE_JOIN", "")
+        if plan["importIds"] and "read-import" not in grant["analysisOperations"]:
+            raise Refusal("GRANT_READ_IMPORT_MISSING", "")
+        policy = self.record(plan["policyDigest"], "policy-document",
+                             "#/$defs/PolicyDocumentV1", "policy")
+        waivers = self.record(plan["waiverDigest"], "policy-document",
+                              "#/$defs/WaiverSetV1", "waivers")
+
+        # --- capability manifest ---
+        manifest_bytes = s.get_blob(plan["capabilityManifestBytesDigest"])
+        expect = K.capability_manifest_id(manifest_bytes)
+        if plan["capabilityManifestId"] != expect:
+            raise Refusal("CAPABILITY_MANIFEST_ID_MISMATCH", expect)
+
+        # --- closures ---
+        closures = {}
+        for cid in plan["semanticClosures"]:
+            hexd = split_id(cid, "closure2")
+            dom, desc = s.load_frame(hexd, {"closure"}, cid)
+            kit.validate("identity", "#/$defs/closure", desc, cid)
+            if K.H("closure", desc) != hexd:
+                raise Refusal("IDENTITY_MISMATCH", cid)
+            closures[cid] = desc
+        K.check_order("canonical-set", plan["semanticClosures"], "plan.semanticClosures")
+
+        # --- native contexts: re-run the owning contract's own admission ---
+        admissions = {}
+        for hexd in plan["nativeContextDigests"]:
+            dom, ctx = s.load_frame(hexd, N.CONTEXT_DOMAINS, "nativeContextDigests")
+            adm = N.admit_native_context(s, dom, ctx, inventory)
+            if K.H(dom, ctx) != hexd:
+                raise Refusal("IDENTITY_MISMATCH", f"context {hexd}")
+            admissions[hexd] = adm
+            self.contexts[hexd] = (dom, ctx)
+
+        # --- imports ---
+        imports = {}
+        for iid in plan["importIds"]:
+            imports[iid] = self.obj(iid, "import")
+            self.admit_import(imports[iid], run["snapshotId"])
+
+        # --- views, scopes, facts, coverage ---
+        views, scopes, facts, coverages = {}, {}, {}, {}
+        for vid in evidence["viewIds"]:
+            v = self.obj(vid, "view")
+            if v["planId"] != run["planId"]:
+                raise Refusal("REFERENCE_PLAN_JOIN", f"view {vid}")
+            if v["producerClosure"] not in plan["semanticClosures"]:
+                raise Refusal("CLOSURE_NOT_SELECTED", v["producerClosure"])
+            if closures[v["producerClosure"]]["kind"] != "provider":
+                raise Refusal("CLOSURE_KIND", "view.producerClosure")
+            for sd in v["schemaDigests"]:
+                if sd not in self.registered_schema_digests():
+                    raise Refusal("SCHEMA_DOCUMENT_UNREGISTERED", sd)
+            views[vid] = v
+            for sid in v["scopeIds"]:
+                scopes[sid] = self.admit_scope(sid, run["snapshotId"], plan, closures)
+            for fid in v["facts"]:
+                facts[fid] = self.admit_fact(fid, run["snapshotId"], inv, v, plan)
+            for cid in v["coverageIds"]:
+                coverages[cid] = self.admit_coverage(cid, scopes)
+
+        # a universe must be reached only through Plan-selected contexts
+        for uhex, (udom, u) in self.universes.items():
+            ctx_hex = split_id(u["nativeContextId"], "sha256")
+            if ctx_hex not in plan["nativeContextDigests"]:
+                raise Refusal("UNIVERSE_CONTEXT_NOT_PLAN_SELECTED", uhex)
+
+        for vid, v in views.items():
+            self.view_joins(v, scopes, facts, coverages, inv)
+
+        # --- evidence joins ---
+        if sorted(evidence["importIds"]) != sorted(plan["importIds"]):
+            raise Refusal("IMPORT_JOIN", "evidence.importIds != plan.importIds")
+        union_cov = sorted({c for v in views.values() for c in v["coverageIds"]})
+        if sorted(evidence["coverageIds"]) != union_cov:
+            raise Refusal("EVIDENCE_COVERAGE_ROOTS", "not the views' coverage union")
+
+        # --- proof ---
+        rule_program = self.record(proof["ruleProgramDigest"], "policy-document",
+                                   "#/$defs/RuleProgramV1", "rule-program")
+        self.admit_rule_program(rule_program, policy, plan["policyDigest"])
+        self.admit_minresolution(policy, rule_program)
+        for ref in proof["evaluationInputRefs"]:
+            if ref["domain"] == "import":
+                if "import2:" + ref["digest"] not in plan["importIds"]:
+                    raise Refusal("UNSELECTED_EVALUATION_IMPORT", ref["digest"])
+            if ref["domain"] in ("coverage-payload", "import-payload", "fact-payload"):
+                raise Refusal("PROOF_INPUT_DOMAIN_FORBIDDEN", ref["domain"])
+        self.admit_predicate_proofs(proof, rule_program, views, coverages, scopes)
+
+        # --- findings ---
+        findings = {}
+        for fid in evidence["findingIds"]:
+            findings[fid] = self.admit_finding(fid, proof, facts, coverages,
+                                               plan, closures, s)
+        if sorted(proof["findingIds"]) != sorted(evidence["findingIds"]):
+            raise Refusal("FINDING_JOIN", "proof vs evidence findingIds")
+
+        return {
+            "run": run, "seal": seal, "evidence": evidence, "plan": plan,
+            "snapshot": snapshot, "proof": proof, "execPlan": exec_plan,
+            "policy": policy, "waivers": waivers, "ruleProgram": rule_program,
+            "views": views, "scopes": scopes, "facts": facts,
+            "coverages": coverages, "findings": findings,
+            "closures": closures, "admissions": admissions,
+            "universes": self.universes, "inventory": inventory,
+            "config": config, "analysisSpec": spec, "grant": grant,
+            "imports": imports,
+        }
+
+    # -- registered schema documents ---------------------------------------
+    def registered_schema_digests(self):
+        out = set()
+        reg = kit.PAYLOAD_REGISTRY["classes"]
+        docs = {reg["relation"]["document"]}
+        docs.add(reg["coverage"]["rows"]["3"]["document"])
+        for row in reg["import"]["rows"].values():
+            docs.add(row["document"])
+        for row in reg["parameter"]["rows"].values():
+            docs.add(row["document"])
+        by_path = {v: k for k, v in kit.DOCS.items()}
+        for d in docs:
+            key = None
+            for path, k in by_path.items():
+                if path.endswith(d.split("/")[-1]):
+                    key = k
+                    break
+            if key:
+                out.add(kit.doc_digest(key))
+        return out
+
+    # -- analysis spec ------------------------------------------------------
+    def admit_analysis_spec(self, spec):
+        seen = {}
+        matrix_ids = {c["id"] for c in kit.doc("capability-matrix")["capabilities"]}
+        for row in spec["requestedCapabilities"]:
+            if row["capabilityId"] not in matrix_ids:
+                raise Refusal("ANALYSIS_SPEC_CAPABILITY",
+                              "native.requested-capability-unregistered:"
+                              + row["capabilityId"])
+            if row["languageMode"] not in kit.LANGUAGE_MODES:
+                raise Refusal("ANALYSIS_SPEC_LANGUAGE_MODE_UNREGISTERED",
+                              row["languageMode"])
+            key = (row["capabilityId"], row["languageMode"], row["workspaceRoot"])
+            if key in seen:
+                raise Refusal("ANALYSIS_SPEC_CAPABILITY",
+                              "native.requested-capability-duplicate-ownership-tuple:"
+                              + "|".join(key))
+            seen[key] = row
+        K.check_order("canonical-set", spec["requestedCapabilities"],
+                      "analysis-spec.requestedCapabilities")
+        K.check_order("canonical-set", spec["parameters"], "analysis-spec.parameters")
+        # "ONE Plan selects AT MOST ONE parameter per registered row."
+        rows = kit.PAYLOAD_REGISTRY["classes"]["parameter"]["rows"]
+        by_doc = {}
+        for name, row in rows.items():
+            key = row["document"].split("/")[-1]
+            by_doc.setdefault(key, []).append(name)
+        for k, names in by_doc.items():
+            if len(names) > 1:
+                raise Refusal("PAYLOAD_PARAMETER_AMBIGUOUS_ROW", k)
+        registered = {}
+        for name, row in rows.items():
+            for path, key in {v: kk for kk, v in kit.DOCS.items()}.items():
+                if path.endswith(row["document"].split("/")[-1]):
+                    registered[kit.doc_digest(key)] = (key, row["selector"])
+        counts = {}
+        for p in spec["parameters"]:
+            if p["schemaDigest"] not in registered:
+                raise Refusal("PAYLOAD_PARAMETER_UNREGISTERED", p["schemaDigest"])
+            counts[p["schemaDigest"]] = counts.get(p["schemaDigest"], 0) + 1
+            doc_key, sel = registered[p["schemaDigest"]]
+            self.store.get_record(p["payloadDigest"], doc_key, sel, "spec-parameter")
+        for d, n in counts.items():
+            if n > 1:
+                raise Refusal("ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS", d)
+
+    # -- imports ------------------------------------------------------------
+    def admit_import(self, imp, snapshot_id):
+        reg = kit.PAYLOAD_REGISTRY["classes"]["import"]["rows"]
+        payload = self.store.get_record(imp["payloadDigest"], None, None, "import payload")
+        key = f"{imp['kind']}|{payload.get('payloadDomain')}"
+        row = reg.get(key)
+        if row is None:
+            raise Refusal("IMPORT.KIND_PAYLOAD_MISMATCH", key)
+        by_path = {v: k for k, v in kit.DOCS.items()}
+        doc_key = None
+        for path, k in by_path.items():
+            if path.endswith(row["document"].split("/")[-1]):
+                doc_key = k
+        kit.validate(doc_key, row["selector"], payload, f"import payload {key}")
+        if imp["payloadSchemaDigest"] != kit.doc_digest(doc_key):
+            raise Refusal("IMPORT.PAYLOAD_SCHEMA_UNREGISTERED",
+                          imp["payloadSchemaDigest"])
+        corr = self.store.get_record(imp["sourceCorrespondenceDigest"], "common",
+                                     "#/$defs/SourceCorrespondence", "correspondence")
+        if corr["kind"] == "exact-snapshot":
+            if corr["snapshotId"] != snapshot_id:
+                raise Refusal("IMPORT.SOURCE_MAPPING_REQUIRED", "snapshot differs")
+        else:
+            if corr.get("sourceMappingDigest") is None:
+                raise Refusal("IMPORT.SOURCE_MAPPING_REQUIRED", "vcs-revision unmapped")
+        self.store.get_record(imp["buildDigest"], "imported-evidence",
+                              "#/$defs/BuildIdentityV1", "build")
+        self.store.get_record(imp["observationDigest"], "imported-evidence",
+                              "#/$defs/ImportObservationV1", "observation")
+        self.store.get_record(imp["scopeDigest"], "identity",
+                              "#/$defs/scope-descriptor", "import scope")
+        if imp["completeness"] != "complete" and not imp["omissions"]:
+            raise Refusal("IMPORT_OMISSIONS_REQUIRED", imp["completeness"])
+        for b in imp["blobs"]:
+            if not self.store.has_blob(b["sha256"]):
+                raise Refusal("EVIDENCE_UNAVAILABLE", f"import blob {b['path']}")
+
+    # -- universes ----------------------------------------------------------
+    def universe(self, uhex, plan):
+        if uhex in self.universes:
+            return self.universes[uhex]
+        dom, u = self.store.load_frame(uhex, N.UNIVERSE_DOMAINS, "universe")
+        row = kit.DOMAIN_SETS["native-semantic-universe"][dom]
+        ctx_hex = split_id(u["nativeContextId"], "sha256")
+        cdom, ctx = self.store.load_frame(ctx_hex, N.CONTEXT_DOMAINS, "universe.context")
+        adm = N.admit_native_context(self.store, cdom, ctx, None)
+        retained = self.retained_for(ctx, u)
+        got = N.bind_universe(self.store, dom, u, adm, ctx, retained, None)
+        if got != "sha256:" + uhex:
+            raise Refusal("IDENTITY_MISMATCH", f"universe {uhex}")
+        self.universes[uhex] = (dom, u)
+        return dom, u
+
+    def retained_for(self, ctx, u):
+        out = {}
+        for field, name in (("dependencySourceSetId", "dependencySourceSet"),
+                            ("unifiedFeaturesId", "unifiedFeatures"),
+                            ("preparedOutputSetId", "preparedOutputSet"),
+                            ("sourceUnitOwnershipId", "sourceUnitOwnership")):
+            val = u.get(field) or ctx.get(field)
+            if val:
+                hexd = split_id(val, "sha256")
+                _, payload = self.store.load_frame(hexd, N.NESTED_DOMAINS, field)
+                out[name] = payload
+        return out
+
+    # -- scopes -------------------------------------------------------------
+    def admit_scope(self, sid, snapshot_id, plan, closures):
+        sc = self.obj(sid, "subject-scope")
+        if sc["snapshotId"] != snapshot_id:
+            raise Refusal("REFERENCE_SOURCE_JOIN", f"scope {sid}")
+        registered_pair(sc["relation"], sc["resolution"])
+        row = _rel_row(sc["relation"])
+        if row["universeRule"] == "same-only" and sc["sourceUniverse"] != sc["targetUniverse"]:
+            raise Refusal("UNIVERSE_RULE_SAME_ONLY", sid)
+        if sc["enumeratorClosure"] not in plan["semanticClosures"]:
+            raise Refusal("CLOSURE_NOT_SELECTED", sc["enumeratorClosure"])
+        if closures[sc["enumeratorClosure"]]["kind"] != "provider":
+            raise Refusal("CLOSURE_KIND", "subject-scope.enumeratorClosure")
+        K.check_order("canonical-set", sc["subjects"], f"scope {sid}.subjects")
+        self.universe(sc["sourceUniverse"], plan)
+        self.universe(sc["targetUniverse"], plan)
+        self.scope_capability_law(sc)
+        owed = self.clones_ownership_disclosure(sc)
+        if owed:
+            setattr(self, '_dialect_' + K.H('subject-scope', sc), owed)
+        return sc
+
+    def scope_capability_law(self, sc):
+        """identity S3 scopeCapabilityLaw + native S1.2 grammar capability law."""
+        udom, u = self.universes[sc["sourceUniverse"]]
+        row = kit.DOMAIN_SETS["native-semantic-universe"][udom]
+        rel_row = _rel_row(sc["relation"])
+        cap = f"{sc['relation']}@{sc['resolution']}"
+
+        # syntax-universe grammar capability guard (boundary 3)
+        if udom == "native.semantic-universe.syntax.v2":
+            if cap not in kit.INVENTORY_CAPABILITIES:
+                ctx_hex = split_id(u["nativeContextId"], "sha256")
+                _, ctx = self.contexts.get(ctx_hex) or self.store.load_frame(
+                    ctx_hex, N.CONTEXT_DOMAINS, "ctx")
+                selected = {g["grammarId"]: g for g in ctx["grammarBundle"]["grammars"]
+                            if g["grammarId"] in u["selectedGrammarIds"]}
+                bears = any(cap in kit.GRAMMAR_CAPS["languages"][g["languageId"]]["capabilities"]
+                            for g in selected.values())
+                if not bears:
+                    self._require_unavailable_scope(sc, "SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE")
+                    return
+
+        # scopeCapabilityLaw: any universe whose dialect form is a closed suffix
+        # table, gated on relations carrying a bodyIdentityJoin.
+        lvb = row.get("languageVersionBinding")
+        if not lvb or "bodyIdentityJoin" not in rel_row:
+            return
+        if lvb["dialect"].get("form") != "closed-suffix-table":
+            return
+        if cap in kit.INVENTORY_CAPABILITIES:
+            return
+        table = lvb["dialect"]["table"]
+        if rel_row["subjectKind"] == "source-path":
+            paths = list(sc["subjects"])
+            ok = bool(paths) and all(N._longest_suffix(table, p) for p in paths)
+        else:
+            ok = True
+        if not ok:
+            self._require_unavailable_scope(sc, "COVERAGE_SOURCE_VARIANT_UNSUPPORTED_SCOPE")
+
+    def clones_ownership_disclosure(self, sc):
+        """native S10 (CB3-MUST-5): derive the owed (deficiency, nativeCause)
+        for a clones scope from the COMMITTED ownership record and THIS scope's
+        subjects, in the selection law's own order.  Run closure re-derives it
+        independently and refuses a mismatch."""
+        udom, u = self.universes[sc["sourceUniverse"]]
+        row = kit.DOMAIN_SETS["native-semantic-universe"][udom]
+        lvb = row.get("languageVersionBinding") or {}
+        d = lvb.get("dialect", {})
+        if d.get("form") != "selected-compilation-target-edition":
+            return None
+        if "bodyIdentityJoin" not in _rel_row(sc["relation"]):
+            return None
+        own = d["ownership"]
+        pair = {"input-closure-incomplete": None}
+        sou_id = u.get("sourceUnitOwnershipId")
+        if sou_id is None:
+            return ("input-closure-incomplete", "body-language-ownership-missing")
+        hexd = split_id(sou_id, "sha256")
+        _, sou = self.store.load_frame(hexd, N.NESTED_DOMAINS, "sourceUnitOwnership")
+        if sou[own["enumerationField"]] == "partial":
+            return ("input-closure-incomplete", "body-language-owner-unenumerated")
+        units = {x["unitId"]: x for x in sou[own["unitsField"]]}
+        selected = set(sou[own["selectionField"]])
+        for subject in sc["subjects"]:
+            owners = [r[own["unitField"]] for r in sou["ownership"]
+                      if r[own["pathField"]] == subject]
+            sel = [o for o in owners if o in selected]
+            eds = set()
+            for uid in sel:
+                unit = units[uid]
+                te = unit[own["targetEditionField"]]
+                if te is None:
+                    te = u["edition"].get(unit[own["crateField"]])
+                eds.add(te)
+            if len(eds) > 1:
+                return ("input-closure-incomplete", "body-language-owner-ambiguous")
+        return None
+
+    def _require_unavailable_scope(self, sc, refusal):
+        self.notes.append({"scopeRequiresUnavailableDisclosure": refusal,
+                           "relation": sc["relation"], "rung": sc["resolution"]})
+        setattr(self, "_unavailable_" + K.H("subject-scope", sc), refusal)
+
+    # -- facts --------------------------------------------------------------
+    def admit_fact(self, fid, snapshot_id, inv, view, plan):
+        f = self.obj(fid, "fact")
+        if f["snapshotId"] != snapshot_id:
+            raise Refusal("REFERENCE_SOURCE_JOIN", f"fact {fid}")
+        row = registered_pair(f["relation"], f["resolution"])
+        if f["payloadSchemaDigest"] != kit.doc_digest("relation"):
+            raise Refusal("FACT_PAYLOAD_SCHEMA_NOT_REGISTERED", f["payloadSchemaDigest"])
+        payload = self.store.get_record(f["payloadDigest"], "relation",
+                                        row["selector"], f"fact payload {fid}")
+        if row["universeRule"] == "same-only" and f["sourceUniverse"] != f["targetUniverse"]:
+            raise Refusal("UNIVERSE_RULE_SAME_ONLY", fid)
+        if f["producerClosure"] != view["producerClosure"]:
+            raise Refusal("FACT_PRODUCER_NOT_VIEW_PRODUCER", fid)
+        # rung required/forbidden field rules
+        rr = row.get("rungs", {}).get(f["resolution"], {})
+        for req in rr.get("required", []):
+            if req not in payload:
+                raise Refusal("RUNG_REQUIRED_FIELD_MISSING", f"{fid}:{req}")
+        for forb in rr.get("forbidden", []):
+            if forb in payload:
+                raise Refusal("RUNG_FORBIDDEN_FIELD_PRESENT", f"{fid}:{forb}")
+        # anchorLaw
+        al = row["anchorLaw"]
+        n = len(f["anchors"])
+        if al["class"] == "inventory" and n != 0:
+            raise Refusal("FACT_ANCHOR_CARDINALITY", f"{fid}: inventory needs 0, got {n}")
+        if al["class"] == "body-identity" and n != 1:
+            raise Refusal("FACT_ANCHOR_CARDINALITY", f"{fid}: clones needs 1, got {n}")
+        if al["class"] == "source-text" and n < 1:
+            raise Refusal("FACT_ANCHOR_CARDINALITY", f"{fid}: source-text needs >=1")
+        K.check_order("canonical-set", f["anchors"], f"fact {fid}.anchors")
+        for a in f["anchors"]:
+            if a["path"] not in inv:
+                raise Refusal("ANCHOR_SOURCE", a["path"])
+            if inv[a["path"]]["sha256"] != a["blobDigest"]:
+                raise Refusal("ANCHOR_SOURCE", f"{a['path']} digest")
+            blob = self.store.get_blob(a["blobDigest"])
+            if not (0 <= a["startByte"] <= a["endByte"] <= len(blob)):
+                raise Refusal("ANCHOR_RANGE", f"{fid}:{a['path']}")
+            try:
+                blob[a["startByte"]:a["endByte"]].decode("utf-8")
+            except UnicodeDecodeError:
+                raise Refusal("ANCHOR_UTF8", f"{fid}:{a['path']}") from None
+        # snapshotJoins
+        for join in row.get("snapshotJoins", []):
+            self.snapshot_join(join, payload, f, inv, fid)
+        self.universe(f["sourceUniverse"], plan)
+        self.universe(f["targetUniverse"], plan)
+        self.syntax_capability_fact(f)
+        if f["relation"] == "clones":
+            self.body_identity_join(f, payload, inv)
+        return f
+
+    def snapshot_join(self, join, payload, f, inv, fid):
+        unless = join.get("unless")
+        if unless and payload.get(unless["field"]) == unless["equals"]:
+            return
+        p = payload[join["pathField"]]
+        if p not in inv:
+            raise Refusal("INVENTORY_PATH_NOT_IN_SNAPSHOT", f"{fid}:{p}")
+        if join["form"] == "inventoried-file":
+            if payload[join["digestField"]] != inv[p]["sha256"]:
+                raise Refusal("INVENTORY_DIGEST_MISMATCH", f"{fid}:{p}")
+            if payload[join["lengthField"]] != inv[p]["bytes"]:
+                raise Refusal("INVENTORY_LENGTH_MISMATCH", f"{fid}:{p}")
+            blob = self.store.get_blob(payload[join["digestField"]])
+            if hashlib.sha256(blob).hexdigest() != payload[join["digestField"]]:
+                raise Refusal("INVENTORY_BYTES_MISMATCH", f"{fid}:{p}")
+            if join.get("anchorPathField"):
+                for a in f["anchors"]:
+                    if a["path"] != payload[join["anchorPathField"]]:
+                        raise Refusal("FACT_ANCHOR_NOT_IN_CLAIMED_FILE", f"{fid}:{a['path']}")
+
+    def syntax_capability_fact(self, f):
+        """native S1.2 boundary (2): every anchor path of a fact under a syntax
+        universe must be read by a SELECTED grammar bearing that relation@rung.
+        Inventory relations are exempt (and carry zero anchors anyway)."""
+        udom, u = self.universes[f["sourceUniverse"]]
+        if udom != "native.semantic-universe.syntax.v2":
+            return
+        cap = f"{f['relation']}@{f['resolution']}"
+        if cap in kit.INVENTORY_CAPABILITIES:
+            return
+        ctx_hex = split_id(u["nativeContextId"], "sha256")
+        entry = self.contexts.get(ctx_hex)
+        if entry is None:
+            entry = self.store.load_frame(ctx_hex, N.CONTEXT_DOMAINS, "ctx")
+        _, ctx = entry
+        selected = [g for g in ctx["grammarBundle"]["grammars"]
+                    if g["grammarId"] in u["selectedGrammarIds"]]
+        for a in f["anchors"]:
+            owner = None
+            best = None
+            for g in selected:
+                s = N._longest_suffix(g["suffixes"], a["path"])
+                if s and (best is None or len(s) > len(best)):
+                    best, owner = s, g
+            if owner is None or cap not in \
+                    kit.GRAMMAR_CAPS["languages"][owner["languageId"]]["capabilities"]:
+                raise Refusal("SYNTAX_CAPABILITY_UNSUPPORTED_FACT", f"{cap} on {a['path']}")
+
+    def body_identity_join(self, f, payload, inv):
+        """clones: framed body-identity join (identity S3 / relation registry)."""
+        udom, u = self.universes[f["sourceUniverse"]]
+        ctx_hex = split_id(u["nativeContextId"], "sha256")
+        entry = self.contexts.get(ctx_hex) or self.store.load_frame(
+            ctx_hex, N.CONTEXT_DOMAINS, "ctx")
+        _, ctx = entry
+        anchor = f["anchors"][0]
+        retained = self.retained_for(ctx, u)
+        blv, language_id = N.derive_body_language_version(
+            udom, u, ctx, anchor["path"], retained)
+        lang_raw = N.language_version_raw32(blv)
+        lvspec = self.store.get_blob(payload["normalisationVersion"])
+        lv_raw = hashlib.sha256(lvspec).digest()
+        if lv_raw.hex() != payload["normalisationVersion"]:
+            raise Refusal("NORMALISATION_VERSION_MISMATCH", payload["normalisationVersion"])
+        bid_hex = split_id(payload["bodyIdentity"], "sha256")
+        frame = self.store.get_blob(bid_hex)
+        if hashlib.sha256(frame).hexdigest() != bid_hex:
+            raise Refusal("BODY_IDENTITY_FRAME_DIGEST", bid_hex)
+        parsed = parse_body_frame(frame)
+        if parsed["levelId"] != payload["normalisationLevel"]:
+            raise Refusal("BODY_FRAME_LEVEL_MISMATCH", parsed["levelId"])
+        if parsed["levelVersion"] != lv_raw:
+            raise Refusal("BODY_FRAME_LEVEL_VERSION_MISMATCH", "")
+        if parsed["languageId"] != language_id:
+            raise Refusal("BODY_FRAME_LANGUAGE_MISMATCH",
+                          f"{parsed['languageId']} != {language_id}")
+        if parsed["languageVersion"] != lang_raw:
+            raise Refusal("BODY_FRAME_LANGUAGE_VERSION_MISMATCH", "")
+        if payload["normalisationLevel"] == "L0-verbatim":
+            blob = self.store.get_blob(anchor["blobDigest"])
+            span = blob[anchor["startByte"]:anchor["endByte"]]
+            if parsed["payload"] != K.l0_payload(span):
+                raise Refusal("BODY_L0_PAYLOAD_NOT_THE_ANCHOR_SPAN", anchor["path"])
+        else:
+            parse_token_stream(parsed["payload"])
+        row = _rel_row("clones")
+        if row["bodyIdentityJoin"]["anchorCardinality"] != row["anchorLaw"]["cardinality"]:
+            raise Refusal("RELATION_ANCHOR_LAW_DRIFT", "clones")
+
+    # -- coverage -----------------------------------------------------------
+    def admit_coverage(self, cid, scopes):
+        cov = self.obj(cid, "coverage")
+        if cov["scopeId"] not in scopes:
+            raise Refusal("native.coverage-subject-scope-outside-view", cid)
+        sc = scopes[cov["scopeId"]]
+        if cov["payloadSchemaDigest"] != kit.doc_digest("native"):
+            raise Refusal("native.coverage-payload-schema-not-registered",
+                          cov["payloadSchemaDigest"])
+        payload = self.store.get_record(cov["payloadDigest"], "native",
+                                        "#/$defs/CoverageResultV3", f"coverage {cid}")
+        key, entry = payload["key"], payload["entry"]
+        scope_hex = split_id(cov["scopeId"], "scope2")
+        # S4.1a steps 2-4
+        for field, want in (("relation", sc["relation"]), ("resolution", sc["resolution"]),
+                            ("sourceUniverse", sc["sourceUniverse"]),
+                            ("targetUniverse", sc["targetUniverse"])):
+            if key[field] != want:
+                raise Refusal("native.coverage-key-scope-mismatch", field)
+        if key["subjectScopeCommitment"] != "sha256:" + scope_hex:
+            raise Refusal("native.subject-scope-commitment-mismatch", cid)
+        if entry["examinedUniverse"]["subjectScopeCommitment"] != key["subjectScopeCommitment"]:
+            raise Refusal("native.examined-universe-commitment-mismatch", cid)
+        if entry["examinedUniverse"]["subjectCount"] != len(sc["subjects"]):
+            raise Refusal("native.examined-universe-subject-count-mismatch", cid)
+        if entry["relation"] != key["relation"] or entry["resolution"] != key["resolution"]:
+            raise Refusal("native.coverage-entry-key-mismatch", cid)
+        self.coverage_bijection(entry, cid)
+        self.coverage_cause(entry, cid)
+        owed = getattr(self, "_dialect_" + scope_hex, None)
+        if owed:
+            if entry["coverage"] != "unknown":
+                raise Refusal("COVERAGE_DIALECT_PREREQUISITE", cid)
+            if entry["deficiency"] is None:
+                raise Refusal("COVERAGE_DIALECT_PREREQUISITE_UNDISCLOSED", cid)
+            if entry["deficiency"] != owed[0]:
+                raise Refusal("COVERAGE_DIALECT_DEFICIENCY_MISMATCH",
+                              f"{cid}: {entry['deficiency']} != {owed[0]}")
+            if entry["nativeCause"] != owed[1]:
+                raise Refusal("COVERAGE_DIALECT_CAUSE_MISMATCH",
+                              f"{cid}: {entry['nativeCause']} != {owed[1]}")
+        # unavailable-capability disclosure demanded by the scope guard
+        want = getattr(self, "_unavailable_" + scope_hex, None)
+        if want:
+            if entry["coverage"] != "unknown":
+                raise Refusal(want, cid)
+            if entry["deficiency"] != "language-tier-unsupported":
+                raise Refusal(want.replace("_SCOPE", "_DEFICIENCY_MISMATCH"), cid)
+            if entry["nativeCause"] != "capability-missing":
+                raise Refusal(want.replace("_SCOPE", "_CAUSE_MISMATCH"), cid)
+        return {"scopeId": cov["scopeId"], "payload": payload, "record": cov}
+
+    def coverage_bijection(self, entry, cid):
+        registered_pair(entry["relation"], entry["resolution"])       # RC-0
+        rc = entry["resolutionCompleteness"]
+        resolved = entry["resolution"] in kit.RESOLVED_RUNGS
+        if not resolved:                                              # RC-1
+            if rc["state"] != "not-applicable":
+                raise Refusal("native.coverage-bijection-mismatch",
+                              f"{cid}: RC-1 state {rc['state']}")
+            if rc["attempted"] or rc["unresolvedEdgeCount"] != 0 or rc["unresolvedEdgeClasses"]:
+                raise Refusal("native.coverage-bijection-mismatch", f"{cid}: RC-1 fields")
+        else:
+            if rc["state"] == "not-applicable":
+                raise Refusal("native.coverage-bijection-mismatch",
+                              f"{cid}: RC-1 not-applicable on a resolved rung")
+            if rc["state"] == "complete":                              # RC-2
+                if not (rc["attempted"] and rc["examinedExhaustive"]
+                        and rc["stageTerminal"] == "complete"
+                        and rc["unresolvedEdgeCount"] == 0):
+                    raise Refusal("native.coverage-bijection-mismatch",
+                                  f"{cid}: RC-2 complete preconditions")
+            if rc["state"] == "not-attempted" and (rc["attempted"] or rc["unresolvedEdgeCount"]):
+                raise Refusal("native.coverage-bijection-mismatch",
+                              f"{cid}: RC-2 not-attempted")
+        if entry["coverage"] == "complete" and not rc["examinedExhaustive"]:   # RC-6
+            raise Refusal("native.coverage-bijection-mismatch", f"{cid}: RC-6")
+
+    def coverage_cause(self, entry, cid):
+        """native S10 / x-opensip-deficiency-cause-registry: the DECLARED
+        deficiency must be SUPPORTED by the entry's own committed evidence."""
+        rows = kit.DEFICIENCY_CAUSE["deficiencies"]
+        d, cause = entry["deficiency"], entry["nativeCause"]
+        if d is None:
+            if cause is not None:
+                raise Refusal("native.coverage-cause-without-deficiency", cid)
+            return
+        row = rows.get(d)
+        if row is None:
+            raise Refusal("native.coverage-cause-registry-row-missing", d)
+        rels = row.get("relations")
+        if rels and entry["relation"] not in rels:
+            raise Refusal("native.coverage-cause-relation-not-in-scope",
+                          f"{cid}:{entry['relation']}")
+        presence = row["nativeCause"]
+        if presence == "must-be-null":
+            if cause is not None:
+                raise Refusal("native.coverage-cause-must-be-null", f"{cid}:{d}")
+        else:
+            allowed = row.get("allowedCauses", [])
+            if presence == "required" and cause is None:
+                raise Refusal("native.coverage-cause-required", f"{cid}:{d}")
+            if cause is not None and cause not in allowed:
+                raise Refusal("native.coverage-cause-not-for-deficiency",
+                              f"{cid}:{d}:{cause}")
+        if row.get("carrier") == "none-in-entry":
+            return
+        req = row.get("requires")
+        if req and _dig(entry, req["path"]) != req["equals"]:
+            raise Refusal("native.coverage-cause-carrier-unsupported", f"{cid}:{d}")
+        one = row.get("oneOf")
+        if one and _dig(entry, one["path"]) not in one["members"]:
+            raise Refusal("native.coverage-cause-carrier-unsupported", f"{cid}:{d}")
+        con = row.get("contains")
+        if con and con["member"] not in _dig(entry, con["path"]):
+            raise Refusal("native.coverage-cause-carrier-unsupported", f"{cid}:{d}")
+
+    # -- view-level joins ---------------------------------------------------
+    def view_joins(self, v, scopes, facts, coverages, inv):
+        # existential fact/scope join on relation, rung and both universes
+        for fid in v["facts"]:
+            f = facts[fid]
+            ok = any(scopes[s]["relation"] == f["relation"]
+                     and scopes[s]["resolution"] == f["resolution"]
+                     and scopes[s]["sourceUniverse"] == f["sourceUniverse"]
+                     and scopes[s]["targetUniverse"] == f["targetUniverse"]
+                     for s in v["scopeIds"])
+            if not ok:
+                raise Refusal("VIEW_FACT_SCOPE_JOIN", fid)
+        # coveragePartitionLaw: disjointness within one partition key, per view
+        key_fields = kit.RELATION_REGISTRY["coveragePartitionLaw"]["partitionKey"]
+        buckets = {}
+        for s in v["scopeIds"]:
+            sc = scopes[s]
+            k = tuple(sc[f] for f in key_fields)
+            for other in buckets.get(k, []):
+                overlap = set(sc["subjects"]) & set(scopes[other]["subjects"])
+                if overlap:
+                    raise Refusal("SUBJECT_SCOPE_PARTITION_OVERLAP",
+                                  f"{sc['relation']}@{sc['resolution']}:{sorted(overlap)[0]}")
+            buckets.setdefault(k, []).append(s)
+        # coverageTotalityLaw: file@enumerated only
+        for cid in v["coverageIds"]:
+            c = coverages[cid]
+            entry = c["payload"]["entry"]
+            row = _rel_row(entry["relation"])
+            ct = row.get("coverageTotality")
+            if not ct or entry["resolution"] != ct["rung"] or entry["coverage"] != "complete":
+                continue
+            sc = scopes[c["scopeId"]]
+            for subject in sc["subjects"]:
+                if subject not in inv:
+                    continue          # "A subject outside the inventory is owed nothing."
+                found = False
+                for fid in v["facts"]:
+                    f = facts[fid]
+                    if all(f[m] == sc[m] for m in ct["matchOn"] if m in f):
+                        payload = self.store.get_record(
+                            f["payloadDigest"], None, None, "totality")
+                        if payload.get(ct["pathField"]) == subject:
+                            found = True
+                            break
+                if not found:
+                    raise Refusal("COVERAGE_INVENTORY_TOTALITY_OMITS_PATH", subject)
+
+    # -- rule program / policy ---------------------------------------------
+    def admit_rule_program(self, rule_program, policy, policy_digest):
+        if rule_program["policyDigest"] != policy_digest:
+            raise Refusal("RULE_PROGRAM_POLICY_DIGEST", rule_program["policyDigest"])
+        expect = {"schemaVersion": 1, "policyDigest": policy_digest,
+                  "rules": [{"ruleId": r["ruleId"],
+                             "ruleProgramRef": r["ruleProgramRef"],
+                             "emitWhen": r["emitWhen"]} for r in policy["rules"]]}
+        if rule_program != expect:
+            raise Refusal("RULE_PROGRAM_NOT_POLICY_PROJECTION", "")
+        K.check_order("ruleId", rule_program["rules"], "RuleProgramV1.rules")
+        K.check_order("ruleId", policy["rules"], "PolicyDocumentV1.rules")
+
+    def admit_minresolution(self, policy, rule_program):
+        """CB3-MUST-2: minResolution is a rung of THIS atom's relation's ladder,
+        enforced over BOTH the Plan's PolicyDocumentV1 and the compiled program."""
+        def walk(node):
+            op = node["op"]
+            if op in ("and", "or"):
+                for c in node["operands"]:
+                    walk(c)
+            elif op == "not":
+                walk(node["operand"])
+            else:
+                rel = node["relation"]
+                if rel in kit.RELATIONS:
+                    registered_pair(rel, node["minResolution"])
+                else:
+                    ev = kit.doc("imported-evidence").get(
+                        "x-opensip-evidence-relation-registry", {})
+                    rows = ev.get("relations", ev)
+                    if rel not in rows:
+                        raise Refusal("ATOM_RELATION_UNREGISTERED", rel)
+                    ladder = rows[rel].get("ladder", ["observed"])
+                    if node["minResolution"] not in ladder:
+                        raise Refusal("RUNG_NOT_IN_RELATION_LADDER",
+                                      f"{rel}@{node['minResolution']}")
+        for r in policy["rules"]:
+            walk(r["emitWhen"])
+        for r in rule_program["rules"]:
+            walk(r["emitWhen"])
+
+    # -- proof --------------------------------------------------------------
+    def admit_predicate_proofs(self, proof, rule_program, views, coverages, scopes):
+        by_rule = {r["ruleId"]: r for r in rule_program["rules"]}
+        K.check_order("predicate", proof["predicateProofs"], "proof.predicateProofs")
+        seen = set()
+        for pp in proof["predicateProofs"]:
+            rule = by_rule.get(pp["ruleId"])
+            if rule is None:
+                raise Refusal("PREDICATE_RULE_UNKNOWN", pp["ruleId"])
+            addressed = dict(address_nodes(rule["emitWhen"]))
+            node = addressed.get(pp["predicateId"])
+            if node is None:
+                raise Refusal("PREDICATE_ADDRESS_NOT_IN_PROGRAM", pp["predicateId"])
+            if node["op"] != pp["operation"]:
+                raise Refusal("PREDICATE_OPERATION_MISMATCH", pp["predicateId"])
+            key = (pp["ruleId"], pp["subjectId"], pp["predicateId"])
+            if key in seen:
+                raise Refusal("PREDICATE_ID_NOT_UNIQUE", str(key))
+            seen.add(key)
+            w = self.store.get_record(pp["witnessDigest"], "identity",
+                                      "#/$defs/predicate-witness", "witness")
+            ppr = self.store.get_record(w["programPredicateDigest"], "identity",
+                                        "#/$defs/program-predicate", "program-predicate")
+            if ppr["ruleProgramDigest"] != proof["ruleProgramDigest"]:
+                raise Refusal("PROGRAM_PREDICATE_RULE_PROGRAM", pp["predicateId"])
+            if ppr["ruleId"] != pp["ruleId"] or ppr["predicateId"] != pp["predicateId"]:
+                raise Refusal("PROGRAM_PREDICATE_ADDRESS", pp["predicateId"])
+            if ppr["operation"] != pp["operation"]:
+                raise Refusal("PROGRAM_PREDICATE_OPERATION", pp["predicateId"])
+            if ppr["nodeDigest"] != hashlib.sha256(K.C(node)).hexdigest():
+                raise Refusal("PROGRAM_PREDICATE_NODE_DIGEST", pp["predicateId"])
+            from evaluator import child_addresses
+            kids = sorted(child_addresses(pp["predicateId"], node))
+            if w["childPredicateIds"] != kids:
+                raise Refusal("WITNESS_CHILDREN_NOT_OPERAND_ADDRESSES", pp["predicateId"])
+            for kid in kids:
+                if (pp["ruleId"], pp["subjectId"], kid) not in \
+                        {(q["ruleId"], q["subjectId"], q["predicateId"])
+                         for q in proof["predicateProofs"]}:
+                    raise Refusal("WITNESS_CHILD_UNPROVEN", kid)
+            want_limit = node["n"] if node["op"] == "count-at-most" else None
+            if w["countLimit"] != want_limit:
+                raise Refusal("WITNESS_COUNT_LIMIT", pp["predicateId"])
+            for c in w["coverageIds"]:
+                if c not in coverages:
+                    raise Refusal("WITNESS_COVERAGE_OUTSIDE_VIEW", c)
+            for s in pp["scopeIds"]:
+                if s not in scopes:
+                    raise Refusal("WITNESS_SCOPE_OUTSIDE_VIEW", s)
+            for ref in pp["inputRefs"]:
+                if ref not in proof["evaluationInputRefs"]:
+                    raise Refusal("PREDICATE_INPUT_NOT_IN_EVALUATION_INPUTS", K.C(ref).decode())
+
+    # -- findings -----------------------------------------------------------
+    def admit_finding(self, fid, proof, facts, coverages, plan, closures, s):
+        f = self.obj(fid, "finding")
+        fp = self.obj(f["fingerprint"], "finding-fingerprint")
+        if f["ruleClosure"] not in plan["semanticClosures"]:
+            raise Refusal("CLOSURE_NOT_SELECTED", f["ruleClosure"])
+        if closures[f["ruleClosure"]]["kind"] != "detector":
+            raise Refusal("CLOSURE_KIND", "finding.ruleClosure")
+        params = s.get_record(f["parameterDigest"], "identity",
+                              "#/$defs/finding-parameters", "finding-parameters")
+        if params["messageCode"] != f["messageCode"]:
+            raise Refusal("FINDING_PARAMETER_MESSAGE_CODE", fid)
+        witness_digests = {p["witnessDigest"] for p in proof["predicateProofs"]}
+        for ref in f["evidenceRefs"]:
+            d, dg = ref["domain"], ref["digest"]
+            if d == "fact" and "fact2:" + dg not in facts:
+                raise Refusal("HIDDEN_FINDING_EVIDENCE", dg)
+            if d == "coverage" and "coverage2:" + dg not in coverages:
+                raise Refusal("HIDDEN_FINDING_EVIDENCE", dg)
+            if d == "import" and not any(
+                    r["domain"] == "import" and r["digest"] == dg
+                    for r in proof["evaluationInputRefs"]):
+                raise Refusal("HIDDEN_FINDING_EVIDENCE", dg)
+            if d == "predicate-witness" and dg not in witness_digests:
+                raise Refusal("HIDDEN_FINDING_EVIDENCE", dg)
+            if d == "blob" and not s.has_blob(dg):
+                raise Refusal("HIDDEN_FINDING_EVIDENCE", dg)
+        return {"finding": f, "fingerprint": fp, "parameters": params}
+
+
+# ---------------------------------------------------------------------------
+# body frame parsing (fact-identity-policy byteGrammar)
+# ---------------------------------------------------------------------------
+
+def parse_body_frame(frame: bytes):
+    import struct
+    i = 0
+
+    def u8comp():
+        nonlocal i
+        n = frame[i]
+        i += 1
+        v = frame[i:i + n]
+        i += n
+        return v
+
+    tag = u8comp()
+    if tag != K.FACT_IDENTITY_DOMAIN_TAG:
+        raise Refusal("BODY_FRAME_DOMAIN_TAG", tag.decode("ascii", "replace"))
+    level = u8comp().decode("ascii")
+    lvv = u8comp()
+    lang = u8comp().decode("ascii")
+    langv = u8comp()
+    (plen,) = struct.unpack(">I", frame[i:i + 4])
+    i += 4
+    payload = frame[i:i + plen]
+    i += plen
+    if i != len(frame):
+        raise Refusal("BODY_FRAME_TRAILING", str(len(frame) - i))
+    return {"levelId": level, "levelVersion": lvv, "languageId": lang,
+            "languageVersion": langv, "payload": payload}
+
+
+def parse_token_stream(payload: bytes):
+    """u32be token_count || (u16be kind_len||kind || u32be val_len||val)*
+
+    A truncated or over-long stream is the typed refusal TOKEN_STREAM_FRAMING;
+    an earlier revision of this helper let struct.error escape untyped, which
+    would have reported a well-formed refusal as a crash.
+    """
+    import struct
+    if len(payload) < 4:
+        raise Refusal("TOKEN_STREAM_FRAMING", "shorter than the count prefix")
+    (count,) = struct.unpack(">I", payload[:4])
+    i = 4
+    for n in range(count):
+        if i + 2 > len(payload):
+            raise Refusal("TOKEN_STREAM_FRAMING", f"token {n}: kind length")
+        (kl,) = struct.unpack(">H", payload[i:i + 2])
+        i += 2
+        if kl == 0:
+            raise Refusal("TOKEN_KIND_EMPTY", str(n))
+        if i + kl > len(payload):
+            raise Refusal("TOKEN_STREAM_FRAMING", f"token {n}: kind bytes")
+        i += kl
+        if i + 4 > len(payload):
+            raise Refusal("TOKEN_STREAM_FRAMING", f"token {n}: value length")
+        (vl,) = struct.unpack(">I", payload[i:i + 4])
+        i += 4
+        if i + vl > len(payload):
+            raise Refusal("TOKEN_STREAM_FRAMING", f"token {n}: value bytes")
+        i += vl
+    if i != len(payload):
+        raise Refusal("TOKEN_STREAM_FRAMING", f"{len(payload) - i} trailing bytes")
+    return count
+
+
+def close_run(store, run_id):
+    return RunClosure(store, run_id).close()
+
+
+def _dig(node, path):
+    for p in path:
+        node = node[p]
+    return node

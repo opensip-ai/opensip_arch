@@ -1,0 +1,69 @@
+PROPOSED APPLICATION-ONLY ADDENDUM — NOT APPLIED, NOT STAGED, NOT AUTHORISED.
+Target: /tmp/opensip-design-corrections/application-assembly.v1/assemble-records.py
+Target sha256 at authoring: see ../assessment.json .proposedRemedy.targetSha256
+Scope: adds one carried-obligation field to two already-generated records
+(inherited-residuals.applied.v1.json DR-007 parent and DR-011-R08 residual).
+Changes no product contract, schema, model, grade or condition. Adds no source
+file. Requires no new design freeze or new independent design review.
+
+Insert immediately after line 118 (after evaluation-residual-dispositions.applied.v1.json
+is written) and before line 119 (`source=dc+'inherited-residuals.proposed.md'`):
+
+--- BEGIN INSERT -------------------------------------------------------------
+# CB6-ADV-3 carried forward. The selected D9 composition is complete, but the
+# owning D9 unit still owes a successor artifact. Applied records — not the
+# native route registry — are what a later pass reads, so the live obligation is
+# pinned here by exact selector. Minting it is guarded on the accepted bytes
+# still carrying it, so this can never become a record of an obligation the
+# accepted design no longer states.
+_d9_rel=dc+'native/native-evidence.schemas.v2.json'
+_d9_ob=load(_d9_rel)['x-opensip-public-route-registry']['successorArtifactObligation']
+assert _d9_ob['standing'].startswith('MANDATORY, LIVE and CROSS-UNIT')
+assert _d9_ob['owedBy']=='the D9 exit-contract unit'
+assert 'host-invariant' not in load('docs/coop/artifacts/d9-exit-contract.v1.14.json')[
+    'scenarioAxesSchema']['properties']['faultCause']['enum']
+D9_CARRIED={
+ 'id':'D9-SUCCESSOR-ARTIFACT',
+ 'standing':'LIVE, MANDATORY, CROSS-UNIT AND UNDISCHARGED AT APPLICATION',
+ 'owedBy':_d9_ob['owedBy'],
+ 'owed':_d9_ob['what'],
+ 'obligationSource':ref(_d9_rel,'/x-opensip-public-route-registry/successorArtifactObligation'),
+ 'selectedCompositionIsComplete':ref(dc+'workflows/schemas/common.schema.json','/$defs/D9FaultCause'),
+ 'inheritedArtifactUnchanged':ref('docs/coop/artifacts/d9-exit-contract.v1.14.json',
+   '/scenarioAxesSchema/properties/faultCause/enum'),
+ 'enforcedInAcceptedSource':ref(dc+'check-integration.py'),
+ 'whyStillOwed':'A consumer validating against the inherited artifact alone would refuse a lawful '
+   'host-invariant operational-failed termination that the selected composition emits. The product '
+   'admission schema, the workflow mapper, the route registry and workflows-and-surfaces.md §9 all '
+   'carry the twelfth cause, so no admitted current consumer is forced to the inherited eleven; the '
+   'gap is confined to the historical artifact, which keeps its exact bytes as the evidence that this '
+   'IS an extension.',
+ 'notDischargedBy':'Condition 1 MET, ACCEPT-DESIGN on DR-007 or DR-011-R08, this application, its '
+   'activation, or the final independent application review. Those grade the inherited residual at '
+   'design level. Publishing the successor artifact is a separate act by the owning unit and needs its '
+   'own independent review. Repinning or editing d9-exit-contract.v1.14.json would not discharge it '
+   'either; it would destroy the inheritance evidence.',
+ 'phase':'IMPLEMENTATION-PHASE ARTIFACT PUBLICATION BY THE D9 EXIT-CONTRACT UNIT',
+ 'qualification':'Separate. Runtime qualification of the successor is release-gate work, not design work.',
+ 'finalApplicationReviewBinding':activation}
+--- END INSERT ---------------------------------------------------------------
+
+Then, inside the existing loop over inherited-residuals.proposed.md rows
+(current line 123, immediately after the `finalApplicationReviewBinding` line
+and before the `if '-R' in rid:` branch), insert one line at the same indent:
+
+--- BEGIN INSERT -------------------------------------------------------------
+ if rid in ('DR-007','DR-011-R08'):v['carriedCrossUnitObligation']=D9_CARRIED
+--- END INSERT ---------------------------------------------------------------
+
+Finally, after the existing assertion on line 131
+(`assert len(parents)==11 and len(residuals)==16`), insert:
+
+--- BEGIN INSERT -------------------------------------------------------------
+assert sum('carriedCrossUnitObligation' in v for v in parents+residuals)==2
+--- END INSERT ---------------------------------------------------------------
+
+Effect on the emitted record: inherited-residuals.applied.v1.json gains the field
+on exactly two rows. No other applied record, document afterimage, grade,
+condition, count or assertion changes. verify-applied.py and check-finalizer.py
+are unaffected: neither enumerates residual row fields.

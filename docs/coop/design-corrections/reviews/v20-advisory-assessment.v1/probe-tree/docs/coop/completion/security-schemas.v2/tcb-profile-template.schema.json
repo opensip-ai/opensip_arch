@@ -1,0 +1,737 @@
+{
+ "type": "object",
+ "properties": {
+  "templateSchema": {
+   "const": 1
+  },
+  "platformProfileKey": {
+   "type": "string",
+   "maxLength": 128,
+   "minLength": 1,
+   "pattern": "^P-(MACOS|LINUX)-(ARM64|X86_64)-[A-Z0-9]+-(APFS|EXT4)$"
+  },
+  "osFamily": {
+   "enum": [
+    "macos",
+    "linux"
+   ]
+  },
+  "architecture": {
+   "enum": [
+    "arm64",
+    "x86_64"
+   ]
+  },
+  "supportedVersionOrBuildSelector": {
+   "type": "object",
+   "properties": {
+    "tag": {
+     "const": "EXACT-BUILD"
+    },
+    "identifierScheme": {
+     "enum": [
+      "macos-product-build",
+      "linux-distro-userspace"
+     ]
+    },
+    "canonicalIdentifier": {
+     "type": "string",
+     "maxLength": 128,
+     "minLength": 1
+    },
+    "valueSource": {
+     "enum": [
+      "MEASURED-2026-09-04",
+      "PUBLISHED-FACT",
+      "RELEASE-MEASURED",
+      "DECIDED"
+     ]
+    }
+   },
+   "required": [
+    "tag",
+    "identifierScheme",
+    "canonicalIdentifier",
+    "valueSource"
+   ],
+   "additionalProperties": false
+  },
+  "filesystemWhereItAffectsResolution": {
+   "enum": [
+    "apfs",
+    "hfs-plus",
+    "ext4",
+    "xfs",
+    "btrfs",
+    "tmpfs"
+   ]
+  },
+  "signedEntries": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "platformProfileKey": {
+      "type": "string",
+      "maxLength": 128,
+      "minLength": 1
+     },
+     "class": {
+      "enum": [
+       "OS ABI",
+       "loader",
+       "libc",
+       "framework",
+       "certificate store",
+       "font",
+       "ICU",
+       "comparable system-class dependency"
+      ]
+     },
+     "identityEvidence": {
+      "oneOf": [
+       {
+        "type": "object",
+        "properties": {
+         "tag": {
+          "const": "PLATFORM-ATTESTED"
+         },
+         "value": {
+          "type": "object",
+          "properties": {
+           "authenticityCore": {
+            "type": "object",
+            "properties": {
+             "scheme": {
+              "enum": [
+               "codesign",
+               "package-db",
+               "macos-sealed-boot"
+              ]
+             },
+             "payload": {
+              "type": "object"
+             }
+            },
+            "required": [
+             "scheme",
+             "payload"
+            ],
+            "additionalProperties": false
+           },
+           "sonameAbi": {
+            "type": "object",
+            "properties": {
+             "soname": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+             },
+             "abiSelector": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+             }
+            },
+            "required": [
+             "soname",
+             "abiSelector"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "required": [
+           "authenticityCore"
+          ],
+          "additionalProperties": false
+         }
+        },
+        "required": [
+         "tag",
+         "value"
+        ],
+        "additionalProperties": false
+       },
+       {
+        "type": "object",
+        "properties": {
+         "tag": {
+          "const": "DIGEST-BOUND"
+         },
+         "value": {
+          "type": "object",
+          "properties": {
+           "algorithmId": {
+            "const": "sha-256"
+           },
+           "digest": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64,
+              "minLength": 64
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           "sonameAbi": {
+            "type": "object",
+            "properties": {
+             "soname": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+             },
+             "abiSelector": {
+              "type": "string",
+              "maxLength": 128,
+              "minLength": 1
+             }
+            },
+            "required": [
+             "soname",
+             "abiSelector"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "required": [
+           "algorithmId",
+           "digest"
+          ],
+          "additionalProperties": false
+         }
+        },
+        "required": [
+         "tag",
+         "value"
+        ],
+        "additionalProperties": false
+       }
+      ]
+     },
+     "originSearchPolicy": {
+      "type": "object",
+      "properties": {
+       "allowedLoaderOrSearchOrder": {
+        "type": "array",
+        "items": {
+         "type": "string",
+         "maxLength": 1024,
+         "minLength": 1
+        },
+        "maxItems": 16,
+        "minItems": 0
+       },
+       "environmentInfluence": {
+        "type": "object",
+        "additionalProperties": {
+         "oneOf": [
+          {
+           "type": "object",
+           "properties": {
+            "standing": {
+             "const": "FORBIDDEN"
+            }
+           },
+           "required": [
+            "standing"
+           ],
+           "additionalProperties": false
+          },
+          {
+           "type": "object",
+           "properties": {
+            "standing": {
+             "const": "FIXED"
+            },
+            "expectedValue": {
+             "type": "string",
+             "maxLength": 1024,
+             "minLength": 1
+            }
+           },
+           "required": [
+            "standing",
+            "expectedValue"
+           ],
+           "additionalProperties": false
+          }
+         ]
+        }
+       },
+       "classAppropriateLookup": {
+        "type": [
+         "string",
+         "null"
+        ],
+        "maxLength": 512
+       },
+       "volumeConstraint": {
+        "oneOf": [
+         {
+          "type": "object",
+          "properties": {
+           "tag": {
+            "const": "EXTERNAL-ORIGIN"
+           },
+           "canonicalOrigin": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "pattern": "^/"
+           }
+          },
+          "required": [
+           "tag",
+           "canonicalOrigin"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tag": {
+            "const": "INSTALL-ROOT-VOLUME"
+           }
+          },
+          "required": [
+           "tag"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tag": {
+            "const": "PATHLESS-PLATFORM-ATTESTED"
+           },
+           "pathlessObservation": {
+            "type": "object",
+            "properties": {
+             "scheme": {
+              "enum": [
+               "codesign",
+               "macos-sealed-boot"
+              ]
+             },
+             "subject": {
+              "type": "object"
+             }
+            },
+            "required": [
+             "scheme",
+             "subject"
+            ],
+            "additionalProperties": false
+           }
+          },
+          "required": [
+           "tag",
+           "pathlessObservation"
+          ],
+          "additionalProperties": false
+         },
+         {
+          "type": "object",
+          "properties": {
+           "tag": {
+            "const": "PATHLESS-PLATFORM-ATTESTED"
+           },
+           "pathlessObservation": {
+            "type": "object",
+            "properties": {
+             "scheme": {
+              "const": "package-db"
+             },
+             "subject": {
+              "type": "object"
+             }
+            },
+            "required": [
+             "scheme",
+             "subject"
+            ],
+            "additionalProperties": false
+           },
+           "measuredBootTranscriptDigest": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64,
+              "minLength": 64
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           "kexecCapability": {
+            "const": "kexec-absent"
+           },
+           "builderRoot": {
+            "type": "object"
+           },
+           "builderPublicKey": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64,
+              "minLength": 64
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           "builderSignature": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{128}$",
+              "maxLength": 128,
+              "minLength": 128
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           "builderRootDigest": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64,
+              "minLength": 64
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           },
+           "ikconfigDigest": {
+            "oneOf": [
+             {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "maxLength": 64,
+              "minLength": 64
+             },
+             {
+              "type": "object",
+              "properties": {
+               "$releaseMeasured": {
+                "type": "object",
+                "properties": {
+                 "field": {
+                  "type": "string",
+                  "maxLength": 64,
+                  "minLength": 1
+                 },
+                 "form": {
+                  "type": "string",
+                  "maxLength": 128,
+                  "minLength": 1
+                 },
+                 "source": {
+                  "type": "string",
+                  "maxLength": 512,
+                  "minLength": 1
+                 }
+                },
+                "required": [
+                 "field",
+                 "form",
+                 "source"
+                ],
+                "additionalProperties": false
+               }
+              },
+              "required": [
+               "$releaseMeasured"
+              ],
+              "additionalProperties": false
+             }
+            ]
+           }
+          },
+          "required": [
+           "tag",
+           "pathlessObservation",
+           "measuredBootTranscriptDigest",
+           "kexecCapability",
+           "builderRoot",
+           "builderPublicKey",
+           "builderSignature",
+           "builderRootDigest"
+          ],
+          "additionalProperties": false
+         }
+        ]
+       }
+      },
+      "required": [
+       "allowedLoaderOrSearchOrder",
+       "environmentInfluence",
+       "classAppropriateLookup",
+       "volumeConstraint"
+      ],
+      "additionalProperties": false
+     },
+     "valueSource": {
+      "enum": [
+       "MEASURED-2026-09-04",
+       "PUBLISHED-FACT",
+       "RELEASE-MEASURED",
+       "DECIDED"
+      ]
+     },
+     "schemeStanding": {
+      "enum": [
+       "v48",
+       "v49-successor-required"
+      ]
+     }
+    },
+    "required": [
+     "platformProfileKey",
+     "class",
+     "identityEvidence",
+     "originSearchPolicy",
+     "valueSource"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 64,
+   "minItems": 1
+  },
+  "inapplicabilityProofs": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "class": {
+      "enum": [
+       "loader",
+       "libc",
+       "framework",
+       "certificate store",
+       "font",
+       "ICU",
+       "comparable system-class dependency"
+      ]
+     },
+     "reason": {
+      "type": "string",
+      "maxLength": 1024,
+      "minLength": 1
+     },
+     "probe": {
+      "type": "string",
+      "maxLength": 1024,
+      "minLength": 1
+     }
+    },
+    "required": [
+     "class",
+     "reason",
+     "probe"
+    ],
+    "additionalProperties": false
+   },
+   "maxItems": 16,
+   "minItems": 0
+  },
+  "runnerRequirements": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "maxLength": 512,
+    "minLength": 1
+   },
+   "maxItems": 16,
+   "minItems": 0
+  }
+ },
+ "required": [
+  "templateSchema",
+  "platformProfileKey",
+  "osFamily",
+  "architecture",
+  "supportedVersionOrBuildSelector",
+  "filesystemWhereItAffectsResolution",
+  "signedEntries",
+  "inapplicabilityProofs",
+  "runnerRequirements"
+ ],
+ "additionalProperties": false,
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "urn:opensip:design:tcb-profile-template:1",
+ "title": "DR-126 profile template (v48 structural constraints encoded here; RELEASE-MEASURED values typed)"
+}

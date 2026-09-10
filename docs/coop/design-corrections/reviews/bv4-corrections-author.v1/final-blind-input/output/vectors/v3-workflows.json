@@ -1,0 +1,406 @@
+[
+ {
+  "id": "W1-mutation-replay-scope",
+  "kind": "positive",
+  "description": "H('workflow.mutation-intent', MutationReplayScopeV1) is a BARE 64-hex operational key over exactly {schemaVersion,requestId,stepId,projectId,operation}; effect inputs are NOT in the preimage",
+  "result": {
+   "scope": {
+    "schemaVersion": 1,
+    "requestId": "req1_80d51bb829a6e379a6f43309aa6b28d2",
+    "stepId": 0,
+    "projectId": "prj1-1d02a2c17c0e2ec9bb4662ebd747421cfc7655499af449cd7d776114c2883787",
+    "operation": "import"
+   },
+   "idempotencyKey": "be7242e35daa70cda84fbeaa24372ff14777159c92408a031d0147cad538403f",
+   "isBare64Hex": true,
+   "deterministic": true,
+   "differentFreshRequestDoesNotDeduplicate": true,
+   "differentStepDiffers": true,
+   "differentOperationDiffers": true
+  }
+ },
+ {
+  "id": "W1n-repair-apply-in-generic-scope",
+  "kind": "negative",
+  "description": "repair-apply is explicitly excluded from the generic mutation scope",
+  "outcome": "refused",
+  "refusal": "schema refusal invocation#/$defs/MutationReplayScopeV1 at ['operation']: 'repair-apply' should not be valid under {'const': 'repair-apply'}"
+ },
+ {
+  "id": "W2-repair-apply-key",
+  "kind": "positive",
+  "description": "repair-apply uses the RAW SHA-256 of canonical {operation,projectId,repairPlanId,baseSnapshotId} - content-derived, not the operational H('workflow.mutation-intent') recipe, and a different base snapshot is a different key",
+  "result": {
+   "preimage": {
+    "operation": "repair-apply",
+    "projectId": "prj1-1d02a2c17c0e2ec9bb4662ebd747421cfc7655499af449cd7d776114c2883787",
+    "repairPlanId": "repairplan2:72f836d1048cd08734dc620125e2f146518b4bb3801982ae1d439430ae933649",
+    "baseSnapshotId": "snapshot2:15d04bee02bfb44b8bbf9d11133f05f7b248a2e561f862935d09208a3b5bac39"
+   },
+   "key": "eea2670966da041c7404668e9376bfbbf128a85ce11d1559c170e942c61fa088",
+   "differentBaseSnapshotDiffers": true,
+   "isNotAnHIdentity": true,
+   "twoRecipesNeverCollide": true,
+   "note": "a completed equal key performs no second effect; a replay delivery gets its own receipt with replayed=true and the original stays immutable"
+  }
+ },
+ {
+  "id": "W3-pinned-purge-refusal",
+  "kind": "positive",
+  "description": "a direct purge of a pinned Run refuses request-rejected / REQUEST.PRECONDITION_FAILED / exit 2 with the COMPLETE active pin inventory sorted uniquely by pinId and the three ordered consequences; no pin is omitted, truncated or aggregated into a count",
+  "result": {
+   "termination": {
+    "class": "request-rejected",
+    "errorCode": "REQUEST.PRECONDITION_FAILED",
+    "domainDetail": {
+     "code": "evidence.pinned",
+     "remedy": "revoke the named pins under explicit lifecycle authorization, or purge a Run that is not pinned",
+     "subject": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9",
+     "purgeDisclosure": {
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9",
+      "activePins": [
+       {
+        "pinId": "backup:2026-09-01",
+        "kind": "backup-export"
+       },
+       {
+        "pinId": "baseline:main",
+        "kind": "baseline"
+       },
+       {
+        "pinId": "repair:plan-7",
+        "kind": "repair-prerequisite"
+       }
+      ],
+      "consequences": [
+       "named-pins-revoked",
+       "dependent-evidence-replay-unavailable",
+       "sealed-history-retained"
+      ]
+     }
+    }
+   },
+   "exitCode": 2,
+   "pinCount": 3
+  }
+ },
+ {
+  "id": "W3n-truncated-pin-set-is-schema-valid",
+  "kind": "advisory",
+  "description": "a schema-valid SUBSET does not satisfy the completeness obligation: the host must compare the disclosed pins with the complete set observed under the exclusive purge lease. Schema validity is not inventory completeness.",
+  "result": {
+   "schemaValid": true,
+   "satisfiesObligation": false,
+   "obligationOwner": "host ledger observation under the exclusive purge lease"
+  }
+ },
+ {
+  "id": "W3n-disclosure-on-wrong-detail",
+  "kind": "negative",
+  "description": "purgeDisclosure is admissible only under code evidence.pinned",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/DomainDetail at []: {'code': 'evidence.purged', 'remedy': 'x', 'purgeDisclosure': {'runId': 'run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9', 'activePins': [{'pinId': 'backup:2026-09-01', 'kind': 'backup-export'}, {'pinId': 'baseline:main', 'kind': 'baseline'}, {'pinId': 'repair:plan-7', 'kind': 'repair-prerequisite'}], 'consequences': ['named-pins-revoked', 'dependent-evidence-replay-unavailable', 'sealed-history-retained']}} should not be valid under {'required': ['purgeDisclosure']}"
+ },
+ {
+  "id": "W4-scope-document-parameter",
+  "kind": "positive",
+  "description": "the registered `parameter` class row workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1 makes a lawful scope-policy parameter admissible at Plan closure; the parameter's schemaDigest is the raw SHA-256 of the FULL policy-document document bytes",
+  "result": {
+   "registryRows": [
+    "foundation/import-source-context.schema.json",
+    "workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1"
+   ],
+   "citedSchemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
+   "selector": "#/$defs/ScopeDocumentV1",
+   "scopeDocumentA": {
+    "schemaFamily": "opensip.product.scope",
+    "schemaMajor": 1,
+    "include": [
+     "src/**"
+    ],
+    "exclude": []
+   },
+   "scopeDocumentB": {
+    "schemaFamily": "opensip.product.scope",
+    "schemaMajor": 1,
+    "include": [
+     "src/**"
+    ],
+    "exclude": [
+     "src/legacy.js"
+    ]
+   },
+   "parameterA": {
+    "schemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
+    "payloadDigest": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8"
+   },
+   "parameterB": {
+    "schemaDigest": "012505da479197875602899c027b3d0daea9e23e01e490e3dc94bbe3d7062e18",
+    "payloadDigest": "bdc6347e5407617ba7b1b87e6467f0548b6a469f9fc46ec1d17d777fb48bb92a"
+   },
+   "planA": "plan2:3487d07f170dc2e1ae11d37fe60125643b3a22b2335956175e202d7ff2525a76",
+   "planB": "plan2:8e57b540e1c2d72de3a05271e6926200d4c684d9b1d6d0944d001033caa4953f",
+   "onlyTheScopePolicyChanged": true,
+   "planScopeDigest_is_the_foundation_scope_descriptor": "97127bb2f9d660672d70a28fa1f5ec1582d20d708d2fa424d3532aa5ed2b282e",
+   "analysisSpecDigestsDiffer": true,
+   "planIdentitiesDiffer": true
+  }
+ },
+ {
+  "id": "W4n-unregistered-parameter-schema",
+  "kind": "negative",
+  "description": "a real but unregistered parameter document refuses",
+  "outcome": "refused",
+  "refusal": "parameter class: a cited schema with no registry row refuses; there is no default row and no caller-selected schema (IMPORT/PARAMETER schema unregistered)"
+ },
+ {
+  "id": "W4b-scope-axis-only",
+  "kind": "positive",
+  "description": "a comparison in which ONLY the scope policy changed: policy, waivers and detectors are equal, so the first axis at which the fingerprint changes is SCOPE (E2 -> E3). This is a different record from plan.scopeDigest, the repository extent actually walked by discovery.",
+  "result": {
+   "baselineContext": {
+    "policyDigest": "ad36abd6b32f6290d038a42213a9dc6233b6b52079d8dfb1b005b11b66e6e135",
+    "scopeDigest": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8",
+    "waiverSetDigest": "a48dcf50d1cc111e0a5f6dafb1f1e5ac97070fc3795d615a653d2501db8be779",
+    "detectorClosureIds": [
+     "closure2:ce08e79bba76d634ba647ded0fbea1deda0c9441fced0c311f92382c0a459de2"
+    ],
+    "evidenceAvailability": {
+     "importKinds": [],
+     "relations": [],
+     "imports": []
+    }
+   },
+   "currentContext": {
+    "policyDigest": "ad36abd6b32f6290d038a42213a9dc6233b6b52079d8dfb1b005b11b66e6e135",
+    "scopeDigest": "bdc6347e5407617ba7b1b87e6467f0548b6a469f9fc46ec1d17d777fb48bb92a",
+    "waiverSetDigest": "a48dcf50d1cc111e0a5f6dafb1f1e5ac97070fc3795d615a653d2501db8be779",
+    "detectorClosureIds": [
+     "closure2:ce08e79bba76d634ba647ded0fbea1deda0c9441fced0c311f92382c0a459de2"
+    ],
+    "evidenceAvailability": {
+     "importKinds": [],
+     "relations": [],
+     "imports": []
+    }
+   },
+   "contextDelta": {
+    "codeChanged": false,
+    "detectorChanged": false,
+    "policyChanged": false,
+    "scopeChanged": true,
+    "waiversChanged": false,
+    "evidenceAvailabilityChanged": false
+   },
+   "classifyingAxis": "scope",
+   "classification": "SCOPE-DELTA",
+   "distinctFromDiscoveryScope": {
+    "plan.scopeDigest (foundation scope-descriptor)": "97127bb2f9d660672d70a28fa1f5ec1582d20d708d2fa424d3532aa5ed2b282e",
+    "EvaluationContext.scopeDigest (ScopeDocumentV1)": "5186a5c722c7e544bbbf488e28e255ffe3cf88e7494eb272e5e87db6065d3dc8",
+    "distinct": true
+   }
+  }
+ },
+ {
+  "id": "W5-public-terminations",
+  "kind": "positive",
+  "description": "13 public termination examples, each validated against common.schema.json#/$defs/StepTermination and with its DomainDetail code checked for membership of the single closed public-detail registry",
+  "result": {
+   "terminations": [
+    {
+     "id": "T1-fresh-durable-analysis",
+     "exitCode": 0,
+     "description": "the default zero-config invocation succeeds; DEFAULTED durable-unbounded retention is disclosed before the first write",
+     "termination": {
+      "class": "success",
+      "authority": "authoritative",
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9"
+     }
+    },
+    {
+     "id": "T2-policy-failed-authoritative",
+     "exitCode": 1,
+     "description": "a failing authoritative Run carries its RunId",
+     "termination": {
+      "class": "policy-failed",
+      "authority": "authoritative",
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9"
+     }
+    },
+    {
+     "id": "T3-policy-failed-ephemeral",
+     "exitCode": 1,
+     "description": "--ephemeral is explicitly non-authoritative: the branch carries authority=ephemeral INSTEAD of a runId",
+     "termination": {
+      "class": "policy-failed",
+      "authority": "ephemeral"
+     }
+    },
+    {
+     "id": "T4-ephemeral-cannot-supply-authority",
+     "exitCode": 2,
+     "description": "--ephemeral with a baseline/repair prerequisite",
+     "termination": {
+      "class": "request-rejected",
+      "errorCode": "REQUEST.UNSATISFIABLE",
+      "domainDetail": {
+       "code": "WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY",
+       "remedy": "re-run without --ephemeral"
+      }
+     }
+    },
+    {
+     "id": "T5-indeterminate-coverage",
+     "exitCode": 3,
+     "description": "admitted-but-incomplete native inputs seal an AUTHORITATIVE Run and terminate indeterminate with the deficiency as typed detail in the coverage2 record",
+     "termination": {
+      "class": "indeterminate",
+      "reasonCodes": [
+       "VERDICT.INDETERMINATE"
+      ],
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9",
+      "coverageId": "coverage2:d1ed87353418ebe6e058657445dec164acc59a1427adf08bae712c0c2176b113"
+     }
+    },
+    {
+     "id": "T6-provider-unavailable",
+     "exitCode": 3,
+     "description": "a required provider closure is not installed",
+     "termination": {
+      "class": "indeterminate",
+      "reasonCodes": [
+       "COVERAGE.PROVIDER_UNAVAILABLE"
+      ],
+      "domainDetail": {
+       "code": "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED",
+       "remedy": "opensip install provider-typescript"
+      }
+     }
+    },
+    {
+     "id": "T7-renderer-failed-after-commit",
+     "exitCode": 4,
+     "description": "required delivery failure AFTER a committed Run retains the RunId and never rewrites the Run",
+     "termination": {
+      "class": "operational-failed",
+      "errorCode": "DELIVERY.REQUIRED_FAILED",
+      "faultCause": "delivery-required",
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9",
+      "domainDetail": {
+       "code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
+       "remedy": "re-render from the retained Run"
+      }
+     }
+    },
+    {
+     "id": "T8-evidence-missing-during-operation",
+     "exitCode": 4,
+     "description": "inability to read required evidence DURING a selected operation is HOST.IO_FAILURE, a different event position from the pre-evaluation refusal",
+     "termination": {
+      "class": "operational-failed",
+      "errorCode": "HOST.IO_FAILURE",
+      "faultCause": "host-io",
+      "domainDetail": {
+       "code": "evidence.missing",
+       "remedy": "restore or regenerate the missing objects"
+      }
+     }
+    },
+    {
+     "id": "T9-evidence-purged-before-evaluation",
+     "exitCode": 2,
+     "description": "a query requiring actual proof refuses BEFORE evaluation",
+     "termination": {
+      "class": "request-rejected",
+      "errorCode": "REQUEST.PRECONDITION_FAILED",
+      "domainDetail": {
+       "code": "evidence.purged",
+       "remedy": "re-analyze to produce fresh evidence"
+      }
+     }
+    },
+    {
+     "id": "T10-interrupted-after-commit",
+     "exitCode": 130,
+     "description": "a signal before settle: remaining steps are cancelled and a Run committed by an earlier step is still named",
+     "termination": {
+      "class": "interrupted",
+      "signal": "SIGINT",
+      "runId": "run2:fe69ede7d0ff9d8a3528428b7d4e401178eeba8ba86bdf9b86c2ba592651c2f9"
+     }
+    },
+    {
+     "id": "T11-provider-protocol-violation",
+     "exitCode": 4,
+     "description": "a worker that lies about its examined partition contributes no facts, no Coverage and no Run",
+     "termination": {
+      "class": "operational-failed",
+      "errorCode": "PROVIDER.PROTOCOL_VIOLATION",
+      "faultCause": "provider-protocol"
+     }
+    },
+    {
+     "id": "T12-backup-choice-required-in-ci",
+     "exitCode": 2,
+     "description": "CI never prompts; without an explicit storage-policy choice the first source-derived write refuses BEFORE creating evidence",
+     "termination": {
+      "class": "request-rejected",
+      "errorCode": "REQUEST.PRECONDITION_FAILED",
+      "domainDetail": {
+       "code": "storage.backup-choice-required",
+       "remedy": "pass --allow-backup-custody, choose another root, or use --ephemeral"
+      }
+     }
+    },
+    {
+     "id": "T13-doctor-defects-found",
+     "exitCode": 0,
+     "description": "a produced doctor report is success even with defects; CI gates on the machine report, never the exit code",
+     "termination": {
+      "class": "success",
+      "domainDetail": {
+       "code": "DOCTOR.DEFECTS_FOUND",
+       "remedy": "inspect doctor.defectsFound"
+      }
+     }
+    }
+   ],
+   "registryEntryCount": 283
+  }
+ },
+ {
+  "id": "T-N1-success-with-error",
+  "kind": "negative",
+  "description": "success may carry no errorCode",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/StepTermination at []: {'class': 'success', 'errorCode': 'HOST.IO_FAILURE'} should not be valid under {'anyOf': [{'required': ['errorCode']}, {'required': ['reasonCodes']}, {'required': ['signal']}]}"
+ },
+ {
+  "id": "T-N2-policy-failed-without-run-or-ephemeral",
+  "kind": "negative",
+  "description": "policy-failed requires runId or authority=ephemeral",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/StepTermination at []: {'class': 'policy-failed'} is not valid under any of the given schemas"
+ },
+ {
+  "id": "T-N3-operational-without-fault-cause",
+  "kind": "negative",
+  "description": "operational-failed requires a non-none faultCause",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/StepTermination at []: 'faultCause' is a required property"
+ },
+ {
+  "id": "T-N4-indeterminate-without-reasons",
+  "kind": "negative",
+  "description": "indeterminate requires reasonCodes",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/StepTermination at []: 'reasonCodes' is a required property"
+ },
+ {
+  "id": "T-N5-unregistered-detail-code",
+  "kind": "negative",
+  "description": "an unknown DomainDetail code refuses admission",
+  "outcome": "refused",
+  "refusal": "schema refusal common#/$defs/StepTermination at ['domainDetail', 'code']: 'native.too-many-units' is not one of ['AUTHZ.BASE_SNAPSHOT_MISMATCH', 'AUTHZ.CI_FLAG_MISMATCH', 'AUTHZ.CI_REQUIRES_POLICY_RECORD', 'AUTHZ.CONSENT_MODE', 'AUTHZ.CONSENT_SHAPE', 'AUTHZ.CUSTODY_NOT_ADMITTED', 'AUTHZ.EXPIRED', 'AUTHZ.EXPIRY', 'AUTHZ.JOURNAL_CONTEXT', 'AUTHZ.JOURNAL_MISMATCH', 'AUTHZ.JOURNAL_NOT_OF_THIS_PLAN', 'AUTHZ.JOURNAL_STATE_MISMATCH', 'AUTHZ.JOURNAL_STATE_MOVED', 'AUTHZ.JOURNAL_STATE_UNKNOWN', 'AUTHZ.LEASE_MODE', 'AUTHZ.LIFETIME_BOUND', 'AUTHZ.MUTATION_BOUNDARY', 'AUTHZ.NEW_EDITS_NOT_GRANTABLE_HERE', 'AUTHZ.NOT_YET_VALID', 'AUTHZ.NO_ADMITTED_TIME_CONTEXT', 'AUTHZ.ORIGINAL_REQUEST_MISMATCH', 'AUTHZ.POLICY_DOES_NOT_ADMIT_REPAIR', 'AUTHZ.POLICY_RECORD_ID', 'AUTHZ.PROJECT_ID_MISMATCH', 'AUTHZ.RECIPE_CLOSURE_MISMATCH', 'AUTHZ.RECIPE_CLOSURE_NOT_ADMITTED', 'AUTHZ.RECIPE_CLOSURE_REVOKED', 'AUTHZ.RECIPE_CLOSURE_SHAPE', 'AUTHZ.RECOVERY_ACTION_MISMATCH', 'AUTHZ.RECOVERY_ACTION_UNKNOWN', 'AUTHZ.RECOVERY_EXECUTION_NOT_FRESH', 'AUTHZ.RECOVERY_NOT_MUTATING', 'AUTHZ.RECOVERY_REQUEST_MISMATCH', 'AUTHZ.RECOVERY_REQUEST_NOT_FRESH', 'AUTHZ.REPAIR_PLAN_MISMATCH', 'AUTHZ.REPOSITORY_EXECUTION_NOT_GRANTABLE_HERE', 'AUTHZ.REQUEST_ID_SHAPE', 'AUTHZ.SHAPE', 'AUTHZ.SOURCE_MOVED', 'AUTHZ.TIME_GRAMMAR', 'BASELINE.CONTEXT_DOCUMENT_MISSING', 'BASELINE.PIVOT_CLOSURE_INCOMPATIBLE', 'BASELINE.PIVOT_CLOSURE_REVOKED', 'BASELINE.PIVOT_DETECTOR_UNAVAILABLE', 'BASELINE.PROJECT_UNMAPPED', 'BASELINE.SCHEMA_MAJOR_UNSUPPORTED', 'BASELINE.SOURCE_EPHEMERAL', 'CLOCK-EXCURSION-FORWARD', 'COMPARISON.PIVOT_REEVALUATION_UNAVAILABLE', 'COMPARISON.REQUIRED_COVERAGE_UNSATISFIED', 'COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE', 'COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED', 'CONFIG.CUSTODY_REFUSED', 'CONFIG.INVALID', 'CONTINUE-CORE-NOT-TRUSTED', 'DELIVERY.CLOSURE_BYTES_CORRUPT', 'DELIVERY.CLOSURE_BYTES_MISSING', 'DELIVERY.CLOSURE_UNSPAWNABLE', 'DELIVERY.RENDERER_FAILED_AFTER_COMMIT', 'DOCTOR.DEFECTS_FOUND', 'ENVELOPE.BODY_DIGEST', 'ENVELOPE.KIND', 'ENVELOPE.SHAPE', 'GRANT.ARGV_MISMATCH', 'GRANT.AUTHORIZATION_MODE', 'GRANT.AUTHORIZATION_SHAPE', 'GRANT.CI_FLAG_MISMATCH', 'GRANT.CI_REQUIRES_POLICY_RECORD', 'GRANT.DEPENDENCY_SET_MISMATCH', 'GRANT.DEPENDENCY_SET_SHAPE', 'GRANT.EFFECTS_SHAPE', 'GRANT.ENFORCEMENT_CLAIM_NOT_IN_TRUTH_TABLE', 'GRANT.ENFORCEMENT_VOCABULARY', 'GRANT.EXECUTION_CLASS', 'GRANT.EXPIRY', 'GRANT.INHERITED', 'GRANT.OWNERS_SHAPE', 'GRANT.OWNER_DUPLICATE', 'GRANT.OWNER_MANIFEST_MISMATCH', 'GRANT.OWNER_NOT_IN_SEALED_SET', 'GRANT.OWNER_SOURCE_DIGEST_MISMATCH', 'GRANT.PLATFORM_DISPLAY_ALIAS_NOT_MACHINE_ID', 'GRANT.PLATFORM_NOT_IN_TRUTH_TABLE', 'GRANT.POLICY_DOES_NOT_ADMIT_PRINCIPAL', 'GRANT.POLICY_RECORD_ID', 'GRANT.PRINCIPAL_NOT_REPOSITORY_CODE', 'GRANT.PROJECT_ID_MISMATCH', 'GRANT.REFUSED', 'GRANT.RUNNER_MUST_BE_TOOL_CLOSURE', 'GRANT.RUNNER_NOT_IN_TOOL_CLOSURE', 'GRANT.RUNNER_NOT_SEALED_MEMBER', 'GRANT.RUNNER_SHAPE', 'GRANT.SCHEMA', 'GRANT.SEMANTIC_PRINCIPAL_KIND', 'GRANT.SHAPE', 'GRANT.SNAPSHOT_MISMATCH', 'GRANT.TOOL_CLOSURE_MISMATCH', 'HOST.IO_FAILURE', 'IMPORT.ABSENT_FOR_PREDICATE', 'IMPORT.ARTIFACT_CORRUPT', 'IMPORT.KIND_PAYLOAD_MISMATCH', 'IMPORT.MAPPING_REQUIRED', 'IMPORT.PAYLOAD_SCHEMA_UNREGISTERED', 'IMPORT.SOURCE_MAPPING_REQUIRED', 'IMPORT.STALE_FOR_PLAN', 'IMPORT.UNMAPPED_SUBJECTS', 'IMPORT.WRONG_BUILD', 'MIGRATION.CORRUPT', 'NT-TCB-BOOT', 'NT-TCB-IDENTITY', 'NT-TCB-PROFILE-UNQUALIFIED', 'OBSERVER.FAIL_STOP', 'OUTPUT.FORMAT_NOT_APPLICABLE', 'OUTPUT.RENDERER_QUOTA_EXCEEDED', 'PAYLOAD-NOT-ADMISSIBLE', 'PLAN.CONSUMED_GRANT_SHAPE', 'PLAN.EXECUTION_PRINCIPAL_NOT_PROJECTED', 'PLAN.EXECUTION_PROJECTION_REFUSED', 'PLAN.GRANT_CONSUMED_WITHOUT_HOST_PREPARED', 'PLAN.HOST_PREPARED_WITHOUT_GRANT', 'PLAN.PREPARED_RESOLUTION_UNKNOWN', 'PLAN.PROJECTED_PRINCIPAL_WITHOUT_GRANT', 'PLAN.TEST_RUNNER_HAS_NO_PLAN', 'POLICY.DUPLICATE_WAIVER', 'POLICY.IMPERATIVE_KEY_REFUSED', 'POLICY.UNKNOWN_RULE', 'POLICY.WAIVER_EXPIRED', 'PROFILE_SET.CANON', 'PROFILE_SET.CORE_PIN_MISMATCH', 'PROFILE_SET.NO_TR_PROFILE_ROLE', 'PROFILE_SET.SCHEMA', 'PROFILE_SET.SCHEMA_SHAPE', 'PROFILE_SET.SIGNATURE_THRESHOLD', 'PROJECT.BUSY', 'PROJECT.DISCOVERY_INVENTORY_MISMATCH', 'PROJECT.EXPLICIT_PATH_INVALID', 'PROJECT.ROOT_CUSTODY_REFUSED', 'PROJECT.SCOPE_LIMIT', 'PROJECT.WORKSPACE_UNIT_LIMIT', 'PROVIDER.NOT_SELECTED', 'PROVIDER.UNAVAILABLE.DECLARED_OTHER', 'PROVIDER.UNAVAILABLE.SEMANTIC_UNIVERSE_INCOMPLETE', 'PROVIDER.UNAVAILABLE.SNAPSHOT_RESOLUTION_INPUT_MISSING', 'PROVIDER.UNAVAILABLE.UNSUPPORTED_COMPILER_MODE', 'RECOVERY.REFUSED', 'REPAIR.CLOSED_WORLD_NOT_ESTABLISHED', 'REPAIR.CONSENT_NOT_BOUND', 'REPAIR.EDIT_OUTSIDE_PERMITTED_SCOPE', 'REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE', 'REPAIR.EVIDENCE_RUN_UNAVAILABLE', 'REPAIR.PREIMAGE_CORRUPT', 'REPAIR.RECIPE_TRUST_NOT_ADMITTED', 'REPAIR.RECIPE_TRUST_REVOKED', 'REPAIR.RECOVERY_BLOCKED', 'REPAIR.RECOVERY_NOT_AUTHORIZED', 'REPAIR.RECOVERY_REQUIRES_BROKER', 'REPAIR.SOURCE_MOVED', 'REPAIR.TARGET_PREIMAGE_MISMATCH', 'REVIEW.ADVISORY_ONLY', 'REVIEW.CANDIDATE_SUPPRESSED', 'ROOT.CHAIN_BACKDATED', 'ROOT.CHAIN_GAP', 'ROOT.CHAIN_NEW_THRESHOLD', 'ROOT.CHAIN_OLD_THRESHOLD', 'ROOT.CHAIN_ORIGIN_INCONSISTENT', 'ROOT.EXPIRED_NO_CHAIN', 'ROOT.EXPIRY_NOT_AFTER_ISSUE', 'ROOT.FINAL_EXPIRED', 'ROOT.FINAL_FUTURE', 'ROOT.FLOOR_ABOVE_CORE', 'ROOT.ISSUE_NOT_BEFORE_EXPIRY', 'ROOT.KERNEL_ATTESTATION_KEYS', 'ROOT.KERNEL_ATTESTATION_KEYS_NOT_EMPTY', 'ROOT.KERNEL_ATTESTATION_KEYS_POLICY', 'ROOT.KEYS_SHAPE', 'ROOT.KEY_ID', 'ROOT.KEY_REUSE', 'ROOT.KEY_REUSED_ACROSS_ROLES', 'ROOT.PREVIOUS_VERSION', 'ROOT.RECOVERY_AUTHORITY', 'ROOT.ROLE_SET', 'ROOT.ROLE_SHAPE', 'ROOT.ROLE_THRESHOLD', 'ROOT.ROLE_THRESHOLD_POLICY', 'ROOT.ROOT_KEYS', 'ROOT.ROOT_THRESHOLD_POLICY', 'ROOT.SCHEMA_CONSTANT_TYPE', 'ROOT.SCHEMA_SHAPE', 'ROOT.SCHEMA_UNSUPPORTED', 'ROOT.SHAPE', 'ROOT.STATE_INCONSISTENT', 'ROOT.TIMESTAMP_GRAMMAR', 'ROOT.TR_PROFILE_THRESHOLD_POLICY', 'ROOT.TR_REPAIR_ACTIVE_UNDER_SCHEMA_1', 'ROOT.TR_REPAIR_MUST_BE_TYPED_ABSENCE', 'ROOT.TR_REPAIR_STANDING', 'ROOT.TR_REPAIR_THRESHOLD_POLICY', 'ROOT.UNKNOWN_KEY', 'ROOT.VERSION_RANGE', 'ROOT.VERSION_TYPE', 'STATE.SCHEMA_UNSUPPORTED', 'TEST.ARGV_NOT_IN_CLOSURE', 'TEST.CONFINEMENT_CLAIM_REFUSED', 'TEST.ENV_NOT_ALLOWLISTED', 'TEST.INTERACTIVE_CONSENT_IN_CI', 'TEST.PRINCIPAL_NOT_ADMITTED', 'TEST.SOURCE_MOVED', 'TRANSITION.CLOSURE_SHAPE', 'TRANSITION.CONTEXT_INTENT', 'TRANSITION.CURRENT_SCHEMA_MISMATCH', 'TRANSITION.CURRENT_STORE_MISMATCH', 'TRANSITION.DEADLINE_ONLY_FOR_ROLLBACK', 'TRANSITION.FENCE_NOT_HELD', 'TRANSITION.GENERATION_SHAPE', 'TRANSITION.INITIAL_STATE', 'TRANSITION.INTENT_DIGEST_MISMATCH', 'TRANSITION.INTENT_FIELD_MISMATCH', 'TRANSITION.INTENT_SCHEMA', 'TRANSITION.INTENT_SHAPE', 'TRANSITION.JOURNAL_LAW_CONSTANTS', 'TRANSITION.JOURNAL_SHAPE', 'TRANSITION.LEASE_SET_NOT_HELD', 'TRANSITION.MIGRATE_REQUIRES_SCHEMA_ADVANCE', 'TRANSITION.NO_ADMITTED_TIME_CONTEXT', 'TRANSITION.OPERATION', 'TRANSITION.PRECONDITION_GENERATION_MISMATCH', 'TRANSITION.PROFILE_DIGEST_SHAPE', 'TRANSITION.REFUSED', 'TRANSITION.REGISTRY_DIGEST_MISMATCH', 'TRANSITION.REGISTRY_MISMATCH', 'TRANSITION.REPAIR_MUST_KEEP_CLOSURE', 'TRANSITION.REPAIR_MUST_KEEP_SCHEMA', 'TRANSITION.REPAIR_MUST_KEEP_STORE', 'TRANSITION.ROLLBACK_CANNOT_RAISE_SCHEMA', 'TRANSITION.ROLLBACK_DEADLINE_SHAPE', 'TRANSITION.ROLLBACK_MUST_CHANGE_CLOSURE', 'TRANSITION.ROLLBACK_REQUIRES_DEADLINE', 'TRANSITION.ROLLBACK_WINDOW_EXPIRED', 'TRANSITION.SAME_SCHEMA_KEEPS_STORE', 'TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE', 'TRANSITION.SCOPE_MISMATCH', 'TRANSITION.STATE_SCHEMA', 'TRANSITION.STORE_OPERATION_KEEPS_CORE', 'TRANSITION.STORE_ROLLBACK_REQUIRES_SCHEMA_RETREAT', 'TRANSITION.UPDATE_CANNOT_LOWER_SCHEMA', 'TRANSITION.UPDATE_MUST_CHANGE_CLOSURE', 'TRUST.COMPONENT_REVOKED_DURING_OPERATION', 'TRUST.FLOOR_AHEAD_OF_WALL', 'TRUST.NO_ADMITTED_TIME_CONTEXT', 'WORKFLOW.DEPENDENCY_CYCLE', 'WORKFLOW.DEPENDENCY_INVALID', 'WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY', 'WORKFLOW.GATE_NOT_APPLICABLE', 'WORKFLOW.MUTATION_REPLAYED', 'WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL', 'WORKFLOW.RETRY_BUDGET_EXHAUSTED', 'WORKFLOW.STEP_BOUND_EXCEEDED', 'WORKFLOW.VERDICT_GATE_UNBOUND', 'budget-exhausted', 'derivation-policy-unmet', 'evidence.corrupt', 'evidence.expired', 'evidence.missing', 'evidence.pinned', 'evidence.purged', 'evidence.regeneration-mismatch', 'external-consumers-unknown', 'input-closure-incomplete', 'native.ambient-cargo-config', 'native.capability-mismatch-hello-ack', 'native.capability-unavailable', 'native.coverage-bijection-mismatch', 'native.execution-not-authorized', 'native.explicit-root-without-marker', 'native.framework-unrecognized', 'native.identity-not-negotiated', 'native.prepare-bound-exceeded', 'native.prepared-output-not-inert', 'native.stale-import', 'native.stale-prepared-output', 'native.worker-fault', 'resolution-incomplete', 'storage.backup-choice-required']"
+ }
+]

@@ -1,0 +1,140 @@
+--- read-initial/oslib.py
++++ completed/oslib.py
+@@ -866,3 +866,137 @@
+         if d not in self:
+             raise Refused("EVIDENCE_UNAVAILABLE", d)
+         return self[d]
++
++
++# ---------------------------------------------------------------------------
++# 8. `x-opensip-order` admission (identity-and-evidence S3)
++# ---------------------------------------------------------------------------
++# "x-opensip-order is the machine-readable schema annotation for these orders,
++#  and the closed vocabulary is exactly [sequence, canonical-set,
++#  canonical-order, utf8, path, numeric, ordinal, predicate, ruleId, waiverId,
++#  {by:[...]}].  All except sequence and canonical-order also require unique
++#  sort keys; uniqueItems alone neither selects nor overrides an order.  An
++#  annotation outside this vocabulary refuses rather than passing silently."
++
++ORDER_VOCABULARY = {"sequence", "canonical-set", "canonical-order", "utf8",
++                    "path", "numeric", "ordinal", "predicate", "ruleId",
++                    "waiverId"}
++
++
++def _order_key(kind, item):
++    if kind == "canonical-set" or kind == "canonical-order":
++        return C(item)
++    if kind == "utf8":
++        if type(item) is not str:
++            raise Refused("ORDER_UTF8_NEEDS_A_STRING_ITEM", repr(item))
++        return item.encode("utf-8")
++    if kind == "path":
++        return item["path"].encode("utf-8")
++    if kind == "numeric":
++        return item
++    if kind == "ordinal":
++        return item["ordinal"]
++    if kind == "predicate":
++        return (item["ruleId"] + "," + item["subjectId"] + ","
++                + item["predicateId"]).encode("utf-8")
++    if kind in ("ruleId", "waiverId"):
++        return item[kind].encode("utf-8")
++    raise Refused("ORDER_ANNOTATION_UNKNOWN", str(kind))
++
++
++def admit_order(schema_node, instance, path="#", resolver=None, faults=None):
++    """Walk an instance against a schema node and enforce every declared order.
++
++    Returns a list of order faults.  `sequence` (and any unannotated array)
++    imposes nothing.  Anything outside the closed vocabulary REFUSES.
++    """
++    if faults is None:
++        faults = []
++    if not isinstance(schema_node, dict):
++        return faults
++    if "$ref" in schema_node and resolver is not None:
++        schema_node = resolver(schema_node["$ref"]) or {}
++    ann = schema_node.get("x-opensip-order")
++    if ann is not None and isinstance(instance, list):
++        if isinstance(ann, dict):
++            keys = ann.get("by")
++            if not isinstance(keys, list) or not keys:
++                faults.append("ORDER_ANNOTATION_UNKNOWN:%s:%r" % (path, ann))
++            else:
++                prev = None
++                seen = set()
++                for it in instance:
++                    k = tuple(it[x] for x in keys)
++                    kb = "\x00".join(k).encode("utf-8")
++                    if prev is not None and kb <= prev:
++                        faults.append("ORDER_NOT_STRICTLY_ASCENDING:%s:%r"
++                                      % (path, k))
++                    if kb in seen:
++                        faults.append("ORDER_DUPLICATE_SORT_KEY:%s:%r" % (path, k))
++                    seen.add(kb)
++                    prev = kb
++        elif ann not in ORDER_VOCABULARY:
++            faults.append("ORDER_ANNOTATION_UNKNOWN:%s:%s" % (path, ann))
++        elif ann != "sequence":
++            prev = None
++            seen = set()
++            for it in instance:
++                try:
++                    k = _order_key(ann, it)
++                except Refused as r:
++                    faults.append("%s:%s" % (r.code, path))
++                    break
++                kb = k if isinstance(k, bytes) else k
++                if prev is not None:
++                    lt = (kb < prev) if isinstance(kb, bytes) else (kb < prev)
++                    eq = kb == prev
++                    if lt or (eq and ann != "canonical-order"):
++                        faults.append("ORDER_NOT_ASCENDING:%s:%r" % (path, it))
++                if ann != "canonical-order":
++                    key_repr = kb if isinstance(kb, bytes) else repr(kb)
++                    if key_repr in seen:
++                        faults.append("ORDER_DUPLICATE_SORT_KEY:%s" % path)
++                    seen.add(key_repr)
++                prev = kb
++    # descend
++    if isinstance(instance, dict):
++        for k, v in instance.items():
++            sub = (schema_node.get("properties", {}) or {}).get(k)
++            if sub is None:
++                sub = schema_node.get("additionalProperties")
++            if isinstance(sub, dict):
++                admit_order(sub, v, path + "/" + k, resolver, faults)
++    elif isinstance(instance, list):
++        items = schema_node.get("items")
++        if isinstance(items, dict):
++            for i, v in enumerate(instance):
++                admit_order(items, v, path + "/%d" % i, resolver, faults)
++    for comb in ("oneOf", "anyOf", "allOf"):
++        for alt in schema_node.get(comb, []):
++            admit_order(alt, instance, path, resolver, faults)
++    return faults
++
++
++def order_resolver(document):
++    d = doc(document)
++
++    def resolve(ref):
++        if not ref.startswith("#/"):
++            return None
++        node = d
++        for p in ref.lstrip("#/").split("/"):
++            p = p.replace("~1", "/").replace("~0", "~")
++            if p not in node:
++                return None
++            node = node[p]
++        return node
++    return resolve
++
++
++def admit_ordered(document, selector, instance):
++    d = doc(document)
++    node = d
++    if selector not in ("#", "", None):
++        for p in selector.lstrip("#/").split("/"):
++            node = node[p]
++    return admit_order(node, instance, selector, order_resolver(document))

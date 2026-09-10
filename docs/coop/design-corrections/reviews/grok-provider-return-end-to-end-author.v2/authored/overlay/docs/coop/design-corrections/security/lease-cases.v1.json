@@ -1,0 +1,1191 @@
+{
+  "standing": "SYNTHETIC lock schedules evaluated by security_lifecycle_model_v1.lease_schedule (AR-14 concurrent operations). Lock order under test: L0 lifecycle fence (the only blocking lock, bounded) -> L1 project writer lease (LOCK_EX|LOCK_NB) -> L2 project reader lease (LOCK_SH|LOCK_NB; EXCLUSIVE takes LOCK_EX|LOCK_NB) -> L3 ledger transaction -> L4 in-process journal append lock. Modes: SHARED-READ (any number, coexists with one APPEND-WRITE), APPEND-WRITE (one; append-only publication; coexists with readers), EXCLUSIVE (GC/purge/migration/repair-apply; nothing else may be held). Trust writes happen only under the fence and never under a lease. Expected values were authored by hand before execution (same author, not an independent oracle). Real flock/SQLite behaviour is DR-G18 qualification. Post-reset review SHOULD-6: every lease names a REGISTERED project namespace (`namespaceRegistry`; default ns-default); a core transition (core update|repair|rollback, store migrate|rollback) holds the install-wide fence throughout and takes EXCLUSIVE on every AFFECTED registered namespace in locator byte order, all-or-nothing and non-blocking (core-transition-acquire/release); the affected set is decided by core_transition_affected_namespaces from the intent and the registry, never from user input or a directory listing.",
+  "model": "lease",
+  "cases": [
+    {
+      "id": "two-shared-readers-coexist",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "B",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "B",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "B",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "ACQUIRED",
+        "final.readers": [
+          "A",
+          "B"
+        ],
+        "final.fence": null,
+        "lockOrder.0.name": "lifecycle fence",
+        "lockOrder.length": 5
+      }
+    },
+    {
+      "id": "readonly-agents-do-not-block-the-append-writer",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "B",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "B",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "B",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.7.result": "ACQUIRED",
+        "final.readers": [
+          "A",
+          "B"
+        ],
+        "final.writer": "W"
+      }
+    },
+    {
+      "id": "second-append-writer-gets-busy-without-waiting",
+      "input": {
+        "actions": [
+          {
+            "actor": "W1",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W1",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W1",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W2",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W2",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W2",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "BUSY:W1 (non-blocking; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "final.fence": null,
+        "final.writer": "W1"
+      }
+    },
+    {
+      "id": "reader-holds-exclusive-gets-busy-without-waiting",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "lease",
+            "mode": "EXCLUSIVE"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "BUSY:A (non-blocking; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "final.fence": null,
+        "final.exclusive": null
+      }
+    },
+    {
+      "id": "exclusive-holds-reader-and-writer-get-busy",
+      "input": {
+        "actions": [
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "lease",
+            "mode": "EXCLUSIVE"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          },
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "BUSY:G (non-blocking; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "trace.7.result": "BUSY:G (non-blocking; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "final.exclusive": "G"
+      }
+    },
+    {
+      "id": "writer-holds-exclusive-busy-then-retry-outside-fence-succeeds-after-release",
+      "input": {
+        "actions": [
+          {
+            "actor": "W",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W",
+            "op": "fence-release"
+          },
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "lease",
+            "mode": "EXCLUSIVE"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W",
+            "op": "lease-release"
+          },
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "lease",
+            "mode": "EXCLUSIVE"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "BUSY:W (non-blocking; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "trace.8.result": "ACQUIRED",
+        "final.exclusive": "G",
+        "final.writer": null
+      }
+    },
+    {
+      "id": "lease-upgrade-is-refused-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.2.result": "REFUSED-NO-UPGRADE",
+        "violations.0": "A attempts an upgrade/second lease"
+      }
+    },
+    {
+      "id": "lease-without-fence-is-refused-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.0.result": "REFUSED-NO-FENCE"
+      }
+    },
+    {
+      "id": "trust-refresh-while-writer-live-never-blocks-either-side",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "trust-write"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          },
+          {
+            "actor": "A",
+            "op": "lease-release"
+          },
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.3.result": "ACQUIRED",
+        "trace.4.result": "COMMITTED (readers see it via WAL snapshot; no reader is blocked)",
+        "trace.7.result": "ACQUIRED"
+      }
+    },
+    {
+      "id": "trust-write-under-a-project-lease-is-refused-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "trust-write"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.2.result": "REFUSED-ORDER"
+      }
+    },
+    {
+      "id": "operation-end-waiting-for-fence-while-holding-lease-is-a-violation-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.4.result": "BLOCKED-BY:T",
+        "violations.0": "A waits for the fence while holding a lease"
+      }
+    },
+    {
+      "id": "gc-census-retains-live-reader-and-writer",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ"
+          },
+          {
+            "actor": "A",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W",
+            "op": "lease",
+            "mode": "APPEND-WRITE"
+          },
+          {
+            "actor": "W",
+            "op": "fence-release"
+          },
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "gc-census"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.7.result": "CENSUS:live=A,W (LOCK_EX|LOCK_NB probe; busy means retain)"
+      }
+    },
+    {
+      "id": "gc-census-all-released",
+      "input": {
+        "actions": [
+          {
+            "actor": "G",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "G",
+            "op": "gc-census"
+          },
+          {
+            "actor": "G",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.1.result": "CENSUS:all-released (LOCK_EX|LOCK_NB probe; busy means retain)"
+      }
+    },
+    {
+      "id": "gc-census-without-fence-refused-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "G",
+            "op": "gc-census"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.0.result": "REFUSED-NO-FENCE"
+      }
+    },
+    {
+      "id": "unknown-lease-mode-is-a-model-rejection",
+      "input": {
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "EXCLUSIVE-WRITE"
+          }
+        ]
+      },
+      "expectReject": "LEASE_MODE"
+    },
+    {
+      "id": "core-transition-holds-the-fence-throughout-and-takes-exclusive-on-every-registered-namespace-in-locator-order",
+      "input": {
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ],
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "R",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "trust-write"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          },
+          {
+            "actor": "R",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "R",
+            "op": "lease",
+            "mode": "SHARED-READ",
+            "namespace": "ns-b"
+          },
+          {
+            "actor": "R",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.1.result": "ACQUIRED-ALL:ns-a,ns-b,ns-c",
+        "trace.2.result": "BLOCKED-BY:T",
+        "trace.3.result": "COMMITTED (readers see it via WAL snapshot; no reader is blocked)",
+        "trace.4.result": "RELEASED-ALL:ns-c,ns-b,ns-a",
+        "trace.7.result": "ACQUIRED",
+        "final.fence": null,
+        "final.coreTransitions": {},
+        "final.namespaces.ns-b.readers": [
+          "R"
+        ]
+      }
+    },
+    {
+      "id": "core-transition-with-a-busy-namespace-is-all-or-nothing-releases-acquired-leases-and-reports-busy",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a",
+          "ns-b",
+          "ns-c"
+        ],
+        "actions": [
+          {
+            "actor": "R",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "R",
+            "op": "lease",
+            "mode": "SHARED-READ",
+            "namespace": "ns-b"
+          },
+          {
+            "actor": "R",
+            "op": "fence-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "BUSY:ns-b:R (non-blocking; released ns-a; report PROJECT.BUSY, release the fence, retry outside the fence)",
+        "trace.5.result": "RELEASED",
+        "final.namespaces.ns-a.exclusive": null,
+        "final.namespaces.ns-c.exclusive": null,
+        "final.coreTransitions": {}
+      }
+    },
+    {
+      "id": "core-transition-affecting-no-namespace-holds-the-fence-only-and-a-live-append-writer-continues",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a"
+        ],
+        "actions": [
+          {
+            "actor": "W",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W",
+            "op": "lease",
+            "mode": "APPEND-WRITE",
+            "namespace": "ns-a"
+          },
+          {
+            "actor": "W",
+            "op": "fence-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": []
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "ACQUIRED-ALL:no-namespace-affected",
+        "final.namespaces.ns-a.writer": "W",
+        "final.fence": null
+      }
+    },
+    {
+      "id": "core-transition-naming-an-unregistered-namespace-is-a-violation-negative",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a"
+        ],
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a",
+              "ns-zzz"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.1.result": "REFUSED-UNREGISTERED-NAMESPACE:ns-zzz",
+        "violations": [
+          "T names unregistered namespace(s) ns-zzz in a core transition"
+        ]
+      }
+    },
+    {
+      "id": "core-transition-lease-set-out-of-locator-order-is-refused-negative",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a",
+          "ns-b"
+        ],
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-b",
+              "ns-a"
+            ]
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.1.result": "REFUSED-LOCK-ORDER"
+      }
+    },
+    {
+      "id": "releasing-the-fence-while-a-core-transition-holds-leases-is-a-violation-negative",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a"
+        ],
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.2.result": "REFUSED-TRANSITION-HOLDS-LEASES",
+        "final.fence": "T"
+      }
+    },
+    {
+      "id": "lease-on-an-unregistered-namespace-is-refused-negative",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a"
+        ],
+        "actions": [
+          {
+            "actor": "A",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "A",
+            "op": "lease",
+            "mode": "SHARED-READ",
+            "namespace": "ns-arbitrary"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.1.result": "REFUSED-UNREGISTERED-NAMESPACE"
+      }
+    },
+    {
+      "id": "two-namespaces-are-independent-a-writer-in-one-never-blocks-a-writer-in-the-other",
+      "input": {
+        "namespaceRegistry": [
+          "ns-a",
+          "ns-b"
+        ],
+        "actions": [
+          {
+            "actor": "W1",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W1",
+            "op": "lease",
+            "mode": "APPEND-WRITE",
+            "namespace": "ns-a"
+          },
+          {
+            "actor": "W1",
+            "op": "fence-release"
+          },
+          {
+            "actor": "W2",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "W2",
+            "op": "lease",
+            "mode": "APPEND-WRITE",
+            "namespace": "ns-b"
+          },
+          {
+            "actor": "W2",
+            "op": "fence-release"
+          }
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.4.result": "ACQUIRED",
+        "final.namespaces.ns-a.writer": "W1",
+        "final.namespaces.ns-b.writer": "W2"
+      }
+    },
+    {
+      "id": "core-transition-scope-state-schema-change-affects-every-registered-namespace",
+      "model": "core-transition-scope",
+      "outputSchema": "CoreTransitionScopeV1",
+      "input": {
+        "intent": {
+          "operation": "core-update",
+          "fromStateSchema": 1,
+          "toStateSchema": 2,
+          "fromStoreGeneration": 1,
+          "toStoreGeneration": 2
+        },
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a"
+        ]
+      },
+      "expect": {
+        "affects": "all-registered",
+        "namespaces": [
+          "ns-a",
+          "ns-b"
+        ]
+      }
+    },
+    {
+      "id": "core-transition-scope-same-schema-core-update-affects-no-namespace-generations-stay-pinned",
+      "model": "core-transition-scope",
+      "outputSchema": "CoreTransitionScopeV1",
+      "input": {
+        "intent": {
+          "operation": "core-update",
+          "fromStateSchema": 2,
+          "toStateSchema": 2,
+          "fromStoreGeneration": 1,
+          "toStoreGeneration": 1
+        },
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a"
+        ]
+      },
+      "expect": {
+        "affects": "none",
+        "namespaces": []
+      }
+    },
+    {
+      "id": "core-transition-scope-core-repair-same-schema-affects-no-namespace",
+      "model": "core-transition-scope",
+      "outputSchema": "CoreTransitionScopeV1",
+      "input": {
+        "intent": {
+          "operation": "core-repair",
+          "fromStateSchema": 2,
+          "toStateSchema": 2,
+          "fromStoreGeneration": 1,
+          "toStoreGeneration": 1
+        },
+        "namespaceRegistry": [
+          "ns-a"
+        ]
+      },
+      "expect": {
+        "affects": "none",
+        "namespaces": []
+      }
+    },
+    {
+      "id": "core-transition-scope-rollback-always-affects-every-registered-namespace",
+      "model": "core-transition-scope",
+      "outputSchema": "CoreTransitionScopeV1",
+      "input": {
+        "intent": {
+          "operation": "core-rollback",
+          "fromStateSchema": 2,
+          "toStateSchema": 2,
+          "fromStoreGeneration": 1,
+          "toStoreGeneration": 1
+        },
+        "namespaceRegistry": [
+          "ns-a"
+        ]
+      },
+      "expect": {
+        "affects": "all-registered",
+        "namespaces": [
+          "ns-a"
+        ]
+      }
+    },
+    {
+      "id": "core-transition-scope-store-migrate-affects-every-registered-namespace",
+      "model": "core-transition-scope",
+      "outputSchema": "CoreTransitionScopeV1",
+      "input": {
+        "intent": {
+          "operation": "store-migrate",
+          "fromStateSchema": 1,
+          "toStateSchema": 2,
+          "fromStoreGeneration": 1,
+          "toStoreGeneration": 2
+        },
+        "namespaceRegistry": []
+      },
+      "expect": {
+        "affects": "all-registered",
+        "namespaces": []
+      }
+    },
+    {
+      "id": "core-transition-scope-unknown-operation-is-a-model-rejection",
+      "model": "core-transition-scope",
+      "input": {
+        "intent": {
+          "operation": "install",
+          "fromStateSchema": 1,
+          "toStateSchema": 1
+        },
+        "namespaceRegistry": [
+          "ns-a"
+        ]
+      },
+      "expectReject": "CORE_TRANSITION_OPERATION:install"
+    },
+    {
+      "id": "transition-journal-names-the-exact-held-lease-set-after-all-or-nothing-acquisition",
+      "input": {
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "transition-journal",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ],
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.1.result": "ACQUIRED-ALL:ns-a,ns-b,ns-c",
+        "trace.2.result": "JOURNALED:ns-a,ns-b,ns-c",
+        "trace.3.result": "RELEASED-ALL:ns-c,ns-b,ns-a",
+        "final.fence": null
+      }
+    },
+    {
+      "id": "transition-journal-before-the-lease-set-is-held-is-a-violation-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "transition-journal",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ],
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.1.result": "REFUSED-LEASE-SET-NOT-HELD",
+        "violations": [
+          "T journals a transition before its lease set is held"
+        ]
+      }
+    },
+    {
+      "id": "transition-journal-naming-a-set-other-than-the-held-set-is-a-violation-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": [
+              "ns-a",
+              "ns-b",
+              "ns-c"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "transition-journal",
+            "namespaces": [
+              "ns-a"
+            ]
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ],
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.2.result": "REFUSED-LEASE-SET-MISMATCH",
+        "violations": [
+          "T journals a lease set (ns-a) that differs from the held set (ns-a,ns-b,ns-c)"
+        ]
+      }
+    },
+    {
+      "id": "same-schema-transition-journals-the-empty-lease-set-under-the-fence-alone",
+      "input": {
+        "actions": [
+          {
+            "actor": "T",
+            "op": "fence-acquire"
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-acquire",
+            "namespaces": []
+          },
+          {
+            "actor": "T",
+            "op": "transition-journal",
+            "namespaces": []
+          },
+          {
+            "actor": "T",
+            "op": "core-transition-release"
+          },
+          {
+            "actor": "T",
+            "op": "fence-release"
+          }
+        ],
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ]
+      },
+      "expect": {
+        "deadlockFree": true,
+        "trace.1.result": "ACQUIRED-ALL:no-namespace-affected",
+        "trace.2.result": "JOURNALED:no-namespace-affected"
+      }
+    },
+    {
+      "id": "transition-journal-without-the-fence-is-a-violation-negative",
+      "input": {
+        "actions": [
+          {
+            "actor": "T",
+            "op": "transition-journal",
+            "namespaces": []
+          }
+        ],
+        "namespaceRegistry": [
+          "ns-b",
+          "ns-a",
+          "ns-c"
+        ]
+      },
+      "expect": {
+        "deadlockFree": false,
+        "trace.0.result": "REFUSED-NO-FENCE"
+      }
+    }
+  ]
+}

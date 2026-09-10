@@ -1,0 +1,389 @@
+{
+  "standing": "SYNTHETIC RepairApplyAuthorizationV1 records evaluated by security_lifecycle_model_v1.admit_repair_authorization (S10.1). Repair apply is host-brokered first-party source mutation under the EXCLUSIVE lease; it is NOT a repository-execution grant and cannot become one. Identity H('security.repair-apply-authorization.v1', record) is the workflow RepairApplyParams.authorizationRef. Same-author expectations, not an independent oracle.",
+  "model": "repair-authorization",
+  "ctxBase": {
+    "projectId": "prj1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "repairPlanId": "repairplan2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "baseSnapshotId": "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "ci": false,
+    "liveTreeEqualsBase": true,
+    "revokedClosures": [
+      "closure2:9999999999999999999999999999999999999999999999999999999999999999"
+    ],
+    "policyAdmitsRepair": true,
+    "recipeClosureId": "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "admittedClosures": [
+      "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    ]
+  },
+  "authorizationBase": {
+    "authorizationSchema": 1,
+    "kind": "repair-apply",
+    "projectId": "prj1-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "repairPlanId": "repairplan2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "baseSnapshotId": "snapshot2:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "recipeClosureId": "closure2:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "consent": {
+      "mode": "interactive-explicit",
+      "policyRecordId": null,
+      "ci": false
+    },
+    "expiry": "operation-end",
+    "leaseMode": "EXCLUSIVE",
+    "repositoryExecution": false
+  },
+  "cases": [
+    {
+      "id": "valid-repair-apply-authorization-admits-exclusive-lease-no-repo-execution",
+      "input": {
+        "authorization": "$authorization",
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "ADMIT",
+        "leaseMode": "EXCLUSIVE",
+        "grantsRepositoryExecution": false,
+        "identityDomain": "security.repair-apply-authorization.v1",
+        "d9": null
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": true
+    },
+    {
+      "id": "repair-plan-mismatch-refuses-bound-to-exact-plan-identity",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "repairPlanId": "repairplan2:0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.REPAIR_PLAN_MISMATCH"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      }
+    },
+    {
+      "id": "base-snapshot-mismatch-refuses",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "baseSnapshotId": "snapshot2:0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.BASE_SNAPSHOT_MISMATCH"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      }
+    },
+    {
+      "id": "live-tree-moved-since-base-snapshot-refuses",
+      "input": {
+        "authorization": "$authorization",
+        "ctx": {
+          "$from": "ctx",
+          "liveTreeEqualsBase": false
+        }
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.SOURCE_MOVED"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      }
+    },
+    {
+      "id": "revoked-recipe-closure-refuses-under-current-trust",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "recipeClosureId": "closure2:9999999999999999999999999999999999999999999999999999999999999999"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.RECIPE_CLOSURE_REVOKED"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "EXTENSION.ADMISSION_REJECTED"
+        }
+      }
+    },
+    {
+      "id": "ci-interactive-consent-refuses",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "consent": {
+            "mode": "interactive-explicit",
+            "policyRecordId": null,
+            "ci": true
+          }
+        },
+        "ctx": {
+          "$from": "ctx",
+          "ci": true
+        }
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.CI_REQUIRES_POLICY_RECORD"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      }
+    },
+    {
+      "id": "ci-with-policy-record-admits",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "consent": {
+            "mode": "policy-record",
+            "policyRecordId": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "ci": true
+          }
+        },
+        "ctx": {
+          "$from": "ctx",
+          "ci": true
+        }
+      },
+      "expect": {
+        "result": "ADMIT"
+      }
+    },
+    {
+      "id": "repository-execution-true-is-not-grantable-through-repair-authorization",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "repositoryExecution": true
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.REPOSITORY_EXECUTION_NOT_GRANTABLE_HERE"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "append-write-lease-mode-refuses-repair-needs-exclusive",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "leaseMode": "APPEND-WRITE"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.LEASE_MODE"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "expiry-other-than-operation-end-refuses",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "expiry": "24h"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.EXPIRY"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "project-policy-not-admitting-repair-refuses",
+      "input": {
+        "authorization": "$authorization",
+        "ctx": {
+          "$from": "ctx",
+          "policyAdmitsRepair": false
+        }
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.POLICY_DOES_NOT_ADMIT_REPAIR"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      }
+    },
+    {
+      "id": "unknown-member-refuses-shape",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "extra": true
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.SHAPE"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "consent-ci-integer-zero-is-not-false-shape",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "consent": {
+            "mode": "interactive-explicit",
+            "policyRecordId": null,
+            "ci": 0
+          }
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.CONSENT_SHAPE"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        },
+        "grantsRepositoryExecution": false
+      },
+      "inputSchemas": {
+        "authorization": "RepairApplyAuthorizationV1"
+      },
+      "inputValid": false
+    },
+    {
+      "id": "foreign-recipe-closure-refused",
+      "input": {
+        "authorization": {
+          "$from": "authorization",
+          "recipeClosureId": "closure2:7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "ctx": "$ctx"
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.RECIPE_CLOSURE_MISMATCH"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        }
+      }
+    },
+    {
+      "id": "absent-positive-recipe-admission-refused",
+      "input": {
+        "authorization": "$authorization",
+        "ctx": {
+          "$from": "ctx",
+          "admittedClosures": []
+        }
+      },
+      "expect": {
+        "result": "REFUSE",
+        "refusals": [
+          "AUTHZ.RECIPE_CLOSURE_NOT_ADMITTED"
+        ],
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "REQUEST.PRECONDITION_FAILED"
+        }
+      }
+    }
+  ]
+}

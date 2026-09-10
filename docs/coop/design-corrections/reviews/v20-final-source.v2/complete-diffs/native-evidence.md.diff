@@ -1,0 +1,132 @@
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -743,6 +743,53 @@
+   `capabilityId` refuses rather than merging, because two rows declaring
+   different applicable modes for one capability would leave default selection
+   ambiguous.
++- **The analysis-spec ownership tuple is unique (CB8-SHOULD-2).** The rule above
++  is the *release declaration's*; the **request** had no analogue, and it needed
++  one for exactly the same reason. Within one analysis spec,
++  `(capabilityId, languageMode, workspaceRoot)` **names one cell of work for one
++  unit**, and `required` is that cell's **attribute**, not part of its name. Two
++  rows over one tuple disagreeing only on `required` were admitted by the schema —
++  `uniqueItems` sees two *distinct* items — and by the per-row vocabulary
++  admission, which judges each row alone; and both entered `analysisSpecDigest`
++  and therefore the `PlanId`, so the contradiction was **committed** rather than
++  transient. Requiredness decides whether a missing Coverage entry contributes
++  `indeterminate`, so an undetermined value there is not cosmetic. Such a spec is
++  **refused**: there is deliberately no last-wins, no order dependence and no
++  merge of requiredness, and a caller states one value per cell or the record is
++  refused. The same `capabilityId` on a **different** `workspaceRoot` or a
++  different registered `languageMode` is a different cell and remains legal, and
++  different capabilities on one unit remain legal. In an **explicitly supplied**
++  spec a **byte-identical** duplicate row is a different defect and keeps its own
++  earlier answer — `uniqueItems` and the canonical-set order law refuse it at
++  `validate_foundation`, before this rule is reached — so on that path this rule
++  owns only distinct rows over one tuple. On the **default-construction** path the
++  guard described below runs first and reports byte-identical rows under this same
++  key; both paths name the same tuple. The law is published in the record's owning schema
++  (`foundation/identity-schemas.v2.json#/$defs/analysis-spec`,
++  `x-opensip-uniqueness`) and enforced in `admit_requested_capabilities`, the one
++  helper that **both** the pre-Plan analysis-spec boundary **and** retained Run
++  closure call, so the two boundaries agree by construction. It is a *determinacy*
++  law and therefore belongs in that shared helper, unlike the population
++  **cardinality** bound, which is a pre-Plan request-selection concern and stays at
++  the request boundary; §10 keeps that cardinality-first special route unchanged.
++  Its internal key `native.requested-capability-duplicate-ownership-tuple` is
++  registered in the §10 route registry as **origin-dependent** over the existing
++  external-configuration / externally-supplied-spec / host-generated-internal-layer
++  routes, and it adds **no** public `DomainDetailCode` member. Default construction
++  reports the **same** key. The matrix-fixed default emits unique tuples, and two
++  co-located units in one mode produce byte-identical rows that
++  `default_capability_selection` refuses rather than silently deduplicating, so no
++  requested analysis is lost. That guard runs **before** the analysis-spec boundary
++  — `uniqueItems` would otherwise answer with a generic schema error restating the
++  whole instance, the same reason the §10 cardinality guard precedes generic
++  validation — and it names this registered key, not a private one. An earlier
++  revision raised a bespoke `DUPLICATE_REQUESTED_CAPABILITY` there, which had **no**
++  row in the §10 route registry: `public_termination_for` refused it
++  (`native.public-route-key-unregistered`), so this duplicate-selection refusal had no derivable
++  public termination, even though this key's
++  host-generated route was written for exactly that call site. The refusal, its
++  position and its non-deduplicating behaviour are unchanged; only the key it names
++  is, and no public `DomainDetailCode` member is added for it.
+ 
+ **The registry states availability; it never states scope.** An earlier revision
+ said "the registry may declare a **subset** of the matrix — a release need not
+@@ -1761,7 +1808,11 @@
+   free: a `not-applicable` entry may honestly retain the stage terminal its
+   producer observed (`complete`, `budget-exhausted`, …), and the generator
+   preserves it. `examinedExhaustive` stays the independent examined-partition
+-  claim of §4.1. A `not-applicable` entry is *not* `complete`: it makes no
++  claim of §4.1 — independent **of the resolution state**, which is all RC-1 ever
++  meant and all it may be read to mean. It is **not** unconstrained: RC-6 below
++  joins it to that same section's other encoding, `coverage`. An earlier revision
++  said only the first half, and that silence is what left the join unstated rather
++  than deliberately relaxed. A `not-applicable` entry is *not* `complete`: it makes no
+   resolution claim at all. It is a statement about **resolution only** — the same
+   entry's `coverage` keeps its own independent value over the examined partition
+   (§4.1, RC-3).
+@@ -1787,6 +1838,53 @@
+   reason — the `state`, and `unresolvedEdgeClasses` for *all* applicable classes
+   at once — and `nativeCause` is `null` by design. §10 closes which field carries
+   which deficiency's cause and enforces it.
++- **RC-6 (the two encodings of claim 1, CB8-MUST-3).** `coverage=complete`
++  **requires** `resolutionCompleteness.examinedExhaustive=true`. §4.1 commits the
++  examined-partition question — "did we look at every subject?" — in **two**
++  places, and until now no rule joined them: a sealed entry could assert
++  `complete` while denying in the same record that the partition was examined
++  exhaustively, and a `file@enumerated` entry of exactly that shape closed a full
++  retained Run. That pair is not harmless there: `coverage=complete` on
++  `file@enumerated` carries the inventory-totality obligation
++  (`COVERAGE_INVENTORY_TOTALITY_OMITS_PATH`), which keys on `coverage` alone.
++  RC-2 reads `examinedExhaustive` only for a **resolved** rung, so on the twelve
++  non-resolved pairs nothing read it at all.
++
++  It is an **implication, never an equality**, and the difference is
++  load-bearing. `examinedExhaustive` is about the *examination*; `coverage` is the
++  *answer* over what was examined. A host may examine the committed partition
++  exhaustively and still answer `unknown` because the evidence it needs is
++  **missing rather than unexamined** — ambiguous or missing Rust compilation
++  ownership, an undeclared or unservable capability, an unlisted source variant —
++  and it may also answer `unknown` because the examination itself was cut short.
++  So `coverage=unknown` constrains this field in **neither** direction; banning
++  `unknown` beside an exhaustive examination would force a host to understate its
++  own examination in order to report an honest unknown, and would refuse exactly
++  the disclosures §10 requires. Only the converse is impossible.
++
++  **Enumeration completeness and resolution completeness stay different claims.**
++  RC-6 decides nothing about `resolutionCompleteness.state`: RC-3's
++  `coverage=complete` with `state=incomplete` over real unresolved edges remains
++  the expected, lawful result for most real JavaScript and non-prepared Rust;
++  `stageTerminal` stays free on a non-resolved rung under RC-1; and the
++  budget-exhausted, `partial`, `not-attempted` and `unknown` positives are
++  untouched. RC-6 invents no universal-absence authority either: an empty fact set
++  still never makes anything `complete`.
++
++  It is **total** over every registered `(relation, rung)` pair, resolved or not,
++  and holds for a **fact-free** entry over an empty examined scope — the shape a
++  fact-admission guard cannot protect. RC-0 still runs first, so an unregistered
++  pair keeps its own name and RC-6 assigns nothing to it. It is enforced by
++  `coverage_bijection` at **both** boundaries — the producer boundary
++  (`admit_coverage_result_v3`) and retained Run closure, which re-runs that same
++  admission — so a contradictory entry can neither be minted nor carried into a
++  sealed Run. A disagreement is `PROVIDER.PROTOCOL_VIOLATION` on the existing
++  `native.coverage-bijection-mismatch` carrier: no new internal key and no new
++  public detail code. Fixtures: `cb8-rc6-complete-coverage-needs-an-exhaustive-examination`,
++  `cb8-rc6-is-an-implication-not-an-equality`,
++  `cb8-rc6-does-not-equate-enumeration-with-resolution`,
++  `cb8-rc6-and-rc2-are-independent-claims`,
++  `cb8-rc0-still-outranks-rc6-for-an-unregistered-pair`.
+ - **RC-4** Derived relations inherit: `reachability` counts `calls` edges over the
+   same examined set; classes propagate.
+ - **RC-5** `maxUnresolvedEdgesPerStage = 1000000`; exceeding it is
+@@ -2627,6 +2725,8 @@
+ | bounded selection array exceeds its published bound, without truncation: the scope-descriptor arrays (workspaceRoots1024, pathPrefixes/excludedPathPrefixes65536) or the analysis-spec `requestedCapabilities` (1024, which the matrix-fixed default exceeds from94 TypeScript units) | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | `PROJECT.SCOPE_LIMIT`, subject `field:count>limit`; pre-Plan for the refused analysis step, which mints no `plan2`/`run2` |
+ | unrecognized framework | | none (disclosure) | none | disclosure |
+ | **invalid capability REQUEST** in `analysis-spec.requestedCapabilities`: an id outside the closed matrix vocabulary or a mis-shaped spelling (`native.requested-capability-unregistered`), or a `languageMode` outside the registered set (`native.requested-capability-mode-unregistered`) | | `request-rejected` (2) | `CONFIG.INVALID` | `CONFIG.INVALID`; the internal key normalizes at the host boundary |
++| **contradictory capability REQUEST**: two `requestedCapabilities` rows over one `(capabilityId, languageMode, workspaceRoot)` ownership tuple disagreeing on `required` (`native.requested-capability-duplicate-ownership-tuple`, §1.4). A malformed selection record, not an unsatisfiable request, so it takes the ORIGIN-DEPENDENT routing below rather than `REQUEST.UNSATISFIABLE`; a byte-identical duplicate row never reaches it (`uniqueItems` and the canonical-set order law refuse first) | | origin-dependent: `request-rejected` (2) / `operational-failed` (4) | `CONFIG.INVALID`, `REQUEST.PRECONDITION_FAILED` or `SYSTEM.OUTCOME.ILLEGAL_STATE` (`host-invariant`) | `CONFIG.INVALID` / `native.capability-spec-invalid` / `HOST.INVARIANT_VIOLATED` — all existing members; none added |
++| **contradictory Coverage completeness claim** at the native producer boundary and again at Run closure: `coverage=complete` with `resolutionCompleteness.examinedExhaustive=false` (RC-6, §4.3) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record, on the existing `native.coverage-bijection-mismatch` carrier; no new key |
+ | **unsatisfiable capability REQUEST**: id and mode both registered, but the `(capability, mode)` cell is `NOT-SELECTED` — outside D-371, no promise to serve (`native.requested-capability-mode-not-selected`) | | `request-rejected` (2) | `REQUEST.UNSATISFIABLE` | request detail (capability, mode) |
+ | **invalid authenticated RELEASE DECLARATION**: a row naming a capability the matrix does not register, a mode outside the registered set, a mode whose cell is `NOT-SELECTED`, a duplicate `capabilityId`, or a `preview-*` spelling (`native.release-capability-unregistered`, `…-mode-unregistered`, `…-mode-not-selected`, `…-duplicate`) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | request detail (before PlanId; no worker is spawned) |
+ | **producer Coverage cause/carrier refusal** at the native producer boundary and again at Run closure (`native.coverage-cause-required`, `…-must-be-null`, `…-not-for-deficiency`, `…-carrier-unsupported`, `…-relation-not-in-scope`, `…-without-deficiency`, `…-registry-row-missing`) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record |

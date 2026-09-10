@@ -1,0 +1,201 @@
+--- /tmp/opensip-design-corrections/post-reset-review.v15/v14-bytes/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-07 08:12:17
++++ /tmp/opensip-design-corrections/candidate-subject.v15/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-07 10:12:13
+@@ -880,22 +880,28 @@
+ 
+ 
+ def release_absence_details(undeclared: list[dict]) -> list[dict]:
+-    """The PUBLIC DomainDetail records for a release-availability absence, in the selection's own order.
++    """SUPERSEDED, NON-AUTHORITATIVE. A generic DomainDetail projection of a release-availability absence.
+ 
+-    This is the delivered machine-readable disclosure the selection account could not be by itself: an in-memory
+-    helper return is not something a CLI or agent consumer receives. The records are admissible in
+-    DoctorResult.defects[] (an existing StepDomainResult of the existing `doctor` StepKind, ordered by its own
+-    x-opensip-order sequence) and as StepTermination.domainDetail on the step whose analysis they qualify -
+-    including a SUCCESS step, whose branch forbids errorCode/reasonCodes/signal but not domainDetail.
++    THIS IS NOT THE PUBLIC AVAILABILITY ROUTE and nothing composes it. The selected route is
++    `release_absence_notices` -> `invocation_availability` -> `CommandEnvelope.availability` in the ORIGINAL
++    invocation, defined in native 1.4. `invocation_availability` calls `release_absence_notices`, never this
++    helper; an earlier revision of this docstring said otherwise and that was simply false.
+ 
+-    `native.capability-unavailable` is an EXISTING DomainDetailCode member already aliased from
+-    provider-unavailable/capability-missing. Advisory only: no Control verdict, no repair authority, no fabricated
+-    clone Candidate, no invented relation, fact or Coverage. Candidate-only capabilities have no Coverage entry at
+-    all, so this availability route is their only public one; fact-producing capabilities keep their relation@rung
+-    Coverage under the existing precedence and this record does not replace it.
++    It is retained only as a compatibility projection for a caller that already holds a `DomainDetail` slot, and
++    it CANNOT carry the ownership account: `subject` concatenates capabilityId and languageMode and DISCARDS
++    workspaceRoot, so two units requesting the same capability collapse to one indistinguishable record. Reading a
++    complete account from this return is a defect in the caller, not a shape this helper can be widened to.
+ 
+-    SUPERSEDED SHAPE: this helper returns ONE STEP's account. The invocation-level collection is composed by
+-    invocation_availability, because 1024 is the analysis-spec bound and not an invocation-wide one."""
++    A `DoctorResult.defects[]` entry or a `StepTermination.domainDetail` may still carry a generic environment
++    note of this code, but neither delivers the absence for the invocation that selected it: the termination
++    detail is singular where an invocation has many absences, and a `doctor` report is a DIFFERENT invocation.
++
++    Still true, and unchanged by the supersession: `native.capability-unavailable` is an EXISTING DomainDetailCode
++    member already aliased from provider-unavailable/capability-missing, the remedy is the shared one, and the
++    disclosure is advisory in every carrier - no Control verdict, no repair authority, no fabricated clone
++    Candidate, no invented relation, fact or Coverage. Candidate-only capabilities have no Coverage entry at all,
++    so availability is their only public disclosure; fact-producing capabilities keep their relation@rung Coverage
++    under the existing precedence and availability does not replace it."""
+     out = []
+     for row in undeclared:
+         out.append({"code": "native.capability-unavailable",
+@@ -3459,6 +3465,34 @@
+         super().__init__(f'{self.detail}:{field}:{count}>{limit}')
+ 
+ 
++def scope_refusal_termination(refusal: "ScopeRefusal") -> dict:
++    """The public StepTermination a ScopeRefusal projects to, from its own retained detail/d9/subject.
++
++    This is the EXISTING owning route - native section 10 already says `Native ScopeRefusal retains detail, D9 and
++    observed bound fields for the host's closed termination projection` - so it deliberately does NOT go through
++    the native internal-key registry: PROJECT.SCOPE_LIMIT is a public DomainDetailCode already, not an internal
++    decision key, and passing a generic schema exception to that normalizer would correctly refuse as an
++    unregistered key. The subject states the observed bound exactly: `<field>:<count>><limit>`."""
++    d9 = refusal.d9
++    return {"class": d9["class"], "errorCode": d9["code"],
++            "domainDetail": {"code": refusal.detail,
++                             "subject": "%s:%d>%d" % (refusal.subject["field"], refusal.subject["count"],
++                                                      refusal.subject["limit"]),
++                             "remedy": SCOPE_LIMIT_REMEDY[refusal.subject["field"]]}}
++
++
++# One remedy per bounded selection array. Both are the same remedy CLASS - narrow the selection explicitly,
++# nothing was truncated - which is why they share one public code; the wording names the field's own surface.
++SCOPE_LIMIT_REMEDY = {
++    "workspaceRoots": "narrow the explicit workspace selection; no root was truncated",
++    "pathPrefixes": "narrow the explicit path selection; no prefix was truncated",
++    "excludedPathPrefixes": "narrow the explicit exclusion selection; no prefix was truncated",
++    "requestedCapabilities": ("narrow the analysis explicitly - fewer workspace roots for this invocation, or an "
++                             "explicit analysis.capabilities selection - no capability was truncated and the "
++                             "product default is unchanged"),
++}
++
++
+ def unit_scope_descriptor(units: list[dict], ignore_paths: list[str], explicit_path_prefixes: list[str] | None = None,
+                           pruned_trees: list[dict] | None = None, boundaries: dict | None = None) -> dict:
+     """Unit scopes feed the SHARED foundation scope-descriptor (identity-schemas.v2#/$defs/scope-descriptor):
+@@ -3522,8 +3556,89 @@
+             if (capability, mode) in not_selected:
+                 raise AdmissionError("native.release-capability-mode-not-selected:" + capability + ":" + mode)
+     return registry
++
++
++def requested_capability_bound() -> int:
++    """The published analysis-spec bound, read from the schema rather than restated."""
++    return IM.SCHEMA["$defs"]["analysis-spec"]["properties"]["requestedCapabilities"]["maxItems"]
++
++
++def admit_requested_capability_cardinality(requested: list[dict]) -> None:
++    """A requestedCapabilities population that exceeds its published bound refuses TYPED, never generically.
++
++    This is an ordinary oversized SELECTION, not a host defect: the matrix-fixed default is computed correctly
++    and the resulting request simply cannot be expressed within a published bound, which is request-rejected /
++    REQUEST.UNSATISFIABLE, never host-invariant. Nothing is truncated, no capability is dropped from the product,
++    the REFUSED ANALYSIS STEP mints no Plan and no Run, and the caller narrows the selection explicitly. That last
++    point is scoped on purpose: the invocation is not erased, so the request and invocation keep their ordinary
++    operational attribution and any earlier committed step outcome stands.
++
++    WHY IT WAS NEEDED. `scope-descriptor.workspaceRoots` admits up to 1024 unit roots while the matrix-fixed
++    default requests 11 capabilities per TypeScript unit, so 93 units fit at 1023 requests - one under the bound,
++    not exactly at it - and 94 do not, at 1034.
++    Units 94..1024 were therefore an ordinary, reachable band that the scope law ADMITS and the default analysis
++    could not express, and the only outcome was a generic jsonschema ValidationError of ~265 000 characters with
++    no field, no count, no limit and no public route. A pure helper exception is not a public termination.
+ 
++    WHY ScopeRefusal. It is already field-generic - it takes (field, count, limit) and yields detail
++    PROJECT.SCOPE_LIMIT, subject {field, count, limit} and d9_map request-rejected / exit 2 /
++    REQUEST.UNSATISFIABLE - and it was simply never called for this field. The remedy class is identical to the
++    scope-descriptor case it already serves: narrow the selection explicitly, nothing was truncated. Four bounded
++    fields across two record families now share the one law - workspaceRoots, pathPrefixes and
++    excludedPathPrefixes on the scope descriptor, and requestedCapabilities on the analysis spec. The published
++    sentence in native section 10 is widened in the same change so the code's meaning is stated rather than
++    silently stretched."""
++    limit = requested_capability_bound()
++    if len(requested) > limit:
++        raise ScopeRefusal("requestedCapabilities", len(requested), limit)
+ 
++
++def admit_analysis_spec(spec: dict) -> dict:
++    """THE PRE-PLAN admission boundary for a complete analysis-spec, defaulted or explicitly supplied.
++
++    The order is the point, and it is published in native section 10:
++
++      1. bounded selection cardinality - ONLY when `requestedCapabilities` is actually a JSON array in an
++         object; a valid array over the bound refuses TYPED here, before generic maxItems validation
++      2. `validate_foundation("analysis-spec", ...)` - generic schema validation of the whole record
++      3. `admit_requested_capabilities` - the closed native vocabulary
++
++    Step 1 is CONDITIONAL, and that condition is not a detail. An earlier revision indexed the key and took its
++    length unconditionally, so a spec missing the field raised KeyError, a null/boolean/integer raised TypeError,
++    and a 1025-character STRING was reported as 1025 capabilities with a full typed scope refusal and a
++    schema-admitted failure envelope. Every one of those is a malformed record that the schema owns, and one of
++    them was publicly misclassified. Nothing is coerced and no shape is repaired: any value that is not an actual
++    array simply proceeds to step 2 and refuses there as the malformed record it is.
++
++    Step 1 precedes step 2 for the shape it does own because a `maxItems` breach is reported by jsonschema as a
++    generic ValidationError that restates the entire instance - measured at ~265 000 characters for a 1034-row
++    spec - naming no field, no count and no limit. An oversized ORDINARY SELECTION is not a malformed record and
++    must not be published that way. Everything a schema is genuinely better at - unknown properties, wrong types,
++    a missing field, a missing schemaVersion - still refuses at step 2 exactly as before. One condition is
++    reordered for one shape; none is added.
++
++    An earlier revision guarded cardinality inside `admit_requested_capabilities` alone, and the published claim
++    of an analysis-spec-wide guard was an overclaim: an explicitly supplied spec validates through
++    `validate_foundation` first and never reached that guard. Keeping cardinality out of the shared vocabulary
++    helper is an ARCHITECTURAL SEPARATION - pre-Plan request selection is a different concern from retained-record
++    validation - and it is stated as no more than that. It is NOT a claim that the earlier placement was reached
++    on the retained path or reclassified anything there: `admit_run` schema-validates the retained analysis-spec
++    before the vocabulary helper is invoked, so an oversized retained array refuses as a ValidationError there and
++    never arrives. Nothing about retained Run closure changes here.
++
++    WHAT THIS BOUNDARY IS NOT. It is pre-Plan for THIS analysis step, and that is all it scopes: refusing here
++    mints no `plan2` and no `run2` FOR THE REFUSED STEP. It does not erase the invocation - the request and
++    invocation keep their ordinary operational attribution under workflow law, and any earlier step that already
++    committed an outcome keeps it. Nothing about retained-payload validation, corruption classification or any
++    other admission is changed."""
++    requested = spec.get("requestedCapabilities") if isinstance(spec, dict) else None
++    if isinstance(requested, list):
++        admit_requested_capability_cardinality(requested)
++    validate_foundation("analysis-spec", spec)
++    admit_requested_capabilities(spec["requestedCapabilities"])
++    return spec
++
++
+ def admit_requested_capabilities(requested: list[dict]) -> list[dict]:
+     """analysis-spec requestedCapabilities, against the SAME closed vocabulary the registry is held to.
+ 
+@@ -3536,7 +3651,17 @@
+     A capability id and a relation@rung are not equated: one is a requestable unit of work that may cover
+     several relations or none, the other is a fact/Coverage coordinate. The matrix publishes the bridge both
+     ways, so nothing has to be guessed. This runs at the analysis-spec boundary AND again at retained Run
+-    closure, so an explicitly configured spec is judged exactly as a defaulted one."""
++    closure, so an explicitly configured spec is judged exactly as a defaulted one.
++
++    IT DOES NOT GUARD CARDINALITY, deliberately. This function runs over BOTH an incoming request and a RETAINED
++    analysis-spec payload at Run closure (identity-model `admit_run`, which catches this module's AdmissionError
++    and re-raises it as ANALYSIS_SPEC_CAPABILITY). Cardinality is a PRE-PLAN REQUEST-SELECTION concern and belongs
++    with the request boundary in `admit_analysis_spec`, not in a helper shared with retained-record validation;
++    that separation is the whole reason, and it is worth stating precisely rather than dramatically. On the
++    CURRENT path the earlier placement was not reachable for an oversized retained array: `admit_run` obtains the
++    retained analysis-spec through `payload(..., "analysis-spec")`, which schema-validates it, so an over-long
++    array refuses there as a ValidationError and never arrives here. Nothing about retained Run closure is changed
++    by moving the guard."""
+     known = {c["id"] for c in CAPABILITY_MATRIX["capabilities"]}
+     modes = set(CAPABILITY_MATRIX["languageModes"])
+     not_selected = {(c["capability"], c["mode"]) for c in CAPABILITY_MATRIX["cells"]
+@@ -3616,8 +3741,11 @@
+     requested = sorted(requested, key=C.canonical)
+     if len({C.canonical(r) for r in requested}) != len(requested):
+         raise AdmissionError("DUPLICATE_REQUESTED_CAPABILITY")
++    # The default path takes the SAME pre-Plan boundary an explicitly supplied spec takes - cardinality before
++    # generic schema validation before vocabulary - so a defaulted spec is judged exactly as a configured one
++    # and neither has a guard the other lacks.
+     spec = {"schemaVersion": 2, "requestedCapabilities": requested, "policyPackIds": [], "parameters": []}
+-    validate_foundation("analysis-spec", spec)
++    admit_analysis_spec(spec)
+     families = sorted({u["languageFamily"] for u in units})
+     return {"analysisSpec": spec, "familiesSelected": families, "previewDefaultsUsed": False,
+             "provenance": "DEFAULTED",

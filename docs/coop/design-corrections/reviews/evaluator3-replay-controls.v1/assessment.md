@@ -1,0 +1,7 @@
+# Bounded complete replay controls
+
+The exact isolated subject reproduced all25working cases and identifiers:21synthetic retained graphs pass owner closure and public complete replay;4fullyreminted same-count mutations pass owner closure and fail public replay. Every blob and every typed object in every export was independently rehashed. Full finding severity, message, parameter and citation mutations are covered. File/runtime/history/test, disabled/nongating/budget/scope, and two syntax universes with six findings are represented.
+
+This is an intermediate correction control, not acceptance of a complete successor. The source still lacks the host-captured execution input manifest and required candidate-only execution account identified by Grok v12. Omitted-view and candidate-only cases are not qualified by these positives. Native tool, provider, filesystem and test observations are synthetic inputs; no compiler or repository command was executed. The schema/model snapshots include concurrent coauthor partial deliveries, whose broad acceptance is not claimed. Final source contracts, workflow integration, fault routing, pins/readiness and fresh independent review remain. Claude and the requested fresh blind consumer have not accepted this subject.
+
+The source manifest lists exact bytes. Exports retain extra unreachable bootstrap objects; only each Run's authoritative roots establish its finding set. The bootstrap outputs are not reused as semantic answers by the replay driver.

@@ -1,0 +1,282 @@
+--- finalv2/docs/coop/design-corrections/workflows/workflows_model.v1.py
++++ v3/docs/coop/design-corrections/workflows/workflows_model.v1.py
+@@ -1004,64 +1004,153 @@
+                else 'native.sufficiency-outcome-not-an-imported-outcome',
+                str(value) + ' is not a member of the ' + plane + ' per-requirement vocabulary '
+                + str(vocabulary))
++    if plane == 'imported':
++        # PER-KIND, not merely per plane. The producer already refuses an outcome a relation's own
++        # payload cannot ground; the consumer must decide the SAME law, or a record can carry a
++        # history range outcome on a runtime relation - which the published perKindApplicability
++        # excludes and which an earlier revision of this boundary admitted.
++        applicable = IMPORTED_REQUIREMENT_LAW['perKindApplicability'][req['relation']]
++        if value not in applicable:
++            refuse('native.sufficiency-outcome-not-applicable-to-kind',
++                   str(value) + ' is not an outcome of the '
++                   + EVIDENCE_RELATIONS[req['relation']]['evidenceKind'] + ' projection that owns '
++                   + str(req['relation']) + '; its applicable outcomes are ' + str(applicable))
+     return plane, value
+ 
+ 
+-def imported_requirement_outcome(req, targets, evidence, required=True):
++def project_targets_to_imported_subjects(targets, kind, findings, fingerprint_descriptors,
++                                         payload_subjects):
++    """The DETERMINISTIC target -> imported-subject projection published at
++    imported-evidence.schema.json#/x-opensip-imported-requirement-law/targetSubjectProjection.
++
++    RepairPlanDescriptor.targets are FINGERPRINTS (`finding-key2:<64 hex>`), while RuntimeSubject is
++    keyed by {path, symbol?} and HistorySubject by {path}. They are different vocabularies and this
++    is the join between them. An earlier revision read the payload maps directly by the target
++    string, which silently equated a finding-key identity with a LogicalPath.
++
++    INPUTS, all already admitted elsewhere - this function READS, it does not admit:
++      findings                {fingerprint: finding record} of the EVIDENCE RUN named by
++                              RepairPlanDescriptor.evidenceRunId. repair_preview already refuses a
++                              target absent from that Run, so this is the same binding.
++      fingerprint_descriptors {fingerprint: foundation `finding-fingerprint` descriptor}. That
++                              descriptor's retention is `preimage`, so its bytes are retained under
++                              the finding-key2 digest and re-hashed at Run closure; this reads a
++                              RETAINED record, never a caller assertion.
++      payload_subjects        the admitted RuntimeSubject or HistorySubject rows of the import.
++
++    GRANULARITY is reported, never silently flattened. Every subjectKey carries a qualifiedName,
++    and `subjectKey.kind` has NO closed vocabulary in this contract set, so this projection does not
++    classify the TARGET by kind; it reports the granularity of the ANSWER relative to the key. A
++    runtime row that names a `symbol` answers only that symbol - a symbol-keyed row for a different
++    symbol never matches. A row with NO symbol is a FILE-level observation: it matches on path, but
++    `answerGranularity` is `file` and `granularityWidenedToFile` is true, so a path-only row never
++    silently passes as a symbol-level answer. HistorySubject carries no symbol at all, so every
++    history answer is file-level and is reported as such. The coarsening is disclosed on the outcome
++    and a consumer that needs symbol-level evidence can see that it did not get it.
++
++    Ambiguity REFUSES: two matching rows for one target is not a deterministic projection and this
++    function will not choose. An unmatched target is `matched: False` - unsupported, never satisfied
++    and never read as evidence of non-use."""
++    projection = {}
++    for target in targets:
++        if target not in findings:
++            raise Refusal('CONFIG.INVALID', None,
++                          'native.imported-projection-target-not-in-evidence-run: ' + str(target)
++                          + ' is not a finding of the evidence Run named by evidenceRunId', target)
++        descriptor = fingerprint_descriptors.get(target)
++        if descriptor is None:
++            raise Refusal('CONFIG.INVALID', None,
++                          'native.imported-projection-fingerprint-preimage-missing: the retained '
++                          'finding-fingerprint descriptor for ' + str(target) + ' is required to '
++                          'project it to a payload subject', target)
++        key = descriptor['subjectKey']
++        matches = []
++        for row in payload_subjects:
++            if row['path'] != key['logicalPath']:
++                continue
++            # A row that names a symbol answers ONLY that symbol. A row with no symbol is a
++            # FILE-level observation: it still matches the path, but the answer is COARSER than the
++            # subject key, and that coarsening is reported per target rather than passing silently.
++            # HistorySubject never carries a symbol, so every history answer is file-level.
++            if kind == 'runtime' and 'symbol' in row and row['symbol'] != key['qualifiedName']:
++                continue
++            matches.append(row)
++        if len(matches) > 1:
++            raise Refusal('CONFIG.INVALID', None,
++                          'native.imported-projection-ambiguous-target: ' + str(len(matches))
++                          + ' payload subjects match ' + str(target) + '; the projection is not '
++                          'deterministic and is not resolved by choosing one', target)
++        row = matches[0] if matches else None
++        answer_granularity = ('symbol' if (row is not None and kind == 'runtime' and 'symbol' in row)
++                              else 'file')
++        projection[target] = {
++            'matched': row is not None,
++            'logicalPath': key['logicalPath'],
++            'subjectQualifiedName': key['qualifiedName'],
++            'answerGranularity': answer_granularity,
++            # The answer is coarser than the subject key whenever a keyed subject is answered by a
++            # file-level row. Reported, never silent, and identical in form for both kinds.
++            'granularityWidenedToFile': bool(row is not None and answer_granularity == 'file'),
++            'observability': row.get('observability') if row and kind == 'runtime' else None,
++        }
++    return projection
++
++
++def imported_requirement_outcome(req, projection, evidence, required):
+     """The IMPORTED plane's per-requirement reference projection, implementing the published
+     per-kind applicability and precedence of the imported-requirement law.
+ 
+-    PRECONDITIONS - this is a PURE projection over inputs that have ALREADY been admitted elsewhere.
+-    It does not validate an opaque Run, re-derive source correspondence, or admit payload,
+-    observation scope or polarity: an authenticated importer and the retained Run closure own those.
+-    Passing it an unadmitted payload produces a meaningless answer, not a refusal.
+-
+-    INPUT BINDING - every value it reads is named by an owning field, so no untyped caller boolean
+-    stands in for a measured Run:
+-      req            a repair EvidenceRequirement. Its `completeness` decides ALL versus ANY over
+-                     targets: `complete` requires EVERY target supported, `partial-acceptable` at
+-                     least one. Nothing is added to that record.
+-      targets        RepairPlanDescriptor.targets - the plan's own targets. They are NOT a field of
+-                     EvidenceRequirement; the projection is evaluated against the plan being built.
+-      evidence       the admitted import context for this relation's evidenceKind:
+-                       available    an admitted import of the kind reached this Run
+-                       consumable   False for the unmapped-only staleness states
+-                       runtime:  observability {target: observed-hit|observable-unhit|unobservable|
+-                                 unmapped}, observationWindow, observedPopulation,
+-                                 windowSatisfiesRequirement (the recipe's declared demand, an INPUT)
+-                       history:  covered {target: bool} from collectionScope, present {target: bool}
+-                                 from subjects, revisionRange, rangeSatisfiesRequirement
+-      required       the rule's evidenceUse declaration. NEVER defaulted to optional: an unknown or
+-                     unsupplied declaration is REQUIRED, so an unresolved condition is never silently
+-                     satisfied.
+-
+-    History is NOT projected through the runtime fields. HistoryPayloadV1 carries revisionRange and
+-    collectionScope and has no observationWindow, observedPopulation or observability, so a history
+-    requirement reports only its own outcomes and a runtime one only its own.
+-
+-    A satisfied result does NOT mean the evidence is positive: `observed-hit` is positive execution
+-    evidence and `observable-unhit` is BOUNDED NEGATIVE evidence, and the disclosure says which. An
+-    optional absence is satisfied by ABSENCE and says so. Nothing here establishes a universal
+-    negative, and no result changes `deadCodeRepairEligible`, which is decided against the evidence
+-    Run's own native ClosedWorldV2 before any descriptor exists."""
++    PRECONDITIONS - a PURE projection over already-admitted inputs. It does not validate an opaque
++    Run, re-derive source correspondence, or admit payload, observation scope or polarity: an
++    authenticated importer and the retained Run closure own those.
++
++    INPUT BINDING, each named by the field that owns it:
++      req         a repair EvidenceRequirement. Its `completeness` decides ALL versus ANY over the
++                  plan's targets. That reading of the existing enum is a SELECTED CLARIFICATION
++                  chosen here for imported requirements, not a meaning the enum already published.
++      projection  the output of project_targets_to_imported_subjects - the deterministic
++                  fingerprint -> subject join, keyed by TARGET FINGERPRINT. Targets are never read
++                  as paths.
++      evidence    the admitted import context for this relation's evidenceKind:
++                    available/consumable, and for runtime windowSatisfiesRequirement plus the
++                    observationWindow/observedPopulation bounds; for history
++                    rangeSatisfiesRequirement plus revisionRange, and `covered` keyed by target
++                    fingerprint from collectionScope. The window/range DEMAND is owned by the
++                    admitted recipe CLOSURE named by recipe.closureId - not a RecipeRef wire field,
++                    which does not exist - and is projected here as a typed input.
++      required    the owning evidenceUse declaration, as a TYPED BOOLEAN. A non-boolean REFUSES:
++                  there is no `unknown` state at this boundary and no default is applied to one.
++
++    SUPPORT depends on completeness; BOUNDS do not. A target that is unobservable or outside the
++    history collection scope only names the cause more precisely WHEN the support test fails, so a
++    lawful partial-acceptable requirement with one supported target is satisfied even though another
++    target is unobservable. An earlier revision vetoed on any such target before the ANY test.
++
++    Satisfied does NOT mean positive: `observed-hit` is positive execution evidence and
++    `observable-unhit` is BOUNDED NEGATIVE evidence, and the disclosure says which. Nothing here
++    establishes a universal negative, and no result changes `deadCodeRepairEligible`."""
+     plane = requirement_plane(req['relation'])
+     if plane != 'imported':
+         raise Refusal('CONFIG.INVALID', None,
+                       'native.imported-outcome-for-native-relation: ' + str(req['relation'])
+                       + ' is a native fact relation; its producer is native section 4.6 '
+                       'sufficiency_v2', req['relation'])
++    if not isinstance(required, bool):
++        raise Refusal('CONFIG.INVALID', None,
++                      'native.imported-required-declaration-not-boolean: the evidenceUse '
++                      'declaration must reach this boundary as a typed boolean; '
++                      + repr(required) + ' is not, and a falsy value is not `optional`',
++                      req['relation'])
+     kind = EVIDENCE_RELATIONS[req['relation']]['evidenceKind']
+     applicable = IMPORTED_REQUIREMENT_LAW['perKindApplicability'][req['relation']]
+-    targets = list(targets)
++    targets = list(projection)
+     if not targets:
+         raise Refusal('CONFIG.INVALID', None,
+-                      'native.imported-outcome-without-targets: the projection is per target and the '
+-                      'plan supplied none', req['relation'])
+-    every = req['completeness'] == 'complete'
++                      'native.imported-outcome-without-targets: the projection is per target and '
++                      'the plan supplied none', req['relation'])
+     causes, disclosures = [], []
+ 
+     def note(cause):
+-        # A relation may only report an outcome its OWN payload can ground.
+         if cause not in applicable:
+             raise Refusal('CONFIG.INVALID', None,
+                           'native.imported-outcome-not-applicable-to-kind: ' + cause + ' is not an '
+@@ -1070,40 +1159,59 @@
+ 
+     if not evidence.get('available'):
+         if not required:
+-            # The EXISTING optional route, stated rather than re-invented: satisfied BY ABSENCE.
++            # The OWNING evidenceUse route, related to that declaration and not equated with the
++            # policy evaluator's own optional-absence handling: satisfied BY ABSENCE.
+             return {'satisfied': True, 'satisfiedBy': 'declared-optional-absence',
+                     'disclosures': [{'kind': 'import-absent', 'code': 'IMPORT.ABSENT_FOR_PREDICATE',
+                                      'evidenceKind': kind}]}
+         note('evidence-kind-unavailable')
+     elif not evidence.get('consumable'):
+         note('import-unmapped-only')
+-    elif kind == 'runtime':
+-        observability = evidence.get('observability') or {}
+-        supported = {t for t in targets
+-                     if observability.get(t) in ('observed-hit', 'observable-unhit')}
+-        if any(observability.get(t) in ('unobservable', 'unmapped') for t in targets):
+-            note('subject-not-observable')
+-        if not evidence.get('windowSatisfiesRequirement', False):
+-            note('observation-window-insufficient')
+-        if not (supported >= set(targets) if every else supported):
+-            note('import-absent-for-requirement')
+-        if supported and not causes:
+-            disclosures.append({'kind': 'observation-bounds', 'evidenceKind': kind,
+-                                'observationWindow': evidence.get('observationWindow'),
+-                                'observedPopulation': evidence.get('observedPopulation'),
+-                                'polarity': sorted({observability[t] for t in supported})})
+     else:
+-        covered, present = evidence.get('covered') or {}, evidence.get('present') or {}
+-        supported = {t for t in targets if present.get(t)}
+-        if not all(covered.get(t) for t in targets):
+-            note('history-outside-collection-scope')
+-        if not evidence.get('rangeSatisfiesRequirement', False):
+-            note('history-range-insufficient')
+-        if not (supported >= set(targets) if every else supported):
+-            note('import-absent-for-requirement')
+-        if supported and not causes:
+-            disclosures.append({'kind': 'history-bounds', 'evidenceKind': kind,
+-                                'revisionRange': evidence.get('revisionRange')})
++        covered = evidence.get('covered') or {}
++        supported, unobservable, uncovered = set(), set(), set()
++        for target, row in projection.items():
++            if kind == 'runtime':
++                if row['observability'] in ('observed-hit', 'observable-unhit'):
++                    supported.add(target)
++                elif row['observability'] in ('unobservable', 'unmapped'):
++                    unobservable.add(target)
++            else:
++                if not covered.get(target):
++                    uncovered.add(target)
++                elif row['matched']:
++                    supported.add(target)
++        every = req['completeness'] == 'complete'
++        satisfied_support = supported >= set(targets) if every else bool(supported)
++        # BOUNDS are a property of the observation, not of the target count, so they apply to both
++        # completeness values.
++        if not evidence.get('rangeSatisfiesRequirement' if kind == 'history'
++                            else 'windowSatisfiesRequirement', False):
++            note('history-range-insufficient' if kind == 'history'
++                 else 'observation-window-insufficient')
++        if not satisfied_support:
++            # Name the most actionable reason among the targets that are NOT supported.
++            if kind == 'runtime' and unobservable:
++                note('subject-not-observable')
++            elif kind == 'history' and uncovered:
++                note('history-outside-collection-scope')
++            else:
++                note('import-absent-for-requirement')
++        if satisfied_support and not causes:
++            bounds = {'kind': 'observation-bounds' if kind == 'runtime' else 'history-bounds',
++                      'evidenceKind': kind, 'supportedTargets': sorted(supported)}
++            if kind == 'runtime':
++                bounds.update(observationWindow=evidence.get('observationWindow'),
++                              observedPopulation=evidence.get('observedPopulation'),
++                              polarity=sorted({projection[t]['observability'] for t in supported}))
++            else:
++                bounds.update(revisionRange=evidence.get('revisionRange'))
++            disclosures.append(bounds)
++            widened = sorted(t for t in supported if projection[t]['granularityWidenedToFile'])
++            if widened:
++                # A symbol target answered by file-level history is coarser than the recipe named.
++                disclosures.append({'kind': 'granularity-widened-to-file',
++                                    'evidenceKind': kind, 'targets': widened})
+     if not causes:
+         return {'satisfied': True, 'satisfiedBy': 'bounded-observation',
+                 'disclosures': disclosures}

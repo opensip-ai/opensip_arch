@@ -1,0 +1,967 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:repair",
+  "title": "Repair preview/apply/verify records: RepairPlanV1, RepairApplyJournalV1, MutationReceiptV1 (PROPOSED, revised)",
+  "description": "Preview, apply and verify are three separately authorized steps. A RepairPlan is a content-identified, snapshot-bound, non-applying artifact (H('workflow.repair-plan', descriptor)); it requires an AUTHORITATIVE evidence Run whose availability is retained and whose sealed assurance is replayable. Apply is a host-owned mutation bound to the exact repairPlanId and snapshotId with a journaled same-directory-temp/rename protocol, per-file preimage verification and rollback. Verify always admits a fresh snapshot after apply and seals a new authoritative Run; it never reuses the pre-apply Run. Identity descriptors exclude RequestId, ExecutionId, clocks and receipts. Bounds: at most 4096 target files, at most 16 MiB per postimage, at most 64 MiB total postimage bytes per plan.",
+  "x-opensip-mutation-operation-map": {
+    "standing": "Normative and CLOSED. THE map from the closed command-name vocabulary (workflows/command-inventory.v1.json#/commands[].name, the declared SOLE command list) to #/$defs/MutationOperation. It adds no command, no operation, no request class and no step kind, and it widens no accepted request: it publishes a derivation a consumer previously had to guess. It is written out rather than computed by name matching because three rows are renames that any name-matching rule would get wrong.",
+    "whyItIsOwed": "`mutationClass` is a PUBLIC envelope field (MutationReceiptProjection.operation), workflows section 1 makes MutationReplayScopeV1.operation equal to MutationParams.mutationClass, and that scope is the whole preimage of the published idempotencyKey H(workflow.mutation-intent, scope). The Command record carries no mutationClass field, so nothing in the contracts derived the expected value for a command. The impact is BOUNDED and that is why this is a SHOULD, not a MUST: requestId is host-minted and unique per invocation, so the key is scoped to one request, a spelling difference cannot cause a false or missed dedupe ACROSS hosts, and the key grants no authority. What was lost is a consumer's ability to derive the expected value from the contracts alone.",
+    "rule": "A command mints an operation only through a mutating STEP, and the step kind decides which surface carries it. `mutation` steps carry it as MutationParams.mutationClass and as MutationReplayScopeV1.operation; the `repair-apply`, `import` and `native-preparation` steps are their own step kinds with their own params and carry their operation on the receipt only. A command with no mutating step mints no operation and is absent from byCommand - it is not mapped to a null.",
+    "renamedRows": {
+      "baseline-upgrade": "baseline-upgrade-apply",
+      "native-prepare": "native-preparation",
+      "policy-init": "policy-write",
+      "waive": "waiver-change"
+    },
+    "byCommand": {
+      "baseline-adopt": {
+        "operation": "baseline-adopt",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation"
+      },
+      "baseline-export": {
+        "operation": "baseline-export",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation"
+      },
+      "baseline-upgrade": {
+        "operation": "baseline-upgrade-apply",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation",
+        "note": "RENAME. The command runs `analysis` then `mutation`; the operation names the APPLY half, because the analysis half mints a Run and no mutation."
+      },
+      "core-repair": {
+        "operation": "core-repair",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "core-rollback": {
+        "operation": "core-rollback",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "core-update": {
+        "operation": "core-update",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "import": {
+        "operation": "import",
+        "mintedByStepKind": "import",
+        "requestClass": "mutation",
+        "note": "The `import` command's mutating step is an `import` step, not a generic `mutation` step, so its operation appears on the receipt and never as MutationParams.mutationClass."
+      },
+      "install": {
+        "operation": "install",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "native-prepare": {
+        "operation": "native-preparation",
+        "mintedByStepKind": "native-preparation",
+        "requestClass": "execution",
+        "note": "The command's mutating step is a `native-preparation` step, not a generic `mutation` step; its operation appears on the receipt and never as MutationParams.mutationClass."
+      },
+      "policy-init": {
+        "operation": "policy-write",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation",
+        "note": "RENAME. `policy-init` is the command that writes a policy document for the first time; the operation is the effect class `policy-write`, which is why one operation covers it. It is NOT `config-write`: product configuration is a different document with no command here."
+      },
+      "purge": {
+        "operation": "purge",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation"
+      },
+      "repair-apply": {
+        "operation": "repair-apply",
+        "mintedByStepKind": "repair-apply",
+        "requestClass": "mutation",
+        "note": "DEDICATED, and EXCLUDED from the generic path: repair apply is its own `repair-apply` step with its own content-derived idempotency key, and `repair-apply` is refused as MutationParams.mutationClass and as MutationReplayScopeV1.operation. It is in this map because it is a real command/operation pair, not to enable it there."
+      },
+      "repair-recover": {
+        "operation": "repair-recover",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation"
+      },
+      "review-join": {
+        "operation": "review-join",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation"
+      },
+      "store-gc": {
+        "operation": "store-gc",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "store-migrate": {
+        "operation": "store-migrate",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "store-rollback": {
+        "operation": "store-rollback",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "trust-import": {
+        "operation": "trust-import",
+        "mintedByStepKind": "mutation",
+        "requestClass": "trust"
+      },
+      "trust-recovery-challenge": {
+        "operation": "trust-recovery-challenge",
+        "mintedByStepKind": "mutation",
+        "requestClass": "trust"
+      },
+      "trust-recovery-import": {
+        "operation": "trust-recovery-import",
+        "mintedByStepKind": "mutation",
+        "requestClass": "trust"
+      },
+      "trust-refresh": {
+        "operation": "trust-refresh",
+        "mintedByStepKind": "mutation",
+        "requestClass": "trust"
+      },
+      "update": {
+        "operation": "update",
+        "mintedByStepKind": "mutation",
+        "requestClass": "lifecycle"
+      },
+      "waive": {
+        "operation": "waiver-change",
+        "mintedByStepKind": "mutation",
+        "requestClass": "mutation",
+        "note": "RENAME. `waive` adds a waiver; the operation is the effect class `waiver-change`, which also covers the amendment and revocation this same command performs."
+      }
+    },
+    "genericMutationClasses": [
+      "baseline-adopt",
+      "baseline-export",
+      "baseline-upgrade",
+      "core-repair",
+      "core-rollback",
+      "core-update",
+      "install",
+      "policy-init",
+      "purge",
+      "repair-recover",
+      "review-join",
+      "store-gc",
+      "store-migrate",
+      "store-rollback",
+      "trust-import",
+      "trust-recovery-challenge",
+      "trust-recovery-import",
+      "trust-refresh",
+      "update",
+      "waive"
+    ],
+    "excludedFromGenericMutation": {
+      "operations": [
+        "repair-apply"
+      ],
+      "rule": "repair-apply is refused by MutationParams.mutationClass and by MutationReplayScopeV1.operation, both of which carry an explicit `not: {const: repair-apply}` beside the $ref. Repair apply is a dedicated step whose idempotency key is the raw SHA-256 of C({operation, projectId, repairPlanId, baseSnapshotId}) - content-derived, not request-scoped. Publishing this map DOES NOT make it available there, and a control holds that."
+    },
+    "operationsWithNoCommand": {
+      "operations": [
+        "config-write"
+      ],
+      "disclosure": "`config-write` is a member of the MutationOperation vocabulary that NO command in the closed inventory mints. It is stated rather than removed or invented a command for: removing an operation member is a vocabulary change this correction does not own, and no command writes product configuration today. A receipt carrying it would come from a surface outside this inventory. This is a disclosure, not an authorization to mint one."
+    },
+    "notARequestGrammar": "Nothing here decides which commands a host accepts, which request class a command has, or which authorizations it needs. Those stay with command-inventory.v1.json and the security unit. This map answers exactly one question: given a command name, which MutationOperation does its mutating step carry.",
+    "enforcedAt": "check_workflows.v1.py: the map is total over every inventory command with a mutating step, carries no command outside the inventory, every value is a MutationOperation member, the step kind it names is actually one of that command's steps, the operations with no command are exactly the disclosed set, and repair-apply stays schema-refused in both generic positions.",
+    "renamedRowsNote": "FOUR commands, not three. The three mutation-CLASS renames are baseline-upgrade, policy-init and waive; `native-prepare` is a fourth, in request class `execution`, whose `native-preparation` step carries the operation of the same name. Counting only the mutation-class commands would leave one command's operation still underivable, which is the defect this map exists to close, so the row is published with the other three. This set is held EQUAL to the commands whose name is not itself a MutationOperation member, so a future rename cannot be added to the vocabulary without appearing here."
+  },
+  "$defs": {
+    "MutationOperation": {
+      "type": "string",
+      "enum": [
+        "repair-apply",
+        "repair-recover",
+        "baseline-adopt",
+        "baseline-upgrade-apply",
+        "baseline-export",
+        "waiver-change",
+        "policy-write",
+        "config-write",
+        "purge",
+        "install",
+        "update",
+        "review-join",
+        "import",
+        "trust-refresh",
+        "trust-import",
+        "trust-recovery-challenge",
+        "trust-recovery-import",
+        "store-migrate",
+        "store-rollback",
+        "store-gc",
+        "core-update",
+        "core-repair",
+        "core-rollback",
+        "native-preparation"
+      ],
+      "description": "The closed effect-class vocabulary of a mutating step. Which command mints which member is published beside this enum at #/x-opensip-mutation-operation-map; four commands do NOT share their operation's name (baseline-upgrade -> baseline-upgrade-apply, policy-init -> policy-write, waive -> waiver-change, and the execution-class native-prepare -> native-preparation), so name matching is not the derivation. `repair-apply` is a dedicated operation refused in the generic MutationParams and MutationReplayScopeV1 positions; `config-write` is currently minted by no command in the inventory.",
+      "x-opensip-vocabulary": {
+        "commandAuthority": "workflows/command-inventory.v1.json#/commands[].name",
+        "map": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommand",
+        "admittedBy": "check_workflows.v1.py mutation-operation-map controls"
+      }
+    },
+    "RecipeRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contributionId",
+        "recipeId",
+        "recipeVersion",
+        "closureId"
+      ],
+      "properties": {
+        "contributionId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ContributionId"
+        },
+        "recipeId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "recipeVersion": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SemanticVersion"
+        },
+        "closureId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId",
+          "description": "exact signed contribution closure that supplied the recipe; revocation of this closure under current trust invalidates apply (REPAIR.RECIPE_TRUST_REVOKED)"
+        }
+      }
+    },
+    "FileEdit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "action",
+        "preimageDigest",
+        "postimageDigest",
+        "postimageBytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "replace",
+            "delete",
+            "create"
+          ]
+        },
+        "preimageDigest": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null only for action=create; otherwise must equal the snapshot inventory digest for path"
+        },
+        "postimageDigest": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "null only for action=delete"
+        },
+        "postimageBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16777216
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "create"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "preimageDigest": {
+                "type": "null"
+              },
+              "postimageDigest": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "delete"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "preimageDigest": {
+                "type": "string"
+              },
+              "postimageDigest": {
+                "type": "null"
+              },
+              "postimageBytes": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "action": {
+                "const": "replace"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "preimageDigest": {
+                "type": "string"
+              },
+              "postimageDigest": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "EvidenceRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "relation",
+        "minResolution",
+        "completeness",
+        "satisfied"
+      ],
+      "properties": {
+        "relation": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CanonicalIdentifier"
+        },
+        "minResolution": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/Rung"
+        },
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial-acceptable"
+          ]
+        },
+        "satisfied": {
+          "type": "boolean"
+        },
+        "deficiency": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/NativeSufficiencyDeficiency",
+          "description": "The reason THIS requirement is unsatisfied, in the native per-requirement sufficiency vocabulary. OWNERSHIP: the value is produced by native-evidence.md section 4.6 `sufficiency_v2` for this requirement against the evidence Run named by RepairPlanDescriptor.evidenceRunId, and repair CONSUMES it; preview mints no sufficiency verdict of its own and never re-derives one from the descriptor. PRESENCE IS NOT OPTIONAL AND IS NOT FREE: the field is REQUIRED exactly when satisfied is false and FORBIDDEN when satisfied is true, enforced by the allOf below, because sufficiency_v2 is total - it returns {satisfied:true, disclosures} with no deficiency, or {satisfied:false, deficiency} with exactly one member of this vocabulary. Omitting it under satisfied=false previously dropped the only disclosure of WHY a repair is inapplicable while leaving the record schema-valid. WHY NOT D9Deficiency, which this field previously named: four of the nine outcomes sufficiency_v2 emits - derivation-policy-unmet, external-consumers-unknown, input-closure-incomplete, resolution-incomplete - are not members of it, so the field could not express its own producer's result; the only conforming alternatives were to write the D9-mapped `verdict-indeterminate` for all four (destroying the distinction, and in particular conflating `resolution-incomplete` - the outcome that decides a destructive unused-code repair - with three unrelated ones), or to omit the field. Retyping this ONE per-requirement field is the repair; D9Deficiency itself is unchanged and still carries every whole-Run and comparison-step termination. THIS FIELD IS NOT AN AUTHORIZATION: the sealed Run named by evidenceRunId remains the authority, `applicable` is still false whenever any requirement is unsatisfied, and apply still requires a security authorization bound to the exact repairPlanId. Editing or deleting it cannot make a plan applicable - it mints a different repairPlanId, which no authorization names.",
+          "x-opensip-vocabulary": {
+            "authority": "native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2",
+            "mirroredAs": "urn:opensip:product-v1:workflows:common#/$defs/NativeSufficiencyDeficiency",
+            "law": "native/native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry/perRequirementConsumerBoundary",
+            "producer": "native-evidence.md section 4.6 sufficiency_v2, per requirement",
+            "admittedBy": "workflows_model.admit_evidence_requirement, called by repair_preview before any descriptor exists"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "satisfied": {
+                "const": false
+              }
+            },
+            "required": [
+              "satisfied"
+            ]
+          },
+          "then": {
+            "required": [
+              "deficiency"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "deficiency"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "RepairPlanDescriptor": {
+      "type": "object",
+      "description": "Identity-bearing descriptor for H('workflow.repair-plan', descriptor). No operational field is admitted here.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "projectId",
+        "snapshotId",
+        "evidenceRunId",
+        "planId",
+        "recipe",
+        "recipeTrust",
+        "evidenceOrigin",
+        "closedWorld",
+        "targets",
+        "edits",
+        "totalPostimageBytes",
+        "evidenceRequirements",
+        "permittedEditScope",
+        "applicable",
+        "unmetPreconditions",
+        "limitations"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.repair-plan"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+        },
+        "snapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "evidenceRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "planId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/PlanId"
+        },
+        "recipe": {
+          "$ref": "#/$defs/RecipeRef"
+        },
+        "recipeTrust": {
+          "type": "string",
+          "enum": [
+            "admitted",
+            "not-admitted",
+            "revoked"
+          ],
+          "description": "positive current-trust disposition of recipe.closureId at preview: only 'admitted' (present in the current admitted closure set) is applicable; 'not-admitted' (absent) is REPAIR.RECIPE_TRUST_NOT_ADMITTED, 'revoked' is REPAIR.RECIPE_TRUST_REVOKED. Absence of a revocation is never admission."
+        },
+        "evidenceOrigin": {
+          "type": "string",
+          "enum": [
+            "native-analysis",
+            "imported-prepared-verified",
+            "imported-prepared-declared"
+          ],
+          "description": "how the evidence Run's facts for the target relations were produced. imported-prepared-declared (a declared proc-macro/build expansion imported without verified provenance) is never authority for an unsafe (delete/replace) repair."
+        },
+        "closedWorld": {
+          "type": "object",
+          "description": "The five-field PROJECTION of the evidence Run's native ClosedWorldV2 (native-evidence.md \u00a74.5) - not a copy. ClosedWorldV2 is closed at SEVEN required members and a literal copy is REFUSED here (dynamicDispatch and reasons are not properties of this record). The projection is exactly {deadCodeRepairEligible, exportsClosed, entryPointsRecognized, nonliteralLoading, externalConsumers}, each taken unchanged from that same Run's ClosedWorldV2, with dynamicDispatch and reasons dropped. AUTHORITY: the prerequisite for an unsafe edit - EVERY delete and EVERY replace in the plan, not only exported subjects - is decided against the evidence Run's own ClosedWorldV2 BEFORE this projection is built: preview reads deadCodeRepairEligible there and reports that record's reasons in the unmet-precondition remedy. dynamicDispatch stays with the native evidence and is NOT a global veto: native section 4.5 affected_targets and section 4.6 make dynamic-edge effects TARGET-RELATIVE, so it bears on universal negatives about the subjects a dynamic edge can reach, not on unrelated targets. These five fields are therefore a descriptor projection carried for display and for the repairplan2 identity; the projection grants no evidence authority of its own and is never the input to the gate. Deleting or editing a field of this record therefore cannot bypass the gate: a missing required member is schema-invalid, any edit mints a different repairPlanId, and apply requires a security authorization bound to the exact repairPlanId. Deletion or replacement of an exported subject requires deadCodeRepairEligible=true, which native sets only with exportsClosed=closed, entryPointsRecognized=all and nonliteralLoading=none; otherwise REPAIR.CLOSED_WORLD_NOT_ESTABLISHED.",
+          "additionalProperties": false,
+          "required": [
+            "deadCodeRepairEligible",
+            "exportsClosed",
+            "entryPointsRecognized",
+            "nonliteralLoading",
+            "externalConsumers"
+          ],
+          "properties": {
+            "deadCodeRepairEligible": {
+              "type": "boolean"
+            },
+            "exportsClosed": {
+              "type": "string",
+              "enum": [
+                "closed",
+                "open",
+                "unknown"
+              ]
+            },
+            "entryPointsRecognized": {
+              "type": "string",
+              "enum": [
+                "all",
+                "partial",
+                "none"
+              ]
+            },
+            "nonliteralLoading": {
+              "type": "string",
+              "enum": [
+                "none",
+                "present"
+              ]
+            },
+            "externalConsumers": {
+              "type": "string",
+              "enum": [
+                "none-declared",
+                "possible",
+                "unknown"
+              ]
+            }
+          }
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Fingerprint"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "edits": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/FileEdit"
+          },
+          "description": "sorted ascending by path UTF-8 bytes; path unique",
+          "x-opensip-order": "path"
+        },
+        "totalPostimageBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "evidenceRequirements": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/EvidenceRequirement"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "permittedEditScope": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/GlobPattern"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "applicable": {
+          "type": "boolean",
+          "description": "true only when every evidenceRequirement is satisfied and unmetPreconditions is empty"
+        },
+        "unmetPreconditions": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/DomainDetail"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "limitations": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RepairPlanV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repairPlanId",
+        "descriptor"
+      ],
+      "properties": {
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RepairPlanId"
+        },
+        "descriptor": {
+          "$ref": "#/$defs/RepairPlanDescriptor"
+        }
+      }
+    },
+    "JournalState": {
+      "type": "string",
+      "enum": [
+        "PREPARING",
+        "STAGED",
+        "APPLYING",
+        "APPLIED",
+        "COMMITTED",
+        "FAILED_CLEAN",
+        "FAILED_ROLLED_BACK",
+        "RECOVERY_BLOCKED",
+        "INDETERMINATE"
+      ],
+      "description": "PREPARING: intent journaled, no temp written. STAGED: every postimage written to a same-directory temp, digest-verified, and every preimage re-verified against the live file. APPLYING: renames in progress in ascending UTF-8 path order; appliedPaths lists completed renames. APPLIED: every rename done, snapshot not yet recaptured. COMMITTED: appliedSnapshotId recorded and receipt written. FAILED_CLEAN: no target byte changed. FAILED_ROLLED_BACK: every renamed target restored to its preimage. RECOVERY_BLOCKED: a renamed target is neither preimage nor postimage; no automatic action. INDETERMINATE: applied but post-apply tree identity could not be established."
+    },
+    "RepairApplyJournalV1": {
+      "type": "object",
+      "description": "SC-OPS journal under projects/<namespaceId>/repair/<requestId>-<stepId>.json; operational, never in any content identity.",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "requestId",
+        "stepId",
+        "executionId",
+        "repairPlanId",
+        "baseSnapshotId",
+        "authorizationRef",
+        "state",
+        "stagedPaths",
+        "appliedPaths"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.repair-apply-journal"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "requestId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RequestId"
+        },
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/StepId"
+        },
+        "executionId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ExecutionId"
+        },
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RepairPlanId"
+        },
+        "baseSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "authorizationRef": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RepairAuthorizationRef"
+        },
+        "state": {
+          "$ref": "#/$defs/JournalState"
+        },
+        "stagedPaths": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "appliedPaths": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "preimageBlobs": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Blob"
+          },
+          "description": "retained preimage bytes (digest-addressed, written before STAGED) for every replace/delete edit; rollback restores from these blobs, never from memory",
+          "x-opensip-order": "sequence"
+        },
+        "appliedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "blockedPaths": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "faultCause": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/D9FaultCause"
+        },
+        "recoveryAuthorizationRef": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RepairRecoveryAuthorizationRef",
+          "description": "Full actual security-admitted fresh recovery authorization; identity and observed state are bound to the original journal."
+        },
+        "restoreIntent": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "restoreDigest"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "restoreDigest": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+                  }
+                ]
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RecoveryAction": {
+      "type": "object",
+      "description": "Closed decision-table row for repair-recover given a journal state and the observed live digests. Inspection (state, journal integrity, per-path digest comparison) is read-only and needs no authorization. Any action other than none/refuse is a separately authorized mutation within the ORIGINAL plan's authority (same repairPlanId, same base snapshot, same project); it never re-applies an edit and never touches a path outside the plan. roll-back-renamed: for every applied path the current digest must equal the plan postimage (or be absent for create) before the retained preimage blob is restored; any other digest is RECOVERY_BLOCKED. verify-postimages-and-commit (APPLIED/INDETERMINATE): every intended edit's current digest must equal its plan postimage (absent for delete) AND appliedPaths must equal the plan's edit paths; only then is the tree re-snapshotted and committed \u2014 an unexpected user edit is RECOVERY_BLOCKED, never silently committed. requires-broker: the retained preimage blob is unavailable to this process; the model returns the exact restore intent and changes nothing.",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "action",
+        "resultState",
+        "receiptOutcome"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/JournalState"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "discard-temps",
+            "roll-back-renamed",
+            "verify-postimages-and-commit",
+            "none",
+            "refuse",
+            "requires-broker"
+          ]
+        },
+        "resultState": {
+          "$ref": "#/$defs/JournalState"
+        },
+        "receiptOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        }
+      }
+    },
+    "VerificationLinkV1": {
+      "type": "object",
+      "description": "Append-only link from an immutable apply receipt to a later verification Run. A MutationReceiptV1 is content-identified and can never be edited to add a verificationRunId; the link is a separate retained record. linkId = 'receipt2:' + H('workflow.verification-link', this object without linkId).",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "linkId",
+        "receiptId",
+        "verificationRunId",
+        "appliedSnapshotId",
+        "verifiedSnapshotId",
+        "requestId",
+        "stepId"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.verification-link"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "linkId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "verificationRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        },
+        "appliedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "verifiedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "requestId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RequestId"
+        },
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/StepId"
+        }
+      }
+    },
+    "MutationReceiptV1": {
+      "type": "object",
+      "description": "Retained record of an attempted host mutation. Retained even when the effect FAILED or a later verification failed. receiptId = 'receipt2:' + H('workflow.mutation-receipt', this object without receiptId).",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "receiptId",
+        "requestId",
+        "stepId",
+        "executionId",
+        "operation",
+        "idempotencyKey",
+        "effectOutcome",
+        "commitClass",
+        "replayed"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.mutation-receipt"
+        },
+        "schemaMajor": {
+          "const": 1
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "requestId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RequestId"
+        },
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/StepId"
+        },
+        "executionId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ExecutionId"
+        },
+        "operation": {
+          "$ref": "#/$defs/MutationOperation"
+        },
+        "idempotencyKey": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "effectOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        },
+        "commitClass": {
+          "type": "string",
+          "enum": [
+            "REVERSIBLE",
+            "IRREVERSIBLE"
+          ]
+        },
+        "replayed": {
+          "type": "boolean",
+          "description": "true when an equal idempotencyKey already had a COMPLETED receipt and no second effect was performed"
+        },
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RepairPlanId"
+        },
+        "baseSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "appliedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/SnapshotId"
+        },
+        "fileOutcomes": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "$ref": "#/$defs/FileOutcome"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "rollback": {
+          "type": "string",
+          "enum": [
+            "not-needed",
+            "completed",
+            "blocked",
+            "not-attempted"
+          ]
+        },
+        "domainDetail": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/DomainDetail"
+        }
+      }
+    },
+    "FileOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "before",
+        "after",
+        "state"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+        },
+        "before": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "applied",
+            "restored",
+            "untouched",
+            "blocked"
+          ]
+        }
+      }
+    }
+  }
+}

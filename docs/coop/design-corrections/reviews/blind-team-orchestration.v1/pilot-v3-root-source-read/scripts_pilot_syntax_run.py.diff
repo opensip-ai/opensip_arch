@@ -1,0 +1,562 @@
+--- scripts/pilot_syntax_run.py path-adjusted predecessor
++++ scripts/pilot_syntax_run.py current
+@@ -24,8 +24,22 @@
+ )
+ from helper.canonical import C  # noqa: E402
+ from helper.cap_manifest import capability_manifest_id  # noqa: E402
++from helper.component_manifest import (  # noqa: E402
++    component_manifest_body,
++    encode_manifest_body,
++    stored_sha256,
++)
+ from helper.compose_proof import compose_expected_proof, select_file_subjects  # noqa: E402
+ from helper.evaluator import flatten, walk_predicate  # noqa: E402
++from helper.execution_inputs import (  # noqa: E402
++    derive_account,
++    derive_outcome,
++    expected_matrix_accounts,
++    join_host_outcome,
++    matching_coverages_for_account,
++    selected_refs_totality,
++    vcs_applicability,
++)
+ from helper.identity import H, h_frame, typed_id  # noqa: E402
+ from helper.schema_admit import validate_against  # noqa: E402
+ from helper.store import Store  # noqa: E402
+@@ -100,10 +114,27 @@
+ 
+ # --- closures ---
+ def make_closure(kind, platform="macos-aarch64", extra_files=None):
+-    body = json.dumps({"kind": kind, "name": f"opensip-{kind}", "version": "1.0.0"}, separators=(",", ":")).encode()
+-    man_d = store.put_raw(body, label=f"manifest-{kind}")
+     tree = extra_files or []
+-    tree = sorted(tree + [{"path": f"bin/{kind}", "sha256": store.put_raw(b"stub-" + kind.encode(), label=f"bin-{kind}"), "bytes": 5 + len(kind)}], key=lambda r: r["path"].encode())
++    tree = sorted(
++        tree
++        + [
++            {
++                "path": f"bin/{kind}",
++                "sha256": store.put_raw(b"stub-" + kind.encode(), label=f"bin-{kind}"),
++                "bytes": 5 + len(kind),
++            }
++        ],
++        key=lambda r: r["path"].encode(),
++    )
++    body_obj = component_manifest_body(
++        closure_kind=kind,
++        semantic_version="1.0.0",
++        platform=platform,
++        tree=tree,
++    )
++    body_bytes = encode_manifest_body(body_obj)
++    man_d = store.put_raw(body_bytes, label=f"manifest-{kind}")
++    assert man_d == stored_sha256(body_bytes)
+     rec = {
+         "schemaVersion": 2,
+         "kind": kind,
+@@ -127,9 +158,9 @@
+         {"path": "normalizer/specification", "sha256": level_spec_d, "bytes": len(grammar_spec)},
+     ],
+ )
+-prov_closure, _ = make_closure("provider")
+-eval_closure, _ = make_closure("evaluator")
+-det_closure, _ = make_closure("detector")
++prov_closure, prov_closure_rec = make_closure("provider")
++eval_closure, eval_closure_rec = make_closure("evaluator")
++det_closure, det_closure_rec = make_closure("detector")
+ grammar_bundle = {
+     "schemaVersion": 1,
+     "closureId": g_closure["typedId"],
+@@ -419,7 +450,14 @@
+     "schemaVersion": 2,
+     "snapshotId": snapshot_id,
+     "capabilityManifestId": cap_id_rec["capabilityManifestId"],
+-    "semanticClosures": sort_set([prov_closure["typedId"], g_closure["typedId"]]),
++    "semanticClosures": sort_set(
++        [
++            prov_closure["typedId"],
++            eval_closure["typedId"],
++            det_closure["typedId"],
++            g_closure["typedId"],
++        ]
++    ),
+     "analysisSpecDigest": as_d,
+     "resolvedConfigDigest": cfg_d,
+     "nativeContextDigests": [ctx_hex],
+@@ -441,7 +479,7 @@
+     "producerClosure": prov_closure["typedId"],
+     "operation": "analyze",
+     "parameters": params,
+-    "outputDomains": sort_set(["coverage", "fact", "view", "subject-inventory"]),
++    "outputDomains": ["view"],
+     "outputSchemaDigest": native_schema_d,
+ }
+ ss_d = store.put_canonical(stage_spec, label="stage-spec")
+@@ -630,12 +668,58 @@
+ cov_dec_h, cov_dec, cov_dec_p = coverage_entry("declares", "syntactic", scope_dec_h, 1)
+ cov_cl_h, cov_cl, cov_cl_p = coverage_entry("clones", "normalized-body-hash", scope_cl_h, 1)
+ 
++# syntax capability remaining rungs: control-flow@syntactic (return of add), literal@syntactic (none present).
++cf_payload = {"edgeKind": "return", "from": "function:add", "to": "function:add"}
++cf_pd = store.put_canonical(cf_payload, label="ControlFlowPayloadV1")
++cf_h, cf_f = fact(
++    "control-flow",
++    "syntactic",
++    cf_pd,
++    [{"path": "hello.rs", "blobDigest": hello_d, "startByte": 0, "endByte": hello_len}],
++)
++scope_cf_h, scope_cf = make_scope("control-flow", "syntactic", ["function:add"])
++cov_cf_h, cov_cf, cov_cf_p = coverage_entry("control-flow", "syntactic", scope_cf_h, 1)
++
++# complete-empty literal examination of the syntax cell's symbol extent
++scope_lit_h, scope_lit = make_scope("literal", "syntactic", [])
++cov_lit_h, cov_lit, cov_lit_p = coverage_entry("literal", "syntactic", scope_lit_h, 0)
++
++# inventory capability remaining rungs: package@manifest-declared (empty extent), vcs-change inapplicable
++scope_pkg_h, scope_pkg = make_scope("package", "manifest-declared", [])
++cov_pkg_h, cov_pkg, cov_pkg_p = coverage_entry("package", "manifest-declared", scope_pkg_h, 0)
++
+ view = {
+     "schemaVersion": 2,
+     "planId": plan_id,
+-    "scopeIds": sort_set([scope_file_h["typedId"], scope_dec_h["typedId"], scope_cl_h["typedId"]]),
+-    "facts": sort_set([file_fact_h["typedId"], decl_fact_h["typedId"], cl0_h["typedId"], cl1_h["typedId"]]),
+-    "coverageIds": sort_set([cov_file_h["typedId"], cov_dec_h["typedId"], cov_cl_h["typedId"]]),
++    "scopeIds": sort_set(
++        [
++            scope_file_h["typedId"],
++            scope_dec_h["typedId"],
++            scope_cl_h["typedId"],
++            scope_cf_h["typedId"],
++            scope_lit_h["typedId"],
++            scope_pkg_h["typedId"],
++        ]
++    ),
++    "facts": sort_set(
++        [
++            file_fact_h["typedId"],
++            decl_fact_h["typedId"],
++            cl0_h["typedId"],
++            cl1_h["typedId"],
++            cf_h["typedId"],
++        ]
++    ),
++    "coverageIds": sort_set(
++        [
++            cov_file_h["typedId"],
++            cov_dec_h["typedId"],
++            cov_cl_h["typedId"],
++            cov_cf_h["typedId"],
++            cov_lit_h["typedId"],
++            cov_pkg_h["typedId"],
++        ]
++    ),
+     "producerClosure": prov_closure["typedId"],
+     "schemaDigests": sort_set([rel_schema_d, native_schema_d]),
+ }
+@@ -696,17 +780,22 @@
+     {"id": decl_fact_h["typedId"], "record": decl_fact},
+     {"id": cl0_h["typedId"], "record": cl0_f},
+     {"id": cl1_h["typedId"], "record": cl1_f},
++    {"id": cf_h["typedId"], "record": cf_f},
+ ]
+ payloads = {
+     file_fact_h["typedId"]: file_payload,
+     decl_fact_h["typedId"]: decl_payload,
+     cl0_h["typedId"]: cl0_payload,
+     cl1_h["typedId"]: cl1_payload,
++    cf_h["typedId"]: cf_payload,
+ }
+ coverages_for_eval = [
+     {"id": cov_file_h["typedId"], "record": {"relation": "file", "resolution": "enumerated"}, "entry": cov_file_p["entry"]},
+     {"id": cov_dec_h["typedId"], "record": {"relation": "declares", "resolution": "syntactic"}, "entry": cov_dec_p["entry"]},
+     {"id": cov_cl_h["typedId"], "record": {"relation": "clones", "resolution": "normalized-body-hash"}, "entry": cov_cl_p["entry"]},
++    {"id": cov_cf_h["typedId"], "record": {"relation": "control-flow", "resolution": "syntactic"}, "entry": cov_cf_p["entry"]},
++    {"id": cov_lit_h["typedId"], "record": {"relation": "literal", "resolution": "syntactic"}, "entry": cov_lit_p["entry"]},
++    {"id": cov_pkg_h["typedId"], "record": {"relation": "package", "resolution": "manifest-declared"}, "entry": cov_pkg_p["entry"]},
+ ]
+ tree = walk_predicate(
+     atom,
+@@ -718,7 +807,7 @@
+ )
+ assert tree["value"] == "false", tree  # none of file hello.rs is FALSE because the file exists
+ 
+-# execution inputs
++# execution inputs — view-only stage; inventories are host-derived typed inputs
+ inv_refs = sort_set(
+     [
+         {"domain": "subject-inventory", "digest": sinv_clones_file_d},
+@@ -727,6 +816,7 @@
+         {"domain": "subject-inventory", "digest": sinv_sym_d},
+     ]
+ )
++complete_output_refs = [{"domain": "view", "digest": view_h["digest"]}]
+ host_cap = {
+     "custody": "host-tcb-evidence-store",
+     "observation": "stage-return",
+@@ -736,15 +826,7 @@
+             "stageSpecDigest": ss_d,
+             "producerClosure": prov_closure["typedId"],
+             "outputDomains": stage_spec["outputDomains"],
+-            "outputRefs": sort_set(
+-                [
+-                    {"domain": "view", "digest": view_h["digest"]},
+-                    {"domain": "coverage", "digest": cov_file_h["digest"]},
+-                    {"domain": "coverage", "digest": cov_dec_h["digest"]},
+-                    {"domain": "coverage", "digest": cov_cl_h["digest"]},
+-                ]
+-                + inv_refs
+-            ),
++            "outputRefs": sort_set(complete_output_refs),
+             "state": "complete",
+             "unavailableReason": None,
+         }
+@@ -752,9 +834,147 @@
+     "hostDerivedRefs": inv_refs,
+ }
+ 
+-
+-def outcome(ord_, cell_ord, cap, kinds, invs, views):
+-    return {
++MATRIX = json.loads((KIT / "docs/coop/design-corrections/native/native-capability-matrix.v2.json").read_text())
++view_coverages_full = []
++for hid, payload in [
++    (cov_file_h, cov_file_p),
++    (cov_dec_h, cov_dec_p),
++    (cov_cl_h, cov_cl_p),
++    (cov_cf_h, cov_cf_p),
++    (cov_lit_h, cov_lit_p),
++    (cov_pkg_h, cov_pkg_p),
++]:
++    view_coverages_full.append(
++        {
++            "id": hid["typedId"],
++            "digest": hid["digest"],
++            "record": {
++                "relation": payload["key"]["relation"],
++                "resolution": payload["key"]["resolution"],
++            },
++            "payload": payload,
++            "entry": payload["entry"],
++        }
++    )
++
++nca = []
++# clones-fact cell 0
++nca.append(
++    {
++        "cellOrdinal": 0,
++        "programOrdinal": 0,
++        "relation": "clones",
++        "resolution": "normalized-body-hash",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_cl_h["digest"]],
++    }
++)
++# inventory cell 1: file, package, vcs-change
++nca.append(
++    {
++        "cellOrdinal": 1,
++        "programOrdinal": 0,
++        "relation": "file",
++        "resolution": "enumerated",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_file_h["digest"]],
++    }
++)
++nca.append(
++    {
++        "cellOrdinal": 1,
++        "programOrdinal": 0,
++        "relation": "package",
++        "resolution": "manifest-declared",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_pkg_h["digest"]],
++    }
++)
++nca.append(
++    {
++        "cellOrdinal": 1,
++        "programOrdinal": 0,
++        "relation": "vcs-change",
++        "resolution": "vcs-reported",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": vcs_applicability(vcs),
++        "coverageIds": [],
++    }
++)
++# syntax cell 2: control-flow, declares, literal (matrix order)
++nca.append(
++    {
++        "cellOrdinal": 2,
++        "programOrdinal": 0,
++        "relation": "declares",
++        "resolution": "syntactic",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_dec_h["digest"]],
++    }
++)
++nca.append(
++    {
++        "cellOrdinal": 2,
++        "programOrdinal": 0,
++        "relation": "literal",
++        "resolution": "syntactic",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_lit_h["digest"]],
++    }
++)
++nca.append(
++    {
++        "cellOrdinal": 2,
++        "programOrdinal": 0,
++        "relation": "control-flow",
++        "resolution": "syntactic",
++        "sourceUniverse": uni_hex,
++        "targetUniverse": uni_hex,
++        "applicability": "supported-available",
++        "coverageIds": [cov_cf_h["digest"]],
++    }
++)
++
++inventories_by_digest = {
++    sinv_clones_file_d: sinv_clones_file,
++    sinv_inv_file_d: sinv_inv_file,
++    sinv_pkg_d: sinv_pkg,
++    sinv_sym_d: sinv_sym,
++}
++
++
++def derived_cell_row(ord_, cell_ord, cap, kinds, inv_digests, view_digest):
++    invs = [inventories_by_digest[d] for d in inv_digests]
++    accounts_for_cell = [a for a in nca if a["cellOrdinal"] == cell_ord]
++    derived_accounts = []
++    for acc in accounts_for_cell:
++        matching = matching_coverages_for_account(
++            account=acc,
++            view_coverages=view_coverages_full,
++            enumerator_closure=prov_closure["typedId"],
++            universe=uni_hex,
++        )
++        derived_accounts.append(derive_account(account=acc, matching_coverage_entries=matching))
++    derived = derive_outcome(
++        enumerator_status="selected",
++        universe=uni_hex,
++        inventories=invs,
++        derived_accounts=derived_accounts,
++        candidate_state=None,
++        candidate_owed=False,
++    )
++    row = {
+         "ordinal": ord_,
+         "cellOrdinal": cell_ord,
+         "programOrdinal": 0,
+@@ -766,44 +986,42 @@
+         "universe": uni_hex,
+         "enumeratorStatus": "selected",
+         "enumeratorClosure": prov_closure["typedId"],
+-        "state": "complete",
+-        "deficiency": None,
+-        "nativeCause": None,
++        "state": derived["state"],
++        "deficiency": derived["deficiency"],
++        "nativeCause": derived["nativeCause"],
+         "stageOrdinal": 0,
+         "stageOrdinalNullReason": None,
+-        "inventoryDigests": sort_set(list(invs)),
+-        "viewDigests": views,
++        "inventoryDigests": sort_set(list(inv_digests)),
++        "viewDigests": [view_digest],
+         "candidateResultDigest": None,
+     }
+-
+-
+-cell_outcomes = [
+-    outcome(0, 0, "clones-fact", ["file"], [sinv_clones_file_d], [view_h["digest"]]),
+-    outcome(1, 1, "inventory", ["file", "package"], [sinv_inv_file_d, sinv_pkg_d], [view_h["digest"]]),
+-    outcome(2, 2, "syntax", ["symbol"], [sinv_sym_d], [view_h["digest"]]),
+-]
+-cell_outcomes[0]["kinds"] = ["file"]
+-cell_outcomes[1]["kinds"] = sorted(["file", "package"])
+-cell_outcomes[2]["kinds"] = ["symbol"]
+-
+-nca = []
+-for rel, rung, covh, cell_i in [
+-    ("clones", "normalized-body-hash", cov_cl_h, 0),
+-    ("file", "enumerated", cov_file_h, 1),
+-    ("declares", "syntactic", cov_dec_h, 2),
++    join_host_outcome(row, derived)
++    return row, derived
++
++
++cell_outcomes = []
++derived_notes = []
++for spec in [
++    (0, 0, "clones-fact", ["file"], [sinv_clones_file_d]),
++    (1, 1, "inventory", sorted(["file", "package"]), [sinv_inv_file_d, sinv_pkg_d]),
++    (2, 2, "syntax", ["symbol"], [sinv_sym_d]),
+ ]:
+-    nca.append(
+-        {
+-            "cellOrdinal": cell_i,
+-            "programOrdinal": 0,
+-            "relation": rel,
+-            "resolution": rung,
+-            "sourceUniverse": uni_hex,
+-            "targetUniverse": uni_hex,
+-            "applicability": "supported-available",
+-            "coverageIds": [covh["digest"]],
+-        }
+-    )
++    row, derived = derived_cell_row(*spec, view_h["digest"])
++    cell_outcomes.append(row)
++    derived_notes.append({"ordinal": row["ordinal"], "capabilityId": row["capabilityId"], "derived": derived})
++    expected_pairs = set(expected_matrix_accounts(row["capabilityId"], MATRIX))
++    present_pairs = {
++        (a["relation"], a["resolution"]) for a in nca if a["cellOrdinal"] == row["cellOrdinal"]
++    }
++    assert present_pairs == expected_pairs, (row["capabilityId"], present_pairs, expected_pairs)
++
++selected_refs = selected_refs_totality(
++    complete_receipt_output_refs=complete_output_refs,
++    views=[view],
++    cell_outcomes=cell_outcomes,
++    plan_import_ids=plan["importIds"],
++    host_derived_refs=inv_refs,
++)
+ 
+ exec_inputs = {
+     "schemaVersion": 1,
+@@ -813,15 +1031,7 @@
+     "enumerationPlanDigest": enum_d,
+     "analysisSpecDigest": as_d,
+     "hostCapture": host_cap,
+-    "selectedRefs": sort_set(
+-        [
+-            {"domain": "view", "digest": view_h["digest"]},
+-            {"domain": "coverage", "digest": cov_file_h["digest"]},
+-            {"domain": "coverage", "digest": cov_dec_h["digest"]},
+-            {"domain": "coverage", "digest": cov_cl_h["digest"]},
+-        ]
+-        + inv_refs
+-    ),
++    "selectedRefs": selected_refs,
+     "cellOutcomes": cell_outcomes,
+     "nativeCoverageAccounts": nca,
+     "candidateResultRefs": [],
+@@ -854,7 +1064,16 @@
+     "schemaVersion": 3,
+     "planId": plan_id,
+     "viewIds": [view_h["typedId"]],
+-    "coverageIds": sort_set([cov_file_h["typedId"], cov_dec_h["typedId"], cov_cl_h["typedId"]]),
++    "coverageIds": sort_set(
++        [
++            cov_file_h["typedId"],
++            cov_dec_h["typedId"],
++            cov_cl_h["typedId"],
++            cov_cf_h["typedId"],
++            cov_lit_h["typedId"],
++            cov_pkg_h["typedId"],
++        ]
++    ),
+     "importIds": [],
+     "findingIds": [],
+     "proofBundleId": proof_h["typedId"],
+@@ -906,6 +1125,20 @@
+     ("file_payload", file_payload, REL, "#/$defs/FilePayloadV1"),
+     ("decl_payload", decl_payload, REL, "#/$defs/DeclaresPayloadV1"),
+     ("cl0_payload", cl0_payload, REL, "#/$defs/ClonesPayloadV1"),
++    ("cf_payload", cf_payload, REL, "#/$defs/ControlFlowPayloadV1"),
++    ("cf_fact", cf_f, IDENT, "#/$defs/fact"),
++    ("coverage_cf", cov_cf, IDENT, "#/$defs/coverage"),
++    ("coverage_lit", cov_lit, IDENT, "#/$defs/coverage"),
++    ("coverage_pkg", cov_pkg, IDENT, "#/$defs/coverage"),
++    ("cov_payload_cf", cov_cf_p, NATIVE, "#/$defs/CoverageResultV3"),
++    ("cov_payload_lit", cov_lit_p, NATIVE, "#/$defs/CoverageResultV3"),
++    ("cov_payload_pkg", cov_pkg_p, NATIVE, "#/$defs/CoverageResultV3"),
++    ("closure_eval", eval_closure_rec, IDENT, "#/$defs/closure"),
++    ("closure_prov", prov_closure_rec, IDENT, "#/$defs/closure"),
++    ("closure_det", det_closure_rec, IDENT, "#/$defs/closure"),
++    ("closure_grammar", g_closure_rec, IDENT, "#/$defs/closure"),
++    ("stage_spec", stage_spec, IDENT, "#/$defs/stage-spec"),
++    ("exec_plan", exec_plan, IDENT, "#/$defs/execution-plan"),
+     ("membership", membership, NATIVE, "#/$defs/UnitMembershipV1"),
+     ("sinv_clones_file", sinv_clones_file, SINV, "#"),
+     ("sinv_inv_file", sinv_inv_file, SINV, "#"),
+@@ -920,7 +1153,30 @@
+     checks.append({"label": label, "stockOk": r["stockOk"], "nErrors": len(r["errors"]), "errors": r["errors"][:5]})
+ 
+ export_path = OUT / "runs" / "syntax-code.store.json"
++before_store = export_path.read_bytes() if export_path.exists() else b""
++before_sha = hashlib.sha256(before_store).hexdigest() if before_store else None
+ store.export(export_path)
++after_bytes = export_path.read_bytes()
++after_sha = hashlib.sha256(after_bytes).hexdigest()
++(OUT / "runs" / "syntax-code.before-after.json").write_text(
++    json.dumps(
++        {
++            "beforeSha256": before_sha,
++            "beforeBytes": len(before_store),
++            "afterSha256": after_sha,
++            "afterBytes": len(after_bytes),
++            "afterBlobCount": len(store.blobs),
++            "predecessorStructuralRefused": "2e74a6b2dd2b94152d6c4ce266dbe1bc4b23dc257b0fea12a6c947d36fe08fe7",
++            "predecessorOriginal": "8b0f6d826ed04f604ce8614e63b55e9666a9abdd48702f6b155c92c4ce54e654",
++            "newBytesRelabeledAsAccepted": False,
++            "runId": run_h["typedId"],
++            "planId": plan_id,
++            "proofId": proof_h["typedId"],
++        },
++        indent=2,
++    )
++    + "\n"
++)
+ meta = {
+     "runId": run_h["typedId"],
+     "planId": plan_id,
+@@ -940,6 +1196,11 @@
+     "schemaChecks": checks,
+     "export": str(export_path),
+     "blobCount": len(store.blobs),
++    "derivedCellOutcomes": derived_notes,
++    "semanticClosures": plan["semanticClosures"],
++    "stageOutputDomains": stage_spec["outputDomains"],
++    "predecessorStructuralRefusedStore": "2e74a6b2dd2b94152d6c4ce266dbe1bc4b23dc257b0fea12a6c947d36fe08fe7",
++    "predecessorOriginalStore": "8b0f6d826ed04f604ce8614e63b55e9666a9abdd48702f6b155c92c4ce54e654",
+ }
+ (OUT / "runs" / "syntax-code.meta.json").write_text(json.dumps(meta, indent=2) + "\n")
+ # --- independent closure joins (kit laws, not helper self-mint equality alone) ---
+@@ -991,6 +1252,22 @@
+ join("coverage-complete-implies-exhaustive", cov_file_p["entry"]["coverage"] != "complete" or cov_file_p["entry"]["resolutionCompleteness"]["examinedExhaustive"] is True)
+ join("file-rung-enumerated-only", file_fact["resolution"] == "enumerated")
+ join("grammar-closure-kind", g_closure["typedId"].startswith("closure2:"))
++join(
++    "plan-semanticClosures-includes-evaluator",
++    eval_closure["typedId"] in plan["semanticClosures"],
++    eval_closure["typedId"],
++)
++join(
++    "plan-semanticClosures-includes-detector-extra",
++    det_closure["typedId"] in plan["semanticClosures"],
++    det_closure["typedId"],
++)
++join(
++    "seal-evaluator-equals-proof-evaluator",
++    seal["evaluatorClosure"] == proof["evaluatorClosure"] == eval_closure["typedId"],
++)
++join("stage-outputDomains-view-only", stage_spec["outputDomains"] == ["view"])
++join("all-required-cells-derived-complete", all(o["state"] == "complete" for o in cell_outcomes), json.dumps(derived_notes, default=str))
+ 
+ # reload export in-process (builder sanity, not the from-scratch command)
+ loaded = Store.load(export_path)

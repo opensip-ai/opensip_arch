@@ -1,0 +1,318 @@
+"""Reusable synthetic trusted observations for the reconstruction vectors."""
+from __future__ import annotations
+
+import hashlib
+
+import build as B
+import canon as K
+import kit
+import native as N
+from store import Store, split_id
+
+LEVEL_SPEC_L0 = b"opensip level-specification L0-verbatim; no tokenisation; raw span bytes"
+LEVEL_SPEC_L1 = (b"opensip level-specification L1-lexical; token kinds: ident,punct,"
+                 b"num,str; whitespace insignificant; comments retained")
+
+
+# ---------------------------------------------------------------------------
+# closures
+# ---------------------------------------------------------------------------
+
+def ts_toolchain(store, version="5.6.2"):
+    stdlib_files = {
+        "lib/lib.es2022.d.ts": b"declare const es2022: unknown;\n",
+        "lib/lib.dom.d.ts": b"declare const dom: unknown;\n",
+        "lib/lib.decorators.d.ts": b"declare const decorators: unknown;\n",
+    }
+    stdlib_id, stdlib = B.make_closure(store, "stdlib", stdlib_files, version,
+                                       protocol_major=2)
+    tool_files = {"bin/tsc.js": b"// bundled compiler\n",
+                  "bin/node": b"\x7fELF bundled runtime\n",
+                  "package/typescript.tgz": b"compiler package bytes\n"}
+    tool_id, tool = B.make_closure(store, "toolchain", tool_files, version,
+                                   protocol_major=2)
+    return stdlib_id, stdlib, tool_id, tool
+
+
+def rust_toolchain(store, version="1.83.0"):
+    llvm_id, llvm = B.make_closure(store, "rust-dev-llvm",
+                                   {"lib/librustc_llvm.so": b"\x7fELF llvm\n"},
+                                   version)
+    tool_files = {"bin/rustc": b"\x7fELF rustc\n", "bin/cargo": b"\x7fELF cargo\n",
+                  "bin/ld": b"\x7fELF linker\n", "bin/ar": b"\x7fELF ar\n",
+                  "bin/proc-macro-srv": b"\x7fELF pms\n"}
+    tool_id, tool = B.make_closure(store, "toolchain", tool_files, version)
+    return llvm_id, llvm, tool_id, tool
+
+
+def grammar_bundle_closure(store, version="0.9.1"):
+    files = {"grammars/typescript.wasm": b"grammar ts\n",
+             "grammars/javascript.wasm": b"grammar js\n",
+             "grammars/rust.wasm": b"grammar rs\n",
+             "grammars/json.wasm": b"grammar json\n",
+             "grammars/toml.wasm": b"grammar toml\n",
+             "grammars/markdown.wasm": b"grammar md\n",
+             "grammars/yaml.wasm": b"grammar yaml\n",
+             "bundle.manifest": b"bundle manifest\n",
+             "normalizer/spec.txt": LEVEL_SPEC_L0}
+    return B.make_closure(store, "grammar", files, version)
+
+
+def provider_closure(store, name, version="1.0.0"):
+    return B.make_closure(store, "provider",
+                          {f"bin/{name}": f"provider {name}\n".encode()}, version)
+
+
+def evaluator_closure(store, version="1.0.0"):
+    return B.make_closure(store, "evaluator",
+                          {"bin/opensip-eval": b"pure evaluator\n"}, version)
+
+
+def detector_closure(store, version="1.0.0"):
+    return B.make_closure(store, "detector",
+                          {"rules/cb9.json": b"detector rules\n"}, version)
+
+
+# ---------------------------------------------------------------------------
+# TypeScript native context
+# ---------------------------------------------------------------------------
+
+def ts_context(store, *, language_mode, config_graph_paths, lockfile,
+               node_modules_digest, package_module_type="commonjs",
+               allow_js=False, check_js=False, jsx=None, strict=True,
+               lib=("es2022",), version="5.6.2"):
+    stdlib_id, stdlib, tool_id, tool = ts_toolchain(store, version)
+    comps = []
+    for row in stdlib["tree"]:
+        if row["path"].endswith(".d.ts"):
+            comps.append({"component": row["path"].rsplit("/", 1)[-1],
+                          "sha256": row["sha256"]})
+    comps.sort(key=lambda r: r["component"].encode("utf-8"))
+    compiler = next(r["sha256"] for r in tool["tree"] if r["path"] == "bin/tsc.js")
+    runtime = next(r["sha256"] for r in tool["tree"] if r["path"] == "bin/node")
+    pkg = next(r["sha256"] for r in tool["tree"]
+               if r["path"] == "package/typescript.tgz")
+    honored = {
+        "allowJs": allow_js, "checkJs": check_js, "module": "node16",
+        "moduleResolution": "node16", "target": "es2022", "strict": strict,
+        "skipLibCheck": True, "noEmit": True, "types": [],
+        "lib": list(lib), "baseUrl": None, "paths": [], "rootDirs": [],
+        "resolveJsonModule": False, "allowSyntheticDefaultImports": True,
+        "esModuleInterop": True, "customConditions": [], "jsx": jsx}
+    ctx = {
+        "schemaVersion": 2, "languageMode": language_mode,
+        "toolchain": {"compilerName": "typescript", "compilerVersion": version,
+                      "compilerPackageDigest": pkg,
+                      "typescriptStdlibMerkleRoot": split_id(stdlib_id, "closure2"),
+                      "standardLibraryComponentDigests": comps,
+                      "libSelection": sorted(lib, key=lambda s: s.encode())},
+        "toolClosure": {"compiler": compiler, "runtime": runtime,
+                        "closureId": tool_id},
+        "configProjection": {
+            "schemaVersion": 2, "ancestorCarrierVerified": True,
+            "environmentSanitized": True, "typeAcquisitionEnabled": False,
+            "executableSelected": False, "honoredOptions": honored,
+            "strippedOptions": [
+                {"option": "outDir", "reason": "emits-output"},
+                {"option": "typeRoots", "reason": "acquires-types-from-the-network"}],
+            "configGraphPaths": sorted(config_graph_paths,
+                                       key=lambda s: s.encode())},
+        "moduleResolutionMode": "node16",
+        "packageModuleType": package_module_type,
+        "nodeModulesLayoutDigest": node_modules_digest,
+        "lockfileIdentity": lockfile,
+    }
+    ctx_hex = K.H("native.context.typescript.v2", ctx)
+    store.put_native_identity("native.context.typescript.v2", ctx)
+    return ctx, ctx_hex, {"stdlib": stdlib_id, "tool": tool_id}
+
+
+def ts_universe(store, ctx, ctx_hex, *, language_mode, config_graph,
+                program_roots, js_roots=(), lockfile_kind="none"):
+    graph_digest = store.put_record(config_graph)
+    honored = ctx["configProjection"]["honoredOptions"]
+    entry = config_graph["entryConfigPath"]
+    if entry is None:
+        origin = "synthesized"
+    else:
+        origin = "jsconfig" if entry.rsplit("/", 1)[-1] == "jsconfig.json" else "tsconfig"
+    synthesized = None
+    if origin == "synthesized":
+        synthesized = {"allowJs": True, "checkJs": False, "module": "node16",
+                       "moduleResolution": "node16", "target": "es2022",
+                       "strict": False, "skipLibCheck": True, "types": [],
+                       "noEmit": True}
+        if honored["jsx"] is not None:
+            synthesized["jsx"] = "preserve"
+    u = {"schemaVersion": 2, "languageMode": language_mode,
+         "configOrigin": origin,
+         "synthesizerVersion": 1 if origin == "synthesized" else None,
+         "synthesizedOptions": synthesized,
+         "packageModuleType": ctx["packageModuleType"],
+         "allowJs": honored["allowJs"], "checkJs": honored["checkJs"],
+         "jsAdmittedToProgram": honored["allowJs"],
+         "jsDiagnosticsEnabled": honored["checkJs"],
+         "resolutionCompletenessImplied": False,
+         "jsRootFiles": list(js_roots),
+         "programRootFiles": list(program_roots),
+         "lockfileKind": lockfile_kind,
+         "nodeModulesInReadSet": ctx["nodeModulesLayoutDigest"] is not None,
+         "executionCapableResolution": False,
+         "tsconfigGraphHash": graph_digest,
+         "nativeContextId": "sha256:" + ctx_hex}
+    u_hex = K.H("native.semantic-universe.typescript.v2", u)
+    store.put_native_identity("native.semantic-universe.typescript.v2", u)
+    return u, u_hex
+
+
+# ---------------------------------------------------------------------------
+# Rust native context / universe
+# ---------------------------------------------------------------------------
+
+def rust_context(store, *, dependency_set_id, unified_features_id,
+                 prepared_id=None, replaced_configs=(), base_cfg=("unix",),
+                 target="x86_64-unknown-linux-gnu", version="1.83.0"):
+    llvm_id, llvm, tool_id, tool = rust_toolchain(store, version)
+    tools = {r["path"]: r["sha256"] for r in tool["tree"]}
+    projected = b"[build]\nrustflags = []\n"
+    proj_digest = store.put_blob(projected)
+    projection = {
+        "schemaVersion": 2,
+        "honoredKeys": ["build.rustflags", "build.target"],
+        "strippedKeys": ["build.rustc", "target.*.linker"],
+        "replacedSnapshotConfigs": sorted(replaced_configs,
+                                          key=lambda s: s.encode()),
+        "rustflags": {"honored": ["--cfg feature=\"std\""],
+                      "stripped": [{"flag": "-C linker=cc",
+                                    "reason": "codegen-option-not-allowlisted"}],
+                      "executableSelected": False},
+        "ancestorCarrierVerified": True, "cargoHome": "private-empty",
+        "environmentProjection": "none", "claimsCargoSwitch": False,
+        "projectionSha256": proj_digest}
+    ctx = {"schemaVersion": 2, "targetTriple": target, "hostTriple": target,
+           "toolchain": {
+               "rustCommitHash": "b" * 40, "rustcVersion": version,
+               "cargoVersion": version,
+               "sysrootDigest": hashlib.sha256(b"sysroot").hexdigest(),
+               "rustcDevLlvmDigest": split_id(llvm_id, "closure2"),
+               "standardLibraryComponentDigests": [
+                   {"component": "libstd.rlib",
+                    "sha256": hashlib.sha256(b"libstd").hexdigest()}],
+               "targetTriple": target},
+           "toolClosure": {"rustc": tools["bin/rustc"], "cargo": tools["bin/cargo"],
+                           "linker": tools["bin/ld"], "ar": tools["bin/ar"],
+                           "procMacroServer": tools["bin/proc-macro-srv"],
+                           "closureId": tool_id},
+           "baseCfg": list(base_cfg), "resolverVersion": 2,
+           "dependencySourceSetId": dependency_set_id,
+           "unifiedFeaturesId": unified_features_id,
+           "preparedOutputSetId": prepared_id,
+           "configProjection": projection}
+    ctx_hex = K.H("native.context.rust.v2", ctx)
+    store.put_native_identity("native.context.rust.v2", ctx)
+    return ctx, ctx_hex
+
+
+def dependency_source_set(store, lockfile, packages=()):
+    dss = {"schemaVersion": 1, "language": "rust", "lockfileIdentity": lockfile,
+           "packages": list(packages),
+           "completeness": {"state": "complete", "missing": []}}
+    return store.put_native_identity("native.dependency-source-set.v1", dss), dss
+
+
+def unified_features(store, target, resolver=2, activated=()):
+    uf = {"schemaVersion": 1, "resolverVersion": resolver, "targetTriple": target,
+          "activated": list(activated),
+          "computedBy": {"producer": "opensip-cargo-adapter",
+                         "producerBuildId": "cb9-synthetic-1"}}
+    return store.put_native_identity("native.unified-features.rust.v1", uf), uf
+
+
+def unit(marker_path, target_kind, target_name, crate_name, target_edition=None):
+    pre = {"schemaVersion": 1, "markerPath": marker_path,
+           "targetKind": target_kind, "targetName": target_name}
+    return {"unitId": "sha256:" + K.H("native.compilation-unit.v1", pre),
+            "markerPath": marker_path, "crateName": crate_name,
+            "targetKind": target_kind, "targetName": target_name,
+            "targetEdition": target_edition}
+
+
+def source_unit_ownership(store, units, selected, ownership, enumeration="complete"):
+    sou = {"schemaVersion": 1, "enumeration": enumeration,
+           "units": sorted(units, key=lambda u: u["unitId"].encode()),
+           "selectedUnitIds": sorted(selected, key=lambda s: s.encode()),
+           "ownership": sorted(ownership,
+                               key=lambda o: (o["path"].encode(), o["unitId"].encode()))}
+    return store.put_native_identity("native.source-unit-ownership.v1", sou), sou
+
+
+def rust_universe(store, ctx, ctx_hex, *, edition, lockfile, crate_roots,
+                  ownership_id=None, cfg_sets=None, prepared_resolution="none",
+                  prepared_id=None):
+    proj_hex = K.H("native.cargo-config-projection.v2", ctx["configProjection"])
+    store.put_native_identity("native.cargo-config-projection.v2",
+                              ctx["configProjection"])
+    u = {"schemaVersion": 2, "edition": dict(edition),
+         "lockfileIdentity": lockfile,
+         "dependencySourceSetId": ctx["dependencySourceSetId"],
+         "unifiedFeaturesId": ctx["unifiedFeaturesId"],
+         "nativeContextId": "sha256:" + ctx_hex,
+         "cfgSets": cfg_sets or [{"cfgSetId": "primary",
+                                  "cfg": list(ctx["baseCfg"])}],
+         "rustflags": ctx["configProjection"]["rustflags"],
+         "crateRootPaths": sorted(crate_roots, key=lambda s: s.encode()),
+         "configProjectionSha256": proj_hex,
+         "executionCapableResolution": prepared_resolution != "none",
+         "preparedOutputSetId": prepared_id,
+         "preparedResolution": prepared_resolution,
+         "sourceUnitOwnershipId": ownership_id}
+    u_hex = K.H("native.semantic-universe.rust.v2", u)
+    store.put_native_identity("native.semantic-universe.rust.v2", u)
+    return u, u_hex
+
+
+# ---------------------------------------------------------------------------
+# syntax-only context / universe
+# ---------------------------------------------------------------------------
+
+GRAMMAR_ROWS = [
+    ("g-javascript", "javascript", "code", [".cjs", ".js", ".jsx", ".mjs"]),
+    ("g-json", "json", "data-document", [".json"]),
+    ("g-markdown", "markdown", "data-document", [".md"]),
+    ("g-rust", "rust", "code", [".rs"]),
+    ("g-toml", "toml", "data-document", [".toml"]),
+    ("g-typescript", "typescript", "code", [".cts", ".mts", ".ts", ".tsx"]),
+    ("g-yaml", "yaml", "data-document", [".yaml", ".yml"]),
+]
+
+
+def syntax_context(store, version="0.9.1"):
+    cid, cl = grammar_bundle_closure(store, version)
+    by_path = {r["path"]: r["sha256"] for r in cl["tree"]}
+    grammars = []
+    for gid, lang, cls, sufs in GRAMMAR_ROWS:
+        grammars.append({"grammarId": gid, "grammarVersion": version,
+                         "languageId": lang, "syntaxClass": cls,
+                         "suffixes": sorted(sufs, key=lambda s: s.encode()),
+                         "grammarDigest": by_path[f"grammars/{lang}.wasm"]})
+    grammars.sort(key=lambda g: g["grammarId"].encode())
+    bundle = {"schemaVersion": 1, "closureId": cid, "parserName": "opensip-grammars",
+              "parserVersion": version, "bundleDigest": by_path["bundle.manifest"],
+              "grammars": grammars,
+              "normalizer": {"normalizerId": "opensip-normalizer",
+                             "normalizerVersion": "1",
+                             "specificationDigest": by_path["normalizer/spec.txt"]}}
+    ctx = {"schemaVersion": 2, "grammarBundle": bundle}
+    ctx_hex = K.H("native.context.syntax.v2", ctx)
+    store.put_native_identity("native.context.syntax.v2", ctx)
+    return ctx, ctx_hex
+
+
+def syntax_universe(store, ctx, ctx_hex, selected_grammar_ids):
+    u = {"schemaVersion": 2, "nativeContextId": "sha256:" + ctx_hex,
+         "selectedGrammarIds": sorted(selected_grammar_ids,
+                                      key=lambda s: s.encode()),
+         "resolutionAttempted": False}
+    u_hex = K.H("native.semantic-universe.syntax.v2", u)
+    store.put_native_identity("native.semantic-universe.syntax.v2", u)
+    return u, u_hex

@@ -1,0 +1,1 @@
+I’ll work the owned native/security/admission sources for R2–R4, leave the v1 report intact, and write a v2 handoff that also corrects the stale R6 observation.I’ll map every R2/R3/R4 call site and journal-version consumer before changing owned files.Applying R2–R4 in the owned native and security files, then aligning the three chapters.

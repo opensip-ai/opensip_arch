@@ -1,0 +1,1991 @@
+{
+  "artifact": "opensip.resolved-inputs",
+  "version": 2,
+  "supersedes": 1,
+  "status": "CANDIDATE-REPAIRED-PENDING-INDEPENDENT-REREVIEW (identity recipes are IMPLEMENTABLE_UNEXECUTED)",
+  "author": "agent-3; identity closure by identity-contract owner",
+  "purpose": "Config precedence, project/scope/change resolution, the ambient-input closure that v1 omitted, and exact PROJECT-ID-V1, SNAPSHOT-ID-V1 and PLAN-ID-V1 derivation, custody and verification contracts.",
+  "reviewStatus": "The v2 base and first PlanId repair were independently reviewed. Reviewer6 findings R6-IP01-01/02/03 and R6-XID-04, plus coordinated reviewer7 findings R7-SN-01 and R7-C2-04, are repaired in this revision and AWAIT INDEPENDENT REREVIEW. Green checkers are design-integrity evidence only.",
+  "decisionDependencies": [
+    {
+      "claim": "TM",
+      "status": "CANDIDATE",
+      "refs": [
+        "V3",
+        "R3",
+        "V9",
+        "R10",
+        "U2"
+      ],
+      "note": "v1 cited threat-model.v1 ids (TM.F2, TM.F8) that v2 renumbered or dropped. Every reference here is checked against the LIVE threat model by RI-TM."
+    },
+    {
+      "claim": "C-1",
+      "status": "SEALED",
+      "supplies": "profiles strengthen only; no materialisation without a consumer"
+    },
+    {
+      "claim": "FACT-PLANE",
+      "status": "CANDIDATE",
+      "supplies": "the relation/ladder vocabulary a quality floor is expressed in"
+    },
+    {
+      "claim": "P-4",
+      "status": "SEALED",
+      "supplies": "TypeScript and Rust are the two semantic providers whose universes must be fully keyed"
+    },
+    {
+      "claim": "EVIDENCE",
+      "status": "CANDIDATE",
+      "supplies": "PlanId participates in the derivation closure a no-match proof is regenerated from"
+    },
+    {
+      "claim": "C-2",
+      "source": "artifacts/c2-plan-stage-schema.v3.json",
+      "supplies": "PlanId is allocated at snapshot-binding after attempt admission; ExecutionPlan is bound to exactly one SnapshotId and PlanId"
+    },
+    {
+      "claim": "DELIVERY",
+      "source": "artifacts/delivery.v2.json",
+      "supplies": "signed release manifest identity, selected capability manifest/profile, contribution provenance grants, and exact provider/toolchain identities"
+    },
+    {
+      "claim": "PRODUCT.A1-RI-04",
+      "source": "artifacts/product-dispositions.v1.json#decisions.A1-RI-04",
+      "supplies": "the final v1 rule that CI/non-interactive resolution does not load layer 4 while local-interactive resolution may key it"
+    }
+  ],
+  "ambientInputClosure": {
+    "why": "B-CSG-01 / CS-01. v1 recorded an environment identity and stopped there. Recording is not neutralising: if locale, collation, filesystem enumeration order, path form, clock or entropy can reach a result, then recording them buys reproducibility-by-identity (a different locale yields a different PlanId, so no false cache hit) at the cost of portability (two machines can never share a cache entry), and recording the ones you did not think of buys nothing at all.",
+    "theRule": "NEUTRALISE when you can, KEY when you must, FORBID when neither. Every ambient input the process can observe is assigned to exactly one of the three. An input in none of them is a defect, not a default.",
+    "classes": {
+      "neutralised": {
+        "rule": "The host forces a canonical value before any analysis begins. Because it cannot vary, it MUST NOT enter PlanId \u2014 keying a constant is churn carrying no information.",
+        "inputs": [
+          {
+            "input": "locale (LC_ALL, LC_CTYPE, LANG)",
+            "canonical": "C",
+            "affects": "case folding, character classification, number and date formatting inside rules",
+            "note": "Analysis path only. Display localization of human-facing messages is orthogonal and must not feed PlanId or rule evaluation (R1-RI-03)."
+          },
+          {
+            "input": "timezone (TZ)",
+            "canonical": "UTC",
+            "affects": "any date arithmetic a rule performs"
+          },
+          {
+            "input": "string collation",
+            "canonical": "byte-wise",
+            "affects": "sort order of findings, of subject sets, and therefore of every Merkle commitment"
+          },
+          {
+            "input": "filesystem enumeration order",
+            "canonical": "sorted by normalised path",
+            "affects": "the order facts are produced, and any order-sensitive reduction"
+          },
+          {
+            "input": "path form",
+            "canonical": "normalised \u2014 resolved, forward-slash, Unicode NFC, case-preserved but case-sensitively compared",
+            "affects": "path equality, dedup, and whether two machines agree a file is the same file"
+          },
+          {
+            "input": "hash seed and map iteration order",
+            "canonical": "fixed seed; no iteration-order dependence permitted",
+            "affects": "any aggregation that folds over a hash container"
+          },
+          {
+            "input": "umask for host-created files",
+            "canonical": "explicit, not inherited",
+            "affects": "whether evidence lands world-readable (TM R2)"
+          },
+          {
+            "input": "line ending interpretation",
+            "canonical": "recorded per file, never normalised silently",
+            "affects": "span offsets and body hashes"
+          }
+        ]
+      },
+      "keyed": {
+        "rule": "Genuinely analysis-affecting. Enters PlanId with per-field provenance.",
+        "inputs": [
+          "resolved configuration, per layer (see precedence)",
+          "allowlisted environment keys (CFG-1)",
+          "allowlisted user-global keys (CFG-9)",
+          "the semantic universe key of every activated provider",
+          "the execution-capable grant",
+          "the ChangeSpec and its provenance",
+          "declared contribution identities and versions"
+        ]
+      },
+      "forbidden": {
+        "rule": "MUST NOT be read on the analysis path. A read is a host defect, and no classification makes it acceptable. Some are readable OFF the analysis path (a timestamp on a log line); the prohibition is on influencing a result.",
+        "inputs": [
+          {
+            "input": "wall clock",
+            "why": "a rule whose result depends on the time is not reproducible at any PlanId"
+          },
+          {
+            "input": "entropy / RNG",
+            "why": "same; non-analysis identifiers may use it, evidence may not"
+          },
+          {
+            "input": "network state and DNS",
+            "why": "TM R1 \u2014 zero egress on the analysis path, provable with the network blocked"
+          },
+          {
+            "input": "hostname, username, uid",
+            "why": "makes results machine-dependent invisibly, and leaks the operator into evidence"
+          },
+          {
+            "input": "environment keys outside the allowlist",
+            "why": "CFG-1 \u2014 an undocumented variable changing a verdict is an unauditable input"
+          },
+          {
+            "input": "anything under $HOME except the declared user-global config path",
+            "why": "TM V3 \u2014 ingestion overreach"
+          },
+          {
+            "input": "process start time, PID, parent process",
+            "why": "same class as clock and hostname"
+          }
+        ]
+      }
+    },
+    "totality": "The three lists together are the DECLARED closure. RI-CL-1 checks that every input in the inventory is classified exactly once. The inventory is necessarily incomplete \u2014 that is stated in knownLimitations rather than hidden \u2014 but an input that is discovered later must be classified, not absorbed.",
+    "whyNotJustKeyEverything": "Keying locale would make every cache entry machine-local and every cross-machine comparison a false miss, while doing nothing to stop a rule from folding a hash map in a nondeterministic order. Keying records that machines differ; it does not make them agree.",
+    "analysisVersusPresentation": {
+      "rule": "NEUTRALISE applies to the analysis/rule/fact path: host forces C locale (and related canonicals) before any PlanId-affecting work. Presentation surfaces (human terminal messages, number formatting in TTY chrome, help text) MAY localise for UX without entering PlanId, fact identity, evidence digests, or rule IR. Localising analysis is forbidden; localising chrome is not (R1-RI-03)."
+    }
+  },
+  "projectIdContract": {
+    "id": "PROJECT-ID-V1",
+    "status": "IMPLEMENTABLE",
+    "assurance": {
+      "state": "IMPLEMENTABLE",
+      "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+      "qualificationEvidenceIds": [],
+      "releaseEvidenceIds": [],
+      "rule": "This persisted-allocation contract and its executable vectors remove the logical identity fork. They are design-integrity evidence only; no product resolver or storage engine has been qualified."
+    },
+    "authorityAndLifecycle": {
+      "allocationOwner": "orchestration host project resolver",
+      "allocationPoint": "During request-validation after the canonical project root has been opened and before PlanIntent is frozen, AttemptRecord allocation, storage namespace admission, snapshot capture, or any user-derived durable write.",
+      "markerPath": ".opensip/project-id.v1",
+      "markerCustody": "The host owns an untracked, regular, no-follow project-local marker. It is never source input, never part of SnapshotDescriptorV1, and MUST be excluded from VCS tracking and snapshot enumeration. The host opens it relative to the retained canonical root handle.",
+      "markerBytes": "ASCII(\"opensip-project-id-v1\\n\" || projectId || \"\\n\") exactly; no BOM, JSON, whitespace, alternate newline, trailing bytes, or normalization-on-read.",
+      "callerRule": "Callers, project configuration, profiles, providers, and stages MUST NOT supply or override ProjectId. They may select a root; only the host reads or allocates its marker.",
+      "custody": "The marker and the host ProjectId registry are the two custody records. Request validation requires exact agreement before C-2 or storage consumes the identity."
+    },
+    "representation": {
+      "raw": "32 uniformly random bytes from the OS CSPRNG",
+      "text": "prj1-<64 lowercase hexadecimal characters>",
+      "regex": "^prj1-[0-9a-f]{64}$",
+      "decode": "The 64 hexadecimal characters decode to exactly the persisted 32 allocation bytes. Uppercase, alternate prefixes, separators, percent escapes, Unicode lookalikes, padding and path normalization are invalid rather than aliases.",
+      "identityKind": "persisted opaque allocation, not a path/content/VCS hash"
+    },
+    "allocationAndReservation": {
+      "maximumCandidates": 8,
+      "candidateRule": "Draw a fresh independent 32-byte CSPRNG candidate for every attempt.",
+      "registryReservation": "Atomically reserve candidate ProjectId under a unique constraint in the host ProjectId registry with the opened root locator and marker state. On collision, discard it and draw a fresh candidate; never suffix or overwrite.",
+      "markerPublication": "After registry reservation, publish the exact marker with no-follow/create-new, fsync the marker and parent directory, then atomically mark the reservation ACTIVE. Crash recovery removes an uncommitted reservation or completes an exact matching marker; any other pre-existing bytes are a collision/corruption refusal.",
+      "onExhaustion": "After eight failed candidates, return PROJECT_ID_ALLOCATION_FAILED during request-validation. No PlanIntent, AttemptRecord, project namespace, Snapshot or Run is created.",
+      "preExistingMarker": "Validate exact bytes and registry agreement. A canonical marker with no registry row is imported only by an explicit adopt operation that first proves no live conflicting root; ordinary analysis never silently adopts."
+    },
+    "moveCloneAndCollision": {
+      "rootMove": "A supported root move preserves ProjectId because the no-follow marker moves with the project. Under the registry lease, OLD_ROOT_ABSENT plus the identical marker at one newly opened canonical root permits one atomic old-to-new locator rebind; two live roots or non-identical marker bytes are refused.",
+      "ordinaryClone": "An ordinary VCS clone does not contain the required untracked marker and receives a new ProjectId allocation. Source history, remote URL, commit, and content equality never alias two project identities.",
+      "copiedMarker": "A copied tree that includes the marker and resolves while the same ProjectId is bound to another live root is PROJECT_ID_COLLISION. Neither root is selected implicitly and no shared project ledger/CAS tenant is opened.",
+      "collisionResolution": "The user must choose an explicit fork to remove the copied marker and allocate a new ProjectId, or an explicit move/adopt protocol after proving the old root is absent. Analysis flags cannot override this boundary.",
+      "crossMachineHonesty": "An offline copy that carries the marker to a machine with no registry history is intentionally ambiguous and is not auto-adopted. Explicit adopt preserves logical identity; explicit fork creates a new identity. The host cannot prove a remote conflicting root without network authority and does not claim to."
+    },
+    "suppliedVersusPersisted": {
+      "suppliedAuthority": false,
+      "rule": "At every request, decode and canonical-validate the exact marker, verify registry ownership and root state, and pass only the verified typed ProjectId to C-2, storage admission and Snapshot construction. A raw caller/config ProjectId never becomes authority.",
+      "outcomes": {
+        "match": "VERIFIED_PROJECT_ID",
+        "malformed": "PROJECT_ID_INVALID_REPRESENTATION",
+        "callerSupplied": "PROJECT_ID_CALLER_SUPPLIED",
+        "liveRootCollision": "PROJECT_ID_COLLISION",
+        "trackedMarker": "PROJECT_ID_MARKER_TRACKED",
+        "unsafeMarkerPath": "PROJECT_ID_MARKER_UNSAFE",
+        "allocationFailed": "PROJECT_ID_ALLOCATION_FAILED"
+      }
+    },
+    "identityOutcomeD9Mapping": {
+      "rule": "Select provenance before projecting the internal PROJECT_ID_* diagnostic. Caller/config invalidity uses the live invalid-config mapping; persisted marker/registry corruption uses the live ledger-corrupt mapping; CSPRNG, registry-reservation, marker-publication and collision-exhaustion failures use the live host-I/O mapping. The internal outcome remains diagnostic detail and never extends D9 vocabulary.",
+      "provenanceContexts": {
+        "closedValues": [
+          "callerOrConfig",
+          "persistedMarkerOrRegistry",
+          "allocationInfrastructure"
+        ],
+        "callerOrConfig": "A raw caller/config value, tracked-marker policy violation, or other request-owned project configuration is invalid before attempt admission.",
+        "persistedMarkerOrRegistry": "Bytes already in the host-owned marker/registry custody disagree, are unsafe, malformed, duplicated across live roots, or cannot be verified as one identity; this is persisted identity corruption, not caller syntax and not an I/O failure.",
+        "allocationInfrastructure": "No candidate was published because entropy, reservation, publication I/O, or bounded collision retry failed; no ProjectId exists."
+      },
+      "contexts": {
+        "request-invalid": {
+          "referenceGoldenId": "pre-admission-invalid-config",
+          "scenarioAxes": {
+            "lifecycle": "pre-run",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "none",
+            "admission": "rejected",
+            "commandKind": "any",
+            "deficiency": "none",
+            "rejectionCause": "config-invalid",
+            "faultCause": "none",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "request-rejected",
+            "errorCode": "CONFIG.INVALID"
+          },
+          "exitCode": 2
+        },
+        "persisted-corruption": {
+          "referenceGoldenId": "query-ledger-corrupt",
+          "scenarioAxes": {
+            "lifecycle": "not-applicable",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "host-fault",
+            "admission": "admitted",
+            "commandKind": "query",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "ledger-corrupt",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "operational-failed",
+            "errorCode": "LEDGER.CORRUPT"
+          },
+          "exitCode": 4
+        },
+        "host-io": {
+          "referenceGoldenId": "pre-admission-host-io-failure",
+          "scenarioAxes": {
+            "lifecycle": "pre-run",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "host-fault",
+            "admission": "rejected",
+            "commandKind": "any",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "host-io",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "operational-failed",
+            "errorCode": "HOST.IO_FAILURE"
+          },
+          "exitCode": 4
+        }
+      },
+      "outcomeContexts": {
+        "PROJECT_ID_INVALID_REPRESENTATION": {
+          "callerOrConfig": "request-invalid",
+          "persistedMarkerOrRegistry": "persisted-corruption"
+        },
+        "PROJECT_ID_CALLER_SUPPLIED": {
+          "callerOrConfig": "request-invalid"
+        },
+        "PROJECT_ID_COLLISION": {
+          "persistedMarkerOrRegistry": "persisted-corruption"
+        },
+        "PROJECT_ID_MARKER_TRACKED": {
+          "callerOrConfig": "request-invalid"
+        },
+        "PROJECT_ID_MARKER_UNSAFE": {
+          "persistedMarkerOrRegistry": "persisted-corruption"
+        },
+        "PROJECT_ID_ALLOCATION_FAILED": {
+          "allocationInfrastructure": "host-io"
+        }
+      },
+      "allocationTriggers": {
+        "CSPRNG_FAILURE": "allocationInfrastructure",
+        "REGISTRY_RESERVATION_IO_FAILURE": "allocationInfrastructure",
+        "MARKER_PUBLICATION_IO_FAILURE": "allocationInfrastructure",
+        "COLLISION_EXHAUSTION": "allocationInfrastructure"
+      }
+    },
+    "goldenVectors": {
+      "positive": [
+        {
+          "id": "project-id-v1-allocation",
+          "rawBytesHex": "0000000000000000000000000000000000000000000000000000000000000000",
+          "expectedProjectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+          "expectedMarkerBytesHex": "6f70656e7369702d70726f6a6563742d69642d76310a70726a312d303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030300a",
+          "expectedMarkerSha256": "1a791d57d6d4c0e137dd08d81d7d076a18a5a93a967a0b82ec176597c13a7ef1"
+        },
+        {
+          "id": "project-id-v1-root-move",
+          "beforeRoot": "/work/old",
+          "afterRoot": "/work/new",
+          "beforeProjectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+          "afterProjectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+          "oldRootPresent": false,
+          "registryTransition": "OLD_ROOT_ABSENT_TO_NEW_ROOT_ATOMIC_REBIND"
+        },
+        {
+          "id": "project-id-v1-ordinary-clone",
+          "sourceProjectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+          "cloneMarkerInitiallyPresent": false,
+          "cloneAllocationBytesHex": "1111111111111111111111111111111111111111111111111111111111111111",
+          "cloneProjectId": "prj1-1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      ],
+      "negative": [
+        {"id": "reject-project-id-caller-supplied", "expected": "PROJECT_ID_CALLER_SUPPLIED"},
+        {"id": "reject-project-id-uppercase", "projectId": "prj1-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "expected": "PROJECT_ID_INVALID_REPRESENTATION"},
+        {"id": "reject-project-id-copied-marker", "sameProjectIdAtTwoLiveRoots": true, "expected": "PROJECT_ID_COLLISION"},
+        {"id": "reject-project-id-tracked-marker", "markerTrackedByVcs": true, "expected": "PROJECT_ID_MARKER_TRACKED"},
+        {"id": "reject-project-id-symlink-marker", "markerFileType": "symlink", "expected": "PROJECT_ID_MARKER_UNSAFE"},
+        {"id": "reject-project-id-allocation-exhaustion", "collisionCount": 8, "expected": "PROJECT_ID_ALLOCATION_FAILED"}
+      ]
+    }
+  },
+  "snapshotIdContract": {
+    "id": "SNAPSHOT-ID-V1",
+    "status": "IMPLEMENTABLE",
+    "assurance": {
+      "state": "IMPLEMENTABLE",
+      "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+      "qualificationEvidenceIds": [],
+      "releaseEvidenceIds": [],
+      "rule": "The exact descriptor, byte recipe, vectors and verification rule are binding architecture evidence. No filesystem capture implementation has been qualified or demonstrated."
+    },
+    "ownerAndLifecycle": {
+      "derivationOwner": "orchestration host snapshot builder",
+      "allocationPoint": "C-2 snapshot-binding after attempt admission: open the verified PROJECT-ID-V1 root, capture the declared read set with bounded convergence, seal exact descriptor and file/link bytes, then derive and verify SnapshotId before PlanId.",
+      "custody": "Persist SnapshotDescriptorV1, recipeVersion and verified SnapshotId with the Attempt/Run snapshot reference. A store reader, replay tool, cache reader, provider VFS adapter or second process recomputes before authority use.",
+      "projectJoin": "SnapshotDescriptorV1.projectId equals the verified PROJECT-ID-V1 used for PlanIntent scope and storage namespace admission.",
+      "planJoin": "PLAN-ID-V1 field 1 equals this verified SnapshotId exactly."
+    },
+    "identityRepresentation": {
+      "digestAlgorithm": "SHA-256",
+      "text": "snap1:sha256:<64 lowercase hexadecimal characters>",
+      "regex": "^snap1:sha256:[0-9a-f]{64}$",
+      "comparison": "validate canonical text, decode 32 digest bytes, compare exactly; alternate case, algorithms, encodings or prefixes are invalid"
+    },
+    "preimageFraming": {
+      "domainBytes": "UTF-8 bytes 6f70656e7369702e736e617073686f742d696400 (the ASCII string opensip.snapshot-id followed by one NUL byte)",
+      "recipeVersion": 1,
+      "recipeVersionEncoding": "unsigned 16-bit big-endian",
+      "descriptorEncoding": "CVE1 exactly as PLAN-ID-V1 defines it",
+      "preimage": "domainBytes || u16be(recipeVersion=1) || CVE1(SnapshotDescriptorV1)",
+      "digest": "SHA-256 over complete preimage bytes; no display hex, BOM, newline or outer envelope"
+    },
+    "descriptorSchema": {
+      "name": "SnapshotDescriptorV1",
+      "closed": true,
+      "required": ["schemaVersion", "projectId", "entries", "vcsState", "resolvedConfiguration", "scope", "capture"],
+      "entryUnion": {
+        "file": ["path", "kind", "byteLength", "contentSha256", "executable"],
+        "symlink": ["path", "kind", "targetBytesHex"]
+      },
+      "vcsState": ["adapterId", "headCommitId", "indexTreeId", "dirtyOverlayPolicy", "untrackedPolicy", "sparseCheckout"],
+      "scope": ["workspaceUnitIds", "requestedPaths", "changeSpec"],
+      "capture": ["validationMethod", "readSetPaths", "symlinkPolicy", "pathComparison", "unicodeNormalization", "pathSeparator"]
+    },
+    "pathSymlinkAndBytes": {
+      "path": "Non-empty NFC, project-relative, forward-slash path; no leading/trailing slash, backslash, NUL, empty segment, dot or dot-dot. Case is preserved and compared case-sensitively. Paths and readSetPaths are sorted unique by NFC UTF-8 bytes.",
+      "fileBytes": "contentSha256 is SHA-256 of exact file bytes and byteLength is their exact length. No newline, encoding, Unicode or line-ending normalization occurs.",
+      "symlink": "Record link target bytes as lowercase even-length hexadecimal and do not follow the link. Link target bytes are identity; target file bytes are not silently substituted.",
+      "reservedExclusion": ".opensip/project-id.v1 is host identity custody and MUST NOT appear in entries, requestedPaths or readSetPaths.",
+      "captureConstants": {
+        "validationMethod": "double-read-stat-and-content",
+        "symlinkPolicy": "record-link-no-follow",
+        "pathComparison": "case-sensitive",
+        "unicodeNormalization": "NFC-reject-noncanonical",
+        "pathSeparator": "/"
+      }
+    },
+    "suppliedVersusRecomputed": {
+      "suppliedAuthority": false,
+      "rule": "Validate the closed descriptor, independently recompute every file length/hash from sealed bytes and link target from lstat/readlink, recompute SnapshotId, and require exact equality before PlanId construction, cache lookup, provider dispatch, replay or store authority use.",
+      "outcomes": {
+        "match": "VERIFIED_SNAPSHOT_ID",
+        "malformedRepresentation": "SNAPSHOT_ID_INVALID_REPRESENTATION",
+        "schemaOrCanonicalizationViolation": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION",
+        "wellFormedMismatch": "SNAPSHOT_ID_MISMATCH"
+      }
+    },
+    "identityOutcomeD9Mapping": {
+      "rule": "Select provenance before projecting the internal SNAPSHOT_ID_* diagnostic. Malformed request/mutation identity material is invalid configuration; a well-formed mutation precondition mismatch is the live snapshot-conflict rejection; bytes or descriptors read from persisted ledger/CAS/cache custody that fail canonical verification are ledger corruption; a provider echo mismatch is provider protocol failure. A validating fresh constructor publishes only VerifiedSnapshotId. Host read I/O remains HOST.IO_FAILURE and is never relabeled as content corruption.",
+      "provenanceContexts": {
+        "closedValues": [
+          "requestOrMutationInput",
+          "persistedLedgerCasOrCache",
+          "providerEcho"
+        ],
+        "freshConstruction": "Not a supplied provenance context: the host validating constructor either returns VerifiedSnapshotId or publishes no SnapshotId. Host read I/O uses D9 host-io rather than fabricating a mismatch.",
+        "corruptionBoundary": "A successful read whose persisted descriptor/blob bytes fail schema, canonicalization, digest, or equality verification is persisted-corruption. Failure to read those bytes is host I/O."
+      },
+      "contexts": {
+        "request-invalid": {
+          "referenceGoldenId": "pre-admission-invalid-config",
+          "scenarioAxes": {
+            "lifecycle": "pre-run",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "none",
+            "admission": "rejected",
+            "commandKind": "any",
+            "deficiency": "none",
+            "rejectionCause": "config-invalid",
+            "faultCause": "none",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "request-rejected",
+            "errorCode": "CONFIG.INVALID"
+          },
+          "exitCode": 2
+        },
+        "request-mismatch": {
+          "referenceGoldenId": "repair-snapshot-conflict",
+          "scenarioAxes": {
+            "lifecycle": "not-applicable",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "precondition-failed",
+            "admission": "admitted",
+            "commandKind": "mutation",
+            "deficiency": "none",
+            "rejectionCause": "precondition-failed",
+            "faultCause": "none",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "request-rejected",
+            "errorCode": "REQUEST.PRECONDITION_FAILED"
+          },
+          "exitCode": 2
+        },
+        "persisted-corruption": {
+          "referenceGoldenId": "query-ledger-corrupt",
+          "scenarioAxes": {
+            "lifecycle": "not-applicable",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "host-fault",
+            "admission": "admitted",
+            "commandKind": "query",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "ledger-corrupt",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "operational-failed",
+            "errorCode": "LEDGER.CORRUPT"
+          },
+          "exitCode": 4
+        },
+        "provider-echo": {
+          "referenceGoldenId": "analysis-provider-protocol-prevents-seal",
+          "scenarioAxes": {
+            "lifecycle": "cannot-seal-coherent-run",
+            "requiredCoverage": "unknown",
+            "verdict": "unavailable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "none",
+            "admission": "admitted",
+            "commandKind": "run",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "provider-protocol",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {
+            "class": "operational-failed",
+            "errorCode": "PROVIDER.PROTOCOL_VIOLATION",
+            "executionId": "$EXEC_ID"
+          },
+          "exitCode": 4
+        }
+      },
+      "outcomeContexts": {
+        "SNAPSHOT_ID_INVALID_REPRESENTATION": {
+          "requestOrMutationInput": "request-invalid",
+          "persistedLedgerCasOrCache": "persisted-corruption",
+          "providerEcho": "provider-echo"
+        },
+        "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION": {
+          "requestOrMutationInput": "request-invalid",
+          "persistedLedgerCasOrCache": "persisted-corruption",
+          "providerEcho": "provider-echo"
+        },
+        "SNAPSHOT_ID_MISMATCH": {
+          "requestOrMutationInput": "request-mismatch",
+          "persistedLedgerCasOrCache": "persisted-corruption",
+          "providerEcho": "provider-echo"
+        }
+      },
+      "hostIoBoundary": {
+        "typedHostOutcome": "SNAPSHOT_INPUT_IO_FAILED",
+        "referenceGoldenId": "pre-admission-host-io-failure",
+        "faultCause": "host-io",
+        "terminationClass": "operational-failed",
+        "errorCode": "HOST.IO_FAILURE",
+        "exitCode": 4,
+        "rule": "This host-operation cause is separate from the three SnapshotId verification outcomes. It covers inability to read marker/source/CAS bytes; a successful read with digest/equality failure uses persisted-corruption instead. Lifecycle/admission axes remain those of the invoking host operation, while cause/class/code reuse the live golden without new vocabulary."
+      }
+    },
+    "goldenVectors": {
+      "positive": [
+        {
+          "id": "snapshot-id-v1-minimal",
+          "descriptor": {
+            "schemaVersion": 1,
+            "projectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+            "entries": [
+              {
+                "path": "src/lib.rs",
+                "kind": "file",
+                "byteLength": 14,
+                "contentSha256": "16c2fca9e371936458d01576b4ca311c22d166a45539ccbc9104823d0b10db47",
+                "executable": false
+              }
+            ],
+            "vcsState": {
+              "adapterId": "git:v1",
+              "headCommitId": null,
+              "indexTreeId": null,
+              "dirtyOverlayPolicy": "include",
+              "untrackedPolicy": "include",
+              "sparseCheckout": {"enabled": false, "patterns": []}
+            },
+            "resolvedConfiguration": [],
+            "scope": {
+              "workspaceUnitIds": ["unit:root"],
+              "requestedPaths": ["src/lib.rs"],
+              "changeSpec": {
+                "mode": "worktree",
+                "baseCommitId": null,
+                "dirtyOverlayPolicy": "include",
+                "untrackedPolicy": "include",
+                "vcsAdapterId": "git:v1"
+              }
+            },
+            "capture": {
+              "validationMethod": "double-read-stat-and-content",
+              "readSetPaths": ["src/lib.rs"],
+              "symlinkPolicy": "record-link-no-follow",
+              "pathComparison": "case-sensitive",
+              "unicodeNormalization": "NFC-reject-noncanonical",
+              "pathSeparator": "/"
+            }
+          },
+          "fileBodiesHex": {"src/lib.rs": "70756220666e20662829207b7d0a"},
+          "expectedPreimageByteLength": 1080,
+          "expectedSnapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "snapshot-id-v1-file-content-changes-identity",
+          "base": "snapshot-id-v1-minimal",
+          "replaceMany": [
+            {
+              "path": "entries",
+              "value": [
+                {
+                  "path": "src/lib.rs",
+                  "kind": "file",
+                  "byteLength": 15,
+                  "contentSha256": "9508badae5945475db5f9a0d68d936c4c6c4535da84fcada990ce356240855f7",
+                  "executable": false
+                }
+              ]
+            }
+          ],
+          "expectedSnapshotId": "snap1:sha256:4dd7c082ea64426dcb369ff97d33e316c93e234f8d9e6ff18a0610f2ed8e4c9f",
+          "mustDifferFromBase": true
+        },
+        {
+          "id": "snapshot-id-v1-full-project",
+          "base": "snapshot-id-v1-minimal",
+          "replaceMany": [
+            {
+              "path": "projectId",
+              "value": "prj1-2222222222222222222222222222222222222222222222222222222222222222"
+            }
+          ],
+          "expectedSnapshotId": "snap1:sha256:ef38e14b437c9208d7dc63c752023d11c2c41c97a157f13c9e0e50184b9c25b5",
+          "mustDifferFromBase": true
+        }
+      ],
+      "negative": [
+        {"id": "reject-snapshot-unknown-field", "addTopLevel": {"requestId": "req1_00000000000000000000000000000000"}, "expected": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION"},
+        {"id": "reject-snapshot-path-traversal", "path": "../secret", "expected": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION"},
+        {"id": "reject-snapshot-unsorted-entries", "paths": ["z", "a"], "expected": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION"},
+        {"id": "reject-snapshot-symlink-follow-shape", "entry": {"path": "link", "kind": "symlink", "contentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "expected": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION"},
+        {"id": "reject-snapshot-request-id", "requestIdInDescriptor": true, "expected": "SNAPSHOT_ID_PREIMAGE_SCHEMA_VIOLATION"},
+        {"id": "reject-snapshot-supplied-mismatch", "suppliedSnapshotId": "snap1:sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff", "expected": "SNAPSHOT_ID_MISMATCH"}
+      ]
+    }
+  },
+  "planIdContract": {
+    "id": "PLAN-ID-V1",
+    "status": "IMPLEMENTABLE",
+    "assurance": {
+      "state": "IMPLEMENTABLE",
+      "evidenceGrade": "IMPLEMENTABLE_UNEXECUTED",
+      "qualificationEvidenceIds": [],
+      "releaseEvidenceIds": [],
+      "rule": "The recipe, oracle, positive case, and executable negative controls are binding. Checker success is design-integrity evidence only; no product implementation has been QUALIFIED or DEMONSTRATED."
+    },
+    "ownerAndLifecycle": {
+      "derivationOwner": "orchestration host Plan builder (opensip-plan); profiles, providers, rules, sidecars, stores, and callers cannot mint PlanId",
+      "allocationPoint": "C-2 snapshot-binding, after attempt admission, after the Snapshot is sealed and every keyed input is resolved, and before any public stage executes. The pre-admission PlanIntent commitment already stored in the AttemptRecord is an input, not a newly allocated identity at this level.",
+      "snapshotJoin": "preimage field snapshotId MUST equal the sealed SnapshotId carried by ExecutionPlan; PlanId never substitutes for SnapshotId",
+      "planIntentJoin": "preimage field planIntentCommitment MUST be byte-identical to the canonical commitment stored atomically in AttemptRecord at ExecutionId allocation and carried in both ExecutionPlan.planIntentCommitment and ExecutionPlan.planIdentityInputs.planIntentCommitment. The host recomputes it from the frozen admitted PlanIntent before recomputing PlanId; mismatch or substitution is rejected before stage execution.",
+      "custody": "The host persists the closed PlanDescriptorV1 preimage record, recipeVersion, and verified PlanId with the Attempt/Run plan reference. A cache, store reader, replay tool, or cross-process adapter MUST verify them before treating PlanId as authority. Providers receive only a host-verified PlanId as opaque correlation and cannot recompute or replace it.",
+      "retryRule": "Rebuilding the same admitted Snapshot and the same thirteen semantic fields yields the same PlanId across ExecutionIds and RequestIds. A changed semantic field yields a different PlanId; retry metadata never enters the recipe."
+    },
+    "identityRepresentation": {
+      "digestAlgorithm": "SHA-256",
+      "text": "plan1:sha256:<64 lowercase hexadecimal characters>",
+      "regex": "^plan1:sha256:[0-9a-f]{64}$",
+      "comparison": "exact byte equality of the 32 decoded digest bytes after canonical representation validation; alternate case, prefixes, algorithms, or encodings are invalid rather than aliases"
+    },
+    "preimageFraming": {
+      "domainBytes": "UTF-8 bytes 6f70656e7369702e706c616e2d696400 (the ASCII string opensip.plan-id followed by one NUL byte)",
+      "recipeVersion": 1,
+      "recipeVersionEncoding": "unsigned 16-bit big-endian",
+      "fieldCountEncoding": "unsigned 16-bit big-endian",
+      "fieldFrame": "one unsigned 8-bit field tag || unsigned 32-bit big-endian encoded-value byte length || CVE1(value)",
+      "preimage": "domainBytes || u16be(recipeVersion=1) || u16be(fieldCount=13) || the thirteen field frames in ascending tag order",
+      "digest": "SHA-256 over the complete preimage bytes, with no textual hexadecimal, trailing newline, BOM, or outer envelope in the digest input",
+      "unknownOrMissing": "Every field is present exactly once, including empty arrays/maps and explicit nulls. An unknown, duplicate, missing, reordered, or out-of-range tag is PLAN_ID_PREIMAGE_SCHEMA_VIOLATION."
+    },
+    "canonicalValueEncoding": {
+      "name": "CVE1",
+      "closedTypes": [
+        "null",
+        "false",
+        "true",
+        "unsigned-64",
+        "negative-signed-64",
+        "NFC-UTF8-string",
+        "array",
+        "string-keyed-map"
+      ],
+      "encodings": {
+        "null": "00",
+        "false": "01",
+        "true": "02",
+        "unsigned-64": "03 || u64be(value)",
+        "NFC-UTF8-string": "04 || u32be(byteLength) || UTF8(value)",
+        "array": "05 || u32be(elementCount) || CVE1(element[0]) ... CVE1(element[n-1])",
+        "string-keyed-map": "06 || u32be(entryCount) || CVE1(key) || CVE1(value), entries sorted by unsigned lexicographic order of NFC UTF-8 key bytes",
+        "negative-signed-64": "07 || i64be(value in two's-complement)"
+      },
+      "constraints": [
+        "Strings MUST already be Unicode NFC; a non-NFC string is rejected rather than silently normalised.",
+        "Map keys are unique strings; duplicate keys are rejected before encoding.",
+        "Floating-point values and byte strings are forbidden. A schema needing a decimal or digest uses its canonical string form.",
+        "Arrays preserve order unless the field-specific rule below declares set semantics; declared sets are sorted and duplicates rejected before CVE1 encoding."
+      ]
+    },
+    "preimageFields": [
+      {
+        "tag": 1,
+        "name": "snapshotId",
+        "shape": "canonical SnapshotId string",
+        "source": "the sealed ProjectSnapshot allocated at C-2 snapshot-binding"
+      },
+      {
+        "tag": 2,
+        "name": "planSchemaMajor",
+        "shape": "unsigned-64; exactly 1 for the v1 public ExecutionPlan schema",
+        "source": "C-2 public ExecutionPlan wire-shape major, not the editorial artifact revision"
+      },
+      {
+        "tag": 3,
+        "name": "release",
+        "shape": "closed map {manifestId, capabilityManifestId, profileId}",
+        "source": "the verified DELIVERY ReleaseManifestV1 and its selected ProfileEntry"
+      },
+      {
+        "tag": 4,
+        "name": "invocationProfile",
+        "shape": "closed string enum {ci, local-interactive}",
+        "source": "host composition profile; ci includes every non-interactive invocation"
+      },
+      {
+        "tag": 5,
+        "name": "resolvedConfiguration",
+        "shape": "array of closed maps {path, value, decidingLayer, analysisAffecting=true}",
+        "source": "all and only analysis-affecting resolved fields, including allowlisted environment and user-global fields"
+      },
+      {
+        "tag": 6,
+        "name": "scope",
+        "shape": "closed map {projectId, workspaceUnitIds, requestedPaths, impactExpansion}",
+        "source": "resolved project/scope selection"
+      },
+      {
+        "tag": 7,
+        "name": "changeSpec",
+        "shape": "closed map {mode, baseCommitId, dirtyOverlayPolicy, untrackedPolicy, vcsAdapterId}; inapplicable values are explicit null",
+        "source": "the exact ChangeSpec and provenance"
+      },
+      {
+        "tag": 8,
+        "name": "contributions",
+        "shape": "array of closed maps {activationId, contributionId, contributionVersion, bundleId, artifactDigest, admissionGrant, role, verificationState, verificationEvidenceId, parameters, origin, authority}",
+        "source": "every admitted rule/profile/provider contribution and its DELIVERY provenance policy outcome"
+      },
+      {
+        "tag": 9,
+        "name": "semanticUniverses",
+        "shape": "array of closed maps {providerId, providerVersion, universe}",
+        "source": "each activated TypeScript or Rust provider's complete provider-specific universe key"
+      },
+      {
+        "tag": 10,
+        "name": "capabilityGrants",
+        "shape": "array of closed maps {grantId, grantVersion, projectId, parameters}",
+        "source": "all admitted execution/provider/contribution capability grants, including the per-project execution-capable Rust grant when enabled"
+      },
+      {
+        "tag": 11,
+        "name": "workflow",
+        "shape": "closed map {stages}; stages use the live C-2 public stage schema with snapshotId and planId omitted from this non-recursive field",
+        "source": "the logical public ExecutionPlan stage graph after product admission"
+      },
+      {
+        "tag": 12,
+        "name": "budgets",
+        "shape": "closed string-keyed map of every analysis-affecting global budget to canonical unsigned integer units",
+        "source": "resolved plan budgets; per-stage budgets remain inside workflow.stages"
+      },
+      {
+        "tag": 13,
+        "name": "planIntentCommitment",
+        "shape": "sha256:<64 lowercase hexadecimal characters>",
+        "source": "canonical pre-admission PlanIntent commitment stored in AttemptRecord and carried unchanged into ExecutionPlan",
+        "recipe": "SHA-256(UTF8(\"opensip.plan-intent.v1\") || 0x00 || opensip-canonical-json-v1(PlanIntent)); textual form is sha256:<64 lowercase hex>"
+      }
+    ],
+    "fieldCanonicalization": {
+      "resolvedConfiguration": "Sort by NFC UTF-8 path bytes; paths are unique. decidingLayer is 1..6. Include only analysisAffecting=true. Under ci, layer 4 is neither loaded nor resolved and a layer-4 record is invalid; under local-interactive, a resolved layer-4 field is included normally and is visible in explain output.",
+      "scope": "workspaceUnitIds and requestedPaths are sorted unique NFC UTF-8 strings. requestedPaths use the already-bound normalized forward-slash project-relative path form.",
+      "contributions": "Sort by activationId UTF-8 bytes; activationId is unique. artifactDigest is the exact lowercase digest of installed bytes. parameters is a closed contribution-schema value encoded with CVE1.",
+      "semanticUniverses": "Sort by providerId UTF-8 bytes; providerId is unique. For TypeScript and Rust, universe contains every key component required by projectModel.semanticUniverse.perProvider; an incomplete universe cannot produce PlanId and instead produces Coverage provider-unavailable.",
+      "capabilityGrants": "Sort by grantId then grantVersion then projectId using UTF-8 byte order; duplicate triples are rejected. A grant not present here cannot authorize a stage.",
+      "workflow": "Sort stages by stageId UTF-8 bytes; stageId is unique. Sort and deduplicate the set-valued C-2 arrays dependsOn, relations, ruleIds, and capabilityGrants by UTF-8 bytes. Preserve order only for a C-2 field explicitly defined as sequence-valued. Reject private operators and unknown fields before encoding.",
+      "budgets": "Map keys are canonical unit-bearing budget IDs; values are unsigned integers. Wall-clock observations and actual consumption never enter the PlanId.",
+      "predicateRelativeFacts": "No global fact tier, provider tier, or profile rank is a PlanId field. Predicate requirements remain relation-specific under C-1 and are committed by the exact contribution artifact and activated rule IDs; semanticUniverses identify providers without ordering their fact sufficiency globally."
+    },
+    "planDescriptorSchema": {
+      "name": "PlanDescriptorV1",
+      "closed": true,
+      "requiredInTagOrder": ["snapshotId", "planSchemaMajor", "release", "invocationProfile", "resolvedConfiguration", "scope", "changeSpec", "contributions", "semanticUniverses", "capabilityGrants", "workflow", "budgets", "planIntentCommitment"],
+      "admissionDescriptorEquality": {
+        "source": "c2-plan-stage-schema.v3.json#planIntent.analysisIntentV1.admissionDescriptorV1",
+        "exactFields": ["release", "invocationProfile", "resolvedConfiguration", "scope", "changeSpec", "contributions", "capabilityGrants", "workflow", "budgets"],
+        "rule": "Each value is exact structural equality with the frozen AdmissionDescriptorV1 stored in AttemptRecord; no projection to IDs, reparsing, defaulting or later substitution is allowed."
+      },
+      "postAdmissionFields": {
+        "snapshotId": "verified SNAPSHOT-ID-V1 whose descriptor.projectId equals scope.projectId",
+        "planSchemaMajor": "unsigned integer constant 1",
+        "semanticUniverses": "closed provider wrappers and provider-specific schemas below; exact activated semantic-provider set",
+        "planIntentCommitment": "recomputed commitment over the complete frozen tagged PlanIntent"
+      },
+      "nestedClosure": {
+        "release": ["manifestId", "capabilityManifestId", "profileId"],
+        "scope": ["projectId", "workspaceUnitIds", "requestedPaths", "impactExpansion"],
+        "changeSpec": ["mode", "baseCommitId", "dirtyOverlayPolicy", "untrackedPolicy", "vcsAdapterId"],
+        "contribution": ["activationId", "contributionId", "contributionVersion", "bundleId", "artifactDigest", "admissionGrant", "role", "verificationState", "verificationEvidenceId", "parameters", "origin", "authority"],
+        "semanticUniverseWrapper": ["providerId", "providerVersion", "universe"],
+        "capabilityGrant": ["grantId", "grantVersion", "projectId", "capability", "parameters"],
+        "workflow": ["stages"]
+      },
+      "budgetKeyPattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*\\.(?:work-units|milliseconds|bytes|items)$",
+      "validationRule": "Validate every nested type, enum, canonical identifier, digest, bound, set order, dependency, contribution/grant/provider join and unknown field before CVE1. CVE1 is an encoder after schema validation, not a permissive schema."
+    },
+    "semanticUniverseSchemas": {
+      "typescript-v1": {
+        "selectedBy": "semanticUniverses[].providerId=typescript-semantic",
+        "closed": true,
+        "required": [
+          "schemaVersion",
+          "manifestId",
+          "capabilityManifestId",
+          "runtimeArtifactId",
+          "runtimeArtifactSha256",
+          "providerArtifactId",
+          "providerArtifactSha256",
+          "runtimeDescriptorSha256",
+          "providerDescriptorSha256",
+          "protocolMajor",
+          "providerBuildId",
+          "nodeVersion",
+          "v8Version",
+          "modulesAbi",
+          "typescriptVersion",
+          "typescriptCompilerSha256",
+          "typescriptStdlibMerkleRoot",
+          "platformId",
+          "resolvedInputs"
+        ],
+        "constants": {
+          "schemaVersion": 1,
+          "runtimeArtifactId": "typescript-runtime",
+          "providerArtifactId": "typescript-provider"
+        },
+        "digestFields": [
+          "manifestId",
+          "capabilityManifestId",
+          "runtimeArtifactSha256",
+          "providerArtifactSha256",
+          "runtimeDescriptorSha256",
+          "providerDescriptorSha256",
+          "typescriptCompilerSha256",
+          "typescriptStdlibMerkleRoot"
+        ],
+        "digestRepresentation": "64 lowercase hexadecimal SHA-256 characters, matching DELIVERY ReleaseManifestV1 artifact sha256 and the verified identity-descriptor/handshake commitments",
+        "resolvedInputs": {
+          "closed": true,
+          "required": [
+            "tsconfigGraphHash",
+            "compilerOptions",
+            "programRootFiles",
+            "packageLockIdentity",
+            "resolvedNodeModulesLayout",
+            "executionCapableResolution"
+          ],
+          "canonicalization": "compilerOptions is the closed resolution/type-affecting subset keyed by option name; programRootFiles and resolvedNodeModulesLayout are sorted unique canonical paths; all strings are NFC; executionCapableResolution is boolean."
+        },
+        "deliveryJoin": "Values are copied from the verified signed manifest, selected ProfileEntry, exact typescript-runtime and typescript-provider ArtifactEntry rows, the SHA-256 of both RFC 8785 identity descriptor bytes, and the host-validated handshake. Every handshake value must equal its descriptor/release value before source bytes are sent.",
+        "changeRule": "A change to any required value changes CVE1 bytes and therefore PlanId. A missing, unknown, substituted, noncanonical, or descriptor/handshake-mismatched value cannot produce a PlanId; provider execution is not attempted."
+      },
+      "rust-v1": {
+        "selectedBy": "semanticUniverses[].providerId=rust-semantic",
+        "closed": true,
+        "required": [
+          "schemaVersion",
+          "manifestId",
+          "capabilityManifestId",
+          "providerArtifactId",
+          "providerArtifactSha256",
+          "toolchainArtifactId",
+          "toolchainArtifactSha256",
+          "protocolMajor",
+          "providerBuildId",
+          "rustCommitHash",
+          "rustcVersion",
+          "cargoVersion",
+          "hostTriple",
+          "targetTriple",
+          "sysrootDigest",
+          "rustcDevLlvmDigest",
+          "standardLibraryComponentDigests",
+          "providerBinarySha256",
+          "licenseNoticeBundleSha256",
+          "platformId",
+          "resolvedInputs"
+        ],
+        "constants": {
+          "schemaVersion": 1,
+          "providerArtifactId": "rust-provider",
+          "toolchainArtifactId": "rust-toolchain-bundle"
+        },
+        "digestFields": [
+          "manifestId",
+          "capabilityManifestId",
+          "providerArtifactSha256",
+          "toolchainArtifactSha256",
+          "rustCommitHash",
+          "sysrootDigest",
+          "rustcDevLlvmDigest",
+          "providerBinarySha256",
+          "licenseNoticeBundleSha256"
+        ],
+        "digestRepresentation": "64 lowercase hexadecimal SHA-256 characters; standardLibraryComponentDigests values use the same representation",
+        "resolvedInputs": {
+          "closed": true,
+          "required": [
+            "edition",
+            "cfg",
+            "packageLockIdentity",
+            "resolvedPackages",
+            "rustflags",
+            "crateRootPaths",
+            "executionCapableResolution",
+            "buildScriptOutputs",
+            "procMacroOutputs"
+          ],
+          "resolvedPackage": "closed {packageId,version,sourceDigest,features}; sorted unique by packageId; features sorted unique",
+          "buildScriptOutput": "closed {packageId,cfg,outputDigest}; sorted unique by (packageId,cfg)",
+          "procMacroOutput": "closed {crateId,outputDigest}; sorted unique by crateId",
+          "canonicalization": "edition is one of 2015/2018/2021/2024; cfg is sorted unique; rustflags preserves declared order; crateRootPaths is sorted unique canonical paths. executionCapableResolution=false requires empty build/proc output arrays; true requires an exact per-project repository-execution capability grant."
+        },
+        "deliveryJoin": "manifest/profile/artifact digests come from the verified signed release; protocolMajor, providerBuildId, rustCommitHash, hostTriple, targetTriple and sysrootDigest equal the validated bundled rustc_driver sidecar handshake; remaining toolchain fields equal the pinned offline bundle manifest. No system rustc, Cargo, sysroot or PATH lookup may substitute.",
+        "changeRule": "Changing any required release/toolchain/cfg/package/flag/edition/execution value changes CVE1 and PlanId. Missing, unknown, substituted, unordered or handshake-mismatched values fail before provider execution."
+      }
+    },
+    "keyedInputBindings": [
+      {
+        "input": "resolved configuration, per layer (see precedence)",
+        "field": "resolvedConfiguration"
+      },
+      {
+        "input": "allowlisted environment keys (CFG-1)",
+        "field": "resolvedConfiguration",
+        "decidingLayer": 5
+      },
+      {
+        "input": "allowlisted user-global keys (CFG-9)",
+        "field": "resolvedConfiguration",
+        "decidingLayer": 2
+      },
+      {
+        "input": "the semantic universe key of every activated provider",
+        "field": "semanticUniverses"
+      },
+      {
+        "input": "the execution-capable grant",
+        "field": "capabilityGrants",
+        "alsoBoundIn": "semanticUniverses"
+      },
+      {
+        "input": "the ChangeSpec and its provenance",
+        "field": "changeSpec"
+      },
+      {
+        "input": "declared contribution identities and versions",
+        "field": "contributions"
+      }
+    ],
+    "excludedIdentitiesAndInputs": {
+      "identities": [
+        "RequestId",
+        "ExecutionId",
+        "RunId",
+        "FactViewId",
+        "EvidenceDigest",
+        "PlanId"
+      ],
+      "inputClasses": [
+        "neutralised",
+        "forbidden"
+      ],
+      "rule": "The preimage is non-recursive and semantic. Correlation/attempt/seal/evidence identities and every NEUTRALISED or FORBIDDEN ambient input are absent. SnapshotId is the sole included lifecycle identity because it binds the content being planned; planIntentCommitment is a content commitment, not RequestId or ExecutionId."
+    },
+    "suppliedVersusRecomputed": {
+      "rule": "For every constructed, decoded, replayed, cache-loaded, store-loaded, or cross-process ExecutionPlan, the host first recomputes and verifies planIntentCommitment against AttemptRecord, ExecutionPlan.planIntentCommitment, and ExecutionPlan.planIdentityInputs.planIntentCommitment, then validates the PlanId representation, reconstructs the exact thirteen-field PlanDescriptorV1 from admitted inputs and logical stage data, recomputes the digest, and requires equality with supplied planId before cache lookup, provider dispatch, or stage execution.",
+      "suppliedAuthority": false,
+      "outcomes": {
+        "match": "VERIFIED_PLAN_ID",
+        "malformedRepresentation": "PLAN_ID_INVALID_REPRESENTATION",
+        "schemaOrCanonicalizationViolation": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION",
+        "wellFormedMismatch": "PLAN_ID_MISMATCH",
+        "profileViolation": "PLAN_ID_PROFILE_VIOLATION",
+        "planIntentMismatch": "PLAN_INTENT_COMMITMENT_MISMATCH"
+      },
+      "terminationBoundary": "The closed identityOutcomeD9Mapping below is authoritative. A freshly constructed host PlanId is returned only by the validating constructor and therefore has no supplied-failure outcome; caller, persisted/cache and provider-echo provenance are exhaustively mapped without inventing D9 vocabulary."
+    },
+    "identityOutcomeD9Mapping": {
+      "rule": "Select provenance context first, then the typed PlanId outcome. requestInput shape/canonical/profile/input-class failures use the live invalid-config golden; requestInput equality/commitment failures are admitted precondition failures using the live repair-precondition golden; persisted/cache failures are ledger corruption; provider echoes are provider protocol violations. The internal PLAN_ID_* name is diagnostic detail and never a public code.",
+      "provenanceContexts": {
+        "closedValues": ["requestInput", "persistedOrCache", "providerEcho"],
+        "freshConstruction": "Not a supplied provenance context: the host validating constructor either returns VerifiedPlanId or does not publish a PlanId. A product that can externally observe an invalid fresh value violates this contract and cannot qualify."
+      },
+      "contexts": {
+        "request-invalid": {
+          "referenceGoldenId": "pre-admission-invalid-config",
+          "scenarioAxes": {
+            "lifecycle": "pre-run",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "none",
+            "admission": "rejected",
+            "commandKind": "any",
+            "deficiency": "none",
+            "rejectionCause": "config-invalid",
+            "faultCause": "none",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {"class": "request-rejected", "errorCode": "CONFIG.INVALID"},
+          "exitCode": 2
+        },
+        "request-mismatch": {
+          "referenceGoldenId": "repair-snapshot-conflict",
+          "scenarioAxes": {
+            "lifecycle": "not-applicable",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "precondition-failed",
+            "admission": "admitted",
+            "commandKind": "mutation",
+            "deficiency": "none",
+            "rejectionCause": "precondition-failed",
+            "faultCause": "none",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {"class": "request-rejected", "errorCode": "REQUEST.PRECONDITION_FAILED"},
+          "exitCode": 2
+        },
+        "persisted-corruption": {
+          "referenceGoldenId": "query-ledger-corrupt",
+          "scenarioAxes": {
+            "lifecycle": "not-applicable",
+            "requiredCoverage": "not-applicable",
+            "verdict": "not-applicable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "host-fault",
+            "admission": "admitted",
+            "commandKind": "query",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "ledger-corrupt",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {"class": "operational-failed", "errorCode": "LEDGER.CORRUPT"},
+          "exitCode": 4
+        },
+        "provider-echo": {
+          "referenceGoldenId": "analysis-provider-protocol-prevents-seal",
+          "scenarioAxes": {
+            "lifecycle": "cannot-seal-coherent-run",
+            "requiredCoverage": "unknown",
+            "verdict": "unavailable",
+            "durability": "not-applicable",
+            "interruption": "none",
+            "requiredPostconditions": "not-applicable",
+            "domainCondition": "none",
+            "admission": "admitted",
+            "commandKind": "run",
+            "deficiency": "none",
+            "rejectionCause": "none",
+            "faultCause": "provider-protocol",
+            "secondaryDeficiencies": []
+          },
+          "expectedTermination": {"class": "operational-failed", "errorCode": "PROVIDER.PROTOCOL_VIOLATION", "executionId": "$EXEC_ID"},
+          "exitCode": 4
+        }
+      },
+      "outcomeContexts": {
+        "PLAN_ID_INVALID_REPRESENTATION": {"requestInput": "request-invalid", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"},
+        "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION": {"requestInput": "request-invalid", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"},
+        "PLAN_ID_PROFILE_VIOLATION": {"requestInput": "request-invalid", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"},
+        "PLAN_ID_INPUT_CLASS_VIOLATION": {"requestInput": "request-invalid", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"},
+        "PLAN_ID_MISMATCH": {"requestInput": "request-mismatch", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"},
+        "PLAN_INTENT_COMMITMENT_MISMATCH": {"requestInput": "request-mismatch", "persistedOrCache": "persisted-corruption", "providerEcho": "provider-echo"}
+      }
+    },
+    "goldenVectors": {
+      "positive": [
+        {
+          "id": "planid-v1-ci-minimal",
+          "input": {
+          "snapshotId": "snap1:sha256:85e066e5bf7a46ce1f2b0ef9b73d8827c4b1c03f24b1ae0559f012a4c6f16bc6",
+            "planSchemaMajor": 1,
+            "release": {
+            "manifestId": "1111111111111111111111111111111111111111111111111111111111111111",
+            "capabilityManifestId": "2222222222222222222222222222222222222222222222222222222222222222",
+              "profileId": "core"
+            },
+            "invocationProfile": "ci",
+            "resolvedConfiguration": [],
+            "scope": {
+              "projectId": "prj1-0000000000000000000000000000000000000000000000000000000000000000",
+              "workspaceUnitIds": [
+                "unit:root"
+              ],
+              "requestedPaths": [
+                "src/lib.rs"
+              ],
+              "impactExpansion": "none"
+            },
+            "changeSpec": {
+              "mode": "worktree",
+              "baseCommitId": null,
+              "dirtyOverlayPolicy": "include",
+              "untrackedPolicy": "include",
+              "vcsAdapterId": "git:v1"
+            },
+            "contributions": [
+              {
+                "activationId": "act-builtin",
+                "contributionId": "builtin.extractor",
+                "contributionVersion": "1.0.0",
+                "bundleId": "opensip:builtin",
+              "artifactDigest": "3333333333333333333333333333333333333333333333333333333333333333",
+                "admissionGrant": "published",
+                "role": "advisory",
+                "verificationState": "NOT-APPLICABLE",
+                "verificationEvidenceId": null,
+              "parameters": {},
+              "origin": "bundled",
+              "authority": "host-builtin"
+              },
+              {
+                "activationId": "act-policy",
+                "contributionId": "builtin.policy",
+                "contributionVersion": "1.0.0",
+                "bundleId": "opensip:builtin",
+              "artifactDigest": "4444444444444444444444444444444444444444444444444444444444444444",
+                "admissionGrant": "published",
+                "role": "required",
+                "verificationState": "NOT-APPLICABLE",
+                "verificationEvidenceId": null,
+              "parameters": {},
+              "origin": "bundled",
+              "authority": "declarative-rule"
+              },
+              {
+                "activationId": "act-rules",
+                "contributionId": "builtin.rules",
+                "contributionVersion": "1.0.0",
+                "bundleId": "opensip:builtin",
+              "artifactDigest": "5555555555555555555555555555555555555555555555555555555555555555",
+                "admissionGrant": "published",
+                "role": "required",
+                "verificationState": "NOT-APPLICABLE",
+                "verificationEvidenceId": null,
+              "parameters": {},
+              "origin": "bundled",
+              "authority": "declarative-rule"
+              }
+            ],
+            "semanticUniverses": [],
+            "capabilityGrants": [],
+            "workflow": {
+              "stages": [
+                {
+                  "kind": "fact-derivation",
+                  "stageId": "s1",
+                  "relations": [
+                    "declares"
+                  ],
+                  "operator": "builtin-extractor"
+                },
+                {
+                  "kind": "rule-evaluation",
+                  "stageId": "s2",
+                  "ruleIds": [
+                    "r1"
+                  ],
+                  "requiredness": "required",
+                  "dependsOn": [
+                    "s1"
+                  ]
+                },
+                {
+                  "kind": "policy-evaluation",
+                  "stageId": "s3",
+                  "policyId": "p1",
+                  "dependsOn": [
+                    "s2"
+                  ]
+                }
+              ]
+            },
+            "budgets": {},
+          "planIntentCommitment": "sha256:dca3a310674308c9bb951c5716ee871d19df42f4df07b406533a199d99a8c36d"
+        },
+        "sourcePlanIntentFixtureId": "valid-minimal-analysis-intent",
+        "snapshotVectorId": "snapshot-id-v1-minimal",
+        "expectedPlanIntentCommitment": "sha256:dca3a310674308c9bb951c5716ee871d19df42f4df07b406533a199d99a8c36d",
+          "expectedPreimageByteLength": 2500,
+          "expectedPlanId": "plan1:sha256:613866ac3baf5f0450f31e0f24281f7782db02bbee7bcadffedc93e567e5e4f4"
+        },
+        {
+          "id": "planid-v1-ci-full-providers",
+          "sourcePlanIntentFixtureId": "valid-full-profile-semantic-providers",
+          "snapshotVectorId": "snapshot-id-v1-full-project",
+          "planInputConstruction": {
+            "snapshotId": "snap1:sha256:ef38e14b437c9208d7dc63c752023d11c2c41c97a157f13c9e0e50184b9c25b5",
+            "planSchemaMajor": 1,
+            "semanticUniverses": [
+              {
+                "providerId": "rust-semantic",
+                "providerVersion": "1.0.0",
+                "universe": {
+                  "schemaVersion": 1,
+                  "manifestId": "6666666666666666666666666666666666666666666666666666666666666666",
+                  "capabilityManifestId": "7777777777777777777777777777777777777777777777777777777777777777",
+                  "providerArtifactId": "rust-provider",
+                  "providerArtifactSha256": "8888888888888888888888888888888888888888888888888888888888888888",
+                  "toolchainArtifactId": "rust-toolchain-bundle",
+                  "toolchainArtifactSha256": "9999999999999999999999999999999999999999999999999999999999999999",
+                  "protocolMajor": 1,
+                  "providerBuildId": "rust-provider:1",
+                  "rustCommitHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "rustcVersion": "rustc 1.87.0 (17067e9ac 2025-05-09)",
+                  "cargoVersion": "cargo 1.87.0 (99624be96 2025-05-06)",
+                  "hostTriple": "aarch64-apple-darwin",
+                  "targetTriple": "aarch64-apple-darwin",
+                  "sysrootDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                  "rustcDevLlvmDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                  "standardLibraryComponentDigests": {
+                    "alloc": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                    "core": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+                    "std": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+                  },
+                  "providerBinarySha256": "1212121212121212121212121212121212121212121212121212121212121212",
+                  "licenseNoticeBundleSha256": "1313131313131313131313131313131313131313131313131313131313131313",
+                  "platformId": "macos-aarch64",
+                  "resolvedInputs": {
+                    "edition": "2024",
+                    "cfg": ["debug_assertions", "target_arch=\"aarch64\"", "target_os=\"macos\""],
+                    "packageLockIdentity": "1414141414141414141414141414141414141414141414141414141414141414",
+                    "resolvedPackages": [
+                      {
+                        "packageId": "serde",
+                        "version": "1.0.219",
+                        "sourceDigest": "1515151515151515151515151515151515151515151515151515151515151515",
+                        "features": ["derive", "std"]
+                      }
+                    ],
+                    "rustflags": ["-C", "debuginfo=0"],
+                    "crateRootPaths": ["src/lib.rs"],
+                    "executionCapableResolution": false,
+                    "buildScriptOutputs": [],
+                    "procMacroOutputs": []
+                  }
+                }
+              },
+              {
+                "providerId": "typescript-semantic",
+                "providerVersion": "1.0.0",
+                "universe": {
+                  "schemaVersion": 1,
+                  "manifestId": "6666666666666666666666666666666666666666666666666666666666666666",
+                  "capabilityManifestId": "7777777777777777777777777777777777777777777777777777777777777777",
+                  "runtimeArtifactId": "typescript-runtime",
+                  "runtimeArtifactSha256": "1616161616161616161616161616161616161616161616161616161616161616",
+                  "providerArtifactId": "typescript-provider",
+                  "providerArtifactSha256": "1717171717171717171717171717171717171717171717171717171717171717",
+                  "runtimeDescriptorSha256": "1818181818181818181818181818181818181818181818181818181818181818",
+                  "providerDescriptorSha256": "1919191919191919191919191919191919191919191919191919191919191919",
+                  "protocolMajor": 1,
+                  "providerBuildId": "typescript-provider:1",
+                  "nodeVersion": "22.14.0",
+                  "v8Version": "12.4.254.21-node.22",
+                  "modulesAbi": "127",
+                  "typescriptVersion": "5.8.3",
+                  "typescriptCompilerSha256": "2020202020202020202020202020202020202020202020202020202020202020",
+                  "typescriptStdlibMerkleRoot": "2121212121212121212121212121212121212121212121212121212121212121",
+                  "platformId": "macos-aarch64",
+                  "resolvedInputs": {
+                    "tsconfigGraphHash": "2222222222222222222222222222222222222222222222222222222222222222",
+                    "compilerOptions": {
+                      "module": "nodenext",
+                      "moduleResolution": "nodenext",
+                      "strict": true,
+                      "target": "es2022"
+                    },
+                    "programRootFiles": ["src/index.ts"],
+                    "packageLockIdentity": "2323232323232323232323232323232323232323232323232323232323232323",
+                    "resolvedNodeModulesLayout": ["node_modules/typescript"],
+                    "executionCapableResolution": false
+                  }
+                }
+              }
+            ],
+            "planIntentCommitment": "sha256:bd03b1c6935a5941596d81d1a0bb88cfff353f605e087555f22932b2afdff7d1"
+          },
+          "expectedPlanIntentCommitment": "sha256:bd03b1c6935a5941596d81d1a0bb88cfff353f605e087555f22932b2afdff7d1",
+          "expectedPreimageByteLength": 8208,
+          "expectedPlanId": "plan1:sha256:86ccc0baa679dec956c0ca310889798e6b45ebbc7e11157f71e636dbf2f68401"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "planid-v1-budget-changes-identity",
+          "base": "planid-v1-ci-minimal",
+          "replace": {
+            "path": "budgets",
+            "value": {
+              "analysis.items": 1000
+            }
+          },
+          "expectedPlanId": "plan1:sha256:ce413a1752b7ebc29fce10e6c24a70fe24c830fdb1490420d9292d3adcf24b9a",
+          "mustDifferFromBase": true
+        },
+        {
+          "id": "planid-v1-local-layer4-keyed",
+          "base": "planid-v1-ci-minimal",
+          "replaceMany": [
+            {
+              "path": "invocationProfile",
+              "value": "local-interactive"
+            },
+            {
+              "path": "resolvedConfiguration",
+              "value": [
+                {
+                  "path": "analysis.budget.maxFacts",
+                  "value": 1000,
+                  "decidingLayer": 4,
+                  "analysisAffecting": true
+                }
+              ]
+            }
+          ],
+          "expectedPlanId": "plan1:sha256:1820fb587ce3d0a3f19d5bfb1737af9e8b8705948cbb39d4f38050684fee7c8b",
+          "mustDifferFromBase": true
+        }
+      ],
+      "negative": [
+        {
+          "id": "reject-supplied-planid-mismatch",
+          "base": "planid-v1-ci-minimal",
+          "suppliedPlanId": "plan1:sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+          "recomputedPlanId": "plan1:sha256:613866ac3baf5f0450f31e0f24281f7782db02bbee7bcadffedc93e567e5e4f4",
+          "expected": "PLAN_ID_MISMATCH"
+        },
+        {
+          "id": "reject-uppercase-planid",
+          "suppliedPlanId": "plan1:sha256:613866AC3BAF5F0450F31E0F24281F7782DB02BBEE7BCADFFEDC93E567E5E4F4",
+          "expected": "PLAN_ID_INVALID_REPRESENTATION"
+        },
+        {
+          "id": "reject-correlation-field",
+          "base": "planid-v1-ci-minimal",
+          "addTopLevel": {
+            "executionId": "exec1_00000000000000000000000000000000"
+          },
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-ci-layer4-record",
+          "base": "planid-v1-ci-minimal",
+          "replace": {
+            "path": "resolvedConfiguration",
+            "value": [
+              {
+                "path": "analysis.budget.maxFacts",
+                "value": 1000,
+                "decidingLayer": 4,
+                "analysisAffecting": true
+              }
+            ]
+          },
+          "expected": "PLAN_ID_PROFILE_VIOLATION"
+        },
+        {
+          "id": "reject-neutralised-input",
+          "base": "planid-v1-ci-minimal",
+          "injectClassifiedInput": {
+            "input": "locale (LC_ALL, LC_CTYPE, LANG)",
+            "class": "neutralised",
+            "targetField": "resolvedConfiguration"
+          },
+          "expected": "PLAN_ID_INPUT_CLASS_VIOLATION"
+        },
+        {
+          "id": "reject-unknown-field",
+          "base": "planid-v1-ci-minimal",
+          "addTopLevel": {
+            "factTier": "semantic"
+          },
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION",
+          "why": "C-1 forbids inventing a global fact tier; an unknown field is rejected in any case."
+        },
+        {
+          "id": "reject-plan-intent-substitution",
+          "base": "planid-v1-ci-minimal",
+          "attemptRecordPlanIntentCommitment": "sha256:dca3a310674308c9bb951c5716ee871d19df42f4df07b406533a199d99a8c36d",
+          "executionPlanPlanIntentCommitment": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+          "expected": "PLAN_INTENT_COMMITMENT_MISMATCH"
+        },
+        {
+          "id": "reject-unsorted-scope",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "set", "path": "/scope/workspaceUnitIds", "value": ["unit:z", "unit:a"]},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-duplicate-requested-path",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "set", "path": "/scope/requestedPaths", "value": ["src/lib.rs", "src/lib.rs"]},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-contribution-unknown-field",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "add", "path": "/contributions/0/unknown", "value": true},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-unsorted-contributions",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "reverse", "path": "/contributions"},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-rust-universe-unknown-field",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "add", "path": "/semanticUniverses/0/universe/unknown", "value": true},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-provider-substitution",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "set", "path": "/semanticUniverses/1/providerId", "value": "rust-semantic"},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-universe-order",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "reverse", "path": "/semanticUniverses"},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-grant-unknown-field",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "add", "path": "/capabilityGrants/0/unknown", "value": true},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-grant-order",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "reverse", "path": "/capabilityGrants"},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-workflow-set-order",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "set", "path": "/workflow/stages/3/dependsOn", "value": ["s3", "s2"]},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-workflow-unknown-field",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "add", "path": "/workflow/stages/0/privateOperator", "value": "cache-layout"},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-invalid-budget-unit",
+          "base": "planid-v1-ci-minimal",
+          "mutation": {"op": "add", "path": "/budgets/analysis.seconds", "value": 1},
+          "expected": "PLAN_ID_PREIMAGE_SCHEMA_VIOLATION"
+        },
+        {
+          "id": "reject-admitted-artifact-substitution",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "set", "path": "/contributions/3/artifactDigest", "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          "expected": "PLAN_INTENT_COMMITMENT_MISMATCH"
+        },
+        {
+          "id": "reject-admitted-grant-substitution",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "set", "path": "/capabilityGrants/0/grantVersion", "value": "2.0.0"},
+          "expected": "PLAN_INTENT_COMMITMENT_MISMATCH"
+        },
+        {
+          "id": "reject-admitted-parameter-substitution",
+          "base": "planid-v1-ci-full-providers",
+          "mutation": {"op": "set", "path": "/contributions/3/parameters", "value": {"mode": "alternate"}},
+          "expected": "PLAN_INTENT_COMMITMENT_MISMATCH"
+        }
+      ]
+    }
+  },
+  "configuration": {
+    "precedence": [
+      {
+        "layer": 1,
+        "source": "compiled defaults",
+        "custody": "release",
+        "affectsPlanId": true
+      },
+      {
+        "layer": 2,
+        "source": "user-global settings",
+        "custody": "user machine",
+        "affectsPlanId": "allowlisted keys only",
+        "note": "A1-RI-03. v1 put ALL user-global settings in PlanId, which is correct about visibility and wrong about churn: bundling UI, theme and TTY preferences with analysis floors creates false cache misses on changes that cannot affect a result. CFG-9 declares the analysis-affecting subset; every other global key is FORBIDDEN from analysis resolution, which is stronger than merely excluding it from PlanId."
+      },
+      {
+        "layer": 3,
+        "source": "tracked project intent",
+        "custody": "USER-CUSTODY",
+        "affectsPlanId": true,
+        "note": "The reviewed, committed layer \u2014 the only one a team collectively owns."
+      },
+      {
+        "layer": 4,
+        "source": "untracked local override",
+        "custody": "user machine",
+        "affectsPlanId": "local-interactive only",
+        "note": "Final product disposition A1-RI-04: CI/non-interactive does not load or resolve layer 4, so mere presence neither changes PlanId nor rejects admission. Local-interactive may resolve layer 4; every resulting analysis-affecting field and provenance enters PlanId and explain output.",
+        "productDecision": "CI_IGNORES_LAYER_4"
+      },
+      {
+        "layer": 5,
+        "source": "allowlisted environment",
+        "custody": "process",
+        "affectsPlanId": true
+      },
+      {
+        "layer": 6,
+        "source": "command flags",
+        "custody": "invocation",
+        "affectsPlanId": true
+      }
+    ],
+    "rules": [
+      {
+        "id": "CFG-1",
+        "rule": "Only documented environment keys participate. Arbitrary environment is never ingested \u2014 an undocumented variable changing a verdict is an unauditable input.",
+        "threatModelRef": "V3"
+      },
+      {
+        "id": "CFG-2",
+        "rule": "Unknown keys in TRACKED project intent fail closed with the offending path named. A typo that silently disables a rule is the worst possible failure for a guardrail tool."
+      },
+      {
+        "id": "CFG-3",
+        "rule": "Unknown keys in a layer the user cannot review (defaults, environment) are a HOST defect, not a user error, and fail loudly as such."
+      },
+      {
+        "id": "CFG-4",
+        "rule": "A missing schema for a declared contribution is a typed admission failure, never silently ignored policy."
+      },
+      {
+        "id": "CFG-5",
+        "rule": "Resolved analysis-affecting configuration is canonicalised into PlanId with PER-FIELD provenance, so `explain` can name the layer that decided each value."
+      },
+      {
+        "id": "CFG-6",
+        "rule": "Secrets are referenced by handle. The handle enters PlanId; the value never enters PlanId, the evidence digest, diagnostics, or a support bundle.",
+        "threatModelRef": "U2",
+        "gapNote": "A1-RI-02 was RIGHT and this is only PARTLY fixed. v1 cited TM.F8, which threat-model v2 dropped. U2 is the ASSET (secrets reachable from the machine) and V3 covers reading them, but v2 has NO finding for the distinct obligation that a secret VALUE must never reach PlanId, the digest, diagnostics or a support bundle. Rather than retarget to a finding that does not cover it, the gap is registered: TM owes an F8-class finding. Until then CFG-6 is an obligation this artifact asserts, not one the binding threat model roots."
+      },
+      {
+        "id": "CFG-7",
+        "rule": "Contributions register namespaced declarative schemas only. No executable configuration format \u2014 executable config is an ambient-authority path.",
+        "threatModelRef": "V9"
+      },
+      {
+        "id": "CFG-8",
+        "rule": "A profile may raise a fact-quality floor. It may not lower one, and it may not trigger materialisation absent a consumer requirement (C-1)."
+      },
+      {
+        "id": "CFG-9",
+        "rule": "A DECLARED ALLOWLIST names the user-global keys that may affect analysis. Only those enter PlanId; every other global key is forbidden from analysis resolution entirely.",
+        "allowlist": [
+          "analysis.factQualityFloor",
+          "analysis.budget",
+          "providers.<id>.enabled",
+          "providers.<id>.toolchainPath",
+          "execution.capableGrant"
+        ],
+        "forbiddenExamples": [
+          "ui.theme",
+          "ui.colour",
+          "tty.width",
+          "telemetry.optIn",
+          "editor.integration"
+        ]
+      },
+      {
+        "id": "CFG-10",
+        "rule": "A path resolving outside the project root is REJECTED with a typed error, never silently omitted.",
+        "threatModelRef": "R3"
+      }
+    ],
+    "untrackedOverridePosture": {
+      "finding": "A1-RI-04 / R1-RI-01",
+      "architecturalPosition": "Layer 4 is PlanId-visible only when the local-interactive profile resolves it; CI/non-interactive does not load it.",
+      "theResidualProblem": "For a guardrail product, an unreviewed file that flips CI when present is still a trust problem: the laptop passes and CI fails, or worse the reverse.",
+      "options": [
+        {
+          "option": "ban analysis-affecting untracked overrides outright",
+          "cost": "removes a genuinely useful local workflow"
+        },
+        {
+          "option": "allow only additive diagnostics, never severity or gate floors",
+          "cost": "a second config vocabulary to specify and enforce"
+        },
+        {
+          "option": "keep them, and provide a CI mode that IGNORES layer 4 entirely",
+          "cost": "two resolution modes, and PlanId differs between them by design"
+        }
+      ],
+      "recommendation": "Superseded by the product disposition.",
+      "status": "PRODUCT_DECIDED",
+      "productDecisionStillOpen": false,
+      "bindingProductDecision": {
+        "id": "A1-RI-04",
+        "source": "artifacts/product-dispositions.v1.json#decisions.A1-RI-04",
+        "choice": "CI_IGNORES_LAYER_4",
+        "rule": "CI/non-interactive does not load or resolve layer 4 and does not fail because the file exists. Local-interactive includes each resolved analysis-affecting layer-4 value and its decidingLayer=4 provenance in PlanId.",
+        "conformance": "RI-LAYER4-CI and the PlanId negative/transform vectors are implementable host profile tests."
+      }
+    }
+  },
+  "projectModel": {
+    "rootResolution": {
+      "order": [
+        "explicit path argument",
+        "nearest project configuration",
+        "VCS root"
+      ],
+      "rule": "Never cross a discovered boundary silently. A candidate above an intervening project marker is a typed ambiguity requiring an explicit choice.",
+      "why": "Silent upward traversal is how a tool analyses a parent monorepo when the user meant one package."
+    },
+    "workspaceUnits": {
+      "model": "One ProjectSnapshot may contain multiple WorkspaceUnits.",
+      "rule": "Workspace fan-out is planner parallelism over ONE parent Run, not several products. Storage authority is keyed by canonical ProjectId, not by unit.",
+      "why": "Otherwise a monorepo produces N unrelated histories and cross-unit impact is unrepresentable."
+    },
+    "semanticUniverse": {
+      "definition": "The identity of a semantic provider's compilation context \u2014 the smallest set whose change invalidates resolved facts.",
+      "rule": "The universe key participates in the derivation key and in PlanId.",
+      "completenessRule": "A universe key that OMITS a dimension which can change resolution is unsound: two semantically different fact sets share one identity. Where a dimension is deliberately not keyed, the provider MUST emit Coverage with deficiency provider-unavailable rather than silently resolving.",
+      "perProvider": {
+        "rust": {
+          "finding": "A1-RI-01 \u2014 v1's six components were necessary and not sufficient",
+          "keyComponents": [
+            "provider identity and version",
+            "rustc version and host triple",
+            "target triple",
+            "sysroot identity",
+            "FULL cfg corpus \u2014 not only features: target_os, target_arch, target_env, target_family, debug_assertions, test, and every custom --cfg",
+            "resolved package set \u2014 Cargo.lock identity plus the unified dependency feature resolution, which is a global property and not a per-crate one",
+            "RUSTFLAGS and codegen flags that change cfg or layout",
+            "edition",
+            "build-script and proc-macro generated cfg",
+            "whether execution-capable resolution is enabled"
+          ],
+          "executionNote": "Build scripts and proc macros GENERATE cfg by executing repository-controlled code. That makes the cfg corpus partly a function of execution, so the execution-capable grant is not merely a security flag \u2014 without it, the cfg corpus is incomplete and the universe key is a claim about a context that was never constructed. TM V9 / R10.",
+          "ifIncomplete": "Coverage deficiency provider-unavailable, not a resolved fact."
+        },
+        "typescript": {
+          "finding": "A1-RI-05 \u2014 v1 gave Rust real attention and left TS at 'configuration root set', which is the same unsoundness class",
+          "keyComponents": [
+            "provider identity and version",
+            "verified release manifestId and selected capabilityManifestId",
+            "typescript-runtime and typescript-provider artifact IDs and SHA-256 values",
+            "runtime and provider identity-descriptor SHA-256 values",
+            "protocolMajor and providerBuildId",
+            "Node version, V8 version and modules ABI",
+            "tsc version",
+            "TypeScript compiler SHA-256 and standard-library Merkle root",
+            "selected release platformId",
+            "tsconfig GRAPH hash \u2014 every file reachable through extends and project references, not just the entry config",
+            "the compilerOptions subset that changes resolution or types: module, moduleResolution, paths, baseUrl, rootDirs, types, typeRoots, lib, target, jsx, strict family, exactOptionalPropertyTypes, skipLibCheck",
+            "program root file list",
+            "package resolution inputs: lockfile identity and the resolved node_modules layout for anything contributing types",
+            "whether execution-capable resolution is enabled"
+          ],
+          "skipLibCheckNote": "skipLibCheck changes which type errors exist and therefore which type facts are derivable. It looks like a performance flag and is a semantic one.",
+          "ifIncomplete": "Coverage deficiency provider-unavailable."
+        }
+      }
+    },
+    "changeDetection": {
+      "spec": "A ChangeSpec records the exact mode; it is never inferred.",
+      "modes": [
+        "worktree",
+        "staged/index",
+        "explicit file list",
+        "merge-base against a ref",
+        "since a ref"
+      ],
+      "provenance": [
+        "base commit identity",
+        "dirty overlay policy",
+        "untracked policy",
+        "VCS adapter identity"
+      ],
+      "nonVcs": "Full scope and explicit-file scope are supported. Changed-mode is UNAVAILABLE unless a declared adapter can prove it \u2014 unavailable, not silently degraded to full scope.",
+      "rule": "If impact expansion is requested and graph Coverage is insufficient, the Plan either broadens to full declared scope or yields indeterminate per workflow policy. It never silently analyses an under-approximation."
+    }
+  },
+  "closureFixtures": [
+    {
+      "id": "locale-neutralised-not-keyed",
+      "valid": true,
+      "input": "locale (LC_ALL, LC_CTYPE, LANG)",
+      "class": "neutralised",
+      "inPlanId": false
+    },
+    {
+      "id": "toolchain-keyed",
+      "valid": true,
+      "input": "the semantic universe key of every activated provider",
+      "class": "keyed",
+      "inPlanId": true
+    },
+    {
+      "id": "clock-forbidden",
+      "valid": true,
+      "input": "wall clock",
+      "class": "forbidden",
+      "inPlanId": false
+    },
+    {
+      "id": "reject-neutralised-in-planid",
+      "valid": false,
+      "violates": "RI-CL-3",
+      "input": "timezone (TZ)",
+      "class": "neutralised",
+      "inPlanId": true,
+      "why": "keying a constant is churn carrying no information"
+    },
+    {
+      "id": "reject-keyed-absent-from-planid",
+      "valid": false,
+      "violates": "RI-CL-4",
+      "input": "the execution-capable grant",
+      "class": "keyed",
+      "inPlanId": false,
+      "why": "an analysis-affecting input outside PlanId lets two different analyses share one identity"
+    },
+    {
+      "id": "reject-forbidden-in-planid",
+      "valid": false,
+      "violates": "RI-CL-5",
+      "input": "hostname, username, uid",
+      "class": "forbidden",
+      "inPlanId": true,
+      "why": "recording it does not make reading it acceptable"
+    }
+  ],
+  "conformanceTests": [
+    {
+      "id": "RI-01",
+      "implementable": true,
+      "assert": "An unknown key in tracked project intent fails closed with the offending path named."
+    },
+    {
+      "id": "RI-02",
+      "implementable": true,
+      "assert": "An undocumented environment variable cannot change any resolved value."
+    },
+    {
+      "id": "RI-03",
+      "implementable": true,
+      "assert": "`validate` reports the deciding layer for every analysis-affecting field."
+    },
+    {
+      "id": "RI-04",
+      "implementable": true,
+      "assert": "Two local-interactive invocations differing only in a resolved analysis-affecting untracked override produce different PlanIds and expose the override provenance; CI/non-interactive loads neither value."
+    },
+    {
+      "id": "RI-05",
+      "implementable": true,
+      "assert": "A secret value never appears in PlanId, the evidence digest, diagnostics, or a support bundle; only its handle does."
+    },
+    {
+      "id": "RI-06",
+      "implementable": true,
+      "assert": "Root resolution across an intervening project marker raises a typed ambiguity rather than choosing."
+    },
+    {
+      "id": "RI-07",
+      "implementable": true,
+      "assert": "Two feature/cfg selections over identical source yield different semantic universe keys and different derivation keys."
+    },
+    {
+      "id": "RI-08",
+      "implementable": true,
+      "assert": "Enabling execution-capable resolution changes PlanId."
+    },
+    {
+      "id": "RI-09",
+      "implementable": true,
+      "assert": "A path resolving outside the project root is rejected with a typed error, not omitted."
+    },
+    {
+      "id": "RI-10",
+      "implementable": true,
+      "assert": "Changed-mode on a non-VCS project reports UNAVAILABLE; it does not fall back to full scope."
+    },
+    {
+      "id": "RI-11",
+      "implementable": true,
+      "assert": "Requested impact expansion with insufficient graph Coverage either broadens scope or yields indeterminate \u2014 never a narrow pass."
+    },
+    {
+      "id": "RI-12",
+      "implementable": true,
+      "assert": "A sparse checkout is recorded as a Coverage input and cannot read as complete inventory."
+    },
+    {
+      "id": "RI-13",
+      "implementable": true,
+      "assert": "A profile cannot lower a fact-quality floor, and a profile label alone materialises nothing."
+    },
+    {
+      "id": "RI-14",
+      "implementable": true,
+      "assert": "Two invocations under different locales, timezones, and filesystem enumeration orders produce IDENTICAL PlanIds and identical results."
+    },
+    {
+      "id": "RI-15",
+      "implementable": true,
+      "assert": "A user-global key outside the CFG-9 allowlist cannot affect any resolved value and does not appear in PlanId."
+    },
+    {
+      "id": "RI-16",
+      "implementable": true,
+      "assert": "A Rust universe key differs when any of target triple, sysroot, custom cfg, lockfile identity, or RUSTFLAGS differs, over identical source."
+    },
+    {
+      "id": "RI-17",
+      "implementable": true,
+      "assert": "A TypeScript universe key differs when any file in the tsconfig extends/references graph changes, over identical program sources."
+    },
+    {
+      "id": "RI-18",
+      "implementable": false,
+      "requiresHarness": "a rule runtime that can observe attempted ambient reads",
+      "assert": "A rule that reads the clock, entropy, hostname, or an unallowlisted environment key is denied and the attempt recorded.",
+      "note": "Same substrate gap as C-2 PS-09. Declared, not discharged."
+    },
+    {
+      "id": "RI-LAYER4-CI",
+      "implementable": true,
+      "assert": "Under the CI/non-interactive profile, no layer-4 file or key is loaded or resolved and its presence is not an admission failure. Local-interactive may resolve layer 4 only with each analysis-affecting value and decidingLayer=4 provenance in PlanId and explain output.",
+      "covers": "binding product disposition A1-RI-04"
+    },
+    {
+      "id": "RI-PLANID-01",
+      "implementable": true,
+      "assert": "CVE1 and PLAN-ID-V1 reproduce every exact golden PlanId and byte length; domain, recipe version, field tags, framing, order, value encoding, or digest drift changes the oracle."
+    },
+    {
+      "id": "RI-PLANID-02",
+      "implementable": true,
+      "assert": "A supplied PlanId is never authoritative: malformed, non-canonical, schema-invalid, profile-invalid, or mismatched values are rejected before cache lookup, provider dispatch, or stage execution."
+    },
+    {
+      "id": "RI-PLANID-03",
+      "implementable": true,
+      "assert": "Every declared KEYED ambient input maps to exactly one closed PlanId field; NEUTRALISED/FORBIDDEN inputs and RequestId/ExecutionId/RunId/FactViewId/EvidenceDigest never enter the recipe."
+    },
+    {
+      "id": "RI-PLANID-04",
+      "implementable": true,
+      "assert": "The shipping full-profile oracle contains exact closed Rust and TypeScript semantic universes, and PlanDescriptor fields 3..8 plus 10..12 equal the full frozen C-2 AdmissionDescriptorV1; artifact, grant or parameter substitution prevents execution."
+    },
+    {
+      "id": "RI-PROJECTID-01",
+      "implementable": true,
+      "assert": "PROJECT-ID-V1 allocates and atomically persists one host-owned canonical identity; supported moves preserve it, ordinary clones receive a new one, copied-marker collisions refuse, and C-2/storage consume only a verified typed ProjectId."
+    },
+    {
+      "id": "RI-SNAPSHOTID-01",
+      "implementable": true,
+      "assert": "SNAPSHOT-ID-V1 independently reproduces every exact descriptor/preimage vector from exact file and symlink bytes, and PLAN-ID-V1 consumes that derived identity."
+    },
+    {
+      "id": "RI-SNAPSHOTID-02",
+      "implementable": true,
+      "assert": "Unknown fields, noncanonical paths/order, followed-symlink shapes, RequestId participation and a supplied/recomputed mismatch reject before PlanId, cache, provider or replay authority use."
+    },
+    {
+      "id": "RI-IDENTITY-D9-01",
+      "implementable": true,
+      "assert": "Every PROJECT-ID-V1, SNAPSHOT-ID-V1 and PLAN-ID-V1 typed failure maps by exact provenance to live D9 cause/class/code semantics; caller/config invalidity, persisted marker/ledger/CAS corruption, provider protocol and host I/O cannot be conflated."
+    }
+  ],
+  "resolves": {
+    "B-CSG-01 / CS-01": "RESOLVED \u2014 the ambient-input closure is the artifact's largest new section. Three total classes with the rule 'neutralise when you can, key when you must, forbid when neither', and the explicit statement that RECORDING an environment identity is not NEUTRALISING it.",
+    "A1-RI-01": "RESOLVED \u2014 the Rust universe key gains target triple, sysroot, the full cfg corpus, resolved package set with unified feature resolution, RUSTFLAGS, and build-script/proc-macro generated cfg, plus the rule that an omitted dimension yields Coverage rather than a silent resolve.",
+    "A1-RI-02": "PARTIALLY RESOLVED, and the residue is registered rather than papered. Path and executable-config references retarget to live v2 ids (V3, R3, V9, R10), checked mechanically by RI-TM. CFG-6's secret-value obligation has NO v2 finding: U2 is the asset and V3 covers reading secrets, but nothing covers 'a secret value must never reach PlanId, the digest, diagnostics or a support bundle'. TM owes an F8-class finding; until then CFG-6 is asserted here, not rooted there.",
+    "A1-RI-03": "RESOLVED \u2014 CFG-9 declares an analysis-affecting user-global allowlist. Non-allowlisted global keys are FORBIDDEN from analysis resolution, which is stronger than merely excluding them from PlanId.",
+    "A1-RI-04": "RESOLVED BY PRODUCT \u2014 CI/non-interactive does not load or resolve layer 4 and does not reject mere presence; local-interactive keys and projects every resolved analysis-affecting layer-4 field.",
+    "A1-RI-05": "RESOLVED \u2014 the TypeScript universe gains the tsconfig graph hash, the resolution/type-affecting compilerOptions subset, program roots, and package resolution inputs, at parity with Rust.",
+    "A1-RI-06": "RESOLVED \u2014 a field-level schema with per-layer unknown-key behaviour, and a resolvedField shape carrying deciding layer and analysis-affecting flag.",
+    "IP-R4-01": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 PROJECT-ID-V1, SNAPSHOT-ID-V1 and PLAN-ID-V1 now bind the full upstream identity chain; Plan validation is recursive, both shipping providers have closed universes, full-profile and mutation vectors are retained, and Plan identity outcomes have exact live D9 provenance mappings. Product qualification and release demonstration remain absent.",
+    "R6-IP01-01": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 rust-v1 is closed and a full TypeScript+Rust provider-bearing Plan oracle plus omission/substitution/order controls is retained.",
+    "R6-IP01-02": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 SNAPSHOT-ID-V1 binds the exact descriptor, byte recipe, paths/symlinks, vectors, verification rule and Plan field-1 join.",
+    "R6-IP01-03": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 the retained checker recursively validates closed live C-2 admission records, provider universes, workflow and unit-bearing budgets and refuses self-test on a dirty base.",
+    "R6-XID-04": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 every PROJECT-ID-V1, SNAPSHOT-ID-V1 and PLAN-ID-V1 typed failure is mapped by provenance to live D9 cause/class/code semantics. Caller/config invalidity, persisted marker/ledger/CAS corruption, provider protocol and host I/O are distinct; RequestId allocation mapping is owned by OPERABILITY.",
+    "R7-SN-01": "REPAIRED; INDEPENDENT REREVIEW PENDING \u2014 PROJECT-ID-V1 has one host-owned persisted allocation/marker/registry lifecycle with explicit move, clone, collision, fork and adopt semantics; C-2 and storage consume its exact wire form.",
+    "R7-C2-04": "REPAIRED JOINTLY WITH C-2; INDEPENDENT REREVIEW PENDING \u2014 all twelve versioned contribution fields and the full capability-grant records are recursively validated and must equal the frozen AdmissionDescriptorV1 across AttemptRecord, ExecutionPlan and PlanDescriptor."
+  },
+  "peerReviewRequired": [
+    "Is the ambient-input inventory complete enough to be useful? It is certainly not complete in the absolute sense, and the interesting question is which omission bites first.",
+    "Is 'neutralise when you can' right, or does neutralising locale hide a real user expectation (a rule that SHOULD respect the user's locale)? I believe no rule should, but that is an assertion.",
+    "Blind re-authoring of the six ambient closure fixtures.",
+    "Independent implementation of CVE1 and the SnapshotId/PlanId goldens without reusing check-resolved-inputs.py.",
+    "Adversarial rereview of PROJECT-ID-V1 moves, clones, copied markers and explicit adopt/fork boundaries.",
+    "Independent reconstruction of the full TypeScript+Rust Plan oracle from the live C-2 and DELIVERY records."
+  ],
+  "knownLimitations": [
+    "The ambient-input inventory is necessarily incomplete. The totality check verifies every LISTED input is classified exactly once; it cannot discover an input nobody listed. That is the honest bound of RI-CL-1.",
+    "RI-18 \u2014 actually denying an ambient read \u2014 is unimplementable for the same reason C-2's PS-09 is: no capability substrate exists (ARCH.PROBE-CONTRACT, REOPENED). The closure is a specification of intent that nothing yet enforces.",
+    "CFG-6 has no rooting finding in the live threat model. Registered as a TM gap.",
+    "The Rust and TypeScript universe keys are toolchain-domain knowledge, not measured against a real toolchain. A1 graded the v1 equivalent the same way and it should be graded the same way here.",
+    "PLAN-ID-V1 is specified and implementable but unexecuted in product code; no qualificationEvidenceIds or releaseEvidenceIds exist.",
+    "The original v2 ambient closure was authored solo; the identity gaps were found by independent implementer/reviewer6/reviewer7 review. These repairs await a new independent rereview.",
+    "R1-RI-02: RI-18 ambient read denial remains implementable:false on ARCH.PROBE-CONTRACT. Build must not claim ambient isolation until that substrate exists; the closure is intent specification."
+  ],
+  "fieldSchema": {
+    "why": "A1-RI-06: RI-01 and RI-03 assert fail-closed behaviour on unknown keys, which is unimplementable without a schema to fail closed against.",
+    "form": "Each layer declares a namespaced schema. Resolution produces, per field: value, decidingLayer, and whether the field is analysis-affecting.",
+    "resolvedField": {
+      "required": [
+        "path",
+        "value",
+        "decidingLayer",
+        "analysisAffecting"
+      ]
+    },
+    "unknownKeyBehaviour": {
+      "tracked-project-intent": "fail-closed",
+      "user-global": "fail-closed-if-allowlisted-namespace, else forbidden",
+      "defaults": "host-defect",
+      "environment": "host-defect",
+      "untracked-override": "fail-closed",
+      "command-flags": "fail-closed"
+    }
+  },
+  "adjudicationRevision": {
+    "by": "agent-a-as-c",
+    "date": "2026-07-31",
+    "resolves": [
+      "R1-RI-01",
+      "R1-RI-02",
+      "R1-RI-03"
+    ],
+    "note": "Provisional CI/layer-4 ship rule; analysis vs presentation locale split; RI-18 residual honesty."
+  }
+}

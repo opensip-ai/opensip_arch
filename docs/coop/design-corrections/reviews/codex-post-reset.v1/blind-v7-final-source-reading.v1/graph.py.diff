@@ -1,0 +1,126 @@
+--- read-initial/graph.py
++++ completed/graph.py
+@@ -153,6 +153,7 @@
+ 
+     if language_id not in ("typescript", "javascript", "rust"):
+         raise Refused("BODY_LANGUAGE_ID_NOT_IN_ENUM", str(language_id))
++    rec["languageId"] = language_id
+     return rec, language_id
+ 
+ 
+@@ -176,10 +177,19 @@
+ 
+     # -- schema validation --------------------------------------------------
+     def schema(self, document, selector, instance, label):
++        """Exact typed admission, then JSON Schema, then the DECLARED
++        x-opensip-order of every array (identity S3: "Schema admission checks
++        the declared order; the shared encoder does not infer sets or reorder
++        inputs")."""
+         e = O.validate(document, selector, instance)
+         self.checks += 1
+         for m in e:
+             self.bad("SCHEMA[%s]" % label, m)
++        try:
++            for m in O.admit_ordered(document, selector, instance):
++                self.bad("ORDER[%s]" % label, m)
++        except Exception as ex:
++            self.bad("ORDER_ADMISSION_FAULT[%s]" % label, str(ex))
+         return not e
+ 
+     # -- retained frame admission ------------------------------------------
+@@ -551,6 +561,9 @@
+             cbare = cfield.split(":", 1)[-1]
+             if cbare not in plan["nativeContextDigests"]:
+                 self.bad("UNIVERSE_CONTEXT_NOT_PLAN_SELECTED", uhx)
++                continue
++            if cbare not in contexts:
++                self.bad("UNIVERSE_CONTEXT_NOT_ADMITTED", uhx)
+                 continue
+             cdom, ctx = contexts[cbare]
+             if cdom != urow["contextDomain"]:
+@@ -705,10 +718,15 @@
+                             self.bad("OWNERSHIP_PATH_OUTSIDE_SNAPSHOT", r["path"])
+             universes[uhx] = (udom, uni, cbare, ctx, nested)
+ 
+-        # --- context set equality -----------------------------------------
++        # --- context set equality: the set of RETAINED context frames must
++        # equal plan.nativeContextDigests exactly (identity S3).
+         self.checks += 1
+-        if set(plan["nativeContextDigests"]) != set(contexts.keys()):
+-            self.bad("PLAN_CONTEXT_SET_MISMATCH")
++        retained_ctx = {hx for hx, (dom, _) in w.frames.items()
++                        if dom in CONTEXT_ROWS}
++        if retained_ctx != set(plan["nativeContextDigests"]):
++            self.bad("PLAN_CONTEXT_SET_MISMATCH",
++                     "retained=%d plan=%d" % (len(retained_ctx),
++                                              len(plan["nativeContextDigests"])))
+ 
+         # --- facts ---------------------------------------------------------
+         facts = {}
+@@ -1073,6 +1091,12 @@
+                 self.bad("RC2_NOT_ATTEMPTED_PRECONDITIONS", cid)
+         # deficiency/cause pairing
+         self.check_cause(cid, entry)
++        # clones ownership disclosure (native S10 / S11 scopeVersusEnumeration):
++        # Run closure RE-DERIVES the owed (deficiency, nativeCause) from the
++        # committed ownership record and THIS scope's own subjects, in the
++        # selection law's order, and refuses a mismatch.
++        self.check_clone_dialect_prerequisite(cid, entry, sc, universes)
++
+         # syntax capability disclosure
+         av = getattr(self, "_syntax_available", {}).get(cov["scopeId"])
+         if av is not None and av is False:
+@@ -1082,6 +1106,53 @@
+                 self.bad("SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE_DEFICIENCY_MISMATCH", cid)
+             if entry["nativeCause"] != "capability-missing":
+                 self.bad("SYNTAX_CAPABILITY_UNSUPPORTED_SCOPE_CAUSE_MISMATCH", cid)
++
++    def check_clone_dialect_prerequisite(self, cid, entry, sc, universes):
++        if sc["relation"] != "clones":
++            return
++        u = universes.get(sc["sourceUniverse"])
++        if u is None:
++            return
++        udom, uni, cbare, ctx, nested = u
++        d = UNIVERSE_ROWS[udom]["languageVersionBinding"]["dialect"]
++        if d["form"] != "selected-compilation-target-edition":
++            return
++        self.checks += 1
++        owed = None
++        own = nested.get("sourceUnitOwnership")
++        if own is None:
++            owed = ("input-closure-incomplete", "body-language-ownership-missing")
++        elif own["enumeration"] == "partial":
++            owed = ("input-closure-incomplete", "body-language-owner-unenumerated")
++        else:
++            sel = set(own["selectedUnitIds"])
++            units = {x["unitId"]: x for x in own["units"]}
++            for subj in sc["subjects"]:
++                rows = [r for r in own["ownership"]
++                        if r["path"] == subj and r["unitId"] in sel]
++                eff = set()
++                for r in rows:
++                    x = units[r["unitId"]]
++                    eff.add(x["targetEdition"] if x["targetEdition"] is not None
++                            else uni["edition"].get(x["crateName"]))
++                if len(eff) > 1:
++                    owed = ("input-closure-incomplete",
++                            "body-language-owner-ambiguous")
++                    break
++        if owed is None:
++            return
++        if entry["coverage"] != "unknown":
++            self.bad("COVERAGE_DIALECT_PREREQUISITE",
++                     "%s claims %s while a body dialect is undeterminable"
++                     % (cid, entry["coverage"]))
++        if entry["deficiency"] is None:
++            self.bad("COVERAGE_DIALECT_PREREQUISITE_UNDISCLOSED", cid)
++        elif entry["deficiency"] != owed[0]:
++            self.bad("COVERAGE_DIALECT_DEFICIENCY_MISMATCH",
++                     "%s %s != %s" % (cid, entry["deficiency"], owed[0]))
++        if entry["nativeCause"] != owed[1]:
++            self.bad("COVERAGE_DIALECT_CAUSE_MISMATCH",
++                     "%s %s != %s" % (cid, entry["nativeCause"], owed[1]))
+ 
+     def check_cause(self, cid, entry):
+         """native S10 + native-evidence.schemas.v2 #/x-opensip-deficiency-cause-registry."""

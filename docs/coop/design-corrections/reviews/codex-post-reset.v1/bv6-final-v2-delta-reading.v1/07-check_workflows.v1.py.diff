@@ -1,0 +1,413 @@
+--- finalv1/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ finalv2/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -618,138 +618,331 @@
+       _repair_requirement_refusal({'relation': 'imports', 'minResolution': 'resolved-callee'}) is not None)
+ check('repair.evidence-requirement-unregistered-relation-refused',
+       _repair_requirement_refusal({'relation': 'not-a-relation', 'minResolution': 'resolved-target'}) is not None)
+-# CB6-MUST-1. EvidenceRequirement.deficiency used to name D9Deficiency, which cannot express four of
+-# the nine outcomes its only producer (native section 4.6 sufficiency_v2) emits. These controls hold
+-# the three things the repair must keep separate: the NATIVE per-requirement outcome vocabulary, the
+-# D9 termination vocabulary, and the presence law that ties the value to `satisfied`.
++# CB6-MUST-1 / CX-BV6-02 / CX-BV6-03. EvidenceRequirement.deficiency used to name D9Deficiency,
++# which cannot express four of the nine native outcomes its producer emits. It now carries the
++# vocabulary of its requirement's evidence PLANE, and repair admits BOTH planes, so these controls
++# hold four things apart: the native outcome vocabulary, the imported one, the D9 termination
++# vocabulary, and the typed presence law that ties a value to `satisfied`.
+ _NATIVE_DEFICIENCIES = M.NATIVE_SUFFICIENCY_DEFICIENCIES
++_IMPORTED_DEFICIENCIES = M.IMPORTED_REQUIREMENT_DEFICIENCIES
+ _D9_DEFICIENCIES = SCHEMAS[U + 'common']['$defs']['D9Deficiency']['enum']
+-_MIRROR = SCHEMAS[U + 'common']['$defs']['NativeSufficiencyDeficiency']['enum']
++_IMPORT_LAW = SCHEMAS[U + 'imported-evidence']['x-opensip-imported-requirement-law']
+ check('repair.sufficiency-vocabulary-mirrors-the-native-authority-exactly',
+-      _MIRROR == _NATIVE_DEFICIENCIES, str(_MIRROR) + ' != ' + str(_NATIVE_DEFICIENCIES))
+-check('repair.evidence-requirement-names-the-native-vocabulary-not-d9',
+-      SCHEMAS[U + 'repair']['$defs']['EvidenceRequirement']['properties']['deficiency']['$ref']
+-      == U + 'common#/$defs/NativeSufficiencyDeficiency')
+-check('repair.evidence-requirement-deficiency-names-its-vocabulary-authority',
+-      SCHEMAS[U + 'repair']['$defs']['EvidenceRequirement']['properties']['deficiency']
+-      ['x-opensip-vocabulary']['authority'] == 'native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2')
+-# The four members that made the former typing unrepresentable, named one by one rather than counted.
++      SCHEMAS[U + 'common']['$defs']['NativeSufficiencyDeficiency']['enum'] == _NATIVE_DEFICIENCIES)
++check('repair.imported-vocabulary-mirrors-its-owning-law-exactly',
++      SCHEMAS[U + 'common']['$defs']['ImportedRequirementDeficiency']['enum']
++      == _IMPORTED_DEFICIENCIES == list(_IMPORT_LAW['precedence'])
++      and set(_IMPORTED_DEFICIENCIES) == set(_IMPORT_LAW['outcomes']))
++check('repair.the-two-requirement-planes-are-disjoint-vocabularies',
++      not (set(_NATIVE_DEFICIENCIES) & set(_IMPORTED_DEFICIENCIES)))
++check('repair.evidence-requirement-carries-both-plane-vocabularies-and-only-those',
++      [b['$ref'].rsplit('/', 1)[1] for b in
++       SCHEMAS[U + 'repair']['$defs']['EvidenceRequirement']['properties']['deficiency']['oneOf']]
++      == ['NativeSufficiencyDeficiency', 'ImportedRequirementDeficiency'])
+ _FOUR_WITHOUT_A_D9_MEMBER = ['derivation-policy-unmet', 'external-consumers-unknown',
+                              'input-closure-incomplete', 'resolution-incomplete']
+ check('repair.the-four-successor-outcomes-have-no-d9-deficiency-member',
+       all(m not in _D9_DEFICIENCIES for m in _FOUR_WITHOUT_A_D9_MEMBER)
+       and all(m in _NATIVE_DEFICIENCIES for m in _FOUR_WITHOUT_A_D9_MEMBER))
++# DomainDetailCode is a 287-member registry, so this is a statement about the NINE native outcomes
++# only: neither vocabulary alone covers them and the union does.
++_DDC = set(SCHEMAS[U + 'common']['$defs']['DomainDetailCode']['enum'])
+ check('repair.neither-single-vocabulary-covers-all-nine-native-outcomes',
+       not set(_NATIVE_DEFICIENCIES) <= set(_D9_DEFICIENCIES)
+-      and not set(_NATIVE_DEFICIENCIES) <= set(SCHEMAS[U + 'common']['$defs']['DomainDetailCode']['enum'])
+-      and set(_NATIVE_DEFICIENCIES) <= (set(_D9_DEFICIENCIES)
+-                                        | set(SCHEMAS[U + 'common']['$defs']['DomainDetailCode']['enum'])))
+-check('repair.d9-deficiency-was-not-widened-to-carry-per-requirement-outcomes',
++      and not set(_NATIVE_DEFICIENCIES) <= _DDC
++      and set(_NATIVE_DEFICIENCIES) <= (set(_D9_DEFICIENCIES) | _DDC))
++check('repair.d9-deficiency-enum-was-not-widened-to-carry-per-requirement-outcomes',
+       _D9_DEFICIENCIES == ['none', 'required-relation-missing', 'provider-unavailable',
+                            'language-tier-unsupported', 'budget-exhausted', 'confidence-floor-unmet',
+                            'convergence-exhausted', 'baseline-recipe-unsupported',
+                            'verdict-indeterminate', 'query-completeness-unmet'])
+ _ER_BASE = {'relation': 'imports', 'minResolution': 'resolved-target', 'completeness': 'complete'}
++_IMP_BASE = {'relation': 'runtime-observation', 'minResolution': 'observed', 'completeness': 'complete'}
+ for _m in _NATIVE_DEFICIENCIES:
+     must_valid('repair.evidence-requirement-admits-native-outcome.' + _m,
+                U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=_m))
++for _m in _IMPORTED_DEFICIENCIES:
++    must_valid('repair.evidence-requirement-admits-imported-outcome.' + _m,
++               U + 'repair#/$defs/EvidenceRequirement', dict(_IMP_BASE, satisfied=False, deficiency=_m))
+ for _m in ('none', 'verdict-indeterminate', 'convergence-exhausted', 'query-completeness-unmet'):
+     must_invalid('repair.evidence-requirement-refuses-d9-only-spelling.' + _m,
+                  U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=_m))
++# The TYPED presence law, both boundaries. CX-BV6-02: an explicit null is not an absent key and a
++# truthy non-boolean is not `true`; the schema always refused both and the boundary now agrees.
+ must_valid('repair.evidence-requirement-satisfied-omits-the-field',
+            U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=True))
+ must_invalid('repair.evidence-requirement-satisfied-must-not-carry-a-deficiency',
+              U + 'repair#/$defs/EvidenceRequirement',
+              dict(_ER_BASE, satisfied=True, deficiency='resolution-incomplete'))
++must_invalid('repair.evidence-requirement-satisfied-must-not-carry-an-explicit-null',
++             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=True, deficiency=None))
+ must_invalid('repair.evidence-requirement-unsatisfied-must-carry-a-deficiency',
+              U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False))
+-# The same law again at the producer/consumer BOUNDARY, so a host that skips schema validation is
+-# still held to it. `admit_evidence_requirement` returns the exact cause, never a boolean.
++must_invalid('repair.evidence-requirement-unsatisfied-must-not-carry-an-explicit-null',
++             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=None))
++must_invalid('repair.evidence-requirement-satisfied-must-be-a-boolean',
++             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=1))
++# The SAME law at the producer/consumer boundary. This is not a claim that the boundary substitutes
++# for validating the record: it is the requirement that two boundaries deciding one law AGREE, which
++# is exactly what a root probe found they did not. `_boundary_table` below is held equal to the
++# schema on every row.
+ def _requirement_admission(req):
+     try:
+         return ('ADMIT', M.admit_evidence_requirement(req))
+     except M.Refusal as exc:
+-        return ('REFUSE', exc.remedy)
+-check('repair.boundary-returns-the-exact-cause-not-a-boolean',
+-      _requirement_admission(dict(_ER_BASE, satisfied=False, deficiency='resolution-incomplete'))
+-      == ('ADMIT', 'resolution-incomplete'))
+-check('repair.boundary-returns-none-for-a-satisfied-requirement',
+-      _requirement_admission(dict(_ER_BASE, satisfied=True)) == ('ADMIT', None))
+-for _bad, _key in ((dict(_ER_BASE, satisfied=True, deficiency='resolution-incomplete'),
+-                    'native.sufficiency-outcome-on-satisfied-requirement'),
+-                   (dict(_ER_BASE, satisfied=False), 'native.sufficiency-outcome-missing'),
+-                   (dict(_ER_BASE, satisfied=False, deficiency='verdict-indeterminate'),
+-                    'native.sufficiency-outcome-not-a-native-outcome'),
+-                   (dict(_ER_BASE, satisfied=False, deficiency='none'),
+-                    'native.sufficiency-outcome-not-a-native-outcome')):
+-    _outcome, _reason = _requirement_admission(_bad)
+-    check('repair.boundary-refuses.' + _key + '.' + str(_bad.get('deficiency')),
+-          _outcome == 'REFUSE' and _key in _reason, str(_outcome) + ':' + str(_reason))
++        return ('REFUSE', exc.error_code + '|' + exc.remedy)
++_BOUNDARY_TABLE = [
++    (dict(_ER_BASE, satisfied=True), 'ADMIT', ('native', None)),
++    (dict(_ER_BASE, satisfied=False, deficiency='resolution-incomplete'), 'ADMIT',
++     ('native', 'resolution-incomplete')),
++    (dict(_IMP_BASE, satisfied=True), 'ADMIT', ('imported', None)),
++    (dict(_IMP_BASE, satisfied=False, deficiency='import-unmapped-only'), 'ADMIT',
++     ('imported', 'import-unmapped-only')),
++    (dict(_ER_BASE, satisfied=True, deficiency=None), 'REFUSE',
++     'native.sufficiency-outcome-on-satisfied-requirement'),
++    (dict(_ER_BASE, satisfied=True, deficiency='resolution-incomplete'), 'REFUSE',
++     'native.sufficiency-outcome-on-satisfied-requirement'),
++    (dict(_ER_BASE, satisfied=1), 'REFUSE', 'native.sufficiency-outcome-satisfied-not-boolean'),
++    (dict(_ER_BASE, satisfied=False), 'REFUSE', 'native.sufficiency-outcome-missing'),
++    (dict(_ER_BASE, satisfied=False, deficiency=None), 'REFUSE', 'native.sufficiency-outcome-null'),
++    (dict(_ER_BASE, satisfied=False, deficiency='verdict-indeterminate'), 'REFUSE',
++     'native.sufficiency-outcome-not-a-native-outcome'),
++]
++# The two CROSS-PLANE rows are held separately and deliberately, because the SCHEMA CANNOT DECIDE
++# THEM. `relation` is a CanonicalIdentifier, not an enum, so no keyword in this document can look up
++# which registry that relation belongs to; the oneOf therefore admits either vocabulary on either
++# relation. The plane is decided at ADMISSION from registry membership - the same place the
++# imported-evidence evidenceDeclarationRule already separates the two planes - and these rows record
++# exactly where the schema stops rather than asserting an agreement that does not exist.
++_CROSS_PLANE_TABLE = [
++    (dict(_ER_BASE, satisfied=False, deficiency='import-unmapped-only'),
++     'native.sufficiency-outcome-wrong-plane'),
++    (dict(_IMP_BASE, satisfied=False, deficiency='resolution-incomplete'),
++     'native.sufficiency-outcome-wrong-plane'),
++]
++for _i, (_req, _detail) in enumerate(_CROSS_PLANE_TABLE):
++    _outcome, _payload = _requirement_admission(_req)
++    check('repair.cross-plane-value-refused-at-the-boundary.%d' % _i,
++          _outcome == 'REFUSE' and _detail in _payload and _payload.startswith('CONFIG.INVALID|'),
++          str(_outcome) + ':' + str(_payload))
++    _schema_ok, _ = valid(U + 'repair#/$defs/EvidenceRequirement', _req)
++    check('repair.the-schema-alone-cannot-decide-the-plane.%d' % _i, _schema_ok is True,
++          'schema unexpectedly refused; if a keyword now decides the plane, say so in the field '
++          'description instead of relying on admission alone')
++for _i, (_req, _expect, _detail) in enumerate(_BOUNDARY_TABLE):
++    _outcome, _payload = _requirement_admission(_req)
++    if _expect == 'ADMIT':
++        check('repair.boundary-admits-and-returns-plane-and-cause.%d' % _i,
++              _outcome == 'ADMIT' and _payload == _detail, str(_outcome) + ':' + str(_payload))
++    else:
++        check('repair.boundary-refuses.%d.%s' % (_i, _detail),
++              _outcome == 'REFUSE' and _detail in _payload and _payload.startswith('CONFIG.INVALID|'),
++              str(_outcome) + ':' + str(_payload))
++    # The owning SCHEMA must reach the same verdict on the same bytes; a disagreement here is the
++    # defect CX-BV6-02 named, whichever side is wrong.
++    _schema_ok, _ = valid(U + 'repair#/$defs/EvidenceRequirement', _req)
++    check('repair.boundary-and-schema-agree.%d' % _i, _schema_ok == (_expect == 'ADMIT'),
++          'schema=%s boundary=%s' % (_schema_ok, _expect))
++# CX-BV6-03. The IMPORTED plane has its own producer, its own per-kind projections and its own
++# input bindings. Every input is bound to an owning field: targets come from the PLAN, all-versus-any
++# from the requirement's EXISTING `completeness`, required-versus-optional from evidenceUse. History
++# is never projected through the runtime fields.
++_IMP_LAW = SCHEMAS[U + 'imported-evidence']['x-opensip-imported-requirement-law']
++_RT_EV = {'available': True, 'consumable': True, 'windowSatisfiesRequirement': True,
++          'observationWindow': {'startUtc': '2026-09-01T00:00:00Z', 'endUtc': '2026-09-02T00:00:00Z'},
++          'observedPopulation': 'synthetic', 'observability': {'seen': 'observed-hit'}}
++_HS_EV = {'available': True, 'consumable': True, 'rangeSatisfiesRequirement': True,
++          'covered': {'seen': True}, 'present': {'seen': True},
++          'revisionRange': {'from': None, 'to': 'a' * 40, 'commitCount': 3, 'truncated': False}}
++def _imp_req(rel='runtime-observation', completeness='complete'):
++    return {'relation': rel, 'minResolution': 'observed', 'completeness': completeness}
++def _imp(rel, completeness, targets, ev, **kw):
++    try:
++        r = M.imported_requirement_outcome(_imp_req(rel, completeness), targets, ev, **kw)
++        return r.get('deficiency') or ('SATISFIED:' + r.get('satisfiedBy', '')), r
++    except M.Refusal as exc:
++        return 'REFUSE:' + exc.remedy.split(':')[0], None
++# The all-versus-any law, both directions. A draft of this producer used any() unconditionally and
++# admitted a `complete` requirement while one target was unsupported; root demonstrated it.
++check('repair.imported-complete-requires-every-target',
++      _imp('runtime-observation', 'complete', ['seen', 'missing'], _RT_EV)[0]
++      == 'import-absent-for-requirement')
++check('repair.imported-partial-acceptable-requires-at-least-one-target',
++      _imp('runtime-observation', 'partial-acceptable', ['seen', 'missing'], _RT_EV)[0]
++      == 'SATISFIED:bounded-observation')
++check('repair.imported-complete-is-satisfied-when-every-target-is-supported',
++      _imp('runtime-observation', 'complete', ['seen'], _RT_EV)[0] == 'SATISFIED:bounded-observation')
++check('repair.imported-projection-refuses-a-plan-with-no-targets-rather-than-satisfying-vacuously',
++      _imp('runtime-observation', 'complete', [], _RT_EV)[0]
++      == 'REFUSE:native.imported-outcome-without-targets')
++# A satisfied outcome is not necessarily POSITIVE: observable-unhit is bounded NEGATIVE evidence and
++# the disclosure carries which polarity satisfied it.
++_UNHIT = _imp('runtime-observation', 'complete', ['seen'],
++              dict(_RT_EV, observability={'seen': 'observable-unhit'}))
++check('repair.bounded-negative-observable-unhit-can-satisfy-and-says-so',
++      _UNHIT[0] == 'SATISFIED:bounded-observation'
++      and _UNHIT[1]['disclosures'][0]['polarity'] == ['observable-unhit']
++      and _UNHIT[1]['disclosures'][0]['observedPopulation'] == 'synthetic')
++# Optional absence is satisfied BY ABSENCE and is labelled as such; REQUIRED is never defaulted.
++_OPT = _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, available=False), required=False)
++check('repair.optional-imported-absence-is-satisfied-by-absence-not-by-evidence',
++      _OPT[0] == 'SATISFIED:declared-optional-absence'
++      and _OPT[1]['disclosures'][0]['code'] == 'IMPORT.ABSENT_FOR_PREDICATE')
++check('repair.an-unsupplied-evidence-use-declaration-is-required-never-optional',
++      _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, available=False))[0]
++      == 'evidence-kind-unavailable')
++for _delta, _want in ((dict(consumable=False), 'import-unmapped-only'),
++                      (dict(observability={'seen': 'unobservable'}), 'subject-not-observable'),
++                      (dict(observability={'seen': 'unmapped'}), 'subject-not-observable'),
++                      (dict(windowSatisfiesRequirement=False), 'observation-window-insufficient')):
++    check('repair.imported-runtime-outcome.' + _want,
++          _imp('runtime-observation', 'complete', ['seen'], dict(_RT_EV, **_delta))[0] == _want)
++# HISTORY has its OWN projection: HistoryPayloadV1 carries revisionRange and collectionScope and has
++# no observationWindow, observedPopulation or observability, so the runtime projection is never
++# applied to it and neither relation can report the other's outcomes.
++check('repair.history-is-satisfied-through-its-own-projection',
++      _imp('history-change', 'complete', ['seen'], _HS_EV)[0] == 'SATISFIED:bounded-observation')
++for _delta, _want in ((dict(covered={'seen': True}), 'history-outside-collection-scope'),
++                      (dict(rangeSatisfiesRequirement=False), 'history-range-insufficient')):
++    _t = ['seen', 'other'] if _want == 'history-outside-collection-scope' else ['seen']
++    check('repair.imported-history-outcome.' + _want,
++          _imp('history-change', 'complete', _t, dict(_HS_EV, **_delta))[0] == _want)
++check('repair.the-two-imported-kinds-report-only-their-own-outcomes',
++      set(_IMP_LAW['perKindApplicability']['runtime-observation'])
++      & set(_IMP_LAW['perKindApplicability']['history-change'])
++      == {'evidence-kind-unavailable', 'import-unmapped-only', 'import-absent-for-requirement'}
++      and 'subject-not-observable' not in _IMP_LAW['perKindApplicability']['history-change']
++      and 'history-range-insufficient' not in _IMP_LAW['perKindApplicability']['runtime-observation']
++      and 'observationWindow' not in SCHEMAS[U + 'imported-evidence']['$defs']['HistoryPayloadV1']['properties']
++      and 'collectionScope' in SCHEMAS[U + 'imported-evidence']['$defs']['HistoryPayloadV1']['required'])
++check('repair.every-imported-outcome-names-its-owning-payload-field',
++      all(r['boundTo'] and r['groundedIn'] and r['appliesTo'] for r in _IMP_LAW['outcomes'].values())
++      and set(_IMP_LAW['outcomes']) == set(_IMP_LAW['precedence']))
++check('repair.the-input-binding-names-the-owning-field-for-every-input',
++      {'targets', 'allVersusAny', 'requiredVersusOptional', 'windowDemand', 'admittedInputsOnly'}
++      <= set(_IMP_LAW['inputBinding'])
++      and 'RepairPlanDescriptor.targets' in _IMP_LAW['inputBinding']['targets']
++      and 'completeness' in _IMP_LAW['inputBinding']['allVersusAny'])
++check('repair.the-imported-producer-refuses-a-native-relation',
++      _imp('references', 'complete', ['seen'], _RT_EV)[0]
++      == 'REFUSE:native.imported-outcome-for-native-relation')
++check('repair.the-plane-is-read-from-registry-membership-not-from-the-value',
++      M.requirement_plane('runtime-observation') == 'imported'
++      and M.requirement_plane('history-change') == 'imported'
++      and M.requirement_plane('references') == 'native'
++      and set(M.EVIDENCE_RELATIONS) == {'runtime-observation', 'history-change'})
++check('repair.both-imported-relations-are-still-admissible-requirement-relations',
++      all(_repair_requirement_refusal({'relation': _r, 'minResolution': 'observed'}) is None
++          for _r in ('runtime-observation', 'history-change')))
+ check('policy.every-relation-has-a-nonempty-ladder', all(M.RELATION_LADDERS.values()))
+-# CB6-SHOULD-1. The command name -> MutationOperation map. `mutationClass` is a public envelope
+-# field and equals MutationReplayScopeV1.operation, which is the whole preimage of the published
+-# idempotencyKey, yet the Command record carries no such field and three commands do not share
+-# their operation's name. These controls hold the published map total, closed and honest, and hold
+-# repair-apply OUT of the two generic positions.
++# CB6-SHOULD-1 / CX-BV6-04. THREE different things, named for what they are: which operation each
++# current command's generic `mutation` step EMITS, the one DEDICATED step operation, and the ACTUAL
++# admissible domain of the generic operation field. An earlier revision published command names
++# under a key the annotations called the operation domain; the two differ in nine places.
+ _MAP = SCHEMAS[U + 'repair']['x-opensip-mutation-operation-map']
+-_BY_COMMAND = _MAP['byCommand']
++_BY_COMMAND = _MAP['byCommandGenericMutationStep']
++_FIELD_DOMAIN = _MAP['admissibleGenericFieldDomain']['operations']
+ _OPS = SCHEMAS[U + 'repair']['$defs']['MutationOperation']['enum']
+ _INV = canonical.parse((HERE / 'command-inventory.v1.json').read_bytes())['commands']
+ _CMD = {c['name']: c for c in _INV}
+-_MUTATING_STEPS = {'mutation', 'repair-apply', 'import', 'native-preparation'}
+-_COMMANDS_WITH_A_MUTATING_STEP = {c['name'] for c in _INV
+-                                  if _MUTATING_STEPS & set(c['steps'])} - {'analyze'}
+-check('workflow.mutation-operation-map-covers-every-command-that-mints-one',
+-      set(_BY_COMMAND) == _COMMANDS_WITH_A_MUTATING_STEP,
+-      str(sorted(set(_BY_COMMAND) ^ _COMMANDS_WITH_A_MUTATING_STEP)))
+-check('workflow.mutation-operation-map-names-no-command-outside-the-inventory',
+-      set(_BY_COMMAND) <= set(_CMD))
+-check('workflow.mutation-operation-map-values-are-all-registered-operations',
+-      all(r['operation'] in _OPS for r in _BY_COMMAND.values()))
+-check('workflow.mutation-operation-map-rows-name-a-real-step-of-that-command',
+-      all(r['mintedByStepKind'] in _CMD[n]['steps'] and r['requestClass'] == _CMD[n]['requestClass']
++# The emission rule is DERIVED, not patched: a command emits a generic operation exactly when it has
++# a generic `mutation` step. `analyze` needs no exception - its mutating-family step is `import`,
++# whose params carry no operation field at all.
++check('workflow.the-generic-map-is-exactly-the-commands-with-a-generic-mutation-step',
++      set(_BY_COMMAND) == {c['name'] for c in _INV if 'mutation' in c['steps']},
++      str(sorted(set(_BY_COMMAND) ^ {c['name'] for c in _INV if 'mutation' in c['steps']})))
++# The receipt operation is bound by STEP KIND, and both results that own a mutating step REQUIRE a
++# receiptId, so `import` and `native-preparation` are REQUIRED receipt operations - not operations
++# with no emitter, which is what an earlier revision inferred from the reference model.
++_BY_STEP = _MAP['byStepKindReceiptOperation']
++_IR = SCHEMAS[U + 'invocation-record']['$defs']
++check('workflow.import-and-native-preparation-results-require-a-receipt',
++      'receiptId' in _IR['ImportResult']['required']
++      and 'receiptId' in _IR['NativePreparationResult']['required']
++      and _IR['ImportResult']['properties']['receiptId']['$ref'].endswith('ReceiptId')
++      and _IR['NativePreparationResult']['properties']['receiptId']['$ref'].endswith('ReceiptId'))
++check('workflow.the-one-receipt-domain-carries-a-required-operation',
++      SCHEMAS[U + 'common']['$defs']['ReceiptId']['pattern'].startswith('^receipt2:')
++      and 'operation' in SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['required']
++      and SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['properties']['operation']['$ref']
++          == '#/$defs/MutationOperation')
++check('workflow.every-step-kind-binding-names-a-real-step-kind-and-operation',
++      set(_BY_STEP) == {'mutation', 'repair-apply', 'import', 'native-preparation'}
++      and all(k in {s for c in _INV for s in c['steps']} for k in _BY_STEP)
++      and all(_BY_STEP[k]['operation'] in _OPS for k in ('repair-apply', 'import', 'native-preparation')))
++# `analyze` is resolved by the step-kind law rather than by an exception: its import step carries the
++# same receipt operation as the import command's, which is also a worked case of ONE operation
++# emitted by TWO commands.
++check('workflow.analyze-import-step-is-bound-by-the-step-kind-law-not-an-exception',
++      'import' in _CMD['analyze']['steps'] and 'mutation' not in _CMD['analyze']['steps']
++      and 'analyze' not in _BY_COMMAND and _BY_STEP['import']['operation'] == 'import'
++      and 'appliesToEveryImportStep' in _BY_STEP['import'])
++check('workflow.the-import-operation-is-emitted-by-two-commands-so-the-map-is-not-invertible',
++      {c['name'] for c in _INV if 'import' in c['steps']} == {'import', 'analyze'})
++# The two dedicated step kinds are not generic replay, and this map does not make them so.
++check('workflow.import-and-native-preparation-are-not-generic-mutation-params',
++      _IR['ImportParams']['properties']['kind']['const'] == 'import'
++      and _IR['NativePreparationParams']['properties']['kind']['const'] == 'native-preparation'
++      and 'mutationClass' not in _IR['ImportParams']['properties']
++      and 'mutationClass' not in _IR['NativePreparationParams']['properties']
++      and all('notGenericReplay' in _BY_STEP[k] for k in ('import', 'native-preparation')))
++check('workflow.every-generic-row-names-a-real-step-and-class-of-that-command',
++      all(r['mintedByStepKind'] == 'mutation' and r['operation'] in _OPS
++          and r['mintedByStepKind'] in _CMD[n]['steps'] and r['requestClass'] == _CMD[n]['requestClass']
+           for n, r in _BY_COMMAND.items()))
+-check('workflow.mutation-operation-map-is-injective',
+-      len({r['operation'] for r in _BY_COMMAND.values()}) == len(_BY_COMMAND))
+-# The three rows a name-matching rule would get wrong, named individually.
+ check('workflow.mutation-operation-renames-are-published',
+       _MAP['renamedRows'] == {'baseline-upgrade': 'baseline-upgrade-apply',
+                               'native-prepare': 'native-preparation',
+-                              'policy-init': 'policy-write', 'waive': 'waiver-change'}
+-      and all(_BY_COMMAND[c]['operation'] == o for c, o in _MAP['renamedRows'].items()))
++                              'policy-init': 'policy-write', 'waive': 'waiver-change'})
+ check('workflow.the-three-mutation-class-renames-are-the-mutation-class-subset',
+       {c for c in _MAP['renamedRows'] if _CMD[c]['requestClass'] == 'mutation'}
+       == {'baseline-upgrade', 'policy-init', 'waive'}
+       and _CMD['native-prepare']['requestClass'] == 'execution')
+-check('workflow.the-renamed-rows-are-exactly-the-commands-with-no-same-named-operation',
+-      set(_MAP['renamedRows']) == {n for n in _BY_COMMAND if n not in _OPS})
+-# Honest disclosure rather than an invented command.
+-check('workflow.operations-with-no-command-are-exactly-the-disclosed-set',
+-      _MAP['operationsWithNoCommand']['operations']
+-      == sorted(set(_OPS) - {r['operation'] for r in _BY_COMMAND.values()})
+-      and _MAP['operationsWithNoCommand']['operations'] == ['config-write'])
+-# The generic set and the dedicated exclusion, held apart at the schema, not only in prose.
+-check('workflow.generic-mutation-classes-are-exactly-the-mutation-step-rows',
+-      _MAP['genericMutationClasses']
+-      == sorted(n for n, r in _BY_COMMAND.items() if r['mintedByStepKind'] == 'mutation'))
+-check('workflow.repair-apply-is-mapped-but-not-a-generic-mutation-class',
+-      _BY_COMMAND['repair-apply']['operation'] == 'repair-apply'
+-      and 'repair-apply' not in _MAP['genericMutationClasses']
+-      and _MAP['excludedFromGenericMutation']['operations'] == ['repair-apply'])
++# The orphan set is RECOMPUTED here, not restated from the document.
++check('workflow.the-one-operation-no-step-kind-binds-is-recomputed-and-match',
++      _MAP['operationsWithNoCommandInThisInventory']['operations']
++      == sorted(set(_OPS) - {r['operation'] for r in _BY_COMMAND.values()}
++                - {_BY_STEP[k]['operation'] for k in ('repair-apply', 'import', 'native-preparation')})
++      == ['config-write'])
++# THE CORRECTION: the published field domain is the SCHEMA's domain, verified by admitting every
++# one of its members at the actual field and refusing the one excluded token. It is deliberately
++# WIDER than the emitted set and is not narrowed to current emitters.
++check('workflow.the-field-domain-is-every-operation-except-repair-apply',
++      _FIELD_DOMAIN == sorted(set(_OPS) - {'repair-apply'}) and len(_FIELD_DOMAIN) == 23)
++check('workflow.the-field-domain-is-wider-than-what-current-commands-emit',
++      {r['operation'] for r in _BY_COMMAND.values()} < set(_FIELD_DOMAIN)
++      and len({r['operation'] for r in _BY_COMMAND.values()}) == 20)
+ _SCOPE = {'schemaVersion': 1, 'requestId': C['REQ'], 'stepId': 2, 'projectId': C['PRJ']}
+-for _n in _MAP['genericMutationClasses']:
+-    _op = _BY_COMMAND[_n]['operation']
++for _op in _FIELD_DOMAIN:
+     must_valid('workflow.generic-mutation-scope-admits.' + _op,
+                U + 'invocation-record#/$defs/MutationReplayScopeV1', dict(_SCOPE, operation=_op))
++    must_valid('workflow.generic-mutation-class-admits.' + _op,
++               U + 'invocation-record#/$defs/MutationParams/properties/mutationClass', _op)
+ for _op in ('repair-apply',):
+     must_invalid('workflow.generic-mutation-scope-refuses.' + _op,
+                  U + 'invocation-record#/$defs/MutationReplayScopeV1', dict(_SCOPE, operation=_op))
+-    must_invalid('workflow.generic-mutation-params-refuses.' + _op,
+-                 U + 'invocation-record#/$defs/MutationParams',
+-                 {'kind': 'mutation', 'mutationClass': _op, 'idempotencyKey': 'a' * 64})
+-# Publishing the map did not widen what a generic mutation may claim.
++    must_invalid('workflow.generic-mutation-class-refuses.' + _op,
++                 U + 'invocation-record#/$defs/MutationParams/properties/mutationClass', _op)
++check('workflow.every-step-kind-binding-cites-its-owning-result-or-params',
++      all(_BY_STEP[k]['citations'] for k in _BY_STEP)
++      and any('RepairApplyParams' in c for c in _BY_STEP['repair-apply']['citations'])
++      and any('ImportResult' in c for c in _BY_STEP['import']['citations'])
++      and any('NativePreparationResult' in c for c in _BY_STEP['native-preparation']['citations'])
++      and _BY_STEP['repair-apply']['excludedFromGenericFields'] is True)
++check('workflow.the-reference-model-limit-is-stated-not-confused-with-the-design-law',
++      'whatIsNotClaimed' in _MAP and 'QUALIFICATION limit' in _MAP['whatIsNotClaimed'])
++# Injectivity is an observation about today's inventory, not a law, so it is recorded as one.
++check('workflow.the-current-generic-rows-happen-to-be-injective-which-is-not-assumed-as-a-law',
++      len({r['operation'] for r in _BY_COMMAND.values()}) == len(_BY_COMMAND)
++      and 'injectivityIsNotAssumed' in _MAP)
++check('workflow.the-annotations-name-the-field-domain-not-the-command-list',
++      all(SCHEMAS[U + 'invocation-record']['$defs'][_d]['properties'][_f]['x-opensip-vocabulary']
++          ['fieldDomainAuthority'].endswith('admissibleGenericFieldDomain')
++          for _d, _f in (('MutationParams', 'mutationClass'),
++                         ('MutationReplayScopeV1', 'operation'))))
+ check('workflow.publishing-the-map-added-no-operation-and-no-command',
+       len(_OPS) == 24 and len(_INV) == 45)
++
+ check('policy.rung-vocabulary-is-exactly-the-ladder-union',
+       M.RUNG_VOCABULARY == set(SCHEMAS[U + 'policy-document']['$defs']['Rung']['enum']),
+       str(sorted(M.RUNG_VOCABULARY ^ set(SCHEMAS[U + 'policy-document']['$defs']['Rung']['enum']))))

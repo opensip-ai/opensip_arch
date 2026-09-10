@@ -1,0 +1,497 @@
+--- released-v1/docs/coop/design-corrections/foundation/check-identity.py
++++ current-v2/docs/coop/design-corrections/foundation/check-identity.py
+@@ -2134,9 +2134,38 @@
+ rejects_because('external-consumers-unknown-over-closed-exports-refuses',
+     lambda:cause_run(lambda e:e.update(deficiency='external-consumers-unknown')),
+     'native.coverage-cause-carrier-unsupported:external-consumers-unknown')
++# derivation-policy-unmet is scoped by native 4.7 / sufficiency_v2 to relation `types` - the only
++# relation that HAS a derivationPolicy - so its controls run on `types`, and `references` becomes
++# the discriminating negative. An earlier revision checked the derivationKinds carrier alone, and a
++# complete Run admitted the declared deficiency on a `references` entry that merely carried the
++# same array value; that entry was this suite's own purported positive.
+ rejects_because('derivation-policy-unmet-without-compiler-inferred-refuses',
+-    lambda:cause_run(lambda e:e.update(deficiency='derivation-policy-unmet')),
++    lambda:cause_run(lambda e:e.update(deficiency='derivation-policy-unmet'),relation='types'),
+     'native.coverage-cause-carrier-unsupported:derivation-policy-unmet')
++for _relation in ('references','declares','file'):
++    rejects_because('derivation-policy-unmet-is-refused-outside-relation-types.'+_relation,
++        (lambda r=_relation:cause_run(lambda e:e.update(deficiency='derivation-policy-unmet',
++            nativeCause=None,derivationKinds=['compiler-inferred']),relation=r)),
++        'native.coverage-cause-relation-not-in-scope:derivation-policy-unmet:'+_relation+':owned-by=types')
++check('the-registry-names-types-as-the-owning-relation-of-derivation-policy-unmet',
++      DCR['deficiencies']['derivation-policy-unmet']['relations']==['types'] and
++      all('relations' not in row for name,row in DCR['deficiencies'].items()
++          if name!='derivation-policy-unmet'))
++check('the-owning-relation-matches-the-sufficiency-evaluation-that-gates-the-policy',
++      N.sufficiency_v2({'relation':'types','minResolution':'checked','completeness':'partial-ok',
++                        'derivationPolicy':'declared-only'},
++                       {'types':{'resolution':'checked','coverage':'complete',
++                                 'derivationKinds':['compiler-inferred'],
++                                 'resolutionCompleteness':{'state':'complete','unresolvedEdgeCount':0,
++                                                           'unresolvedEdgeClasses':[]}}}
++                       )['deficiency']=='derivation-policy-unmet' and
++      N.sufficiency_v2({'relation':'types','minResolution':'checked','completeness':'partial-ok',
++                        'derivationPolicy':'any'},
++                       {'types':{'resolution':'checked','coverage':'complete',
++                                 'derivationKinds':['compiler-inferred'],
++                                 'resolutionCompleteness':{'state':'complete','unresolvedEdgeCount':0,
++                                                           'unresolvedEdgeClasses':[]}}}
++                       )['satisfied'] is True)
+ rejects_because('input-closure-incomplete-with-a-null-cause-refuses',
+     lambda:cause_run(lambda e:e.update(deficiency='input-closure-incomplete')),
+     'native.coverage-cause-required:input-closure-incomplete')
+@@ -2159,9 +2188,25 @@
+ check('external-consumers-unknown-admits-over-open-exports',
+       cause_run(lambda e:(e.update(deficiency='external-consumers-unknown',nativeCause=None),
+                           e['closedWorld'].update(exportsClosed='open'))).startswith('run2:'))
+-check('derivation-policy-unmet-admits-when-compiler-inferred-is-carried',
++check('derivation-policy-unmet-admits-on-types-when-compiler-inferred-is-carried',
+       cause_run(lambda e:e.update(deficiency='derivation-policy-unmet',nativeCause=None,
+-                                  derivationKinds=['compiler-inferred'])).startswith('run2:'))
++                                  derivationKinds=['compiler-inferred']),
++                relation='types').startswith('run2:'))
++# The relation condition must not touch the OTHER direction: compiler-inferred types are exact
++# under the admitted universe and are valid under derivationPolicy=any. They become a deficiency
++# only under declared-only, which is sufficiency_v2's question against a RequirementV2 and is not
++# derived from a Coverage entry here.
++check('compiler-inferred-types-stay-valid-with-no-deficiency-under-policy-any',
++      cause_run(lambda e:e.update(derivationKinds=['compiler-inferred']),
++                resolved=True,relation='types').startswith('run2:'))
++check('a-complete-types-entry-carrying-compiler-inferred-owes-no-deficiency',
++      cause_run(lambda e:e.update(derivationKinds=['compiler-inferred'],deficiency=None,
++                                  nativeCause=None),resolved=True,relation='types').startswith('run2:'))
++check('the-registry-states-the-declaration-support-versus-obligation-split',
++      'not derived here' in DCR['deficiencies']['derivation-policy-unmet']
++                              ['thisIsDeclarationSupportNotAnObligation'] and
++      'derivationPolicy=any' in DCR['deficiencies']['derivation-policy-unmet']
++                                  ['thisIsDeclarationSupportNotAnObligation'])
+ check('budget-exhausted-admits-when-the-stage-terminal-says-so',
+       cause_run(lambda e:(e.update(deficiency='budget-exhausted',nativeCause=None),
+                           e['resolutionCompleteness'].update(stageTerminal='budget-exhausted'))
+@@ -2210,6 +2255,74 @@
+       (lambda t:t[1].startswith('run2:') and t[0]['coverage']=='complete'
+        and t[0]['resolutionCompleteness']['state']=='incomplete' and t[0]['deficiency'] is None)
+       (multi_class_run()))
++# --- precision: the anchor bound, the carrier retention claim and the section 10 event table.
++check('the-source-text-class-declines-a-relation-specific-bound-not-the-shared-one',
++      'ADDITIONAL relation-specific maximum' in
++      M.RELATION_DOCUMENT['x-opensip-relation-registry']['anchorLaw']['classes']['source-text']
++       ['noIdentityEqualityPromise'] and
++      M.SCHEMA['$defs']['fact']['properties']['anchors']['maxItems']==100000 and
++      M.SCHEMA['$defs']['fact']['properties']['anchors']['uniqueItems'] is True)
++# The phrase survives ONLY where the text repudiates it as an earlier revision's error; every
++# live statement of the law must carry the qualified form. Testing the CLAIM, not the substring.
++def _upper_bound_sites(text):
++    return [ln for ln in text.replace('\n',' ').split('. ')
++            if ('no upper bound' in ln or 'NO upper bound' in ln)]
++check('no-live-statement-still-claims-there-is-no-upper-bound-at-all',
++      all(('earlier revision' in site or 'An earlier revision' in site)
++          for text in [json.dumps(M.RELATION_DOCUMENT['x-opensip-relation-registry']['anchorLaw']),
++                       (H/'identity-model.py').read_text(),
++                       (H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text(),
++                       (H.parents[2]/'v2/contracts/product-v1/identity-and-evidence.md').read_text()]
++          for site in _upper_bound_sites(text)))
++check('every-live-statement-of-the-anchor-bound-carries-the-qualified-form',
++      all('additional relation-specific' in text.lower() for text in [
++          json.dumps(M.RELATION_DOCUMENT['x-opensip-relation-registry']['anchorLaw']),
++          (H/'identity-model.py').read_text(),
++          (H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text(),
++          (H.parents[2]/'v2/contracts/product-v1/identity-and-evidence.md').read_text()]))
++# The carrier retention claim is now per carrier: one is a full set, one is a selected scalar.
++check('the-set-valued-carrier-and-the-selected-scalar-carrier-are-distinguished',
++      'SELECTED one, not the full set' in DCR['multiCauseAndPrecedence'] and
++      'genuine SET' in DCR['multiCauseAndPrecedence'] and
++      # the phrase survives only as the repudiated earlier claim, never as a live one
++      'wrongly generalised' in DCR['multiCauseAndPrecedence'] and
++      'earlier revision of this paragraph generalised' in
++      (H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text())
++check('the-selected-scalar-limitation-names-its-provenance-and-invents-no-new-format',
++      'No multi-cause format is introduced' in DCR['selectedScalarCauseLimitation'] and
++      'retained records in their own right' in DCR['selectedScalarCauseLimitation'])
++check('the-input-closure-carrier-really-is-a-single-scalar-while-the-class-carrier-is-an-array',
++      N.SCHEMAS['$defs']['ViewEntryV3']['properties']['nativeCause']['oneOf'][0]['$ref']
++      =='#/$defs/NativeCause' and
++      N.SCHEMAS['$defs']['NativeCause']['type']=='string' and
++      N.SCHEMAS['$defs']['ResolutionCompletenessV2']['properties']['unresolvedEdgeClasses']['type']=='array')
++# The pre-existing five-column event rows have their own header again.
++def section_ten_tables():
++    text=(H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text()
++    body=text.split('## 10. Deficiencies, precedence and D9 mapping',1)[1].split('\n## 11.',1)[0]
++    return [l for l in body.splitlines() if l.startswith('|')]
++def section_ten_blocks():
++    """Contiguous pipe-table blocks, each with its own header row. A block whose rows do not all
++    match its header's column count is the orphan-row defect this control exists to catch."""
++    text=(H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text()
++    body=text.split('## 10. Deficiencies, precedence and D9 mapping',1)[1].split('\n## 11.',1)[0]
++    blocks=[];current=None
++    for line in body.splitlines():
++        if line.startswith('|'):
++            if current is None:current=[];blocks.append(current)
++            current.append(line)
++        else:current=None
++    return blocks
++_blocks=section_ten_blocks()
++check('section-ten-carries-only-properly-headed-tables-and-no-orphan-rows',
++      len(_blocks)>=2 and all(len(b)>=2 and set(b[1])<=set('|- ') for b in _blocks))
++check('every-section-ten-row-has-the-column-count-of-its-own-header',
++      all(all(l.count('|')==b[0].count('|') for l in b if not set(l)<=set('|- ')) for b in _blocks))
++check('the-restored-event-table-still-carries-its-pre-existing-routes',
++      sum(1 for b in _blocks for l in b if 'native.stale-prepared-output' in l or
++          'native.execution-not-authorized' in l or 'PROJECT.DISCOVERY_INVENTORY_MISMATCH' in l or
++          'native.prepare-bound-exceeded' in l or 'native.ambient-cargo-config' in l or
++          'PROJECT.SCOPE_LIMIT' in l or 'unrecognized framework' in l)==7)
+ check('the-registry-states-that-limit-rather-than-inventing-an-entry-level-obligation',
+       'requirement-relative' in DCR['multiCauseAndPrecedence']
+       and 'RC-3' in DCR['multiCauseAndPrecedence'])
+@@ -2703,6 +2816,97 @@
+ check('the-unsupported-typed-cells-are-not-refused-by-the-vocabulary-join',
+       N.admit_requested_capabilities([{'capabilityId':'references','languageMode':'syntax-only',
+                                        'workspaceRoot':'.','required':True}]) is not None)
++# --- every new internal decision key has a published route to an EXISTING public code.
++# The public detail registry's own aliasRule requires internal keys to normalize at the host
++# boundary and forbids them from appearing in DomainDetailCode; these controls hold the new guards
++# to that rule rather than letting them leak or go unmapped (section 10: an unmapped detail is a
++# model error, not a silent success).
++ROUTES=N.SCHEMAS['x-opensip-public-route-registry']
++PUBLIC_CODES={r['code'] for r in json.loads((H.parent/'public-detail-registry.v1.json').read_text())['records']}
++D9_CODES={'VERDICT.INDETERMINATE','COVERAGE.PROVIDER_UNAVAILABLE','COVERAGE.BUDGET_EXHAUSTED',
++          'REQUEST.PRECONDITION_FAILED','CONFIG.INVALID','REQUEST.UNSATISFIABLE',
++          'PROVIDER.PROTOCOL_VIOLATION','HOST.IO_FAILURE'}
++check('every-new-internal-key-has-a-published-public-route',
++      set(ROUTES['keys'])>={'native.requested-capability-unregistered',
++        'native.requested-capability-mode-unregistered','native.requested-capability-mode-not-selected',
++        'native.release-capability-unregistered','native.release-capability-mode-unregistered',
++        'native.release-capability-mode-not-selected','native.release-capability-duplicate',
++        'native.coverage-cause-required','native.coverage-cause-carrier-unsupported',
++        'native.coverage-cause-relation-not-in-scope'})
++def _routed_codes(row):
++    if 'byOriginatingBoundary' in row:
++        return {b['existingCode'] for b in row['byOriginatingBoundary'].values()}
++    return {row['existingCode']}
++def _routed_details(row):
++    if 'byOriginatingBoundary' in row:
++        return {b['publicDetail'] for b in row['byOriginatingBoundary'].values()}
++    return {row['publicDetail']}
++check('every-routed-code-is-an-existing-d9-code-and-no-new-one-is-invented',
++      {c for r in ROUTES['keys'].values() for c in _routed_codes(r)}<=D9_CODES)
++check('no-new-internal-key-is-proposed-as-a-public-detail-code',
++      not (set(ROUTES['keys'])&PUBLIC_CODES))
++check('every-named-public-detail-target-is-already-a-registry-member-or-a-request-detail',
++      all(det in PUBLIC_CODES or det.startswith(('request detail','operational record'))
++          for r in ROUTES['keys'].values() for det in _routed_details(r)))
++check('the-alias-mechanism-this-reuses-already-has-precedents',
++      {a['internalCode'] for a in json.loads((H.parent/'public-detail-registry.v1.json').read_text())['internalAliases']}
++      >={'native.explicit-root-grammar','native.too-many-units','provider-unavailable/capability-missing'})
++# The phase distinction is real: request faults and authenticated-declaration faults take different codes.
++check('an-invalid-request-and-an-invalid-release-declaration-take-different-public-codes',
++      ROUTES['keys']['native.requested-capability-unregistered']['byOriginatingBoundary']
++        ['external-configuration']['existingCode']=='CONFIG.INVALID' and
++      ROUTES['keys']['native.release-capability-unregistered']['existingCode']=='REQUEST.PRECONDITION_FAILED' and
++      ROUTES['keys']['native.requested-capability-mode-not-selected']['existingCode']=='REQUEST.UNSATISFIABLE')
++check('an-unsatisfiable-well-formed-request-is-origin-independent',
++      'byOriginatingBoundary' not in ROUTES['keys']['native.requested-capability-mode-not-selected']
++      and 'not malformed input from any layer' in
++      ROUTES['keys']['native.requested-capability-mode-not-selected']['originIndependent'])
++# The ORIGINATING BOUNDARY decides the code, per the admission section 1 actor/layer law: external
++# input takes its carrier's code, an invalid host-generated internal layer is a host invariant fault
++# and must NOT be reported as a user configuration error.
++check('the-originating-boundary-law-quotes-the-existing-actor-layer-rule',
++      'Invalid external input is an admission rejection with the existing carrier' in
++      ROUTES['originatingBoundaryLaw'] and
++      'invalid host-generated internal layer' in ROUTES['originatingBoundaryLaw'])
++check('external-configuration-and-a-host-generated-spec-take-different-codes',
++      all(r['byOriginatingBoundary']['external-configuration']['existingCode']=='CONFIG.INVALID'
++          and r['byOriginatingBoundary']['host-generated-analysis-spec']['existingCode']
++              =='REQUEST.PRECONDITION_FAILED'
++          for k,r in ROUTES['keys'].items() if k.startswith('native.requested-capability-')
++          and 'byOriginatingBoundary' in r))
++check('a-host-generated-spec-fault-is-never-reported-as-a-user-configuration-error',
++      all('host invariant fault' in
++          r['byOriginatingBoundary']['host-generated-analysis-spec']['publicDetail']
++          for k,r in ROUTES['keys'].items() if 'byOriginatingBoundary' in r))
++check('the-helpers-emit-an-internal-key-and-are-never-passed-an-origin',
++      'passed ROWS and nothing about provenance' in ROUTES['helperDoesNotGuessOrigin']
++      and 'would be a guess' in ROUTES['helperDoesNotGuessOrigin']
++      and "the HOST's normalization step" in ROUTES['helperDoesNotGuessOrigin'])
++check('the-admission-section-one-actor-layer-law-is-really-there',
++      'an invalid\nhost-generated internal layer is a host invariant fault' in
++      (H.parents[2]/'v2/contracts/product-v1/admission-and-qualification.md').read_text())
++check('the-phases-are-named-and-distinct',
++      {r['phase'] for r in ROUTES['keys'].values()}==
++      {'invalid-request','unsatisfiable-request','invalid-authenticated-release-declaration','producer-boundary'})
++check('the-records-edit-is-named-as-root-owned-and-not-performed-here',
++      'owned by root integration' in ROUTES['recordsEditOwnedByRoot'] and
++      'NOT edited here' in ROUTES['recordsEditOwnedByRoot'])
++# UNSUPPORTED-TYPED stays a DISCLOSED answer, never an admission refusal. Root's compiler-free
++# references/syntax-only Run is the discriminating control; the earlier probe row that refused
++# UNIVERSE_LANGUAGE_NOT_REQUESTED left a TypeScript universe in a syntax-only request and is an
++# unrelated proper guard, not evidence about this rule.
++def compiler_free_unsupported_request(relation='references'):
++    run,objects,blobs=build(resolved=False,has_match=False,relation=relation,
++                            source_path='src/lib.rs',pure_syntax=True,universe_language='syntax')
++    rid=M.close_run(run,objects,blobs)
++    entry=C.parse(blobs[next(v['payloadDigest'] for k,(d,v) in objects.items() if d=='coverage')])['entry']
++    return rid,entry
++check('an-unsupported-typed-request-is-answered-not-refused',
++      (lambda t:t[0].startswith('run2:') and t[1]['coverage']=='unknown'
++       and t[1]['deficiency']=='language-tier-unsupported'
++       and t[1]['nativeCause']=='capability-missing')(compiler_free_unsupported_request()))
++check('the-unsupported-typed-answer-is-not-on-the-refusal-route',
++      'never refused' in ROUTES['unsupportedTypedIsNotOnThisTable'])
+ # --- the release declaration registry: schema, membership authority and spelling, all published.
+ check('the-release-declaration-registry-schema-is-published',
+       MATRIX['capabilityIdLaw']['releaseDeclarationRegistry']['schema']
+@@ -2732,6 +2936,101 @@
+ # The DEFAULT and EXPLICIT paths agree on one vocabulary by construction, not by convention.
+ _units=[{'languageMode':'ts-tsconfig','rootPath':'.','languageFamily':'tsjs'}]
+ _default=N.default_capability_selection(_units,[dict(r) for r in GOOD_REGISTRY])
++# --- the DEFAULT is the complete selected product, and a release declaration is availability.
++# An earlier revision drove the default FROM the registry, so a staged build shipping two rows
++# silently requested two capabilities and still looked conformant.
++_LAW=MATRIX['capabilityIdLaw']['releaseDeclarationRegistry']
++_STATE={(c['capability'],c['mode']):c['state'] for c in MATRIX['cells']}
++_FULL=[{'capabilityId':c['id'],
++        'languageModes':sorted((m for m in MATRIX['languageModes']
++                                if _STATE[(c['id'],m)]!='NOT-SELECTED'),key=lambda x:x.encode())}
++       for c in MATRIX['capabilities']]
++_FULL.sort(key=C.canonical)
++_STAGED=[r for r in _FULL if r['capabilityId'] in ('inventory','syntax')]
++_UNITS=[{'languageMode':'ts-tsconfig','rootPath':'.','languageFamily':'tsjs'}]
++check('the-required-default-is-every-cell-that-is-not-not-selected',
++      N.required_default_capabilities('ts-tsconfig')==
++      sorted(c['id'] for c in MATRIX['capabilities'] if _STATE[(c['id'],'ts-tsconfig')]!='NOT-SELECTED')
++      and 'clones-cross-tsjs' in N.required_default_capabilities('ts-tsconfig')
++      and 'clones-cross-tsjs' not in N.required_default_capabilities('rust-cargo'))
++check('the-required-default-includes-unsupported-typed-cells-so-they-are-disclosed-not-omitted',
++      'references' in N.required_default_capabilities('syntax-only')
++      and _STATE[('references','syntax-only')]=='UNSUPPORTED-TYPED')
++_DEFAULT_FULL=N.default_capability_selection(_UNITS,[dict(r) for r in _FULL])
++_DEFAULT_STAGED=N.default_capability_selection(_UNITS,[dict(r) for r in _STAGED])
++check('a-full-release-declaration-leaves-nothing-undeclared',
++      _DEFAULT_FULL['undeclaredCapabilities']==[]
++      and _DEFAULT_FULL['defaultIsCompleteSelectedProduct'] is True)
++check('a-staged-release-subset-does-not-shrink-the-default',
++      _DEFAULT_STAGED['analysisSpec']['requestedCapabilities']
++      ==_DEFAULT_FULL['analysisSpec']['requestedCapabilities']
++      and len(_DEFAULT_FULL['analysisSpec']['requestedCapabilities'])
++          ==len(N.required_default_capabilities('ts-tsconfig')))
++check('a-staged-release-subset-discloses-every-absent-capability',
++      sorted(r['capabilityId'] for r in _DEFAULT_STAGED['undeclaredCapabilities'])
++      ==sorted(set(N.required_default_capabilities('ts-tsconfig'))-{'inventory','syntax'}))
++check('the-absence-account-is-not-shaped-like-a-coverage-result',
++      all(set(r)=={'capabilityId','languageMode','workspaceRoot','projection','relations',
++                   'declared','candidateDeficiency','candidateNativeCause','subjectToPrecedence'}
++          and 'coverage' not in r and 'deficiency' not in r and 'nativeCause' not in r
++          for r in _DEFAULT_STAGED['undeclaredCapabilities']))
++check('the-absence-account-uses-only-existing-vocabulary-and-an-existing-public-code',
++      'provider-unavailable' in N.SCHEMAS['$defs']['DeficiencyV2']['enum']
++      and 'capability-missing' in N.SCHEMAS['$defs']['NativeCause']['enum']
++      and 'COVERAGE.PROVIDER_UNAVAILABLE' in (H.parents[2]/'v2/contracts/product-v1/native-evidence.md').read_text())
++# --- PRECEDENCE. A capability can be undeclared AND unservable at once; the more specific
++# deficiency wins and the release-absence account never overrides the owning derivation.
++check('language-tier-unsupported-outranks-provider-unavailable-in-the-published-precedence',
++      N.PRECEDENCE_V2.index('language-tier-unsupported')<N.PRECEDENCE_V2.index('provider-unavailable'))
++check('the-absence-account-marks-its-deficiency-as-subject-to-precedence-not-as-the-outcome',
++      all(r['subjectToPrecedence'] is True and r['candidateDeficiency']=='provider-unavailable'
++          for r in _DEFAULT_STAGED['undeclaredCapabilities']))
++check('an-undeclared-and-unservable-capability-keeps-the-more-specific-derived-pair',
++      (lambda t:t[1]['deficiency']=='language-tier-unsupported'
++       and t[1]['nativeCause']=='capability-missing'
++       and 'references' in N.required_default_capabilities('syntax-only')
++       and ('references','syntax-only') not in
++           {(r['capabilityId'],m) for r in _STAGED for m in r['languageModes']})
++      (compiler_free_unsupported_request()))
++check('the-owning-syntax-derivation-still-refuses-a-substituted-release-pair',
++      N.syntax_capability_support([],'references','resolved-binding',['src/lib.rs'],False)
++      =={'deficiency':'language-tier-unsupported','nativeCause':'capability-missing'})
++# --- CANDIDATE-ONLY capabilities mint no fact and no relation@rung, so they have no Coverage
++# entry that could carry a pair; their account is the selection record itself.
++check('candidate-only-capabilities-have-no-relation-and-project-to-no-coverage',
++      {c['id'] for c in MATRIX['capabilities'] if not c['relations']}=={'clones-near','clones-cross-tsjs'}
++      and all(c.get('authority')=='candidate-only'
++              for c in MATRIX['capabilities'] if not c['relations']))
++check('a-candidate-only-absence-is-a-selection-account-not-a-coverage-entry',
++      {r['capabilityId'] for r in _DEFAULT_STAGED['undeclaredCapabilities']
++       if r['projection']=='selection-account-only'}=={'clones-near','clones-cross-tsjs'}
++      and all(r['relations']==[] for r in _DEFAULT_STAGED['undeclaredCapabilities']
++              if r['projection']=='selection-account-only'))
++check('a-fact-producing-absence-names-the-exact-relation-at-rung-it-projects-onto',
++      all(r['relations'] and all('@' in x for x in r['relations'])
++          for r in _DEFAULT_STAGED['undeclaredCapabilities'] if r['projection']=='coverage-entry')
++      and next(r['relations'] for r in _DEFAULT_STAGED['undeclaredCapabilities']
++               if r['capabilityId']=='inventory' or r['capabilityId']=='calls')==['calls@resolved-callee'])
++# --- ONE normative recipe: the old registry-driven binding sentence is gone.
++check('the-binding-to-plan-sentence-states-the-matrix-driven-recipe-only',
++      'REQUIRED BY THE MATRIX' in _LAW['bindingToPlan']
++      and 'requiredDefault replaces' in _LAW['bindingToPlan']
++      and 'An earlier revision of THIS sentence' in _LAW['bindingToPlan']
++      and 'this is the one' in _LAW['bindingToPlan'])
++check('an-absent-capability-is-still-requested-not-dropped',
++      set(N.required_default_capabilities('ts-tsconfig'))
++      <={r['capabilityId'] for r in _DEFAULT_STAGED['analysisSpec']['requestedCapabilities']})
++check('the-registry-law-says-availability-not-scope-and-forbids-a-preview-exception',
++      'never states which capabilities the product SELECTS' in _LAW['itIsAvailabilityNotScope']
++      and 'no preview' in _LAW['absenceIsDisclosedNotDropped'].lower()
++      and 'not qualification' in _LAW['installedAvailabilityVersusQualification'].lower()
++      and MATRIX['platformQualified'] is False)
++check('an-explicit-override-is-a-recorded-choice-with-its-own-provenance',
++      _DEFAULT_FULL['provenance']=='DEFAULTED' and 'overrides the REQUEST' in _LAW['explicitOverride'])
++# The declaration is still held to the vocabulary: availability may not invent a member.
++rejects_because('a-release-cannot-declare-availability-for-an-unregistered-capability',
++    lambda:N.default_capability_selection(_UNITS,[{'capabilityId':'made-up','languageModes':['ts-tsconfig']}]),
++    'native.release-capability-unregistered:made-up')
+ check('default-selection-emits-the-same-vocabulary-the-admission-closes',
+       N.admit_requested_capabilities(_default['analysisSpec']['requestedCapabilities'])
+       ==_default['analysisSpec']['requestedCapabilities']
+@@ -3657,6 +3956,151 @@
+           M.close_run(*build(resolved=True,has_match=False,relation=_relation)).startswith('run2:'))
+ check('only-file-enumerated-declares-coverage-totality',
+       [n for n,r in M.RELATIONS.items() if 'coverageTotality' in r]==['file'])
++# --- the obligation belongs to THIS scope's own universes, not to the view at large.
++# The view-level fact/scope join is EXISTENTIAL: a fact need only agree with SOME scope on
++# relation, rung and both universes. So in a view carrying a TypeScript AND a syntax
++# file@enumerated scope over one subject, the TypeScript fact is lawfully present and - while the
++# totality helper matched relation and rung ALONE - it paid the syntax scope's missing-file
++# obligation. A complete Run exhibited that, so the regression is a complete Run too.
++def two_universe_inventory_view(add_own_fact,foreign_snapshot=False):
++    """One view, two complete file@enumerated scopes for `a.ts` in two different universes, with
++    the syntax mode explicitly requested so the Plan admits the second universe."""
++    run,objects,blobs=build(relation='file',has_match=True,resolved=True,source_path='a.ts')
++    universe=next(k for k,raw in blobs.items()
++                  if raw.startswith(M.FRAME_PREFIX+b'native.semantic-universe.syntax.v2\0'))
++    plan=copy.deepcopy(objects[run['planId']][1]);spec=C.parse(blobs[plan['analysisSpecDigest']])
++    spec['requestedCapabilities'].append({'capabilityId':'inventory','languageMode':'syntax-only',
++                                          'workspaceRoot':'.','required':True})
++    plan['analysisSpecDigest']=put_blob(blobs,sort_canonical_sets('analysis-spec',spec))
++    rekey_plan(objects,blobs,run,plan)
++    scope=copy.deepcopy(next(v for d,v in objects.values() if d=='subject-scope'))
++    scope.update(sourceUniverse=universe,targetUniverse=universe)
++    sid=M.identifier('subject-scope',scope);objects[sid]=('subject-scope',scope)
++    schema=next(v['payloadSchemaDigest'] for d,v in objects.values() if d=='coverage')
++    paths=[r['path'] for r in objects[run['snapshotId']][1]['sourceInventory']]
++    payload=coverage_result(scope,universe,True,blobs,paths)
++    admitted=N.admit_coverage_result_v3(payload,scope,[],schema)
++    if admitted['result']!='ADMIT':raise C.AdmissionError('FIXTURE_SECOND_COVERAGE')
++    coverage={'schemaVersion':2,'scopeId':sid,'payloadSchemaDigest':schema,
++              'payloadDigest':put_blob(blobs,payload)}
++    cid=M.identifier('coverage',coverage);objects[cid]=('coverage',coverage)
++    vid=objects[run['evidenceId']][1]['viewIds'][0];view=copy.deepcopy(objects[vid][1])
++    view['scopeIds'].append(sid);view['coverageIds'].append(cid)
++    if add_own_fact:
++        fact=copy.deepcopy(next(v for d,v in objects.values() if d=='fact'))
++        fact.update(sourceUniverse=universe,targetUniverse=universe)
++        if foreign_snapshot:fact['snapshotId']='snapshot2:'+'b'*64
++        fid=M.identifier('fact',fact);objects[fid]=('fact',fact);view['facts'].append(fid)
++    rekey(objects,vid,view,run)
++    evidence=copy.deepcopy(objects[run['evidenceId']][1]);evidence['coverageIds'].append(cid)
++    rekey(objects,run['evidenceId'],evidence,run)
++    resync_witness(objects,blobs,run);resync_proof_refs(objects,blobs,run)
++    return M.close_run(run,objects,blobs)
++rejects_because('a-complete-scope-cannot-be-paid-by-another-universes-inventory-fact',
++    lambda:two_universe_inventory_view(False),
++    'COVERAGE_INVENTORY_TOTALITY_OMITS_PATH:file@enumerated:a.ts')
++check('two-universes-each-carrying-their-own-inventory-fact-close-a-run',
++      two_universe_inventory_view(True).startswith('run2:'))
++check('the-totality-match-is-the-coverage-key-coordinates-plus-the-owning-snapshot',
++      M.RELATIONS['file']['coverageTotality']['matchOn']==
++      ['snapshotId','relation','resolution','sourceUniverse','targetUniverse'] and
++      set(M.RELATIONS['file']['coverageTotality']['matchOn'])-{'snapshotId'}
++      =={'relation','resolution','sourceUniverse','targetUniverse'})
++# snapshotId is listed deliberately although it is already forced transitively; the transitive
++# refusal is exercised so the redundancy is a recorded choice rather than an untested assumption.
++rejects_because('a-fact-naming-a-foreign-snapshot-is-refused-before-totality-is-reached',
++    lambda:two_universe_inventory_view(True,foreign_snapshot=True),'REFERENCE_SOURCE_JOIN')
++# --- RAW BYTES. An inventory claim retains path/hash/length WITHOUT anyone decoding the bytes as
++# code or as UTF8: with the inventory class at zero anchors the ANCHOR_SOURCE/ANCHOR_RANGE/
++# ANCHOR_UTF8 loop never runs for such a fact, while the inventoried-file join still does. Empty and
++# non-UTF8 binary files are ordinary inventory, not a new product capability.
++EMPTY_BYTES=b''
++NON_UTF8_BYTES=bytes([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0xff,0xfe,0x00,0x01,0x80,0xc0])
++def inventoried_raw_bytes(body,path,mutate=None,relation='file',anchor_a_code_fact=False):
++    """A complete Run whose snapshot really inventories `body` at `path`."""
++    run,objects,blobs=build(relation='declares' if anchor_a_code_fact else relation,
++                            has_match=True,resolved=True,
++                            source_path='a.ts' if anchor_a_code_fact else path)
++    snap=copy.deepcopy(objects[run['snapshotId']][1]);digest=put_blob(blobs,body)
++    snap['sourceInventory']=sorted([r for r in snap['sourceInventory'] if r['path']!=path]+
++                                   [{'path':path,'sha256':digest,'bytes':len(body)}],
++                                   key=lambda r:r['path'].encode())
++    vcs=C.parse(blobs[snap['vcsDigest']])
++    vcs['sourceInventoryDigest']=put_blob(blobs,snap['sourceInventory'])
++    snap['vcsDigest']=put_blob(blobs,vcs)
++    rekey(objects,run['snapshotId'],snap,run);resync_stage_spec(objects,blobs,run)
++    key=next(k for k,(d,v) in objects.items() if d=='fact');fact=copy.deepcopy(objects[key][1])
++    if anchor_a_code_fact:
++        fact['anchors']=[{'path':path,'blobDigest':digest,'startByte':0,'endByte':len(body)}]
++    else:
++        payload={'path':path,'contentSha256':digest,'byteLength':len(body)}
++        if mutate:mutate(payload,blobs,body)
++        fact['payloadDigest']=put_blob(blobs,payload)
++    rekey(objects,key,fact,run)
++    resync_coverage(objects,blobs,run);resync_witness(objects,blobs,run);resync_proof_refs(objects,blobs,run)
++    return M.close_run(run,objects,blobs)
++check('an-empty-inventoried-file-is-an-admissible-zero-anchor-fact',
++      inventoried_raw_bytes(EMPTY_BYTES,'assets/empty.bin').startswith('run2:'))
++check('a-non-utf8-binary-inventoried-file-is-an-admissible-zero-anchor-fact',
++      inventoried_raw_bytes(NON_UTF8_BYTES,'assets/logo.png').startswith('run2:'))
++check('a-binary-file-at-an-extensionless-path-is-an-admissible-zero-anchor-fact',
++      inventoried_raw_bytes(NON_UTF8_BYTES,'assets/blob').startswith('run2:'))
++def _decodes_utf8(raw):
++    try:raw.decode('utf8');return True
++    except UnicodeError:return False
++check('the-binary-control-bytes-really-do-not-decode-as-utf8',
++      not _decodes_utf8(NON_UTF8_BYTES) and _decodes_utf8(EMPTY_BYTES) and len(EMPTY_BYTES)==0)
++rejects_because('a-binary-inventory-fact-claiming-the-wrong-digest-refuses',
++    lambda:inventoried_raw_bytes(NON_UTF8_BYTES,'assets/logo.png',
++        mutate=lambda p,b,body:p.update(contentSha256=put_blob(b,body+b'x'))),
++    'RELATION_FILE_CONTENT_JOIN:assets/logo.png')
++rejects_because('a-binary-inventory-fact-claiming-the-wrong-length-refuses',
++    lambda:inventoried_raw_bytes(NON_UTF8_BYTES,'assets/logo.png',
++        mutate=lambda p,b,body:p.update(byteLength=len(body)+1)),
++    'RELATION_FILE_LENGTH_JOIN:assets/logo.png')
++rejects_because('a-binary-inventory-fact-claiming-an-uninventoried-path-refuses',
++    lambda:inventoried_raw_bytes(NON_UTF8_BYTES,'assets/logo.png',
++        mutate=lambda p,b,body:p.update(path='assets/other.png')),
++    'RELATION_PATH_NOT_INVENTORIED:file:assets/other.png')
++rejects_because('an-empty-inventory-fact-claiming-a-nonzero-length-refuses',
++    lambda:inventoried_raw_bytes(EMPTY_BYTES,'assets/empty.bin',
++        mutate=lambda p,b,body:p.update(byteLength=1)),
++    'RELATION_FILE_LENGTH_JOIN:assets/empty.bin')
++# The discriminating pair: the SAME bytes are inventoriable and NOT code-anchorable. The
++# source-text UTF8 and range laws keep exactly the scope they had.
++rejects_because('the-same-non-utf8-bytes-are-still-refused-as-a-code-span-anchor',
++    lambda:inventoried_raw_bytes(NON_UTF8_BYTES,'assets/logo.png',anchor_a_code_fact=True),
++    'ANCHOR_UTF8')
++check('the-code-span-utf8-and-range-laws-are-untouched-in-scope',
++      'ANCHOR_UTF8' in (H/'identity-model.py').read_text() and
++      'ANCHOR_RANGE' in (H/'identity-model.py').read_text())
++# --- LOCATION after inventory anchors were removed. Nothing reads fact.anchors as a finding
++# location: a finding locates through finding-fingerprint.subjectKey.logicalPath, and an inventory
++# claim's own location is its payload `path` joined to the snapshot inventory. No new flexibility
++# is added because the existing records already supply the route.
++def located_inventory_finding():
++    run,objects,blobs=build(relation='file',has_match=True,resolved=True,
++                            source_path='a.ts',with_finding=True)
++    rid=M.close_run(run,objects,blobs)
++    fact=next(v for d,v in objects.values() if d=='fact')
++    payload=C.parse(blobs[fact['payloadDigest']])
++    finding=next(v for d,v in objects.values() if d=='finding')
++    fingerprint=objects[finding['fingerprint']][1]
++    inventory={r['path'] for r in objects[run['snapshotId']][1]['sourceInventory']}
++    return rid,fact,payload,fingerprint,inventory
++check('a-finding-over-a-zero-anchor-inventory-fact-still-closes-a-run',
++      located_inventory_finding()[0].startswith('run2:'))
++check('the-location-route-is-the-fingerprint-logical-path-and-the-payload-path',
++      (lambda t:t[1]['anchors']==[] and t[2]['path']=='a.ts'
++       and t[3]['subjectKey']['logicalPath']=='a.ts' and t[2]['path'] in t[4])
++      (located_inventory_finding()))
++check('the-finding-subject-key-carries-a-logical-path-independent-of-any-anchor',
++      'logicalPath' in M.SCHEMA['$defs']['finding-fingerprint']['properties']['subjectKey']['properties']
++      and 'anchors' not in M.SCHEMA['$defs']['finding-fingerprint']['properties']['subjectKey']['properties']
++      and 'anchors' not in M.SCHEMA['$defs']['finding']['properties'])
++check('no-proof-or-repair-record-locates-through-fact-anchors',
++      all('anchors' not in M.SCHEMA['$defs'][domain]['properties']
++          for domain in ('proof-bundle','predicate-witness','finding','finding-fingerprint')))
+ def file_scope_over_a_path_the_snapshot_does_not_contain():
+     """A subject the snapshot does not contain is owed NO fact: the host examined the question and
+     the file is genuinely absent, so `complete` with an empty result is the honest answer. Without

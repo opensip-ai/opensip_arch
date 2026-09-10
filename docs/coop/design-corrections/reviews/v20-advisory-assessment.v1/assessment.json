@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "artifact": "v20-advisory-assessment.v1",
+  "subject": {
+    "path": "/tmp/opensip-design-corrections/candidate-subject.v19",
+    "manifestSha256": "312db9d904d0ec1f9c91d84137feb3277490b79b07bf3a6d5efc0380caa0f24b",
+    "readOnly": true
+  },
+  "method": {
+    "probeSandbox": "probe-tree/ and probe-tree-pristine/ (rsync copies of docs/, reviews/ and __pycache__/ excluded)",
+    "harness": "_probe_fixtures.py = first 1020 lines of check-identity.py (constructors only; no suite execution, no report writing)",
+    "interpreter": "/tmp/opensip-architecture-review-env/bin/python -I -B",
+    "frozenTreeMutated": false,
+    "reportWritingCheckModulesImportedFromFrozenTree": false,
+    "priorReviewHistoryRead": false,
+    "suitesRerun": ["check-foundation.py (sandbox, 231/231)", "check-array-orders.py (sandbox, 65/65)"]
+  },
+
+  "advisories": [
+    {
+      "id": "CB-ADV-1",
+      "title": "view.schemaDigests: deliberate selection or required union of fact/coverage payload schemas?",
+      "disposition": "PARTIALLY_CONFIRMED_CORRECTION_REQUIRED",
+      "unionTheory": "REFUSED",
+      "severity": "moderate",
+      "severityBasis": "A published normative sentence and a field annotation are unenforced by the accepted closure, and the drift is already present in a committed record in the live tree.",
+
+      "owningSelectors": {
+        "prose": "docs/v2/contracts/product-v1/identity-and-evidence.md:568-569",
+        "schemaField": "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/view/properties/schemaDigests/items/x-opensip-digest (line 725-734)",
+        "adjacentSchemaField": "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-digest-domains/schema (line 2887-2890)",
+        "enforcementSite": "docs/coop/design-corrections/foundation/identity-model.py:652 (digest_field, representation=='raw-artifact')",
+        "independentPayloadPin": "docs/coop/design-corrections/foundation/identity-model.py:735-760 (registered_payload)",
+        "registry": "identity-schemas.v2.json#/x-opensip-payload-registry",
+        "referenceProducer": "docs/coop/design-corrections/foundation/check-identity.py:823 and docs/coop/design-corrections/integration-fixtures.py:778"
+      },
+
+      "actualObservations": [
+        {"id": "OBS-1-1", "kind": "static", "claim": "'schemaDigests' occurs zero times in identity-model.py; the field is reached only by the generic annotation dispatch.", "evidence": "grep over identity-model.py"},
+        {"id": "OBS-1-2", "kind": "static", "claim": "The whole enforced law for the raw-artifact representation is retention: blob(value).", "evidence": "identity-model.py:652"},
+        {"id": "OBS-1-3", "kind": "dynamic", "claim": "An empty schemaDigests set admits.", "probe": "P1-b-empty-set", "result": "admitted"},
+        {"id": "OBS-1-4", "kind": "dynamic", "claim": "Dropping the document a member Coverage was actually admitted under admits.", "probe": "P1-c2", "result": "admitted"},
+        {"id": "OBS-1-5", "kind": "dynamic", "claim": "A registered document the view admitted nothing under admits.", "probe": "P1-d", "result": "admitted"},
+        {"id": "OBS-1-6", "kind": "dynamic", "claim": "An arbitrary retained blob admits as a member, contradicting the published registration sentence.", "probe": "P1-e / P1-g", "result": "admitted"},
+        {"id": "OBS-1-7", "kind": "dynamic", "claim": "An unretained digest refuses; retention is the only real constraint.", "probe": "P1-f", "result": "EVIDENCE_UNAVAILABLE"},
+        {"id": "OBS-1-8", "kind": "dynamic", "claim": "The shipped reference producer over-lists: a view with zero relation facts still names relation-payload-schemas.v2.json, so the committed set is a strict superset of the mechanical union.", "probe": "context:no-facts", "result": "viewSetEqualsMechanicalUnion=false"},
+        {"id": "OBS-1-9", "kind": "static", "claim": "A committed view record in the live tree names a schemaDigests member whose bytes exist nowhere in the tree.", "evidence": "native/native-cases.v2.json fixtures.coverageView.schemaDigests[0] = 5665e5dd92cd022040142a63d8e183cc258f678baf8f0674f8da9ebe0302a7a4; exhaustive sha256 scan of the live tree found no matching file"},
+        {"id": "OBS-1-10", "kind": "dynamic", "claim": "The adjacent site carries the same defect: an arbitrary retained blob is admitted as a domain='schema' evaluation input ref.", "probe": "P4-b", "result": "admitted (pristine)"}
+      ],
+
+      "inferences": [
+        {"id": "INF-1-1", "statement": "The set is a deliberate producer declaration, not a derived union.", "basedOn": ["OBS-1-3", "OBS-1-4", "OBS-1-5", "OBS-1-8"], "confidence": "high"},
+        {"id": "INF-1-2", "statement": "No floor (superset-of-union) obligation is required by the existing contract, because each fact and Coverage pins and retains its own schema document through its own payloadSchemaDigest, so schemaDigests carries no unique authority.", "basedOn": ["OBS-1-2", "OBS-1-4"], "confidence": "high"},
+        {"id": "INF-1-3", "statement": "Two consumers selecting different schema sets from the same source repository is expected under the contract as written and is not evidence of divergent semantic inputs.", "basedOn": ["INF-1-1"], "confidence": "high"}
+      ],
+
+      "notProposed": [
+        "Automatic maximal union of fact/coverage payload schemas — the existing contract does not require it and the reference producer contradicts it.",
+        "Any completeness floor on the declared set.",
+        "Blessing arbitrary unregistered documents or hidden evidence: the correction closes exactly that hole."
+      ],
+
+      "requiredExecutableCorrection": {
+        "required": true,
+        "rationale": "Two published statements (prose and field annotation) assert registration; the closure enforces retention only. Aligning the model is the minimal way to make the existing published law true without changing the selected-not-derived semantics.",
+        "approach": "Annotation-driven, matching the contract's own rule that admission dispatches on the x-opensip-digest annotation and never on a field name.",
+        "diffs": ["probes/cb-adv-1.identity-model.diff", "probes/cb-adv-1.identity-schemas.diff"],
+        "changes": [
+          {"file": "docs/coop/design-corrections/foundation/identity-schemas.v2.json", "site": "#/$defs/view/properties/schemaDigests/items/x-opensip-digest", "change": "add \"artifactClass\": \"registered-schema-document\"; replace the artifact text"},
+          {"file": "docs/coop/design-corrections/foundation/identity-schemas.v2.json", "site": "#/x-opensip-digest-domains/schema", "change": "add \"artifactClass\": \"registered-schema-document\"; replace the artifact text"},
+          {"file": "docs/coop/design-corrections/foundation/identity-model.py", "site": "new module function registered_schema_documents()", "change": "cached closed set of payload-registry documents by raw SHA-256 of exact full bytes, derived from x-opensip-payload-registry alone"},
+          {"file": "docs/coop/design-corrections/foundation/identity-model.py", "site": "digest_field, raw-artifact branch (line 652)", "change": "after blob(value), refuse SCHEMA_DOCUMENT_UNREGISTERED:<digest> when artifactClass=='registered-schema-document' and the digest is not a registered document"}
+        ],
+        "newFaultName": "SCHEMA_DOCUMENT_UNREGISTERED",
+        "nameCollisionCheck": {"SCHEMA_DOCUMENT_UNREGISTERED": 0, "artifactClass": 0},
+        "verification": [
+          {"probe": "P1-e", "before": "admitted", "after": "SCHEMA_DOCUMENT_UNREGISTERED"},
+          {"probe": "P1-g", "before": "admitted", "after": "SCHEMA_DOCUMENT_UNREGISTERED"},
+          {"probe": "P4-b", "before": "admitted", "after": "SCHEMA_DOCUMENT_UNREGISTERED"},
+          {"probe": "P4-a (registered document as evaluation input)", "before": "admitted", "after": "admitted, same RunId"},
+          {"probe": "P1-b / P1-c / P1-c2 / P1-d", "before": "admitted", "after": "admitted (selected-not-derived preserved, no floor added)"},
+          {"probe": "P1-f", "before": "EVIDENCE_UNAVAILABLE", "after": "EVIDENCE_UNAVAILABLE"}
+        ]
+      },
+
+      "proposedProse": {
+        "replaces": "docs/v2/contracts/product-v1/identity-and-evidence.md:568-569",
+        "text": "`view.schemaDigests` is the producer's own **declaration** of the schema documents its view was produced under. Each member is the raw SHA-256 of the exact full bytes of a document on the closed registry above; a member naming anything else refuses (`SCHEMA_DOCUMENT_UNREGISTERED`). The set is **selected, not derived**: it is neither required to name every document a member fact or Coverage was admitted under, nor forbidden from naming a registered document this view admitted nothing under. It carries no admission authority of its own — every fact and Coverage pins its own document through its own `payloadSchemaDigest`, whose exact bytes are re-hashed and retained on every reference, so a document omitted here is still pinned there and a document added here admits nothing. The same rule holds wherever the `registered-schema-document` artifact class appears, including the `schema` proof-input-ref domain."
+      },
+
+      "proposedSchemaAnnotation": {
+        "site": "identity-schemas.v2.json#/$defs/view/properties/schemaDigests/items/x-opensip-digest",
+        "artifactClass": "registered-schema-document",
+        "artifact": "the exact complete bytes of a schema document on the closed x-opensip-payload-registry list, DECLARED by this view's producer as a schema this view admitted under. The set is the producer's declaration and not a derived union: it is neither required to name every document a member fact or Coverage was admitted under, nor forbidden from naming a registered document this view admitted nothing under. Each member fact and Coverage independently pins and retains its own document through its own payloadSchemaDigest, which is where payload admission is decided."
+      },
+
+      "implementerMustKnow": [
+        "The set is chosen, not derived: there is no completeness obligation and no prohibition on naming a registered document this view admitted nothing under.",
+        "Every member must be a current registry document, exact full bytes, retained.",
+        "It grants no authority: never rely on it to establish what a view admitted, and never read omission as absence — payloadSchemaDigest is where that is decided."
+      ],
+
+      "compatibility": {
+        "kind": "refusal-widening only; identity is computed over the record, so no RunId changes",
+        "runIdMatrix": "probes/p3.pristine.json vs probes/p3.corrected.json — byte-identical (7 build variants + 2 import graphs)",
+        "sandboxSuites": {"check-foundation.py": "231/231 PASS", "check-array-orders.py": "65/65 PASS"},
+        "followUpMechanics": [
+          "Re-pin source-pins.v1.json rows for identity-model.py and identity-schemas.v2.json.",
+          "Re-pin native/native-cases.v2.json fixtures.coverageView.schemaDigests to a registry document; as committed it would refuse if ever routed through a Run closure. It currently reaches only native coverage_view_use, which does not read schemaDigests."
+        ]
+      },
+
+      "limits": [
+        "Two cells of the compatibility matrix (pure-syntax, unresolved-edges) error identically in both trees from probe-side fixture-kwarg misuse, not model faults; they carry no evidence either way.",
+        "The six broad suites were not rerun; regression evidence is the RunId matrix plus the two foundation meta-check suites.",
+        "The correction was exercised in the probe sandbox only."
+      ]
+    },
+
+    {
+      "id": "CB-ADV-2",
+      "title": "Unpublished join between semantic-evidence.importIds and plan.importIds",
+      "disposition": "CONFIRMED_DOCUMENTATION_ONLY",
+      "rootObservationVerified": true,
+      "severity": "low",
+      "severityBasis": "The enforcement exists and is exact; only its statement is missing. No admitted Run is affected.",
+
+      "owningSelectors": {
+        "equalityEnforcement": "docs/coop/design-corrections/foundation/identity-model.py:1290 (IMPORT_JOIN)",
+        "evaluatedSubsetEnforcement": "docs/coop/design-corrections/foundation/identity-model.py:1428 (UNSELECTED_EVALUATION_IMPORT)",
+        "findingCitationRoots": "docs/coop/design-corrections/foundation/identity-model.py:1430-1439 (HIDDEN_FINDING_EVIDENCE)",
+        "retentionOfEverySelectedImport": "docs/coop/design-corrections/foundation/identity-model.py:1591",
+        "perSelectedImportCorrespondence": "docs/coop/design-corrections/foundation/identity-model.py:1564-1589",
+        "grantOperationJoin": "docs/coop/design-corrections/foundation/identity-model.py:1304 (IMPORT_OPERATION_JOIN)",
+        "cacheInputGuard": "docs/coop/design-corrections/foundation/identity-model.py:1664 (CACHE_INPUT_IMPORT_NOT_SELECTED)",
+        "schemaFields": [
+          "identity-schemas.v2.json#/$defs/semantic-evidence/properties/importIds",
+          "identity-schemas.v2.json#/$defs/plan/properties/importIds"
+        ],
+        "proseInsertionPoint": "docs/v2/contracts/product-v1/identity-and-evidence.md:505-506",
+        "existingRelatedProse": "docs/v2/contracts/product-v1/identity-and-evidence.md:191-197 (evaluated imports must belong to Plan; finding citation rules)"
+      },
+
+      "actualObservations": [
+        {"id": "OBS-2-1", "kind": "static", "claim": "close_run enforces evidence['importIds'] != plan['importIds'] -> IMPORT_JOIN.", "evidence": "identity-model.py:1290"},
+        {"id": "OBS-2-2", "kind": "static", "claim": "Both arrays are uniqueItems with x-opensip-order 'canonical-set', enforced by ordered() (ORDER_OR_DUPLICATE), so list equality is canonical-set equality.", "evidence": "identity-schemas.v2.json; identity-model.py:73-96; canonical.py:111"},
+        {"id": "OBS-2-3", "kind": "dynamic", "probe": "P2-b", "claim": "Evidence omitting a Plan-selected import refuses.", "result": "IMPORT_JOIN"},
+        {"id": "OBS-2-4", "kind": "dynamic", "probe": "P2-c", "claim": "A Plan omitting an import the evidence names refuses.", "result": "IMPORT_JOIN"},
+        {"id": "OBS-2-5", "kind": "dynamic", "probe": "P2-d", "claim": "A selected but non-evaluated import is lawful.", "result": "admitted"},
+        {"id": "OBS-2-6", "kind": "dynamic", "probe": "P2-e", "claim": "That non-evaluated selected import must still be retained.", "result": "EVIDENCE_UNAVAILABLE"},
+        {"id": "OBS-2-7", "kind": "dynamic", "probe": "P2-f", "claim": "An evaluated but unselected import refuses at its own distinct join.", "result": "UNSELECTED_EVALUATION_IMPORT"},
+        {"id": "OBS-2-8", "kind": "dynamic", "probe": "P2-g1", "claim": "A finding may cite an evaluated selected import.", "result": "admitted"},
+        {"id": "OBS-2-9", "kind": "dynamic", "probe": "P2-g2", "claim": "A finding may NOT cite a selected-but-unevaluated import; selection alone grants no evidence authority.", "result": "HIDDEN_FINDING_EVIDENCE"},
+        {"id": "OBS-2-10", "kind": "static", "claim": "The equality is stated in no published prose; the owning paragraph enumerates view and coverage root equalities and stops.", "evidence": "identity-and-evidence.md:505-506; no importIds occurrence in v2/contracts/product-v1 or v2/architecture prose"}
+      ],
+
+      "inferences": [
+        {"id": "INF-2-1", "statement": "This is a missing statement of an existing law, not a missing law.", "basedOn": ["OBS-2-1", "OBS-2-3", "OBS-2-4", "OBS-2-10"], "confidence": "high"},
+        {"id": "INF-2-2", "statement": "Selection and evaluation are already cleanly separated: selection implies retention and admission, evaluation implies citability.", "basedOn": ["OBS-2-5", "OBS-2-6", "OBS-2-7", "OBS-2-9"], "confidence": "high"}
+      ],
+
+      "requiredExecutableCorrection": {"required": false, "rationale": "Control flow, schema and contract were verified directly; no mismatch exists. A synthetic join would add a second, weaker statement of a law the complete admitted Run already enforces."},
+
+      "notProposed": [
+        "Any new join or model change.",
+        "Erasing non-evaluated selected imports from retention.",
+        "Adding imported facts implicitly to a view."
+      ],
+
+      "proposedProse": {
+        "appendsAt": "docs/v2/contracts/product-v1/identity-and-evidence.md:506",
+        "text": "`semantic-evidence.importIds` repeats the Plan-selected import set **exactly**: the two are equal as canonical sets and any difference in either direction refuses (`IMPORT_JOIN`). It is a repetition of the Plan's selection, never a second selection — evidence can neither drop a selected import from the record nor add one the Plan did not select. `proof-bundle.evaluationInputRefs` separately names the subset actually **evaluated**, which must be a subset of the selected set (`UNSELECTED_EVALUATION_IMPORT`) and never grants authority to an unselected import. Selection is retention, not use: a selected import is resolved and admitted by the Run closure even when nothing evaluated it, and selection alone lets no finding cite it — import citations are restricted to the evaluated subset (`HIDDEN_FINDING_EVIDENCE`). A selected but non-evaluated import contributes no fact to any view."
+      },
+
+      "proposedSchemaAnnotation": {
+        "site": "identity-schemas.v2.json#/$defs/semantic-evidence/properties/importIds",
+        "addKey": "description",
+        "text": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. The evaluated SUBSET is named separately by proof-bundle.evaluationInputRefs; a selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority.",
+        "shapeChange": false,
+        "digestConsequence": "none — identity-schemas.v2.json is not a registered payload document, so no payloadSchemaDigest changes; its source-pins.v1.json row must be re-pinned"
+      },
+
+      "compatibility": {"kind": "documentation only", "runIdImpact": "none", "limits": ["Verified over the harness import graphs (exact and vcs correspondence); no other import kinds were exercised."]}
+    }
+  ],
+
+  "technicalAssent": {
+    "granted": true,
+    "scope": [
+      "CB-ADV-1: the proposed prose replacing identity-and-evidence.md:568-569, the proposed schema annotation text, and the executable correction exactly as diffed in probes/cb-adv-1.identity-model.diff and probes/cb-adv-1.identity-schemas.diff.",
+      "CB-ADV-2: the proposed prose appended at identity-and-evidence.md:506 and the proposed semantic-evidence.importIds description."
+    ],
+    "explicitlyNotAssentedTo": [
+      "source20 or any successor subject",
+      "independent acceptance of the subject",
+      "any readiness grade or completion position",
+      "any wording other than the exact text specified above"
+    ]
+  },
+
+  "scopeBoundaries": {
+    "notExamined": [
+      "scope-parameter cardinality, request tuple uniqueness, coverage exhaustiveness (owned by the source coauthor)",
+      "stage operation vocabulary and Plan semantic-closure membership (owned by the other assessor)"
+    ],
+    "notPerformed": ["product implementation", "commit or push", "subagent delegation", "readiness grading", "reruns of the six broad suites"]
+  },
+
+  "retainedEvidence": {
+    "probeSources": [
+      "probes/p1_view_schema_digests.py",
+      "probes/p2_import_join.py",
+      "probes/p2g_finding_import_authority.py",
+      "probes/p3_correction_compatibility.py",
+      "probes/p4_schema_input_ref.py"
+    ],
+    "probeResults": [
+      "probes/p1_view_schema_digests.results.json",
+      "probes/p2_import_join.results.json",
+      "probes/p2g_finding_import_authority.results.json",
+      "probes/p3.pristine.json",
+      "probes/p3.corrected.json",
+      "probes/p4_schema_input_ref.probe-tree-pristine.results.json",
+      "probes/p4_schema_input_ref.probe-tree.results.json",
+      "probes/check-foundation.corrected.json",
+      "probes/check-array-orders.corrected.json"
+    ],
+    "diffs": ["probes/cb-adv-1.identity-model.diff", "probes/cb-adv-1.identity-schemas.diff"],
+    "failuresRetained": [
+      "First p1 revision hand-rolled the view re-mint and broke the evidence identity chain, so every case returned KeyError on the stale evidence id; discarded and replaced by the harness's own rekey(), which propagates upward correctly. No conclusion was drawn from that run.",
+      "p3 cells 'pure-syntax' and 'unresolved-edges' error identically in both trees from probe-side fixture-kwarg misuse (KeyError 'universeDigest'; unresolvedEdgeClasses enum mismatch); retained in probes/p3.*.json and excluded from the compatibility conclusion.",
+      "p2 case P2-g was skipped because graph_with_import builds with with_finding=False; superseded by probes/p2g_finding_import_authority.py."
+    ]
+  }
+}

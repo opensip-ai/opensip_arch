@@ -1,0 +1,1513 @@
+"""Workflows-and-surfaces reference checker: schema closure, hand-authored cases, model execution, report.
+Run: python -I -B check_workflows.v1.py --report workflows-report.v1.json  (Python 3.12, jsonschema 4.25.1)
+Design evidence only; not product qualification.
+"""
+import argparse
+import copy
+import glob
+import hashlib
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / 'foundation'))
+import canonical  # noqa: E402
+from jsonschema import Draft202012Validator, ValidationError  # noqa: E402
+from referencing import Registry, Resource  # noqa: E402
+from referencing.jsonschema import DRAFT202012  # noqa: E402
+
+spec = importlib.util.spec_from_file_location('workflows_model', HERE / 'workflows_model.v1.py')
+M = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(M)
+
+CHECKS = []
+
+def check(cid, ok, detail=''):
+    CHECKS.append({'id': cid, 'ok': bool(ok), 'detail': detail if not ok else ''})
+    return ok
+
+# ----------------------------------------------------------------------------- schema registry
+SCHEMAS = {}
+for p in sorted(glob.glob(str(HERE / 'schemas' / '*.schema.json'))):
+    s = canonical.parse(Path(p).read_bytes())
+    Draft202012Validator.check_schema(s)
+    SCHEMAS[s['$id']] = s
+FOUNDATION = canonical.parse((HERE.parent / 'foundation' / 'identity-schemas.v2.json').read_bytes())
+REG = Registry().with_resources([(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()] + [(FOUNDATION['$id'], Resource(contents=FOUNDATION, specification=DRAFT202012))])
+U = 'urn:opensip:product-v1:workflows:'
+
+def validator(ref):
+    sid, _, frag = ref.partition('#')
+    return canonical.ExactValidator({'$ref': sid + '#' + frag} if frag else {'$ref': sid}, registry=REG)
+
+def valid(ref, value):
+    try:
+        canonical.typed(value)
+        validator(ref).validate(value)
+        return True, ''
+    except (ValidationError, canonical.AdmissionError) as e:
+        return False, str(e).splitlines()[0][:200]
+
+def must_valid(cid, ref, value):
+    ok, why = valid(ref, value)
+    return check(cid, ok, why)
+
+def must_invalid(cid, ref, value):
+    ok, _ = valid(ref, value)
+    return check(cid, not ok, 'unexpectedly valid')
+
+# Numeric confidence uses only the declared numeric operators; string coercion is not policy semantics.
+for cmp in ('eq', 'neq', 'in', 'prefix', 'glob'):
+    must_invalid('policy.numeric-field-string-operator.' + cmp, U + 'policy-document#/$defs/FieldFilter',
+                 {'field': 'confidenceMillionths', 'cmp': cmp, 'value': ['900000'] if cmp == 'in' else '900000'})
+for cmp in ('gte', 'lte'):
+    must_valid('policy.numeric-field-number-operator.' + cmp, U + 'policy-document#/$defs/FieldFilter',
+               {'field': 'confidenceMillionths', 'cmp': cmp, 'value': 900000})
+
+def synthetic_recovery_projection(journal, plan):
+    # Unit-only trusted projection; actual security admission is exercised by check-integration.py.
+    journal_ref, state_digest = M.recovery_journal_bindings(journal)
+    return {'result': 'ADMIT', 'repairPlanId': plan['repairPlanId'], 'originalRequestId': journal['requestId'],
+            'projectId': plan['descriptor']['projectId'], 'baseSnapshotId': journal['baseSnapshotId'],
+            'journalRef': journal_ref, 'journalStateDigest': state_digest,
+            'recoveryAction': M.RECOVERY_TABLE[journal['state']][0],
+            'securityRecoveryAuthorizationRef': 'security.repair-recovery-authorization.v1:' + 'c' * 64}
+
+# ----------------------------------------------------------------------------- cases
+RAW = canonical.parse((HERE / 'workflow-cases.v1.json').read_bytes())
+C = dict(RAW['constants'])
+C['ARGV'] = M.raw_sha(canonical.canonical(['scripts/test.sh', '--ci']))
+C['ARGV2'] = M.raw_sha(canonical.canonical(['/usr/bin/bash', '-c', 'rm -rf .']))
+C['TOOL0#bin/node']=C['TOOL0']+'#bin/node'
+C['ARGV4']=M.raw_sha(canonical.canonical(['node','test.js']))
+C['ARGV3'] = M.raw_sha(canonical.canonical(['bin/node', 'test.js']))
+
+def sub(o):
+    if isinstance(o, str) and o.startswith('$'):
+        key = o[1:]
+        if key in C:
+            return C[key]
+        if key in RAW['policyDocs']:
+            return sub(RAW['policyDocs'][key])
+        raise KeyError(o)
+    if isinstance(o, dict):
+        return {sub(k) if isinstance(k, str) and k.startswith('$') else k: sub(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [sub(v) for v in o]
+    return o
+
+CASES = sub(RAW)
+POL = CASES['policyDocs']
+ROOT_SCHEMA_CHECKS = 0
+for sid in SCHEMAS:
+    ROOT_SCHEMA_CHECKS += 1
+# The retained thirteen surface schemas share this directory with the explicitly
+# selected PolicyDocumentV2. Check the exact registry, not an obsolete count.
+_EXPECTED_SCHEMA_IDS = {U + name for name in (
+    'baseline-artifact','command-envelope','command-inventory','common',
+    'comparison-result','graph-query','imported-evidence','invocation-record',
+    'policy-document','policy-test','repair','review','test-execution')}
+_EXPECTED_SCHEMA_IDS.add('urn:opensip:product-v1:policy-document:2')
+check('schemas.compiled', set(SCHEMAS) == _EXPECTED_SCHEMA_IDS,
+      str(sorted(set(SCHEMAS) ^ _EXPECTED_SCHEMA_IDS)))
+check('foundation.import-def-present', 'import' in FOUNDATION['$defs'])
+
+# ----------------------------------------------------------------------------- schema vectors
+for defn, vec in CASES['schemaVectors'].items():
+    for i, v in enumerate(vec['accept']):
+        must_valid(f'vector.{defn}.accept.{i}', U + 'common#/$defs/' + defn, v)
+    for i, v in enumerate(vec['reject']):
+        must_invalid(f'vector.{defn}.reject.{i}', U + 'common#/$defs/' + defn, v)
+for i, t in enumerate(CASES['terminationVectors']['accept']):
+    must_valid(f'termination.accept.{i}', U + 'common#/$defs/StepTermination', t)
+for i, t in enumerate(CASES['terminationVectors']['reject']):
+    must_invalid(f'termination.reject.{i}', U + 'common#/$defs/StepTermination', t)
+for i, e in enumerate(CASES['envelopeVectors']['accept']):
+    must_valid(f'envelope.accept.{i}', U + 'command-envelope', e)
+    check(f'envelope.accept.{i}.exit-matches-class', M.EXIT[e['termination']['class']] == e['exitCode'])
+for i, e in enumerate(CASES['envelopeVectors']['reject']):
+    must_invalid(f'envelope.reject.{i}', U + 'command-envelope', e)
+
+# ----------------------------------------------------------------------------- inventory
+INV = canonical.parse((HERE / 'command-inventory.v1.json').read_bytes())
+must_valid('inventory.schema', U + 'command-inventory', INV)
+names = [c['name'] for c in INV['commands']]
+enum = SCHEMAS[U + 'command-inventory']['$defs']['CommandName']['enum']
+check('inventory.every-command-once', sorted(names) == sorted(enum) and len(set(names)) == len(names))
+rend = {r['format']: r for r in INV['renderers']}
+for c in INV['commands']:
+    check('inventory.formats-applicable.' + c['name'], all(c['requestClass'] in rend[f]['applicability'] for f in c['formats']))
+    check('inventory.tracked-intent-explicit.' + c['name'], (not c['writesTrackedIntent']) or c['name'] in ('policy-init', 'waive', 'baseline-adopt', 'baseline-export', 'baseline-upgrade'))
+    check('inventory.repo-exec-only-explicit-commands.' + c['name'], (c['repositoryExecution'] == 'never') == (c['name'] not in ('test-run', 'native-prepare')))
+    check('inventory.advisory-never-sarif.' + c['name'], (not c['advisory']) or 'sarif' not in c['formats'])
+check('inventory.default-is-durable-authoritative', next(c for c in INV['commands'] if c['name'] == 'default')['authority'] == 'authoritative-default')
+check('inventory.has-lifecycle-and-doctor', {'install', 'update', 'doctor', 'purge'} <= set(names))
+gold_ids = [g['id'] for g in INV['goldens']]
+check('inventory.golden-ids-unique', len(set(gold_ids)) == len(gold_ids))
+for g in INV['goldens']:
+    obs = CASES['goldenObservations'].get(g['id'])
+    if not check('golden.observation-present.' + g['id'], obs is not None):
+        continue
+    t = M.terminate(obs)
+    ok = t['class'] == g['class'] and M.exit_code(t) == g['exitCode'] and t.get('errorCode') == g.get('errorCode') and (t.get('reasonCodes') or [None])[0] == g.get('reasonCode') and t.get('domainDetail', {}).get('code') == g.get('domainDetail')
+    check('golden.model-reaches.' + g['id'], ok, json.dumps(t))
+    must_valid('golden.termination-schema.' + g['id'], U + 'common#/$defs/StepTermination', t)
+check('golden.doctor-defects-exit-zero', M.exit_code(M.terminate(CASES['goldenObservations']['doctor-defects-found'])) == 0)
+check('golden.unavailable-3-vs-delivery-4', M.exit_code(M.terminate(CASES['goldenObservations']['default-missing-required-closure'])) == 3 and M.exit_code(M.terminate(CASES['goldenObservations']['default-closure-bytes-corrupt'])) == 4)
+
+# ----------------------------------------------------------------------------- invocation lifecycle
+def build_record(case, rid):
+    steps = []
+    for i, s in enumerate(case['steps']):
+        steps.append({'stepId': i, 'kind': s['kind'], 'requirement': s['requirement'], 'dependsOn': s['dependsOn'], 'dependencyGate': s['gate'], 'retryPolicy': s['retry'], 'params': s['params']})
+    return {'schemaFamily': 'opensip.product.invocation', 'schemaMajor': 1, 'requestId': rid, 'projectId': C['PRJ'], 'workflow': {'kind': 'builtin', 'name': 'analyze'}, 'mode': case['mode'], 'orderedSteps': steps}
+
+for case in CASES['invocationCases']:
+    cid = 'invocation.' + case['id']
+    rec = build_record(case, C['REQ'])
+    exp = case['expect']
+    if exp.get('schemaInvalid'):
+        must_invalid(cid + '.schema-invalid', U + 'invocation-record', rec)
+        continue
+    if not must_valid(cid + '.spec-schema', U + 'invocation-record', rec):
+        continue
+    try:
+        out, code = M.run_invocation(rec, case['script'])
+    except M.Refusal as r:
+        check(cid + '.refusal', ('refusal' in exp and exp.get('refusal') == r.detail), r.detail)
+        continue
+    if 'refusal' in exp:
+        check(cid + '.refusal', False, 'no refusal')
+        continue
+    must_valid(cid + '.record-schema', U + 'invocation-record', out)
+    check(cid + '.exit', code == exp['exit'] and out['termination']['class'] == exp['class'], json.dumps(out['termination']))
+    if 'outcomes' in exp:
+        check(cid + '.outcomes', [r['outcome'] for r in out['stepResults']] == exp['outcomes'], json.dumps([r['outcome'] for r in out['stepResults']]))
+    if 'runIdInTermination' in exp:
+        check(cid + '.run-in-termination', out['termination'].get('runId') == exp['runIdInTermination'])
+    if exp.get('noRunId'):
+        check(cid + '.no-run-id', 'runId' not in out['termination'] and not any('runId' in (r.get('result') or {}) for r in out['stepResults']))
+    if 'detail' in exp:
+        check(cid + '.detail', out['termination'].get('domainDetail', {}).get('code') == exp['detail'], json.dumps(out['termination']))
+    if 'errorCode' in exp:
+        check(cid + '.error-code', out['termination'].get('errorCode') == exp['errorCode'])
+    if 'faultCause' in exp:
+        check(cid + '.fault-cause', out['termination'].get('faultCause') == exp['faultCause'])
+    if 'reasonCode' in exp:
+        check(cid + '.reason-code', exp['reasonCode'] in out['termination'].get('reasonCodes', []))
+    if 'phase' in exp:
+        check(cid + '.cancel-phase', out['cancellation']['phase'] == exp['phase'])
+    if 'skipReason' in exp:
+        check(cid + '.skip-reason', all(out['stepResults'][int(k)].get('skipReason') == v for k, v in exp['skipReason'].items()))
+    if 'attempts' in exp:
+        check(cid + '.attempts', all(len(out['stepResults'][int(k)]['attempts']) == v for k, v in exp['attempts'].items()))
+    if exp.get('distinctExecutionIds'):
+        ids = [a['executionId'] for r in out['stepResults'] for a in r['attempts']]
+        check(cid + '.distinct-execution-ids', len(set(ids)) == len(ids) and all(valid(U + 'common#/$defs/ExecutionId', i)[0] for i in ids))
+    if exp.get('verifyRunDiffers'):
+        check(cid + '.verify-run-differs', out['stepResults'][0]['result']['runId'] != out['stepResults'][3]['result']['runId'])
+        check(cid + '.verify-resnapshot', out['stepResults'][3]['result']['verification']['verifiedSnapshotId'] == out['stepResults'][2]['result']['appliedSnapshotId'])
+    if exp.get('derivationDistinct'):
+        d0, d3 = out['stepResults'][0]['attempts'][0]['derivation'], out['stepResults'][3]['attempts'][0]['derivation']
+        check(cid + '.derivation-binding-distinct', d0['executionPlanId'] != d3['executionPlanId'] and d0['stageCount'] <= 1024)
+check('invocation.step-bound-64', SCHEMAS[U + 'invocation-record']['properties']['orderedSteps']['maxItems'] == 64 and SCHEMAS[U + 'common']['$defs']['StepId']['maximum'] == 63)
+check('invocation.derivation-bound-1024', SCHEMAS[U + 'invocation-record']['$defs']['DerivationBinding']['properties']['stageCount']['maximum'] == 1024 and FOUNDATION['$defs']['execution-plan']['properties']['stages']['maxItems'] == 1024)
+check('invocation.ephemeral-union-closed', all('runId' not in b['properties'] for b in SCHEMAS[U + 'invocation-record']['$defs']['AnalysisResult']['oneOf'] if b['properties']['authority']['const'] == 'ephemeral'))
+
+# ----------------------------------------------------------------------------- baseline + comparison
+def fixture_evidence(value,overrides=None):
+    v=copy.deepcopy(value)
+    v['imports']=[{'kind':kind,'importId':(overrides or {}).get(kind,C['IMP_RT'] if kind=='runtime' else C['IMP_HIST']), 'payloadDigest':C['H0'],'sourceCorrespondenceDigest':C['H0'],'scopeDigest':C['H0'],'observationDigest':C['H0']} for kind in v['importKinds']]
+    return v
+BS = CASES['baselineSpec']
+
+def make_baseline(policy, scope, waivers, rule_cov, project=C['PRJ'], evidence=None):
+    run = {'authority': 'authoritative', 'availability': 'retained', 'snapshotId': C['SNAP0'], 'runId': C['RUN0']}
+    ctx = {'detectorClosureIds': [d['closureId'] for d in BS['detectorClosure']], 'evidenceAvailability': fixture_evidence(evidence or BS['evidenceAvailability'])}
+    return M.adopt_baseline(run, C['PLAN0'], project, policy, scope, waivers, rule_cov, BS['entries'], BS['detectorClosure'], BS['pivotClosure'], ctx, '1.0.0')
+
+BASE = make_baseline(POL['basePolicy'], POL['scopeAll'], POL['waiversFp2'], CASES['ruleCoverage']['full'])
+must_valid('baseline.artifact-schema', U + 'baseline-artifact', BASE)
+
+# ------------------------------------- comparison scope binding: the producing boundary (CB3-MUST-4)
+# `adopt_baseline` receives `plan` as a PlanId STRING, so `ctx['scopeDigest'] = doc_digest(scope)`
+# records the digest of whatever document the caller passed. It is NOT evidence that the document was
+# the Run's selected analysis-spec parameter, and describing it as a binding would be false. The
+# registry half of MUST-4 is done - a legal ScopeDocumentV1 parameter now admits at Plan closure and
+# malformed/wrong-selector/unregistered forms refuse - but selection membership is only decidable
+# with the retained analysis-spec record, which is what verify_scope_parameter_binding takes.
+_SCOPE_DOC_DIGEST = M.raw_sha((HERE / 'schemas' / 'policy-document.schema.json').read_bytes())
+_SCOPE_ROW = {'schemaDigest': _SCOPE_DOC_DIGEST, 'payloadDigest': M.doc_digest(POL['scopeAll'])}
+_SPEC = {'schemaVersion': 2, 'parameters': [_SCOPE_ROW]}
+def _binding_refusal(spec, scope):
+    try:
+        M.verify_scope_parameter_binding(spec, scope); return None
+    except M.Refusal as exc:
+        return exc.detail
+check('baseline.scope-binding-verified-when-the-analysis-spec-is-supplied',
+      _binding_refusal(_SPEC, POL['scopeAll']) is None)
+check('baseline.scope-binding-refuses-a-non-selected-document',
+      _binding_refusal(_SPEC, POL['scopeNoLegacy']) == 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
+check('baseline.scope-binding-refuses-when-no-scope-parameter-is-selected',
+      _binding_refusal({'schemaVersion': 2, 'parameters': []}, POL['scopeAll'])
+      == 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER')
+check('baseline.scope-binding-refuses-a-row-cited-under-another-schema',
+      _binding_refusal({'schemaVersion': 2, 'parameters': [dict(_SCOPE_ROW, schemaDigest='0' * 64)]},
+                       POL['scopeAll']) == 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER')
+# CB8-MUST-1. The verifier is EXISTENTIAL over the selected rows, so two DISTINCT entries citing
+# the one registered ScopeDocumentV1 document each satisfied it separately: whichever document the
+# caller happened to hold came back "verified" while another was equally selected. Nothing else in
+# the graph decided which was the Plan's scope policy, and both entered analysisSpecDigest and so
+# PlanId. The ambiguity is refused BEFORE any payload comparison, on the existing public
+# CONFIG.INVALID carrier and detail - no new DomainDetailCode member is proposed.
+_SCOPE_ROW_OTHER = {'schemaDigest': _SCOPE_DOC_DIGEST, 'payloadDigest': M.doc_digest(POL['scopeNoLegacy'])}
+_AMBIGUOUS_SPEC = {'schemaVersion': 2, 'parameters': [_SCOPE_ROW, _SCOPE_ROW_OTHER]}
+def _binding_exception(spec, scope):
+    try:
+        M.verify_scope_parameter_binding(spec, scope); return None
+    except M.Refusal as exc:
+        return exc
+check('baseline.the-two-candidate-scope-rows-are-genuinely-distinct-payloads',
+      _SCOPE_ROW['schemaDigest'] == _SCOPE_ROW_OTHER['schemaDigest'] and
+      _SCOPE_ROW['payloadDigest'] != _SCOPE_ROW_OTHER['payloadDigest'])
+check('baseline.scope-binding-refuses-an-ambiguous-selection',
+      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeAll']) == 'CONFIG.INVALID')
+check('baseline.the-ambiguity-is-not-laundered-by-supplying-either-candidate',
+      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeAll']) ==
+      _binding_refusal(_AMBIGUOUS_SPEC, POL['scopeNoLegacy']) == 'CONFIG.INVALID')
+check('baseline.the-ambiguity-refusal-uses-a-registered-public-error-code',
+      _binding_exception(_AMBIGUOUS_SPEC, POL['scopeAll']).error_code == 'CONFIG.INVALID' and
+      'CONFIG.INVALID' in json.loads((HERE / 'schemas' / 'common.schema.json').read_text())
+      ['$defs']['D9ErrorCode']['enum'])
+must_valid('baseline.the-ambiguity-termination-is-a-real-step-termination',
+           U + 'common#/$defs/StepTermination',
+           _binding_exception(_AMBIGUOUS_SPEC, POL['scopeAll']).termination())
+check('baseline.the-single-selection-and-zero-selection-answers-are-unchanged',
+      _binding_refusal(_SPEC, POL['scopeAll']) is None and
+      _binding_refusal({'schemaVersion': 2, 'parameters': []}, POL['scopeAll'])
+      == 'BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER' and
+      _binding_refusal(_SPEC, POL['scopeNoLegacy']) == 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
+
+# End to end: adopt_baseline verifies when given the spec, and refuses the mismatched document.
+_run = {'authority': 'authoritative', 'availability': 'retained', 'snapshotId': C['SNAP0'], 'runId': C['RUN0']}
+_ctx = {'detectorClosureIds': [d['closureId'] for d in BS['detectorClosure']],
+        'evidenceAvailability': fixture_evidence(BS['evidenceAvailability'])}
+def _adopt(scope, spec):
+    return M.adopt_baseline(_run, C['PLAN0'], C['PRJ'], POL['basePolicy'], scope, POL['waiversFp2'],
+                            CASES['ruleCoverage']['full'], BS['entries'], BS['detectorClosure'],
+                            BS['pivotClosure'], _ctx, '1.0.0', analysis_spec=spec)
+_VERIFIED = _adopt(POL['scopeAll'], _SPEC)
+check('baseline.adopt-with-verified-scope-parameter-succeeds',
+      _VERIFIED['descriptor']['context']['scopeDigest'] == M.doc_digest(POL['scopeAll']))
+check('baseline.verified-and-asserted-paths-agree-on-the-descriptor',
+      _VERIFIED['baselineId'] == make_baseline(POL['basePolicy'], POL['scopeAll'], POL['waiversFp2'],
+                                               CASES['ruleCoverage']['full'])['baselineId'])
+try:
+    _adopt(POL['scopeNoLegacy'], _SPEC); check('baseline.adopt-refuses-an-unselected-scope-document', False, 'admitted')
+except M.Refusal as exc:
+    check('baseline.adopt-refuses-an-unselected-scope-document',
+          exc.detail == 'BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH', str(exc.detail))
+# The ACTUAL caller carries the ambiguity refusal too when it is handed the spec; and the
+# unverified path is UNCHANGED - it remains a caller assertion, and this correction adds no join
+# there that the contract does not claim.
+try:
+    _adopt(POL['scopeAll'], _AMBIGUOUS_SPEC)
+    check('baseline.adopt-refuses-an-ambiguous-scope-selection', False, 'admitted')
+except M.Refusal as exc:
+    check('baseline.adopt-refuses-an-ambiguous-scope-selection',
+          exc.detail == 'CONFIG.INVALID', str(exc.detail))
+check('baseline.without-the-spec-the-scope-binding-is-still-only-a-caller-assertion',
+      make_baseline(POL['basePolicy'], POL['scopeAll'], POL['waiversFp2'],
+                    CASES['ruleCoverage']['full'])['descriptor']['context']['scopeDigest']
+      == M.doc_digest(POL['scopeAll']))
+# The two scope records stay different things: the repository extent walked (foundation
+# scope-descriptor, plan.scopeDigest) versus the operator's include/exclude glob policy.
+check('baseline.operator-glob-scope-is-not-the-repository-scope-descriptor',
+      set(POL['scopeAll']) == {'schemaFamily', 'schemaMajor', 'include', 'exclude'} and
+      'workspaceRoots' not in POL['scopeAll'])
+check('baseline.fresh-ci-verify', M.verify_baseline_artifact(BASE))
+check('baseline.pins-run-and-pivot-closures', set(BASE['custody']['retentionPins']) == {C['RUN0'], C['DET_A0'], C['EVAL0'], C['TOOL0']})
+check('baseline.identity-excludes-custody', M.wid('baseline2', 'workflow.baseline', BASE['descriptor']) == BASE['baselineId'])
+tampered = copy.deepcopy(BASE)
+tampered['descriptor']['entries'][0]['waived'] = True
+try:
+    M.verify_baseline_artifact(tampered); check('baseline.tamper-detected', False)
+except M.Refusal as r:
+    check('baseline.tamper-detected', r.detail == 'IMPORT.ARTIFACT_CORRUPT')
+try:
+    M.adopt_baseline({'authority': 'ephemeral', 'snapshotId': C['SNAP0'], 'runId': C['RUN0']}, C['PLAN0'], C['PRJ'], POL['basePolicy'], POL['scopeAll'], POL['waiversNone'], CASES['ruleCoverage']['full'], BS['entries'], BS['detectorClosure'], BS['pivotClosure'], {'detectorClosureIds': [C['DET_A0']], 'evidenceAvailability': BS['evidenceAvailability']}, '1.0.0')
+    check('baseline.ephemeral-cannot-adopt', False)
+except M.Refusal as r:
+    check('baseline.ephemeral-cannot-adopt', r.detail == 'BASELINE.SOURCE_EPHEMERAL')
+legacy = copy.deepcopy(BASE['descriptor']['entries'][0]); legacy['legacyFingerprint'] = 'fp1:' + 'e' * 64
+must_valid('baseline.legacy-fingerprint-is-migration-field-only', U + 'baseline-artifact#/$defs/BaselineEntry', legacy)
+check('baseline.pivot-closure-never-legacy', all(p['kind'] in ('detector', 'evaluator', 'toolchain', 'stdlib', 'schema-set') for p in BASE['descriptor']['pivotClosure']))
+
+for case in CASES['comparisonCases']:
+    cid = 'comparison.' + case['id']
+    base = copy.deepcopy(BASE)
+    if 'baselineEntries' in case:
+        base['descriptor']['entries'] = copy.deepcopy(case['baselineEntries'])
+        base['baselineId'] = M.wid('baseline2', 'workflow.baseline', base['descriptor'])
+    if case.get('tamperContext'):
+        base['descriptor']['contextDocuments']['policy'] = POL['policyDisabledUnused']
+    bd = dict(base['descriptor']); bd['_baselineId'] = base['baselineId']
+    cur_ctx = {'policyDigest': M.doc_digest(POL[case['currentPolicy']]), 'scopeDigest': M.doc_digest(POL[case['currentScope']]),
+               'waiverSetDigest': M.doc_digest(POL[case['currentWaivers']]), 'detectorClosureIds': [case['currentDetector']['closureId']], 'evidenceAvailability': fixture_evidence(case['currentEvidence'],case.get('importOverrides'))}
+    presence, entry_rules = {}, {}
+    bmap = {e['fingerprint']: e for e in BS['entries']}
+    rule_of = {C['FP1']: ('no-unused-export', 'ts-detector'), C['FP2']: ('no-unused-export', 'ts-detector'), C['FP3']: ('no-unused-export', 'ts-detector'), C['FP4']: ('no-unused-export', 'ts-detector'), C['FP5']: ('runtime-unhit-export', 'ts-detector'), C['FP6']: ('stale-file-advisory', 'ts-detector')}
+    for fp, p in case['presence'].items():
+        presence[fp] = {'B': fp in bmap, 'E0': p['E0'], 'E1': p['E1'], 'E2': p['E2'], 'E3': p['E3'], 'E4': p['E4'], 'waivedB': bmap[fp]['waived'] if fp in bmap else False, 'waivedC': p['waivedC']}
+        entry_rules[fp] = case.get('entryRules',{}).get(fp) or rule_of[fp]
+    current = {'runId': C['RUN1'], 'snapshotId': C['SNAP1'], 'projectId': case.get('currentProject', C['PRJ']), 'context': cur_ctx, 'ruleCoverage': {r['ruleId']: r for r in CASES['ruleCoverage'][case['currentRuleCoverage']]}, 'presence': presence, 'entryRules': entry_rules}
+    cd = case.get('currentDetectors',{'ts-detector': dict(case['currentDetector'])})
+    current['context']['detectorClosureIds']=sorted(d['closureId'] for d in cd.values())
+    current['boundPivots']=case.get('boundPivots',['E1','E2','E3'])
+    for over in case.get('ruleCoverageOverride',[]):current['ruleCoverage'][over['ruleId']].update(over)
+    res = M.compare(bd, current, CASES['hosts'][case['host']], case['profile'], cd, tuple(case.get('acceptOrigins', [])))
+    must_valid(cid + '.schema', U + 'comparison-result', res)
+    d, exp = res['descriptor'], case['expect']
+    check(cid + '.performed', d['comparisonPerformed'] == exp['performed'])
+    check(cid + '.verdict', d['verdict'] == exp['verdict'], d['verdict'])
+    if 'E0' in exp:
+        check(cid + '.pivot-E0', d['pivotsAvailable']['E0'] == exp['E0'], d['pivotsAvailable']['E0'])
+    for pv in ('E1', 'E2', 'E3'):
+        if pv in exp:
+            check(cid + '.pivot-' + pv, d['pivotsAvailable'][pv] == exp[pv])
+    if 'detectorMethods' in exp:
+        check(cid + '.detector-methods', {x['detectorId']: x['method'] for x in d['detectors']} == exp['detectorMethods'])
+    if 'ruleDeficiencies' in exp:
+        check(cid + '.rule-deficiencies', [[x['ruleId'], x['gating'], x['cause']] for x in d['ruleDeficiencies']] == exp['ruleDeficiencies'])
+    if 'detectorMethod' in exp:
+        check(cid + '.detector-method', d['detectors'][0]['method'] == exp['detectorMethod'], d['detectors'][0]['method'])
+    if 'detectorReason' in exp:
+        check(cid + '.detector-reason', d['detectors'][0].get('indeterminateReason') == exp['detectorReason'])
+    if 'wholeReason' in exp:
+        check(cid + '.whole-reason', d.get('wholeIndeterminateReason') == exp['wholeReason'] and d['entries'] == [])
+    if 'remedyCode' in exp:
+        check(cid + '.remedy-code', d['remedy']['code'] == exp['remedyCode'])
+    if 'correspondence' in exp:
+        check(cid + '.correspondence', d['projectCorrespondence'] == exp['correspondence'])
+    if 'd9Deficiency' in exp:
+        check(cid + '.d9-deficiency', d.get('d9Deficiency') == exp['d9Deficiency'], d.get('d9Deficiency'))
+    ents = {e['fingerprint']: e for e in d['entries']}
+    for fp, ex in exp.get('entries', {}).items():
+        e = ents.get(fp)
+        ok = e is not None and e['classification'] == ex[0] and e['gates'] == ex[1] and (len(ex) < 3 or e.get('gateReason') == ex[2])
+        check(cid + '.entry.' + fp[-4:], ok, json.dumps(e))
+    for fp, axes in exp.get('subsequent', {}).items():
+        check(cid + '.subsequent.' + fp[-4:], ents[fp]['subsequentDeltas'] == axes, json.dumps(ents[fp]['subsequentDeltas']))
+    for fp, reason in exp.get('entryReason', {}).items():
+        check(cid + '.entry-reason.' + fp[-4:], ents[fp].get('indeterminateReason') == reason)
+    for k, v in exp.get('counts', {}).items():
+        check(cid + '.count.' + k, d['counts'][k] == v, str(d['counts'][k]))
+    check(cid + '.entries-sorted', [e['fingerprint'] for e in d['entries']] == sorted(e['fingerprint'] for e in d['entries']))
+    check(cid + '.gating-count-consistent', d['counts']['gating'] == sum(1 for e in d['entries'] if e['gates']))
+    check(cid + '.identity-recomputes', M.wid('comparison2', 'workflow.comparison', d) == res['comparisonResultId'])
+check('comparison.profiles-schema', all(valid(U + 'comparison-result#/$defs/AuditProfile', p)[0] for p in M.AUDIT_PROFILES.values()))
+check('comparison.enum-precedence-not-gate', all(SCHEMAS[U + 'comparison-result']['$defs']['Entry']['properties']['gates']['type'] == 'boolean' for _ in [0]))
+
+# ----------------------------------------------------------------------------- imports
+REGISTERED={domain:(HERE.parent/row['schemaDocument']).read_bytes() for (kind,domain),row in M.PAYLOAD_REGISTRY.items()}
+native_spec = importlib.util.spec_from_file_location('native_import_fixture_adapter', HERE.parent / 'native' / 'native_evidence_model.v2.py')
+N = importlib.util.module_from_spec(native_spec); native_spec.loader.exec_module(N)
+NF = canonical.parse((HERE.parent / 'native' / 'native-cases.v2.json').read_bytes())['fixtures']
+DS = N.dependency_source_set_admit(NF['lock'], [NF['tarballRow']], ['serde 1.0.200 registry+https://github.com/rust-lang/crates.io-index'])
+NATIVE_PAYLOADS = {
+    'native.import-payload.dependency-source.v1': {'schemaVersion': 1, 'payloadDomain': 'native.import-payload.dependency-source.v1', 'set': DS['descriptor'], 'acquisitionSourcePath': '/synthetic/cache', 'tarballDigests': [{'packageKey': 'serde 1.0.200 registry+https://github.com/rust-lang/crates.io-index', 'crateTarballSha256': 'a' * 64}]},
+    'native.import-payload.prepared-output.v1': {'schemaVersion': 1, 'payloadDomain': 'native.import-payload.prepared-output.v1', 'set': NF['prepInert']},
+}
+RT = CASES['runtimePayload']
+must_valid('import.runtime-payload-schema', U + 'imported-evidence#/$defs/RuntimePayloadV1', RT)
+built = {}
+for case in CASES['importCases']:
+    cid = 'import.' + case['id']
+    regs = dict(REGISTERED)
+    if case.get('unregister'):
+        regs.pop(case['payloadDomain'])
+    payload = dict(RT) if case['payloadDomain'].startswith('workflow') else copy.deepcopy(NATIVE_PAYLOADS.get(case['payloadDomain'], {'payloadDomain': case['payloadDomain']}))
+    payload.update(case.get('payloadOverride', {}))
+    if case.get('replaceSchemaBytes'):
+        regs[case['payloadDomain']] = b'{"type":"object"}'
+    payload['payloadDomain'] = case['payloadDomain'] if case['payloadDomain'] != 'workflow.import-payload.runtime.v1' else RT['payloadDomain']
+    try:
+        r = M.build_import(case['kind'], payload, case['payloadDomain'], regs, case['correspondence'], C['PROD'], C['ADAPT'], [{'path': 'coverage/v8.json', 'sha256': C['H0'], 'bytes': 10}], {'schemaVersion':2,'workspaceRoots':['.'],'pathPrefixes':['src'],'excludedPathPrefixes':[]}, {'window':case.get('window'), 'population':'test-suite', 'completeness':case.get('completeness','partial'),'omissions':case.get('omissions',['dist not instrumented'])})
+    except M.Refusal as x:
+        check(cid + '.refusal', ('refusal' in case['expect'] and case['expect'].get('refusal') == x.detail) and (case['expect'].get('errorCode') is None or case['expect']['errorCode'] == x.error_code), x.detail)
+        continue
+    if 'refusal' in case['expect']:
+        check(cid + '.refusal', False, 'no refusal'); continue
+    built[case['id']] = r
+    must_valid(cid + '.wrapper-foundation-import-schema', FOUNDATION['$id'] + '#/$defs/import', r['wrapper'])
+    must_valid(cid + '.wrapper-workflow-mirror-schema', U + 'imported-evidence#/$defs/ImportWrapperV2', r['wrapper'])
+    check(cid + '.import-id-prefix', r['importId'].startswith('import2:'))
+    check(cid + '.wrapper-id-not-payload-digest', r['importId'][8:] != r['wrapper']['payloadDigest'])
+    check(cid + '.identity-is-foundation-domain', r['importId'] == 'import2:' + canonical.identity('import', r['wrapper']))
+    if 'owner' in case['expect']:
+        check(cid + '.owner', r['payloadBinding']['owner'] == case['expect']['owner'])
+    if case.get('compareTo'):
+        o = built[case['compareTo']]
+        check(cid + '.same-payload-digest', o['wrapper']['payloadDigest'] == r['wrapper']['payloadDigest'])
+        check(cid + '.different-import-id', o['importId'] != r['importId'])
+    rec = {'schemaFamily': 'opensip.product.imported-evidence', 'schemaMajor': 1, 'importId': r['importId'], 'wrapper': r['wrapper'], 'payloadBinding': r['payloadBinding'], 'correspondence': case['correspondence'], 'projectId': C['PRJ'], 'sourcePath': './coverage/v8.json', 'receiptId': 'receipt2:' + '1' * 64}
+    must_valid(cid + '.record-schema', U + 'imported-evidence#/$defs/ImportedEvidenceRecordV1', rec)
+for case in CASES['sourceMappingCases']:
+    try:
+        digest = M.admit_source_mapping(case['mapping'], case['inventory'], C['SNAP1'])
+        check('source-mapping.' + case['id'], case['expect'].get('ok') is True and digest == M.doc_digest(case['mapping']))
+    except M.Refusal as exc:
+        check('source-mapping.' + case['id'], ('refusal' in case['expect'] and exc.detail == case['expect'].get('refusal')), exc.detail)
+for case in CASES['stalenessCases']:
+    r = M.classify_staleness(case['correspondence'], case['plan'], corrupt=case.get('corrupt', False))
+    must_valid('staleness.row-schema.' + case['id'], U + 'imported-evidence#/$defs/StalenessRule', r)
+    check('staleness.' + case['id'], [r['staleness'], r['usable']] == case['expect'], json.dumps(r))
+cu = M.consumable_unhit_subjects(RT)
+check('import.only-observable-unhit-consumable', cu['subjects'] == CASES['runtimePayloadExpect']['consumableUnhit'] and cu['universalNonUse'] is False)
+check('import.window-disclosed-with-unhit', cu['window'] == RT['observationWindow'] and cu['population'] == RT['observedPopulation'])
+must_invalid('import.unobservable-with-hits-rejected', U + 'imported-evidence#/$defs/RuntimeSubject', {'path': 'src/c.ts', 'observability': 'unobservable', 'hits': 0})
+must_invalid('import.wrapper-kind-outside-enum', U + 'imported-evidence#/$defs/ImportWrapperV2', dict(built['runtime-wrapper-joins-foundation-import']['wrapper'], kind='coverage'))
+plan_import_schema = FOUNDATION['$defs']['plan']['properties']['importIds']['items']
+check('import.plan-import-ids-are-wrappers', canonical.ExactValidator(plan_import_schema).is_valid('import2:' + 'a' * 64)
+      and not canonical.ExactValidator(plan_import_schema).is_valid('fact2:' + 'a' * 64)
+      and not canonical.ExactValidator(plan_import_schema).is_valid('import2:' + 'a' * 64 + '\n'))
+
+# ------------------------------------------------------- import mirror: semantic differential
+# The wrapper and the scope descriptor each have ONE H identity and ONE digest preimage, admitted
+# through TWO documents: the foundation record (authority) and its declared workflow mirror. Equal
+# descriptive metadata is not the property that matters -- the property is that both documents
+# ADMIT and REFUSE exactly the same bytes. This differential asserts verdict equality instance by
+# instance, and each instance is a boundary of a constraint the two documents once disagreed about,
+# so the check cannot pass by both documents being permissive.
+MIRROR_PAIRS = [
+    ('wrapper', FOUNDATION['$id'] + '#/$defs/import', U + 'imported-evidence#/$defs/ImportWrapperV2'),
+    ('scope', FOUNDATION['$id'] + '#/$defs/scope-descriptor', U + 'imported-evidence#/$defs/ImportScopeDescriptor'),
+]
+_W0 = copy.deepcopy(built['runtime-wrapper-joins-foundation-import']['wrapper'])
+_S0 = {'schemaVersion': 2, 'workspaceRoots': ['.'], 'pathPrefixes': ['src'], 'excludedPathPrefixes': []}
+_BLOB = dict(_W0['blobs'][0])
+
+def _wrap(**over):
+    return dict(copy.deepcopy(_W0), **over)
+
+def _blobs(n, **over):
+    return [dict(_BLOB, path='m/%05d' % i, **over) for i in range(n)]
+
+# (case id, which pair, instance, expected verdict of BOTH documents)
+MIRROR_CASES = [
+    ('wrapper.positive-control', 'wrapper', _wrap(), True),
+    # Zero AUXILIARY ASSETS is lawful. `blobs` is not the import's mandatory custody: the payload
+    # bytes and the exact registered schema document bytes are retained and re-hashed independently,
+    # and `sourcePath` is a UserInputPath that by its own definition never enters a content identity
+    # and has no join to this array. A self-contained normalized payload retains no asset.
+    ('wrapper.blobs-empty-is-lawful', 'wrapper', _wrap(blobs=[]), True),
+    ('wrapper.blobs-one', 'wrapper', _wrap(blobs=_blobs(1)), True),
+    ('wrapper.blobs-at-max', 'wrapper', _wrap(blobs=_blobs(4096)), True),
+    ('wrapper.blobs-over-max', 'wrapper', _wrap(blobs=_blobs(4097)), False),
+    ('wrapper.blob-bytes-at-max', 'wrapper', _wrap(blobs=_blobs(1, bytes=268435456)), True),
+    ('wrapper.blob-bytes-over-max', 'wrapper', _wrap(blobs=_blobs(1, bytes=268435457)), False),
+    ('wrapper.blob-path-dot-dot', 'wrapper', _wrap(blobs=[dict(_BLOB, path='a/../b')]), False),
+    ('wrapper.blob-path-backslash', 'wrapper', _wrap(blobs=[dict(_BLOB, path='a\\b')]), False),
+    ('wrapper.blob-path-absolute', 'wrapper', _wrap(blobs=[dict(_BLOB, path='/a/b')]), False),
+    ('wrapper.blob-path-oversized-segment', 'wrapper', _wrap(blobs=[dict(_BLOB, path='x' * 256)]), False),
+    ('wrapper.blobs-unsorted-by-path', 'wrapper', _wrap(blobs=list(reversed(_blobs(2)))), False),
+    ('wrapper.omissions-sorted', 'wrapper', _wrap(completeness='partial', omissions=['a', 'b']), True),
+    ('wrapper.omissions-unsorted', 'wrapper', _wrap(completeness='partial', omissions=['b', 'a']), False),
+    ('wrapper.omissions-empty-when-complete', 'wrapper', _wrap(completeness='complete', omissions=[]), True),
+    ('scope.positive-control', 'scope', dict(_S0), True),
+    ('scope.roots-sorted', 'scope', dict(_S0, workspaceRoots=['a', 'b']), True),
+    ('scope.roots-unsorted', 'scope', dict(_S0, workspaceRoots=['b', 'a']), False),
+    ('scope.prefixes-unsorted', 'scope', dict(_S0, pathPrefixes=['src', 'lib']), False),
+    ('scope.excluded-unsorted', 'scope', dict(_S0, excludedPathPrefixes=['b', 'a']), False),
+    ('scope.excluded-sorted', 'scope', dict(_S0, excludedPathPrefixes=['a', 'b']), True),
+]
+_agree = _refusals = 0
+for cid, pair, instance, expected in MIRROR_CASES:
+    _, f_ref, w_ref = next(p for p in MIRROR_PAIRS if p[0] == pair)
+    f_ok, f_why = valid(f_ref, instance)
+    w_ok, w_why = valid(w_ref, instance)
+    check('import.mirror-verdicts-agree.' + cid, f_ok == w_ok,
+          'foundation=%s (%s) workflow=%s (%s)' % (f_ok, f_why, w_ok, w_why))
+    check('import.mirror-verdict-expected.' + cid, f_ok == expected and w_ok == expected,
+          'expected %s, foundation=%s workflow=%s' % (expected, f_ok, w_ok))
+    _agree += int(f_ok == w_ok)
+    _refusals += int(expected is False and f_ok is False and w_ok is False)
+# A differential that never refuses proves nothing: require real discriminating negatives.
+check('import.mirror-differential-is-discriminating', _refusals >= 11, 'refusing cases: %d' % _refusals)
+check('import.mirror-differential-total-agreement', _agree == len(MIRROR_CASES), '%d/%d' % (_agree, len(MIRROR_CASES)))
+
+# ----------------------------------------------------------------------------- policy DSL
+SUITE = CASES['policySuite']
+must_valid('policy.suite-schema', U + 'policy-test#/$defs/PolicyTestSuiteV1', SUITE)
+must_valid('policy.document-schema', U + 'policy-document#/$defs/PolicyDocumentV1', POL['basePolicy'])
+res1, _ = M.run_policy_test(SUITE)
+res2, _ = M.run_policy_test(copy.deepcopy(SUITE))
+must_valid('policy.result-schema', U + 'policy-test#/$defs/PolicyTestResultV1', res1)
+PE = CASES['policySuiteExpect']
+check('policy.resolver-accepted', res1['resolverAccepted'] == PE['resolverAccepted'])
+check('policy.expired-waiver-disclosed', res1['waiverResolution']['expired'] == PE['expired'])
+for r in res1['results']:
+    check('policy.case.' + r['id'], r['outcome'] == PE['outcomes'][r['id']], json.dumps(r))
+check('policy.deterministic', res1['policyTestResultId'] == res2['policyTestResultId'])
+check('policy.enforcement-unchanged', res1['enforcementUnchanged'] is True and res1['effectivePolicyDigest'] == res1['candidatePolicyDigest'])
+for case in CASES['policyRefusals']:
+    cid = 'policy.refusal.' + case['id']
+    suite = copy.deepcopy(SUITE)
+    if 'waivers' in case:
+        suite['waivers']['waivers'] = case['waivers']
+    if 'policyExtra' in case:
+        suite['candidatePolicy'].update(case['policyExtra'])
+    if 'policyEmitWhen' in case:
+        suite['candidatePolicy']['rules'][0]['emitWhen'] = case['policyEmitWhen']
+    if 'policyEvidenceUse' in case:
+        suite['candidatePolicy']['rules'][1]['evidenceUse'] = case['policyEvidenceUse']
+    if 'overrides' in case:
+        suite['overrides'] = case['overrides']
+    if case['expect'].get('schemaInvalid'):
+        must_invalid(cid + '.schema-invalid', U + 'policy-test#/$defs/PolicyTestSuiteV1', suite)
+        continue
+    r, refusal = M.run_policy_test(suite)
+    if 'refusal' in case['expect']:
+        check(cid, refusal is not None and refusal.detail == case['expect']['refusal'] and r['resolverAccepted'] is False, getattr(refusal, 'detail', None))
+        must_valid(cid + '.result-schema', U + 'policy-test#/$defs/PolicyTestResultV1', r)
+    else:
+        check(cid + '.effective-differs', r['effectivePolicyDigest'] != r['candidatePolicyDigest'])
+        check(cid + '.candidate-unchanged', r['candidatePolicyDigest'] == res1['candidatePolicyDigest'] and r['overridesApplied'] == case['overrides'])
+check('policy.glob-closed', M.glob_match('src/**/*.ts', 'src/a/b.ts') and not M.glob_match('src/*.ts', 'src/a/b.ts') and not M.glob_match('{a,b}', 'a'))
+check('policy.kleene-and-false-dominates', M.eval_pred({'op': 'and', 'operands': [{'op': 'none', 'relation': 'imports', 'minResolution': 'resolved-target', 'filters': []}, {'op': 'exists', 'relation': 'imports', 'minResolution': 'resolved-target', 'filters': []}]}, 's', [{'relation': 'imports', 'subject': 's', 'target': 't', 'resolution': 'resolved-target'}], False, set(), set()) is False)
+# The second operand names an unregistered relation. Under the withdrawn global rank it silently
+# evaluated as an ordinary unmatched atom; the relation is now closed, so an unregistered relation
+# is an admission refusal and reaches eval_pred only for a policy that never passed admission.
+check('policy.kleene-or-unknown-propagates', M.eval_pred({'op': 'or', 'operands': [{'op': 'none', 'relation': 'imports', 'minResolution': 'resolved-target', 'filters': []}, {'op': 'exists', 'relation': 'declares', 'minResolution': 'syntactic', 'filters': []}]}, 's', [], False, set(), set()) is None)
+
+# ------------------------------------------------- per-relation rung law (no global rank)
+# Every rung comparison happens inside ONE relation's ladder. These cases fix the boundary the
+# fixtures never exercised: a fact BELOW the demanded rung must not satisfy the atom, and a fact
+# ABOVE it must.
+_LOWER = {'relation': 'imports', 'subject': 's', 'target': 't', 'resolution': 'syntactic-specifier'}
+_UPPER = {'relation': 'imports', 'subject': 's', 'target': 't', 'resolution': 'resolved-target'}
+_atom = lambda rung, op='exists': {'op': op, 'relation': 'imports', 'minResolution': rung, 'filters': []}
+check('policy.rung-equal-satisfies', M.eval_pred(_atom('syntactic-specifier'), 's', [_LOWER], True, set(), set()) is True)
+check('policy.rung-higher-satisfies-lower-demand', M.eval_pred(_atom('syntactic-specifier'), 's', [_UPPER], True, set(), set()) is True)
+check('policy.rung-lower-does-not-satisfy-higher-demand', M.eval_pred(_atom('resolved-target'), 's', [_LOWER], True, set(), set()) is False)
+check('policy.rung-order-is-weakest-first', M.rung_index('imports', 'syntactic-specifier') == 0 and M.rung_index('imports', 'resolved-target') == 1)
+check('policy.rung-index-of-foreign-relation-rung-is-none', M.rung_index('imports', 'resolved-callee') is None)
+check('policy.no-global-rank-table', not hasattr(M, 'RES_ORDER'))
+# Cross-relation comparison is a refusal, not a boolean: `resolved-callee` is a real rung of a real
+# relation, so nothing about its SYNTAX distinguishes it from a lawful value here.
+def _cross_relation_compare():
+    return M.eval_pred(_atom('resolved-target'), 's', [dict(_LOWER, resolution='resolved-callee')], True, set(), set())
+try:
+    _cross_relation_compare(); check('policy.cross-relation-rung-refuses', False, 'admitted')
+except M.Refusal as exc:
+    check('policy.cross-relation-rung-refuses', exc.error_code == 'CONFIG.INVALID', exc.detail)
+# Atom admission closes the relation and the rung against the two registries.
+def _atom_refusal(atom):
+    try:
+        M.admit_atom(atom); return None
+    except M.Refusal as exc:
+        return exc.detail
+check('policy.atom-native-relation-admitted', _atom_refusal(_atom('resolved-target')) is None)
+check('policy.atom-unregistered-relation-refused', _atom_refusal(_atom('resolved-target') | {'relation': 'not-a-relation'}) is not None)
+check('policy.atom-foreign-rung-refused', _atom_refusal(_atom('resolved-callee')) is not None)
+check('policy.atom-withdrawn-tier-refused', _atom_refusal(_atom('resolved')) is not None)
+check('policy.atom-single-rung-relation-admitted', _atom_refusal({'op': 'exists', 'relation': 'declares', 'minResolution': 'syntactic', 'filters': []}) is None)
+check('policy.atom-evidence-relation-requires-its-kind', _atom_refusal({'op': 'exists', 'relation': 'runtime-observation', 'minResolution': 'observed', 'filters': []}) is not None)
+check('policy.atom-evidence-relation-admitted-with-kind', _atom_refusal({'op': 'exists', 'relation': 'runtime-observation', 'minResolution': 'observed', 'filters': [], 'evidence': 'runtime'}) is None)
+check('policy.atom-native-relation-forbids-evidence', _atom_refusal(_atom('resolved-target') | {'evidence': 'runtime'}) is not None)
+check('policy.atom-evidence-relation-wrong-kind-refused', _atom_refusal({'op': 'exists', 'relation': 'runtime-observation', 'minResolution': 'observed', 'filters': [], 'evidence': 'history'}) is not None)
+# Every single-rung relation admits its own rung and refuses every other relation's.
+for _rel, _ladder in sorted(M.RELATION_LADDERS.items()):
+    _ev = M.EVIDENCE_RELATIONS.get(_rel)
+    _base = {'op': 'exists', 'relation': _rel, 'filters': []}
+    if _ev:
+        _base['evidence'] = _ev['evidenceKind']
+    for _rung in _ladder:
+        check('policy.ladder-admits.' + _rel + '@' + _rung, _atom_refusal(dict(_base, minResolution=_rung)) is None)
+    for _foreign in sorted(M.RUNG_VOCABULARY - set(_ladder)):
+        check('policy.ladder-refuses-foreign.' + _rel + '@' + _foreign, _atom_refusal(dict(_base, minResolution=_foreign)) is not None)
+# Syntax-versus-resolved under an INCOMPLETE view is the conservative case: a fact at the weaker
+# rung does not satisfy a demand for the stronger one, and with coverage incomplete the atom is
+# INDETERMINATE, not false. Reporting false here would be a universal negative the view cannot
+# support -- the exact confusion a global rank invited by making every rung comparable.
+check('policy.weaker-rung-under-complete-coverage-is-false',
+      M.eval_pred(_atom('resolved-target'), 's', [_LOWER], True, set(), set()) is False)
+check('policy.weaker-rung-under-incomplete-coverage-is-indeterminate',
+      M.eval_pred(_atom('resolved-target'), 's', [_LOWER], False, set(), set()) is None)
+check('policy.absent-fact-under-incomplete-coverage-is-indeterminate',
+      M.eval_pred(_atom('resolved-target'), 's', [], False, set(), set()) is None)
+check('policy.none-over-a-weaker-rung-is-not-a-negative-proof',
+      M.eval_pred(_atom('resolved-target', 'none'), 's', [_LOWER], False, set(), set()) is None)
+check('policy.none-over-a-weaker-rung-with-complete-coverage-is-true',
+      M.eval_pred(_atom('resolved-target', 'none'), 's', [_LOWER], True, set(), set()) is True)
+check('policy.all-covered-is-indeterminate-without-complete-coverage',
+      M.eval_pred(_atom('syntactic-specifier', 'all-covered'), 's', [_UPPER], False, set(), set()) is None
+      and M.eval_pred(_atom('syntactic-specifier', 'all-covered'), 's', [], True, set(), set()) is True)
+# Imported-evidence posture: an atom over evidence that is not available is indeterminate, never a
+# silent false, and the rung law applies to it identically.
+_EV_ATOM = {'op': 'exists', 'relation': 'runtime-observation', 'minResolution': 'observed',
+            'filters': [], 'evidence': 'runtime'}
+_EV_FACT = {'relation': 'runtime-observation', 'subject': 's', 'target': 't', 'resolution': 'observed'}
+check('policy.evidence-atom-without-its-import-is-indeterminate',
+      M.eval_pred(_EV_ATOM, 's', [_EV_FACT], True, set(), set()) is None)
+check('policy.evidence-atom-with-its-import-evaluates',
+      M.eval_pred(_EV_ATOM, 's', [_EV_FACT], True, {'runtime'}, set()) is True)
+check('policy.evidence-relation-ladder-is-single-rung',
+      M.RELATION_LADDERS['runtime-observation'] == ['observed']
+      and M.RELATION_LADDERS['history-change'] == ['observed'])
+check('policy.evidence-rung-token-is-already-registered-not-new',
+      'observed' in M.RELATION_LADDERS['unresolved-edge'])
+# Repair reuses the policy rung TYPE, so it must reuse the policy rung LAW.
+def _repair_requirement_refusal(req):
+    try:
+        M.admit_atom({'relation': req['relation'], 'minResolution': req['minResolution'],
+                      'evidence': M.EVIDENCE_RELATIONS.get(req['relation'], {}).get('evidenceKind')})
+        return None
+    except M.Refusal as exc:
+        return exc.detail
+check('repair.evidence-requirement-lawful-rung-admits',
+      _repair_requirement_refusal({'relation': 'imports', 'minResolution': 'resolved-target'}) is None)
+check('repair.evidence-requirement-foreign-rung-refused',
+      _repair_requirement_refusal({'relation': 'imports', 'minResolution': 'resolved-callee'}) is not None)
+check('repair.evidence-requirement-unregistered-relation-refused',
+      _repair_requirement_refusal({'relation': 'not-a-relation', 'minResolution': 'resolved-target'}) is not None)
+# CB6-MUST-1 / CX-BV6-02 / CX-BV6-03. EvidenceRequirement.deficiency used to name D9Deficiency,
+# which cannot express four of the nine native outcomes its producer emits. It now carries the
+# vocabulary of its requirement's evidence PLANE, and repair admits BOTH planes, so these controls
+# hold four things apart: the native outcome vocabulary, the imported one, the D9 termination
+# vocabulary, and the typed presence law that ties a value to `satisfied`.
+_NATIVE_DEFICIENCIES = M.NATIVE_SUFFICIENCY_DEFICIENCIES
+_IMPORTED_DEFICIENCIES = M.IMPORTED_REQUIREMENT_DEFICIENCIES
+_D9_DEFICIENCIES = SCHEMAS[U + 'common']['$defs']['D9Deficiency']['enum']
+_IMPORT_LAW = SCHEMAS[U + 'imported-evidence']['x-opensip-imported-requirement-law']
+check('repair.sufficiency-vocabulary-mirrors-the-native-authority-exactly',
+      SCHEMAS[U + 'common']['$defs']['NativeSufficiencyDeficiency']['enum'] == _NATIVE_DEFICIENCIES)
+check('repair.imported-vocabulary-mirrors-its-owning-law-exactly',
+      SCHEMAS[U + 'common']['$defs']['ImportedRequirementDeficiency']['enum']
+      == _IMPORTED_DEFICIENCIES == list(_IMPORT_LAW['precedence'])
+      and set(_IMPORTED_DEFICIENCIES) == set(_IMPORT_LAW['outcomes']))
+check('repair.the-two-requirement-planes-are-disjoint-vocabularies',
+      not (set(_NATIVE_DEFICIENCIES) & set(_IMPORTED_DEFICIENCIES)))
+check('repair.evidence-requirement-carries-both-plane-vocabularies-and-only-those',
+      [b['$ref'].rsplit('/', 1)[1] for b in
+       SCHEMAS[U + 'repair']['$defs']['EvidenceRequirement']['properties']['deficiency']['oneOf']]
+      == ['NativeSufficiencyDeficiency', 'ImportedRequirementDeficiency'])
+_FOUR_WITHOUT_A_D9_MEMBER = ['derivation-policy-unmet', 'external-consumers-unknown',
+                             'input-closure-incomplete', 'resolution-incomplete']
+check('repair.the-four-successor-outcomes-have-no-d9-deficiency-member',
+      all(m not in _D9_DEFICIENCIES for m in _FOUR_WITHOUT_A_D9_MEMBER)
+      and all(m in _NATIVE_DEFICIENCIES for m in _FOUR_WITHOUT_A_D9_MEMBER))
+# DomainDetailCode is a 289-member registry, so this is a statement about the NINE native outcomes
+# only: neither vocabulary alone covers them and the union does.
+_DDC = set(SCHEMAS[U + 'common']['$defs']['DomainDetailCode']['enum'])
+check('repair.neither-single-vocabulary-covers-all-nine-native-outcomes',
+      not set(_NATIVE_DEFICIENCIES) <= set(_D9_DEFICIENCIES)
+      and not set(_NATIVE_DEFICIENCIES) <= _DDC
+      and set(_NATIVE_DEFICIENCIES) <= (set(_D9_DEFICIENCIES) | _DDC))
+check('repair.d9-deficiency-enum-was-not-widened-to-carry-per-requirement-outcomes',
+      _D9_DEFICIENCIES == ['none', 'required-relation-missing', 'provider-unavailable',
+                           'language-tier-unsupported', 'budget-exhausted', 'confidence-floor-unmet',
+                           'convergence-exhausted', 'baseline-recipe-unsupported',
+                           'verdict-indeterminate', 'query-completeness-unmet'])
+_ER_BASE = {'relation': 'imports', 'minResolution': 'resolved-target', 'completeness': 'complete'}
+_IMP_BASE = {'relation': 'runtime-observation', 'minResolution': 'observed', 'completeness': 'complete'}
+for _m in _NATIVE_DEFICIENCIES:
+    must_valid('repair.evidence-requirement-admits-native-outcome.' + _m,
+               U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=_m))
+for _m in _IMPORTED_DEFICIENCIES:
+    must_valid('repair.evidence-requirement-admits-imported-outcome.' + _m,
+               U + 'repair#/$defs/EvidenceRequirement', dict(_IMP_BASE, satisfied=False, deficiency=_m))
+for _m in ('none', 'verdict-indeterminate', 'convergence-exhausted', 'query-completeness-unmet'):
+    must_invalid('repair.evidence-requirement-refuses-d9-only-spelling.' + _m,
+                 U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=_m))
+# The TYPED presence law, both boundaries. CX-BV6-02: an explicit null is not an absent key and a
+# truthy non-boolean is not `true`; the schema always refused both and the boundary now agrees.
+must_valid('repair.evidence-requirement-satisfied-omits-the-field',
+           U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=True))
+must_invalid('repair.evidence-requirement-satisfied-must-not-carry-a-deficiency',
+             U + 'repair#/$defs/EvidenceRequirement',
+             dict(_ER_BASE, satisfied=True, deficiency='resolution-incomplete'))
+must_invalid('repair.evidence-requirement-satisfied-must-not-carry-an-explicit-null',
+             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=True, deficiency=None))
+must_invalid('repair.evidence-requirement-unsatisfied-must-carry-a-deficiency',
+             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False))
+must_invalid('repair.evidence-requirement-unsatisfied-must-not-carry-an-explicit-null',
+             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=False, deficiency=None))
+must_invalid('repair.evidence-requirement-satisfied-must-be-a-boolean',
+             U + 'repair#/$defs/EvidenceRequirement', dict(_ER_BASE, satisfied=1))
+# The SAME law at the producer/consumer boundary. This is not a claim that the boundary substitutes
+# for validating the record: it is the requirement that two boundaries deciding one law AGREE, which
+# is exactly what a root probe found they did not. `_boundary_table` below is held equal to the
+# schema on every row.
+def _requirement_admission(req):
+    try:
+        return ('ADMIT', M.admit_evidence_requirement(req))
+    except M.Refusal as exc:
+        return ('REFUSE', exc.error_code + '|' + exc.remedy)
+_BOUNDARY_TABLE = [
+    (dict(_ER_BASE, satisfied=True), 'ADMIT', ('native', None)),
+    (dict(_ER_BASE, satisfied=False, deficiency='resolution-incomplete'), 'ADMIT',
+     ('native', 'resolution-incomplete')),
+    (dict(_IMP_BASE, satisfied=True), 'ADMIT', ('imported', None)),
+    (dict(_IMP_BASE, satisfied=False, deficiency='import-unmapped-only'), 'ADMIT',
+     ('imported', 'import-unmapped-only')),
+    (dict(_ER_BASE, satisfied=True, deficiency=None), 'REFUSE',
+     'native.sufficiency-outcome-on-satisfied-requirement'),
+    (dict(_ER_BASE, satisfied=True, deficiency='resolution-incomplete'), 'REFUSE',
+     'native.sufficiency-outcome-on-satisfied-requirement'),
+    (dict(_ER_BASE, satisfied=1), 'REFUSE', 'native.sufficiency-outcome-satisfied-not-boolean'),
+    (dict(_ER_BASE, satisfied=False), 'REFUSE', 'native.sufficiency-outcome-missing'),
+    (dict(_ER_BASE, satisfied=False, deficiency=None), 'REFUSE', 'native.sufficiency-outcome-null'),
+    (dict(_ER_BASE, satisfied=False, deficiency='verdict-indeterminate'), 'REFUSE',
+     'native.sufficiency-outcome-not-a-native-outcome'),
+]
+# The two CROSS-PLANE rows are held separately because this schema deliberately leaves the
+# authoritative relation-registry lookup to admission. Its oneOf permits either outcome vocabulary
+# on either relation; the admission boundary decides the plane from registry membership. JSON Schema
+# can branch on const/enum even when a property's base type is a broader string, but this schema does
+# not duplicate that registry as conditionals or fetch its rows. These controls record the selected
+# division between schema validation and admission, not a limitation caused by the relation type.
+_CROSS_PLANE_TABLE = [
+    (dict(_ER_BASE, satisfied=False, deficiency='import-unmapped-only'),
+     'native.sufficiency-outcome-wrong-plane'),
+    (dict(_IMP_BASE, satisfied=False, deficiency='resolution-incomplete'),
+     'native.sufficiency-outcome-wrong-plane'),
+]
+for _i, (_req, _detail) in enumerate(_CROSS_PLANE_TABLE):
+    _outcome, _payload = _requirement_admission(_req)
+    check('repair.cross-plane-value-refused-at-the-boundary.%d' % _i,
+          _outcome == 'REFUSE' and _detail in _payload and _payload.startswith('CONFIG.INVALID|'),
+          str(_outcome) + ':' + str(_payload))
+    _schema_ok, _ = valid(U + 'repair#/$defs/EvidenceRequirement', _req)
+    check('repair.the-schema-alone-cannot-decide-the-plane.%d' % _i, _schema_ok is True,
+          'schema unexpectedly refused; if a keyword now decides the plane, say so in the field '
+          'description instead of relying on admission alone')
+for _i, (_req, _expect, _detail) in enumerate(_BOUNDARY_TABLE):
+    _outcome, _payload = _requirement_admission(_req)
+    if _expect == 'ADMIT':
+        check('repair.boundary-admits-and-returns-plane-and-cause.%d' % _i,
+              _outcome == 'ADMIT' and _payload == _detail, str(_outcome) + ':' + str(_payload))
+    else:
+        check('repair.boundary-refuses.%d.%s' % (_i, _detail),
+              _outcome == 'REFUSE' and _detail in _payload and _payload.startswith('CONFIG.INVALID|'),
+              str(_outcome) + ':' + str(_payload))
+    # The owning SCHEMA must reach the same verdict on the same bytes; a disagreement here is the
+    # defect CX-BV6-02 named, whichever side is wrong.
+    _schema_ok, _ = valid(U + 'repair#/$defs/EvidenceRequirement', _req)
+    check('repair.boundary-and-schema-agree.%d' % _i, _schema_ok == (_expect == 'ADMIT'),
+          'schema=%s boundary=%s' % (_schema_ok, _expect))
+# CX-BV6-03 / BV6-V3-IMPORT-*. The IMPORTED plane has its own producer, its own per-kind
+# projections, and a DETERMINISTIC join from plan target FINGERPRINTS to payload subjects. Targets
+# are `finding-key2:` identities; RuntimeSubject keys on {path, symbol?} and HistorySubject on
+# {path}. An earlier revision read the payload maps directly by the target string, which equated a
+# finding-key identity with a LogicalPath.
+_IMP_LAW = SCHEMAS[U + 'imported-evidence']['x-opensip-imported-requirement-law']
+_FP1 = 'finding-key2:' + '1' * 64
+_FP2 = 'finding-key2:' + '2' * 64
+_FINDINGS = {_FP1: {'fingerprint': _FP1}, _FP2: {'fingerprint': _FP2}}
+def _fp_descriptor(path, qualified):
+    return {'schemaVersion': 2, 'ruleStableId': 'r', 'detectorSemanticsMajor': 1,
+            'relatedSubjectKeys': [],
+            'subjectKey': {'language': 'typescript', 'kind': 'function', 'logicalPath': path,
+                           'qualifiedName': qualified, 'discriminator': 'd'}}
+_DESCS = {_FP1: _fp_descriptor('src/a.ts', 'seen'), _FP2: _fp_descriptor('src/b.ts', 'missing')}
+_RT_ROWS = [{'path': 'src/a.ts', 'symbol': 'seen', 'observability': 'observed-hit'}]
+_RT_UNOBS = _RT_ROWS + [{'path': 'src/b.ts', 'symbol': 'missing', 'observability': 'unobservable'}]
+_HS_ROWS = [{'path': 'src/a.ts'}]
+_RT_EV = {'available': True, 'consumable': True, 'windowSatisfiesRequirement': True,
+          'observationWindow': {'startUtc': '2026-09-01T00:00:00Z', 'endUtc': '2026-09-02T00:00:00Z'},
+          'observedPopulation': 'synthetic'}
+_HS_EV = {'available': True, 'consumable': True, 'rangeSatisfiesRequirement': True,
+          'revisionRange': {'from': None, 'to': 'a' * 40, 'commitCount': 3, 'truncated': False},
+          'covered': {_FP1: True, _FP2: False}}
+def _imp_req(rel='runtime-observation', completeness='complete'):
+    return {'relation': rel, 'minResolution': 'observed', 'completeness': completeness}
+def _project(kind, rows, targets=(_FP1, _FP2), descs=None, findings=None):
+    return M.project_targets_to_imported_subjects(
+        list(targets), kind, _FINDINGS if findings is None else findings,
+        _DESCS if descs is None else descs, rows)
+def _outcome(rel, completeness, kind, rows, ev, targets=(_FP1, _FP2), required=True):
+    try:
+        r = M.imported_requirement_outcome(_imp_req(rel, completeness),
+                                           _project(kind, rows, targets), ev, required)
+        return r.get('deficiency') or ('SATISFIED:' + r.get('satisfiedBy', '')), r
+    except M.Refusal as exc:
+        return 'REFUSE:' + exc.remedy.split(':')[0], None
+def _refusal(fn):
+    try:
+        fn(); return None
+    except M.Refusal as exc:
+        return exc.remedy.split(':')[0]
+# The join itself: a target is projected through the RETAINED finding-fingerprint subjectKey.
+_P = _project('runtime', _RT_ROWS, (_FP1,))
+check('repair.the-target-projection-reads-the-retained-fingerprint-subject-key',
+      _P[_FP1]['logicalPath'] == 'src/a.ts' and _P[_FP1]['matched'] is True
+      and _P[_FP1]['subjectQualifiedName'] == 'seen')
+# SYMBOL granularity is preserved: a symbol-keyed row for a DIFFERENT symbol does not match.
+check('repair.a-symbol-keyed-row-for-another-symbol-does-not-match-the-target',
+      _project('runtime', [{'path': 'src/a.ts', 'symbol': 'other', 'observability': 'observed-hit'}],
+               (_FP1,))[_FP1]['matched'] is False)
+# HISTORY has no symbol field, so a symbol target is answered at FILE granularity and that widening
+# is disclosed rather than hidden.
+check('repair.history-widening-to-file-is-disclosed-per-target',
+      _project('history', _HS_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is True
+      and _project('history', _HS_ROWS, (_FP1,))[_FP1]['answerGranularity'] == 'file'
+      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is False)
+_HW = _outcome('history-change', 'complete', 'history', _HS_ROWS, _HS_EV, (_FP1,))[1]
+check('repair.the-widening-reaches-the-outcome-disclosure',
+      any(d['kind'] == 'granularity-widened-to-file' and d['targets'] == [_FP1]
+          for d in _HW['disclosures']))
+# Ambiguity refuses; it is not resolved by choosing one.
+check('repair.the-projection-refuses-an-ambiguous-target',
+      _refusal(lambda: _project('runtime',
+                                _RT_ROWS + [{'path': 'src/a.ts', 'observability': 'observed-hit'}],
+                                (_FP1,))) == 'native.imported-projection-ambiguous-target')
+check('repair.the-projection-refuses-a-target-not-in-the-evidence-run',
+      _refusal(lambda: _project('runtime', _RT_ROWS, ('finding-key2:' + '9' * 64,)))
+      == 'native.imported-projection-target-not-in-evidence-run')
+check('repair.the-projection-refuses-a-missing-retained-fingerprint-preimage',
+      _refusal(lambda: _project('runtime', _RT_ROWS, (_FP1,), descs={}))
+      == 'native.imported-projection-fingerprint-preimage-missing')
+# ALL versus ANY, and the corrected partial semantics. An earlier revision vetoed on ANY
+# unobservable or uncovered target BEFORE the ANY test, so a lawful partial refused.
+check('repair.partial-acceptable-is-satisfied-with-one-supported-and-one-unobservable-target',
+      _outcome('runtime-observation', 'partial-acceptable', 'runtime', _RT_UNOBS, _RT_EV)[0]
+      == 'SATISFIED:bounded-observation')
+check('repair.partial-acceptable-is-satisfied-with-one-supported-and-one-uncovered-target',
+      _outcome('history-change', 'partial-acceptable', 'history', _HS_ROWS, _HS_EV)[0]
+      == 'SATISFIED:bounded-observation')
+check('repair.complete-still-names-the-unobservable-target-as-the-cause',
+      _outcome('runtime-observation', 'complete', 'runtime', _RT_UNOBS, _RT_EV)[0]
+      == 'subject-not-observable')
+check('repair.complete-still-names-a-missing-target-as-absent',
+      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS, _RT_EV)[0]
+      == 'import-absent-for-requirement')
+check('repair.complete-still-names-an-uncovered-history-target',
+      _outcome('history-change', 'complete', 'history', _HS_ROWS, _HS_EV)[0]
+      == 'history-outside-collection-scope')
+check('repair.complete-is-satisfied-when-every-target-is-supported',
+      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS, _RT_EV, (_FP1,))[0]
+      == 'SATISFIED:bounded-observation')
+# BOUNDS are a property of the observation, not of the target count, so they apply in both modes.
+check('repair.an-insufficient-window-applies-under-partial-acceptable-too',
+      _outcome('runtime-observation', 'partial-acceptable', 'runtime', _RT_UNOBS,
+               dict(_RT_EV, windowSatisfiesRequirement=False))[0] == 'observation-window-insufficient')
+check('repair.an-insufficient-history-range-applies-under-partial-acceptable-too',
+      _outcome('history-change', 'partial-acceptable', 'history', _HS_ROWS,
+               dict(_HS_EV, rangeSatisfiesRequirement=False))[0] == 'history-range-insufficient')
+# Bounded-negative evidence satisfies and the polarity is disclosed, not collapsed.
+_UNHIT = _outcome('runtime-observation', 'complete', 'runtime',
+                  [{'path': 'src/a.ts', 'symbol': 'seen', 'observability': 'observable-unhit'}],
+                  _RT_EV, (_FP1,))
+check('repair.bounded-negative-observable-unhit-satisfies-and-discloses-its-polarity',
+      _UNHIT[0] == 'SATISFIED:bounded-observation'
+      and _UNHIT[1]['disclosures'][0]['polarity'] == ['observable-unhit']
+      and _UNHIT[1]['disclosures'][0]['observedPopulation'] == 'synthetic')
+# The evidenceUse declaration reaches this boundary as a TYPED BOOLEAN. There is no `unknown` state
+# and no falsy value is read as `optional`; an earlier revision accepted None and 0 as optional.
+check('repair.optional-absence-is-satisfied-by-absence-not-by-evidence',
+      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
+               dict(_RT_EV, available=False), (_FP1,), required=False)[0]
+      == 'SATISFIED:declared-optional-absence')
+check('repair.a-required-declaration-still-reports-the-absent-kind',
+      _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
+               dict(_RT_EV, available=False), (_FP1,), required=True)[0]
+      == 'evidence-kind-unavailable')
+for _flag in (None, 0, 1, 'yes'):
+    check('repair.a-non-boolean-evidence-use-declaration-refuses.' + repr(_flag),
+          _outcome('runtime-observation', 'complete', 'runtime', _RT_ROWS,
+                   dict(_RT_EV, available=False), (_FP1,), required=_flag)[0]
+          == 'REFUSE:native.imported-required-declaration-not-boolean')
+# The CONSUMER decides the PER-KIND law, not merely the broad plane. Root's final-v2 controls showed
+# a runtime relation admitting a history outcome and the reverse.
+for _rel, _cause, _expect in (('runtime-observation', 'history-range-insufficient', 'REFUSE'),
+                              ('history-change', 'subject-not-observable', 'REFUSE'),
+                              ('runtime-observation', 'subject-not-observable', 'ADMIT'),
+                              ('history-change', 'history-range-insufficient', 'ADMIT'),
+                              ('runtime-observation', 'import-unmapped-only', 'ADMIT'),
+                              ('history-change', 'evidence-kind-unavailable', 'ADMIT')):
+    _r = dict(_imp_req(_rel), satisfied=False, deficiency=_cause)
+    _got = _refusal(lambda r=_r: M.admit_evidence_requirement(r))
+    check('repair.consumer-per-kind.' + _rel + '.' + _cause,
+          (_got is None) == (_expect == 'ADMIT')
+          and (_got is None or _got == 'native.sufficiency-outcome-not-applicable-to-kind'),
+          str(_got))
+check('repair.the-two-imported-kinds-report-only-their-own-outcomes',
+      set(_IMP_LAW['perKindApplicability']['runtime-observation'])
+      & set(_IMP_LAW['perKindApplicability']['history-change'])
+      == {'evidence-kind-unavailable', 'import-unmapped-only', 'import-absent-for-requirement'}
+      and 'subject-not-observable' not in _IMP_LAW['perKindApplicability']['history-change']
+      and 'history-range-insufficient' not in _IMP_LAW['perKindApplicability']['runtime-observation']
+      and 'observationWindow' not in SCHEMAS[U + 'imported-evidence']['$defs']['HistoryPayloadV1']['properties']
+      and 'collectionScope' in SCHEMAS[U + 'imported-evidence']['$defs']['HistoryPayloadV1']['required'])
+check('repair.every-imported-outcome-names-its-owning-payload-field',
+      all(r['boundTo'] and r['groundedIn'] and r['appliesTo'] for r in _IMP_LAW['outcomes'].values())
+      and set(_IMP_LAW['outcomes']) == set(_IMP_LAW['precedence']))
+# The published input bindings name real owners, and the two corrected ones say what they are.
+# STRUCTURAL, not prose: the law publishes a projection block with an entry per input it reads, and
+# RecipeRef genuinely has no window-demand field for the demand to have come from.
+check('repair.the-projection-block-and-every-input-binding-are-published',
+      set(_IMP_LAW['inputBinding'])
+      == {'standing', 'targets', 'allVersusAny', 'requiredVersusOptional', 'windowDemand',
+          'admittedInputsOnly'}
+      and {'standing', 'deterministicProjection', 'granularityIsReportedNotClassified',
+           'referenceProjection'} <= set(_IMP_LAW['targetSubjectProjection']))
+check('repair.recipe-ref-has-no-window-demand-field-so-the-closure-must-own-it',
+      set(SCHEMAS[U + 'repair']['$defs']['RecipeRef']['properties'])
+      == {'contributionId', 'recipeId', 'recipeVersion', 'closureId'}
+      and 'closureId' in SCHEMAS[U + 'repair']['$defs']['RecipeRef']['required'])
+# The target vocabulary and the payload subject vocabularies are genuinely different types, which is
+# why a projection is needed at all. This is the machine-readable form of that claim.
+check('repair.targets-and-payload-subjects-are-different-vocabularies',
+      SCHEMAS[U + 'common']['$defs']['Fingerprint']['pattern'].startswith('^finding-key2:')
+      and set(SCHEMAS[U + 'imported-evidence']['$defs']['RuntimeSubject']['required'])
+          == {'path', 'observability'}
+      and 'symbol' in SCHEMAS[U + 'imported-evidence']['$defs']['RuntimeSubject']['properties']
+      and 'symbol' not in SCHEMAS[U + 'imported-evidence']['$defs']['HistorySubject']['properties']
+      and SCHEMAS[U + 'repair']['$defs']['RepairPlanDescriptor']['properties']['targets']['items']
+          ['$ref'].endswith('Fingerprint'))
+# A path-only runtime row answers a keyed subject only at FILE granularity, and says so.
+_PATHONLY = _project('runtime', [{'path': 'src/a.ts', 'observability': 'observed-hit'}], (_FP1,))
+check('repair.a-path-only-runtime-row-is-a-file-level-answer-not-a-symbol-level-one',
+      _PATHONLY[_FP1]['matched'] is True
+      and _PATHONLY[_FP1]['answerGranularity'] == 'file'
+      and _PATHONLY[_FP1]['granularityWidenedToFile'] is True
+      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['answerGranularity'] == 'symbol'
+      and _project('runtime', _RT_ROWS, (_FP1,))[_FP1]['granularityWidenedToFile'] is False)
+_PO_OUT = M.imported_requirement_outcome(
+    _imp_req(), _PATHONLY, _RT_EV, True)
+check('repair.a-file-level-answer-to-a-keyed-subject-reaches-the-outcome-disclosure',
+      _PO_OUT['satisfied'] is True
+      and any(d['kind'] == 'granularity-widened-to-file' and d['targets'] == [_FP1]
+              for d in _PO_OUT['disclosures']))
+check('repair.the-imported-producer-refuses-a-native-relation',
+      _refusal(lambda: M.imported_requirement_outcome(
+          {'relation': 'references', 'minResolution': 'resolved-binding', 'completeness': 'complete'},
+          _project('runtime', _RT_ROWS, (_FP1,)), _RT_EV, True))
+      == 'native.imported-outcome-for-native-relation')
+check('repair.the-plane-is-read-from-registry-membership-not-from-the-value',
+      M.requirement_plane('runtime-observation') == 'imported'
+      and M.requirement_plane('history-change') == 'imported'
+      and M.requirement_plane('references') == 'native'
+      and set(M.EVIDENCE_RELATIONS) == {'runtime-observation', 'history-change'})
+check('repair.both-imported-relations-are-still-admissible-requirement-relations',
+      all(_repair_requirement_refusal({'relation': _r, 'minResolution': 'observed'}) is None
+          for _r in ('runtime-observation', 'history-change')))
+check('policy.every-relation-has-a-nonempty-ladder', all(M.RELATION_LADDERS.values()))
+# CB6-SHOULD-1 / CX-BV6-04. THREE different things, named for what they are: which operation each
+# current command's generic `mutation` step EMITS, the one DEDICATED step operation, and the ACTUAL
+# admissible domain of the generic operation field. An earlier revision published command names
+# under a key the annotations called the operation domain; the two differ in nine places.
+_MAP = SCHEMAS[U + 'repair']['x-opensip-mutation-operation-map']
+_BY_COMMAND = _MAP['byCommandGenericMutationStep']
+_FIELD_DOMAIN = _MAP['admissibleGenericFieldDomain']['operations']
+_OPS = SCHEMAS[U + 'repair']['$defs']['MutationOperation']['enum']
+_INV = canonical.parse((HERE / 'command-inventory.v1.json').read_bytes())['commands']
+_CMD = {c['name']: c for c in _INV}
+# The emission rule is DERIVED, not patched: a command emits a generic operation exactly when it has
+# a generic `mutation` step. `analyze` needs no exception - its mutating-family step is `import`,
+# whose params carry no operation field at all.
+check('workflow.the-generic-map-is-exactly-the-commands-with-a-generic-mutation-step',
+      set(_BY_COMMAND) == {c['name'] for c in _INV if 'mutation' in c['steps']},
+      str(sorted(set(_BY_COMMAND) ^ {c['name'] for c in _INV if 'mutation' in c['steps']})))
+# The receipt operation is bound by STEP KIND, and both results that own a mutating step REQUIRE a
+# receiptId, so `import` and `native-preparation` are REQUIRED receipt operations - not operations
+# with no emitter, which is what an earlier revision inferred from the reference model.
+_BY_STEP = _MAP['byStepKindReceiptOperation']
+_IR = SCHEMAS[U + 'invocation-record']['$defs']
+check('workflow.import-and-native-preparation-results-require-a-receipt',
+      'receiptId' in _IR['ImportResult']['required']
+      and 'receiptId' in _IR['NativePreparationResult']['required']
+      and _IR['ImportResult']['properties']['receiptId']['$ref'].endswith('ReceiptId')
+      and _IR['NativePreparationResult']['properties']['receiptId']['$ref'].endswith('ReceiptId'))
+check('workflow.the-one-receipt-domain-carries-a-required-operation',
+      SCHEMAS[U + 'common']['$defs']['ReceiptId']['pattern'].startswith('^receipt2:')
+      and 'operation' in SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['required']
+      and SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['properties']['operation']['$ref']
+          == '#/$defs/MutationOperation')
+check('workflow.every-step-kind-binding-names-a-real-step-kind-and-operation',
+      set(_BY_STEP) == {'mutation', 'repair-apply', 'import', 'native-preparation'}
+      and all(k in {s for c in _INV for s in c['steps']} for k in _BY_STEP)
+      and all(_BY_STEP[k]['operation'] in _OPS for k in ('repair-apply', 'import', 'native-preparation')))
+# `analyze` is resolved by the step-kind law rather than by an exception: its import step carries the
+# same receipt operation as the import command's, which is also a worked case of ONE operation
+# emitted by TWO commands.
+check('workflow.analyze-import-step-is-bound-by-the-step-kind-law-not-an-exception',
+      'import' in _CMD['analyze']['steps'] and 'mutation' not in _CMD['analyze']['steps']
+      and 'analyze' not in _BY_COMMAND and _BY_STEP['import']['operation'] == 'import'
+      and 'appliesToEveryImportStep' in _BY_STEP['import'])
+check('workflow.the-import-operation-is-emitted-by-two-commands-so-the-map-is-not-invertible',
+      {c['name'] for c in _INV if 'import' in c['steps']} == {'import', 'analyze'})
+# The two dedicated step kinds are not generic replay, and this map does not make them so.
+check('workflow.import-and-native-preparation-are-not-generic-mutation-params',
+      _IR['ImportParams']['properties']['kind']['const'] == 'import'
+      and _IR['NativePreparationParams']['properties']['kind']['const'] == 'native-preparation'
+      and 'mutationClass' not in _IR['ImportParams']['properties']
+      and 'mutationClass' not in _IR['NativePreparationParams']['properties']
+      and all('notGenericReplay' in _BY_STEP[k] for k in ('import', 'native-preparation')))
+check('workflow.every-generic-row-names-a-real-step-and-class-of-that-command',
+      all(r['mintedByStepKind'] == 'mutation' and r['operation'] in _OPS
+          and r['mintedByStepKind'] in _CMD[n]['steps'] and r['requestClass'] == _CMD[n]['requestClass']
+          for n, r in _BY_COMMAND.items()))
+check('workflow.mutation-operation-renames-are-published',
+      _MAP['renamedRows'] == {'baseline-upgrade': 'baseline-upgrade-apply',
+                              'native-prepare': 'native-preparation',
+                              'policy-init': 'policy-write', 'waive': 'waiver-change'})
+check('workflow.the-three-mutation-class-renames-are-the-mutation-class-subset',
+      {c for c in _MAP['renamedRows'] if _CMD[c]['requestClass'] == 'mutation'}
+      == {'baseline-upgrade', 'policy-init', 'waive'}
+      and _CMD['native-prepare']['requestClass'] == 'execution')
+# The orphan set is RECOMPUTED here, not restated from the document.
+check('workflow.the-one-operation-no-step-kind-binds-is-recomputed-and-match',
+      _MAP['operationsWithNoCommandInThisInventory']['operations']
+      == sorted(set(_OPS) - {r['operation'] for r in _BY_COMMAND.values()}
+                - {_BY_STEP[k]['operation'] for k in ('repair-apply', 'import', 'native-preparation')})
+      == ['config-write'])
+# THE CORRECTION: the published field domain is the SCHEMA's domain, verified by admitting every
+# one of its members at the actual field and refusing the one excluded token. It is deliberately
+# WIDER than the emitted set and is not narrowed to current emitters.
+check('workflow.the-field-domain-is-every-operation-except-repair-apply',
+      _FIELD_DOMAIN == sorted(set(_OPS) - {'repair-apply'}) and len(_FIELD_DOMAIN) == 23)
+check('workflow.the-field-domain-is-wider-than-what-current-commands-emit',
+      {r['operation'] for r in _BY_COMMAND.values()} < set(_FIELD_DOMAIN)
+      and len({r['operation'] for r in _BY_COMMAND.values()}) == 20)
+_SCOPE = {'schemaVersion': 1, 'requestId': C['REQ'], 'stepId': 2, 'projectId': C['PRJ']}
+for _op in _FIELD_DOMAIN:
+    must_valid('workflow.generic-mutation-scope-admits.' + _op,
+               U + 'invocation-record#/$defs/MutationReplayScopeV1', dict(_SCOPE, operation=_op))
+    must_valid('workflow.generic-mutation-class-admits.' + _op,
+               U + 'invocation-record#/$defs/MutationParams/properties/mutationClass', _op)
+for _op in ('repair-apply',):
+    must_invalid('workflow.generic-mutation-scope-refuses.' + _op,
+                 U + 'invocation-record#/$defs/MutationReplayScopeV1', dict(_SCOPE, operation=_op))
+    must_invalid('workflow.generic-mutation-class-refuses.' + _op,
+                 U + 'invocation-record#/$defs/MutationParams/properties/mutationClass', _op)
+# STRUCTURAL: every binding carries a non-empty citation list and the dedicated one carries its
+# exclusion flag. Which document each citation names is a review obligation, not a substring test.
+check('workflow.every-step-kind-binding-carries-citations-and-the-dedicated-exclusion-flag',
+      all(isinstance(_BY_STEP[k]['citations'], list) and _BY_STEP[k]['citations'] for k in _BY_STEP)
+      and _BY_STEP['repair-apply']['excludedFromGenericFields'] is True
+      and 'excludedFromGenericFields' not in _BY_STEP['import']
+      and 'excludedFromGenericFields' not in _BY_STEP['native-preparation'])
+check('workflow.the-reference-model-limit-is-recorded-beside-the-key-law',
+      'whatIsNotClaimed' in _MAP['receiptIdempotencyKeyByStepKind'])
+# BV6-V3-RECEIPT. MutationReceiptV1 requires BOTH operation and idempotencyKey. An earlier revision
+# bound only the operation and said the non-generic step kinds mint no H(workflow.mutation-intent)
+# key at all, leaving a REQUIRED field underdetermined for import and native-preparation.
+_KEYS = _MAP['receiptIdempotencyKeyByStepKind']['recipes']
+check('workflow.the-mutation-receipt-requires-both-operation-and-idempotency-key',
+      {'operation', 'idempotencyKey'} <= set(SCHEMAS[U + 'repair']['$defs']['MutationReceiptV1']['required']))
+check('workflow.every-step-kind-has-a-published-key-recipe-and-lookup-meaning',
+      set(_KEYS) == set(_BY_STEP)
+      and all(_KEYS[k]['key'] and _KEYS[k]['lookupMeaning'] for k in _KEYS))
+# The key recipe for the two non-generic kinds is the EXISTING published one over the EXISTING
+# closed scope record, which is admissible precisely because the generic field domain was not
+# narrowed to the current emitters.
+_SCOPE_KEY = lambda op: M.mutation_replay_key(M.mutation_replay_scope(C['REQ'], 2, C['PRJ'], op))
+for _k in ('import', 'native-preparation'):
+    must_valid('workflow.the-receipt-key-scope-record-is-schema-valid.' + _k,
+               U + 'invocation-record#/$defs/MutationReplayScopeV1',
+               dict(_SCOPE, operation=_BY_STEP[_k]['operation']))
+    check('workflow.the-published-key-recipe-is-computable-for.' + _k,
+          len(_SCOPE_KEY(_BY_STEP[_k]['operation'])) == 64)
+check('workflow.the-non-generic-receipt-keys-differ-from-each-other-and-from-a-generic-one',
+      len({_SCOPE_KEY(o) for o in ('import', 'native-preparation', 'purge')}) == 3)
+# Lookup meanings are normative prose reviewed with the owning authorization/recovery contracts.
+# The key computations above do not execute receipt delivery or native preparation.
+# The map's authority pointers must resolve inside this document; a pointer to a key an earlier
+# revision removed is a dangling current authority, which is what this control exists to catch.
+check('workflow.every-mutation-operation-authority-pointer-resolves',
+      all(p.rsplit('/', 1)[1] in _MAP
+          for k, p in SCHEMAS[U + 'repair']['$defs']['MutationOperation']['x-opensip-vocabulary'].items()
+          if 'x-opensip-mutation-operation-map/' in str(p)))
+# Injectivity is an observation about today's inventory, not a law, so it is recorded as one.
+check('workflow.the-current-generic-rows-happen-to-be-injective-which-is-not-assumed-as-a-law',
+      len({r['operation'] for r in _BY_COMMAND.values()}) == len(_BY_COMMAND)
+      and 'injectivityIsNotAssumed' in _MAP)
+check('workflow.the-annotations-name-the-field-domain-not-the-command-list',
+      all(SCHEMAS[U + 'invocation-record']['$defs'][_d]['properties'][_f]['x-opensip-vocabulary']
+          ['fieldDomainAuthority'].endswith('admissibleGenericFieldDomain')
+          for _d, _f in (('MutationParams', 'mutationClass'),
+                         ('MutationReplayScopeV1', 'operation'))))
+check('workflow.publishing-the-map-added-no-operation-and-no-command',
+      len(_OPS) == 24 and len(_INV) == 45)
+
+check('policy.rung-vocabulary-is-exactly-the-ladder-union',
+      M.RUNG_VOCABULARY == set(SCHEMAS[U + 'policy-document']['$defs']['Rung']['enum']),
+      str(sorted(M.RUNG_VOCABULARY ^ set(SCHEMAS[U + 'policy-document']['$defs']['Rung']['enum']))))
+
+# ----------------------------------------------------------------------------- repair
+RS = CASES['repairScenario']
+def tree_bytes(t):
+    return {k: v.encode() for k, v in t.items()}
+for case in RS['cases']:
+    cid = 'repair.' + case['id']
+    tree = tree_bytes(RS['tree'])
+    run = dict(RS['run'])
+    if case.get('runAvailability'):
+        run['availability'] = case['runAvailability']
+    trust = {C['PROD']: 'revoked' if case.get('revokeRecipe') else 'admitted'}
+    if case.get('trustAbsent'):trust={}
+    if case.get('runOverride'):run.update(case['runOverride'])
+    for field in ['closedWorld','evidenceOrigin']:
+        if field in case:run[field]=case[field]
+    edits = [dict(e, postimage=e['postimage'].encode()) if e.get('postimage') is not None else dict(e) for e in RS['edits']] + ([case['extraEdit']] if case.get('extraEdit') else [])
+    scope = list(RS['permittedScope'])
+    if case.get('mutateTreeBeforePreview'):
+        tree.update(tree_bytes(case['mutateTreeBeforePreview']))
+    run['snapshotId'] = M.tree_snapshot_id(C['PRJ'], tree_bytes(RS['tree']))
+    # CB6-MUST-1: a case may supply its own evidence requirements so that FAILING requirements and
+    # the (satisfied, deficiency) pair law are exercised, not only the admitted positive.
+    requirements = case.get('evidenceRequirements', RS['evidenceRequirements'])
+    try:
+        plan = M.repair_preview(C['PRJ'], tree, run, RS['recipe'], RS['targets'], edits, requirements, scope, trust, ephemeral=case.get('ephemeral', False))
+    except M.Refusal as r:
+        check(cid, ('refusal' in case['expect'] and case['expect'].get('refusal') == r.detail), r.detail)
+        # A detail-free refusal is not self-identifying, so the case names the internal decision key
+        # it expects and the control fails if a DIFFERENT refusal happened to fire.
+        if 'expectRemedyContains' in case:
+            check(cid + '.refusal-reason', case['expectRemedyContains'] in r.remedy, r.remedy)
+        continue
+    exp = case['expect']
+    if 'refusal' in exp and 'journal' not in exp and 'recoverAction' not in exp and not case.get('mutateTreeAfterApply') and not case.get('mutateTreeBeforeApply') and not case.get('authorization') and not case.get('ci') and not case.get('applyTrust') and 'authorizationLive' not in case:
+        check(cid, False, 'no refusal at preview'); continue
+    must_valid(cid + '.plan-schema', U + 'repair#/$defs/RepairPlanV1', plan)
+    if 'applicable' in exp:
+        check(cid + '.applicable', plan['descriptor']['applicable'] == exp['applicable'] and (exp['applicable'] or plan['descriptor']['unmetPreconditions'][0]['code'] == exp['unmet']))
+        if 'unmetRemedyContains' in exp:
+            # The EXACT native cause must reach the public unmet precondition. Two of these cases
+            # differ only in that value, so a remedy that dropped or collapsed it fails here.
+            check(cid + '.unmet-remedy-carries-the-native-cause',
+                  any(exp['unmetRemedyContains'] in u['remedy'] for u in plan['descriptor']['unmetPreconditions']),
+                  str([u['remedy'] for u in plan['descriptor']['unmetPreconditions']]))
+        if 'editCount' in exp:
+            check(cid + '.edits', len(plan['descriptor']['edits']) == exp['editCount'] and plan['descriptor']['edits'][0]['action'] == 'delete' and plan['descriptor']['edits'][0]['postimageDigest'] is None)
+        if not exp['applicable'] or 'journal' not in exp:
+            continue
+    postimages = {e['path']: e['postimage'].encode() for e in RS['edits'] if e.get('postimage') is not None}
+    auth = case.get('authorization') or {'repairPlanId': plan['repairPlanId'], 'snapshotId': plan['descriptor']['snapshotId'], 'projectId': C['PRJ']}
+    if case.get('authorization'):
+        auth = {'repairPlanId': case['authorization']['repairPlanId'], 'snapshotId': plan['descriptor']['snapshotId'], 'projectId': C['PRJ']}
+    auth['live']=case.get('authorizationLive',True)
+    auth['consentSource']=case.get('consent','policy'); auth['ci']=case.get('ci',False)
+    # Synthetic admitted security projection; actual admission is exercised by integration.
+    auth['securityAuthorizationRef'] = 'security.repair-apply-authorization.v1:' + 'a' * 64
+    receipts = {};preimages={M.raw_sha(b):b for b in tree.values()}
+    if case.get('corruptRetainedPreimage'):
+        preimages[M.raw_sha(tree[case['corruptRetainedPreimage']])] = b'corrupted retained bytes'
+    if case.get('journalState'):
+        j0 = {'schemaFamily': 'opensip.product.repair-apply-journal', 'schemaMajor': 1, 'requestId': C['REQ'], 'stepId': 2, 'executionId': 'exec1_' + '0' * 32, 'repairPlanId': plan['repairPlanId'], 'baseSnapshotId': plan['descriptor']['snapshotId'], 'authorizationRef': auth['securityAuthorizationRef'], 'state': case['journalState'], 'stagedPaths': ['src/a.ts', 'src/b.ts'], 'appliedPaths': ['src/a.ts']}
+        live = dict(tree); live.pop('src/a.ts')
+        if case['journalState'] == 'APPLIED':
+            live['src/b.ts'] = postimages['src/b.ts']; j0['appliedPaths'] = ['src/a.ts', 'src/b.ts']
+        must_valid(cid + '.journal-schema', U + 'repair#/$defs/RepairApplyJournalV1', j0)
+        if case.get('appliedIncludesB'):j0['appliedPaths']=['src/a.ts','src/b.ts'];live['src/b.ts']=postimages['src/b.ts']
+        live.update(tree_bytes(case.get('userEditAfterApply',{})))
+        if case.get('inspectOnly'):
+            observed=M.repair_inspect(j0,plan,live);check(cid,observed['state']==exp['inspectState'] and observed['journalIntegrity']==exp['inspectIntegrity']);continue
+        try:
+            j1, action, outcome, term = M.repair_recover(j0, plan, live, C['PRJ'],None if case.get('noPreimageStore') else preimages,None if case.get('noRecoveryAuth') else synthetic_recovery_projection(j0, plan))
+        except M.Refusal as r:
+            check(cid,('recoverRefusal' in exp and exp.get('recoverRefusal')==r.detail),r.detail);continue
+        check(cid, action == exp['recoverAction'] and j1['state'] == exp['recoverState'], action + '/' + j1['state'])
+        if 'recoverDetail' in exp: check(cid + '.recovery-detail', term.get('domainDetail',{}).get('code') == exp['recoverDetail'])
+        if exp.get('recoveryTreeUnchanged'): check(cid + '.recovery-no-write', j1.get('_tree',live) == live)
+        must_valid(cid + '.recovery-termination-schema', U + 'common#/$defs/StepTermination', term)
+        must_valid(cid + '.journal-after-schema', U + 'repair#/$defs/RepairApplyJournalV1', {k:v for k,v in j1.items() if k!='_tree'})
+        continue
+    live = dict(tree)
+    if case.get('mutateTreeBeforeApply'):
+        live.update(tree_bytes(case.get('mutateTreeBeforeApply',{})))
+    try:
+        journal, receipt, after = M.repair_apply(plan, postimages, live, C['PRJ'], C['REQ'], 2, auth, case.get('ci', False), case.get('consent', 'policy'), receipts,case.get('applyTrust',trust),preimages, fault_after_renames=case.get('faultAfterRenames'), corrupt_path=case.get('corruptPath'))
+    except M.Refusal as r:
+        check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail)
+        if exp.get('treeUnchanged'):
+            check(cid + '.tree-unchanged', live == dict(tree, **tree_bytes(case.get('mutateTreeBeforeApply',{}))))
+        continue
+    must_valid(cid + '.journal-schema', U + 'repair#/$defs/RepairApplyJournalV1', journal)
+    must_valid(cid + '.receipt-schema', U + 'repair#/$defs/MutationReceiptV1', receipt)
+    check(cid + '.receipt-identity', M.wid('receipt2', 'workflow.mutation-receipt', {k: v for k, v in receipt.items() if k != 'receiptId'}) == receipt['receiptId'])
+    if case.get('replay'):
+        j2, r2, after2 = M.repair_apply(plan, postimages, after, C['PRJ'], C['REQ2'], 2, auth, False, 'policy', receipts,trust,preimages)
+        check(cid, j2['state'] == exp['journal'] and r2['effectOutcome'] == exp['effect'] and r2['replayed'] is True and r2['idempotencyKey'] == receipt['idempotencyKey'] and after2 == after)
+        must_valid(cid + '.replay-receipt-schema', U + 'repair#/$defs/MutationReceiptV1', r2)
+        continue
+    if 'journal' in exp:
+        check(cid + '.state', journal['state'] == exp['journal'] and receipt['effectOutcome'] == exp['effect'], journal['state'] + '/' + receipt['effectOutcome'])
+    if 'rollback' in exp:
+        check(cid + '.rollback', receipt['rollback'] == exp['rollback'])
+    if exp.get('treeEqualsOriginal'):
+        check(cid + '.tree-restored', after == tree)
+    if exp.get('recoverRefuses'):
+        j1, action, outcome, term = M.repair_recover(journal, plan, after, C['PRJ'],preimages,synthetic_recovery_projection(journal, plan))
+        check(cid + '.recover', action == 'refuse' and term['class'] == exp['recoverClass'] and term['domainDetail']['code'] == exp['recoverDetail'])
+        must_valid(cid + '.recover-termination-schema', U + 'common#/$defs/StepTermination', term)
+    if 'treeHasA' in exp:
+        check(cid + '.tree-postimages', ('src/a.ts' in after) == exp['treeHasA'] and after['src/b.ts'] == exp['bContent'].encode())
+    if exp.get('verifyOk') or exp.get('verifyRunDiffersFromEvidenceRun') or case.get('mutateTreeAfterApply'):
+        live2 = dict(after)
+        if case.get('mutateTreeAfterApply'):
+            live2.update(tree_bytes(case['mutateTreeAfterApply']))
+        try:
+            v,link = M.repair_verify(receipt, live2, C['PRJ'], 0, 0)
+            must_valid(cid+'.verification-link',U+'repair#/$defs/VerificationLinkV1',link)
+        except M.Refusal as r:
+            check(cid + '.verify', ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+        must_valid(cid + '.verify-result-schema', U + 'invocation-record#/$defs/AnalysisResult', v)
+        check(cid + '.verify', v['verification']['snapshotMatched'] and v['runId'] != RS['run']['runId'] and v['verification']['verifiedSnapshotId'] == receipt['appliedSnapshotId'])
+check('repair.recovery-table-closed', set(M.RECOVERY_TABLE) == set(SCHEMAS[U + 'repair']['$defs']['JournalState']['enum']))
+for st, (a, rs_, oc) in M.RECOVERY_TABLE.items():
+    must_valid('repair.recovery-row-schema.' + st, U + 'repair#/$defs/RecoveryAction', {'state': st, 'action': a, 'resultState': rs_, 'receiptOutcome': oc})
+
+# ----------------------------------------------------------------------------- test execution
+TE = CASES['testExecution']
+for case in TE['cases']:
+    cid = 'test.' + case['id']
+    params = dict(TE['params']); params.update(case.get('params', {}))
+    ctx = copy.deepcopy(TE['ctx']); ctx.update(case.get('ctx', {}))
+    exp = case['expect']
+    if exp.get('schemaInvalid'):
+        must_invalid(cid + '.schema-invalid', U + 'test-execution#/$defs/TestExecutionStepParams', params)
+        if 'refusal' not in exp and 'admitted' not in exp:
+            continue
+    else:
+        must_valid(cid + '.params-schema', U + 'test-execution#/$defs/TestExecutionStepParams', params)
+    try:
+        a = M.admit_test_execution(params, ctx)
+    except M.Refusal as r:
+        check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+    if 'refusal' in exp:
+        check(cid, False, 'no refusal'); continue
+    check(cid, a['admitted'] and a['confinementClaimed'] is False and 'does not prevent network access' in a['disclosure'])
+    if exp.get('importKind'):
+        payload = M.test_payload(params, 1, b'ok\n', b'', tool_closure=None)
+        must_valid(cid + '.payload-schema', U + 'test-execution#/$defs/TestPayloadV1', payload)
+        w = M.build_import('test', payload, 'workflow.import-payload.test.v1', REGISTERED, {'kind': 'exact-snapshot', 'snapshotId': C['SNAP1']}, C['PROD'], C['ADAPT'], [{'path': 'stdout.txt', 'sha256': payload['stdoutDigest'], 'bytes': 3}], {'schemaVersion':2,'workspaceRoots':['.'],'pathPrefixes':['.'],'excludedPathPrefixes':[]}, {'selection':{'mode':'full','completenessEstablished':True},'completeness':'complete','omissions':[]})
+        must_valid(cid + '.wrapper-foundation', FOUNDATION['$id'] + '#/$defs/import', w['wrapper'])
+        check(cid + '.wrapper-kind-test', w['wrapper']['kind'] == exp['importKind'] and w['payloadBinding']['payloadDomain'] == exp['payloadDomain'])
+        result = {'kind': 'test-execution', 'importId': w['importId'], 'payloadDigest': w['wrapper']['payloadDigest'], 'testResult': 'failed', 'exitStatus': 1, 'timedOut': False, 'outputTruncated': False, 'disclosureEmitted': True}
+        must_valid(cid + '.step-result-schema', U + 'test-execution#/$defs/TestExecutionStepResult', result)
+check('test.result-is-never-coverage-or-verdict', not ({'coverageId', 'verdict'} & set(SCHEMAS[U + 'test-execution']['$defs']['TestExecutionStepResult']['properties'])))
+check('test.no-shell-string-field', 'command' not in SCHEMAS[U + 'test-execution']['$defs']['TestExecutionStepParams']['properties'] and SCHEMAS[U + 'test-execution']['$defs']['TestExecutionStepParams']['properties']['argv']['type'] == 'array')
+
+# ----------------------------------------------------------------------------- exact generic replay keys
+mutation_scope = M.mutation_replay_scope(C['REQ'], 0, C['PRJ'], 'baseline-adopt')
+mutation_key = M.mutation_replay_key(mutation_scope)
+check('mutation-key.exact-H-preimage-distinguished-from-raw-C',
+      mutation_key == canonical.identity('workflow.mutation-intent', mutation_scope) and
+      mutation_key != M.raw_sha(canonical.canonical(mutation_scope)))
+mutation_params = {'kind':'mutation','mutationClass':'baseline-adopt','idempotencyKey':mutation_key}
+check('mutation-key.host-scope-admits-bound-params', M.admit_mutation_replay_key(mutation_params, mutation_scope) == mutation_key)
+for field, value in [('requestId','req1_'+'f'*32),('stepId',1),('projectId','prj1-'+'f'*64),('operation','purge')]:
+    altered = dict(mutation_scope, **{field:value})
+    check('mutation-key.'+field+'-changes-key', M.mutation_replay_key(altered) != mutation_key)
+    try:M.admit_mutation_replay_key(mutation_params, altered)
+    except canonical.AdmissionError:check('mutation-key.'+field+'-cannot-reuse-key',True)
+    else:check('mutation-key.'+field+'-cannot-reuse-key',False)
+for name, altered in [('undefined-effect',dict(mutation_scope,effect={})),('repair-apply',dict(mutation_scope,operation='repair-apply')),
+                      ('caller-extra-nonce',dict(mutation_scope,nonce=1)),('newline-request',dict(mutation_scope,requestId=C['REQ']+'\n'))]:
+    must_invalid('mutation-key.closed-scope-refuses-'+name, U+'invocation-record#/$defs/MutationReplayScopeV1',altered)
+must_invalid('mutation-key.repair-apply-not-generic-mutation', U+'invocation-record#/$defs/MutationParams', dict(mutation_params,mutationClass='repair-apply'))
+# Repair apply's existing suite below/above retains its cross-request content-derived replay checks.
+
+# ----------------------------------------------------------------------------- complete pinned-purge refusal
+PURGE_PINS = [{'pinId':'repair:fix-42','kind':'repair-prerequisite'}, {'pinId':'baseline:main','kind':'baseline'}]
+purge_envelope = M.pinned_purge_refusal(C['REQ'], C['RUN1'], PURGE_PINS)
+check('purge.failure-is-closed-precondition-2', purge_envelope['kind'] == 'failure' and
+      purge_envelope['termination']['errorCode'] == 'REQUEST.PRECONDITION_FAILED' and M.exit_code(purge_envelope['termination']) == 2)
+must_valid('purge.complete-envelope-schema', U + 'command-envelope', purge_envelope)
+purge_detail = purge_envelope['termination']['domainDetail']
+check('purge.names-complete-pins-deterministically', purge_detail['purgeDisclosure']['activePins'] == list(reversed(PURGE_PINS)))
+check('purge.disclosure-has-exact-consequences', purge_detail['purgeDisclosure']['consequences'] ==
+      ['named-pins-revoked','dependent-evidence-replay-unavailable','sealed-history-retained'])
+check('purge.projection-does-not-mutate-ledger-observation', PURGE_PINS[0]['pinId'] == 'repair:fix-42')
+for name, change in [
+    ('missing-disclosure', lambda d: d.pop('purgeDisclosure')),
+    ('empty-pins', lambda d: d['purgeDisclosure'].update(activePins=[])),
+    ('duplicate-pin', lambda d: d['purgeDisclosure']['activePins'].append(d['purgeDisclosure']['activePins'][0])),
+    ('wrong-pin-order', lambda d: d['purgeDisclosure']['activePins'].reverse()),
+    ('unknown-pin-kind', lambda d: d['purgeDisclosure']['activePins'][0].update(kind='guessed')),
+    ('unknown-pin-field', lambda d: d['purgeDisclosure']['activePins'][0].update(authorized=True)),
+    ('missing-consequence', lambda d: d['purgeDisclosure']['consequences'].pop()),
+    ('misordered-consequences', lambda d: d['purgeDisclosure']['consequences'].reverse()),
+    ('newline-run-id', lambda d: d['purgeDisclosure'].update(runId=C['RUN1']+'\n')),
+    ('disclosure-on-other-code', lambda d: d.update(code='evidence.purged')),
+]:
+    bad = copy.deepcopy(purge_detail); change(bad)
+    must_invalid('purge.detail-refuses-'+name, U + 'common#/$defs/DomainDetail', bad)
+for name, change in [
+    ('wrong-subject', lambda e: e['termination']['domainDetail'].update(subject='run2:'+'f'*64)),
+    ('hidden-error-disclosure', lambda e: e['errors'][0]['purgeDisclosure']['activePins'].pop()),
+    ('wrong-exit', lambda e: e.update(exitCode=0)),
+    ('wrong-class', lambda e: e['termination'].update({'class':'operational-failed','errorCode':'HOST.IO_FAILURE','faultCause':'host-io'})),
+]:
+    bad = copy.deepcopy(purge_envelope)
+    # Break aliasing of the producer's repeated detail for an actual cross-field disagreement.
+    bad['errors'] = copy.deepcopy(bad['errors']); change(bad)
+    try: M.validate_pinned_purge_refusal(bad)
+    except (M.Refusal, canonical.AdmissionError): check('purge.envelope-refuses-'+name, True)
+    else: check('purge.envelope-refuses-'+name, False)
+many_pins = [{'pinId':f'baseline:{i:04}', 'kind':'baseline'} for i in range(65)]
+check('purge.more-than-64-pins-not-truncated', len(M.pinned_purge_refusal(C['REQ'], C['RUN1'], many_pins)['errors'][0]['purgeDisclosure']['activePins']) == 65)
+purge_cmd = next(c for c in INV['commands'] if c['name']=='purge')
+purge_parity = {'run-id':C['RUN1'], 'receipt-id':None, 'availability':'retained', 'termination-class':'request-rejected',
+                'purge-disclosure':purge_detail['purgeDisclosure']}
+purge_renderings = [M.render({'envelope':purge_envelope,'parity':purge_parity}, fmt, purge_cmd) for fmt in purge_cmd['formats']]
+check('purge.complete-disclosure-all-advertised-renderers', M.parity_holds(purge_renderings) and
+      all(r['parity']['purge-disclosure'] == purge_detail['purgeDisclosure'] for r in purge_renderings))
+reduced = copy.deepcopy(purge_cmd); reduced['parityFields'].remove('purge-disclosure')
+must_invalid('purge.inventory-cannot-drop-disclosure', U + 'command-inventory#/$defs/Command', reduced)
+
+# ----------------------------------------------------------------------------- render parity
+CMD = {c['name']: c for c in INV['commands']}
+for case in CASES['renderCases']:
+    cid = 'render.' + case['id']
+    cmd = CMD[case['command']]
+    parity = {k: ('x-' + k) for k in cmd['parityFields']}
+    parity['findings'] = [{'fingerprint': C['FP1']}]
+    env = {'parity': parity, 'envelope': {'schemaFamily': 'opensip.product.envelope', 'schemaMajor': 2}, 'hints': ['consider opensip inspect']}
+    try:
+        rs = [M.render(env, f, cmd) for f in case['formats']]
+    except M.Refusal as r:
+        check(cid, ('refusal' in case['expect'] and case['expect'].get('refusal') == r.detail), r.detail); continue
+    check(cid + '.parity', M.parity_holds(rs) == case['expect']['parity'])
+    for rendering in rs:
+        if rendering['format'] == 'sarif':
+            check(cid + '.sarif-results-equal-declared-findings', rendering['results'] == parity['findings'] and 'findings' in cmd['parityFields'])
+            check(cid + '.sarif-verdict-and-deficiency-preserved', rendering['runProperties'] == {'verdict': parity['verdict'], 'deficiency': parity['deficiency']})
+            check(cid + '.sarif-no-content-outside-common-projection', rendering['results'] == rendering['parity']['findings'] and all(rendering['runProperties'][k] == rendering['parity'][k] for k in ('verdict','deficiency')))
+    if case['expect'].get('agentHasHints'):
+        ag = next(r for r in rs if r['format'] == 'agent'); js = next(r for r in rs if r['format'] == 'json')
+        check(cid + '.agent-is-json-plus-hints', ag['agentHints'] and ag['parity'] == js['parity'] and ag['envelope'] == js['envelope'])
+# Removing a required analysis field must fail inventory admission even if every renderer
+# would otherwise agree on the same incomplete field set.
+for command in INV['commands']:
+    if 'sarif' not in command['formats']:
+        continue
+    for field in ('run-id','verdict','required-coverage','deficiency','findings','termination-class','retention-disclosure'):
+        reduced = copy.deepcopy(command); reduced['parityFields'].remove(field)
+        must_invalid('render.' + command['name'] + '.missing-required-' + field, U + 'command-inventory#/$defs/Command', reduced)
+check('render.every-advertised-sarif-command-exercised',
+      {c['name'] for c in INV['commands'] if 'sarif' in c['formats']} ==
+      {c['command'] for c in CASES['renderCases'] if 'sarif' in c['formats'] and 'refusal' not in c['expect']})
+check('render.required-failure-after-commit-keeps-run', M.terminate({'event': 'operational-fault', 'faultCause': 'delivery-required', 'runId': C['RUN1']}).get('runId') == C['RUN1'])
+check('render.every-renderer-required-failure-is-4', all(r['requiredFailureClass'] == 'operational-failed' for r in INV['renderers']))
+
+# ----------------------------------------------------------------------------- review
+FINDINGS = [{'fingerprint': C['FP1'], 'ruleId': 'no-unused-export', 'gating': True, 'subjectPath': 'src/a.ts'}]
+ADVISORY = [{'kind': 'clone-candidate', 'subjectPath': 'src/dup.ts', 'evidenceLevel': 'advisory-only', 'sourceFingerprint': C['H0']}, {'kind': 'runtime-unhit', 'subjectPath': 'src/b.ts', 'evidenceLevel': 'partial-coverage', 'sourceFingerprint': C['H0']}]
+for case in CASES['reviewCases']:
+    cid = 'review.' + case['id']
+    exp = case['expect']
+    base_cands = M.candidates_from_run(C['RUN1'], FINDINGS, ADVISORY, {}, case['today'], C['PRJ'])
+    for c in base_cands:
+        must_valid(cid + '.candidate-schema.' + c['kind'], U + 'review#/$defs/Candidate', c)
+    if 'advisoryControlBearing' in exp:
+        check(cid, all(c['controlBearing'] == (c['kind'] == 'finding') for c in base_cands))
+    if case.get('disposition'):
+        target = next(c for c in base_cands if c['kind'] == 'clone-candidate')
+        try:
+            disp = M.review_join(target['candidateId'], case['disposition']['disposition'], {'kind': 'human', 'id': 'reviewer-1'}, 'dup of src/a.ts', case.get('reviewDate','2026-09-05'), case['disposition']['until'])
+        except M.Refusal as r:
+            check(cid, ('refusal' in exp and exp.get('refusal') == r.detail), r.detail); continue
+        must_valid(cid + '.disposition-schema', U + 'review#/$defs/ReviewDisposition', disp)
+        disp['receiptId'] = 'receipt2:' + '2' * 64
+        cands = M.candidates_from_run(C['RUN1'], FINDINGS, ADVISORY, {target['candidateId']: disp}, case['today'], C['PRJ'])
+        t2 = next(c for c in cands if c['candidateId'] == target['candidateId'])
+        check(cid, t2['suppressed'] == exp['suppressed'] and t2.get('previouslyReviewed', False) == exp.get('previouslyReviewed', False))
+        if case.get('newRun'):
+            other=M.candidates_from_run(C['RUN0'],FINDINGS,ADVISORY,{target['candidateId']:disp},case['today'],C['PRJ'])
+            check(cid+'.persists-across-run',next(c for c in other if c['kind']=='clone-candidate')['suppressed'] is True)
+            changed=copy.deepcopy(ADVISORY);changed[0]['sourceFingerprint']='d'*64
+            after=M.candidates_from_run(C['RUN0'],FINDINGS,changed,{target['candidateId']:disp},case['today'],C['PRJ'])
+            check(cid+'.changed-evidence-resurfaces',next(c for c in after if c['kind']=='clone-candidate')['suppressed'] is False)
+        must_valid(cid + '.candidate-after-schema', U + 'review#/$defs/Candidate', t2)
+    if case.get('extraField'):
+        d = {'candidateId': base_cands[0]['candidateId'], 'disposition': 'accept', 'reviewer': {'kind': 'model', 'id': 'llm', 'modelClosureId': C['PROD']}, 'note': '', 'suppressUntil': None, 'advisory': True}
+        d.update(case['extraField'])
+        must_invalid(cid, U + 'review#/$defs/ReviewDisposition', d)
+    if case.get('briefCount'):
+        ids = ['candidate2:' + format(i, '064x') for i in range(case['briefCount'])]
+        b = M.review_brief(C['RUN1'], ids, {'kind': 'model', 'id': 'llm', 'modelClosureId': C['PROD']})
+        must_valid(cid + '.brief-schema', U + 'review#/$defs/ReviewBrief', b)
+        check(cid, b['truncated'] == exp['truncated'] and len(b['candidates']) == exp['briefSize'] and b['advisory'] is True)
+check('review.schemas-have-no-control-fields', all(k not in SCHEMAS[U + 'review']['$defs']['ReviewDisposition']['properties'] for k in ('verdict', 'runId', 'baselineId', 'authorizationRef', 'repairPlanId')))
+check('query.advisory-ops-subset', set(SCHEMAS[U + 'graph-query']['$defs']['AdvisoryOperation']['enum']) <= set(SCHEMAS[U + 'graph-query']['$defs']['Operation']['enum']))
+
+# ----------------------------------------------------------------------------- doctor
+rep, term = M.doctor(True, [{'code': 'DELIVERY.CLOSURE_BYTES_CORRUPT', 'remedy': 'reinstall'}, {'code': 'COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED', 'remedy': 'install'}])
+must_valid('doctor.result-schema', U + 'invocation-record#/$defs/DoctorResult', rep)
+check('doctor.defects-report-exit-0', M.exit_code(term) == 0 and rep['defectsFound'] == 2 and term['domainDetail']['code'] == 'DOCTOR.DEFECTS_FOUND')
+rep2, term2 = M.doctor(False, [])
+check('doctor.unproducible-exit-4', M.exit_code(term2) == 4 and rep2['reportProduced'] is False)
+
+# ----------------------------------------------------------------------------- obligation map integrity
+import fnmatch  # noqa: E402
+OMAP = canonical.parse((HERE / 'obligation-map.v1.json').read_bytes())
+ids = [c['id'] for c in CHECKS]
+for fb in OMAP['feedback']:
+    for pat in fb['cases']:
+        check(f'obligation-map.point-{fb["point"]}.cases-exist.{pat}', any(fnmatch.fnmatchcase(i, pat) or i == pat for i in ids), 'no check matches')
+    for s in fb['schemas']:
+        check(f'obligation-map.point-{fb["point"]}.schema-exists.{s}', (HERE / 'schemas' / s).is_file())
+check('obligation-map.all-nine-feedback-points', sorted(fb['point'] for fb in OMAP['feedback']) == list(range(1, 10)))
+check('obligation-map.ar-obligations', sorted(o['id'] for o in OMAP['obligations']) == ['AR-08', 'AR-10', 'AR-11', 'AR-13', 'AR-16'])
+
+# ----------------------------------------------------------------------------- report
+# Preserve the bounded subject when projecting native refusals through workflows.
+_SUBJECT_OBS = {'event': 'rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',
+                'detail': 'PROJECT.SCOPE_LIMIT', 'remedy': 'narrow the selection explicitly',
+                'subject': 'importIds:257>256'}
+_SUBJECT_TERM = M.terminate(dict(_SUBJECT_OBS))
+check('termination.observed-subject-is-carried-exactly',
+      _SUBJECT_TERM['domainDetail'].get('subject') == _SUBJECT_OBS['subject'],
+      str(_SUBJECT_TERM))
+must_valid('termination.subject-carrying-detail-is-schema-valid',
+           U + 'common#/$defs/StepTermination', _SUBJECT_TERM)
+# STRICTLY ADDITIVE: an observation with no subject yields exactly what it always yielded.
+check('termination.absent-subject-adds-no-field',
+      M.terminate({k: v for k, v in _SUBJECT_OBS.items() if k != 'subject'})
+      == {'class': 'request-rejected', 'errorCode': 'REQUEST.UNSATISFIABLE',
+          'domainDetail': {'code': 'PROJECT.SCOPE_LIMIT',
+                           'remedy': 'narrow the selection explicitly'}})
+check('termination.detailless-observation-still-has-no-domain-detail',
+      'domainDetail' not in M.terminate({'event': 'rejected',
+                                         'errorCode': 'REQUEST.UNSATISFIABLE'}))
+# Existing nonempty/absent subject behavior agrees with Refusal.termination().
+for _label, _subject in (('present', 'importIds:257>256'), ('absent', None)):
+    _obs = {k: v for k, v in _SUBJECT_OBS.items() if k != 'subject'}
+    if _subject is not None:
+        _obs['subject'] = _subject
+    check('termination.both-producers-agree-on-nonempty-or-absent.' + _label,
+          M.terminate(_obs) == M.Refusal(_SUBJECT_OBS['errorCode'], _SUBJECT_OBS['detail'],
+                                         _SUBJECT_OBS['remedy'], _subject).termination())
+check('termination.explicit-empty-subject-is-preserved',
+      M.terminate(dict(_SUBJECT_OBS, subject=''))['domainDetail'].get('subject') == '')
+# The subject is COPIED, never ADMITTED. A malformed supplied subject is still the schema's to
+# refuse, exactly as it is for a malformed `remedy` or `detail`; this makes no admission claim.
+must_invalid('termination.over-length-observed-subject-is-still-refused-by-the-schema',
+             U + 'common#/$defs/DomainDetail',
+             M.terminate(dict(_SUBJECT_OBS, subject='x' * 2000))['domainDetail'])
+
+a = argparse.ArgumentParser(); a.add_argument('--report', required=True); args = a.parse_args()
+failed = [c for c in CHECKS if not c['ok']]
+report = {
+    'unit': 'workflows-and-surfaces', 'standing': 'PROPOSED reference evidence; NOT SELF-ACCEPTED; not product qualification',
+    'python': sys.version.split()[0], 'schemaCount': len(SCHEMAS), 'checkCount': len(CHECKS), 'passed': len(CHECKS) - len(failed), 'failed': failed,
+    'boundaries': [
+        'All inputs are synthetic trusted model inputs; presence sets for pivots E0..E4 are supplied by the case, not computed by running detectors.',
+        'No provider, repository code, renderer, ledger or filesystem is executed; journals and trees are in-memory.',
+        'Expected values and mixed-author corrections require fresh independent Claude review; passing this checker is not acceptance.',
+        'Security-unit grant admission is stubbed by an already-admitted grant record; the security model is not re-executed here.'
+    ],
+    'productQualification': False,
+    'sourceSha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(HERE.glob('*.py')) + sorted(HERE.glob('*.json')) + sorted((HERE / 'schemas').glob('*.json')) if 'report' not in p.name and p.name != 'initial-author-response.json'}
+}
+Path(args.report).write_text(json.dumps(report, indent=2) + '\n')
+print(json.dumps({'checks': len(CHECKS), 'passed': report['passed'], 'failed': len(failed)}))
+for f in failed[:40]:
+    print('FAIL', f['id'], f['detail'])
+sys.exit(1 if failed else 0)

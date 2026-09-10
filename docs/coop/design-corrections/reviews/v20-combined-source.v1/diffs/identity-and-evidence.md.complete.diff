@@ -1,0 +1,138 @@
+--- before/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ after/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -504,6 +504,8 @@
+ retained; matching facts and coverage must come from its explicitly named input
+ views. Predicate input refs are a subset of evaluationInputRefs; evidence view
+ roots equal the named views and coverage roots equal their coverage union.
++`semantic-evidence.importIds` repeats the Plan-selected import set **exactly**: the two are equal as canonical sets and any difference in either direction refuses (`IMPORT_JOIN`). It is a repetition of the Plan's selection, never a second selection — evidence can neither drop a selected import from the record nor add one the Plan did not select. `proof-bundle.evaluationInputRefs` separately names the subset actually **evaluated**, which must be a subset of the selected set (`UNSELECTED_EVALUATION_IMPORT`) and never grants authority to an unselected import. Selection is retention, not use: a selected import is resolved and admitted by the Run closure even when nothing evaluated it, and selection alone lets no finding cite it — import citations are restricted to the evaluated subset (`HIDDEN_FINDING_EVIDENCE`). A selected but non-evaluated import contributes no fact to any view.
++
+ Every visited fact/scope and view/proof/execution/evidence/seal joins the current
+ source or Plan, including objects reached through typed Ref fields. Proof/finding
+ Ref domains exclude Run, evidence, seal and proof outputs. The native and workflow
+@@ -565,8 +567,7 @@
+ | `import` | `import.kind` + `payload.payloadDomain` | the workflow `PayloadRegistryV1` / native §7.1 rows, mirrored; Run closure re-derives them from the workflow registry and refuses on drift, so the two cannot diverge |
+ | `parameter` | the cited `schemaDigest` | a document on the closed list: `foundation/import-source-context.schema.json`, and `workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1` |
+ 
+-`view.schemaDigests` names the registered documents a view admitted, and each
+-member must be one of them.
++`view.schemaDigests` is the producer's own **declaration** of the schema documents its view was produced under. Each member is the raw SHA-256 of the exact full bytes of a document on the closed registry above; a member naming anything else refuses (`SCHEMA_DOCUMENT_UNREGISTERED`). The set is **selected, not derived**: it is neither required to name every document a member fact or Coverage was admitted under, nor forbidden from naming a registered document this view admitted nothing under. It carries no admission authority of its own — every fact and Coverage pins its own document through its own `payloadSchemaDigest`, whose exact bytes are re-hashed and retained on every reference, so a document omitted here is still pinned there and a document added here admits nothing. The same rule holds wherever the `registered-schema-document` artifact class appears, including the `schema` proof-input-ref domain.
+ 
+ **The `ScopeDocumentV1` parameter row (CB3-MUST-4).** The comparison contract
+ states that `EvaluationContext.scopeDigest` is the workflow glob scope-policy
+@@ -606,6 +607,42 @@
+ arises it is an explicit versioned correction with its own controls, never a
+ silent widening and never something an implementer may assume.
+ 
++**How many entries may cite one row (CB8-MUST-1).** The paragraph above answers
++how many registry ROWS one document digest may resolve to. It does **not** answer
++how many analysis-spec ENTRIES may cite one row, and nothing did: a Plan could
++select two **distinct** `ScopeDocumentV1` payloads under the one registered
++document digest. Identity closure admitted both, the bounded workflow binding
++verifier below is **existential** over the selected rows and was satisfied by
++either, and both entered `analysisSpecDigest` and therefore the `PlanId` — so two
++conforming hosts could bind different scope policies from one admitted Plan and
++attribute the comparison scope axis differently for the same Plan. That is the
++same arbitrary selection `PAYLOAD_PARAMETER_AMBIGUOUS_ROW` refuses, one level
++down.
++
++The rule is therefore stated for the class as a whole: **one Plan selects at most
++one parameter per registered row.** Zero is legal — an ordinary analysis that
++needs no scope-policy input selects none and closes — and there is deliberately
++**no** default, **no** first-listed or last-listed winner and **no** merge. A
++caller that *does* need the binding still meets the explicit missing-selection
++refusal at the verifier, so absence is never silently substituted, and the
++foundation `scope-descriptor` named by `plan.scopeDigest` remains a different
++record that never stands in for `ScopeDocumentV1`. Two **byte-identical** entries
++are a different defect and keep their own answer: `parameters` is `uniqueItems`
++with `x-opensip-order: canonical-set`, so a whole-item duplicate refuses on the
++schema and on the collection order law before any selection question is asked;
++this rule owns only *distinct* entries citing one row.
++
++It is enforced at three places, and the first two call one function so they cannot
++drift: the **pre-Plan** analysis-spec admission boundary, **retained Run closure**
++over the retained analysis-spec (`ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS`),
++and independently in the bounded workflow binding verifier, which may be handed a
++spec no closure in that process admitted. Precedence is most-specific-first: the
++`ImportSourceContextV1` row keeps its own named guard where that guard runs, inside
++the Run-closure import derivation that consumes the row, and this is the total
++backstop that also covers a Plan with no selected import. Nothing about the import
++row's own zero/one/multiple rule changes. A stage-spec carries a subset of the
++Plan's parameters, so the stage case is implied rather than separately guarded.
++
+ **Where the binding is actually decided, and where it is only asserted.**
+ Registering the row makes a lawful scope parameter admissible at Plan closure;
+ it does not by itself bind the *comparison* context to it. `adopt_baseline`
+@@ -624,7 +661,13 @@
+ and proves it: the scope document's canonical digest must be the `payloadDigest`
+ of a selected parameter row citing the registered `ScopeDocumentV1` **document**
+ digest. A document that is not selected, a spec that selects no scope parameter,
+-and a row cited under another schema each refuse with their own typed reason.
++and a row cited under another schema each refuse with their own typed reason. An
++**ambiguous** selection — more than one row citing the registered document — is
++refused *before* any payload comparison, on the existing public `CONFIG.INVALID`
++carrier and detail: the verifier is existential, so each of two distinct entries
++would satisfy it separately, and returning a "verified" digest for one while
++another was equally selected would be the false proof this whole section refuses.
++No new public detail code is introduced for it.
+ When the analysis spec is supplied, `adopt_baseline` performs that verification;
+ when it is not, the scope binding is a **caller assertion** and this contract
+ says so rather than implying a join. Neither path changes the baseline
+@@ -1103,6 +1146,58 @@
+ cannot invent an output schema for a reused stage. `cache-key` and
+ `regeneration-key` continue to share one schema and differ only by H domain.
+ 
++`stage-spec.operation` is owned by the selected producer closure's semantic
++interface. The provider author defines its logical operation tokens and their
++parameter/output meanings as part of that versioned interface; the host uses the
++exact token that interface defines. Tokens are not host-selected aliases,
++localized labels, or names for private physical planning choices. The same
++selected producer interface and logical operation use the same token bytes.
++Different providers may define different tokens: there is no platform-wide enum
++of stage operations, unlike `program-predicate.operation`, whose seven evaluator
++predicates are closed. Authoring a provider's interface is an explicit extension
++choice. The selected closure retains the implementation of that interface.
++Distinct logical operations of one interface take distinct tokens. The complete
++stage spec, including its Plan and output domains, determines `stageSpecDigest`;
++cache and regeneration keys commit that digest along with their other declared
++inputs. Two different acts cannot share identical complete committed inputs:
++there is no uncommitted operation discriminator. Changing an operation token
++changes stage identity and cache lookup. The host reproduces the token the
++selected interface defines; schema admission does not establish its meaning.
++Admission of `Text` establishes shape only; it does not establish that the
++producer supports an operation. Executing or replaying a stage must use the
++selected producer interface and its declared parameter/output contract.
++
++Both `outputDomains` arrays use the existing domain vocabulary in
++`identity-schemas.v2.json#/x-opensip-digest-domains/byDomain`, enumerated by
++`#/$defs/Domain` and, for a typed `Ref`, by `#/$defs/Ref/properties/domain`;
++those two enumerations are the same registered set. Each member must be
++registered; the two arrays must still be equal. Agreement on an unregistered
++spelling does not admit it. An empty array is permitted and declares no output
++domains; it establishes no facts, Coverage, successful predicate, or authority
++by itself. Every actual
++output remains subject to the selected producer interface, output schema,
++protocol and retained-evidence laws. Declaring a domain grants no permission to
++produce or consume a record otherwise forbidden by those laws.
++
++`plan.semanticClosures` records the Plan's explicit selection, with a required
++minimum rather than an exact minimal set. For evaluated views, the producing
++closure and each scope's enumerating closure must be selected; a member fact's
++producer must equal its view's producer. Selected stage specs and cache keys
++bound to the Plan likewise name selected producers. The evaluation seal's
++evaluator must be selected and the proof bundle must name that same evaluator.
++Each evaluated finding's rule closure must be selected. The
++`x-opensip-digest-domains.closureMembership` annotation states these bindings
++beside the existing closure-kind rules.
++
++An import's producer and adapter are retained through the selected `import2`
++input; native toolchain, standard-library, LLVM and grammar closures are retained
++through the selected native contexts and their registered closure joins. They
++need not also be direct `semanticClosures` members merely because those selected
++inputs depend on them. They may be selected explicitly, and a Plan may select
++other admissible retained closures. Changing that selection changes the Plan's
++semantic inputs and identity. This does not turn unreferenced CAS blobs into
++evaluation inputs or remove any direct membership or retention obligation.
++
+ `commit-inventory` is the record digested by `commit-receipt.inventoryDigest`:
+ `{schemaVersion: 2, runId, objects, blobDigests}` — the exact set of typed object
+ identities and retained raw blob digests the commit published for that Run. The

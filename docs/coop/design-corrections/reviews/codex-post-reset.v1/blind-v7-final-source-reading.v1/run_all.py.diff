@@ -1,0 +1,79 @@
+--- read-initial/run_all.py
++++ completed/run_all.py
+@@ -20,6 +20,8 @@
+ import build as B                      # noqa: E402
+ import vec_ts, vec_rust, vec_syntax    # noqa: E402
+ import vec_public as V                 # noqa: E402
++import vec_authz as A                  # noqa: E402
++import vec_selfcheck as SC             # noqa: E402
+ from oslib import C, H, sha256hex, raw_digest, Refused   # noqa: E402
+ 
+ OUT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+@@ -473,7 +475,67 @@
+     pub["relationRungTable"] = V.min_resolution_table()
+     pub["minResolutionPredicates"] = V.min_resolution_predicates()
+     pub["d9Extension"] = V.d9_extension_check()
++    pub["authorization"] = A.build_authorization_vectors()
++    pub["comparisonCases"] = A.build_comparison_vectors()
++    pub["purgeAndReplay"] = A.purge_and_replay()
++    pub["commandInventoryProjection"] = {
++        name: {"requestClass": COM["requestClass"], "steps": COM["steps"],
++               "formats": COM["formats"], "parityFields": COM["parityFields"],
++               "carriesCapabilityAvailability":
++                   "capability-availability" in COM["parityFields"]}
++        for name, COM in sorted(V.COMMANDS.items())
++        if COM.get("requestClass") == "analysis"
++        or name in ("purge", "import", "doctor")}
+     R["public"] = pub
++
++    # native dependency / configuration H PREIMAGES, reconstructed from the
++    # normative recipes and shown as exact bytes.
++    rs = vec_rust.build("A")
++    w = rs["kit"].w
++    preimages = {}
++    for hx, (dom, desc) in sorted(w.frames.items()):
++        if dom.startswith("native.") and dom not in (
++                "native.semantic-universe.rust.v2",):
++            preimages[dom] = {
++                "identityBareHex": hx,
++                "sha256TextForm": "sha256:" + hx,
++                "canonicalPayloadBytes": C(desc).decode("utf-8")[:400],
++                "canonicalPayloadLength": len(C(desc)),
++                "framePrefixHex": O.h_frame(dom, desc)[:64].hex(),
++                "frameLength": len(O.h_frame(dom, desc)),
++                "recomputes": H(dom, desc) == hx,
++                "rawSha256OfPayloadDiffers": sha256hex(C(desc)) != hx}
++    R["nativeHPreimages"] = preimages
++
++    # ---- self-checks of laws the contracts state about their own documents
++    sc = SC.build()
++    sc["cardinalityBoundaries"] = SC.cardinality_boundaries()
++    # the declared-order admission layer is LOAD-BEARING: JSON Schema alone
++    # admits a reversed canonical-set.
++    tsx = vec_ts.build()
++    any_scope = max((k for k in tsx["kit"].w.objects if k.startswith("scope2:")),
++                    key=lambda k: len(tsx["kit"].w.objects[k]["subjects"]))
++    reversed_scope = dict(tsx["kit"].w.objects[any_scope])
++    reversed_scope["subjects"] = list(reversed(reversed_scope["subjects"]))
++    sc["orderAdmissionIsLoadBearing"] = {
++        "jsonSchemaAlone": O.validate("identity", "#/$defs/subject-scope",
++                                      reversed_scope),
++        "declaredOrderAdmission": O.admit_ordered(
++            "identity", "#/$defs/subject-scope", reversed_scope)[:2]}
++    R["selfChecks"] = sc
++
++    # ---- the TypeScript body-dialect classification probe -----------------
++    probe = vec_ts.build("ts-clones-scope-over-an-unlisted-suffix")
++    pres = run_closure(probe["kit"], probe["run"])
++    R["typescriptVariantUnknownProbe"] = {
++        "scopeSubject": "package.json",
++        "runClosesWithCompleteAndNoFact": pres["admitted"],
++        "checks": pres["checks"], "errors": pres["errors"],
++        "dialectSelectorRefusal": "BODY_LANGUAGE_SOURCE_VARIANT_UNKNOWN",
++        "nativeCauseMembersForBodyLanguage":
++            [x for x in O.doc("native")["$defs"]["NativeCause"]["enum"]
++             if x.startswith("body-language")],
++        "note": "no published law decides whether this scope owes a disclosure"}
+ 
+     with open(os.path.join(OUT, "vector-results.json"), "w") as f:
+         json.dump(R, f, indent=1, sort_keys=True)

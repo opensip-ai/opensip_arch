@@ -1,0 +1,28 @@
+--- /tmp/opensip-design-corrections/candidate-subject.v20/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-08 01:46:23
++++ /private/tmp/opensip-design-corrections/reference-hardening-after20.v1/proposed/docs/coop/design-corrections/workflows/workflows_model.v1.py	2026-09-08 02:33:19
+@@ -689,11 +689,20 @@
+     # AT MOST ONE, checked BEFORE the payload match and independently of the foundation closure
+     # (CB8-MUST-1). This function is reachable directly - `adopt_baseline(..., analysis_spec=...)`
+     # is one caller and a host verifying a retained spec is another - so it may see a spec no Run
+-    # closure in this process admitted, and it must not rely on that closure having run. Order is
+-    # the point: checking the digest first would let a caller who happens to hold one of two
+-    # candidate documents obtain a `verified` digest, which is precisely the existential proof that
+-    # made two spec entries indistinguishable. Both entries satisfy `any(...)` separately, so the
+-    # ambiguity has to be refused before the match is attempted, not after.
++    # closure in this process admitted, and it must not rely on that closure having run. Order here
++    # is a question of WHICH TRUE REASON is returned, not of soundness: moving this guard below the
++    # payload match would NOT let a caller holding one of the two candidates obtain a `verified`
++    # digest, because that caller's document matches its row, the match falls through without
++    # returning, and the ambiguity is still reached and still refuses. What the later position
++    # would change is the answer given to a caller holding NEITHER candidate: the match fails
++    # first, and a spec that selects two scope parameters is reported as
++    # BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH - an ordinary statement about the supplied document
++    # - when the actual defect belongs to the SPEC ALONE and no document could have satisfied it.
++    # Ambiguity is decidable without reading `scope` at all, so it is decided first and every
++    # caller of an ambiguous spec is told the same one thing. The identity controls named
++    # `an-ambiguous-spec-refuses-as-ambiguous-even-for-a-document-that-is-neither-candidate` and
++    # `the-three-answers-for-one-non-candidate-document-stay-distinct-by-row-multiplicity` hold
++    # this order; the two-candidate controls pass under either position and do not hold it.
+     #
+     # PUBLIC ROUTE, no new vocabulary: CONFIG.INVALID is a member of the closed D9 error codes AND
+     # of the closed public DomainDetailCode registry, and it is the code the native route registry

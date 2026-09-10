@@ -1,0 +1,9 @@
+# Root bounded read of fresh foundation-data review
+
+Actual fresh P6 review COMPLETE42, 268 strict-public blocks, zero compactions. Strict P precheck and fresh-v2 public output match exactly; exact 80 kit and 30 data input hashes verified by root retention wrapper. Root read entire foundation-data-review.md and reproduction.md, result keys and verdict/issue/standing/notReached projections, not entire 2239-line independent checker or full raw result JSON. This is not blanket root assent.
+
+The peer identifies one existing-law correction: unavailable and fault trace finals claim stageCount=1 without Analyze. Root independently read the selected protocol3 transition initialState/update order (stageCount=0, set only on matched Analyze) and actual frozen native_evidence_model.v2.py protocol3_run (lines422–478), which follows that rule. Consumer helper protocol3.run_trace overrides stageCount at initialization. Correct the consumer helper/exhibits, not the design or selected reference. Peer should-grade does not waive the requested correction.
+
+Earlier root protocol-prefix PASS used team-corrections.v2 trace bytes and compared exposed phase/terminal/identity/source-byte/trace and stagesCompleted; the selected owner does not return stageCount. It never validated the problematic claimed final.stageCount. Earlier prefix results retain their bounded scope, not all final-state equality. Current foundation-v2 complete/unavailable/cancel/fault/terminal files equal foundation-v1 bytes, but are not the old team-corrections-v2 input by assumption.
+
+The actual standalone seven-record joins are re-derived; no replacement graph or full-Run upgrade. Do not invent a literal seven-edge linear chain requirement. Remaining S-standing requires whole actual session/input custody. Final whole-foundation assent awaits corrected claims and full substantive data/checker review.

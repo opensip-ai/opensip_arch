@@ -1,0 +1,74 @@
+--- finalv2/docs/coop/design-corrections/foundation/check-identity.py
++++ v3/docs/coop/design-corrections/foundation/check-identity.py
+@@ -4621,21 +4621,16 @@
+ # ---------------------------------------------------------------------------------------------
+ # CX-BV6-01. The DISJOINTNESS half is now DECIDED here, not merely stated. The frozen reference
+ # admitted a complete Run carrying two subject-scopes of ONE view with the same snapshot, relation,
+-# rung and both universes whose subject sets intersected, so one subject was claimed twice under one
+-# interpretation and every count, completeness claim and universal negative over that view
+-# double-counted it. `admit_coverage_result_v3` admits ONE scope and cannot see a second, so this is
+-# decidable only where the whole view is held: retained Run closure. The key is the PUBLISHED
++# rung and both universes whose subject sets intersected. What that establishes is that an INVALID
++# partition was ACCEPTED: one subject was committed twice under one interpretation, so a count,
++# completeness claim or universal negative read over that view CAN be ambiguous or double-counted
++# depending on how a consumer joins the scopes - not that every consumer necessarily does.
++# `admit_coverage_result_v3` admits ONE scope and cannot see a second, so this is decidable only
++# where the whole view is held: retained Run closure. The key is the PUBLISHED
+ # coveragePartitionLaw.partitionKey, which is the same tuple coverageTotalityLaw matches facts on.
+ check('the-partition-key-is-published-and-equals-the-totality-match-key',
+       M.COVERAGE_PARTITION_LAW['partitionKey']==M.RELATIONS['file']['coverageTotality']['matchOn']
+       and M.COVERAGE_PARTITION_LAW['refusal']=='SUBJECT_SCOPE_PARTITION_OVERLAP')
+-# The reported subject is the lowest by UTF-8 BYTE order, which is what the law names. This is the
+-# discriminating case: 'A\u0301' (combining) sorts BEFORE '\u00c1' by both code point and byte
+-# order, while a supplementary-plane subject would order differently under a UTF-16-style
+-# comparison. Only which subject is REPORTED depends on this, never whether the Run refuses.
+-check('the-reported-overlapping-subject-is-lowest-by-utf8-byte-order',
+-      min({'\U0001f600','\uff21'},key=lambda x:x.encode('utf-8'))=='\uff21'
+-      and 'BYTE order' in M.COVERAGE_PARTITION_LAW['refusalShape'])
+ def partition_run(mutate,with_coverage=True):
+     """A lawful Run plus ONE more subject-scope in the same view, optionally with its own Coverage."""
+     run,objects,blobs=build(resolved=True,has_match=True)
+@@ -4665,8 +4660,9 @@
+ rejects_because('overlapping-scopes-of-one-view-in-one-partition-are-refused',
+     lambda:partition_run(_OVERLAP),
+     'SUBJECT_SCOPE_PARTITION_OVERLAP:references@resolved-binding:foo')
+-# A scope with NO Coverage entry reaches no other membership check, so it is exactly the case a
+-# single-Coverage producer could never see. It is partitioned too.
++# A scope with NO Coverage entry BYPASSES the per-Coverage producer guard - the boundary that
++# could never see a second scope - although it does still reach the retained-scope ladder guard
++# later in close_run. It is partitioned too.
+ rejects_because('an-overlapping-scope-with-no-coverage-entry-is-still-refused',
+     lambda:partition_run(_OVERLAP,with_coverage=False),
+     'SUBJECT_SCOPE_PARTITION_OVERLAP:references@resolved-binding:foo')
+@@ -4704,6 +4700,31 @@
+     return M.close_run(run,objects,blobs)
+ check('one-scope-referenced-by-two-views-of-one-run-is-not-an-overlap',
+       same_scope_two_views().startswith('run2:'))
++# WHICH subject the actual guard reports when TWO subjects overlap, exercised through a full Run.
++# Two scopes are added, both carrying the same two competing strings, so the overlapping SET has two
++# members and the guard has a real choice to make. U+FF21 is below U+1F600 in UTF-8 byte order and
++# in code-point order, while a UTF-16 code-unit comparison would order the surrogate pair first, so
++# this pins the ordering the law names rather than demonstrating a builtin. Only which subject is
++# REPORTED depends on it; whether the Run refuses does not.
++_COMPETING=['\uff21','\U0001f600']
++def partition_run_pair(subjects_a,subjects_b):
++    """Two ADDED scopes in one view, neither carrying Coverage, overlapping on more than one
++    subject."""
++    run,objects,blobs=build(resolved=True,has_match=True)
++    original=copy.deepcopy(next(v for d,v in objects.values() if d=='subject-scope'))
++    vid=objects[run['evidenceId']][1]['viewIds'][0];view=copy.deepcopy(objects[vid][1])
++    for subjects in (subjects_a,subjects_b):
++        scope=copy.deepcopy(original);scope['subjects']=sorted(subjects)
++        sid=M.identifier('subject-scope',scope);objects[sid]=('subject-scope',scope)
++        view['scopeIds'].append(sid)
++    rekey(objects,vid,view,run)
++    resync_witness(objects,blobs,run);resync_proof_refs(objects,blobs,run)
++    return M.close_run(run,objects,blobs)
++rejects_because('the-guard-reports-the-lowest-overlapping-subject-by-utf8-byte-order',
++    lambda:partition_run_pair(_COMPETING,_COMPETING+['zz']),
++    'SUBJECT_SCOPE_PARTITION_OVERLAP:references@resolved-binding:\uff21')
++check('two-added-scopes-that-are-disjoint-still-close-the-same-run',
++      partition_run_pair(['\uff21'],['\U0001f600']).startswith('run2:'))
+ # An empty COMPLETE result for a symbol relation is an ordinary finding, exactly as for the two
+ # inventory relations above: a subject may lawfully bear no fact where no totality row exists, and
+ # an over-broad reading of `without omissions` would refuse this honest Run.

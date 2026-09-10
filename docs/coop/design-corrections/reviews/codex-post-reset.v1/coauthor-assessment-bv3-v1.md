@@ -1,0 +1,33 @@
+# Codex assessment of the first Bv3 correction pass
+
+**CHANGES REQUIRED; no Codex assent, source integration or readiness change.** Actual Claude completed a substantive first correction pass, but independent Codex rechecks of its released source reproduce remaining required gaps. The second actual-Claude coauthor turn is correcting those gaps. Its assessment agrees with the evidence; that agreement does not accept final source that has not yet been released.
+
+The first pass is retained at [bv3-corrections-author.v1](../bv3-corrections-author.v1/custody.json): same actual session6f624b3a-aade-4530-addc-03c02405732a, successful CLI response,20 modified files,343 retained files and826 public tool blocks. Five disposable source copies are completely inventoried against frozen v12; exact changed/added bytes and partial before-images are retained, with unchanged rows recoverable from the verified frozen base. No private thinking was retained. The literal handoff claims and unsuccessful attempts remain unchanged.
+
+Codex read the entire25,033-byte Markdown handoff and28,534-byte JSON handoff, then the complete diffs of all three reference models and three affected contracts. The [released-source rechecks](bv3-first-handoff-recheck.v1/custody.json) use the exact source plus a separately accounted synthetic construction helper. They do not measure a native provider, compiler, operating system or production host.
+
+| Actual Bv3 finding | Codex assessment of first release |
+|---|---|
+| MUST-1 relation ladders | Explicit per-relation authority and unconditional membership are supported by the source diff and retained discriminating author probes. Native reads that authority; capability mirror order is checked. Preserve this correction. |
+| MUST-2 policy resolution | Sixteen independently selected helper cases pass with actual native rungs and imported observations. A further actual rule-level evidence declaration mismatch remains at Run admission, described below. |
+| MUST-3 syntax-only universe | The third universe enables syntax-only code-language and inventory Runs. Four already bundled data/document language IDs remain unrepresentable in the new grammar descriptor. Required correction remains. |
+| MUST-4 scope-policy parameter | Legal full Run parameter admits; missing required field, wrong selector and unregistered schema refuse correctly. Comparison context production still needs an explicit selected-parameter binding/precondition and honest reference boundary. |
+| MUST-5 ownership cause | Vocabulary exists, but full Runs still admit null or unrelated causes under partial ownership. Required correction remains at producer and retained Run admission. |
+| SHOULD-1 mirror order | All13 independently selected mirror cases agree, including reversed and duplicate controls. Preserve this correction. |
+| SHOULD-2 import bounds | Shape agreement is established, but the new minimum1 is not justified by current retention/identity law. Actual Claude subsequently agrees to0..4096. Source correction and recheck remain. |
+| SHOULD-3 node_modules description | The changed description follows the existing retained-outside-inventory law. Behavior remains unchanged. |
+
+The coauthor separately found reversed capability ladder arrays (CB3-MUST-1b) and three additional resolved import-mirror differences (CB3-SHOULD-2b). These are its same-class findings, not additions to the original blind review's5MUST/3SHOULD count. The original four advisories retain their severities and limits.
+
+## Additional concrete observations and correction requirements
+
+- **CX-BV3-EVIDENCE-USE-1, same MUST-2 admission class:** [actual differential](bv3-policy-evidence-declaration.v1/custody.json). A runtime-observation predicate with a matching evidenceUse declaration admits through policy and Run admission. Omitting only the declaration refuses at policy admission with IMPORT.ABSENT_FOR_PREDICATE but admits at Run closure. Both examples are empty/indeterminate; no false-finding or execution exploit is claimed. Foundation's new atom loop omits the rule-level obligation enforced by resolve_policy. The same relevant policy admission must apply at the retained Run boundary.
+- **CX-BV3-GRAMMAR-DOMAIN-1, same MUST-3 class:** all seven language IDs already exist in BUNDLED_GRAMMARS. The new grammar schema admits TS/JS/Rust and refuses JSON/TOML/Markdown/YAML. The README inventory Run control admits; unsupportedPython correctly refuses. This is descriptor/advertised-scope inconsistency, not a request to add Python. Actual Claude identified an existing distinction in native section6.3/U-4: inventory membership for all bundled grammars, code constructs and clone body rules for the three code languages. Codex agrees to make that distinction explicit and enforce a closed capability mapping. Unsupported capability must not appear as a complete empty result. Final implementation of the reference/design correction is pending.
+- **CX-BV3-OWNERSHIP-DESCRIPTION-1, same MUST-5 clarification:** the Rust ownership description still invokes the obsolete single-package-edition fast path. Target-specific edition overrides invalidate it. Correct the description while preserving nullable unavailable universes and indeterminate empty views.
+- **CX-BV3-CUSTODY-1, evidence clarification:** v1's note-consumption claim exceeded its actual full Read at06:02UTC; later tools hashed the changed note without substantively reading it. The actual v2 assessment retracts the excess claim additively. It also verifies that fc124... is raw SHA256 of the exact manifest file and verifies all2981 rows; v1's seven attempted aggregation formulas were its mistaken assumption. Historical originals remain intact.
+
+## Actual alignment reached so far
+
+Claude's v2 assessment independently reproduces the reported failures, withdraws its v1 completion claim for M3/M5, and adopts zero auxiliary asset blobs with the published4096 maximum. It agrees to enforce ownership cause pairs, join comparison scope parameters and clarify the evidence record. Codex read that entire assessment and replied substantively through the v2 public note. The additional evidenceUse counterexample was delivered separately after launch and still requires its explicit assessment and correction.
+
+This is alignment on diagnosis and correction direction. Completion requires the final released bytes, Codex rechecks and assessment, a newly frozen candidate with a fresh independent actual-Claude review showing zero unresolved MUST/SHOULD, a new blind consumer, and complete independently reviewed application/readiness reconciliation. No product implementation, committing or pushing is authorized by these records.

@@ -1,0 +1,491 @@
+# Patch relative to target-identity-successor.v1 (COMPLETE63). Does not mutate that tree.
+# Apply against a copy of that successor.
+
+--- a/docs/coop/design-corrections/workflows/query_projection_model.v3.py	2026-09-09 00:11:30
++++ b/docs/coop/design-corrections/workflows/query_projection_model.v3.py	2026-09-09 01:36:00
+@@ -3,8 +3,13 @@
+ Public execute_graph_query always requires a retained Run and identity-model.v3
+ close_run. host.standing, host.cache, host.targetAttributions and
+ host.evaluationDeficiencies cannot replace that admission or its retained
+-records. Algorithm goldens over already-projected edges use
+-traverse_projected_graph, which is not a public query and does not admit a Run.
++records. Occupancy identity for projected targets uses the same
++atom_model._reconcile_attribution / _ephemeral_target law as atom matching,
++fed only from the admitted Run's selected evaluationInputRefs (inventories,
++sidecars) plus the plan enumeration binding and named producer closures.
++Caller-supplied census is not retained authority. Algorithm goldens over
++already-projected edges use traverse_projected_graph, which is not a public
++query and does not admit a Run.
+ 
+ Does not seal a Run, invoke a provider, change storage generations, or mint
+ negative proof. Public bound constants are schema Bounds; host.testBounds may
+@@ -54,6 +59,7 @@
+ _ID3 = None
+ _REG = None
+ _TABLE = None
++_AM = None
+ 
+ 
+ class ReferenceCallPrecondition(Exception):
+@@ -125,6 +131,23 @@
+     return _ID3
+ 
+ 
++def atom_model():
++    """Share atom occupancy reconciliation. Do not parse SubjectIdV1 namespaces here.
++
++    M2 identity-contradiction work should preserve _reconcile_attribution(fact, spec, inputs)
++    and _ephemeral_target(fact, spec, inputs). Query does not overwrite atom_model.
++    """
++    global _AM
++    if _AM is None:
++        spec = importlib.util.spec_from_file_location(
++            "query_atom_model_v1", HERE.parent / "foundation" / "atom_model.v1.py"
++        )
++        mod = importlib.util.module_from_spec(spec)
++        spec.loader.exec_module(mod)
++        _AM = mod
++    return _AM
++
++
+ def schema_registry():
+     global _REG
+     if _REG is None:
+@@ -706,6 +729,43 @@
+         if fid:
+             out[fid] = value
+     return out
++
++
++def occupancy_inputs_from_retained(proof, plan, objects, blobs, producer_closures=None):
++    """Atom-shaped occupancy inputs from the admitted Run closure only.
++
++    Inventories and sidecars are the selected evaluationInputRefs. Enumeration
++    is the plan's registered enumeration-plan parameter. Closures are named
++    producer records already in the retained objects map. Host targetAttributions
++    and ambient unselected blobs are not consulted.
++    """
++    inventories = []
++    attributions = {}
++    needed = set(producer_closures or ())
++    for ref in proof.get("evaluationInputRefs") or []:
++        domain = ref.get("domain")
++        digest = ref.get("digest")
++        if domain == "subject-inventory":
++            inventories.append(_blob_payload(blobs, digest, digest))
++        elif domain == "target-attribution":
++            value = _blob_payload(blobs, digest, digest)
++            fid = value.get("sourceFactId")
++            if fid:
++                attributions[fid] = value
++            pc = value.get("producerClosure")
++            if pc:
++                needed.add(pc)
++    closures = {}
++    for cid in needed:
++        rec = objects.get(cid)
++        if rec and rec[0] == "closure":
++            closures[cid] = rec[1]
++    return {
++        "enumerationPlan": load_enumeration_plan(plan, blobs),
++        "inventories": inventories,
++        "targetAttributions": attributions,
++        "closures": closures,
++    }
+ 
+ 
+ def retained_incoming_search(proof, blobs, relation, min_resolution):
+@@ -719,7 +779,13 @@
+     return rows
+ 
+ 
+-def project_fact(fact_id, fact, payload, table, target_attr=None):
++def project_fact(fact_id, fact, payload, table, occupancy=None):
++    """Project one fact using reconciled occupancy, not raw sidecar fields.
++
++    occupancy is atom_model._reconcile_attribution output (or None).
++    Multi-kind relations need a known occupancy kind. Single-kind relations
++    keep payload native id for external/unknown occupancy.
++    """
+     src_field, tgt_field = table["sourceField"], table["targetField"]
+     if type(payload) is not dict or src_field not in payload or tgt_field not in payload:
+         return None, {"kind": "unprojectable-fact", "factId": fact_id, "note": "payload lacks native endpoint fields"}
+@@ -735,52 +801,54 @@
+     else:
+         target_universe = fact["sourceUniverse"]
+     kinds = table["targetKinds"]
+-    package_path = None
+-    occupancy = None
++    occ = occupancy or {}
++    occ_state = occ.get("occupancy") or "unknown"
++    occ_kind = occ.get("kind") or "unknown"
++    package_path = occ.get("packageManifestPath")
+     if len(kinds) == 1:
+         tkind = kinds[0]
+-        if target_attr:
+-            occupancy = target_attr.get("occupancy")
+-            if target_attr.get("kind") not in (None, tkind, "unknown") and target_attr.get("kind") not in kinds:
++        if occ_kind in STORED_KINDS and occ_kind != tkind:
++            return None, {
++                "kind": "unprojectable-fact",
++                "factId": fact_id,
++                "note": "target attribution kind disagrees with table",
++            }
++        if occ_state == "first-party":
++            native = occ.get("nativeId")
++            if not native:
+                 return None, {
+                     "kind": "unprojectable-fact",
+                     "factId": fact_id,
+-                    "note": "target attribution kind disagrees with table",
++                    "note": "first-party occupancy missing occupancy identity",
+                 }
++        else:
++            native = payload[tgt_field]
++            if tkind != "package":
++                package_path = None
+     else:
+-        if not target_attr or target_attr.get("schemaVersion") == 1:
++        if occ_state == "unknown":
+             return None, {
+                 "kind": "unprojectable-fact",
+                 "factId": fact_id,
+-                "note": "imports target kind requires admitted TargetAttributionV2",
++                "note": "missing occupancy mapping with no unique exact-id identity",
+             }
+-        if target_attr.get("kind") not in kinds:
++        if occ_kind not in kinds:
+             return None, {
+                 "kind": "unprojectable-fact",
+                 "factId": fact_id,
+-                "note": "imports target kind requires admitted TargetAttributionV2",
++                "note": "reconciled occupancy kind is not an imports target kind",
+             }
+-        tkind = target_attr["kind"]
+-        occupancy = target_attr.get("occupancy")
+-        package_path = target_attr.get("packageManifestPath")
+-    if occupancy == "unknown":
+-        return None, {
+-            "kind": "unprojectable-fact",
+-            "factId": fact_id,
+-            "note": "unknown occupancy is not a graph endpoint",
+-        }
+-    if occupancy == "first-party":
+-        native = target_attr.get("evaluationNativeId")
+-        if not native:
+-            return None, {
+-                "kind": "unprojectable-fact",
+-                "factId": fact_id,
+-                "note": "first-party occupancy missing evaluationNativeId",
+-            }
+-    else:
+-        native = payload[tgt_field]
+-        if tkind == "package":
+-            package_path = (target_attr or {}).get("packageManifestPath")
++        tkind = occ_kind
++        if occ_state == "first-party":
++            native = occ.get("nativeId")
++            if not native:
++                return None, {
++                    "kind": "unprojectable-fact",
++                    "factId": fact_id,
++                    "note": "first-party occupancy missing occupancy identity",
++                }
++        else:
++            native = occ.get("payloadNativeId") or payload[tgt_field]
+     target = {
+         "universe": target_universe,
+         "kind": tkind,
+@@ -810,7 +878,16 @@
+     return row, None
+ 
+ 
+-def collect_projected_edges(selected_views, objects, blobs, table, attributions):
++def _reconcile_fact_occupancy(fact, occupancy_inputs):
++    AM = atom_model()
++    spec = AM.REGISTRY["relations"].get(fact.get("relation")) or {}
++    sidecar = (occupancy_inputs.get("targetAttributions") or {}).get(fact.get("factId"))
++    if sidecar is not None and sidecar.get("schemaVersion") == 1:
++        raise AM.AtomAdmissionError("TARGET_ATTRIBUTION_SCHEMA_VERSION")
++    return AM._reconcile_attribution(fact, spec, occupancy_inputs)
++
++
++def collect_projected_edges(selected_views, objects, blobs, table, occupancy_inputs):
+     facts = {}
+     limitations = []
+     coverage_ids = []
+@@ -823,6 +900,7 @@
+             if fid not in facts:
+                 facts[fid] = vid
+     projected = []
++    AM = atom_model()
+     for fid in sorted(facts):
+         fact = _object(objects, fid, "fact", "evidence.missing")
+         payload = _blob_payload(blobs, fact["payloadDigest"], fid)
+@@ -831,7 +909,19 @@
+             if fact.get("relation") == table["relation"]:
+                 limitations.append({"kind": "unsupported-rung-omitted", "factId": fid})
+             continue
+-        row, limitation = project_fact(fid, fact, payload, table, attributions.get(fid))
++        fact_for_occ = dict(fact)
++        fact_for_occ["payload"] = payload
++        fact_for_occ["factId"] = fid
++        try:
++            occupancy = _reconcile_fact_occupancy(fact_for_occ, occupancy_inputs)
++        except AM.AtomAdmissionError as exc:
++            limitations.append({
++                "kind": "unprojectable-fact",
++                "factId": fid,
++                "note": "occupancy admission " + exc.key,
++            })
++            continue
++        row, limitation = project_fact(fid, fact_for_occ, payload, table, occupancy)
+         if limitation:
+             limitations.append(limitation)
+             continue
+@@ -1389,7 +1479,6 @@
+             "evidence.missing",
+         )
+         plan = _object(objects, run["planId"], "plan", "evidence.missing")
+-        attributions = retained_attributions(proof, blobs)
+         selected_views = select_views(
+             evidence.get("viewIds") or [], objects, params, request["params"].get("factViewDigests")
+         )
+@@ -1408,8 +1497,18 @@
+                 "note": "no retained selected fact-view of the declared relation@rung; not an absence claim",
+                 "relation": params["relation"],
+             }]
++        producer_closures = set()
++        for vid in selected_views:
++            view = _object(objects, vid, "view")
++            for fid in view.get("facts") or []:
++                frec = objects.get(fid)
++                if frec and frec[0] == "fact" and frec[1].get("producerClosure"):
++                    producer_closures.add(frec[1]["producerClosure"])
++        occupancy_inputs = occupancy_inputs_from_retained(
++            proof, plan, objects, blobs, producer_closures
++        )
+         projected, proj_limits, sel_cov, sel_scope = collect_projected_edges(
+-            selected_views, objects, blobs, table, attributions
++            selected_views, objects, blobs, table, occupancy_inputs
+         )
+         inv_vertices, ambiguous = inventory_vertices(proof, plan, blobs)
+         for edge in projected:
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md	2026-09-09 00:12:56
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md	2026-09-09 01:36:51
+@@ -55,13 +55,15 @@
+ 
+ **Request law:** an operation whose `relation@minResolution` is not a row of this table is refused (`QUERY.RELATION_UNSUPPORTED`). The operation does not invent edges and does not advertise undefined relations.
+ 
+-**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, imports without TargetAttributionV1, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request.
++**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, missing occupancy mapping with no unique exact-id identity on a multi-kind rung, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request.
+ 
++Selected occupancy schema is **TargetAttributionV2**. Historical TargetAttributionV1 remains a retained frozen24 document and is **not selected** by this successor: a `schemaVersion=1` sidecar is unprojectable here (atom admission of this profile refuses it). Query does not restore V1 payload-vs-N projection.
++
+ | relation | minResolution (rung) | source field | source kind | target field | target kinds | universe rule | graph-projectable |
+ |---|---|---|---|---|---|---|---|
+ | `calls` | `resolved-callee` | `caller` | symbol | `resolvedCallee` | symbol | admitted-target | yes |
+ | `references` | `resolved-binding` | `referrer` | symbol | `resolvedBinding` | symbol | admitted-target | yes |
+-| `imports` | `resolved-target` | `importer` | symbol | `resolvedTarget` | file, symbol, package | admitted-target | yes (target kind and occupancy from admitted TargetAttributionV2; without V2 or with occupancy=unknown the fact is unprojectable) |
++| `imports` | `resolved-target` | `importer` | symbol | `resolvedTarget` | file, symbol, package | admitted-target | yes (target kind and occupancy from the **same reconciled occupancy projection as atom matching**: exact-id ephemeral first-party when payload native id uniquely equals one inventory native id; known ephemeral fields override unknown sidecar attestation; V2 sidecar first-party mapping otherwise. Missing mapping and no unique exact-id → unprojectable. Unknown attestation must not erase a known occupancy identity.) |
+ | `control-flow` | `syntactic` | `from` | symbol | `to` | symbol | same-only | yes |
+ | `reachability` | `from-resolved-calls` | `origin` | symbol | `reachable` | symbol | same-only | yes |
+ | `calls` | `syntactic-callee-name` | | | | | | **no** (request refused) |
+@@ -69,10 +71,15 @@
+ | `imports` | `syntactic-specifier` | | | | | | **no** |
+ | `file` / `package` / `declares` / `literal` / `types` / `unresolved-edge` / `clones` / `vcs-change` | | | | | | | **no** |
+ 
+-Endpoint of a projectable fact (from the fact + payload):
++Endpoint of a projectable fact (from the fact + payload + **reconciled occupancy**):
+ 
+ - source: `universe = fact.sourceUniverse`, `kind = table.sourceKind`, `nativeSubjectId = payload[sourceField]`; `packageManifestPath` only when kind is `package`.
+-- target: `universe = fact.targetUniverse` when universe rule is `admitted-target`, else `fact.sourceUniverse`; single table target kind, or for `imports@resolved-target` the kind from the retained TargetAttributionV2 of `sourceFactId`. Missing/conflicting/unknown-occupancy/V1 attribution → unprojectable fact. First-party occupancy projects `nativeSubjectId = evaluationNativeId` (inventory spelling) and, for packages, `packageManifestPath` from the sidecar inventory join. External occupancy projects `nativeSubjectId = payload.resolvedTarget` (opaque payload id). External packages still require `packageManifestPath` as the GraphEndpoint coordinate (not a first-party inventory join). Unknown occupancy is unprojectable and is not an inventory vertex.
++- Occupancy identity is `atom_model._reconcile_attribution` over the admitted Run’s selected `evaluationInputRefs` (`subject-inventory`, `target-attribution`), the plan enumeration binding, and named producer closures. Host `targetAttributions` / cache / standing are not inputs. The host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling to invent kind or occupancy.
++- target universe: `fact.targetUniverse` when universe rule is `admitted-target`, else `fact.sourceUniverse`.
++- **First-party** occupancy projects `nativeSubjectId = reconciled occupancy nativeId` (inventory spelling) and, for packages, `packageManifestPath` from the occupancy projection.
++- **External** occupancy projects `nativeSubjectId = payload target field` (opaque payload id). External packages still require `packageManifestPath` as the GraphEndpoint coordinate (not a first-party inventory join).
++- **Single-kind** rungs (`calls`/`references`/`control-flow`/`reachability`): table kind is the target kind. Unknown occupancy still projects the payload native id as a lawful external/unknown vertex. Known ephemeral first-party still wins over unknown sidecar attestation.
++- **Multi-kind** `imports@resolved-target`: target kind comes from reconciled occupancy. Missing mapping with no unique exact-id occupancy → unprojectable fact (not an inventory vertex). Unknown sidecar occupancy MUST NOT unproject a fact whose ephemeral exact-id occupancy is first-party.
+ 
+ **Order** of neighbor rows is the utf-8 byte tuple `(source.universe, source.kind, source.nativeSubjectId, source.packageManifestPath or "", target…, fact2 id)`. Reach rows order by the endpoint tuple. Path ties among shortest simple paths are the lexicographically least `fact2` id sequence. These tuples are the public order; backend dense integers are not.
+ 
+@@ -172,7 +179,7 @@
+ 1. Admit request (schema major 3, closed params).
+ 2. Require retained `run`/`objects`/`blobs` and call `close_run`.
+ 3. Join request view to the admitted Run (`runId` / `snapshotId` / trusted `latestRunId`).
+-4. Project from admitted views, retained TargetAttributionV1, and retained payloads. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`.
++4. Project from admitted views, retained payloads, selected subject-inventories, and retained TargetAttributionV2 records named by the Run’s `evaluationInputRefs`. Occupancy identity is the same reconciled projection atom matching uses (`_reconcile_attribution` / exact-id ephemeral derivation). Historical V1 sidecars are not selected. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`. Do not read ambient unselected store blobs.
+ 5. Admit requested endpoints against the vertex domain.
+ 6. Traverse under the single visit-budget law.
+ 7. Disclose retained Coverage, deficiencies, unresolved-edge, and incoming-search records.
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py	2026-09-09 00:20:33
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py	2026-09-09 01:38:23
+@@ -40,7 +40,7 @@
+     "historical workflows/schemas/graph-query.schema.json is not this owner and is not edited",
+     "root owns workflows-and-surfaces.md §8, launchers, source pins, and shared inventory count guards",
+     "no all-suite pin rerun; no independent ACCEPT claimed by this checker",
+-    "imports@resolved-target multi-kind attribution is TargetAttributionV2 occupancy-identity table law; owner-admitted imports file occupancy uses execute_graph_query after close_run",
++    "imports@resolved-target uses the same reconciled occupancy as atom matching; owner-admitted execute_graph_query covers mapped file, exact-id symbol without sidecar, unknown sidecar plus unique inventory, and genuine unmapped limitation",
+     "native incomplete resolutionState is mapped from completeness_from_stage; the semantic fixture unresolved path remains not-attempted",
+ ]
+ 
+@@ -694,7 +694,98 @@
+     }))
+     reach_ids = [row["endpoint"]["nativeSubjectId"] for row in reach_imp["items"]]
+     check("owner-imports-reach-includes-file-occupancy", "a.ts" in reach_ids and "file:a.ts" not in reach_ids, reach_ids)
++
++    IMPORTS_EXISTS = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                      "endpoint": "target", "filters": []}
++
++    sg = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="symbol", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="exact-id-symbol",
++    )
++    srun, sobjects, sblobs, sactual = replay.close_positive(sg)
++    shost = host_obs(latestRunId=sactual["runId"])
++
++    def sex(req, run_=None, objects_=None, blobs_=None, h=None):
++        used = h if h is not None else shost
++        if "requestId" not in used:
++            used = dict(host_obs(), **used)
++        return Q.execute_graph_query(
++            req,
++            srun if run_ is None else run_,
++            sobjects if objects_ is None else objects_,
++            sblobs if blobs_ is None else blobs_,
++            host=used,
++        )
+ 
++    foo_ep = ep(sg["u1"], "symbol", sg["foo"])
++    bar_ep = ep(sg["u1"], "symbol", sg["bar"])
++    sym_in = sex(request("graph.neighbors", srun["projectId"], {"runId": sactual["runId"]}, {
++        "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": foo_ep,
++    }))
++    check("owner-imports-symbol-exact-id-no-sidecar-query",
++          len(sym_in["items"]) == 1 and sym_in["items"][0]["source"]["nativeSubjectId"] == sg["bar"]
++          and sym_in["items"][0]["target"]["nativeSubjectId"] == sg["foo"],
++          sym_in["items"])
++    check("owner-imports-symbol-exact-id-atom-run-agrees",
++          sactual["verdict"] == "fail" and sactual["findingCount"] >= 1,
++          sactual)
++
++    ug = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="symbol", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="unknown-sidecar-symbol",
++    )
++    urun, uobjects, ublobs, uactual = replay.close_positive(ug)
++    uhost = host_obs(latestRunId=uactual["runId"])
++    ufoo = ep(ug["u1"], "symbol", ug["foo"])
++    uin = Q.execute_graph_query(
++        request("graph.neighbors", urun["projectId"], {"runId": uactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "incoming", "endpoint": ufoo,
++        }),
++        urun, uobjects, ublobs, host=dict(uhost, targetAttributions={"forged": True}),
++    )
++    check("owner-imports-unknown-sidecar-unique-inventory-query",
++          len(uin["items"]) == 1 and uin["items"][0]["target"]["nativeSubjectId"] == ug["foo"],
++          uin["items"])
++    check("owner-imports-unknown-sidecar-atom-run-agrees",
++          uactual["verdict"] == "fail" and uactual["findingCount"] >= 1,
++          uactual)
++    check("owner-imports-host-targetAttributions-do-not-grant-occupancy",
++          len(uin["items"]) == 1, uin["items"])
++
++    mg = S.build_ts_semantic_graph(
++        atom=IMPORTS_EXISTS, subject_kind="file", has_declares=False, has_references_fact=False,
++        second_partition=False, imports_occupancy="unmapped-file",
++    )
++    mrun, mobjects, mblobs, mactual = replay.close_positive(mg)
++    mhost = host_obs(latestRunId=mactual["runId"])
++    mout = Q.execute_graph_query(
++        request("graph.neighbors", mrun["projectId"], {"runId": mactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "outgoing",
++            "endpoint": ep(mg["u1"], "symbol", mg["foo"]),
++        }),
++        mrun, mobjects, mblobs, host=mhost,
++    )
++    lims = mout["context"]["evidence"]["resolutionLimitations"]
++    check("owner-imports-unmapped-no-exact-id-unprojectable",
++          mout["items"] == [] and any(x.get("kind") == "unprojectable-fact" for x in lims),
++          {"items": mout["items"], "limitations": lims})
++    minc = Q.execute_graph_query(
++        request("graph.neighbors", mrun["projectId"], {"runId": mactual["runId"]}, {
++            "relation": "imports", "minResolution": "resolved-target", "direction": "incoming",
++            "endpoint": ep(mg["u1"], "file", "a.ts"),
++        }),
++        mrun, mobjects, mblobs, host=mhost,
++    )
++    check("owner-imports-unmapped-file-inventory-vertex-empty-not-hit",
++          minc["items"] == [] and minc["termination"]["class"] == "success", minc)
++    check("owner-imports-unmapped-atom-run-not-known-hit",
++          mactual.get("findingCount", 0) == 0,
++          mactual)
++
++    check("owner-imports-mapped-file-atom-run-agrees",
++          iactual["verdict"] == "fail" and iactual["findingCount"] >= 1,
++          iactual)
++
+     plan_digest = hashlib.sha256((foundation / "enumeration-plan.schema.v1.json").read_bytes()).hexdigest()
+     check("enumeration-plan-row-is-registered-digest", Q.identity3().parameter_row_of(plan_digest) == Q.ENUM_PLAN_ROW, Q.identity3().parameter_row_of(plan_digest))
+     duck_payload = {"cells": [{"programBindings": [{"ordinal": 0, "universe": "a" * 64}]}]}
+--- a/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py	2026-09-09 00:13:33
++++ b/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py	2026-09-09 01:37:27
+@@ -275,6 +275,7 @@
+     cross_u_binding="foo",
+     partition_b_target="u1",
+     complete_required_inventory=True,
++    imports_occupancy="mapped-file",
+ ):
+     """TypeScript native-admitted graph: declares and/or references@resolved-binding, or package.
+ 
+@@ -643,24 +644,40 @@
+     if atom["relation"] == "imports":
+         s_imp = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                     relation="imports", resolution="resolved-target", enumeratorClosure=provider,
+-                    subjects=E.cset([foo]))
++                    subjects=E.cset([foo, bar]))
+         raw = sources["a.ts"]
+         anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
+-        payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
++        if imports_occupancy in ("exact-id-symbol", "unknown-sidecar-symbol"):
++            payload = {"importer": bar, "specifier": "./a", "resolvedTarget": foo}
++            target_native = foo
++        else:
++            payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
++            target_native = "file:a.ts"
+         fid = add("fact", snapshotId=snapshot, relation="imports", resolution="resolved-target",
+                   sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                   payloadSchemaDigest=relation_schema, payloadDigest=blob(payload),
+                   anchors=[anchor], confidenceMillionths=1000000)
+         cid_imp, _ = mint_coverage(s_imp, True)
+         mint_view(s_imp, [fid], cid_imp)
+-        sidecar = {
+-            "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+-            "targetUniverse": u1, "targetNativeId": "file:a.ts",
+-            "kind": "file", "occupancy": "first-party", "exported": None,
+-            "logicalPath": None, "packageManifestPath": None,
+-            "evaluationNativeId": "a.ts",
+-        }
+-        sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        if imports_occupancy == "mapped-file":
++            sidecar = {
++                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++                "targetUniverse": u1, "targetNativeId": target_native,
++                "kind": "file", "occupancy": "first-party", "exported": None,
++                "logicalPath": None, "packageManifestPath": None,
++                "evaluationNativeId": "a.ts",
++            }
++            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        elif imports_occupancy == "unknown-sidecar-symbol":
++            sidecar = {
++                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
++                "targetUniverse": u1, "targetNativeId": target_native,
++                "kind": "unknown", "occupancy": "unknown", "exported": None,
++                "logicalPath": None, "packageManifestPath": None,
++                "evaluationNativeId": None,
++            }
++            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
++        # exact-id-symbol and unmapped-file: no sidecar; occupancy is ephemeral or unknown.
+ 
+     if atom["relation"] == "package" or complete_required_inventory:
+         pkg_fact_rows = [r for d, inv in inventory_results if inv["kind"] == "package" for r in inv["rows"]]

@@ -1,0 +1,262 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:command-envelope",
+  "title": "CommandEnvelope major 2 — explicit successor to the CANDIDATE major-1 union in coop 07 (PROPOSED, revised)",
+  "description": "Discriminated by kind. The four major-1 members retain their meaning; major 2 adds kind=invocation for named workflows and every multi-step invocation, kind=doctor for the diagnostic report, and a mandatory common header carrying the operational RequestId. A single-step builtin command projects its single step's member directly. Consumers pin schemaMajor; an unsupported major is refused with REQUEST.SCHEMA_MAJOR_UNSUPPORTED, never silently reshaped. The JSON envelope is the parity reference: SARIF, HTML and agent renderings must carry semantically equal parity fields, and the agent rendering is this envelope plus advisory hints.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaFamily",
+    "schemaMajor",
+    "kind",
+    "requestId",
+    "termination",
+    "exitCode"
+  ],
+  "properties": {
+    "schemaFamily": {
+      "const": "opensip.product.envelope"
+    },
+    "schemaMajor": {
+      "const": 2
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "run",
+        "query",
+        "mutation",
+        "failure",
+        "invocation",
+        "doctor"
+      ]
+    },
+    "requestId": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RequestId"
+    },
+    "clientCorrelationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "projectId": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ProjectId"
+    },
+    "projectRoot": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UserInputPath"
+    },
+    "termination": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/StepTermination"
+    },
+    "exitCode": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        130
+      ],
+      "description": "derived from termination.class by the fixed table; the checker refuses any other pairing"
+    },
+    "run": {
+      "$ref": "urn:opensip:product-v1:workflows:invocation-record#/$defs/AnalysisResult"
+    },
+    "query": {
+      "$ref": "urn:opensip:product-v1:workflows:invocation-record#/$defs/QueryResult"
+    },
+    "mutation": {
+      "$ref": "#/$defs/MutationReceiptProjection"
+    },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:common#/$defs/DomainDetail"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "availability": {
+      "$ref": "urn:opensip:product-v1:workflows:common#/$defs/CapabilityAvailabilityV1",
+      "description": "Optional. The bounded capability-availability collection of THIS invocation: every capability the selected product required that this release did not declare available, with its full ownership tuple. Present on the invocation that selected them - it is not deferred to a separate doctor report, which is a different invocation and cannot deliver these absences. Advisory only."
+    },
+    "invocation": {
+      "$ref": "urn:opensip:product-v1:workflows:invocation-record"
+    },
+    "doctor": {
+      "$ref": "urn:opensip:product-v1:workflows:invocation-record#/$defs/DoctorResult"
+    },
+    "retentionDisclosure": {
+      "$ref": "urn:opensip:product-v1:workflows:invocation-record#/$defs/RetentionDisclosure"
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "agentHints": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:common#/$defs/BoundedText"
+      },
+      "description": "present only in the agent rendering; advisory text that never changes any parity field",
+      "x-opensip-order": "sequence"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "run",
+          "projectId"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "query"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "query",
+          "projectId"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "mutation"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "mutation",
+          "projectId"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "failure"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "errors"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "invocation"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "invocation"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "doctor"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "doctor"
+        ],
+        "properties": {
+          "termination": {
+            "properties": {
+              "class": {
+                "enum": [
+                  "success",
+                  "operational-failed",
+                  "interrupted"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "MutationReceiptProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "receiptId",
+        "effectOutcome",
+        "commitClass",
+        "replayed"
+      ],
+      "properties": {
+        "operation": {
+          "$ref": "urn:opensip:product-v1:workflows:repair#/$defs/MutationOperation"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ReceiptId"
+        },
+        "effectOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        },
+        "commitClass": {
+          "type": "string",
+          "enum": [
+            "REVERSIBLE",
+            "IRREVERSIBLE"
+          ]
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "before": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "after": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "verificationRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/RunId"
+        }
+      }
+    }
+  }
+}

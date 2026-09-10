@@ -1,0 +1,1694 @@
+--- a/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md	2026-09-09 01:14:38
++++ b/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md	2026-09-09 01:53:22
+@@ -29,7 +29,7 @@
+ 
+ ## 2. Target attribution
+ 
+-Sidecar `TargetAttributionV2` is **provider attestation** captured as a host-derived typed input. The fact-producing Plan-selected provider WRAPPER returns records inside `ProviderTargetAttributionReturnV2` (`foundation/provider-target-attribution-return.schema.v2.json`). That envelope is the typed return interface: adapter-stage after fact2 mint and before `attach_host_capture` / `close_run`; not a protocol3 frame, not a digest-domain, not a Run preimage, not an execution-plan `outputDomain`. The host adapter `admit_provider_attribution_return` admits the envelope, then captures each admitted V2 record into `hostCapture.hostDerivedRefs` with `domain=target-attribution`. Missing envelope is lawful occupancy-unknown except exact-id ephemeral. Incomplete present records are lawful omission of the unlisted facts. Extra records for facts this producer did not mint refuse. This is a shared platform law, not a per-language mode. Host derivation is an **ephemeral projection on exact inventory native-id equality of `targetNativeId` only**, never written as this record and never claimed as provider output. Both are checked when a sidecar exists. Host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling to invent kind, occupancy, or `evaluationNativeId`, and MUST NOT treat arbitrary host data as provider attestation.
++Sidecar `TargetAttributionV2` is **provider attestation** captured as a host-derived typed input. CURRENT delivery is worker `OccupancyCompanionV1` on negotiated `FactBatchV3`, associated by `candidateOrdinal` before fact2 exists. The host owning entry `bind_worker_occupancy` mechanically projects `TargetAttributionV2` after mint, filling `planId` / `sourceFactId` / `producerClosure` from retained Plan, execution-plan stage spec, and selected views. COMPLETE58 `ProviderTargetAttributionReturnV2` as a wrapper-built envelope after fact2 mint is historical and is not worker delivery: the compiler-native table cannot cross a closed FactBatch of already-encoded opaque payloads. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host derivation is an **ephemeral projection on exact inventory native-id equality of `targetNativeId` only**. Host MUST NOT parse `SubjectIdV1` `namespace:opaque` spelling. `origin=host-internal` on a caller-built envelope refuses capture (`PROVIDER_RETURN_HOST_AUTHORED`).
+ 
+ `evaluationNativeId` is the occupancy-compare field. It is required non-null iff `occupancy=first-party` and MUST be null otherwise. File: LogicalPath matching inventory `nativeSubjectId`. Package: attested `packageName`. Symbol: SubjectIdV1 MUST byte-equal `targetNativeId`. Malformed first-party sidecars (null `evaluationNativeId`, missing first-party `packageManifestPath`, nonunique/unadmitted inventory join) are **admission refusals**, not accepted unknown.
+ 
+--- a/docs/coop/design-corrections/foundation/check-provider-attribution-return.v2.py	2026-09-09 01:12:53
++++ b/docs/coop/design-corrections/foundation/check-provider-attribution-return.v2.py	2026-09-09 01:49:45
+@@ -1,4 +1,4 @@
+-"""Provider-return channel controls. Schema/atom boundary. Not full Run replay."""
++"""End-to-end occupancy companion controls. Schema/atom/wire-bind boundary. Not full Run replay."""
+ from __future__ import annotations
+ 
+ import hashlib
+@@ -7,6 +7,10 @@
+ from pathlib import Path
+ 
+ HERE = Path(__file__).resolve().parent
++IMMUTABLE = Path(
++    "/tmp/opensip-design-corrections/target-provider-return-successor.v1"
++    "/docs/coop/design-corrections/foundation"
++)
+ 
+ 
+ def _load(name, path):
+@@ -18,7 +22,7 @@
+ 
+ M = _load("provider_return_model_v2", HERE / "provider_attribution_return_model.v2.py")
+ AM = M.AM
+-FM = M.FM
++C = M.C
+ 
+ U1 = "11" * 32
+ C_PROV = "closure2:" + "aa" * 32
+@@ -26,6 +30,14 @@
+ C_EVAL = "closure2:" + "bb" * 32
+ PLAN = "plan2:" + "cc" * 32
+ SNAP = "snapshot2:" + "aa" * 32
++STAGE_SPEC = "dd" * 32
++VIEW = "view2:" + "ee" * 32
++TOKEN = "target-attribution-v2"
++TS_TOKENS = [
++    "source-identity-snapshot2", "plan-identity-plan2", "fact-identity-fact2", "coverage-v3",
++    "sealed-vfs-v1", "multi-stage-analyze-v1", "typescript-semantic-facts-v1",
++    "resolution-completeness-v2", "unresolved-edge-v1", "native-context-v2", TOKEN,
++]
+ 
+ 
+ def H(ch: str) -> str:
+@@ -40,6 +52,10 @@
+     raise AssertionError(msg)
+ 
+ 
++def hex_payload(payload: dict) -> str:
++    return C.canonical(payload).hex()
++
++
+ def inv_file(path="src/a.ts"):
+     return {
+         "schemaVersion": 1, "planId": PLAN, "parameterDigest": H("0"),
+@@ -94,43 +110,72 @@
+     }
+ 
+ 
+-def sidecar(fid, native, kind="file", occupancy="first-party", exported=None, logical=None,
+-            manifest=None, evaluation=None, producer=C_PROV):
+-    if occupancy == "first-party" and evaluation is None:
+-        evaluation = native if kind == "symbol" else None
++def candidate(ordinal, resolved="file:src/a.ts"):
++    payload = {"importer": "ts-symbol:src/a.ts#f", "specifier": "./a", "resolvedTarget": resolved}
++    return {
++        "candidateOrdinal": ordinal,
++        "relation": "imports",
++        "resolution": "resolved-target",
++        "layer": "semantic",
++        "producer": "typescript-semantic",
++        "producerVersion": "test",
++        "schemaVersion": 1,
++        "language": "typescript",
++        "sourceUniverseId": "sha256:" + U1,
++        "targetUniverseId": "sha256:" + U1,
++        "confidenceMillionths": 1000000,
++        "relationSchemaId": "opensip.imports-payload.v1",
++        "canonicalRelationPayloadHex": hex_payload(payload),
++        "anchors": [{"kind": "source-span", "path": "src/a.ts"}],
++    }
++
++
++def companion(ordinal, resolved="file:src/a.ts", kind="file", occupancy="first-party",
++              evaluation="src/a.ts", exported=None, logical=None, manifest=None):
+     if occupancy != "first-party":
+         evaluation = None
+     return {
+-        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": producer,
+-        "targetUniverse": U1, "targetNativeId": native, "kind": kind, "occupancy": occupancy,
+-        "exported": exported, "logicalPath": logical, "packageManifestPath": manifest,
++        "schemaVersion": 1,
++        "candidateOrdinal": ordinal,
++        "targetUniverseId": "sha256:" + U1,
++        "targetNativeId": resolved,
++        "kind": kind, "occupancy": occupancy, "exported": exported,
++        "logicalPath": logical, "packageManifestPath": manifest,
+         "evaluationNativeId": evaluation,
+     }
+ 
+ 
+-def envelope(records, stage=0, producer=C_PROV):
+-    ordered = sorted(records, key=lambda r: r["sourceFactId"].encode("utf-8"))
++def batch(cands, comps, stage=0):
+     return {
+-        "schemaVersion": 2, "planId": PLAN, "producerClosure": producer,
+-        "stageOrdinal": stage, "records": ordered,
++        "schemaVersion": 3,
++        "analysisOrdinal": 0,
++        "stageOrdinal": stage,
++        "batchIndex": 0,
++        "candidates": sorted(cands, key=lambda c: c["candidateOrdinal"]),
++        "occupancyCompanions": sorted(comps, key=lambda c: c["candidateOrdinal"]),
+     }
+ 
+ 
+-KW = None
++def owners(fid, resolved="file:src/a.ts", inventories=None):
++    fact = imports_fact(fid, resolved)
++    return dict(
++        negotiated_tokens=list(TS_TOKENS),
++        plan_id=PLAN,
++        execution_plan={"stages": [
++            {"ordinal": 0, "stageSpecDigest": STAGE_SPEC, "outputDomains": ["view"], "requires": []},
++        ]},
++        stage_specs={STAGE_SPEC: {
++            "schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV,
++            "operation": "derive-inventory-view", "outputDomains": ["view"],
++        }},
++        closures={C_PROV: {"kind": "provider"}, C_PROV2: {"kind": "provider"}, C_EVAL: {"kind": "evaluator"}},
++        views={VIEW: {"planId": PLAN, "producerClosure": C_PROV, "facts": [fid]}},
++        minted_by_ordinal={0: fact},
++        inventories=inventories or [inv_file(), inv_file("src/b.ts"), inv_symbol()],
++        enumeration_plan=plan_one(),
++    )
+ 
+ 
+-def kw():
+-    global KW
+-    if KW is None:
+-        KW = dict(
+-            plan_id=PLAN, producer_closure=C_PROV, stage_ordinal=0,
+-            inventories=[inv_file(), inv_file("src/b.ts"), inv_symbol()],
+-            enumeration_plan=plan_one(),
+-            closures={C_PROV: {"kind": "provider"}, C_PROV2: {"kind": "provider"}, C_EVAL: {"kind": "evaluator"}},
+-        )
+-    return dict(KW)
+-
+-
+ def expect_key(fn, key, label):
+     try:
+         fn()
+@@ -138,275 +183,265 @@
+         if exc.key != key:
+             fail(f"{label}: key {exc.key!r} != {key!r}")
+         return exc
+-    except AM.AtomAdmissionError as exc:
+-        if exc.key != key:
+-            fail(f"{label}: atom key {exc.key!r} != {key!r}")
+-        return exc
+     fail(f"{label}: expected {key}")
+ 
+ 
+-def test_positive_file_first_party_capture():
++def test_pipeline_positive_file_first_party():
+     fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts")
+-    out = M.admit_provider_attribution_return(
+-        envelope([rec]), facts={fid: imports_fact(fid)}, **kw()
++    out = M.bind_worker_occupancy(
++        batch([candidate(0)], [companion(0)]), **owners(fid)
+     )
+-    if out["status"] != "admitted":
+-        fail("positive status")
+-    if len(out["records"]) != 1 or out["records"][0]["evaluationNativeId"] != "src/a.ts":
+-        fail("positive record")
+-    if len(out["hostDerivedRefs"]) != 1 or out["hostDerivedRefs"][0]["domain"] != "target-attribution":
+-        fail("positive capture domain")
++    if out["status"] != "admitted" or out["delivery"] != "fact-batch-v3-companion":
++        fail("pipeline status")
++    if out["records"][0]["sourceFactId"] != fid:
++        fail("host-filled sourceFactId")
++    if out["records"][0]["producerClosure"] != C_PROV:
++        fail("host-filled producerClosure")
++    if out["records"][0]["planId"] != PLAN:
++        fail("host-filled planId")
++    if out["records"][0]["evaluationNativeId"] != "src/a.ts":
++        fail("worker occupancy")
+     digest = out["hostDerivedRefs"][0]["digest"]
+-    if digest not in out["blobs"]:
+-        fail("positive blob missing")
+     if hashlib.sha256(out["blobs"][digest]).hexdigest() != digest:
+-        fail("positive blob digest")
+-    parsed = json.loads(out["blobs"][digest].decode("utf-8"))
+-    if parsed["evaluationNativeId"] != "src/a.ts":
+-        fail("positive captured identity")
+-    if any(r.get("domain") != "target-attribution" for r in out["hostDerivedRefs"]):
+-        fail("envelope must not become a digest domain")
++        fail("capture digest")
++    if out["hostDerivedRefs"][0]["domain"] != "target-attribution":
++        fail("capture domain")
+ 
+ 
+-def test_missing_envelope_is_lawful_omission():
++def test_unnegotiated_omits():
+     fid = fact2("1")
+-    out = M.admit_provider_attribution_return(
+-        None, facts={fid: imports_fact(fid)}, **kw()
+-    )
+-    if out["status"] != "omitted" or out["hostDerivedRefs"] or out["blobs"] or out["records"]:
+-        fail("missing envelope must capture nothing")
++    args = owners(fid)
++    args["negotiated_tokens"] = [t for t in TS_TOKENS if t != TOKEN]
++    out = M.bind_worker_occupancy(None, **args)
++    if out["status"] != "omitted" or out["hostDerivedRefs"]:
++        fail("unnegotiated omit")
+ 
+ 
+-def test_present_empty_records_is_incomplete_not_omission():
++def test_unnegotiated_v3_refuses():
+     fid = fact2("1")
+-    out = M.admit_provider_attribution_return(
+-        envelope([]), facts={fid: imports_fact(fid)}, **kw()
+-    )
++    args = owners(fid)
++    args["negotiated_tokens"] = [t for t in TS_TOKENS if t != TOKEN]
++
++    def go():
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(0)]), **args)
++    expect_key(go, "PROVIDER_RETURN_UNNEGOTIATED_V3", "v3-without-token")
++
++
++def test_missing_companions_lawful_empty():
++    fid = fact2("1")
++    out = M.bind_worker_occupancy(batch([candidate(0)], []), **owners(fid))
+     if out["status"] != "admitted" or out["records"] or out["hostDerivedRefs"]:
+-        fail("empty records is present incomplete return")
++        fail("empty companions")
+ 
+ 
+-def test_malformed_envelope_schema():
++def test_unknown_candidate_ordinal_refuses():
+     fid = fact2("1")
+-    bad = envelope([sidecar(fid, "file:src/a.ts", evaluation="src/a.ts")])
+-    bad["schemaVersion"] = 1
+ 
+     def go():
+-        M.admit_provider_attribution_return(bad, facts={fid: imports_fact(fid)}, **kw())
+-    expect_key(go, "PROVIDER_RETURN_SCHEMA", "malformed-envelope-version")
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(9)]), **owners(fid))
++    expect_key(go, "PROVIDER_RETURN_UNKNOWN_CANDIDATE", "extra-ordinal")
+ 
+ 
+-def test_malformed_record_null_eval_id():
++def test_payload_native_id_mismatch_refuses():
+     fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation=None)
++    bad = companion(0, resolved="file:src/other.ts", evaluation="src/a.ts")
+ 
+     def go():
+-        M.admit_provider_attribution_return(envelope([rec]), facts={fid: imports_fact(fid)}, **kw())
+-    expect_key(go, "TARGET_ATTRIBUTION_SCHEMA", "malformed-null-eval-id")
++        M.bind_worker_occupancy(batch([candidate(0)], [bad]), **owners(fid))
++    expect_key(go, "TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH", "payload-join")
+ 
+ 
+-def test_unknown_fact_refuses():
+-    fid, extra = fact2("1"), fact2("9")
+-    rec = sidecar(extra, "file:src/a.ts", evaluation="src/a.ts")
++def test_fact_not_in_view_refuses():
++    fid = fact2("1")
++    args = owners(fid)
++    args["views"] = {VIEW: {"planId": PLAN, "producerClosure": C_PROV, "facts": []}}
+ 
+     def go():
+-        M.admit_provider_attribution_return(envelope([rec]), facts={fid: imports_fact(fid)}, **kw())
+-    expect_key(go, "PROVIDER_RETURN_UNKNOWN_FACT", "extra-unknown-fact")
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(0)]), **args)
++    expect_key(go, "PROVIDER_RETURN_FACT_NOT_IN_VIEW", "view-membership")
+ 
+ 
+-def test_record_order_refuses():
+-    fid1, fid2 = fact2("2"), fact2("1")
+-    recs = [
+-        sidecar(fid1, "file:src/a.ts", evaluation="src/a.ts"),
+-        sidecar(fid2, "file:src/a.ts", evaluation="src/a.ts"),
+-    ]
+-    env = {
+-        "schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV,
+-        "stageOrdinal": 0, "records": recs,
+-    }
++def test_stage_not_in_execution_plan_refuses():
++    fid = fact2("1")
++    args = owners(fid)
+ 
+     def go():
+-        M.admit_provider_attribution_return(
+-            env, facts={fid1: imports_fact(fid1), fid2: imports_fact(fid2)}, **kw()
+-        )
+-    expect_key(go, "PROVIDER_RETURN_SCHEMA", "record-order")
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(0)], stage=7), **args)
++    expect_key(go, "PROVIDER_RETURN_STAGE_NOT_IN_PLAN", "stage-owner")
+ 
+ 
+-def test_c15_ephemeral_identity_conflict():
++def test_evaluator_closure_refuses():
+     fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/b.ts")
+-    args = kw()
+-    args["inventories"] = [inv_file("file:src/a.ts"), inv_file("src/b.ts"), inv_symbol()]
++    args = owners(fid)
++    args["stage_specs"][STAGE_SPEC] = dict(args["stage_specs"][STAGE_SPEC], producerClosure=C_EVAL)
+ 
+     def go():
+-        M.admit_provider_attribution_return(
+-            envelope([rec]), facts={fid: imports_fact(fid, "file:src/a.ts")}, **args
+-        )
+-    expect_key(go, "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT", "c15-conflict")
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(0)]), **args)
++    expect_key(go, "PROVIDER_RETURN_PRODUCER_NOT_PROVIDER", "kind")
+ 
+ 
+-def test_c15_agreement_same_colon_path_identity():
++def test_c15_conflict_from_worker_companion():
+     fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="file:src/a.ts")
+-    args = kw()
+-    args["inventories"] = [inv_file("file:src/a.ts"), inv_file("src/b.ts"), inv_symbol()]
+-    out = M.admit_provider_attribution_return(
+-        envelope([rec]), facts={fid: imports_fact(fid, "file:src/a.ts")}, **args
+-    )
+-    if out["status"] != "admitted":
+-        fail("c15 agreement")
+-    if out["records"][0]["evaluationNativeId"] != "file:src/a.ts":
+-        fail("c15 agreement identity")
++    args = owners(fid, resolved="file:src/a.ts",
++                  inventories=[inv_file("file:src/a.ts"), inv_file("src/b.ts"), inv_symbol()])
++    args["minted_by_ordinal"] = {0: imports_fact(fid, "file:src/a.ts")}
++    rec = companion(0, resolved="file:src/a.ts", evaluation="src/b.ts")
+ 
++    def go():
++        M.bind_worker_occupancy(batch([candidate(0, "file:src/a.ts")], [rec]), **args)
++    expect_key(go, "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT", "c15")
+ 
+-def test_partial_omit_is_lawful():
+-    fid1, fid2 = fact2("1"), fact2("2")
+-    rec = sidecar(fid1, "file:src/a.ts", evaluation="src/a.ts")
+-    out = M.admit_provider_attribution_return(
+-        envelope([rec]),
+-        facts={fid1: imports_fact(fid1), fid2: imports_fact(fid2, "file:src/b.ts")},
+-        **kw(),
+-    )
+-    if out["status"] != "admitted" or len(out["records"]) != 1:
+-        fail("partial omit")
+-    if out["records"][0]["sourceFactId"] != fid1:
+-        fail("partial omit kept fact")
++
++def test_malformed_companion_schema():
++    fid = fact2("1")
++    rec = companion(0)
++    rec["occupancy"] = "first-party"
++    rec["evaluationNativeId"] = None
+ 
++    def go():
++        M.bind_worker_occupancy(batch([candidate(0)], [rec]), **owners(fid))
++    expect_key(go, "PROVIDER_RETURN_SCHEMA", "malformed-companion")
+ 
+-def test_refused_envelope_captures_nothing():
++
++def test_origin_host_internal_does_not_capture():
+     fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", evaluation="src/b.ts")
+-    args = kw()
+-    args["inventories"] = [inv_file("file:src/a.ts"), inv_file("src/b.ts"), inv_symbol()]
+-    try:
+-        M.admit_provider_attribution_return(
+-            envelope([rec]), facts={fid: imports_fact(fid)}, **args
+-        )
+-    except M.ProviderReturnAdmissionError:
+-        return
+-    fail("refused envelope must not return capture")
++    rec = {
++        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": C_PROV,
++        "targetUniverse": U1, "targetNativeId": "file:src/a.ts", "kind": "file",
++        "occupancy": "first-party", "exported": None, "logicalPath": None,
++        "packageManifestPath": None, "evaluationNativeId": "src/a.ts",
++    }
++    env = {"schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV, "stageOrdinal": 0, "records": [rec]}
+ 
++    def go():
++        M.admit_provider_attribution_return(env, origin="host-internal")
++    expect_key(go, "PROVIDER_RETURN_HOST_AUTHORED", "host-internal")
+ 
+-def test_public_route_schema_provider():
+-    raw = b"TARGET_ATTRIBUTION_SCHEMA owner-diagnostic"
+-    routed = M.route_internal_key("TARGET_ATTRIBUTION_SCHEMA", "provider-return", raw, "retained:fixture")
+-    term = routed["termination"]
+-    if term["class"] != "operational-failed" or term["errorCode"] != "PROVIDER.PROTOCOL_VIOLATION":
+-        fail("schema provider termination")
+-    if term.get("faultCause") != "provider-protocol":
+-        fail("schema provider faultCause")
+-    if term["domainDetail"]["code"] != "EVALUATION.INPUT_REFUSED":
+-        fail("schema provider detail")
+ 
++def test_origin_provider_return_unbound_envelope_refuses():
++    fid = fact2("1")
++    rec = {
++        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": C_PROV,
++        "targetUniverse": U1, "targetNativeId": "file:src/a.ts", "kind": "file",
++        "occupancy": "first-party", "exported": None, "logicalPath": None,
++        "packageManifestPath": None, "evaluationNativeId": "src/a.ts",
++    }
++    env = {"schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV, "stageOrdinal": 0, "records": [rec]}
+ 
+-def test_public_route_conflict_provider():
+-    raw = b"TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT owner-diagnostic"
+-    routed = M.route_internal_key(
+-        "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT", "provider-return", raw, "retained:fixture"
+-    )
++    def go():
++        M.admit_provider_attribution_return(env, origin="provider-return")
++    expect_key(go, "PROVIDER_RETURN_UNBOUND_ENVELOPE", "unbound")
++
++
++def test_origin_probe_digests_not_captured():
++    fid = fact2("1")
++    rec = {
++        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": C_PROV,
++        "targetUniverse": U1, "targetNativeId": "file:src/a.ts", "kind": "file",
++        "occupancy": "first-party", "exported": None, "logicalPath": None,
++        "packageManifestPath": None, "evaluationNativeId": "src/a.ts",
++    }
++    env = {"schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV, "stageOrdinal": 0, "records": [rec]}
++    captured = []
++    for origin in ("provider-return", "host-internal"):
++        try:
++            out = M.admit_provider_attribution_return(env, origin=origin)
++            captured.append(out.get("hostDerivedRefs"))
++        except M.ProviderReturnAdmissionError:
++            captured.append("REFUSE")
++    if captured != ["REFUSE", "REFUSE"]:
++        fail("origin probe must refuse both; got " + repr(captured))
++
++
++def test_scalar_caller_args_without_owners_refuse():
++    fid = fact2("1")
++    rec = {
++        "schemaVersion": 2, "planId": PLAN, "sourceFactId": fid, "producerClosure": C_PROV,
++        "targetUniverse": U1, "targetNativeId": "file:src/a.ts", "kind": "file",
++        "occupancy": "first-party", "exported": None, "logicalPath": None,
++        "packageManifestPath": None, "evaluationNativeId": "src/a.ts",
++    }
++    env = {"schemaVersion": 2, "planId": PLAN, "producerClosure": C_PROV, "stageOrdinal": 0, "records": [rec]}
++
++    def go():
++        M.admit_provider_attribution_return(
++            env, origin="provider-return", plan_id=PLAN, producer_closure=C_PROV,
++            stage_ordinal=0, facts={fid: imports_fact(fid)},
++        )
++    expect_key(go, "PROVIDER_RETURN_UNBOUND_ENVELOPE", "no-batch-owners")
++
++
++def test_public_route_unbound_is_join_provider():
++    raw = b"PROVIDER_RETURN_UNBOUND_ENVELOPE owner-diagnostic"
++    routed = M.route_internal_key("PROVIDER_RETURN_UNBOUND_ENVELOPE", "provider-return", raw, "retained:fixture")
+     if routed["termination"]["domainDetail"]["code"] != "EVALUATION.INPUT_REFUSED":
+-        fail("conflict provider detail")
+-    if routed["observation"]["condition"] != "input-join-invalid":
+-        fail("conflict condition")
+-    if routed["observation"]["origin"] != "provider-return":
+-        fail("conflict origin")
++        fail("unbound public detail")
+ 
+ 
+-def test_public_route_host_invented():
+-    raw = b"TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT host-constructed"
+-    routed = M.route_internal_key(
+-        "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT", "host-internal", raw, "retained:fixture"
+-    )
+-    term = routed["termination"]
+-    if term["errorCode"] != "SYSTEM.OUTCOME.ILLEGAL_STATE" or term.get("faultCause") != "host-invariant":
+-        fail("host invented termination")
+-    if term["domainDetail"]["code"] != "HOST.INVARIANT_VIOLATED":
+-        fail("host invented detail")
++def test_public_route_host_authored():
++    raw = b"PROVIDER_RETURN_HOST_AUTHORED owner-diagnostic"
++    routed = M.route_internal_key("PROVIDER_RETURN_HOST_AUTHORED", "host-internal", raw, "retained:fixture")
++    if routed["termination"]["domainDetail"]["code"] != "HOST.INVARIANT_VIOLATED":
++        fail("host authored detail")
+ 
+ 
+ def test_internal_keys_are_not_domain_detail_codes():
+     common = json.loads(
+-        (HERE.parent / "workflows" / "schemas" / "evaluator3" / "common.schema.json").read_text()
++        (IMMUTABLE.parent / "workflows" / "schemas" / "evaluator3" / "common.schema.json").read_text()
+     )
+     codes = set(common["$defs"]["DomainDetailCode"]["enum"])
+     for key in list(M.SCHEMA_KEYS) + list(M.JOIN_KEYS):
+         if key in codes:
+             fail("internal key leaked as DomainDetailCode: " + key)
+-        if key.startswith("D9") or key.startswith("EVALUATION.TARGET"):
+-            fail("invented public alias")
+ 
+ 
+ def test_live_d9_not_discharged():
+     if M.ROUTE_LAW["liveD9"] != "not discharged":
+         fail("live D9 standing")
+-    if "d9_successor_codes" in dir(M) and getattr(M, "d9_successor_codes")():
+-        fail("no D9 successor codes")
+ 
+ 
+-def test_stage_mismatch():
+-    fid = fact2("1")
+-    rec = sidecar(fid, "file:src/a.ts", evaluation="src/a.ts")
++def test_partial_companion_omit_other_candidate():
++    fid1, fid2 = fact2("1"), fact2("2")
++    args = owners(fid1)
++    args["views"][VIEW]["facts"] = [fid1, fid2]
++    args["minted_by_ordinal"] = {0: imports_fact(fid1), 1: imports_fact(fid2, "file:src/b.ts")}
++    cands = [candidate(0), candidate(1, "file:src/b.ts")]
++    out = M.bind_worker_occupancy(batch(cands, [companion(0)]), **args)
++    if len(out["records"]) != 1 or out["records"][0]["sourceFactId"] != fid1:
++        fail("partial companion")
+ 
+-    def go():
+-        args = kw()
+-        args["stage_ordinal"] = 1
+-        M.admit_provider_attribution_return(envelope([rec], stage=0), facts={fid: imports_fact(fid)}, **args)
+-    expect_key(go, "PROVIDER_RETURN_STAGE_ORDINAL", "stage")
+ 
+-
+-def test_atom_boundary_c15_overwrite_refuses():
++def test_refused_batch_captures_nothing():
+     fid = fact2("1")
+-    inputs = {
+-        "planId": PLAN,
+-        "facts": {fid: imports_fact(fid, "file:src/a.ts")},
+-        "inventories": [inv_file("file:src/a.ts"), inv_file("src/b.ts"), inv_symbol()],
+-        "enumerationPlan": plan_one(),
+-        "closures": {C_PROV: {"kind": "provider"}},
+-        "targetAttributions": {
+-            fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/b.ts"),
+-        },
+-        "scopes": {}, "coverages": {}, "imports": {}, "importPayloads": {},
+-        "importObservations": {}, "planSelectedImportIds": [], "evaluationInputRefs": [],
+-        "incomingSearchAttestations": [], "universeDomains": {U1: "native.semantic-universe.typescript.v2"},
+-        "importScopeAdapter": "normalized-import-scope-descriptor",
+-    }
+-
+-    def go():
+-        AM.evaluate_atom(
+-            {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
+-             "endpoint": "target", "filters": []},
+-            {"universe": U1, "kind": "file", "nativeSubjectId": "src/b.ts"},
+-            inputs,
+-        )
+     try:
+-        go()
+-    except AM.AtomAdmissionError as exc:
+-        if exc.key != "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT":
+-            fail("atom c15 key " + exc.key)
++        M.bind_worker_occupancy(batch([candidate(0)], [companion(9)]), **owners(fid))
++    except M.ProviderReturnAdmissionError:
+         return
+-    fail("atom c15 expected refusal; silent overwrite would match src/b.ts")
++    fail("must refuse")
+ 
+ 
+ CASES = [
+-    test_positive_file_first_party_capture,
+-    test_missing_envelope_is_lawful_omission,
+-    test_present_empty_records_is_incomplete_not_omission,
+-    test_malformed_envelope_schema,
+-    test_malformed_record_null_eval_id,
+-    test_unknown_fact_refuses,
+-    test_record_order_refuses,
+-    test_c15_ephemeral_identity_conflict,
+-    test_c15_agreement_same_colon_path_identity,
+-    test_partial_omit_is_lawful,
+-    test_refused_envelope_captures_nothing,
+-    test_public_route_schema_provider,
+-    test_public_route_conflict_provider,
+-    test_public_route_host_invented,
++    test_pipeline_positive_file_first_party,
++    test_unnegotiated_omits,
++    test_unnegotiated_v3_refuses,
++    test_missing_companions_lawful_empty,
++    test_unknown_candidate_ordinal_refuses,
++    test_payload_native_id_mismatch_refuses,
++    test_fact_not_in_view_refuses,
++    test_stage_not_in_execution_plan_refuses,
++    test_evaluator_closure_refuses,
++    test_c15_conflict_from_worker_companion,
++    test_malformed_companion_schema,
++    test_origin_host_internal_does_not_capture,
++    test_origin_provider_return_unbound_envelope_refuses,
++    test_origin_probe_digests_not_captured,
++    test_scalar_caller_args_without_owners_refuse,
++    test_public_route_unbound_is_join_provider,
++    test_public_route_host_authored,
+     test_internal_keys_are_not_domain_detail_codes,
+     test_live_d9_not_discharged,
+-    test_stage_mismatch,
+-    test_atom_boundary_c15_overwrite_refuses,
++    test_partial_companion_omit_other_candidate,
++    test_refused_batch_captures_nothing,
+ ]
+ 
+ 
+@@ -420,11 +455,12 @@
+             results.append({"case": fn.__name__, "ok": False, "error": f"{type(exc).__name__}: {exc}"})
+     ok = all(r["ok"] for r in results)
+     report = {
+-        "standing": "provider-return schema/atom/capture controls; not full Run replay; LIVE D9 not discharged",
++        "standing": "worker FactBatchV3 companion → host projection → capture; not full Run; LIVE D9 not discharged",
+         "ok": ok,
+         "passed": sum(1 for r in results if r["ok"]),
+         "failed": sum(1 for r in results if not r["ok"]),
+         "fullRun": False,
++        "historicalComplete58": "envelope+origin helper is not delivery; origin probe must refuse capture",
+         "results": results,
+     }
+     print(json.dumps(report, indent=2))
+--- a/docs/coop/design-corrections/foundation/evaluator-fault-contract.v3.md	2026-09-09 01:16:25
++++ b/docs/coop/design-corrections/foundation/evaluator-fault-contract.v3.md	2026-09-09 01:53:22
+@@ -44,16 +44,19 @@
+ 
+ EVALUATION.REQUIRED_OUTPUT_OMITTED identifies a missing required provider or host
+ output pointer on the public surface, retaining its exact reference.
+-Provider-return TargetAttributionV2 / `ProviderTargetAttributionReturnV2`
+-refusals use this existing boundary: malformed provider envelope or V2 record
+-is `input-schema-invalid:provider-return`; join, occupancy-conflict and
+-ephemeral-identity-conflict refusals are `input-join-invalid:provider-return`.
+-Both keep public detail `EVALUATION.INPUT_REFUSED`. Host-constructed mapping is
+-`host-internal` and `HOST.INVARIANT_VIOLATED`. Internal `TARGET_ATTRIBUTION_*`
+-and `PROVIDER_RETURN_*` keys stay in diagnostic bytes; they are not
+-DomainDetailCode members and invent no D9 code. Missing envelope is lawful
+-occupancy-unknown, not `required-output-pointer-omitted`. LIVE D9
+-successor-artifact remains a future obligation.
++Provider-return occupancy refusals use this existing boundary. Malformed
++FactBatchV3 / OccupancyCompanionV1 / projected V2 is
++`input-schema-invalid:provider-return`. Join, occupancy-conflict,
++ephemeral-identity-conflict, unbound caller envelope, and unnegotiated V3
++are `input-join-invalid:provider-return`. Both keep public detail
++`EVALUATION.INPUT_REFUSED`. Host-authored mapping
++(`PROVIDER_RETURN_HOST_AUTHORED`) is `host-internal` and
++`HOST.INVARIANT_VIOLATED` and MUST NOT capture. Internal keys stay in
++diagnostic bytes; they are not DomainDetailCode members and invent no D9
++code. Missing token / empty companions is lawful occupancy-unknown, not
++`required-output-pointer-omitted`. LIVE D9 successor-artifact remains a
++future obligation. Origin is recorded on the fault observation after refusal;
++it is not an admit parameter that blesses identical bytes.
+ 
+ EVALUATION.INPUT_REFUSED preserves a structural evaluator input failure with
+ the exact diagnostic retained separately. EVALUATION.SELECTION_LIMIT names a
+--- a/docs/coop/design-corrections/foundation/evaluator-projection-registry.v1.json	2026-09-09 01:16:11
++++ b/docs/coop/design-corrections/foundation/evaluator-projection-registry.v1.json	2026-09-09 01:53:22
+@@ -714,7 +714,7 @@
+       "examination": "per-source-universe exhaustive examination of independently enumerated source subjects (SubjectInventoryV1 + scopes). Missing expected source subjects or missing Coverage entry for the owed (relation,minResolution,U,*) => unknown."
+     },
+     "incoming": {
+-      "bind": "current E=(U,K,N) occupies the evaluation occupancy identity after TargetAttributionV2 occupancy-identity compare (exact-id ephemeral projection when payload native id uniquely equals an inventory native id). TargetAttributionV2 records are supplied by ProviderTargetAttributionReturnV2 after fact2 mint; protocol3 frames unchanged. Independently known ephemeral first-party identity cannot be overwritten by a contradictory sidecar (TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT). Payload string inequality is not occupancy nomatch when the inventory grammar of E.kind is not SubjectIdV1. fact.targetUniverse must equal U for a MATCH. Owed SOURCE programs are EnumerationPlan bindings, NEVER the set of fact.sourceUniverse values. Selected attribution schema is TargetAttributionV2; schemaVersion=1 sidecars refuse. Missing sidecar does not restore historical payload-vs-N nomatch.",
++      "bind": "current E=(U,K,N) occupies the evaluation occupancy identity after TargetAttributionV2 occupancy-identity compare (exact-id ephemeral projection when payload native id uniquely equals an inventory native id). TargetAttributionV2 records are host projections of worker OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2), bound by candidateOrdinal then minted fact2. COMPLETE58 post-fact2 envelope is not delivery. Independently known ephemeral first-party identity cannot be overwritten by a contradictory sidecar (TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT). Payload string inequality is not occupancy nomatch when the inventory grammar of E.kind is not SubjectIdV1. fact.targetUniverse must equal U for a MATCH. Owed SOURCE programs are EnumerationPlan bindings, NEVER the set of fact.sourceUniverse values. Selected attribution schema is TargetAttributionV2; schemaVersion=1 sidecars refuse. Missing sidecar does not restore historical payload-vs-N nomatch.",
+       "owedSources": "every same-family owed source program, including those with zero matching facts. Unavailable binding remains an unknown obligation.",
+       "scopes": "ALL selected scopes of (relation, minResolution-or-above on that ladder, sourceUniverse=S) REGARDLESS of scope.targetUniverse. Do NOT require a scope or Coverage key (S, targetUniverse=U). That would demand an empty Cartesian (S,U) record when S searched other targets. coveragePartitionLaw disjointness is per full key (snapshot, relation, resolution, sourceUniverse, targetUniverse), not global-S.",
+       "sourcePresence": "Union of independently enumerated SOURCE subjects appearing in those S-scopes. A source subject may appear in multiple targetUniverse partitions; UNION presence, never SUM of counts across T.",
+--- a/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md	2026-09-09 01:15:29
++++ b/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md	2026-09-09 01:52:40
+@@ -92,7 +92,7 @@
+ 
+ Complete `examinedPaths` equals the Plan `candidateSourcePaths` of **this** program binding, not the whole snapshot and not the union of sibling programs. Empty kinds/extents are not a complete-empty census: the Plan field must be present (explicit `[]` is a selected zero-path census). Complete-empty candidate still requires the retained envelope with `sourceBodies=[]`, `groupDigests=[]`, and `examinedPaths` equal that Plan census. Candidate near/cross-TSJS remain owner capability boundaries.
+ 
+-`hostCapture.hostDerivedRefs` is the explicit custody set for inventories, candidate envelopes, target-attribution, and incoming-search. Those domains are not stage products of a view-only stage. selectedRefs blob-domain members equal this set. TargetAttributionV2 members are **provider-emitted companions** of source facts delivered through `ProviderTargetAttributionReturnV2` (`foundation/provider-target-attribution-return.schema.v2.json`): the wrapper returns the envelope after fact2 mint; `admit_provider_attribution_return` admits it; the adapter captures each admitted V2 record. Each record's `producerClosure` MUST equal the named fact's `producerClosure`, the fact MUST appear in a selected view of that provider, and the record MUST admit as `foundation/target-attribution.schema.v2.json`. Host capture of those bytes is custody, not authority to mint `evaluationNativeId`. The envelope itself is not a selectedRefs member and not a digest-domain. schemaVersion=1 attributions refuse. This is a shared platform law for every language mode that can emit resolved binary-id facts; it is not a protocol3 frame and not a per-language clone Run.
++`hostCapture.hostDerivedRefs` is the explicit custody set for inventories, candidate envelopes, target-attribution, and incoming-search. Those domains are not stage products of a view-only stage. selectedRefs blob-domain members equal this set. TargetAttributionV2 members are **host projections** of worker `OccupancyCompanionV1` records delivered on negotiated `FactBatchV3` (`native/fact-batch.schema.v3.json`), bound by `candidateOrdinal` to the minted fact2 of that candidate. COMPLETE58 `ProviderTargetAttributionReturnV2` as a wrapper-built envelope after fact2 mint is historical and is not worker delivery. The owning entry is `bind_worker_occupancy`. `producerClosure` is rederived from the execution-plan stage spec, not from a caller scalar. The fact MUST appear in a selected view of that provider. schemaVersion=1 attributions refuse. Origin is a fault-observation field, not an admit blessing.
+ 
+ ## 7. Incorporated wiring (not fictional stage outputs)
+ 
+@@ -103,21 +103,19 @@
+ retained cell records and exact selected references bind them to this Plan.
+ A producer stage can return only its declared output domains; the reference
+ `derive-inventory-view` stage declares `outputDomains: ["view"]`. Do not add
+-target-attribution to a view-only stage. Do not add a protocol3 frame. The
+-typed provider return of TargetAttributionV2 is the host-adapter envelope
+-`ProviderTargetAttributionReturnV2`, invoked after this producer's Analyze
+-fact2 mint and before `attach_host_capture` / `close_run`:
++target-attribution to a view-only stage. Do not add a new protocol3 frame name.
++Occupancy is a negotiated FactBatchV3 payload (token `target-attribution-v2`).
++Historical FactBatchV2/FactCandidateV1 stay closed when the token is absent.
+ 
+ | Step | Actor | Contract |
+ |---|---|---|
+-| 1 | compiler worker | Unchanged protocol3 / typescript-semantic FactBatch |
+-| 2 | host adapter | Mint fact2 from worker facts of this `producerClosure` and `stageOrdinal` |
+-| 3 | language wrapper | Build `ProviderTargetAttributionReturnV2` from the **same compiler-native resolution table** used to encode opaque `SubjectIdV1` payloads (TS/JS semantic, Rust semantic). Syntax-only and clone/candidate producers omit the envelope. File/package occupancy is the inventory spelling, not a payload parse. Symbols MAY omit (exact-id ephemeral) or identity-map. |
+-| 4 | host adapter | `admit_provider_attribution_return(envelope\|null, planId, producerClosure, stageOrdinal, facts, inventories, enumerationPlan, closures, origin)` |
+-| 5 | host adapter | On `status=admitted`, union captured `{domain:target-attribution, digest}` into `hostCapture.hostDerivedRefs` and store `C(record)` bytes. On `status=omitted`, capture nothing. A refused envelope captures nothing. |
+-| 6 | host adapter | `attach_host_capture` then `close_run` |
++| 1 | compiler worker | In-process wrapper encodes opaque payload AND `OccupancyCompanionV1` into `FactBatchV3` when the token is negotiated. Association is `candidateOrdinal` before fact2 exists. |
++| 2 | host adapter | Decode payload; mint fact2 (unchanged identity recipe). |
++| 3 | host adapter | `bind_worker_occupancy(batch, negotiated_tokens, planId, execution_plan, stage_specs, closures, views, minted_by_ordinal, inventories, enumerationPlan)`. Rederive producer/stage from retained owners. Project V2. |
++| 4 | host adapter | On `status=admitted`, union captured `{domain:target-attribution, digest}` into `hostCapture.hostDerivedRefs`. On `status=omitted`, capture nothing. A refused batch captures nothing. |
++| 5 | host adapter | `attach_host_capture` then `close_run` |
+ 
+-Missing envelope: lawful; occupancy unknown except exact-id ephemeral; **not** `required-output-pointer-omitted`. Present partial records: lawful omission of unlisted facts. Extra/unknown-fact records refuse `PROVIDER_RETURN_UNKNOWN_FACT`. Records ordered by `sourceFactId` utf-8. Provider-emitted schema/join failures route as existing `input-schema-invalid` / `input-join-invalid` + origin `provider-return` → `EVALUATION.INPUT_REFUSED`. Host-invented mapping (payload parse or arbitrary host data claimed as attestation) is origin `host-internal` → `HOST.INVARIANT_VIOLATED`. `execution-inputs` itself is **not** a `selectedRefs` member (circular). Do not add policy/schema roots to `selectedRefs`. Reconstruct consumes `sourceBodies` and Plan `candidateSourcePaths`. No unauthenticated locator map.
++Caller-built V2 envelopes without a worker batch refuse `PROVIDER_RETURN_UNBOUND_ENVELOPE`. `origin=host-internal` refuses `PROVIDER_RETURN_HOST_AUTHORED` and captures nothing. Missing token / empty companions: lawful occupancy-unknown except exact-id ephemeral; **not** `required-output-pointer-omitted`. `execution-inputs` itself is **not** a `selectedRefs` member (circular).
+ 
+ ```
+ promised = X.promised_pointers(manifest, plan, execution, enumeration, objects=objects, blobs=blobs)
+@@ -125,7 +123,7 @@
+ # optional operationalCapture is not Run identity
+ ```
+ 
+-Architecture is incorporated intended design. Target-attribution is **not** a remaining stage-`outputDomains` extension: the return channel is the adapter envelope above. View-only stages stay `outputDomains: ["view"]`. Protocol3 frames stay closed.
++Architecture is incorporated intended design. Target-attribution is **not** a remaining stage-`outputDomains` extension. View-only stages stay `outputDomains: ["view"]`. FactBatch remains the ANALYZING frame; occupancy is a negotiated payload version, not a silent FactBatchV2 field.
+ 
+ ## 8. Synthetic host-capture helper
+ 
+--- a/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py	2026-09-09 01:16:11
++++ b/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py	2026-09-09 01:53:22
+@@ -102,9 +102,10 @@
+     "execution-plan stage outputDomains: add subject-inventory / candidate-producer-result "
+     "only on stages that produce them; current owner fixture is view-only; do not add "
+     "target-attribution as a stage outputDomain",
+-    "target-attribution is captured from ProviderTargetAttributionReturnV2 after fact2 mint "
+-    "into hostCapture.hostDerivedRefs domain=target-attribution; incoming-search remains "
+-    "host-derived selectedRefs via hostDerivedRefs; neither is a protocol3 frame",
++    "target-attribution is projected from negotiated FactBatchV3 OccupancyCompanionV1 "
++    "after fact2 mint into hostCapture.hostDerivedRefs domain=target-attribution; "
++    "incoming-search remains host-derived selectedRefs via hostDerivedRefs; "
++    "FactCandidateV1/FactBatchV2 stay closed when token target-attribution-v2 is absent",
+     "execution_input_account: STOP iterating hostCapture.retainedObjectKeys/retainedBlobDigests "
+     "(removed from the semantic record). Pass store_pointers=promised_pointers(...)['store_pointers'] "
+     "derived from selectedRefs plus owner references; do not hash or require the ambient store census",
+--- a/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json	2026-09-09 01:10:23
++++ b/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json	2026-09-09 01:50:30
+@@ -1,8 +1,8 @@
+ {
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "opensip.product.provider-target-attribution-return.2",
+-  "title": "ProviderTargetAttributionReturnV2 — host-adapter typed return of TargetAttributionV2 companions",
+-  "description": "CURRENT selected provider-return envelope for TargetAttributionV2. Adapter-stage invocation artifact between a language-specific first-party provider WRAPPER and the shared host adapter. NOT a protocol3/typescript-semantic wire frame. NOT a digest-domain blob. NOT a Run preimage. NOT an execution-plan stage outputDomain. Captured admitted TargetAttributionV2 records remain the existing canonical-record domain=target-attribution in hostCapture.hostDerivedRefs. Absence of this envelope is lawful occupancy-unknown except exact-id ephemeral first-party. Host MUST NOT parse SubjectIdV1 namespace:opaque spelling to invent records and MUST NOT treat arbitrary host data as provider attestation.",
++  "title": "ProviderTargetAttributionReturnV2 — HISTORICAL COMPLETE58 host projection shape, not worker delivery",
++  "description": "WITHDRAWN as the worker delivery interface (COMPLETE58). A caller-built envelope of TargetAttributionV2 cannot be the provider invocation: FactCandidateV1 already carries opaque encoded resolvedTarget, and planId/sourceFactId/producerClosure do not exist until the host mints fact2. CURRENT delivery is OccupancyCompanionV1 on negotiated FactBatchV3 (native/occupancy-companion.schema.v1.json, native/fact-batch.schema.v3.json). Host bind_worker_occupancy mechanically projects this V2 shape after mint. This document remains the captured-record join shape and the internal-fault registry. NOT a digest-domain. NOT a protocol3 frame. origin is a fault-observation field, not an admit blessing.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -86,26 +86,26 @@
+     "capturedRecord": "foundation/target-attribution.schema.v2.json"
+   },
+   "x-opensip-return-law": {
+-    "standing": "CURRENT successor provider-return channel. Resolves the previously advertised producerReturn/hostDerivedRefs claim that named no invocation, inputs, output schema, or producer mapping. Protocol3 frames and typescript-semantic major 2 frames stay closed and unchanged. No wire version/transition is required because this envelope is not a wire frame.",
++    "standing": "COMPLETE58 adapter-envelope is historical and is not worker delivery. CURRENT channel is negotiated FactBatchV3 occupancy companions plus host mechanical projection. Protocol3 frame name FactBatch is unchanged; payload version is capability-gated by token target-attribution-v2. Historical FactBatchV2/FactCandidateV1 stay closed when the token is absent.",
+     "boundary": {
+-      "compilerWorkerTransport": "UNCHANGED. FactBatch / CoverageV3 / Unavailable / protocol3 phases of native-evidence §9.2 and typescript-semantic major 2 frames of §9.4 are the worker product.",
+-      "providerWrapper": "Trusted first-party language wrapper that already translates compiler-native resolution into opaque SubjectIdV1 payload fields. Occupancy mapping is the SECOND output of that same encoding pass, not a parse of the payload and not a host guess.",
+-      "hostAdapter": "Shared host adapter already decodes provider CBOR, re-encodes to C, mints fact2, builds views. This envelope is admitted AFTER fact2 mint and BEFORE attach_host_capture / close_run. The adapter captures admitted V2 records; it does not mint evaluationNativeId."
++      "compilerWorkerTransport": "FactCandidateV1 unchanged. When Hello negotiates target-attribution-v2, FactBatch payload is FactBatchV3 carrying occupancyCompanions associated by candidateOrdinal BEFORE fact2 exists. When the token is absent, FactBatchV2 remains and occupancy is unknown except exact-id ephemeral.",
++      "providerWrapper": "The language wrapper RUNS IN THE WORKER process, before FactBatch emit, while compiler-native resolution is still in memory. It encodes opaque SubjectIdV1 into FactCandidateV1.canonicalRelationPayload AND emits OccupancyCompanionV1 in the same batch. It does not run after host fact2 mint. There is no post-FactBatch shared table.",
++      "hostAdapter": "Owning entry bind_worker_occupancy. Decodes payload, mints fact2, binds companion.candidateOrdinal to that mint, fills planId/sourceFactId/producerClosure from retained Plan/execution-plan stage spec/view membership. Captures projected TargetAttributionV2. Does not take origin as an admit parameter."
+     },
+     "invocation": {
+-      "name": "admit_provider_attribution_return",
+-      "when": "After this producer's Analyze-stage fact2 identities are minted from the worker FactBatch. Before hostCapture.hostDerivedRefs is closed and before attach_host_capture / close_run.",
++      "name": "bind_worker_occupancy",
++      "when": "After this producer's Analyze-stage fact2 identities are minted from THIS FactBatch's candidates. Before attach_host_capture / close_run.",
+       "inputs": {
+-        "envelope": "ProviderTargetAttributionReturnV2 or JSON null/absent. Null/absent is lawful omission.",
+-        "planId": "locator of the consuming Plan",
+-        "producerClosure": "this producer's closure2",
+-        "stageOrdinal": "execution-plan Analyze ordinal that minted the facts",
+-        "facts": "map of fact2 id → admitted fact descriptor for THIS producer and stage (minted this Analyze)",
+-        "inventories": "admitted SubjectInventoryV1 records of this Plan",
+-        "enumerationPlan": "EnumerationPlanV1",
+-        "closures": "map closure2 → {kind}. Named producerClosure MUST have kind=provider",
+-        "priorRecords": "optional already-admitted TargetAttributionV2 records of this Plan, so occupancy-conflict is checked against earlier stages",
+-        "origin": "actual invoking boundary recorded by the host TCB: provider-return when the wrapper produced the envelope; host-internal if the host constructed records itself"
++        "batch": "FactBatchV3 or null. Null with token absent is lawful omission. V3 without token refuses.",
++        "negotiated_tokens": "Hello/HelloAck token array (trusted host observation of negotiation)",
++        "planId": "retained Plan locator",
++        "execution_plan": "retained execution-plan descriptor",
++        "stage_specs": "map of stageSpecDigest → stage spec carrying producerClosure",
++        "closures": "retained closure2 → {kind}",
++        "views": "retained views of this producer; sourceFactId MUST be a member",
++        "minted_by_ordinal": "host mint map candidateOrdinal → fact2, verified against this batch's candidates",
++        "inventories": "admitted SubjectInventoryV1",
++        "enumerationPlan": "EnumerationPlanV1"
+       },
+       "output": {
+         "status": "omitted | admitted",
+@@ -232,7 +232,20 @@
+       "PROVIDER_RETURN_PRODUCER_MISMATCH",
+       "PROVIDER_RETURN_PRODUCER_NOT_PROVIDER",
+       "PROVIDER_RETURN_STAGE_ORDINAL",
++      "PROVIDER_RETURN_STAGE_NOT_IN_PLAN",
++      "PROVIDER_RETURN_STAGE_PRODUCER",
+       "PROVIDER_RETURN_UNKNOWN_FACT",
++      "PROVIDER_RETURN_UNKNOWN_CANDIDATE",
++      "PROVIDER_RETURN_UNNEGOTIATED_V3",
++      "PROVIDER_RETURN_UNBOUND_ENVELOPE",
++      "PROVIDER_RETURN_HOST_AUTHORED",
++      "PROVIDER_RETURN_OWNERS_REQUIRED",
++      "PROVIDER_RETURN_MINT_MISSING",
++      "PROVIDER_RETURN_MINT_MISJOIN",
++      "PROVIDER_RETURN_FACT_NOT_IN_VIEW",
++      "PROVIDER_RETURN_DUPLICATE_CANDIDATE",
++      "PROVIDER_RETURN_CANDIDATE_ORDINAL",
++      "PROVIDER_RETURN_UNIVERSE_MISMATCH",
+       "TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN",
+       "TARGET_ATTRIBUTION_PRODUCER_MISMATCH",
+       "TARGET_ATTRIBUTION_UNIVERSE_MISMATCH",
+--- a/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py	2026-09-09 01:11:18
++++ b/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py	2026-09-09 01:51:12
+@@ -1,8 +1,10 @@
+-"""Host-adapter TargetAttributionV2 return. Design reference, not a host runtime.
++"""Worker occupancy companion → TargetAttributionV2 projection.
+ 
+-Admit ProviderTargetAttributionReturnV2 after fact2 mint and before
+-attach_host_capture / close_run. Capture admitted records as domain=target-attribution
+-blobs. The envelope is not a Run preimage and not a protocol3 frame.
++Owning host-adapter entry is bind_worker_occupancy. Design reference, not a
++host runtime. Historical COMPLETE58 admit_provider_attribution_return that
++accepted a caller-built V2 envelope plus origin= is not the delivery interface:
++the compiler-native table cannot cross a closed FactBatch of already-encoded
++opaque payloads, and origin is not a blessing on identical bytes.
+ """
+ from __future__ import annotations
+ 
+@@ -12,8 +14,21 @@
+ from pathlib import Path
+ 
+ HERE = Path(__file__).resolve().parent
++NATIVE_HERE = HERE.parent / "native"
++IMMUTABLE_FOUNDATION = Path(
++    "/tmp/opensip-design-corrections/target-provider-return-successor.v1"
++    "/docs/coop/design-corrections/foundation"
++)
++TOKEN = "target-attribution-v2"
+ 
+ 
++def _pick(*paths: Path) -> Path:
++    for path in paths:
++        if path.is_file():
++            return path
++    raise FileNotFoundError(paths[0])
++
++
+ def _load(name: str, path: Path):
+     spec = importlib.util.spec_from_file_location(name, path)
+     module = importlib.util.module_from_spec(spec)
+@@ -21,12 +36,20 @@
+     return module
+ 
+ 
+-C = _load("provider_return_canonical", HERE / "canonical.py")
+-AM = _load("provider_return_atom", HERE / "atom_model.v1.py")
+-FM = _load("provider_return_fault", HERE / "evaluator_fault_model.v3.py")
++C = _load("occ_canonical", _pick(HERE / "canonical.py", IMMUTABLE_FOUNDATION / "canonical.py"))
++AM = _load("occ_atom", _pick(HERE / "atom_model.v1.py", IMMUTABLE_FOUNDATION / "atom_model.v1.py"))
++FM = _load("occ_fault", _pick(HERE / "evaluator_fault_model.v3.py", IMMUTABLE_FOUNDATION / "evaluator_fault_model.v3.py"))
+ 
+-SCHEMA = json.loads((HERE / "provider-target-attribution-return.schema.v2.json").read_text(encoding="utf-8"))
+-FAULTS = SCHEMA["x-opensip-new-internal-faults"]
++BATCH_SCHEMA = json.loads(_pick(
++    NATIVE_HERE / "fact-batch.schema.v3.json",
++    HERE / "fact-batch.schema.v3.json",
++).read_text(encoding="utf-8"))
++COMPANION_SCHEMA = json.loads(_pick(
++    NATIVE_HERE / "occupancy-companion.schema.v1.json",
++    HERE / "occupancy-companion.schema.v1.json",
++).read_text(encoding="utf-8"))
++RETURN_SCHEMA = json.loads((HERE / "provider-target-attribution-return.schema.v2.json").read_text(encoding="utf-8"))
++FAULTS = RETURN_SCHEMA["x-opensip-new-internal-faults"]
+ SCHEMA_KEYS = frozenset(FAULTS["schemaKeys"])
+ JOIN_KEYS = frozenset(FAULTS["joinKeys"])
+ ROUTE_LAW = FAULTS["publicRoute"]
+@@ -83,80 +106,158 @@
+     return sorted({C.canonical(x): x for x in refs}.values(), key=C.canonical)
+ 
+ 
+-def admit_provider_attribution_return(
+-    envelope,
++def decode_candidate_payload(candidate: dict) -> dict:
++    raw = bytes.fromhex(candidate["canonicalRelationPayloadHex"])
++    return json.loads(raw.decode("utf-8"))
++
++
++def _stage_producer(execution_plan: dict, stage_specs: dict, stage_ordinal: int) -> str:
++    stages = execution_plan.get("stages") or []
++    row = next((s for s in stages if s.get("ordinal") == stage_ordinal), None)
++    if row is None:
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_STAGE_NOT_IN_PLAN", str(stage_ordinal))
++    spec = stage_specs.get(row.get("stageSpecDigest")) or {}
++    pc = spec.get("producerClosure") or row.get("producerClosure")
++    if not pc:
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_STAGE_PRODUCER", str(stage_ordinal))
++    return pc
++
++
++def _require_selected_provider(closures: dict, producer_closure: str) -> None:
++    if (closures.get(producer_closure) or {}).get("kind") != "provider":
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_PRODUCER_NOT_PROVIDER", producer_closure)
++
++
++def _fact_in_producer_view(views: dict, fact_id: str, producer_closure: str, plan_id: str) -> bool:
++    for view in (views or {}).values():
++        if view.get("producerClosure") != producer_closure:
++            continue
++        if view.get("planId") not in (None, plan_id) and view.get("planId") != plan_id:
++            continue
++        if fact_id in (view.get("facts") or []):
++            return True
++    return False
++
++
++def project_companion_to_v2(companion: dict, fact: dict, plan_id: str, producer_closure: str) -> dict:
++    """Mechanical host projection. Host fills locators; occupancy fields copy from the worker companion."""
++    return {
++        "schemaVersion": 2,
++        "planId": plan_id,
++        "sourceFactId": fact["factId"],
++        "producerClosure": producer_closure,
++        "targetUniverse": fact["targetUniverse"],
++        "targetNativeId": companion["targetNativeId"],
++        "kind": companion["kind"],
++        "occupancy": companion["occupancy"],
++        "exported": companion.get("exported"),
++        "logicalPath": companion.get("logicalPath"),
++        "packageManifestPath": companion.get("packageManifestPath"),
++        "evaluationNativeId": companion.get("evaluationNativeId"),
++    }
++
++
++def bind_worker_occupancy(
++    batch,
+     *,
++    negotiated_tokens: list,
+     plan_id: str,
+-    producer_closure: str,
+-    stage_ordinal: int,
+-    facts: dict,
++    execution_plan: dict,
++    stage_specs: dict,
++    closures: dict,
++    views: dict,
++    minted_by_ordinal: dict,
+     inventories: list,
+     enumeration_plan: dict,
+-    closures: dict,
+-    prior_records: list | None = None,
+-    origin: str = "provider-return",
+ ):
+-    """Admit wrapper return or lawful omission. Capture V2 records only.
++    """Owning host-adapter entry.
+ 
+-    origin is recorded by the host TCB: provider-return for wrapper output,
+-    host-internal if the host constructed the mapping itself.
++    Trusted host observations: negotiated Hello tokens, retained Plan locator,
++    execution-plan + stage specs, closure kind map, selected views, mint map
++    from THIS batch's candidates, inventories, enumeration plan.
++
++    Provider claims: FactCandidateV1 members and OccupancyCompanionV1 occupancy
++    fields. planId / sourceFactId / producerClosure are rederived, never taken
++    from a caller envelope.
+     """
+-    if origin not in ALLOWED_ORIGINS:
+-        raise ProviderReturnAdmissionError("PROVIDER_RETURN_SCHEMA", "origin")
+-    if envelope is None:
++    tokens = list(negotiated_tokens or [])
++    if TOKEN not in tokens:
++        if batch is not None and isinstance(batch, dict) and batch.get("schemaVersion") == 3:
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_UNNEGOTIATED_V3", TOKEN)
+         return {
+             "status": "omitted",
+             "records": [],
+             "hostDerivedRefs": [],
+             "blobs": {},
+-            "origin": origin,
++            "delivery": "unnegotiated-fact-batch-v2",
+         }
++    if batch is None:
++        return {
++            "status": "omitted",
++            "records": [],
++            "hostDerivedRefs": [],
++            "blobs": {},
++            "delivery": "negotiated-empty-worker-return",
++        }
+     try:
+-        C.validate(SCHEMA, envelope)
++        C.validate(BATCH_SCHEMA, batch)
+     except Exception as exc:
+         raise ProviderReturnAdmissionError("PROVIDER_RETURN_SCHEMA", str(exc)) from exc
+-    if envelope.get("planId") != plan_id:
+-        raise ProviderReturnAdmissionError("PROVIDER_RETURN_PLAN_MISMATCH", "planId")
+-    if envelope.get("producerClosure") != producer_closure:
+-        raise ProviderReturnAdmissionError("PROVIDER_RETURN_PRODUCER_MISMATCH", "producerClosure")
+-    if (closures.get(producer_closure) or {}).get("kind") != "provider":
+-        raise ProviderReturnAdmissionError("PROVIDER_RETURN_PRODUCER_NOT_PROVIDER", producer_closure)
+-    if envelope.get("stageOrdinal") != stage_ordinal:
+-        raise ProviderReturnAdmissionError("PROVIDER_RETURN_STAGE_ORDINAL", str(envelope.get("stageOrdinal")))
+-    records = list(envelope.get("records") or [])
+-    seen = set()
+-    for rec in records:
+-        fid = rec.get("sourceFactId")
+-        if fid in seen:
+-            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_DUPLICATE_FACT", fid)
+-        seen.add(fid)
+-        if rec.get("planId") != plan_id:
+-            raise ProviderReturnAdmissionError("PROVIDER_RETURN_PLAN_MISMATCH", rec.get("planId"))
+-        if rec.get("producerClosure") != producer_closure:
+-            raise ProviderReturnAdmissionError("PROVIDER_RETURN_PRODUCER_MISMATCH", rec.get("producerClosure"))
+-        fact = facts.get(fid)
++    producer_closure = _stage_producer(execution_plan, stage_specs, batch["stageOrdinal"])
++    _require_selected_provider(closures, producer_closure)
++    candidates = {c["candidateOrdinal"]: c for c in batch["candidates"]}
++    if len(candidates) != len(batch["candidates"]):
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_DUPLICATE_CANDIDATE", "candidateOrdinal")
++    ords = [c["candidateOrdinal"] for c in batch["candidates"]]
++    if ords != sorted(ords) or len(ords) != len(set(ords)):
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_ORDINAL", "unique-order")
++    if ords != list(range(ords[0], ords[0] + len(ords))):
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_ORDINAL", "contiguous")
++    comp_ords = [c["candidateOrdinal"] for c in batch["occupancyCompanions"]]
++    if comp_ords != sorted(comp_ords) or len(comp_ords) != len(set(comp_ords)):
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_CANDIDATE_ORDINAL", "companion-order")
++    records = []
++    for companion in batch["occupancyCompanions"]:
++        try:
++            C.validate(COMPANION_SCHEMA, companion)
++        except Exception as exc:
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_SCHEMA", str(exc)) from exc
++        ordinal = companion["candidateOrdinal"]
++        cand = candidates.get(ordinal)
++        if cand is None:
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_UNKNOWN_CANDIDATE", str(ordinal))
++        if companion.get("targetUniverseId") != cand.get("targetUniverseId"):
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_UNIVERSE_MISMATCH", str(ordinal))
++        fact = minted_by_ordinal.get(ordinal)
+         if fact is None:
+-            raise ProviderReturnAdmissionError("PROVIDER_RETURN_UNKNOWN_FACT", fid)
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_MINT_MISSING", str(ordinal))
+         if fact.get("producerClosure") != producer_closure:
+-            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_PRODUCER_MISMATCH", fid)
+-    prior = list(prior_records or [])
+-    combined = {}
+-    for rec in prior + records:
+-        fid = rec.get("sourceFactId")
+-        if fid in combined:
+-            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_DUPLICATE_FACT", fid)
+-        combined[fid] = rec
++            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_PRODUCER_MISMATCH", fact.get("factId"))
++        if fact.get("relation") != cand.get("relation") or fact.get("resolution") != cand.get("resolution"):
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_MINT_MISJOIN", str(ordinal))
++        spec = AM.REGISTRY["relations"].get(fact.get("relation")) or {}
++        field = spec.get("targetNativeIdField")
++        payload = decode_candidate_payload(cand)
++        if not field or (fact.get("payload") or {}).get(field) != companion.get("targetNativeId"):
++            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH", str(ordinal))
++        if payload.get(field) != companion.get("targetNativeId"):
++            raise ProviderReturnAdmissionError("TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH", "payload")
++        if (fact.get("payload") or {}).get(field) != payload.get(field):
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_MINT_MISJOIN", "payload")
++        if not _fact_in_producer_view(views, fact["factId"], producer_closure, plan_id):
++            raise ProviderReturnAdmissionError("PROVIDER_RETURN_FACT_NOT_IN_VIEW", fact["factId"])
++        records.append(project_companion_to_v2(companion, fact, plan_id, producer_closure))
++    facts = {minted_by_ordinal[o]["factId"]: minted_by_ordinal[o] for o in minted_by_ordinal}
+     atom_inputs = {
+         "planId": plan_id,
+         "facts": facts,
+         "inventories": inventories,
+         "enumerationPlan": enumeration_plan,
+         "closures": closures,
+-        "targetAttributions": {rec["sourceFactId"]: rec for rec in records},
++        "targetAttributions": {r["sourceFactId"]: r for r in records},
+     }
+     try:
+         AM._admit_target_attributions(atom_inputs)
+-        AM._admit_provider_occupancy_conflicts(combined, facts)
+     except AM.AtomAdmissionError as exc:
+         raise ProviderReturnAdmissionError(exc.key, exc.detail) from exc
+     blobs = {}
+@@ -170,5 +271,29 @@
+         "records": records,
+         "hostDerivedRefs": _canon_refs(refs),
+         "blobs": blobs,
+-        "origin": origin,
++        "delivery": "fact-batch-v3-companion",
++        "producerClosure": producer_closure,
++        "stageOrdinal": batch["stageOrdinal"],
+     }
++
++
++def admit_provider_attribution_return(envelope, **kwargs):
++    """COMPLETE58 helper is not the owning delivery.
++
++    A caller-built TargetAttributionV2 envelope is not worker output. origin is
++    not a parameter that blesses identical bytes. Host-authored mapping refuses
++    and captures nothing. Unbound provider-return envelopes refuse.
++    """
++    origin = kwargs.pop("origin", None)
++    if origin == "host-internal":
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_HOST_AUTHORED", "origin=host-internal")
++    if envelope is not None and kwargs.get("batch") is None:
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_UNBOUND_ENVELOPE", "no worker FactBatchV3")
++    if "negotiated_tokens" not in kwargs:
++        raise ProviderReturnAdmissionError("PROVIDER_RETURN_OWNERS_REQUIRED", "negotiated_tokens")
++    return bind_worker_occupancy(kwargs.get("batch"), **{
++        k: kwargs[k] for k in (
++            "negotiated_tokens", "plan_id", "execution_plan", "stage_specs",
++            "closures", "views", "minted_by_ordinal", "inventories", "enumeration_plan",
++        )
++    })
+--- a/docs/coop/design-corrections/foundation/run-evaluator3-checks.py	2026-09-08 16:14:33
++++ b/docs/coop/design-corrections/foundation/run-evaluator3-checks.py	2026-09-09 01:52:40
+@@ -25,6 +25,7 @@
+           ('candidate-replay','foundation/check-candidate-replay.v3.py',[]),
+           ('policy-derivation','foundation/check-policy-derivation.v3.py',[]),
+           ('faults','foundation/check-evaluator-faults.v3.py',[]),
++          ('provider-attribution-return','foundation/check-provider-attribution-return.v2.py',[]),
+           ('workflow-projection','workflows/check-workflow-projection.v3.py',[]),
+           ('query-projection','workflows/check-query-projection.v3.py',['--report',str(a.out/'query-projection.receipt.json')]),
+           ('comparison-knowledge','workflows/check-comparison-knowledge.v3.py',[]),
+--- a/docs/coop/design-corrections/foundation/shared-profile-decisions.v1.md	2026-09-09 01:16:11
++++ b/docs/coop/design-corrections/foundation/shared-profile-decisions.v1.md	2026-09-09 01:53:22
+@@ -8,4 +8,4 @@
+ - PolicyDocumentV2 schemaMajor2 and RuleProgramV2 schemaVersion2 (policy-document.v2.schema.json) own atom endpoint/test filters; Scope/Waiver1 unchanged owner.
+ - Required emission/enum params per evaluator3, fingerprintnamespace stableId+major unique includingdisabled. ScopeDocument globs intersect selection; no-covering-program unknown, missingexpectedrecord structuralrefusal.
+ - ActualOwnerRun3 fixture currently passes inherited native/schema/identity closure with three full file findings. New enumeration/atom joins and full independent replay still pending; not completed full-profile qualification.
+-- Current selected target-attribution schema is TargetAttributionV2 (`evaluationNativeId` occupancy identity). Typed provider return is adapter-stage `ProviderTargetAttributionReturnV2` after fact2 mint; captured V2 records remain `hostDerivedRefs` domain=target-attribution. Protocol3 frames unchanged. Historical V1 sidecars refuse. Missing sidecar does not restore payload-vs-N nomatch. Independently known exact-id identity cannot be overwritten by a contradictory sidecar (`TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`). Evaluator output profile remains 3. Frozen24 remains historical under its own selected V1 schema/profile.
++- Current selected target-attribution schema is TargetAttributionV2 (`evaluationNativeId` occupancy identity). CURRENT worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3 (token `target-attribution-v2`); host `bind_worker_occupancy` projects V2 after mint from retained Plan/stage/view. COMPLETE58 post-fact2 envelope is historical and is not delivery. Historical V1 sidecars refuse. Missing sidecar does not restore payload-vs-N nomatch. Independently known exact-id identity cannot be overwritten by a contradictory sidecar (`TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`). Evaluator output profile remains 3. Frozen24 remains historical under its own selected V1 schema/profile.
+--- a/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json	2026-09-09 01:14:10
++++ b/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json	2026-09-09 01:53:22
+@@ -366,7 +366,7 @@
+     "evaluationSubject": "subject3 / evaluation-subject is (universe, kind, nativeSubjectId); PACKAGE ONLY adds required packageManifestPath from inventory row.path. File/symbol shape unchanged.",
+     "payloadPlane": "targetNativeId is the opaque payload copy. Unchanged ImportsPayloadV1 SubjectIdV1 grammar.",
+     "occupancyPlane": "MatchingFacts for endpoint=target compare E to occupancy identity, not to targetNativeId, except where those strings are already the same grammar (symbol exact-id).",
+-    "producerReturn": "The fact-producing Plan-selected provider WRAPPER returns this record inside ProviderTargetAttributionReturnV2 (foundation/provider-target-attribution-return.schema.v2.json). That envelope is the typed return interface: adapter-stage, not a protocol3 frame, not a digest-domain, not a Run preimage, not an execution-plan outputDomain. Invocation is admit_provider_attribution_return after fact2 mint and before attach_host_capture/close_run. Host captures each admitted V2 record into hostCapture.hostDerivedRefs domain=target-attribution. Missing envelope is lawful occupancy-unknown except exact-id ephemeral. Shared platform law for every language mode that can emit resolved binary-id facts. Host MUST NOT parse SubjectIdV1 to invent this record.",
++    "producerReturn": "CURRENT worker product is OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2), associated by candidateOrdinal before fact2 exists. Host bind_worker_occupancy mechanically projects THIS record after mint, filling planId/sourceFactId/producerClosure from retained Plan/execution-plan stage spec/selected view. COMPLETE58 ProviderTargetAttributionReturnV2 wrapper envelope after fact2 mint is historical and is not delivery. Host captures projected records into hostCapture.hostDerivedRefs domain=target-attribution. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host MUST NOT parse SubjectIdV1 to invent this record. origin is not an admit blessing.",
+     "producerClosureKind": "producerClosure equals fact.producerClosure and closures[pc].kind=provider. TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER otherwise.",
+     "joins": [
+       "planId names a retained Plan",
+--- a/docs/coop/design-corrections/native/fact-batch.schema.v3.json	2026-09-09 01:54:35
++++ b/docs/coop/design-corrections/native/fact-batch.schema.v3.json	2026-09-09 01:50:58
+@@ -0,0 +1,112 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.fact-batch.3",
++  "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
++  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. FactCandidateV1 members are the historical closed candidate (opensip.fact-candidate.v1); occupancy is a PARALLEL companion array, not a FactCandidate field. When the token is absent, the historical FactBatchV2 payload (no occupancyCompanions, no schemaVersion) remains required. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION. This is not a silent extension of FactBatchV2.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "analysisOrdinal",
++    "stageOrdinal",
++    "batchIndex",
++    "candidates",
++    "occupancyCompanions"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 3
++    },
++    "analysisOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 65535
++    },
++    "stageOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 65535,
++      "description": "Joins retained execution-plan.stages[].ordinal of the Analyze stage that requested this output. Historical FactBatchV2.stageId is not this field and is not reinterpreted."
++    },
++    "batchIndex": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 1000000
++    },
++    "candidates": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 4096,
++      "items": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": [
++          "candidateOrdinal",
++          "relation",
++          "resolution",
++          "layer",
++          "producer",
++          "producerVersion",
++          "schemaVersion",
++          "language",
++          "sourceUniverseId",
++          "targetUniverseId",
++          "confidenceMillionths",
++          "relationSchemaId",
++          "canonicalRelationPayloadHex",
++          "anchors"
++        ],
++        "properties": {
++          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 1000000},
++          "relation": {"type": "string", "minLength": 1, "maxLength": 64},
++          "resolution": {"type": "string", "minLength": 1, "maxLength": 64},
++          "layer": {"type": "string", "minLength": 1, "maxLength": 64},
++          "producer": {"type": "string", "minLength": 1, "maxLength": 128},
++          "producerVersion": {"type": "string", "minLength": 1, "maxLength": 256},
++          "schemaVersion": {"type": "integer", "minimum": 1},
++          "language": {"type": "string", "minLength": 1, "maxLength": 64},
++          "sourceUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
++          "targetUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
++          "confidenceMillionths": {"type": "integer", "minimum": 0, "maximum": 1000000},
++          "relationSchemaId": {"type": "string", "minLength": 1, "maxLength": 256},
++          "canonicalRelationPayloadHex": {
++            "type": "string",
++            "pattern": "^[0-9a-f]+(?![\\s\\S])",
++            "minLength": 2,
++            "description": "JSON-vector transcription of FactCandidateV1.canonicalRelationPayload bytes (fact-plane.v1). Not an additional wire field on CBOR transport. Host decodes once to the closed relation payload. Reference controls use canonical JSON UTF-8 bytes of the decoded payload as the transcription preimage."
++          },
++          "anchors": {
++            "type": "array",
++            "minItems": 1,
++            "maxItems": 4096,
++            "items": {"type": "object"}
++          }
++        }
++      },
++      "description": "Non-empty. Contiguous unique candidateOrdinal, nondecreasing. Unchanged FactCandidateV1 membership. No occupancy field. Order is admission-owned (integer ordinals; not utf-8 field-order)."
++    },
++    "occupancyCompanions": {
++      "type": "array",
++      "maxItems": 4096,
++      "items": {
++        "type": "object",
++        "additionalProperties": true,
++        "required": ["schemaVersion", "candidateOrdinal", "targetNativeId", "kind", "occupancy"],
++        "properties": {
++          "schemaVersion": {"const": 1},
++          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 1000000}
++        }
++      },
++      "description": "Zero or more OccupancyCompanionV1. Length MUST be <= candidates length. Every candidateOrdinal MUST name a candidate in this batch. Empty array is lawful (all occupancy unknown except exact-id ephemeral). Duplicate candidateOrdinal refuses. Extra ordinal refuses. Order is admission-owned by integer candidateOrdinal."
++    }
++  },
++  "x-opensip-negotiation": {
++    "token": "target-attribution-v2",
++    "whenPresent": "FactBatch payload MUST admit as this schema",
++    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions). Occupancy unknown except exact-id ephemeral.",
++    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and by len(candidates).",
++    "protocolMajorUnchanged": true,
++    "newFrame": false,
++    "transitionTable": "P3-23 ANALYZING FactBatch stays. Payload validation is prose-owned beside the 34 rows, as §9.2 already states for frame payloads."
++  }
++}
+--- a/docs/coop/design-corrections/native/native-cases.v2.json	2026-09-08 16:14:33
++++ b/docs/coop/design-corrections/native/native-cases.v2.json	2026-09-09 01:52:40
+@@ -57,7 +57,35 @@
+    "resolution-completeness-v2",
+    "unresolved-edge-v1",
+    "native-context-v2"
++  ],
++  "rust3Attribution": [
++   "source-identity-snapshot2",
++   "plan-identity-plan2",
++   "fact-identity-fact2",
++   "coverage-v3",
++   "sealed-vfs-v1",
++   "multi-stage-analyze-v1",
++   "rust-semantic-facts-v1",
++   "resolution-completeness-v2",
++   "unresolved-edge-v1",
++   "dependency-source-v1",
++   "prepared-output-v3",
++   "native-context-v2",
++   "target-attribution-v2"
+   ],
++  "ts2Attribution": [
++   "source-identity-snapshot2",
++   "plan-identity-plan2",
++   "fact-identity-fact2",
++   "coverage-v3",
++   "sealed-vfs-v1",
++   "multi-stage-analyze-v1",
++   "typescript-semantic-facts-v1",
++   "resolution-completeness-v2",
++   "unresolved-edge-v1",
++   "native-context-v2",
++   "target-attribution-v2"
++  ],
+   "runtime": {
+    "schemaVersion": 1,
+    "format": "v8-json",
+--- a/docs/coop/design-corrections/native/native-evidence.schemas.v2.json	2026-09-08 16:14:33
++++ b/docs/coop/design-corrections/native/native-evidence.schemas.v2.json	2026-09-09 01:52:40
+@@ -861,7 +861,8 @@
+     "unresolved-edge-v1",
+     "dependency-source-v1",
+     "prepared-output-v3",
+-    "native-context-v2"
++    "native-context-v2",
++    "target-attribution-v2"
+    ]
+   },
+   "ResolutionCompletenessState": {
+--- a/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-08 16:14:33
++++ b/docs/coop/design-corrections/native/native_evidence_model.v2.py	2026-09-09 01:52:40
+@@ -378,6 +378,9 @@
+                                   "prepared-output-v3", "native-context-v2"]
+ TS2_TOKENS = IDENTITY_TOKENS + ["sealed-vfs-v1", "multi-stage-analyze-v1", "typescript-semantic-facts-v1",
+                                 "resolution-completeness-v2", "unresolved-edge-v1", "native-context-v2"]
++ATTRIBUTION_TOKEN = "target-attribution-v2"
++RUST3_TOKENS_ATTRIBUTION = RUST3_TOKENS + [ATTRIBUTION_TOKEN]
++TS2_TOKENS_ATTRIBUTION = TS2_TOKENS + [ATTRIBUTION_TOKEN]
+ 
+ 
+ def negotiate(plan_required: list[str], signed_row: list[str], hello_ack: list[str] | None) -> dict:
+--- a/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json	2026-09-09 01:54:35
++++ b/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json	2026-09-09 01:47:30
+@@ -0,0 +1,153 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.occupancy-companion.1",
++  "title": "OccupancyCompanionV1 — worker occupancy claim bound to one FactCandidateV1 before fact2 exists",
++  "description": "CURRENT selected worker occupancy product. Emitted on FactBatchV3 alongside unchanged FactCandidateV1, associated only by candidateOrdinal in that batch. NOT a TargetAttributionV2. NOT a protocol3 frame of its own. Does not carry planId, sourceFactId, or producerClosure: those do not exist at worker emit time and are host-filled by mechanical projection after fact2 mint. Historical COMPLETE58 ProviderTargetAttributionReturnV2 as a wrapper-built envelope after fact2 mint is withdrawn as the delivery interface because the compiler-native table cannot cross a closed FactBatch of already-encoded opaque payloads.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "candidateOrdinal",
++    "targetUniverseId",
++    "targetNativeId",
++    "kind",
++    "occupancy",
++    "exported",
++    "logicalPath",
++    "packageManifestPath",
++    "evaluationNativeId"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 1
++    },
++    "candidateOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 1000000,
++      "description": "Must equal FactCandidateV1.candidateOrdinal of a candidate in THIS FactBatchV3. Transport association only. Never enters fact2 identity."
++    },
++    "targetUniverseId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "description": "Exact byte-equal to the associated FactCandidateV1.targetUniverseId. Host projects V2.targetUniverse from the minted fact, never from a second host guess."
++    },
++    "targetNativeId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "description": "Must equal the associated candidate's decoded relation payload field named by evaluator-projection-registry relations[relation].targetNativeIdField at that resolution. Opaque payload copy. Not occupancy identity for file/package."
++    },
++    "kind": {
++      "type": "string",
++      "enum": ["file", "symbol", "package", "unknown"]
++    },
++    "occupancy": {
++      "type": "string",
++      "enum": ["first-party", "external", "unknown"]
++    },
++    "exported": {
++      "oneOf": [
++        {"type": "string", "enum": ["exported", "not-exported", "unknown"]},
++        {"type": "null"}
++      ]
++    },
++    "logicalPath": {
++      "oneOf": [
++        {"$ref": "#/$defs/LogicalPath"},
++        {"type": "null"}
++      ]
++    },
++    "packageManifestPath": {
++      "oneOf": [
++        {"$ref": "#/$defs/LogicalPath"},
++        {"type": "null"}
++      ]
++    },
++    "evaluationNativeId": {
++      "oneOf": [
++        {"type": "string", "minLength": 1, "maxLength": 4096},
++        {"type": "null"}
++      ]
++    }
++  },
++  "allOf": [
++    {
++      "if": {"properties": {"kind": {"const": "symbol"}}},
++      "then": {
++        "properties": {"exported": {"type": "string", "enum": ["exported", "not-exported", "unknown"]}},
++        "not": {"properties": {"exported": {"type": "null"}}}
++      }
++    },
++    {
++      "if": {"properties": {"kind": {"enum": ["file", "package", "unknown"]}}},
++      "then": {"properties": {"exported": {"type": "null"}}}
++    },
++    {
++      "if": {"properties": {"occupancy": {"const": "first-party"}}},
++      "then": {
++        "properties": {
++          "logicalPath": {"type": "null"},
++          "evaluationNativeId": {"type": "string", "minLength": 1, "maxLength": 4096}
++        },
++        "not": {"properties": {"evaluationNativeId": {"type": "null"}}}
++      }
++    },
++    {
++      "if": {"properties": {"occupancy": {"enum": ["external", "unknown"]}}},
++      "then": {"properties": {"evaluationNativeId": {"type": "null"}}}
++    },
++    {
++      "if": {"properties": {"kind": {"enum": ["file", "symbol", "unknown"]}}},
++      "then": {"properties": {"packageManifestPath": {"type": "null"}}}
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {"const": "package"},
++          "occupancy": {"enum": ["first-party", "external"]}
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {"$ref": "#/$defs/LogicalPath"},
++          "logicalPath": {"type": "null"}
++        },
++        "not": {"properties": {"packageManifestPath": {"type": "null"}}}
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {"const": "package"},
++          "occupancy": {"const": "unknown"}
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {"type": "null"},
++          "logicalPath": {"type": "null"},
++          "evaluationNativeId": {"type": "null"}
++        }
++      }
++    }
++  ],
++  "$defs": {
++    "LogicalPath": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
++      "not": {"pattern": "(^|/)\\.\\.?(/|$)"}
++    }
++  },
++  "x-opensip-wire": {
++    "carrier": "FactBatchV3.occupancyCompanions",
++    "capabilityToken": "target-attribution-v2",
++    "historicalFactCandidateV1": "unchanged; additionalProperties false; no occupancy field",
++    "historicalFactBatchV2": "unchanged closed payload when the token is not negotiated",
++    "notAFrame": "OccupancyCompanionV1 is not itself a protocol3 frame. FactBatch remains the ANALYZING worker-to-host frame.",
++    "protocolMajor": "rust-semantic remains 3; typescript-semantic remains 2; payload version of FactBatch is capability-gated, not a silent field add under FactBatchV2"
++  }
++}
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md	2026-09-09 01:16:11
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md	2026-09-09 01:53:22
+@@ -55,7 +55,7 @@
+ 
+ **Request law:** an operation whose `relation@minResolution` is not a row of this table is refused (`QUERY.RELATION_UNSUPPORTED`). The operation does not invent edges and does not advertise undefined relations.
+ 
+-**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, imports without TargetAttributionV2 occupancy identity, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request. Occupancy identity is supplied by captured TargetAttributionV2 records from `ProviderTargetAttributionReturnV2`, or by exact-id ephemeral first-party projection; it is not a host parse of payload spelling.
++**Fact law:** an individual admitted fact that cannot form a binary native-id edge (missing payload fields, imports without TargetAttributionV2 occupancy identity, weaker rung inside a selected view) is **omitted** with a typed `unprojectable-fact` or `unsupported-rung-omitted` limitation. Omission is not an alternative to refusing an unsupported request. Occupancy identity is supplied by captured TargetAttributionV2 records projected from worker OccupancyCompanionV1 on negotiated FactBatchV3, or by exact-id ephemeral first-party projection; it is not a host parse of payload spelling.
+ 
+ | relation | minResolution (rung) | source field | source kind | target field | target kinds | universe rule | graph-projectable |
+ |---|---|---|---|---|---|---|---|
+--- a/docs/v2/contracts/product-v1/identity-and-evidence.md	2026-09-09 01:16:11
++++ b/docs/v2/contracts/product-v1/identity-and-evidence.md	2026-09-09 01:53:22
+@@ -1354,7 +1354,7 @@
+ Its complete semantics incorporate
+ the [enumeration contract](../../../coop/design-corrections/foundation/enumeration-contract.v1.md),
+ [atom contract](../../../coop/design-corrections/foundation/atom-evaluation-contract.v1.md)
+-(current selected attribution schema `target-attribution.schema.v2.json`; historical V1 is refused; typed provider return is adapter-stage `ProviderTargetAttributionReturnV2`, not a protocol3 frame),
++(current selected attribution schema `target-attribution.schema.v2.json`; historical V1 is refused; worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3; host projects TargetAttributionV2; COMPLETE58 post-fact2 envelope is not delivery),
+ [execution input contract](../../../coop/design-corrections/foundation/execution-inputs-contract.v1.md),
+ [composition contract](../../../coop/design-corrections/foundation/evaluator-composition-contract.v3.md)
+ and [fault contract](../../../coop/design-corrections/foundation/evaluator-fault-contract.v3.md).
+--- a/docs/v2/contracts/product-v1/native-evidence.md	2026-09-09 01:16:11
++++ b/docs/v2/contracts/product-v1/native-evidence.md	2026-09-09 01:54:13
+@@ -72,17 +72,19 @@
+ Evaluator3 consumes this native evidence through identity §4's incorporated
+ enumeration, atom and execution input contracts. They add Plan-selected subject
+ inventories, complete accounting of selected analysis work, and typed incoming
+-search and target-attribution inputs. A Plan-selected **fact-producing provider**
+-returns TargetAttributionV2 records as typed companions of its resolved binary-id
+-facts through the host-adapter envelope `ProviderTargetAttributionReturnV2`
+-(§9.6). Payload grammar is unchanged
+-(`ImportsPayloadV1.resolvedTarget` remains opaque `SubjectIdV1`). Protocol3
+-phases and frames are unchanged. The host captures admitted companion bytes into
+-`hostCapture.hostDerivedRefs` (`domain=target-attribution`) after join
+-validation; host capture is not authority to parse provider namespaces or to
+-invent `evaluationNativeId`. Every language mode that can emit resolved binary-id
+-facts uses this shared platform law; no new language mode and no per-language
+-normalized clone Run is required. Native fact identities, capability cells,
++search and target-attribution inputs. A Plan-selected **fact-producing provider** emits `OccupancyCompanionV1` on
++negotiated `FactBatchV3` (capability token `target-attribution-v2`, §9.6)
++alongside unchanged `FactCandidateV1`, associated by `candidateOrdinal` before
++fact2 exists. The host `bind_worker_occupancy` projects `TargetAttributionV2`
++after mint. COMPLETE58 post-fact2 wrapper envelope is not delivery. Payload
++grammar is unchanged (`ImportsPayloadV1.resolvedTarget` remains opaque
++`SubjectIdV1`). Protocol3 frame names stay; FactBatch payload version is
++capability-gated. The host captures projected V2 bytes into
++`hostCapture.hostDerivedRefs` (`domain=target-attribution`); host capture is
++not authority to parse provider namespaces or to invent `evaluationNativeId`.
++Every language mode that can emit resolved binary-id facts uses this shared
++platform law; no new language mode and no per-language normalized clone Run is
++required. Native fact identities, capability cells,
+ resolution rungs and compiler trust boundaries remain defined here. A complete
+ retained symbol inventory is a provider's explicit population assertion, not
+ independent compiler qualification. The generic evaluator never manufactures
+@@ -2541,9 +2543,18 @@
+ `source-identity-snapshot2`, `plan-identity-plan2`, `fact-identity-fact2`,
+ `coverage-v3`; plus `sealed-vfs-v1`, `multi-stage-analyze-v1`,
+ `<lang>-semantic-facts-v1`, `resolution-completeness-v2`, `unresolved-edge-v1`,
+-`dependency-source-v1` (Rust), `prepared-output-v3` (Rust), `native-context-v2`.
++`dependency-source-v1` (Rust), `prepared-output-v3` (Rust), `native-context-v2`,
++and optional negotiated `target-attribution-v2`.
+ `HelloV3` also carries `identityVersions: {snapshot:2, plan:2, fact:2, coverage:3}`
+-and `HelloAckV3` must echo it exactly.
++and `HelloAckV3` must echo the token array and identity versions exactly.
++`target-attribution-v2` is **not** a fourth identity token and is not required
++to spawn. When present on both Hello and HelloAck, FactBatch payload is
++FactBatchV3. When absent, historical FactBatchV2 remains and occupancy is
++unknown except exact-id ephemeral. A FactBatchV3 payload without the token,
++or a FactBatchV2 payload with the token, is `PROVIDER.PROTOCOL_VIOLATION`.
++Protocol major stays 3 / TypeScript major 2. No new ProtocolLimitsV3 member;
++companions are bounded by existing `maxFactBatchCandidates` (4096) and
++`len(candidates)`.
+ 
+ Reject-before-disclosure ordering:
+ 
+@@ -2577,6 +2588,7 @@
+ | `DependencySourceAccepted` | worker→host | exact seal echo after digest/VFS validation | no |
+ | `PreparedOutputManifest/Chunk/Seal/Accepted` | as above for inert rows only | row kinds restricted to the three inert kinds (§3.6 PO-0); generated-file rows are mounted read-only under the virtual `OUT_DIR` | no |
+ | `NativeContextVerified` | worker→host | `{nativeContextId, recomputedNativeContextId, equal:true}` — a mismatch is sent as `Unavailable(native-context-mismatch)` | no |
++| `FactBatch` | worker→host | Historical `FactBatchV2` when `target-attribution-v2` is absent; `FactBatchV3` (`native/fact-batch.schema.v3.json`) when the token is negotiated. Candidates remain closed `FactCandidateV1`. Occupancy is a parallel `occupancyCompanions` array, not a FactCandidate field. | no |
+ | `CoverageV3` | worker→host | `CoverageResultV3` entries, exact bijection with the requested domain | no |
+ 
+ `RepositoryResolutionV3` = `{dependencySourceSetId, preparedOutputSetId|null,
+@@ -2644,56 +2656,83 @@
+ from its own admitted facts and stage outcome; the host recomputes the bijection
+ and the RC-2 preconditions. Equal inputs must yield byte-identical descriptors.
+ 
+-### 9.6 Host-adapter attribution return (not a wire frame)
++### 9.6 Occupancy companion on negotiated FactBatchV3 (worker product)
+ 
+-Protocol3 (Rust major 3) and typescript-semantic (major 2) frames stay the closed
+-set of §9.2 / §9.4. No `TargetAttribution` frame is added. Occupancy mapping is
+-not a compiler-worker product; it is the second output of the **language
+-wrapper** that already translates compiler-native resolution into opaque
+-`SubjectIdV1` payload fields.
++COMPLETE58 claimed occupancy was “not a compiler-worker product” and that a
++host-side wrapper would build `ProviderTargetAttributionReturnV2` after fact2
++mint from a compiler-native table. That table cannot cross the closed worker
++boundary: `FactCandidateV1` already carries opaque encoded `resolvedTarget`,
++`FactBatchV2` is closed, and `planId` / `sourceFactId` / `producerClosure` do
++not exist until the host mints fact2. An admission helper that consumes an
++already-created V2 envelope is not provider delivery. COMPLETE58
++`admit_provider_attribution_return(..., origin=)` is historical: the same
++envelope with `origin=provider-return` then `host-internal` must not both
++capture identical attestation bytes.
+ 
+-Typed return envelope: `foundation/provider-target-attribution-return.schema.v2.json`
+-`ProviderTargetAttributionReturnV2` `{schemaVersion:2, planId, producerClosure,
+-stageOrdinal, records:[TargetAttributionV2…]}`. Adapter-stage only: not a digest
+-domain, not a Run preimage, not an execution-plan `outputDomain`. Captured
+-admitted V2 records remain `domain=target-attribution`.
++**Where the wrapper runs.** Inside the worker, before FactBatch emit, while
++compiler-native resolution is still in memory. It writes (1) opaque
++`SubjectIdV1` into `FactCandidateV1.canonicalRelationPayload` and (2)
++`OccupancyCompanionV1` into the same `FactBatchV3.occupancyCompanions` array,
++associated only by `candidateOrdinal`. There is no post-FactBatch shared
++memory, unnamed table, or host re-parse of payload spelling.
+ 
+-**Invocation.** After this producer's Analyze-stage fact2 identities are minted
+-from the worker FactBatch, and before `attach_host_capture` / `close_run`, the
+-shared host adapter calls `admit_provider_attribution_return(envelope|null,
+-planId, producerClosure, stageOrdinal, facts, inventories, enumerationPlan,
+-closures, origin)`. Origin is `provider-return` when the wrapper produced the
+-envelope and `host-internal` if the host constructed records itself.
+-
+-**Producer mapping** (one shared law; portable occupancy identity stays distinct
+-from opaque payload identity):
+-
+-| Mode | Worker | Wrapper supply |
+-|---|---|---|
+-| `ts-tsconfig`, `js-allowjs`, `js-synthesized` | typescript-semantic major 2, unchanged frames | After fact2 mint, emit one V2 per minted `imports@resolved-target` / `references@resolved-binding` / `calls@resolved-callee` / `control-flow@syntactic` / `reachability@from-resolved-calls` fact the compiler-native table can attribute, or omit that fact (unknown). File first-party: `evaluationNativeId` = inventory LogicalPath. Package first-party: `evaluationNativeId` = packageName and `packageManifestPath` = row.path. External file/package as V2 occupancy=external. Symbols MAY omit (exact-id ephemeral) or identity-map. Syntactic import/reference/call rungs MUST omit. |
+-| `rust-cargo`, `rust-cargo-prepared` | rust-semantic protocol major 3, unchanged frames | Same envelope and occupancy law. rustc/cargo resolved path vs package fills the wrapper table during the same encoding that writes SubjectIdV1. |
+-| `syntax-only` | syntax universe | Omit the envelope, or omit every file/package occupancy record. MUST NOT invent file/package occupancy from specifier text. |
+-| clone/candidate | candidate algorithms | Omit. Member IDs are never evaluation-subject identity. |
++**Negotiated payload, not a silent FactBatchV2 field and not a new frame.**
++Capability token `target-attribution-v2`. Frame name remains `FactBatch`
++(P3-23). Payload is `FactBatchV3` iff the token was echoed at HelloAck.
++`FactCandidateV1` is unchanged (`additionalProperties: false`; no occupancy
++member). Protocol majors unchanged. Historical FactBatchV2 remains the payload
++when the token is absent.
+ 
+-**Missing envelope** is lawful occupancy-unknown except exact-id ephemeral; it is
+-not `required-output-pointer-omitted`. Present partial records are lawful
+-omission of unlisted facts. Extra records whose `sourceFactId` is not a minted
+-fact of this producer/stage refuse. Records are strict unique utf-8 of
+-`sourceFactId`. A refused envelope captures nothing.
++`OccupancyCompanionV1` (`native/occupancy-companion.schema.v1.json`) required:
++`schemaVersion=1`, `candidateOrdinal`, `targetUniverseId` (byte-equal to the
++associated candidate), `targetNativeId` (equals decoded payload field named by
++the relation registry at that rung), `kind`, `occupancy`, `exported`,
++`logicalPath`, `packageManifestPath`, `evaluationNativeId`. It MUST NOT carry
++`planId`, `sourceFactId`, or `producerClosure`.
+ 
+-**C15.** If ephemeral exact-id first-party identity `I_eph` disagrees with sidecar
+-first-party identity `I_sc`, refuse `TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`.
+-Independently known identity is not overwritten.
++**Owning host entry `bind_worker_occupancy`.** After minting fact2 from this
++batch’s candidates and before `attach_host_capture` / `close_run`.
+ 
+-**Public route.** Internal keys stay internal. Existing evaluator-fault pairs:
+-`input-schema-invalid:provider-return` and `input-join-invalid:provider-return`
+-→ `EVALUATION.INPUT_REFUSED` / `PROVIDER.PROTOCOL_VIOLATION`; host-invented
+-mapping uses origin `host-internal` → `HOST.INVARIANT_VIOLATED`. No new
+-DomainDetailCode, no new D9 code. LIVE D9 successor-artifact is not discharged.
++Trusted host observations / preconditions: negotiated Hello tokens; retained
++Plan locator; execution-plan stage row + stage spec `producerClosure`;
++closure kind map; selected views; mint map `candidateOrdinal → fact2` verified
++against this batch; inventories; enumeration plan.
+ 
+-Host MUST NOT parse `SubjectIdV1` namespace:opaque spelling and MUST NOT treat
+-arbitrary host filesystem or package-manager data as provider attestation.
++Provider claims (rederived, not caller scalars): companion occupancy fields;
++candidate relation/resolution/universes/payload.
+ 
++Host-filled mechanical projection onto `TargetAttributionV2`:
++`planId` from retained Plan; `sourceFactId` from the mint of that ordinal;
++`producerClosure` from the stage spec of `batch.stageOrdinal`;
++`targetUniverse` from the minted fact; occupancy fields copied from the
++companion. The fact MUST appear in a selected view of that producer.
++`kind=provider` is rederived from retained closures, not from a caller
++argument.
++
++**Producer mapping** (one shared law; portable occupancy identity stays
++distinct from opaque payload identity):
++
++| Mode | Worker | Companion supply |
++|---|---|---|
++| `ts-tsconfig`, `js-allowjs`, `js-synthesized` | typescript-semantic major 2 | In-worker, same encoding pass as SubjectIdV1. One companion per resolved-target / resolved-binding / resolved-callee / `to` / `reachable` candidate the compiler table can attribute, or omit (unknown). File first-party: `evaluationNativeId` = inventory LogicalPath. Package first-party: packageName + `packageManifestPath`=row.path. External as occupancy=external. Symbols MAY omit or identity-map. Syntactic import/reference/call rungs MUST omit. |
++| `rust-cargo`, `rust-cargo-prepared` | rust-semantic protocol major 3 | Same. rustc/cargo resolved path vs package fills the companion while encoding the payload. |
++| `syntax-only` | omit token | FactBatchV2. MUST NOT invent file/package occupancy from specifier text. |
++| clone/candidate | omit token | Omit. Member IDs are never evaluation-subject identity. |
++
++Empty `occupancyCompanions` is lawful. Extra/unknown `candidateOrdinal` refuses.
++Malformed companion refuses the batch occupancy capture (atomic). Token absent
++and batch null: omitted. `origin` is not an admit parameter: a caller-built V2
++envelope without a worker batch refuses `PROVIDER_RETURN_UNBOUND_ENVELOPE`;
++`origin=host-internal` refuses `PROVIDER_RETURN_HOST_AUTHORED` and captures
++nothing.
++
++**C15.** If ephemeral exact-id first-party identity `I_eph` disagrees with
++projected sidecar first-party identity `I_sc`, refuse
++`TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT`.
++
++**Public route.** Internal keys stay internal. Existing evaluator-fault pairs
++only. No new DomainDetailCode, no new D9 code. LIVE D9 is not discharged.
++
+ ---
+ 
+ ## 10. Deficiencies, precedence and D9 mapping

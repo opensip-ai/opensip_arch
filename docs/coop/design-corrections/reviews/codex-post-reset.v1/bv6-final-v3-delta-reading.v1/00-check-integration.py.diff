@@ -1,0 +1,60 @@
+--- finalv2/docs/coop/design-corrections/check-integration.py
++++ v3/docs/coop/design-corrections/check-integration.py
+@@ -281,17 +281,44 @@
+ # other. Root's contrast established the domains differ; these controls establish the ROUTING.
+ _imp_req = {'relation': 'runtime-observation', 'minResolution': 'observed',
+             'completeness': 'complete'}
+-# targets come from the PLAN, not from the requirement record, so they are passed separately.
++# BV6-V3-IMPORT-BINDING. Targets are FINGERPRINTS and are projected to payload subjects through the
++# evidence Run's retained finding-fingerprint subjectKey; they are never read as paths. This is the
++# cross-unit half: the foundation descriptor supplies the subject key that the workflows projection
++# consumes, so a change to either side is visible here.
++_imp_fp = 'finding-key2:' + '1' * 64
++_imp_desc = {'schemaVersion': 2, 'ruleStableId': 'r', 'detectorSemanticsMajor': 1,
++             'relatedSubjectKeys': [],
++             'subjectKey': {'language': 'typescript', 'kind': 'function',
++                            'logicalPath': 'src/a.ts', 'qualifiedName': 'foo',
++                            'discriminator': 'd'}}
++_imp_projection = M.W.project_targets_to_imported_subjects(
++    [_imp_fp], 'runtime', {_imp_fp: {'fingerprint': _imp_fp}}, {_imp_fp: _imp_desc},
++    [{'path': 'src/a.ts', 'symbol': 'foo', 'observability': 'observed-hit'}])
++check('the-target-fingerprint-projects-through-the-retained-finding-subject-key',
++      _imp_projection[_imp_fp]['matched'] is True
++      and _imp_projection[_imp_fp]['logicalPath'] == _imp_desc['subjectKey']['logicalPath'])
++check('the-foundation-fingerprint-descriptor-carries-the-subject-key-the-projection-reads',
++      set(M.N.IM.SCHEMA['$defs']['finding-fingerprint']['properties']['subjectKey']['required'])
++      == {'language', 'kind', 'logicalPath', 'qualifiedName', 'discriminator'}
++      and M.N.IM.SCHEMA['x-opensip-digest-domains']['byDomain']['finding-fingerprint']
++          ['representation'] == 'h-identity')
+ _imp_out = M.W.imported_requirement_outcome(
+-    _imp_req, ['src/a.ts'],
+-    {'available': True, 'consumable': False, 'windowSatisfiesRequirement': True,
+-     'observability': {'src/a.ts': 'observed-hit'}})
++    _imp_req, _imp_projection,
++    {'available': True, 'consumable': False, 'windowSatisfiesRequirement': True}, True)
+ check('the-imported-producer-emits-an-imported-outcome-for-an-imported-relation',
+       _imp_out['satisfied'] is False and _imp_out['deficiency'] == 'import-unmapped-only')
+ check('the-repair-record-carries-that-exact-imported-value-on-its-own-plane',
+       M.W.admit_evidence_requirement(dict(_imp_req, satisfied=False,
+                                           deficiency=_imp_out['deficiency']))
+       == ('imported', 'import-unmapped-only'))
++# BV6-V3-IMPORT-CAUSE: the consumer decides the PER-KIND law, not merely the broad plane.
++refuses('a-runtime-relation-cannot-carry-a-history-outcome',
++        lambda: M.W.admit_evidence_requirement(
++            dict(_imp_req, satisfied=False, deficiency='history-range-insufficient')))
++refuses('a-history-relation-cannot-carry-a-runtime-outcome',
++        lambda: M.W.admit_evidence_requirement(
++            {'relation': 'history-change', 'minResolution': 'observed', 'completeness': 'complete',
++             'satisfied': False, 'deficiency': 'subject-not-observable'}))
+ refuses('a-native-relation-cannot-carry-an-imported-outcome',
+         lambda: M.W.admit_evidence_requirement(
+             {'relation': 'references', 'minResolution': 'resolved-binding',
+@@ -302,7 +329,7 @@
+ refuses('the-imported-producer-refuses-a-native-relation',
+         lambda: M.W.imported_requirement_outcome(
+             {'relation': 'references', 'minResolution': 'resolved-binding',
+-             'completeness': 'complete'}, ['src/a.ts'], {'available': True}))
++             'completeness': 'complete'}, _imp_projection, {'available': True}, True))
+ # The two owning documents must agree that a required receipt carries a bound operation: this is the
+ # cross-unit half of CX-BV6-04, where the result lives in workflows and the receipt in repair.
+ _MAP_X = repair_schema['x-opensip-mutation-operation-map']['byStepKindReceiptOperation']

@@ -1,0 +1,62 @@
+{
+ "checks": [
+  {
+   "id": "FPJ-01-payload-layer-admits-a-content-claim-it-cannot-check",
+   "passed": true,
+   "detail": {
+    "error": null
+   }
+  },
+  {
+   "id": "FPJ-02-relation-registry-declares-no-snapshot-join",
+   "passed": true,
+   "detail": {
+    "relation": false,
+    "native": true
+   }
+  },
+  {
+   "id": "FPJ-03-no-sourceInventory-lookup-in-relation_payload_rules",
+   "passed": true,
+   "detail": {
+    "token": "sourceInventory"
+   }
+  },
+  {
+   "id": "FPJ-03-no-inventory-lookup-in-relation_payload_rules",
+   "passed": true,
+   "detail": {
+    "token": "inventory"
+   }
+  },
+  {
+   "id": "FPJ-03-no-snapshot-lookup-in-relation_payload_rules",
+   "passed": true,
+   "detail": {
+    "token": "snapshot"
+   }
+  },
+  {
+   "id": "FPJ-04-anchors-are-joined-to-the-inventory",
+   "passed": true,
+   "detail": null
+  }
+ ],
+ "observations": {
+  "lyingFilePayloadValidates": true,
+  "relationRegistryHasSnapshotJoins": false,
+  "nativeRegistryHasSnapshotJoins": true,
+  "relationRulesSource": "def relation_payload_rules(value,row,fact):\n        \"\"\"The inherited relation laws, now schema-expressed and re-checked here: the rung ladder,\n        each rung's required/forbidden fields, the universe rule, and the no-negative-integer and\n        NFC text restrictions the superseded CBOR profile carried.\"\"\"\n        if fact['resolution'] not in row['rungs'] and row['rungs']:\n            raise C.AdmissionError('RELATION_RUNG_NOT_IN_LADDER:'+fact['relation']+'@'+fact['resolution'])\n        rung=row['rungs'].get(fact['resolution'],{'required':[],'forbidden':[]})\n        for name in rung['required']:\n            if name not in value:raise C.AdmissionError('RELATION_RUNG_REQUIRED_FIELD:'+name)\n        for name in rung['forbidden']:\n            if name in value:raise C.AdmissionError('RELATION_RUNG_FORBIDDEN_FIELD:'+name)\n        if row['universeRule']=='same-only' and fact['sourceUniverse']!=fact['targetUniverse']:\n            raise C.AdmissionError('RELATION_UNIVERSE_RULE:same-only')\n        def scan(node):\n            if type(node) is bool:return\n            if type(node) is int and node<0:raise C.AdmissionError('RELATION_PAYLOAD_NEGATIVE_INTEGER')\n            if type(node) is str and unicodedata.normalize('NFC',node)!=node:raise C.AdmissionError('RELATION_PAYLOAD_NOT_NFC')\n            if type(node) is dict:\n                for name,child in node.items():scan(name);scan(child)\n            if type(node) is list:\n                for child in node:scan(child)\n        scan(value)\n    ",
+  "anchorJoinSource": "for anchor in fact['anchors']:\n                inventory={v['path']:v for v in snapshot['sourceInventory']}\n                item=inventory.get(anchor['path'])\n                if not item or item['sha256']!=anchor['blobDigest']:raise C.AdmissionError('ANCHOR_SOURCE')\n                raw=blob(anchor['blobDigest']);a,b=anchor['startByte'],anchor['endByte']\n                if not 0<=a<=b<=len(raw):raise C.AdmissionError('ANCHOR_RANGE')\n                try:raw[:a].decode('utf8');raw[a:b].decode('utf8')\n                except UnicodeError as exc:raise C.AdmissionError('ANCHOR_UTF8') from exc\n        ",
+  "relationPayloadDigestFields": [
+   "ClonesPayloadV1.normalisationVersion",
+   "FilePayloadV1.contentSha256"
+  ],
+  "scopeOfTheDigestLaw": "identity-and-evidence section 3 scopes the closing digest law to identity-schemas.v2; native-evidence.schemas.v2 extends it to itself via its own x-opensip-digest-law. relation-payload-schemas.v2 is covered by NEITHER."
+ },
+ "summary": {
+  "total": 6,
+  "passed": 6,
+  "failed": []
+ }
+}

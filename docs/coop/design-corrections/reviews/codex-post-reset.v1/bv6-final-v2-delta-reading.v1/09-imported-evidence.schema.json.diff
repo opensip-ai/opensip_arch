@@ -1,0 +1,119 @@
+--- finalv1/docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json
++++ finalv2/docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json
+@@ -847,5 +847,116 @@
+         }
+       }
+     }
++  },
++  "x-opensip-imported-requirement-law": {
++    "standing": "Normative and CLOSED. THE outcome law for a repair EvidenceRequirement whose relation is one of the two imported-evidence relations registered above. It adds no relation, no rung, no import kind, no payload domain and no D9 class, code or exit.",
++    "whyItIsOwed": "repair.schema.json#/$defs/EvidenceRequirement admits ANY relation that repair_preview's admit_atom admits, which is the thirteen native fact relations OR the two relations in this registry. Native section 4.6 `sufficiency_v2` ranges only over a native VIEW: asked about runtime-observation or history-change it returns `required-relation-missing`, because there is no view entry for a relation that mints no fact2. So a requirement over an imported relation was admissible with no defined producer for its outcome, and the earlier claim that sufficiency_v2 is the ONLY producer of that field was wrong for exactly these two relations.",
++    "twoPlanesOneField": "The planes are NOT merged. A native requirement carries a DeficiencyV2 member; an imported requirement carries a member of this vocabulary. They are different sets because they name different machinery: DeficiencyV2 speaks of Coverage states, rungs, universes and resolution completeness, none of which an imported observation has. Writing `resolution-incomplete` about a runtime capture, or `import-unmapped-only` about a native view, is a category error and is refused. Which plane applies is decided at ADMISSION from the relation's registry membership - the same place the two planes are already separated by the evidenceDeclarationRule - and never guessed from the value.",
++    "outcomes": {
++      "evidence-kind-unavailable": {
++        "appliesTo": [
++          "runtime",
++          "history"
++        ],
++        "meaning": "No admitted import of this relation's evidenceKind reaches this Run.",
++        "boundTo": "the admitted import set of the evidence Run named by RepairPlanDescriptor.evidenceRunId",
++        "groundedIn": "section 5: an atom over imported evidence must be declared in evidenceUse and REQUIRED evidence absent makes the rule indeterminate."
++      },
++      "import-unmapped-only": {
++        "appliesTo": [
++          "runtime",
++          "history"
++        ],
++        "meaning": "An import of the kind exists but is unmapped-only for this Plan.",
++        "boundTo": "the StalenessRule disposition of that import against this Plan",
++        "groundedIn": "section 4 StalenessRule: snapshot-differs, commit-differs, commit-equal-dirty and build-identity-differs are unmapped-only, and unmapped-only evidence never feeds a predicate. Explicitly SELECTING a stale import stays the separate IMPORT.STALE_FOR_PLAN request refusal and is not this outcome."
++      },
++      "subject-not-observable": {
++        "appliesTo": [
++          "runtime"
++        ],
++        "meaning": "A required target is carried by the runtime payload as `unobservable` or `unmapped`, so the capture made no claim about it in either direction.",
++        "boundTo": "RuntimeSubject.observability for that target",
++        "groundedIn": "section 4: unobservable/unmapped never become unhit signals and the schema refuses a hit count on them."
++      },
++      "observation-window-insufficient": {
++        "appliesTo": [
++          "runtime"
++        ],
++        "meaning": "A mapped observation exists but its window or population does not meet what the recipe asked for.",
++        "boundTo": "RuntimePayloadV1.observationWindow and observedPopulation, compared against the admitted repair recipe's declared demand; the demand is an input, never inferred from the payload",
++        "groundedIn": "section 4: positive and bounded-negative runtime evidence is admitted always together with the observation window and population."
++      },
++      "history-range-insufficient": {
++        "appliesTo": [
++          "history"
++        ],
++        "meaning": "A mapped history import exists but its revision range does not meet what the recipe asked for, or the range was truncated.",
++        "boundTo": "HistoryPayloadV1.revisionRange (from/to/commitCount/truncated)",
++        "groundedIn": "HistoryPayloadV1 carries revisionRange with an explicit `truncated` flag and NO observationWindow, observedPopulation or observability. History has its own projection and the runtime one is never applied to it."
++      },
++      "history-outside-collection-scope": {
++        "appliesTo": [
++          "history"
++        ],
++        "meaning": "A required target lies outside the scope the history collection covered, so its absence from the payload carries no information.",
++        "boundTo": "HistoryPayloadV1.collectionScope (all-paths | in-scope-paths | listed-paths)",
++        "groundedIn": "collectionScope is a required member precisely so that an absent path can be distinguished from an unexamined one."
++      },
++      "import-absent-for-requirement": {
++        "appliesTo": [
++          "runtime",
++          "history"
++        ],
++        "meaning": "The kind is available and consumable and the target was in scope, but the payload carries no subject row reaching that target.",
++        "boundTo": "RuntimePayloadV1.subjects / HistoryPayloadV1.subjects, per target",
++        "groundedIn": "the existing IMPORT.ABSENT_FOR_PREDICATE condition, applied per requirement rather than per predicate. Named separately from evidence-kind-unavailable because the remedies differ: import the evidence versus widen the capture."
++      }
++    },
++    "precedence": [
++      "evidence-kind-unavailable",
++      "import-unmapped-only",
++      "subject-not-observable",
++      "history-outside-collection-scope",
++      "observation-window-insufficient",
++      "history-range-insufficient",
++      "import-absent-for-requirement"
++    ],
++    "precedenceRule": "Most specific first, in the order a consumer can act on: an absent kind is imported, an unmapped-only import is re-mapped or re-captured against the current snapshot, an unobservable subject is instrumented, an insufficient window is widened, and only then is the observation genuinely silent about the target. Every applicable condition is evaluated; the reported outcome is the first in this order.",
++    "whatThisOutcomeNeverEstablishes": "No imported observation establishes a universal negative. One window never establishes universal non-use, `observable-unhit` is not `unused`, and runtime coverage is never OpenSIP Coverage. In particular imported evidence can NEVER BY ITSELF establish the native closed world or authorize an unsafe delete or replace: EVERY delete and EVERY replace is decided against the evidence Run's own native ClosedWorldV2 (native section 4.5) before any descriptor exists, and no imported outcome changes deadCodeRepairEligible. It may, however, be an ADDITIONAL required condition alongside an already-established native safety basis - a recipe may lawfully require both - so it is wrong to say imported evidence can never affect applicability. Both directions are held by controls: an unsafe plan whose only requirement is a satisfied imported one is still refused by the closed-world gate, and an unsatisfied imported requirement still makes an otherwise-eligible plan inapplicable.",
++    "whatIsPreserved": [
++      "the original evidence Run named by evidenceRunId remains the authority; nothing here is a substitute for it",
++      "per-target evaluation: the outcome is decided against THIS requirement's targets, not against the payload as a whole",
++      "observation window and observed population travel with every positive and bounded-negative claim, exactly as section 4 requires",
++      "required versus optional stays where evidenceUse already puts it; an optional absence is the existing IMPORT.ABSENT_FOR_PREDICATE disclosure and is not a deficiency",
++      "the native sufficiency guard is untouched: sufficiency_v2 still owns every native relation and is not asked about these two"
++    ],
++    "enforcedAt": "workflows_model.admit_evidence_requirement decides the plane and refuses a cross-plane value or a shape violation at the repair-preview producer/consumer boundary; workflows_model.imported_requirement_outcome is the reference projection implementing the precedence and the per-kind applicability above, over already-admitted inputs. The vocabulary is mirrored into workflows common as ImportedRequirementDeficiency and held equal to this law.",
++    "perKindApplicability": {
++      "runtime-observation": [
++        "evidence-kind-unavailable",
++        "import-unmapped-only",
++        "subject-not-observable",
++        "observation-window-insufficient",
++        "import-absent-for-requirement"
++      ],
++      "history-change": [
++        "evidence-kind-unavailable",
++        "import-unmapped-only",
++        "history-range-insufficient",
++        "history-outside-collection-scope",
++        "import-absent-for-requirement"
++      ],
++      "rule": "Each relation may report only the outcomes its own payload can ground. A history requirement can never report a runtime observability or window outcome, and a runtime requirement can never report a history range or collection-scope outcome; the producer refuses rather than borrowing the other kind's projection."
++    },
++    "inputBinding": {
++      "standing": "EvidenceRequirement carries only relation, minResolution, completeness, satisfied and deficiency. Every other input this law reads is named here with the field that owns it, so no untyped caller value stands in for a measured Run.",
++      "targets": "RepairPlanDescriptor.targets - the plan's own target fingerprints. Targets are NOT a field of EvidenceRequirement and none is added; the producer is evaluated against the plan it is being built for, which is the same binding repair_preview already uses when it checks that every target is present in the evidence Run.",
++      "allVersusAny": "RepairPlanDescriptor.evidenceRequirements[].completeness, which already exists and already means exactly this. `complete` requires EVERY target to be supported; `partial-acceptable` requires at least one. A draft of this producer used `any()` unconditionally and therefore admitted a `complete` requirement while one target was unsupported; that is corrected and controlled in both directions.",
++      "requiredVersusOptional": "the rule's evidenceUse declaration (section 5). It is an INPUT to this producer and is never defaulted to `optional`: an unknown or unsupplied declaration is treated as REQUIRED, so an unresolved condition is never silently satisfied.",
++      "windowDemand": "the admitted repair recipe's declared observation demand. It is an input; this law does not infer a demand from the payload that would answer it.",
++      "admittedInputsOnly": "This is a PURE reference projection over inputs an authenticated importer and the retained Run closure have ALREADY admitted. It does not itself validate an opaque Run, does not re-derive source correspondence, and does not admit payload, observation scope or polarity - those remain the importer's and the evaluator's. Its preconditions are stated so a caller cannot mistake it for that admission."
++    },
++    "whatASatisfiedOutcomeMeans": "It means the requirement's evidential condition was met over the BOUND window, range and population - not that the evidence is positive. `observed-hit` is positive execution evidence and `observable-unhit` is BOUNDED NEGATIVE evidence; both can satisfy a requirement, and which one did is carried in the disclosure rather than collapsed. An OPTIONAL absence that satisfies under the evidenceUse rule is satisfied by ABSENCE, not by positive evidence, and its disclosure says so. Calling every satisfied outcome positive would contradict section 4 and would throw away the richer evidence the bounded-negative case exists to carry."
+   }
+ }

@@ -1,0 +1,182 @@
+"""CLARIFICATION v1 item 3: convert the CB7-SHOULD-2 reachability argument from
+a constructive bound + schema fragment into ACTUALLY ASSEMBLED contexts.
+
+The ORIGINAL vector built a Plan-shaped object with 129 synthetic hex strings.
+This one mints 129 REAL, DISTINCT TypeScriptNativeContextV2 records - each with
+its own config graph over its own inventoried unit - retains each H preimage
+frame, and then attempts to mint the Plan that names them.
+"""
+import json
+
+import oslib as O
+import graph as G
+import build as B
+from oslib import C, H, sha256hex, raw_digest
+
+
+def assemble_n_typescript_contexts(n):
+    """Real contexts, one per real unit, each with its own retained config
+    graph over its own inventoried tsconfig.  No synthetic digests."""
+    kit = B.Kit()
+    w = kit.w
+    std_id, std_desc = kit.closure(
+        "stdlib", {"lib.es2022.d.ts": b"declare const m: unique symbol;\n"}, "5.6.2")
+    tool_id, tool_desc = kit.closure(
+        "toolchain", {"bin/tsc.js": b"compiler\n", "bin/node": b"runtime\n"}, "5.6.2")
+    tm = {r["path"]: r["sha256"] for r in tool_desc["tree"]}
+    std_components = [{"component": r["path"], "sha256": r["sha256"]}
+                      for r in std_desc["tree"]]
+    honored = {"allowJs": False, "checkJs": False, "module": "node16",
+               "moduleResolution": "node16", "target": "es2022", "strict": True,
+               "skipLibCheck": True, "noEmit": True, "types": [],
+               "lib": ["es2022"], "baseUrl": None, "paths": [], "rootDirs": [],
+               "resolveJsonModule": False, "allowSyntheticDefaultImports": True,
+               "esModuleInterop": True, "customConditions": [], "jsx": None}
+
+    contexts, graphs, roots = [], [], []
+    for i in range(n):
+        root = "units/u%03d" % i
+        cfg = kit.file(root + "/tsconfig.json",
+                       '{"compilerOptions":{"target":"es2022"},"unit":%d}\n' % i)
+        kit.file(root + "/src/index.ts", "export const u%d = %d;\n" % (i, i))
+        ctx = {"schemaVersion": 2, "languageMode": "ts-tsconfig",
+               "toolchain": {"compilerName": "typescript",
+                             "compilerVersion": "5.6.2",
+                             "compilerPackageDigest": tm["bin/tsc.js"],
+                             "typescriptStdlibMerkleRoot": std_id.split(":", 1)[1],
+                             "standardLibraryComponentDigests": std_components,
+                             "libSelection": ["es2022"]},
+               "toolClosure": {"compiler": tm["bin/tsc.js"],
+                               "runtime": tm["bin/node"], "closureId": tool_id},
+               "configProjection": {
+                   "schemaVersion": 2, "ancestorCarrierVerified": True,
+                   "environmentSanitized": True, "typeAcquisitionEnabled": False,
+                   "executableSelected": False, "honoredOptions": honored,
+                   "strippedOptions": [],
+                   "configGraphPaths": [root + "/tsconfig.json"]},
+               "moduleResolutionMode": "node16", "packageModuleType": "absent",
+               "nodeModulesLayoutDigest": None, "lockfileIdentity": None}
+        ref, hx = kit.mint_native("native.context.typescript.v2", ctx)
+        contexts.append(hx)
+        graphs.append({"schemaVersion": 1,
+                       "entryConfigPath": root + "/tsconfig.json",
+                       "nodes": [{"path": root + "/tsconfig.json",
+                                  "contentSha256": cfg["sha256"],
+                                  "kind": "tsconfig", "extendsResolved": []}]})
+        roots.append(root)
+    return kit, contexts, graphs, roots
+
+
+def measure(n=129):
+    kit, contexts, graphs, roots = assemble_n_typescript_contexts(n)
+    w = kit.w
+    prov, _ = kit.closure("provider", {"bin/p": b"p\n"}, "1.0.0")
+    ev_, _ = kit.closure("evaluator", {"bin/e": b"e\n"}, "1.0.0")
+    det, _ = kit.closure("detector", {"r.json": b"{}\n"}, "1.0.0")
+
+    # the EXPLICIT single-capability override that keeps the analysis-spec and
+    # scope bounds satisfied for n units
+    spec = {"schemaVersion": 2,
+            "requestedCapabilities": sorted(
+                [{"capabilityId": "inventory", "languageMode": "ts-tsconfig",
+                  "workspaceRoot": r, "required": True} for r in roots],
+                key=lambda x: C(x)),
+            "policyPackIds": ["opensip.builtin"], "parameters": []}
+    scope_desc = {"schemaVersion": 2, "workspaceRoots": sorted(roots),
+                  "pathPrefixes": [], "excludedPathPrefixes": [".git"]}
+    budget = {"unit": "work-units", "limit": 1000}
+    config = {"analysis": {"profileId": "default", "capabilities": ["inventory"],
+                           "budget": dict(budget)},
+              "components": {}, "discovery": {}, "policy": {}, "evidence": {}}
+    grant = {"schemaVersion": 2, "projectId": w.projectId,
+             "principals": [{"kind": "first-party", "closureId": prov,
+                             "ownerSourceDigest": None}],
+             "analysisOperations": ["read-source"],
+             "scopeDigest": w.record(scope_desc)}
+    snap_id, snap = kit.snapshot(config, scope_desc)
+    cm, cmb, cmbd, cap_id = B.capability_manifest(kit, [
+        {"providerId": "typescript-semantic", "language": "typescript",
+         "providerVersionSource": "signed-closure-manifest",
+         "toolchainIdentitySource": "native-context-v2",
+         "relations": {"file": "enumerated"}, "platformIds": ["macos-aarch64"]}])
+    policy, pd, waivers, wd, program, rpd, rule = B.policy_and_program(kit)
+
+    plan = {"schemaVersion": 2, "snapshotId": snap_id,
+            "capabilityManifestId": cap_id,
+            "semanticClosures": sorted([prov, ev_, det], key=lambda s: C(s)),
+            "analysisSpecDigest": w.record(spec),
+            "resolvedConfigDigest": w.record(config),
+            "nativeContextDigests": sorted(set(contexts), key=lambda s: C(s)),
+            "importIds": [], "policyDigest": pd, "waiverDigest": wd,
+            "scopeDigest": w.record(scope_desc), "budget": budget,
+            "semanticGrantDigest": w.record(grant),
+            "capabilityManifestBytesDigest": cmbd}
+
+    spec_errs = O.validate("identity", "#/$defs/analysis-spec", spec)
+    scope_errs = O.validate("identity", "#/$defs/scope-descriptor", scope_desc)
+    plan_errs = O.validate("identity", "#/$defs/plan", plan)
+    i = O.doc("identity")["$defs"]
+    return {
+        "unitsAssembled": n,
+        "distinctRealContextsMinted": len(set(contexts)),
+        "everyContextFrameRetained":
+            all(hx in w.cas and O.parse_h_frame(w.cas[hx])[0]
+                == "native.context.typescript.v2" for hx in contexts),
+        "everyContextIdentityRecomputes":
+            all(H(*w.frames[hx]) == hx for hx in contexts),
+        "analysisSpecRows": len(spec["requestedCapabilities"]),
+        "analysisSpecBound": i["analysis-spec"]["properties"]
+            ["requestedCapabilities"]["maxItems"],
+        "analysisSpecAdmitted": not spec_errs,
+        "workspaceRoots": len(scope_desc["workspaceRoots"]),
+        "workspaceRootsBound": i["scope-descriptor"]["properties"]
+            ["workspaceRoots"]["maxItems"],
+        "scopeDescriptorAdmitted": not scope_errs,
+        "planNativeContextDigests": len(plan["nativeContextDigests"]),
+        "planNativeContextDigestsBound": i["plan"]["properties"]
+            ["nativeContextDigests"]["maxItems"],
+        "planSemanticClosuresBound": i["plan"]["properties"]
+            ["semanticClosures"]["maxItems"],
+        "planImportIdsBound": i["plan"]["properties"]["importIds"]["maxItems"],
+        "configurationImportIdsBound": i["semantic-configuration"]["properties"]
+            ["evidence"]["properties"]["importIds"]["maxItems"],
+        "planAdmitted": not plan_errs,
+        "planRefusalMessages": plan_errs,
+        "refusalNamesTheField": bool(plan_errs) and plan_errs[0].split(":")[0]
+            == "nativeContextDigests",
+        # measured with a STANDALONE-token test: an earlier heuristic matched
+        # "128"/"129" inside 64-hex strings and reported a false positive.
+        "refusalCarriesAStandaloneCount": bool(plan_errs) and bool(
+            __import__("re").search(r"(?<![0-9a-f])%d(?![0-9a-f])" % n,
+                                    plan_errs[0])),
+        "refusalCarriesAStandaloneLimit": bool(plan_errs) and bool(
+            __import__("re").search(r"(?<![0-9a-f])128(?![0-9a-f])",
+                                    plan_errs[0])),
+        "refusalCarriesARemedy": False,
+        "refusalTail": plan_errs[0][-40:] if plan_errs else None,
+        "refusalMessageLength": len(plan_errs[0]) if plan_errs else 0,
+    }
+
+
+def build():
+    at_bound = measure(128)
+    over_bound = measure(129)
+    return {
+        "atTheBound": {k: at_bound[k] for k in
+                       ("unitsAssembled", "distinctRealContextsMinted",
+                        "everyContextFrameRetained",
+                        "everyContextIdentityRecomputes", "analysisSpecAdmitted",
+                        "scopeDescriptorAdmitted", "planAdmitted")},
+        "overTheBound": over_bound,
+        "correctedClaim": {
+            "originalWording": "the generic JSON Schema fault 'restates the "
+                               "entire instance and names no field, count or "
+                               "limit'",
+            "measuredCorrection": "the fault DOES prefix the field name "
+                                  "(`nativeContextDigests: [...]`). What it "
+                                  "lacks is a bounded typed count, the limit, "
+                                  "and a remedy; it restates the whole array.",
+            "retainedPart": "no typed PROJECT.SCOPE_LIMIT-style refusal with "
+                            "subject `field:count>limit` is published for the "
+                            "`plan` record family."},
+    }

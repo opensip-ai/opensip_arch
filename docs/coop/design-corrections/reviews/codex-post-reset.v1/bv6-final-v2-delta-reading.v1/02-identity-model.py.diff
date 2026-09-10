@@ -1,0 +1,49 @@
+--- finalv1/docs/coop/design-corrections/foundation/identity-model.py
++++ finalv2/docs/coop/design-corrections/foundation/identity-model.py
+@@ -10,6 +10,11 @@
+ RELATION_DOCUMENT=json.loads((HERE/'relation-payload-schemas.v2.json').read_text())
+ RELATIONS=RELATION_DOCUMENT['x-opensip-relation-registry']['relations']
+ RELATION_DIGEST_LAW=RELATION_DOCUMENT['x-opensip-digest-law']
++# The DISJOINTNESS half of identity section 3, read from its published law rather than
++# restated: which fields make two subject-scopes of one view comparable at all. It is the
++# same tuple coverageTotalityLaw matches facts on, so the key that decides which fact
++# discharges a scope's obligation is the key that decides which scopes may not overlap.
++COVERAGE_PARTITION_LAW=RELATION_DOCUMENT['x-opensip-relation-registry']['coveragePartitionLaw']
+ PREFIX={'fact':'fact2','snapshot':'snapshot2','closure':'closure2','import':'import2','plan':'plan2','subject-scope':'scope2','coverage':'coverage2','view':'view2','execution-plan':'exec-plan2','finding-fingerprint':'finding-key2','finding':'finding2','proof-bundle':'proof2','semantic-evidence':'evidence2','evaluation-seal':'seal2','run':'run2','cache-key':'cache2','regeneration-key':'regen2','policy-derivation':'policy-derivation2'}
+ DOMAIN_OF={v:k for k,v in PREFIX.items()}
+ FRAME_PREFIX=b'opensip.product.v1\0'
+@@ -1398,6 +1403,34 @@
+             if scope['enumeratorClosure'] not in plan['semanticClosures']:raise C.AdmissionError('UNSELECTED_ENUMERATOR')
+             if get(scope['enumeratorClosure'],'closure')['kind']!=DIGESTS['closureKinds']['byField']['subject-scope.enumeratorClosure']:
+                 raise C.AdmissionError('ENUMERATOR_CLOSURE_KIND')
++        # Identity section 3's DISJOINTNESS half, decided here because only this boundary holds the
++        # whole view. `admit_coverage_result_v3` admits ONE scope and its ONE Coverage entry, so it
++        # cannot see a second scope and cannot decide a between-scopes property; a stated law that
++        # nothing compares is the defect this closes. Two scopes are comparable exactly when they
++        # agree on every field of the PUBLISHED partition key; a different relation, rung or universe
++        # is a different claim about the subject, not an overlap. This runs AFTER every scope of the
++        # view has passed its own well-formedness checks above, so a foreign-snapshot or unselected
++        # enumerator refuses as ITSELF and an overlap refusal is never miscounted as covering it.
++        # Scopes with NO Coverage entry are included deliberately: they bypass the per-Coverage
++        # PRODUCER guard, which is the boundary that cannot see a second scope. They do still reach
++        # the retained-scope ladder guard below, so this is not their only check. The map is per
++        # VIEW, so two views of one Run may reference the same scope.
++        partition_subjects={}
++        for scope_id in view['scopeIds']:
++            scope=get(scope_id,'subject-scope')
++            partition=tuple(scope[field] for field in COVERAGE_PARTITION_LAW['partitionKey'])
++            seen=partition_subjects.setdefault(partition,set())
++            overlapping=seen.intersection(scope['subjects'])
++            if overlapping:
++                # The reported subject is the lowest by UTF-8 BYTE order, which is what the law
++                # names. Python's default string comparison is by code point and would differ from
++                # byte order above the BMP; canonical-JSON order would differ again because it
++                # quotes and escapes. Only which subject is reported depends on this, never whether
++                # the Run refuses.
++                first=min(overlapping,key=lambda subject:subject.encode('utf-8'))
++                raise C.AdmissionError(COVERAGE_PARTITION_LAW['refusal']+':'+scope['relation']+'@'
++                                       +scope['resolution']+':'+first)
++            seen.update(scope['subjects'])
+         for fact_id in view['facts']:
+             fact=get(fact_id,'fact')
+             if fact['snapshotId']!=run['snapshotId'] or fact['producerClosure']!=view['producerClosure']:raise C.AdmissionError('FACT_SOURCE_PRODUCER_JOIN')

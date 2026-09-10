@@ -1,0 +1,175 @@
+--- before/docs/coop/design-corrections/foundation/identity-schemas.v2.json
++++ after/docs/coop/design-corrections/foundation/identity-schemas.v2.json
+@@ -29,6 +29,44 @@
+     "ProjectId": {
+       "type": "string",
+       "pattern": "^prj1-[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "Domain": {
++      "type": "string",
++      "enum": [
++        "snapshot",
++        "closure",
++        "import",
++        "plan",
++        "subject-scope",
++        "coverage",
++        "view",
++        "execution-plan",
++        "finding-fingerprint",
++        "finding",
++        "proof-bundle",
++        "semantic-evidence",
++        "evaluation-seal",
++        "run",
++        "cache-key",
++        "regeneration-key",
++        "policy-derivation",
++        "blob",
++        "rule-program",
++        "policy",
++        "waiver",
++        "coverage-payload",
++        "import-payload",
++        "configuration",
++        "native-context",
++        "analysis-spec",
++        "capability-manifest",
++        "schema",
++        "finding-parameters",
++        "fact",
++        "predicate-witness",
++        "fact-payload"
++      ],
++      "description": "Registered digest-domain name. This enumeration and #/$defs/Ref/properties/domain are the same set, and both are the registered keys of x-opensip-digest-domains.byDomain."
+     },
+     "Ref": {
+       "type": "object",
+@@ -442,7 +480,8 @@
+             "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+           },
+           "uniqueItems": true,
+-          "x-opensip-order": "canonical-set"
++          "x-opensip-order": "canonical-set",
++          "description": "Explicit selection with required membership under x-opensip-digest-domains.closureMembership, not an exact minimal set. Extra admissible retained closures may be selected; their selection changes PlanId."
+         },
+         "analysisSpecDigest": {
+           "type": "string",
+@@ -730,7 +769,8 @@
+             "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+             "x-opensip-digest": {
+               "representation": "raw-artifact",
+-              "artifact": "the exact complete registered schema document bytes of a schema this view admitted"
++              "artifactClass": "registered-schema-document",
++              "artifact": "the exact complete bytes of a schema document on the closed x-opensip-payload-registry list, DECLARED by this view's producer as a schema this view admitted under. The set is the producer's declaration and not a derived union: it is neither required to name every document a member fact or Coverage was admitted under, nor forbidden from naming a registered document this view admitted nothing under. Each member fact and Coverage independently pins and retains its own document through its own payloadSchemaDigest, which is where payload admission is decided."
+             }
+           },
+           "uniqueItems": true,
+@@ -798,12 +838,16 @@
+                 "type": "array",
+                 "maxItems": 128,
+                 "items": {
+-                  "type": "string",
+-                  "minLength": 1,
+-                  "maxLength": 4096
++                  "$ref": "#/$defs/Domain",
++                  "x-opensip-vocabulary": {
++                    "authority": "foundation/identity-schemas.v2.json#/x-opensip-digest-domains/byDomain",
++                    "schema": "#/$defs/Domain",
++                    "meaning": "Registered output-domain names; declaration alone grants no producer or evidence authority."
++                  }
+                 },
+                 "uniqueItems": true,
+-                "x-opensip-order": "canonical-set"
++                "x-opensip-order": "canonical-set",
++                "description": "Declared output-domain set. Empty is permitted and asserts no output domains; it does not establish completeness or result authority. Stage and stage-spec sets must agree."
+               }
+             }
+           },
+@@ -1157,7 +1201,8 @@
+             "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
+           },
+           "uniqueItems": true,
+-          "x-opensip-order": "canonical-set"
++          "x-opensip-order": "canonical-set",
++          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. The evaluated SUBSET is named separately by proof-bundle.evaluationInputRefs; a selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority."
+         },
+         "findingIds": {
+           "type": "array",
+@@ -2505,7 +2550,12 @@
+           "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+         },
+         "operation": {
+-          "$ref": "#/$defs/Text"
++          "$ref": "#/$defs/Text",
++          "x-opensip-vocabulary": {
++            "authority": "The versioned semantic interface of stage-spec.producerClosure, implemented by the retained selected closure.",
++            "scope": "Provider-defined logical operation tokens, not a platform-wide enum or host-selected physical-plan labels.",
++            "admission": "Text validates shape only. Stage execution/replay uses the selected producer interface and its declared parameter/output contract."
++          }
+         },
+         "parameters": {
+           "type": "array",
+@@ -2551,9 +2601,15 @@
+           "maxItems": 128,
+           "uniqueItems": true,
+           "items": {
+-            "$ref": "#/$defs/Text"
+-          },
+-          "x-opensip-order": "canonical-set"
++            "$ref": "#/$defs/Domain",
++            "x-opensip-vocabulary": {
++              "authority": "foundation/identity-schemas.v2.json#/x-opensip-digest-domains/byDomain",
++              "schema": "#/$defs/Domain",
++              "meaning": "Registered output-domain names; declaration alone grants no producer or evidence authority."
++            }
++          },
++          "x-opensip-order": "canonical-set",
++          "description": "Declared output-domain set. Empty is permitted and asserts no output domains; it does not establish completeness or result authority. Stage and stage-spec sets must agree."
+         },
+         "outputSchemaDigest": {
+           "type": "string",
+@@ -2900,7 +2956,8 @@
+       },
+       "schema": {
+         "representation": "raw-artifact",
+-        "artifact": "the exact complete registered schema document bytes"
++        "artifactClass": "registered-schema-document",
++        "artifact": "the exact complete bytes of a schema document on the closed x-opensip-payload-registry list"
+       },
+       "semantic-evidence": {
+         "representation": "h-identity",
+@@ -3609,7 +3666,32 @@
+       "refusals": "A false `complete`, a wrong deficiency and a wrong or null cause each refuse separately and by their own name: `native.coverage-source-variant-*` at the producer boundary and `COVERAGE_SOURCE_VARIANT_*` at retained Run closure. Both name sets are retained and distinct, but they are NOT both reachable for every scope: where the producer boundary can already apply this law it refuses first, so the closure name is not reached for that case. Which name a scenario yields is decided by which boundary sees the defect first, not by a precedence among the names.",
+       "guardOrder": "TWO boundaries decide this, in this order. FIRST the native Coverage PRODUCER admission, which judges ONE record and never sees the snapshot, so it applies this law only where the scope carries its own paths - a `source-path` relation with a `bodyIdentityJoin` - and only when its caller supplies the owning universe's dialect, as Run closure does. A FALSE `complete` for a path whose suffix no dialect table lists is refused THERE, before any Run-closure prerequisite runs. THEN, at Run closure, the prerequisites in their own order: the compilation-ownership axis, then the syntax grammar-capability registry, then this law as the backstop that makes the set of published universes total. Each keeps its own refusal name for the cases it is the first to decide; for the syntax universe this law is a strictly weaker necessary condition its own registry already implies, because that registry publishes that no data-document suffix appears in the syntax dialect table. An HONESTLY DISCLOSED unsupported scope is ADMITTED at both boundaries and closes its Run carrying `onUnsupportedScope`; only a false or mismatched claim refuses."
+     },
+-    "languageVersionBindingLaw": "Normative, and consumed by identity Run closure. The languageVersion component of a FACT-IDENTITY body frame is the RAW 32 BYTES of SHA-256(C(body-language-version)) - the same fixed-width treatment the inherited grammar already gives levelVersion, so the inherited frame bytes and field grammar are unchanged and the component is bounded for every valid input. Fixed width is not a convenience: the inherited frame gives each component a u8 length, and a component that embedded per-crate or per-package data is not representable for ordinary valid inputs. The record is DERIVED: closure rebuilds it from the universe ResolvedInputs, the admitted retained native context the universe own nativeContextId names, the enclosing fact own anchor and the retained nested records the universe commits, and compares. It carries the identity of the component that INTERPRETS the body span plus the SELECTED source dialect, and nothing else: not operational platform, not paths, not names, not resolution inputs, not build tooling, not option synthesis, and no per-crate or per-package collection. Every language declares its dialect axis explicitly; there is no null branch and no unexamined default. A universe domain used by a clones fact with no binding refuses, and every dialect branch that cannot SELECT refuses with a distinct cause rather than guessing."
++    "languageVersionBindingLaw": "Normative, and consumed by identity Run closure. The languageVersion component of a FACT-IDENTITY body frame is the RAW 32 BYTES of SHA-256(C(body-language-version)) - the same fixed-width treatment the inherited grammar already gives levelVersion, so the inherited frame bytes and field grammar are unchanged and the component is bounded for every valid input. Fixed width is not a convenience: the inherited frame gives each component a u8 length, and a component that embedded per-crate or per-package data is not representable for ordinary valid inputs. The record is DERIVED: closure rebuilds it from the universe ResolvedInputs, the admitted retained native context the universe own nativeContextId names, the enclosing fact own anchor and the retained nested records the universe commits, and compares. It carries the identity of the component that INTERPRETS the body span plus the SELECTED source dialect, and nothing else: not operational platform, not paths, not names, not resolution inputs, not build tooling, not option synthesis, and no per-crate or per-package collection. Every language declares its dialect axis explicitly; there is no null branch and no unexamined default. A universe domain used by a clones fact with no binding refuses, and every dialect branch that cannot SELECT refuses with a distinct cause rather than guessing.",
++    "closureMembership": {
++      "standing": "Plan selection bindings for authoritative inputs; companion to closureKinds. Unreferenced CAS blobs are not evaluation inputs.",
++      "direct": {
++        "subject-scope.enumeratorClosure": "Selected for each scope of an evaluated view.",
++        "view.producerClosure": "Selected for each evaluated view.",
++        "stage-spec.producerClosure": "Selected for each stage of the execution plan.",
++        "cache-key.producerClosure": "Selected for a cache/regeneration key bound to the Plan.",
++        "finding.ruleClosure": "Selected for each evaluated finding.",
++        "evaluation-seal.evaluatorClosure": "Selected for the evaluation seal."
++      },
++      "equalToDirect": {
++        "fact.producerClosure": "The enclosing evaluated view.producerClosure.",
++        "proof-bundle.evaluatorClosure": "The evaluation-seal.evaluatorClosure."
++      },
++      "selectedThroughOtherInput": {
++        "import.producerClosure": "plan.importIds, which retains the import record naming them; an import named by proof.evaluationInputRefs must itself be a plan.importIds member (UNSELECTED_EVALUATION_IMPORT).",
++        "import.adapterClosure": "plan.importIds, which retains the import record naming them; an import named by proof.evaluationInputRefs must itself be a plan.importIds member (UNSELECTED_EVALUATION_IMPORT).",
++        "TypeScriptToolClosureV1.closureId": "plan.nativeContextDigests and the registered context closureJoins.",
++        "ToolClosureV1.closureId": "plan.nativeContextDigests and the registered context closureJoins.",
++        "toolchain.typescriptStdlibMerkleRoot": "plan.nativeContextDigests and the registered context closureJoins.",
++        "toolchain.rustcDevLlvmDigest": "plan.nativeContextDigests and the registered context closureJoins.",
++        "SyntaxGrammarBundleV1.closureId": "plan.nativeContextDigests and the registered context closureJoins."
++      },
++      "selectionLaw": "Direct members must be in plan.semanticClosures. Other-input dependencies need not be flattened into it; extra admissible retained closures may be selected explicitly. There is no exact-minimal-set constraint."
++    }
+   },
+   "x-opensip-payload-registry": {
+     "standing": "Normative closed registry for every registered PAYLOAD in this graph. It resolves the question a payload schema digest alone cannot: which document bytes are hashed and which selector validates. It is the single mapping identity-and-evidence section 3 names; nothing in this graph admits a payload under a caller-chosen or guessed schema.",

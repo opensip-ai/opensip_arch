@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:test-execution",
+  "title": "Explicitly authorized repository test execution step and its evidence payload (PROPOSED, revised)",
+  "description": "Repository code execution is disabled by default. A test-execution step is admitted only when selected explicitly, the security unit admits a RepoExecutionGrantV2 with principal P-TRUSTED-REPO and executionClass test-runner bound to this projectId, snapshot digest and the exact argv digest (expiry operation-end, never inherited), and CI mode uses a pre-existing policy record rather than interactive consent. The host spawns the exact argv with no shell: argv[0] is either a LogicalPath member of the sealed snapshot or a member of the declared toolchain closure2; the environment is constructed from the allowlist only; cwd is a LogicalPath inside the project root. The host DISCLOSES network and process reach (copied from the security unit's platform truth table); it does not confine them and refuses any step that claims it does. The outcome is evidence (an import2 wrapper with kind=test), never Coverage and never a verdict.",
+  "$defs": {
+    "EnforcementValue": {
+      "type": "string",
+      "enum": [
+        "DISCLOSURE-ONLY",
+        "ENFORCED-BY-CONSTRUCTION",
+        "ENFORCED-AT-HOST-BROKER"
+      ],
+      "description": "ENFORCED-PLATFORM:<primitiveId> values are admitted only when the security unit's measured primitive table names that primitive; the reference model treats any other enforcement claim as TEST.CONFINEMENT_CLAIM_REFUSED"
+    },
+    "TestExecutionStepParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "argv",
+        "argv0Source",
+        "cwdIsRoot",
+        "principal",
+        "executionClass",
+        "platformId",
+        "authorizationRef",
+        "consentSource",
+        "afterStep",
+        "timeoutMilliseconds",
+        "maxOutputBytes",
+        "environmentAllowlist",
+        "effects"
+      ],
+      "properties": {
+        "kind": {
+          "const": "test-execution"
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "description": "exact argument vector; no shell, no interpolation, no PATH search"
+        },
+        "argv0Source": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "path"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "snapshot-member"
+                },
+                "path": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "closureId",
+                "member"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "toolchain-closure"
+                },
+                "closureId": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+                },
+                "member": {
+                  "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+                }
+              },
+              "description": "argv[0] must be byte-equal to member, member must be an inventoried tree entry of the admitted closure2, and the closure must be the declared toolchain of the grant; an alias, a PATH lookup, a symlink or a member of another closure is TEST.ARGV_NOT_IN_CLOSURE"
+            }
+          ]
+        },
+        "cwd": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath",
+          "description": "project-relative working directory inside the sealed root; present exactly when cwdIsRoot is false"
+        },
+        "cwdIsRoot": {
+          "type": "boolean",
+          "description": "true: the working directory is the project root itself and cwd is absent ('.' is not a LogicalPath)"
+        },
+        "principal": {
+          "const": "P-TRUSTED-REPO",
+          "description": "display label only. It maps to security principalClass 'repository-code' (RepoExecutionGrantV2) and to the foundation semantic-grant principal kind 'trusted-repository-code'; the grant record, not this label, is the authority"
+        },
+        "executionClass": {
+          "const": "test-runner"
+        },
+        "platformId": {
+          "type": "string",
+          "enum": [
+            "macos-aarch64",
+            "macos-x86_64",
+            "linux-x86_64-gnu",
+            "linux-aarch64-gnu"
+          ],
+          "description": "security S8 platform; every effects value must EQUAL the security owner's truth-table row for this platform (S10), copied verbatim"
+        },
+        "authorizationRef": {
+          "type": "string",
+          "pattern": "^security.repo-execution-grant.v2:[0-9a-f]{64}(?![\\s\\S])",
+          "description": "Exact host-admitted v2 grant reference; must equal the admitted projection reference as well as binding argv, project, snapshot, class and platform."
+        },
+        "consentSource": {
+          "type": "string",
+          "enum": [
+            "pre-existing-policy",
+            "interactive-consent"
+          ],
+          "description": "CI mode requires pre-existing-policy; interactive consent in CI is TEST.INTERACTIVE_CONSENT_IN_CI (request-rejected)"
+        },
+        "afterStep": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/StepId",
+          "description": "the analysis, verify or repair-apply step whose (applied) snapshot the tests run against; the live tree must still equal that snapshot at spawn"
+        },
+        "timeoutMilliseconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400000
+        },
+        "maxOutputBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 67108864
+        },
+        "environmentAllowlist": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z_][A-Z0-9_]*(?![\\s\\S])",
+            "maxLength": 128
+          },
+          "description": "variables copied from the invoking environment; everything else is absent; PATH is never copied and is set to the declared toolchain closure only"
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "network",
+            "subprocess",
+            "filesystemWrite",
+            "environment"
+          ],
+          "properties": {
+            "network": {
+              "$ref": "#/$defs/EnforcementValue"
+            },
+            "subprocess": {
+              "$ref": "#/$defs/EnforcementValue"
+            },
+            "filesystemWrite": {
+              "$ref": "#/$defs/EnforcementValue"
+            },
+            "environment": {
+              "$ref": "#/$defs/EnforcementValue"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cwdIsRoot": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "cwd"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "cwdIsRoot": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "cwd"
+            ]
+          }
+        }
+      ]
+    },
+    "TestExecutionStepResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "importId",
+        "payloadDigest",
+        "testResult",
+        "timedOut",
+        "outputTruncated",
+        "disclosureEmitted"
+      ],
+      "properties": {
+        "kind": {
+          "const": "test-execution"
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ImportId"
+        },
+        "payloadDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "testResult": {
+          "type": "string",
+          "enum": [
+            "passed",
+            "failed",
+            "error"
+          ],
+          "description": "passed: exit 0; failed: nonzero exit; error: signal, timeout or spawn failure"
+        },
+        "exitStatus": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "signal": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "timedOut": {
+          "type": "boolean"
+        },
+        "outputTruncated": {
+          "type": "boolean"
+        },
+        "disclosureEmitted": {
+          "const": true
+        }
+      }
+    },
+    "TestPayloadV1": {
+      "type": "object",
+      "description": "Payload domain workflow.import-payload.test.v1; wrapped by the foundation import descriptor with kind=test. Produced by the host test-execution step or imported from an independently prepared run.",
+      "additionalProperties": false,
+      "required": [
+        "payloadDomain",
+        "producer",
+        "argvDigest",
+        "toolClosureId",
+        "exitStatus",
+        "signal",
+        "timedOut",
+        "stdoutDigest",
+        "stderrDigest",
+        "stdoutBytes",
+        "stderrBytes",
+        "outputTruncated",
+        "tests",
+        "selection"
+      ],
+      "properties": {
+        "payloadDomain": {
+          "const": "workflow.import-payload.test.v1"
+        },
+        "producer": {
+          "type": "string",
+          "enum": [
+            "host-test-execution",
+            "independent-prepared"
+          ]
+        },
+        "argvDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "toolClosureId": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exitStatus": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "signal": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timedOut": {
+          "type": "boolean"
+        },
+        "stdoutDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "stderrDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+        },
+        "stdoutBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "stderrBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "outputTruncated": {
+          "type": "boolean"
+        },
+        "tests": {
+          "type": "array",
+          "maxItems": 1048576,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "testId",
+              "outcome"
+            ],
+            "properties": {
+              "testId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "subjectPath": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "fail",
+                  "skip",
+                  "error"
+                ]
+              },
+              "durationMillis": {
+                "$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"
+              }
+            }
+          }
+        },
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "completenessEstablished"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "full",
+                "impact-selected",
+                "explicit"
+              ]
+            },
+            "completenessEstablished": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    }
+  }
+}

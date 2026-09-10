@@ -1,0 +1,56 @@
+--- /tmp/opensip-design-corrections/reference-hardening-after20.v1/proposed/docs/coop/design-corrections/foundation/run-reference-checks.py	2026-09-08 02:32:20
++++ proposed/docs/coop/design-corrections/foundation/run-reference-checks.py	2026-09-08 02:55:08
+@@ -3,22 +3,41 @@
+ This is not a hostile-host or self-authentication mechanism.
+ 
+ A child that does not finish within CHILD_TIMEOUT_SECONDS is a FAILED reference run and is
+-reported as one. Before this was handled, `subprocess.TimeoutExpired` propagated out of the loop
+-and past the write below, so the launcher exited 1 on the traceback while the PREVIOUS run's
+-report - `passed: true` - was still the file on disk. An unchanged report is not this run's
+-result. A timeout now produces a report of the SAME shape with the SAME five entries, `timedOut`
+-true on the entry that ran out of budget, `exitCode` null because none was observed, and
+-`reportSha256` null because a run that did not finish cannot claim the child report it did not
+-write. `passed` is false. The budget is a fixed constant, not a flag or an environment variable:
+-a caller must not be able to widen or narrow the bound that decides whether a run counts. The
+-pin sweep above still runs to completion before any child starts, unchanged.
++reported as one. THE PATH THAT WAS MISSING IS EXACTLY THAT ONE, and only that one. A nonzero
++child exit was already reported - the entry carried its `exitCode` and `passed` went false - and
++a changed or missing pin was already reported, with `sourcePinsValid` false, `changedOrMissing`
++named and no child run at all. A TIMEOUT had no reporting path: `subprocess.TimeoutExpired`
++propagated out of the loop and past the write below, so the launcher exited 1 on the traceback
++while the PREVIOUS run's report - `passed: true` - was still the file on disk. An unchanged
++report is not this run's result.
++
++A timeout now produces a report with the SAME five entries and every key the report already had,
++EXTENDED rather than reshaped: each entry gains `timedOut`, and the result gains `timedOut` and
++`childTimeoutSeconds`. The shape is a superset of the previous one, so it is NOT literally
++identical; a consumer reading only the previous keys still finds all of them. On the entry that
++ran out of budget `timedOut` is true, `exitCode` is null because none was observed, and
++`reportSha256` is null. That null means NO COMPLETED RESULT IS ATTRIBUTED to this run. It is not
++evidence that no bytes were written: a child can be killed after writing its report, and a report
++left by an EARLIER run can be sitting on disk under the same name. Declining to hash either is
++the point. `passed` is false.
++
++The budget is a fixed constant, not a flag or an environment variable: a caller must not be able
++to widen or narrow the bound that decides whether a run counts. It is a BOUNDED REFERENCE-RUN
++budget for this launcher only - not a product timeout, not a service level, not an authorization
++law, and nothing outside this file may cite it as one.
++
++The pin sweep still runs to completion before any child starts, unchanged.
+ """
+ import argparse,hashlib,json,subprocess,sys
+ from pathlib import Path
+ H=Path(__file__).resolve().parent;ROOT=H.parents[3]
+-# Bound per child, not for the suite: the suite is bounded by 5*CHILD_TIMEOUT_SECONDS. The slowest
+-# child (check-identity.py) runs ~120s, close enough to the former 120s bound that ordinary host
+-# variation decided the outcome; 600s is ~5x that observed cost and still refuses a real hang.
++# Bound per CHILD, and NOT a wall-clock bound on the run. Five children give an aggregate CHILD
++# budget of 5*CHILD_TIMEOUT_SECONDS = 3000s, and that aggregate bounds only the time spent WAITING
++# ON CHILDREN. It excludes the pin sweep over the whole ledger, process creation and teardown for
++# each child, and the final report write, so this file states no whole-run wall-time bound at all
++# and no caller may derive one from it. The slowest child (check-identity.py) runs ~120s, close
++# enough to the former 120s bound that ordinary host variation decided the outcome; 600s is ~5x
++# that observed cost and still refuses a real hang. A bounded reference-run choice, nothing more.
+ CHILD_TIMEOUT_SECONDS=600
+ p=argparse.ArgumentParser();p.add_argument('--report',required=True);p.add_argument('--report-dir');a=p.parse_args()
+ OUT=Path(a.report_dir) if a.report_dir else H

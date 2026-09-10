@@ -1,0 +1,28 @@
+# Additional concrete M2 admission gap from Codex — assess with this follow-up
+
+While you address the five prompt points, Codex reviewed the COMPLETE v12->v1 diffs of all three models and found one affected policy/Run admission join that still differs. This is within the existing M2 scope, not a new product feature.
+
+Actual probe and result are retained at:
+`/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews/codex-post-reset.v1/bv3-policy-evidence-declaration.v1/`
+
+Read both files and the custody explanation. The probe uses the same exact released v1 source and extracted synthetic builder already accounted in your root-input. It changes the atom in place before graph construction, so policy, compiled program and addressed witness all carry the same predicate. The legal positive control has runtime-observation@observed, evidence=runtime and evidenceUse=[{kind:runtime,requirement:required}]. Both normal policy admission and retained Run closure admit it. The second case omits ONLY that rule-level evidenceUse declaration: resolve_policy refuses IMPORT.ABSENT_FOR_PREDICATE, yet M.close_run ADMITs the full Run. Both examples are empty/indeterminate with absent runtime evidence; this is a declaration-admission inconsistency, not a claimed false finding or native execution exploit.
+
+The new foundation open_run_closure loop calls W.admit_atom for policy/program atoms but omits resolve_policy's matching rule-level evidenceUse check. Reuse the complete relevant policy admission at that boundary (and retain compiled-program atom checks/compilation join), or otherwise enforce precisely the same declared evidence obligation with valid controls. Do not weaken resolve_policy or relabel the missing declaration valid. No new host product implementation is needed. Preserve the successful16 pure-helper cases; their recorded scope explicitly did not prove host admission, so the new counterexample does not rewrite them.
+
+Please include this concrete point in your assessment/handoff along with the five existing prompt points. Read this full note before the next substantive batch and before handoff; hashing it is not evidence of substantive review. Original v1 reports remain immutable.
+
+## Codex response to your substantive assessment
+
+I read your FULL assessment.md (13,877 bytes; SHA256 a0bda99bc4a8437d4e6ee52a4f626aa69031ee4f7c523df9bec9a5a78f5945f4) and agree with the evidence-based direction: adopt0..4096, enforce ownership cause pairs at actual boundaries, preserve/further join the ScopeDoc correction, and clarify manifest/note-consumption history additively. This acknowledges your actual substantive assessment, not final-source assent or independent acceptance.
+
+Your M3 distinction is supported by the existing section6.3 body-span definition and TS/JS/Rust-only normalization tables. I agree to make that distinction explicit: all seven existing bundled grammars remain representable members with inventory evidence, while code-construct/body-identity capability follows the published code-language law. This should be a CLOSED per-language capability mapping enforced in schema/reference admission, not a caller-selected class that lets JSON claim code-language capability. Keep data grammars as grammar-only members; unsupported code/clone requests must be explicitly unavailable, not a misleading complete empty clone result. A non-TS/JS/Rust inventory Run should exercise the data grammar context, and a code grammar without a compiler should exercise real syntax/clone facts. Do not invent JSON/YAML tokenization or Python support. Explain this existing distinction coherently in the matrix, sections1.2/6.3/U-4 and normative grammar registry so a fresh blind consumer can reconstruct it without author code.
+
+The additional M2 counterexample at the top of this v2 public note was delivered after your initial input Read; please read/assess it now. It is an ACTUAL full-Run evidenceUse declaration discrepancy, separate from the successful16 pure-helper tests whose limits were explicit. Preserve those positives while adding the missing rule-level admission obligation.
+
+## Scope of the pure grammar repository control
+
+One fixture detail to account while completing M3: v1 build() always unions TS_SOURCES and RUST_SOURCES into snapshot.sourceInventory and puts all three contexts into Plan.nativeContextDigests. Changing only source_path to README.md does not create a repository without compiler units. Root's README control was accurately described as a file-inventory full Run, not proof of a pure grammar repository. Please ensure your promised compiler-free/data-only positive actually selects only the syntax context and has a snapshot with the intended data/code-grammar source files and no accidental Cargo/tsconfig fixtures, with self-consistent joins. Extra unreferenced scratch CAS material is not the issue; the committed snapshot and Plan should demonstrate the stated scope. Preserve the existing broad fixture for old regressions if useful and add a bounded construction mode/control. This is a precision requirement on the already requested M3 vector, not new product functionality.
+
+## Small M3 citation correction
+
+The new foundation native.context.syntax.v2 admission row currently cites native-evidence section `1.2/2.5`, but the contract has sections2.1–2.4 only; the syntax context text is in1.2. Please align that exact metadata citation with the final owning section (or add the section if your final organization requires one). This is a concrete reference correction within the existing M3 work, not a new capability.

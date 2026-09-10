@@ -1,0 +1,13 @@
+# Root final query integration review
+
+Actual Grok v3 final model corrected the reproduced cache, vertex, strong-boundary, visit-cap, snapshot, retained-evidence and failure-carrier defects. Root read the full original and v2 model, every v3 model/contract difference, and the final query checker and surface helper. Actual retained v5 probes passed 19 discriminating assertions; complete M3 Run admission was executed first. These are synthetic retained design/reference controls, not a blind reconstruction or compiler/host qualification.
+
+The exact v4 probes preserve the interim explicit-unrelated-view omission. Final v5 demonstrates the corrected limitation for both default and explicit selections; host-supplied deficiency arrays cannot change the retained response. Malformed request carriers preserve explicit host nonce observations and omit an invalid optional ProjectId. Historical snapshot resolution requires explicit uniqueness observations. Cache poisoning, unknown zero-hop and absent retained Run do not create authority.
+
+Root selected complete query-response parity in the actual command inventory and incorporated it into product workflow §8. Actual Grok confirmed the integration with 22 controls and specific joins. Root corrected its comment hygiene finding and the opening query-major dispatch. Graph summary items count the page; exact count basis denotes stored operation completion, not all pages delivered or native closed-world sufficiency. Other seventeen operation owners remain selected.
+
+Actual Grok walk-law peer confirmed a missing normative reach discovery order. Root incorporated FIFO BFS/fact-id ordering, first-discovery depth/viaFactId, and the explicit distinction between retained reach prefix and no path before a target witness. The existing algorithm already implements this rule. Root changed misleading unique-shortest wording to selected-shortest without changing its tie-break or implementation.
+
+Root strengthened the checker to require nonempty expected retained citations and exact equality after a host override, corrected its remaining native state token, and added a corrupt-payload control with a host retained flag. The focused checker passed 109 controls. Grok's exact final predecessor108 report/code and all interim failures remain retained.
+
+Limits: the full retained fixture supplies a references edge; branch/tie and dual-provenance examples are algorithm controls. Native incomplete-state mapping uses a native-produced payload, not a second sealed incomplete Run. Imports multi-kind table projection is not a claimed new owner-admitted positive. Fresh source-pinned suites, independent review, NEW blind and application remain required before final readiness reconciliation.

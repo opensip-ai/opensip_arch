@@ -1,0 +1,156 @@
+--- finalv1/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ finalv2/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -113,16 +113,37 @@
+ re-execution. Recovery started in a new request retains its own operational scope
+ and the explicit original journal/intent links required by §§6/12.
+ 
+-**Which operation a command mints is published, not inferred.** The map from the
+-closed command-name vocabulary to `MutationOperation` is
+-`repair.schema.json#/x-opensip-mutation-operation-map`, beside the enum. A command
+-mints an operation only through a **mutating step**, and the step kind decides the
+-surface: a generic `mutation` step carries it as `MutationParams.mutationClass`
+-and as `MutationReplayScopeV1.operation`; the `repair-apply`, `import` and
+-`native-preparation` steps are their own kinds and carry their operation on the
+-receipt only. A command with no mutating step mints none and has no row.
+-
+-**Four** commands do not share their operation's name, so name matching is not
++**Which operation a step's receipt carries is published, not inferred.** There is
++one receipt domain, `workflow.mutation-receipt` (§10), and `MutationReceiptV1`
++**requires** `operation`. `ImportResult` and `NativePreparationResult` both
++**require** a `receiptId`, so an import step and a native-preparation step each
++already owe a receipt carrying an operation — what was missing was the binding
++saying *which*. It is now published as
++`repair.schema.json#/x-opensip-mutation-operation-map/byStepKindReceiptOperation`,
++beside the enum, and it is a deterministic function of the **step kind**:
++
++| Step kind | Receipt operation | Also carried in a request field? |
++|---|---|---|
++| `mutation` | the command's row in `byCommandGenericMutationStep` | yes — `MutationParams.mutationClass`, equal to `MutationReplayScopeV1.operation` |
++| `repair-apply` | `repair-apply` | no — dedicated step, refused in both generic fields |
++| `import` | `import` | no — `ImportParams`; §4's import receipt |
++| `native-preparation` | `native-preparation` | no — `NativePreparationParams`; native §14's execution receipt |
++
++Because the binding is by **step kind and not by request class**, the `import`
++step of the `analyze` command carries the same operation as the `import`
++command's. That is also a worked case of **one operation emitted by two
++commands**, which is why this map is *not* an inverse map and must not be read
++backwards. A command with none of these four step kinds mints no operation.
++
++**The three non-generic kinds are not generic replay.** They carry their own
++params, mint no `MutationReplayScopeV1` and no `H("workflow.mutation-intent")`
++key, and carry `retryPolicy=none` by schema. Import custody and source
++correspondence are unchanged, and a fresh native preparation is a **new authorized
++execution** under its own grant set — never a delivery replay of an earlier
++receipt, and this binding grants no permission the security unit does not already
++admit.
++
++Among the generic `mutation` rows, **four** commands do not share their operation's name, so name matching is not
+ the derivation and an implementer had to guess. Three are mutation-class:
+ `baseline-upgrade` → `baseline-upgrade-apply` (the operation names the apply
+ half; the analysis half mints a Run, not a mutation), `policy-init` →
+@@ -134,12 +155,16 @@
+ The published set is held **equal** to the commands whose name is not itself a
+ `MutationOperation` member, so a later rename cannot be added to the vocabulary
+ without appearing here. Two further facts are disclosed rather than tidied away:
+-`repair-apply` is in the map because it is a real command/operation pair, and
+-being in the map does **not** make it admissible in either generic position —
+-both still refuse it by schema; and `config-write` is a `MutationOperation`
+-member that **no command in this inventory mints**, which is stated rather than
+-removed or given an invented command. Publishing the map adds no command, no
+-operation and no accepted request.
++`repair-apply` is bound by its own step kind, and being in the map does **not**
++make it admissible in either generic position — both still refuse it by schema;
++and `config-write` is the one `MutationOperation` member that **no step kind binds
++and no command in this inventory emits**, which is stated rather than removed or
++given an invented command, and which stays admissible in the generic field because
++narrowing a generic domain to today's emitters would remove a value no finding
++asked to remove. Publishing the map adds no command, no operation, no receipt and
++no accepted request. What the reference model in this kit does **not** do is emit
++an import or native-preparation receipt; that is a stated qualification limit of
++the reference evidence and is deliberately distinct from the design law above.
+ 
+ Repair apply is the explicit content-derived exception: it is a dedicated
+ `repair-apply` step, excluded from generic MutationParams. It uses the raw SHA-256 of
+@@ -352,6 +377,32 @@
+ refuses a hit count on them. One window never establishes universal non-use;
+ runtime coverage is never OpenSIP Coverage. History payloads are advisory priority
+ inputs unless a policy predicate explicitly declares `evidenceUse` for them.
++
++**A repair evidence requirement over one of these two relations has its own
++owning outcome law**, `imported-evidence.schema.json#/x-opensip-imported-requirement-law`
++(§6). It is separate from native §4.6 because these relations mint no `fact2` and
++carry no Coverage, and **each kind is projected through its own payload**: a
++runtime requirement reads `observability`, `observationWindow` and
++`observedPopulation`; a history requirement reads `revisionRange` and
++`collectionScope`, which are the only fields `HistoryPayloadV1` has. Neither kind
++may report the other's outcomes.
++
++Four limits carry over unchanged and are enforced rather than assumed.
++**Satisfied does not mean positive**: `observed-hit` is positive execution
++evidence and `observable-unhit` is *bounded negative* evidence, both can satisfy,
++and the disclosure records which did. **No imported observation establishes a
++universal negative** — one window is not universal non-use — and imported evidence
++can never *by itself* establish the native closed world or authorize an unsafe
++`delete`/`replace`: that gate stays the evidence Run's own `ClosedWorldV2` (§6).
++It may still be an **additional required condition** alongside an
++already-established native basis, so it is wrong to say it never affects
++applicability; an unsatisfied imported requirement makes an otherwise-eligible
++plan inapplicable. **Whole-versus-partial** is the requirement's existing
++`completeness`: `complete` needs every plan target supported, `partial-acceptable`
++at least one. And **required versus optional** stays where `evidenceUse` puts it —
++an optional absence remains the `IMPORT.ABSENT_FOR_PREDICATE` disclosure, is
++satisfied *by absence* rather than by evidence, and an unsupplied declaration is
++read as **required**, never silently as optional.
+ 
+ ---
+ 
+@@ -459,13 +510,42 @@
+ never collapsed into one flag.
+ 
+ **Which vocabulary `EvidenceRequirement.deficiency` carries, and when it is
+-required.** It carries the **native per-requirement sufficiency outcome** —
+-native §4.6's `DeficiencyV2`, named here through the drift-checked mirror
+-`common.schema.json#/$defs/NativeSufficiencyDeficiency` because this bundle
+-resolves only its own URNs. It is **required exactly when `satisfied` is false**
+-and **forbidden when `satisfied` is true**, which is precisely the closed result
+-shape `sufficiency_v2` returns; both directions are schema-enforced and admitted
+-again at preview before any descriptor exists. The field previously named
++required.** Preview admits a requirement over **either evidence plane**, so the
++field carries the vocabulary of **that requirement's** plane and the plane is
++decided at admission from the relation's registry membership — the same place the
++two planes are already separated — never from the value.
++
++* **Native plane** — the thirteen native fact relations. The value is native
++  §4.6's `DeficiencyV2`, named here through the drift-checked mirror
++  `common.schema.json#/$defs/NativeSufficiencyDeficiency` because this bundle
++  resolves only its own URNs.
++* **Imported plane** — `runtime-observation` and `history-change`. Those relations
++  mint no `fact2` and have no Coverage entry, so `sufficiency_v2` has nothing to
++  range over and is not asked. Their outcomes are owned by
++  `imported-evidence.schema.json#/x-opensip-imported-requirement-law` and mirrored
++  as `common.schema.json#/$defs/ImportedRequirementDeficiency`; every member names
++  an already-published import condition and is bound to the payload field that
++  grounds it, and each kind reports only the outcomes **its own** payload can
++  ground (§4). The requirement record gains no field: plan `targets` supply the
++  per-target scope, its existing `completeness` decides whole-versus-partial, and
++  `evidenceUse` supplies required-versus-optional.
++
++The two vocabularies are **disjoint**, and a cross-plane value — a native
++requirement claiming `import-unmapped-only`, or an imported one claiming
++`resolution-incomplete` — is refused at admission. The schema alone cannot decide
++this, because `relation` is a canonical identifier rather than an enum; it admits
++either vocabulary, and the plane check is the admission's. That division is stated
++rather than implied.
++
++The value carried is the **satisfaction/deficiency projection** of its producer's
++result, not that result: `sufficiency_v2` also returns `causes` on both branches
++and may return `disclosures` on a failing branch, and those stay with the producer
++and the retained Coverage. Presence is **typed**: `deficiency` is **required
++exactly when `satisfied` is false** and **forbidden when it is true**, `satisfied`
++must be an actual boolean, and an explicit `null` is refused in both branches
++because a present key with a null value is not an absent key. Both boundaries — the
++schema and the preview admission — decide that same law and are held equal on an
++enumerated shape table. The field previously named
+ `D9Deficiency`, which cannot express four of the nine outcomes its only producer
+ emits — `derivation-policy-unmet`, `external-consumers-unknown`,
+ `input-closure-incomplete` and `resolution-incomplete` — leaving three conforming

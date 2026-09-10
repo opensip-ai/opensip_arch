@@ -1,0 +1,368 @@
+{
+  "review": "OpenSIP DR-011-R10 blind consumer-B reconstruction",
+  "reviewer": "actual Claude, fresh blind session, no prior review context, no authorship",
+  "date": "2026-09-06",
+  "verdict": "CHANGES_REQUIRED",
+  "verdictBasis": "Every promised vector was constructible and every constructed descriptor validates against the kit's own closed schemas, but five required findings remain: each is a place where two conforming implementations would disagree on admission or where a required public output has no expressible value. Any remaining MUST or SHOULD design gap requires CHANGES_REQUIRED.",
+  "scopeDisclaimer": "This is a disposable design-reference exercise. It is not product qualification, not implementation authorization, and not a readiness grade. Every observation fed to my reconstruction (file bytes, closure trees, provider output, OS/compiler behaviour) is a synthetic assumption, never native enforcement proof.",
+
+  "inputCustody": {
+    "manifest": "consumer-input-manifest.json",
+    "manifestSha256": "7d5ea7a3b74db991ded23504f6f6633d85c2bbd719b9bcc6da2de953a4efb961",
+    "claimedParentSubjectSha256": "fc124cc7d487f7f6fcc97665255574273b03fe1f09e6b70c3246feedf1678beb",
+    "filesListed": 45,
+    "filesVerified": 45,
+    "hashMismatches": 0,
+    "byteLengthMismatches": 0,
+    "missingFiles": [],
+    "extraFilesOnDisk": [],
+    "allOk": true,
+    "note": "The claimed parentSubjectSha256 is an assertion about a parent tree I was not given and therefore did not verify; I verified only that every listed file's exact bytes match its listed sha256 and byte length, that nothing is missing, and that nothing unlisted is present.",
+    "evidence": "work/manifest-verification.txt, work/verify_manifest.py"
+  },
+
+  "counts": {
+    "vectors": 143,
+    "vectorsFailing": 0,
+    "designFindings": 10,
+    "schemaChecks": 214,
+    "schemaChecksInvalid": 0,
+    "completeRunGraphs": 5,
+    "retainedBlobs": 89,
+    "retainedHFrames": 108,
+    "retainedCanonicalRecords": 70
+  },
+
+  "newMustIssues": [
+    {
+      "id": "CB3-MUST-1",
+      "title": "The relation rung ladder is not carried by the registry the identity contract names as its source",
+      "selectors": [
+        "docs/v2/contracts/product-v1/identity-and-evidence.md section 3, 'fact2 payload encoding: one explicit successor law': \"its x-opensip-relation-registry carries each relation's selector, universe rule and rung ladder\" and \"resolution must be a rung of that relation's ladder\"",
+        "docs/coop/design-corrections/foundation/relation-payload-schemas.v2.json#/x-opensip-relation-registry/relations/{file,package,vcs-change,declares,literal,control-flow,reachability,clones}/rungs",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-payload-registry/classes/relation (\"fact.resolution must be a rung of the row ladder\")"
+      ],
+      "observation": "The successor registry has no `ladder` key at all. Its `rungs` member is a per-rung required/forbidden FIELD-RULE table and is the empty object {} for eight of the thirteen relations. Reading `rungs` as the ladder makes every `file`, `package`, `vcs-change`, `declares`, `literal`, `control-flow`, `reachability` and `clones` fact inadmissible, so no Run of the kind the contracts require could ever close. Reading the ladder from somewhere else contradicts the sentence that says this document carries it.",
+      "whyItIsAMust": "Two conforming implementations reach opposite admission decisions on the same bytes. The identity contract itself says an unresolved overlap of this kind is a design defect, never reviewer discretion.",
+      "mitigatingFact": "The values do exist in the kit and are unambiguous: docs/coop/design-corrections/native/capability-manifest-domains.v2.json#/registries/RELATION-LADDER-DOMAIN-V2/ladders publishes all thirteen ladders and they agree exactly with the inherited docs/coop/artifacts/fact-plane.v1.json#/relationRegistry/relations[].ladder. But that registry declares its boundPositions as `ProviderCapability.relations value` only, so it is not bound to fact2.resolution.",
+      "requiredCorrection": "Either add an explicit `ladder` array to each row of x-opensip-relation-registry, or make identity section 3 name RELATION-LADDER-DOMAIN-V2 as the ladder authority for fact2.resolution and widen that registry's boundPositions accordingly.",
+      "vectors": ["F-4", "F-4b", "E-17"],
+      "reconstructionImpact": "I proceeded under the stated assumption that the ladder is the inherited/RELATION-LADDER-DOMAIN-V2 value. Without that assumption none of the five Run graphs is constructible."
+    },
+    {
+      "id": "CB3-MUST-2",
+      "title": "`minResolution` carries two different closed vocabularies with no published mapping",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/schemas/policy-document.schema.json#/$defs/Resolution (enum: syntax, resolved, type, external) reached from #/$defs/Atom/properties/minResolution",
+        "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/Rung (15 members) reached from #/$defs/RequirementV2/properties/minResolution",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/fact/properties/resolution",
+        "docs/v2/contracts/product-v1/identity-and-evidence.md section 4 (\"The declarative rule program defines the exact subject enumeration, relation/rung, typed field filter...\")"
+      ],
+      "observation": "The evaluator must decide whether an admitted fact satisfies an atom's minimum resolution. The atom carries one of four abstract tiers; the fact carries one of fifteen ladder rungs; the native requirement record carries a rung. The two enums are disjoint (zero shared members). No document in the kit maps `syntax`/`resolved`/`type`/`external` onto ladder rungs, per relation or otherwise.",
+      "whyItIsAMust": "This is not algorithm freedom. Whether `minResolution: resolved` is satisfied by `resolved-target`, by `resolved-binding`, by `checked`, or by all of them is a public semantic decision that changes which findings a policy emits. Two conforming implementations produce different verdicts from the same Plan.",
+      "requiredCorrection": "Publish the per-relation mapping from the Atom `Resolution` tier to the relation's ladder rungs, or make Atom.minResolution a Rung and state the compatibility rule for existing policy documents.",
+      "vectors": ["F-5"],
+      "reconstructionImpact": "My proof bundles use `minResolution: syntax` with an `exists` atom, where every candidate reading agrees. A policy needing `resolved` or `type` is not reconstructible."
+    },
+    {
+      "id": "CB3-MUST-3",
+      "title": "The `syntax-only` language mode has SUPPORTED-DESIGN fact cells but no admissible universe value",
+      "selectors": [
+        "docs/coop/design-corrections/native/native-capability-matrix.v2.json#/cells (mode `syntax-only`: capability `syntax` SUPPORTED-DESIGN, capability `clones-fact` SUPPORTED-DESIGN)",
+        "docs/v2/contracts/product-v1/native-evidence.md section 1.2, mode `syntax-only`, column Universe: \"none (syntax-all provider)\"",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/fact/properties/sourceUniverse and /targetUniverse (required, non-nullable, x-opensip-digest h-identity, domainSet `native-semantic-universe`)",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/subject-scope/properties/sourceUniverse and /targetUniverse",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-digest-domains/domainSets/native-semantic-universe (exactly two members: native.semantic-universe.typescript.v2, native.semantic-universe.rust.v2)"
+      ],
+      "observation": "A `syntax-only` unit is contracted to produce declares/literal/control-flow facts at `syntactic` and clones facts at `normalized-body-hash`. fact2 and subject-scope both REQUIRE a universe h-identity, and the registered universe domain set has only TypeScript and Rust. There is no null branch, no third domain and no stated exemption. The same gap blocks `file`, `package` and `vcs-change` facts for any repository with no TypeScript or Rust unit at all.",
+      "whyItIsAMust": "A capability the matrix advertises as SUPPORTED-DESIGN is not representable in the identity graph. An implementer must either invent a third universe domain, invent a null branch on a required field, or silently narrow the matrix.",
+      "requiredCorrection": "Register a syntax-only semantic-universe domain with its own record and binding, or make the universe fields nullable with an explicit law for what a universe-free fact means, or state in the matrix that syntax-only cells produce no fact2.",
+      "vectors": ["F-7"],
+      "reconstructionImpact": "I did not build a syntax-only Run; it is the one shape in the contracted matrix I could not construct without inventing design."
+    },
+    {
+      "id": "CB3-MUST-4",
+      "title": "`ScopeDocumentV1` is required to be an analysis-spec parameter, and the closed parameter registry has no row for it",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/schemas/comparison-result.schema.json#/$defs/EvaluationContext (description: scopeDigest is \"raw SHA-256 of the canonical ScopeDocumentV1 bytes (the workflow glob scope-policy document, bound as an analysis-spec parameter ...)\")",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-payload-registry/classes/parameter/rows (exactly one row: foundation/import-source-context.schema.json)",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-payload-registry/law/unregistered (\"a key with no row refuses; there is no default row and no caller-selected schema\")",
+        "docs/v2/contracts/product-v1/identity-and-evidence.md section 3 payload registry table, class `parameter`: \"a document on the closed list; today only foundation/import-source-context.schema.json\""
+      ],
+      "observation": "An analysis-spec parameter row is `{schemaDigest, payloadDigest}` whose payloadDigest is resolved through the `parameter` payload class keyed by schemaDigest. That class is closed to one document. A ScopeDocumentV1 parameter therefore refuses at Plan admission, so the comparison contract's own scope axis cannot be populated.",
+      "whyItIsAMust": "One contract requires a binding a sibling contract's closed registry forbids. The comparison scope axis (E2 to E3) is unimplementable as written.",
+      "requiredCorrection": "Add the ScopeDocumentV1 row (document plus selector) to x-opensip-payload-registry.classes.parameter.rows, or move the scope-policy document out of the analysis-spec parameter mechanism and name its actual carrier.",
+      "vectors": ["F-6"]
+    },
+    {
+      "id": "CB3-MUST-5",
+      "title": "The required partial-ownership Coverage disclosure has no publishable typed cause",
+      "selectors": [
+        "docs/v2/contracts/product-v1/identity-and-evidence.md, `clones` section: \"the clones scope mints no body identity, its Coverage reports the incompleteness, and the predicate and seal are indeterminate rather than a false pass\"",
+        "docs/v2/contracts/product-v1/native-evidence.md section 11, scopeVersusEnumeration (same requirement)",
+        "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/NativeCause (11 members, none naming ownership)",
+        "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2",
+        "docs/v2/contracts/product-v1/native-evidence.md section 10, row `input-closure-incomplete` (closed cause list: missing-dependency-source, lockfile-missing, source-replacement-outside-snapshot, generated-output-unavailable, generated-file-missing, generated-file-out-of-bounds, no-program-unit, node-modules-outside-read-set, config-flag-stripped)"
+      ],
+      "observation": "The three refusable ownership states named by the languageVersionBinding selectionLaw (BODY_LANGUAGE_OWNERSHIP_REQUIRED, BODY_LANGUAGE_OWNER_UNENUMERATED, BODY_LANGUAGE_OWNER_AMBIGUOUS) must surface in the clones Coverage entry as a typed deficiency plus nativeCause. No NativeCause member names any of them, and the section 10 row that would carry them enumerates causes that exclude them.",
+      "whyItIsAMust": "The contract mandates a specific public disclosure and the closed vocabulary cannot express it. Every implementer must invent the pairing, and the CLI/JSON/SARIF/HTML/agent parity fields would then differ between implementations.",
+      "requiredCorrection": "Add the ownership causes to NativeCause and to the section 10 input-closure-incomplete row (or give them their own row).",
+      "vectors": ["F-8", "D-18"],
+      "reconstructionImpact": "RUN-RUST-PARTIAL uses deficiency=input-closure-incomplete with nativeCause=null as a stated assumption; nativeCause is nullable so the record validates, but the disclosure carries no cause."
+    }
+  ],
+
+  "newShouldIssues": [
+    {
+      "id": "CB3-SHOULD-1",
+      "title": "A record and its claimed 'exact mirror' declare different owning array orders for the same digest preimage",
+      "selectors": [
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/import/properties/omissions (x-opensip-order: canonical-set)",
+        "docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json#/$defs/ImportWrapperV2/properties/omissions (x-opensip-order: sequence; description claims 'Exact mirror of foundation import descriptor fields')",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/scope-descriptor/properties/{workspaceRoots,pathPrefixes,excludedPathPrefixes} (canonical-set)",
+        "docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json#/$defs/ImportScopeDescriptor/properties/{workspaceRoots,pathPrefixes,excludedPathPrefixes} (sequence; description claims 'Exact mirror of foundation identity-schemas.v2.json#/$defs/scope-descriptor')",
+        "docs/v2/contracts/product-v1/identity-and-evidence.md section 3: \"No caller may elect a different order for one schema\"",
+        "docs/v2/contracts/product-v1/workflows-and-surfaces.md section 12: \"The native and workflow import builders produce byte-identical wrappers\""
+      ],
+      "observation": "Under canonical-set the array must be strictly ascending; under sequence any order is admitted. An import whose omissions are ['b','a'], or a scope descriptor whose workspaceRoots are unsorted, is admissible through the workflow document and refused by the foundation document that owns the same digest preimage. The byte-identical-wrapper claim then fails for exactly the inputs the two schemas disagree about.",
+      "requiredCorrection": "Make the mirrors declare the owning order, or state which document is authoritative and generate the other."
+    },
+    {
+      "id": "CB3-SHOULD-2",
+      "title": "`import.blobs` cardinality diverges between the foundation record and the workflow mirror",
+      "selectors": [
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/$defs/import/properties/blobs (no minItems; maxItems 100000)",
+        "docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json#/$defs/ImportWrapperV2/properties/blobs (minItems 1, maxItems 4096)"
+      ],
+      "observation": "An import with zero blobs, or with more than 4096 blobs, is admissible in one unit and refused in the other, although importId is one H identity over one wrapper.",
+      "requiredCorrection": "Reconcile minItems and maxItems, or declare one document authoritative."
+    },
+    {
+      "id": "CB3-SHOULD-3",
+      "title": "`ResolvedNodeModulesLayoutV1.contentSha256` is described as snapshot-inventoried and as deliberately not snapshot-inventoried",
+      "selectors": [
+        "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/ResolvedNodeModulesLayoutV1 description: \"contentSha256 is the raw SHA-256 of that package directory manifest file bytes (its package.json) as inventoried in the snapshot\"",
+        "docs/v2/contracts/product-v1/native-evidence.md section 2.2: \"These rows are not snapshot inventory rows and must not be: the one shared discovery rule prunes node_modules by path segment, so the layout is a retained resolution observation of bytes the analysis read, joined by digest rather than by snapshot membership\"",
+        "docs/coop/design-corrections/foundation/identity-schemas.v2.json#/x-opensip-digest-domains/domainSets/native-context/native.context.typescript.v2/nestedRecords[0].blobJoins"
+      ],
+      "observation": "The machine-readable registry resolves this in favour of the prose (a blobJoin, not a snapshotJoin), so I built the layout as retained blobs outside the inventory. The schema description still states the opposite and an implementer reading only the schema would add node_modules paths to the snapshot inventory, contradicting the shared discovery pruning rule.",
+      "requiredCorrection": "Correct the schema description to match section 2.2 and the blobJoin annotation."
+    }
+  ],
+
+  "nonBlockingAdvisories": [
+    {
+      "id": "CB3-ADV-1",
+      "title": "Pin-inventory completeness is not expressible in the closed disclosure schema",
+      "selector": "docs/coop/design-corrections/workflows/schemas/common.schema.json#/$defs/PinnedPurgeDisclosure",
+      "observation": "A schema-valid strict subset of the active pins validates. Completeness is a host obligation observed under the exclusive purge lease.",
+      "standing": "The contract states this itself (workflows section 12: 'A schema-valid subset does not satisfy that obligation'). Recorded as a limitation of the schema, not a defect.",
+      "vector": "G-pin-truncation"
+    },
+    {
+      "id": "CB3-ADV-2",
+      "title": "`EnforcementValue` admits a stronger token than the measured truth table",
+      "selector": "docs/coop/design-corrections/workflows/schemas/test-execution.schema.json#/$defs/EnforcementValue",
+      "observation": "A test step declaring network=ENFORCED-AT-HOST-BROKER validates against the schema; TEST.CONFINEMENT_CLAIM_REFUSED is a host-side join against permission-truth-tables.v9. Correct by design, but the schema alone is not the guard, so a reader must not treat schema validity as an enforcement claim.",
+      "vector": "H-test-confinement-claim"
+    },
+    {
+      "id": "CB3-ADV-3",
+      "title": "Inventory relations have no capability row",
+      "selector": "docs/coop/design-corrections/native/native-capability-matrix.v2.json#/capabilities",
+      "observation": "`file`, `package` and `vcs-change` appear in the relation registry and in the capability-manifest relation domain, but no matrix capability row names them, so the matrix does not say which component produces them. This is what makes CB3-MUST-3 also reach `file` facts in a repository with no TypeScript or Rust unit."
+    },
+    {
+      "id": "CB3-ADV-4",
+      "title": "The 723-byte edition-map illustration is not reproducible from the published grammar",
+      "selector": "docs/v2/contracts/product-v1/identity-and-evidence.md, `clones` section: \"A Rust workspace of twenty-one crates already produces 723 bytes of raw map, against a maximum of 255\"",
+      "observation": "My own 21-crate edition map canonicalizes to 391 bytes under C. The design conclusion holds under my measurement (391 > 255, so the map cannot be a u8-length-framed frame component), but the specific number depends on unstated crate names. Treating it as an oracle would be wrong; I did not.",
+      "vector": "D-16"
+    }
+  ],
+
+  "requiredInvention": [
+    {
+      "item": "the rung ladder for the eight one-rung relations",
+      "resolution": "assumed, not invented: taken from capability-manifest-domains.v2.json RELATION-LADDER-DOMAIN-V2, which agrees exactly with the inherited fact-plane.v1 ladders",
+      "issue": "CB3-MUST-1"
+    },
+    {
+      "item": "the deficiency/nativeCause pairing for a partial source-unit-ownership clones scope",
+      "resolution": "invented: deficiency=input-closure-incomplete with nativeCause=null, the least-invasive schema-valid pairing",
+      "issue": "CB3-MUST-5"
+    },
+    {
+      "item": "the meaning of ViewEntryV3.examinedExhaustive under partial ownership",
+      "resolution": "chosen: examinedExhaustive=false and coverage=unknown, because ViewEntryV3 has no other field in which a clones scope can report that its ownership enumeration did not finish",
+      "issue": "CB3-MUST-5"
+    },
+    {
+      "item": "the Atom.minResolution to fact rung comparison",
+      "resolution": "avoided: every proof uses `syntax`, where all candidate readings agree",
+      "issue": "CB3-MUST-2"
+    },
+    {
+      "item": "a syntax-only universe",
+      "resolution": "not invented; the shape was left unbuilt and reported",
+      "issue": "CB3-MUST-3"
+    }
+  ],
+
+  "algorithmFreedomCorrectlyLeftOpen": [
+    "Query planning is explicitly an optimization whose result must agree with a retained full scan (identity section 4). That is freedom, not a gap.",
+    "The L1..L3 normalizer itself: the contract requires retained preimage custody plus framed-identity checking and explicitly declines to grade tokenisation. FACT-IDENTITY owns level specifications; their absence from this kit is a scoped deferral, not a missing public contract, because normalisationVersion pins whatever bytes are used.",
+    "Near-clone grouping (Jaccard over 5-gram shingles), suffix-array or hash strategies, cache eviction, and provider process management are implementation choices.",
+    "SQLite WAL settings, fsync ordering and process-death handling are named as implementation qualification obligations, not design alternatives."
+  ],
+
+  "reconstructedChain": {
+    "0-discovery": "security S3 selects the authority root (config > vcs-default > cwd-default) over O_NOFOLLOW lstat/ACL custody, exports AdmittedBoundaryInventoryV1; native section 1.4 consumes it unchanged and derives WorkspaceUnitV2 per language family; the shared rule in discovery-defaults prunes node_modules/.git/target by exact segment.",
+    "1-typed-config": "admission section 1.1 layers compiled defaults, global, project, interactive local and flags; the resolved semantic configuration always carries all five sections and a complete analysis.budget; resolvedConfigDigest is raw SHA-256 of its canonical bytes.",
+    "2-source": "snapshot2 over ProjectId, sorted source inventory, resolvedConfigDigest, scopeDigest and vcsDigest.",
+    "3-operational-lifecycle": "RequestId minted before admission; a fresh ExecutionId per admitted attempt; StepId is the zero-based DAG position; none of these enters a semantic identity.",
+    "4-native-context-and-universe": "admit_native_context binds the language's context to retained closures; bind_typescript_universe / bind_rust_universe bind the universe to the exact admitted context bytes and the retained nested records; both re-run at Run closure over retained bytes only.",
+    "5-plan": "plan2 over snapshot, capability manifest, semantic closures, analysis spec, resolved config, the SET of selected native context bare-hex digests, imports, policy, waivers, scope, budget and semantic grant.",
+    "6-facts-coverage-view": "the host mints fact2 from an adapter-normalized C payload; admit_coverage_result_v3 mints coverage2 only from the host's own scope2, checking the provider's in-band subjectScopeCommitment against a value it never supplied; view2 joins scopes, facts and Coverage under one Plan and producer.",
+    "7-proof": "the pure evaluator consumes only Plan-bound admitted inputs; each predicate proof addresses a node of the admitted RuleProgramV1 by the total address grammar (p, p.i, p.0) and names a retained witness; the host independently replays the whole normalized result before sealing.",
+    "8-evidence-seal-run": "evidence2 may include proof2; seal2 includes both; run2 includes the seal. The graph is acyclic and I checked the direction rather than assuming it.",
+    "9-durable-receipt": "closure validation and replay, then blob publication with fsync, then one synchronous ledger transaction carrying the Run manifest, object references, retained availability generation, pins and a commit receipt binding ExecutionId and the commit-inventory digest, then acknowledgement.",
+    "10-availability": "sealed assurance (verified/verifiable/replayable) is immutable; current availability is a separate monotonic-generation record (retained/partial/expired/purged/corrupt/unavailable) and a query reports both.",
+    "semanticVersusOperational": "Semantic identities are content-derived and exclude wall clocks, PIDs, RequestId, ExecutionId, credentials, authorization nonces, receipts and output destinations. Operational authority (grants, consent, leases, receipts) lives outside every content identity: RepoExecutionGrantV2 and RepairApplyAuthorizationV1 are referenced operationally and never enter Plan; only their semantic projection (principal kind, closure, owner-source digest, operation set, scope) does.",
+    "mutationVersusAnalysis": "analysis and verify are the only steps that seal or link a run2. comparison, query, render, import, repair-preview, repair-apply, test-execution, native-preparation, mutation, export-delivery and doctor mint no Run."
+  },
+
+  "ownershipMap": {
+    "repository boundary, custody, trust time, revocation, platform admission, leases, migration, execution grants": "security-and-lifecycle (S3, S4, S4.5, S5, S6, S7, S8, S9, S10)",
+    "workspace unit discovery inside the admitted boundary, native contexts and universes, Coverage admission, relation payload production, clone modes, provider protocol": "native-evidence (sections 1-11)",
+    "canonical encoding C, H, the digest law, payload registry, Plan/fact/view/proof/evidence/seal/Run identities, retention, purge, replay, availability": "identity-and-evidence (sections 2-5)",
+    "invocation and step lifecycle, baseline and comparison, imports, policy DSL and waivers, review, repair, command inventory, renderers, D9 goldens": "workflows-and-surfaces (sections 1-12)",
+    "exact numeric and schema admission, Config2 resolution, release qualification gates and report custody, product boundary": "admission-and-qualification (sections 1-5)",
+    "D9 class, code, exit and precedence": "host-owned and unchanged by every unit; native H-3 and H-4 explicitly request no new codes",
+    "public DomainDetailCode vocabulary": "the single shared public-detail-registry.v1.json; internal decision keys are aliases and never public enum values"
+  },
+
+  "constructedGraphs": [
+    {
+      "name": "RUN-TS",
+      "runId": "run2:665153ac887421866c765047a2e16aae2e3810a7a997b52d7595c45db9a52eb1",
+      "verdict": "pass",
+      "nativeContexts": 4,
+      "exercises": [
+        "ordinary tsconfig project that reads node_modules and resolves bare specifiers, with a retained ResolvedNodeModulesLayoutV1 including a pnpm-style store link whose realPath is itself an installPath",
+        "synthesized configuration (entry null, empty node set, nodeModulesInReadSet false)",
+        "explicitly selected custom-named project config (node kind `other`) inheriting from three ordered bases with the first base REPEATED last, precedence retained",
+        "JavaScript config (jsconfig entry) inheriting a shared base with a different filename, still deriving configOrigin jsconfig",
+        "a complete file fact with inventoried path/hash/length joins and retained-blob rehash",
+        "a JavaScript clone body through the TypeScript engine universe, carrying languageId javascript",
+        "clones at L0-verbatim and at a normalized level L1-lexical"
+      ]
+    },
+    {
+      "name": "RUN-RUST-2021",
+      "runId": "run2:fdeafd4a2e55255018530c2992fc452553d99457f10f50fcb98f687bb03a63ca",
+      "verdict": "fail",
+      "selection": "lib target of cb-core, plus cb-legacy and cb-tools",
+      "effectiveEdition": 2021
+    },
+    {
+      "name": "RUN-RUST-2015",
+      "runId": "run2:64834bd0b6c7e91b29d3d85702dcd47d05caa48c0d7f9b3871e72062918a6272",
+      "verdict": "fail",
+      "selection": "test target of cb-core (targetEdition 2015 overriding package default 2021), plus cb-legacy and cb-tools",
+      "effectiveEdition": 2015
+    },
+    {
+      "name": "RUN-RUST-2021-NARROW",
+      "runId": "run2:8856505f862e4fb14c88cc38756f56437b24ad875462d399ea995d5584858373",
+      "verdict": "fail",
+      "purpose": "ownership selection changes without changing the effective dialect: body identity stable, sourceUniverse and run2 move"
+    },
+    {
+      "name": "RUN-RUST-PARTIAL",
+      "runId": "run2:a0533553aa5265b88e7b8d81df839342b11c29dcef57871a8f066f785cf33b51",
+      "verdict": "indeterminate",
+      "purpose": "partial ownership enumeration: empty clone view, Coverage does not claim complete, predicate and seal indeterminate"
+    }
+  ],
+
+  "keyIndependentResults": {
+    "capabilityManifestId": {
+      "value": "d129952fec589bdc3197f8671567351dc87d4224a8cc2abe53d7ae0fa05989f6",
+      "committedBytes": 1020,
+      "recipe": "hex(SHA256(UTF8(\"opensip.capability-manifest.v1\") || 0x00 || CVE1(CapabilityManifestV1)))",
+      "note": "over my own manifest, computed twice by two independently spelled paths"
+    },
+    "byteIdenticalBodiesInTwoLanguages": {
+      "typescriptBody": "sha256:8b45c222b81882a348dc334a8f0f6f9976f6cd87be968f281af273bf6420a493",
+      "javascriptBody": "sha256:75ebe15b0f8988d223c1c4c3780684868695a5807807f6a061e9ad473e4d0d3b",
+      "note": "the same 19 body bytes in a .ts and a .js file under ONE TypeScript engine universe mint different identities, because languageId and sourceVariant are in the frame"
+    },
+    "samePathTwoEditions": {
+      "bodyIdentity2021": "sha256:423c20c17ee486cb82abc0032cffda3762353b7c4e734e8de90f096253d1cdb8",
+      "bodyIdentity2015": "sha256:fbc211a39755056ce81a10795fc346c00be35570faf54303a22e0763bf1250ff",
+      "sourceUniverse2021": "66d7470d9242e01ce41716d1f7d73ea04f9002e2149f1f7eb36e4fe617c03a18",
+      "sourceUniverse2015": "03708aa84049b4e0a9c12ba0d2f6a2963079e5010b05e143032351437db3bb02"
+    },
+    "dialectStabilityUnderSelectionChange": {
+      "bodyIdentity": "sha256:423c20c17ee486cb82abc0032cffda3762353b7c4e734e8de90f096253d1cdb8",
+      "wideUniverse": "66d7470d9242e01ce41716d1f7d73ea04f9002e2149f1f7eb36e4fe617c03a18",
+      "narrowUniverse": "98ec97bdddf3fec2e58a334e8fa50f7983cd9bb9891b4a8e1c2e8c0f168b86e3"
+    },
+    "hashMarkerDirectory": {
+      "markerPath": "crates/legacy#2015/Cargo.toml",
+      "unitId": "sha256:e927ccbf6e198b878d65284b8559071ef4039257fbe1712a4d37c8f77fb998aa"
+    },
+    "editionMapBound": {
+      "crateCount": 21,
+      "canonicalBytes": 391,
+      "u8ComponentMaximum": 255
+    },
+    "rustNestedIdentities": {
+      "dependencySourceSetId": "sha256:7173f2a8087a5f66636a23b66b9db807bd8b24d5770e0715c9d4116bb5d50b90",
+      "dependencyFileManifestSha256": "d05102a8ceedfb0857058a8649ead95087c1215963044469fbf5335870784adf",
+      "unifiedFeaturesId": "sha256:7953d4f40ba16e2ef833cfedf7851f9684995cb1d8b05d855783f26ce5ab8372",
+      "configProjectionSha256_H_suffix": "e20db99d67f8acb27900453e109e53b7f49bfcf75e40903b522dfd3ea57f8fc7",
+      "projectionSha256_raw_file": "fff0d3dc223d22ff0824f053dc9212bc1fc0c6e94d7ea2120077d3217284520b",
+      "rawSha256OfCanonicalProjectionRecord_neither_of_the_above": "81b713fc66e2d5c88958ca01f8417f461d46c1744af7b9028a5a12b59c75da58",
+      "sourceUnitOwnershipId": "sha256:a1e095f37466258f40853f5a6cd3c5dc53026986621bdc75cee794d1477b00e0",
+      "nativeContextId": "sha256:242a2448c0bcc0f9789922a751edf330b9eac1e112085f9112143f7d9dbce161"
+    },
+    "importIdentity": {
+      "importId": "import2:df766981b5bf50f3070564dd6031e987ba52366868308962923e8022a8c7fab1",
+      "payloadDigest_raw": "85a4e41473b9ba1bb4cec90ce24db1c4a8cee9314357b1b035104ad53b320c8c"
+    },
+    "mutationReplayKey": {
+      "recipe": "bare 64-hex H(\"workflow.mutation-intent\", {schemaVersion,requestId,stepId,projectId,operation})",
+      "value": "e01c7dd9430791ca4d0e2af12d169b832181d914e3586c717f3f22062ec12330"
+    },
+    "repairApplyKey": {
+      "recipe": "raw SHA-256 of C({operation:\"repair-apply\",projectId,repairPlanId,baseSnapshotId})",
+      "value": "fe14261349a62db7b7ed6a939887c72f9b0d6a8823b772276a07f49ab0efc4b6",
+      "note": "a different recipe from the generic H-domain mutation key, exactly as the contract requires"
+    }
+  },
+
+  "limitations": [
+    "Every OS, compiler, provider, cryptographic and SQLite observation in this reconstruction is a synthetic assumption stated as such. Nothing here measures a real toolchain, proves confinement, or qualifies a platform, a normalizer, an enumerator or a carrier.",
+    "I built descriptor graphs and admission logic, not a product. Passing my own reconstruction proves that the design is constructible under my reading; it does not prove my reading is the author's.",
+    "I did not read any author reference implementation, fixture, golden, report, prior review, or any other /tmp/opensip-design-corrections directory. Where an embedded example appeared in a normative document I treated it as illustration and computed my own vector instead.",
+    "The claimed parentSubjectSha256 was not verifiable from this kit; I verified per-file custody only.",
+    "Schema validation used the kit's own documents through a pinned local registry with no network. It establishes shape conformance, not semantic conformance: the joins the prose requires (snapshot joins, closure joins, frame re-admission, citation closure, budget agreement) I implemented and exercised myself, and my implementation is my reading.",
+    "I did not construct a `syntax-only` Run (CB3-MUST-3) and I avoided any policy needing a resolved or type minimum resolution (CB3-MUST-2). Both omissions are reported rather than worked around.",
+    "This review grants no readiness grade, no acceptance, no implementation authorization and no claim of product qualification."
+  ],
+
+  "artifacts": {
+    "blind-review.md": "the narrative review",
+    "blind-review.json": "this file",
+    "cb-vectors.json": "every vector, every schema check, all five Run graphs, terminations and keys, machine-readable",
+    "work/cb_canonical.py": "my C encoder, exact admission, H frame, order vocabulary, CVE1, capability-manifest gates, FACT-IDENTITY body frame and dialect selection, authored from prose",
+    "work/cb_vectors.py": "admission, identity-movement and capability-manifest vectors",
+    "work/cb_graph.py": "the five Run graph builders and the reconstructed admission joins",
+    "work/cb_validate.py": "the pinned local schema registry and validator",
+    "work/cb_report.py": "the driver: graph-level vectors, negatives, mirror probes, terminations, comparison and authorization instances",
+    "work/verify_manifest.py": "input custody verification",
+    "work/manifest-verification.txt": "its output"
+  }
+}
