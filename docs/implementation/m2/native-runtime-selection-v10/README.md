@@ -1,0 +1,7 @@
+# Portable matching and policy/program admission — proposed runtimev10
+
+Composes frozen policy22 including unchanged reviewedglob21 onto live runtimev9. Sevenmappedinputs/twonewfiles,241nonlockproductfiles exactsource22. Neutralidentitycurrent_record_shape andlocalclosurepolicy pin update; prioridentitymethods/externalTCB unchanged.47hostpolicycases106tests/930referencecomparisons plusprior610313globcomparisons.
+
+Preparation and isolated host build preflight use18/22base before pendingreferencev2selection. Build source exports exclude design-lock.json and retain Cargo.lock; sources are unchanged by the future reference selection. BEFOREFREEZE recompose candidate/baseline design-lock from actualselected18/23 and run6currentbasechecks. Referencev2mustbeaccepted; source22review/formalruntime/rootassent/privateactivation stillpending. No fullRun/replay/custody/release claim.
+
+Freeze status: actual source22 no required findings; referencev2 formally accepted/rootselected18/23. Candidate and baseline lock recomposed to exactlive18/23; six currentbase checks pass. Host123sources18archives106tests/help/version and provider25sources14archives3honestunavailable pass. Their Cargo/source exports omit design-lock; earlierhostdesignpreflight18/22 remains historical, explicitbase-recomposition account explains the laterreference-onlylockchange. Formalruntime review/rootassent/privateactivation stillpending.

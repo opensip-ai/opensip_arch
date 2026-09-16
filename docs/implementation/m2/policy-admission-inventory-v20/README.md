@@ -1,0 +1,5 @@
+# Policy admission metadata layout v20
+
+Adds only evaluator/atom-registry.json to382 unchanged inherited rows,383total and20packages/DAG unchanged. Existing planned policy.rs owns retained policy/program validation and exact compilation; future atoms.rs owns evidence evaluation. Closed shared atom metadata derives from the selected evaluator-projection-registry; follows body-registry, coverage-registry and view-joins-registry naming. Neither metadata nor successful local checks establish Run/replay authority. No new dependency/package/productionedge.
+
+Current live17inventory/22contracts inventory19/runtimev9. Glob21 source reviewed separately and proposed predicate reference successor remain uninstalled. This layout does not approve source22, identity API changes or reference corrections. Private activation must verify required inheritedRowsEqualByValue declaration and project all3inheriteddescription overrides by file path, not old indexes. Preserve original failed inventory19 history.

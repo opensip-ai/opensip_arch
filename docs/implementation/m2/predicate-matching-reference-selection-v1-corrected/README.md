@@ -1,0 +1,7 @@
+# Current-schema binding correction for predicate reference selection
+
+This corrected unit selects the same seven original candidate files and their exact frozen helper/checker bytes. It adds the missing description override for the CURRENT admitted identity schema at source-selection-v2/schemas/sources/identity.v3.schema.json (311c1feb...), alongside the historical a76c description and existing normative prose/glob attribution overrides. Before text is identical, but the current alias is a distinct accepted source: inheritance is explicit, not assumed. Schema wire bytes and generated artifacts remain unchanged.
+
+The original04bf subject and its independent review are preserved and remain unselected; an original ACCEPT does not supply root assent for this corrected unit. The fresh corrected subject requires independent review, root assent and private/live lock verification. The original README's three overrides describe that predecessor; this corrected record contains four. All selected parents remain accepted artifacts, never an unaccepted original successor parent; previousCandidate preserves its pin only.
+
+Reference behavior, test counts, inherited interruption correction, explicit current workflow imports and all limits remain exactly the original candidate's. This does not accept Rust glob21 or any full policy/Run/replay implementation. The code paths remain under the original candidate directory and are selected by this corrected successor; no historical file is edited.

@@ -1,0 +1,11 @@
+# Retained predicate witness joins — source23
+
+inspect_predicate_witnesses derives program/rules/proof sets and cited view evidence from retained Run identity. It rehashes records, checks input/scope/fact/coverage roots, exact program/rule/address/operation/node digest, exact child addresses with proof keys scoped to the same rule and subject, and typed count limits. Internal ASCII shortest-decimal traversal preserves LEAF-before-RANGE order, including oversized ordinals. Counts are private diagnostics, never Run or replay authority.
+
+136 comparisons against actual selected referencev2 AST1829–1852 plus five actual retained helpers and two actual address helpers:19checked,0mismatch. Payloadwalk is explicitly NOOP for this local join boundary, while canonical identity record shape and registered workflow program schema remain actual checks. No full walk, policy compilation, native census, atom truth/evaluation or independent replay claimed. Empty proofs and claimed false/indeterminate values can pass these local joins; full reconstruction must separately establish required proof census and truth. A nine-node not chain is shape-valid here while policy64-node/8-depth admission is a separate prerequisite.
+
+60 host controls,107 workspace tests, strictClippy and110-file identity policy pass. Fixture3360663bytes stays below unchanged4MiB parser cap; previous fixture values unchanged. Compared with frozen22:three files changed and one planned proofs.rs added; identity,policy,Cargo,externalTCB unchanged. Candidate design-lock is inherited historical18/22; current live is18/24/runtimev10. Source review does not select/install; runtime composition must use currentbase and verify unchanged code.
+
+Initialfive and first136 evidence preserved. First136 used obsoletefact3/coverage3 test prefixes and therefore exercised shape refusal; final136 uses exactfact2/coverage2 to reach WITNESS_FACT_ROOTS/WITNESS_COVERAGE_ROOTS. Test-construction labels for one-child and/or and depth were corrected after actual schema rejected purported goldens; unknown truth spelling corrected to registered indeterminate. No production semantics changed for those fixture corrections.
+
+M2 full closure/replay/custody and M3–M6 remain open. This source is not accepted or installed until independent review, root assent, composed runtime review and private/live activation.
