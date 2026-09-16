@@ -1,0 +1,257 @@
+--- a38/docs/coop/design-corrections/foundation/run_termination_model.v1.py
++++ b39/docs/coop/design-corrections/foundation/run_termination_model.v1.py
+@@ -26,6 +26,7 @@
+ PROJECTION of the step termination (class, runId, reasonCodes, coverageId, and the absence of errorCode, faultCause
+ and signal). A host StepTermination may also carry executionId, domainDetail or authority; those members are
+ delegated to their own owners, and `check_projection` reports them as owner-validation-required, never as lawful.
++`admit_analysis_step_termination` is their admission law at the host composition boundary (contract section 7).
+ Reference evidence only.
+ """
+ from __future__ import annotations
+@@ -205,33 +206,39 @@
+             "coverageId": carrier, "carrierKind": "declared" if declared else ("stage-terminal" if staged else None)}
+ 
+ 
+-def finalize(run, objects, blobs):
+-    """Settled analysis Run with no fault, rejection or pre-settle interruption: its StepTermination."""
++def derive(run, objects, blobs):
++    """The analysis projection and its reduction, plus the retained population the host composition reads (section 7)."""
+     run_id, verdict, population, ctx = retained_population(run, objects, blobs)
+     if verdict == "pass":
+-        return {"termination": {"class": "success", "runId": run_id}, "reduction": None}
++        return {"termination": {"class": "success", "runId": run_id}, "reduction": None, "population": population}
+     if verdict == "fail":
+-        return {"termination": {"class": "policy-failed", "runId": run_id}, "reduction": None}
++        return {"termination": {"class": "policy-failed", "runId": run_id}, "reduction": None, "population": population}
+     reduction = reduce(conditions(population, objects, blobs, ctx["xi"]))
+     term = {"class": "indeterminate", "reasonCodes": reduction["reasonCodes"], "runId": run_id}
+     if reduction["coverageId"] is not None:
+         term["coverageId"] = reduction["coverageId"]
+-    return {"termination": term, "reduction": reduction}
++    return {"termination": term, "reduction": reduction, "population": population}
++
++
++def finalize(run, objects, blobs):
++    """Settled analysis Run with no fault, rejection or pre-settle interruption: its analysis projection."""
++    derived = derive(run, objects, blobs)
++    return {"termination": derived["termination"], "reduction": derived["reduction"]}
+ 
+ 
+ # The ANALYSIS PROJECTION: the StepTermination members this owner derives from the admitted Run. errorCode,
+ # faultCause and signal belong to it because the derived classes (success, policy-failed, indeterminate) never
+ # carry them, so their presence contradicts the derived class.
+ PROJECTION_FIELDS = ("class", "runId", "reasonCodes", "coverageId", "errorCode", "faultCause", "signal")
+-# Optional StepTermination members this owner neither derives nor licenses. Their owners alone decide whether a
+-# value is lawful; this owner checks only that the whole candidate is shape-valid.
++# Optional StepTermination members the analysis projection neither derives nor licenses. check_projection checks
++# only their shape; admit_analysis_step_termination (section 7) is their admission law.
+ DELEGATED_FIELDS = {
+     "executionId": "attempt identity: workflows-and-surfaces section 1 (a fresh ExecutionId per admitted attempt) "
+-                   "and identity-and-evidence section 2 (host-CSPRNG draw); not a function of retained Run content",
++                   "and identity-and-evidence section 2 (host-CSPRNG draw); admitted by section 7.3",
+     "domainDetail": "explanatory DomainDetail beside the existing code: workflows-and-surfaces sections 8 and 9, the "
+-                    "public detail registry, and composition section 8 for EVALUATION.WORK_BUDGET_EXHAUSTED",
+-    "authority": "workflows-and-surfaces section 9 and the StepTermination branch contract (authority=ephemeral "
+-                 "only without a runId)",
++                    "public detail registry, composition section 8 and native section 10; admitted by section 7.5",
++    "authority": "workflows-and-surfaces sections 1 and 9 and the StepTermination branch contract "
++                 "(authority=ephemeral only without a runId); admitted by section 7.4",
+ }
+ 
+ 
+@@ -244,6 +251,7 @@
+     a delegated member with no shape validator (RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED) or whose candidate the
+     validator refuses (RUN_TERMINATION_DELEGATED_SHAPE). Otherwise it returns the projection, the delegated members
+     and their owners with standing `owner-validation-required`: a shape-valid delegated value is not thereby lawful.
++    This is the pure projection check; that standing is scoped to it and is never a host admission (section 7).
+     """
+     if type(candidate) is not dict:
+         raise RunTerminationError("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
+@@ -271,6 +279,187 @@
+     return check_projection(candidate, finalize(run, objects, blobs)["termination"], validate_shape)
+ 
+ 
++# ---------------------------------------------------------------------------------------------------------------
++# Host composition of the whole analysis StepTermination (run-termination-contract.v1.md section 7). The analysis
++# projection above stays pure. The composition admits the delegated members by closed laws over two separate inputs:
++# the admitted Run (retained semantic content, re-derived here) and the host's trusted operational observation of
++# the admitted attempt (its StepResult attempts, durability, commit receipt and installation observation). Neither is
++# caller input, and no candidate member blesses itself.
++
++ANALYSIS_CLASSES = ("success", "policy-failed", "indeterminate")
++# Classes the sealed verdict never decides. Their owners compose them; the composition returns the owner WITHOUT
++# reading the Run, so an operational carrier is never passed through verdict derivation (section 7.1).
++OUTSIDE_ANALYSIS_PROJECTION = {
++    "operational-failed": "fault precedence: d9-exit-contract.v1.14 causeModel; workflows-and-surfaces sections 1 and 9; "
++                          "security S12; native section 10 route registry",
++    "request-rejected": "rejection precedence: d9-exit-contract.v1.14 causeModel and the refusing admission owner",
++    "interrupted": "interruption before settle: d9-exit-contract.v1.14 and workflows-and-surfaces section 1",
++}
++WORK_BUDGET_DETAIL = "EVALUATION.WORK_BUDGET_EXHAUSTED"
++CLOSURE_DETAIL = "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED"
++# Registered native DomainDetailCode members that are DeficiencyV2 entry deficiencies (public-detail-registry owner
++# native; native-evidence.md section 10, "Retained and public routes are different, and both are named").
++NATIVE_ENTRY_DETAILS = ("budget-exhausted", "derivation-policy-unmet", "external-consumers-unknown",
++                        "input-closure-incomplete", "resolution-incomplete")
++# The closed analysis domainDetail allowlist, in selection order (section 7.5).
++ANALYSIS_DETAIL_ALLOWLIST = (WORK_BUDGET_DETAIL, CLOSURE_DETAIL) + NATIVE_ENTRY_DETAILS
++OBSERVATION_FIELDS = frozenset({"stepId", "durability", "attempts", "commitReceipt", "requiredClosureNotInstalled"})
++
++
++def _refuse(key, detail=None):
++    raise RunTerminationError(key if detail is None else key + ":" + detail)
++
++
++def analysis_detail_code(derived, objects, blobs, required_closure_not_installed):
++    """The one domainDetail code a composed committed analysis termination carries, or None (section 7.5).
++
++    1. EVALUATION.WORK_BUDGET_EXHAUSTED: the retained population holds a work-budget-exhausted record and the primary
++       D9 deficiency is budget-exhausted, so the work budget sits at the primary rank;
++    2. else COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED: reasonCodes[0] is COVERAGE.PROVIDER_UNAVAILABLE and the host
++       observed that a required provider closure of the attempt is not installed;
++    3. else the coverageId record's own entry.deficiency, when it is a native entry detail;
++    4. else None. success and policy-failed carry none.
++    """
++    reduction = derived["reduction"]
++    if reduction is None:
++        return None
++    if reduction["deficiency"] == "budget-exhausted" and any(r["cause"] == WORK_BUDGET for r in derived["population"]):
++        return WORK_BUDGET_DETAIL
++    if reduction["reasonCodes"][0] == CODE_MAP["provider-unavailable"] and required_closure_not_installed is True:
++        return CLOSURE_DETAIL
++    if reduction["coverageId"] is not None:
++        entry = C.parse(blobs[objects[reduction["coverageId"]][1]["payloadDigest"]])["entry"]
++        if entry["deficiency"] in NATIVE_ENTRY_DETAILS:
++            return entry["deficiency"]
++    return None
++
++
++def admit_attempt_observation(observation, validate_attempt, validate_receipt):
++    """Admit the host's operational observation of the step and return its terminating attempt (sections 7.2, 7.3).
++
++    Shapes are the existing records (invocation-record Attempt, identity commit-receipt). Joins are checked; the host
++    that supplies them is trusted, not authenticated (section 7.7).
++    """
++    if type(observation) is not dict or set(observation) != OBSERVATION_FIELDS:
++        _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "fields")
++    step_id, durability, attempts = observation["stepId"], observation["durability"], observation["attempts"]
++    if (type(step_id) is not int or not 0 <= step_id <= 63 or durability not in ("authoritative", "ephemeral")
++            or type(observation["requiredClosureNotInstalled"]) is not bool
++            or type(attempts) is not list or not 1 <= len(attempts) <= 3):
++        _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "members")
++    for attempt in attempts:
++        try:
++            validate_attempt(attempt)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "attempt " + str(exc).split("\n")[0][:120])
++    ids = [a["executionId"] for a in attempts]
++    if len(set(ids)) != len(ids):
++        _refuse("RUN_TERMINATION_ATTEMPT_ID_REUSED")
++    terminating = attempts[-1]
++    if (terminating["outcome"] != "completed" or "derivation" not in terminating
++            or any(a["outcome"] == "completed" for a in attempts[:-1])):
++        _refuse("RUN_TERMINATION_ATTEMPT_NOT_TERMINATING")
++    receipt = observation["commitReceipt"]
++    if durability == "ephemeral":
++        if receipt is not None:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "an ephemeral attempt has no commit receipt")
++    else:
++        try:
++            validate_receipt(receipt)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "receipt " + str(exc).split("\n")[0][:120])
++    return terminating
++
++
++def admit_analysis_step_termination(candidate, run, objects, blobs, observation, validate_shape, validate_attempt,
++                                    validate_receipt):
++    """Admit a whole StepTermination at the host composition boundary (section 7.6). Fixed order:
++
++    0. a non-object refuses; a class the verdict never decides returns its owner without reading the Run;
++    1. the attempt observation (OBSERVATION_SHAPE, ATTEMPT_ID_REUSED, ATTEMPT_NOT_TERMINATING);
++    2. an ephemeral attempt: no runId, authority=ephemeral, executionId of the attempt, no domainDetail; its
++       projection is not derived here;
++    3. a committed Run: close_run and the derivation, then the receipt joins (RECEIPT_RUN_MISMATCH,
++       RECEIPT_ATTEMPT_MISMATCH, RECEIPT_INVENTORY_MISMATCH against commit_inventory over the composed Run content) and
++       the derivation-binding joins to the Run's admitted execution plan (ATTEMPT_PLAN_MISMATCH,
++       ATTEMPT_EXECUTION_PLAN_MISMATCH, ATTEMPT_STAGE_COUNT_MISMATCH, ATTEMPT_STAGE_PROGRESS_MISMATCH), check_projection,
++       authority omitted (AUTHORITY_NOT_COMPOSED), executionId of the terminating attempt (EXECUTION_ID_NOT_ATTEMPT),
++       and exactly the selected detail (DETAIL_NOT_ADMITTED, DETAIL_REQUIRED, DETAIL_MEMBER_NOT_ADMITTED). The remedy
++       text is presentation and is not compared. Stage progress is bounded by the plan, never re-derived.
++    """
++    if type(candidate) is not dict:
++        _refuse("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
++    if candidate.get("class") in OUTSIDE_ANALYSIS_PROJECTION:
++        return {"standing": "outside-analysis-projection", "owner": OUTSIDE_ANALYSIS_PROJECTION[candidate["class"]]}
++    if validate_shape is None or validate_attempt is None or validate_receipt is None:
++        _refuse("RUN_TERMINATION_COMPOSITION_UNCHECKED")
++    terminating = admit_attempt_observation(observation, validate_attempt, validate_receipt)
++    execution_id = candidate.get("executionId")
++    detail = candidate.get("domainDetail")
++    if observation["durability"] == "ephemeral":
++        unknown = sorted(set(candidate) - set(PROJECTION_FIELDS) - set(DELEGATED_FIELDS))
++        if unknown:
++            _refuse("RUN_TERMINATION_UNKNOWN_FIELD", ",".join(unknown))
++        try:
++            validate_shape(candidate)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_DELEGATED_SHAPE", str(exc).split("\n")[0][:200])
++        if candidate.get("class") not in ANALYSIS_CLASSES or "runId" in candidate:
++            _refuse("RUN_TERMINATION_EPHEMERAL_NOT_COMMITTED_RUN")
++        if candidate.get("authority") != "ephemeral":
++            _refuse("RUN_TERMINATION_EPHEMERAL_AUTHORITY_REQUIRED")
++        if execution_id is not None and execution_id != terminating["executionId"]:
++            _refuse("RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT")
++        if detail is not None:
++            _refuse("RUN_TERMINATION_DETAIL_NOT_ADMITTED", "ephemeral")
++        return {"standing": "ephemeral-attribution-admitted", "executionId": terminating["executionId"],
++                "projectionStanding": "not derived: section 1 derives the analysis projection only for a committed Run"}
++    derived = derive(run, objects, blobs)
++    run_id = derived["termination"]["runId"]
++    receipt = observation["commitReceipt"]
++    if receipt["runId"] != run_id:
++        _refuse("RUN_TERMINATION_RECEIPT_RUN_MISMATCH")
++    if receipt["executionId"] != terminating["executionId"]:
++        _refuse("RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH")
++    # The receipt names the exact published commit-inventory of this Run (identity-and-evidence commit-inventory);
++    # receipt schema admission does not establish it, so re-derive it over the Run content composed here.
++    if receipt["inventoryDigest"] != M.commit_inventory(run_id, objects, blobs)[1]:
++        _refuse("RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH")
++    binding = terminating["derivation"]
++    if binding["planId"] != run["planId"]:
++        _refuse("RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH")
++    # One attempt owns exactly one execution plan (invocation-record DerivationBinding): the Run's admitted plan is
++    # its evaluation seal's executionPlanId, which close_run has joined to the proof and to the Run's planId.
++    execution_plan_id = objects[run["evaluationSealId"]][1]["executionPlanId"]
++    if binding["executionPlanId"] != execution_plan_id:
++        _refuse("RUN_TERMINATION_ATTEMPT_EXECUTION_PLAN_MISMATCH")
++    stages = objects[execution_plan_id][1]["stages"]
++    if binding["stageCount"] != len(stages):
++        _refuse("RUN_TERMINATION_ATTEMPT_STAGE_COUNT_MISMATCH")
++    # stagesCompleted and firstFailedStage are runtime progress no retained record re-derives: bound them by the
++    # plan, never infer completion from scheduled stages.
++    if binding["stagesCompleted"] > binding["stageCount"] or (
++            "firstFailedStage" in binding and binding["firstFailedStage"] not in {s["ordinal"] for s in stages}):
++        _refuse("RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH")
++    checked = check_projection(candidate, derived["termination"], validate_shape)
++    if "authority" in candidate:
++        _refuse("RUN_TERMINATION_AUTHORITY_NOT_COMPOSED", str(candidate["authority"]))
++    if execution_id is not None and execution_id != terminating["executionId"]:
++        _refuse("RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT")
++    want = analysis_detail_code(derived, objects, blobs, observation["requiredClosureNotInstalled"])
++    if detail is None:
++        if want is not None:
++            _refuse("RUN_TERMINATION_DETAIL_REQUIRED", want)
++    else:
++        if detail["code"] != want:
++            _refuse("RUN_TERMINATION_DETAIL_NOT_ADMITTED", detail["code"])
++        if set(detail) != {"code", "remedy"}:
++            _refuse("RUN_TERMINATION_DETAIL_MEMBER_NOT_ADMITTED", ",".join(sorted(set(detail) - {"code", "remedy"})))
++    return {"standing": "composed-analysis-termination-admitted", "projection": checked["projection"],
++            "executionId": terminating["executionId"], "domainDetailCode": want,
++            "trustedHostInputs": ["attempts", "durability", "commitReceipt", "requiredClosureNotInstalled"]}
++
++
+ def d9_concurrent_reducer(deficiencies):
+     """d9-exit-contract concurrentConditionReducer deficiency branch, verbatim: primary = deficiencies[0]."""
+     primary, rest = deficiencies[0], []

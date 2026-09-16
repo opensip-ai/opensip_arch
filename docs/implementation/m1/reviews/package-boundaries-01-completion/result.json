@@ -1,0 +1,60 @@
+{
+  "session_id": "6b503ce4-e69f-40ed-a5bf-646940bbda4f",
+  "total_cost_usd": 0.6716335,
+  "usage": {
+    "input_tokens": 162,
+    "cache_creation_input_tokens": 14502,
+    "cache_read_input_tokens": 517957,
+    "output_tokens": 10673,
+    "output_tokens_details": {
+      "thinking_tokens": 1313
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 14502,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1332,
+        "cache_read_input_tokens": 94713,
+        "cache_creation_input_tokens": 845,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 845
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 162,
+      "outputTokens": 10673,
+      "cacheReadInputTokens": 517957,
+      "cacheCreationInputTokens": 14502,
+      "webSearchRequests": 0,
+      "costUSD": 0.6716335,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 1313,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 8,
+  "subtype": "success",
+  "result": "**Verdict: changes required, not accepted.** The subject manifest SHA256 is `6706c27f\u2026df06a60`. All three file hashes were the same before and after the review, and none of the 33 read-only input hashes changed.\n\n**Required finding (RF-1):** UNIT.md says stale Cargo metadata cannot hide an added internal dependency. That isn't true. The raw-manifest recheck at `tools/check_package_edges.py:40` reads only the hyphenated dependency tables. Cargo 1.95 still honors `[dev_dependencies]` and `[build_dependencies]`, including under `[target.*]`, for edition 2015 and 2021 manifests. The tool doesn't require edition 2024. I added a forbidden `opensip-contracts -> opensip-host` edge that way after capturing metadata, using real Cargo fixtures, and the check passed in all three forms I tried. Fresh metadata does refuse them.\n- **Fix:** either also read the underscore spellings, or refuse non-2024 editions and underscore keys.\n- **Tested:** I tried the one-line version on my own copy (`probes/reviewer-fix-underscore.diff`). All 12 tests still pass and all three bypasses are refused.\n- **Tests to add:** stale-metadata cases for this form and for `build-dependencies`.\n\n**Advisories:**\n1. **Declarations only:** the stale-metadata guarantee covers dependency declarations only. A stale `[lib] path` escape and a stale addition of the provider to the host workspace both pass. Fresh metadata catches both, so the UNIT.md wording should be narrowed.\n2. **Weak test coverage:** 13 of my 27 mutations survive the 12 tests. The most important one silently drops `build-dependencies` from the stale-metadata recheck.\n3. **Safe but confusing refusals:** an allowed `cfg( windows )` edge and an allowed edition-2021 `[build_dependencies]` edge are both refused.\n4. **CLI metadata capture:** it only reproduces offline with `--filter-platform aarch64-apple-darwin`, because `r-efi` isn't cached. The exact capture command should be recorded.\n5. **Shared-package comparison:** the \"14 shared packages equal\" result holds only under that same platform filter.\n6. **Hard-coded values:** the provider name and root are hard-coded, and the inventory kind isn't checked against Cargo targets.\n\n**What I confirmed independently:**\n- **Tests:** all 12 pass on my copy.\n- **Real Cargo probes:** 36 cases built on the actual v3 inventory. 31 behaved as expected; the other 5 are RF-1 and advisories 1 and 3.\n- **CLI trial:** fresh metadata produces tool output byte-identical to `cli-boundary-check.json`.\n- **Provider isolation trial:**\n  - Its edge output reproduces byte-for-byte.\n  - The export holds only contracts, identity and the provider. There is no root Cargo manifest, host app, Node or generator files, and the files match the repository.\n  - All 13 source pins match.\n  - The provider has its own lock and the root lock is unchanged.\n  - The 14 shared packages have the same versions and features.\n  - The contracts dependency closure is exactly 11 registry packages.\n  - My copy of the export built offline with `--locked` and the probe ran.\n\nThe trial binary is only a throwaway build probe. This review doesn't cover rustc/provider integration, release readiness, native purity, macros or external features.\n\nThe first run's background mutation job was cut off. I reran all 27 mutations in the foreground in the completion directory, and reused first-run probe results only after my rerun of the probes reproduced them exactly. No commits, pushes, inventory changes or installs.\n\nFiles are in `/tmp/opensip-implementation/m1-package-boundaries-review-01-completion`:\n- review.json\n- review.md\n- probes/ (scripts and results)",
+  "type": "result",
+  "duration_ms": 206745
+}

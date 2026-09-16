@@ -1,0 +1,1 @@
+The focused-v3 orchestration used an unsupported --output option for the query checker. It exited 2 during argument parsing, before query validation. The checker owns --report. This is a root command error, not a design/query result. Preserve focused-v3 failure; retry only the unexecuted query check with --report. Semantic/workflow checks continue without interruption.

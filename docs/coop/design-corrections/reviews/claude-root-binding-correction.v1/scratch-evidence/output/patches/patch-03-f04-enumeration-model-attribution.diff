@@ -1,0 +1,51 @@
+--- a/docs/coop/design-corrections/foundation/enumeration_model.v1.py
++++ b/docs/coop/design-corrections/foundation/enumeration_model.v1.py
+@@ -86,6 +86,7 @@
+     "ENUMERATION_BINDING_CAUSE",
+     "ENUMERATION_ADMISSION_PRECONDITION",
+     "ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION",
++    "ENUMERATION_MEMBERSHIP_UNIT_ROOT",
+     "ENUMERATION_SCOPE_WORKSPACE_ROOT",
+     "ENUMERATION_PROJECTION_DETECTOR",
+     "ENUMERATION_PACKAGE_PARSE",
+@@ -496,6 +497,29 @@
+         _add(faults, "ENUMERATION_ADMISSION_PRECONDITION")
+ 
+ 
++def _admit_membership_unit_roots(membership, faults: list[str]) -> bool:
++    """Decide the INTERNAL root representation of the membership units BEFORE any binding join.
++
++    The single authority is the native selector (NV.admit_unit_roots, reading
++    #/$defs/InternalUnitRootV1 and #/$defs/CanonicalRelativeDirV1); this function only translates
++    that decision into this model's internal fault vocabulary. Without it, a unit whose root is
++    spelled with the EXTERNAL sentinel '.' reaches _unit_for_cell, which then matches no unit, so
++    _u1_entry derives None and the mismatch against the retained
++    TypeScriptConfigGraphV1.entryConfigPath is reported as ENUMERATION_BINDING_PROGRAM_ENTRY: a
++    real refusal attributed to the wrong field. ENUMERATION_MEMBERSHIP_UNIT_ROOT is an INTERNAL
++    fault key only; it adds no public D9 code and no public route.
++    """
++    units = membership.get('units') if isinstance(membership, dict) else None
++    if units is None:
++        return True
++    try:
++        NV.admit_unit_roots(units)
++    except NV.AdmissionError:
++        _add(faults, 'ENUMERATION_MEMBERSHIP_UNIT_ROOT')
++        return False
++    return True
++
++
+ def admit_enumeration(
+     *,
+     plan: dict,
+@@ -551,6 +575,10 @@
+         snapshot_inventory, snapshot_paths, faults
+     )
+     if not snapshot_paths and "ENUMERATION_ADMISSION_PRECONDITION" in faults and snap_mode == "missing":
++        empty["refusals"] = faults
++        return empty
++
++    if not _admit_membership_unit_roots(membership, faults):
+         empty["refusals"] = faults
+         return empty
+ 

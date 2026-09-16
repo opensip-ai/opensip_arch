@@ -1,0 +1,52 @@
+--- frozen36/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ assembly/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -363,7 +363,11 @@
+ 
+ 
+ def parse_endpoint_syntax(ep, label):
+-    """Malformed vs incomplete. Does not test vertex membership."""
++    """Malformed or incomplete endpoint syntax, both QUERY.PARAMS_MALFORMED (contract section 2, schema-first).
++
++    Agrees with GraphEndpoint: a package endpoint without a non-empty packageManifestPath is an incomplete
++    request, never QUERY.ENDPOINT_AMBIGUOUS. Does not test vertex membership.
++    """
+     if type(ep) is not dict:
+         raise QueryRefusal(
+             "REQUEST.PRECONDITION_FAILED",
+@@ -406,8 +410,8 @@
+         if type(path) is not str or not path:
+             raise QueryRefusal(
+                 "REQUEST.PRECONDITION_FAILED",
+-                "QUERY.ENDPOINT_AMBIGUOUS",
+-                "package endpoints require packageManifestPath to distinguish same-name manifests",
++                "QUERY.PARAMS_MALFORMED",
++                "package endpoints require a non-empty packageManifestPath coordinate",
+                 label,
+             )
+     elif ep.get("packageManifestPath"):
+@@ -1183,8 +1187,12 @@
+     """requested is list of (label, endpoint). vertices maps tuple -> endpoint.
+ 
+     A fully specified unknown tuple is QUERY.ENDPOINT_UNKNOWN. Other-universe
+-    same native ids do not make it ambiguous. Package missing-path is handled
+-    at parse_endpoint_syntax as QUERY.ENDPOINT_AMBIGUOUS.
++    same native ids do not make it ambiguous. A package endpoint without its
++    coordinate never reaches here: it is QUERY.PARAMS_MALFORMED at schema
++    admission and at parse_endpoint_syntax. QUERY.ENDPOINT_AMBIGUOUS is only a
++    complete tuple marked as resolving to more than one distinct admitted vertex;
++    inventory_vertices keys vertices by the complete tuple, so the public wrapper
++    does not produce that mark from one retained Run.
+     """
+     for label, ep in requested:
+         key = endpoint_tuple(ep)
+@@ -1410,6 +1418,10 @@
+     return result
+ 
+ 
++# Contract section 7. The identity availability.state values purged/expired/corrupt/unavailable refuse with these
++# registered details; `unavailable` routes to evidence.missing, the identity owner's missing-evidence carrier. The
++# states `retained` and `partial` are absent on purpose: they neither refuse nor grant, and close_run decides.
++# `missing` is not an identity availability state; it is the same missing-bytes refusal a host may report directly.
+ AVAIL_REFUSE = {
+     "purged": "evidence.purged",
+     "expired": "evidence.expired",

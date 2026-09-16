@@ -1,0 +1,60 @@
+{
+  "session_id": "203d51ae-8262-4c79-b10b-d7c8e94e7c02",
+  "total_cost_usd": 17.6169835,
+  "usage": {
+    "input_tokens": 866,
+    "cache_creation_input_tokens": 354675,
+    "cache_read_input_tokens": 17254057,
+    "output_tokens": 217555,
+    "output_tokens_details": {
+      "thinking_tokens": 108338
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 354675,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2464,
+        "cache_read_input_tokens": 758842,
+        "cache_creation_input_tokens": 3375,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 3375
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 866,
+      "outputTokens": 217555,
+      "cacheReadInputTokens": 17254057,
+      "cacheCreationInputTokens": 354675,
+      "webSearchRequests": 0,
+      "costUSD": 17.6169835,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 108338,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 95,
+  "subtype": "success",
+  "result": "I recommend the new checker (candidate B) as the successor candidate to the dependency-cruiser checker (candidate A); it is ready for independent review. B builds the import graph with TypeScript 6.0.3 for build and type edges, with Node 24.16.0's own resolvers (which never run a module) for Node runtime edges, and with enhanced-resolve only as a stand-in browser policy until a bundler is chosen. It fixes all seven required findings, so I did not add another layer on top of dependency-cruiser. Changing the selected tool still needs independent review. Nothing outside `/private/tmp/opensip-implementation/m1-typescript-boundary-author-03` was written, including the npm cache for the archive downloads.\n\n**Comparison on identical cases** (author02's 88, your 46 probes verbatim, 24 new regressions):\n\n| | A: author02 dependency-cruiser | B: new checker |\n|---|---|---|\n| Correct | 125 of 149 applicable (14 of your probes missed, 3 false refusals) | 158 of 158 |\n| Node oracle (29 checks, fixture modules only) | 21 agree | 29 agree |\n| Real staged `tools/contracts` lane (pnpm 11.10.0 install) | refuses it, 2.08 s, 1133 MiB | passes, 1.31 s, 719 MiB |\n| Source size | 521 lines, plus dependency-cruiser's 44-package closure | 908 lines, 4 packages |\n| Fragile interfaces | 4 undocumented dependency-cruiser behaviours | public TypeScript APIs plus one experimental Node flag, checked at startup |\n\n**The seven findings:**\n- **R1 (symlinked CLI exits 0):** the entry script always runs. The real CLI returns the right exit code in 24 of 24 scenarios: real path, the `/tmp` alias, a `.bin` symlink, and the resolver flag passed directly.\n- **R2 (lost `import()`):** runtime requests are read from TypeScript's compiled output, so type-only imports drop out and `import()` stays.\n- **R3 (AMD):** AMD requests are extracted and refused.\n- **R4 (Node mismatch):** Node's own resolvers do the resolving. Because `import.meta.resolve` returns missing files and directories without complaint, every result is checked to be a real file.\n- **R5 (relative paths into `node_modules`):** refused as a dependency reached by path; a request into another lane's `node_modules` is a lane escape.\n- **R6 (pnpm alias):** local package names are checked against the request, the `npm:` alias spec and the installed directory.\n- **R7 (tsconfig `module`):** the file format comes from what TypeScript actually emits under the lane's settings.\n\nEach finding has a dedicated case and a mutant that the test suite catches.\n\n**Test evidence:**\n- The suite passes 160 of 160 and catches all 32 single-change mutants.\n- My first mutant run left 6 survivors. I added isolating cases for them and removed one duplicated check.\n- The first full case run had 7 of my own defects (for example a crash on symlinked inputs and wrongly labelled refusals). That run log is kept, and all are fixed.\n- Six expectations were revised for B only, each with a reason in `harness/expectations.mjs`; A is always graded against the originals. Example: author02's N62 is valid code once each import gets its own mode.\n\n**What remains open:**\n- **Unanalyzed exception:** the real contracts lane passes with three exact, hash-bound exceptions. One of them, TypeScript's plugin loader `require(modulePath)` at `typescript.js:8405`, has no analyzed target, so an owner must accept it.\n- **Unbound lane:** `tools/contracts` has no inventory package, so it only runs as an unbound trial. Its tsconfig was written by me because the product has none.\n- **Missing lanes:** the provider and report lanes exist in staging only as generated bindings, so their package files are fixtures.\n- **Dev dependencies:** refusing them in provider and browser runtime code is my proposal, not a settled rule.\n- **Browser resolution** is a declared policy, not a real bundler run.\n- **Package manager:** the checker's own closure is npm-installed bytes, not a pnpm qualification; the lane's closure is pnpm.\n- **Not modelled:** Node load failures beyond missing files, directory imports, format and TypeScript under `node_modules`; JSX's implicit runtime import (refused rather than modelled); and `eval`/`Function` inside installed dependencies.\n\n**Other review items:**\n- **Inventory binding:** the checker verifies the product design lock's pins for the selected inventory and takes platforms and package ownership from it. A caller's lane record cannot set them, and tampering exits 2. Whether that inventory was properly accepted remains `verify_design.py`'s job and is not re-checked.\n- **Stale test file:** the archived author02 `candidate-tests.txt` shows 95 tests because it predates two cases; the same subject's run log shows 97. Both are kept unchanged.\n- **Archives:** I downloaded the three extra registry archives. All four packages B uses, plus dependency-cruiser, match their lock integrity and are byte-identical to the installed files. A's other 39 packages are verified only as frozen installed bytes.\n\n**Freeze:**\n- **Manifest:** `freeze-manifest.json` has sha256 `b3e9ded3\u20266998c` and aggregate `f917cee7\u202645b4`. It covers 2018 entries with bytes, modes and symlink targets, the three installed closures, and the Node binary by hash.\n- **Verification:** I verified the manifest against the tree with no problems, and regenerating your probe module reproduces the same bytes.\n- **Full check:** I ran each step of `fullcheck.sh` separately, but never the whole script in one go. It regenerates `results/`, so run it in a copy.\n\n**Sources untouched:** subject-02's outer manifest hash (`ad90d3b3\u2026`), your review files and the root probes are unchanged.\n\nEverything is in `/private/tmp/opensip-implementation/m1-typescript-boundary-author-03/`; open `comparison.md` first.\n- selection-proposal.md\n- README.md\n- checker/\n- harness/\n- results/\n- freeze-manifest.json\n- fullcheck.sh",
+  "type": "result",
+  "duration_ms": 4106439
+}

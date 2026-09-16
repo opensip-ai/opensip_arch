@@ -1,0 +1,94 @@
+--- before/docs/coop/design-corrections/security/check-security-lifecycle.v1.py
++++ staged/docs/coop/design-corrections/security/check-security-lifecycle.v1.py
+@@ -40,3 +40,3 @@
+ CASE_FILES = [
+-    ('discovery-cases.v1.json', 'DiscoveryResultV1'),
++    ('discovery-cases.v1.json', 'DiscoveryResultV2'),
+     ('trust-clock-cases.v1.json', 'ClockDecisionV1'),
+@@ -58,5 +58,7 @@
+ MODEL_SCHEMA = {
+-    'discovery': 'DiscoveryResultV1', 'clock': 'ClockDecisionV1', 'recovery-challenge': 'RecoveryChallengeResultV1',
++    'discovery': 'DiscoveryResultV2', 'clock': 'ClockDecisionV1', 'recovery-challenge': 'RecoveryChallengeResultV1',
+     'recovery-apply': 'RecoveryApplyResultV1', 'root-chain': 'RootChainResultV1', 'revocation-observe': 'RevocationObservationV1',
+-    'observer': 'ObserverTickV1', 'linearize': 'LinearizationV1', 'lease': 'LeaseTraceV1', 'platform': 'PlatformAdmissionV1',
++    'observer': 'ObserverTickV1', 'linearize': 'LinearizationV1', 'journal-record': 'JournalRecordAdmissionV1',
++    'host-seal-run': 'HostSealRunAdmissionV1', 'seal-run-prefix': 'HostSealRunAdmissionV1',
++    'analysis-seal': 'AnalysisSealAdmissionV1', 'lease': 'LeaseTraceV1', 'platform': 'PlatformAdmissionV1',
+     'migration-recover': 'MigrationRecoveryV1', 'migrate-floors': 'FloorMigrationV1', 'rollback-floors': 'FloorRollbackV1',
+@@ -67,3 +69,3 @@
+     'core-transition-scope': 'CoreTransitionScopeV1', 'public-detail': 'PublicDetailProjectionV1',
+-    'recovery-authorization': 'RecoveryAuthorizationAdmissionV1', 'boundary-inventory': 'AdmittedBoundaryInventoryV1',
++    'recovery-authorization': 'RecoveryAuthorizationAdmissionV1', 'boundary-inventory': 'AdmittedBoundaryInventoryV2',
+     'transition-intent': 'TransitionIntentAdmissionV1', 'transition-journal': 'TransitionJournalAdmissionV1',
+@@ -326,2 +328,50 @@
+ 
++def sweep_journal_record_dispatch():
++    """Current journal records are recordSchema 3 / run3 and the closed JournalRecord fields.
++    Historical schema-2 is not read as 3. Mixed prefixes refuse. Revocation still blocks SEAL.
++    Prefix dispatch is not close_run. Linearize remains an abstract brokered-effect schedule."""
++    checked = 0
++    out = model.linearize(['GRANT g1', 'SEAL'])
++    assert out['sealed'] is True and out['journal'][1]['recordSchema'] == 3
++    assert out['journal'][1]['runId'] == model.FIXTURE_SEAL_RUN_ID
++    assert model.admit_journal_record(out['journal'][1])['result'] == 'CURRENT'
++    checked += 1
++    blocked = model.linearize(['GRANT g1', 'REV trust-revoked', 'SEAL'])
++    assert blocked['sealed'] is False and blocked['sealRefused'] == 'SEAL_AFTER_REV'
++    checked += 1
++    try:
++        model.admit_journal_record({'recordType': 'SEAL', 'recordSchema': 2, 'grantGeneration': 1, 'seq': 1,
++                                    'operationRef': 'op', 'runId': 'run2:' + 'a' * 64})
++        raise AssertionError('historical schema-2 admitted as current')
++    except model.Reject as e:
++        assert str(e) == 'JOURNAL_RECORD_SCHEMA_HISTORICAL'
++        checked += 1
++    try:
++        model.admit_journal_record({'recordType': 'SEAL', 'recordSchema': 3, 'grantGeneration': 1, 'seq': 1,
++                                    'operationRef': 'op', 'runId': 'run2:' + 'a' * 64})
++        raise AssertionError('schema-3 run2 mixed prefix admitted')
++    except model.Reject as e:
++        assert str(e) == 'JOURNAL_RECORD_MIXED_PREFIX'
++        checked += 1
++    try:
++        model.admit_journal_record({'recordSchema': 3, 'grantGeneration': 1, 'seq': 1,
++                                    'operationRef': 'op', 'runId': 'run3:' + 'a' * 64})
++        raise AssertionError('schema-3 missing recordType admitted')
++    except model.Reject as e:
++        assert str(e) == 'JOURNAL_RECORD_SCHEMA_INVALID'
++        checked += 1
++    try:
++        model.admit_seal_run_id_prefix(model.FIXTURE_SEAL_RUN_ID)
++        raise AssertionError('fixture runId treated as prefix authority')
++    except model.Reject as e:
++        assert str(e) == 'SEAL_RUN_ID_FIXTURE_NOT_AUTHORITY'
++        checked += 1
++    live = 'run3:' + 'a' * 64
++    prefix = model.admit_seal_run_id_prefix(live)
++    assert prefix['authority'] == 'run3-pattern' and prefix['standing'] == 'prefix-dispatch'
++    checked += 1
++    return {'name': 'journal-record-schema-3-run3-historical-2-mixed-prefix-revocation-blocks-seal',
++            'checked': checked, 'holds': True}
++
++
+ def sweep_profile_separation():
+@@ -458,3 +508,4 @@
+     assert [u['path'] for u in out['provenance']['units']] == ['/home/alice/big']
+-    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree', 'markerCount': 4200}]
++    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree',
++                                                 'markerCount': 4200, 'markerCountBasis': 'observed-inventory'}]
+     checked += 1
+@@ -561,5 +612,6 @@
+     inv = model.boundary_inventory(sd)
+-    assert inv == {'schemaVersion': 1, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
++    assert inv == {'schemaVersion': 2, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
+                    'nestedProjects': ['apps/site'], 'custodyExcludedUnits': [],
+-                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1}]}, inv
++                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1,
++                                    'markerCountBasis': 'observed-inventory'}]}, inv
+     markers = {p[len(R) + 1:]: {'sha256': '1' * 64} for p, e in fs.items() if p.startswith(R + '/') and e['kind'] == 'file' and p.rpartition('/')[2] in model.WORKSPACE_MARKERS}
+@@ -627,3 +679,4 @@
+     report['cases'] = run_cases(schemas, validator_for)
+-    for sweep in (sweep_clock_monotone, sweep_recovery_replay, sweep_linearization, sweep_profile_separation, sweep_lease_modes, sweep_root_schema_readers,
++    for sweep in (sweep_clock_monotone, sweep_recovery_replay, sweep_linearization, sweep_journal_record_dispatch,
++                  sweep_profile_separation, sweep_lease_modes, sweep_root_schema_readers,
+                   sweep_discovery_pruning_and_cap, sweep_platform_vocabulary_join, sweep_boundary_join_native,

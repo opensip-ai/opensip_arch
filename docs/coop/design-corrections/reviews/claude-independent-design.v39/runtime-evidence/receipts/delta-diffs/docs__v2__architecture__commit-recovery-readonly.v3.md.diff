@@ -1,0 +1,91 @@
+--- a38/docs/v2/architecture/commit-recovery-readonly.v3.md
++++ b39/docs/v2/architecture/commit-recovery-readonly.v3.md
+@@ -4,7 +4,7 @@
+ implementation authorization. Private design/reference work, not OS qualification. Authored against
+ frozen Source25 `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
+ 
+-**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1) and the source38 advisory corrections ADV38-02 (a carrier observed unmigrated) and ADV38-03 (current scope wording). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Stable normative path:** `docs/v2/architecture/commit-recovery-readonly.v3.md`. This is the
+ current owner and it is **self-contained**: every operative rule is stated here, and no rule may be
+@@ -36,8 +36,9 @@
+ cannot be mistaken for one. This matters because the word `indeterminate` collides with the public
+ D9 class `indeterminate` at exit 3: no standing below is spelled that way, and every one projects
+ onto an existing class, `errorCode` and `faultCause`. Root owns the final generator and the
+-clarification of the older internal `indeterminate` spelling in F00–F37; that is not treated as a
+-blocker here.
++clarification of the older internal `indeterminate` spelling in the failure-case plan. That plan was
++F00–F37 when this document was authored; the current `commit-recovery-plan.v1.json` holds F00–F53, and
++all 54 cases remain not executed. The clarification is not treated as a blocker here.
+ 
+ The public shape is **`workflows/schemas/evaluator3/common.schema.json#/$defs/StepTermination`**.
+ That owner is **explicitly selected**, not inferred from a pattern: `workflows-and-surfaces.md`
+@@ -70,9 +71,12 @@
+ 
+ **The carrier-quarantine decision is settled, not deferred.** `LEDGER.CORRUPT` with
+ `faultCause: "ledger-corrupt"` and an omitted `domainDetail` is schema-valid, so no new
+-`DomainDetailCode` is minted for aesthetics. `MIGRATION.CORRUPT` is **not** reused: it is the store
+-transition's detail, and borrowing it for ordinary journal corruption would put two remedies behind
+-one code, which the D9 contract names a defect. The typed reason (`uncertainTailLoss`,
++`DomainDetailCode` is minted for aesthetics. `MIGRATION.CORRUPT` is **not** reused on any read-only path.
++Security S12 scopes it to a store transition footprint and, at a writer or maintenance carrier open only,
++to a carrierFormat 3 migration footprint that is not a lawful durable prefix or violates the published
++generation boundary (including F51). Borrowing it for ordinary journal corruption, a carrier project
++binding mismatch or any read-only carrier observation would put two remedies behind one code, which the
++D9 contract names a defect. The typed reason (`uncertainTailLoss`,
+ `witnesslessRestore`, `witnessMalformed`) travels in the operational record and the owner
+ diagnosis, not in a public detail code.
+ 
+@@ -85,8 +89,37 @@
+ report and otherwise `unavailable-busy`. An association naming a generation below the published
+ `first_generation` is `unknown-carrier-incompatible` (F46): an association is written only with a
+ committed carrierFormat 3 `SEAL`, so this contradicts two retained owners and joins the `unknown-custody`
+-family. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`. `MIGRATION.CORRUPT` is used on none of
+-these read-only paths, and none confirms, negates or settles an attempt. Exact phase table:
++family. So is an association naming the admitted carrier when the carrier read in that journal snapshot is
++**observed unmigrated**: none of the seven carrierFormat 3 objects exists and the inherited `grant_journal`
++does (open dispatch results `carrierFormat1` and `carrierFormat2`). Every generation of such a carrier is a
++carrierFormat 1 or 2 generation, so no schema-3 `SEAL` can exist; the association points to a lost
++migration, a rollback or a swapped carrier. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`.
++
++**Precedence of the read-only carrier observations** (source38 advisory ADV38-02), all inside one journal
++snapshot and before the SEAL join:
++
++1. an association naming another binding → `binding-unusable`, before any carrier read;
++2. with any carrierFormat 3 object present: a partial set, an invalid definition, a `grant_journal_v3` row
++   before publication, a published row or surviving witness naming another project, F51, or a
++   `grant_journal_v3` row below `first_generation` → `unknown-quarantine-condition` with the Step 4 stable
++   observations, otherwise `unavailable-busy`; an unpublished lawful prefix → `unavailable-busy`; then an
++   association generation below `first_generation` → `unknown-carrier-incompatible`;
++3. with no carrierFormat 3 object and an inherited `grant_journal` → `unknown-carrier-incompatible`,
++   whatever generation the association or a surviving witness names;
++4. with no carrierFormat 3 object and no inherited `grant_journal` (open dispatch result `fresh-install`) →
++   `unknown-custody`, whatever generation the association or a surviving witness names.
++
++Rows 3 and 4 are decided from the object names alone and need no witness comparison, so the witness and anchor
++rows of Step 3 (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`, a witness naming another carrier and
++the anchor table) are not reported for that request. Row 4 is a lost, emptied or fallback carrier: an association
++already names it, so the absent carrier is custody the reader cannot observe, exactly as Step 1 treats an empty
++fallback ledger. It is never absence, never `terminal-not-committed` and never success, and the fresh-install path
++of a writer or maintenance open is a separate owner that read-only recovery never takes. Neither
++`unknown-carrier-incompatible` nor `unknown-custody` is a quarantine or corruption report, so Step 4 does not gate
++them. **The carrier stage is total:** every open dispatch result except `carrierFormat3`, which continues to the
++SEAL join, has exactly one §1 standing. The reader performs no migration, publishes no format row, creates or
++initializes no carrier and writes nothing on any of these paths. `MIGRATION.CORRUPT` is used on none of these read-only paths, and none
++confirms, negates or settles an attempt. Exact phase table:
+ `design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+ A registered detail is used only where one already fits the event exactly: `PROJECT.BUSY` for busy,
+@@ -233,8 +266,9 @@
+ reader applies the carrier open dispatch to the bytes of that snapshot only, never to a cached
+ result: the object names and definitions, the format row, `project_key_digest` against the admitted
+ `projectKeyDigest`, the published generation boundary, and `A.grantGeneration` against
+-`first_generation`. Their conclusions are the carrier rows of §1; a quarantine-class conclusion also
+-requires Step 4.
++`first_generation`. Their conclusions, including a carrier observed unmigrated or absent, are the carrier rows
++and precedence of §1; a quarantine-class conclusion also requires Step 4. As in Step 1, a missing, empty or
++fallback carrier is never absence: it is `unknown-custody`.
+ 
+ **The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+ `record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the

@@ -1,0 +1,55 @@
+--- docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -192,8 +192,25 @@
+ source directory merely called `target`, such as `packages/target` or
+ `src/target`, is ordinary source). A pruned tree yields no unit, no marker,
+ no custody walk and no program member; its anchor is recorded **once** in
+-`prunedTrees` with the number of markers it hid, so 4200 installed package
+-manifests are one record, never 4200 units. A `Cargo.toml` inside a pruned
++`prunedTrees`, so 4200 installed package manifests are one record, never 4200
++units. **The anchor is recorded because the tree was observed, not because a
++marker was found inside it** (XA-02 / CR-25): a pruned tree holding no manifest
++is still one row, taken from the admitted directory observation discovery
++already holds. Discovery still never descends into a pruned tree - not to count
++markers and not to find a nested anchor; the outermost pruned segment is the
++only anchor. The earlier promise to record *the number of markers it hid* is
++withdrawn: a count over an unenumerated tree is not an observation. The row is
++the closed `{path, reason, markerCount, markerCountBasis}` (version 2).
++`markerCountBasis` is `observed-inventory` only when the supplier declares that
++its marker inventory enumerated inside pruned trees, and then `markerCount` is
++exact **over that supplied inventory alone**; otherwise the basis is
++`not-enumerated` and `markerCount` is `null`. An anchor whose own directory
++observation could not be established is reported with a null count on the same
++rule. Zero observed is never zero hidden. Count and basis are provenance: they
++select no unit, bound no work, enter no Coverage and enter no scope descriptor,
++though they do change the exact bytes of the provenance and boundary records and
++therefore any operational digest taken over them. Version-1 records keep their
++bytes and are read as version 1. A `Cargo.toml` inside a pruned
+ tree does not create a Cargo root. First-party unit directories are capped at
+ 4096; exceeding the cap refuses typed `PROJECT.WORKSPACE_UNIT_LIMIT` (D9
+ `REQUEST.UNSATISFIABLE`, detail `WORKSPACE_UNIT_LIMIT:<n>><cap>`) with no
+@@ -222,7 +239,23 @@
+ the selected behaviour: custody admission and language-unit existence are two
+ different facts, and neither instrument normalizes the same value differently.
+ Custody-excluded units are explicit unknown required scope, not a successful
+-empty scope; later syntax scanners cannot read their uncustodied source. There is
++empty scope; later syntax scanners cannot read their uncustodied source. A
++custody- or depth-excluded directory is therefore never examined-clean Coverage.
++The downward unit-depth bound reuses the same 256-level constant as the upward
++ancestor walk: a unit directory deeper than 256 segments below the selected root
++is excluded with reason `DEPTH` and exported to the language-unit instrument in
++`custodyExcludedUnits`, so both instruments select the same directories. It is
++an exclusion with unknown standing, not a work budget. **Bounding the host
++observation itself - how many directory and marker entries discovery may admit -
++is the observation-admission and qualification responsibility, not this cap.**
++The 4096 unit cap was never an input bound: the shared rule materialises and
++sorts the supplied inventory before comparing cardinality, both before and after
++the XA-01 correction. No public work-budget flag is introduced here, and the
++synthetic trusted fs-map instrument accepting a large array is not a product
++limit. Counting custody- and depth-excluded directories toward the cap, rather
++than counting admitted units, is a **separately reviewable policy option that is
++NOT selected here**; it would turn present ACCEPT results into refusals and is
++not required to fix XA-01. There is
+ no config "project list" and no duplicate `--project` implicit multi-project
+ mode: `discovery.workspaceRoots` is the only configuration carrier. Cases
+ `installed-dependencies-and-cargo-build-output-are-pruned-by-segment-*`,

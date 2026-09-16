@@ -1,0 +1,41 @@
+--- frozen36/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ assembly/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -40,10 +40,10 @@
+ 1. Subject-inventory rows selected by the admitted proof `evaluationInputRefs` (`domain=subject-inventory`), with universe taken from the EnumerationPlan program binding `(cellOrdinal, programOrdinal)`. Package vertices include `packageManifestPath` from the inventory row path.
+ 2. Source and target endpoints of facts actually projected for this operation (so an external resolved target that is not first-party inventory remains a lawful vertex).
+ 
+-**Fault precedence** for a requested endpoint:
++**Fault precedence** for a requested endpoint. Admission is **schema-first**: §8 step 1 admits the whole request against `graph-query.schema.json#/$defs/GraphQueryRequestV1`, whose `GraphEndpoint` requires `packageManifestPath` exactly when `kind=package` and forbids it otherwise. Every shape that schema refuses is therefore a malformed request, decided before any Run, view, availability observation or vertex is consulted.
+ 
+-1. Malformed syntax (not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package) → `QUERY.PARAMS_MALFORMED`.
+-2. Package identity without `packageManifestPath`, or a well-formed tuple that matches more than one admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`.
++1. Malformed or incomplete syntax → `QUERY.PARAMS_MALFORMED`: not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package, **or a `package` endpoint without a non-empty `packageManifestPath`**. A missing package coordinate is an incomplete request, not an ambiguous one; its remedy is to supply the coordinate, as for every other malformed field. No placeholder coordinate is substituted to re-admit the request, and no schema refusal is reclassified by which field failed.
++2. A well-formed **complete** tuple that resolves to more than one distinct admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`. This is the only route to that detail. The reference vertex domain is keyed by the complete tuple, so one retained Run cannot yield two distinct vertices for one tuple and this step is not reachable through `execute_graph_query`; the detail remains the lawful answer for a vertex domain that could.
+ 3. Well-formed complete tuple that matches zero vertices → `QUERY.ENDPOINT_UNKNOWN`. Same native id in other universes does not convert a fully specified unknown tuple into ambiguity.
+ 4. Otherwise the endpoint is admitted. A known isolated inventory vertex with no incident projected facts is lawful (empty neighbors, or a zero-hop path when start equals target).
+ 
+@@ -157,19 +157,21 @@
+ 
+ Failure `requestId` is an already reserved host observation (`host.requestId`, `req1_` + 32 hex). It is never hashed from request bytes and this reference model does not implement CSPRNG. Missing or malformed host RequestId is a **reference-call precondition** (`ReferenceCallPrecondition`), distinct from public request refusal. Optional envelope `projectId` is included only when the request projectId is schema-admitted; malformed projectId is omitted.
+ 
+-Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. `purged` / `expired` / `unavailable` / `corrupt` **refuse** access (`HOST.IO_FAILURE` / `evidence.*`). The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
++Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. Its `availability.state` values (`foundation/identity-schemas.v3.json#/$defs/availability`) route exactly as follows, every refusal being operational-failed / `HOST.IO_FAILURE` (`faultCause=host-io`) / exit 4 with the named registered detail: `purged` → `evidence.purged`; `expired` → `evidence.expired`; `corrupt` → `evidence.corrupt`; `unavailable` → `evidence.missing`. `unavailable` has no detail of its own and none is invented: required evidence that cannot be supplied is the identity owner's missing-evidence carrier (`EvidenceUnavailable` → `evidence.missing`, identity-and-evidence §5), the same detail as missing retained bytes below. `retained`, `partial` and an omitted observation neither refuse nor grant: `close_run` still decides, and retained bytes it finds missing or corrupt refuse under the rows below. The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
+ 
+ | Condition | class | errorCode / reason | domainDetail |
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+-| malformed graph params / extra properties / LogicalPath endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
++| malformed or incomplete graph params / extra properties / LogicalPath endpoint / `package` endpoint without a non-empty `packageManifestPath` | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
+ | unsupported relation or non-projectable request rung | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.RELATION_UNSUPPORTED` |
+-| malformed-complete but ambiguous endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
++| well-formed complete endpoint tuple resolving to more than one admitted vertex | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
+ | well-formed endpoint outside the vertex domain | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_UNKNOWN` |
+ | two Runs named for one snapshot | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.VIEW_AMBIGUOUS` |
+ | empty, missing, stale, or mismatched latest/snapshot/run selector | request-rejected | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |
+ | cursor bind mismatch | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.CURSOR_MISMATCH` |
+ | view2 not admitted on this Run | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.FACT_VIEW_UNAVAILABLE` |
++| graph availability observation `purged` / `expired` / `corrupt` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.purged` / `evidence.expired` / `evidence.corrupt` |
++| graph availability observation `unavailable` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
+ | work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |

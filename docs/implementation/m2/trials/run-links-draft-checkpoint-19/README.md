@@ -1,0 +1,5 @@
+# Unaccepted Run links draft checkpoint19
+
+Preserves the current private product/harness/scripts/corpus while creating a Git checkpoint.252actual-reference cases match,153checked. Initial compiler missingToOwned/typeinference errors and correctedbuild logs preserved. Newrun_links.rs has two localdiagnostic phases: rootcross-links/config/grant/VCS and proofselectedview/coverage/findingroots. Fullgraph/nativecensus/policy/stage/predicate/import/replay are not established. No host19regression tests/strictClippy/source review/formalunit/activation yet. Do not install thisarchive as accepted code.
+
+Source18 remains separatelyfrozen/reviewed. Source19working directory may continue changing afterthischeckpoint; preserve thisarchive/manifestunchanged. Restoreinto anemptyprivate directory andverify memberhashes beforeuse. Localrecord oracle explicitly skips transitivepayloadwalk; foreigncapabilitycensus excluded. This is an honestly scoped work-in-progress backup, not designorimplementationcompletion.

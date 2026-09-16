@@ -1,0 +1,23 @@
+--- support/root-application45-reproduction-correction.v1/assemble-before.py
++++ support/root-application45-reproduction-correction.v1/assemble-records.successor.v1.py
+@@ -678,6 +678,13 @@
+     assert args[1:3] == ['-I', '-B'] and (args[3] == source or args[3].endswith('/' + source))
+     args[3] = source
++    output_bindings = []
++    for i in range(4, len(args), 2):
++        assert args[i] in ('--out', '--report', '--report-dir') and i + 1 < len(args)
++        target = '.opensip-design-reference-' + command['name'] + ('.json' if args[i] == '--report' else '')
++        output_bindings.append({'flag': args[i], 'recordedOutput': args[i + 1], 'reproductionOutput': target})
++        args[i + 1] = target
+     reproduction.append(
+-        {'name': command['name'], 'source': source, 'sourceSha256': command['sourceSha256'], 'argv': args}
++        {'name': command['name'], 'source': source, 'sourceSha256': command['sourceSha256'], 'argv': args,
++         'outputBindings': output_bindings}
+     )
+ app['acceptedDesignReproduction'] = {
+@@ -693,4 +700,5 @@
+     ),
+     'commands': reproduction,
++    'outputPolicy': 'Every explicit output path is relative to the disposable working copy and must be absent before its command runs. The native checker also writes its default report inside that copy. Original historical absolute output paths are provenance only; never execute a reproduction command against them.',
+     'standing': (
+         'Executable relative-source reproduction metadata; original absolute command records and '

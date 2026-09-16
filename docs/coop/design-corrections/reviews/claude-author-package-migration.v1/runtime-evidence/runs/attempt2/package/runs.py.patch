@@ -1,0 +1,77 @@
+--- preserved-completed-pilot6/runs.py
++++ author-copy/runs.py
+@@ -1,4 +1,4 @@
+-"""Complete positive Run construction from published schemas."""
++"""Author-assisted example construction; incomplete until exact frozen full replay passes."""
+ from __future__ import annotations
+ 
+ import copy
+@@ -10,7 +10,7 @@
+ from . import builder, canonical, cap_admit, clone_body, evaluator, h, order, store
+ 
+ KIT = Path("/tmp/opensip-design-corrections/consumer-b.v13/subject")
+-OUT = Path("/tmp/opensip-design-corrections/consumer-b.v13-pilot-admission.v6/output")
++OUT = Path("/tmp/opensip-design-corrections/codex-author-followup.v1/output")
+ PLATFORM = "macos-aarch64"
+ 
+ 
+@@ -48,7 +48,7 @@
+ 
+ 
+ def make_toolchain_closure(st: store.Store, kind_files: dict[str, bytes], kind="toolchain") -> str:
+-    rec, ident, blobs = builder.make_closure(kind, PLATFORM, kind_files, version="5.4.5", protocol_major=2)
++    rec, ident, blobs = builder.make_closure(kind, PLATFORM, kind_files, version="1.78.0" if "bin/rustc" in kind_files else "5.4.5", protocol_major=2)
+     st.put_canonical_record("closure", rec)
+     for b in kind_files.values():
+         st.put_blob(b)
+@@ -87,7 +87,10 @@
+ 
+ 
+ def make_grammar_closure(st: store.Store) -> str:
+-    files = {"grammars/json.json": b'{"name":"json"}'}
++    files = {"bundle-manifest": b"grammar-bundle-manifest"}
++    for grammar in ["json", "markdown", "typescript"]:
++        files["grammars/"+grammar+".json"] = json.dumps({"grammar":grammar}).encode()
++        files["normalizers/"+grammar] = b"normalizer-spec-" + grammar.encode()
+     rec, ident, blobs = builder.make_closure("grammar", PLATFORM, files, version="1.0.0", protocol_major=1)
+     st.put_canonical_record("closure", rec)
+     for b in files.values():
+@@ -1430,9 +1433,9 @@
+             "dependencySourceSetId": dep_id,
+             "unifiedFeaturesId": feat_id,
+             "nativeContextId": ctx_text,
+-            "cfgSets": [{"cfgSetId": "default", "cfg": ["unix"]}],
++            "cfgSets": [{"cfgSetId": "default", "cfg": ctx["baseCfg"]}],
+             "rustflags": rustflags(),
+-            "crateRootPaths": ["crates/alpha", "crates/foo#bar"],
++            "crateRootPaths": ["crates/alpha/src/lib.rs", "crates/alpha/src/main.rs", "crates/foo#bar/src/lib.rs"],
+             "configProjectionSha256": h.suffix(h.native_sha256_text("native.cargo-config-projection.v2", proj))
+             if False
+             else h.native_bare_hex("native.cargo-config-projection.v2", proj),
+@@ -1678,7 +1681,7 @@
+ 
+ def build_rust_partial() -> dict:
+     """Partial enumeration, empty clone view, no complete Coverage from partial ownership."""
+-    g = build_rust_run()
++    # Author: partial fixture does not depend on constructing an unused full Run.
+     # independent partial graph: clone coverage unknown + nativeCause
+     st = store.Store()
+     pid = builder.project_id()
+@@ -1790,7 +1793,7 @@
+         "nativeContextId": ctx_text,
+         "cfgSets": [{"cfgSetId": "default", "cfg": []}],
+         "rustflags": rustflags(),
+-        "crateRootPaths": ["src"],
++        "crateRootPaths": ["src/lib.rs"],
+         "configProjectionSha256": h.native_bare_hex("native.cargo-config-projection.v2", proj),
+         "executionCapableResolution": False,
+         "preparedOutputSetId": None,
+@@ -2069,7 +2072,7 @@
+         lang_mode_caps = ["inventory"]
+     else:
+         files = {"src/util.ts": b"export function f(){ return 1; }\n"}
+-        bundle = _syntax_bundle(st, "typescript", "typescript", [".ts", ".tsx", ".d.ts", ".mts", ".cts"], "code", gclos)
++        bundle = _syntax_bundle(st, "typescript", "typescript", [".ts", ".tsx", ".mts", ".cts"], "code", gclos)
+         selected = ["typescript"]
+         path = "src/util.ts"
+         body = files[path]

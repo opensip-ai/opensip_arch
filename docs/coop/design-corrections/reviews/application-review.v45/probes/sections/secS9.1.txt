@@ -1,0 +1,62 @@
+810: ### S9.1 Root schema 2 and signed profile-set binding (design, closed)
+811: 
+812: **The product admission boundary is `security/security-lifecycle.schemas.v1.json $.schemas.RootV1`
+813: and `$.schemas.RootV2`, reached only through `admit_root_document`.** No other document admits a
+814: root. Root **schema 1** *preserves the rule set* of the historical
+815: `docs/coop/completion/security-schemas.v8/root.schema.json`, which remains the immutable
+816: **rule source** and is not a second gate. The successor is not byte-equivalent to it and is not
+817: meant to be: every successor pattern ends with the strict `(?![\s\S])` assertion, where the
+818: retained v8 patterns end with a bare `$`. Under Draft 2020-12 a bare `$` matches before a final
+819: newline, so a root whose `indexOrigin.url` or whose role `namespaces` item carries a trailing
+820: newline is admitted by the historical bytes and **refused** by the product boundary
+821: (`PAYLOAD-NOT-ADMISSIBLE`, detail `ROOT.SCHEMA_SHAPE`, exit 2). That is the intended successor
+822: semantics — the discipline is universal across the product-successor schema documents — and it is
+823: regressed through the actual host gate, not through the schema alone, by
+824: `root-schema-cases.v1.json` cases
+825: `schema-1-root-with-a-trailing-newline-index-origin-url-refuses-at-the-product-boundary` and
+826: `...-role-namespace-...`. Preserved semantic rules of schema 1 (`RootV1`: TR-REPAIR typed absence,
+827: `kernelAttestationKeys` exactly `[]`, `recoveryAuthority` 5–16 keys at
+828: threshold ≥ 3, disjoint from `rootKeys`). Root **schema 2** (`RootV2`) is the
+829: exact extension recipe, and nothing else changes:
+830: 
+831: | Field | Schema 1 | Schema 2 |
+832: |---|---|---|
+833: | `rootSchema` | const 1 | const 2 (exact integer; `true` refuses `ROOT.SCHEMA_CONSTANT_TYPE`) |
+834: | `roles` | exactly TR-CORE, TR-INDEX, TR-COMPONENT, TR-BUNDLE, TR-REPAIR | those plus **required** `TR-PROFILE` |
+835: | TR-REPAIR / TR-PROFILE | keys `[]`, threshold 0, typed absence | may be active: threshold ≥ 2, keys ≥ threshold + 1, namespaces non-empty |
+836: | `kernelAttestationKeys` | `[]` | 0..8 Hex64 key ids |
+837: | key reuse | none across rootKeys / recoveryAuthority / roles | none across rootKeys / recoveryAuthority / roles / kernelAttestationKeys |
+838: | digest domain | `opensip.metadata.root.1` | `opensip.metadata.root.2` |
+839: | signers | previous root's `rootKeys@rootThreshold` and own | same (S5) |
+840: | readers | stage-1 {1}; stage-2 {1, 2} | stage-1 refuses `ROOT.SCHEMA_UNSUPPORTED` (typed, state unchanged); stage-2 admits |
+841: 
+842: Signature envelope kinds (`opensip-signature-envelope.2`) and their preimages
+843: are closed: `root` (body RootV1|RootV2, domain by `rootSchema`), `catalog` and
+844: `revocation` (v8 bodies, TR-INDEX), `trust-recovery-epoch` (S4.5,
+845: `recoveryAuthority`), `platform-profile-set` (body `PlatformProfileSetV1`,
+846: domain `opensip.metadata.platform-profile-set.1`, signed by `TR-PROFILE` at
+847: its threshold). Every preimage is the metadata-profile digest of the canonical
+848: body under its domain; the envelope's `bodyDigest` must equal it before any
+849: authority check. Publish/reader compatibility for the profile set: under a
+850: schema-1 root there is no TR-PROFILE, so a **standalone** profile-set document
+851: is refused typed (`ROOT.SCHEMA_UNSUPPORTED`, detail
+852: `PROFILE_SET.NO_TR_PROFILE_ROLE`) and only the copy embedded in the signed
+853: core release (TR-CORE namespace) is used; under a schema-2 root with an active
+854: TR-PROFILE, standalone profile sets are admitted only as a transport for the exact set
+855: pinned by the current admitted core release. The prospective signed core release
+856: manifest schema2 carries required `platformProfileBinding: CoreProfileBindingV2`
+857: with `platformProfileSetBodyDigest` equal to the metadata-profile body digest.
+858: A stage2 reader ships under the old schema1 release first; only then can schema2
+859: release manifests publish this required binding. The embedded and standalone
+860: forms must match that same pin. A different or older set refuses
+861: `PROFILE_SET.CORE_PIN_MISMATCH` even with a valid quorum. Updating the profile
+862: set requires an ordinary signed core release update; it has no independently
+863: mutable lifecycle or additional rollback floor. Reference
+864: `admit_root_document` / `admit_profile_set_envelope` exactly validate the entire
+865: closed input schema before semantic admission. `admit_root_chain` composes that
+866: admission with chain verification; the older projected chain fixture primitive
+867: is not a public admission boundary. Reference; fixture
+868: `root-schema-cases.v1.json` (root and envelope input admission, positive and
+869: negative). Release-side implementation qualification of the signing ceremony
+870: stays future; the design is closed here.
+871: 

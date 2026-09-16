@@ -1,0 +1,74 @@
+{
+  "session_id": "cdbe432e-4f52-4223-a76f-cf6e93ac9847",
+  "total_cost_usd": 5.574671000000001,
+  "usage": {
+    "input_tokens": 610,
+    "cache_creation_input_tokens": 231431,
+    "cache_read_input_tokens": 2606016,
+    "output_tokens": 78099,
+    "output_tokens_details": {
+      "thinking_tokens": 34956
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 231431,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1503,
+        "cache_read_input_tokens": 236432,
+        "cache_creation_input_tokens": 494,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 494
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1758,
+      "outputTokens": 14,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001828,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 610,
+      "outputTokens": 78099,
+      "cacheReadInputTokens": 2606016,
+      "cacheCreationInputTokens": 231431,
+      "webSearchRequests": 0,
+      "costUSD": 5.572843000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 34956,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 58,
+  "subtype": "success",
+  "result": "**Verdict: changes-required.** There are 3 required findings and 7 advisories. The review is in `m1-native-wire-owner-review-02/review.json` and `review.md` (`subjectManifestSha256` `5d11f555\u20260e4d`), with probe scripts and outputs under `scratch/`.\n\n**Reproduction**\n- **File set:** the 42 files matched the manifest exactly, before and after the review.\n- **Checks:** from a fresh copy, `check.py` gave 299 checks with 0 failures, byte-identical to the frozen result. It also passed with the bytecode env vars unset.\n- **Closure:** 35 architecture reads, all pinned, and no `.pyc` read. No hidden `/tmp` reads.\n- **Architecture tree:** it does contain old `.pyc` files. None was read or written, and all 35 pins were unchanged afterwards.\n- **Selftest:** 37/37 caught, byte-identical. It can't run from the 27 inputs alone because it reads `subject-files.json`, so the real set is 28 files.\n\n**Accepted after my own probes**\n- **All six review-01 findings and ten advisories** are fixed as stated. Three new findings grew out of RF-3, RF-5 and RF-6.\n- **ProviderFault worker-observed phase:** I wrote my own race model from the P3 table. Across 145 worker cuts, no lawful fault was refused and no altered fault was admitted. The owner table gave P3-28 every time.\n- **Reading Hello first:** this follows from the inherited handshake. Refusing a START-phase fault gives the same D9 outcome as P3-28 (operational-failed 4 `PROVIDER.PROTOCOL_VIOLATION`), so no fault is suppressed.\n- **PreparedOutput 256/255** refused before spawn: accepted.\n- **Path segment rules:** the newline cases behave as stated.\n- **PackageKey:** the exact join and tuple order match the owner, with 0 order disagreements in 20,000 random pairs. Empty and space-containing sourceIds are admitted; a 4096-scalar key is admitted and 4097 is refused.\n- **Carried-over items** (scope2, raw TS manifest, dependency-source self-reference, anchors, fact-ref, inert kinds, anchor order) check out against the owners.\n\n**Required findings**\n1. **The two new details join nothing.** Neither `native.prepared-output-exceeds-wire-limit` nor `native.dependency-source-package-key-invalid` is in:\n   - the closed `public-detail-registry.v1.json`, which is unpinned and never read;\n   - `DomainDetailCode`;\n   - the model's `D9_MAP`.\n\n   No D9 route row covers dependency-source set refusals. Changing that refusal to operational-failed/ILLEGAL_STATE, or the prepared refusal to \"after spawn\", fails 0 checks.\n2. **Dependency sources the owner admits can't all go on the wire, and nothing refuses them before spawn.** This is the same problem review-01 RF-3 raised for prepared outputs.\n   - **Paths:** owner-admitted names like `C:x`, `a:b/c` and `a//b` are refused by the candidate's new path rule.\n   - **Frame size:** the single dependency manifest overflows 64 MiB at about 329k realistic entries (579k minimal), against a 1,000,000 limit.\n   - **Request totals:** the request byte and frame totals have no stated fate.\n   - **NFC:** a non-NFC sourceId passes set admission but the wire refuses it.\n3. **The hand-lowering list is incomplete.**\n   - The checker only scans scalars (11 names, and it asserts just \"at least 10\"). It misses 2 inline patterns and 7 distinct extern lookaround patterns.\n   - It runs Python `re` instead of the declared ECMA dialect. Node shows they disagree on `a/..\\n`, `a/.\\n` and `..\\n`.\n   - Changing the dialect or lowering text fails 0 checks.\n\n**Limits**\n- No generator was run, and nothing here counts as production code or M2/M3 qualification.\n- I took commitment domains and the scope2/digest fixtures from the author's checks rather than re-deriving them.\n- The race model did not enumerate Cancel interleavings; I argued those from the P3 table.\n- I did not measure how often the dependency-source cases occur in real crates.",
+  "type": "result",
+  "duration_ms": 940661
+}

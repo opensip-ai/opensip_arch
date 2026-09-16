@@ -1,0 +1,52 @@
+--- a/docs/coop/design-corrections/security/check-security-lifecycle.v1.py
++++ b/docs/coop/design-corrections/security/check-security-lifecycle.v1.py
+@@ -38,7 +38,7 @@
+ model = load('security_lifecycle_model_v1', HERE / 'security_lifecycle_model_v1.py')
+ 
+ CASE_FILES = [
+-    ('discovery-cases.v1.json', 'DiscoveryResultV1'),
++    ('discovery-cases.v1.json', 'DiscoveryResultV2'),
+     ('trust-clock-cases.v1.json', 'ClockDecisionV1'),
+     ('trust-recovery-cases.v1.json', None),   # per-case schema (challenge vs apply)
+     ('root-chain-cases.v1.json', 'RootChainResultV1'),
+@@ -56,7 +56,7 @@
+     ('offline-guidance-cases.v1.json', 'OfflineGuidanceV1'),
+ ]
+ MODEL_SCHEMA = {
+-    'discovery': 'DiscoveryResultV1', 'clock': 'ClockDecisionV1', 'recovery-challenge': 'RecoveryChallengeResultV1',
++    'discovery': 'DiscoveryResultV2', 'clock': 'ClockDecisionV1', 'recovery-challenge': 'RecoveryChallengeResultV1',
+     'recovery-apply': 'RecoveryApplyResultV1', 'root-chain': 'RootChainResultV1', 'revocation-observe': 'RevocationObservationV1',
+     'observer': 'ObserverTickV1', 'linearize': 'LinearizationV1', 'journal-record': 'JournalRecordAdmissionV1',
+     'host-seal-run': 'HostSealRunAdmissionV1', 'seal-run-prefix': 'HostSealRunAdmissionV1',
+@@ -67,7 +67,7 @@
+     'storage-write': 'StorageWriteAdmissionV1',
+     'execution-projection': 'ExecutionProjectionAdmissionV1', 'semantic-projection': 'SemanticProjectionV1',
+     'core-transition-scope': 'CoreTransitionScopeV1', 'public-detail': 'PublicDetailProjectionV1',
+-    'recovery-authorization': 'RecoveryAuthorizationAdmissionV1', 'boundary-inventory': 'AdmittedBoundaryInventoryV1',
++    'recovery-authorization': 'RecoveryAuthorizationAdmissionV1', 'boundary-inventory': 'AdmittedBoundaryInventoryV2',
+     'transition-intent': 'TransitionIntentAdmissionV1', 'transition-journal': 'TransitionJournalAdmissionV1',
+     'transition-recovery': 'TransitionRecoveryV1',
+ }
+@@ -506,7 +506,8 @@
+     out = model.discovery(_synthetic_repo(0, 4200))
+     assert out['status'] == 'ACCEPT', out.get('refusal')
+     assert [u['path'] for u in out['provenance']['units']] == ['/home/alice/big']
+-    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree', 'markerCount': 4200}]
++    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree',
++                                                 'markerCount': 4200, 'markerCountBasis': 'observed-inventory'}]
+     checked += 1
+     out = model.discovery(_synthetic_repo(4200, 4200))
+     assert out['status'] == 'REFUSE' and out['refusal'] == 'PROJECT.WORKSPACE_UNIT_LIMIT', out.get('refusal')
+@@ -609,9 +610,10 @@
+     sd = model.discovery({'invokingUid': 1000, 'accountHome': '/home/alice', 'cwd': R, 'fs': fs})
+     assert sd['status'] == 'ACCEPT', sd
+     inv = model.boundary_inventory(sd)
+-    assert inv == {'schemaVersion': 1, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
++    assert inv == {'schemaVersion': 2, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
+                    'nestedProjects': ['apps/site'], 'custodyExcludedUnits': [],
+-                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1}]}, inv
++                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1,
++                                    'markerCountBasis': 'observed-inventory'}]}, inv
+     markers = {p[len(R) + 1:]: {'sha256': '1' * 64} for p, e in fs.items() if p.startswith(R + '/') and e['kind'] == 'file' and p.rpartition('/')[2] in model.WORKSPACE_MARKERS}
+     nd = native.discover_units(markers, None, inv)
+     assert nd['refused'] is None

@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "standing": "author mutation evidence; not independent review",
+  "outcomes": [
+    {
+      "name": "browser-node-roots-only",
+      "site": [
+        "check-lane.mjs",
+        "rules.push({ name: 'browser-imports-node-builtin', severity: 'error', from: {}, to: { dependencyTypes: ['core'] } });",
+        "rules.push({ name: 'browser-imports-node-builtin', severity: 'error', from: { path: lane.browserRoots.map(root => '^' + escape(root)).join('|') }, to: { dependencyTypes: ['core'] } });"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "R01-root-external-browser-node: root probe: external runtime file in browser closure imports node:fs",
+        "N52-browser-external-two-hops-node: Node builtin two hops inside the browser runtime closure",
+        "N56-pnpm-external-browser-node: pnpm layout: browser runtime external imports node:fs",
+        "browser runtime closure covers externals but not Node scripts or declarations"
+      ],
+      "survived": false
+    },
+    {
+      "name": "external-root-only",
+      "site": [
+        "check-lane.mjs",
+        "(new RegExp(EXTERNAL_SEGMENT).test(file) ? reachedExternal : reachedLocal).add(file);",
+        "(file.startsWith('node_modules/') ? reachedExternal : reachedLocal).add(file);"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "P15-nested-own-node_modules: dependency materialized under the lane package node_modules"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-bust",
+      "site": [
+        "check-lane.mjs",
+        "{ bustTheCache: true }",
+        "{}"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N45-runtime-reenters-other-lane: external runtime file imports another lane",
+        "N46-types-reenter-declared-local: external declarations import an already declared lane input",
+        "R01-root-external-browser-node: root probe: external runtime file in browser closure imports node:fs",
+        "R02-root-external-unresolved: root probe: external runtime file has an unresolvable request",
+        "N50-external-cjs-dynamic-import-branch-missing: external CJS file import() whose import branch is missing",
+        "N52-browser-external-two-hops-node: Node builtin two hops inside the browser runtime closure",
+        "N53-external-declaration-unresolved: external declaration request unresolvable in the type graph",
+        "P13-accepted-unresolved-external: recorded optional external request is accepted, not treated as no edge",
+        "N54-unaccepted-unresolved-external: same optional external request without a record",
+        "N56-pnpm-external-browser-node: pnpm layout: browser runtime external imports node:fs",
+        "N57-pnpm-external-reentry: pnpm layout: external re-enters another lane",
+        "N60-ambiguous-js-format: .js without type mixing import and require: fail closed",
+        "browser runtime closure covers externals but not Node scripts or declarations",
+        "unresolved external requests are refusals or explicit accepted records"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-census",
+      "site": [
+        "supplement.mjs",
+        ", ...censusFindings(lane, reachedLocal));",
+        ");"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N47-undeclared-local-outside-include: imported own file outside tsconfig include and declared inputs"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-cwd",
+      "site": [
+        "check-lane.mjs",
+        "process.chdir(path.dirname(tsconfigPath));",
+        "process.chdir(root);"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "P00-report: positive control",
+        "P02-report-only: independent lane: provider/tooling sources absent",
+        "P03-jsdoc-own: JSDoc type import of own generated binding in script",
+        "P05-literal-template-import: no-substitution template literal is a literal edge",
+        "P06-loader-named-members: members named require/eval are not loaders",
+        "N13-paths-alias: tsconfig paths alias crossing",
+        "P11-node-script-external-uses-node: Node build-script branch of a shared dependency may use Node builtins",
+        "P12-browser-external-type-only-node: type-only Node reference in external declarations is not runtime browser closure",
+        "P18-browser-type-only-import-of-node-package: type-only import of a package whose runtime entry uses Node is erased from the browser runtime closure",
+        "P19-browser-type-only-import-of-types-only-package: type-only import of a declarations-only package needs no runtime target",
+        "P14-pnpm-in-root-layout: in-root pnpm-style .pnpm store with per-package symlinks",
+        "P15-nested-own-node_modules: dependency materialized under the lane package node_modules",
+        "browser runtime closure covers externals but not Node scripts or declarations",
+        "tsconfig paths without baseUrl resolve from the config directory"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-external-parse",
+      "site": [
+        "supplement.mjs",
+        "findings.push(...syntaxFindings(program, root, externals, 'external-parse-failure'), ",
+        "findings.push("
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N64-external-parse-failure: syntax error in a reached external must refuse, not partially extract"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-loader-guard",
+      "site": [
+        "supplement.mjs",
+        " ...loaderFindings(declared, root, lane),",
+        ""
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N31-computed-import: computed dynamic import",
+        "N32-computed-require: computed require",
+        "N33-template-substitution: template literal with substitution",
+        "N34-require-alias: require alias",
+        "N35-create-require: createRequire loader",
+        "N36-eval: eval code loader",
+        "N37-new-function: Function constructor loader",
+        "N38-computed-member-loader: computed member loader access",
+        "N39-computed-getbuiltin: computed process.getBuiltinModule"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-mixed-mode",
+      "site": [
+        "supplement.mjs",
+        "...mixedModeFindings(declared, root, lane.inputs, scopeOf), ",
+        ""
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N62-cts-static-and-dynamic-same-specifier: depcruise dedups static+dynamic same specifier in CJS TS: fail closed"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-per-edge-mode",
+      "site": [
+        "check-lane.mjs",
+        "  if (dep.moduleSystem === 'cjs') return { mode: 'require' };\n  if (dep.dynamic === true) return { mode: 'import' };\n",
+        ""
+      ],
+      "exitCode": 1,
+      "failing": [
+        "R03-root-cjs-dynamic-import-condition: root probe: import() in CJS uses the import condition (branch missing)",
+        "N49-cjs-mixed-import-branch-missing: mixed CJS file: import branch missing, require branch valid",
+        "N50-external-cjs-dynamic-import-branch-missing: external CJS file import() whose import branch is missing",
+        "one CJS file resolves require and import() of the same package with their own conditions"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-runtime-type-filter",
+      "site": [
+        "check-lane.mjs",
+        "      if (graph === 'runtime' && isTypeOnly(dep)) continue;\n",
+        ""
+      ],
+      "exitCode": 1,
+      "failing": [
+        "P18-browser-type-only-import-of-node-package: type-only import of a package whose runtime entry uses Node is erased from the browser runtime closure"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-single-use-guard",
+      "site": [
+        "check-lane.mjs",
+        "  if (invoked) throw new LaneError(",
+        "  if (false) throw new LaneError("
+      ],
+      "exitCode": 1,
+      "failing": [
+        "checkLane is single-use per process and restores cwd"
+      ],
+      "survived": false
+    },
+    {
+      "name": "no-stale-accepted",
+      "site": [
+        "check-lane.mjs",
+        "if (!used.has(index)) remaining.push(",
+        "if (false) remaining.push("
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N55-stale-accepted-unresolved: accepted record that matches nothing"
+      ],
+      "survived": false
+    },
+    {
+      "name": "node-uses-module-field",
+      "site": [
+        "check-lane.mjs",
+        "...(browser ? ['module'] : []), 'main'],",
+        "'module', 'main'],"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "N63-node-main-and-index-missing-module-present: Node require with missing main and index but present module field"
+      ],
+      "survived": false
+    },
+    {
+      "name": "unresolved-own-only",
+      "site": [
+        "check-lane.mjs",
+        "{ name: 'unresolvable', severity: 'error', from: {}, to: { couldNotResolve: true } }",
+        "{ name: 'unresolvable', severity: 'error', from: { path: ownSource }, to: { couldNotResolve: true } }"
+      ],
+      "exitCode": 1,
+      "failing": [
+        "R02-root-external-unresolved: root probe: external runtime file has an unresolvable request",
+        "N50-external-cjs-dynamic-import-branch-missing: external CJS file import() whose import branch is missing",
+        "N53-external-declaration-unresolved: external declaration request unresolvable in the type graph",
+        "P13-accepted-unresolved-external: recorded optional external request is accepted, not treated as no edge",
+        "N54-unaccepted-unresolved-external: same optional external request without a record",
+        "unresolved external requests are refusals or explicit accepted records"
+      ],
+      "survived": false
+    }
+  ]
+}

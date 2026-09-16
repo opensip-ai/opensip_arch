@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-native-wire-renderer-review-02",
+  "reviewer": "independent Claude reviewer (claude-opus-5)",
+  "subject": {
+    "path": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-02",
+    "manifest": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-02.json",
+    "manifestSha256": "545492bceff46d01b6176ccc9b537ee9d5d86ec48f4730450a87e74916a6e04b",
+    "files": 24,
+    "integrityBefore": "manifest hash matched; exact 24-file set; all sha256 and byte sizes matched",
+    "integrityAfter": "manifest hash matched; exact 24-file set; all sha256 and byte sizes matched (subject-01 also unchanged)",
+    "changedVsSubject01": ["UNIT.md", "generated/type-probes.ts", "generated/wire.rs", "render.py", "src/tests.rs", "test_render.py"],
+    "inputPins": "all 11 copies byte-equal to pinned origins (owner01 native input, control01 extern contracts); owner helpers not executed"
+  },
+  "verdict": "changes-required",
+  "verdictSummary": "Both review01 required findings are corrected in the generated tagged readers and independently confirmed. Two new required findings: layout validation skips protocol frame payload type positions, and the duplicate-member guard has no test binding it.",
+  "scope": {
+    "in": [
+      "generic inert Rust/TS carrier rendering for the declared owner01 input: 67 named native types, 23 distinct externs, two frame families",
+      "manual generated Deserialize for four tagged records (key/tag/scalar kind, null vs map, duplicates, unknown/missing keys, tag position)",
+      "renderer layout/grammar refusal checks and name/keyword handling",
+      "TypeScript frame tag/direction/payload correlation probes",
+      "reproduction of generated outputs and test gates"
+    ],
+    "out": [
+      "native owner semantics (owner02 findings pending, author03 correcting); no owner agreement",
+      "source selection, final owner rebind, closed IDL profile, full generator/tool closure, product integration/install",
+      "production CBOR codec, canonical serialization, host resource bounds, admission (bounds/consts/NFC/order/joins/commitments/state)",
+      "performance, platform, release qualification"
+    ]
+  },
+  "reproduction": {
+    "freshRender": "render.py on work copy reproduced generated/wire.rs, wire.ts, render-result.json byte-identically",
+    "cargoTest": "cargo test --locked --offline: 8 passed; 2 compile-fail doctests passed",
+    "clippy": "cargo clippy --locked --offline --all-targets -- -D warnings: clean",
+    "python": "python3 -B test_render.py: 10 tests OK",
+    "typescript": "tsc 6.0.3 (candidate-02 path, node v24.16.0) -p tsconfig.json strict + exactOptionalPropertyTypes: exit 0",
+    "environment": "own TMPDIR and CARGO_TARGET_DIR under review-02/work; cached pinned deps; no background tasks"
+  },
+  "review01Disposition": [
+    {"id": "review01-RF-1", "title": "required null accepted {} through serde tagged buffering", "status": "corrected", "evidence": "JSON and typed probes: {} and [] refused for all tagged null positions; lawful null accepted; subject test covers 18 positions; mutation map-as-null caught"},
+    {"id": "review01-RF-2a", "title": "text/key/tag kind lost in tagged records", "status": "corrected", "evidence": "review01 loose and strict typed probes: bstr text, bstr tag, u64 tag, bstr keys, u64 index keys all refused in tagged records; mutations bytes/int keys and bytes-as-text caught"},
+    {"id": "review01-RF-2b", "title": "vacuous TS wrong-direction probe", "status": "corrected (one direction)", "evidence": "widening the 15 worker-to-host rows now fails tsc (TS2578); widening the 13 host-to-worker rows still passes (advisory A5)"}
+  ],
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Layout validation does not cover protocol frame payload type positions",
+      "location": "render.py Renderer.validate_layout (walk limited to scalars and records tables)",
+      "detail": "Frame payload types and selector alternatives are interpreted by kind() but never walked. UNIT.md claims layout validation confines frame-payload to its envelope position and refuses out-of-domain uint64 literals; neither holds for frame payloads.",
+      "evidence": [
+        "typescript-semantic frames[0].payload = uint64 const 18446744073709551616: render ok; wire.ts contains 18446744073709551616n",
+        "same with const -1: render ok; wire.ts contains -1n",
+        "frames[0].payload = frame-payload typescript-semantic: render ok; wire.rs contains Hello(Box<Ts2FrameV2Payload>)",
+        "FactBatch alternative 'true' = text with const 'a' and enum ['b']: render ok (enum silently wins)"
+      ],
+      "unverified": "compile/tsc effect of these mutated renders was not run (tool permission denied); finding rests on renderer acceptance and emitted text",
+      "requiredChange": "Walk protocols[*].frames[*].payload and each selection alternative with the same uint-domain, const/enum and frame-payload checks (frame-payload never allowed there); add Python refusal tests for each case."
+    },
+    {
+      "id": "RF-2",
+      "title": "Duplicate-member refusal in generated tagged readers is not bound by any test",
+      "location": "generated/wire.rs tagged readers (4 sites) and src/tests.rs",
+      "detail": "The guard is correct, but the stated duplicate-key handling has no test evidence. Without it a later renderer change could silently give last-wins record overwrite.",
+      "evidence": [
+        "mutation removing all 4 'duplicate native record member' guards: cargo test 8/8 and doctests 2/2 still pass",
+        "independent probes on unmodified copy: JSON duplicate member and duplicate tag refused; typed-value duplicate member and duplicate tag refused"
+      ],
+      "requiredChange": "Add Rust tests refusing duplicate member and duplicate discriminator (including tag-last order) for tagged records; confirm the guard-removal mutation fails them."
+    }
+  ],
+  "advisories": [
+    {"id": "A1", "title": "Tagged reader accepts fewer lawful serde callbacks than flat types", "detail": "Null delivered via visit_none or visit_some(unit), and unsigned 5 delivered via visit_i64, are refused in tagged records, while flat serde types accept visit_i64(5). This fails closed, but lawful values from some self-describing codecs could be refused. Either map visit_none to Null and non-negative i64/i128 to Unsigned, or state the exact required callbacks as a codec duty in UNIT.md."},
+    {"id": "A2", "title": "Allocation before kind check", "detail": "WireScalar materializes text or bytes for any member before the declared kind is checked, and StrictMapKey allocates unknown keys before refusing them. Values are bounded in count (at most 7) but not in length. The codec's length-before-allocation duty covers this; a per-member DeserializeSeed would check the kind before allocating."},
+    {"id": "A3", "title": "Remaining operator-shape acceptance", "detail": "text enum [] renders as unconstrained String (silent widening); bool const 'yes' renders TS literal \"yes\"; a single-variant variant-record renders; the envelope sequence member type is unchecked. Refuse these in the renderer or in the pending closed IDL profile."},
+    {"id": "A4", "title": "Duplicate names in memberOrder not refused", "detail": "Appending the discriminator again to memberOrder renders a duplicate match arm (\"kind\" => 5) and an extra value slot, because the set-based checks miss it. Refuse len(set(memberOrder)) != len(memberOrder). Compile/Clippy effect not verified (permission denied)."},
+    {"id": "A5", "title": "TS direction negative covers only worker-to-host rows", "detail": "Widening the 13 host-to-worker rows is not detected. The generated TS is correct; add a symmetric negative with a valid host-to-worker payload."},
+    {"id": "A6", "title": "Carried, disclosed limits", "detail": "Rust frame structs keep frame_type/direction/payload independent. Derived tagged Serialize emits the tag first regardless of memberOrder (a tag-last input re-serializes tag-first) and is not qualified CBOR. Flat serde records still accept bstr for String and bstr or u64-index keys under non-hinting deserializers, so they depend on codec hint fidelity as UNIT.md states. Numeric/bool consts remain inert in Rust (stress: count 99 accepted for const 7, flag false for const true)."}
+  ],
+  "tests": {
+    "mutations": [
+      {"id": "M1", "change": "remove duplicate guard (4 sites)", "result": "NOT caught (RF-2)"},
+      {"id": "M2", "change": "WireScalar visit_map -> Null", "result": "caught (2 tests)"},
+      {"id": "M3", "change": "StrictMapKey accepts bytes and u64 keys", "result": "caught"},
+      {"id": "M4", "change": "into_null accepts false", "result": "caught"},
+      {"id": "M5", "change": "into_text accepts UTF-8 bytes", "result": "caught"},
+      {"id": "M6", "change": "widen 15 worker-to-host direction rows", "result": "caught (TS2578)"},
+      {"id": "M7", "change": "widen 13 host-to-worker direction rows", "result": "NOT caught (A5)"}
+    ],
+    "independentProbes": [
+      {"name": "review01 review_probes.rs rerun", "result": "tagged records: all wrong kinds refused under loose and strict deserializers; baselines accepted; flat loose coercions unchanged (disclosed)"},
+      {"name": "review01 review_probes2.rs rerun", "result": "{} and [] refused for tagged required null; probe then panicked on its own unwrap of the now-refused {} input (expected after fix)"},
+      {"name": "probes3.rs typed callbacks", "result": "accepted: baselines, tag-last borrowed bytes, visit_u8 uint, visit_char text; refused: visit_none/visit_some null, visit_i64(5) and (-1), newtype text, u64 bool, empty seq null, u64/char/unknown tag, duplicate member/tag, unknown key, missing null, missing tag. The flat visit_none comparison was inconclusive (probe deserializer lacked enum support)."},
+      {"name": "probes3.rs JSON", "result": "duplicate member/tag refused, array refused, unknown nested key refused, escaped key accepted (JSON-level), anchor round trip ok"},
+      {"name": "render_probes02.py", "result": "RF-1 cases accepted; nullable/record-ref variant members, missing discriminator, inconsistent bounds refused; main() refuses duplicate input keys, floats, NaN"},
+      {"name": "grammar stress render + stress_probe.rs", "result": "variant record with keyword discriminator 'type', quoted tag a\"b, tag 'self' (ValueSelf), enum and const text, bytes scalar alias, null, bool/uint const: rendered, tsc exit 0, clippy -D warnings clean, typed and JSON decode correct, undeclared enum and wrong-kind bytes refused"}
+    ]
+  },
+  "manualReaderAssessment": {
+    "duplicateAliasMembers": "duplicate JSON/typed keys refused; duplicate snake names refused at generation; duplicate memberOrder entries not refused (A4)",
+    "correlationAndFields": "every non-discriminator memberOrder field is assigned per variant (set equality enforced); tag dispatch is on exact text; no field loss observed",
+    "allocations": "bounded value count, unbounded per-value length before kind check (A2)",
+    "declaredGrammar": "current input is all scalar; complex members refused at generation; stress confirms keyword, escaping and enum paths"
+  },
+  "limitations": [
+    "compile/tsc/clippy of RF-1 and A4 mutated renders not executed: tool permission denied in this session",
+    "no CBOR codec crate cached; codec callback behavior assessed with hand-written serde deserializers only"
+  ]
+}

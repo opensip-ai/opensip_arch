@@ -1,0 +1,24 @@
+--- a39/docs/coop/design-corrections/foundation/enumeration_model.v1.py
++++ b40/docs/coop/design-corrections/foundation/enumeration_model.v1.py
+@@ -532,7 +532,8 @@
+ 
+     * ENUMERATION_MEMBERSHIP_ORDER: units strictly ascending by (UTF-8 rootPath, UTF-8 languageFamily) with
+       unitOrdinal equal to the index; each memberPackageRoots strictly ascending; rows strictly ascending by UTF-8
+-      path (so no duplicate); unsupportedFiles and outsideBoundaryFiles exactly the row-order projections.
++      path (so no duplicate); unsupportedFiles and outsideBoundaryFiles exactly the row-order projections; every tsjs
++      unit's unitKind the U-4b.2 projection of its languageMode (NV.TSJS_UNIT_KIND) and no TS/JS kind on another family.
+     * ENUMERATION_MEMBERSHIP_ROW_DERIVATION: every row the retained units decide - all rows except
+       outside-project-boundary - equals the U-4b row decision re-run over those units and paths (languageFamily,
+       unitOrdinal, membership, reason). An outside-project-boundary row is judged on its suffix family and a null
+@@ -550,6 +551,11 @@
+         for u in units:
+             roots = [r.encode("utf-8") for r in u["memberPackageRoots"]]
+             if any(not a < b for a, b in zip(roots, roots[1:])):
++                _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++            if u["languageFamily"] == "tsjs":
++                if u["unitKind"] != NV.TSJS_UNIT_KIND.get(u["languageMode"]):
++                    _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++            elif u["unitKind"] in NV.TSJS_UNIT_KIND.values():
+                 _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
+         paths = [r["path"].encode("utf-8") for r in rows]
+         if any(not a < b for a, b in zip(paths, paths[1:])):

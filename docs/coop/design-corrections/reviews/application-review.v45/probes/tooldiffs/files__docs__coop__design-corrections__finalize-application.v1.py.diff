@@ -1,0 +1,19 @@
+--- support/finalize-application.before-selftest.py
++++ files/docs/coop/design-corrections/finalize-application.v1.py
+@@ -25,7 +25,10 @@
+     review = json.loads(review_path.read_text())
+     assert review['verdict'] == 'ACCEPT', 'Independent application ACCEPT required'
++    for key in ('newMustIssues', 'newShouldIssues'):
++        assert isinstance(review.get(key), list) and not review[key], 'Unresolved or unaccounted required application findings: ' + key
+     assert review['subjectManifestSha256'] == expected_manifest_sha, 'Review names different application bytes'
+     assert manifest['implementationAuthorized'] is False
+     activation_rel = safe_relative('docs/coop/design-corrections/application-activation.v1.json')
++    assert (root / activation_rel).resolve().is_relative_to(root), 'Escaping activation path'
+     assert not (root / activation_rel).exists(), 'Existing activation requires verification, never replacement'
+     targets = []
+@@ -61,4 +64,5 @@
+         'bindingRule': 'Verify both pinned artifacts and each current applied file against the application manifest; this receipt alone is not acceptance evidence.'
+     }
++    (root / activation_rel).parent.mkdir(parents=True, exist_ok=True)
+     (root / activation_rel).write_text(json.dumps(receipt, indent=2) + '\n')
+     print(json.dumps({'appliedFiles':len(targets), 'activation':str(activation_rel), 'implementationAuthorized':False}))

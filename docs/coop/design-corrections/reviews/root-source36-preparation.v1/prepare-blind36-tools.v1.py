@@ -1,0 +1,8 @@
+from pathlib import Path
+import json,hashlib,difflib,shutil
+B=Path('/tmp/opensip-design-corrections');L=Path('/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews');old=B/'root-blind35-tool-binding.v1';out=B/'root-blind36-tool-binding.v1';h=lambda b:hashlib.sha256(b).hexdigest()
+mf=L/'candidate-subject.v36.json';digest=h(mf.read_bytes());cust=json.loads((B/'root-final36-custody.v1/verification.json').read_bytes());assert cust['manifestSha256']==digest and cust['archiveEveryMemberVerified'];assert not out.exists();out.mkdir();rows=[]
+for r in json.loads((old/'binding.json').read_bytes())['files']:
+ p=old/r['path'];raw=p.read_bytes();assert h(raw)==r['afterSha256'];name=r['path'].replace('35','36');s=raw.decode().replace('successor35','successor36').replace('blind35','blind36').replace('source35','source36').replace('subject.v35','subject.v36').replace('eb45c22b88a428887672d729be6645abf7d4d175474313d0909c8307d7966c85',digest)
+ assert not (B/name).exists();new=s.encode();(out/name).write_bytes(new);(B/name).write_bytes(new);(out/(name+'.diff')).write_text(''.join(difflib.unified_diff(raw.decode().splitlines(True),s.splitlines(True))));rows.append({'path':name,'beforeSha256':h(raw),'afterSha256':h(new)})
+(out/'binding.json').write_text(json.dumps({'standing':'Prepared only. Exact source36 transport/strong owner/query replays for completed consumer23; no execution or acceptance yet. Source35 tools preserved. No consumer imports, repairs or answer oracle.','sourceManifestSha256':digest,'files':rows},indent=2)+'\n');shutil.copytree(out,L/out.name);print('Prepared3 bound36 root replay tools')

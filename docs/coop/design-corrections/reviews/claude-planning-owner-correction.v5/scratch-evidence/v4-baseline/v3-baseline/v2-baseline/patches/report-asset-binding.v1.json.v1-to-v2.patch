@@ -1,0 +1,94 @@
+--- v1/docs/v2/architecture/report-asset-binding.v1.json
++++ v2/docs/v2/architecture/report-asset-binding.v1.json
+@@ -1,6 +1,14 @@
+ {
+   "schemaVersion": 1,
+-  "standing": "Author correction for review finding PS-04. Selects the smallest sufficient anchor for report asset bytes and defines its private descriptors and validation. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "standing": "Author correction for review finding PS-04, revision 2. Selects the smallest sufficient anchor for report asset bytes and defines its private descriptors and validation. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "revision": {
++    "supersedes": "claude-planning-owner-correction.v1 report-asset-binding.v1.json (sha256 7752aeeba5e310e3...)",
++    "changes": [
++      "manifestSelfReference added: the pinned manifest is excluded from the member inventory by exact path equality and is forbidden as an asset row, so the completeness law no longer refuses every valid bundle and no self-referential digest can arise (issue 1).",
++      "The optional-surface failure row no longer says success/exit 0 unconditionally. It preserves the underlying aggregate termination, which may be nonzero (issue 2). Anchor B11 added.",
++      "The CORE release catalog/manifest dependency is now recorded as UNASSIGNED and explicitly not the active grant-journal carrier author's work."
++    ]
++  },
+   "correctionOf": {
+     "finding": "PS-04",
+     "withdrawnClaim": "The host release's existing authenticated artifact/catalog association commits an exact asset-manifest regular file and every asset member.",
+@@ -68,6 +76,12 @@
+       "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+       "selector": "S5 detection bound, lines 306-313",
+       "fact": "A coherent rollback of the entire install root with the marker suppressed is stated as not detected. Whole-install-root substitution is already outside local detection."
++    },
++    {
++      "id": "B11",
++      "path": "docs/v2/contracts/product-v1/workflows-and-surfaces.md",
++      "selector": "Aggregate termination, lines 230-237, with the exit table at 971-972",
++      "fact": "Over REQUIRED steps only: operational-failed > request-rejected > policy-failed > indeterminate > success. An optional step's rejection or failure NEVER CHANGES THE AGGREGATE. Exit code derives from class by the fixed table only: success 0, policy-failed 1, request-rejected 2, indeterminate 3, operational-failed 4, interrupted 130. The line 844 sentence that an optional export sink failure leaves success, and the line 990 golden showing success 0, are instances whose underlying aggregate was already success; neither states that an optional failure resets a nonzero aggregate."
+     }
+   ],
+ 
+@@ -84,7 +98,8 @@
+     "whatItDoesNotCover": {
+       "installTimeProvenance": "The pin says nothing about where the host binary came from. Provenance of the delivered core release archive remains with the existing signing chain: TR-CORE as the core release root role (B3), distributed through the TR-INDEX-signed catalog whose artifacts[] row commits archiveDigest and sha256 for each platform archive (B5). Assets ship inside that archive and are covered transitively by its archive digest.",
+       "honestDependency": "The exact catalog row shape for a CORE release, as opposed to the component release row quoted in B5, is NOT published in frozen candidate25, and the core release manifest schema2 is explicitly prospective (B4). This correction does not assert that a published core-release row exists. Load-time asset integrity, which is what report rendering actually needs, does not depend on it.",
+-      "dependencyOwner": "Completing the core release manifest and its catalog row belongs to the release and carrier work that is separately active. If that owner later publishes a core release manifest, binding assetManifestSha256 into it is a strictly additive audit convenience, not a prerequisite for this design.",
++      "dependencyOwner": "UNASSIGNED. A CORE release catalog row and a core release manifest shape are simply not provided by candidate25, and this correction does not assign that work to anyone. In particular it is NOT the active grant-journal carrier author's task: that author owns the physical journal carrier format, rollover and read-only recovery, not release distribution or signing. If some future owner publishes a core release manifest, binding assetManifestSha256 into it would be a strictly additive audit convenience, never a prerequisite for this design.",
++      "notExpandedHere": "This correction deliberately does not author a core release manifest or its schema. That would be a materially larger owner change than the problem requires, and the selected anchor does not need it.",
+       "notClaimed": "No claim is made that a prospective record is published, that report assets are a producer, that they enter any semantic Run identity, or that asset packaging changes native context."
+     },
+     "rejectedAlternatives": [
+@@ -246,6 +261,7 @@
+       "extraAdmissionRules": [
+         "Every path is release-tree-relative and canonical: no leading slash, no . or .. segment, no backslash, no NUL byte, no trailing slash, no duplicate path.",
+         "Every path must lie under the pin's assetRoot.",
++        "The manifest never lists itself. A row whose path equals the pin's assetManifestPath refuses (MANIFEST_SELF_LISTED). See manifestSelfReference.",
+         "Rows are regular files only. A directory, symlink or device at a listed path refuses; no symlink is ever followed. This mirrors the frozen identity rule that type=dir and type=symlink stay delivery rows and are never followed into a listing.",
+         "The list is sorted ascending by path in byte order and the sort is checked, not assumed.",
+         "No URL, scheme, authority or network reference may appear in any member.",
+@@ -255,11 +271,25 @@
+     }
+   },
+ 
++  "manifestSelfReference": {
++    "problem": "HostAssetPinV1.assetManifestPath must lie under assetRoot, and the completeness law requires that no unlisted regular file exists under assetRoot. The manifest is itself a regular file there. If it must list itself, its own sha256 and bytes become self-referential and unsatisfiable; if it is simply omitted, the completeness law refuses every valid bundle.",
++    "resolution": "Exclude precisely one path, and only that path, from the member inventory: the manifest named by the pin. The manifest is covered by its own independent pin, so excluding it loses no coverage.",
++    "exactRules": [
++      "assetManifestPath lies under assetRoot and names a regular file.",
++      "assetManifestPath must NOT appear as an asset row. A row whose path equals it refuses MANIFEST_SELF_LISTED, so the self-referential digest can never arise.",
++      "Completeness reads: every regular file under assetRoot, EXCEPT exactly the one path assetManifestPath, must appear as an asset row; any other unlisted regular file refuses EXTRA_UNLISTED_FILE.",
++      "The exclusion is by exact path equality with the pinned value, never by prefix, suffix, filename pattern or directory. Only one file is ever excluded.",
++      "Coverage is therefore total: every byte under assetRoot is covered either by an asset row's digest or by HostAssetPinV1.assetManifestSha256."
++    ],
++    "rejectedAlternative": "Placing the manifest outside assetRoot would also work, but it needs a second release-relative path constraint and a second escape rule, so it is larger than excluding one exactly named path.",
++    "executedBy": "controls/check_report_asset_fixture.py, which builds a real temporary release tree, writes the manifest, computes the pin, and reads it back."
++  },
++
+   "buildTimeValidation": {
+     "owner": "report build assembly, then release assembly",
+     "steps": [
+-      "Emit ReportAssetManifestV1 over the exact built asset bytes, with real lengths and raw SHA-256 values, sorted and unique.",
+-      "Verify every listed member exists as a regular file under assetRoot with the listed length and digest, and that no unlisted regular file exists under assetRoot.",
++      "Emit ReportAssetManifestV1 over the exact built asset bytes, with real lengths and raw SHA-256 values, sorted and unique, and never listing assetManifestPath itself.",
++      "Verify every listed member exists as a regular file under assetRoot with the listed length and digest, and that every regular file under assetRoot except exactly assetManifestPath is listed.",
+       "Compute assetManifestSha256 and assetManifestBytes over the manifest bytes as stored, and compile them into the host binary as HostAssetPinV1 with buildChannel release.",
+       "Refuse assembly, per the plan's existing rule, if the selected report asset bundle is missing or incompatible."
+     ],
+@@ -309,10 +339,13 @@
+       },
+       {
+         "case": "An optional surface only, for example an optional browser launch or optional export, cannot use the assets",
+-        "class": "success",
+-        "exit": 0,
++        "class": "the underlying aggregate termination, unchanged",
++        "exit": "the exit code of that aggregate class by the fixed table, which may be nonzero",
+         "code": null,
+-        "basis": "B8: an optional sink failure is disclosed without changing the sealed result."
++        "preservesUnderlyingOutcome": true,
++        "basis": "B11: the aggregate termination is computed over REQUIRED steps only, and an optional step's rejection or failure never changes the aggregate. The v1 row said success/0 unconditionally, which was wrong: it would have reset a policy-failed 1 or indeterminate 3 outcome. Corrected.",
++        "disclosure": "The optional failure is disclosed on its own surface. It never raises the class and never lowers it.",
++        "worked": "A run whose findings terminate policy-failed 1 keeps policy-failed 1 when the optional browser launch fails. A run terminating success 0 keeps success 0. A run terminating indeterminate 3 keeps indeterminate 3."
+       },
+       {
+         "case": "A non-asset-consuming format was selected",

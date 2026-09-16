@@ -1,0 +1,643 @@
+diff --git a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json
+index 0b01255f..35456080 100644
+--- a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json
+@@ -243,6 +243,77 @@
+         "seq",
+         "operationRef"
+       ],
++      "properties": {
++        "recordType": {
++          "enum": [
++            "GRANT",
++            "RA",
++            "ICI",
++            "RCI",
++            "ICO",
++            "RCO",
++            "REV",
++            "CLN",
++            "SEAL"
++          ]
++        },
++        "recordSchema": {
++          "const": 3,
++          "description": "Current product grant-journal record format. Bundle filename security-lifecycle.schemas.v1.json is not this version. Schema-2 journals are frozen historical bytes under JournalRecordV2 and are not read as 3."
++        },
++        "grantGeneration": {
++          "$ref": "#/$defs/I64Positive"
++        },
++        "seq": {
++          "$ref": "#/$defs/I64Positive"
++        },
++        "operationRef": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 128
++        },
++        "grant": {
++          "type": "string",
++          "maxLength": 256
++        },
++        "requestRef": {
++          "type": "string",
++          "maxLength": 256
++        },
++        "outcome": {
++          "const": "COMPLETED"
++        },
++        "postimageSha256": {
++          "$ref": "#/$defs/Hex64"
++        },
++        "reason": {
++          "type": "string",
++          "maxLength": 256
++        },
++        "trustEpochObserved": {
++          "type": "object"
++        },
++        "residuals": {
++          "$ref": "#/$defs/StringList"
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])",
++          "description": "Current analysis Run identity. SEAL records that name a Run use run3. No run[23] alternation. Historical schema-2 journals that recorded run2 remain those bytes."
++        }
++      }
++    },
++    "JournalRecordV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "description": "FROZEN historical grant-journal record (recordSchema 2, run2). Not the current selected schema. Not an alternative parser for recordSchema 3. Used only to identify historical bytes so they are refused as current rather than relabelled.",
++      "required": [
++        "recordType",
++        "recordSchema",
++        "grantGeneration",
++        "seq",
++        "operationRef"
++      ],
+       "properties": {
+         "recordType": {
+           "enum": [
+@@ -519,6 +590,71 @@
+       "minLength": 1,
+       "maxLength": 1024,
+       "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++    },
++    "PrunedTreeRowV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "path",
++        "reason",
++        "markerCount",
++        "markerCountBasis"
++      ],
++      "description": "Pruned-tree row VERSION 2 (XA-02 / CR-25). Closed four-member row. The anchor is known from the admitted directory observation and is recorded even when no descendant marker was observed; discovery never descends into the tree to obtain a count or to find a nested anchor. markerCount is null if and only if markerCountBasis is not-enumerated. Version-1 rows keep their bytes under the version-1 records and are read as version 1, never re-read as version 2.",
++      "properties": {
++        "path": {
++          "type": "string",
++          "maxLength": 4096
++        },
++        "reason": {
++          "enum": [
++            "dependency-tree",
++            "vcs-tree",
++            "cargo-build-output"
++          ]
++        },
++        "markerCount": {
++          "oneOf": [
++            {
++              "type": "null"
++            },
++            {
++              "$ref": "#/$defs/I64NonNegative"
++            }
++          ],
++          "description": "Exact count of distinct supplied marker paths under this anchor when markerCountBasis is observed-inventory; null when not-enumerated. Common i64 nonnegative domain, shared byte-for-byte with the native mirror."
++        },
++        "markerCountBasis": {
++          "type": "string",
++          "enum": [
++            "not-enumerated",
++            "observed-inventory"
++          ],
++          "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
++        }
++      },
++      "oneOf": [
++        {
++          "properties": {
++            "markerCountBasis": {
++              "const": "not-enumerated"
++            },
++            "markerCount": {
++              "type": "null"
++            }
++          }
++        },
++        {
++          "properties": {
++            "markerCountBasis": {
++              "const": "observed-inventory"
++            },
++            "markerCount": {
++              "$ref": "#/$defs/I64NonNegative"
++            }
++          }
++        }
++      ]
+     }
+   },
+   "schemas": {
+@@ -1826,6 +1962,97 @@
+         }
+       }
+     },
++    "JournalRecordAdmissionV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "result",
++        "recordSchema"
++      ],
++      "properties": {
++        "result": {
++          "const": "CURRENT"
++        },
++        "recordSchema": {
++          "const": 3
++        },
++        "runId": {
++          "oneOf": [
++            {
++              "type": "null"
++            },
++            {
++              "type": "string",
++              "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++            }
++          ]
++        }
++      }
++    },
++    "HostSealRunAdmissionV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "description": "Output of admit_seal_run_id_prefix. Pattern dispatch only. Not close_run.",
++      "required": [
++        "result",
++        "standing",
++        "authority",
++        "runId",
++        "fixture"
++      ],
++      "properties": {
++        "result": {
++          "const": "ADMIT"
++        },
++        "standing": {
++          "const": "prefix-dispatch"
++        },
++        "authority": {
++          "const": "run3-pattern"
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "fixture": {
++          "const": false
++        }
++      }
++    },
++    "AnalysisSealAdmissionV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "description": "Output of admit_analysis_seal after identity-model.v3.close_run and RunId comparison. Not linearize.",
++      "required": [
++        "result",
++        "standing",
++        "authority",
++        "runId",
++        "journalRecordSchema",
++        "fixture"
++      ],
++      "properties": {
++        "result": {
++          "const": "ADMIT"
++        },
++        "standing": {
++          "const": "current-host"
++        },
++        "authority": {
++          "const": "identity-model.v3.close_run"
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "journalRecordSchema": {
++          "const": 3
++        },
++        "fixture": {
++          "const": false
++        }
++      }
++    },
+     "LeaseTraceV1": {
+       "type": "object",
+       "additionalProperties": false,
+@@ -4570,6 +4797,390 @@
+           "x-opensip-order": "utf8"
+         }
+       }
++    },
++    "DiscoveryProvenanceV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "mode",
++        "ci",
++        "selectedRoot",
++        "configPath",
++        "walked",
++        "stopReason",
++        "custodyWaiver",
++        "authorizedGroupIds",
++        "vcs",
++        "nestedRepositories",
++        "nestedProjects",
++        "unitSource",
++        "units",
++        "excludedUnits",
++        "prunedTrees",
++        "explicitPathWasSymlink",
++        "warnings"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "mode": {
++          "enum": [
++            null,
++            "explicit",
++            "walk",
++            "config",
++            "vcs-default",
++            "cwd-default"
++          ]
++        },
++        "ci": {
++          "type": "boolean"
++        },
++        "selectedRoot": {
++          "$ref": "#/$defs/NullableString"
++        },
++        "configPath": {
++          "$ref": "#/$defs/NullableString"
++        },
++        "walked": {
++          "type": "array",
++          "maxItems": 256,
++          "items": {
++            "$ref": "#/$defs/WalkRecord"
++          },
++          "x-opensip-order": "sequence"
++        },
++        "stopReason": {
++          "$ref": "#/$defs/NullableString"
++        },
++        "custodyWaiver": {
++          "enum": [
++            null,
++            "trustProjectOwner"
++          ]
++        },
++        "authorizedGroupIds": {
++          "type": "array",
++          "items": {
++            "$ref": "#/$defs/I64NonNegative"
++          },
++          "maxItems": 64,
++          "x-opensip-order": "sequence"
++        },
++        "vcs": {
++          "oneOf": [
++            {
++              "type": "null"
++            },
++            {
++              "type": "object",
++              "additionalProperties": false,
++              "required": [
++                "kind",
++                "target",
++                "followed"
++              ],
++              "properties": {
++                "kind": {
++                  "enum": [
++                    "directory",
++                    "indirection"
++                  ]
++                },
++                "target": {
++                  "$ref": "#/$defs/NullableString"
++                },
++                "followed": {
++                  "const": false
++                }
++              }
++            }
++          ]
++        },
++        "nestedRepositories": {
++          "$ref": "#/$defs/StringList"
++        },
++        "nestedProjects": {
++          "$ref": "#/$defs/StringList",
++          "description": "directories under the selected root that hold their own opensip.json: deliberate project boundaries (ADV-3), recorded and never entered; reachable only by their own launch or --project"
++        },
++        "units": {
++          "type": "array",
++          "maxItems": 4096,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "path",
++              "kind",
++              "markers"
++            ],
++            "properties": {
++              "path": {
++                "type": "string",
++                "maxLength": 4096
++              },
++              "kind": {
++                "enum": [
++                  "explicit-join",
++                  "config-workspace-root",
++                  "workspace-auto"
++                ]
++              },
++              "markers": {
++                "type": "array",
++                "maxItems": 4,
++                "uniqueItems": true,
++                "items": {
++                  "enum": [
++                    "Cargo.toml",
++                    "package.json",
++                    "tsconfig.json",
++                    "jsconfig.json"
++                  ]
++                },
++                "x-opensip-order": "sequence"
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        },
++        "explicitPathWasSymlink": {
++          "type": [
++            "boolean",
++            "null"
++          ]
++        },
++        "warnings": {
++          "$ref": "#/$defs/StringList"
++        },
++        "unitSource": {
++          "enum": [
++            null,
++            "explicit-joins",
++            "config-workspace-roots",
++            "automatic"
++          ]
++        },
++        "excludedUnits": {
++          "type": "array",
++          "maxItems": 4096,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "path",
++              "reason"
++            ],
++            "properties": {
++              "path": {
++                "type": "string",
++                "maxLength": 4096
++              },
++              "reason": {
++                "type": "string",
++                "maxLength": 256
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        },
++        "prunedTrees": {
++          "description": "anchors of dependency (node_modules), VCS (.git/.hg/.svn/.jj) and Cargo build-output (target directly under a Cargo.toml directory) trees observed under the selected root; pruned by exact path segment per ../discovery-defaults.py; one record per tree, never per package. VERSION 2 (CR-25): an anchor observed as a directory entry is recorded even with zero observed descendant markers, and the count carries an explicit basis.",
++          "type": "array",
++          "maxItems": 65536,
++          "items": {
++            "$ref": "#/$defs/PrunedTreeRowV2"
++          },
++          "x-opensip-order": "sequence"
++        }
++      }
++    },
++    "AdmittedBoundaryInventoryV2": {
++      "title": "S3 export (post-reset v2 P3): the admitted authority boundaries of the selected root as relative scope paths; produced only by boundary_inventory over an ACCEPTed DiscoveryResultV1 and consumed unchanged by the native unit instrument",
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "source",
++        "selectedRoot",
++        "nestedRepositories",
++        "nestedProjects",
++        "custodyExcludedUnits",
++        "prunedTrees"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "source": {
++          "const": "security.discovery"
++        },
++        "selectedRoot": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "nestedRepositories": {
++          "type": "array",
++          "maxItems": 4096,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096,
++            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++          },
++          "x-opensip-order": "sequence"
++        },
++        "nestedProjects": {
++          "type": "array",
++          "maxItems": 4096,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096,
++            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++          },
++          "x-opensip-order": "sequence"
++        },
++        "custodyExcludedUnits": {
++          "type": "array",
++          "maxItems": 4096,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "path",
++              "reason"
++            ],
++            "properties": {
++              "path": {
++                "type": "string",
++                "maxLength": 4096,
++                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]*(?![\\s\\S])"
++              },
++              "reason": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 256,
++                "pattern": "^(DIRECTORY_CUSTODY:[A-Z_]+|MARKER_CUSTODY:(Cargo\\.toml|package\\.json|tsconfig\\.json|jsconfig\\.json):[A-Z_]+|DEPTH)(?![\\s\\S])"
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        },
++        "prunedTrees": {
++          "type": "array",
++          "maxItems": 65536,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "path",
++              "reason",
++              "markerCount",
++              "markerCountBasis"
++            ],
++            "properties": {
++              "path": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096,
++                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++              },
++              "reason": {
++                "enum": [
++                  "dependency-tree",
++                  "vcs-tree",
++                  "cargo-build-output"
++                ]
++              },
++              "markerCount": {
++                "oneOf": [
++                  {
++                    "type": "null"
++                  },
++                  {
++                    "$ref": "#/$defs/I64NonNegative"
++                  }
++                ]
++              },
++              "markerCountBasis": {
++                "type": "string",
++                "enum": [
++                  "not-enumerated",
++                  "observed-inventory"
++                ],
++                "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        }
++      }
++    },
++    "DiscoveryResultV2": {
++      "oneOf": [
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "status",
++            "provenance"
++          ],
++          "properties": {
++            "status": {
++              "const": "ACCEPT"
++            },
++            "provenance": {
++              "$ref": "#/schemas/DiscoveryProvenanceV2"
++            }
++          }
++        },
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "status",
++            "refusal",
++            "path",
++            "detail",
++            "d9",
++            "provenance"
++          ],
++          "properties": {
++            "status": {
++              "const": "REFUSE"
++            },
++            "refusal": {
++              "enum": [
++                "CONFIG.CUSTODY_REFUSED",
++                "PROJECT.ROOT_CUSTODY_REFUSED",
++                "PROJECT.EXPLICIT_PATH_INVALID",
++                "PROJECT.WORKSPACE_UNIT_LIMIT"
++              ]
++            },
++            "path": {
++              "$ref": "#/$defs/NullableString"
++            },
++            "detail": {
++              "type": "string",
++              "maxLength": 512
++            },
++            "d9": {
++              "$ref": "#/$defs/D9"
++            },
++            "provenance": {
++              "$ref": "#/schemas/DiscoveryProvenanceV2"
++            }
++          }
++        }
++      ],
++      "description": "Discovery result VERSION 2 (XA-02 / CR-25): identical shape to version 1 with a version-2 provenance record. Version 1 is retained as the historical result record for version-1 provenance bytes; an output is never validated under the version-1 name once its provenance changed."
+     }
+   }
+ }

@@ -1,0 +1,449 @@
+import json, hashlib, os
+OUT = '/private/tmp/opensip-design-corrections/application-review.v45/review.json'
+PROBES = '/private/tmp/opensip-design-corrections/application-review.v45/probes/'
+SNAP = 'accepted design snapshot /tmp/opensip-design-corrections/candidate-subject.v45 (manifest 8b4efbb0...)'
+RM = 'docs/coop/design-corrections/readiness-row-map.v1.json'
+IR = 'docs/coop/design-corrections/inherited-residuals.applied.v1.json'
+EV = 'docs/coop/design-corrections/evaluation-residual-dispositions.applied.v1.json'
+CW = 'docs/coop/design-corrections/correction-crosswalk.applied.v1.json'
+QG = 'docs/coop/design-corrections/qualification-gates.applied.v1.json'
+OW = 'docs/coop/design-corrections/review-owner-dispositions.v1.json'
+AA = 'docs/coop/design-corrections/accepted-review-advisories.v1.json'
+APP = 'docs/coop/design-corrections/application.v1.json'
+REG = 'docs/v2/architecture/08-decision-and-readiness-register.md'
+ADM = 'docs/v2/contracts/product-v1/admission-and-qualification.md'
+SEC = 'docs/v2/contracts/product-v1/security-and-lifecycle.md'
+IDE = 'docs/v2/contracts/product-v1/identity-and-evidence.md'
+NAT = 'docs/v2/contracts/product-v1/native-evidence.md'
+WF = 'docs/v2/contracts/product-v1/workflows-and-surfaces.md'
+
+should1 = {
+  'id': 'APP45-S1',
+  'severity': 'SHOULD',
+  'title': 'Per-row required release-gate routing omits gates named by six rows\' own current successor section, retained inherited account or retained historical gate routing, with no per-row disposition',
+  'class': 'Application-record accuracy in an application-only record (same defect class as prior application-review.v1 M-5). No normative contract, schema or model byte is wrong.',
+  'selectors': [
+    {'row': 'DR-103', 'pointer': RM + '#/rows/2/releaseGates', 'routed': ['DR-G06', 'DR-G07', 'DR-G15', 'DR-G24', 'DR-G31'], 'omitted': ['DR-G08'],
+     'basis': 'Snapshot register 08 line 291 (the DR-103 row whose compatible inherited account /rows/1 is retained) records "admission execution remains G07/G08/G15". G08 (root/index/core/component/repair trust survives expiry, revocation, quorum loss, rollback) exercises the signed index/lock/signature-preimage surface DR-103 owns. G07 and G15 were carried and G08 was dropped without a disposition.'},
+    {'row': 'DR-114', 'pointer': RM + '#/rows/12/releaseGates', 'routed': ['DR-G06', 'DR-G09', 'DR-G20', 'DR-G32'], 'omitted': ['DR-G12'],
+     'basis': 'The obligation is doctor schema/exit/redaction/consented probes. G12 is the doctor gate ("Doctor and purge are safe, stable, and honest"; ' + QG + '#/items/11 productExpansion "Doctor report-only no source/grant/trust write..."). Snapshot register 08 line 302 records "G12/G32 execution remains". G32 was kept and G12 dropped.'},
+    {'row': 'DR-117', 'pointer': RM + '#/rows/14/releaseGates', 'routed': ['DR-G21', 'DR-G29', 'DR-G30'], 'omitted': ['DR-G09', 'DR-G14', 'DR-G16', 'DR-G23'],
+     'basis': 'The row\'s own successor ' + ADM + ' §5 item 4 (line 344) says "G09/G21/G29/G30 must exercise these refusal and authority boundaries". Three of the four are routed and G09 is not. Snapshot register 08 line 305 routes the fourteen enforcement-evidence classes to DR-G09, G14, G16, G21, G23, G29 and G30. G14, G16 and G23 were dropped with no reasoned disposition.'},
+    {'row': 'DR-119', 'pointer': RM + '#/rows/16/releaseGates', 'routed': ['DR-G07', 'DR-G13', 'DR-G22', 'DR-G30'], 'omitted': ['DR-G14'],
+     'basis': 'G14 ("Supported language analyzers are self-contained; users manage no non-system runtime/tool dependencies") restates DR-119\'s rule. The row\'s retained additionalInheritedAccount D-008 fragment (fragmentSha256 84e6483d...) says "closure evidence per role at DR-G14 qualification". Snapshot register 08 line 307 does the same.'},
+    {'row': 'DR-123', 'pointer': RM + '#/rows/20/releaseGates', 'routed': ['DR-G03', 'DR-G04', 'DR-G06', 'DR-G17', 'DR-G20', 'DR-G28'], 'omitted': ['DR-G01', 'DR-G02', 'DR-G05', 'DR-G12'],
+     'basis': 'The row\'s retained additionalInheritedAccount D-009 fragment (fragmentSha256 53653dc8...) says "DR-G01..G05/G12/G17 carry the evidence". The sourceRequiredEvidence includes footprint evidence. Snapshot register 08 line 311 says "evidence at DR-G01..G05 and DR-G12". G03/G04/G17 were kept; G01/G02/G05/G12 were dropped without a disposition.'},
+    {'row': 'DR-124', 'pointer': RM + '#/rows/21/releaseGates', 'routed': ['DR-G11', 'DR-G12', 'DR-G18', 'DR-G19', 'DR-G20'], 'omitted': ['DR-G09'],
+     'basis': 'Snapshot register 08 line 312 (compatible inherited account /rows/11 retained) says "G09/G18/G19 execution remains". G18/G19 were kept and G09 dropped without a disposition.'}
+  ],
+  'measurement': 'probe p24_row_gates.py compares, for every row, the gates named in (a) the exact cited successor sections in the accepted snapshot, (b) the historical register row and (c) the source obligation/evidence cells with routed releaseGates. The remaining hits for the other 22 rows are incidental mentions and are not per-row obligations. Examples: workflows §8 names G17/G20 generally, identity §3 names G13, S11 names G08 in general text. DR-131 dropping preview-only G26 is explained because G26 is historical and routed on DR-122.',
+  'consequence': 'Register 08 (unified section) declares that the per-row map records each row\'s "required release gates". For these six rows it understates the remaining mandatory measurement relative to the row\'s own cited or retained sources, so a row-level release check would miss a gate. Nothing false is claimed today: all 32 gates are unperformed, qualified=false and mandatory in ' + QG + '. That is why this is SHOULD, not MUST. The prior application review treated the same class (M-5) as required, and ACCEPT requires no unresolved SHOULD.',
+  'remedy': 'Application-only change. Add the omitted gates to those rows\' releaseGates, or record an explicit, reasoned per-row disposition for any gate deliberately not routed (for example a preview-only EE class). Regenerate the dependent records and application manifest, rerun the scoped application checks and obtain a fresh final application review. No normative source byte changes, so this finding needs no new design review or blind consumer.'
+}
+
+advisories = [
+ {'id': 'APP45-ADV-01', 'severity': 'ADVISORY', 'title': 'The preserved workflows report embeds the pre-application workflows ledger hash; the application rerun regenerated a different report and no recording record explains the difference',
+  'selectors': ['docs/coop/design-corrections/workflows/workflows-report.v1.json line 33 "source-pins.v1.json": 6e75029f... (snapshot bytes bc84b7dc..., applied unchanged)',
+                'docs/coop/design-corrections/workflows/source-pins.v1.json applied after-image 9a802377...',
+                'support/reference-rerun/workflows.json#/check/reportSha256 = b607db8a... (accepted execution bc84b7dc...)',
+                'support/native-recording-delta.v1.json#/report (covers the native report only)',
+                'application.v1.json#/acceptedDesignReproduction/outputPolicy (says nothing about workflows/run-reference-checks.py rewriting workflows-report.v1.json inside the copy)'],
+  'measured': 'The regenerated report in the retained validation scratch differs from the snapshot report in exactly one line: the embedded workflows source-pins hash (6e75029f -> 9a802377). No ledger pins the workflows report (probe), and all ledgers match the post-application tree.',
+  'assessment': 'Preserving the accepted report is lawful and matches the user\'s no-repin rule. No applied text claims the report matches the current ledger: validation-summary.applied names it a byte-identical copy of the accepted execution, resolved against the snapshot. After application, though, a current-tree file records a superseded input hash, and the only disclosure is the rerun hash. This review now records it. A successor package should state it in its recording delta.'},
+ {'id': 'APP45-ADV-02', 'severity': 'ADVISORY', 'title': 'The design-corrections README historical chronology keeps level-1 headings and bold "Current:" lines, including an older commit/push authorization sentence',
+  'selectors': ['docs/coop/design-corrections/README.md lines 13-35 (staged). Line 33: "The user\'s later instruction explicitly authorizes committing and pushing the design/reference work."', 'Level-1 headings at lines 23, 39, 49... under "## Historical correction chronology (not current status)"'],
+  'assessment': 'These lines pre-exist in the live before-image; the staged delta adds only the 14-line current header. The current header (lines 1-11), the D-372 body ("Commit and push are not part of this task") and the register are explicit. In a rendered outline, though, the level-1 headings escape the historical H2 section. A future documentation pass could demote them or prefix them "Historical". Not blocking.'},
+ {'id': 'APP45-ADV-03', 'severity': 'ADVISORY', 'title': '"Fresh" blind consumer wording versus the disclosed continuation origin',
+  'selectors': [REG + ' line 398 (condition 1: "Actual fresh blind consumer B closes R10")', 'docs/coop/COORDINATOR-DECISIONS.md D-372 "Exact evidence" paragraph ("fresh independent blind consumer review")', IR + '#/residuals/9/dispositionText', 'docs/coop/design-corrections/reviews/consumer-b.v24-source45.v1/blind-review.json#/origin ("continuation; independence not claimed anew")'],
+  'assessment': '"Fresh blind consumer B" is the program\'s role name for the new, never-author blind origin (consumer-b.v24, session 9d3dfb70). That origin has stayed blind through source41-45 but is not a fresh origin on source45. The pinned blind record discloses this. The final-records correction made the design-review wording precise; the blind wording could be made equally precise. Not blocking.'},
+ {'id': 'APP45-ADV-04', 'severity': 'ADVISORY', 'title': 'The finalizer\'s interrupted-copy resume covers whole-file interruption only',
+  'selectors': ['docs/coop/design-corrections/finalize-application.v1.py lines 40-55'],
+  'assessment': 'shutil.copyfile is not atomic. A crash in the middle of a file leaves bytes that match neither the before-image nor the after-image. A rerun then refuses ("Working-tree change since review") before any further write or activation, so the failure is safe. Recovery needs a manual restore from package before/ or the staged file. Recommendation: write to a temp file and rename, or document the recovery. Not blocking.'},
+ {'id': 'APP45-ADV-05', 'severity': 'ADVISORY', 'title': 'The applying D-372 body differs textually from the pinned reviewed proposed act; the differences are precision corrections, not semantic changes',
+  'selectors': ['docs/coop/design-corrections/D-372-corrections.proposed.md (snapshot, 1ec3f477...)', 'docs/coop/COORDINATOR-DECISIONS.md staged D-372 body', 'probes/p20_act_vs_body.diff'],
+  'assessment': 'The identity bullet ("major-two semantic identities" -> "evaluator output profile 3 and unchanged declared native/input profile-2 recipes") matches the accepted current-source-map ("Current evaluator outputs use explicit major-three domains; unchanged native and input identities retain major two") and JOINT-INTERFACES. The SARIF sentence (§9 -> §8 parity fields, §8/§9 failure law) matches workflows §8 lines 1108-1127. The reviewer wording and the appended application sections do not change product law. The immutable proposed file keeps the older wording, so readers must use the activation-bound body.'},
+ {'id': 'APP45-ADV-06', 'severity': 'ADVISORY', 'title': 'CB-ADV-4 carriage belongs to the historical source20/21 advisory account, not the current generated records',
+  'selectors': [AA + ' (0 occurrences of CB-ADV-4)', 'snapshot docs/coop/design-corrections/reviews/codex-post-reset.v1/advisory-application-account.v20.proposed.json and .v21.proposed.json', 'support/d9-obligation-evidence/coauthor-assessment.v20-d9-application.v1.json#/rootQualifications/0'],
+  'assessment': 'Codex\'s qualification was correct for the source20 assembly. In the source45 records the obligation is carried by the row-specific carriedCrossUnitObligation on DR-007 and DR-011-R08, by blind advisory A-c2 (copied verbatim from the Codex blind assessment account), by the design review\'s retained d9PublishedSuccessor, by README line 5 and by the D-372 body. It is carried, but the CB-ADV-4 rationale should not be read as describing current bytes.'}
+]
+
+prior = [
+ {'id': 'M-1', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED', 'selectors': ['application-subject.v45.json#/files (application.v1.json 9d460994..., readiness-row-map.v1.json 6c439e27...)'], 'finding': 'Both evidence records are staged files that the finalizer applies. Probe p09 resolves all 518 local links in staged Markdown. The only links without a pre-existing target are the 3 activation-target links, which the reviewed finalizer creates last; application-link-assessment.v1.json#/futureGeneratedActivationLinks discloses them.'},
+ {'id': 'M-2', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED IN FORM', 'selectors': [RM + '#/standing', RM + '#/rows/*/independentGrade', RM + '#/rows/*/effectiveWhen', REG + ' line 399'], 'finding': 'All 28 rows carry a proposed ACCEPT-DESIGN, effective only when D-372 activation binds an actual final application ACCEPT to this exact manifest, so the register and map no longer contradict. This review returns CHANGES_REQUIRED, so the proposed grades do not take effect.'},
+ {'id': 'M-3', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED', 'selectors': [REG + ' line 400', OW + '#/records', APP + '#/independentDesignReview,/codexCoauthorAssent,/freshBlindConsumerReview,/codexBlindAssessment'], 'finding': 'Condition 3 cites exact review records with paths and hashes. DR-201..205 keep their historical 2026-08-13 cells verbatim behind a current D-372 prefix. The literal design-review ROUTING-ASSESSED-ONLY-NOT-APPLIED disposition is preserved, and the proposed outcome is explicitly left to this review (assessed below).'},
+ {'id': 'M-4', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED', 'selectors': [QG, REG + ' line 401', REG + ' gate preface line 342'], 'finding': 'The 32-gate map is an applied file linked from condition 4 and the gate registry preface. Every item has owner, harness, currentContract, requiredEvidence, qualified=false, demonstrated=false and implementationHarnessAuthored=false.'},
+ {'id': 'M-5', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED FOR G06/G11; CLASS RECURS AS APP45-S1', 'selectors': [RM + '#/rows/5/releaseGates (DR-106: G06,G07,G11,G12,G19)', RM + '#/rows/7 (DR-109: G11)', RM + '#/rows/11 (DR-113: G11)', RM + '#/rows/21 (DR-124: G11)'], 'finding': 'G06 and G11 are now routed to the storage/offline rows. The same under-routing class affects DR-103, DR-114, DR-117, DR-119, DR-123 and DR-124 for other gates (APP45-S1).'},
+ {'id': 'M-6', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED ON DESIGN SUBSTANCE (DR-117 gate routing in APP45-S1)', 'selectors': [RM + '#/rows/5 (DR-106 adds admission §2/§3, S9.1, G06/G11)', RM + '#/rows/7 (DR-109 G11)', RM + '#/rows/14 (DR-117 admission §5 + originalEnumeratedObligation)', RM + '#/rows/19 (DR-122 explicitReentryAct)', RM + '#/rows/25 (DR-130 S16)'], 'finding': 'Each of the five rows now has the missing normative selector: admission §5 matches the file02 seven items one to one; S16 matches file05 5/5/6 item by item; the D-372 SARIF re-entry is recorded in the act and in G17. Details under specificChecks.'},
+ {'id': 'M-7', 'priorSeverity': 'MUST', 'disposition': 'RESOLVED', 'selectors': ['docs/coop/COORDINATOR-DECISIONS.md staged lines after 24071 (## D-372)'], 'finding': 'The applying act is recorded, becomes effective only through activation, and is bound by the activation receipt.'},
+ {'id': 'S-1', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': [RM + '#/rows/1,3,13,14,16,20/additionalInheritedAccount'], 'finding': 'All six inherited source accounts are pinned: DR-102 control-protocol-contract.v2.json (c50a79fe, whole-file hash verified); DR-104 D-012, DR-115 D-006, DR-119 D-008 and DR-123 D-009 (fragments byte-verbatim in the snapshot decisions file, fragmentSha256 verified); DR-117 preview-product-boundary-successor.v10.json (8f34c92e verified; original preview standing only).'},
+ {'id': 'S-2', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': [NAT + ' (only permission-truth-tables.v9.json referenced)'], 'finding': 'Only the accepted v9 truth table is cited.'},
+ {'id': 'S-3', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': ['docs/operations/generate-current-design-catalog.py', 'docs/catalog/current-design.md'], 'finding': 'Running the generator with --check against the staged classification returns PASS (executed by this review).'},
+ {'id': 'S-4', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': [REG + ' line 342 preface; table header "Historical claim/.../Historical status"', QG + '#/items/5,9,10,16'], 'finding': 'Gate rows keep their historical claims and blockers under explicitly historical column labels. The preface states that G06/G11 blockers now have accepted prospective dispositions, G10 uses TS major2/Rust major3 and G17 is reactivated for the four SARIF commands. The gate map carries the current account.'},
+ {'id': 'S-5', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': [REG + ' line ~515 forward pointer'], 'finding': 'A forward pointer to Unified product design readiness now precedes the dated snapshot.'},
+ {'id': 'S-6', 'priorSeverity': 'SHOULD', 'disposition': 'RESOLVED', 'selectors': ['docs/START-HERE.md lines 7-14'], 'finding': 'The five-minute path runs scope -> contracts -> register -> source map, followed by a topic walkthrough linking chapters 01/02/03/04/13 through their applicability notes.'},
+ {'id': 'A-1', 'priorSeverity': 'ADVISORY', 'disposition': 'CORRECTED (inherited defect)', 'selectors': [REG + ' DR-117 source cell (#current-v1-product-boundary-and-required-successors)', 'support/application-link-assessment.v1.json#/before/failures/0', RM + '#/rows/14/sourceObligation'], 'finding': 'The broken anchor was pre-existing (before-image) and is corrected in the staged register, where it resolves. The row map\'s sourceObligation keeps the verbatim historical source text with the old anchor inside a JSON string. That is a quotation, not a rendered link.'},
+ {'id': 'A-2', 'priorSeverity': 'ADVISORY', 'disposition': 'RETAINED LIMITATION', 'selectors': ['COORDINATOR-DECISIONS.md D-372 "Delivery and reversal"', 'application-review-advisory-coverage.v1.json#/basis'], 'finding': 'This is a working-tree-only delivery; commit, push and publication are excluded. The committed tree alone must not be assumed to contain the delivered design, and A-2 is not closed by committing. This review did not measure git tracking state (the harness denied the read-only git invocation).'}
+]
+
+rows = [
+ ('DR-101', 'ACCEPT-DESIGN supported', 'S2 profiles, S8 platform admission and S9 floor continuity; native §1/§3/§5 cells, sealed inputs and execution boundary; admission §2/§3 authenticated qualification and full matrix. Inherited /rows/0 resolves. Gates G01-G05/G07/G22 fit the closure/TCB/packaging obligation. Unqualified.'),
+ ('DR-102', 'ACCEPT-DESIGN supported', 'Native §9 protocol majors (TS2/Rust3), wire, startup and §9.7 host closedWorld; workflows §1/§8. Retained control-protocol-contract.v2 (c50a79fe verified) keeps byte-opaque framing. Gates G10/G15/G16/G21. Blind consumer executed the wire/trace law on constructed payloads, not real workers.'),
+ ('DR-103', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G08)', 'Admission §1/§1.1 exact typed admission; S2/S3/S9.1 signed metadata envelopes and profile-set binding; workflows §8/§9 closed registry. Inherited /rows/1.'),
+ ('DR-104', 'ACCEPT-DESIGN supported', 'Identity §2/§3 identity/namespace preimages; workflows §8 closed 45-command inventory (measured 45 commands); S3. D-012 fragment verbatim. G06/G31 (eleven namespace negative classes).'),
+ ('DR-105', 'ACCEPT-DESIGN supported', 'S3/S6/S7/S8/S10/S10.1/S10.2 revocation linearization, leases, trusted repository-code principal, repair authorizations; workflows §6/§7/§12; native §5.2 cites truth tables v9. Inherited /rows/2. G08/G09/G21/G32.'),
+ ('DR-106', 'ACCEPT-DESIGN supported', 'Adds admission §2/§3 and S9.1 as the prior review required, plus S11, identity §3/§4/§5 (retained verification/regeneration closures, durable custody/failure protocol), native §3/§5 and workflows §2. G06 (DURABLE_AUTHORITATIVE offline closure, no implicit network) and G11 (verified durable storage) routed, plus G07/G12/G19. Never SATISFIED before, so no inherited pin is correct. Clean-machine no-network tests unperformed.'),
+ ('DR-107', 'ACCEPT-DESIGN supported', 'S6/S7/S9/S9.2/S15 lease modes, installation journal, host composition; identity §5; workflows §6/§12. Inherited /rows/3. G18/G19/G21.'),
+ ('DR-109', 'ACCEPT-DESIGN supported', 'Identity §4/§5 one-writer commit/custody/recovery; S3.1 backup custody before first source-derived write; S7; workflows §1/§9. G11 routed (prior M-5), G19/G20.'),
+ ('DR-110', 'ACCEPT-DESIGN supported', 'S4/S5/S6/S7/S9/S9.2/S11/S14/S15 signed core update/repair/rollback, offline media expiry/revocation, stage bridge; workflows §8/§12. G07/G08/G18/G22.'),
+ ('DR-111', 'ACCEPT-DESIGN supported', 'Identity §3/§5, native §9, S9, workflows §2/§3/§4 independent windows, runnable prior detector, typed comparison axes. Inherited /rows/4. G15/G16/G18.'),
+ ('DR-112', 'ACCEPT-DESIGN supported', 'S4/S4.5/S5/S6/S9.1/S11 trust time, poisoned-floor recovery epoch, expired-root continuity, live revocation. Inherited /rows/5. G08/G09/G32.'),
+ ('DR-113', 'ACCEPT-DESIGN supported', 'Identity §4/§5 verification vs regeneration closures, availability vs assurance; workflows §2/§4/§8/§9. G11 routed (prior M-5), G12/G19.'),
+ ('DR-114', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G12)', 'S3/S11/S14 report-only doctor, redaction, no implicit execution/egress; workflows §8/§9. Inherited /rows/6.'),
+ ('DR-115', 'ACCEPT-DESIGN supported', 'Admission §2/§3/§4 gate-computed counts, 3 warmups + 7 measured runs, 1.20x/1.25x checked limits; native §1/§12. D-006 fragment verbatim. G01-G05/G13/G14.'),
+ ('DR-117', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G09 named by its own §5; G14/G16/G23 historical EE routing undispositioned)', 'Admission §5 items 1-7 (lines 341-347) map one to one onto file02 lines 287-293. originalEnumeratedObligation boundaryItems=7 (file02 04a6cfe2 in snapshot). S10, native §1/§5, workflows §1/§5-§8. The preview v10 pin is retained for original standing only.'),
+ ('DR-118', 'ACCEPT-DESIGN supported', 'Native §1-§4/§6-§9 cells, modes, sealed dependencies, resolution completeness, clone limits, no silent fallback; admission §2/§3; native report 477/477 synthetic, 66 matrix cells, 0 qualified. Inherited /rows/7. G10/G13/G14/G23/G25.'),
+ ('DR-119', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G14)', 'Native §1/§2/§3/§5/§9 signed self-contained toolchain closures, no ambient downloads; S8/S9.1. D-008 fragment verbatim.'),
+ ('DR-120', 'ACCEPT-DESIGN supported', 'Admission §2/§3, native §1/§3/§5/§9, S8/S9.1 packaging/provenance/offline/platform quality. Inherited /rows/8. G05/G07/G11/G13/G15.'),
+ ('DR-121', 'ACCEPT-DESIGN supported', 'Admission §2/§3 report custody and per-lane qualification; native §1/§9; S8. Inherited /rows/9. G11/G13/G15/G16/G21/G22.'),
+ ('DR-122', 'ACCEPT-DESIGN supported', 'The D-372 explicit re-entry act (explicitReentryAct pins D-372-corrections.proposed.md 1ec3f477; the applied body supersedes D-077/D-086 only in this scope) plus workflows §8 lines 1108-1127: sarif v1 for analysis class, the four advertised commands must declare run-id/verdict/required-coverage/deficiency/findings/termination-class/retention-disclosure. command-inventory.v3.json measured: exactly default/analyze/audit/repair-verify carry sarif. G17 reactivated (gate map), register preface reconciles the historical G17 row. Inherited /rows/10. G17/G26/G28.'),
+ ('DR-123', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G01/G02/G05/G12)', 'Workflows §1/§8/§9: 45 commands, human/JSON major3/SARIF/HTML/agent parity, required-output failure; S14. D-009 fragment verbatim.'),
+ ('DR-124', 'DESIGN SUBSTANCE SUPPORTS ACCEPT-DESIGN; ROW ACCOUNT CHANGES_REQUIRED (APP45-S1: G09)', 'Identity §2-§5 and S3.1/S7/S9 separate authoritative evidence, analysis inputs, cache and operational metadata; workflows §1/§6. G11 routed (prior M-5). Inherited /rows/11.'),
+ ('DR-125', 'ACCEPT-DESIGN supported', 'Workflows §1/§8/§9 common invocation/config/evidence/detail projections; S6/S7/S10; native §9. Inherited /rows/12. G10/G15/G20/G21.'),
+ ('DR-126', 'ACCEPT-DESIGN supported', 'S8/S9.1 four canonical machine platform IDs matching the gate map platformFamilies; native §1/§2/§5; admission §2/§3. Inherited /rows/13. G09/G22.'),
+ ('DR-127', 'ACCEPT-DESIGN supported', 'Native §9 frame/EOF/fault rules; S6/S7/S9; workflows §1/§3. Inherited /rows/14. G15/G16/G18/G21.'),
+ ('DR-130', 'ACCEPT-DESIGN supported', 'Security S16 (lines 1510-1532): preservation 1-5 match file05 lines 69-71; distinctions 1-5 match lines 73-77; the six no-silent prohibitions (download, index refresh, lock mutation, replacement historical identity, evidence-meaning rewrite, telemetry/network) match lines 79-81. No prototype-state/Run/baseline importer; immutable coexistence; foreign-root refusal. S16 requires gates G06/G07/G11/G12/G18/G19/G21, exactly the routed set. originalEnumeratedObligation 5/5/6 (file05 1a57c9ca in snapshot).'),
+ ('DR-131', 'ACCEPT-DESIGN supported', 'Identity §3/§4/§5 pure evaluator, Plan/proof/seal/Run binding; native §4; workflows §1/§5/§8/§9. Preview identities stay historical. Inherited /rows/15. G24/G25/G27/G28; preview G26 routed via DR-122.'),
+ ('DR-133', 'ACCEPT-DESIGN supported', 'Native §4/§9 provider facts/Coverage only; identity §4 host findings/verdict; workflows §1/§8. Inherited /rows/16. G10/G21/G23.')
+]
+
+inherited = [
+ ('DR-001', 'ACCEPT-DESIGN supported', 'Current source map, refreshed reading path and individual residual ledgers; old custody preserved (probe p14: every pin resolves).'),
+ ('DR-002', 'ACCEPT-DESIGN supported', 'Identity/evidence/proof/authority/retention chain in identity §3-§5 and execution-inputs owners; replaces a vector-only preview.'),
+ ('DR-003', 'ACCEPT-DESIGN supported (scoped timing disposition)', 'D-372 "Explicit DR-003 pre-blueprint disposition" splits design entry from supported-platform demonstration, which stays mandatory at G09/G18/G19/G21/G22 and DR-012. No SATISFIED/DEMONSTRATED native enforcement or V10 claim; 54 recovery cases unexecuted.'),
+ ('DR-004', 'ACCEPT-DESIGN supported', 'Native §4 resolution completeness, Coverage3 and proof semantics with retained negatives.'),
+ ('DR-005', 'ACCEPT-DESIGN supported', 'Evidence/retention/D9 integration and custody reference; native carrier qualification stays required before release.'),
+ ('DR-006', 'ACCEPT-DESIGN supported', 'Descriptor graph and exact native/schema closure including capabilityManifestId, stdlib/LLVM manifests and policy derivation; full-replay child equals root.'),
+ ('DR-007', 'ACCEPT-DESIGN supported with carried D9 obligation', 'Exact D9 branch/cause joins (workflows §9, native §10 route table line 3573). carriedCrossUnitObligation D9-SUCCESSOR-ARTIFACT preserved and not discharged (see d9App1Assessment).'),
+ ('DR-008', 'ACCEPT-DESIGN supported', 'Applied CD-RT-5 retention posture preserved; evidence/D9/Phase-1A join supplied by identity §5.'),
+ ('DR-009', 'ACCEPT-DESIGN supported', 'Semantic IDs exclude attempt/lifetime/receipts; host capture outside the sealed Run.'),
+ ('DR-010', 'ACCEPT-DESIGN supported', 'Bounded first-party composition; admission §5 excludes third-party ecosystem and untrusted runtimes.'),
+ ('DR-011', 'ACCEPT-DESIGN supported', 'All sixteen residuals and all 30 evaluation subresiduals individually assessed here; the blind litmus is supplied by the actual blind consumer result (R10).'),
+ ('DR-011-R01', 'ACCEPT-DESIGN supported', 'View/subject-set joins and closed unavailable-rung/deficiency via native RequirementV2/Coverage3; old D9-v1.6 checker not elevated.'),
+ ('DR-011-R02', 'ACCEPT-DESIGN supported', 'Relation payload recipes preserved by version; fact2/finding-key2; old self-census not elevated; imperative plugins outside D-371.'),
+ ('DR-011-R03', 'ACCEPT-DESIGN supported', 'plan2/exec-plan2 schemas and semantic joins as the prospective alternative; no newer checker filename relabelled.'),
+ ('DR-011-R04', 'ACCEPT-DESIGN supported', 'Native protocol and security core bridge are the explicit successors for major-two/three fields; historical skew retains standing.'),
+ ('DR-011-R05', 'ACCEPT-DESIGN supported', 'Rust protocol major 3 / TS major 2 negotiation, transaction/EOF/error rules; rejected base-v2 stays rejected.'),
+ ('DR-011-R06', 'ACCEPT-DESIGN supported', 'Identity-and-evidence as owning Phase-1A packet; rejected v15 validator not elevated.'),
+ ('DR-011-R07', 'ACCEPT-DESIGN supported', 'CD-RT-5/v28 preserved; evidence/retention/D9 contract replaces missing integration; old checker stays unreviewed.'),
+ ('DR-011-R08', 'ACCEPT-DESIGN supported with carried D9 obligation', 'Closed host-owned termination, observation-to-faultCause mapping, post-commit required-output exit 4. Carried D9-SUCCESSOR-ARTIFACT obligation identical to DR-007\'s; not discharged.'),
+ ('DR-011-R09', 'ACCEPT-DESIGN supported', 'Lifetime neutrality and attempt exclusion; RunIds unchanged 44->45 measured by the design review.'),
+ ('DR-011-R10', 'ACCEPT-DESIGN supported (closure by actual blind consumer)', 'The residual requires an actual implementer litmus after final integration (snapshot inherited-residuals.proposed.md line 21). Consumer-b.v24-source45.v1 (session 9d3dfb70, blind continuation) meets it: normative-only kit of 107 files, byte-equal to the snapshot, no Python; from-scratch closure and complete proof replay of 27 claimed positives run fresh on source45; retention negatives; graph query; 16 identified inventions or naming freedoms as advisories; verdict ACCEPT-RECONSTRUCTABLE with 0 MUST/0 SHOULD. Codex blind assessment rootBlindAssent=true. Root exact replay passes 27/27 (transport, structural and semantic ADMIT); query assessment 63 capture cases plus 66 carrier/parity rows PASS; 2 negatives refused. Limits: continuation, not a fresh origin on 45; unaffected phases reuse exact prior measurements with custody; provider traces are not real workers. The design review\'s literal "OPEN: nonblind review cannot close" is preserved and stays correct for that review.'),
+ ('DR-011-R11', 'ACCEPT-DESIGN supported', 'Durable commit/recovery/GC/backup/import/availability contracts; real platform fsync/process-death measurement stays a release gate.'),
+ ('DR-011-R12', 'ACCEPT-DESIGN supported (jointly contingent on TCB-SCOPE-01)', 'v8/v13 lineages replaced by product proof/evidence/seal and trusted evaluator replay; every 19 RES + 7 NB + 4 escapes individually assessed; no same-process Python containment claim. Reopens with TCB-SCOPE-01.'),
+ ('DR-011-R13', 'ACCEPT-DESIGN supported', 'Executable detector pivot, portable baseline, typed comparison; RC-14 cases required; old v14-v17 standing unchanged.'),
+ ('DR-011-R14', 'ACCEPT-DESIGN supported', 'Restored CFG-6 threat root preserved; current TM assumptions via sealed inputs, identity/custody, trusted repository-code principal, G19.'),
+ ('DR-011-R15', 'ACCEPT-DESIGN supported', 'ProjectId/RequestId/ExecutionId operational; hash equality grants no permission or custody.'),
+ ('DR-011-R16', 'ACCEPT-DESIGN supported', 'D-367/D-370/D-371 preserved; no third-party catalog; P-1/P-2/G3 explicit in admission §5; CD-RT-5 binding.')
+]
+
+evals = {
+ 'RES-EP13-01': 'Defective transitive C-2 join replaced by product plan/derivation DAG and recomputed joins (identity §3/§4); historical EP6/8 stays defective history.',
+ 'RES-EP13-02': 'No answer-provenance claim against adversarial route regions; authenticated first-party TCB with inert typed inputs (TCB-SCOPE-01).',
+ 'RES-EP13-03': 'The seven-vector measurement stays finite history, never an equivalence proof; product conformance needs independent cases.',
+ 'RES-EP13-04': 'No identifier tripwire as authority; closed input schemas plus authenticated selected code (TCB-SCOPE-01).',
+ 'RES-EP13-05': 'Frozen subject verified outside author instruments (design review and this review: 12,920 members, manifest hash).',
+ 'RES-EP13-06': 'Product canonical admission rejects float/exponent/-0 and distinguishes bool/int (foundation canonical owners).',
+ 'RES-EP13-07': 'Product seal binds Plan, execution plan, evidence, evaluator, policy, proof and verdict; wrong-Plan/rehashed proof refuse.',
+ 'RES-EP13-08': 'Fourteen-intent family is bounded history; no all-PlanIntent proof claimed.',
+ 'RES-EP13-09': 'Provenance distinct from correctness; authenticated report custody plus independent oracles (admission §2/§3).',
+ 'RES-EP13-10': 'Candidate self-counters do not decide admission; exact schema typing precedes evaluation.',
+ 'RES-EP13-11': 'Historical checker failures stay recorded by cause; product successor has its own pinned subject.',
+ 'RES-EP13-12': 'No sole Python guard enters product authority (TCB-SCOPE-01); product host must mint published law.',
+ 'RES-EP13-13': 'Fixture deep-copy isolation only; no Python sandbox claim (TCB-SCOPE-01).',
+ 'RES-EP13-14': 'Old differential census not an oracle; independent oracle/corpus obligations named separately.',
+ 'RES-EP13-15': 'C-2 v4 self-census not elevated; product plan/derivation schemas with retained mutation tests.',
+ 'RES-EP13-16': 'No observed-window guarantee retained; whole evaluator trusted selected code; producer flags cannot bypass replay (TCB-SCOPE-01).',
+ 'RES-EP13-17': 'Text-only disclosures stay text-only; meaning is reviewed directly.',
+ 'RES-EP13-18': 'No hidden-window mechanism retained; hostile in-process code excluded (TCB-SCOPE-01).',
+ 'RES-EP13-19': 'Independent semantic review required; prose-anchor checker cannot establish truth.',
+ 'IR-EP13-NB-01': 'Gate/commitment/preimage substitution covered by the same no-hostile-route boundary (TCB-SCOPE-01); no guard repaired.',
+ 'IR-EP13-NB-02': 'No name/punctuation scan decides scope or authority.',
+ 'IR-EP13-NB-03': 'No unreachability claim for Python modules; providers communicate only via sealed protocol data (TCB-SCOPE-01).',
+ 'IR-EP13-NB-04': 'One explicit TCB account; no historical variant counts as security claim (TCB-SCOPE-01).',
+ 'IR-EP13-NB-05': 'Contradictory prose requires substantive review; message granularity is an operability case.',
+ 'IR-EP13-NB-06': 'Historical parity rule preserved as history, not an isolation guarantee.',
+ 'IR-EP13-NB-07': 'Original environment and measurements preserved; new reports name their own environment and pins.',
+ 'AX6': 'Measured escape preserved as history; exact typed admission plus trusted pure evaluator is the product boundary (TCB-SCOPE-01).',
+ 'AX9': 'Same boundary; closedWorld is typed host-minted data, not a protection mechanism (TCB-SCOPE-01).',
+ 'MD5': 'Same boundary; source45 adds no Python containment (TCB-SCOPE-01).',
+ 'RX2c': 'Same boundary; replay is reproducibility, not containment (TCB-SCOPE-01).'
+}
+tcb_ids = ['RES-EP13-02', 'RES-EP13-04', 'RES-EP13-12', 'RES-EP13-13', 'RES-EP13-16', 'RES-EP13-18', 'IR-EP13-NB-01', 'IR-EP13-NB-03', 'IR-EP13-NB-04', 'AX6', 'AX9', 'MD5', 'RX2c']
+
+ar = [
+ ('AR-01', ADM + ' §1', 'Exact lexical/typed integer admission; heading tagged AR-01.'),
+ ('AR-02', ADM + ' §§2-4', 'Signed report frame, authenticated invocation context, independent oracles, gate-computed counts; 32 gates unqualified.'),
+ ('AR-03', SEC + ' S3/S3.1 (AR-03)', 'Bounded repository discovery and custody; backup custody before first write.'),
+ ('AR-04', SEC + ' S4/S4.5 (AR-04)', 'Forward-clock excursion, poisoned-floor recovery epoch.'),
+ ('AR-05', SEC + ' S5/S6 (AR-05)', 'Expired-root continuity, live revocation linearization.'),
+ ('AR-06', SEC + ' S8 (AR-06); native AR-06 references', 'Supported population, four canonical platform IDs, signed profile sets.'),
+ ('AR-07', NAT + ' §3/§5/§9 (AR-07)', 'Sealed Rust dependencies and authorized preparation; §9.7 closedWorld published; ADV44-01 retained non-blocking.'),
+ ('AR-08', WF + ' §1/§6/§7 (AR-08)', 'Invocation/attempt/step/Run lifecycle, repair preview/apply/verify, authorized test execution.'),
+ ('AR-09', IDE + ' §§1-6', 'Identity/proof/custody/retention closure; ADV42-01 retained as an analysis.rs implementation verification obligation.'),
+ ('AR-10', WF + ' §2 (AR-10)', 'Runnable prior detector and portable baseline custody.'),
+ ('AR-11', WF + ' §3/§4 (AR-11)', 'Typed delta attribution and admitted imports; blind advisories A-c3/A-n1 accounted.'),
+ ('AR-12', NAT + ' §4 (AR-12)', 'Resolution-complete negative predicates; §4.5 ClosedWorldV2 instantiated by §9.7.'),
+ ('AR-13', NAT + ' §1/§6 (AR-13) + ' + WF + ' §8 (AR-13)', 'Native cells, monorepo units, clone modes and output parity.'),
+ ('AR-14', SEC + ' S7/S9 (AR-14)', 'Stage/schema bridge, floor continuity, lease/lock order.'),
+ ('AR-15', 'docs/v2/contracts/product-v1/README.md + D-372', 'One current narrative and crosswalk; the staged navigation agrees (documentationReview). Gate routing precision in APP45-S1 does not change the narrative.'),
+ ('AR-16', WF + ' §8/§9 (AR-16) + ' + SEC + ' S11/S12', 'Provenance-specific remedies and exact D9 goldens; host-invariant at workflows line 1362; D9 successor carried.')
+]
+
+fw_owner = {'FW-01': 'crates/host/src/discovery.rs M3', 'FW-02': 'crates/host/src/review.rs M5', 'FW-03': 'crates/host/src/analysis.rs M3 (must mint published hostConversionClosedWorld)', 'FW-04': 'crates/host/src/imports.rs M5', 'FW-05': 'crates/host/src/comparison.rs M5', 'FW-06': 'crates/host/src/finalization.rs M5', 'FW-07': 'crates/host/src/invocation.rs M5', 'FW-08': 'crates/host/src/outcomes.rs M3', 'FW-09': 'crates/host/src/review.rs M5', 'FW-10': 'crates/host/src/repair.rs M5', 'FW-11': 'crates/host/src/comparison.rs M5', 'FW-12': 'crates/host/src/review.rs M5', 'FW-13': 'crates/host/src/configuration.rs M3', 'FW-14': 'crates/host/src/discovery.rs M3 (+ G13/G16 real-configuration corpus)', 'FW-15': 'crates/host/src/policy.rs M5'}
+
+owners = [
+ ('DR-201', 'ACCEPT-DESIGN supported (subject-specific, this review)', 'Semantic correctness: closedWorld law published and re-derived by the design review (CH45-CLOSED-WORLD-LAW); blind reconstruction replayed 27 positives; root exact replay 27/27; D9 successor carried; ADV42-01/ADV44-01 retained. Historical 2026-08-13 acceptance not extended.'),
+ ('DR-202', 'ACCEPT-DESIGN supported (subject-specific, this review)', 'Delivery/operations: S9/S9.2/S10.2/S15, commit-recovery-readonly.v3 and 54 planned recovery cases (unexecuted); G18/G19/G22 unperformed. Recovery case planning is a design artifact, not qualification.'),
+ ('DR-203', 'ACCEPT-DESIGN supported (subject-specific, this review)', 'Prototype lessons: S16 prototype coexistence/transition at pinned commit a62509d6; prototype-report-inventory 24 dispositions; native cells for language quality with G13 measurement unperformed.'),
+ ('DR-204', 'ACCEPT-DESIGN supported (subject-specific, this review)', 'V1/coop invariant coverage: design review verified all 6,264 pins; this review verified every path/hash pin in the nine application records (p14, 0 unresolved), the five ledger deltas (p07) and 79 review selectors (p20). Stale current-tree hash only in APP45-ADV-01. The APP45-S1 routing omission is a row-map accuracy defect in this owner\'s area and is recorded against the rows, not as a design defect.'),
+ ('DR-205', 'ACCEPT-DESIGN supported (subject-specific, this review)', 'Small-core/components: admission §5 bounded first-party substrate, TCB-SCOPE-01 assessed once, file02/file10 current applicability notes; no component trust added by source45.')
+]
+
+gates_note = {
+ 'DR-G06': 'Current identity-and-evidence plus admission §2/§3, S9.1/S11, native §3/§5. The historical "BLOCKED by DR-002-008 / HARD-BLOCKED" cell (register line 351) is reconciled by the preface; DR-002..008 now carry proposed dispositions.',
+ 'DR-G10': 'Acceptance updated to TS protocol major2 and Rust major3; inheritedClaim keeps "TS major 1 and Rust merged major 2". Register line 355 "HARD-BLOCKED pending selector refresh" is historical, and the preface supplies the refresh.',
+ 'DR-G11': 'Current identity-and-evidence plus S3.1/S7/S9 and workflows §1/§9. The historical blocked cell (line 356) is reconciled by the preface.',
+ 'DR-G17': 'Reactivated for full product; inheritedHarness preserves the "dropped / inapplicable (D-077; D-086)" text as history. The D-372 re-entry act and DR-122 explicitReentryAct supply the authorising act.',
+ 'DR-G26': 'Preview non-advertisement kept as history only; the full-product successor goes through G17.'
+}
+
+fdisp = {
+ 'F-01': ('major', 'charter custody / AR-03 / AR-05', 'RE-VERIFIED-ON-PACKAGE13'), 'F-02': ('major', 'custody / AR-03', 'RE-VERIFIED-ON-PACKAGE13'),
+ 'F-03': ('major', 'reproducibility of the seven query checks', 'RE-VERIFIED-ON-PACKAGE13'), 'F-04': ('major', 'normative under-specification: internal root spelling', 'INHERITED'),
+ 'F-05': ('minor', 'control coverage / AR-01 default-unit programEntry', 'RE-VERIFIED-ON-PACKAGE13'), 'F-06': ('minor', 'fixture hygiene / AR-01 Q3', 'RE-VERIFIED-ON-PACKAGE13'),
+ 'F-07': ('minor', 'control coverage / AR-02 predicate algebra', 'INHERITED'), 'F-08': ('minor', 'property evidence under-determines its claim', 'RE-VERIFIED-ON-PACKAGE13'),
+ 'F-09': ('minor', 'citation accuracy / AR-06', 'INHERITED'), 'F-10': ('minor', 'reproducibility / helper portability', 'RE-VERIFIED-ON-PACKAGE13'),
+ 'F-11': ('info', 'fixture hygiene: vacuous self-comparison', 'RE-VERIFIED-ON-PACKAGE13'), 'F-12': ('info', 'evidential weighting / AR-04', 'RE-VERIFIED-ON-PACKAGE13'),
+ 'F-13': ('minor', 'AR-07 residual concentration', 'RE-VERIFIED-ON-PACKAGE13'), 'F-14': ('info', 'AR-07 self-assessment signal', 'RE-VERIFIED-ON-PACKAGE13')
+}
+
+blind_assess = {
+ 'A-c1': 'Naming freedom for unpublished internal keys; public routes stay closed. Accept account.',
+ 'A-c2': 'The D9 successor obligation; the account routes it to DR-007/DR-011-R08 and matches the carried records. Accept account.',
+ 'A-c3': 'Exact-snapshot import identity intentionally source-bound; INDETERMINATE evidence-content-changed is conservative. Accept.',
+ 'A-n1': 'Deterministic reason precedence masks the detector reason by design. Accept.',
+ 'A-n6': 'Language-mode table determines Rust membership; product must apply it. Accept; implementation obligation.',
+ 'A-v2-1': 'Composition §7 closes outputs; Plan input documents have their own closure law. Accept.',
+ 'A-v2-2': 'policy-derivation3 unreachable frame non-authoritative. Accept.',
+ 'A-v2-3': 'Owner-scoped vocabularies. Accept.',
+ 'A-s41-1': 'Reuse of the §6 key at §7.6 preserves the registered route. Accept.',
+ 'A-s41-2': 'Specific §1.2 allowJs derivation precedes the omitted default. Accept.',
+ 'A-s42-1': 'At-most-one default binding enforced; internal key naming freedom. Accept.',
+ 'A-s42-2': 'U-0 attributes ENUMERATION_BINDING_PROGRAM_ENTRY to all mismatch forms. Accept.',
+ 'A-s42-3': 'Explicit selection is a distinct Plan input; no universal refusal claimed. Accept.',
+ 'A-s43-1': 'Missing availability observation is reference-only; product host supplies the record. Accept; implementation obligation.',
+ 'A-s44-2': 'Pin ledger absent from the blind kit only; the wire digest law determines Hello. Accept.',
+ 'A-s45-1': 'Editorial duplicated word in the return-law annotation; optional future cleanup. Accept.'
+}
+
+def sha(p):
+    return hashlib.sha256(open(p, 'rb').read()).hexdigest()
+
+probe_files = sorted(f for f in os.listdir(PROBES) if f.endswith('.py'))
+
+doc = {
+ 'schema': 'opensip.final-application-review.v45.v1',
+ 'verdict': 'CHANGES_REQUIRED',
+ 'subjectManifestSha256': '948d9bdd50169ad54871b6816d7f970a2f203fd9b1e84b7bea87dcc5c9ca6757',
+ 'subjectManifestPath': '/private/tmp/opensip-design-corrections/application-stage.v45.2/application-subject.v45.json',
+ 'retainedManifestPath': 'docs/coop/design-corrections/reviews/application-subject.v45.json',
+ 'reviewer': {
+   'label': 'actual Claude, fresh independent final application reviewer',
+   'model': 'claude-opus-5',
+   'origin': 'A new application-review origin in runtime /private/tmp/opensip-design-corrections/application-review.v45. It authored none of the subject bytes, resumed no author, design, blind or coauthor session and used no agents or subagents. It read no private session logs.',
+   'writes': 'Only this runtime: probes/, review.md and review.json. No change to the frozen package, repository, snapshot or evidence.'
+ },
+ 'standing': 'Final independent application review of the complete package application-stage.v45.2. The verdict is CHANGES_REQUIRED because of one SHOULD application-record defect (APP45-S1). This review grants no grade, activation, readiness, implementation authorization or product qualification. The reviewed finalizer refuses to apply a non-ACCEPT review. The substantive per-row, per-residual, per-gate and per-owner assessments below are evidence for a successor package; they do not extend as acceptance to changed bytes.',
+ 'verdictBasis': 'Custody, normative byte identity, prerequisite reviews, pin-ledger delta, reference rerun, finalizer, tooling corrections, links, catalog generator, inventory scope, D9 carriage, TCB-SCOPE-01 and 27 of the 28 condition-2 dispositions all verify on substance. One accuracy defect remains: the per-row required release-gate routing omits gates named by six rows\' own current or retained sources (APP45-S1), the same class as prior M-5. ACCEPT requires no unresolved SHOULD, so the verdict is CHANGES_REQUIRED. The fix is application-only and needs no new design or blind review.',
+ 'newMustIssues': [],
+ 'newShouldIssues': [should1],
+ 'advisories': advisories,
+ 'custody': {
+   'manifest': {'sha256Measured': '948d9bdd50169ad54871b6816d7f970a2f203fd9b1e84b7bea87dcc5c9ca6757', 'bytes': 111437, 'matchesRequired': True, 'retainedCopyInRepositoryByteEqual': True},
+   'entries': {'files': 197, 'beforeImages': 76, 'support': 246, 'total': 519, 'hashAndLengthMismatches': 0, 'unlistedStageFiles': 0, 'pathConventions': 'files relative to package/files/, beforeImages relative to package/before/, support relative to package/'},
+   'beforeImageLinkage': 'All 76 beforeImages match files[].beforeSha256. 121 files are new (beforeSha256 null). No file has sha256 == beforeSha256.',
+   'liveWorkingTree': 'Every one of the 197 live paths equals its beforeSha256 (absent where null), so preexisting working-tree changes are preserved in before/. application-activation.v1.json is absent. The retained manifest path exists and is byte-equal.',
+   'designSnapshot': '12,920 manifest entries, 0 mismatches, 12,920 files on disk, 0 unlisted. candidate-subject.v45.json 8b4efbb0... verified; archive candidate-source.v45.tar.gz 9536ebe3... verified.',
+   'prerequisiteHashes': 'Design review 427ae73e..., Codex assent 36830f6e..., blind review 7ee66bb5..., Codex blind assessment d71b8942..., blind input manifest 70771536..., blind input custody 490788cb..., identity counts e25de4bd..., reference-checks 5dc0de60...: all verified in the repository.'
+ },
+ 'normativeByteIdentity': {
+   'filesIdenticalToSnapshot': 160,
+   'filesDifferingFromSnapshot': 22,
+   'differingKinds': 'Navigation/decision/register documentation (START-HERE, catalog current-design, COORDINATOR-DECISIONS, design-corrections README, architecture 00/01/02/03/04/05/07/08/09/10/12/13 and the architecture README) plus the five source-pin ledgers.',
+   'filesAbsentFromSnapshot': 15,
+   'absentKinds': 'Root README, catalog README, nine application records, the finalizer, the two inventories and the catalog generator.',
+   'productContractsSchemasModels': 'All five product contracts, eight foundation/workflow contracts, schemas, models, cases and reports in the package are byte-identical to the accepted snapshot. acceptedContracts (13) equal the Codex assent list. The accepted blind kit (107 files) is byte-equal to the snapshot.',
+   'conclusion': 'Application semantic sources come from the frozen accepted snapshot. No semantic change requires new design or blind review.'
+ },
+ 'sourcePinDelta': {
+   'ledgers': {'foundation/source-pins.v1.json': '6e75029f -> 9a802377 (3 entries)', 'security/source-pins.v1.json': 'de2e53d2 -> f7c3e11a (3)', 'native/source-pins.v2.json': '0aa19d95 -> ef2da049 (3)', 'workflows/source-pins.v1.json': '6e75029f -> 9a802377 (3)', 'foundation/evaluator3-source-pins.v1.json': '78c8f8d5 -> 8402241c (7 = 3 documents + 4 ledger hashes)'},
+   'matchesRecordedDelta': True,
+   'otherLedgerFieldsUnchanged': True,
+   'postApplicationTreeMismatches': 0,
+   'documentChanges': 'Files 03/10/13 differ from the snapshot only by the recorded addedOpeningParagraph; before and after hashes match the record.',
+   'nativeReport': 'native-evidence-report.v2.json unchanged (15f187d6); rerun stdout "PASS: 477/477 cases; matrix cells 66; open objects 0".',
+   'historicalRepin': 'None. The accepted original manifests and reports stay in the snapshot and archive. Disclosure precision for the workflows report is in APP45-ADV-01.'
+ },
+ 'referenceRerunAssessment': {
+   'commands': 7, 'exitCodes': 'all 0', 'sourcesUnchanged': True,
+   'byteEqualToAcceptedExecution': ['foundation.json', 'foundation/identity-report.json', 'security.json', 'integration.json'],
+   'differences': ['workflows.json /check/reportSha256 (APP45-ADV-01)', 'evaluator3/report.json: command paths, receipt paths and two path-bearing child stdout hashes only'],
+   'integrationChecker': 'check-integration.py 6102bfdf, pinned by the whole accepted subject; report e6988c6a equals the accepted executed report; 412 passed.',
+   'currentToolChecks': 'current-application-tool-checks.v1.json records two runs with exit 0 (envelope and retainer checks).',
+   'standing': 'Synthetic reference evidence only; no product qualification.'
+ },
+ 'v12A1CountAccount': {
+   'selectedMeasurement': 'reviews/codex-post-reset.v1/identity-check-counts.v45.json (e25de4bd): passingCalls 1596, distinctIds 1584, duplicateExtraInstances 12 (closed-closure x7, exact-version-closure x7).',
+   'independentRecount': 'This review recounted final-reference.v45/foundation/identity-report.json /checks: 1596 checks, all passed; 1584 distinct ids; duplicates closed-closure 7 and exact-version-closure 7 (12 extra instances).',
+   'applicationSummary': 'application.v1.json#/referenceEvidenceSummary matches (2006 foundation passing calls; 1596/1584/12). The accepted frozen summary (43f3eb80, 2000 calls, v25 count pointer) is preserved and resolved against the snapshot.',
+   'historicalV12': '767/757/10 belongs to v12 only and is not used for source45.'
+ },
+ 'v12A2Reproduction': {
+   'commands': 7,
+   'sourcePins': 'Every command source hash matches the snapshot manifest and the original executed record.',
+   'normalization': 'For all 7 commands, replacing the recorded absolute source (/private/tmp/.../source44-closed-world-successor.v1/source/<rel>) with <rel> and each recordedOutput with its reproductionOutput reproduces the reproduction argv exactly.',
+   'recordedOutputs': 'Equal to the original absolute paths (provenance only).',
+   'reproductionOutputs': 'Relative and distinct.',
+   'correctionRecord': 'support/root-application45-reproduction-correction.v1/corrected-reproduction.json equals the application block.',
+   'note': 'The original root reference ran from a pre-freeze working tree (design review OBS45-02) whose script hashes equal the frozen bytes.'
+ },
+ 'priorApplicationFindingDispositions': prior,
+ 'priorExternalPrerequisites': 'P-1..P-6 of application-review.v1 are superseded: accepted v45 design review, actual blind consumer B source45, recorded D-372 body, staged application records, proposed per-row grades, and this final application review.',
+ 'condition2RowAssessments': [{'id': i, 'assessment': g, 'basis': b} for i, g, b in rows],
+ 'inheritedResidualAssessments': [{'id': i, 'assessment': g, 'basis': b, 'literalDesignDispositionPreserved': True} for i, g, b in inherited],
+ 'evaluationResidualAssessments': [{'id': k, 'assessment': 'ACCEPT-DESIGN supported' + (' (jointly contingent on TCB-SCOPE-01)' if k in tcb_ids else ''), 'basis': v, 'literalDesignDispositionPreserved': True, 'authorGradeStillPending': True} for k, v in evals.items()],
+ 'sharedTrustedCodeAssumptionAssessment': {
+   'id': 'TCB-SCOPE-01',
+   'assessedOnceAsOneAssumption': True,
+   'position': 'ACCEPTED AS AN EXPLICIT PRODUCT SCOPE ASSUMPTION: not rejected and not changed',
+   'assumption': 'Authenticated selected in-process host/evaluator code is trusted; providers and inert inputs are untrusted; adversarial code sharing the process is outside the product threat model.',
+   'dependentRows': tcb_ids,
+   'dependentRowReconciliation': 'Identical across application.v1.json#/sharedTrustedCodeAssumption/acceptedDesignAccount (equal to the design review\'s sharedAssumptionTCBSCOPE01), rootDesignAccount (equal to the Codex assent sharedAssumption) and the 13 evaluationResidualDispositions with sharedDependency TCB-SCOPE-01. DR-011-R12 "reopens with TCB-SCOPE-01 only".',
+   'basis': [
+     'Admission §5 items 3-5 (lines 343-345): providers produce facts/Coverage only; no untrusted native/WASM; no imperative contributions, hooks or root parsers.',
+     'Security S10: repository-code is a separately authorized, disclosed trusted principal, not a plugin path.',
+     'Native §9 and §9.7: provider process/wire boundaries; closedWorld is host-minted from published law with no provider-authored member.',
+     'Gate map DR-G21: "does not claim security confinement".',
+     'The design review measured in-process law mutability and states it is outside the threat model (IR-EP13-NB-01/NB-03).',
+     'The evaluation corrections replace attempted same-process containment with authenticated first-party TCB plus closed typed data admission.'
+   ],
+   'notClaimed': ['Repair of historical attacks: AX6/AX9/MD5/RX2c and the RES/NB limits remain historical.', 'In-process adversarial containment.', 'Native, host or platform qualification.', 'Implemented authenticated closure/TCB inventory (G02/G07/G09/G21/G22 unperformed).'],
+   'consequence': 'If TCB-SCOPE-01 is rejected or changed, the thirteen dependents (and DR-011-R12) reopen jointly. This is one assumption, not thirteen independent successes.',
+   'sourceReviewerGraded': False,
+   'effective': False,
+   'effectiveNote': 'Recorded as this review\'s substantive assessment only. With verdict CHANGES_REQUIRED nothing activates, and a successor final application review must adjudicate it again.'
+ },
+ 'arAssessments': [{'id': i, 'contract': c, 'assessment': 'ACCEPT-DESIGN supported', 'basis': b, 'literalDesignDispositionPreserved': True, 'literalDesignDisposition': 'NO-NEW-ISSUE (statusRecorded AUTHOR-CORRECTED-PENDING-INDEPENDENT-REVIEW)'} for i, c, b in ar],
+ 'fwAssessments': [{'id': k, 'owner': v, 'assessment': 'ACCEPT-DESIGN supported (design/routing level)', 'basis': 'current-source-map "Fallow constraint applicability" row present with the concrete contract; owner module and milestone in the design review; implementation not executed.', 'literalDesignDisposition': 'OWNER-ROUTING-ASSESSED-NOT-EXECUTED', 'literalDesignDispositionPreserved': True} for k, v in fw_owner.items()],
+ 'scopedReviewOwnerAssessments': [{'id': i, 'assessment': g, 'basis': b, 'literalDesignDisposition': 'ROUTING-ASSESSED-ONLY-NOT-APPLIED (both authority flags false)', 'literalDesignDispositionPreserved': True, 'historicalGradeExtended': False} for i, g, b in owners],
+ 'qualificationGateAssessments': [{'id': 'DR-G%02d' % n, 'assessment': 'DESIGN-CONTRACT MAPPING ACCEPTABLE; REQUIRED PRODUCT QUALIFICATION UNPERFORMED', 'qualified': False, 'demonstrated': False, 'implementationHarnessAuthored': False, 'note': gates_note.get('DR-G%02d' % n, 'Owner, harness id, currentContract, requiredEvidence and threshold disposition present; population expanded through current profile/native matrix.')} for n in range(1, 33)],
+ 'gateLanguageReconciliation': 'The historical register G06/G10/G11/G17 cells stay verbatim under historical column labels. The D-372 preface (register line 342) and the gate map give the current obligations. No old measurement is extended.',
+ 'conditions': {
+   '1': 'Design substance supports MET-DESIGN (27 inherited and 30 evaluation dispositions individually assessed; R10 closable by actual blind B; DR-003 timing explicit). Not effective.',
+   '2': 'Not grantable as packaged: the design substance of all 28 rows supports ACCEPT-DESIGN, but six row accounts carry APP45-S1.',
+   '3': 'Supportable (DR-201..205 assessed here), but it depends on an ACCEPT final application review, which this is not.',
+   '4': 'The gate map supports MET at design level; per-row routing is defective for six rows (APP45-S1).',
+   '5': 'NOT MET, affirmed. No implementation, commit, push, publication or qualification is authorized.'
+ },
+ 'd9App1Assessment': {
+   'historicalAssessment': 'An actual Claude bounded assessor (session 9a209c44, claude-opus-5, 57 turns, source20; not a Grok session) raised D9-APP-1 SHOULD for row-specific visibility. It did not execute integration checks and did not conduct final application review.',
+   'codexQualifiedAssessment': 'Codex (coauthor-assessment.v20-d9-application.v1.json) accepted the narrowed remedy and corrected the broad absence premise (CB-ADV-4 copied by the source20 assembler). It classified the implementation-phase label as planning and corrected the abbreviated native schema hash.',
+   'currentGeneratedRecords': 'carriedCrossUnitObligation exists on exactly DR-007 (' + IR + '#/parents/6) and DR-011-R08 (#/residuals/7), and on no other row. owedBy: the D9 exit-contract unit. Owed: a successor to d9-exit-contract.v1.14.json carrying faultCause host-invariant mapped to the existing SYSTEM.OUTCOME.ILLEGAL_STATE. The inherited artifact hash 8dd33038 is verified. notDischargedBy names condition 1, ACCEPT-DESIGN, the application, activation and the final application review.',
+   'selectorsVerified': [
+     'native-evidence.schemas.v2.json 2d37b810 /x-opensip-public-route-registry/successorArtifactObligation resolves ("whatIsNotOwed: Nothing in the product source").',
+     'common.schema.json b7b25d5e /$defs/D9FaultCause has 12 members = the inherited 11 + host-invariant.',
+     'd9-exit-contract.v1.14.json enum has 11 members without host-invariant; SYSTEM.OUTCOME.ILLEGAL_STATE is in the vocabulary with no cause preimage.',
+     'check-integration.py lines 381-394 assert all three halves.',
+     'workflows §9 line 1362 and the native route table line 3573 map host-invariant to operational-failed with ILLEGAL_STATE.'
+   ],
+   'selectedCompositionComplete': True,
+   'futureOwningUnitPublicationIntegrationQualificationComplete': False,
+   'phaseLabel': 'Planning classification, not a verbatim normative phase requirement or a restriction on the user\'s architecture authorization.',
+   'designLevelBlocker': False,
+   'disposition': 'D9-APP-1 RESOLVED in the current generated records. The obligation stays live, mandatory and undischarged, and this review does not discharge it. CB-ADV-4 precision is in APP45-ADV-06.'
+ },
+ 'fDispositionAssessments': [{'id': k, 'severity': v[0], 'area': v[1], 'rootPackage13Standing': v[2], 'source45Disposition': 'CARRIED-NOT-REGRADED', 'assessment': 'Accounted with intact provenance: the claude-independent-design.v36 fDispositions record (v31 -> 33 -> 36) was re-verified or inherited by root-independent36-completion-assessment.v1/verification.json (baselineFieldsExact true, authorityFlagsFalse true) and carried without regrade by the source45 design review. Source45 package22 and root export/query checks do not retroactively rerun the original F evidence, and the application grants no F grade. The F record lives outside the snapshot, and no application record claims an F re-verification on source45.' + (' INHERITED at package13 (not re-verified there); its stated limits remain.' if v[2] == 'INHERITED' else '')} for k, v in fdisp.items()],
+ 'designAdvisoryAccounts': [
+   {'id': 'ADV42-01', 'account': 'CARRIED-NONBLOCKING; crates/host/src/analysis.rs must verify receipt/view producer equality and Plan joins before filtering. Not a containment proof, not executed. Accepted.'},
+   {'id': 'ADV44-01', 'account': 'CARRIED-NONBLOCKING optional planning-layer binding; layer13 preserved. Accepted.'},
+   {'id': 'CLAUDE-V13-ADV-1', 'account': 'Historical finding id preserved. Current matrix/report/summary all have 66 cells (validation-summary.applied equality guard); v13 recorded 60. Accepted.'},
+   {'id': 'CLAUDE-V13-ADV-2', 'account': 'Historical crate-size illustration qualified (222/400/946 bytes); normative 32-byte component unchanged. Accepted.'},
+   {'id': 'OBS45-01..10', 'account': 'Read. OBS45-02 (pre-freeze working-tree execution), OBS45-04 (display-only summary semantics), OBS45-08 (checker binds the first fence of §9.7) and OBS45-10 (reference-scope limits) remain material limitations and are carried as such; none is a blocker.'}
+ ],
+ 'blindAdvisoryAccounts': [{'id': k, 'applicationAccount': 'CARRIED-NONBLOCKING (' + AA + '#/blindItems equals the Codex blind assessment newAdvisoryApplicationAccount)', 'assessment': v} for k, v in blind_assess.items()],
+ 'blindEvidenceAssessment': 'The blind review is a separate actual session (9d3dfb70) with a normative-only kit (107 files, byte-equal to the snapshot, no Python) and independently authored ref/ vectors. Kit custody PASS; final public artifact manifest binds charter, copied own work and final response. 27 claimed positives were from-scratch closed and replayed fresh on source45. Codex rootBlindAssent=true. Root exact replay 27/27 ADMIT; query assessment PASS (63 capture cases, 66 carrier/parity rows; token portability boundary explicit); negative query 2 declared byte-loss/corruption cases refused; rootBlindAssent false on the measurement records, as intended. Normative-kit consumer assertions are not reference replay or product qualification. 13 stated limitations accepted as limits.',
+ 'specificChecks': {
+   'DR-106': 'Admission §2/§3 (lines 189-289) and security S9.1 (lines 810-871) are cited, with G06 and G11 routed.',
+   'G11Routing': 'DR-109, DR-113 and DR-124 each route DR-G11.',
+   'DR-117': 'Admission §5 seven boundary items (lines 341-347) correspond one to one with file02 lines 287-293: marketplace/catalog; external lifecycle and discovery; contribution roles; untrusted native/WASM; imperative contributions/probes/hooks/root commands; network-granted analysis/egress; G3 substrate. G09 routing is in APP45-S1.',
+   'DR-130': 'Security S16 enumerates 5 preservations, 5 distinctions and 6 prohibitions, each matching file05 §Migration constraints lines 67-81 as written.',
+   'DR-122': 'D-372 "Explicit product and output re-entry acts" and the row\'s explicitReentryAct; workflows §8 SARIF parity law; command-inventory.v3 SARIF applicability measured as exactly default/analyze/audit/repair-verify; G17 reactivated; historical D-077/D-086 kept as scoped history.'
+ },
+ 'documentationReview': {
+   'currentAccountAgreement': 'The root README, START-HERE (scope -> contracts -> register -> source map, plus the topic walkthrough), architecture README, register unified section, current-source-map (snapshot bytes), design-corrections README header, file 12 and the eleven chapter applicability banners agree. One complete intended product design, implemented in stages. D-369 historical. Conditions 1-4 at design level only after activation. Condition 5 NOT MET.',
+   'historicalChronology': 'Historical grades and the dated snapshot stay bounded, with a forward pointer. README chronology precision is in APP45-ADV-02.',
+   'catalog': 'The generator reproduces current-design.md (PASS).',
+   'links': '518 local links and anchors in staged Markdown (plus the D-372 body) resolve against the post-application tree, 0 failures. 3 links target the not-yet-existing activation, which the reviewed finalizer creates last; none is represented as existing evidence.',
+   'inventory': 'document-inventory.v1.json fileCount 135218. workingTreeDelta.contentPaths 126015, all present as rows with the D-372 scoped referenceAccountingScope. excludedPaths: activation, NEXT-REVIEW.md and the two inventories. lateEvidencePrefix: application-review.v45/. Every staged path row records its after-image hash. Classification counts sum to 135218 (50 current/architecture, 4 current/navigation). Historical referencedBy samples are preserved and currentNavigationReferences is a separate sample. This is hash accounting, not exhaustive inbound counting.',
+   'designArtifactsNotQualification': 'Repository/module layout, package and file naming, ownership/build planning and the 54 planned recovery cases are design artifacts. The 32 product gates and 54 recovery cases are unperformed.'
+ },
+ 'finalizerAssessment': {
+   'path': 'docs/coop/design-corrections/finalize-application.v1.py (d3f8d4ce...)',
+   'procedure': 'Checks the manifest and review hashes, then verdict == ACCEPT, newMustIssues/newShouldIssues present as empty lists, review subjectManifestSha256 == manifest and implementationAuthorized false. The activation path must not escape and must not exist. Each file path must be a safe docs/ or README path that escapes neither the package nor the live tree; staged hash and length must match; live bytes must equal the before-image (or be absent when null) or the exact after-image (interrupted resume). Retained manifest and review custody must exist at their paths with the expected hashes. Only then does it copy, re-verify all after-images and write the activation receipt last.',
+   'selfTest': 'finalizer-selftest.v1.json: 20/20 passed, including CHANGES_REQUIRED refusal, unresolved/unaccounted/mistyped findings refusal, wrong subject, missing retained review, activation symlink escape, check-only no writes, activation last, interrupted resume and no activation overwrite. Development corrections are disclosed.',
+   'hashCycle': 'Coherent. application.v1 and the D-372 body name the external activation and no self-hash. Binding happens after review through the retained review hash passed to the finalizer.',
+   'consequenceOfThisVerdict': 'The finalizer refuses to apply this CHANGES_REQUIRED review.',
+   'advisory': 'APP45-ADV-04 (torn-write recovery)'
+ },
+ 'toolingCorrectionsAssessment': {
+   'root-application45-review-shape-correction.v1': 'disposition_rows accepts keyed maps or id-bearing arrays; refuses non-object rows, invalid/pointer-injecting ids, conflicting keyed ids and duplicates; returns original JSON pointers. bind-review-receipts uses it for all five collections; assemble-records resolves /collection/id to original array indices. The explicit kit.parentSubjectSha256 alias is added. 22 controls PASS. This review independently resolved all 79 review selectors in the applied records, each to the row with the same id (0 problems), and confirmed literal equality of every preserved design disposition. Sound.',
+   'root-application45-summary-source-correction.v1': 'The accepted-summary assertions now read the immutable snapshot (43f3eb80) instead of the divergent live before-image (e36dcfe4); hash and count guards retained. Correct. The failed stage45 attempt is disclosed and was not reused.',
+   'root-application45-reproduction-correction.v1': 'Only the output flags --out/--report/--report-dir are rewritten, to fresh relative targets; recordedOutput is preserved; unsupported flag, missing value and source-hash drift refuse. Verified independently for all 7 commands. Sound.',
+   'currentHelpersContainFixes': 'support/review_envelope.py, bind-review-receipts.v1.py, apply-advisory-records.successor.v1.py and assemble-records.successor.v1.py are byte-equal to the corrected versions (the assembler equals the later reproduction-corrected version).'
+ },
+ 'finalRecordsCorrectionsAssessment': 'root-application45-final-records.v1: all four before and after hashes verified. (1) The COORDINATOR identity bullet now reads evaluator output profile 3 with unchanged native/input profile-2 recipes, consistent with the accepted source map and JOINT-INTERFACES; the selected identity law is unchanged. (2) Reviewer-origin wording separates the design-review origin from the fresh application session. (3) The design-corrections README label and register condition 3 drop "fresh" for the design review. (4) Reproduction metadata. All application-only; see APP45-ADV-05.',
+ 'rootFinalPreflightAssessment': 'root-final-preflight.json distinguishes 77 individual design pointers (5 owners + 26 inherited + 30 evaluation + 16 AR), the /fwDispositions 15-row collection and the separate blind /verdict pointer for DR-011-R10. That totals 78 selector uses; the pointer list omits /inheritedResidualDispositions/20 because R10 binds the blind verdict. The two corrected development assumptions are disclosed, and the preserved before-count/before-collection scripts are retained. It checks 12920 source files, 28 rows, 32 unperformed gates and 7 commands; this review verified each independently.',
+ 'workingTreeDeliveryLimitation': 'Authorized working-tree delivery only; commit, push and publication are excluded. Links to untracked targets (prior A-2) are not claimed resolvable in a committed tree, and committing is not a closure of A-2. Git tracking state was not measured by this review.',
+ 'probes': [{'script': 'probes/' + f, 'sha256': sha(PROBES + f)} for f in probe_files],
+ 'probeSummary': [
+   'p01/p22: manifest hash, all 519 entries, unlisted files, before-image linkage, live before-state, activation absence, prerequisite hashes, full snapshot verification (p22 --snapshot).',
+   'p03/p04/p06: staged vs snapshot classification (160/22/15) and diffs; staged vs before-image diffs.',
+   'p07: five ledger deltas equal the recorded delta, post-application tree 0 mismatches, 03/10/13 differ only by the added paragraph.',
+   'p08: current references to superseded snapshot hashes (historical preservation reports, inventories, snapshot-resolved row-map pins, and the workflows report in APP45-ADV-01).',
+   'p09: 518 links/anchors, 0 failures, 3 activation targets.',
+   'p10: D9 selectors and carried obligation rows.',
+   'p11/p15/p24: contract sections; 193 section selectors resolve; all 32 gates named; 17 inherited selectors plus 6 additional accounts; per-row gate routing (APP45-S1).',
+   'p12/p13: inventory and classification scope and counts.',
+   'p14: every path/hash pin in the nine application records resolves (0 unresolved; 2 historical v13-resolved pins verified).',
+   'p16b/p20: literal equality of all preserved design dispositions; 79 review selectors resolve to matching ids; TCB accounts equal to sources; act vs body diff; python 3.12.13.',
+   'p17/p19: reproduction normalization; identity recount; rerun report comparisons; blind advisory account equality; finalizer self-test.',
+   'p18: tooling and final-record correction diffs, current helper equality.',
+   'p21: blind kit custody (107 files byte-equal to the snapshot, no Python), blind evidence scope.',
+   'p23: F record provenance, AR heading tags, FW source-map rows.',
+   'Generator check: generate-current-design-catalog.py --check PASS.'
+ ],
+ 'counts': {'condition2Rows': 28, 'inheritedResiduals': 27, 'evaluationSubresiduals': 30, 'tcbDependents': 13, 'arItems': 16, 'fwItems': 15, 'scopedOwners': 5, 'productGates': 32, 'plannedRecoveryCasesUnexecuted': 54, 'fDispositions': 14, 'blindAdvisories': 16, 'designAdvisories': 2, 'historicalClaudeV13Advisories': 2, 'priorApplicationFindings': {'must': 7, 'should': 6, 'advisory': 2}, 'newMust': 0, 'newShould': 1, 'newAdvisories': 6},
+ 'limitations': [
+   'Bounded full reading. Every staged current Markdown edit and the D-372 body were read, as were the named contract sections (admission §2/§3/§5, security S9.1/S16, file02 boundary, file05 migration, workflows §8 SARIF parity) and all application JSON records through structured dumps. The complete 700+ KB product contracts and the 94/88 MB inventories were not read line by line; they were verified byte-identical to the accepted snapshot or examined by exact structured probes.',
+   'This review did not re-execute the reference suites. It relied on the retained application rerun and accepted executed reports and compared them byte-for-byte; it did execute the catalog generator check.',
+   'Git tracking state (prior A-2) was not measured: the harness denied a read-only git invocation.',
+   'The historical design-corrections README chronology, historical preservation reports and review archives were sampled for navigation and scope, not substantively re-reviewed.',
+   'No private session logs were read. The runtime\'s own public-events capture was not inspected.',
+   'All grades and assessments here are this review\'s substantive evidence only. With CHANGES_REQUIRED nothing activates, and a successor package needs its own fresh final application review; no acceptance extends to changed bytes.'
+ ],
+ 'authority': {'gradeGranted': False, 'activationAuthorized': False, 'implementationAuthorized': False, 'qualificationClaimed': False, 'commitPushPublication': False, 'frozenInputsModified': False, 'historicalGradesExtended': False, 'd9ObligationDischarged': False},
+ 'finalReverification': {'performed': 'after all probes and before writing (p22 --snapshot)', 'manifestSha256': '948d9bdd50169ad54871b6816d7f970a2f203fd9b1e84b7bea87dcc5c9ca6757', 'entryMismatches': 0, 'unlistedStageFiles': 0, 'liveNotEqualBefore': 0, 'activationExists': False, 'snapshotMismatches': 0, 'prerequisiteHashesMatch': True}
+}
+json.dump(doc, open(OUT, 'w'), indent=2, ensure_ascii=False)
+open(OUT, 'a').write('\n')
+print('written', OUT, len(open(OUT).read()))

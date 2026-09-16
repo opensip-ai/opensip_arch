@@ -1,0 +1,140 @@
+--- docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
++++ docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
+@@ -14,24 +14,61 @@
+ -- carrierFormat 2: security-schemas.v2/grant-journal.sql (adds the uint53 seq CHECK,
+ --                  operation_ref format, contiguity, TERMINAL closure, reserved slot).
+ -- carrierFormat 3: this file.
++--
++-- Source37 owner correction (review advisories A37-01 and A37-02). Revised after root reproduced embedded-NUL
++-- and ASCII-hex BLOB admissions against the source37 v1 bytes, and again after root showed that the source37 v2
++-- byte-length predicate refused lawful rows in UTF-16 databases. These bytes supersede the earlier PROPOSED
++-- carrierFormat 3 bytes in place. No product implementation or deployed carrier was created from the earlier
++-- bytes. Reference in-memory SQLite instances were created from them by earlier design checks and review
++-- probes; those instances and their receipts remain historical evidence. The open dispatch validates the
++-- stored definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT
++-- rather than read as this definition. carrierFormat 1 and 2 bytes stay frozen.
++--
++-- Storage class and whole-value grammar. SQLite types values dynamically: TEXT affinity keeps a BLOB,
++-- INTEGER affinity keeps a non-integral REAL, and length() and GLOB stop at an embedded NUL. Every column's
++-- storage class is enforced either by an explicit typeof() guard (every INTEGER column, every free TEXT
++-- column and every hex-bearing column) or by exact enumeration (record_type and platform, whose IN lists
++-- hold only TEXT literals and so never equal a BLOB, a number or a NUL-suffixed text). Every hex-bearing
++-- column is an exact whole TEXT value: typeof(column) = 'text', length(column) = N, no NUL anywhere
++-- (instr(column, char(0)) = 0), the prefix GLOB where a prefix exists, and NOT GLOB '*[^0-9a-f]*' over
++-- the hex part. With no NUL, length() and GLOB see the whole value, and the case-sensitive hex class admits
++-- only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. The
++-- conjunction evaluates the TEXT value by character and does not depend on the database text encoding
++-- (exercised under UTF-8, UTF-16le and UTF-16be); no encoding is required of a carrier. CHECKs see values
++-- after column affinity, so an integer supplied as text '5' is stored and checked as integer 5. Host
++-- record admission still validates the closed record bodies; these CHECKs are defence in depth.
++--
++-- Publication: no grant_journal_v3 row may exist before the carrier_format row is published, and
++-- first_generation is 1 on the fresh path and at least 2 on the migrated path.
+ 
+ CREATE TABLE carrier_format (
+-  singleton          INTEGER NOT NULL PRIMARY KEY CHECK (singleton = 1),
+-  carrier_format     INTEGER NOT NULL CHECK (carrier_format = 3),
+-  project_key_digest TEXT    NOT NULL CHECK (length(project_key_digest) = 64
+-                               AND project_key_digest GLOB '[0-9a-f]*'),
+-  first_generation   INTEGER NOT NULL CHECK (first_generation >= 1
++  singleton          INTEGER NOT NULL PRIMARY KEY CHECK (typeof(singleton) = 'integer' AND singleton = 1),
++  carrier_format     INTEGER NOT NULL CHECK (typeof(carrier_format) = 'integer' AND carrier_format = 3),
++  project_key_digest TEXT    NOT NULL CHECK (typeof(project_key_digest) = 'text'
++                               AND length(project_key_digest) = 64
++                               AND instr(project_key_digest, char(0)) = 0
++                               AND project_key_digest NOT GLOB '*[^0-9a-f]*'),
++  first_generation   INTEGER NOT NULL CHECK (typeof(first_generation) = 'integer'
++                               AND first_generation >= 1
+                                AND first_generation <= 9223372036854775807),
+   -- Exactly the selected chain law. Value 2 (a recursive chain) is NOT selected and is NOT
+   -- implemented, so the column refuses it rather than advertising an unbuilt alternative.
+   -- Widening this CHECK is a reviewed successor act, not a configuration choice.
+-  chain_law          INTEGER NOT NULL CHECK (chain_law = 1),
+-  migrated_from      INTEGER          CHECK (migrated_from IS NULL OR migrated_from IN (1, 2)),
++  chain_law          INTEGER NOT NULL CHECK (typeof(chain_law) = 'integer' AND chain_law = 1),
++  migrated_from      INTEGER          CHECK (migrated_from IS NULL
++                               OR (typeof(migrated_from) = 'integer' AND migrated_from IN (1, 2))),
+   migration_op_ref   TEXT             CHECK (migration_op_ref IS NULL
+-                               OR (migration_op_ref GLOB 'op-[0-9a-f]*'
+-                                   AND length(migration_op_ref) = 35)),
++                               OR (typeof(migration_op_ref) = 'text'
++                                   AND length(migration_op_ref) = 35
++                                   AND instr(migration_op_ref, char(0)) = 0
++                                   AND migration_op_ref GLOB 'op-*'
++                                   AND substr(migration_op_ref, 4) NOT GLOB '*[^0-9a-f]*')),
+   CHECK ((migrated_from IS NULL AND migration_op_ref IS NULL)
+-      OR (migrated_from IS NOT NULL AND migration_op_ref IS NOT NULL))
++      OR (migrated_from IS NOT NULL AND migration_op_ref IS NOT NULL)),
++  -- first_generation at publication: the fresh path publishes generation 1 exactly; the migrated path
++  -- publishes (max inherited generation) + 1, at least 2 because act A closed a generation >= 1.
++  CHECK ((migrated_from IS NULL AND first_generation = 1)
++      OR (migrated_from IS NOT NULL AND first_generation >= 2))
+ ) WITHOUT ROWID;
+ CREATE TRIGGER cf_no_update BEFORE UPDATE ON carrier_format
+   BEGIN SELECT RAISE(ABORT, 'carrier format binding is immutable'); END;
+@@ -39,25 +76,42 @@
+   BEGIN SELECT RAISE(ABORT, 'carrier format binding is immutable'); END;
+ 
+ CREATE TABLE grant_journal_v3 (
+-  grantGeneration INTEGER NOT NULL CHECK (grantGeneration >= 1
++  grantGeneration INTEGER NOT NULL CHECK (typeof(grantGeneration) = 'integer'
++                              AND grantGeneration >= 1
+                               AND grantGeneration <= 9223372036854775807),
+-  seq          INTEGER NOT NULL CHECK (seq >= 1 AND seq <= 9007199254740991),
+-  record_schema INTEGER NOT NULL CHECK (record_schema IN (1, 3)),
++  seq          INTEGER NOT NULL CHECK (typeof(seq) = 'integer'
++                              AND seq >= 1 AND seq <= 9007199254740991),
++  record_schema INTEGER NOT NULL CHECK (typeof(record_schema) = 'integer' AND record_schema IN (1, 3)),
+   record_type  TEXT    NOT NULL CHECK (record_type IN
+                  ('GRANT','RA','ICI','RCI','ICO','RCO','REV','CLN','SEAL','TERMINAL')),
+-  operation_ref TEXT   NOT NULL CHECK (operation_ref GLOB 'op-[0-9a-f]*'
+-                              AND length(operation_ref) = 35),
+-  request_ref  TEXT,
+-  token        TEXT,
+-  install_generation_id TEXT,
+-  manifest_digest TEXT CHECK (manifest_digest IS NULL OR length(manifest_digest) = 64),
++  operation_ref TEXT   NOT NULL CHECK (typeof(operation_ref) = 'text'
++                              AND length(operation_ref) = 35
++                              AND instr(operation_ref, char(0)) = 0
++                              AND operation_ref GLOB 'op-*'
++                              AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),
++  request_ref  TEXT    CHECK (request_ref IS NULL OR typeof(request_ref) = 'text'),
++  token        TEXT    CHECK (token IS NULL OR typeof(token) = 'text'),
++  install_generation_id TEXT CHECK (install_generation_id IS NULL OR typeof(install_generation_id) = 'text'),
++  manifest_digest TEXT CHECK (manifest_digest IS NULL OR (typeof(manifest_digest) = 'text'
++                              AND length(manifest_digest) = 64
++                              AND instr(manifest_digest, char(0)) = 0
++                              AND manifest_digest NOT GLOB '*[^0-9a-f]*')),
+   platform     TEXT    CHECK (platform IS NULL OR platform IN
+                  ('macos-aarch64','macos-x86_64','linux-x86_64-gnu','linux-aarch64-gnu')),
+-  run_id       TEXT    CHECK (run_id IS NULL OR (run_id GLOB 'run3:[0-9a-f]*'
+-                              AND length(run_id) = 69)),
+-  body         TEXT    NOT NULL,
+-  body_sha256  TEXT    NOT NULL CHECK (length(body_sha256) = 64),
+-  prev_sha256  TEXT    NOT NULL CHECK (length(prev_sha256) = 64),
++  run_id       TEXT    CHECK (run_id IS NULL OR (typeof(run_id) = 'text'
++                              AND length(run_id) = 69
++                              AND instr(run_id, char(0)) = 0
++                              AND run_id GLOB 'run3:*'
++                              AND substr(run_id, 6) NOT GLOB '*[^0-9a-f]*')),
++  body         TEXT    NOT NULL CHECK (typeof(body) = 'text'),
++  body_sha256  TEXT    NOT NULL CHECK (typeof(body_sha256) = 'text'
++                              AND length(body_sha256) = 64
++                              AND instr(body_sha256, char(0)) = 0
++                              AND body_sha256 NOT GLOB '*[^0-9a-f]*'),
++  prev_sha256  TEXT    NOT NULL CHECK (typeof(prev_sha256) = 'text'
++                              AND length(prev_sha256) = 64
++                              AND instr(prev_sha256, char(0)) = 0
++                              AND prev_sha256 NOT GLOB '*[^0-9a-f]*'),
+   -- Capacity records are the FROZEN recordSchema-1 TERMINAL body
+   -- (security-schemas.v2/journal-record.schema.json). Operational records are the
+   -- current closed JournalRecord schema 3. TERMINAL is therefore carried without
+@@ -82,6 +136,8 @@
+   BEGIN SELECT RAISE(ABORT, 'grant journal is append-only'); END;
+ CREATE TRIGGER gj3_append_laws BEFORE INSERT ON grant_journal_v3
+   BEGIN
++    SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM carrier_format WHERE singleton = 1)
++      THEN RAISE(ABORT, 'carrierFormat 3 is not published; no append precedes the format row') END;
+     SELECT CASE WHEN NEW.seq <> (SELECT COALESCE(MAX(seq), 0) + 1 FROM grant_journal_v3
+         WHERE grantGeneration = NEW.grantGeneration)
+       THEN RAISE(ABORT, 'grant journal sequence must be tail+1') END;

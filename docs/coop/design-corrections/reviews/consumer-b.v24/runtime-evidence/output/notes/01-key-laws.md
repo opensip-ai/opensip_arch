@@ -1,0 +1,57 @@
+# Key normative laws extracted so far (own notes; citations are kit selectors)
+
+## C and H (identity-and-evidence §3)
+- Raw-input lexical admission BEFORE decode: refuse duplicate keys, float/exponent tokens, `-0`, nonfinite, malformed UTF-8, non-scalar Unicode (lone surrogates). Integers in [-2^63, 2^64-1]; booleans distinct. Max descriptor 4 MiB; max nesting depth 32 (root container = 1; scalars/keys add none).
+- C: UTF-8 byte-ordered keys, no whitespace, no trailing newline, no Unicode normalization, shortest decimal ints, unescaped scalars except `"` `\\` and `\b\t\n\f\r`, other U+0000–001F as lowercase `\u00xx`; do not escape `/`; U+007F, U+2028 unescaped. Arrays in admitted order (C never sorts).
+- H(D,X) = SHA256("opensip.product.v1" || 00 || D || 00 || u64be(len C(X)) || C(X)). Identifier = prefix ":" hex.
+- Text maxLength counts Unicode scalars.
+- End-anchored patterns `(?![\s\S])`; `exec1_<32hex>\n` refused.
+- x-opensip-order vocabulary: sequence (default), canonical-set (strict ascending C bytes, unique), canonical-order (nondecreasing), utf8 (strict asc UTF-8 of string), path (strict asc `path`), numeric, ordinal (contiguous 0-based `ordinal`), predicate (strict asc (ruleId,subjectId,predicateId)), ruleId, waiverId, {"by":[keys]} (strict ascending tuple). Unknown annotation refuses.
+- Digest law: every bare 64-hex field has x-opensip-digest; representations raw-artifact | canonical-record | h-identity | capability-manifest-id (+ by-domain selector for Ref/ProofInputRef/FindingEvidenceRef); retention preimage | fragment (program-predicate.nodeDigest only) | derived (capabilityManifestId only) | owner-retained (owner-source-set ownerFileManifestSha256 only). One CAS keyed by raw SHA256; h-identity objects stored as exact frame bytes.
+- Frame admission: prefix matches, domain in named set, declared length == remaining, remainder == C(parse(remainder)), payload validates under registered record.
+
+## Domain/prefix table (identity §3)
+snapshot/snapshot2, closure/closure2, import/import2, plan/plan2, subject-scope/scope2, fact/fact2, coverage/coverage2, view/view2, execution-plan/exec-plan2, finding-fingerprint/finding-key2, evaluation-subject/subject3, finding/finding3, proof-bundle/proof3, semantic-evidence/evidence3, evaluation-seal/seal3, run/run3, cache-key/cache2, regeneration-key/regen2, policy-derivation/policy-derivation3.
+Native H domains: native.context.{typescript,rust,syntax}.v2; native.semantic-universe.{typescript,rust,syntax}.v2; native.dependency-source-set.v1; native.dependency-file-manifest.v1; native.unified-features.rust.v1; native.prepared-output-set.v3; native.cargo-config-projection.v2; native.source-unit-ownership.v1; native.compilation-unit.v1 (UnitIdentityV1 {schemaVersion:1, markerPath, targetKind, targetName}); native.authorized-execution.v2. Workflow: workflow.baseline, workflow.comparison, workflow.mutation-intent (MutationReplayScopeV1 {schemaVersion:1,requestId,stepId,projectId,operation}), workflow.mutation-receipt, workflow.repair-plan, workflow.verification-link.
+- plan.nativeContextDigests = bare hex H suffix (set); native records carry "sha256:"+hex.
+- subjectScopeCommitment = "sha256:" + hex of scope2 (same digest).
+
+## Capability manifest (capability-manifest-domains.v2 + delivery.v4 CAP-MANIFEST-ID-V1)
+- CVE1 (resolved-inputs.v2#planIdContract.canonicalValueEncoding): null 00; false 01; true 02; unsigned-64 03||u64be; NFC string 04||u32be len||UTF8; array 05||u32be count||items; map 06||u32be count||(key,value) sorted by key bytes; negative-signed-64 07||i64be. NFC required; dup keys rejected; floats/bytes forbidden; arrays preserve order unless declared set.
+- Gates in order ADM-TYPE, ADM-CLOSED, ADM-DOMAIN, ADM-ORDER (traversal: providers[i].platformIds; coverageForAbsent[i].relationIds; providers by providerId; coverageForAbsent by providerId). Records: CapabilityManifestV1{schemaVersion,profile,providers,coverageForAbsent}; ProviderCapability{providerId,language,providerVersionSource,toolchainIdentitySource,relations(MAP relation->rung),platformIds}; AbsentCapability{providerId,language,relationIds,coverageState,deficiency}.
+- Registries: RELATION-DOMAIN-V2 (13); RELATION-LADDER-DOMAIN-V2 (rung must be in that relation ladder); PLATFORM-ID-DOMAIN-V1 (8); DEFICIENCY-DOMAIN-V1 (5); COVERAGE-STATE-DOMAIN-V1 (unavailable). OPEN: schemaVersion value, profile, providerId, language, providerVersionSource, toolchainIdentitySource.
+- Order refusal reason RELEASE.CAPABILITY_MANIFEST_NOT_CANONICAL. id = hex SHA256("opensip.capability-manifest.v1"||00||CVE1 bytes). plan.capabilityManifestBytesDigest = raw SHA256(committed bytes).
+
+## Relation registry (relation-payload-schemas.v2 x-opensip-relation-registry)
+Ladders: calls[syntactic-callee-name,resolved-callee]; clones[normalized-body-hash]; control-flow[syntactic]; declares[syntactic]; file[enumerated]; imports[syntactic-specifier,resolved-target]; literal[syntactic]; package[manifest-declared]; reachability[from-resolved-calls]; references[syntactic-name-match,resolved-binding]; types[annotated,checked]; unresolved-edge[observed]; vcs-change[vcs-reported].
+universeRule same-only: clones, control-flow, declares, file, literal, package, reachability, types, unresolved-edge, vcs-change; admitted-target: calls, imports, references.
+anchorLaw: source-text >=1 (calls, control-flow, declares, imports, literal, references, reachability, types, unresolved-edge); body-identity =1 (clones); inventory =0 (file, package, vcs-change).
+subjectKind: source-path (clones, file, vcs-change); package-name (package); symbol (others).
+snapshotJoins: file inventoried-file (path,contentSha256,byteLength,retainedBlob); package inventoried-path manifestPath; vcs-change inventoried-path path unless changeKind=deleted.
+coverageTotality: file@enumerated only; matchOn [snapshotId,relation,resolution,sourceUniverse,targetUniverse]; refusal COVERAGE_INVENTORY_TOTALITY_OMITS_PATH.
+coveragePartitionLaw: per view, same partitionKey => disjoint subjects; SUBJECT_SCOPE_PARTITION_OVERLAP:<rel>@<rung>:<lowest subject utf8>.
+Clones bodyIdentity frame: u8 len||"opensip.fact-identity.v1", u8 len||levelId, u8 32||levelVersion raw digest, u8 len||languageId, u8 32||languageVersion raw SHA256(C(body-language-version)), u32be len||payload. L0 payload = u32be raw_len||bytes (so outer len = raw+4). L1-L3 payload = u32be token_count || (u16be kind_len||kind||u32be value_len||value)*. bodyIdentity = "sha256:"+hex SHA256(frame). Frame retained under its hex. normalisationVersion = raw SHA256 of retained level spec bytes.
+languageId: closed-suffix-table dialect -> bodyLanguageByVariant[variant]; Rust -> "rust".
+body-language-version {schemaVersion:1, languageId, compilerName, compilerVersion, compilerBuild, dialect}; TS: toolchain.compilerName/compilerVersion/compilerPackageDigest, dialect {sourceVariant}; Rust: "rustc", toolchain.rustcVersion, toolchain.rustCommitHash, dialect {edition} = selected owning target effective edition (unit targetEdition else edition[crateName]); syntax: grammarBundle.parserName/parserVersion/bundleDigest, dialect {grammarVariant}.
+Rust dialect decision order: (1) no ownership -> BODY_LANGUAGE_OWNERSHIP_REQUIRED; (2) enumeration partial -> BODY_LANGUAGE_OWNER_UNENUMERATED; (3) rows with path == anchor path, none -> BODY_LANGUAGE_OWNER_NOT_COMPILED; (4) restrict to selectedUnitIds, none -> BODY_LANGUAGE_OWNER_NOT_SELECTED; (5) agree -> OK; (6) disagree -> BODY_LANGUAGE_OWNER_AMBIGUOUS / DIALECT_AMBIGUOUS.
+
+## Coverage (native §4)
+- CoverageResultV3 {schemaVersion:3,key:CoverageKeyV2{relation,resolution,sourceUniverse,targetUniverse,subjectScopeCommitment},entry:ViewEntryV3}.
+- Admission: host builds scope D; key fields equal; commitment equals; examinedUniverse commitment & subjectCount; RC-2 recheck; mint coverage2 {schemaVersion:2, scopeId, payloadSchemaDigest (raw sha of native-evidence.schemas.v2.json bytes), payloadDigest (raw SHA256 C(payload))}.
+- RC-0 registered pair; RC-1 resolved set {resolved-target,resolved-binding,resolved-callee,checked,from-resolved-calls} never not-applicable; others must be not-applicable with attempted=false,count 0,classes []; RC-2 complete requires attempted, examinedExhaustive, stageTerminal complete, zero matching unresolved-edge facts; incomplete >=1 such with complete stage+exhaustive; partial otherwise; not-attempted attempted=false count 0. RC-6 coverage=complete => examinedExhaustive=true.
+- Deficiency-cause registry: language-tier-unsupported nativeCause required = capability-missing; provider-unavailable optional {capability-missing, linker-unavailable}; input-closure-incomplete required (12 causes); budget-exhausted null + stageTerminal=budget-exhausted; confidence-floor-unmet null; derivation-policy-unmet relation types + derivationKinds contains compiler-inferred; resolution-incomplete null + state in {incomplete,partial,not-attempted}; external-consumers-unknown null + exportsClosed in {open,unknown}; required-relation-missing null. null deficiency => null cause.
+- Precedence: language-tier-unsupported > provider-unavailable > input-closure-incomplete > budget-exhausted > confidence-floor-unmet > derivation-policy-unmet > resolution-incomplete > external-consumers-unknown > required-relation-missing.
+- D9 route: input-closure-incomplete/resolution-incomplete/external-consumers-unknown/derivation-policy-unmet -> indeterminate VERDICT.INDETERMINATE; provider-unavailable COVERAGE.PROVIDER_UNAVAILABLE; language-tier-unsupported COVERAGE.LANGUAGE_TIER_UNSUPPORTED; budget-exhausted COVERAGE.BUDGET_EXHAUSTED; confidence-floor-unmet COVERAGE.CONFIDENCE_FLOOR_UNMET; required-relation-missing COVERAGE.REQUIRED_RELATION_MISSING. All exit 3.
+- Syntax grammar registry: code {typescript .cts .mts .ts .tsx; javascript .cjs .js .jsx .mjs; rust .rs} caps declares/literal/control-flow@syntactic, clones@normalized-body-hash + 3 inventory; data-document {json .json; toml .toml; markdown .md; yaml .yaml .yml} inventory only. Unavailable request disclosure: unknown / language-tier-unsupported / capability-missing.
+
+## Evaluator (composition §9)
+- evaluationInputRefs = Cset(ExecutionInputsV1.selectedRefs ∪ {execution-inputs ref}). Atomic predicateProofs.inputRefs = EI; boolean = union of children.
+- witness schemaVersion 3 fields; programPredicateDigest = SHA256 C({schemaVersion:2, ruleProgramDigest, ruleId, predicateId, operation, nodeDigest=SHA256 C(node)}).
+- Addresses: root p; and/or child i: a.i; not: a.0.
+- Finding parameters {schemaVersion:2,messageCode,parameters:{ruleId,subjectPath,qualifiedName,subjectKind,subjectLanguage,matchingFactCount,matchingImportCount}}.
+- evidence3 {schemaVersion:3,planId,viewIds,coverageIds,importIds,findingIds,proofBundleId}; seal3 {schemaVersion:3,planId,executionPlanId,evidenceId,evaluatorClosure,policyDigest,proofBundleId,verdict}; run3 {schemaVersion:3,projectId,snapshotId,planId,evidenceId,evaluationSealId,capabilityManifestId}; policy-derivation3 {schemaVersion:3,planId,proofBundleId,policyDigest,waiverDigest,verdict}.
+- Budget preflight: E + Σ_(r,s)[N(r) + A(r)*(F+I+K)] vs plan budget.
+- Rule gates iff enabled ∧ gate ∧ severity >= gateSeverityAtLeast (note<warning<error).
+- Kleene: exists true on known match; false only if complete & no uncertain; else unknown. none/count-at-most dual.
+
+## Protocol (protocol3-transitions.v1.json) — 34 rules; preMatchLaw (FAULT absorb; post-terminal frame -> FAULT; PROCESS_FAULT -> FAULT P3-33); noMatch -> P3-34.

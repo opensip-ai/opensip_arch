@@ -1,0 +1,1 @@
+Prepared template only. No source38 exists, no review launched and no placeholder is a hash. Fill every slot from measured final evidence only after exact integration/freeze/package replay. Final source38 changes may require updating this template. Same85 remains independent review-only; prior37 andboundedrootreview immutable.

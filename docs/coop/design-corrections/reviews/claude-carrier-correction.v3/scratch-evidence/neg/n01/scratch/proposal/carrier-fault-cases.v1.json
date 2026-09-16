@@ -1,0 +1,131 @@
+{
+  "artifact": "opensip.carrier-correction.fault-cases",
+  "version": 1,
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "standing": "Planned fault cases added by this carrier correction, in the exact shape of the existing commit-recovery-plan.v1.json cases array. Every executionStanding is not-executed: these are required future implementation checks, not tests run in this design task. Where a bounded reference model was feasible it was executed and is cited; a passing model establishes nothing about OS durability, real locks, real syscalls or process isolation.",
+  "appendsTo": "docs/v2/architecture/commit-recovery-plan.v1.json cases",
+  "existingCaseCount": 38,
+  "addedCaseCount": 12,
+  "cases": [
+    {
+      "id": "F38",
+      "checkpoint": "Observer latch wins while the attempt state is preparing, after SEAL/witness durable and after association staging",
+      "possibleStoredState": "Durable SEAL and COMMITTED witness; receipt/association staged but never committed",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "No evidence commit is ever issued. The staged evidence transaction is aborted, level 4 and both level-3 transactions are released, then a fresh lawful level-3 to level-4 append records REV/CLN under the still-held stopped operation lease. The durable SEAL remains an uncommitted attempt exactly as F36 requires and must never become committed history.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py gate case F38; scratch/out/c3.json"
+    },
+    {
+      "id": "F39",
+      "checkpoint": "Observer latch arrives after the atomic preparing to commit-admitted transition and the commit is later confirmed",
+      "possibleStoredState": "Exact receipt and association committed and durable",
+      "initialConclusion": "committed",
+      "expectedBehavior": "The latch cannot undo the syscall or rewrite its outcome. It refuses only subsequent effects. RunId is observable. The gate orders admission only and is not the durability point.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py gate case F39; scratch/out/c3.json"
+    },
+    {
+      "id": "F39b",
+      "checkpoint": "Observer latch arrives after admission, commit confirmed, then required delivery fails",
+      "possibleStoredState": "Committed Run intact; required artifact not produced",
+      "initialConclusion": "committed-delivery-failed",
+      "expectedBehavior": "Preserve RunId and the existing required-delivery operational failure DELIVERY.REQUIRED_FAILED at exit 4. The latch does not convert a confirmed commit into uncommitted, and delivery failure never rewrites the Run.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py gate case F39b; scratch/out/c3.json"
+    },
+    {
+      "id": "F40",
+      "checkpoint": "Observer latch arrives during the evidence commit syscall and the commit returns an error or a required barrier is unconfirmed",
+      "possibleStoredState": "Transaction may have committed or aborted",
+      "initialConclusion": "durability-undetermined",
+      "expectedBehavior": "Report DURABILITY.COMMIT_FAILED, operational-failed, exit 4. Retain ExecutionId for correlation and omit runId, because RunId is externally observable only for a committed Run. The settled ExecutionId is terminal: no automatic write retry. The latch does not convert this into uncommitted. A later read-only recovery may establish committed or not-committed-verified-absent and may then report the RunId.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py gate cases F40 and F40b; scratch/out/c3.json"
+    },
+    {
+      "id": "F41",
+      "checkpoint": "Latch and commit admission race at the single atomic attempt state",
+      "possibleStoredState": "Either no evidence commit was issued, or exactly one was",
+      "initialConclusion": "single-winner-invariant",
+      "expectedBehavior": "Exactly one of latch-won-preparing and commit-admitted is ever observed. No interleaving may yield both a refusal and a durable commit, and no interleaving may yield uncommitted after a commit syscall was issued. Exercise the real atomic primitive with deterministic synchronisation, not only a model.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py exhaustive interleavings: 15 schedules, 0 violations; scratch/out/c3.json gateExhaustive"
+    },
+    {
+      "id": "F42",
+      "checkpoint": "mem::forget, process abort or an indefinitely stalled syscall on the commit path",
+      "possibleStoredState": "Any state; no destructor is guaranteed to have run",
+      "initialConclusion": "unknown-custody",
+      "expectedBehavior": "Drop is best-effort only. These paths must leave recovery evidence and return an honest unavailable or busy result, never a claimed cleanup success. Recovery in a fresh process reads the actual stored bytes and returns a verified conclusion or unknown-custody. No OS cancellation bound may be inferred from Rust types.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "none feasible in this task; requires real process control"
+    },
+    {
+      "id": "F43",
+      "checkpoint": "Read-only recovery ordering hazard: the association journalSeq exceeds the first observed journal tail",
+      "possibleStoredState": "Journal read snapshot is older than the evidence ledger snapshot, or the tail was lost",
+      "initialConclusion": "unavailable-busy",
+      "expectedBehavior": "Close and reopen the journal read handle exactly once and re-read tail, witness and floor; never re-read the ledger. If reconciled, continue. If still ahead and the SC-TRUST floor lastSeq is at or above the requested sequence, report the F22 quarantine condition. Otherwise return unavailable or busy attributed to the security carrier owner. Never conclude uncommitted, and never draw a conclusion from two different snapshots.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py cases B1, B2, B3; scratch/out/c3.json"
+    },
+    {
+      "id": "F44",
+      "checkpoint": "Prefix anchor with a PENDING witness at the next slot and the requested sequence above the SC-TRUST floor",
+      "possibleStoredState": "Durable prefix exists but no live witnessed anchor names it; a newer append is in flight",
+      "initialConclusion": "unknown-custody",
+      "expectedBehavior": "Report unknown, explicitly not invalidated. The earlier committed receipt is never invalidated by a newer PENDING append. Report the witnessWouldRevert diagnosis and perform no REVERT, no ADVANCE, no witness write and no high-water raise. Do not wait on the writer.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py case A4; scratch/out/c3.json"
+    },
+    {
+      "id": "F45",
+      "checkpoint": "Prefix anchor with a PENDING witness at the tail carrying the tail body hash",
+      "possibleStoredState": "The append became durable before the witness was advanced",
+      "initialConclusion": "committed-historically",
+      "expectedBehavior": "The witness still names the durable tail, so it anchors it. Confirm for any requested sequence at or below the tail under anchor class witness-pending-at-tail. Report witnessWouldAdvance as a diagnosis and perform no ADVANCE. The conclusion class is confirmed-under-retained-custody, never cryptographically proven.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py case A2; scratch/out/c3.json"
+    },
+    {
+      "id": "F46",
+      "checkpoint": "The generation holding the requested attempt is carrierFormat 1 or 2",
+      "possibleStoredState": "Historical generation in which no schema-3 SEAL row can exist",
+      "initialConclusion": "unknown-carrier-incompatible",
+      "expectedBehavior": "Report carrier incompatibility, never not-committed and never uncommitted. Read historical bytes under recordSchema-1 semantics only; never relabel them as schema 3 and never present a historical platform alias as an S8 machine id. This is the read-side counterpart of F31.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c3.py case D1; scratch/out/c3.json"
+    },
+    {
+      "id": "F47",
+      "checkpoint": "Carrier-format migration from 1 or 2 to 3",
+      "possibleStoredState": "Inherited generation closed by TERMINAL; new carrierFormat 3 objects present",
+      "initialConclusion": "migrated",
+      "expectedBehavior": "TERMINAL closes the inherited generation under the inherited constraints with no constraint or trigger disabled and no row rewritten. The TERMINAL row carries the migration operation own op- token. Inherited rows and inherited schema objects are byte-unchanged and legacy platform aliases are retained verbatim. A second migration aborts. A write to a generation below first_generation is refused. Run the whole transition under the install fence with EXCLUSIVE on the affected namespace and an intent written only after every lease is held.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c2.py migration m1 to m12; scratch/out/c2.json"
+    },
+    {
+      "id": "F48",
+      "checkpoint": "Post-migration open and read dispatch by a core that does not support carrierFormat 3",
+      "possibleStoredState": "carrierFormat 3 carrier present",
+      "initialConclusion": "refused",
+      "expectedBehavior": "A carrierFormat 1-or-2-only core refuses the carrier typed and keeps its prior generation until it expires, mirroring the S9 dual-reader staging. A carrierFormat 1-2-3 core detects the format by schema introspection only, verifies the frozen side-table SQL text byte-equals the frozen definition, verifies the carrier projectKeyDigest and the generation boundary, then reads both historical and current generations without relabelling either.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed",
+      "modelProbe": "scratch/controls/c2.py openDispatch over five databases; scratch/out/c2.json"
+    }
+  ]
+}

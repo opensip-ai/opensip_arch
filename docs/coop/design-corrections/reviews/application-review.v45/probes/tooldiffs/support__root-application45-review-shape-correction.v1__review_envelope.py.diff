@@ -1,0 +1,34 @@
+--- support/root-application45-review-shape-correction.v1/before/review_envelope.py
++++ support/root-application45-review-shape-correction.v1/review_envelope.py
+@@ -148,5 +148,31 @@
+         if 'parentSubjectSha256' in kit:
+             fields.append(('inputKit.parentSubjectSha256', kit['parentSubjectSha256']))
++    if 'kit' in record:
++        kit = record['kit']
++        assert isinstance(kit, dict), 'Declared kit must be an object'
++        if 'parentSubjectSha256' in kit:
++            fields.append(('kit.parentSubjectSha256', kit['parentSubjectSha256']))
+     return fields
++
++
++def disposition_rows(record, key):
++    """Lossless access to actual keyed or id-bearing array rows; never award a grade.
++
++    Returned pointers address the original review bytes. Duplicate ids, mistyped
++    rows and conflicting keyed ids refuse before assembly; no last-key-wins.
++    """
++    value = record[key]
++    assert type(value) in (dict, list), 'Disposition collection must be object or array: ' + key
++    rows, pointers = {}, {}
++    pairs = value.items() if type(value) is dict else enumerate(value)
++    for position, row in pairs:
++        assert type(row) is dict, 'Disposition row must be object'
++        rid = position if type(value) is dict else row.get('id')
++        assert type(rid) is str and rid and '/' not in rid and '~' not in rid, 'Invalid disposition id'
++        assert 'id' not in row or row['id'] == rid, 'Conflicting disposition id'
++        assert rid not in rows, 'Duplicate disposition id: ' + rid
++        rows[rid] = row
++        pointers[rid] = '/' + key + '/' + str(position)
++    return rows, pointers
+ 
+ 

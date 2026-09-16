@@ -1,0 +1,24 @@
+--- source32/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
++++ active-draft/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
+@@ -207,7 +207,9 @@
+ 6. `subjectId` := null; `predicateId` := null; `evidenceKind` := null.
+ 7. `inputRefs := Cset({XI} ∪ row.inputRefs)`. `XI` is committed execution-context. `row.inputRefs` are the originating Coverage, inventory, or candidate refs. `XI` does not replace them.
+ 
+-Every native `DeficiencyV2` member is a member of both the execution and native cause registries. Native-registry evaluator diagnostics (`uncovered-expected-source-subject`, `coverage-unknown`, …) are atom/witness causes (§9.5), not `DeficiencyV2` carriers, and are not this bridge's `cause`.
++Every native `DeficiencyV2` member is a member of both the execution and native cause registries. Native-registry evaluator diagnostics (`uncovered-expected-source-subject`, `coverage-unknown`, …) are atom/witness causes (§9.5), not `DeficiencyV2` carriers, and are not this bridge's `cause`. In particular `uncovered-expected-source-subject` is **not** registered under `sources.execution` and is **not** the carrier for a census-driven incomplete account: step 3's existing `null` → `required-cell-unsatisfied` route already carries that obligation, so no new vocabulary member is needed and none is added.
++
++**The `null` route is load-bearing, not a fallback.** A required native account whose incompleteness is pure missing work — no returned partition, or expected subjects no partition covers — reaches step 2 with `d = null` by design (execution-inputs §5), and step 3 turns it into `required-cell-unsatisfied` with `nativeCause = null`, the binding `universe`, and `{XI} ∪ row.inputRefs`. The originating Coverage refs, when any exist, are still there. Any nonempty `proof.executionDeficiencies` makes the sealed verdict at least `indeterminate` (§9.6 close), so the required cell remains unsatisfied rather than silently becoming complete.
+ 
+ **Originating `row.inputRefs` by failure class** (internal row construction; proof refs are those plus `XI`):
+ 
+@@ -216,8 +218,8 @@
+ | Required inventory not `complete` | inventory `deficiency` (`DeficiencyV2` or `source-syntax-invalid`) | `[{domain:subject-inventory, digest: that inventory C digest}]`. Keep every such sibling inventory of the cell. |
+ | Required enumerator unselected or binding `universe=null` | binding `UnavailableProgramBindingV1.deficiency` | `[]` for this binding/enumerator item. Each non-complete same-cell inventory contributes a separate inventory item with its own deficiency, nativeCause and single inventory ref as above; never attach those inventory refs to the binding carrier. |
+ | Required candidate envelope `partial` or `unavailable` | candidate `deficiency` | `[{domain:candidate-producer-result, digest: envelope digest}]` |
+-| Required native account not complete, Coverage records exist | each Coverage `entry.deficiency`, or if null the account summary `deficiency` (empty returned partitions use `provider-unavailable`) | `[{domain:coverage, digest: that Coverage H suffix}]` **per Coverage record**. Keep every Coverage of that account. Missing expected subjects (`source-path` / `package-name` / `symbol`) still emit per returned Coverage record with that summary `deficiency`. |
+-| Required native account not complete, no Coverage records | account summary `deficiency` (`provider-unavailable` when empty) | `[{domain:coverage, digest: hx} for hx in the account's named coverageIds]` (empty if none named) |
++| Required native account not complete, Coverage records exist | that Coverage record's **own** `entry.deficiency`, paired with its **own** `entry.nativeCause`. A record carrying no pair keeps `null`/`null` and bridges to `required-cell-unsatisfied` by step 3; it never borrows a sibling record's carrier and never gains a manufactured one. | `[{domain:coverage, digest: that Coverage H suffix}]` **per Coverage record**. Keep every Coverage of that account. Missing expected subjects (`source-path` / `package-name` / `symbol`) still emit one row per returned Coverage record, each with its own pair. |
++| Required native account not complete, no Coverage records | the account's derived primary pair, which here is `null`/`null` — **empty returned partitions do not carry `provider-unavailable`** (execution-inputs §5: no carrier is manufactured for pure missing work) — bridged to `required-cell-unsatisfied` | `[{domain:coverage, digest: hx} for hx in the account's named coverageIds]` (empty if none named) |
+ | Required unsupported-typed matrix cell | matrix cell `deficiency` | `[]` (no fabricated Coverage) |
+ | Required unavailable-unselected / unavailable-null-universe account | binding `deficiency` | `[]` |
+ | Inapplicable-VCS | (not required-unsatisfied; no row) | — |

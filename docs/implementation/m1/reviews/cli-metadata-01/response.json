@@ -1,0 +1,74 @@
+{
+  "session_id": "573be1a9-7b3f-483f-a6d8-0aa555c866a9",
+  "total_cost_usd": 4.0585035000000005,
+  "usage": {
+    "input_tokens": 516,
+    "cache_creation_input_tokens": 188714,
+    "cache_read_input_tokens": 1696385,
+    "output_tokens": 52756,
+    "output_tokens_details": {
+      "thinking_tokens": 19213
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 188714,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1787,
+        "cache_read_input_tokens": 179828,
+        "cache_creation_input_tokens": 14381,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 14381
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1616,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001691,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 516,
+      "outputTokens": 52756,
+      "cacheReadInputTokens": 1696385,
+      "cacheCreationInputTokens": 188714,
+      "webSearchRequests": 0,
+      "costUSD": 4.0568125,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 19213,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 61,
+  "subtype": "success",
+  "result": "**Verdict: CHANGES-REQUIRED.** Two findings block acceptance. The rest of the candidate held up under testing. I wrote `review.json` and `review.md` to `/tmp/opensip-implementation/m1-cli-metadata-review-01/`. The frozen subject still matches its pins after the review: manifest `67e7b09f\u2026`, all 97 files, nothing extra or missing.\n\n## Required findings\n- **RF-1: `crates/platform/src/entropy.rs` isn't in the design-locked inventory v3.** Every other new file is. The accepted inventory has no named home for the random draws the RequestId law requires, so this is a real owner gap. The smallest fix is either:\n  - a scoped inventory successor that adds exactly that one row, bound through the existing design-lock route; or\n  - moving the 10-line function into a platform file that's already listed.\n\n  Neither changes behavior.\n- **RF-2: human-format failure output leaves out the termination class and error code.** The inventory4 human renderer rule says it \"never omits termination-class\". What the binary printed:\n  - `opensip --nope` printed only `Unknown command option. Use opensip help.`\n  - `--format=sarif` printed a sentence but not `OUTPUT.FORMAT_NOT_APPLICABLE`.\n  - With stdout on a read-only descriptor, stderr got only `Required output delivery failed.`: no class, no `DELIVERY.REQUIRED_FAILED`, no RequestId.\n\n  JSON output is correct. The fix is to print those fields with fixed labels and add tests. Whether the rule also covers successful help/version output, and how it applies to completion scripts, is a separate owner question (advisory A-10).\n\n## Advisories (non-blocking)\n- **Closed stdout isn't detected:** `opensip version >&-` exits 0. Rust's runtime reopens a closed stdout as /dev/null before `main` (I confirmed this in the std source), so the program can't see it. CLI-UNIT should say so. A read-only descriptor and a broken pipe are both caught correctly.\n- **getrandom backend needs a build-lane guard:** a `getrandom_backend` cfg passed through RUSTFLAGS silently changes the backend. The dependency checker only covers the contracts lane. The r-efi 6.0.0 archive isn't cached, so its bytes weren't checked; it only builds for UEFI.\n- **Still open, not satisfied:** `projection_tests.rs` hasn't been created, and the HostAssetPin channel-agreement check can't run until real asset pins exist. This must not count toward M1.\n- **Also recorded:**\n  - no bootstrap-level test for a CSPRNG failure;\n  - uneven parser limits on flag values;\n  - usage text differs from the inventory4 spellings;\n  - the process-only host must not be reused at M2;\n  - the reference checker is hard-wired to candidate-01;\n  - the delivery-failure envelope drops `clientCorrelationId`.\n\n## What held up\n- **Request context:** callers can't forge it, and its ID comes only from its own host's registry. The ID is allocated before argument parsing. 600 runs gave 600 distinct IDs, and every attempt to supply a request ID by flag, word or environment variable was refused or ignored.\n- **No outside effects:** in a macOS sandbox denying network, all writes, and reads of the project directory, `/Users` and `/private/etc` (each denial checked first), every metadata command gave identical output.\n- **Version can't be spoofed:** release-channel environment variables and `--build-channel=release` have no effect.\n- **Schema conformance:** 17 author cases, 11 extra probe cases and 5 delivery-failure envelopes all pass the original envelope4 schema.\n- **Commands and delivery:** only the 3 implemented commands are advertised, consistently across help, JSON and completions. Read-only descriptor and broken-pipe failures exit 4 with a valid stderr envelope carrying the same RequestId.\n- **Dependencies:** library dependencies stay within the allowed table. The getrandom, libc and cfg-if archives match `Cargo.lock` and their extracted sources.\n- **Unchanged by this candidate:** the generator's partial status and the 45-command goal.\n\n## What I ran and its limits\n- **Build and tests:** in my own copy with a separate target directory, build, test and `clippy -D warnings` (all `--locked --offline`) plus `fmt --check` pass: 5 startup, 2 request-authority, 1 compiled-metadata and 10 identity tests.\n- **Other checks:** `verify_design.py` passes. The reference checker, pointed at my build, gives 17 valid cases. I also ran 35 argument probes and the delivery-fault, sandbox and ID-freshness probes.\n- **Limits:**\n  - Everything ran on macOS arm64 in a debug build; nothing on Linux, no release build, no startup-performance measurement.\n  - I couldn't trigger a CSPRNG failure in the real binary.\n  - This review doesn't cover the generator or adapter, and doesn't accept integration or M1.\n- **Files:** probe outputs are under `work/`. Nothing was committed or pushed, and nothing outside the review directory was changed.",
+  "type": "result",
+  "duration_ms": 759682
+}

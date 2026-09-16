@@ -1,0 +1,79 @@
+--- source38/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ root-a5/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -2213,7 +2213,11 @@
+         cfg = tsconfig if tsconfig is not None else jsconfig
+         origin = "tsconfig" if tsconfig is not None else "jsconfig"
+         opts = dict(cfg.get("compilerOptions", {}))
+-        allow_js = bool(opts.get("allowJs", origin == "jsconfig")); check_js = bool(opts.get("checkJs", False))
++        # Config-origin defaults are applied before the compiler's computed option.
++        # An explicit allowJs (including false) wins; jsconfig defaults to true;
++        # an absent tsconfig allowJs inherits checkJs. Flags are not completeness.
++        check_js = bool(opts.get("checkJs", False))
++        allow_js = bool(opts.get("allowJs", True if origin == "jsconfig" else check_js))
+         mode = "js-allowjs" if allow_js else "ts-tsconfig"; synthesized = None; synth_version = None
+         program_roots = roots_all if allow_js else [p for p in roots_all if p.endswith(TS_EXT)]
+         js_roots = js_roots if allow_js else []
+--- source38/docs/v2/contracts/product-v1/native-evidence.md
++++ root-a5/docs/v2/contracts/product-v1/native-evidence.md
+@@ -159,7 +159,7 @@
+ 
+ | Mode id | Recognition | Universe | Notes |
+ |---|---|---|---|
+-| `ts-tsconfig` | `tsconfig.json` at the unit root (or named by discovery), `allowJs` absent/false | `typescript-v2`, `configOrigin=tsconfig` | JavaScript files are not program roots; a JS import target is `unresolved-module-specifier`. |
++| `ts-tsconfig` | `tsconfig.json` at the unit root (or named by discovery), effective `allowJs=false` | `typescript-v2`, `configOrigin=tsconfig` | JavaScript files are not program roots; a JS import target is `unresolved-module-specifier`. |
+ | `js-allowjs` | `tsconfig.json`/`jsconfig.json` with effective `allowJs=true` (jsconfig defaults `allowJs=true`) | `typescript-v2`, `allowJs=true` | `.js/.mjs/.cjs/.jsx` are program roots. |
+ | `js-synthesized` | Inside a `tsjs` unit already discovered by §1.4 U-1: no `tsconfig.json`/`jsconfig.json` at the unit root, so the `package.json` marker selects this mode. `.js/.mjs/.cjs/.jsx` files under that unit are program roots; they do not themselves make a unit | `typescript-v2`, `configOrigin=synthesized`, `synthesizerVersion=1` | Host synthesizes `SynthesizedCompilerOptionsV1` (§2.2); Plan-bound with `DEFAULTED` provenance, disclosed in output. |
+ | `rust-cargo` | `Cargo.toml` at the unit root (package or workspace) | `rust-v2` | Requires a sealed `DependencySourceSetV1` when the lock lists any non-path package (§3). |
+@@ -513,15 +513,43 @@
+ suffixes so `.d.ts` still resolves through a row owning `.ts`. An unanchored code
+ fact is **not** vacuously supported: it names no file that could have been read.
+ 
+-**`allowJs` and `checkJs` are not completeness claims** (feedback 11; primary
+-sources `typescriptlang.org/tsconfig/allowJs` and `/checkJs`, read 2026-09-06).
+-`allowJs` is a *program-membership* option: it admits JavaScript roots. `checkJs`
+-is a *diagnostics* option: it reports errors in JavaScript files and changes
+-nothing about what is resolved. Both are universe keys (they change PlanId);
+-neither gates a capability, and neither implies that resolution was attempted or
+-complete. Resolution completeness is asserted only by `CoverageResultV3` (§4.3).
+-The universe carries `jsAdmittedToProgram`, `jsDiagnosticsEnabled` and the
+-constant `resolutionCompletenessImplied=false` so no consumer can confuse them.
++**JavaScript option and universe-flag derivation.** `allowJs` and `checkJs`
++in the retained context are effective, materialized booleans from the selected
++compiler's resolved configuration, including the retained configuration graph.
++For the selected option projection, an explicit `allowJs` value wins, including
++`false`. A jsconfig entry defaults it to `true`; otherwise omitted `allowJs`
++derives from effective `checkJs`, whose omitted default is `false`. Apply
++configuration inheritance before these defaults. The pre-Plan marker observation
++named `allowJs` also means this effective value, never mere presence of the raw
++configuration property. `js-allowjs` versus `ts-tsconfig` selection uses that
++value. The synthesized profile keeps its separately specified `true`/`false`
++values. This derivation agrees with the version-pinned [TypeScript compiler
++computed option](https://github.com/microsoft/TypeScript/blob/v5.6.3/src/compiler/utilities.ts#L8919);
++that source is supporting evidence, not a required product toolchain version.
++
++The two universe flags have exact, distinct laws:
++- `jsAdmittedToProgram = configProjection.honoredOptions.allowJs AND
++  (len(universe.jsRootFiles) > 0)`.
++- `jsDiagnosticsEnabled = configProjection.honoredOptions.checkJs`.
++
++`jsRootFiles` is the admitted compiler root-file set already joined to the
++universe; the first flag is about those JS roots, not a claim that every possible
++transitive JavaScript module was found. Enabling `allowJs` with no JS roots does
++not make the first flag true. Diagnostic enablement does not require a nonempty
++JS-root set and does not attest that any diagnostic ran or that compilation
++succeeded. An explicit `allowJs=false` with `checkJs=true` retains those effective
++option values; they do not assert that the compiler accepts that configuration.
++The option projection must not rewrite explicit `false` to `true` to suppress
++a configuration diagnostic. Existing configuration and input admission remain
++required independently of these flags.
++The corresponding native context/universe field disagreement refuses through
++`native.universe-context-field-mismatch:<field>`.
++
++These options and flags are universe keys. `checkJs` controls diagnostics, and
++can affect membership through the omitted-`allowJs` default above; it does not
++supply resolution evidence. Neither flag grants a capability or establishes
++that resolution was attempted or complete. Resolution completeness is asserted
++only by `CoverageResultV3` (§4.3); `resolutionCompletenessImplied` remains `false`.
+ 
+ Module systems inside `typescript-v2` are observed, not chosen: `import`/`export`
+ and `require()`/`module.exports` are both resolved by the pinned compiler under

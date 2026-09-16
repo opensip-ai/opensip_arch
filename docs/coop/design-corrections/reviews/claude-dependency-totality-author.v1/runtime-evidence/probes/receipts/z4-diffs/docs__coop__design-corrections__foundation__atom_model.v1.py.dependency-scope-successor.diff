@@ -1,0 +1,107 @@
+--- dependency-scope-successor/docs/coop/design-corrections/foundation/atom_model.v1.py
++++ successor/docs/coop/design-corrections/foundation/atom_model.v1.py
+@@ -1114,6 +1114,37 @@
+             continue
+         paired.extend(_pair_scope_coverages(sid, sc, covs, inputs))
+     return _unique_pairs(paired)
++
++
++def _dependency_totality_gaps(rel: str, source_u: str, want_t: str | None, inputs: dict,
++                              owed_subjects: set[str], owed_kind: str | None, view: dict) -> list[str]:
++    """Contract section 4, dependency totality: same-kind dependency positions that do not cover EVERY owed subject.
++
++    A position is filled by whichever selected partitions exist, so before this check one subject's
++    dependency partition closed the dependency for a whole primary partition {f, g}, while the same
++    subjects regrouped into disjoint primary partitions did not. An owed subject is COVERED for
++    dependency relation R when some `_scopes_exact` scope at exact (R, rung, S) contains it and pairs at
++    least one Coverage at exact (R, rung, S, T). Only positions present in `view` are checked: an absent
++    position is already answered by the native owner. Different-kind dependencies stay whole-source and
++    are not subject-checked, and an empty owed set owes no subject. The result is a list of relations in
++    `_depends_chain` order; the caller evaluates the view without them, it fabricates nothing.
++    """
++    if not owed_subjects:
++        return []
++    gaps = []
++    for dep in _depends_chain(rel):
++        drel, drung = dep["relation"], dep["minResolution"]
++        if drel not in view or (owed_kind and _source_kind_for_relation(drel) != owed_kind):
++            continue
++        covs = _coverages_exact(inputs, drel, drung, source_u, want_t)
++        covered = set()
++        for sid, sc in _scopes_exact(inputs, drel, drung, source_u):
++            held = {nid for nid in owed_subjects if _scope_contains(sc, nid)}
++            if held and _pair_scope_coverages(sid, sc, covs, inputs):
++                covered |= held
++        if owed_subjects - covered:
++            gaps.append(drel)
++    return gaps
+ 
+ 
+ def _build_sufficiency_view(rel: str, min_rung: str, source_u: str, target_u: str | None,
+@@ -1467,14 +1498,27 @@
+     else:
+         q_use = q_abs
+ 
+-    def run_suff(view, source_u, extra_cids):
++    def run_suff(view, source_u, extra_cids, gaps=()):
+         cov_ids.extend(extra_cids)
+         su = _sufficiency(rel, min_rung, view, subject, q_use, inputs, source_u, endpoint)
+         defs.extend(su.get("causes") or [])
+         if su.get("deficiency"):
+             defs.append(su["deficiency"])
+         causes.extend(su.get("extraCauses") or [])
+-        if not su.get("satisfied"):
++        satisfied = bool(su.get("satisfied"))
++        if gaps:
++            # Contract section 4, dependency totality. The same native rule on the actual view with the
++            # uncovered dependency positions removed; its answer is retained BESIDE the actual view's,
++            # so every consulted partition, fold, carrier and deficiency survives and nothing is
++            # fabricated for the uncovered subject.
++            reduced = {k: v for k, v in view.items() if k not in gaps}
++            rs = _sufficiency(rel, min_rung, reduced, subject, q_use, inputs, source_u, endpoint)
++            defs.extend(rs.get("causes") or [])
++            if rs.get("deficiency"):
++                defs.append(rs["deficiency"])
++            causes.extend(rs.get("extraCauses") or [])
++            satisfied = satisfied and bool(rs.get("satisfied"))
++        if not satisfied:
+             nc = None
+             for _rel, ent in view.items():
+                 if isinstance(ent, dict) and ent.get("nativeCause"):
+@@ -1510,7 +1554,9 @@
+             tu = (cov.get("key") or {}).get("targetUniverse")
+             view, extra = _build_sufficiency_view(rel, min_rung, u, tu, cov, inputs,
+                                                  current_subjects={n}, current_kind=cur_kind)
+-            if not run_suff(view, u, extra):
++            want_t = tu if tu is not None else (cov.get("key") or {}).get("targetUniverse")
++            gaps = _dependency_totality_gaps(rel, u, want_t, inputs, {n}, cur_kind, view)
++            if not run_suff(view, u, extra, gaps):
+                 ok = False
+         blocking = [c for c in causes if c.get("code") != "cross-family-edge-not-owed"]
+         unknown = bool(blocking) or not ok
+@@ -1569,7 +1615,9 @@
+             att_ok = att is not None and _attestation_proves_search(att)
+             if att_ok:
+                 view, extra = _build_attestation_view(rel, min_rung, s, u, att, inputs)
+-                if not run_suff(view, s, extra):
++                owed = {nid for _sid, sc in scs for nid in (sc.get("subjects") or [])}
++                gaps = _dependency_totality_gaps(rel, s, u, inputs, owed, src_kind, view)
++                if not run_suff(view, s, extra, gaps):
+                     ok_all = False
+                     unknown = True
+             if not scs:
+@@ -1585,10 +1633,12 @@
+                 for cid, cov in found_all:
+                     cov_ids.append(cid)
+                     tu = cov["key"].get("targetUniverse")
++                    owed = set(sc.get("subjects") or [])
+                     view, extra = _build_sufficiency_view(
+                         rel, min_rung, s, tu, cov, inputs,
+-                        current_subjects=set(sc.get("subjects") or []), current_kind=src_kind)
+-                    if not run_suff(view, s, extra):
++                        current_subjects=owed, current_kind=src_kind)
++                    gaps = _dependency_totality_gaps(rel, s, tu, inputs, owed, src_kind, view)
++                    if not run_suff(view, s, extra, gaps):
+                         ok_all = False
+                         unknown = True
+                 if found_u or att_ok:

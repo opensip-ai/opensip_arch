@@ -1,0 +1,107 @@
+--- a/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ b/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -1437,7 +1437,14 @@
+     It may refuse access. It cannot grant retained authority; close_run remains
+     the positive admission. Owner: foundation EvidenceStore / identity availability.
+     """
+-    avail = (host or {}).get("availability")
++    if "availability" not in (host or {}):
++        return "retained"
++    avail = host["availability"]
++    if type(avail) is not str or avail not in (*AVAIL_REFUSE, "retained", "partial"):
++        raise ReferenceCallPrecondition(
++            "host.availability",
++            "supply a typed availability observation or omit it; an unknown value is not evidence availability",
++        )
+     if avail in AVAIL_REFUSE:
+         raise QueryRefusal(
+             "HOST.IO_FAILURE",
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -159,6 +159,10 @@
+ 
+ Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. Its `availability.state` values (`foundation/identity-schemas.v3.json#/$defs/availability`) route exactly as follows, every refusal being operational-failed / `HOST.IO_FAILURE` (`faultCause=host-io`) / exit 4 with the named registered detail: `purged` → `evidence.purged`; `expired` → `evidence.expired`; `corrupt` → `evidence.corrupt`; `unavailable` → `evidence.missing`. `unavailable` has no detail of its own and none is invented: required evidence that cannot be supplied is the identity owner's missing-evidence carrier (`EvidenceUnavailable` → `evidence.missing`, identity-and-evidence §5), the same detail as missing retained bytes below. `retained`, `partial` and an omitted observation neither refuse nor grant: `close_run` still decides, and retained bytes it finds missing or corrupt refuse under the rows below. The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
+ 
++The reference host observation vocabulary is closed: `retained`, `partial`, `purged`, `expired`, `corrupt`, `unavailable`, plus `missing` for a direct host report of missing bytes. `missing` uses the same `HOST.IO_FAILURE` / `evidence.missing` / exit 4 route as `unavailable`; it is not an additional identity availability state. An omitted field is allowed; a present null, wrong type or unknown token is a `ReferenceCallPrecondition` for `host.availability`, like malformed trusted `host.requestId`. It must not be silently treated as an omitted observation, a public request rejection or an empty graph. The host adapter owns supplying the admitted internal observation; this reference precondition is not a new public error code or an implemented host finalizer. Request-schema admission still precedes observation consumption.
++
++Complete replay disagreement is a distinct identity boundary observation even when every retained digest and shape is valid. The graph-query route deliberately uses the existing `evidence.corrupt` detail for this unusable retained result, with the complete-replay diagnostic retained as its subject. This public projection does not assert a physical checksum failure and does not collapse the identity owner's structural-admission and semantic-replay checks. It grants no result items and no new Run.
++
+ | Condition | class | errorCode / reason | domainDetail |
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+@@ -171,9 +175,10 @@
+ | cursor bind mismatch | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.CURSOR_MISMATCH` |
+ | view2 not admitted on this Run | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.FACT_VIEW_UNAVAILABLE` |
+ | graph availability observation `purged` / `expired` / `corrupt` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.purged` / `evidence.expired` / `evidence.corrupt` |
+-| graph availability observation `unavailable` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
++| graph availability observation `unavailable` or direct missing-bytes observation `missing` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
++| structurally admitted retained Run whose complete proof replay disagrees | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt`; subject preserves the complete-replay diagnostic |
+ | work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |
+ 
+ ## 8. Strong wrapper versus internal traversal
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -635,6 +635,15 @@
+             env = exc.envelope()
+             check(cid, env["exitCode"] == 4 and env["termination"]["class"] == "operational-failed"
+                   and [e["code"] for e in env["errors"]] == [detail], env)
++    refuse("host-availability-direct-missing", lambda: ex(out_req, host_obs(availability="missing")), "HOST.IO_FAILURE", "evidence.missing")
++    for label, observation in (("unknown", "not-a-state"), ("null", None), ("boolean", False),
++                               ("number", 1), ("list", []), ("object", {})):
++        try:
++            ex(out_req, host_obs(availability=observation))
++        except Q.ReferenceCallPrecondition as exc:
++            check("host-availability-precondition-" + label, exc.missing == "host.availability")
++        else:
++            check("host-availability-precondition-" + label, False, "invalid trusted observation was ignored")
+     partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
+     check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
+     if victim is not None:
+@@ -898,6 +907,37 @@
+     check("strong-entry-has-no-standing-bypass", not hasattr(owner, "SYNTHETIC_STANDING") or "standing" not in (owner.execute_graph_query.__doc__ or ""))
+ 
+ 
++def semantic_refusal_controls():
++    # A digest-valid, fully reminted result can still be semantically false.
++    # Reuse the maintained mutation constructor, not an arbitrary close_run stub.
++    foundation = HERE.parent / "foundation"
++    semantic = load("query_refusal_semantic3", foundation / "check-semantic-replay.v3.py")
++    mutants = load("query_refusal_mutants3", foundation / "check-replay.v3.py")
++    graph, positive, actual = semantic.case_declares_exists()
++    run, objects, blobs = mutants.remint_finding(
++        *positive, lambda finding, _blobs: finding.update(severity="warning")
++    )
++    run_key, _ = Q.identity3().open_run_closure(run, objects, blobs)
++    check("semantic-query-mutant-structural-admit-new-identity", run_key != actual["runId"])
++    symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
++    req = request("graph.neighbors", run["projectId"], {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++        "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
++    })
++    refuse("semantic-query-mutant-refuses", lambda: Q.execute_graph_query(req, run, objects, blobs, host=host_obs()),
++           "HOST.IO_FAILURE", "evidence.corrupt")
++    try:
++        Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
++    except Q.QueryRefusal as exc:
++        env = exc.envelope()
++        check("semantic-query-mutant-retains-replay-boundary",
++              env["exitCode"] == 4 and exc.fault_cause == "host-io"
++              and "EVALUATOR_COMPLETE_PROOF_REPLAY" in str(exc.subject)
++              and "run" not in env and "queryResponse" not in env, env)
++    else:
++        check("semantic-query-mutant-retains-replay-boundary", False, "semantic mutant admitted")
++
++
+ def main():
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--report")
+@@ -911,6 +951,7 @@
+     table_controls()
+     algorithm_controls()
+     owner_controls()
++    semantic_refusal_controls()
+     hook_control()
+     failed = [c for c in CHECKS if not c["ok"]]
+     report = {

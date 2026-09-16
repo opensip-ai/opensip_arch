@@ -1,0 +1,34 @@
+--- a38/docs/coop/design-corrections/workflows/workflows_model.v1.py
++++ b39/docs/coop/design-corrections/workflows/workflows_model.v1.py
+@@ -1589,8 +1589,12 @@
+ # alter the historical profile.
+ CLOSED_WORLD_SELECTOR = None
+ 
+-def repair_preview(project_id, snapshot_tree, run, recipe, targets, edits, evidence_requirements, permitted_scope, trust, ephemeral=False):
++def repair_preview(project_id, snapshot_tree, run, recipe, targets, edits, evidence_requirements, permitted_scope, trust, ephemeral=False, *, descriptor_major=1):
+     """trust: the security unit's current admitted closure set {closureId: 'admitted'|'revoked'}; ABSENCE is not admission.
++
++    descriptor_major: 1 (the default) is the HISTORICAL major-1 plan, and every existing caller keeps it byte-identically.
++    Only the evaluator3 owner (workflows_model.v3.repair_preview) passes 2, after its own retained-Run joins, so the
++    descriptor is BUILT at its major before the repairPlanId preimage exists; no plan is relabelled or reminted.
+ 
+     CLOSED-WORLD INPUT, two profiles. HISTORICAL major-1 (CLOSED_WORLD_SELECTOR is None):
+     `run['closedWorld']` is ONE already-selected seven-member ClosedWorldV2 that the CALLER
+@@ -1613,6 +1617,8 @@
+     dynamicDispatch is NOT a global veto: native section 4.5 affected_targets makes
+     dynamic-edge effects target-relative, and each evidence requirement is judged on its own
+     relation and rung below."""
++    if descriptor_major not in (1, 2):
++        raise ValueError('repair plan descriptor major is 1 (historical) or 2 (evaluator3)')
+     unmet = []
+     if ephemeral or run.get('authority') != 'authoritative':
+         raise Refusal('REQUEST.PRECONDITION_FAILED', 'REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE', 'run an authoritative analysis first')
+@@ -1675,7 +1681,7 @@
+             unmet.append({'code': 'REPAIR.EVIDENCE_RUN_UNAVAILABLE',
+                           'remedy': 'evidence requirement unsatisfied: ' + req['relation'] + '@'
+                                     + req['minResolution'] + ' (' + plane + ': ' + deficiency + ')'})
+-    desc = {'schemaFamily': 'opensip.product.repair-plan', 'schemaMajor': 1, 'projectId': project_id, 'snapshotId': snap, 'evidenceRunId': run['runId'], 'planId': run['planId'], 'recipe': recipe,
++    desc = {'schemaFamily': 'opensip.product.repair-plan', 'schemaMajor': descriptor_major, 'projectId': project_id, 'snapshotId': snap, 'evidenceRunId': run['runId'], 'planId': run['planId'], 'recipe': recipe,
+             'recipeTrust': recipe_trust, 'evidenceOrigin': origin,
+             # The five-field record. HISTORICAL profile: a projection of the caller's one
+             # pre-selected seven-member record. CURRENT evaluator3: the deterministic DISPLAY

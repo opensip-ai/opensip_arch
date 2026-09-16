@@ -1,0 +1,91 @@
+{
+  "session_id": "0b25126b-49da-4a62-ab1c-d5f18b15cebf",
+  "total_cost_usd": 5.741784,
+  "usage": {
+    "input_tokens": 418,
+    "cache_creation_input_tokens": 201326,
+    "cache_read_input_tokens": 1229288,
+    "output_tokens": 124398,
+    "output_tokens_details": {
+      "thinking_tokens": 81198
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 201326,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1264,
+        "cache_read_input_tokens": 205528,
+        "cache_creation_input_tokens": 356,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 356
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1750,
+      "outputTokens": 18,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.00184,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 418,
+      "outputTokens": 124398,
+      "cacheReadInputTokens": 1229288,
+      "cacheCreationInputTokens": 201326,
+      "webSearchRequests": 0,
+      "costUSD": 5.739944,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 81198,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01FgZP84J5CQWCkgNzbLBWo9",
+      "tool_input": {
+        "command": "cd /tmp/opensip-implementation && shasum -a 256 m1-canonical-subject-01.json && cat m1-canonical-subject-01.json | head -100 && echo ---- && find m1-canonical-subject-01 -type f | sort && echo && ls -la m1-canonical-review-01 m1-canonical-validation-01 && env | grep -i cargo",
+        "description": "Verify manifest hash and list snapshot files"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_016MUBxzgEnE9P5XkLKCWTNb",
+      "tool_input": {
+        "command": "shasum -a 256 /tmp/opensip-implementation/m1-canonical-subject-01.json",
+        "description": "Hash the subject manifest"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 69,
+  "subtype": "success",
+  "result": "**There's no verdict:** Bash was denied for the whole session. So I couldn't hash the snapshot, run `cargo test`/`clippy`/`metadata`, run the Python unittest or design verifier, or run any probe. `review.json` has `\"verdict\": null` and `reviewStatus: \"INCOMPLETE-EXECUTION-DENIED\"`, so anything reading it treats the unit as not accepted. I did not issue ACCEPT-UNIT without confirming the files match the manifest and reproducing the passes.\n\n**Static reading found no required finding.** I read all 13 snapshot files, the validation capture, \u00a73 and \u00a71 of the architecture, `canonical.py` and `check-foundation.py`, and the real approval documents:\n- **Canonical profile:** the byte cap, depth, integer rules, `-0`, Unicode, duplicate keys, escaping, key order, array order and the H preimage all match \u00a73 and the reference. I found no reachable panic, no quadratic path, and no case where re-encoding an admitted input makes it bigger.\n- **Test vectors:** the first five are byte-identical to the architecture's goldens, and the SHA-256 vectors are the standard ones.\n- **Verifier:** I found no way to get an unapproved or altered file accepted.\n\n**Advisories, not required for this unit:**\n- **ADV-01, dependencies:** sha2 detects CPU features at runtime through cpufeatures, which on aarch64 depends on libc. libc's build script runs `$RUSTC --version`. No network or package manager, and the hash output doesn't depend on it. These edges still need recording in the pending M1 inventory tooling.\n- **ADV-02, API:** `digest::identity(&str, &Value)` is public and hashes any value, including arrays that later order admission would refuse. Future descriptor code must require admitted typed descriptors, and `Value` must not become the carrier.\n- **ADV-04, ADV-05:**\n  - **Refusal order:** differs from the Python reference, though both refuse.\n  - **Memory:** a 4 MiB input could grow to roughly 64\u2013128 MiB. This is an estimate, not measured.\n- **ADV-07, tests:** the four H hash goldens have no recorded source. H is still pinned by the literal frame test plus standard SHA vectors. The verifier's review, assent and completion refusal branches are untested.\n- **ADV-09, validation capture:** it ran in the product working tree, not the snapshot, starting with a mutating `cargo fmt --all`, and records no source hashes. The corrected boundary is right: 699,050 controls encode to 4,194,302 bytes and fit; 699,051 encode to 4,194,308 and are refused.\n\n**To get a verdict,** run `probes/RUN.md`, or allow Bash and re-run this review. It covers:\n- the manifest hash and per-file checks\n- the snapshot test, clippy, unittest and verifier runs\n- `cargo metadata` and `cargo tree` for all targets\n- a seeded ~20k-input comparison against the hash-checked `canonical.py`, plus recomputing the H goldens with hashlib\n- Rust edge-case and memory probes\n- 34 verifier probes, including a run against the real 46-input architecture\n\nThe probe expectations come from reading the code and could themselves be wrong.\n\nFiles are in `/tmp/opensip-implementation/m1-canonical-review-01`:\n- review.md\n- review.json\n- probes/\n\nI didn't touch the snapshot, the product tree, or the launcher files already in that directory.",
+  "type": "result",
+  "duration_ms": 1417995
+}

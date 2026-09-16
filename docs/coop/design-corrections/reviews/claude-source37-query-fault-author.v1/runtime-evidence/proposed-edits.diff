@@ -1,0 +1,624 @@
+--- a/docs/coop/design-corrections/foundation/evaluator_composition_model.v3.py
++++ b/docs/coop/design-corrections/foundation/evaluator_composition_model.v3.py
+@@ -202,9 +202,11 @@
+ def compare_complete_replay(actual,expected,objects,blobs):
+     """Exact recomputed proof and every recomputed output preimage, not count-only matching.
+     Owner closure admission and exact authoritative output-root selection are separate prerequisites.
++    Disagreement is the identity CompleteReplayMismatch condition carrying the exact comparison key.
+     """
+-    require_equal(actual,expected['proof'],'EVALUATOR_COMPLETE_PROOF_REPLAY')
+-    for key,value in expected['objects'].items():require_equal(objects.get(key),value,'EVALUATOR_COMPLETE_OBJECT_REPLAY:'+key)
++    if not C.equal_typed(actual,expected['proof']):raise M.CompleteReplayMismatch('EVALUATOR_COMPLETE_PROOF_REPLAY')
++    for key,value in expected['objects'].items():
++        if not C.equal_typed(objects.get(key),value):raise M.CompleteReplayMismatch('EVALUATOR_COMPLETE_OBJECT_REPLAY:'+key)
+     for key,value in expected['blobs'].items():
+-        if blobs.get(key)!=value:raise C.AdmissionError('EVALUATOR_COMPLETE_BLOB_REPLAY:'+key)
++        if blobs.get(key)!=value:raise M.CompleteReplayMismatch('EVALUATOR_COMPLETE_BLOB_REPLAY:'+key)
+     return True
+--- a/docs/coop/design-corrections/foundation/evaluator_replay_model.v3.py
++++ b/docs/coop/design-corrections/foundation/evaluator_replay_model.v3.py
+@@ -4,6 +4,8 @@
+ reconstructs enumeration and scans native/imported inputs. Claimed findings, witnesses,
+ parameters and verdicts never feed reconstruction. This reference does not execute tools,
+ compilers or providers. Synthetic admitted inputs do not qualify real extraction.
++Regenerated output disagreement raises identity CompleteReplayMismatch; owner admission
++refusals keep their owner classes, listed exactly in REFUSALS.
+ """
+ import copy,importlib.util
+ from pathlib import Path
+@@ -13,6 +15,16 @@
+     s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+ I=load('replay_inputs3',HERE/'evaluator_input_model.v3.py');E=I.E;M=E.M;C=M.C
+ A=load('replay_atom1',HERE/'atom_model.v1.py')
++# Declared typed outcomes of this stack, by exact class object. Every load above minted its own classes, so
++# identity-model.v3 close_run normalizes these objects; it never matches class names or message prefixes.
++UNAVAILABLE=(M.EvidenceUnavailable,I.ENUM.IM.EvidenceUnavailable)
++MISMATCHES=(M.CompleteReplayMismatch,)
++REFUSALS=(C.AdmissionError,C.ValidationError,A.AtomAdmissionError,A.C.AdmissionError,A.N.AdmissionError,A.W.Refusal,
++          I.ENUM.AdmissionError,I.ENUM.NV.AdmissionError,I.ENUM.IM.C.AdmissionError)
++
++def require_replay_equal(actual,expected,key):
++    """Regenerated output comparison boundary."""
++    if not C.equal_typed(actual,expected):raise M.CompleteReplayMismatch(key)
+ 
+ def scanner(normalized,atom_inputs):
+     """Adapt actual atom results to typed proof witnesses; no caller-supplied truth values."""
+@@ -57,22 +69,22 @@
+     seal=objects[run['evaluationSealId']][1];proof=objects[seal['proofBundleId']][1]
+     result=derive(run['planId'],seal['executionPlanId'],seal['evaluatorClosure'],proof['evaluationInputRefs'],objects,blobs,owner)
+     E.compare_complete_replay(proof,result,objects,blobs)
+-    if result['proofBundleId']!=seal['proofBundleId']:raise C.AdmissionError('EVALUATOR_PROOF_ID_REPLAY')
++    if result['proofBundleId']!=seal['proofBundleId']:raise M.CompleteReplayMismatch('EVALUATOR_PROOF_ID_REPLAY')
+     evidence=objects[run['evidenceId']][1]
+     expected_views=E.cset('view2:'+r['digest'] for r in proof['evaluationInputRefs'] if r['domain']=='view')
+     expected_coverages=E.cset([c for v in expected_views for c in objects[v][1]['coverageIds']]+['coverage2:'+r['digest'] for r in proof['evaluationInputRefs'] if r['domain']=='coverage'])
+     expected_evidence={'schemaVersion':3,'planId':run['planId'],'viewIds':expected_views,'coverageIds':expected_coverages,
+         'importIds':owner['plan']['importIds'],'findingIds':result['proof']['findingIds'],'proofBundleId':result['proofBundleId']}
+-    E.require_equal(evidence,expected_evidence,'EVALUATOR_EVIDENCE_REPLAY')
++    require_replay_equal(evidence,expected_evidence,'EVALUATOR_EVIDENCE_REPLAY')
+     expected_eid=M.identifier('semantic-evidence',expected_evidence)
+     expected_seal={'schemaVersion':3,'planId':run['planId'],'executionPlanId':seal['executionPlanId'],'evidenceId':expected_eid,
+         'evaluatorClosure':seal['evaluatorClosure'],'policyDigest':owner['plan']['policyDigest'],
+         'proofBundleId':result['proofBundleId'],'verdict':result['proof']['verdict']}
+-    E.require_equal(seal,expected_seal,'EVALUATOR_SEAL_REPLAY')
++    require_replay_equal(seal,expected_seal,'EVALUATOR_SEAL_REPLAY')
+     expected_run={'schemaVersion':3,'projectId':owner['snapshot']['projectId'],'snapshotId':owner['plan']['snapshotId'],
+         'planId':run['planId'],'evidenceId':expected_eid,'evaluationSealId':M.identifier('evaluation-seal',expected_seal),
+         'capabilityManifestId':owner['plan']['capabilityManifestId']}
+-    E.require_equal(run,expected_run,'EVALUATOR_RUN_REPLAY')
++    require_replay_equal(run,expected_run,'EVALUATOR_RUN_REPLAY')
+     return {'result':'ADMIT','runId':run_id,'proofBundleId':result['proofBundleId'],'findingCount':len(result['proof']['findingIds']),
+         'predicateCount':len(result['proof']['predicateProofs']),'verdict':result['proof']['verdict'],'workUnits':result['workUnits']}
+ 
+--- a/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ b/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -624,6 +624,16 @@
+             'domainDetail':{'code':'evidence.regeneration-mismatch','remedy':'Retain the sealed Run and investigate the differing regeneration result.','subject':run_id}}
+         super().__init__('REGENERATION_MISMATCH')
+ 
++class CompleteReplayMismatch(C.AdmissionError):
++    """Complete replay disagreement over an owner-admitted closure: the regenerated proof, output object,
++    preimage blob, proof id, evidence, seal or Run differs from the retained result. This names the condition
++    only. The invoking host boundary supplies the origin: a retained read applies RegenerationMismatch; a live
++    first-party evaluator contradicting its own reconstruction is host-internal. The exact comparison key is
++    the message and `diagnostic`; it is retained, never parsed to choose a route."""
++    def __init__(self, diagnostic):
++        self.diagnostic = diagnostic
++        super().__init__(diagnostic)
++
+ 
+ _REGISTERED_SCHEMA_DOCUMENTS=None
+ def registered_schema_documents():
+@@ -641,6 +651,14 @@
+ 
+ 
+ _COMPLETE_REPLAY=None
++def complete_replay():
++    """The evaluator3 replay stack this identity copy loads once; that load has its own class objects."""
++    global _COMPLETE_REPLAY
++    if _COMPLETE_REPLAY is None:
++        spec=importlib.util.spec_from_file_location('identity_complete_replay3',HERE/'evaluator_replay_model.v3.py')
++        _COMPLETE_REPLAY=importlib.util.module_from_spec(spec);spec.loader.exec_module(_COMPLETE_REPLAY)
++    return _COMPLETE_REPLAY
++
+ def close_run(run,objects,blobs):
+     """Public evaluator3 admission includes complete semantic output replay.
+ 
+@@ -648,12 +666,19 @@
+     driver. It establishes retained native/identity/schema joins, not final semantic
+     authority by itself. This entry point, storage and authoritative cache admission
+     always run the stronger profile boundary.
++
++    Refusals are raised as THIS module's classes. The replay stack's declared outcomes
++    are distinct class objects, so they are normalized here by exact class identity,
++    keeping the message and chaining the original: promised-byte loss is
++    EvidenceUnavailable, regenerated output disagreement is CompleteReplayMismatch,
++    and every other declared owner refusal is C.AdmissionError. Any other exception
++    is not an admission decision and propagates unchanged. Origin is not decided here.
+     """
+-    global _COMPLETE_REPLAY
+-    if _COMPLETE_REPLAY is None:
+-        spec=importlib.util.spec_from_file_location('identity_complete_replay3',HERE/'evaluator_replay_model.v3.py')
+-        _COMPLETE_REPLAY=importlib.util.module_from_spec(spec);spec.loader.exec_module(_COMPLETE_REPLAY)
+-    return _COMPLETE_REPLAY.replay(run,objects,blobs)['runId']
++    R=complete_replay()
++    try:return R.replay(run,objects,blobs)['runId']
++    except R.UNAVAILABLE as exc:raise EvidenceUnavailable(exc.reference) from exc
++    except R.MISMATCHES as exc:raise CompleteReplayMismatch(exc.diagnostic) from exc
++    except R.REFUSALS as exc:raise C.AdmissionError(str(exc)) from exc
+ 
+ 
+ def admit_closure_field_kinds(record_kind,value,get_closure):
+@@ -1897,7 +1922,10 @@
+         return {'state':'committed' if receipt else ('failed' if state=='failed' else 'uncommitted' if state=='prepared' else state),'receipt':copy.deepcopy(receipt),'effectsRepeated':False}
+     def restore(self,rid,objects,blobs,replay):
+         run=self.runs[rid]
+-        if close_run(run,objects,blobs)!=rid:raise RegenerationMismatch(rid)
++        # Verified restoration is a retained regeneration boundary; replay disagreement is its carrier.
++        try:closed=close_run(run,objects,blobs)
++        except CompleteReplayMismatch as exc:raise RegenerationMismatch(rid) from exc
++        if closed!=rid:raise RegenerationMismatch(rid)
+         seal=objects[run['evaluationSealId']][1];proof=objects[seal['proofBundleId']][1]
+         if not C.equal_typed(replay(objects[run['planId']][1],objects,blobs,proof['evaluationInputRefs']),proof):raise RegenerationMismatch(rid)
+         self.objects.update(copy.deepcopy(objects));self.blobs.update(copy.deepcopy(blobs))
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -14,6 +14,7 @@
+ import copy
+ import hashlib
+ import importlib.util
++import inspect
+ import json
+ import sys
+ from pathlib import Path
+@@ -42,6 +43,8 @@
+     "no all-suite pin rerun; no independent ACCEPT claimed by this checker",
+     "imports@resolved-target uses the same reconciled occupancy as atom matching; owner-admitted execute_graph_query covers mapped file, exact-id symbol without sidecar, unknown sidecar plus unique inventory, and genuine unmapped limitation",
+     "native incomplete resolutionState is mapped from completeness_from_stage; the semantic fixture unresolved path remains not-attempted",
++    "host-defect controls monkeypatch close_run or the loaded replay comparison in this process only and always restore; they model an untyped host failure, not a product fault injector",
++    "host_adapter_refusal and observe_retained_availability are reference adapter laws; no product host adapter or evidence store is implemented",
+ ]
+ 
+ 
+@@ -644,6 +647,42 @@
+             check("host-availability-precondition-" + label, exc.missing == "host.availability")
+         else:
+             check("host-availability-precondition-" + label, False, "invalid trusted observation was ignored")
++    # Contract section 7: the precondition is reference-harness law. A product host adapter's own out-of-vocabulary
++    # observation is the existing host-internal invariant route when a valid RequestId exists; without one it stays
++    # a precondition. A retained availability record failing identity admission is corrupt evidence instead.
++    try:
++        ex(out_req, host_obs(availability="not-a-state"))
++        precondition = None
++    except Q.ReferenceCallPrecondition as exc:
++        precondition = exc
++    check("host-adapter-invalid-observation-is-typed-precondition", precondition is not None and precondition.missing == "host.availability")
++    if precondition is not None:
++        refuse("host-adapter-invalid-availability-host-invariant",
++               lambda: raise_(Q.host_adapter_refusal(precondition, out_req, host_obs())),
++               "SYSTEM.OUTCOME.ILLEGAL_STATE", "HOST.INVARIANT_VIOLATED")
++        adapter_env = Q.host_adapter_refusal(precondition, out_req, host_obs()).envelope()
++        check("host-adapter-invalid-availability-envelope-exit-4",
++              adapter_env["exitCode"] == 4 and adapter_env["termination"]["faultCause"] == "host-invariant"
++              and adapter_env["termination"]["domainDetail"]["subject"] == "host.availability" and "run" not in adapter_env, adapter_env)
++        try:
++            Q.host_adapter_refusal(precondition, out_req, {})
++            check("host-adapter-without-request-id-stays-precondition", False, "adapter fault projected without a RequestId")
++        except Q.ReferenceCallPrecondition as exc:
++            check("host-adapter-without-request-id-stays-precondition", exc.missing == "host.requestId", exc.missing)
++    try:
++        Q.host_adapter_refusal(Q.ReferenceCallPrecondition("host.requestId"), out_req, host_obs())
++        check("host-adapter-request-id-precondition-not-projected", False, "RequestId precondition was projected")
++    except Q.ReferenceCallPrecondition as exc:
++        check("host-adapter-request-id-precondition-not-projected", exc.missing == "host.requestId", exc.missing)
++    record = {"schemaVersion": 2, "runId": run_key, "generation": 0, "state": "purged", "missingRefs": [], "reason": "operator purge"}
++    observed = Q.observe_retained_availability(canonical.canonical(record), run_key)
++    check("retained-availability-record-admitted-supplies-state", observed == "purged", observed)
++    refuse("retained-availability-record-state-routes-as-observation", lambda: ex(out_req, host_obs(latestRunId=run_key, availability=observed)), "HOST.IO_FAILURE", "evidence.purged")
++    for label, raw in (("unparseable-bytes", b"{not-json"),
++                       ("unknown-state", canonical.canonical(dict(record, state="not-a-state"))),
++                       ("other-run", canonical.canonical(dict(record, runId=run_id("other"))))):
++        refuse("retained-availability-record-%s-is-corrupt" % label,
++               lambda raw=raw: Q.observe_retained_availability(raw, run_key), "HOST.IO_FAILURE", "evidence.corrupt", envelope=False)
+     partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
+     check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
+     if victim is not None:
+@@ -907,35 +946,193 @@
+     check("strong-entry-has-no-standing-bypass", not hasattr(owner, "SYNTHETIC_STANDING") or "standing" not in (owner.execute_graph_query.__doc__ or ""))
+ 
+ 
++def raise_(exc):
++    raise exc
++
++
++def remint_false_result(M, packed, flip):
++    """Fully remint a structurally valid but semantically false result: flipped predicate values with emptied
++    witnesses, no findings or execution deficiencies, verdict pass; proof, evidence, seal and Run re-identified."""
++    run, objects, blobs = copy.deepcopy(packed)
++    seal = copy.deepcopy(objects[run["evaluationSealId"]][1])
++    proof = copy.deepcopy(objects[seal["proofBundleId"]][1])
++    evidence = copy.deepcopy(objects[run["evidenceId"]][1])
++    for predicate in proof["predicateProofs"]:
++        value = flip(predicate)
++        if value is None or value == predicate["value"]:
++            continue
++        witness = canonical.parse(blobs[predicate["witnessDigest"]])
++        witness.update(matchingFactIds=[], uncertainFactIds=[], deficiencies=[])
++        raw = canonical.canonical(witness)
++        digest = hashlib.sha256(raw).hexdigest()
++        blobs[digest] = raw
++        predicate.update(witnessDigest=digest, value=value)
++    proof.update(findingIds=[], waivedFindingIds=[], executionDeficiencies=[], verdict="pass")
++    for rule in proof["ruleResults"]:
++        rule.update(findingIds=[], deficiencies=[])
++        if rule["outcome"] in ("fail", "indeterminate"):
++            rule["outcome"] = "pass"
++    proof_id = M.identifier("proof-bundle", proof)
++    objects[proof_id] = ("proof-bundle", proof)
++    evidence.update(findingIds=[], proofBundleId=proof_id)
++    evidence_id = M.identifier("semantic-evidence", evidence)
++    objects[evidence_id] = ("semantic-evidence", evidence)
++    seal.update(proofBundleId=proof_id, evidenceId=evidence_id, verdict="pass")
++    seal_id = M.identifier("evaluation-seal", seal)
++    objects[seal_id] = ("evaluation-seal", seal)
++    run.update(evidenceId=evidence_id, evaluationSealId=seal_id)
++    return run, objects, blobs
++
++
+ def semantic_refusal_controls():
+-    # A digest-valid, fully reminted result can still be semantically false.
+-    # Reuse the maintained mutation constructor, not an arbitrary close_run stub.
++    # Contract section 7: close_run outcomes route by the exact typed classes of the query's identity copy, never by
++    # message text. Fully reminted false results are structurally admitted, then refused by complete replay through
++    # the evaluator fault registry's retained-regeneration route; structural corruption, missing bytes and host
++    # defects keep their own routes. Reuses the maintained semantic fixtures and finding mutation constructor.
+     foundation = HERE.parent / "foundation"
+     semantic = load("query_refusal_semantic3", foundation / "check-semantic-replay.v3.py")
+     mutants = load("query_refusal_mutants3", foundation / "check-replay.v3.py")
+-    graph, positive, actual = semantic.case_declares_exists()
+-    run, objects, blobs = mutants.remint_finding(
+-        *positive, lambda finding, _blobs: finding.update(severity="warning")
+-    )
+-    run_key, _ = Q.identity3().open_run_closure(run, objects, blobs)
+-    check("semantic-query-mutant-structural-admit-new-identity", run_key != actual["runId"])
+-    symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
+-    req = request("graph.neighbors", run["projectId"], {"runId": run_key}, {
+-        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
+-        "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
+-    })
+-    refuse("semantic-query-mutant-refuses", lambda: Q.execute_graph_query(req, run, objects, blobs, host=host_obs()),
+-           "HOST.IO_FAILURE", "evidence.corrupt")
++    faults = load("query_refusal_faults3", foundation / "evaluator_fault_model.v3.py")
++    M3 = Q.identity3()
++    declares_graph, declares, declares_actual = semantic.case_declares_exists()
++    incoming_graph, incoming, incoming_actual = semantic.case_incoming_incomplete_unknown()
++    inventory_graph, inventory, inventory_actual = semantic.case_missing_inventory_execution()
++    lawful = {declares_actual["runId"], incoming_actual["runId"], inventory_actual["runId"]}
++    regeneration = faults.ROUTES["complete-replay-mismatch:retained-regeneration"]
++    host_internal = faults.ROUTES["input-schema-invalid:host-internal"]
++    routes = {}
++
++    def query(graph, packed, run_key=None):
++        run, objects, blobs = packed
++        symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
++        req = request("graph.neighbors", run["projectId"], {"runId": run_key or M3.identifier("run", run)}, {
++            "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++            "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
++        })
++        return Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
++
++    def refusal(fn):
++        try:
++            fn()
++        except Q.QueryRefusal as exc:
++            return exc
++        except Exception:
++            return None
++        return None
++
++    def summary(exc):
++        return None if exc is None else (exc.termination(), type(exc.__cause__).__name__)
++
++    for name, graph, packed in (
++        ("finding-severity", declares_graph, mutants.remint_finding(*declares, lambda finding, _blobs: finding.update(severity="warning"))),
++        ("fail-to-pass", declares_graph, remint_false_result(semantic.M, declares, lambda p: "false" if p["value"] == "true" else None)),
++        ("indeterminate-laundered", incoming_graph, remint_false_result(semantic.M, incoming, lambda p: "false" if p["value"] == "indeterminate" else None)),
++        ("execution-deficiency-erased", inventory_graph, remint_false_result(semantic.M, inventory, lambda p: None)),
++    ):
++        cid = "semantic-mutant-" + name
++        run_key, _ = M3.open_run_closure(*packed)
++        check(cid + "-structurally-admitted-new-run", run_key not in lawful, run_key)
++        exc = refusal(lambda: query(graph, packed, run_key))
++        if exc is None or exc.diagnostic is None:
++            check(cid + "-retained-regeneration-route", False, summary(exc))
++            continue
++        term = exc.termination()
++        env = exc.envelope()
++        carrier = M3.RegenerationMismatch(run_key)
++        diagnostic = exc.diagnostic.encode()
++        observation = faults.owner_observation(carrier, diagnostic)
++        routed = faults.route(observation, diagnostic)["termination"]
++        check(cid + "-retained-regeneration-route",
++              term == carrier.termination == routed
++              and (observation["condition"], observation["origin"]) == ("complete-replay-mismatch", "retained-regeneration")
++              and term["errorCode"] == regeneration["termination"]["errorCode"] and term["domainDetail"]["code"] == regeneration["detail"]
++              and env["exitCode"] == 4 and env["errors"] == [term["domainDetail"]] and "run" not in env, term)
++        check(cid + "-typed-cause-retains-exact-diagnostic",
++              type(exc.__cause__) is M3.CompleteReplayMismatch and exc.diagnostic == exc.__cause__.diagnostic == str(exc.__cause__)
++              and exc.diagnostic.startswith("EVALUATOR_"), (type(exc.__cause__).__name__, exc.diagnostic))
++        routes["semantic-replay"] = (term["errorCode"], term["faultCause"], term["domainDetail"]["code"])
++
++    stack = M3.complete_replay()
++    check("replay-stack-is-a-separate-identity-load",
++          stack.M is not M3 and stack.M.CompleteReplayMismatch is not M3.CompleteReplayMismatch
++          and stack.M.C.AdmissionError is not M3.C.AdmissionError and canonical.AdmissionError is not M3.C.AdmissionError)
++
++    run, objects, blobs = copy.deepcopy(declares)
++    domain, value = objects[run["evidenceId"]]
++    objects[run["evidenceId"]] = (domain, dict(value, findingIds=list(value["findingIds"])[:-1]))
+     try:
+-        Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
+-    except Q.QueryRefusal as exc:
+-        env = exc.envelope()
+-        check("semantic-query-mutant-retains-replay-boundary",
+-              env["exitCode"] == 4 and exc.fault_cause == "host-io"
+-              and "EVALUATOR_COMPLETE_PROOF_REPLAY" in str(exc.subject)
+-              and "run" not in env and "queryResponse" not in env, env)
+-    else:
+-        check("semantic-query-mutant-retains-replay-boundary", False, "semantic mutant admitted")
++        M3.open_run_closure(run, objects, blobs)
++        structural = "ADMIT"
++    except M3.EvidenceUnavailable:
++        structural = "MISSING"
++    except M3.C.AdmissionError:
++        structural = "REFUSE"
++    check("structural-retained-graph-refused-by-owner-closure", structural == "REFUSE", structural)
++    exc = refusal(lambda: query(declares_graph, (run, objects, blobs)))
++    check("structural-retained-graph-evidence-corrupt",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail) == ("HOST.IO_FAILURE", "host-io", "evidence.corrupt")
++          and type(exc.__cause__) is M3.C.AdmissionError and exc.envelope()["exitCode"] == 4, summary(exc))
++    if exc is not None:
++        routes["structural"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    run, objects, blobs = copy.deepcopy(declares)
++    proof_id = objects[run["evaluationSealId"]][1]["proofBundleId"]
++    del objects[proof_id]
++    exc = refusal(lambda: query(declares_graph, (run, objects, blobs)))
++    check("missing-promised-bytes-evidence-missing",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail, exc.subject) == ("HOST.IO_FAILURE", "host-io", "evidence.missing", proof_id)
++          and type(exc.__cause__) is M3.EvidenceUnavailable and exc.envelope()["exitCode"] == 4, summary(exc))
++    if exc is not None:
++        routes["missing"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    def host_defect(cid, raised):
++        original = M3.close_run
++        M3.close_run = lambda *args, **kwargs: raise_(raised)
++        try:
++            exc = refusal(lambda: query(declares_graph, declares, declares_actual["runId"]))
++        finally:
++            M3.close_run = original
++        term = exc.termination() if exc is not None else {}
++        detail = term.get("domainDetail") or {}
++        check(cid,
++              term.get("class") == "operational-failed"
++              and (term.get("errorCode"), term.get("faultCause")) == (host_internal["termination"]["errorCode"], host_internal["termination"]["faultCause"])
++              and (detail.get("code"), detail.get("remedy")) == (host_internal["detail"], host_internal["remedy"])
++              and exc.__cause__ is raised and exc.envelope()["exitCode"] == 4, summary(exc))
++        if exc is not None:
++            routes["host-defect"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    host_defect("host-defect-with-replay-key-text-is-host-invariant", RuntimeError("EVALUATOR_COMPLETE_PROOF_REPLAY"))
++    host_defect("host-defect-with-missing-key-text-is-host-invariant", RuntimeError("EVIDENCE_UNAVAILABLE:" + proof_id))
++    host_defect("foreign-identity-copy-mismatch-is-host-invariant", semantic.M.CompleteReplayMismatch("EVALUATOR_COMPLETE_PROOF_REPLAY"))
++    original_compare = stack.E.compare_complete_replay
++    stack.E.compare_complete_replay = lambda *args, **kwargs: raise_(TypeError("simulated evaluator comparison defect"))
++    try:
++        exc = refusal(lambda: query(declares_graph, declares, declares_actual["runId"]))
++    finally:
++        stack.E.compare_complete_replay = original_compare
++    check("host-defect-inside-replay-stack-is-host-invariant",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail) == ("SYSTEM.OUTCOME.ILLEGAL_STATE", "host-invariant", "HOST.INVARIANT_VIOLATED")
++          and type(exc.__cause__) is TypeError, summary(exc))
++
++    try:
++        lawful_result = query(declares_graph, declares, declares_actual["runId"])
++        lawful_ok = M3.close_run(*declares) == declares_actual["runId"] and lawful_result["termination"]["class"] == "success"
++        lawful_why = lawful_result["termination"]
++    except Exception as exc:
++        lawful_ok, lawful_why = False, type(exc).__name__ + ": " + str(exc)[:200]
++    check("lawful-replay-and-query-unchanged-after-restore", lawful_ok, lawful_why)
++    check("structural-missing-semantic-host-defect-routes-distinct",
++          len(routes) == 4 and len(set(routes.values())) == 4
++          and not {r[0] for r in routes.values()} & {"PROVIDER.PROTOCOL_VIOLATION", "CONFIG.INVALID"}, routes)
++    check("evaluator-fault-origin-law-unchanged",
++          faults.ROUTES["complete-replay-mismatch:host-internal"]["termination"] == {"class": "operational-failed", "errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE", "faultCause": "host-invariant"}
++          and faults.ROUTES["complete-replay-mismatch:host-internal"]["detail"] == "HOST.INVARIANT_VIOLATED"
++          and faults.ROUTES["input-schema-invalid:provider-return"]["termination"]["errorCode"] == "PROVIDER.PROTOCOL_VIOLATION"
++          and faults.ROUTES["input-schema-invalid:external-configuration"]["termination"]["errorCode"] == "CONFIG.INVALID"
++          and regeneration["termination"]["faultCause"] == "host-io")
++    source = inspect.getsource(Q.close_retained_run)
++    check("close-retained-run-routes-without-message-parsing", "startswith" not in source and ".split(" not in source)
+ 
+ 
+ def main():
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -161,7 +161,16 @@
+ 
+ The reference host observation vocabulary is closed: `retained`, `partial`, `purged`, `expired`, `corrupt`, `unavailable`, plus `missing` for a direct host report of missing bytes. `missing` uses the same `HOST.IO_FAILURE` / `evidence.missing` / exit 4 route as `unavailable`; it is not an additional identity availability state. An omitted field is allowed; a present null, wrong type or unknown token is a `ReferenceCallPrecondition` for `host.availability`, like malformed trusted `host.requestId`. It must not be silently treated as an omitted observation, a public request rejection or an empty graph. The host adapter owns supplying the admitted internal observation; this reference precondition is not a new public error code or an implemented host finalizer. Request-schema admission still precedes observation consumption.
+ 
+-Complete replay disagreement is a distinct identity boundary observation even when every retained digest and shape is valid. The graph-query route deliberately uses the existing `evidence.corrupt` detail for this unusable retained result, with the complete-replay diagnostic retained as its subject. This public projection does not assert a physical checksum failure and does not collapse the identity owner's structural-admission and semantic-replay checks. It grants no result items and no new Run.
++Scope of that precondition: it is reference-harness law for `execute_graph_query`, whose trusted observation is a call argument, and it remains the right signal there. A product host adapter produces the observation itself, so its own out-of-vocabulary observation is an invalid host-generated internal layer (evaluator-fault-contract.v3), not an evidence state. With an already reserved valid `host.requestId`, the adapter terminates operational-failed / `SYSTEM.OUTCOME.ILLEGAL_STATE` (`faultCause=host-invariant`) / exit 4 with the existing `HOST.INVARIANT_VIOLATED` detail, subject `host.availability` (reference `host_adapter_refusal`). Without a valid RequestId no envelope can be built, and the failure stays the adapter's precondition, as for RequestId itself. A retained identity availability record read from the evidence store is a different cause. Bytes or a record failing identity availability admission (`$defs/availability`, with `runId` equal to the queried Run) are corrupt retained evidence: `HOST.IO_FAILURE` / `evidence.corrupt` (reference `observe_retained_availability`). An admitted record supplies its `state` as the observation above. No new public code is introduced.
++
++`close_run` has four outcomes at this boundary. They are selected by the exact class objects of the identity copy the query loads (`identity3()`), never by message text, class name, filename or a caller-supplied origin. Identity `close_run` normalizes its separately loaded replay stack's declared outcomes into its own classes and chains the original. The exact owner message is retained privately (`QueryRefusal.diagnostic`) and does not choose the route.
++
++1. `EvidenceUnavailable`: promised retained bytes are lost. `HOST.IO_FAILURE` / `evidence.missing`; subject is the missing reference.
++2. `CompleteReplayMismatch`: the owner closure admits and reconstructs, but the complete regenerated proof, output object, preimage blob, proof id, evidence, seal or Run differs from the retained result, even when every retained digest and shape is valid. The graph query is a retained read with no live evaluator of its own. Its boundary is therefore the evaluator fault registry's `complete-replay-mismatch:retained-regeneration`, projected verbatim from identity's `RegenerationMismatch` carrier: `HOST.IO_FAILURE` (`faultCause=host-io`) / `evidence.regeneration-mismatch`, subject the refused RunId, carrier remedy. This does not relabel other failures as retained: a live first-party evaluator contradicting its own reconstruction keeps `complete-replay-mismatch:host-internal` at its own boundary.
++3. Any other identity `AdmissionError`: schema, identity, digest, join or reconstruction admission of the retained closure refuses. `HOST.IO_FAILURE` / `evidence.corrupt`.
++4. Any other exception is not an admission decision. It is a defect in the host-owned admission path, an invalid host-generated internal layer under evaluator-fault-contract.v3. operational-failed / `SYSTEM.OUTCOME.ILLEGAL_STATE` (`faultCause=host-invariant`) / exit 4 / `HOST.INVARIANT_VIOLATED`, subject `close_run`. It is never reported as corrupt, missing or regenerated evidence, even when its text resembles an owner key.
++
++None of these grants result items or a new Run.
+ 
+ | Condition | class | errorCode / reason | domainDetail |
+ |---|---|---|---|
+@@ -177,8 +186,9 @@
+ | graph availability observation `purged` / `expired` / `corrupt` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.purged` / `evidence.expired` / `evidence.corrupt` |
+ | graph availability observation `unavailable` or direct missing-bytes observation `missing` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+-| corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
+-| structurally admitted retained Run whose complete proof replay disagrees | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt`; subject preserves the complete-replay diagnostic |
++| corrupt retained bytes, any other identity admission refusal of the retained closure, or a retained availability record failing identity availability admission | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
++| owner-admitted retained Run whose complete regenerated output disagrees (identity `CompleteReplayMismatch`) | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.regeneration-mismatch`; subject the refused RunId (`complete-replay-mismatch:retained-regeneration`) |
++| exception in the admission path that is not an identity typed outcome, or a product host adapter's own out-of-vocabulary trusted observation with a valid RequestId | operational-failed | `SYSTEM.OUTCOME.ILLEGAL_STATE` (`faultCause=host-invariant`) | `HOST.INVARIANT_VIOLATED` |
+ | work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |
+ 
+ ## 8. Strong wrapper versus internal traversal
+--- a/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ b/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -72,7 +72,11 @@
+ 
+ 
+ class QueryRefusal(Exception):
+-    """Public graph-query refusal. envelope() is the admitted CommandEnvelope kind=failure."""
++    """Public graph-query refusal. envelope() is the admitted CommandEnvelope kind=failure.
++
++    `diagnostic` retains the exact owner decision text privately. It never selects the route and is not an
++    envelope field.
++    """
+ 
+     def __init__(
+         self,
+@@ -86,6 +90,7 @@
+         run_id=None,
+         request=None,
+         host=None,
++        diagnostic=None,
+     ):
+         super().__init__(error_code)
+         self.error_code = error_code
+@@ -97,6 +102,7 @@
+         self.run_id = run_id
+         self.request = request
+         self.host = host
++        self.diagnostic = diagnostic
+ 
+     def termination(self):
+         term = {"class": self.klass}
+@@ -524,32 +530,70 @@
+     return value
+ 
+ 
++# evaluator-fault-observation.schema.v3.json host-internal remedy for an invalid host-generated internal layer.
++HOST_INVARIANT_REMEDY = "Report the host defect with the retained diagnostic."
++
++
++def owner_carrier_refusal(carrier, diagnostic):
++    """Project an identity owner termination carrier verbatim; the query does not restate its route."""
++    term = carrier.termination
++    detail = term["domainDetail"]
++    return QueryRefusal(
++        term["errorCode"],
++        detail["code"],
++        detail["remedy"],
++        detail.get("subject"),
++        klass=term["class"],
++        fault_cause=term["faultCause"],
++        diagnostic=diagnostic,
++    )
++
++
++def host_invariant_refusal(boundary, diagnostic):
++    """A host-owned step failed without an owner decision. Existing host-internal invariant route; no evidence is blamed."""
++    return QueryRefusal(
++        "SYSTEM.OUTCOME.ILLEGAL_STATE",
++        "HOST.INVARIANT_VIOLATED",
++        HOST_INVARIANT_REMEDY,
++        boundary,
++        klass="operational-failed",
++        fault_cause="host-invariant",
++        diagnostic=diagnostic,
++    )
++
++
+ def close_retained_run(run, objects, blobs):
++    """Contract section 7. Route by the exact typed outcome of this module's identity copy, never by message text.
++
++    The graph query is a retained read, so complete replay disagreement is the retained-regeneration boundary.
++    """
+     M = identity3()
+     try:
+         return M.close_run(run, objects, blobs)
+-    except Exception as exc:
+-        msg = str(exc)
+-        reference = getattr(exc, "reference", None)
+-        missing = isinstance(exc, M.EvidenceUnavailable) or msg.startswith("EVIDENCE_UNAVAILABLE")
+-        if missing:
+-            subject = reference or (msg.split(":", 1)[-1][:1024] if ":" in msg else msg[:1024])
+-            raise QueryRefusal(
+-                "HOST.IO_FAILURE",
+-                "evidence.missing",
+-                "restore the exact retained closure bytes or report their unavailability",
+-                subject,
+-                klass="operational-failed",
+-                fault_cause="host-io",
+-            ) from exc
++    except M.EvidenceUnavailable as exc:
++        raise QueryRefusal(
++            "HOST.IO_FAILURE",
++            "evidence.missing",
++            "restore the exact retained closure bytes or report their unavailability",
++            exc.reference,
++            klass="operational-failed",
++            fault_cause="host-io",
++            diagnostic=str(exc),
++        ) from exc
++    except M.CompleteReplayMismatch as exc:
++        raise owner_carrier_refusal(M.RegenerationMismatch(M.identifier("run", run)), exc.diagnostic) from exc
++    except M.C.AdmissionError as exc:
+         raise QueryRefusal(
+             "HOST.IO_FAILURE",
+             "evidence.corrupt",
+             "retained Run failed closed fact-view admission",
+-            msg[:200],
++            str(exc)[:200],
+             klass="operational-failed",
+             fault_cause="host-io",
++            diagnostic=str(exc),
+         ) from exc
++    except Exception as exc:
++        raise host_invariant_refusal("close_run", type(exc).__name__ + ": " + str(exc)) from exc
+ 
+ 
+ def join_request_view(request, run, run_id, host, cursor_bind):
+@@ -1457,6 +1501,51 @@
+     return "retained"
+ 
+ 
++def host_adapter_refusal(precondition, request=None, host=None):
++    """Contract section 7 product host adapter law for its OWN invalid trusted observation.
++
++    The reference entry raises ReferenceCallPrecondition because the observation is a call argument. An adapter
++    that produced an out-of-vocabulary observation violated a host invariant: with a valid reserved RequestId it
++    terminates by the existing host-internal route. A RequestId precondition, or no valid RequestId, has no
++    envelope and is re-raised.
++    """
++    if type(precondition) is not ReferenceCallPrecondition or precondition.missing == "host.requestId":
++        raise precondition
++    reserved_request_id(host)
++    return _attach(
++        host_invariant_refusal(precondition.missing, "ReferenceCallPrecondition: " + precondition.missing),
++        request,
++        host,
++    )
++
++
++def observe_retained_availability(raw, run_id):
++    """Adapter read of a RETAINED identity availability record, not a host observation.
++
++    A record failing identity availability admission is corrupt retained evidence, never an adapter invariant
++    fault or an omitted observation. An admitted record supplies its state as the host observation.
++    """
++    M = identity3()
++    try:
++        record = M.C.parse(raw)
++        schema = copy.deepcopy(M.SCHEMA)
++        schema["$ref"] = "#/$defs/availability"
++        M.C.validate(schema, record)
++        if record["runId"] != run_id:
++            raise M.C.AdmissionError("AVAILABILITY_RUN_JOIN")
++    except (M.C.AdmissionError, M.C.ValidationError) as exc:
++        raise QueryRefusal(
++            "HOST.IO_FAILURE",
++            "evidence.corrupt",
++            "retained availability record failed identity availability admission",
++            run_id,
++            klass="operational-failed",
++            fault_cause="host-io",
++            diagnostic=str(exc),
++        ) from exc
++    return record["state"]
++
++
+ def execute_graph_query(request, run=None, objects=None, blobs=None, host=None):
+     """Strong public graph query. Always close_run. host.standing cannot bypass admission."""
+     host = {} if host is None else host

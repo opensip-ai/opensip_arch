@@ -1,0 +1,60 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 7.429004000000001,
+  "usage": {
+    "input_tokens": 514,
+    "cache_creation_input_tokens": 196160,
+    "cache_read_input_tokens": 5717318,
+    "output_tokens": 104247,
+    "output_tokens_details": {
+      "thinking_tokens": 42162
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 196160,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2050,
+        "cache_read_input_tokens": 437663,
+        "cache_creation_input_tokens": 1630,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1630
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 514,
+      "outputTokens": 104247,
+      "cacheReadInputTokens": 5717318,
+      "cacheCreationInputTokens": 196160,
+      "webSearchRequests": 0,
+      "costUSD": 7.429004000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 42162,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 74,
+  "subtype": "success",
+  "result": "**Disposition: CORRECTION_REQUIRED, with one wording clarification bundled in.** Frozen41 matched its manifest before and after (12912 members, 0 missing, mismatched or extra). All writes went to the new runtime, and every subprocess has finished.\n\n## 1. Capture: does the builder discard a returned view no cell owns?\nYes. On frozen41, a view declared returned in `graph['viewIds']` (with or without an evaluation ref) that no cell owns is left off the receipt and off `selectedRefs`. The builder's manifest still admits, but the same graph's Run fails `EVALUATION_VIEW_ROOTS`.\n\n**Census versus explicit ids.**\n- **Store census:** a view present only in the store (`objects`) is correctly ignored, and the manifest digest is unchanged.\n- **Explicit ids:** `viewIds`/`viewId` and evaluation-ref views are builder inputs (\u00a78), and the builder already merges them for attribution. It then captures only the attributed subset (`execution_inputs_fixture.v3.py:341`).\n\n\u00a78's \"selectedRefs = attributed views\" row describes that behaviour accurately, so this isn't an implementation slip. The row itself contradicts published law:\n- \u00a71 says capture is an observation of stage returns, with exact totality.\n- The new \u00a73 text says a captured view attributed to no row stays lawful and stays on `selectedRefs`.\n- \u00a77 names `attach_host_capture` as the host adapter's capture step (`:263`, `:280`).\n- The graph fixture's own comment treats the drop as a hazard to design around (`evaluator_graph_fixture.v3.py:293-296`).\n\nThe mechanism for building capture from the same stage returns is specified in \u00a71 and \u00a73, but the builder doesn't implement it faithfully.\n\n**Second gap, in the model.** A host manifest whose `selectedRefs` and row name a view that is on no complete receipt admits and closes a Run on that exact manifest. That contradicts \u00a71's rule that stage-produced refs equal the union of complete receipts. It is one internally inconsistent manifest, not two differing observations.\n\n## 2. Two cells sharing a view on the same program and universe\nFile-fixture symbol worlds can't close a Run even unmodified. With the checker's `\"x\"` id they fail `DeclaresPayloadV1`; with a lawful `symbol:x` they fail `POLICY_RULE_NOT_ADMISSIBLE`. I preserved both failures and didn't correct that helper. The maintained semantic `declares` fixture is a lawful alternative: inventory and syntax cells on one binding.\n\nOn that world, current law already decides the cases:\n- a view carrying file and declares partitions appears on both rows and closes on the exact builder manifest;\n- omitting it from one row refuses `VIEW_TOTALITY`;\n- naming the view that matches neither cell on a row refuses the same way.\n\nOn frozen41, the builder drops the view matching neither cell, so that Run can't close. A host capturing it exactly closes it. The maintained suite simply had no such control.\n\n## 3. Matrix wording and schema\n- **Wording:** \u00a73's `S.relation \u2208 \u2026/relations` can never match literally, because entries are `[relation, resolution]` pairs. The two readings behave differently: a references scope at `syntactic-name-match` is attributed and closes under the model's relation-column reading, while the pair-reading encoding refuses. The patch pins the text to relation-column membership, with no behaviour change.\n- **Schema:** no change needed. Its `viewDigests` description matches the corrected \u00a73, and the contract paragraph names the field. Adding a selector would change registered bytes and force a repin for a cosmetic gain.\n\n## Proposed delta (not applied anywhere)\n- **Builder:** capture the explicit returned views on the view stage matching each view's producer.\n- **Model:** stage-produced views must be exactly the complete-receipt views, otherwise the existing `SELECTED_COVER` refusal.\n- **Contract:** \u00a73 candidate-set and relation-column wording, plus a corrected \u00a78 builder row.\n- **Checker:** 9 cases, 6 of which close real Runs, including the two-cell semantic control and the rung control.\n\nThe patch is `correction.patch` (sha256 `92aa515f\u2026`); base and after hashes for the four files are in `delta-manifest.json`. Only the owning checker was run:\n\n| Run | Cases | Mismatches |\n|---|---|---|\n| Unpatched copy | 86 | 0 |\n| Patched copy | 95 | 0 |\n| Patched checker only, on unpatched model and builder | 95 | 4, exactly the capture defects |\n\nThe 86 shared cases are field-identical between base and patched, with identical Run ids. Manifest digests are also identical for all 18 maintained graph constructors swept.\n\n## Consequences and limits\n- **Changed behaviour:**\n  - graphs that declare a returned view no cell owns now capture it and their Runs close;\n  - host manifests naming a selected view absent from every receipt now refuse `SELECTED_COVER`;\n  - a view named only in `evaluationInputRefs` but missing from the graph's `viewIds` is now captured, and that inconsistent graph fails `EVALUATION_VIEW_ROOTS`. No maintained graph has one. Restricting capture to `viewIds` alone would avoid this; that's your call.\n- **Not run:** the other `attach_host_capture` callers, pins, reports or the full suite.\n- **Standing:** admission results show reference self-consistency; closed-Run results use reference drivers.\n- **Preserved failures:** the symbol-world baselines, my extra file-partition probe (A5, which failed a Coverage totality rule of its own construction), and the frozen41 closure failures that evidence the defect.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-attribution-capture-assessment.v1`:\n- review.md\n- review.json\n- correction.patch\n- delta-manifest.json\n- hash-index.json\n- receipts/\n- tools/",
+  "type": "result",
+  "duration_ms": 1303762
+}

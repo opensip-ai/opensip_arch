@@ -1,0 +1,784 @@
+{
+  "standing": "SYNTHETIC schedules evaluated by security_lifecycle_model_v1.revocation_observe, .observer_tick and .linearize (AR-05). `schedule` is the order in which actors acquire the journal append lock L. Linearization covers BROKERED effects only: no brokered effect commits after REV; a reversible completed effect is rolled back only when its current bytes equal the committed postimage (EDIT models a user change since commit; INDET an unreadable target); unconfined children (CHILD) are cancelled within the bound and disclosed, their external effects are not enumerable. Observer bounds are implementation qualification obligations under OS scheduling assumptions. Expected values were authored by hand from security-and-lifecycle.md S6 before execution (same author, not an independent oracle). No process was spawned or killed.",
+  "observeCases": [
+    {
+      "id": "unrelated-revocation-continues-with-drift-recorded",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 4,
+          "permissionPolicyDigest": "aa"
+        },
+        "closure": {
+          "releases": [
+            "typescript-analyzer@1.0.0"
+          ],
+          "signingKeyIds": [
+            "k-comp-1"
+          ],
+          "namespaces": [
+            "opensip.first-party"
+          ],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [
+          {
+            "subjectKind": "release",
+            "subject": "other-component@2.0.0",
+            "reason": "defect"
+          }
+        ]
+      },
+      "expect": {
+        "action": "CONTINUE",
+        "reason": "revocation-unrelated",
+        "matches": []
+      }
+    },
+    {
+      "id": "component-release-revoked-mid-operation",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 4,
+          "permissionPolicyDigest": "aa"
+        },
+        "closure": {
+          "releases": [
+            "typescript-analyzer@1.0.0"
+          ],
+          "signingKeyIds": [
+            "k-comp-1"
+          ],
+          "namespaces": [
+            "opensip.first-party"
+          ],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [
+          {
+            "subjectKind": "release",
+            "subject": "typescript-analyzer@1.0.0",
+            "reason": "compromise"
+          }
+        ]
+      },
+      "expect": {
+        "action": "REVOKE",
+        "reason": "trust-revoked",
+        "matches.length": 1
+      }
+    },
+    {
+      "id": "signing-key-revoked-mid-operation",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 4,
+          "permissionPolicyDigest": "aa"
+        },
+        "closure": {
+          "releases": [
+            "typescript-analyzer@1.0.0"
+          ],
+          "signingKeyIds": [
+            "k-comp-1"
+          ],
+          "namespaces": [
+            "opensip.first-party"
+          ],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [
+          {
+            "subjectKind": "keyId",
+            "subject": "k-comp-1",
+            "reason": "compromise"
+          }
+        ]
+      },
+      "expect": {
+        "action": "REVOKE",
+        "reason": "trust-revoked"
+      }
+    },
+    {
+      "id": "catalog-snapshot-revoked-mid-operation",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 4,
+          "permissionPolicyDigest": "aa"
+        },
+        "closure": {
+          "releases": [
+            "typescript-analyzer@1.0.0"
+          ],
+          "signingKeyIds": [
+            "k-comp-1"
+          ],
+          "namespaces": [
+            "opensip.first-party"
+          ],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [
+          {
+            "subjectKind": "catalogSnapshot",
+            "subject": "9",
+            "reason": "defect"
+          }
+        ]
+      },
+      "expect": {
+        "action": "REVOKE",
+        "reason": "trust-revoked"
+      }
+    },
+    {
+      "id": "counter-below-start-never-revokes",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 2,
+          "permissionPolicyDigest": "aa"
+        },
+        "closure": {
+          "releases": [
+            "typescript-analyzer@1.0.0"
+          ],
+          "signingKeyIds": [],
+          "namespaces": [],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [
+          {
+            "subjectKind": "release",
+            "subject": "typescript-analyzer@1.0.0",
+            "reason": "compromise"
+          }
+        ]
+      },
+      "expect": {
+        "action": "CONTINUE",
+        "matches": []
+      }
+    },
+    {
+      "id": "policy-change-removing-a-required-grant-revokes-with-reason-policy",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "bb"
+        },
+        "closure": {
+          "releases": [],
+          "signingKeyIds": [],
+          "namespaces": [],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [],
+        "requiredGrants": [
+          {
+            "stableId": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            "token": "PT-FS-READ-PROJECT"
+          }
+        ],
+        "effectivePolicyGrants": []
+      },
+      "expect": {
+        "action": "REVOKE",
+        "reason": "policy",
+        "matches.length": 1
+      }
+    },
+    {
+      "id": "policy-change-unrelated-to-required-grants-continues",
+      "model": "revocation-observe",
+      "input": {
+        "epochAtStart": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "aa"
+        },
+        "currentEpoch": {
+          "revocationVersion": 3,
+          "permissionPolicyDigest": "bb"
+        },
+        "closure": {
+          "releases": [],
+          "signingKeyIds": [],
+          "namespaces": [],
+          "catalogSnapshotVersion": 9
+        },
+        "revocationEntries": [],
+        "requiredGrants": [
+          {
+            "stableId": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            "token": "PT-FS-READ-PROJECT"
+          }
+        ],
+        "effectivePolicyGrants": [
+          {
+            "stableId": "ffffffff-ffff-4fff-8fff-ffffffffffff",
+            "token": "PT-FS-READ-PROJECT"
+          }
+        ]
+      },
+      "expect": {
+        "action": "CONTINUE",
+        "reason": "policy-unrelated"
+      }
+    }
+  ],
+  "linearizeCases": [
+    {
+      "id": "counter-update-effect-race-revocation-lands-before-commit",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "ICI r1",
+          "REV trust-revoked",
+          "COMMIT r1"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "ICI",
+          "REV",
+          "CLN"
+        ],
+        "effectsCommitted": [],
+        "revocationSeq": 4,
+        "disclosure.notBegun": [
+          "r1"
+        ],
+        "disclosure.completedBeforeRevocation": [],
+        "journal.4.residuals": [
+          "r1:not-begun"
+        ],
+        "cancellation.totalBoundSeconds": 10,
+        "cancellation.requestDriven": false,
+        "sealed": false
+      }
+    },
+    {
+      "id": "effect-committed-before-revocation-is-disclosed-not-undone",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "ICI r1",
+          "COMMIT r1",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "ICI",
+          "ICO",
+          "REV",
+          "CLN"
+        ],
+        "effectsCommitted": [
+          "r1"
+        ],
+        "revocationSeq": 5,
+        "disclosure.completedBeforeRevocation": [
+          "r1"
+        ],
+        "journal.5.residuals": [
+          "r1:completed-irreversible"
+        ]
+      }
+    },
+    {
+      "id": "reversible-completed-effect-is-reverted-on-trust-revocation",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RCI r1",
+          "COMMIT r1",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "RCI",
+          "RCO",
+          "REV",
+          "CLN"
+        ],
+        "disclosure.reverted": [
+          "r1"
+        ],
+        "journal.5.residuals": [
+          "r1:reverted"
+        ],
+        "finalTargets.r1": "pre:r1",
+        "disclosure.rollbackBlocked": []
+      }
+    },
+    {
+      "id": "reversible-completed-effect-is-retained-on-operator-revocation",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RCI r1",
+          "COMMIT r1",
+          "REV operator"
+        ]
+      },
+      "expect": {
+        "disclosure.completedBeforeRevocation": [
+          "r1"
+        ],
+        "disclosure.reverted": [],
+        "journal.5.residuals": [
+          "r1:completed-reversible-retained"
+        ]
+      }
+    },
+    {
+      "id": "request-after-revocation-refused-nothing-appended",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "REV trust-revoked",
+          "RA r1"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "REV",
+          "CLN"
+        ],
+        "refused.length": 1,
+        "refused.0.refusal": "RF-6:AUTHORIZATION.GRANT_NOT_CURRENT",
+        "refused.0.request": "r1"
+      }
+    },
+    {
+      "id": "non-requesting-child-is-cancelled-by-the-observer",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "POLL",
+          "POLL",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "REV",
+          "CLN"
+        ],
+        "journal.2.residuals": [],
+        "cancellation.requestDriven": false,
+        "cancellation.steps.length": 5,
+        "cancellation.steps.1.boundSeconds": 2,
+        "cancellation.steps.2.boundSeconds": 3,
+        "cancellation.totalBoundSeconds": 10
+      }
+    },
+    {
+      "id": "seal-before-revocation-stands",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "SEAL",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "sealed": true,
+        "sealSeq": 2,
+        "revocationSeq": 3,
+        "sealedBeforeRevocation": true,
+        "journalTypes": [
+          "GRANT",
+          "SEAL",
+          "REV",
+          "CLN"
+        ]
+      }
+    },
+    {
+      "id": "seal-after-revocation-refused",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "REV trust-revoked",
+          "SEAL"
+        ]
+      },
+      "expect": {
+        "sealed": false,
+        "sealRefused": "SEAL_AFTER_REV",
+        "journalTypes": [
+          "GRANT",
+          "REV",
+          "CLN"
+        ]
+      }
+    },
+    {
+      "id": "intent-after-revocation-not-appended",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "REV trust-revoked",
+          "ICI r1"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "REV",
+          "CLN"
+        ],
+        "disclosure.notBegun": [
+          "r1"
+        ]
+      }
+    },
+    {
+      "id": "second-revocation-is-a-no-op",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "REV trust-revoked",
+          "REV operator"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "REV",
+          "CLN"
+        ],
+        "revocationSeq": 2
+      }
+    },
+    {
+      "id": "mixed-requests-race-one-before-one-after",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "ICI r1",
+          "COMMIT r1",
+          "RA r2",
+          "ICI r2",
+          "REV trust-revoked",
+          "COMMIT r2"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "ICI",
+          "ICO",
+          "RA",
+          "ICI",
+          "REV",
+          "CLN"
+        ],
+        "effectsCommitted": [
+          "r1"
+        ],
+        "disclosure.completedBeforeRevocation": [
+          "r1"
+        ],
+        "disclosure.notBegun": [
+          "r2"
+        ]
+      }
+    },
+    {
+      "id": "commit-without-intent-is-a-model-rejection",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "COMMIT r1"
+        ]
+      },
+      "expectReject": "COMMIT_WITHOUT_INTENT:r1"
+    },
+    {
+      "id": "user-edit-after-commit-blocks-rollback-never-overwritten",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RCI r1",
+          "COMMIT r1",
+          "EDIT r1",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "journalTypes": [
+          "GRANT",
+          "RA",
+          "RCI",
+          "RCO",
+          "REV",
+          "CLN"
+        ],
+        "disclosure.reverted": [],
+        "disclosure.rollbackBlocked": [
+          "r1"
+        ],
+        "finalTargets.r1": "edited:r1",
+        "journal.5.residuals": [
+          "r1:rollback-blocked-modified-since-commit"
+        ]
+      }
+    },
+    {
+      "id": "unreadable-target-at-revocation-is-indeterminate-not-overwritten",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RCI r1",
+          "COMMIT r1",
+          "INDET r1",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "disclosure.indeterminate": [
+          "r1"
+        ],
+        "disclosure.reverted": [],
+        "finalTargets.r1": "post:r1",
+        "journal.5.residuals": [
+          "r1:rollback-indeterminate"
+        ]
+      }
+    },
+    {
+      "id": "policy-revocation-retains-reversible-effects-no-rollback",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RCI r1",
+          "COMMIT r1",
+          "REV policy"
+        ]
+      },
+      "expect": {
+        "disclosure.completedBeforeRevocation": [
+          "r1"
+        ],
+        "disclosure.reverted": [],
+        "finalTargets.r1": "post:r1",
+        "journal.5.residuals": [
+          "r1:completed-reversible-retained"
+        ]
+      }
+    },
+    {
+      "id": "unconfined-child-is-cancelled-and-disclosed-not-linearized",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "ICI r1",
+          "CHILD build-rs",
+          "COMMIT r1",
+          "REV trust-revoked",
+          "RA r2"
+        ]
+      },
+      "expect": {
+        "effectsCommitted": [
+          "r1"
+        ],
+        "disclosure.completedBeforeRevocation": [
+          "r1"
+        ],
+        "disclosure.unconfinedChildren.0.name": "build-rs",
+        "journal.5.residuals": [
+          "r1:completed-irreversible",
+          "build-rs:child-cancelled-external-effects-not-enumerable"
+        ],
+        "refused.0.request": "r2",
+        "cancellation.totalBoundSeconds": 10,
+        "linearizationScope": "brokered effects only; unconfined child effects are disclosed, not linearized"
+      }
+    },
+    {
+      "id": "mixed-two-requests-rollback-one-blocked-one-reverted",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "RA r2",
+          "RCI r1",
+          "RCI r2",
+          "COMMIT r1",
+          "COMMIT r2",
+          "EDIT r2",
+          "REV trust-revoked"
+        ]
+      },
+      "expect": {
+        "disclosure.reverted": [
+          "r1"
+        ],
+        "disclosure.rollbackBlocked": [
+          "r2"
+        ],
+        "finalTargets": {
+          "r1": "pre:r1",
+          "r2": "edited:r2"
+        }
+      }
+    },
+    {
+      "id": "edit-without-committed-effect-is-a-fixture-rejection",
+      "model": "linearize",
+      "input": {
+        "schedule": [
+          "GRANT g1",
+          "RA r1",
+          "EDIT r1"
+        ]
+      },
+      "expectReject": "EDIT_WITHOUT_EFFECT"
+    }
+  ],
+  "observerCases": [
+    {
+      "id": "tick-within-bound-continues",
+      "model": "observer",
+      "input": {
+        "lastReadMono": 100,
+        "nowMono": 109,
+        "counterReadOk": true
+      },
+      "expect": {
+        "action": "CONTINUE",
+        "reason": "within-bound",
+        "obligation.monotonicTimer.linux": "CLOCK_BOOTTIME",
+        "obligation.monotonicTimer.macos": "mach_continuous_time",
+        "obligation.stallBoundSeconds": 10
+      }
+    },
+    {
+      "id": "tick-exactly-at-bound-continues",
+      "model": "observer",
+      "input": {
+        "lastReadMono": 100,
+        "nowMono": 110,
+        "counterReadOk": true
+      },
+      "expect": {
+        "action": "CONTINUE"
+      }
+    },
+    {
+      "id": "stalled-process-resumes-past-bound-fail-stops",
+      "model": "observer",
+      "input": {
+        "lastReadMono": 100,
+        "nowMono": 111,
+        "counterReadOk": true
+      },
+      "expect": {
+        "action": "REV",
+        "reason": "observer-fail-stop",
+        "detail": "stalled:11s",
+        "d9": {
+          "class": "operational-failed",
+          "exit": 4,
+          "code": "HOST.IO_FAILURE"
+        }
+      }
+    },
+    {
+      "id": "counter-unreadable-fail-stops",
+      "model": "observer",
+      "input": {
+        "lastReadMono": 100,
+        "nowMono": 102,
+        "counterReadOk": false
+      },
+      "expect": {
+        "action": "REV",
+        "reason": "observer-fail-stop",
+        "detail": "counter-unreadable"
+      }
+    },
+    {
+      "id": "monotonic-regression-is-a-model-rejection",
+      "model": "observer",
+      "input": {
+        "lastReadMono": 100,
+        "nowMono": 99,
+        "counterReadOk": true
+      },
+      "expectReject": "MONOTONIC_MALFORMED"
+    }
+  ]
+}

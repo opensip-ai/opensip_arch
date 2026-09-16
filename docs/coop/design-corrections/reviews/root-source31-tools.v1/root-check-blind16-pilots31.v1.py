@@ -1,0 +1,10 @@
+from pathlib import Path
+import json,hashlib,subprocess,concurrent.futures
+B=Path('/tmp/opensip-design-corrections');R=Path('/Users/sb/code/opensip-ai/opensip_arch');out=B/'root-blind16-source31-pilots.v1';assert not out.exists();out.mkdir();(out/'inputs').mkdir();rows=[]
+for name in ['syntax-code','syntax-data','typescript','rust','rust-partial']:
+ p=B/'consumer-b.v16/output/runs'/(name+'.store.json');raw=p.read_bytes();assert raw==p.read_bytes();j=json.loads(raw);rid=[k for k,v in j['objectTable'].items() if v.get('domain')=='run'];assert len(rid)==1;(out/'inputs'/(name+'.input.json')).write_bytes(raw);rows.append({'name':name,'runId':rid[0],'exportSha256':hashlib.sha256(raw).hexdigest()})
+(out/'input-custody.json').write_text(json.dumps({'standing':'Mid consumer16 exact positive export capture. Final reviewer artifact equality must be checked before any final assent.','files':rows},indent=2)+'\n')
+def run(row):
+ name=row['name'];cmd=['/tmp/opensip-architecture-review-env/bin/python','-I','-B',str(B/'check-blind-successor31-export.v1.py'),'--input',str(out/'inputs'/(name+'.input.json')),'--run-id',row['runId'],'--source',str(B/'candidate-subject.v31'),'--manifest',str(R/'docs/coop/design-corrections/reviews/candidate-subject.v31.json'),'--out',str(out/name)];p=subprocess.run(cmd,capture_output=True,text=True,timeout=600);(out/(name+'.stdout')).write_text(p.stdout);(out/(name+'.stderr')).write_text(p.stderr);report=json.loads((out/name/'report.json').read_text());result={**row,'exitCode':p.returncode,**{k:report.get(k) for k in ['transportAdmission','structuralAdmission','semanticAdmission','reason']}};print(json.dumps(result),flush=True);return result
+with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:results=list(pool.map(run,rows))
+(out/'assessment.json').write_text(json.dumps({'standing':'Root source31 selected owner verification of exact captured consumer16 positives; no complete charter or review acceptance. Kit29 file-byte equivalence31 separately verified.','checks':results},indent=2)+'\n')

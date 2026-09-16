@@ -1,0 +1,1 @@
+Historical root preparation commands with explicit local workspace paths. These are provenance, not a portable product build recipe or mutating checker to run inside the frozen subject. The read-only check_selection.py verifies the final proposed bindings; clean generator/bootstrap reproduction remains a separate integration duty.

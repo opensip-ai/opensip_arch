@@ -1,0 +1,157 @@
+{
+ "probeStanding": "real execution of snapshot27 boundaries; failures preserved verbatim",
+ "admitUnitRootsSource": "def admit_unit_roots(units: list[dict]) -> list[dict]:\n    \"\"\"Decide the INTERNAL root representation of every unit BEFORE membership, path slicing or\n    enumeration binding reads it. Returns `units` unchanged so a caller may wrap its argument.\n\n    ORDERING IS THE POINT. `_under_unit`, `_rel` and the deepest-unit `len(rootPath)` ranking all\n    consume this field as an exact string prefix, and not one of them fails loudly on a\n    non-internal spelling. With \".\" every `_under_unit` test is false, so the unit silently owns\n    no file and the run is an empty but schema-valid analysis; `_rel` slices `len(root) + 1`\n    characters and returns corrupted relative paths; `unit_scope_descriptor` spells \".\" back out\n    through `DD.spell_root`, where it is indistinguishable from a correct project root; and\n    enumeration binding reaches `_unit_for_cell` -> None and reports\n    ENUMERATION_BINDING_PROGRAM_ENTRY, which blames a different field. Deciding the representation\n    first replaces all four outcomes with one refusal that names the offending root.\n\n    BOUNDARY. `units` is HOST-GENERATED at this point: it is `discover_units` output, which already\n    emits the internal form and schema-validates each unit. A violation here is therefore a broken\n    host invariant about this caller's input and is raised as an AdmissionError, exactly like the\n    membership totality invariant at the end of `assign_membership`. It is deliberately NOT a\n    `ReferenceEnvironmentError`, which is reserved for a host that cannot produce a conforming\n    answer at all, and it is deliberately NOT a new public D9 route: the EXTERNAL spelling boundary\n    already exists and is untouched here, because Config2 `discovery.workspaceRoots` and CLI\n    `--workspace-root` are normalized inward by `DD.normalize_explicit_root` and a malformed one is\n    the typed public refusal `native.explicit-root-grammar` (CONFIG.INVALID). The classification is\n    decided by WHICH BOUNDARY the value crossed, never by a spelling, a file name or a message\n    prefix.\n\n    SCOPE. This decides the ROOT REPRESENTATION and nothing else: `rootPath` against\n    InternalUnitRootV1 and each present `memberPackageRoots[]` entry against\n    CanonicalRelativeDirV1, each on all three of type, declared length bounds and segment\n    grammar, so the guard and the schema claim the same value set. It is deliberately NOT\n    full-unit admission -- it does not look at `unitKind`, `markerSha256`, `provenance`,\n    ordinals or any other field, and callers that legitimately carry a partial unit record\n    keep working as long as their root representation is internal.\n    \"\"\"\n    if not isinstance(units, list):\n        raise AdmissionError(UNIT_ROOT_FAULT + \":units:not-a-list\")\n    for i, u in enumerate(units):\n        if not isinstance(u, dict):\n            raise AdmissionError(UNIT_ROOT_FAULT + \":units[%d]:not-an-object\" % i)\n        if \"rootPath\" not in u:\n            raise AdmissionError(\"%s:units[%d].rootPath:%s:absent\"\n                                 % (UNIT_ROOT_FAULT, i, UNIT_ROOT_SELECTOR))\n        _admit_root_scalar(u[\"rootPath\"], _UNIT_ROOT_RE, _UNIT_ROOT_BOUNDS,\n                           UNIT_ROOT_SELECTOR, \"units[%d].rootPath\" % i)\n        # An ABSENT `memberPackageRoots` is permitted here and an explicitly null one is not.\n        # This guard decides the root REPRESENTATION only; it is not full-unit admission, and\n        # the model's own readers already tolerate the key being absent\n        # (`_cargo_roots_of_units` uses `u.get(\"memberPackageRoots\", [])`), so a minimal caller\n        # that names no member roots is a lawful caller. A key that IS present states a value,\n        # and null is not a list of roots, so it is refused with the list-shape detail rather\n        # than silently treated as \"none named\".\n        if \"memberPackageRoots\" not in u:\n            continue\n        members = u[\"memberPackageRoots\"]\n        if not isinstance(members, list):\n            raise AdmissionError(\"%s:units[%d].memberPackageRoots:%s\"\n                                 % (UNIT_ROOT_FAULT, i,\n                                    \"explicit-null\" if members is None else \"not-a-list\"))\n        for j, m in enumerate(members):\n            _admit_root_scalar(m, _MEMBER_ROOT_RE, _MEMBER_ROOT_BOUNDS, MEMBER_ROOT_SELECTOR,\n                               \"units[%d].memberPackageRoots[%d]\" % (i, j))\n    return units\n",
+ "admitRootScalarSource": "def _admit_root_scalar(value, regex, bounds, selector, where):\n    \"\"\"One selector decision for one scalar: type, then declared length bounds, then grammar.\n\n    The three are reported apart because they are different defects: a non-string is a shape\n    error, a length violation is a bound error that the grammar cannot see, and a grammar\n    violation names the offending spelling.\n    \"\"\"\n    if not isinstance(value, str):\n        raise AdmissionError(\"%s:%s:%s:%s\" % (UNIT_ROOT_FAULT, where, selector,\n                                              \"explicit-null\" if value is None else \"not-a-string\"))\n    low, high = bounds\n    if len(value) < low or len(value) > high:\n        raise AdmissionError(\"%s:%s:%s:length=%d:bounds=%d..%d\"\n                             % (UNIT_ROOT_FAULT, where, selector, len(value), low, high))\n    if regex.match(value) is None:\n        raise AdmissionError(\"%s:%s:%s:%r\" % (UNIT_ROOT_FAULT, where, selector, value))\n",
+ "admitUnitRoots": [
+  {
+   "case": "project root, empty string (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  },
+  {
+   "case": "SENTINEL rootPath=\".\"",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].rootPath:#/$defs/InternalUnitRootV1:'.'"
+  },
+  {
+   "case": "rootPath=\"./\"",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].rootPath:#/$defs/InternalUnitRootV1:'./'"
+  },
+  {
+   "case": "rootPath=\"packages/a\" (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  },
+  {
+   "case": "rootPath absolute \"/abs\"",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].rootPath:#/$defs/InternalUnitRootV1:'/abs'"
+  },
+  {
+   "case": "rootPath=\"a/../b\"",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].rootPath:#/$defs/InternalUnitRootV1:'a/../b'"
+  },
+  {
+   "case": "member root \".\" ",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].memberPackageRoots[0]:#/$defs/CanonicalRelativeDirV1:'.'"
+  },
+  {
+   "case": "member root \"\" (empty, must be NON-EMPTY)",
+   "verdict": "REFUSE",
+   "reason": "AdmissionError: NATIVE_UNIT_ROOT_REPRESENTATION:units[0].memberPackageRoots[0]:#/$defs/CanonicalRelativeDirV1:length=0:bounds=1..4096"
+  },
+  {
+   "case": "member root \"packages/a\" (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  }
+ ],
+ "probeDefectCorrected": "first run of this probe passed the membership wrapper dict instead of membership[\"units\"], so all nine cases refused units:not-a-list. That was my fixture defect, not a design fault; preserved in pK2-rootexec.first-run.json",
+ "enumerationMembershipRootJoin": [
+  {
+   "case": "project root, empty string (lawful)",
+   "returned": true,
+   "faults": []
+  },
+  {
+   "case": "SENTINEL rootPath=\".\"",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "rootPath=\"./\"",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "rootPath=\"packages/a\" (lawful)",
+   "returned": true,
+   "faults": []
+  },
+  {
+   "case": "rootPath absolute \"/abs\"",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "rootPath=\"a/../b\"",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "member root \".\" ",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "member root \"\" (empty, must be NON-EMPTY)",
+   "returned": false,
+   "faults": [
+    "ENUMERATION_MEMBERSHIP_UNIT_ROOT"
+   ]
+  },
+  {
+   "case": "member root \"packages/a\" (lawful)",
+   "returned": true,
+   "faults": []
+  }
+ ],
+ "sentinelRefusedWithRootSpecificFault": true,
+ "lawfulStillAdmitted": [
+  {
+   "case": "project root, empty string (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  },
+  {
+   "case": "rootPath=\"packages/a\" (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  },
+  {
+   "case": "member root \"packages/a\" (lawful)",
+   "verdict": "ADMIT",
+   "reason": ""
+  }
+ ],
+ "enumerationRootRegion": "        paths.append(row[\"path\"])\n    if len(paths) != len(set(paths)) or set(paths) != set(snapshot_paths):\n        _add(faults, \"ENUMERATION_ADMISSION_PRECONDITION\")\n\n\ndef _admit_membership_unit_roots(membership, faults: list[str]) -> bool:\n    \"\"\"Decide the INTERNAL root representation of the membership units BEFORE any binding join.\n\n    The single authority is the native selector (NV.admit_unit_roots, reading\n    #/$defs/InternalUnitRootV1 and #/$defs/CanonicalRelativeDirV1); this function only translates\n    that decision into this model's internal fault vocabulary. Without it, a unit whose root is\n    spelled with the EXTERNAL sentinel '.' reaches _unit_for_cell, which then matches no unit, so\n    _u1_entry derives None and the mismatch against the retained\n    TypeScriptConfigGraphV1.entryConfigPath is reported as ENUMERATION_BINDING_PROGRAM_ENTRY: a\n    real refusal attributed to the wrong field. ENUMERATION_MEMBERSHIP_UNIT_ROOT is an INTERNAL\n    fault key only; it adds no public D9 code and no public route.\n    \"\"\"\n    units = membership.get('units') if isinstance(membership, dict) else None\n    if units is None:\n        return True\n    try:\n        NV.admit_unit_roots(units)\n    except NV.AdmissionError:\n        _add(faults, 'ENUMERATION_MEMBERSHIP_UNIT_ROOT')\n        return False\n    return True\n\n\ndef admit_enumeration(\n    *,\n    plan: dict,\n    plan_id: str,\n    analysis_spec: dict,\n    scope_descriptor: dict,\n    membership: dict,\n    enumeration_plan: dict,\n    inventories: list,",
+ "programEntryLines": [
+  {
+   "line": 82,
+   "text": "\"ENUMERATION_BINDING_PROGRAM_ENTRY\","
+  },
+  {
+   "line": 508,
+   "text": "TypeScriptConfigGraphV1.entryConfigPath is reported as ENUMERATION_BINDING_PROGRAM_ENTRY: a"
+  },
+  {
+   "line": 738,
+   "text": "_add(faults, \"ENUMERATION_BINDING_PROGRAM_ENTRY\")"
+  },
+  {
+   "line": 740,
+   "text": "_add(faults, \"ENUMERATION_BINDING_PROGRAM_ENTRY\")"
+  },
+  {
+   "line": 750,
+   "text": "_add(faults, \"ENUMERATION_BINDING_PROGRAM_ENTRY\")"
+  },
+  {
+   "line": 757,
+   "text": "_add(faults, \"ENUMERATION_BINDING_PROGRAM_ENTRY\")"
+  }
+ ]
+}

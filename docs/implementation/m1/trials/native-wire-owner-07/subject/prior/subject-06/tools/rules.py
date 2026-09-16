@@ -1,0 +1,316 @@
+"""Profiles, private representation, handwritten admission catalog (with executable parameters), commitment map,
+state machines for the native wire-carrier author candidate 06. Rule `params` are READ by tools/admission_ref.py,
+tools/representability.py and wirecodec.lexical, so a changed parameter changes executed behaviour. Normative text that
+restates a structure (lexical rule text, path-member rule text) is RENDERED from that structure and check.py requires
+the published text to equal the rendering (review-02 A-3)."""
+
+from common import NE as NE_ID, NODE, OC as OC_ID, ORDERS
+
+PROFILES = {
+    "ts2-cbor": {
+        "protocol": "typescript-semantic", "major": "2",
+        "source": {"pin": "delivery2", "selector": "$.typescriptSemanticSubstrate.providerProtocol.wireSchema.canonicalCbor"},
+        "dataModel": ["null", "false", "true", "uint64", "negative-int64", "UTF-8-NFC-text", "byte-string", "definite-array", "definite-text-keyed-map"],
+        "negativeIntegers": "DECODABLE: major type 1 in -2^63..-1 is inside the closed data model; no TS2 carrier member has a negative-integer type, so every negative integer in a TS2 payload refuses as a type mismatch (PROVIDER.PROTOCOL_VIOLATION).",
+        "forbidden": ["floating-point", "tags", "indefinite-length items", "non-shortest integer or length arguments", "duplicate map keys", "non-text map keys", "invalid UTF-8", "non-NFC text", "unknown map fields", "simple values other than false/true/null"],
+        "mapOrder": "ascending bytewise order of each key's deterministic-CBOR encoding",
+        "frameIntegrity": "uint64 big-endian payload length, 32 raw SHA-256 payload bytes, then one canonical-CBOR payload",
+        "decodeRule": "decode once under the host-state-selected closed carrier; re-encode and require byte equality",
+    },
+    "rust3-cbor": {
+        "protocol": "rust-semantic", "major": "3",
+        "source": {"pin": "rust2", "selector": "$.canonicalCbor"},
+        "dataModel": ["null", "false", "true", "uint64", "UTF-8-NFC-text", "byte-string", "definite-array", "definite-text-keyed-map"],
+        "negativeIntegers": "FORBIDDEN at decode: any CBOR major type 1 item refuses before carrier typing (rust2 canonicalCbor.forbidden[0]).",
+        "forbidden": ["negative integers", "floating point", "tags", "undefined and unassigned simple values", "indefinite-length items", "non-shortest integer or length arguments", "duplicate map keys", "non-text map keys", "invalid UTF-8", "non-NFC text", "unknown map fields"],
+        "mapOrder": "length of encoded key first, then bytewise",
+        "frameIntegrity": "8-byte big-endian payload length, 32 raw SHA-256 payload bytes, canonical-CBOR payload (40-byte prefix)",
+        "decodeRule": "retain payload bytes; decode once under the host-state-selected closed carrier; re-encode and require byte equality",
+    },
+    "mapOrderEquivalence": "For text keys the two map-order rules select the same order: a deterministic-CBOR text key starts with its length header, so bytewise order of encoded keys is length-first then bytewise. check.py proves it over every carrier member name and random keys.",
+    "notProvedByJsonSchema": ["NFC", "UTF-8 byte bounds (maxLength counts scalars)", "shortest encodings", "map order", "duplicate keys", "byte strings", "negative-integer profile", "lexical path and packageKey admission", "domain joins, echoes and commitments"],
+}
+
+# ---------------------------------------------------------------- RF-3: executable pattern dialect
+PATTERN_DIALECT = {
+    "standing": "Normative for every `pattern` in wire-carriers.v1.json and every pattern reachable from an extern it references (the registered schema documents are JSON Schema 2020-12, whose `pattern` keyword is an ECMA-262 regular expression). Extern patterns are the EFFECTIVE owner patterns: pinned schema bytes with owner-pattern-successor.v1.json schemaPatternRows applied (the selected final owner of pattern evaluation, review-03 RF-2).",
+    "engine": "ECMA-262 RegExp",
+    "flags": "u",
+    "evaluation": "new RegExp(pattern, flags).test(value) over the whole NFC text value; a pattern is not implicitly anchored",
+    "lineTerminators": ["U+000A", "U+000D", "U+2028", "U+2029"],
+    "semantics": {
+        "dot": "any scalar except the four line terminators (the s flag is NOT set)",
+        "dollar": "end of input only (the m flag is NOT set); unlike Python re it never matches before a final U+000A",
+        "whitespaceClass": "\\s is ECMA-262 WhiteSpace plus LineTerminator: U+0009 U+000A U+000B U+000C U+000D U+0020 U+00A0 U+1680 U+2000-U+200A U+2028 U+2029 U+202F U+205F U+3000 U+FEFF (not U+0085)",
+    },
+    "referenceEngine": {"path": NODE["path"], "sha256": NODE["sha256"], "bytes": str(NODE["bytes"]), "versions": NODE["versions"],
+                        "probe": "tools/ecma_probe.js", "unpinnedDynamicLibraries": NODE["dynamicLibraries"]},
+    "referenceTranslation": "tools/wirecodec.py ecma_to_python: finite translation for the construct set in patternSites (literals, escapes, \\uXXXX, classes, [\\s\\S], \\s, \\S, ., ^, $, (?: (?= (?! groups, alternation, quantifiers); any other construct or flag refuses. check.py runs the reference engine and the translation over every patternSites pattern and a newline/terminator corpus and requires identical results, and replays the independent review-02 engine output.",
+    "lowering": "The Rust `regex` crate has no lookaround, and its `.` and `\\s` differ from ECMA-262. A generator MUST implement every loweringRequired site as an equivalent handwritten check with the ECMA-262 semantics above (anchored hex/prefix patterns lower to fixed-length ASCII checks); it must not drop a pattern, evaluate it with another dialect, or substitute a different language.",
+    "supplementary": "Where a text type carries `lexical`, the lexical rule is normative and any pattern on the same value is supplementary; a value satisfying the pattern but failing the lexical rule refuses.",
+    "patternSites": "FILLED BY build.py: the closed list of every reachable pattern site {location{document,pointer}, pattern, negated, constructs, lower}",
+    "loweringRequired": "FILLED BY build.py: the closed sublist of patternSites with lower=true",
+}
+
+# ---------------------------------------------------------------- A-3: structured lexical rules
+LEXICAL_RULES = {
+    "logical-path-segments": {"kind": "segments", "separator": "/", "forbiddenScalars": ["\u0000", "\\"], "forbiddenSegments": ["", ".", ".."],
+                              "maxSegmentScalars": "255", "owner": "identitySchemas3 #/$defs/LogicalPath (declarative segment grammar)"},
+    "canonical-path-segments": {"kind": "segments", "separator": "/", "forbiddenScalars": ["\u0000", "\\"], "forbiddenSegments": ["", ".", ".."],
+                                "firstSegmentForbiddenPattern": "^[A-Za-z]:", "owner": "rust2 wireSchema.definitions.CanonicalPath.rule"},
+    "package-key": {"kind": "package-key", "separator": " ", "nameVersionForbidAtOrBelow": "32",
+                    "owner": "native_evidence_model.v2 dependency_source_set_admit key f'{name} {version} {sourceId}'",
+                    "deliberate": "U+007F DEL and the C1 controls U+0080..U+009F are above U+0020 and are deliberately admitted in name and version: they break neither key injectivity nor tuple/key order agreement (review-02 A-4)"},
+    "relative-path-dot-segments": {"kind": "segments", "separator": "/", "forbiddenScalars": [chr(0), "\\"], "forbiddenSegments": [".", ".."],
+                                   "forbidLeadingSeparator": True, "minScalars": "1",
+                                   "owner": "native-evidence.schemas.v2 path pattern under the owner pattern-evaluation successor (complete-string dot-segment law)"},
+}
+
+
+def render_lexical(rule):
+    if rule["kind"] == "package-key":
+        return (f"exactly name SEP version SEP sourceId with SEP = {rule['separator']!r}; name and version are non-empty and contain no scalar "
+                f"<= U+{int(rule['nameVersionForbidAtOrBelow']):04X}; sourceId is the remainder after the second SEP (possibly empty, may contain SEP); "
+                + rule["deliberate"])
+    parts = [f"split on {rule['separator']!r}", "no segment is one of " + ", ".join(repr(s) for s in rule["forbiddenSegments"]),
+             "no scalar anywhere is one of " + ", ".join(f"U+{ord(c):04X}" for c in rule["forbiddenScalars"])]
+    if "minScalars" in rule:
+        parts.append(f"the value has at least {rule['minScalars']} Unicode scalar(s)")
+    if rule.get("forbidLeadingSeparator"):
+        parts.append(f"the value does not start with {rule['separator']!r}")
+    if "maxSegmentScalars" in rule:
+        parts.append(f"every segment has at most {rule['maxSegmentScalars']} Unicode scalars")
+    if "firstSegmentForbiddenPattern" in rule:
+        parts.append(f"the first segment does not match the ECMA-262 pattern {rule['firstSegmentForbiddenPattern']} (drive prefix)")
+    return "; ".join(parts)
+
+
+for _r in LEXICAL_RULES.values():
+    _r["text"] = render_lexical(_r)
+
+PRIVATE_REPRESENTATION = {
+    "standing": "Private carrier choices for one generator recipe; none is a wire change or a wire name.",
+    "uint64": {"rust": "u64", "typescript": "bigint", "json-vector": "JSON integer (vectors only)"},
+    "text": {"rust": "String (NFC, byte bounds and lexical rules checked by admission)", "typescript": "string"},
+    "bytes": {"rust": "protocol::wire::ByteString(Vec<u8>) newtype; codec accepts only CBOR major type 2; length prefix checked against maxBytes before allocation",
+              "typescript": "Uint8Array (owned copy, never a view into the frame buffer)",
+              "json-vector": "lowercase hex in a member named <member>Hex, JSON vectors only; never a JSON array, base64 or hex on the wire and never a generated JSON carrier"},
+    "bool": {"rust": "bool", "typescript": "boolean"},
+    "null": {"rust": "unit (only inside nullable or variant-record branches)", "typescript": "null"},
+    "nullable": {"rust": "Option<T> serialized as present CBOR null; never skipped", "typescript": "T | null, property required"},
+    "optional": {"rust": "Option<T> with skip-when-absent; absent is not null", "typescript": "prop?: T under exactOptionalPropertyTypes; undefined never serialized"},
+    "array": {"rust": "Vec<T>", "typescript": "readonly T[]"},
+    "enum": {"rust": "enum with exact string renames", "typescript": "string-literal union"},
+    "const": {"rust": "validated scalar (const checked at decode)", "typescript": "literal type"},
+    "record": {"rust": "struct with deny-unknown-fields", "typescript": "interface; decoder rejects extra keys"},
+    "variant-record": {"rust": "enum with one struct per discriminator value; codec writes every memberOrder member including nulls",
+                       "typescript": "discriminated union on the discriminator member; every member present"},
+    "alias": {"rust": "pub type Alias = Target;", "typescript": "export type Alias = Target;"},
+    "extern": {"rust": "generated type from the registered schema (inputs/generator-candidate03-options.json namespace); JSON-vector integers map to u64/bigint because every extern integer has minimum 0",
+               "typescript": "same generated type name"},
+    "frame-payload": {"rust": "per-protocol enum; decode entry point takes (frameType, HostSelector) and never tries alternatives",
+                      "typescript": "per-protocol discriminated union with the same selector-parameterized decoder"},
+    "lexical": {"rust": "handwritten function implementing lexicalRules[<id>] exactly as structured, applied after NFC and length checks", "typescript": "same"},
+    "selectors": {
+        "negotiated-target-attribution-v2": "true iff target-attribution-v2 is in both the admitted Hello and HelloAck token arrays (handshake law factBatch.negotiated)",
+        "host-phase": "the host phase in which the Unavailable frame arrives; any other phase has no transition row and faults before payload typing",
+    },
+    "namespaces": {
+        "Ts2": "delivery.v2 typescript-semantic wireSchema successors (this document)",
+        "Rust3": "rust-provider-protocol.v2 wireSchema successors and native-evidence §9.2 records (this document)",
+        "extern": "Handshake1, Startup1, Native2, Occupancy1 exactly as the frozen subject input inputs/generator-candidate03-options.json names them (checked)",
+        "forbidden": "bare CoverageKeyV2, FactCandidateV1, AnchorRefV1, StageResultV1 or FactBatchV3 type names",
+    },
+    "orders": ORDERS,
+    "patternDialect": PATTERN_DIALECT,
+    "lexicalRules": LEXICAL_RULES,
+}
+
+
+def rule(id_, applies, text, owner, kind, params=None):
+    r = {"id": id_, "appliesTo": applies, "kind": kind, "rule": text, "owner": owner}
+    if params is not None:
+        r["params"] = params
+    return r
+
+
+def route(key):
+    """A refusal is a REFERENCE to a public-route-successor.v1.json key; class, errorCode, exit and envelope detail are
+    DERIVED by the pinned owner public_termination_for / failure_envelope_errors / CLASS_TO_EXIT, never restated here."""
+    return {"routeKey": key, "successor": "public-route-successor.v1.json#/addKeys/" + key}
+
+
+def render_path_members(lexical, members, extern_members):
+    wire = ", ".join(members)
+    ext = ", ".join(f"{m['generatedType']}{m['pointer']}" for m in extern_members)
+    return (f"Every member listed in params.members ({wire})" + (f" and params.externMembers ({ext})" if ext else "")
+            + f" satisfies lexicalRules[{lexical}]; any pattern on the same value is supplementary.")
+
+
+def render_path_sites(sites):
+    parts = []
+    for site in sites:
+        loc = site["location"]
+        binds = ", ".join(b["rule"] + " " + b["relation"] + (" via " + b["route"]["routeKey"] if "route" in b else "") for b in site["bindings"])
+        parts.append(loc["document"] + loc["pointer"] + " [" + binds + "]")
+    return ("Every value at a site of the closed list pathSites (%d sites, recomputed from the carrier graph and the pinned owner schemas "
+            "under the owner pattern-evaluation successor) is judged over its COMPLETE string by its bound lexical rules: split only on '/', "
+            "compare each segment exactly (a segment '..' followed by a line terminator is legitimate, a bare '..' is not), never normalize, "
+            "coerce or truncate. An equivalent binding decides exactly what the site's effective ECMA-262 schema constraint decides; a narrowed "
+            "binding refuses a subset before spawn through its route; a normative binding is the wire carrier's own lexical rule. Sites: " % len(sites)) + "; ".join(parts)
+
+
+def path_site_bindings(site):
+    """Author binding of each closed path site to lexical rules; check.py executes every binding against the pinned engine."""
+    loc = site["location"]
+    if site["kind"] == "wire-lexical-scalar":
+        return [{"rule": site["lexical"], "relation": "normative"}]
+    if loc["document"] == NE_ID:
+        out = [{"rule": "relative-path-dot-segments", "relation": "equivalent"}]
+        if loc["pointer"].startswith("#/$defs/DependencySourceManifestV3/"):
+            out.append({"rule": "canonical-path-segments", "relation": "narrowed", "route": route("native.dependency-source-not-wire-representable")})
+        return out
+    if loc["document"] == OC_ID:
+        return [{"rule": "logical-path-segments", "relation": "equivalent"}]
+    return []
+
+
+# Filled by build.py from the carrier graph; check.py recomputes and requires equality.
+PATH_MEMBERS = {"CANONICAL-PATH-ADMISSION": None, "TS2-LOGICAL-PATH-ADMISSION": None}
+
+ADMISSION = [
+    rule("FRAME-LIMIT", "both", "Declared payload length <= maxFramePayloadBytes 67108864 before allocation; every array/text/byte length checked before allocation. A member with no maxItems/maxBytes is bounded only by this limit. A host never plans a frame over this limit: REQUEST-WIRE-ACCOUNTING refuses such a request before spawn.", "delivery2 limits.limitRule; rust2 framing.allocationRule", "bound"),
+    rule("TS2-ENV-MAJOR", "typescript-semantic", "Envelope protocolMajor == 2 before payload typing.", "handshake x-opensip-wire-law.frameAndMajor", "state"),
+    rule("TS2-ENV-DIRECTION-BY-FRAME", "typescript-semantic", "frameType must belong to the direction being read (closedHostToWorkerFrames + closedWorkerToHostFrames + NativeContextVerified).", "delivery2 providerProtocol.closed*Frames; nativeMd §0 line 121", "state"),
+    rule("TS2-ENV-SEQUENCE", "typescript-semantic", "Per-direction sequence starts at 0 and increases by exactly 1; overflow refuses.", "delivery2 ordering.sequenceRule", "order"),
+    rule("RUST3-FRAME-PRECHECK", "rust-semantic", "Before P3 matching: frameType known, direction equals the frame row direction, sequence equals that direction's counter, counter < 2^64-1, payload decodes under the selected carrier with every join below. Failure is FAULT / PROVIDER.PROTOCOL_VIOLATION (same outcome as P3-34).", "rust2 orderingAndStateMachine.transitionAstV2.framePrecheck (retained)", "state"),
+    rule("ECHO-SNAPSHOT2", "both", "Every snapshotId echo (manifest, chunk, seal, accepted, SubjectScopeV1, AnchorRefV1 source-span, SubjectV2.subjectId preimage) is the exact OpenUniverse snapshot2 text.", "startup x-opensip-startup-law.identityMembers + SUCC-ECHO-ENUMERATION", "echo"),
+    rule("ECHO-PLAN2", "rust-semantic", "Every PreparedOutput{Manifest,Chunk,Seal,Accepted}.planId is the exact OpenUniverse plan2 text.", "startup identityMembers + SUCC-ECHO-ENUMERATION", "echo"),
+    rule("ECHO-OPEN-UNIVERSE", "both", "Analyze executionId/snapshotId/planId (and TS universeKey) equal OpenUniverse.", "delivery2 AnalyzeV1.fields; startup identityMembers", "echo"),
+    rule("TS2-MANIFEST-DIGEST", "typescript-semantic", "manifestSha256 = lowercase hex SHA-256(deterministic-CBOR(entries)); no domain, no prefix; Seal and Accepted echo it.", "SUCC-TS2-MANIFEST-DIGEST", "commitment", {"recipe": "raw-sha256-hex-of-cbor-entries"}),
+    rule("RAW-MANIFEST-DIGEST", "rust-semantic", "SnapshotManifest, DependencySourceManifest and PreparedOutputManifest manifestSha256 = lowercase hex SHA-256(deterministic-CBOR(entries)); Seal and Accepted echo it.", "rust2 commitments.snapshotManifest/preparedOutputManifest; SUCC-DEPSRC-DIGEST", "commitment", {"recipe": "raw-sha256-hex-of-cbor-entries"}),
+    rule("TS2-SNAPSHOT-ORDER", "typescript-semantic", "entries strictly ascending unique by path UTF-8 bytes; kind decides the variant.", "delivery2 SnapshotManifestV1.fields.entries", "order"),
+    rule("TS2-LOGICAL-PATH-ADMISSION", "typescript-semantic", "RENDERED BY build.py", "identitySchemas3 #/$defs/LogicalPath (declarative grammar); delivery2 SnapshotEntryV1.fields.path", "shape",
+         {"lexical": "logical-path-segments", "members": "FILLED BY build.py", "externMembers": "FILLED BY build.py",
+          "notPaths": ["Ts2SnapshotEntryV1.variants.symlink.linkTarget (a link target, not a project path; no lexical rule)"]}),
+    rule("CANONICAL-PATH-ADMISSION", "rust-semantic", "RENDERED BY build.py", "rust2 definitions.CanonicalPath rule; SUCC-CANONICAL-PATH", "shape",
+         {"lexical": "canonical-path-segments", "members": "FILLED BY build.py", "externMembers": "FILLED BY build.py"}),
+    rule("RUST3-SNAPSHOT-ENTRY-TYPES", "rust-semantic", "file: byteLength uint64, contentSha256 DigestHex, executable bool, targetBytes null; symlink: targetBytes non-empty byte string, other variant members null.", "SUCC-RUST3-SNAPSHOT-ENTRY", "shape"),
+    rule("CHUNK-CUSTODY", "both", "Chunks follow entry order; chunkIndex contiguous from 0 per entry; byteOffset = checked sum of prior chunk bytes; a zero-length entry has no chunk; SHA-256 of the concatenated bytes equals the entry digest; total length equals the entry length.", "delivery2 snapshotTransport; rust2 SnapshotFileChunkV2.fields.bytes; nativeMd §3.2", "order"),
+    rule("SEAL-AGGREGATES", "both", "entryCount = len(entries); total bytes = checked sum of entry lengths (Rust: <= stated limit); totalChunkCount = chunks sent.", "delivery2 SnapshotSealV1.fields; rust2 SnapshotSealV2.fields.all; ProtocolLimitsV3", "join"),
+    rule("ACCEPTED-EQUALS-SEAL", "both", "Accepted members are exactly the Seal values, after byte/digest/VFS validation.", "delivery2 SnapshotAcceptedV1; rust2 SnapshotAcceptedV2; nativeMd §9.2 line 2879", "echo"),
+    rule("DEPSRC-CUSTODY", "rust-semantic", "DependencySourceManifestV3.entries follow params.entryOrder over the exactly joined package row; the rows of one package are exactly its DependencyFileManifestV1 (H(native.dependency-file-manifest.v1) equals fileManifestSha256; count = fileCount; byte sum = totalBytes); every package of the set appears; entries <= maxDependencySourceEntries; distinct packages <= maxDependencySourcePackages; totalBytes <= maxDependencySourceTotalBytes; chunk bytes <= maxDependencySourceChunkBytes; dependencySourceSetId equals OpenUniverse.repositoryResolution.dependencySourceSetId on every frame. Empty set: entries [], manifestSha256 = hex(SHA-256(0x80)), seal counts 0, no chunk.", "SUCC-DEPSRC-DIGEST; nativeMd §3.1, §3.2, §9.3, §9.7", "join",
+         {"entryOrder": ["name", "version", "sourceId", "path"], "orderBytes": "utf-8", "emptyManifestSha256": "sha256(0x80)"}),
+    rule("PACKAGE-KEY-JOIN", "rust-semantic", "packageKey (manifest entries and chunks) must byte-equal name + SP + version + SP + sourceId of exactly one DependencySourceSetV1.packages row; join by exact string equality against the constructed keys of the set (injective because name/version contain no SP after DEPSRC-SET-KEY-CONSTRAINTS). A chunk's (packageKey, path) must equal a manifest entry.", "SUCC-DEPSRC-SET-KEY; nativeModel dependency_source_set_admit key", "join",
+         {"separator": " ", "join": "exact-constructed-key"}),
+    rule("DEPSRC-SET-KEY-CONSTRAINTS", "rust-semantic", "Dependency-source set admission (successor selector wrapping the owner dependency_source_set_admit, before PlanId) refuses an owner-admitted set with a package whose name or version contains a scalar <= U+0020 or whose constructed key exceeds params.maxKeyScalars scalars. The refusal is params.route. Valid empty sourceId and spaces inside sourceId are preserved.", "SUCC-DEPSRC-SET-KEY; SUCC-PUBLIC-ROUTES", "join",
+         {"forbidInNameVersionAtOrBelow": "32", "maxKeyScalars": "4096", "route": route("native.dependency-source-not-wire-representable")}),
+    rule("DEPSRC-WIRE-REPRESENTABILITY", "rust-semantic", "Dependency-source set admission successor selector. Phase A, BEFORE the owner: for every package the owner would hash (activated, in Cargo.lock, not path-kind, provided), a file path failing the owner path schema params.ownerPathSchema under the owner pattern-evaluation successor refuses (the owner cannot mint a file-manifest identity for it; before the successor it raised an untyped exception), so this refusal precedes owner DS rules for that set. Phase B, only after the owner admits (owner DS refusals keep precedence), after DEPSRC-SET-KEY-CONSTRAINTS: a package whose name, version or sourceId (params.nfcFields) is not NFC, or a file path that is not NFC, exceeds params.maxPathScalars scalars or fails lexicalRules[params.pathLexical], refuses. A legitimate name such as 'a/..' followed by a line feed passes both phases. Nothing is normalized, truncated or renamed. The refusal is params.route.", "SUCC-DEPSRC-REPRESENTABILITY; SUCC-OWNER-PATTERN-EVALUATION; SUCC-PUBLIC-ROUTES; native-evidence.schemas.v2 DependencyFileManifestV1 path; rust2 canonicalCbor (NFC)", "shape",
+         {"ownerPathSchema": "#/$defs/DependencyFileManifestV1/items/properties/path", "nfcFields": ["name", "version", "sourceId"], "pathLexical": "canonical-path-segments", "maxPathScalars": "4096", "route": route("native.dependency-source-not-wire-representable")}),
+    rule("PREPARED-V3-ENTRY", "rust-semantic", "entries[i] answers PreparedOutputSetV3.rows[i]: outputOrdinal = i; kind = planRow.kind; planRow = the exact row; logicalPath = '.opensip/prepared/v3/' + i + '-' + planRow.blob.sha256 + '.blob'; blobByteLength/blobSha256 = planRow.blob.byteLength/sha256; contentByteLength/contentSha256 equal the blob values (no V2 wrapper); a generated-file row requires planRow.generated.blob == planRow.blob.", "SUCC-PREPARED-V3", "join"),
+    rule("PREPARED-V3-SET-JOIN", "rust-semantic", "Worker: every planRow.inputBinding.dependencySourceSetId equals repositoryResolution.dependencySourceSetId and cfgSetId names a universe.resolvedInputs.cfgSets entry; row kinds inert only. Host (before spawn): H(native.prepared-output-set.v3, {schemaVersion 3, preparation, rows: [entries[*].planRow]}) == repositoryResolution.preparedOutputSetId.", "SUCC-PREPARED-V3", "join"),
+    rule("PREPARED-V3-READ-AUTHORITY", "rust-semantic", "Narrowly declared owner correction of the defaulted PO-1 partial-stale fallback on this wire (review-05 A-2). No reviewed carrier conveys the owner usable/stale partition to the worker, and the worker cannot recompute PO-1: the host-to-worker carriers reach no toolchain identity or toolchainDigest context and no owner file-manifest digests (params.workerContextNotCarried, outside the carried planRow itself), while PREPARED-V3-SET-JOIN already refuses a row whose dependencySourceSetId or cfgSetId does not join. Therefore the host selects a prepared set (non-null preparedOutputSetId) only when the owner outcome is admitted, i.e. no row is stale: a defaulted set with any stale row is not selected (fallback-non-prepared, zero usable rows, the owner staleRows kept, readAuthorityDisclosure stale-rows), exactly like the over-limit fallback. Within a selected set every carried row is fresh; the worker reads (mounts at its logicalPath and consumes) exactly the entries whose carried planRow.status is ok and never reads an entry whose planRow.status is failed, which is carried only for set identity (its owner is analyzed non-prepared, PO-2). No field is added.", "nativeMd PO-1 (lines 1853-1858) and PO-2; rust2 preparedOutputCustody.readAuthority; PREPARED-V3-ENTRY; PREPARED-V3-SET-JOIN; SUCC-PREPARED-READ-AUTHORITY", "join",
+         {"selection": "owner-outcome-admitted-only", "readableStatus": "ok", "carriedUnreadStatus": "failed", "workerContextNotCarried": ["ToolchainIdentityV1", "ownerFileManifestSha256", "ownerManifests", "toolchain", "toolchainDigest"]}),
+    rule("PREPARED-V3-WIRE-LIMIT", "rust-semantic", "Prepared output set admission successor selector, applied for EVERY non-rejected owner outcome (admitted, and the defaulted partial-stale fallback-non-prepared), before Plan construction and after owner non-inert and stale refusals, which keep precedence: judged over every row of the Plan-bound set, because PREPARED-V3-ENTRY and PREPARED-V3-SET-JOIN make the manifest answer every row (stale and failed rows included), a set whose inert rows exceed params.maxEntries (params.countScope; maxPreparedOutputEntries retained) or whose blob byte total exceeds params.maxTotalBlobBytes follows params.modes, the owner PO-1 prepared-mode law: when prepared mode was selected explicitly it refuses with params.route; when prepared mode was defaulted the set is not selected: the outcome is fallback-non-prepared with zero usable rows, the owner staleRows kept, a wireLimitDisclosure listing the faults and owners analyzed non-prepared (no partial row selection, no refusal). The encoded PreparedOutputManifest frame is bounded by REQUEST-WIRE-ACCOUNTING. maxExpansionRows and maxGeneratedFileRows stay preparation-set limits, never wire widenings.", "provider-handshake ProtocolLimitsV3.maxPreparedOutputEntries; rust2 PreparedOutputManifestV2.fields.entries; nativeMd lines 1853-1856 (PO-1 mode law), 2934, 3534; SUCC-PREPARED-V3; SUCC-PUBLIC-ROUTES", "bound",
+         {"countScope": "all-inert-rows", "maxEntries": "256", "maxOrdinal": "255", "maxTotalBlobBytes": "1073741824", "modes": {"explicit": "refuse", "defaulted": "fallback-non-prepared-with-disclosure"}, "route": route("native.prepared-output-exceeds-wire-limit")}),
+    rule("REQUEST-WIRE-ACCOUNTING", "both", "At Plan time, after PlanId and every set admission and before any worker is spawned, the host computes the immutable CANONICAL HOST SEND SCHEDULE (the private send plan consumed under HOST-SEND-SCHEDULE): Hello, OpenUniverse, SnapshotManifest, its chunks, SnapshotSeal, then for major 3 DependencySourceManifest, chunks, Seal and, iff preparedOutputSetId is non-null, PreparedOutputManifest, chunks, Seal; then Analyze; plus exactly one reserved Cancel. Each frame is measured as its exact deterministic-CBOR envelope payload (params.lengthScope; the 40-byte transport prefix is excluded, params.prefixIncluded). Chunking is params.chunking: every chunk of an entry carries exactly the maximum chunk bytes except the entry's last, and a zero-length entry has no chunk; this schedule is frame-minimal but not byte-minimal (a smaller-byte lawful chunking can exist at CBOR head thresholds), and no other chunking is claimed to fit the budget computed for it. The reserved Cancel: P3-29 is the only Cancel row, so at most one Cancel is ever sent; its maximal payload, echoing the execution and analysis, is counted in the request totals, so a user interrupt at any point stays interrupted (130) instead of becoming a worker limit fault. The host refuses when a manifest's entry count exceeds its declared entry bound (params.entryBounds: maxSnapshotEntries, maxDependencySourceEntries, maxPreparedOutputEntries), when the canonical schedule has a frame over maxFramePayloadBytes and, for major 3 only, when its payload bytes exceed maxRequestPayloadBytesTotal or its frame count exceeds maxRequestFrames; the refusal means the input does not fit under the canonical host send schedule, never 'no lawful encoding exists'. TypeScript major 2 declares no request totals, so only the frame bound applies. The refusal is params.route; plan2 has been computed but is not published, and no run3, Coverage or worker exists.", "rust2 framing.lengthScope/allocationRule; rust2 limitPolicy.aggregateAccounting; provider-handshake ProtocolLimitsV3 and TypeScriptProtocolLimitsV1; protocol3-transitions P3-29; nativeMd line 2848 (timing only); SUCC-REQUEST-ACCOUNTING; SUCC-HOST-SEND-SCHEDULE; SUCC-PUBLIC-ROUTES", "bound",
+         {"lengthScope": "envelope-payload", "prefixIncluded": False, "prefixBytes": "40", "chunking": "greedy-max-chunk", "schedule": "canonical-greedy", "byteMinimal": False, "reserveCancel": True,
+          "entryBounds": {"SnapshotManifest": "maxSnapshotEntries", "DependencySourceManifest": "maxDependencySourceEntries", "PreparedOutputManifest": "maxPreparedOutputEntries"},
+          "totalsApplyTo": ["rust-semantic"], "route": route("native.provider-request-exceeds-wire-limit")}),
+    rule("HOST-SEND-SCHEDULE", "both", "Private plan-consumption contract for the host sender (the M3 sender implements it; tools/sender_ref.py is the reference). The sender consumes the immutable canonical send plan produced by REQUEST-WIRE-ACCOUNTING: it emits exactly the planned slots in order, each with the planned sequence number, frameType, chunk coordinates (entry, chunkIndex, byteOffset, byteLength), seal totalChunkCount, exact envelope payload bytes and planned payloadSha256 (SHA-256 of the deterministic-CBOR bytes of the planned payload; for a chunk the payload without its bytes member, whose content is bound instead by the entry contentSha256 carried as entryContentSha256 on the entry's last chunk slot and checked over the bytes actually sent). A Cancel may take the next sequence number at most once, never before the Hello slot has been sent (P3-29 *PRE_COMPLETE excludes START), and only as the exact correlation echo of what was actually sent (CANCEL-NULLABILITY): executionId null until an OpenUniverse frame has been consumed and then that frame's executionId, analysisOrdinal null until an Analyze frame has been consumed and then its analysisOrdinal, reason user-interrupt, compared by deterministic-CBOR encoded typed bytes, never host-language equality; every slot and the Cancel are checked before the frame becomes sent state, so the already-sent prefix is exactly the accepted frames; nothing follows it. Its payload bytes never exceed the reserve because the reserve is the maximal echo; that comparison, like the per-frame limit re-checks, is a defensive branch reachable only for a plan consumed under other limits or a reserve not produced by the planner. Any divergence, a different lawful chunking included, is refused before the frame is written, and running payload bytes and frames are re-checked against the owner limits after every frame. A transcript that neither consumes every slot nor ends with the Cancel is incomplete.", "rust2 framing and limitPolicy; CHUNK-CUSTODY; SEAL-AGGREGATES; protocol3-transitions P3-29; SUCC-HOST-SEND-SCHEDULE", "order",
+         {"planConsumption": "exact-slot-sequence", "cancel": {"maxCount": "1", "reserve": "maximal echo Cancel", "position": "next sequence number, only after the Hello slot, as the exact correlation echo of the consumed frames (CANCEL-NULLABILITY), compared by deterministic-CBOR bytes; ends the transcript"}, "slotBinding": ["sequence", "frameType", "entry", "chunkIndex", "byteOffset", "byteLength", "totalChunkCount", "payloadBytes", "payloadSha256", "entryContentSha256"], "defensiveBranches": ["cancel-over-reserve", "frame-limit", "request-limit"], "reference": "tools/sender_ref.py"}),
+    rule("PREPARED-V3-PATH-REPRESENTABILITY", "rust-semantic", "Prepared output set admission successor selector, BEFORE the owner and in both prepared modes: a row whose site.path fails params.siteSchema or whose generated.logicalPath fails params.generatedSchema, each evaluated by the owner validator under the owner pattern-evaluation successor, refuses with params.route (the owner's typed admission would otherwise raise an untyped exception). A legitimate name such as 'a/..' followed by a line feed is admitted; a real '..' segment after a line terminator is refused. Nothing is normalized. Precedence: this refusal outranks the owner non-inert and stale refusals and the wire-limit rule, consistent with the owner validating the PreparedOutputSetV3 schema before any row rule.", "native-evidence.schemas.v2 ExpansionSiteV1.path and GeneratedFileV1.logicalPath; nativeMd GeneratedInputBoundsV1 (strict relative logicalPath); SUCC-OWNER-PATTERN-EVALUATION; SUCC-PUBLIC-ROUTES", "shape",
+         {"siteSchema": "#/$defs/ExpansionSiteV1/properties/path", "generatedSchema": "#/$defs/GeneratedFileV1/properties/logicalPath", "route": route("native.prepared-output-not-wire-representable")}),
+    rule("PATH-SITE-SEGMENT-LAW", "both", "RENDERED BY build.py", "owner-pattern-successor.v1.json; wire-carriers.v1.json pathSites; SUCC-PATH-SITES", "shape", {"sites": "FILLED BY build.py"}),
+    rule("RELATION-PAYLOAD-PATH-LAW", "both", "Relation payload paths are fact-plane values the carrier treats as opaque payload bytes, so they are outside pathSites. Every relation-payload-schemas.v2.json property whose schema is $ref #/$defs/CanonicalPath (params.sites, recomputed from the pinned document) is admitted by identity-model.v3 validate_registered_record, the call retained fact admission makes for every relation payload, under the scoped owner successor: a real '..' or '.' segment after a line terminator refuses (REGISTERED_RECORD), a legitimate segment such as '..' followed by a line feed is admitted, and nothing is normalized. Full retained-closure admission (admit_frame over a retained Run bundle) is not driven here. Retained fact2 admission (identity-model.v3 registered_payload) validates this schema and scans NFC and negative integers; it does not call the historical fact-plane v1 checker _is_path. Not corrected here (relation-registry / fact-plane unit duty): the relation v2 CanonicalPath pattern still admits empty segments ('a//b.rs', 'a/') and C0 controls ('a<BEL>b.rs') although the inherited fact-plane.v1 sharedTypes.CanonicalPath forbids empty segments and the v2 document states that every inherited logical restriction survives; FilePayloadV1.path is additionally bound by its snapshot-inventory join (not executed here) and the PackagePayloadV1.manifestPath and VcsChangePayloadV1.previousPath join laws are unchecked.", "foundation/relation-payload-schemas.v2.json #/$defs/CanonicalPath; foundation/identity-model.v3.py validate_registered_record and registered_payload; SUCC-OWNER-PATTERN-EVALUATION", "shape",
+         {"document": "foundation/relation-payload-schemas.v2.json", "consumer": "foundation/identity-model.v3.py#validate_registered_record", "sites": "FILLED BY build.py"}),
+    rule("OWNER-PATTERN-EVALUATION", "both", "The proposed reference owner correction for schema pattern evaluation is owner-pattern-successor.v1.json (an author candidate applied in memory, effective as selected semantics only after root acceptance and source-bridge promotion), within its closed (document, consumer) scope only: the evidence schema in the native model and the startup model, the occupancy companion schema in the wire model, and the relation-payload schema in identity-model.v3 validate_registered_record. There an owner schema `pattern` is an ECMA-262 RegExp evaluated with flags u; no canonical module or ExactValidator class is changed and every other document keeps its pinned evaluation (noChangeDocuments executed). The terminator-bounded path lookahead is corrected to scan the complete string at every occurrence in the evidence and relation-payload schema documents (schemaPatternRows), and model regexes that compile or mirror owner schema patterns evaluate the same ECMA pattern (modelRegexRows). Owner set admission therefore admits legitimate names such as 'a/..', '..' or 'a/.' followed by a line feed and refuses a real '..' segment after any line terminator; the reference owner models are the pinned models with this successor installed in memory.", "foundation/canonical.py ExactValidator; native_evidence_model.v2 validate_native, native_identity, _LOGICAL_RE, _UNIT_ROOT_RE, _MEMBER_ROOT_RE; provider_startup_model.v1 and provider_wire_model.v1 validation; SUCC-OWNER-PATTERN-EVALUATION", "shape",
+         {"successor": "owner-pattern-successor.v1.json"}),
+    rule("TS2-BUDGET-PROJECTION", "typescript-semantic", "budget is exactly delivery2 stageRequestProjection.budgetProjection output.", "delivery2 stageRequestProjection.budgetProjection", "join"),
+    rule("TS2-STAGE-PROJECTION", "typescript-semantic", "stageRequests are all and only selected stages in verified logical order; stageOrdinal contiguous 0..n-1; dependsOn [] when absent.", "delivery2 multiStageAnalyze; stageRequestProjection", "join"),
+    rule("DISPATCH-STAGE-CORRELATION", "both", "stageId is C-2 text (StageIdText) and equals DispatchBindingV1.expectedStageId; stageOrdinal = analyzeRequestOrdinal, never retainedStageOrdinal; FactBatch analysisOrdinal/batchIndex/first candidateOrdinal equal the dispatch expectations; batch count 1..cap (rust2 T016 guard retained as pre-match admission).", "dispatch x-opensip-wire.correlation; nativeMd §9.6 lines 3024-3043; rust2 T016", "join"),
+    rule("TS2-SUBJECT-SCOPE-RETAINED", "typescript-semantic", "SubjectScopeV1 fully retained: commitment C(opensip.coverage.subject-scope.v1, sorted SnapshotFileSubjectV1[]); subjectCount = kind=file entries; recomputed by host and worker.", "delivery2 definitions.SubjectScopeV1 (retained)", "commitment"),
+    rule("PER-KEY-SCOPE2", "both", "Each request key's subjectScopeCommitment = 'sha256:' + hex of scope2 = H('subject-scope', D_key) with D_key members params.descriptorMembers (sourceUniverse/targetUniverse are the key's 64-hex suffixes; relation/resolution the key's; enumeratorClosure the Plan-selected provider closure2 of the stage; subjects the host enumeration). Host mints before spawn; the same descriptor drives admit_coverage_result_v3 and pre-Analyze conversion. Worker checks Sha256Text shape only and echoes: entries[i].key.subjectScopeCommitment and entries[i].entry.examinedUniverse.subjectScopeCommitment equal keys[i]. No equality with TS SubjectScopeV1.subjectScopeCommitment or rust2 commitments.subjectScope is required.", "SUCC-PER-KEY-SCOPE2; nativeMd §4.1a; identityMd §3 lines 287-294", "commitment",
+         {"identityDomain": "subject-scope", "textPrefix": "sha256:", "descriptorMembers": ["schemaVersion", "snapshotId", "sourceUniverse", "targetUniverse", "relation", "resolution", "enumeratorClosure", "subjects"]}),
+    rule("TS2-DOMAIN-COMMITMENT", "typescript-semantic", "domainCommitment = C(opensip.ts-provider.requested-coverage-domain.v1, {subjectScope, keys}); keys carry per-key scope2 values; worker recomputes.", "delivery2 RequestedCoverageDomainV1.fields.domainCommitment", "commitment"),
+    rule("RUST3-DOMAIN-COMMITMENT", "rust-semantic", "domainCommitment = C(opensip.rust-provider.analysis-domain.v2, {subjects, requestedCoverageDomain}); analysisDomain equals a fresh host reconstruction (wireRule) with per-key scope2 values.", "rust2 commitments.analysisDomain; planAndDomainProjection.wireRule", "commitment"),
+    rule("RUST3-SUBJECTS", "rust-semantic", "subjectsAlgorithm retained; the snapshotId in the subjectId preimage is the snapshot2 text.", "rust2 planAndDomainProjection.subjectsAlgorithm; SUCC-ECHO-ENUMERATION", "commitment"),
+    rule("RUST3-PLAN-STAGE-BYTES", "rust-semantic", "deterministic-CBOR(planStage) equals the selected ExecutionPlan stage bytes; optional members absent exactly when absent.", "rust2 planAndDomainProjection.planStageByteRule", "join"),
+    rule("UNIVERSE-NATIVE-IDENTITY", "both", "Universe ids are sha256:hex(H(native.semantic-universe.<language>.v2, universe.resolvedInputs)); CoverageKeyV2 entries carry the 64-hex suffix.", "startup universeIdentity; nativeMd §0 lines 125, 128", "join"),
+    rule("FP-CANDIDATE", "both", "fact-plane candidate law: registry relation/rung/layer/schemaId, producer/language constants, producerVersion = verified providerBuildId, target universe in host-admitted target domain.", "factPlane candidateSchema.fields; delivery2 FactCandidateV1.fields", "join"),
+    rule("RELATION-PAYLOAD-CBOR", "both", "canonicalRelationPayload decodes once to the registry payload schema and re-encodes byte-equal; <= 1048576 bytes.", "factPlane candidateSchema.transportRepresentation; handshake candidateCborProjection", "shape"),
+    rule("ANCHOR-WIRE-SPAN", "both", "Wire anchor rule (retained fact-plane sourceSpanSchema.rule): source-span requires snapshotId = OpenUniverse snapshot2, path = a kind=file manifest path, contentSha256 = that entry digest, startByte < endByte <= entry byteLength (NON-EMPTY). Array order: TS2 cbor-bytes-strict (delivery2 AnchorRefV1.ordering, the more specific TS transport owner, chosen over its 'field-for-field' fact-plane claim), Rust3 cve1-bytes-strict (factPlane anchorSchema.ordering). The two orders differ through map-key order (CVE1 sorts keys bytewise, so contentSha256 compares first; CBOR sorts length-first, so kind/path compare first); anchors differing only in path sort identically. Count 1..100000 (identity-schemas.v3 fact.anchors maxItems; fact-batch.schema.v3 anchors maxItems 4096 is the JSON-vector bound); a refusal above 100000 is outcome-equivalent to the later fact2 mint refusal (nativeMd lines 3838-3843). The shared fact2 rule (identity-model.v3.py line 1892 ANCHOR_RANGE: 0 <= a <= b <= len, plus ANCHOR_UTF8) is NOT narrowed.", "SUCC-ANCHOR-RULES", "join",
+         {"nonEmpty": True, "maxCount": "100000", "order": {"typescript-semantic": "cbor-bytes-strict", "rust-semantic": "cve1-bytes-strict"}}),
+    rule("ANCHOR-FACT-REF-REFUSED", "both", "kind=fact-ref is PROVIDER.PROTOCOL_VIOLATION at candidate admission before any fact2 mint, because fact-identity-fact2 is a mandatory identity token in both token sets and identity-schemas.v3 fact.anchors has no fact reference.", "SUCC-FACT-REF-REFUSED", "state"),
+    rule("OCCUPANCY-JOIN", "both", "occupancyCompanions length <= len(candidates); each candidateOrdinal names a candidate of this batch; targetUniverseId byte-equal to that candidate.", "occupancy x-opensip-order-vocabulary.candidateOrdinal; nativeMd §9.6", "join"),
+    rule("RUST3-SPOOL", "rust-semantic", "Candidate spool accounting over deterministic-CBOR({analysisOrdinal, stageId, candidate}) retained; bytes budget increments use candidate encoded length.", "rust2 limitPolicy.candidateSpoolAccounting; deterministicBudget", "bound"),
+    rule("COMMIT-MAP", "both", "Every stage/stream/terminal commitment uses exactly the commitmentMap row for its field; the row valueClass must match the domain's owner recipe noun.", "SUCC-COMMIT-MAP", "commitment"),
+    rule("COMMIT-TS2-FACT-BATCH", "typescript-semantic", "batchCommitment = C(opensip.ts-provider.fact-batch.v1, facts) over wire candidates; FactBatchV3 carries none.", "handshake x-opensip-wire-law.commitments.typescript-semantic", "commitment"),
+    rule("CANCEL-NULLABILITY", "both", "Cancel.executionId is null iff OpenUniverse has not been sent, otherwise its exact value; analysisOrdinal is null iff Analyze has not been sent, otherwise Analyze.analysisOrdinal (TS2: 0). Cancel is host-sent, so the host knows exactly.", "delivery2 CancelV1.fields; SUCC-RUST3-FAULT-CANCEL", "echo"),
+    rule("CANCELLED-ECHO", "both", "Cancelled executionId and analysisOrdinal equal the Cancel values.", "delivery2 CancelledV1.fields; rust2 CancelledV2.fields.all", "echo"),
+    rule("TS2-OBSERVED-PHASE", "typescript-semantic", "observedPhase is the inherited enum; snapshot for a Cancel in WAIT_NATIVE_CONTEXT_VERIFIED or READY_ANALYZE.", "startup x-opensip-startup-law.cancellation", "state"),
+    rule("RUST3-CANCEL-TYPES", "rust-semantic", "Cancel.reason const user-interrupt; Cancelled.observedPhase is the host phase in which the Cancel was sent (one of the 16 *PRE_COMPLETE phases). After P3-29 any in-flight non-Cancelled worker frame is P3-34, so in every admitted trace the send phase equals the worker's receipt phase.", "rust2 CancelledV2.fields.all; P3-29/P3-30; SUCC-RUST3-FAULT-CANCEL", "state"),
+    rule("RUST3-PROVIDER-FAULT", "rust-semantic", "ProviderFault is judged by the worker-observed transcript. The worker reads Hello before writing any frame. phase = the P3 phase reached by replaying exactly the frames the worker has read and written; executionId = OpenUniverse.executionId iff the worker has read OpenUniverse, else null; analysisOrdinal = Analyze.analysisOrdinal iff it has read Analyze, else null. Host admission (possible-phase-set): let W be the last admitted worker-to-host frame (Hello if none); the host admits the payload iff (phase, executionId, analysisOrdinal) equals the worker-observed triple after W or after any prefix of the host-to-worker frames sent since W. So an in-flight OpenUniverse/Analyze admits null or the sent value, jointly consistent with phase, and a frame the worker provably read (a later admitted worker frame) requires the value. detailCode IdentityText, diagnostic only, normalizes to provider-protocol. A refused (inconsistent or START-phase) ProviderFault payload turns the owner P3-28 provider-fault terminal into FAULT; params.d9Equivalence records that the pinned owner stage_authority gives both terminal kinds the identical D9 outcome, so no fault outcome is suppressed or changed (review-02 A-5).", "rust2 ProviderFaultV2; P3-28 (*PRE_COMPLETE); SUCC-RUST3-FAULT-CANCEL; nativeModel stage_authority", "state",
+         {"phaseSemantics": "worker-observed", "hostAdmission": "possible-phase-set", "anchorFrame": "last-admitted-worker-frame", "nullLaw": {"executionId": "OpenUniverse", "analysisOrdinal": "Analyze"}, "jointConsistency": True, "readHelloFirst": True,
+          "d9Equivalence": {"ownerTerminalKind": "provider-fault", "refusedPayloadTerminalKind": "fault"}}),
+    rule("RUST3-BUDGET-EXHAUSTED", "rust-semantic", "triggerStageId = current stage; unit/limit = planStage.budget (a stage without budget or with milliseconds cannot BudgetExhausted); observed = limit + 1 (checked).", "rust2 T020 guard (retained pre-match); SUCC-RUST3-OBSERVED", "join", {"observedMinusLimit": "1"}),
+]
+
+DOMAIN_RULE = "C(d, v) = 'sha256:' + lowercase hex SHA-256(UTF8(d) || 0x00 || deterministic-CBOR(v))"
+COMMITMENT_MAP = {
+    "function": DOMAIN_RULE,
+    "valueClasses": {
+        "stage-entries": "the ordered CoverageResultV3 entries of one stage",
+        "stage-major-entries": "the ordered CoverageResultV3 entries of all requested stages, stage-major/key order",
+        "stage-candidates": "the ordered wire FactCandidateV1 values of one stage",
+        "stage-major-candidates": "the ordered wire FactCandidateV1 values of all stages",
+        "batch-facts": "one FactBatchV1 facts array", "request-domain": "the request domain record",
+        "file-subjects": "sorted SnapshotFileSubjectV1[]", "key-descriptor": "foundation subject-scope descriptor D_key",
+        "manifest-entries": "manifest entries array", "subject-preimage": "SubjectV2 identity preimage",
+    },
+    "rows": [
+        {"protocol": "typescript-semantic", "field": "Startup1TypeScriptCoverageV2.coverageCommitment", "domain": "opensip.ts-provider.stage-coverage.v1", "valueClass": "stage-entries"},
+        {"protocol": "typescript-semantic", "field": "Ts2StageResultV1.coverageCommitment", "domain": "opensip.ts-provider.stage-coverage.v1", "valueClass": "stage-entries"},
+        {"protocol": "typescript-semantic", "field": "Ts2CompleteV1.coverageStreamCommitment", "domain": "opensip.ts-provider.coverage-stream.v1", "valueClass": "stage-major-entries"},
+        {"protocol": "typescript-semantic", "field": "Startup1TypeScriptUnavailableV2.coverageCommitment", "domain": "opensip.ts-provider.coverage-stream.v1", "valueClass": "stage-major-entries"},
+        {"protocol": "typescript-semantic", "field": "Startup1TypeScriptBudgetExhaustedV2.coverageCommitment", "domain": "opensip.ts-provider.coverage-stream.v1", "valueClass": "stage-major-entries"},
+        {"protocol": "typescript-semantic", "field": "Ts2StageResultV1.factCommitment", "domain": "opensip.ts-provider.stage-facts.v1", "valueClass": "stage-candidates"},
+        {"protocol": "typescript-semantic", "field": "Ts2CompleteV1.factStreamCommitment", "domain": "opensip.ts-provider.fact-stream.v1", "valueClass": "stage-major-candidates"},
+        {"protocol": "typescript-semantic", "field": "Ts2FactBatchV1.batchCommitment", "domain": "opensip.ts-provider.fact-batch.v1", "valueClass": "batch-facts"},
+        {"protocol": "typescript-semantic", "field": "Ts2RequestedCoverageDomainV1.domainCommitment", "domain": "opensip.ts-provider.requested-coverage-domain.v1", "valueClass": "request-domain"},
+        {"protocol": "typescript-semantic", "field": "Ts2SubjectScopeV1.subjectScopeCommitment", "domain": "opensip.coverage.subject-scope.v1", "valueClass": "file-subjects"},
+        {"protocol": "both", "field": "Ts2CoverageKeyV1.subjectScopeCommitment / Rust3CoverageKeyV2.subjectScopeCommitment / Native2CoverageKeyV2.subjectScopeCommitment / Native2ExaminedUniverseV1.subjectScopeCommitment", "domain": None, "valueClass": "key-descriptor", "recipe": "foundation identity H('subject-scope', D_key), spelled sha256:<scope2 hex>; not DOMAIN_RULE"},
+        {"protocol": "typescript-semantic", "field": "Ts2SnapshotManifestV1.manifestSha256 (+ Seal/Accepted echo)", "domain": None, "valueClass": "manifest-entries", "recipe": "lowercase hex SHA-256(deterministic-CBOR(entries)); delivery2 commitments.domains.snapshotManifest not applied"},
+        {"protocol": "rust-semantic", "field": "Startup1CoverageV3.coverageCommitment", "domain": "opensip.rust-provider.stage-coverage.v2", "valueClass": "stage-entries"},
+        {"protocol": "rust-semantic", "field": "Rust3StageResultV2.coverageCommitment", "domain": "opensip.rust-provider.stage-coverage.v2", "valueClass": "stage-entries"},
+        {"protocol": "rust-semantic", "field": "Rust3CompleteV2.coverageStreamCommitment", "domain": "opensip.rust-provider.coverage-stream.v2", "valueClass": "stage-major-entries"},
+        {"protocol": "rust-semantic", "field": "Startup1UnavailableV3.coverageCommitment", "domain": "opensip.rust-provider.coverage-stream.v2", "valueClass": "stage-major-entries"},
+        {"protocol": "rust-semantic", "field": "Startup1BudgetExhaustedV3.coverageCommitment", "domain": "opensip.rust-provider.coverage-stream.v2", "valueClass": "stage-major-entries"},
+        {"protocol": "rust-semantic", "field": "Rust3StageResultV2.factCommitment", "domain": "opensip.rust-provider.stage-facts.v2", "valueClass": "stage-candidates"},
+        {"protocol": "rust-semantic", "field": "Rust3CompleteV2.factStreamCommitment", "domain": "opensip.rust-provider.fact-stream.v2", "valueClass": "stage-major-candidates"},
+        {"protocol": "rust-semantic", "field": "Rust3StageAnalysisDomainV2.domainCommitment", "domain": "opensip.rust-provider.analysis-domain.v2", "valueClass": "request-domain"},
+        {"protocol": "rust-semantic", "field": "Rust3SubjectV2.subjectId", "domain": "opensip.rust-provider.subject.v2", "valueClass": "subject-preimage", "recipe": "'rust-file:sha256:' + hex(...) as rust2 subjectsAlgorithm"},
+        {"protocol": "rust-semantic", "field": "Rust3SnapshotManifestV2 / Native2DependencySourceManifestV3 / Rust3PreparedOutputManifestV3 .manifestSha256", "domain": None, "valueClass": "manifest-entries", "recipe": "lowercase hex SHA-256(deterministic-CBOR(entries))"},
+    ],
+    "basis": "Preimage shape decides the domain. The owner recipe nouns (rust2 commitments: stageCoverage over 'stageCoverageEntries', coverageStream over 'stage-major ... values'; delivery2 field texts 'this stage's ordered ... stream' vs 'every ordered ... from all stages') classify each domain; terminal Unavailable/BudgetExhausted coverage is stage-major (startup coverageFrames.terminals), so it is coverageStream. check.py derives the class from owner text and executes Rust3 and TS2 terminal vectors.",
+}
+
+TRANSITIONS = {
+    "typescript-semantic": {
+        "base": {"pin": "ts2order", "rules": "23"},
+        "overlay": "none: T2-14 already guards post-Analyze Unavailable with outputSeen=false; T2-18 keeps Cancel from START (delivery2 cancelTransition).",
+        "unavailableSelection": "The carrier selects the Unavailable payload by host phase (WAIT_NATIVE_CONTEXT_VERIFIED or ANALYZING). The TS2 owner table guards T2-10/T2-14 on the payload-derived observation unavailablePayload. Outcomes are equivalent (a phase/payload mismatch faults either way), but trace ids differ: carrier selection refuses in the frame precheck, the owner table reaches T2-23.",
+    },
+    "rust-semantic": {
+        "base": {"pin": "p3", "rules": "34"},
+        "precedence": "protocol3-transitions.v1.json plus this overlay (published as p3-guard-successor.v1.json) is the only matching table for major 3; rust2 transitionAstV2 rules are not interpreted. rust2 framePrecheck and the T016/T020 payload guards are retained as pre-match admission (RUST3-FRAME-PRECHECK, DISPATCH-STAGE-CORRELATION, RUST3-BUDGET-EXHAUSTED).",
+        "stateAdditions": {"outputSeen": False},
+        "stateUpdateAdditions": [{"onFrames": ["Analyze"], "sets": {"outputSeen": False}},
+                                 {"onFrames": ["FactBatch", "CoverageV3"], "sets": {"outputSeen": True}}],
+        "guardAdditions": {"P3-25": {"outputSeen": False}},
+        "equivalence": "rust2 T019 guards stageIndex == 0 AND outputSeen == false; rust2 T017/T018 set outputSeen on every Coverage, so stageIndex > 0 implies outputSeen and the single outputSeen guard is equivalent.",
+        "cancel": {"hostMaySendInStart": False, "basis": "P3-29 *PRE_COMPLETE excludes START; Hello is host-to-worker so START is host-controlled. A user interrupt in START terminates the child without a Cancel frame: a resulting P3-33 process observation still reduces to interrupted/130 because the host finalizer combines provider observations with interruption timing (rust2 d9Join.rule) and cancellation is interrupted 130 (nativeMd lines 3838-3843)."},
+        "terminalGuards": "Unchanged P3 preMatchLaw: FAULT absorbing; any frame after a terminal in WAIT_ZERO_EXIT/WAIT_EOF/DONE faults; process faults from any phase; unmatched frame P3-34.",
+        "custodyOrder": "SnapshotAccepted -> DependencySource custody (always) -> PreparedOutput custody iff preparedOutputSetId != null -> NativeContextVerified or pre-Analyze Unavailable -> Analyze (nativeMd §9.1 step 4 lines 2863-2866; P3-08..P3-22).",
+    },
+}

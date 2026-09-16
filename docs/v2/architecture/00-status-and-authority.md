@@ -1,5 +1,7 @@
 # Status and Authority
 
+> **Current intended-product authority — D-372:** The [applied product contract index](../contracts/product-v1/README.md) and [exact application record](../../coop/design-corrections/application.v1.json) supply the reviewed prospective successors for this scope. [The source map](../../coop/design-corrections/current-source-map.proposed.md) names their relationship to the historical V1/preview accounts below. Exact resolution and preservation of historical evidence still apply; the newer filename alone grants no authority. Conditions 1–4 are met at design level in [file 08](08-decision-and-readiness-register.md#unified-product-design-readiness); condition 5 remains NOT MET.
+
 > **Preview application:** D-369 applies the independently reviewed [reference architecture](../../coop/completion/reference-architecture.v2.md) and [exact successor manifest](../../coop/completion/architecture-application.v1.json). Older reservations and broader authoritative-product directions below retain their historical scope; the manifest names the sentences replaced for the preview. V1 claim/freeze status is unchanged. [File 08](08-decision-and-readiness-register.md) remains the only readiness checklist.
 
 > **Status:** DRAFT — non-binding V2 architecture guide

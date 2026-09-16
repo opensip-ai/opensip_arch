@@ -1,5 +1,7 @@
 # Configuration and Security
 
+> **Current applicability — D-372:** Read this inherited chapter through the [applied source map](../../coop/design-corrections/current-source-map.proposed.md) and [current product contracts](../contracts/product-v1/README.md). The exact [application record](../../coop/design-corrections/application.v1.json) names the owning successors; historical preview/V1 labels and frozen evidence below retain their original scope. [File 08](08-decision-and-readiness-register.md#unified-product-design-readiness) owns current readiness.
+
 > **Preview application:** D-369 applies the independently reviewed [reference architecture](../../coop/completion/reference-architecture.v2.md) and [exact successor manifest](../../coop/completion/architecture-application.v1.json). Older reservations and broader authoritative-product directions below retain their historical scope; the manifest names the sentences replaced for the preview. V1 claim/freeze status is unchanged. [File 08](08-decision-and-readiness-register.md) remains the only readiness checklist.
 
 > **Status:** DRAFT — V1 laws separated from proposed V2 mechanisms

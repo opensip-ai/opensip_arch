@@ -1,0 +1,184 @@
+--- root-a5/docs/v2/contracts/product-v1/native-evidence.md
++++ amended/docs/v2/contracts/product-v1/native-evidence.md
+@@ -159,7 +159,7 @@
+ 
+ | Mode id | Recognition | Universe | Notes |
+ |---|---|---|---|
+-| `ts-tsconfig` | `tsconfig.json` at the unit root (or named by discovery), effective `allowJs=false` | `typescript-v2`, `configOrigin=tsconfig` | JavaScript files are not program roots; a JS import target is `unresolved-module-specifier`. |
++| `ts-tsconfig` | `tsconfig.json`/`jsconfig.json` at the unit root (or named by discovery) with effective `allowJs=false` (a jsconfig entry only when it writes `allowJs: false`) | `typescript-v2`, `configOrigin` derived from the entry (`tsconfig` or `jsconfig`) | JavaScript files are not program roots; a JS import target is `unresolved-module-specifier`. |
+ | `js-allowjs` | `tsconfig.json`/`jsconfig.json` with effective `allowJs=true` (jsconfig defaults `allowJs=true`) | `typescript-v2`, `allowJs=true` | `.js/.mjs/.cjs/.jsx` are program roots. |
+ | `js-synthesized` | Inside a `tsjs` unit already discovered by §1.4 U-1: no `tsconfig.json`/`jsconfig.json` at the unit root, so the `package.json` marker selects this mode. `.js/.mjs/.cjs/.jsx` files under that unit are program roots; they do not themselves make a unit | `typescript-v2`, `configOrigin=synthesized`, `synthesizerVersion=1` | Host synthesizes `SynthesizedCompilerOptionsV1` (§2.2); Plan-bound with `DEFAULTED` provenance, disclosed in output. |
+ | `rust-cargo` | `Cargo.toml` at the unit root (package or workspace) | `rust-v2` | Requires a sealed `DependencySourceSetV1` when the lock lists any non-path package (§3). |
+@@ -516,10 +516,17 @@
+ **JavaScript option and universe-flag derivation.** `allowJs` and `checkJs`
+ in the retained context are effective, materialized booleans from the selected
+ compiler's resolved configuration, including the retained configuration graph.
+-For the selected option projection, an explicit `allowJs` value wins, including
+-`false`. A jsconfig entry defaults it to `true`; otherwise omitted `allowJs`
+-derives from effective `checkJs`, whose omitted default is `false`. Apply
+-configuration inheritance before these defaults. The pre-Plan marker observation
++For the selected option projection, every node of that graph whose `kind` is
++`jsconfig` (the exact basename law of `TypeScriptConfigGraphV1`) supplies
++`allowJs=true` as if written in that node, unless the node itself writes
++`allowJs`. Inheritance then applies over the graph: a node's own options,
++including that supplied value, take precedence over the bases it extends, and
++later `extends` entries over earlier ones. After inheritance an `allowJs` value
++wins, including `false`; otherwise `allowJs` derives from the effective
++`checkJs`, whose omitted default is `false`. So a `jsconfig.json` entry extending
++a base that writes `allowJs: false` is effective `allowJs=true` unless the entry
++writes `allowJs` itself, and a `tsconfig.json` entry extending a base named
++`jsconfig.json` inherits `true`. The pre-Plan marker observation
+ named `allowJs` also means this effective value, never mere presence of the raw
+ configuration property. `js-allowjs` versus `ts-tsconfig` selection uses that
+ value. The synthesized profile keeps its separately specified `true`/`false`
+--- root-a5/docs/coop/design-corrections/native/native-cases.v2.json
++++ amended/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -9310,11 +9310,52 @@
+    }
+   },
+   {
+-   "id": "ts-tsconfig-without-allowjs-excludes-js",
++   "id": "ts-tsconfig-explicit-allowjs-false-excludes-js",
+    "feedback": [
+     "F11"
+    ],
+    "kind": "negative",
++   "steps": [
++    {
++     "fn": "typescript_mode",
++     "args": {
++      "listing": [
++       "src/a.js",
++       "src/b.ts"
++      ],
++      "unit_root": "",
++      "package_json": null,
++      "tsconfig": {
++       "compilerOptions": {
++        "allowJs": false,
++        "checkJs": true
++       }
++      },
++      "jsconfig": null,
++      "lockfiles": [],
++      "node_modules_in_read_set": true
++     },
++     "bind": "m"
++    }
++   ],
++   "expect": {
++    "$m.languageMode": "ts-tsconfig",
++    "$m.allowJs": false,
++    "$m.checkJs": true,
++    "$m.jsAdmittedToProgram": false,
++    "$m.jsDiagnosticsEnabled": true,
++    "$m.jsRootFiles": [],
++    "$m.programRootFiles": [
++     "src/b.ts"
++    ]
++   }
++  },
++  {
++   "id": "tsconfig-checkjs-only-admits-js",
++   "feedback": [
++    "F11"
++   ],
++   "kind": "positive",
+    "steps": [
+     {
+      "fn": "typescript_mode",
+@@ -9338,9 +9379,93 @@
+     }
+    ],
+    "expect": {
+-    "$m.languageMode": "ts-tsconfig",
++    "$m.languageMode": "js-allowjs",
++    "$m.allowJs": true,
++    "$m.checkJs": true,
++    "$m.jsAdmittedToProgram": true,
++    "$m.jsDiagnosticsEnabled": true,
++    "$m.jsRootFiles": [
++     "src/a.js"
++    ],
++    "$m.programRootFiles": [
++     "src/a.js",
++     "src/b.ts"
++    ]
++   }
++  },
++  {
++   "id": "tsconfig-checkjs-only-without-js-roots",
++   "feedback": [
++    "F11"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "typescript_mode",
++     "args": {
++      "listing": [
++       "src/b.ts"
++      ],
++      "unit_root": "",
++      "package_json": null,
++      "tsconfig": {
++       "compilerOptions": {
++        "checkJs": true
++       }
++      },
++      "jsconfig": null,
++      "lockfiles": [],
++      "node_modules_in_read_set": true
++     },
++     "bind": "m"
++    }
++   ],
++   "expect": {
++    "$m.languageMode": "js-allowjs",
++    "$m.allowJs": true,
+     "$m.jsAdmittedToProgram": false,
+     "$m.jsDiagnosticsEnabled": true,
++    "$m.jsRootFiles": [],
++    "$m.programRootFiles": [
++     "src/b.ts"
++    ]
++   }
++  },
++  {
++   "id": "jsconfig-explicit-allowjs-false-excludes-js",
++   "feedback": [
++    "F11"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "typescript_mode",
++     "args": {
++      "listing": [
++       "src/a.js",
++       "src/b.ts"
++      ],
++      "unit_root": "",
++      "package_json": null,
++      "tsconfig": null,
++      "jsconfig": {
++       "compilerOptions": {
++        "allowJs": false
++       }
++      },
++      "lockfiles": [],
++      "node_modules_in_read_set": true
++     },
++     "bind": "m"
++    }
++   ],
++   "expect": {
++    "$m.languageMode": "ts-tsconfig",
++    "$m.configOrigin": "jsconfig",
++    "$m.allowJs": false,
++    "$m.jsAdmittedToProgram": false,
++    "$m.jsDiagnosticsEnabled": false,
++    "$m.jsRootFiles": [],
+     "$m.programRootFiles": [
+      "src/b.ts"
+     ]

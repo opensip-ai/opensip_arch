@@ -1,0 +1,452 @@
+diff --git a/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/security-and-lifecycle.md b/tmp/opensip-design-corrections/candidate-subject.v26/docs/v2/contracts/product-v1/security-and-lifecycle.md
+index 7cb01dc4..88d5900c 100644
+--- a/Users/sb/code/opensip-ai/opensip_arch/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -1,7 +1,9 @@
+ # Security and lifecycle: boundaries, time, trust, platforms, migration, concurrency
+ 
+-Standing: proposed product successor authored by Claude (security unit) for
+-independent Codex review and D-372 application. It is NOT self-accepted. It
++Standing: product successor authored and corrected by actual Claude, Codex and
++actual Grok. Review and D-372 application standing is governed by the
++[correction record](../../../coop/design-corrections/README.md) and central
++readiness register. Historical acceptance applies only to its frozen bytes. It
+ addresses AR-03, AR-04, AR-05, AR-06, AR-14 and the offline/doctor part of
+ AR-16, the nine items of Codex's intermediate review of the earlier draft, and
+ the CHANGES_REQUIRED items of Codex's review of the final chapter (handoff
+@@ -20,7 +22,52 @@ The first-party host is the only authority for discovery, trust time, root
+ chain acceptance, revocation, platform admission, migration and leases. Content
+ identity never proves custody. A signed document proves only that its signer
+ signed those bytes; whether the document is admitted is decided by the rules
+-below, evaluated at the host's trust instant.
++below, evaluated at the host's trust instant. Detector compatibility listings
++inherit tree, platform and protocol from the already-admitted `closure2`, not
++from fields on the listing body. Identity §3 hashes `closure2` over `{kind,
++manifestDigest, tree, semanticVersion, protocolMajor, platform}` and states that
++a component manifest for a different tree, platform or selected component is
++refused by delivery admission. That delivery selector is DR-103
++`component-manifest-schemas.v11` `manifestSchema.platforms[]` (`os`, `arch`,
++`tree` TreeCommitment, `entrypoint`) together with RJ-3, not `DetectorManifestV1`.
++Authenticated association of those component-manifest bytes is the existing
++envelope (`opensip-signature-envelope.2` subject `kind=manifest`, domain
++`opensip.metadata.manifest.1`, `storedSha256` equal to identity
++`closure.manifestDigest` raw-artifact) plus catalog `opensip-catalog.1`
++`releases[]` `{manifestDigest, manifestPreimageSha256, envelopeDigest,
++artifacts[{platform, archiveProfileId, archiveDigest, sha256}]}` signed TR-INDEX.
++Workflows-and-surfaces §2 then admits **that** `closure2` from a retained
++generation, an installed signed release with the same `closure2`, or a signed
++`closureBundle`. Identity `closure.tree` projects that selected platform
++TreeCommitment onto regular files only: each `type=file` entry maps to one
++identity `Blob` `{path, sha256, bytes}` with the same path string,
++`sha256=entry.sha256`, `bytes=entry.length`, and retained blob length matching
++(`BLOB_LENGTH`); `type=dir` and `type=symlink` stay delivery rows, are not
++identity Blob members, and are never followed into a listing (RJ-3 keeps
++symlink targets inside the tree). Mode bits remain on the TreeCommitment row
++and are not identity members; listing bytes are never executed. `DetectorManifestV1`
++is only `{schemaFamily, schemaMajor, compatibleClosures}` (`additionalProperties`
++false); it cannot be the component-manifest preimage and must not occupy
++`closure.manifestDigest`. The listing is the optional unique reserved regular-file
++path `.opensip/detector-compatibility.json` in that already-admitted same
++`closure2` tree (exact NFC path; not the project-host `.opensip/project-id.v1`
++custody marker). Path absent is no declaration; empty `compatibleClosures` is a
++complete declaration; a present path that is not `type=file`, whose
++Blob/length/digest disagrees with the TreeCommitment file row, or whose retained
++bytes fail the existing W listing schema, refuses and does not downgrade. Tree,
++path or digest swap fails closure or delivery admission; catalog digest match
++alone never admits. After that association the host projects a closed receipt
++`{closureId, componentManifestDigest, listing, trustOrigin, compatibleClosures,
++tree, platform, protocolMajor}` only when the reserved file is present and
++valid. `listing` is its exact Blob `{path, sha256, bytes}`;
++`componentManifestDigest` is the admitted closure's `manifestDigest`, and
++`trustOrigin` is `retained-generation` | `installed-signed-release` |
++`signed-closure-bundle`. The other fields copy the same admitted closure and
++listing. Path absence produces no compatibility projection; an empty listing
++produces a projection with `compatibleClosures: []`. This is not a second
++signature verifier, listing schema or `signatureVerified` flag. Workflow
++`host.closures[].trust='admitted'` is a TCB fixture assumption, the same class
++as `verify_envelope` already-accepted signers, not that delivery selector.
+ 
+ Prospectively replaced selectors (historical bytes stay immutable):
+ 
+@@ -33,7 +80,9 @@ Prospectively replaced selectors (historical bytes stay immutable):
+ | security v8 §8.3–8.7 | one measured profile per platform class | replaced by S8 (population with two tiers, four lanes) |
+ | host foundation v2 §§1–3 discovery | nearest-ancestor `opensip.json` walk to `/` | replaced by S3 |
+ | compatibility matrix v5 S-STATE/S-CTRL/S-SCHEMA | closed major one, no bridge | retained for stage 1; S9 is the explicit stage-2 successor |
+-| journal-record.schema v8 | GRANT/RA/ICI/RCI/ICO/RCO/REV/CLN/AUD | retained; schema-2 records add SEAL and `postimageSha256` (S6) |
++| journal-record.schema v8 | GRANT/RA/ICI/RCI/ICO/RCO/REV/CLN/AUD | retained as historical bytes; schema-2 records added SEAL and `postimageSha256` (S6). **Current** product journal records are `recordSchema` 3 with `run3`. Schema-2 journals remain frozen historical bytes and are not read as 3. The bundle filename `security-lifecycle.schemas.v1.json` is not the record version. Grant tokens and root compatibility schema 2 are a different axis and stay. |
++| `security-schemas.v2/grant-journal.sql` physical carrier | 14 record types including `TERMINAL`, no `SEAL`, four display-alias platform values | retained as the immutable historical physical carrier. The **selected product physical carrier** is `design-corrections/security/grant-journal.carrier.v3.sql` (**carrierFormat 3**) with dispatch `carrier-dispatch.v3.json` and prose `carrier-format.v3.md`. `carrierFormat` is a third axis, distinct from `recordSchema` and from the S9 `stateSchema`; no historical row is rewritten, relabelled or re-admitted as current. |
++| security v1 §5.4 "the chain head is in the witness" | prose describing the inherited hash chain | **retained historical prose, not a current claim.** The v8 closed witness shape (`witnessSchema`, `projectKeyDigest`, `grantGeneration`, `seq`, `state`, `bodySha256`, "no other member") governs and carries **no** chain-head member. The two historical documents disagree; both keep their bytes and neither is edited. No current owner asserts interior-prefix authentication. |
+ 
+ Unchanged inherited constants: 24 h future tolerance, 90 d revocation freshness
+ and catalog expiry, 365 d root expiry, expiry boundaries (`expired iff tEval >=
+@@ -145,8 +194,25 @@ trees (`.git`, `.hg`, `.svn`, `.jj`) and Cargo build output (a segment
+ source directory merely called `target`, such as `packages/target` or
+ `src/target`, is ordinary source). A pruned tree yields no unit, no marker,
+ no custody walk and no program member; its anchor is recorded **once** in
+-`prunedTrees` with the number of markers it hid, so 4200 installed package
+-manifests are one record, never 4200 units. A `Cargo.toml` inside a pruned
++`prunedTrees`, so 4200 installed package manifests are one record, never 4200
++units. **The anchor is recorded because the tree was observed, not because a
++marker was found inside it** (XA-02 / CR-25): a pruned tree holding no manifest
++is still one row, taken from the admitted directory observation discovery
++already holds. Discovery still never descends into a pruned tree - not to count
++markers and not to find a nested anchor; the outermost pruned segment is the
++only anchor. The earlier promise to record *the number of markers it hid* is
++withdrawn: a count over an unenumerated tree is not an observation. The row is
++the closed `{path, reason, markerCount, markerCountBasis}` (version 2).
++`markerCountBasis` is `observed-inventory` only when the supplier declares that
++its marker inventory enumerated inside pruned trees, and then `markerCount` is
++exact **over that supplied inventory alone**; otherwise the basis is
++`not-enumerated` and `markerCount` is `null`. An anchor whose own directory
++observation could not be established is reported with a null count on the same
++rule. Zero observed is never zero hidden. Count and basis are provenance: they
++select no unit, bound no work, enter no Coverage and enter no scope descriptor,
++though they do change the exact bytes of the provenance and boundary records and
++therefore any operational digest taken over them. Version-1 records keep their
++bytes and are read as version 1. A `Cargo.toml` inside a pruned
+ tree does not create a Cargo root. First-party unit directories are capped at
+ 4096; exceeding the cap refuses typed `PROJECT.WORKSPACE_UNIT_LIMIT` (D9
+ `REQUEST.UNSATISFIABLE`, detail `WORKSPACE_UNIT_LIMIT:<n>><cap>`) with no
+@@ -175,7 +241,23 @@ layer as `CONFIG.INVALID` / `native.explicit-root-without-marker` (native
+ the selected behaviour: custody admission and language-unit existence are two
+ different facts, and neither instrument normalizes the same value differently.
+ Custody-excluded units are explicit unknown required scope, not a successful
+-empty scope; later syntax scanners cannot read their uncustodied source. There is
++empty scope; later syntax scanners cannot read their uncustodied source. A
++custody- or depth-excluded directory is therefore never examined-clean Coverage.
++The downward unit-depth bound reuses the same 256-level constant as the upward
++ancestor walk: a unit directory deeper than 256 segments below the selected root
++is excluded with reason `DEPTH` and exported to the language-unit instrument in
++`custodyExcludedUnits`, so both instruments select the same directories. It is
++an exclusion with unknown standing, not a work budget. **Bounding the host
++observation itself - how many directory and marker entries discovery may admit -
++is the observation-admission and qualification responsibility, not this cap.**
++The 4096 unit cap was never an input bound: the shared rule materialises and
++sorts the supplied inventory before comparing cardinality, both before and after
++the XA-01 correction. No public work-budget flag is introduced here, and the
++synthetic trusted fs-map instrument accepting a large array is not a product
++limit. Counting custody- and depth-excluded directories toward the cap, rather
++than counting admitted units, is a **separately reviewable policy option that is
++NOT selected here**; it would turn present ACCEPT results into refusals and is
++not required to fix XA-01. There is
+ no config "project list" and no duplicate `--project` implicit multi-project
+ mode: `discovery.workspaceRoots` is the only configuration carrier. Cases
+ `installed-dependencies-and-cargo-build-output-are-pruned-by-segment-*`,
+@@ -405,6 +487,82 @@ standing. **Unconfined children** (repository code under S10) are not brokered
+ effects: they are cancelled within the bound and disclosed, and their external
+ effects before the kill are not enumerable. No confinement is claimed.
+ 
++**Three different SEAL boundaries, not one.** (1) `linearize` is an abstract
++brokered-effect schedule over a grant journal. Its all-zero `run3:` SEAL id is
++a **fixture** token for that schedule. It is not a product host, not native
++fact authority, and not `identity-model.v3.close_run`. (2)
++`admit_seal_run_id_prefix` is narrow `run3` pattern dispatch. It admits a
++well-formed non-fixture prefix and refuses `run2` and the fixture id. It does
++not replay a graph. (3) `admit_analysis_seal` is the public reference SEAL of
++an analysis Run: current `JournalRecord` fields (`recordSchema` 3, closed
++required members), then `identity-model.v3.close_run` on the supplied retained
++graph, then byte-equal RunId comparison. Owner-only `open_run_closure` is not
++that boundary. A well-formed `run3:` that is not the replayed identity refuses
++`SEAL_RUN_ID_MISMATCH`. Schema-2 journals remain frozen historical bytes and
++are not read as 3. Mixed prefixes refuse. There is no `run[23]` alternation.
++Revocation still blocks schedule-SEAL after `REV`. Grant/root schema-2
++documents are a different axis. This dispatch does not change lease modes,
++lock order, or permission-truth-table effect values. Proof
++`executionInputsDigest` is required by identity reconstruct; this unit does
++not mint it.
++
++**Commit-admission gate (one atomic bit state).** `ADMITTED = 1`, `LATCHED = 2`: `0` is
++preparing, `1` admitted, `2` latched before admission, `3` admitted then latched. Commit
++admission is a compare-exchange `0 → 1`; the observer always fetch-ORs `2`, including
++`1 → 3`, so a post-admission latch cannot be lost. No state resets during the attempt. A
++successful gate mints one internal single-use permit for the already prepared commit and is
++not a reusable grant for later effects. A latch winning at state `0` prevents the gate
++entirely. State `3` does **not** revoke the already admitted attempt or relabel its outcome:
++it records the latch and forbids further effect admission or retries. The observer bound
++bounds admitting new effects; it cannot abort an in-flight syscall or rewrite its outcome. A
++confirmed durable commit stays committed; an uncertain commit or barrier stays
++durability-undetermined with its ExecutionId and no automatic write retry. The gate orders
++admission only and is not the durability point.
++
++**`REV` after `SEAL` is not a refusal.** The linearization law above constrains one
++direction only: after `REV` no `RA`, intent, commit or `SEAL` is appended. It does not follow
++that a `REV` appearing later in sequence order refuses an earlier `SEAL`. Durable commitment
++is established solely by the guarded evidence-ledger receipt and its private association. A
++reader must not infer refusal from record order, and no member is added to the closed
++schema-3 `JournalRecord` to carry that correlation: the private association and the
++`AttemptCustodyV1` `executionId ↔ operationRef` mapping (identity §2) are its lawful home.
++
++**A receipt present before its attempt is settled is lawful.** Because the settle write is
++ordered after the receipt write, every committing attempt passes through an interval in which
++a valid joined receipt exists while the private attempt row is still `admitted`. That is not
++a contradiction and not a custody condition: the receipt establishes historical commitment,
++pending settlement is disclosed operationally, and no authority is revived. No writer may
++reopen a stopped session merely to settle it; settlement is the separately authorized sweep.
++
++**Required delivery is a separate phase.** On any end path security returns a stopped
++cleanup-only session. Required rendering and delivery draw no authority from it: they are a
++read-and-materialise activity in `SHARED-READ` mode (S7), not a brokered effect. The handoff
++is: cleanup `REV`/`CLN` through a fresh lawful level-3 then level-4 append while the stopped
++session still holds the operation lease; release the lease; ordinary S7 end handoff; then a
++new `SHARED-READ` phase over the committed snapshot. A latched attempt (state `2` or `3`)
++starts no delivery phase and cannot reacquire authority that way; for state `3` the commit
++stays committed with its RunId observable and the required delivery is reported failed
++through the existing `DELIVERY.REQUIRED_FAILED` path. This is the **selected** law, not an
++open choice.
++
++**Publication does not overwrite the workflow outcome.** A successful publication does not
++force `success` at exit 0. A Run that publishes and then fails its policy assessment
++terminates `policy-failed` at exit 1 carrying that committed `runId`; a Run whose verdict is
++indeterminate terminates `indeterminate` at exit 3 carrying its `reasonCodes`. An optional
++surface failure is disclosed without rewriting either, and `success` can carry neither an
++`errorCode` nor `reasonCodes`, so no lawful reset to success exists. Required delivery
++failure is the one lawful class change, and it preserves the RunId.
++
++**Carrier anchor bound (selected limit).** No current owner asserts cryptographic
++authentication of the interior journal prefix. The v8 closed witness member `bodySha256`
++names the tail body digest, so it detects no interior substitution, and the inherited chain
++value binds only the immediately previous body digest and index. Confirming a retained
++carrier therefore establishes presence, contiguity and non-rollback below the last observed
++operation boundary, under the conclusion class `confirmed-under-retained-custody`. An unmet
++anchor is reported unknown, never as invalidation. This is a selected compatibility and
++security limit with a recorded disposition, not an open defect, and the historical v1 prose
++noted in S1 is not a current claim to the contrary.
++
+ ## S7. Leases and lock order (AR-14)
+ 
+ The current security schema bundle declares every array's `x-opensip-order`
+@@ -575,6 +733,56 @@ keys; (3) stage-1 cores refuse N+1 typed and keep N until it expires; stage-2
+ cores accept it by the dual reader; (4) state migration 1→2 runs under
+ EXCLUSIVE. Both stages keep the metadata profile of S2.
+ 
++**Physical carrier bridge (carrierFormat).** The project grant-journal carrier has its
++own format axis, and it is not the state schema. Detection on open is by schema
++introspection only, because the oldest format carries no version row: object names
++first, then refusal on a partial set, then definition validation, and the published
++`carrier_format` row read **last**. Reader staging mirrors the root-reader and
++state-decoder pattern, and its scope is stated precisely: a **carrierFormat-aware** core
++that supports only {1, 2} refuses a carrierFormat 3 carrier **typed** and keeps its prior
++generation until it expires; a carrierFormat {1, 2, 3} core reads both, under
++recordSchema-1 semantics for historical generations and recordSchema-3 for current ones.
++A **format-unaware** core cannot be made to refuse at all, because it never looks for
++`carrier_format`; that limitation is selected and disclosed, detectable but not
++preventable, and a generation at or above `first_generation` appearing in the inherited
++table is a split-brain custody condition, never valid history. Its mitigation is the
++existing ordered-release discipline. A historical `platform` value is surfaced as a
++historical alias and is never presented as an S8 machine id, rewritten, or joined to
++`RepoExecutionGrantV2.platformId`. An unmigrated carrier stays fully READABLE for its
++existing generations, but it cannot admit a schema-3 `SEAL`, so an attempt needing to
++seal there refuses with the carrier-incompatibility standing until migration completes.
++
++**Carrier migration is NOT an installation transition.** It does not use the S9.2 intent
++or journal, and it cannot: reusing the closed logical `store-migrate` intent with an
++unchanged state schema and store generation refuses
++`TRANSITION.MIGRATE_REQUIRES_SCHEMA_ADVANCE` and
++`TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE`, and an invented `carrier-migrate` operation
++refuses `TRANSITION.OPERATION`. `InstallationTransitionIntentV1` is a closed 11-member
++record and `InstallationTransitionJournalV1` a closed 20-member record; neither has a
++carrier field. Migration 1 or 2 → 3 is instead a **selected prospective expansion** of
++the existing `store-gc` operation (security-owned, `authorizationClass:
++exclusive-lease`, `writesTrackedIntent: false`): the inherited row shows only that
++`store-gc` is not an intent-writing transition, not that this mutation was already
++authorized, so the added per-namespace behaviour is selected here explicitly. It runs
++under the install fence with non-blocking `EXCLUSIVE` on
++the affected project namespace, where a busy namespace is skipped and retained exactly as
++GC already behaves. Its state is reported through the existing `store-status`
++`migration-state` field. It is additive, disables no inherited constraint or trigger, and
++rewrites no inherited row. Three atomic durable acts in order — `TERMINAL` append, object
++creation, format-row publication — with the format ROW as the commit point and detection
++keyed on that row, so every durable prefix has an exact resume action. Protocol:
++`design-corrections/security/carrier-migration.v1.md`. A format-unaware core cannot be
++made to refuse a migrated carrier, so a generation at or above `first_generation`
++appearing in the inherited table is a detectable split-brain custody condition, never
++valid history; the mitigation is the existing ordered-release pattern.
++
++**Grant-generation closure gains a third cause.** The inherited rule (security v8 §5.4
++WA-13, retained unchanged as historical text) advances `grantGeneration` only on
++whole-generation `REV` and on the uint53 rollover. Carrier-format migration is a third
++cause of generation closure. It reuses the existing typed `TERMINAL` cause
++`grantGenerationClosure` and changes no schema, enum or wire major. Floors copy forward
++unchanged and a poisoned floor is not lowered; only S4.5 lowers it.
++
+ Migration writes a `migrating` root: PREPARING → PREPARED → (old store fenced
+ `RESTORED`) → COMMITTED → final rename. Recovery from the durable footprint
+ only: absent = nothing to do; PREPARING or PREPARED with the old store unfenced
+@@ -686,6 +894,17 @@ both (`CoreTransitionIntentV1` then `InstallationTransitionIntentV1`) before
+ `admit_transition_intent`. The retained `nine-field-legacy-intent-*` case keeps its meaning: a
+ nine-field intent is refused, which is now a regression against a schema that no longer produces one.
+ 
++**The schema/store pair, stated here so no reader needs the reference model.**
++For `core-update` and `core-rollback` alike, an unchanged state schema keeps the
++store generation (`TRANSITION.SAME_SCHEMA_KEEPS_STORE`) and a changed state
++schema selects a different one (`TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE`).
++`core-repair` keeps closure, schema and store together. `store-migrate` requires
++an advanced schema **and** a different generation; `store-rollback` requires a
++retreated schema **and** a different generation. No admitted intent changes the
++store generation with an unchanged schema, and the S9 footprint above already
++owns the re-selection of a retained store. This restates exactly what
++`admit_transition_intent` enforces; it adds no rule and changes no refusal.
++
+ **Journal (`InstallationTransitionJournalV1`; identity
+ `H("security.installation-transition-journal.v1", record)`).** Written under the
+ held fence, only after every lease of the affected set is held (`fenceHeld` and
+@@ -722,13 +941,116 @@ published generation was never selected; GC census reclaims it); `COMMITTED` →
+ the rollback window); `DONE`/`ABORTED` → release only. Cases `crash-at-*`,
+ `registry-changed-*`, `journaled-lease-set-not-exactly-reacquired-*`.
+ 
++### S9.3 Private store-instance lineage (successor; proposed, not accepted)
++
++A numeric store generation is not unique over time: `store-rollback` re-selects a
++retained generation and `core-rollback` never raises the schema, so two physically
++distinct stores can present the same `(storeGeneration, stateSchema)` pair. A
++private **store instance identity** disambiguates them for local operational
++records. It adds no member to `InstallationTransitionIntentV1`,
++`InstallationTransitionJournalV1`, the namespace registry or any signed document,
++introduces no envelope kind and no public major, and mints no D9 class, code or
++exit; its refusals are the existing `TRANSITION.*` set and the existing
++`MIGRATION.CORRUPT` quarantine. It is never a wire field, an authority token or a
++semantic input, and it never enters the pure evaluator or a Run hash.
++
++**Instance identity.** Each physical store instance carries one `storeInstanceId`:
++32 lowercase hexadecimal characters from 128 bits of OS CSPRNG, allocated once
++when that store is created, persisted in that store's own root before the store is
++first published, and never rewritten. It has no ordering and no arithmetic, and
++reading it grants nothing.
++
++**Lineage nodes, identified by the full triple.** A private append-only table
++holds one node per admitted binding triple
++`(storeInstanceId, storeGeneration, stateSchema)`, carrying its predecessor triple
++and the `intentDigest` of the transition that created it; both are `null` exactly
++at a **lineage root**. Every lookup uses the whole triple, whose instance component
++is read from the store-root **marker** of the store concerned: a numeric pair alone
++never identifies a node, because a retained branch may lawfully present the same
++pair as a fresh target. `intentDigest` is evidence validated *on* the selected node
++and is never a search key, since it may lawfully repeat. This section asserts no
++global uniqueness of a store generation beyond what the rules above already impose.
++
++**Marker observation is three-way and phase-bound.** Reading a store root yields
++exactly one of: a **readable** identity; **absent**, meaning no store root is
++present; or **unreadable**, meaning a root was observed but its marker is missing
++or malformed. An unreadable marker is never treated as absence, and an absence must
++be observed, never inferred from a missing observation. The store a transition
++comes from always exists, so its marker is always required. The **selected**
++store's marker is required only where the transition is settled as committed: at
++`LEASED` and `PREPARING` a forward selection's target may not yet be materialised,
++and after an abort an unpublished target may already have been reclaimed by the GC
++census, so an absent target there is expected and must never be read as corruption.
++
++**One admission law.** A node is admitted only if its shape is admitted by the
++private record's own closed schema, its predecessor and origin digest are null
++together or present together, it does not name its own triple, its non-null
++predecessor already exists as a node at that exact triple, no existing node shares
++its primary key with disagreeing contents, and the chain from it is acyclic and
++reaches exactly **one** lineage root. That root rule is scoped to the chain, not to
++the whole table: an authorized restore or adoption starts its own lineage, so
++several lineages may coexist. Publication and recovery apply this same law, and an
++exact byte-identical match at the target key is idempotent but **not** a short
++circuit — it is validated the same way and simply writes nothing. A refusal writes
++nothing.
++
++**Selection case, derived from the admitted intent alone.** By the pair law in
++S9.2 the case is decidable without reading any stored node: equal `to`/`from`
++generation and schema is a **same-store** selection; an advanced schema is a
++**forward selection**; a retreated schema is an **ancestor re-selection**. Only a
++forward selection materialises a new store, allocates a fresh `storeInstanceId`
++and writes one node, after the journal record is durably `COMMITTED` and never
++inside a level-4 grant-journal append lock. A same-store or ancestor re-selection
++writes no node: the store it selects already has one, created by an earlier act.
++
++**Recovery applies the same case, and only after the owner decides.**
++`recover_transition_journal` keeps every decision it already makes; this adds no
++state, code or recovery action, and in particular a core operation at `PREPARED`
++still aborts and a store operation still follows the S9 footprint. Where that
++function refuses, reports the project busy or quarantines, the companion makes **no
++decision at all**, inspects nothing and reads no marker. Where its action settles
++the transition as committed — `RESUME-COMMIT` or `RELEASE-ONLY` reaching `DONE` —
++then: a **forward selection** node must be present at its own full triple, or else
++reconstructed from the journal record's own from/to generation and schema members
++together with the predecessor and selected store-root markers, and admitted by the
++law above. A **same-store or ancestor** re-selection validates the retained node at
++its own full triple and **never rewrites its predecessor or origin digest**; an
++ancestor must additionally lie on the verified chain from the current node, so a
++store at a merely equal numeric pair off that chain never qualifies. That node was
++created by an earlier, unrelated act whose origin the current intent does not carry,
++so a missing one cannot be repaired from it and is `QUARANTINE` /
++`MIGRATION.CORRUPT`. No atomicity is claimed between the journal record and a node.
++
++**Before the owner settles a transition**, pre-existing ancestry is expected and
++untouched, including a retained branch at the same numeric generation, and an
++absent target is expected as above. Where a target *is* observable, what must not
++exist is a *new* node for that transition at **its own full triple**. For a forward
++selection, any node at that new target triple is premature. For a same-store or
++ancestor re-selection, the pre-existing node is expected; only a node claiming the
++current unrelated transition as its origin is contradictory. Each is a premature-node contradiction
++and quarantines; ordinary pre-existing lineage remains unchanged.
++
++**Lineage roots.** A root is created by an authorized local act that materialises a
++new physical store outside any transition: installation, or an authorized evidence
++restore or portable adoption. Such an act allocates a fresh `storeInstanceId`,
++**replaces** any marker present in copied bytes before first publication so a
++restored store never impersonates its source, imports no node from the source, and
++imports no floor, grant or local commit authority. No transition is invented to
++give it an `intentDigest`.
++
++**Floors and authority are unchanged by this section.** An authorized transition
++keeps the S9 floor rules exactly: migration copies the floors forward into the new
++store, rollback inside the window sets them to the maximum of both stores, and a
++poisoned floor is lowered only by S4.5. An instance identity records which physical
++store is selected; it never lowers a floor and never confers local commit authority.
++
+ ## S10. Execution principal `repository-code`
+ 
+ Principal classes: `first-party`, `repository-code`, `imported-artifact`.
+ Repository execution is disabled by default. The display names are aliases of
+ one foundation semantic-grant principal kind: workflow `P-TRUSTED-REPO` and
+ native `repository-code` both map to `trusted-repository-code`
+-(identity-schemas.v2 `semantic-grant`). Two identities are kept apart: the
++(identity-schemas.v3 `semantic-grant`). Two identities are kept apart: the
+ foundation `semanticGrantDigest` (semantic projection inside plan2: principal
+ kind, closure, owner-source digest, operations, scope; no nonce, expiry or
+ consent) and the operational `securityGrantRef` =
+@@ -851,6 +1173,18 @@ is `REV(trust-revoked)` with postimage-checked rollback and the workflow's
+ `FAILED_ROLLED_BACK` / `RECOVERY_BLOCKED` states. Reference
+ `admit_repair_authorization`; fixture `repair-authorization-cases.v1.json`.
+ 
++Fingerprint-targeted repair consumes `finding-key2` fingerprints of **finding3**
++occurrences on a **run3** evidence Run (workflow evaluator3 repair descriptor
++`evidenceRunId`). The fingerprint domain stays `finding-key2`; that is
++correspondence identity, not a finding2 occurrence and not a run2 graph.
++A historical `finding2` / `run2` export remains inspectable by its original
++tools. It cannot become current repair, baseline, import or installation
++authority by changing an id or schema label. Unmatched finding3 occurrences
++remain findings of the current Run and may fail ordinary current-Run gates;
++they cannot satisfy a fingerprint-targeted repair or waiver. EXCLUSIVE lease,
++host-brokered mutation, `repositoryExecution=false` and original-plan-only
++recovery scope are unchanged.
++
+ ### S10.2 Repair recovery authorization (decided; post-reset v2 N-4/P9)
+ 
+ Recovery inspection (`repair recover` without `--apply-recovery`, workflows §6
+@@ -965,6 +1299,13 @@ report, never on the exit code. No exit code is changed by this contract.
+ | `PROJECT.BUSY` (incl. a journaled transition lease set not re-acquired exactly, S9.2) | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` |
+ | `MIGRATION.CORRUPT` (incl. a registry differing from the frozen transition journal, S9.2) | operational-failed / 4 / `LEDGER.CORRUPT` |
+ | `OBSERVER.FAIL_STOP`, I/O failure | operational-failed / 4 / `HOST.IO_FAILURE` |
++| read-only recovery: requested attempt still `admitted` **with no receipt**, or observations temporally skewed beyond the single permitted retry | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT`, `faultCause` `ledger-busy` (detail `PROJECT.BUSY`) |
++| read-only recovery: a valid joined receipt is present while the attempt row is still `admitted`, or is absent entirely | **not** a busy or custody condition. The receipt establishes historical commitment, so the termination is the ordinary successful observation; pending or unknown settlement is disclosed operationally |
++| read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
++| read-only recovery: unreadable ledger or carrier, unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io` |
++| read-only recovery: requested binding names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
++
++A journal-carrier quarantine deliberately publishes **no** `domainDetail`. `StepTermination` requires only `class`, and `domainDetail` is optional, so the projection is schema-valid with `class`, `errorCode` and a non-none `faultCause` alone. No new `DomainDetailCode` is registered for it, and `MIGRATION.CORRUPT` is **not** reused: that code is the store transition’s detail, and borrowing it for ordinary journal corruption would put two remedies behind one code. The typed reason travels in the owner diagnosis and the operational record, not in a public detail code.
+ 
+ The common scope stage additionally refuses PROJECT.SCOPE_LIMIT with REQUEST.UNSATISFIABLE (exit2) when its distinct workspaceRoots exceed1024 or pathPrefixes/excludedPathPrefixes exceed65536, even if discovery's4096-unit limit admitted the repository. Public subject `field:count>limit` states the observed bound. PROJECT.DISCOVERY_INVENTORY_MISMATCH is REQUEST.PRECONDITION_FAILED (exit2) at the host's security/native inventory join. Boundary crossing still uses PROJECT.EXPLICIT_PATH_INVALID; native internal aliases do not create a second public code.
+ 
+@@ -1171,6 +1512,8 @@ The transition preserves all five obligations in architecture file05 §Migration
+ 
+ All five distinctions remain explicit: (1) distribution migration selects executable generations; user-custody state migration is a separately authorized operation, and no prototype-state conversion is provided; (2) management-only adoption supplies management functions, while an authoritative closure additionally supplies every admitted executable/data/storage dependency; (3) immutable coexistence retains separately selected generations/installations, while in-place package mutation is forbidden; (4) removal drops installation/reference selection, while explicit purge alone changes retained evidence availability under identity §5; (5) replay pinning retains the exact runnable detector/evidence closure, while contract-approved typed degradation reports missing/expired/purged evidence without rewriting assurance or fabricating replay.
+ 
++Authoritative cache and regeneration hits inherit identity §4. Admission against a current Run is `identity-model.v3.close_run` complete evaluator3 semantic replay, then `admit_cache_entry` through that Run's own closure. Constructing `cache2` / `regen2` or matching a hash is not authority. `identity-model.py.close_run` of a `run2` graph is historical owner-closure admission (exact schema, identity, and native owner joins). It is not merely a hash compare, and it is not evaluator3 semantic replay. Expired or revoked permission cannot be resurrected by a matching hash. Installation recovery already requires reconstructing and admitting the retained transition intent over the frozen registry; a hash alone cannot authenticate a lawful scope. Retained historical `run2` custody stays those bytes.
++
+ The six “No migration silently…” prohibitions are retained individually: no silent **download**, **index refresh**, **lock mutation**, **replacement historical identity**, **evidence-meaning rewrite**, or **telemetry/network requirement**. Explicit commands retain their separate consent, signed-input, expiry/revocation, custody, recovery and output laws. No migration authority is inferred from the mere presence of old data.
+ 
+ Release owners must exercise the coexistence/foreign-root/legacy-config/no-write/offline/removal-versus-purge/replay-degradation positive and negative corpus at G06/G07/G11/G12/G18/G19/G21, with prototype baseline provenance and actual current product measurements. These are required implementation/release tests, not a claim that this design reference has executed the prototype or converted a database.

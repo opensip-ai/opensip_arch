@@ -1,0 +1,305 @@
+--- docs/coop/design-corrections/security/security_lifecycle_model_v1.py
++++ docs/coop/design-corrections/security/security_lifecycle_model_v1.py
+@@ -23,7 +23,9 @@
+   S5  verify_root_chain(...)         AR-05 expired-root chaining, old+new thresholds, final freshness
+   S6  revocation_observe(...)        AR-05 live revocation: counter observation predicate
+       observer_tick(...)             AR-05 fail-stop observer under OS scheduling assumptions
+-      linearize(...)                 AR-05 brokered-commit linearization, postimage-checked rollback
++      linearize(...)                 AR-05 abstract brokered-commit linearization (fixture SEAL id)
++      admit_seal_run_id_prefix(...)  run3 pattern only; not close_run
++      admit_analysis_seal(...)       JournalRecord fields + identity-model.v3.close_run + RunId compare
+   S7  lease_schedule(...)            AR-14 SHARED-READ / APPEND-WRITE / EXCLUSIVE lease modes, lock order,
+                                      multi-namespace registry and the core-transition lock set (fence + EXCLUSIVE
+                                      on every affected registered namespace, all-or-nothing, non-blocking)
+@@ -78,6 +80,30 @@
+     schema=copy.deepcopy(_SCHEMA_BUNDLE);schema['$ref']='#/schemas/'+name
+     _C.validate(schema,value)
+     return value
++
++
++DISCOVERY_PROVENANCE_RECORDS = {1: 'DiscoveryProvenanceV1', 2: 'DiscoveryProvenanceV2'}
++
++
++def validate_discovery_provenance(value):
++    """Explicit version dispatch for the discovery provenance record (XA-02 / CR-25).
++
++    Version 1 is the historical record: `{path, reason, markerCount}` pruned rows with a non-null count and
++    marker-derived anchors only. Version 2 is what this instrument now produces. A changed record is NEVER
++    named V1: the schemaVersion selects the definition, and an unknown version is refused rather than being
++    validated against the nearest neighbour.
++
++    THIS IS THE READ LANE. It admits every version this kit defines so historical bytes stay readable and
++    schema-validatable, and it is deliberately NOT a current-operation admission. Converting a provenance
++    record into an admitted boundary inventory for a current discovery is the separate current-operation
++    boundary in DD.boundary_inventory_from_provenance, which admits only DD.CURRENT_PROVENANCE_VERSION and
++    refuses a historical version explicitly. Passing this check is not permission to execute."""
++    if not isinstance(value, dict) or type(value.get('schemaVersion')) is not int:
++        raise Reject('DISCOVERY_PROVENANCE_SHAPE')
++    name = DISCOVERY_PROVENANCE_RECORDS.get(value['schemaVersion'])
++    if name is None:
++        raise Reject('DISCOVERY_PROVENANCE_VERSION_UNKNOWN:%d' % value['schemaVersion'])
++    return validate_input(name, value)
+ 
+ 
+ # ---------------------------------------------------------------------------------------------
+@@ -560,7 +586,8 @@
+     # Closed synthetic host-observation vocabulary, not a public request carrier.
+     # A misspelled fixture/host projection is an instrument error, never an ignored option.
+     allowed = {'invokingUid','accountHome','cwd','fs','ci','trustProjectOwner',
+-               'authorizedGroupIds','explicitProject','explicitResolved','explicitJoins','configWorkspaceRoots'}
++               'authorizedGroupIds','explicitProject','explicitResolved','explicitJoins','configWorkspaceRoots',
++               'prunedTreeMarkerInventory'}
+     required = {'invokingUid','accountHome','cwd','fs'}
+     if not isinstance(inp, dict) or not required <= set(inp) or set(inp) - allowed:
+         raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+@@ -577,6 +604,12 @@
+             raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+     if any(not _int(g) or g < 0 for g in inp.get('authorizedGroupIds', [])):
+         raise Reject('DISCOVERY_OBSERVATION_SHAPE')
++    # XA-02: the supplier DECLARES whether its marker inventory enumerated inside pruned trees. This
++    # instrument's `fs` map is one complete supplied observation, so `observed-inventory` is its own honest
++    # default; a production scanner that does not descend must declare `not-enumerated` and get null counts.
++    # The declaration is never inferred from whether markers happen to be present.
++    if inp.get('prunedTreeMarkerInventory', DD.OBSERVED_INVENTORY) not in DD.MARKER_COUNT_BASES:
++        raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+     uid = inp['invokingUid']
+     home = inp['accountHome']
+     fs = inp['fs']
+@@ -586,7 +619,8 @@
+     explicit = inp.get('explicitProject')
+     joins = inp.get('explicitJoins', [])
+     config_roots = inp.get('configWorkspaceRoots', [])   # admitted Config2 `discovery.workspaceRoots` (after foundation admission)
+-    prov = {'schemaVersion': 1, 'mode': None, 'ci': ci, 'selectedRoot': None, 'configPath': None,
++    marker_basis = inp.get('prunedTreeMarkerInventory', DD.OBSERVED_INVENTORY)
++    prov = {'schemaVersion': 2, 'mode': None, 'ci': ci, 'selectedRoot': None, 'configPath': None,
+             'walked': [], 'stopReason': None, 'custodyWaiver': 'trustProjectOwner' if waive else None,
+             'authorizedGroupIds': sorted(groups), 'vcs': None, 'nestedRepositories': [], 'nestedProjects': [], 'unitSource': None, 'units': [],
+             'excludedUnits': [], 'prunedTrees': [], 'explicitPathWasSymlink': None, 'warnings': []}
+@@ -689,6 +723,33 @@
+         return sorted(p[len(base):] for p, e in fs.items()
+                       if e.get('kind') == 'file' and p.rsplit('/', 1)[-1] in WORKSPACE_MARKERS and p.startswith(base))
+ 
++    def _relative_directories(root):
++        """Relative paths of every DIRECTORY entry observed under the selected root (CR-25).
++
++        This is the admitted directory observation the instrument already holds. It is the anchor source for
++        pruned trees; it is NOT a descent. A directory inside a pruned tree maps to the same outermost anchor,
++        so listing it adds no anchor and discloses nothing about the tree contents."""
++        base = root.rstrip('/') + '/'
++        return sorted(p[len(base):] for p, e in fs.items()
++                      if e.get('kind') == 'dir' and p.startswith(base))
++
++    def _unreadable_pruned_anchors(root):
++        """Pruned anchors whose OWN directory entry could not be read (`aclUnreadable`, modelling
++
++        EACCES/ENOTSUP on the ACL read). The anchor stays known and reported; its marker count becomes null
++        with basis `not-enumerated`, because a count drawn from a directory whose own observation failed is
++        not an observation. Only the anchor entry itself is consulted - never its contents."""
++        base = root.rstrip('/') + '/'
++        cargo = DD.cargo_roots_from_markers(_relative_marker_paths(root))
++        out = set()
++        for p, e in fs.items():
++            if e.get('kind') != 'dir' or not p.startswith(base) or not e.get('aclUnreadable'):
++                continue
++            hit = DD.classify_path(p[len(base):], cargo)
++            if hit is not None and hit[0] == p[len(base):]:
++                out.add(hit[0])
++        return out
++
+     def finish(root):
+         prov['selectedRoot'] = root
+         # nested repositories under the selected root are other authority/custody roots: recorded, never
+@@ -726,11 +787,18 @@
+             # output (`target` directly under a directory holding Cargo.toml) are pruned by exact path segment BEFORE
+             # any custody walk; each pruned tree is recorded once. Installed package manifests therefore never become
+             # units and never count toward the cap. The cap counts first-party marker directories and refuses typed.
+-            enum = DD.enumerate_units(_relative_marker_paths(root))
+-            prov['prunedTrees'] = [{'path': _join(root, t['path']), 'reason': t['reason'], 'markerCount': t['markerCount']} for t in enum['prunedTrees']]
+-            if enum['refusal'] is not None:
+-                return refuse('PROJECT.WORKSPACE_UNIT_LIMIT', root,
+-                              'WORKSPACE_UNIT_LIMIT:%d>%d' % (enum['refusal']['unitCount'], enum['refusal']['limit']))
++            # CR-25: pruned anchors come from the ADMITTED DIRECTORY OBSERVATION, not only from marker paths.
++            # Discovery already holds every directory entry it observed; a `node_modules`, `.hg`, `.svn`, `.jj` or
++            # Cargo `target` tree holding no manifest was previously pruned with no record that it existed. No
++            # descent occurs: the shared rule returns the OUTERMOST anchor, and nothing reads inside a pruned tree.
++            # An anchor whose OWN entry could not be read (`aclUnreadable`) is still reported, with a null count.
++            enum = DD.enumerate_units(_relative_marker_paths(root), enforce_limit=False,
++                                      observed_directories=_relative_directories(root),
++                                      marker_inventory_basis=marker_basis,
++                                      unreadable_anchors=_unreadable_pruned_anchors(root))
++            prov['prunedTrees'] = [{'path': _join(root, t['path']), 'reason': t['reason'],
++                                    'markerCount': t['markerCount'], 'markerCountBasis': t['markerCountBasis']}
++                                   for t in enum['prunedTrees']]
+             for rel in enum['unitDirs']:
+                 d = root if rel == DD.INTERNAL_ROOT else _join(root, rel)
+                 if _in_nested_repo(d):
+@@ -753,6 +821,12 @@
+                 if not markers:
+                     continue
+                 prov['units'].append({'path': d, 'kind': 'workspace-auto', 'markers': markers})
++            # Count admitted project units after authority/custody exclusions.
++            unit_count = len(prov['units'])
++            if unit_count > DD.MAX_WORKSPACE_UNITS:
++                prov['units'] = []
++                return refuse('PROJECT.WORKSPACE_UNIT_LIMIT', root,
++                              'WORKSPACE_UNIT_LIMIT:%d>%d' % (unit_count, DD.MAX_WORKSPACE_UNITS))
+         return {'status': 'ACCEPT', 'provenance': prov}
+ 
+     if waive and explicit is None:
+@@ -1375,6 +1449,111 @@
+     return {'action': 'CONTINUE', 'reason': 'within-bound', 'detail': None, 'd9': None, 'obligation': OBSERVER_OBLIGATION}
+ 
+ 
++CURRENT_JOURNAL_RECORD_SCHEMA = 3
++HISTORICAL_JOURNAL_RECORD_SCHEMA = 2
++# Linearization fixture only. Not a native fact, not evaluator authority, not a close_run identity.
++FIXTURE_SEAL_RUN_ID = 'run3:' + '0' * 64
++_RUN3 = re.compile(r'^run3:[0-9a-f]{64}$')
++_RUN2 = re.compile(r'^run2:[0-9a-f]{64}$')
++
++
++def _validate_current_journal_record(rec):
++    """Exact current JournalRecord fields (recordSchema 3). Not a mixed run[23] parser."""
++    schema = copy.deepcopy(_SCHEMA_BUNDLE)
++    schema['$ref'] = '#/$defs/JournalRecord'
++    _C.validate(schema, rec)
++
++
++def admit_journal_record(rec):
++    """Current selected journal record is recordSchema 3 and the closed JournalRecord fields.
++    Schema-2 journals are frozen historical bytes and are not read as 3. Mixed run2/run3
++    prefixes refuse. Grant/root schema-2 documents are a different version axis."""
++    if type(rec) is not dict:
++        raise Reject('JOURNAL_RECORD_SHAPE')
++    schema = rec.get('recordSchema')
++    run_id = rec.get('runId')
++    if schema == CURRENT_JOURNAL_RECORD_SCHEMA:
++        if type(run_id) is str and (run_id.startswith('run2:') or _RUN2.match(run_id)):
++            raise Reject('JOURNAL_RECORD_MIXED_PREFIX')
++        try:
++            _validate_current_journal_record(rec)
++        except Exception as e:
++            if type(e).__name__ in ('AdmissionError', 'ValidationError'):
++                raise Reject('JOURNAL_RECORD_SCHEMA_INVALID') from e
++            raise
++        return {'result': 'CURRENT', 'recordSchema': 3, 'runId': rec.get('runId')}
++    if schema == HISTORICAL_JOURNAL_RECORD_SCHEMA:
++        if type(run_id) is str and (run_id.startswith('run3:') or _RUN3.match(run_id)):
++            raise Reject('JOURNAL_RECORD_MIXED_PREFIX')
++        raise Reject('JOURNAL_RECORD_SCHEMA_HISTORICAL')
++    raise Reject('JOURNAL_RECORD_SCHEMA_UNSUPPORTED')
++
++
++def admit_seal_run_id_prefix(run_id):
++    """Narrow run3 prefix dispatch. Not identity-model.v3.close_run. Not analysis-Run authority.
++    Linearization uses FIXTURE_SEAL_RUN_ID through this helper only as a schedule token."""
++    if type(run_id) is not str:
++        raise Reject('SEAL_RUN_ID_INVALID')
++    if _RUN2.match(run_id) or run_id.startswith('run2:'):
++        raise Reject('JOURNAL_RECORD_MIXED_PREFIX')
++    if not _RUN3.fullmatch(run_id):
++        raise Reject('SEAL_RUN_ID_INVALID')
++    if run_id == FIXTURE_SEAL_RUN_ID:
++        raise Reject('SEAL_RUN_ID_FIXTURE_NOT_AUTHORITY')
++    return {'result': 'ADMIT', 'standing': 'prefix-dispatch', 'authority': 'run3-pattern',
++            'runId': run_id, 'fixture': False}
++
++
++def admit_host_seal_run_id(run_id):
++    """Alias of admit_seal_run_id_prefix. Does not perform close_run."""
++    return admit_seal_run_id_prefix(run_id)
++
++
++_IDENTITY_V3 = None
++
++
++def _identity_model_v3():
++    """Lazy M3 load. Linearize never calls this. Not a product host."""
++    global _IDENTITY_V3
++    if _IDENTITY_V3 is None:
++        path = Path(__file__).resolve().parent.parent / 'foundation' / 'identity-model.v3.py'
++        spec = importlib.util.spec_from_file_location('security_identity_model_v3', path)
++        module = importlib.util.module_from_spec(spec)
++        spec.loader.exec_module(module)
++        _IDENTITY_V3 = module
++    return _IDENTITY_V3
++
++
++def admit_analysis_seal(record, run, objects, blobs):
++    """Public reference SEAL of an analysis Run.
++
++    Requires identity-model.v3.close_run on the supplied retained graph and
++    compares the returned RunId to the journal SEAL runId. Prefix dispatch is
++    not this boundary. Linearize is an abstract brokered-effect schedule, not
++    product analysis SEAL. Root-required proof.executionInputsDigest is enforced
++    inside close_run/reconstruct; this adapter does not mint that digest.
++    """
++    admitted = admit_journal_record(record)
++    if record.get('recordType') != 'SEAL':
++        raise Reject('SEAL_RECORD_TYPE')
++    claimed = record.get('runId')
++    if claimed is None:
++        raise Reject('SEAL_RUN_ID_REQUIRED')
++    if claimed == FIXTURE_SEAL_RUN_ID:
++        raise Reject('SEAL_RUN_ID_FIXTURE_NOT_AUTHORITY')
++    IM = _identity_model_v3()
++    try:
++        actual = IM.close_run(run, objects, blobs)
++    except IM.C.AdmissionError as e:
++        # close_run normalizes declared owner refusals into this identity copy,
++        # including CompleteReplayMismatch. Other exceptions remain host defects.
++        raise Reject('SEAL_CLOSE_RUN_REFUSED:' + str(e).split('\n')[0][:240]) from e
++    if actual != claimed:
++        raise Reject('SEAL_RUN_ID_MISMATCH')
++    return {'result': 'ADMIT', 'standing': 'current-host', 'authority': 'identity-model.v3.close_run',
++            'runId': actual, 'journalRecordSchema': admitted['recordSchema'], 'fixture': False}
++
++
+ def linearize(schedule, grant_generation=1, operation_ref='op-' + '0' * 32):
+     """Journal linearization model. `schedule` is the order in which actors acquire the journal
+     append lock L. Each step is one of:
+@@ -1387,10 +1566,11 @@
+       INDET <r>            the target's current state cannot be read (rollback would be indeterminate)
+       CHILD <name>         an unconfined child (trusted repository code) is running; not a brokered effect
+       REV <reason>         append REV under L, then postimage-checked rollback, cleanup (CLN) and bounded cancellation
+-      SEAL                 append SEAL (schema-2 record) under L; refused after REV
++      SEAL                 append SEAL (recordSchema 3, fixture run3 id) under L; refused after REV
+       POLL                 observer tick (no journal effect)
+     Linearization covers BROKERED effects only: no brokered effect commits after REV. Unconfined children
+-    are cancelled within the bound but their external effects before the kill are not enumerable."""
++    are cancelled within the bound but their external effects before the kill are not enumerable.
++    Current records are recordSchema 3. Schema-2 journals remain frozen historical bytes."""
+     journal = []
+     seq = 0
+     state = {'rev': None, 'requests': {}, 'sealed': False, 'refused': [], 'grants': set(), 'children': {}}
+@@ -1399,7 +1579,7 @@
+         nonlocal seq
+         seq += 1
+         body = dict(rec)
+-        body.update({'recordSchema': 2, 'grantGeneration': grant_generation, 'seq': seq, 'operationRef': operation_ref})
++        body.update({'recordSchema': CURRENT_JOURNAL_RECORD_SCHEMA, 'grantGeneration': grant_generation, 'seq': seq, 'operationRef': operation_ref})
+         body['bodySha256'] = journal_body_sha({k: v for k, v in body.items() if k != 'bodySha256'})
+         journal.append(body)
+         return seq
+@@ -1503,7 +1683,7 @@
+             if state['rev'] is not None:
+                 state['sealRefused'] = 'SEAL_AFTER_REV'
+                 continue
+-            s = append({'recordType': 'SEAL', 'runId': 'run2:' + '0' * 64})
++            s = append({'recordType': 'SEAL', 'runId': FIXTURE_SEAL_RUN_ID})
+             state['sealed'] = True
+             state['sealSeq'] = s
+         elif op == 'POLL':
+@@ -3026,6 +3206,12 @@
+         return observer_tick(inp['lastReadMono'], inp['nowMono'], inp['counterReadOk'])
+     if model == 'linearize':
+         return linearize(inp['schedule'])
++    if model == 'journal-record':
++        return admit_journal_record(inp['record'])
++    if model == 'host-seal-run' or model == 'seal-run-prefix':
++        return admit_seal_run_id_prefix(inp['runId'])
++    if model == 'analysis-seal':
++        return admit_analysis_seal(inp['record'], inp['run'], inp['objects'], inp['blobs'])
+     if model == 'lease':
+         return lease_schedule(inp['actions'], inp.get('namespaceRegistry'))
+     if model == 'core-transition-scope':

@@ -1,0 +1,297 @@
+{
+  "artifact": "opensip.native-evidence.typescript-protocol2-order",
+  "version": 1,
+  "status": "PROPOSED",
+  "standing": "NORMATIVE and CLOSED abstract host event machine for typescript-semantic protocol major 2. It transcribes the inherited delivery.v2 providerProtocol.ordering and supervision terminal rules, adding exactly the native-evidence 9.4/9.7 successor insertions: NativeContextVerified between SnapshotAccepted and Analyze, and the pre-Analyze Unavailable(native-context-mismatch) terminal inside that interval. Payload validation is owned by native/provider-startup.schemas.v1.json, native/provider-handshake.schemas.v1.json and section 9 prose and is executed per frame by native_evidence_model.v2.provider_startup_exchange before an event reaches this table. It adds no frame and no terminal kind and changes no rust-semantic rule. Framing bytes, byte limits and exit-status policy after Cancelled are not modeled; supervision.userCancellation D9 precedence governs any process observation after Cancel.",
+  "consumedBy": "docs/coop/design-corrections/native/provider_startup_model.v1.py (typescript_protocol2_run)",
+  "phases": [
+    "START",
+    "WAIT_HELLO_ACK",
+    "READY_OPEN_UNIVERSE",
+    "WAIT_UNIVERSE_ACCEPTED",
+    "READY_SNAPSHOT_MANIFEST",
+    "RECEIVING_SNAPSHOT",
+    "WAIT_SNAPSHOT_ACCEPTED",
+    "WAIT_NATIVE_CONTEXT_VERIFIED",
+    "READY_ANALYZE",
+    "ANALYZING",
+    "READY_COMPLETE",
+    "WAIT_CANCELLED",
+    "WAIT_ZERO_EXIT",
+    "WAIT_EOF",
+    "DONE",
+    "FAULT"
+  ],
+  "initialState": {
+    "phase": "START",
+    "identityNegotiated": false,
+    "stageIndex": 0,
+    "stageCount": 0,
+    "stagesCompleted": 0,
+    "outputSeen": false,
+    "terminalKind": null,
+    "sourceBytesSent": false,
+    "cancelPhase": null
+  },
+  "matchLaw": "FIRST MATCH WINS in the declared rules order. A row matches when its phase equals the current phase (or the current phase is a member of the *PRE_TERMINAL wildcard), its frame equals the event frame, and every guard key equals the named host state field or derived event observation. The rows are pairwise disjoint.",
+  "guardLaw": "Guard keys name host state fields or the derived event observations listed in eventObservations; comparison is exact equality.",
+  "eventObservations": {
+    "unavailablePayload": "derived by provider_startup_model.admit_unavailable from the admitted payload: pre-analyze (PreAnalyzeUnavailableV1) or post-analyze (TypeScriptUnavailableV2); never a wire member",
+    "capabilities": "the admitted TypeScriptHelloAckV2 token array"
+  },
+  "wildcards": {
+    "*ANY": "phase wildcard of the two catch-all rows; applied by preMatchLaw and noMatchLaw only",
+    "*PRE_TERMINAL": {
+      "phases": [
+        "START",
+        "WAIT_HELLO_ACK",
+        "READY_OPEN_UNIVERSE",
+        "WAIT_UNIVERSE_ACCEPTED",
+        "READY_SNAPSHOT_MANIFEST",
+        "RECEIVING_SNAPSHOT",
+        "WAIT_SNAPSHOT_ACCEPTED",
+        "WAIT_NATIVE_CONTEXT_VERIFIED",
+        "READY_ANALYZE",
+        "ANALYZING",
+        "READY_COMPLETE"
+      ],
+      "meaning": "START through READY_COMPLETE: any nonterminal state (ordering.cancelTransition)"
+    },
+    "*": "frame wildcard of the final fallback row",
+    "*PROCESS_FAULT": {
+      "frames": [
+        "deadline",
+        "nonzero-exit",
+        "signal-death",
+        "stdout-byte"
+      ]
+    }
+  },
+  "preMatchLaw": [
+    "FAULT is absorbing: every further event is traced FAULT-absorb.",
+    "In WAIT_ZERO_EXIT, WAIT_EOF or DONE any frame other than zero-exit, eof or a *PROCESS_FAULT member is a post-terminal frame: FAULT, trace post-terminal-frame.",
+    "Any *PROCESS_FAULT member goes to FAULT with trace T2-22."
+  ],
+  "noMatchLaw": "An event matching no row goes to FAULT with trace T2-23.",
+  "stateUpdates": [
+    {
+      "onFrame": "HelloAck",
+      "sets": "identityNegotiated = every identity token is present in the admitted capabilities"
+    },
+    {
+      "onFrame": "Analyze",
+      "sets": "stageCount = the invocation's stage count; stageIndex = 0; outputSeen = false"
+    },
+    {
+      "onFrames": [
+        "FactBatch",
+        "Coverage"
+      ],
+      "sets": "outputSeen = true"
+    },
+    {
+      "onFrame": "Cancel",
+      "sets": "cancelPhase = the phase in which Cancel was sent"
+    },
+    {
+      "onFrames": [
+        "OpenUniverse",
+        "SnapshotFileChunk",
+        "SnapshotManifest"
+      ],
+      "sets": "sourceBytesSent = true"
+    }
+  ],
+  "stageDependentTransitions": {
+    "ANALYZING_OR_READY_COMPLETE": "The next of T2-13 increments stageIndex and stagesCompleted and resolves to READY_COMPLETE when stageIndex equals stageCount, otherwise ANALYZING."
+  },
+  "terminalLaw": "A row carrying terminal records terminalKind. After unavailable, budget-exhausted or complete the worker must still reach zero-exit then eof; after cancelled only eof is required (ordering.cancelTransition).",
+  "cancellationObservedPhase": {
+    "hostPhasesAtCancel": [
+      "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "READY_ANALYZE"
+    ],
+    "observedPhase": "snapshot",
+    "rule": "CancelledV1.observedPhase is snapshot for a Cancel the worker receives after emitting SnapshotAccepted and before receiving Analyze: the inserted NativeContextVerified interval, including after its NativeContextVerified emission (host phases WAIT_NATIVE_CONTEXT_VERIFIED and READY_ANALYZE at Cancel). No enum member or terminal route is added. delivery.v2 ordering.cancelTransition and supervision.userCancellation precedence are unchanged, and the observedPhase meaning of every other interval is inherited and not restated here."
+  },
+  "ruleCount": 23,
+  "rules": [
+    {
+      "id": "T2-01",
+      "phase": "START",
+      "frame": "Hello",
+      "next": "WAIT_HELLO_ACK",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[0]"
+    },
+    {
+      "id": "T2-02",
+      "phase": "WAIT_HELLO_ACK",
+      "frame": "HelloAck",
+      "next": "READY_OPEN_UNIVERSE",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[0]"
+    },
+    {
+      "id": "T2-03",
+      "phase": "READY_OPEN_UNIVERSE",
+      "frame": "OpenUniverse",
+      "guard": {
+        "identityNegotiated": true
+      },
+      "next": "WAIT_UNIVERSE_ACCEPTED",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[1]; native-evidence 9.1 step 3"
+    },
+    {
+      "id": "T2-04",
+      "phase": "WAIT_UNIVERSE_ACCEPTED",
+      "frame": "UniverseAccepted",
+      "next": "READY_SNAPSHOT_MANIFEST",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[1]"
+    },
+    {
+      "id": "T2-05",
+      "phase": "READY_SNAPSHOT_MANIFEST",
+      "frame": "SnapshotManifest",
+      "next": "RECEIVING_SNAPSHOT",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[2]"
+    },
+    {
+      "id": "T2-06",
+      "phase": "RECEIVING_SNAPSHOT",
+      "frame": "SnapshotFileChunk",
+      "next": "RECEIVING_SNAPSHOT",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[2]"
+    },
+    {
+      "id": "T2-07",
+      "phase": "RECEIVING_SNAPSHOT",
+      "frame": "SnapshotSeal",
+      "next": "WAIT_SNAPSHOT_ACCEPTED",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[2]"
+    },
+    {
+      "id": "T2-08",
+      "phase": "WAIT_SNAPSHOT_ACCEPTED",
+      "frame": "SnapshotAccepted",
+      "next": "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[2]; native-evidence 9.4 insertion"
+    },
+    {
+      "id": "T2-09",
+      "phase": "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "frame": "NativeContextVerified",
+      "next": "READY_ANALYZE",
+      "source": "native-evidence 9.4 insertion"
+    },
+    {
+      "id": "T2-10",
+      "phase": "WAIT_NATIVE_CONTEXT_VERIFIED",
+      "frame": "Unavailable",
+      "guard": {
+        "unavailablePayload": "pre-analyze"
+      },
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "unavailable",
+      "source": "native-evidence 9.7 pre-Analyze Unavailable"
+    },
+    {
+      "id": "T2-11",
+      "phase": "READY_ANALYZE",
+      "frame": "Analyze",
+      "next": "ANALYZING",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases[3]"
+    },
+    {
+      "id": "T2-12",
+      "phase": "ANALYZING",
+      "frame": "FactBatch",
+      "next": "ANALYZING",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.stageOrder"
+    },
+    {
+      "id": "T2-13",
+      "phase": "ANALYZING",
+      "frame": "Coverage",
+      "next": "ANALYZING_OR_READY_COMPLETE",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.stageOrder"
+    },
+    {
+      "id": "T2-14",
+      "phase": "ANALYZING",
+      "frame": "Unavailable",
+      "guard": {
+        "unavailablePayload": "post-analyze",
+        "outputSeen": false
+      },
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "unavailable",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.unavailableTerminal"
+    },
+    {
+      "id": "T2-15",
+      "phase": "ANALYZING",
+      "frame": "BudgetExhausted",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "budget-exhausted",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.budgetTerminal"
+    },
+    {
+      "id": "T2-16",
+      "phase": "READY_COMPLETE",
+      "frame": "BudgetExhausted",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "budget-exhausted",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.budgetTerminal"
+    },
+    {
+      "id": "T2-17",
+      "phase": "READY_COMPLETE",
+      "frame": "Complete",
+      "next": "WAIT_ZERO_EXIT",
+      "terminal": "complete",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalTerminal"
+    },
+    {
+      "id": "T2-18",
+      "phase": "*PRE_TERMINAL",
+      "frame": "Cancel",
+      "next": "WAIT_CANCELLED",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.cancelTransition"
+    },
+    {
+      "id": "T2-19",
+      "phase": "WAIT_CANCELLED",
+      "frame": "Cancelled",
+      "next": "WAIT_EOF",
+      "terminal": "cancelled",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.cancelTransition"
+    },
+    {
+      "id": "T2-20",
+      "phase": "WAIT_ZERO_EXIT",
+      "frame": "zero-exit",
+      "next": "WAIT_EOF",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalTerminal"
+    },
+    {
+      "id": "T2-21",
+      "phase": "WAIT_EOF",
+      "frame": "eof",
+      "next": "DONE",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.normalTerminal"
+    },
+    {
+      "id": "T2-22",
+      "phase": "*ANY",
+      "frame": "*PROCESS_FAULT",
+      "next": "FAULT",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.supervision.protocolOrCrash"
+    },
+    {
+      "id": "T2-23",
+      "phase": "*ANY",
+      "frame": "*",
+      "next": "FAULT",
+      "source": "delivery.v2 $.typescriptSemanticSubstrate.providerProtocol.ordering.unknownOrContradictory"
+    }
+  ]
+}

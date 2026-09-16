@@ -1,0 +1,103 @@
+--- v3/controls/check_store_instance_lineage.py
++++ v4/controls/check_store_instance_lineage.py
+@@ -121,7 +121,75 @@
+     rc = companion.get("rootCounterexamples")
+     check(rc is not None and rc.get("accepted") is True,
+           "root's counterexamples must be recorded as accepted")
+-    check(len(rc.get("findings", [])) >= 3, "all three root findings must be recorded")
++    ids = [f["id"] for f in rc.get("findings", [])]
++    check(set(ids) >= {"RC-1", "RC-2", "RC-3", "RC-4", "RC-5"},
++          "all five root findings must be recorded, got " + str(ids))
++
++    # --- revision 4: full-triple identity and one admission law --------------
++    ident = companion.get("identityAndMarkers")
++    check(ident is not None, "the identity and marker contract must be stated")
++    if ident:
++        check("FULL TRIPLE" in ident["principle"],
++              "identity must be the full triple")
++        mc = ident["markerContract"]
++        for name in ("selectedStoreRoot", "predecessorStoreRoot",
++                     "validatedBeforeDereference", "caseConsistency"):
++            check(name in mc, "marker contract missing " + name)
++        check("before any dereference" in mc["validatedBeforeDereference"],
++              "markers must be validated before dereference")
++        check("never a search key" in ident["intentDigestIsNotAKey"],
++              "intentDigest must be excluded as a search key")
++        check("No global uniqueness" in ident["noInventedUniqueness"],
++              "no global generation uniqueness may be invented")
++
++    law = companion.get("admissionLaw")
++    check(law is not None, "the single admission law must be stated")
++    if law:
++        check("admit_node" in law["oneLawBothPaths"],
++              "publication and recovery must name one admission law")
++        checks = json.dumps(law["checks"]).lower()
++        for needed, label in (("already exist", "predecessor presence"),
++                              ("acyclic", "acyclicity"),
++                              ("disagree", "duplicate primary key"),
++                              ("one lineage root", "single root")):
++            check(needed in checks, "admission law missing " + label)
++        check("nothing is written" in law["onRefusal"].lower(),
++              "a refusal must write nothing")
++
++    rt = companion["recoveryTotality"]
++    check("markersFirst" in companion["durabilityAndReconciliation"],
++          "markers must be validated before any dereference")
++    check("noDecisionActions" in rt,
++          "the no-decision action class must be stated")
++    if "noDecisionActions" in rt:
++        nd = rt["noDecisionActions"]
++        check("inspects no node" in nd, "no-decision must inspect no node")
++    for row in rt["byOwnerAction"]:
++        if "REFUSE" in row["ownerAction"] or "BUSY" in row["ownerAction"]:
++            check(row["companionAction"].startswith("no-decision"),
++                  "BUSY/REFUSE/QUARANTINE must be a no-decision row")
++    check("full triple" in rt["preCommittedInvariant"].lower(),
++          "the premature-node check must use the full triple")
++    check("retained branch" in rt["preCommittedInvariant"].lower(),
++          "a retained branch at an equal numeric pair must be excluded explicitly")
++    join = companion["associationJoinRules"]
++    check("ancestorSelection" in join, "the ancestor selection join must be stated")
++    if "ancestorSelection" in join:
++        check("verified chain" in join["ancestorSelection"],
++              "an ancestor must be resolved on the verified chain")
++        check("never guesses globally" in join["ancestorSelection"]
++              or "never guess" in join["ancestorSelection"],
++              "an ancestor must not be guessed by numeric pair")
++
++    # correctionOf metadata must describe the CURRENT patch, not a stale one.
++    remedy = companion["correctionOf"]["remedy"]
++    check("S9-pair-law-and-S9.3.patch" in remedy,
++          "correctionOf must name the current patch filename")
++    check("TWO hunks" in remedy or "two hunks" in remedy,
++          "correctionOf must say the patch is two hunks")
++    check("S9.3.patch\"" not in json.dumps(companion).replace(
++        "S9-pair-law-and-S9.3.patch", ""),
++        "a stale one-hunk patch path is still referenced")
+ 
+     # --- node-writing is case-derived and only forward writes ----------------
+     cases = {c["id"]: c for c in companion["nodeWritingRule"]["cases"]}
+@@ -218,8 +286,22 @@
+     check("never rewrites its predecessor" in added
+           or "never rewrites" in added,
+           "S9.3 must say a retained node's origin is never rewritten")
+-    check("never name" in added or "never names its own triple" in added,
++    check("not name its own triple" in added or "never names its own triple" in added,
+           "S9.3 must forbid a self-naming node")
++    check("full triple" in added, "S9.3 must state full-triple identity")
++    check("marker" in added, "S9.3 must state the store-root marker contract")
++    check("never a search key" in added,
++          "S9.3 must state that intentDigest is never a search key")
++    check("no global uniqueness" in added.lower() or "asserts no global" in added.lower(),
++          "S9.3 must not invent global generation uniqueness")
++    # Phrases may wrap across diff lines, so normalise whitespace before matching.
++    flat = " ".join(added.replace("+", " ").split())
++    check("no decision at all" in flat and "inspects nothing" in flat,
++          "S9.3 must state that a refusing/busy/quarantining owner leaves no decision")
++    check("premature-node contradiction" in flat,
++          "S9.3 must name the premature-node contradiction")
++    check("retained branch at the same numeric generation" in flat,
++          "S9.3 must state a retained branch is expected and untouched")
+ 
+ 
+ def digest_properties(C):

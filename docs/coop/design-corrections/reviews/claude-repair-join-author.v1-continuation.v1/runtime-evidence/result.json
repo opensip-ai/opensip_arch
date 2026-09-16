@@ -1,0 +1,69 @@
+{
+  "session_id": "ce3dec3b-0620-44ec-86e6-129b0e25cb1b",
+  "total_cost_usd": 2.9356579999999997,
+  "usage": {
+    "input_tokens": 324,
+    "cache_creation_input_tokens": 63710,
+    "cache_read_input_tokens": 2671826,
+    "output_tokens": 38441,
+    "output_tokens_details": {
+      "thinking_tokens": 13015
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 63710,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1879,
+        "cache_read_input_tokens": 260720,
+        "cache_creation_input_tokens": 1145,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1145
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 324,
+      "outputTokens": 38441,
+      "cacheReadInputTokens": 2671826,
+      "cacheCreationInputTokens": 63710,
+      "webSearchRequests": 0,
+      "costUSD": 2.9356579999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 13015,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01TaeBDQCqCpYEFm3Pwe5XtQ",
+      "tool_input": {
+        "command": "ls -la /tmp/opensip-design-corrections/claude-repair-join-author.v1/ /tmp/opensip-design-corrections/claude-repair-join-author.v1/receipts/ /tmp/opensip-design-corrections/claude-repair-join-author.v1/work/ /private/tmp/opensip-design-corrections/claude-repair-join-author.v1-continuation.v1/; ps -axo pid,ppid,etime,command | grep -E 'p02_battery|p03_rootprobe|p04_semantic|probe.py|check-semantic|run.py' | grep -v grep",
+        "description": "Inspect original receipts, work trees and running jobs"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 21,
+  "subtype": "success",
+  "result": "I've fixed both defects root found in the evaluator3 repair preview owner. A wrong or substituted Run ID is now refused before any descriptor is built, and a foreign exception that shares the owner's class name now propagates as the same object instead of being mapped to unavailability. The whole workflow checker still does not pass: the known unrelated oc2 grammar failure remains in every run, and I haven't fixed or relabelled it. This is author work only and still needs the later independent final-source review.\n\n**Recovery of the interrupted jobs.** The four jobs from my earlier status-only turn never completed: they left no receipts, only empty stdout/stderr files. I kept those under `interrupted/` in this runtime and ran all four again here as new, separately labelled runs, finishing within this turn. Nothing is still running. Completed results from the original runtime were copied here with per-file hashes. A final check confirmed the original runtime, root's probe files, root's captured source and my earlier reviews are all unchanged.\n\n**The change** touches four files, as a 218-line diff (sha `b7c04ff8\u2026`) against root's captured source:\n- **`workflows_model.v3.py`**:\n  - `repair_preview` now refuses (`REQUEST.PRECONDITION_FAILED` / `REPAIR.EVIDENCE_RUN_UNAVAILABLE`) unless the request's `runId` equals identity-model.v3's own `identifier('run', \u2026)` of the retained Run. This check runs before the target join and before the shared builder.\n  - Both places that turn a missing retained record into that refusal now match only the owner's declared exception classes, by exact class identity. The name comparison is gone, and anything else propagates.\n- **`repair_closed_world_selection.v1.py`**: the retained view now declares its own exception class (`RetainedRunView.UNAVAILABLE`). That lets a separately loaded copy of the module still reach the typed route.\n- **`workflow-projection-contract.v3.md` \u00a75**: the matching sentences for both rules.\n- **`check-workflow-projection.v3.py`**: 19 new controls.\n\n`workflows-and-surfaces.md` needed no change. The historical major-1 constructor, the repair:2 schema and recipe, and the existing refusal order are preserved.\n\n**Results, in three groups:**\n\n- **Known unrelated failure.** `oc2-owner-string-expression-case-is-policy-imperative-key-refused` fails in every checker run: root's run, baseline (795 checks) and edited (814 checks), so the checker exits 1 each time.\n- **Repair controls.** On the edited tree all 19 new controls pass, and all 794 previously passing controls still pass. With the old owner files and the new checker, exactly 9 of the new controls fail. On the same real fixture:\n\n  | Case | Before | After |\n  |---|---|---|\n  | Lawful preview | admitted | admitted, identical plan |\n  | Same retained Run and Plan, wrong `run3:aaaa\u2026` ID (root's case) | admitted | refused, no descriptor built |\n  | `cw_dyn` / `cw_neg`, two other fully admitted Runs sharing the same Plan, IDs swapped either way | admitted (plan identical to `cw_dyn`'s own lawful plan) | refused, no descriptor built |\n  | Declared missing finding record, both module copies | typed refusal | typed refusal; cause is that copy's own exception class |\n  | Declared missing subject record, read by the selector, checker's separate module copy | escaped untyped | typed refusal |\n  | Foreign exception with the owner's class name (root's case) | misrouted to unavailability | propagates as the same object |\n  | `OSError` host fault | propagates | propagates as the same object |\n\n  Root's own `probe.py`, run unchanged against my tree:\n  - **Baseline copy:** reproduces root's report exactly.\n  - **Edited tree:**\n    - the lawful call is still admitted;\n    - the wrong ID is refused;\n    - the foreign exception comes out as its own class with no error code. Root's probe labels every exception \"REFUSE\", but this one propagated rather than being refused.\n\n  An automated comparison of all these expectations passes.\n- **Semantic and full-Run checks.** The real `cw_pos` Run and `cw_dyn` are each re-admitted to their own IDs by a separate `close_run`. The semantic golden replay passes 31 goldens with none blocked on both trees, with identical output.\n\n**Limits:**\n- **Behaviour change.** A view that declares no exception class now only gets the owner's own class mapped. The old code matched such views by class name; this change is intentional.\n- **Trusted declaration.** The declared class is trusted like the rest of the adapter. A declaration that is too broad (such as plain `Exception`) would catch too much, and that is outside the trusted scope.\n- **What the fixture proves.** The fixture adapters are synthetic over real admitted Runs, so nothing here qualifies a host, snapshot, trust or product.\n- **What the ID check proves.** It shows the request names the retained Run exactly; it doesn't re-admit that Run.\n- **Not run.** The six global groups.\n\nEverything is in `/tmp/opensip-design-corrections/claude-repair-join-author.v1-continuation.v1`:\n- `review.md`\n- `review.json`\n- `delta-vs-captured-source.diff`\n- `receipts/c05-summary.final.json` (custody and command record)",
+  "type": "result",
+  "duration_ms": 636359
+}

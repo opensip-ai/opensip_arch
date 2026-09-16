@@ -1,0 +1,4948 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/identity-schemas.v3.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/identity-schemas.v3.json
+new file mode 100644
+index 00000000..b09254d6
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/identity-schemas.v3.json
+@@ -0,0 +1,4942 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "urn:opensip:product-v1:identity:v3",
++  "$defs": {
++    "Hash": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "Text": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096
++    },
++    "LogicalPath": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
++      "not": {
++        "pattern": "(^|/)\\.\\.?(/|$)"
++      },
++      "description": "The logical-path grammar identity-and-evidence section 3 already states: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segment, each segment at most 255 characters. THREE DIFFERENT ENFORCEMENTS EXIST AND THEY ARE NOT EQUIVALENT; this description states only where each applies and changes no accepted path set. (1) DIRECT $ref, exactly two fields: #/$defs/Blob/properties/path and #/$defs/import-blob/properties/path. Only these carry the full declarative grammar, INCLUDING the at-most-255-characters-per-segment bound. (2) fact/anchors[]/path: a plain bounded string here, additionally subject to the imperative recursive check in foundation/identity-model.py `ordered()` AND to a real snapshot JOIN - an anchor path must be an inventoried snapshot path, and inventory rows ARE Blob, so the declarative grammar reaches it through that join. (3) finding-fingerprint/subjectKey/logicalPath: a plain bounded string subject to the SAME imperative `ordered()` check and to NO snapshot join. `ordered()` refuses, for any string under a key named `path` or `logicalPath` at any depth, a leading slash, a backslash, a NUL and any empty/dot/dot-dot segment - and it does NOT enforce the per-segment 255 maximum. So (3) is not equivalently constrained to (1), and no snapshot join is claimed for it. The three scope-descriptor path arrays deliberately reference none of this, because `.` alone denotes the admitted project root and this grammar forbids a dot segment. Byte-identical in constraint to workflows/schemas/common.schema.json#/$defs/LogicalPath, which is what makes the import blob rows an exact mirror."
++    },
++    "U64": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615
++    },
++    "ProjectId": {
++      "type": "string",
++      "pattern": "^prj1-[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "Domain": {
++      "type": "string",
++      "enum": [
++        "analysis-spec",
++        "blob",
++        "cache-key",
++        "capability-manifest",
++        "closure",
++        "configuration",
++        "coverage",
++        "coverage-payload",
++        "enumeration-plan",
++        "evaluation-seal",
++        "evaluation-subject",
++        "evaluator-emission-plan",
++        "execution-plan",
++        "fact",
++        "fact-payload",
++        "finding",
++        "finding-fingerprint",
++        "finding-parameters",
++        "import",
++        "import-payload",
++        "native-context",
++        "plan",
++        "policy",
++        "policy-derivation",
++        "predicate-witness",
++        "proof-bundle",
++        "regeneration-key",
++        "rule-program",
++        "run",
++        "schema",
++        "semantic-evidence",
++        "snapshot",
++        "subject-inventory",
++        "subject-scope",
++        "target-attribution",
++        "view",
++        "waiver",
++        "incoming-search",
++        "execution-inputs",
++        "candidate-producer-result"
++      ],
++      "description": "Registered digest-domain name. This enumeration and #/$defs/Ref/properties/domain are the same set, and both are the registered keys of x-opensip-digest-domains.byDomain."
++    },
++    "Ref": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "domain",
++        "digest"
++      ],
++      "properties": {
++        "domain": {
++          "type": "string",
++          "enum": [
++            "analysis-spec",
++            "blob",
++            "cache-key",
++            "capability-manifest",
++            "closure",
++            "configuration",
++            "coverage",
++            "coverage-payload",
++            "enumeration-plan",
++            "evaluation-seal",
++            "evaluation-subject",
++            "evaluator-emission-plan",
++            "execution-plan",
++            "fact",
++            "fact-payload",
++            "finding",
++            "finding-fingerprint",
++            "finding-parameters",
++            "import",
++            "import-payload",
++            "native-context",
++            "plan",
++            "policy",
++            "policy-derivation",
++            "predicate-witness",
++            "proof-bundle",
++            "regeneration-key",
++            "rule-program",
++            "run",
++            "schema",
++            "semantic-evidence",
++            "snapshot",
++            "subject-inventory",
++            "subject-scope",
++            "target-attribution",
++            "view",
++            "waiver",
++            "incoming-search",
++            "execution-inputs",
++            "candidate-producer-result"
++          ]
++        },
++        "digest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "by-domain",
++            "registry": "x-opensip-digest-domains"
++          }
++        }
++      }
++    },
++    "Blob": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "path",
++        "sha256",
++        "bytes"
++      ],
++      "properties": {
++        "path": {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        "sha256": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact retained file bytes named by path; bytes is their exact length"
++          }
++        },
++        "bytes": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        }
++      }
++    },
++    "import-blob": {
++      "type": "object",
++      "description": "A retained blob row of an import. Identical to Blob except for the import unit's own published hostile-input artifact bound (imported-evidence.schema.json: 'artifact at most 268435456 bytes'), which is an import bound and deliberately not imposed on source-inventory or closure tree rows. Exact mirror of workflows/schemas/common.schema.json#/$defs/Blob.",
++      "additionalProperties": false,
++      "required": [
++        "path",
++        "sha256",
++        "bytes"
++      ],
++      "properties": {
++        "path": {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        "sha256": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact retained file bytes named by path; bytes is their exact length"
++          }
++        },
++        "bytes": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 268435456
++        }
++      }
++    },
++    "snapshot": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "projectId",
++        "sourceInventory",
++        "resolvedConfigDigest",
++        "scopeDigest",
++        "vcsDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "projectId": {
++          "$ref": "#/$defs/ProjectId"
++        },
++        "sourceInventory": {
++          "$ref": "#/$defs/source-inventory"
++        },
++        "resolvedConfigDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/semantic-configuration"
++            }
++          }
++        },
++        "scopeDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/scope-descriptor"
++            }
++          }
++        },
++        "vcsDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/vcs-observation"
++            }
++          }
++        }
++      }
++    },
++    "closure": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "kind",
++        "manifestDigest",
++        "tree",
++        "semanticVersion",
++        "protocolMajor",
++        "platform"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "kind": {
++          "type": "string",
++          "enum": [
++            "provider",
++            "evaluator",
++            "detector",
++            "toolchain",
++            "stdlib",
++            "rust-dev-llvm",
++            "grammar",
++            "adapter"
++          ]
++        },
++        "manifestDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the admitted component manifest body bytes under the security metadata profile, excluding the signature envelope"
++          }
++        },
++        "tree": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "$ref": "#/$defs/Blob"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "path"
++        },
++        "semanticVersion": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "protocolMajor": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        },
++        "platform": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        }
++      }
++    },
++    "import": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "kind",
++        "payloadSchemaDigest",
++        "payloadDigest",
++        "sourceCorrespondenceDigest",
++        "buildDigest",
++        "producerClosure",
++        "adapterClosure",
++        "blobs",
++        "scopeDigest",
++        "observationDigest",
++        "completeness",
++        "omissions"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "kind": {
++          "type": "string",
++          "enum": [
++            "runtime",
++            "test",
++            "history",
++            "dependency",
++            "prepared"
++          ]
++        },
++        "payloadSchemaDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact complete registered import payload schema document bytes"
++          }
++        },
++        "payloadDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "payloadClass": "import",
++              "keyedBy": [
++                "kind",
++                "payload.payloadDomain"
++              ],
++              "schemaDigestField": "payloadSchemaDigest"
++            }
++          }
++        },
++        "sourceCorrespondenceDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/common.schema.json",
++              "selector": "#/$defs/SourceCorrespondence"
++            }
++          }
++        },
++        "buildDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/imported-evidence.schema.json",
++              "selector": "#/$defs/BuildIdentityV1"
++            }
++          }
++        },
++        "producerClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "adapterClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "blobs": {
++          "type": "array",
++          "minItems": 0,
++          "maxItems": 4096,
++          "items": {
++            "$ref": "#/$defs/import-blob"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "path",
++          "description": "The closed inventory of the import's retained AUXILIARY ASSET members. It is not the import's mandatory custody: the payload bytes and the exact registered schema DOCUMENT bytes are retained and re-hashed independently by registered_payload, and those obligations hold identically when this array is empty. An archive member outside this list is never read (native-evidence section 3 PO-4) - a restriction on READING, satisfied vacuously by an empty list, never a requirement that a member exist. minItems 0 is therefore the owning admissibility: a self-contained normalized payload may legitimately retain no auxiliary asset. An earlier revision of this description required minItems 1, arguing that adapterClosure asserts an adapter ran over the bytes named by the custody record's sourcePath; that argument was withdrawn because ImportedEvidenceRecordV1.sourcePath is a UserInputPath, which the workflow common schema defines as never entering any content identity and recorded in operational records only, and because no join anywhere binds sourcePath to a member of this array. Requiring one arbitrary blob would not establish original-input custody. maxItems 4096 and the item byte bound are the import unit's own published hostile-input bounds (workflows/schemas/imported-evidence.schema.json top-level description: at most 4096 blobs, artifact at most 268435456 bytes); the foundation record previously allowed 100000, and narrowing to the published bound is a stated compatibility change.",
++          "x-opensip-mirror": "workflows/schemas/imported-evidence.schema.json#/$defs/ImportWrapperV2/properties/blobs"
++        },
++        "scopeDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/scope-descriptor"
++            }
++          }
++        },
++        "observationDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/imported-evidence.schema.json",
++              "selector": "#/$defs/ImportObservationV1"
++            }
++          }
++        },
++        "completeness": {
++          "type": "string",
++          "enum": [
++            "complete",
++            "partial",
++            "unknown"
++          ]
++        },
++        "omissions": {
++          "type": "array",
++          "maxItems": 1024,
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "plan": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "snapshotId",
++        "capabilityManifestId",
++        "semanticClosures",
++        "analysisSpecDigest",
++        "resolvedConfigDigest",
++        "nativeContextDigests",
++        "importIds",
++        "policyDigest",
++        "waiverDigest",
++        "scopeDigest",
++        "budget",
++        "semanticGrantDigest",
++        "capabilityManifestBytesDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "snapshotId": {
++          "type": "string",
++          "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "capabilityManifestId": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "capability-manifest-id",
++            "retention": "derived",
++            "derivedFrom": "plan.capabilityManifestBytesDigest"
++          }
++        },
++        "semanticClosures": {
++          "type": "array",
++          "maxItems": 128,
++          "items": {
++            "type": "string",
++            "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set",
++          "description": "Explicit selection with required membership under x-opensip-digest-domains.closureMembership, not an exact minimal set. Extra admissible retained closures may be selected; their selection changes PlanId."
++        },
++        "analysisSpecDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/analysis-spec"
++            }
++          }
++        },
++        "resolvedConfigDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/semantic-configuration"
++            }
++          }
++        },
++        "nativeContextDigests": {
++          "type": "array",
++          "maxItems": 128,
++          "items": {
++            "type": "string",
++            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++            "x-opensip-digest": {
++              "representation": "h-identity",
++              "domainSet": "native-context"
++            }
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "importIds": {
++          "type": "array",
++          "maxItems": 256,
++          "items": {
++            "type": "string",
++            "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "policyDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.v2.schema.json",
++              "selector": "#/$defs/PolicyDocumentV2"
++            }
++          }
++        },
++        "waiverDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.schema.json",
++              "selector": "#/$defs/WaiverSetV1"
++            }
++          }
++        },
++        "scopeDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/scope-descriptor"
++            }
++          }
++        },
++        "budget": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "unit",
++            "limit"
++          ],
++          "properties": {
++            "unit": {
++              "const": "work-units"
++            },
++            "limit": {
++              "type": "integer",
++              "minimum": 1,
++              "maximum": 9007199254740991
++            }
++          },
++          "description": "Equal, exactly and by type, to the analysis.budget of the committed resolved semantic configuration this Plan names (identity-and-evidence section 3 closure list). A legitimate override enters the resolved configuration first; neither committed place silently wins."
++        },
++        "semanticGrantDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/semantic-grant"
++            }
++          }
++        },
++        "capabilityManifestBytesDigest": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact committed CVE1 capability manifest artifact bytes"
++          }
++        }
++      }
++    },
++    "subject-scope": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "snapshotId",
++        "sourceUniverse",
++        "targetUniverse",
++        "relation",
++        "resolution",
++        "enumeratorClosure",
++        "subjects"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "snapshotId": {
++          "type": "string",
++          "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "sourceUniverse": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "domainSet": "native-semantic-universe"
++          }
++        },
++        "targetUniverse": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "domainSet": "native-semantic-universe"
++          }
++        },
++        "relation": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "resolution": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "enumeratorClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
++          "description": "The Plan-selected closure that enumerated this scope. Its kind must be 'provider': enumeration is a native provider act, and no 'enumerator' kind is minted for it. The closure must also be a member of plan.semanticClosures, so the enumerator is one the Plan selected."
++        },
++        "subjects": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "coverage": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "scopeId",
++        "payloadSchemaDigest",
++        "payloadDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "scopeId": {
++          "type": "string",
++          "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "payloadSchemaDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact full bytes of the registered Coverage payload schema document for the payload schemaVersion"
++          }
++        },
++        "payloadDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "payloadClass": "coverage",
++              "keyedBy": [
++                "payload.schemaVersion"
++              ],
++              "schemaDigestField": "payloadSchemaDigest"
++            }
++          }
++        }
++      }
++    },
++    "view": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "scopeIds",
++        "facts",
++        "coverageIds",
++        "producerClosure",
++        "schemaDigests"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "scopeIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "facts": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "coverageIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^coverage2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "producerClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "schemaDigests": {
++          "type": "array",
++          "maxItems": 128,
++          "items": {
++            "type": "string",
++            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++            "x-opensip-digest": {
++              "representation": "raw-artifact",
++              "artifactClass": "registered-schema-document",
++              "artifact": "the exact complete bytes of a schema document on the closed x-opensip-payload-registry list, DECLARED by this view's producer as a schema this view admitted under. The set is the producer's declaration and not a derived union: it is neither required to name every document a member fact or Coverage was admitted under, nor forbidden from naming a registered document this view admitted nothing under. Each member fact and Coverage independently pins and retains its own document through its own payloadSchemaDigest, which is where payload admission is decided."
++            }
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "execution-plan": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "stages"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "stages": {
++          "type": "array",
++          "maxItems": 1024,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "ordinal",
++              "stageSpecDigest",
++              "requires",
++              "outputDomains"
++            ],
++            "properties": {
++              "ordinal": {
++                "type": "integer",
++                "minimum": 0,
++                "maximum": 18446744073709551615
++              },
++              "stageSpecDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "canonical-record",
++                  "record": {
++                    "bundle": "identity",
++                    "selector": "#/$defs/stage-spec"
++                  }
++                }
++              },
++              "requires": {
++                "type": "array",
++                "maxItems": 1024,
++                "items": {
++                  "type": "integer",
++                  "minimum": 0,
++                  "maximum": 18446744073709551615
++                },
++                "uniqueItems": true,
++                "x-opensip-order": "numeric"
++              },
++              "outputDomains": {
++                "type": "array",
++                "maxItems": 128,
++                "items": {
++                  "$ref": "#/$defs/Domain",
++                  "x-opensip-vocabulary": {
++                    "authority": "foundation/identity-schemas.v3.json#/x-opensip-digest-domains/byDomain",
++                    "schema": "#/$defs/Domain",
++                    "meaning": "Registered output-domain names; declaration alone grants no producer or evidence authority."
++                  }
++                },
++                "uniqueItems": true,
++                "x-opensip-order": "canonical-set",
++                "description": "Declared output-domain set. Empty is permitted and asserts no output domains; it does not establish completeness or result authority. Stage and stage-spec sets must agree."
++              }
++            }
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "ordinal"
++        }
++      }
++    },
++    "finding-fingerprint": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "ruleStableId",
++        "detectorSemanticsMajor",
++        "subjectKey",
++        "relatedSubjectKeys"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "ruleStableId": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "detectorSemanticsMajor": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        },
++        "subjectKey": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "language",
++            "kind",
++            "logicalPath",
++            "qualifiedName",
++            "discriminator"
++          ],
++          "properties": {
++            "language": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 4096
++            },
++            "kind": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 4096
++            },
++            "logicalPath": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 4096
++            },
++            "qualifiedName": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 4096
++            },
++            "discriminator": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 4096
++            }
++          }
++        },
++        "relatedSubjectKeys": {
++          "type": "array",
++          "maxItems": 1024,
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "finding": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "fingerprint",
++        "ruleClosure",
++        "subjectId",
++        "messageCode",
++        "parameterDigest",
++        "severity",
++        "evidenceRefs",
++        "ruleId",
++        "subject",
++        "correspondence"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "fingerprint": {
++          "oneOf": [
++            {
++              "type": "string",
++              "pattern": "^finding-key2:[0-9a-f]{64}(?![\\s\\S])"
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "ruleClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "subjectId": {
++          "type": "string",
++          "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "messageCode": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "parameterDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/finding-parameters"
++            }
++          }
++        },
++        "severity": {
++          "type": "string",
++          "enum": [
++            "note",
++            "warning",
++            "error"
++          ]
++        },
++        "evidenceRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "$ref": "#/$defs/FindingEvidenceRef"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set",
++          "description": "Root predicate-witness digest; descendant known and uncertain facts; descendant witness coverageIds (consulted); descendant matching/uncertain observation importIds; and every evaluationInputRefs member with domain=import. Enumeration/execution inventory refs stay on the proof. composition \u00a79.7."
++        },
++        "ruleId": {
++          "$ref": "#/$defs/Text"
++        },
++        "subject": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "language",
++            "kind",
++            "logicalPath",
++            "qualifiedName"
++          ],
++          "properties": {
++            "language": {
++              "$ref": "#/$defs/Text"
++            },
++            "kind": {
++              "type": "string",
++              "enum": [
++                "file",
++                "symbol",
++                "package"
++              ]
++            },
++            "logicalPath": {
++              "$ref": "#/$defs/LogicalPath"
++            },
++            "qualifiedName": {
++              "$ref": "#/$defs/Text"
++            }
++          }
++        },
++        "correspondence": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "state",
++            "reason"
++          ],
++          "properties": {
++            "state": {
++              "type": "string",
++              "enum": [
++                "matched",
++                "unmatched"
++              ]
++            },
++            "reason": {
++              "oneOf": [
++                {
++                  "type": "string",
++                  "enum": [
++                    "projection-unavailable",
++                    "signature-ambiguous",
++                    "anonymous-subject",
++                    "population-incomplete"
++                  ]
++                },
++                {
++                  "type": "null"
++                }
++              ]
++            }
++          }
++        }
++      },
++      "description": "Version3 finding: one full configuration-qualified occurrence. subjectId is evaluation-subject; fingerprint is unchanged logical correspondence. Baseline projection groups only identical logical fingerprint descriptors and complete BaselineEntry fields.",
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "correspondence": {
++                "properties": {
++                  "state": {
++                    "const": "matched"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "fingerprint": {
++                "type": "string"
++              },
++              "correspondence": {
++                "properties": {
++                  "reason": {
++                    "type": "null"
++                  }
++                }
++              }
++            }
++          },
++          "else": {
++            "properties": {
++              "fingerprint": {
++                "type": "null"
++              },
++              "correspondence": {
++                "properties": {
++                  "reason": {
++                    "type": "string"
++                  }
++                }
++              }
++            }
++          }
++        }
++      ]
++    },
++    "proof-bundle": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "executionPlanId",
++        "evaluatorClosure",
++        "ruleProgramDigest",
++        "evaluationInputRefs",
++        "predicateProofs",
++        "findingIds",
++        "verdict",
++        "evaluationState",
++        "ruleResults",
++        "waivedFindingIds",
++        "executionDeficiencies",
++        "executionInputsDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "executionPlanId": {
++          "type": "string",
++          "pattern": "^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "evaluatorClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "ruleProgramDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.v2.schema.json",
++              "selector": "#/$defs/RuleProgramV2"
++            }
++          }
++        },
++        "evaluationInputRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "$ref": "#/$defs/ProofInputRef"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set",
++          "description": "Complete admitted selection: ExecutionInputsV1.selectedRefs plus the one execution-inputs ref. Not an evaluated subset. Atomic predicateProofs[].inputRefs copy this whole set (composition \u00a79.2)."
++        },
++        "predicateProofs": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "ruleId",
++              "subjectId",
++              "predicateId",
++              "operation",
++              "inputRefs",
++              "scopeIds",
++              "value",
++              "witnessDigest"
++            ],
++            "properties": {
++              "ruleId": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "subjectId": {
++                "type": "string",
++                "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
++              },
++              "predicateId": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "operation": {
++                "type": "string",
++                "enum": [
++                  "exists",
++                  "none",
++                  "count-at-most",
++                  "all-covered",
++                  "and",
++                  "or",
++                  "not"
++                ]
++              },
++              "inputRefs": {
++                "type": "array",
++                "maxItems": 100000,
++                "items": {
++                  "$ref": "#/$defs/ProofInputRef"
++                },
++                "uniqueItems": true,
++                "x-opensip-order": "canonical-set",
++                "description": "Atomic: equal to proof.evaluationInputRefs (whole admitted selection, including empty-population inputs). Boolean: canonical union of immediate children. Projection of the witness-binding sentence; witnesses have no inputRefs field. Not the atom internal consumed-ref subset. composition \u00a79.2."
++              },
++              "scopeIds": {
++                "type": "array",
++                "maxItems": 100000,
++                "items": {
++                  "type": "string",
++                  "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++                },
++                "uniqueItems": true,
++                "x-opensip-order": "canonical-set"
++              },
++              "value": {
++                "type": "string",
++                "enum": [
++                  "true",
++                  "false",
++                  "indeterminate"
++                ]
++              },
++              "witnessDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "canonical-record",
++                  "record": {
++                    "bundle": "identity",
++                    "selector": "#/$defs/predicate-witness"
++                  }
++                }
++              }
++            }
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "predicate"
++        },
++        "findingIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^finding3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "verdict": {
++          "type": "string",
++          "enum": [
++            "pass",
++            "fail",
++            "indeterminate"
++          ]
++        },
++        "evaluationState": {
++          "type": "string",
++          "enum": [
++            "evaluated",
++            "budget-exhausted"
++          ]
++        },
++        "ruleResults": {
++          "type": "array",
++          "maxItems": 512,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/rule-result"
++          },
++          "x-opensip-order": {
++            "by": [
++              "ruleId"
++            ]
++          }
++        },
++        "waivedFindingIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^finding3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "executionDeficiencies": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/evaluation-deficiency"
++          },
++          "x-opensip-order": "canonical-set",
++          "description": "Required-execution assessment items even when all rules are disabled, plus work-budget-exhausted. source=execution is the assessment layer. cause is row.deficiency if it is an execution-registry member, else required-cell-unsatisfied for null/source-syntax-invalid. inputRefs are the ExecutionInputsV1 ref plus originating Coverage/inventory/candidate refs. subjectId and predicateId are null. composition \u00a79.6. Internal requiredCellDeficiencies tokens native-work-incomplete/unsupported-typed are not proof causes."
++        },
++        "executionInputsDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "foundation/execution-inputs.schema.v1.json",
++              "selector": "#"
++            }
++          }
++        }
++      },
++      "description": "Version3 COMPLETE normalized evaluator output. Rule enumerations/results, all predicate proofs/witnesses, full findings and waiver membership, execution deficiencies and sealed verdict are independently recomputed. Count-only comparison is not replay. A deterministic preflight budget refusal is explicit and never an empty successful analysis."
++    },
++    "semantic-evidence": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "viewIds",
++        "coverageIds",
++        "importIds",
++        "findingIds",
++        "proofBundleId"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "viewIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^view2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "coverageIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^coverage2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "importIds": {
++          "type": "array",
++          "maxItems": 256,
++          "items": {
++            "type": "string",
++            "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set",
++          "description": "Exactly the Plan-selected import set of this Run's Plan, repeated: equal as a canonical set to plan.importIds (IMPORT_JOIN). A repetition of the selection, never a second selection. This array is not an evaluated subset and is not proof.evaluationInputRefs (that field is the complete selectedRefs plus the execution-inputs ref). A selected import that nothing evaluated is still resolved and retained by the Run closure, and being selected alone grants it no evidence authority. Matched and uncertain observation addresses live on predicate-witness matchingImportRows/uncertainImportRows. Atomic predicateProofs[].inputRefs copy the whole evaluationInputRefs under composition \u00a79.2 and therefore may list every selected import without those imports being consulted observation evidence."
++        },
++        "findingIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^finding3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "proofBundleId": {
++          "type": "string",
++          "pattern": "^proof3:[0-9a-f]{64}(?![\\s\\S])"
++        }
++      }
++    },
++    "evaluation-seal": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "executionPlanId",
++        "evidenceId",
++        "evaluatorClosure",
++        "policyDigest",
++        "proofBundleId",
++        "verdict"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "executionPlanId": {
++          "type": "string",
++          "pattern": "^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "evidenceId": {
++          "type": "string",
++          "pattern": "^evidence3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "evaluatorClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "policyDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.v2.schema.json",
++              "selector": "#/$defs/PolicyDocumentV2"
++            }
++          }
++        },
++        "proofBundleId": {
++          "type": "string",
++          "pattern": "^proof3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "verdict": {
++          "type": "string",
++          "enum": [
++            "pass",
++            "fail",
++            "indeterminate"
++          ]
++        }
++      }
++    },
++    "run": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "projectId",
++        "snapshotId",
++        "planId",
++        "evidenceId",
++        "evaluationSealId",
++        "capabilityManifestId"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "projectId": {
++          "$ref": "#/$defs/ProjectId"
++        },
++        "snapshotId": {
++          "type": "string",
++          "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "evidenceId": {
++          "type": "string",
++          "pattern": "^evidence3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "evaluationSealId": {
++          "type": "string",
++          "pattern": "^seal3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "capabilityManifestId": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "capability-manifest-id",
++            "retention": "derived",
++            "derivedFrom": "plan.capabilityManifestBytesDigest"
++          }
++        }
++      }
++    },
++    "cache-key": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "producerClosure",
++        "stageSpecDigest",
++        "scopeIds",
++        "inputRefs",
++        "outputSchemaDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "producerClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "stageSpecDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/stage-spec"
++            }
++          }
++        },
++        "scopeIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "string",
++            "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "inputRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "$ref": "#/$defs/Ref"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "outputSchemaDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact complete registered stage output schema document bytes; equal to stage-spec.outputSchemaDigest"
++          }
++        }
++      }
++    },
++    "regeneration-key": {
++      "$ref": "#/$defs/cache-key"
++    },
++    "policy-derivation": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "proofBundleId",
++        "policyDigest",
++        "waiverDigest",
++        "verdict"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "proofBundleId": {
++          "type": "string",
++          "pattern": "^proof3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "policyDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.v2.schema.json",
++              "selector": "#/$defs/PolicyDocumentV2"
++            }
++          }
++        },
++        "waiverDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.schema.json",
++              "selector": "#/$defs/WaiverSetV1"
++            }
++          }
++        },
++        "verdict": {
++          "type": "string",
++          "enum": [
++            "pass",
++            "fail",
++            "indeterminate"
++          ]
++        }
++      }
++    },
++    "availability": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "runId",
++        "generation",
++        "state",
++        "missingRefs",
++        "reason"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "generation": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        },
++        "state": {
++          "type": "string",
++          "enum": [
++            "retained",
++            "partial",
++            "expired",
++            "purged",
++            "corrupt",
++            "unavailable"
++          ]
++        },
++        "missingRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "$ref": "#/$defs/Ref"
++          },
++          "uniqueItems": true,
++          "x-opensip-order": "canonical-set"
++        },
++        "reason": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        }
++      }
++    },
++    "commit-receipt": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "runId",
++        "executionId",
++        "namespaceId",
++        "commitSequence",
++        "inventoryDigest",
++        "sealedAssurance",
++        "signerKeyId"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "executionId": {
++          "type": "string",
++          "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])"
++        },
++        "namespaceId": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "commitSequence": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        },
++        "inventoryDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/commit-inventory"
++            }
++          }
++        },
++        "sealedAssurance": {
++          "type": "string",
++          "enum": [
++            "verified",
++            "verifiable",
++            "replayable"
++          ]
++        },
++        "signerKeyId": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        }
++      }
++    },
++    "fact": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "snapshotId",
++        "relation",
++        "resolution",
++        "sourceUniverse",
++        "targetUniverse",
++        "producerClosure",
++        "payloadSchemaDigest",
++        "payloadDigest",
++        "anchors",
++        "confidenceMillionths"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "snapshotId": {
++          "type": "string",
++          "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "relation": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "resolution": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "sourceUniverse": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "domainSet": "native-semantic-universe"
++          }
++        },
++        "targetUniverse": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "domainSet": "native-semantic-universe"
++          }
++        },
++        "producerClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "payloadSchemaDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact full bytes of foundation/relation-payload-schemas.v2.json, the registered relation payload schema document"
++          }
++        },
++        "payloadDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "payloadClass": "relation",
++              "keyedBy": [
++                "relation"
++              ],
++              "schemaDigestField": "payloadSchemaDigest"
++            }
++          }
++        },
++        "anchors": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "path",
++              "blobDigest",
++              "startByte",
++              "endByte"
++            ],
++            "properties": {
++              "path": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "blobDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "raw-artifact",
++                  "artifact": "the exact retained source blob bytes named by path in the snapshot inventory"
++                }
++              },
++              "startByte": {
++                "type": "integer",
++                "minimum": 0,
++                "maximum": 18446744073709551615
++              },
++              "endByte": {
++                "type": "integer",
++                "minimum": 0,
++                "maximum": 18446744073709551615
++              }
++            }
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "confidenceMillionths": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 1000000
++        }
++      }
++    },
++    "predicate-witness": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "programPredicateDigest",
++        "matchingFactIds",
++        "coverageIds",
++        "countLimit",
++        "childPredicateIds",
++        "matchingImportRows",
++        "uncertainFactIds",
++        "uncertainImportRows",
++        "deficiencies",
++        "kind"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "programPredicateDigest": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/program-predicate"
++            }
++          }
++        },
++        "matchingFactIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "coverageIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^coverage2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "countLimit": {
++          "oneOf": [
++            {
++              "type": "null"
++            },
++            {
++              "$ref": "#/$defs/U64"
++            }
++          ]
++        },
++        "childPredicateIds": {
++          "type": "array",
++          "maxItems": 1024,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "matchingImportRows": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/import-observation-address"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "uncertainFactIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "uncertainImportRows": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/import-observation-address"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "deficiencies": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/evaluation-deficiency"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "kind": {
++          "type": "string",
++          "enum": [
++            "native-atom",
++            "imported-atom",
++            "boolean"
++          ]
++        }
++      },
++      "description": "Version3 witness. No inputRefs field: the complete admitted evaluation input selection is projected onto predicateProofs[].inputRefs (composition \u00a79.2). Native atoms carry native matches/uncertain matches and Coverage; imported atoms carry observation addresses, never fact2; boolean nodes carry children and empty match/Coverage arrays. coverageIds and matching/uncertain sets are consulted evidence and may be narrower than evaluationInputRefs. Exact source-specific plane/operation constraints and complete replay are evaluator admission laws.",
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "boolean"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "matchingFactIds": {
++                "maxItems": 0
++              },
++              "uncertainFactIds": {
++                "maxItems": 0
++              },
++              "matchingImportRows": {
++                "maxItems": 0
++              },
++              "uncertainImportRows": {
++                "maxItems": 0
++              },
++              "coverageIds": {
++                "maxItems": 0
++              },
++              "countLimit": {
++                "type": "null"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "native-atom"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "matchingImportRows": {
++                "maxItems": 0
++              },
++              "uncertainImportRows": {
++                "maxItems": 0
++              },
++              "childPredicateIds": {
++                "maxItems": 0
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "imported-atom"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "matchingFactIds": {
++                "maxItems": 0
++              },
++              "uncertainFactIds": {
++                "maxItems": 0
++              },
++              "coverageIds": {
++                "maxItems": 0
++              },
++              "childPredicateIds": {
++                "maxItems": 0
++              }
++            }
++          }
++        }
++      ]
++    },
++    "scope-descriptor": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "workspaceRoots",
++        "pathPrefixes",
++        "excludedPathPrefixes"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "workspaceRoots": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 1024,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "pathPrefixes": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 65536,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "excludedPathPrefixes": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 65536,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "analysis-spec": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "requestedCapabilities",
++        "policyPackIds",
++        "parameters"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "requestedCapabilities": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 1024,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "capabilityId",
++              "languageMode",
++              "workspaceRoot",
++              "required"
++            ],
++            "properties": {
++              "capabilityId": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 128,
++                "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])",
++                "x-opensip-vocabulary": {
++                  "authority": "native/native-capability-matrix.v2.json#/capabilities[].id",
++                  "law": "native/native-capability-matrix.v2.json#/capabilityIdLaw",
++                  "admittedBy": "native_evidence_model.admit_requested_capabilities, re-run at foundation close_run over the retained analysis-spec",
++                  "note": "This field enters PlanId through analysisSpecDigest and was previously $ref Text with no named vocabulary, so two conforming hosts requesting the same analysis of the same unit minted different PlanIds. The pattern here is the product-configuration analysis.capabilities item pattern - it contains no `@`, so a relation@rung spelling is refused by shape - and it is NECESSARY, never sufficient: membership in the closed matrix vocabulary and applicability of the (capability, languageMode) cell are decided at admission. A capability id is a requestable unit of work and is deliberately NOT a relation@rung fact/Coverage coordinate; the matrix publishes the bridge both ways."
++                }
++              },
++              "languageMode": {
++                "$ref": "#/$defs/Text",
++                "x-opensip-vocabulary": {
++                  "authority": "foundation/identity-schemas.v3.json#/x-opensip-digest-domains/languageModes/map",
++                  "admittedBy": "foundation close_run (ANALYSIS_SPEC_LANGUAGE_MODE_UNREGISTERED), and the same native capability admission for cell applicability"
++                }
++              },
++              "workspaceRoot": {
++                "$ref": "#/$defs/Text"
++              },
++              "required": {
++                "type": "boolean",
++                "x-opensip-ownership-attribute": "An ATTRIBUTE of the cell named by (capabilityId, languageMode, workspaceRoot), never part of its name. It decides whether a missing Coverage entry for that cell contributes indeterminate, so it must have exactly one value per cell."
++              }
++            }
++          },
++          "x-opensip-order": "canonical-set",
++          "x-opensip-uniqueness": {
++            "ownershipTuple": [
++              "capabilityId",
++              "languageMode",
++              "workspaceRoot"
++            ],
++            "law": "Within ONE analysis-spec the ownership tuple is UNIQUE. Two rows carrying the same (capabilityId, languageMode, workspaceRoot) are refused whatever their `required` values are; there is deliberately no last-wins, no order dependence and no merge of requiredness, so a caller states one value per cell or the record is refused.",
++            "why": "The tuple names one cell of work for one unit and `required` is that cell's attribute. Two disagreeing rows leave requiredness undetermined for a cell whose value decides an indeterminate contribution, and BOTH rows enter analysisSpecDigest and therefore PlanId - so the contradiction is committed, not transient. native section 1.4 already refuses a duplicate capabilityId in the RELEASE declaration for exactly this reason; this is the analysis-spec's own analogue, published here because this is the record's owning schema.",
++            "stillLegal": "The SAME capabilityId on a different workspaceRoot or a different languageMode is a different cell and remains legal, and different capabilities on one unit remain legal. Only the tuple is constrained.",
++            "notUniqueItems": "uniqueItems cannot express this: two rows differing only in `required` are DISTINCT items and it admits them. uniqueItems and the canonical-set order law own the WHOLE-ITEM duplicate, which refuses earlier and stays their refusal; this rule owns only distinct rows over one tuple.",
++            "admittedBy": "native_evidence_model.admit_requested_capabilities (internal key native.requested-capability-duplicate-ownership-tuple), which is called BOTH at the pre-Plan analysis-spec boundary and again at retained Run closure over the retained analysis-spec, so the two boundaries agree by construction.",
++            "publicRoute": "native/native-evidence.schemas.v2.json#/x-opensip-public-route-registry/keys/native.requested-capability-duplicate-ownership-tuple - origin-dependent over the existing external-configuration / externally-supplied-spec / host-generated-internal-layer routes. No public DomainDetailCode member is added."
++          }
++        },
++        "policyPackIds": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 128,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "parameters": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 128,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "schemaDigest",
++              "payloadDigest"
++            ],
++            "properties": {
++              "schemaDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "raw-artifact",
++                  "artifact": "the exact complete registered parameter schema document bytes"
++                }
++              },
++              "payloadDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "canonical-record",
++                  "record": {
++                    "payloadClass": "parameter",
++                    "keyedBy": [
++                      "schemaDigest"
++                    ],
++                    "schemaDigestField": "schemaDigest"
++                  }
++                }
++              }
++            }
++          },
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "semantic-grant": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "projectId",
++        "principals",
++        "analysisOperations",
++        "scopeDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "projectId": {
++          "$ref": "#/$defs/ProjectId"
++        },
++        "principals": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 1024,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "kind",
++              "closureId",
++              "ownerSourceDigest"
++            ],
++            "properties": {
++              "kind": {
++                "enum": [
++                  "first-party",
++                  "trusted-repository-code"
++                ]
++              },
++              "closureId": {
++                "type": "string",
++                "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++              },
++              "ownerSourceDigest": {
++                "oneOf": [
++                  {
++                    "type": "null"
++                  },
++                  {
++                    "$ref": "#/$defs/Hash",
++                    "x-opensip-digest": {
++                      "representation": "canonical-record",
++                      "record": {
++                        "bundle": "identity",
++                        "selector": "#/$defs/owner-source-set"
++                      }
++                    }
++                  }
++                ]
++              }
++            }
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "analysisOperations": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 4,
++          "items": {
++            "enum": [
++              "read-source",
++              "read-import",
++              "native-analysis",
++              "prepare-code"
++            ]
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "scopeDigest": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/scope-descriptor"
++            }
++          }
++        }
++      }
++    },
++    "ProofInputRef": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "domain",
++        "digest"
++      ],
++      "properties": {
++        "domain": {
++          "type": "string",
++          "enum": [
++            "view",
++            "import",
++            "coverage",
++            "rule-program",
++            "policy",
++            "waiver",
++            "schema",
++            "blob",
++            "configuration",
++            "native-context",
++            "analysis-spec",
++            "capability-manifest",
++            "enumeration-plan",
++            "subject-inventory",
++            "evaluator-emission-plan",
++            "target-attribution",
++            "incoming-search",
++            "execution-inputs",
++            "candidate-producer-result"
++          ]
++        },
++        "digest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "by-domain",
++            "registry": "x-opensip-digest-domains"
++          }
++        }
++      }
++    },
++    "FindingEvidenceRef": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "domain",
++        "digest"
++      ],
++      "properties": {
++        "domain": {
++          "type": "string",
++          "enum": [
++            "fact",
++            "coverage",
++            "import",
++            "predicate-witness",
++            "blob"
++          ]
++        },
++        "digest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "by-domain",
++            "registry": "x-opensip-digest-domains"
++          }
++        }
++      }
++    },
++    "semantic-configuration": {
++      "type": "object",
++      "additionalProperties": false,
++      "properties": {
++        "analysis": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "profileId": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 128,
++              "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
++            },
++            "capabilities": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 128,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 128,
++                "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
++              },
++              "x-opensip-order": "canonical-set"
++            },
++            "budget": {
++              "type": "object",
++              "additionalProperties": false,
++              "properties": {
++                "unit": {
++                  "const": "work-units"
++                },
++                "limit": {
++                  "type": "integer",
++                  "minimum": 1,
++                  "maximum": 9007199254740991
++                }
++              },
++              "required": [
++                "unit",
++                "limit"
++              ],
++              "description": "The deterministic analysis budget. identity-and-evidence section 3 requires plan.budget to equal this value exactly and by type; an override is made here first so both committed places agree."
++            }
++          },
++          "required": [
++            "profileId",
++            "capabilities",
++            "budget"
++          ]
++        },
++        "components": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "request": {
++              "type": "array",
++              "items": {
++                "oneOf": [
++                  {
++                    "type": "object",
++                    "properties": {
++                      "stableId": {
++                        "type": "string",
++                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
++                      },
++                      "version": {
++                        "type": "string",
++                        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                      }
++                    },
++                    "required": [
++                      "stableId",
++                      "version"
++                    ],
++                    "additionalProperties": false
++                  },
++                  {
++                    "type": "object",
++                    "properties": {
++                      "stableId": {
++                        "type": "string",
++                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
++                      },
++                      "versionConstraint": {
++                        "oneOf": [
++                          {
++                            "type": "string",
++                            "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                          },
++                          {
++                            "type": "object",
++                            "properties": {
++                              "min": {
++                                "type": "string",
++                                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                              },
++                              "max": {
++                                "type": "string",
++                                "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                              },
++                              "includeMin": {
++                                "type": "boolean"
++                              },
++                              "includeMax": {
++                                "type": "boolean"
++                              }
++                            },
++                            "required": [
++                              "min",
++                              "max",
++                              "includeMin",
++                              "includeMax"
++                            ],
++                            "additionalProperties": false
++                          }
++                        ]
++                      }
++                    },
++                    "required": [
++                      "stableId",
++                      "versionConstraint"
++                    ],
++                    "additionalProperties": false
++                  }
++                ]
++              },
++              "maxItems": 128,
++              "minItems": 1,
++              "x-opensip-order": "canonical-set"
++            },
++            "pins": {
++              "type": "array",
++              "items": {
++                "type": "object",
++                "properties": {
++                  "stableId": {
++                    "type": "string",
++                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
++                  },
++                  "version": {
++                    "type": "string",
++                    "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                  }
++                },
++                "required": [
++                  "stableId",
++                  "version"
++                ],
++                "additionalProperties": false
++              },
++              "uniqueItems": true,
++              "maxItems": 128,
++              "x-opensip-order": "canonical-set"
++            },
++            "holds": {
++              "type": "array",
++              "items": {
++                "type": "object",
++                "properties": {
++                  "stableId": {
++                    "type": "string",
++                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?![\\s\\S])"
++                  },
++                  "version": {
++                    "type": "string",
++                    "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?(?![\\s\\S])"
++                  }
++                },
++                "required": [
++                  "stableId",
++                  "version"
++                ],
++                "additionalProperties": false
++              },
++              "uniqueItems": true,
++              "maxItems": 128,
++              "x-opensip-order": "canonical-set"
++            },
++            "allowedScopes": {
++              "oneOf": [
++                {
++                  "const": [
++                    "global"
++                  ]
++                },
++                {
++                  "const": [
++                    "project",
++                    "global"
++                  ]
++                }
++              ],
++              "type": "array",
++              "x-opensip-order": "sequence"
++            }
++          },
++          "required": []
++        },
++        "discovery": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "entryPoints": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 65536,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "x-opensip-order": "canonical-set"
++            },
++            "workspaceRoots": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 1024,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "x-opensip-order": "canonical-set"
++            },
++            "ignorePaths": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 65536,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 4096
++              },
++              "x-opensip-order": "canonical-set"
++            }
++          },
++          "required": []
++        },
++        "policy": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "packIds": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 128,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 128,
++                "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
++              },
++              "x-opensip-order": "canonical-set"
++            },
++            "waiverIds": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 1024,
++              "items": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 128,
++                "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
++              },
++              "x-opensip-order": "canonical-set"
++            }
++          },
++          "required": []
++        },
++        "evidence": {
++          "type": "object",
++          "additionalProperties": false,
++          "properties": {
++            "importIds": {
++              "type": "array",
++              "uniqueItems": true,
++              "maxItems": 1024,
++              "items": {
++                "type": "string",
++                "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
++              },
++              "x-opensip-order": "canonical-set"
++            }
++          },
++          "required": []
++        }
++      },
++      "required": [
++        "analysis",
++        "components",
++        "discovery",
++        "policy",
++        "evidence"
++      ]
++    },
++    "vcs-observation": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "kind",
++        "commitId",
++        "dirty",
++        "sourceInventoryDigest"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "kind": {
++          "enum": [
++            "none",
++            "git",
++            "hg",
++            "svn",
++            "jj"
++          ]
++        },
++        "commitId": {
++          "oneOf": [
++            {
++              "type": "null"
++            },
++            {
++              "$ref": "#/$defs/Text"
++            }
++          ]
++        },
++        "dirty": {
++          "type": "boolean"
++        },
++        "sourceInventoryDigest": {
++          "$ref": "#/$defs/Hash",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "bundle": "identity",
++              "selector": "#/$defs/source-inventory"
++            }
++          }
++        }
++      }
++    },
++    "source-inventory": {
++      "type": "array",
++      "maxItems": 100000,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/Blob"
++      },
++      "x-opensip-order": "path",
++      "description": "The snapshot source inventory as a registered record in its own right, so that vcs-observation.sourceInventoryDigest names a record rather than an unnamed canonical fragment."
++    },
++    "program-predicate": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "ruleProgramDigest",
++        "ruleId",
++        "predicateId",
++        "operation",
++        "nodeDigest"
++      ],
++      "description": "The closed record digested by predicate-witness.programPredicateDigest. It addresses ONE predicate node of the admitted RuleProgramV2; it introduces no second policy language. predicateId is the node address: the rule root is \"p\", the i-th operand of an and/or node at address a is a+\".\"+i (zero-based, shortest decimal), and the operand of a not node at address a is a+\".0\".",
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "ruleProgramDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.v2.schema.json",
++              "selector": "#/$defs/RuleProgramV2"
++            }
++          },
++          "description": "equal to the proof bundle ruleProgramDigest this witness belongs to"
++        },
++        "ruleId": {
++          "$ref": "#/$defs/Text"
++        },
++        "predicateId": {
++          "$ref": "#/$defs/Text"
++        },
++        "operation": {
++          "type": "string",
++          "enum": [
++            "exists",
++            "none",
++            "count-at-most",
++            "all-covered",
++            "and",
++            "or",
++            "not"
++          ]
++        },
++        "nodeDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "workflows/schemas/policy-document.schema.json",
++              "selector": "#/$defs/Predicate"
++            },
++            "retention": "fragment",
++            "locatedBy": {
++              "record": "ruleProgramDigest",
++              "path": "rules[ruleId].emitWhen",
++              "addressedBy": "predicateId"
++            }
++          },
++          "description": "raw SHA-256 of the canonical bytes of the exact predicate node the rule program carries at rules[ruleId].emitWhen addressed by predicateId; its op equals operation"
++        }
++      }
++    },
++    "finding-parameters": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "messageCode",
++        "parameters"
++      ],
++      "description": "The closed record digested by finding.parameterDigest. parameters is an object map so that parameter names are unique and ordered by the canonical encoder itself, with no ordering annotation to elect.",
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "messageCode": {
++          "$ref": "#/$defs/Text"
++        },
++        "parameters": {
++          "type": "object",
++          "maxProperties": 64,
++          "propertyNames": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 128,
++            "pattern": "^[a-z][a-zA-Z0-9]*(?![\\s\\S])"
++          },
++          "additionalProperties": {
++            "oneOf": [
++              {
++                "type": "string",
++                "minLength": 0,
++                "maxLength": 4096
++              },
++              {
++                "type": "integer",
++                "minimum": -9223372036854775808,
++                "maximum": 18446744073709551615
++              },
++              {
++                "type": "boolean"
++              }
++            ]
++          }
++        }
++      }
++    },
++    "stage-spec": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "planId",
++        "producerClosure",
++        "operation",
++        "parameters",
++        "outputDomains",
++        "outputSchemaDigest"
++      ],
++      "description": "The closed record digested by stageSpecDigest. execution-plan.stages[].stageSpecDigest and cache-key.stageSpecDigest are the SAME field name because they are the same digest of the same record under the same recipe; there are not two recipes for one spelling.",
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "planId": {
++          "type": "string",
++          "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "producerClosure": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "operation": {
++          "$ref": "#/$defs/Text",
++          "x-opensip-vocabulary": {
++            "authority": "The versioned semantic interface of stage-spec.producerClosure, implemented by the retained selected closure.",
++            "scope": "Provider-defined logical operation tokens, not a platform-wide enum or host-selected physical-plan labels.",
++            "admission": "Text validates shape only. Stage execution/replay uses the selected producer interface and its declared parameter/output contract."
++          }
++        },
++        "parameters": {
++          "type": "array",
++          "uniqueItems": true,
++          "maxItems": 128,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "schemaDigest",
++              "payloadDigest"
++            ],
++            "properties": {
++              "schemaDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "raw-artifact",
++                  "artifact": "the exact complete registered parameter schema document bytes"
++                }
++              },
++              "payloadDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "canonical-record",
++                  "record": {
++                    "payloadClass": "parameter",
++                    "keyedBy": [
++                      "schemaDigest"
++                    ],
++                    "schemaDigestField": "schemaDigest"
++                  }
++                }
++              }
++            }
++          },
++          "x-opensip-order": "canonical-set",
++          "description": "every row must also be a row of the Plan analysis-spec parameters: a stage takes no hidden input"
++        },
++        "outputDomains": {
++          "type": "array",
++          "maxItems": 128,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/Domain",
++            "x-opensip-vocabulary": {
++              "authority": "foundation/identity-schemas.v3.json#/x-opensip-digest-domains/byDomain",
++              "schema": "#/$defs/Domain",
++              "meaning": "Registered output-domain names; declaration alone grants no producer or evidence authority."
++            }
++          },
++          "x-opensip-order": "canonical-set",
++          "description": "Declared output-domain set. Empty is permitted and asserts no output domains; it does not establish completeness or result authority. Stage and stage-spec sets must agree."
++        },
++        "outputSchemaDigest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "artifact": "the exact complete registered stage output schema document bytes"
++          }
++        }
++      }
++    },
++    "commit-inventory": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "runId",
++        "objects",
++        "blobDigests"
++      ],
++      "description": "The closed record digested by commit-receipt.inventoryDigest: the exact set of typed object identities and retained raw blob digests the commit published for this Run.",
++      "properties": {
++        "schemaVersion": {
++          "const": 2
++        },
++        "runId": {
++          "type": "string",
++          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "objects": {
++          "type": "array",
++          "maxItems": 1000000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/Text"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "blobDigests": {
++          "type": "array",
++          "maxItems": 1000000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++            "x-opensip-digest": {
++              "representation": "raw-artifact",
++              "artifact": "a retained blob published by this commit; the CAS key is the digest itself"
++            }
++          },
++          "x-opensip-order": "canonical-set"
++        }
++      }
++    },
++    "owner-source-set": {
++      "type": "array",
++      "maxItems": 1024,
++      "uniqueItems": true,
++      "description": "The closed record digested by semantic-grant.principals[].ownerSourceDigest: the security contract RepoExecutionGrantV2 owner projection, strictly ascending and unique by ownerKey UTF-8 bytes.",
++      "items": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": [
++          "ownerKey",
++          "source",
++          "ownerFileManifestSha256"
++        ],
++        "properties": {
++          "ownerKey": {
++            "$ref": "#/$defs/Text"
++          },
++          "source": {
++            "$ref": "#/$defs/Text"
++          },
++          "ownerFileManifestSha256": {
++            "type": "string",
++            "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++            "x-opensip-digest": {
++              "representation": "raw-artifact",
++              "artifact": "the exact retained owner file-manifest bytes",
++              "retention": "owner-retained",
++              "owner": "security-and-lifecycle RepoExecutionGrantV2 owner admission"
++            }
++          }
++        }
++      },
++      "x-opensip-order": {
++        "by": [
++          "ownerKey"
++        ]
++      }
++    },
++    "body-language-version": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "languageId",
++        "compilerName",
++        "compilerVersion",
++        "compilerBuild",
++        "dialect"
++      ],
++      "description": "The closed record whose raw SHA-256 is the languageVersion component of a FACT-IDENTITY body frame. Retention is DERIVED: no field of it is a free input, every field is copied from a named path in a record this Run already retains and the owning contract already admitted, and Run closure recomputes it rather than accepting it. Two conforming implementations build identical bytes from the same committed Run, which is what the inherited obligation \"canonical identity bytes supplied by ResolvedInputs/PlanId, not a human display string\" asks for. It is hashed, not embedded, because the inherited frame gives each component a u8 length and a component built by embedding per-crate data is not representable for valid inputs.",
++      "properties": {
++        "schemaVersion": {
++          "const": 1
++        },
++        "languageId": {
++          "type": "string",
++          "enum": [
++            "typescript",
++            "javascript",
++            "rust"
++          ],
++          "description": "The language of the BODY, which is not always the language of the provider. Native section 6.3 puts languageId in the normalized-body preimage and closes it to {typescript, javascript, rust} so that a TypeScript body never groups with a JavaScript one even with identical bytes. One TypeScript engine universe produces bodies of BOTH: the engine is the provider, the source variant decides the body language, and section 6.4 keeps cross-TS/JS matching a separate candidate-only projection rather than a shared identity."
++        },
++        "compilerName": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 256,
++          "description": "The component that INTERPRETS the body span. Not the build tool and not the resolver."
++        },
++        "compilerVersion": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 256,
++          "description": "The release identity of that component, taken from the admitted native context. admit_native_context already refuses native.native-context-compiler-version-not-from-manifest unless it equals the admitted tool closure semanticVersion, for both languages, so this is joined to a retained closure manifest and is not a copied display string."
++        },
++        "compilerBuild": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 512,
++          "description": "The exact build of that component: rustCommitHash for rust, compilerPackageDigest for typescript. Not a 64-hex field of this bundle and deliberately not annotated as one: it is an owner-admitted identity carried inside a derived record, joined by equality to the retained context and never re-hashed here. Its width differs by language by construction."
++        },
++        "dialect": {
++          "oneOf": [
++            {
++              "type": "object",
++              "additionalProperties": false,
++              "required": [
++                "edition"
++              ],
++              "properties": {
++                "edition": {
++                  "type": "integer",
++                  "enum": [
++                    2015,
++                    2018,
++                    2021,
++                    2024
++                  ]
++                }
++              }
++            },
++            {
++              "type": "object",
++              "additionalProperties": false,
++              "required": [
++                "sourceVariant"
++              ],
++              "properties": {
++                "sourceVariant": {
++                  "type": "string",
++                  "enum": [
++                    "ts",
++                    "tsx",
++                    "ts-declaration",
++                    "mts",
++                    "cts",
++                    "js",
++                    "jsx",
++                    "mjs",
++                    "cjs"
++                  ]
++                }
++              }
++            },
++            {
++              "type": "object",
++              "additionalProperties": false,
++              "required": [
++                "grammarVariant"
++              ],
++              "description": "The dialect axis of a GRAMMAR-ONLY interpretation; used only by the syntax-only universe. A syntax-only analysis has no compilation unit, so it has no edition to select and no tsconfig program to join. Claiming an edition for a .rs body read without Cargo would fabricate compiler semantics, and reusing sourceVariant would let a grammar-parsed body carry the identical dialect token as a compiler-parsed one. The token is the variant the bundled grammar selects from the body's own suffix. Because this is a DIFFERENT branch, a syntax-only body identity can never collide with a compiler-derived identity over the same bytes - which is the intended distinction, not a defect: a grammar parse and a compiler parse are different interpretations of the span and equating them would be a false clone claim.",
++              "properties": {
++                "grammarVariant": {
++                  "type": "string",
++                  "enum": [
++                    "rs",
++                    "ts",
++                    "tsx",
++                    "ts-declaration",
++                    "mts",
++                    "cts",
++                    "js",
++                    "jsx",
++                    "mjs",
++                    "cjs"
++                  ]
++                }
++              }
++            }
++          ],
++          "description": "The SELECTED source-language dialect of the body being identified: the edition of its owning compilation unit, the source variant its own suffix denotes, or - for a grammar-only interpretation - the grammar variant that suffix selects. Never a whole map and never null - a language with no declared dialect axis would be an unexamined default, and there is none. Including a map would make one body identity depend on unrelated crates and would not be representable inside the inherited u8 component length."
++        }
++      }
++    },
++    "evaluation-subject": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "universe",
++        "kind",
++        "nativeSubjectId"
++      ],
++      "properties": {
++        "schemaVersion": {
++          "const": 3
++        },
++        "universe": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "domainSet": "native-semantic-universe"
++          }
++        },
++        "kind": {
++          "type": "string",
++          "enum": [
++            "file",
++            "symbol",
++            "package"
++          ]
++        },
++        "nativeSubjectId": {
++          "$ref": "#/$defs/Text"
++        },
++        "packageManifestPath": {
++          "$ref": "#/$defs/LogicalPath"
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "package"
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "packageManifestPath"
++            ]
++          },
++          "else": {
++            "not": {
++              "required": [
++                "packageManifestPath"
++              ]
++            }
++          }
++        }
++      ],
++      "description": "Configuration-qualified subject. File/symbol native IDs are unique in kind/universe. Package names can repeat at different first-party manifests, so packageManifestPath is a required package-only coordinate. No synthetic native package spelling or encounter-order suffix."
++    },
++    "import-observation-address": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "importId",
++        "selector",
++        "ordinal"
++      ],
++      "properties": {
++        "importId": {
++          "type": "string",
++          "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
++        },
++        "selector": {
++          "type": "string",
++          "enum": [
++            "runtime-subject",
++            "history-subject",
++            "test-case",
++            "test-execution"
++          ]
++        },
++        "ordinal": {
++          "oneOf": [
++            {
++              "type": "integer",
++              "minimum": 0,
++              "maximum": 1048575
++            },
++            {
++              "type": "null"
++            }
++          ]
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "selector": {
++                "const": "test-execution"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "ordinal": {
++                "type": "null"
++              }
++            }
++          },
++          "else": {
++            "properties": {
++              "ordinal": {
++                "type": "integer",
++                "minimum": 0,
++                "maximum": 1048575
++              }
++            }
++          }
++        }
++      ],
++      "description": "Exact row address within the payload selected by importId. execution selects the TestPayload as a whole; other selectors select subjects[ordinal] or tests[ordinal]. Owner admission checks kind/selector, bounds and explicit Plan/evaluation-input membership. This new descriptor is inline in its witness and is not assigned fragment retention."
++    },
++    "evaluation-deficiency": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "source",
++        "cause",
++        "subjectId",
++        "predicateId",
++        "inputRefs",
++        "evidenceKind",
++        "nativeCause",
++        "universe"
++      ],
++      "properties": {
++        "source": {
++          "type": "string",
++          "enum": [
++            "enumeration",
++            "native",
++            "import",
++            "execution",
++            "correspondence"
++          ]
++        },
++        "cause": {
++          "type": "string",
++          "enum": [
++            "anonymous-subject",
++            "budget-exhausted",
++            "confidence-floor-unmet",
++            "coverage-unknown",
++            "cross-family-edge-not-owed",
++            "derivation-policy-unmet",
++            "enumeration-unknown",
++            "evidence-kind-unavailable",
++            "external-consumers-unknown",
++            "history-outside-collection-scope",
++            "history-truncated",
++            "import-unmapped-only",
++            "incomplete-inventory",
++            "incomplete-observation",
++            "input-closure-incomplete",
++            "language-tier-unsupported",
++            "missing-relation-coverage",
++            "no-consumable-row",
++            "no-covering-program",
++            "null-exit-status",
++            "observation-window-insufficient",
++            "overload-ambiguous",
++            "population-incomplete",
++            "population-unknown",
++            "projection-unavailable",
++            "provider-unavailable",
++            "required-cell-unsatisfied",
++            "required-relation-missing",
++            "resolution-incomplete",
++            "scope-without-coverage",
++            "selector-unbound",
++            "signature-ambiguous",
++            "source-syntax-invalid",
++            "source-target-search-unattested",
++            "target-export-unknown",
++            "target-kind-unknown",
++            "target-metadata-unknown",
++            "test-completeness-not-established",
++            "unavailable-program-binding",
++            "uncovered-expected-source-subject",
++            "unknown-export-membership",
++            "unmapped-subject",
++            "unobservable-subject",
++            "unresolved-edge-target-unattributed",
++            "work-budget-exhausted",
++            "wrapper-partial",
++            "zero-owed-wrappers"
++          ]
++        },
++        "subjectId": {
++          "oneOf": [
++            {
++              "type": "string",
++              "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "predicateId": {
++          "oneOf": [
++            {
++              "$ref": "#/$defs/Text"
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "inputRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/ProofInputRef"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "evidenceKind": {
++          "oneOf": [
++            {
++              "type": "string",
++              "enum": [
++                "test",
++                "runtime",
++                "history",
++                "dependency",
++                "prepared"
++              ]
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "nativeCause": {
++          "oneOf": [
++            {
++              "type": "string",
++              "description": "The typed cause carried beside a DeficiencyV2 in a Coverage entry. The three body-language-* members are the clones ownership states that identity-and-evidence and native-evidence section 11 require the clones Coverage to DISCLOSE: the contract mandates that such a scope mint no body identity, that its Coverage report the incompleteness, and that the predicate and seal be indeterminate rather than a false pass -- and until these members existed no value in this closed vocabulary could name why. A nullable nativeCause does not satisfy a mandated disclosure; a null there records that a disclosure was owed and not made. The other selectionLaw causes deliberately have NO member here: BODY_LANGUAGE_OWNER_NOT_COMPILED and BODY_LANGUAGE_OWNER_NOT_SELECTED are per-body refusals that section 11 states are compatible with coverage=complete (the host examined that subject and correctly produced no fact for it), and BODY_LANGUAGE_DIALECT_ABSENT/BODY_LANGUAGE_DIALECT_AMBIGUOUS are universe-level dialect faults that refuse before any Coverage entry is minted.",
++              "enum": [
++                "body-language-owner-ambiguous",
++                "body-language-owner-unenumerated",
++                "body-language-ownership-missing",
++                "capability-missing",
++                "config-flag-stripped",
++                "generated-file-missing",
++                "generated-file-out-of-bounds",
++                "generated-output-unavailable",
++                "linker-unavailable",
++                "lockfile-missing",
++                "missing-dependency-source",
++                "no-program-unit",
++                "node-modules-outside-read-set",
++                "source-replacement-outside-snapshot"
++              ]
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "universe": {
++          "oneOf": [
++            {
++              "type": "string",
++              "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++              "x-opensip-digest": {
++                "representation": "h-identity",
++                "domainSet": "native-semantic-universe"
++              }
++            },
++            {
++              "type": "null"
++            }
++          ]
++        }
++      },
++      "description": "Closed replayed deficiency with explicit origin. evidenceKind is data provenance bound to the policy atom/declaration, not a gating flag. Native carrier, universe, subject, predicate and inputRefs are rederived from admitted inputs per composition \u00a79.5\u2013\u00a79.6. Execution-assessment items use source=execution and inputRefs = ExecutionInputsV1 ref plus originating row refs. Atom items on a native/import plane copy evaluationInputRefs except Coverage-entry items which name that Coverage.",
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "enumeration"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "cause": {
++                "enum": [
++                  "incomplete-inventory",
++                  "unknown-export-membership",
++                  "no-covering-program",
++                  "source-syntax-invalid"
++                ]
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "native"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "cause": {
++                "enum": [
++                  "budget-exhausted",
++                  "confidence-floor-unmet",
++                  "coverage-unknown",
++                  "cross-family-edge-not-owed",
++                  "derivation-policy-unmet",
++                  "enumeration-unknown",
++                  "external-consumers-unknown",
++                  "input-closure-incomplete",
++                  "language-tier-unsupported",
++                  "missing-relation-coverage",
++                  "population-unknown",
++                  "provider-unavailable",
++                  "required-relation-missing",
++                  "resolution-incomplete",
++                  "scope-without-coverage",
++                  "selector-unbound",
++                  "source-target-search-unattested",
++                  "target-export-unknown",
++                  "target-kind-unknown",
++                  "target-metadata-unknown",
++                  "unavailable-program-binding",
++                  "uncovered-expected-source-subject",
++                  "unresolved-edge-target-unattributed"
++                ]
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "import"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "cause": {
++                "enum": [
++                  "evidence-kind-unavailable",
++                  "history-outside-collection-scope",
++                  "history-truncated",
++                  "import-unmapped-only",
++                  "incomplete-observation",
++                  "no-consumable-row",
++                  "null-exit-status",
++                  "observation-window-insufficient",
++                  "overload-ambiguous",
++                  "target-metadata-unknown",
++                  "test-completeness-not-established",
++                  "unmapped-subject",
++                  "unobservable-subject",
++                  "wrapper-partial",
++                  "zero-owed-wrappers"
++                ]
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "execution"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "cause": {
++                "enum": [
++                  "budget-exhausted",
++                  "confidence-floor-unmet",
++                  "derivation-policy-unmet",
++                  "external-consumers-unknown",
++                  "input-closure-incomplete",
++                  "language-tier-unsupported",
++                  "provider-unavailable",
++                  "required-cell-unsatisfied",
++                  "required-relation-missing",
++                  "resolution-incomplete",
++                  "work-budget-exhausted"
++                ]
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "correspondence"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "cause": {
++                "enum": [
++                  "projection-unavailable",
++                  "signature-ambiguous",
++                  "anonymous-subject",
++                  "population-incomplete"
++                ]
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "source": {
++                "const": "import"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "evidenceKind": {
++                "type": "string"
++              },
++              "nativeCause": {
++                "type": "null"
++              }
++            }
++          },
++          "else": {
++            "properties": {
++              "evidenceKind": {
++                "type": "null"
++              }
++            }
++          }
++        }
++      ]
++    },
++    "rule-enumeration": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "state",
++        "inventoryRefs",
++        "selectedSubjectIds",
++        "unresolvedSubjectIds",
++        "incompleteInventoryRefs"
++      ],
++      "properties": {
++        "state": {
++          "type": "string",
++          "enum": [
++            "disabled",
++            "complete",
++            "incomplete"
++          ]
++        },
++        "inventoryRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/SubjectInventoryRef"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "selectedSubjectIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "unresolvedSubjectIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "incompleteInventoryRefs": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/SubjectInventoryRef"
++          },
++          "x-opensip-order": "canonical-set"
++        }
++      },
++      "description": "Retained OUTPUT recomputed from Plan-bound expected inventories and rule selection. Incomplete includes unavailable and partial population or unknown export membership. Complete-empty is explicit. Disabled is all arrays empty. Inventory refs include all relevant expected outcomes, including unavailable records; unseen population never gets a fabricated subject id."
++    },
++    "rule-result": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "ruleId",
++        "enumeration",
++        "outcome",
++        "findingIds",
++        "deficiencies"
++      ],
++      "properties": {
++        "ruleId": {
++          "$ref": "#/$defs/Text"
++        },
++        "enumeration": {
++          "$ref": "#/$defs/rule-enumeration"
++        },
++        "outcome": {
++          "type": "string",
++          "enum": [
++            "disabled",
++            "pass",
++            "fail",
++            "indeterminate"
++          ]
++        },
++        "findingIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "type": "string",
++            "pattern": "^finding3:[0-9a-f]{64}(?![\\s\\S])"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "deficiencies": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/evaluation-deficiency"
++          },
++          "x-opensip-order": "canonical-set"
++        }
++      },
++      "description": "One result for EVERY compiled policy rule, including disabled and zero-subject rules, strictly sorted by ruleId. Outcome is recomputed after explicit waiver resolution and effective gate selection; advisory matches remain findings with pass sealed rule outcome. Enumeration uncertainty survives waived known findings."
++    },
++    "SubjectInventoryRef": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "domain",
++        "digest"
++      ],
++      "properties": {
++        "domain": {
++          "const": "subject-inventory"
++        },
++        "digest": {
++          "type": "string",
++          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "record": {
++              "document": "foundation/subject-inventory.schema.v1.json",
++              "selector": "#"
++            },
++            "retention": "preimage"
++          }
++        }
++      }
++    }
++  },
++  "x-opensip-digest-domains": {
++    "standing": "Normative machine-readable registry for identity-and-evidence section 3. Every 64-hex field in this bundle carries x-opensip-digest; a field without one is not admissible. domainSets additionally name the owning contract admission that Run closure must re-run over the retained frame, the retained closure joins it must re-derive, and the snapshot joins its paths must satisfy.",
++    "byDomain": {
++      "analysis-spec": {
++        "representation": "canonical-record",
++        "record": {
++          "bundle": "identity",
++          "selector": "#/$defs/analysis-spec"
++        }
++      },
++      "blob": {
++        "representation": "raw-artifact",
++        "artifact": "the exact retained blob bytes"
++      },
++      "cache-key": {
++        "representation": "h-identity",
++        "domain": "cache-key"
++      },
++      "capability-manifest": {
++        "representation": "capability-manifest-id",
++        "retention": "derived",
++        "derivedFrom": "plan.capabilityManifestBytesDigest"
++      },
++      "closure": {
++        "representation": "h-identity",
++        "domain": "closure"
++      },
++      "configuration": {
++        "representation": "canonical-record",
++        "record": {
++          "bundle": "identity",
++          "selector": "#/$defs/semantic-configuration"
++        }
++      },
++      "coverage": {
++        "representation": "h-identity",
++        "domain": "coverage"
++      },
++      "coverage-payload": {
++        "representation": "canonical-record",
++        "record": {
++          "payloadClass": "coverage",
++          "resolvedThrough": "the owning coverage2 object"
++        }
++      },
++      "evaluation-seal": {
++        "representation": "h-identity",
++        "domain": "evaluation-seal"
++      },
++      "execution-plan": {
++        "representation": "h-identity",
++        "domain": "execution-plan"
++      },
++      "fact": {
++        "representation": "h-identity",
++        "domain": "fact"
++      },
++      "fact-payload": {
++        "representation": "canonical-record",
++        "record": {
++          "payloadClass": "relation",
++          "resolvedThrough": "the owning fact2 object"
++        }
++      },
++      "finding": {
++        "representation": "h-identity",
++        "domain": "finding"
++      },
++      "finding-fingerprint": {
++        "representation": "h-identity",
++        "domain": "finding-fingerprint"
++      },
++      "finding-parameters": {
++        "representation": "canonical-record",
++        "record": {
++          "bundle": "identity",
++          "selector": "#/$defs/finding-parameters"
++        }
++      },
++      "import": {
++        "representation": "h-identity",
++        "domain": "import"
++      },
++      "import-payload": {
++        "representation": "canonical-record",
++        "record": {
++          "payloadClass": "import",
++          "resolvedThrough": "the owning import2 object"
++        }
++      },
++      "native-context": {
++        "representation": "h-identity",
++        "domainSet": "native-context"
++      },
++      "plan": {
++        "representation": "h-identity",
++        "domain": "plan"
++      },
++      "policy": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "workflows/schemas/policy-document.v2.schema.json",
++          "selector": "#/$defs/PolicyDocumentV2"
++        }
++      },
++      "policy-derivation": {
++        "representation": "h-identity",
++        "domain": "policy-derivation"
++      },
++      "predicate-witness": {
++        "representation": "canonical-record",
++        "record": {
++          "bundle": "identity",
++          "selector": "#/$defs/predicate-witness"
++        }
++      },
++      "proof-bundle": {
++        "representation": "h-identity",
++        "domain": "proof-bundle"
++      },
++      "regeneration-key": {
++        "representation": "h-identity",
++        "domain": "regeneration-key"
++      },
++      "rule-program": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "workflows/schemas/policy-document.v2.schema.json",
++          "selector": "#/$defs/RuleProgramV2"
++        }
++      },
++      "run": {
++        "representation": "h-identity",
++        "domain": "run"
++      },
++      "schema": {
++        "representation": "raw-artifact",
++        "artifactClass": "registered-schema-document",
++        "artifact": "the exact complete bytes of a schema document on the closed x-opensip-payload-registry list"
++      },
++      "semantic-evidence": {
++        "representation": "h-identity",
++        "domain": "semantic-evidence"
++      },
++      "snapshot": {
++        "representation": "h-identity",
++        "domain": "snapshot"
++      },
++      "subject-scope": {
++        "representation": "h-identity",
++        "domain": "subject-scope"
++      },
++      "view": {
++        "representation": "h-identity",
++        "domain": "view"
++      },
++      "waiver": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "workflows/schemas/policy-document.schema.json",
++          "selector": "#/$defs/WaiverSetV1"
++        }
++      },
++      "enumeration-plan": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/enumeration-plan.schema.v1.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "subject-inventory": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/subject-inventory.schema.v1.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "evaluation-subject": {
++        "representation": "h-identity",
++        "domain": "evaluation-subject"
++      },
++      "evaluator-emission-plan": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/evaluator-emission-plan.schema.v1.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "target-attribution": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/target-attribution.schema.v2.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "incoming-search": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/incoming-search.schema.v1.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "execution-inputs": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/execution-inputs.schema.v1.json",
++          "selector": "#"
++        },
++        "retention": "preimage"
++      },
++      "candidate-producer-result": {
++        "representation": "canonical-record",
++        "record": {
++          "document": "foundation/execution-inputs.schema.v1.json",
++          "selector": "#/$defs/CandidateProducerResultV1"
++        },
++        "retention": "preimage"
++      }
++    },
++    "domainSets": {
++      "native-context": {
++        "native.context.typescript.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/TypeScriptNativeContextV2",
++          "closureJoins": [
++            {
++              "path": [
++                "toolClosure",
++                "closureId"
++              ],
++              "form": "closure2-identity",
++              "kind": "toolchain"
++            },
++            {
++              "path": [
++                "toolchain",
++                "typescriptStdlibMerkleRoot"
++              ],
++              "form": "closure2-suffix",
++              "kind": "stdlib"
++            }
++          ],
++          "language": "typescript",
++          "admission": {
++            "contract": "native-evidence",
++            "section": "2.3/2.4/14",
++            "entryPoint": "admit_native_context"
++          },
++          "snapshotJoins": [
++            {
++              "path": [
++                "configProjection",
++                "configGraphPaths"
++              ],
++              "form": "inventoried-paths"
++            },
++            {
++              "path": [
++                "lockfileIdentity"
++              ],
++              "form": "inventoried-path-and-digest",
++              "pathField": "path",
++              "digestField": "contentSha256",
++              "nullable": true
++            }
++          ],
++          "nestedIdentities": [],
++          "nestedRecords": [
++            {
++              "path": [
++                "nodeModulesLayoutDigest"
++              ],
++              "retainedAs": "nodeModulesLayout",
++              "form": "canonical-record",
++              "nullable": true,
++              "document": "native/native-evidence.schemas.v2.json",
++              "selector": "#/$defs/ResolvedNodeModulesLayoutV1",
++              "blobJoins": [
++                {
++                  "path": [
++                    "entries",
++                    "[]"
++                  ],
++                  "digestField": "contentSha256"
++                }
++              ]
++            }
++          ]
++        },
++        "native.context.rust.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/NativeContextV2",
++          "closureJoins": [
++            {
++              "path": [
++                "toolClosure",
++                "closureId"
++              ],
++              "form": "closure2-identity",
++              "kind": "toolchain"
++            },
++            {
++              "path": [
++                "toolchain",
++                "rustcDevLlvmDigest"
++              ],
++              "form": "closure2-suffix",
++              "kind": "rust-dev-llvm"
++            }
++          ],
++          "language": "rust",
++          "admission": {
++            "contract": "native-evidence",
++            "section": "2.3/3/14",
++            "entryPoint": "admit_native_context"
++          },
++          "snapshotJoins": [
++            {
++              "path": [
++                "configProjection",
++                "replacedSnapshotConfigs"
++              ],
++              "form": "inventoried-paths"
++            }
++          ],
++          "nestedIdentities": [
++            {
++              "path": [
++                "dependencySourceSetId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "retainedAs": "dependencySourceSet"
++            },
++            {
++              "path": [
++                "unifiedFeaturesId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "retainedAs": "unifiedFeatures"
++            },
++            {
++              "path": [
++                "preparedOutputSetId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "nullable": true,
++              "retainedAs": "preparedOutputSet"
++            }
++          ],
++          "blobJoins": [
++            {
++              "path": [
++                "configProjection"
++              ],
++              "digestField": "projectionSha256"
++            }
++          ]
++        },
++        "native.context.syntax.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/SyntaxNativeContextV2",
++          "closureJoins": [
++            {
++              "path": [
++                "grammarBundle",
++                "closureId"
++              ],
++              "form": "closure2-identity",
++              "kind": "grammar"
++            }
++          ],
++          "language": "syntax",
++          "admission": {
++            "contract": "native-evidence",
++            "section": "1.2",
++            "entryPoint": "admit_native_context"
++          },
++          "snapshotJoins": [],
++          "nestedIdentities": [],
++          "nestedRecords": [],
++          "note": "The native context of the syntax-only mode. It carries exactly what interprets a body span when there is no compiler: the retained, closure-bound GRAMMAR BUNDLE and the normalizer specification it uses. It deliberately has no toolchain, no stdlib, no lockfile, no node_modules layout and no config graph, because a grammar-only analysis reads none of them; a syntax-only context that named a compiler would be claiming semantics it never computed."
++        }
++      },
++      "native-semantic-universe": {
++        "native.semantic-universe.typescript.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/TypeScriptUniverseV2ResolvedInputs",
++          "contextField": [
++            "nativeContextId"
++          ],
++          "contextForm": "sha256-text",
++          "language": "typescript",
++          "binding": {
++            "contract": "native-evidence",
++            "section": "11",
++            "entryPoint": "bind_typescript_universe",
++            "arguments": [
++              "universe",
++              "admission",
++              "context",
++              "retained",
++              "snapshotInventory"
++            ]
++          },
++          "contextDomain": "native.context.typescript.v2",
++          "nestedIdentities": [],
++          "nestedRecords": [
++            {
++              "path": [
++                "tsconfigGraphHash"
++              ],
++              "retainedAs": "configGraph",
++              "form": "canonical-record",
++              "document": "native/native-evidence.schemas.v2.json",
++              "selector": "#/$defs/TypeScriptConfigGraphV1"
++            }
++          ],
++          "languageVersionBinding": {
++            "record": "#/$defs/body-language-version",
++            "encoding": "raw-32-byte-sha256-of-canonical-record",
++            "retention": "derived",
++            "fields": {
++              "compilerName": {
++                "source": "native-context",
++                "path": [
++                  "toolchain",
++                  "compilerName"
++                ]
++              },
++              "compilerVersion": {
++                "source": "native-context",
++                "path": [
++                  "toolchain",
++                  "compilerVersion"
++                ]
++              },
++              "compilerBuild": {
++                "source": "native-context",
++                "path": [
++                  "toolchain",
++                  "compilerPackageDigest"
++                ]
++              }
++            },
++            "dialect": {
++              "key": "sourceVariant",
++              "source": "anchor-path-suffix",
++              "form": "closed-suffix-table",
++              "table": {
++                ".d.ts": "ts-declaration",
++                ".ts": "ts",
++                ".tsx": "tsx",
++                ".mts": "mts",
++                ".cts": "cts",
++                ".js": "js",
++                ".jsx": "jsx",
++                ".mjs": "mjs",
++                ".cjs": "cjs"
++              },
++              "onUnknown": "BODY_LANGUAGE_SOURCE_VARIANT_UNKNOWN",
++              "selectionLaw": "TypeScript has no per-crate dialect map; its per-body axis is the SOURCE VARIANT its own file suffix denotes, which decides how the body is scanned and parsed. Longest matching suffix wins, so .d.ts is never read as .ts. An unlisted suffix REFUSES rather than being folded into a neighbouring variant, so a normal variant is never silently mis-assigned and a new one must be registered deliberately. Distinct suffixes stay distinct even where a parser would treat two alike: this can fail to equate two bodies that are in fact equivalent, and can never equate two the language reads differently. Collapsing variants is a claim about a parser and belongs to the level specification. Only the variant token enters the record; the path does not."
++            },
++            "excluded": {
++              "libSelection": "standard library selection resolves types; it does not interpret a body span",
++              "typescriptStdlibMerkleRoot": "same, and it is a retained artifact digest not a language identity",
++              "standardLibraryComponentDigests": "same",
++              "languageMode": "configuration and program assembly, not the language",
++              "synthesizerVersion": "the option synthesizer, not the compiler that reads the body",
++              "packageModuleType": "module resolution semantics, not body interpretation",
++              "anchorPath": "the path establishes the variant and then does not enter the record; two identical bodies at different paths in one variant have one identity"
++            },
++            "bodyLanguages": [
++              "typescript",
++              "javascript"
++            ],
++            "bodyLanguageByVariant": {
++              "ts": "typescript",
++              "tsx": "typescript",
++              "ts-declaration": "typescript",
++              "mts": "typescript",
++              "cts": "typescript",
++              "js": "javascript",
++              "jsx": "javascript",
++              "mjs": "javascript",
++              "cjs": "javascript"
++            },
++            "bodyLanguageLaw": "The body languageId is DERIVED from the selected source variant, not from the provider universe. The universe language is the engine that reads the body; a .js body read by the TypeScript engine is a javascript body and must carry that identifier, exactly as native section 6.3 requires. The frame languageId and the record languageId are both taken from this one selector over the same anchor, so they cannot disagree. No JavaScript body is rewritten as TypeScript, and the cross-tsjs candidate projection of section 6.4 is untouched."
++          }
++        },
++        "native.semantic-universe.rust.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/RustUniverseV2ResolvedInputs",
++          "language": "rust",
++          "contextDomain": "native.context.rust.v2",
++          "contextField": [
++            "nativeContextId"
++          ],
++          "contextForm": "sha256-text",
++          "contextAgreementFields": [
++            "dependencySourceSetId",
++            "unifiedFeaturesId",
++            "preparedOutputSetId"
++          ],
++          "snapshotJoins": [
++            {
++              "path": [
++                "crateRootPaths"
++              ],
++              "form": "inventoried-paths"
++            },
++            {
++              "path": [
++                "lockfileIdentity"
++              ],
++              "form": "inventoried-path-and-digest",
++              "pathField": "path",
++              "digestField": "contentSha256"
++            }
++          ],
++          "binding": {
++            "contract": "native-evidence",
++            "section": "2.1/11",
++            "entryPoint": "bind_rust_universe",
++            "arguments": [
++              "universe",
++              "admission",
++              "context",
++              "retained",
++              "snapshotInventory"
++            ]
++          },
++          "nestedIdentities": [
++            {
++              "path": [
++                "dependencySourceSetId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "retainedAs": "dependencySourceSet"
++            },
++            {
++              "path": [
++                "unifiedFeaturesId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "retainedAs": "unifiedFeatures"
++            },
++            {
++              "path": [
++                "preparedOutputSetId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "nullable": true,
++              "retainedAs": "preparedOutputSet"
++            },
++            {
++              "path": [
++                "configProjectionSha256"
++              ],
++              "form": "bare-hex",
++              "domainSet": "native-nested"
++            },
++            {
++              "path": [
++                "sourceUnitOwnershipId"
++              ],
++              "form": "sha256-text",
++              "domainSet": "native-nested",
++              "nullable": true,
++              "retainedAs": "sourceUnitOwnership"
++            }
++          ],
++          "preparedResolutionGrantOperations": {
++            "host-prepared": "prepare-code",
++            "imported-inert": "read-import",
++            "none": null
++          },
++          "languageVersionBinding": {
++            "record": "#/$defs/body-language-version",
++            "encoding": "raw-32-byte-sha256-of-canonical-record",
++            "retention": "derived",
++            "fields": {
++              "compilerName": {
++                "const": "rustc"
++              },
++              "compilerVersion": {
++                "source": "native-context",
++                "path": [
++                  "toolchain",
++                  "rustcVersion"
++                ]
++              },
++              "compilerBuild": {
++                "source": "native-context",
++                "path": [
++                  "toolchain",
++                  "rustCommitHash"
++                ]
++              }
++            },
++            "dialect": {
++              "key": "edition",
++              "source": "universe",
++              "path": [
++                "edition"
++              ],
++              "form": "selected-compilation-target-edition",
++              "ownership": {
++                "source": "retained",
++                "retainedAs": "sourceUnitOwnership",
++                "pathField": "path",
++                "unitField": "unitId",
++                "unitsField": "units",
++                "crateField": "crateName",
++                "targetEditionField": "targetEdition",
++                "selectionField": "selectedUnitIds",
++                "enumerationField": "enumeration"
++              },
++              "onEmpty": "BODY_LANGUAGE_DIALECT_ABSENT",
++              "onAmbiguous": "BODY_LANGUAGE_DIALECT_AMBIGUOUS",
++              "onOwnerNotCompiled": "BODY_LANGUAGE_OWNER_NOT_COMPILED",
++              "onOwnerUnenumerated": "BODY_LANGUAGE_OWNER_UNENUMERATED",
++              "onOwnerAmbiguous": "BODY_LANGUAGE_OWNER_AMBIGUOUS",
++              "onOwnershipMissing": "BODY_LANGUAGE_OWNERSHIP_REQUIRED",
++              "selectionLaw": "The dialect is the EFFECTIVE edition of the SELECTED compilation target that owns this body path: the unit targetEdition when it states one, otherwise the universe edition map entry for its crateName. There is NO fast path - Cargo lets a target override its package default, so package defaults that all agree still do not determine a body dialect - and a clones fact over any Rust universe therefore requires the committed SourceUnitOwnershipV1 whatever the package map looks like. The order of decision is fixed and each step has its own cause: (1) no committed ownership refuses; (2) enumeration partial refuses BEFORE any row is looked at, so incomplete discovery can never act as an implicit edition selection by hiding a conflicting owner; (3) rows are those whose path EQUALS the enclosing fact anchor path - never a prefix, never a nearest directory, never a first match - and no row at all refuses as not-compiled; (4) rows are then restricted to selectedUnitIds, and a path compiled only by unselected targets refuses as not-selected rather than borrowing an out-of-scope edition; (5) SELECTED owners whose effective editions AGREE are admissible, which is the ordinary shared-file and lib-plus-test-target case; (6) selected owners that DISAGREE are an ambiguous unselected request and refuse. Because selectedUnitIds is committed inside the record whose H identity the universe names, each selection is a DIFFERENT sourceUniverse: one physical path compiled at two editions is validly analysed under each, one selection at a time. Selection establishes the JOIN only - no path, crate name, unit id or selection enters the body-language-version record.",
++              "alwaysRequired": true,
++              "onOwnerNotSelected": "BODY_LANGUAGE_OWNER_NOT_SELECTED",
++              "scopeVersusEnumeration": "SELECTED SCOPE and INCOMPLETE ENUMERATION are different claims and neither substitutes for the other. A selection says these targets ARE the analysis, so an owner outside them is deliberately out of scope and its edition does not bear on this body; the selection is committed in the identity, so it is visible to every consumer and changes the universe. Incomplete enumeration says the producer did not finish, so an owner INSIDE the selected scope may exist that is not listed and could contradict a listed one; that is a gap in knowledge, it is not visible as a selection, and it therefore admits no body dialect at all. Silently omitting a conflicting owner from the units table is not a selection either: an omission leaves no trace, whereas a selection is part of the universe identity. Partial evidence stays useful under the existing law rather than voiding a Run: the clones scope simply mints no body identity, its Coverage carries the incompleteness, the predicate is indeterminate and the seal is indeterminate."
++            },
++            "excluded": {
++              "targetTriple": "operational platform",
++              "hostTriple": "operational platform",
++              "sysrootDigest": "retained artifact of the resolution environment, not a language identity",
++              "rustcDevLlvmDigest": "code generation backend; it does not interpret a body span",
++              "standardLibraryComponentDigests": "resolution inputs, not body interpretation",
++              "cargoVersion": "build and dependency tool; it does not read the body",
++              "resolverVersion": "dependency resolution, not language",
++              "crateRootPaths": "paths, and a body identity must not vary with where a crate sits",
++              "editionMapKeys": "crate NAMES; one body identity must not depend on unrelated crates"
++            },
++            "dialectRepresentableForm": "An ordinary mixed-edition workspace has a representable valid form: each source path is owned by units of one edition, so every body gets its own dialect and bodies of BOTH editions close in the same universe. Only a path genuinely compiled under two different editions refuses.",
++            "bodyLanguages": [
++              "rust"
++            ],
++            "bodyLanguage": "rust"
++          }
++        },
++        "native.semantic-universe.syntax.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/SyntaxUniverseV2ResolvedInputs",
++          "contextField": [
++            "nativeContextId"
++          ],
++          "contextForm": "sha256-text",
++          "language": "syntax",
++          "binding": {
++            "contract": "native-evidence",
++            "section": "1.2",
++            "entryPoint": "bind_syntax_universe",
++            "arguments": [
++              "universe",
++              "admission",
++              "context",
++              "retained",
++              "snapshotInventory"
++            ]
++          },
++          "contextDomain": "native.context.syntax.v2",
++          "nestedIdentities": [],
++          "nestedRecords": [],
++          "note": "The universe of the syntax-only mode. `semantic universe` names the thing that DETERMINES a fact, and for a grammar-only analysis that is the selected bundled-grammar set, not a compiler semantic model. It exists because the capability matrix advertises declares/literal/control-flow at `syntactic` and clones at `normalized-body-hash` for syntax-only, and because file/package/vcs-change inventory facts must be representable in a repository that contains no TypeScript and no Rust unit at all: fact2 and subject-scope both REQUIRE a universe h-identity from this closed domain set, so with only the two compiler universes registered those advertised cells could mint no fact and no scope. Making the universe fields nullable was rejected: it would delete the invariant that every fact states what produced it, and would leave `which grammar read this body` unanswerable for exactly the facts that depend on it. Semantic capability is NOT widened by this domain - a syntax-only universe can carry only the syntactic and inventory rungs and the clones rung; imports/references/calls/types/reachability remain language-tier-unsupported, and a universal negative still requires its own complete Coverage.",
++          "languageVersionBinding": {
++            "record": "#/$defs/body-language-version",
++            "encoding": "raw-32-byte-sha256-of-canonical-record",
++            "retention": "derived",
++            "fields": {
++              "compilerName": {
++                "source": "native-context",
++                "path": [
++                  "grammarBundle",
++                  "parserName"
++                ]
++              },
++              "compilerVersion": {
++                "source": "native-context",
++                "path": [
++                  "grammarBundle",
++                  "parserVersion"
++                ]
++              },
++              "compilerBuild": {
++                "source": "native-context",
++                "path": [
++                  "grammarBundle",
++                  "bundleDigest"
++                ]
++              }
++            },
++            "componentLaw": "body-language-version names THE COMPONENT THAT INTERPRETS THE BODY SPAN - explicitly not the build tool and not the resolver. Under syntax-only that component is the bundled grammar's parser, so the three fields are bound to the retained, closure-joined grammar bundle rather than to a toolchain. No static constant and no fabricated compiler identity is used: parserVersion is joined by admission to the grammar closure's manifest semanticVersion exactly as the compiler versions are, and bundleDigest is the exact retained bundle identity. A body read by the grammar therefore has a DIFFERENT languageVersion from the same bytes read by tsc or rustc, so their clone identities differ. That is required, not incidental: equating a grammar parse with a compiler parse would assert an interpretation that was never performed.",
++            "dialect": {
++              "key": "grammarVariant",
++              "source": "anchor-path-suffix",
++              "form": "closed-suffix-table",
++              "table": {
++                ".rs": "rs",
++                ".d.ts": "ts-declaration",
++                ".ts": "ts",
++                ".tsx": "tsx",
++                ".mts": "mts",
++                ".cts": "cts",
++                ".js": "js",
++                ".jsx": "jsx",
++                ".mjs": "mjs",
++                ".cjs": "cjs"
++              },
++              "onUnknown": "BODY_LANGUAGE_GRAMMAR_VARIANT_UNKNOWN",
++              "selectionLaw": "A syntax-only analysis has no compilation unit, so it has no edition to select and no program to join; its only per-body axis is the variant the bundled grammar selects from the body's own suffix. Longest matching suffix wins, so .d.ts is never read as .ts. A suffix with no bundled grammar REFUSES rather than being folded into a neighbouring variant - which is the same conservative rule the compiler universes use, and it is what keeps `unsupported-file / no-bundled-grammar` an honest classification rather than a silent reinterpretation. Crucially there is NO edition branch here: a .rs body read without Cargo has no admitted ownership, and inventing one would be exactly the fabricated compiler semantics this mode exists to avoid."
++            },
++            "excluded": {
++              "languageMode": "configuration and unit assembly, not the language",
++              "anchorPath": "the path establishes the variant and then does not enter the record",
++              "normalizerSpecificationDigest": "the clone normalisation level specification is already a separate framed component; it is not the interpreter of the span",
++              "grammarSelection": "which grammars this analysis selected is committed in the universe identity; it is not a property of one body"
++            },
++            "bodyLanguages": [
++              "typescript",
++              "javascript",
++              "rust"
++            ],
++            "bodyLanguageByVariant": {
++              "rs": "rust",
++              "ts": "typescript",
++              "tsx": "typescript",
++              "ts-declaration": "typescript",
++              "mts": "typescript",
++              "cts": "typescript",
++              "js": "javascript",
++              "jsx": "javascript",
++              "mjs": "javascript",
++              "cjs": "javascript"
++            },
++            "bodyLanguageLaw": "The body language is the language of the BODY, from the same suffix selector, and is closed to the body-language-version languageId enum. The bundled grammar set and that enum are held equal by an explicit drift check, so a newly bundled grammar cannot start producing bodies of an unregistered language and the advertised `any file whose extension maps to a bundled grammar` cannot silently outrun what the identity record can express."
++          }
++        }
++      },
++      "native-nested": {
++        "native.dependency-source-set.v1": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/DependencySourceSetV1",
++          "nestedIdentities": [
++            {
++              "path": [
++                "packages",
++                "[]",
++                "fileManifestSha256"
++              ],
++              "form": "bare-hex",
++              "domainSet": "native-nested"
++            }
++          ]
++        },
++        "native.dependency-file-manifest.v1": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/DependencyFileManifestV1",
++          "blobJoins": [
++            {
++              "path": [
++                "[]"
++              ],
++              "digestField": "contentSha256",
++              "lengthField": "byteLength"
++            }
++          ]
++        },
++        "native.unified-features.rust.v1": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/UnifiedFeaturesV1"
++        },
++        "native.prepared-output-set.v3": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/PreparedOutputSetV3",
++          "blobJoins": [
++            {
++              "path": [
++                "rows",
++                "[]",
++                "blob"
++              ],
++              "digestField": "sha256",
++              "lengthField": "byteLength"
++            }
++          ]
++        },
++        "native.cargo-config-projection.v2": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/CargoConfigProjectionV2",
++          "snapshotJoins": [
++            {
++              "path": [
++                "replacedSnapshotConfigs"
++              ],
++              "form": "inventoried-paths"
++            }
++          ],
++          "blobJoins": [
++            {
++              "path": [],
++              "digestField": "projectionSha256"
++            }
++          ]
++        },
++        "native.source-unit-ownership.v1": {
++          "document": "native/native-evidence.schemas.v2.json",
++          "selector": "#/$defs/SourceUnitOwnershipV1",
++          "snapshotJoins": [
++            {
++              "path": [
++                "ownership"
++              ],
++              "form": "inventoried-paths",
++              "pathField": "path"
++            },
++            {
++              "path": [
++                "units"
++              ],
++              "form": "inventoried-paths",
++              "pathField": "markerPath"
++            }
++          ]
++        }
++      }
++    },
++    "retention": {
++      "preimage": "default: the exact preimage bytes are retained in the content-addressed store under this digest, and the closure checker fetches and re-hashes them",
++      "fragment": "the preimage is a canonical sub-object of an already retained record; locatedBy states where, and the closure checker recomputes it there",
++      "derived": "recomputed from another retained artifact by the stated recipe",
++      "owner-retained": "retained and admitted by the named owning contract; the identity closure joins by digest equality only and does not demand the bytes"
++    },
++    "domainSetLabels": {
++      "native-context": "NATIVE_CONTEXT",
++      "native-semantic-universe": "NATIVE_UNIVERSE",
++      "native-nested": "NATIVE_NESTED"
++    },
++    "languageModes": {
++      "standing": "native-evidence LanguageMode -> the native universe language it requests. syntax-only requests the `syntax` universe: it requests no COMPILER universe, which is a different statement from requesting none at all. It previously mapped to null, and because fact2/subject-scope require a universe h-identity from a closed set of two compiler domains, the syntax and clones cells the capability matrix advertises for that mode - and every file/package/vcs-change fact in a repository with no TypeScript or Rust unit - could mint no fact and no scope.",
++      "map": {
++        "ts-tsconfig": "typescript",
++        "js-allowjs": "typescript",
++        "js-synthesized": "typescript",
++        "rust-cargo": "rust",
++        "rust-cargo-prepared": "rust",
++        "syntax-only": "syntax"
++      },
++      "preparedModes": {
++        "rust": "rust-cargo-prepared"
++      }
++    },
++    "closureKinds": {
++      "standing": "Which closure kind each closure-bearing field admits. Stated so no field is left to guess.",
++      "byField": {
++        "subject-scope.enumeratorClosure": "provider",
++        "view.producerClosure": "provider",
++        "fact.producerClosure": "provider",
++        "finding.ruleClosure": "detector",
++        "evaluation-seal.evaluatorClosure": "evaluator",
++        "proof-bundle.evaluatorClosure": "evaluator",
++        "import.producerClosure": "provider",
++        "import.adapterClosure": "adapter",
++        "stage-spec.producerClosure": "provider",
++        "cache-key.producerClosure": "provider",
++        "TypeScriptToolClosureV1.closureId": "toolchain",
++        "ToolClosureV1.closureId": "toolchain",
++        "toolchain.typescriptStdlibMerkleRoot": "stdlib",
++        "toolchain.rustcDevLlvmDigest": "rust-dev-llvm",
++        "SyntaxGrammarBundleV1.closureId": "grammar"
++      },
++      "note": "No new closure kind is invented for producer acts: enumeration, view production, fact production and stage production are all provider acts under the existing kind. `grammar` is a genuinely new INSTALLED-COMPONENT kind, in the same family as `toolchain`, `stdlib` and `rust-dev-llvm`: the syntax-only mode's body interpreter is a bundled grammar set, and binding it to an existing kind would either claim it is a toolchain (it executes no compiler) or leave the component that interprets a body span outside the closure law, which is the one thing every other universe pins down."
++    },
++    "scopeCapabilityLaw": {
++      "standing": "Normative, and consumed by BOTH the native producer admission boundary and identity Run closure. It states what a COVERAGE claim over a body-dialect relation means under a universe whose dialect form is a closed suffix table. The per-BODY selector (`dialect.onUnknown`) was already total, but it is only reached while a body is being derived, so a scope that produced NO fact was classified by nothing and could claim a determinate `complete` for a path the universe cannot read in any dialect. Coverage is a claim about the EXAMINATION and must not be decided by whether the examination happened to produce output.",
++      "appliesToDialectForm": "closed-suffix-table",
++      "gate": "Relations carrying a `bodyIdentityJoin` in the relation registry, which is where the dialect axis is consulted at all. Nothing here claims a suffix table decides SYMBOL capability, and no compiler, parser or grammar is executed, ranked or qualified: the only question asked is whether the path's own suffix selects a variant in the table this universe published.",
++      "subjectLaw": "The relation registry's own `subjectKind`. A `source-path` relation is judged on ALL of THIS scope's subjects, so a mixed scope cannot hide its unsupported part behind its supported one. Any other subject kind is judged on the committed snapshot inventory, where at least one path must be readable, because the retained record associates an opaque subject id with no path.",
++      "emptySubjects": "Unsupported. An empty `source-path` scope is never vacuously supported.",
++      "inventoryExempt": "`file@enumerated`, `package@manifest-declared` and `vcs-change@vcs-reported` are never dialect-gated. A snapshot inventories every file it contains, so inventory evidence keeps its promised meaning on every inventoried path including ones no dialect reads.",
++      "onUnsupportedScope": {
++        "coverage": "unknown",
++        "deficiency": "language-tier-unsupported",
++        "nativeCause": "capability-missing"
++      },
++      "onSupportedScope": "Eligible for `complete` even when the scope contains no body at all. An absent body is a finding; an absent capability is not.",
++      "notAProofOfAbsence": "An unsupported scope is NOT a finding that no such construct exists. It is the disclosure that this universe never had the capability to look, which is the same principle the syntax universe's grammar-capability law already encodes.",
++      "distinctFromOwnerNotCompiled": "Deliberately NOT the treatment `BODY_LANGUAGE_OWNER_NOT_COMPILED` gets. That refusal describes a path which IS a source file of the universe's language and which no selected compilation target owns - the universe examined it and produced a resolution fact about a known language, so `complete` stays lawful there. A suffix outside the table is not a body of this universe in ANY dialect, so there is nothing it could have examined and a determinate answer would assert a negative from an absent capability.",
++      "refusals": "A false `complete`, a wrong deficiency and a wrong or null cause each refuse separately and by their own name: `native.coverage-source-variant-*` at the producer boundary and `COVERAGE_SOURCE_VARIANT_*` at retained Run closure. Both name sets are retained and distinct, but they are NOT both reachable for every scope: where the producer boundary can already apply this law it refuses first, so the closure name is not reached for that case. Which name a scenario yields is decided by which boundary sees the defect first, not by a precedence among the names.",
++      "guardOrder": "TWO boundaries decide this, in this order. FIRST the native Coverage PRODUCER admission, which judges ONE record and never sees the snapshot, so it applies this law only where the scope carries its own paths - a `source-path` relation with a `bodyIdentityJoin` - and only when its caller supplies the owning universe's dialect, as Run closure does. A FALSE `complete` for a path whose suffix no dialect table lists is refused THERE, before any Run-closure prerequisite runs. THEN, at Run closure, the prerequisites in their own order: the compilation-ownership axis, then the syntax grammar-capability registry, then this law as the backstop that makes the set of published universes total. Each keeps its own refusal name for the cases it is the first to decide; for the syntax universe this law is a strictly weaker necessary condition its own registry already implies, because that registry publishes that no data-document suffix appears in the syntax dialect table. An HONESTLY DISCLOSED unsupported scope is ADMITTED at both boundaries and closes its Run carrying `onUnsupportedScope`; only a false or mismatched claim refuses."
++    },
++    "languageVersionBindingLaw": "Normative, and consumed by identity Run closure. The languageVersion component of a FACT-IDENTITY body frame is the RAW 32 BYTES of SHA-256(C(body-language-version)) - the same fixed-width treatment the inherited grammar already gives levelVersion, so the inherited frame bytes and field grammar are unchanged and the component is bounded for every valid input. Fixed width is not a convenience: the inherited frame gives each component a u8 length, and a component that embedded per-crate or per-package data is not representable for ordinary valid inputs. The record is DERIVED: closure rebuilds it from the universe ResolvedInputs, the admitted retained native context the universe own nativeContextId names, the enclosing fact own anchor and the retained nested records the universe commits, and compares. It carries the identity of the component that INTERPRETS the body span plus the SELECTED source dialect, and nothing else: not operational platform, not paths, not names, not resolution inputs, not build tooling, not option synthesis, and no per-crate or per-package collection. Every language declares its dialect axis explicitly; there is no null branch and no unexamined default. A universe domain used by a clones fact with no binding refuses, and every dialect branch that cannot SELECT refuses with a distinct cause rather than guessing.",
++    "closureMembership": {
++      "standing": "Plan selection bindings for authoritative inputs; companion to closureKinds. Unreferenced CAS blobs are not evaluation inputs.",
++      "direct": {
++        "subject-scope.enumeratorClosure": "Selected for each scope of an evaluated view.",
++        "view.producerClosure": "Selected for each evaluated view.",
++        "stage-spec.producerClosure": "Selected for each stage of the execution plan.",
++        "cache-key.producerClosure": "Selected for a cache/regeneration key bound to the Plan.",
++        "finding.ruleClosure": "Selected for each evaluated finding.",
++        "evaluation-seal.evaluatorClosure": "Selected for the evaluation seal."
++      },
++      "equalToDirect": {
++        "fact.producerClosure": "The enclosing evaluated view.producerClosure.",
++        "proof-bundle.evaluatorClosure": "The evaluation-seal.evaluatorClosure."
++      },
++      "selectedThroughOtherInput": {
++        "import.producerClosure": "plan.importIds, which retains the import record naming them; an import named by proof.evaluationInputRefs must itself be a plan.importIds member (UNSELECTED_EVALUATION_IMPORT).",
++        "import.adapterClosure": "plan.importIds, which retains the import record naming them; an import named by proof.evaluationInputRefs must itself be a plan.importIds member (UNSELECTED_EVALUATION_IMPORT).",
++        "TypeScriptToolClosureV1.closureId": "plan.nativeContextDigests and the registered context closureJoins.",
++        "ToolClosureV1.closureId": "plan.nativeContextDigests and the registered context closureJoins.",
++        "toolchain.typescriptStdlibMerkleRoot": "plan.nativeContextDigests and the registered context closureJoins.",
++        "toolchain.rustcDevLlvmDigest": "plan.nativeContextDigests and the registered context closureJoins.",
++        "SyntaxGrammarBundleV1.closureId": "plan.nativeContextDigests and the registered context closureJoins."
++      },
++      "selectionLaw": "Direct members must be in plan.semanticClosures. Other-input dependencies need not be flattened into it; extra admissible retained closures may be selected explicitly. There is no exact-minimal-set constraint."
++    }
++  },
++  "x-opensip-payload-registry": {
++    "standing": "Normative closed registry for every registered PAYLOAD in this graph. It resolves the question a payload schema digest alone cannot: which document bytes are hashed and which selector validates. It is the single mapping identity-and-evidence section 3 names; nothing in this graph admits a payload under a caller-chosen or guessed schema.",
++    "law": {
++      "payloadSchemaDigest": "raw SHA-256 of the EXACT FULL schema DOCUMENT file bytes named by the row",
++      "validation": "by the row SELECTOR against that document, resolved through the pinned local registry closure with no network retrieval. A payload is NEVER validated against a whole multi-record bundle, and a bundle is never required to carry a root type: the row, not the document shape, decides admission.",
++      "codec": "C (section 3 canonical JSON) for every class below",
++      "unregistered": "a key with no row refuses; there is no default row and no caller-selected schema",
++      "keyedBy": "a key name prefixed `payload.` is read from the parsed payload; every other name is read from the naming record. The key is never caller-selected free text."
++    },
++    "classes": {
++      "relation": {
++        "keyedBy": [
++          "fact.relation"
++        ],
++        "document": "foundation/relation-payload-schemas.v2.json",
++        "registry": "x-opensip-relation-registry.relations",
++        "note": "The 13 rows live in the document itself so relation, selector, universe rule and rung ladder cannot drift from the schemas they describe. fact.resolution must be a rung of the row ladder, the rung required/forbidden field rules apply, and universeRule same-only requires fact.sourceUniverse == fact.targetUniverse."
++      },
++      "coverage": {
++        "keyedBy": [
++          "payload.schemaVersion"
++        ],
++        "rows": {
++          "3": {
++            "document": "native/native-evidence.schemas.v2.json",
++            "selector": "#/$defs/CoverageResultV3",
++            "owner": "native-evidence section 4"
++          }
++        }
++      },
++      "import": {
++        "keyedBy": [
++          "kind",
++          "payload.payloadDomain"
++        ],
++        "mirrors": "workflows_model.PayloadRegistryV1 / native-evidence section 7.1",
++        "rows": {
++          "runtime|workflow.import-payload.runtime.v1": {
++            "document": "workflows/schemas/imported-evidence.schema.json",
++            "selector": "#/$defs/RuntimePayloadV1",
++            "owner": "workflow"
++          },
++          "test|workflow.import-payload.test.v1": {
++            "document": "workflows/schemas/test-execution.schema.json",
++            "selector": "#/$defs/TestPayloadV1",
++            "owner": "workflow"
++          },
++          "history|workflow.import-payload.history.v1": {
++            "document": "workflows/schemas/imported-evidence.schema.json",
++            "selector": "#/$defs/HistoryPayloadV1",
++            "owner": "workflow"
++          },
++          "dependency|native.import-payload.dependency-source.v1": {
++            "document": "native/native-evidence.schemas.v2.json",
++            "selector": "#/$defs/DependencySourcePayloadV1",
++            "owner": "native"
++          },
++          "prepared|native.import-payload.prepared-output.v1": {
++            "document": "native/native-evidence.schemas.v2.json",
++            "selector": "#/$defs/PreparedOutputPayloadV1",
++            "owner": "native"
++          }
++        },
++        "note": "The Run closure re-derives these rows from the workflow registry and refuses if they differ, so one registry cannot drift from the other."
++      },
++      "parameter": {
++        "keyedBy": [
++          "analysis-spec/stage-spec parameter schemaDigest"
++        ],
++        "rows": {
++          "foundation/import-source-context.schema.json": {
++            "document": "foundation/import-source-context.schema.json",
++            "selector": "#",
++            "owner": "foundation"
++          },
++          "workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1": {
++            "document": "workflows/schemas/policy-document.schema.json",
++            "selector": "#/$defs/ScopeDocumentV1",
++            "owner": "workflows",
++            "note": "The workflow glob scope-policy document that comparison-result EvaluationContext.scopeDigest names and that the comparison contract requires to be bound as an analysis-spec parameter. With the class closed to one document that binding refused at Plan admission, so the comparison scope axis could not be populated at all. This row is deliberately a DIFFERENT record from the foundation scope-descriptor that plan.scopeDigest names: scope-descriptor is the repository extent actually walked (workspace roots and path prefixes), ScopeDocumentV1 is the policy's include/exclude glob selection over that extent. Both may appear in one Plan; neither substitutes for the other."
++          },
++          "foundation/enumeration-plan.schema.v1.json": {
++            "document": "foundation/enumeration-plan.schema.v1.json",
++            "selector": "#",
++            "owner": "foundation",
++            "note": "Exactly one required enumeration-plan parameter for the version3 evaluator. Independent pre-Plan selection; no parent PlanId or analysisSpecDigest self-reference.",
++            "requiredForEvaluatorMajors": [
++              3
++            ]
++          },
++          "foundation/evaluator-emission-plan.schema.v1.json": {
++            "document": "foundation/evaluator-emission-plan.schema.v1.json",
++            "selector": "#",
++            "owner": "foundation",
++            "note": "Exactly one for evaluator3; explicit per-rule selected detector binding.",
++            "requiredForEvaluatorMajors": [
++              3
++            ]
++          }
++        },
++        "note": "An analysis-spec or stage-spec parameter may only cite a document on this closed list. That replaces the withdrawn \"a payload schema document must constrain the payload directly\" rule, which contradicted the native and workflow bundle registries. A cited schema with no row refuses: there is no default row, no caller-selected schema and no permissive fallback for an unregistered parameter.",
++        "selectionCardinality": {
++          "law": "ONE Plan selects AT MOST ONE parameter per registered row. Zero is legal for a row this analysis does not need; two or more entries of analysis-spec.parameters (or stage-spec.parameters) whose schemaDigest resolves to the SAME row are REFUSED, whatever their payloadDigests are. This is a SELECTION rule about how many entries a SPEC may carry and is a different question from keyIsTheDocumentNotThePair, which is about how many REGISTRY ROWS one document digest may resolve to; PAYLOAD_PARAMETER_AMBIGUOUS_ROW answers the second and never constrained the first.",
++          "why": "A parameter row is a Plan INPUT: the payload it cites is the value the analysis is run with. Two entries under one row put two different values in one input slot and nothing decides which is the Plan's. Both enter analysisSpecDigest and therefore PlanId, so two conforming hosts could bind different documents from ONE admitted Plan and the resulting comparison axis would attribute differently for the same PlanId. Refusing is the registry declining an arbitrary selection, exactly as it does for an ambiguous row. There is deliberately NO default, NO first-listed or last-listed winner, and NO merge.",
++          "atMostOnePerSpec": true,
++          "zeroIsLegal": "An ordinary analysis that does not need a scope-policy input selects no ScopeDocumentV1 parameter and closes. A caller that DOES need it - baseline adoption and comparison - still gets the explicit missing-selection refusal from the workflow binding verifier; absence is never silently substituted, and the foundation scope-descriptor named by plan.scopeDigest is a DIFFERENT record that never stands in for ScopeDocumentV1.",
++          "exactDuplicatesAreADifferentRefusal": "Two BYTE-IDENTICAL parameter entries are a malformed record, not an ambiguous selection: analysis-spec.parameters is uniqueItems with x-opensip-order canonical-set, so a whole-item duplicate refuses on the schema and on the collection order law (ORDER_OR_DUPLICATE) before any selection question is asked. This rule owns only the case those cannot see: DISTINCT entries citing one row.",
++          "enforcedAt": [
++            "the PRE-PLAN analysis-spec admission boundary (native_evidence_model.admit_analysis_spec, after schema and vocabulary admission)",
++            "retained Run closure over the retained analysis-spec (identity-model close_run, ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS)",
++            "independently in the bounded workflow scope binding verifier when it is called directly (workflows_model.verify_scope_parameter_binding)"
++          ],
++          "precedence": "MOST SPECIFIC FIRST. The import-source-context row keeps its own named guard IMPORT_SOURCE_CONTEXT_MULTIPLE where that guard runs - inside the Run-closure import derivation, which is the boundary that consumes the row - and this generic selection guard is the TOTAL backstop that runs for every row and every Plan, including one with no selected import. Nothing about the import row's zero/one/multiple rule changes: zero means an empty declared-build set, one is the selection, more than one is refused.",
++          "notAStageSpecDuplicate": "A stage-spec carries a SUBSET of the Plan analysis-spec parameters (STAGE_SPEC_HIDDEN_PARAMETER), so a Plan admitted under this rule cannot contain a stage that selects a row twice; the stage-spec case is implied rather than separately guarded, and stating that is not a claim that a second guard exists."
++        },
++        "keyIsTheDocumentNotThePair": "Normative accounting of a bounded limitation, retained deliberately (CB4-ADV-4). The key is the cited schemaDigest, which is the SHA-256 of the whole DOCUMENT's bytes, not a (document, selector) pair. Both rows are distinguishable today - import-source-context.schema.json and policy-document.schema.json are different documents with different digests - so there is no ambiguity in this release. The limitation is structural and is stated rather than left to be rediscovered: a SECOND parameter row selecting another $def out of a document an existing row already cites would be indistinguishable by this key, and the first listed would otherwise silently win. That case is FORBIDDEN and refuses (PAYLOAD_PARAMETER_AMBIGUOUS_ROW), which is the registry law declining to make an arbitrary selection rather than a defect. Note that the same policy-document.schema.json bytes are also named by plan.policyDigest and plan.waiverDigest, but under the `canonical-record` representation and a different payload CLASS, so those are not in this key space and raise no collision.",
++        "whyNotRekeyByDocumentAndSelector": "Re-keying the class by (document, selector) would lift the restriction and would change no identity today, and it is deliberately NOT done here. No existing requirement needs a second $def out of one document as a parameter; adding flexibility no requirement asks for would widen the closed key space and the admission surface for a case that does not exist, and would retire an explicit refusal in exchange for a rule that has never been exercised. If such a requirement ever arises it is an explicit versioned design correction with its own controls - not a silent widening, and not something an implementer may assume."
++      }
++    }
++  },
++  "x-opensip-evaluator-profile": {
++    "schemaVersion": 3,
++    "standing": "Selected evaluator3 contract; source acceptance and product qualification are recorded separately.",
++    "parentFrozenManifestSha256": "360c2758c0409ebc307966c7a385c385c2d7f580b4623dd760b7ba0e26bf18c1",
++    "changedIdentifierMajors": {
++      "finding": "finding3",
++      "proof-bundle": "proof3",
++      "semantic-evidence": "evidence3",
++      "evaluation-seal": "seal3",
++      "run": "run3",
++      "policy-derivation": "policy-derivation3"
++    },
++    "newIdentifierDomains": {
++      "evaluation-subject": "subject3"
++    },
++    "unchangedIdentityShapes": [
++      "snapshot",
++      "closure",
++      "import",
++      "plan",
++      "subject-scope",
++      "fact",
++      "coverage",
++      "view",
++      "execution-plan",
++      "finding-fingerprint",
++      "cache-key",
++      "regeneration-key"
++    ],
++    "majorLaw": "Changed output domains dispatch explicitly to version3 records and prefixes. Frozen version2 bytes remain historical; no coercion or permissive mixed-version parse. Unchanged ancestors referenced by digest retain their existing identifier majors; their values change if committed input/schema bytes change.",
++    "inputOwnerDocuments": [
++      "foundation/enumeration-plan.schema.v1.json",
++      "foundation/subject-inventory.schema.v1.json",
++      "foundation/evaluator-emission-plan.schema.v1.json",
++      "foundation/target-attribution.schema.v2.json",
++      "foundation/incoming-search.schema.v1.json",
++      "foundation/execution-inputs.schema.v1.json"
++    ],
++    "integrationStatus": "Public identity-model.v3.close_run performs owner/native/schema admission and complete evaluator replay, including retained execution-input totality. Workflow and security adapters consume this boundary. Synthetic reference graphs do not qualify a compiler, host, platform or release.",
++    "newInputDocuments": [
++      "foundation/enumeration-plan.schema.v1.json",
++      "foundation/subject-inventory.schema.v1.json",
++      "foundation/evaluator-emission-plan.schema.v1.json",
++      "foundation/target-attribution.schema.v2.json",
++      "foundation/incoming-search.schema.v1.json",
++      "foundation/execution-inputs.schema.v1.json"
++    ],
++    "changedCanonicalRecords": {
++      "predicate-witness": 3,
++      "policy-document": 2,
++      "rule-program": 2
++    },
++    "policyUniverseMap": {
++      "typescript": "native.semantic-universe.typescript.v2",
++      "rust": "native.semantic-universe.rust.v2",
++      "syntax": "native.semantic-universe.syntax.v2"
++    }
++  },
++  "x-opensip-evaluator-deficiency-registry": {
++    "sources": {
++      "enumeration": [
++        "incomplete-inventory",
++        "unknown-export-membership",
++        "no-covering-program",
++        "source-syntax-invalid"
++      ],
++      "native": [
++        "budget-exhausted",
++        "confidence-floor-unmet",
++        "coverage-unknown",
++        "cross-family-edge-not-owed",
++        "derivation-policy-unmet",
++        "enumeration-unknown",
++        "external-consumers-unknown",
++        "input-closure-incomplete",
++        "language-tier-unsupported",
++        "missing-relation-coverage",
++        "population-unknown",
++        "provider-unavailable",
++        "required-relation-missing",
++        "resolution-incomplete",
++        "scope-without-coverage",
++        "selector-unbound",
++        "source-target-search-unattested",
++        "target-export-unknown",
++        "target-kind-unknown",
++        "target-metadata-unknown",
++        "unavailable-program-binding",
++        "uncovered-expected-source-subject",
++        "unresolved-edge-target-unattributed"
++      ],
++      "import": [
++        "evidence-kind-unavailable",
++        "history-outside-collection-scope",
++        "history-truncated",
++        "import-unmapped-only",
++        "incomplete-observation",
++        "no-consumable-row",
++        "null-exit-status",
++        "observation-window-insufficient",
++        "overload-ambiguous",
++        "target-metadata-unknown",
++        "test-completeness-not-established",
++        "unmapped-subject",
++        "unobservable-subject",
++        "wrapper-partial",
++        "zero-owed-wrappers"
++      ],
++      "execution": [
++        "budget-exhausted",
++        "confidence-floor-unmet",
++        "derivation-policy-unmet",
++        "external-consumers-unknown",
++        "input-closure-incomplete",
++        "language-tier-unsupported",
++        "provider-unavailable",
++        "required-cell-unsatisfied",
++        "required-relation-missing",
++        "resolution-incomplete",
++        "work-budget-exhausted"
++      ],
++      "correspondence": [
++        "projection-unavailable",
++        "signature-ambiguous",
++        "anonymous-subject",
++        "population-incomplete"
++      ]
++    },
++    "causeLaw": "Source-specific closed membership; evidenceKind is required for import and null otherwise, nativeCause is an owner NativeCause carrier or null. Gating derives from policy evidenceUse / required execution cells. Unknown record shape is refused, never coerced to a cause.",
++    "nativeCauseOwner": "native/native-evidence.schemas.v2.json#/$defs/NativeCause",
++    "importKindLaw": "Exact atom evidence kind or independently assessed evidenceUse declaration; absence has no importId but still has an evidenceKind.",
++    "nonBlockingDisclosures": [
++      "cross-family-edge-not-owed"
++    ],
++    "structuralNotSemantic": [
++      "omitted-selected-wrapper",
++      "missing-expected-inventory"
++    ]
++  }
++}

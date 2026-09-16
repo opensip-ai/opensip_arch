@@ -1,0 +1,20 @@
+--- a/docs/coop/design-corrections/security/check-analysis-seal-adapter.v1.py
++++ b/docs/coop/design-corrections/security/check-analysis-seal-adapter.v1.py
+@@ -92,9 +92,17 @@
+         return value
+ 
+     proof = replace(proof)
++    # findingIds arrays are x-opensip-order: canonical-set. Substituting one element does not
++    # preserve that order, so re-normalise every canonical-set finding array after replacement
++    # rather than relying on the replacement digest sorting into the replaced position.
++    proof["findingIds"] = R.E.cset(proof["findingIds"])
++    proof["waivedFindingIds"] = R.E.cset(proof["waivedFindingIds"])
++    for _rr in proof["ruleResults"]:
++        _rr["findingIds"] = R.E.cset(_rr["findingIds"])
+     pid = M.identifier("proof-bundle", proof)
+     objects[pid] = ("proof-bundle", proof)
+     evidence = replace(copy.deepcopy(evidence))
++    evidence["findingIds"] = R.E.cset(evidence["findingIds"])
+     evidence["proofBundleId"] = pid
+     eid = M.identifier("semantic-evidence", evidence)
+     objects[eid] = ("semantic-evidence", evidence)

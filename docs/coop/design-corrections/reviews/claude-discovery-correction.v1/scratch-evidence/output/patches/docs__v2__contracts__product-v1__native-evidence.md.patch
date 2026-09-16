@@ -1,0 +1,79 @@
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -631,8 +631,19 @@
+   a root `Cargo.toml` is `host-ignore-convention`. A marker inside a pruned tree
+   (every `node_modules/<pkg>/package.json`, a `Cargo.toml` under `node_modules`)
+   is never a unit and never a Cargo root; each pruned tree is reported once in
+-  `UnitDiscoveryV1.prunedTrees` (`PrunedTreeV1 {path, reason, markerCount}`) and
+-  its anchor enters `excludedPathPrefixes`. Pruning is a discovery rule, not a
++  `UnitDiscoveryV2.prunedTrees` (`PrunedTreeV2 {path, reason, markerCount,
++  markerCountBasis}`) and its anchor enters `excludedPathPrefixes`. **A pruned
++  anchor is recorded because the tree was OBSERVED, not because a marker was found
++  inside it** (XA-02 / CR-25): a `node_modules`, `.hg`, `.svn`, `.jj` or Cargo
++  `target` tree holding no manifest is still one row. Discovery never descends into
++  a pruned tree, either to count markers or to find a nested anchor; the outermost
++  pruned segment is the only anchor. `markerCount` is exact **over the supplied
++  marker inventory only** when `markerCountBasis` is `observed-inventory`, and is
++  `null` when it is `not-enumerated` (production discovery that did not descend, or
++  an anchor whose own directory observation could not be established). Zero observed
++  is never zero hidden, and neither member is a unit-selection, work-bound, Coverage
++  or scope input. `PrunedTreeV1` and `UnitDiscoveryV1` remain the historical
++  version-1 records for version-1 bytes. Pruning is a discovery rule, not a
+   read-set exemption: bytes a program later reads from a pruned tree
+   (`node_modules` in the TypeScript read set, §2.2/§9.4) enter the snapshot read
+   set under the identity unit's snapshot custody and are Plan-bound (security
+@@ -645,14 +656,14 @@
+   projects (deliberate boundaries, ADV-3) and custody/depth-excluded unit
+   directories. This instrument never re-derives them from caller-supplied
+   ignores. An operational host composition obtains the closed
+-  `AdmittedBoundaryInventoryV1` from security (`boundary_inventory(result)`;
++  `AdmittedBoundaryInventoryV2` from security (`boundary_inventory(result)`;
+   relative scope paths under the selected root: `nestedRepositories`,
+   `nestedProjects`, `custodyExcludedUnits`, `prunedTrees`) and passes it
+   unchanged to `discover_units(markers, explicit_roots, boundaries)`,
+   `assign_membership(units, files, boundaries)` and
+   `unit_scope_descriptor(..., boundaries)`. Under it: a marker directory at or
+   below a boundary is no unit and is never folded into a workspace
+-  (`UnitDiscoveryV1.boundaries.excludedUnits {path, marker, reason:
++  (`UnitDiscoveryV2.boundaries.excludedUnits {path, marker, reason:
+   nested-repository | nested-project | custody-excluded, anchor}`); a file at or
+   below one is `outside-project-boundary` with that reason and listed in
+   `outsideBoundaryFiles` (another project's or uncustodied source, never scanned,
+@@ -660,13 +671,24 @@
+   `native.explicit-root-crosses-boundary` (`CONFIG.INVALID`, the counterpart of
+   security's `JOIN_CROSSES_NESTED_*`); every nested anchor and
+   directory-custody exclusion enters `excludedPathPrefixes`, so the Plan scope
+-  names the boundaries. The inventory's `prunedTrees` must equal the ones this
+-  instrument derives from the same marker inventory
++  names the boundaries. Every anchor this instrument derives from the same marker
++  inventory must appear in the admitted inventory with the SAME `reason`; a missing
++  anchor, or the same path under a different reason, refuses
+   (`native.boundary-inventory-mismatch`, `REQUEST.PRECONDITION_FAILED`): an
+-  ignore list is never proof of boundary completeness. `boundaries=None` is
++  ignore list is never proof of boundary completeness. The admitted inventory is a
++  **superset**, not a value this instrument reproduces: security additionally
++  observed directory entries, so an ADDITIONAL admitted anchor is accepted and
++  carried through, and the admitted rows are the ones the host projects. This is a
++  subset test over `(path, reason)` alone (XA-02): `markerCount` and
++  `markerCountBasis` are provenance and are never comparison keys, because a
++  differing count would speak about a tree neither instrument enumerated. `boundaries=None` is
+   retained only for the **standalone pure instrument** (fixtures, callers with
+   no project); its output says so (`boundaries.source = "none"` with a
+-  disclosure) and is not an operational host composition. From inside a nested
++  disclosure) and is not an operational host composition. The authoritative host
++  composition calls `require_admitted_boundaries`, which refuses a missing
++  inventory (`native.admitted-boundaries-required`), so the agreement between the
++  two instruments is structural at that one boundary rather than a convention a
++  caller could drop; the standalone lane is unaffected. From inside a nested
+   config the nested project is the whole project and its inventory names no
+   boundary. Cases `units-nested-repository-and-nested-project-are-excluded-*`,
+   `units-explicit-root-crossing-into-a-nested-project-or-repository-refuses-typed`,
+@@ -2927,7 +2949,7 @@
+ | stale prepared/import row selected explicitly; non-inert prepared row | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | details `native.stale-prepared-output` / `native.stale-import` / `native.prepared-output-not-inert` |
+ | execution not authorized (CI without policy; missing live boundaries; no bundled linker; over-claimed enforcement; revocation mid-step) | `linker-unavailable` where applicable | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `native.execution-not-authorized` |
+ | explicit Config2/CLI workspace root without a language marker; explicit root violating the shared path grammar; explicit root at or below an admitted boundary (nested repository/project, custody-excluded directory) | | `request-rejected` (2) | `CONFIG.INVALID` | `native.explicit-root-without-marker` (missing marker); `PROJECT.EXPLICIT_PATH_INVALID` (grammar or boundary crossing) |
+-| admitted boundary inventory whose pruned trees do not equal the ones derived from the marker inventory (not produced by security over this inventory) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `PROJECT.DISCOVERY_INVENTORY_MISMATCH` |
++| admitted boundary inventory missing an anchor the marker inventory implies, or naming one under a different reason (not produced by security over this inventory); an ADDITIONAL admitted anchor is lawful and is carried, and count/basis are never compared | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | `PROJECT.DISCOVERY_INVENTORY_MISMATCH` |
+ | capability/identity mismatch at HelloAck; OpenUniverse before negotiation; coverage bijection faults, including an RC-0 pair whose rung is not on that relation's own ladder, an RC-1 not-applicable entry carrying a resolution claim, or an RC-2 precondition mismatch; **subject-scope commitment, coverage key or examined-partition mismatch at the producer boundary** (§4.1a: `native.subject-scope-commitment-mismatch`, `native.coverage-key-scope-mismatch:<field>`, `native.examined-universe-commitment-mismatch`, `native.examined-universe-subject-count-mismatch`, `native.coverage-entry-key-mismatch`); a `view2` naming a `coverage2` that was never admitted at that boundary or whose subject scope is outside the view (`native.coverage-not-admitted-at-producer-boundary`, `native.coverage-subject-scope-outside-view`); **worker fault** (process fault, ProviderFault, crash) | | `operational-failed` (4) | `PROVIDER.PROTOCOL_VIOLATION` | operational record |
+ | native context whose stdlib/rust-dev-llvm/tool closure is unretained, recomputes to a different identity, has the wrong kind, or whose suffix, component, `libSelection`, tool-member or compiler-version join fails (§2.3, §2.4: `native.native-context-closure-unretained`, `native.native-context-closure-identity-mismatch`, `native.native-context-closure-kind-mismatch`, `native.native-context-stdlib-tree-mismatch`, `native.native-context-lib-not-retained`, `native.native-context-tool-not-in-closure`, `native.native-context-compiler-version-not-from-manifest`); a universe bound to a context this host did not mint or to the other language's record (`native.universe-context-binding-mismatch`, `native.native-context-language-mismatch`) | | `request-rejected` (2) | `REQUEST.PRECONDITION_FAILED` | request detail (before PlanId; no worker is spawned) |
+ | preparation bound exceeded | | `operational-failed` (4) | `HOST.IO_FAILURE` | `native.prepare-bound-exceeded` |

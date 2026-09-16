@@ -1,0 +1,917 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3",
+  "title": "CommandEnvelope schemaMajor 3 — evaluator3 run3/finding3 surfaces",
+  "description": "Evaluator3 envelope. schemaMajor 3 because AnalysisResult.runId is run3 and the intermediate findings projection is FindingSurface (finding3, nullable fingerprint; not a SARIF result). SARIF 2.1.0 output is urn:opensip:product-v1:workflows:evaluator3:sarif-adapter:2. Consumers pin this major; major 2 envelopes are REQUEST.SCHEMA_MAJOR_UNSUPPORTED, never reshaped. Output serialization overflow uses OUTPUT.SERIALIZATION_FAILED / faultCause output-serialization. Query carrier: kind=query requires querySurface. The query command (the twenty graph-query:3 operations) selects graph-query-response and carries the complete owner-admitted GraphQueryResponseV1 in queryResponse, which is its query-response parity field; every other query-class command selects its own surface and carries queryRecord of that closed record type. Unsupported envelope majors terminate REQUEST.SCHEMA_MAJOR_UNSUPPORTED with detail OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaFamily",
+    "schemaMajor",
+    "kind",
+    "requestId",
+    "termination",
+    "exitCode"
+  ],
+  "properties": {
+    "schemaFamily": {
+      "const": "opensip.product.envelope"
+    },
+    "schemaMajor": {
+      "const": 3
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "run",
+        "query",
+        "mutation",
+        "failure",
+        "invocation",
+        "doctor"
+      ]
+    },
+    "requestId": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
+    },
+    "clientCorrelationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "projectId": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+    },
+    "projectRoot": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+    },
+    "termination": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
+    },
+    "exitCode": {
+      "type": "integer",
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        130
+      ],
+      "description": "derived from termination.class by the fixed table; the checker refuses any other pairing"
+    },
+    "run": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/AnalysisResult"
+    },
+    "query": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/QueryResult"
+    },
+    "querySurface": {
+      "type": "string",
+      "enum": [
+        "graph-query-response",
+        "discovery-recommendation",
+        "baseline-inspection",
+        "effective-policy",
+        "policy-test-result",
+        "candidate-list",
+        "candidate-inspection",
+        "review-brief",
+        "repair-preview"
+      ],
+      "description": "Required exactly on kind=query and equal to the command inventory queryDispatch.surface. graph-query-response carries queryResponse; every other value carries queryRecord of exactly its record type."
+    },
+    "queryResponse": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseV1",
+      "description": "The complete owner-admitted query response, required exactly when querySurface=graph-query-response. Cross-record joins beyond JSON Schema: context.projectId equals projectId; a present response termination equals termination; for graph.* the query summary is the owner projection of this response."
+    },
+    "queryRecord": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/DiscoveryRecommendationRecordV1"
+        },
+        {
+          "$ref": "#/$defs/BaselineInspectionRecordV1"
+        },
+        {
+          "$ref": "#/$defs/EffectivePolicyRecordV1"
+        },
+        {
+          "$ref": "#/$defs/PolicyTestResultRecordV1"
+        },
+        {
+          "$ref": "#/$defs/CandidateListRecordV1"
+        },
+        {
+          "$ref": "#/$defs/CandidateInspectionRecordV1"
+        },
+        {
+          "$ref": "#/$defs/ReviewBriefRecordV1"
+        },
+        {
+          "$ref": "#/$defs/RepairPreviewRecordV1"
+        }
+      ],
+      "description": "Closed typed result of a non-graph query-class command, discriminated by surface; no untyped payload is admitted."
+    },
+    "mutation": {
+      "$ref": "#/$defs/MutationReceiptProjection"
+    },
+    "errors": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "availability": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CapabilityAvailabilityV1",
+      "description": "Optional. The bounded capability-availability collection of THIS invocation: every capability the selected product required that this release did not declare available, with its full ownership tuple. Present on the invocation that selected them - it is not deferred to a separate doctor report, which is a different invocation and cannot deliver these absences. Advisory only."
+    },
+    "invocation": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3"
+    },
+    "doctor": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/DoctorResult"
+    },
+    "retentionDisclosure": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/RetentionDisclosure"
+    },
+    "diagnostics": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "agentHints": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+      },
+      "description": "present only in the agent rendering; advisory text that never changes any parity field",
+      "x-opensip-order": "sequence"
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/FindingSurface"
+      },
+      "uniqueItems": true,
+      "x-opensip-order": {
+        "by": [
+          "findingId"
+        ]
+      },
+      "description": "Optional direct findings projection for analysis envelopes. One row per finding3. Not keyed by fingerprint."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "run"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "run",
+          "projectId"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "query"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "query",
+          "projectId",
+          "querySurface"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "mutation"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "mutation",
+          "projectId"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "failure"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "errors"
+        ],
+        "not": {
+          "required": [
+            "run"
+          ]
+        },
+        "description": "kind=failure prohibits the run field. A schema-valid AnalysisResult on a failure envelope is refused; failure is not an invalid-run carrier."
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "invocation"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "invocation"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "doctor"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "doctor"
+        ],
+        "properties": {
+          "termination": {
+            "properties": {
+              "class": {
+                "enum": [
+                  "success",
+                  "operational-failed",
+                  "interrupted"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "graph-query-response"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "queryResponse"
+        ]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "properties": {
+            "kind": {
+              "const": "query"
+            }
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "anyOf": [
+            {
+              "required": [
+                "querySurface"
+              ]
+            },
+            {
+              "required": [
+                "queryResponse"
+              ]
+            },
+            {
+              "required": [
+                "queryRecord"
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "graph-query-response"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "queryRecord"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "not": {
+              "const": "graph-query-response"
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "queryRecord"
+        ],
+        "not": {
+          "required": [
+            "queryResponse"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "discovery-recommendation"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/DiscoveryRecommendationRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "baseline-inspection"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/BaselineInspectionRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "effective-policy"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/EffectivePolicyRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "policy-test-result"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/PolicyTestResultRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "candidate-list"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/CandidateListRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "candidate-inspection"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/CandidateInspectionRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "review-brief"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/ReviewBriefRecordV1"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "querySurface"
+        ],
+        "properties": {
+          "querySurface": {
+            "const": "repair-preview"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "queryRecord": {
+            "$ref": "#/$defs/RepairPreviewRecordV1"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "MutationReceiptProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "receiptId",
+        "effectOutcome",
+        "commitClass",
+        "replayed"
+      ],
+      "properties": {
+        "operation": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+        },
+        "effectOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        },
+        "commitClass": {
+          "type": "string",
+          "enum": [
+            "REVERSIBLE",
+            "IRREVERSIBLE"
+          ]
+        },
+        "replayed": {
+          "type": "boolean"
+        },
+        "before": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "after": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "verificationRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+        }
+      }
+    },
+    "Config2WorkspaceRootsProposalV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "workspaceRoots",
+        "unitOrdinals"
+      ],
+      "properties": {
+        "key": {
+          "const": "discovery.workspaceRoots"
+        },
+        "workspaceRoots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "x-opensip-order": "sequence"
+        },
+        "unitOrdinals": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8192,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8191
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "description": "The only config2 proposal this surface emits: explicit discovery.workspaceRoots (native explicit-root spelling) pinning discovered units. Every root normalizes to a discovered unit rootPath and unitOrdinals are exactly those units. Other config2 keys have no published config2 document schema and are not proposed."
+    },
+    "DiscoveryRecommendationRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "advisory",
+        "discovery",
+        "recommendations",
+        "config2Proposals"
+      ],
+      "properties": {
+        "surface": {
+          "const": "discovery-recommendation"
+        },
+        "advisory": {
+          "const": true
+        },
+        "discovery": {
+          "$ref": "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/UnitDiscoveryV2"
+        },
+        "recommendations": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+          },
+          "x-opensip-order": "sequence",
+          "description": "Zero rows in this profile: no recommendation detail is registered. The only advisory next step is the explicit discovery.workspaceRoots config2 proposal. A recommendation vocabulary requires registered details and a successor of this record."
+        },
+        "config2Proposals": {
+          "type": "array",
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/Config2WorkspaceRootsProposalV1"
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "description": "recommend: native UnitDiscoveryV2 admitted under the security boundary inventory, registered advisory details, and config2 proposals. Advisory only."
+    },
+    "PivotClosureAvailabilityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "closureId",
+        "kind",
+        "state"
+      ],
+      "properties": {
+        "closureId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+        },
+        "kind": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:baseline:2#/$defs/PivotClosureEntry/properties/kind"
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "available",
+            "missing",
+            "revoked",
+            "incompatible"
+          ]
+        },
+        "trustOrigin": {
+          "type": "string",
+          "enum": [
+            "retained-generation",
+            "installed-signed-release",
+            "signed-closure-bundle"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "const": "available"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "trustOrigin"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "trustOrigin"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "Current-trust resolution of one pivot closure: missing (BASELINE.PIVOT_DETECTOR_UNAVAILABLE), revoked (BASELINE.PIVOT_CLOSURE_REVOKED), incompatible protocol major or platform (BASELINE.PIVOT_CLOSURE_INCOMPATIBLE), or available with its trust origin."
+    },
+    "BaselineInspectionRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "baseline",
+        "pivotClosureAvailability"
+      ],
+      "properties": {
+        "surface": {
+          "const": "baseline-inspection"
+        },
+        "baseline": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:baseline:2"
+        },
+        "pivotClosureAvailability": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/PivotClosureAvailabilityV1"
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "description": "baseline show: the admitted baseline:2 artifact and one availability row per descriptor pivotClosure entry, in descriptor order."
+    },
+    "EffectivePolicyRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "policyDigest",
+        "policy",
+        "waiverSetDigest",
+        "effectiveWaivers",
+        "waiverResolution"
+      ],
+      "properties": {
+        "surface": {
+          "const": "effective-policy"
+        },
+        "policyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "policy": {
+          "$ref": "urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2"
+        },
+        "waiverSetDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "effectiveWaivers": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
+        },
+        "waiverResolution": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverResolutionV1"
+        }
+      },
+      "description": "policy show: the admitted tracked policy, the resolved effective waiver set and its resolution disclosure, with their document digests."
+    },
+    "PolicyTestResultRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "result"
+      ],
+      "properties": {
+        "surface": {
+          "const": "policy-test-result"
+        },
+        "result": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1"
+        }
+      },
+      "description": "policy test: the complete PolicyTestResultV1."
+    },
+    "EvidenceLevelCountsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proof-backed",
+        "partial-coverage",
+        "advisory-only"
+      ],
+      "properties": {
+        "proof-backed": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "partial-coverage": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "advisory-only": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        }
+      },
+      "description": "Count of listed candidates per review:2 EvidenceLevel."
+    },
+    "CandidateListRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "context",
+        "includeSuppressed",
+        "candidates",
+        "evidenceLevels",
+        "suppressedCount"
+      ],
+      "properties": {
+        "surface": {
+          "const": "candidate-list"
+        },
+        "context": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseContext"
+        },
+        "includeSuppressed": {
+          "type": "boolean"
+        },
+        "candidates": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:review:2#/$defs/Candidate"
+          },
+          "x-opensip-order": {
+            "by": [
+              "candidateId"
+            ]
+          }
+        },
+        "evidenceLevels": {
+          "$ref": "#/$defs/EvidenceLevelCountsV1"
+        },
+        "suppressedCount": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        }
+      },
+      "description": "candidates: review:2 Candidate records of one admitted Run with the owner non-graph context."
+    },
+    "CandidateInspectionRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "context",
+        "inspection"
+      ],
+      "properties": {
+        "surface": {
+          "const": "candidate-inspection"
+        },
+        "context": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseContext"
+        },
+        "inspection": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:review:2#/$defs/InspectionBundle"
+        }
+      },
+      "description": "inspect: the review:2 InspectionBundle of one candidate of an admitted Run."
+    },
+    "ReviewBriefRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "context",
+        "brief"
+      ],
+      "properties": {
+        "surface": {
+          "const": "review-brief"
+        },
+        "context": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseContext"
+        },
+        "brief": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:review:2#/$defs/ReviewBrief"
+        }
+      },
+      "description": "review brief: the review:2 ReviewBrief of one admitted Run."
+    },
+    "RepairPreviewRecordV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "preview",
+        "plan"
+      ],
+      "properties": {
+        "surface": {
+          "const": "repair-preview"
+        },
+        "preview": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/RepairPreviewResult"
+        },
+        "plan": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/RepairPlanV1"
+        }
+      },
+      "description": "repair preview: the invocation:3 RepairPreviewResult and the repair:2 RepairPlanV1 it names."
+    }
+  }
+}

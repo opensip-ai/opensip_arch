@@ -1,0 +1,159 @@
+--- a38/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ b39/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -417,6 +417,21 @@
+ refuses at admission instead of silently inheriting a plausible rule, so the
+ omission that produced this paragraph cannot recur unnoticed.
+ 
++The same law governs every **foundation record document** this closure walks through a
++`{document, selector}` record: `enumeration-plan.schema.v1`, `subject-inventory.schema.v1`,
++`evaluator-emission-plan.schema.v1`, `target-attribution.schema.v1`/`v2`,
++`incoming-search.schema.v1`, `execution-inputs.schema.v1` and `import-source-context.schema`
++(identity-schemas and the relation payload document carry their own sweeps). Each bare 64-hex
++position there declares its own representation and retention on the leaf, branch, `items` node or
++enclosing property; none is presumed to be raw SHA256 because it is 64 hex characters. For example
++`ExecutionInputsV1.enumerationPlanDigest` is a `canonical-record` of `EnumerationPlanV1`,
++`viewDigests[]` and `coverageIds[]` are bare `h-identity` suffixes of `view2`/`coverage2`, the
++`universe` fields are `h-identity` suffixes of the native semantic-universe domain set,
++`InputRefV1.digest` is `by-domain`, and `CandidateSourceBodyV1.contentSha256` is a `raw-artifact`.
++Before such a record is walked its document is swept, and an unannotated position refuses
++(`FOUNDATION_DIGEST_UNANNOTATED:<document>:<position>`), so a host-input schema cannot reintroduce
++an unannotated digest that the Run walk passes silently.
++
+ The machine-readable `x-opensip-digest-domains.scope` selects bare digest
+ fields, including a reference to `#/$defs/Hash` and a non-null alternative of a
+ nullable field. A typed-prefix identity field is outside this annotation scope:
+@@ -447,7 +462,7 @@
+ | Retention | Meaning |
+ |---|---|
+ | `preimage` (default) | the exact preimage bytes are retained in the content-addressed store **under this digest**; the closure checker fetches them and re-hashes. |
+-| `fragment` | the preimage is a canonical sub-object of an already retained record; the annotation's `locatedBy` states which record and which addressing rule, and the closure checker recomputes it there rather than storing it twice. Closed to `program-predicate.nodeDigest`. |
++| `fragment` | the preimage is a canonical sub-object of an already retained record; the annotation's `locatedBy` states which record and which addressing rule, and the closure checker recomputes it there rather than storing it twice. A fragment is still a canonical record: the located sub-object is validated against the annotation's own `{document, selector}` before its digest is compared, and a node that does not satisfy that record refuses even when its digest matches. Closed to `program-predicate.nodeDigest`, whose record is `workflows/schemas/policy-document.v2.schema.json#/$defs/Predicate` because the addressed rule program is `RuleProgramV2`. |
+ | `derived` | recomputed from another retained artifact by the stated recipe. Closed to `capabilityManifestId`, derived from the `capabilityManifestBytesDigest` artifact. |
+ | `owner-retained` | the named owning contract retains and admits the bytes; this closure joins by digest equality only. Closed to `owner-source-set[].ownerFileManifestSha256`, owned by security's `RepoExecutionGrantV2` owner admission. |
+ 
+@@ -530,6 +545,53 @@
+ as a blob). This is source provenance; it alone never authenticates imported
+ runtime-to-source correspondence.
+ 
++**What `sourceInventory` contains (consumer24 A4).** The snapshot source inventory
++is (1) the deterministic custody walk of the admitted first-party files under the
++project root, which is every file the shared discovery rule reaches and never
++descends into a pruned tree (`node_modules`; `.git`, `.hg`, `.svn`, `.jj`; a Cargo
++`target` directly under a Cargo root; native §1.4 U-4a), **plus** (2) exactly the
++bytes the analysis actually required and read from inside the project root but
++outside that walk: files a Plan-selected TypeScript context read from an installed
++dependency tree it committed to its read set (`nodeModulesInReadSet`). Unread pruned
++material is excluded, so two hosts over the same checkout, analysis and read set mint
++the same `snapshot2` whatever else sits in `node_modules` or `target`. Required inputs
++read from **outside** the project root are not snapshot paths and are never flattened
++into this inventory: compiler files and the TypeScript standard library stay in their
++`toolchain` and `stdlib` closures, Rust dependency sources stay in their
++`DependencySourceSetV1` and closure records, and each is joined by its own owner. The
++retained `ResolvedNodeModulesLayoutV1` rows are package-directory resolution
++observations joined by blob digest, not inventory rows themselves; its registered
++schema description states the same law. Read pruned-tree bytes are retained
++under their inventory digests like every other row and appear in membership as
++`syntax-only` / `host-ignore-convention` (native U-4). Run closure joins them: a
++snapshot row inside a dependency tree must lie inside a package directory
++(`installPath` or `realPath`) of the retained `ResolvedNodeModulesLayoutV1` of a
++Plan-selected context that committed `nodeModulesInReadSet`, and a VCS-tree or Cargo
++build-output row is never a read input of any published universe. A dependency
++package's read allowance never overrides a VCS-tree exclusion deeper in that path;
++the VCS exclusion uses exact segments at every depth. **Nested packages have
++explicit custody.** A listed directory authorizes a read file below it only while
++the path suffix below that exact directory has no further exact `node_modules`
++segment. A nested installed package (for example
++`node_modules/left-pad/node_modules/evil`) is its own installed package directory
++and needs its own layout row; an enclosing listed directory never authorizes it.
++Listed directories are admitted `CanonicalPath` prefixes compared by exact segment,
++not package roots parsed from a path, so a package-manager store or workspace-link
++`realPath` authorizes its ordinary descendants, and a lookalike segment such as
++`node_modules-like` is no boundary. A row outside every pruned tree stays with the
++first-party custody walk even when a listed `realPath` contains it. Discovery's
++outermost pruned anchor is unchanged and is not this authorization boundary. Any
++violation refuses `SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay decides and
++what it does not prove.** Replay decides every inventoried row: a recorded read
++path that crosses a nested installed-package boundary without its own retained
++row refuses, whatever enclosing directory is listed. The custody walk and the read
++set are host TCB observations retained with the Run. Bytes-only replay re-checks
++every retained digest, and this join, at package-directory granularity. It cannot
++prove that the host walked every first-party file, that it read no file missing
++from the inventory, or which of a listed package's own files it read: those are
++properties of an unobserved host process, not of the retained bytes.
++Security S3 "Pruned trees and the read set" carries the matching custody statement.
++
+ The closure checker parses and exactly validates scope, semantic configuration,
+ analysis specification, semantic grant, owner-source set, source inventory, VCS
+ observation, stage specs, finding parameters, predicate witnesses and program
+@@ -1000,6 +1062,31 @@
+   token-kind registry, directive classification, transform order and replacement
+   byte rules. A human version label is insufficient and an opaque caller hash is
+   inadmissible; the specification is retained and re-hashed at closure.
++- **Which specification a level uses, and who owns it (consumer24 S2).** Retention
++  alone did not say whose specification a digest is or for which level: a
++  specification of another level, or bytes outside any interpreting component,
++  re-hashed and closed. The closure that **interprets the body span** owns the answer.
++  For TypeScript and Rust that is the universe context's `toolClosure.closureId`; for
++  syntax-only it is `grammarBundle.closureId`, as published per universe domain by
++  `languageVersionBinding.normalizationClosure`. That closure's `tree` carries, at
++  exactly `opensip-interface/normalization/specification-map.v1.json`, the canonical
++  bytes of `identity-schemas.v3.json#/$defs/normalization-specification-map`:
++  `{schemaVersion: 1, normalizerId, levels: [{level, specificationDigest}]}`, with
++  `levels` strictly ascending by `level`. Run closure requires, in order: the member
++  exists (`BODY_NORMALIZATION_MAP_MISSING`); its bytes are that canonical record
++  (`BODY_NORMALIZATION_MAP_INVALID`); the payload's `normalisationLevel` has a row
++  (`BODY_NORMALIZATION_LEVEL_UNMAPPED`); that row's `specificationDigest` equals
++  `normalisationVersion` (`BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH`); and that digest is
++  a member of the same closure's tree (`BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE`),
++  with its bytes retained. Absent promised bytes remain retention loss. A new level
++  specification or normalizer version is new bytes in the owning closure, so it is a new
++  `closure2` and a new Plan/Run chain; no platform table or implementation file name is
++  consulted. `SyntaxGrammarBundleV1.normalizer.specificationDigest` keeps its native
++  admission meaning and does not select a level's specification. The machine-readable
++  statement is `x-opensip-digest-domains.normalizationSpecificationLaw`. The registered
++  relation document's `levelSpecificationRetained` sentence ("names the retained level
++  specification bytes") is unchanged in bytes and is read under this law for evaluator3
++  closure. Historical Runs keep their earlier custody-only reading.
+ - `bodyIdentity` is `sha256:` followed by SHA-256 of the **fully framed,
+   domain-separated preimage**: `u8 len‖"opensip.fact-identity.v1"`,
+   `u8 len‖levelId`, `u8 len‖levelVersion` as the **raw 32 digest bytes and never
+@@ -1205,13 +1292,37 @@
+ digest of the same record under the same recipe; there are never two recipes for
+ one spelling. The stage spec's `planId` is the Plan, its `producerClosure` is a
+ Plan-selected semantic closure, its `outputDomains` equal the stage's, its
+-`outputSchemaDigest` is the exact complete registered stage output schema document
+-bytes, and every one of its `parameters` rows (`{schemaDigest, payloadDigest}`,
++`outputSchemaDigest` is the exact complete bytes of the output schema document that
++**its producer closure registers** (below), and every one of its `parameters` rows (`{schemaDigest, payloadDigest}`,
+ the same shape the analysis spec uses) must also be a row of the Plan's analysis
+ spec: a stage takes no hidden input. A cache or regeneration key must repeat the
+ same `producerClosure` and `outputSchemaDigest` as its stage spec, so a caller
+ cannot invent an output schema for a reused stage. `cache-key` and
+ `regeneration-key` continue to share one schema and differ only by H domain.
++
++**Who registers a stage output schema (consumer24 S1).** Retained bytes are not a
++registration. The earlier text called `outputSchemaDigest` "registered" while the
++closure admitted any retained blob under it, so a host could name arbitrary bytes as a
++stage's output contract. The owner of an operation's output contract is the producer
++interface that defines the operation, so registration is membership in that closure:
++the stage spec's `producerClosure` must carry, as a `tree` member at exactly
++`opensip-interface/stage-output/<operation>.schema.json`, the bytes whose raw SHA256 is
++`outputSchemaDigest`. `operation` must therefore be one path segment matching
++`^[a-z0-9][a-z0-9._-]{0,127}$`. The member must be a JSON Schema 2020-12 document
++(`$schema` `https://json-schema.org/draft/2020-12/schema`) that declares
++`x-opensip-stage-output: {schemaVersion: 1, operation, outputDomains}` equal to the stage
++spec's own `operation` and `outputDomains`. Each failure refuses by its own name:
++`STAGE_OUTPUT_SCHEMA_OPERATION_NOT_A_PATH_SEGMENT`, `STAGE_OUTPUT_SCHEMA_UNREGISTERED` (no
++member at the path, whatever bytes are retained), `STAGE_OUTPUT_SCHEMA_REGISTRATION_MISMATCH`
++(a member with other bytes), `STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID` and
++`STAGE_OUTPUT_SCHEMA_DECLARATION_MISMATCH`; missing promised bytes remain retention loss.
++The annotation publishes the same law as `artifactClass:
++producer-interface-stage-output-schema` with its `registeredBy` selector. Extensibility is
++unchanged: a new operation registers its output schema by shipping the interface document in
++the admitted producer closure, with no platform or host table to edit. Because a closure's
++`tree` is part of its `closure2` identity, registering a schema changes the producer closure
++identity and every Plan and Run that selects it. Historical closures, Plans and Runs keep their
++bytes and are not re-read under this law.
+ 
+ `stage-spec.operation` is owned by the selected producer closure's semantic
+ interface. The provider author defines its logical operation tokens and their

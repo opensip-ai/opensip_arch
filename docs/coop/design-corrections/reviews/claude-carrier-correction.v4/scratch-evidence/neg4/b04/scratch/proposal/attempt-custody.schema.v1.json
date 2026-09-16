@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:design:private-attempt-custody:1",
+  "title": "PROPOSED private AttemptCustodyV1 (ledger-owned monotone attempt phase)",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "standing": "Design/reference proposal only: no acceptance, no readiness, no application and no implementation authorization. Private local operational record. Not a public request, wire schema, authority token or extension to any Run/receipt/journal schema.",
+  "whyThisExists": {
+    "gap": "Nothing durably records that a particular ExecutionId reached a terminal state when it did NOT commit. The executionId-to-operationRef map is private host state whose only durable home is the association row, which exists only on success. Identity section 6 states that read-only recover(ExecutionId) inspects the committed receipt after a lost acknowledgement; it has no statement for the absent-receipt case.",
+    "consequence": "Without it, a reader whose ledger snapshot predates a commit can see no receipt, later observe that no writer is live, and wrongly report a permanently uncommitted attempt. Mere absence from an in-memory active set is not terminal proof.",
+    "notANewRecordFromNothing": "Identity section 2 already requires that RequestId and ExecutionId are reserved with uniqueness checked in the corresponding operational ledger before use. The durable reservation, and therefore the admitted phase, is already required law. This adds a monotone phase to that existing reservation rather than introducing a second record.",
+    "alternativesConsideredAndRejected": [
+      "A separately timed liveness probe after the ledger snapshot. Rejected: that is exactly the race, and it is what root's schedule 2 defeats.",
+      "A non-blocking LOCK_EX writer-lease census to prove no live writer. Sound in principle (a lease-free observation strictly before the ledger snapshot does prove the attempt's writer cannot commit afterwards) but the S7 census pattern requires the install fence, and read-only recovery must not take the fence.",
+      "A caller-supplied settled D9 termination as the precondition. This works whenever a caller holds one, and it is stated as an admissible alternative precondition, but it cannot cover a crashed writer that never emitted a termination."
+    ]
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "recordSchema",
+    "storeGenerationDigest",
+    "namespaceId",
+    "executionId",
+    "operationRef",
+    "phase",
+    "settledOutcome"
+  ],
+  "properties": {
+    "recordSchema": {
+      "description": "Constant 1; reject unknown versions before any join.",
+      "type": "integer",
+      "const": 1
+    },
+    "storeGenerationDigest": {
+      "description": "Same exact value the private association uses: raw SHA-256 of the canonical private StoreGenerationBindingV1.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "namespaceId": {
+      "description": "Exact registered project namespace; binary equality, no path resolution.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "executionId": {
+      "description": "The reserved attempt ExecutionId, product successor grammar, end-anchored.",
+      "type": "string",
+      "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "operationRef": {
+      "description": "The security-owned operation token for this attempt. Keeps its own grammar; it is not an ExecutionId with a different prefix. This is the durable home of the executionId-to-operationRef correlation for attempts that never commit, which is what lets a later reader relate a pending REV or CLN to the attempt without adding any field to the closed schema-3 JournalRecord.",
+      "type": "string",
+      "pattern": "^op-[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "phase": {
+      "description": "Monotone. admitted is written when the ExecutionId reservation is taken; settled is written by the guarded cleanup path. The only lawful transition is admitted to settled.",
+      "enum": ["admitted", "settled", "reopened"]
+    },
+    "settledOutcome": {
+      "description": "Null exactly while phase is admitted. Records what happened; it authorizes nothing.",
+      "oneOf": [
+        {"type": "null"},
+        {"enum": ["committed", "refused", "undetermined"]}
+      ]
+    }
+  },
+  "primaryKey": ["storeGenerationDigest", "namespaceId", "executionId"],
+  "laws": [
+    "Written only by the guarded commit facade and its cleanup path. Low-level row insertion stays private; no INSERT OR REPLACE, mutation-on-read, unchecked restore constructor or convenience API may bypass these invariants.",
+    "admitted to settled is the only transition. Never reversed, never deleted, never re-opened, and no second row for the same primary key.",
+    "settledOutcome is null if and only if phase is admitted.",
+    "The settle write is ordered AFTER the receipt write, so one coherent ledger snapshot can never show settled without a receipt that was committed earlier. This ordering is the whole point: it is what makes a single snapshot sufficient and removes every separately timed liveness probe from read-only recovery.",
+    "It authorizes nothing. Settling records an outcome and never licenses a retry, so the D9 law that a settled ExecutionId is terminal is preserved exactly. A later attempt after authority restoration receives a fresh ExecutionId.",
+    "Read by read-only recovery in the SAME snapshot as the receipt and the association. Never read through a second, separately timed query.",
+    "Excluded from every semantic hash, Run identity, Coverage, Plan bound and public schema. It adds no field to the closed receipt or JournalRecord schemas.",
+    "phase settled with settledOutcome committed must have a receipt in the same snapshot; settled with refused must have none. A snapshot violating either is the F23 contradiction and is reported, never repaired."
+  ],
+  "readOnlyRecoveryUse": {
+    "receiptAbsentAndPhaseSettled": "terminal-not-committed",
+    "receiptAbsentAndPhaseAdmitted": "unknown-attempt-open",
+    "receiptAbsentAndNoRow": "unknown-attempt-unobserved",
+    "receiptPresent": "proceed to the carrier capture and anchor selection"
+  },
+  "requiredCompanionObligation": {
+    "statement": "A writer that dies before settling leaves phase admitted forever, and read-only recovery then reports unknown-attempt-open indefinitely. Settling such an attempt requires an AUTHORIZED sweep that may take the install fence and the S7 non-blocking lease census.",
+    "standing": "Named and NOT discharged by this correction. It is not read-only work and is not specified here. Until it runs, unknown remains unknown.",
+    "notALicence": "That sweep may record terminality; it may never synthesize a receipt, raise a floor, repair a witness or grant a retry."
+  },
+  "notEstablished": [
+    "No OS durability, fsync behaviour or real crash behaviour for this row.",
+    "No executed SQL: the DDL for this row is not authored here, because the private association table and its accessor are storage-owned and root is merging separate sessions in that area.",
+    "The authorized settle-sweep is unspecified."
+  ]
+}

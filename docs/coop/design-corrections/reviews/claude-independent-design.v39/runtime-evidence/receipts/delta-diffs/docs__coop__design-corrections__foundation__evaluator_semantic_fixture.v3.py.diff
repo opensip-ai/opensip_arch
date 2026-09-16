@@ -1,0 +1,77 @@
+--- a38/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
++++ b39/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
+@@ -16,6 +16,18 @@
+ from pathlib import Path
+ 
+ HERE = Path(__file__).resolve().parent
++
++
++# identity section 3 stage-spec (consumer24 S1): the provider closure that owns `derive-semantic-view` registers its
++# output schema as the tree member at opensip-interface/stage-output/<operation>.schema.json.
++STAGE_OUTPUT_OPERATION = "derive-semantic-view"
++STAGE_OUTPUT_SCHEMA = {"$schema": "https://json-schema.org/draft/2020-12/schema",
++                       "$id": "urn:opensip:fixture:evaluator3-semantic-view",
++                       "type": "object", "additionalProperties": False, "required": ["viewId"],
++                       "properties": {"viewId": {"type": "string", "pattern": "^view2:[0-9a-f]{64}(?![\\s\\S])"}},
++                       "x-opensip-stage-output": {"schemaVersion": 1, "operation": STAGE_OUTPUT_OPERATION,
++                                                  "outputDomains": ["view"]}}
++STAGE_OUTPUT_MEMBER_PATH = "opensip-interface/stage-output/" + STAGE_OUTPUT_OPERATION + ".schema.json"
+ 
+ 
+ def _load_graph_fixture():
+@@ -314,7 +326,8 @@
+     evaluator = add("closure", kind="evaluator", manifestDigest=blob(b"evaluator3 ts semantic manifest"),
+                     tree=[], semanticVersion="3.0.0", protocolMajor=3, platform="macos-aarch64")
+     provider = add("closure", kind="provider", manifestDigest=blob(b"provider ts semantic manifest"),
+-                   tree=[], semanticVersion="1.0.0", protocolMajor=3, platform="macos-aarch64")
++                   tree=tree({STAGE_OUTPUT_MEMBER_PATH: C.canonical(STAGE_OUTPUT_SCHEMA)}),
++                   semanticVersion="1.0.0", protocolMajor=3, platform="macos-aarch64")
+     detector = add("closure", kind="detector", manifestDigest=blob(b"detector ts semantic manifest"),
+                    tree=[], semanticVersion="1.0.0", protocolMajor=3, platform="any")
+ 
+@@ -329,7 +342,6 @@
+         sources.update(extra_sources)
+     inventory = tree(sources)
+     paths = [r["path"] for r in inventory]
+-    file_ext = E.cset(paths)
+     pkg_ext = _named_package_paths(sources)
+ 
+     native = H.native_inputs(objects, blobs, add, blob, ts_inventory=inventory, ts_source_path="a.ts")
+@@ -352,6 +364,10 @@
+         universes.append(u2)
+ 
+     membership = N.assign_membership([], paths)
++    # A file READ from a pruned tree (identity section 3 sourceInventory, consumer24 A4) is an inventory row but
++    # never an enumeration subject: the file-kind extent excludes host-ignore-convention rows. Existing callers
++    # have no such row, so this is the same set as every inventoried path for them.
++    file_ext = E.cset(r["path"] for r in membership["rows"] if r["reason"] != "host-ignore-convention")
+     cap_bytes = H.CURRENT_CAPABILITY_MANIFEST_BYTES
+     cap_digest = blob(cap_bytes)
+     cap_id = hashlib.sha256(b"opensip.capability-manifest.v1\0" + cap_bytes).hexdigest()
+@@ -716,9 +732,9 @@
+     if atom["relation"] == "file" or complete_required_inventory:
+         fscope = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                      relation="file", resolution="enumerated", enumeratorClosure=provider,
+-                     subjects=E.cset(paths))
++                     subjects=file_ext)
+         ffacts = []
+-        for row in inventory:
++        for row in (r for r in inventory if r["path"] in file_ext):
+             ffacts.append(add("fact", snapshotId=snapshot, relation="file", resolution="enumerated",
+                               sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                               payloadSchemaDigest=relation_schema,
+@@ -742,12 +758,9 @@
+                 cid, _ = mint_coverage(sid, True)
+                 mint_view(sid, [], cid)
+ 
+-    stage_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema",
+-                    "$id": "urn:opensip:fixture:evaluator3-semantic-view",
+-                    "type": "object", "additionalProperties": False, "required": ["viewId"],
+-                    "properties": {"viewId": {"type": "string", "pattern": "^view2:[0-9a-f]{64}(?![\\s\\S])"}}}
++    stage_schema = STAGE_OUTPUT_SCHEMA
+     stage = blob({"schemaVersion": 2, "planId": plan_id, "producerClosure": provider,
+-                  "operation": "derive-semantic-view", "parameters": parameters,
++                  "operation": STAGE_OUTPUT_OPERATION, "parameters": parameters,
+                   "outputDomains": ["view"], "outputSchemaDigest": blob(stage_schema)})
+     execution_id = add("execution-plan", planId=plan_id,
+                        stages=[{"ordinal": 0, "stageSpecDigest": stage, "requires": [], "outputDomains": ["view"]}])

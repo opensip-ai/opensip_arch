@@ -1,0 +1,88 @@
+--- docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -71,12 +71,18 @@
+     return C.validate(schema, value)
+ 
+ 
+-class NativeRefusal(ValueError):
++class NativeRefusal(AdmissionError):
+     """An admitted-input violation raised before any unit selection (XA-02 / CR-25).
+ 
+     Used where the caller handed this instrument a record it may not interpret at all - an unknown boundary
+     inventory version, or no inventory on the authoritative lane. It is not one of the typed
+-    `discover_units` refusals, which describe a repository; it describes a composition error."""
++    `discover_units` refusals, which describe a repository; it describes a composition error.
++
++    It subclasses the shared AdmissionError (foundation canonical.AdmissionError) so every existing
++    admitted-input handler catches it. Version 1 of this class subclassed ValueError and therefore sat
++    outside every admitted-input except site in the kit, notably enumeration_model.admit_enumeration,
++    which would have turned a labelled composition refusal into an uncaught exception instead of its
++    ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION fault. It mints no public D9 code."""
+ 
+ 
+ BOUNDARY_INVENTORY_RECORDS = {1: "AdmittedBoundaryInventoryV1", 2: "AdmittedBoundaryInventoryV2"}
+@@ -97,6 +103,28 @@
+     return validate_native(name, boundaries)
+ 
+ 
++CURRENT_BOUNDARY_INVENTORY_VERSION = 2
++
++
++def admit_current_boundary_inventory(boundaries: dict) -> dict:
++    """CURRENT-OPERATION admission of an admitted boundary inventory (root probe 2).
++
++    validate_boundary_inventory above is a READ API: it admits every version this kit defines, so a
++    historical record stays readable and schema-validatable. That is not the same act as ADMITTING a record
++    into a current authoritative discovery. A version-1 inventory carries version-1 pruned rows, which have
++    no markerCountBasis; version 1 of this correction let such a record through the read dispatch and then
++    failed late while validating the UnitDiscoveryV2 output, reporting a raw missing-property schema error
++    about an OUTPUT instead of a labelled refusal about the INPUT the host supplied.
++
++    Current discovery therefore requires CURRENT_BOUNDARY_INVENTORY_VERSION and refuses anything else here,
++    at the boundary that received it. Old rows are never upgraded: this kit will not invent a basis or an
++    observed-inventory count for rows that carry neither."""
++    validate_boundary_inventory(boundaries)
++    if boundaries["schemaVersion"] != CURRENT_BOUNDARY_INVENTORY_VERSION:
++        raise NativeRefusal("native.boundary-inventory-version-unsupported:%d" % boundaries["schemaVersion"])
++    return boundaries
++
++
+ def require_admitted_boundaries(boundaries: dict | None) -> dict:
+     """The AUTHORITATIVE host composition must supply the admitted inventory (XA-02 follow-up).
+ 
+@@ -108,7 +136,7 @@
+     structural at the one boundary that matters, without breaking the pure reference lane."""
+     if boundaries is None:
+         raise NativeRefusal("native.admitted-boundaries-required")
+-    return validate_boundary_inventory(boundaries)
++    return admit_current_boundary_inventory(boundaries)
+ 
+ 
+ _FOUNDATION_SCHEMAS = json.loads((FOUNDATION / "identity-schemas.v2.json").read_text(encoding="utf-8"))
+@@ -3627,7 +3655,7 @@
+     explicitly keeps its member packages folded (`memberPackageRoots`) so their `target` output stays pruned; naming a
+     member package alone selects that package as its own `cargo-package` unit."""
+     if boundaries is not None:
+-        validate_boundary_inventory(boundaries)
++        admit_current_boundary_inventory(boundaries)
+     enum = DD.enumerate_units(markers, enforce_limit=False)
+     derived_trees = enum["prunedTrees"]
+     pruned_trees = derived_trees
+@@ -3775,7 +3803,7 @@
+     of any unit of this project; the boundary test precedes the pruned-tree test.
+     Every inventory file appears in exactly one row; erasedFiles is always empty (checked by schema maxItems 0)."""
+     if boundaries is not None:
+-        validate_boundary_inventory(boundaries)
++        admit_current_boundary_inventory(boundaries)
+     rows: list[dict] = []; unsupported: list[str] = []; outside: list[str] = []
+     cargo_roots = _cargo_roots_of_units(units)
+     for f in sorted(files, key=lambda x: x.encode("utf-8")):
+@@ -3948,7 +3976,7 @@
+     the Run identity, differs from the pre-correction value. Historical Runs keep their bytes; this is a
+     disclosed discovery correction of the same class as XA-01, not a silent identity drift."""
+     if boundaries is not None:
+-        validate_boundary_inventory(boundaries)
++        admit_current_boundary_inventory(boundaries)
+     roots = sorted({u["rootPath"] for u in units}, key=lambda x: x.encode("utf-8"))
+     spelled = [DD.spell_root(r) for r in roots]  # the project root is spelled "." in the foundation record (Text minLength 1)
+     conventional = DD.conventional_excluded_prefixes(roots, _cargo_roots_of_units(units))

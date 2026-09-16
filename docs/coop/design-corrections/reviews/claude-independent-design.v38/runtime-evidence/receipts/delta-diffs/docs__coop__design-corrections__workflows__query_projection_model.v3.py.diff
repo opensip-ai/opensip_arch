@@ -1,0 +1,185 @@
+--- a37/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ b38/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -72,7 +72,11 @@
+ 
+ 
+ class QueryRefusal(Exception):
+-    """Public graph-query refusal. envelope() is the admitted CommandEnvelope kind=failure."""
++    """Public graph-query refusal. envelope() is the admitted CommandEnvelope kind=failure.
++
++    `diagnostic` retains the exact owner decision text privately. It never selects the route and is not an
++    envelope field.
++    """
+ 
+     def __init__(
+         self,
+@@ -86,6 +90,7 @@
+         run_id=None,
+         request=None,
+         host=None,
++        diagnostic=None,
+     ):
+         super().__init__(error_code)
+         self.error_code = error_code
+@@ -97,6 +102,7 @@
+         self.run_id = run_id
+         self.request = request
+         self.host = host
++        self.diagnostic = diagnostic
+ 
+     def termination(self):
+         term = {"class": self.klass}
+@@ -524,32 +530,70 @@
+     return value
+ 
+ 
++# evaluator-fault-observation.schema.v3.json host-internal remedy for an invalid host-generated internal layer.
++HOST_INVARIANT_REMEDY = "Report the host defect with the retained diagnostic."
++
++
++def owner_carrier_refusal(carrier, diagnostic):
++    """Project an identity owner termination carrier verbatim; the query does not restate its route."""
++    term = carrier.termination
++    detail = term["domainDetail"]
++    return QueryRefusal(
++        term["errorCode"],
++        detail["code"],
++        detail["remedy"],
++        detail.get("subject"),
++        klass=term["class"],
++        fault_cause=term["faultCause"],
++        diagnostic=diagnostic,
++    )
++
++
++def host_invariant_refusal(boundary, diagnostic):
++    """A host-owned step failed without an owner decision. Existing host-internal invariant route; no evidence is blamed."""
++    return QueryRefusal(
++        "SYSTEM.OUTCOME.ILLEGAL_STATE",
++        "HOST.INVARIANT_VIOLATED",
++        HOST_INVARIANT_REMEDY,
++        boundary,
++        klass="operational-failed",
++        fault_cause="host-invariant",
++        diagnostic=diagnostic,
++    )
++
++
+ def close_retained_run(run, objects, blobs):
++    """Contract section 7. Route by the exact typed outcome of this module's identity copy, never by message text.
++
++    The graph query is a retained read, so complete replay disagreement is the retained-regeneration boundary.
++    """
+     M = identity3()
+     try:
+         return M.close_run(run, objects, blobs)
+-    except Exception as exc:
+-        msg = str(exc)
+-        reference = getattr(exc, "reference", None)
+-        missing = isinstance(exc, M.EvidenceUnavailable) or msg.startswith("EVIDENCE_UNAVAILABLE")
+-        if missing:
+-            subject = reference or (msg.split(":", 1)[-1][:1024] if ":" in msg else msg[:1024])
+-            raise QueryRefusal(
+-                "HOST.IO_FAILURE",
+-                "evidence.missing",
+-                "restore the exact retained closure bytes or report their unavailability",
+-                subject,
+-                klass="operational-failed",
+-                fault_cause="host-io",
+-            ) from exc
++    except M.EvidenceUnavailable as exc:
++        raise QueryRefusal(
++            "HOST.IO_FAILURE",
++            "evidence.missing",
++            "restore the exact retained closure bytes or report their unavailability",
++            exc.reference,
++            klass="operational-failed",
++            fault_cause="host-io",
++            diagnostic=str(exc),
++        ) from exc
++    except M.CompleteReplayMismatch as exc:
++        raise owner_carrier_refusal(M.RegenerationMismatch(M.identifier("run", run)), exc.diagnostic) from exc
++    except M.C.AdmissionError as exc:
+         raise QueryRefusal(
+             "HOST.IO_FAILURE",
+             "evidence.corrupt",
+             "retained Run failed closed fact-view admission",
+-            msg[:200],
++            str(exc)[:200],
+             klass="operational-failed",
+             fault_cause="host-io",
++            diagnostic=str(exc),
+         ) from exc
++    except Exception as exc:
++        raise host_invariant_refusal("close_run", type(exc).__name__ + ": " + str(exc)) from exc
+ 
+ 
+ def join_request_view(request, run, run_id, host, cursor_bind):
+@@ -1437,7 +1481,14 @@
+     It may refuse access. It cannot grant retained authority; close_run remains
+     the positive admission. Owner: foundation EvidenceStore / identity availability.
+     """
+-    avail = (host or {}).get("availability")
++    if "availability" not in (host or {}):
++        return "retained"
++    avail = host["availability"]
++    if type(avail) is not str or avail not in (*AVAIL_REFUSE, "retained", "partial"):
++        raise ReferenceCallPrecondition(
++            "host.availability",
++            "supply a typed availability observation or omit it; an unknown value is not evidence availability",
++        )
+     if avail in AVAIL_REFUSE:
+         raise QueryRefusal(
+             "HOST.IO_FAILURE",
+@@ -1448,6 +1499,51 @@
+             fault_cause="host-io",
+         )
+     return "retained"
++
++
++def host_adapter_refusal(precondition, request=None, host=None):
++    """Contract section 7 product host adapter law for its OWN invalid trusted observation.
++
++    The reference entry raises ReferenceCallPrecondition because the observation is a call argument. An adapter
++    that produced an out-of-vocabulary observation violated a host invariant: with a valid reserved RequestId it
++    terminates by the existing host-internal route. A RequestId precondition, or no valid RequestId, has no
++    envelope and is re-raised.
++    """
++    if type(precondition) is not ReferenceCallPrecondition or precondition.missing == "host.requestId":
++        raise precondition
++    reserved_request_id(host)
++    return _attach(
++        host_invariant_refusal(precondition.missing, "ReferenceCallPrecondition: " + precondition.missing),
++        request,
++        host,
++    )
++
++
++def observe_retained_availability(raw, run_id):
++    """Adapter read of a RETAINED identity availability record, not a host observation.
++
++    A record failing identity availability admission is corrupt retained evidence, never an adapter invariant
++    fault or an omitted observation. An admitted record supplies its state as the host observation.
++    """
++    M = identity3()
++    try:
++        record = M.C.parse(raw)
++        schema = copy.deepcopy(M.SCHEMA)
++        schema["$ref"] = "#/$defs/availability"
++        M.C.validate(schema, record)
++        if record["runId"] != run_id:
++            raise M.C.AdmissionError("AVAILABILITY_RUN_JOIN")
++    except (M.C.AdmissionError, M.C.ValidationError) as exc:
++        raise QueryRefusal(
++            "HOST.IO_FAILURE",
++            "evidence.corrupt",
++            "retained availability record failed identity availability admission",
++            run_id,
++            klass="operational-failed",
++            fault_cause="host-io",
++            diagnostic=str(exc),
++        ) from exc
++    return record["state"]
+ 
+ 
+ def execute_graph_query(request, run=None, objects=None, blobs=None, host=None):

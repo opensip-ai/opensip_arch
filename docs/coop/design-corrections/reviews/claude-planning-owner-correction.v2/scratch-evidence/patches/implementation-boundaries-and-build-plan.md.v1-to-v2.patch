@@ -1,0 +1,115 @@
+--- v1/docs/v2/architecture/implementation-boundaries-and-build-plan.md
++++ v2/docs/v2/architecture/implementation-boundaries-and-build-plan.md
+@@ -261,27 +261,54 @@
+ `InstallationTransitionJournalV1` (20 members) are closed with
+ `additionalProperties: false` and carry no store instance identity, and S9.2's
+ `registry` is a `NamespaceList` of namespace strings. The minimal S9 owner
+-successor and its private lifecycle companion are therefore specified in
++successor is therefore authored as an explicit normative insertion —
++a single-hunk `### S9.3` addition after S9.2 that removes no line — and its
++private lifecycle companion is specified in
+ [store-instance lineage](store-instance-lineage.v1.json): a private
+-`StoreInstanceLineageV1` row joined to the existing public journal by its
+-`intentDigest`, written under the already-required fence and exact `leaseSet`
+-in the same durable step, adding no member to any closed public, signed or
+-namespace record and minting no D9 code. That successor must be frozen and
++`StoreLineageNodeV1` keyed by the admitted binding triple
++`(storeInstanceId, storeGeneration, stateSchema)`, carrying its predecessor
++triple and the selecting `intentDigest` as evidence, written **after** the
++transition journal record is durably `COMMITTED`, under the already-required
++fence and exact `leaseSet`, adding no member to any closed public, signed or
++namespace record and minting no D9 code. `intentDigest` is a semantic input
++digest, not an attempt identifier, so it is evidence and never a key: a lawful
++retry of a byte-identical intent after an abort writes a different triple or no
++node at all. No atomicity is claimed between the journal record and the node;
++the node is derivable from the journal's own from/to members plus the two
++store-root markers, so a one-sided crash footprint reconciles by reconstruction
++rather than quarantine. That successor must be frozen and
+ reviewed; it is not accepted here.
+ 
+ A store instance identity is allocated once per physical store and never
+-rewritten. An explicit state-schema or store-generation transition that
+-materializes a new physical store publishes a new binding and retains its
+-authorized predecessor association. A normal rollback that re-selects the **same
+-retained physical old store** keeps that store's original `storeInstanceId`, so
++rewritten. Whether a transition writes a node is read from the admitted intent's
++own `from`/`to` values, never from the operation name, because S9.2 publishes a
++store rule for `core-repair`, `core-update`, `store-migrate` and `store-rollback`
++but **not** for `core-rollback`. Equal `to`/`from` generation and schema keep the
++same physical store and write nothing, which covers `core-repair` and any
++schema-preserving `core-update` or `core-rollback`. A `to` pair naming an
++existing ancestor re-selects that retained store and also writes nothing. Only a
++`to` pair naming neither materializes a new store, allocates a fresh identity and
++writes one node.
++
++A rollback that re-selects the **same retained physical old store** keeps that
++store's original `storeInstanceId`, so
+ the active `(namespaceId, storeInstanceId, storeGeneration, stateSchema)` tuple
+ is byte-identical to the pre-migration tuple and every association written
+ before the forward transition joins the active binding by plain binary equality,
+ with no lineage walk and no row rewrite. Associations written in the abandoned
+-forward store keep their own digest and are reached only through the lineage row
+-or reported unavailable, which is F35 applied in the reverse direction. A newly
+-created or restored physical store instead receives a new instance identity and
+-never imports local authority, floors or grants. The random instance identity
++forward store keep their own digest and are reached only through the lineage
++chain or reported unavailable, which is F35 applied in the reverse direction.
++
++Floors and authority stay with their existing owners, split three ways. An
++**authorized S9 transition** keeps S9's rules exactly: a migration copies the
++floors forward into the new store, a rollback inside the window sets them to the
++maximum of both stores, and a poisoned floor is lowered only by S4.5 — the
++instance identity records which store is selected and never lowers a floor. A
++**fresh installation** has no predecessor and so inherits nothing. An
++**evidence-bundle restore or portable adoption** allocates its own identity,
++restores no trust floor and grants no local authority; that rule constrains
++restore and adoption only and does not weaken the migration carry-forward above.
++The random instance identity
+ distinguishes separately created/restored stores with coincident numeric
+ generations; it never replaces lifecycle generation checks or restores a
+ backup’s local authority. Old commit rows keep their original digest. Historical
+@@ -640,9 +667,11 @@
+ places in the TCB, holding the exact length and raw SHA-256 of the private asset
+ manifest that shipped with it. Install-time provenance of the delivered archive
+ stays with the existing chain — **TR-CORE** as the core release root role, not
+-the component-only `TR-COMPONENT`/`kind=component` path — whose exact CORE
+-catalog row shape is not published in candidate25 and is named as an open
+-dependency of the separate release/carrier work, not as an existing record.
++the component-only `TR-COMPONENT`/`kind=component` path. The exact CORE catalog
++row shape is **not provided by candidate25 and is not assigned here**: it is not
++the active grant-journal carrier author's work, which owns the physical carrier
++format and recovery rather than release distribution. Load-time asset integrity
++deliberately does not depend on it, and no core release manifest is authored.
+ [Report asset binding](report-asset-binding.v1.json) owns the closed private
+ schemas, the anchor comparison and the rejected alternatives. Use the selected
+ machine platform rows (`linux-x86_64-gnu`, `linux-aarch64-gnu`, `macos-aarch64`,
+@@ -660,7 +689,13 @@
+ it. Rows are regular files only; a directory or symlink at a listed path refuses
+ and no symlink is followed, matching the identity rule that `type=dir` and
+ `type=symlink` stay delivery rows. No URL fetch, duplicate JSON key or unknown
+-manifest field is permitted. Build assembly validates all joins, refuses when
++manifest field is permitted. The manifest **never lists itself**: a row whose
++path equals the pinned `assetManifestPath` refuses, and completeness reads
++"every regular file under the asset root except exactly that one pinned path".
++The exclusion is by exact path equality, never a prefix or filename pattern, so
++coverage stays total — every byte under the root is covered either by an asset
++row's digest or by the manifest's own independent pin, and the self-referential
++digest can never arise. Build assembly validates all joins, refuses when
+ the selected bundle is missing or incompatible, and compiles the manifest's
+ exact length and raw SHA-256 into the host binary as `HostAssetPinV1` with its
+ `buildChannel`. No second untrusted self-declaration is introduced, and no
+@@ -681,7 +716,13 @@
+ `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` detail applies and the RunId is
+ preserved, and otherwise no RunId is invented. No D9 code, class, exit or detail
+ is minted. Absent assets never affect a human/JSON/agent/SARIF invocation, and a
+-required HTML request is never silently downgraded to another format.
++required HTML request is never silently downgraded to another format. When only
++an **optional** surface cannot use the assets, the aggregate termination is
++**unchanged**: §8's aggregate is computed over required steps only and an
++optional step's failure never changes it, so a `policy-failed` 1 or
++`indeterminate` 3 outcome stays exactly that and is not reset to `success` 0.
++The optional failure is disclosed on its own surface and neither raises nor
++lowers the class.
+ Development
+ fixtures are labelled and cannot masquerade as a signed product release. Asset
+ packaging is a delivery input; it neither changes native context nor creates an

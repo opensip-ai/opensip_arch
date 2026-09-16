@@ -1,0 +1,7 @@
+# Graph view01 — staged relationships exploration
+
+The inventoried graph-view.ts presents embedded graph query slots, exact IDs, subject resolution, query parameters/bounds, evidence limitations, retention availability, count basis, traversal coverage, continuation and query termination. Host assertions remain distinct from checks inside the document. Exact ordinal selection refuses unknown/duplicate ordinals; no query/cursor is followed.25-row local paging preserves recorded counts and order. Missing panels, omitted/unavailable panels, empty slot sets and zero rows are distinct. Zero rows never imply absent relationships on their own.
+
+Strict TypeScript and18private Chrome checks pass over32current report fixtures plus labelled61-row/duplicate-ordinal presentation controls. Screenshots inspected at desktop and390px; scalar bigint counts display without rounding. Repository/cursor strings remain literal; no links are created. Defensive copy and cleanup tested. Chrome closed. Initial compile correctly detected optional graph panel; explicit missing-state rendering was added, and failure logs retained.
+
+No graph engine, current-checkout query, product source custody, full app or milestone qualification. Some inherited report fixtures remain shape/reference fixtures and do not prove retained host admission. Diagnostic object displays stringify nested exact integers for display; they are not canonical exports. Independent review and full app integration pending.

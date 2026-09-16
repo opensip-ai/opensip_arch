@@ -1,0 +1,60 @@
+{
+  "session_id": "e9ebe244-90b4-4522-be4e-bd908c6a3229",
+  "total_cost_usd": 0.783436,
+  "usage": {
+    "input_tokens": 162,
+    "cache_creation_input_tokens": 18878,
+    "cache_read_input_tokens": 566142,
+    "output_tokens": 12431,
+    "output_tokens_details": {
+      "thinking_tokens": 3797
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 18878,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 958,
+        "cache_read_input_tokens": 104746,
+        "cache_creation_input_tokens": 606,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 606
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 162,
+      "outputTokens": 12431,
+      "cacheReadInputTokens": 566142,
+      "cacheCreationInputTokens": 18878,
+      "webSearchRequests": 0,
+      "costUSD": 0.783436,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 3797,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 9,
+  "subtype": "success",
+  "result": "**Verdict: ACCEPT-UNIT.** The test correction closes SUCC-R1-01. This approves the design-lock v2 unit only, not full M1 or release. I wrote `review.md` and `review.json` to `/tmp/opensip-implementation/m1-successor-review-02`, with scripts and logs in `probes/`.\n\n**Checks:**\n- **Integrity:** the manifest hash `3aeddcf6\u2026368` and all 13 files matched before and after, with no `__pycache__`. Only the test file changed, and only by additions. The verifier and lock are byte-identical to subject01, and subject01's manifest still verifies.\n- **The correction:** your adaptation into `InventorySuccessorTests` is correct.\n  - Copying the full pin only adds a `bytes` field, which the verifier ignores.\n  - The parent-selection test restores the base inputs properly, so only the intended check can refuse.\n  - Each regex matches only its intended error message.\n- **Tests:** all 21 pass. The real verification against the arch checkout passes before and after (46 inputs, v3 selected, 4 added files), and lock1 still passes.\n- **Mutation testing:** the 26 original mutants give 25 killed, matching your run; the only survivor is M02, which is harmless because other checks already cover it. Before the fix, 14 survived.\n- **Probe sensitivity:** removing just the rebinding, or just the regex checks, still kills 28 of 35 mutants. Removing both drops it to 18, so the probe does detect a weakened test file.\n\n**New nonblocking advisory (SUCC-A2-01):** I added 9 new mutants, and 6 of them survive.\n- **N34** (choosing the parent by path only) is harmless: on the real lock, a pin with the same path but a different hash or size fails the pin check.\n- **N28/N29** (parent joins ignoring size) could only let through inconsistent size fields, because the SHA-256 still fixes the content.\n- **N30\u2013N32** are real strictness gaps in the tests: a truthy root assent, missing review `requiredFindings`, or a truthy record flag would not be caught if the verifier were loosened. The unchanged verifier refuses all three inputs today, and three one-line tests would lock that in.\n\nSUCC-A1-01 to A1-06 are carried forward unchanged and not claimed fixed.\n\n**Limitations:** this review is nonblind, since it checks a fix for my own finding using tests adapted from my probes. I didn't rerun the Rust checks; my 59 earlier verifier probes still apply because the verifier bytes are identical. Everything ran on macOS with Python 3.14.6 only. I make no claim that any architecture directory is unchanged, given the concurrent metadata-v1 work; only the pinned files were checked, through the real verification command.",
+  "type": "result",
+  "duration_ms": 189433
+}

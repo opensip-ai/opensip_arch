@@ -1,0 +1,9 @@
+# Source selection v3: binding-order correction
+
+This candidate supersedes the uninstalled source-selection-v2 record. Its136 non-record source members are reused at their exact frozen paths and bytes. No schema, semantic owner, dispatch, profile, coverage or source generator option changes. The new successor record orders full POSIX path strings lexically. Python Path ordering groups directory components and produced a different order in v2; the actual product verifier refused it despite preceding root/Grok checks.
+
+The original137-file v2 freeze, actual Grok ACCEPT-DESIGN-UNIT and historical root assent remain evidence. They are insufficient to install v2: correction.json records SOURCE-BINDING-ORDER-01 and the actual refusal. No source unit has entered the product lock. Fresh independent corrected-subject review and root assent are required; no earlier acceptance is relabeled.
+
+check_binding.py reuses the exact original source checker and exercises the real verifier's pin_rows/pinned_bytes/selected_passage helpers over the complete proposed manifest and successor structure. It rejects the original record, reversed/duplicate lists, missing/mismatched members and altered passage before-images without fabricating an approval. These structural checks are not a substitute for actual approval-chain verification. After actual review and root assent, run the full product verifier on a candidate lock before installation.
+
+The source-selection-v2 README's semantic selection and remaining duties apply to the reused members. This wrapper is the current binding record. Source selection remains distinct from fresh blind consumer, portable generation/tool/bootstrap, product integration and milestone qualification. R11 source locations before M4 and P01/X01 before M5 remain open. Historical root-production scripts are provenance only.

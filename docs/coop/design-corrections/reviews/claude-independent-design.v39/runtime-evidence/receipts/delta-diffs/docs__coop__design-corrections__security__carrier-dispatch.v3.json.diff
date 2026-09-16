@@ -1,0 +1,63 @@
+--- a38/docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ b39/docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -259,7 +259,8 @@
+     ],
+     "readerLaws": [
+       "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+-      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed; its route is publicProjectionByPhase.readOnlyRecovery.",
++      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed. That includes an association naming the admitted carrier when the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2). Its route is publicProjectionByPhase.readOnlyRecovery through readOnlyStandingOfDispatchResult; carrierFormat3 continues to the SEAL join. The reader migrates, publishes and writes nothing.",
++      "A recovery request whose association names the admitted carrier where the journal snapshot holds no grant_journal and no carrierFormat 3 object (open dispatch result fresh-install) returns unknown-custody (HOST.IO_FAILURE, host-io), never absence, not-committed or success; the reader never creates, initializes or migrates a carrier.",
+       "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+       "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+       "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+@@ -530,11 +531,13 @@
+     "noNewObject": "The law lives in the existing trigger and table definitions; the seven object names are unchanged."
+   },
+   "publicProjectionByPhase": {
+-    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1.",
++    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1. Source38 advisory ADV38-02 adds the read-only map entries for a carrier observed unmigrated (carrierFormat1, carrierFormat2) and the read-only precedence phase law. A source38 follow-up adds the unknown-custody read-only route for a bound carrier observed absent (dispatch fresh-install) and the carrier-stage totality phase law.",
+     "phaseLaws": [
+       "The phase decides only which existing route applies. A writer or maintenance open refuses: it appends nothing, publishes nothing and writes no quarantine marker, because carrier_quarantine.reason is the unchanged inherited enum. Every open re-detects from the bytes it reads; a cached verdict, first_generation, projectKeyDigest or earlier successful open is never reused.",
+       "Read-only recovery writes nothing, never uses MIGRATION.CORRUPT, and reports the quarantine-condition row only with the Step 4 stable observations of commit-recovery-readonly.v3.md; otherwise it reports unavailable-busy.",
+-      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority."
++      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority.",
++      "Read-only precedence (source38 ADV38-02), inside one journal snapshot and before the SEAL join: an association naming another binding is binding-unusable before any carrier read. With any carrierFormat 3 object present, the footprint, project binding, F51 and row-boundary conditions (the quarantine-condition row with the Step 4 stable observations, otherwise unavailable-busy) and an unpublished lawful prefix (unavailable-busy) are decided before an association generation below first_generation (unknown-carrier-incompatible). With no carrierFormat 3 object and an inherited grant_journal, the carrier is observed unmigrated and the result is unknown-carrier-incompatible whatever generation the association or a surviving witness names; it is decided from the object names alone, needs no witness comparison, and the witness and anchor rows of commit-recovery-readonly.v3.md Step 3 are not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the reader migrates, publishes and writes nothing.",
++      "The read-only carrier stage is total (source38 follow-up): every open dispatch result except carrierFormat3 has exactly one standing in readOnlyStandingOfDispatchResult, and carrierFormat3 alone continues to the SEAL join. With no carrierFormat 3 object and no inherited grant_journal (dispatch fresh-install), an association naming the admitted carrier is unknown-custody, after binding-unusable and whatever generation the association or a surviving witness names; it is decided from the object names alone. A missing, empty or fallback carrier is never absence, never not-committed and never success, and the reader never creates, initializes or migrates it. The fresh-install path of a writer or maintenance open (openDispatch.freshInstallPath) remains a separate owner that read-only recovery never takes."
+     ],
+     "writerOrMaintenanceOpen": {
+       "migration-footprint-corrupt": {
+@@ -647,7 +650,21 @@
+         "securityRefusal": null,
+         "s12Row": "read-only recovery: the association names a carrierFormat 1 or 2 generation",
+         "observations": [
+-          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)"
++          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)",
++          "with the association naming the admitted carrier, the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2; F46)"
++        ]
++      },
++      "unknown-custody": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "host-io",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: unreadable ledger or carrier",
++        "observations": [
++          "with the association naming the admitted carrier, the journal snapshot holds neither an inherited grant_journal nor any carrierFormat 3 object (open dispatch result fresh-install): the bound carrier is lost, emptied or a fallback, which is never absence of the attempt, never not-committed and never success",
++          "a read-only open of the bound carrier location that refuses because no database exists there; the reader never creates, initializes or migrates a carrier"
+         ]
+       },
+       "unavailable-busy": {
+@@ -670,7 +687,10 @@
+       "migration-footprint-corrupt": "unknown-quarantine-condition",
+       "split-brain-custody-condition": "unknown-quarantine-condition",
+       "unknown-carrier-incompatible": "unknown-carrier-incompatible",
+-      "incomplete-footprint": "unavailable-busy"
++      "incomplete-footprint": "unavailable-busy",
++      "carrierFormat1": "unknown-carrier-incompatible",
++      "carrierFormat2": "unknown-carrier-incompatible",
++      "fresh-install": "unknown-custody"
+     }
+   }
+ }

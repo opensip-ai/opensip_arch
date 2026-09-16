@@ -1,0 +1,79 @@
+--- a38/docs/coop/design-corrections/foundation/enumeration_model.v1.py
++++ b39/docs/coop/design-corrections/foundation/enumeration_model.v1.py
+@@ -87,6 +87,8 @@
+     "ENUMERATION_ADMISSION_PRECONDITION",
+     "ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION",
+     "ENUMERATION_MEMBERSHIP_UNIT_ROOT",
++    "ENUMERATION_MEMBERSHIP_ORDER",
++    "ENUMERATION_MEMBERSHIP_ROW_DERIVATION",
+     "ENUMERATION_SCOPE_WORKSPACE_ROOT",
+     "ENUMERATION_PROJECTION_DETECTOR",
+     "ENUMERATION_PACKAGE_PARSE",
+@@ -520,6 +522,59 @@
+     return True
+ 
+ 
++def _membership_order_law(membership, faults: list[str]) -> None:
++    """native-evidence section 1.4 U-4b, decided at EVERY enumeration admission (consumer24 M3).
++
++    The retained UnitMembershipV1 enters PlanId through membershipDigest, so its order is identity. The schema
++    can only say `x-opensip-order: sequence`, under which the canonical validator enforces nothing; and the
++    derivation witness below runs only when a caller supplies one, which Run closure does not. So the published
++    order is re-derived here from the retained record itself:
++
++    * ENUMERATION_MEMBERSHIP_ORDER: units strictly ascending by (UTF-8 rootPath, UTF-8 languageFamily) with
++      unitOrdinal equal to the index; each memberPackageRoots strictly ascending; rows strictly ascending by UTF-8
++      path (so no duplicate); unsupportedFiles and outsideBoundaryFiles exactly the row-order projections.
++    * ENUMERATION_MEMBERSHIP_ROW_DERIVATION: every row the retained units decide - all rows except
++      outside-project-boundary - equals the U-4b row decision re-run over those units and paths (languageFamily,
++      unitOrdinal, membership, reason). An outside-project-boundary row is judged on its suffix family and a null
++      unitOrdinal only, because the admitted boundary inventory is a security-owned input the Plan does not retain.
++
++    Internal fault keys only; no public D9 code and no public route."""
++    units = membership.get("units") if isinstance(membership, dict) else None
++    rows = membership.get("rows") if isinstance(membership, dict) else None
++    if not isinstance(units, list) or not isinstance(rows, list):
++        return
++    try:
++        keys = [(u["rootPath"].encode("utf-8"), u["languageFamily"].encode("utf-8")) for u in units]
++        if any(u["unitOrdinal"] != i for i, u in enumerate(units)) or any(not a < b for a, b in zip(keys, keys[1:])):
++            _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++        for u in units:
++            roots = [r.encode("utf-8") for r in u["memberPackageRoots"]]
++            if any(not a < b for a, b in zip(roots, roots[1:])):
++                _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++        paths = [r["path"].encode("utf-8") for r in rows]
++        if any(not a < b for a, b in zip(paths, paths[1:])):
++            _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++        for field, kind in (("unsupportedFiles", "unsupported-file"), ("outsideBoundaryFiles", "outside-project-boundary")):
++            if membership.get(field) != [r["path"] for r in rows if r["membership"] == kind]:
++                _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++        inside = sorted((r for r in rows if r["membership"] != "outside-project-boundary"),
++                        key=lambda r: r["path"].encode("utf-8"))
++        outside = [r for r in rows if r["membership"] == "outside-project-boundary"]
++    except (KeyError, TypeError, AttributeError):
++        _add(faults, "ENUMERATION_MEMBERSHIP_ORDER")
++        return
++    try:
++        recomputed = NV.assign_membership(units, [r["path"] for r in inside], None)
++    except (NV.AdmissionError, AdmissionError, ValidationError, KeyError, TypeError):
++        _add(faults, "ENUMERATION_MEMBERSHIP_ROW_DERIVATION")
++        return
++    if not C.equal_typed(recomputed["rows"], inside):
++        _add(faults, "ENUMERATION_MEMBERSHIP_ROW_DERIVATION")
++    for r in outside:
++        if r.get("unitOrdinal") is not None or r.get("languageFamily") != NV._family_of(r.get("path") or ""):
++            _add(faults, "ENUMERATION_MEMBERSHIP_ROW_DERIVATION")
++
++
+ def admit_enumeration(
+     *,
+     plan: dict,
+@@ -583,6 +638,7 @@
+         return empty
+ 
+     _membership_covers_snapshot(membership, snapshot_paths, faults)
++    _membership_order_law(membership, faults)
+ 
+     if enumeration_plan["snapshotId"] != plan["snapshotId"]:
+         _add(faults, "ENUMERATION_PLAN_SNAPSHOT_MISMATCH")

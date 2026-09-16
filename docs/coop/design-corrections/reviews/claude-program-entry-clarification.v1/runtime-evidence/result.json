@@ -1,0 +1,69 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 5.726103499999999,
+  "usage": {
+    "input_tokens": 482,
+    "cache_creation_input_tokens": 85645,
+    "cache_read_input_tokens": 7772137,
+    "output_tokens": 39247,
+    "output_tokens_details": {
+      "thinking_tokens": 16260
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 85645,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1914,
+        "cache_read_input_tokens": 524111,
+        "cache_creation_input_tokens": 827,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 827
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 482,
+      "outputTokens": 39247,
+      "cacheReadInputTokens": 7772137,
+      "cacheCreationInputTokens": 85645,
+      "webSearchRequests": 0,
+      "costUSD": 5.726103499999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 16260,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_019ENoNsuMvvg3S4s5rviYsT",
+      "tool_input": {
+        "command": "/tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nfrom pathlib import Path\nL=Path('/tmp/opensip-design-corrections/candidate-subject.v41/docs/coop/design-corrections/native/native-cases.v2.json').read_text().splitlines()\nimport re\nfor target in (5595,5726,5758,5904,14564,14591):\n    # walk back to nearest case id line\n    j=target-1\n    while j>0 and not re.search(r'\\\"(id|caseId|name)\\\"\\s*:', L[j]): j-=1\n    print(target, '| case line', j+1, L[j].strip()[:160], '| entry line', L[target-1].strip()[:120])\n\"",
+        "description": "Locate native cases naming entryConfigPath values"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 47,
+  "subtype": "success",
+  "result": "**Disposition: CLARIFICATION_PROPOSED.** The owners don't conflict and nothing in semantics, identity or admission needs to change. But the enumeration contract's prose makes it easy to copy the config or Cargo marker into `programEntry` on a `default-unit` binding. Frozen41 matched its manifest (12912 members, 0 missing, mismatched or extra), and the five relevant source files match it byte for byte.\n\n## What the owners say, and where\n- **Default bindings use null.** This is stated only in the schema description of `AvailableProgramBindingV1.programEntry`: \"U-1 default uses null; admission derives the actual U-1 marker/synthesized entry and compares it to retained `TypeScriptConfigGraphV1.entryConfigPath` (the graph entry need not be null)\".\n- **The actual entry lives on the native side** (`native-evidence.md` \u00a72.2). For a TS/JS default, `entryConfigPath` is the unit's marker path, which is non-null; it is null only for a synthesized config.\n- **The contract text invites the mistake.** \"`programEntry` path or `null` (U-1 default / synthesized)\" (\u00a71 `:24`) reads as \"null only when synthesized\". Combined with \u00a72.2, a producer would write `\"tsconfig.json\"` into `programEntry`.\n- **The refusal key isn't published.** `ENUMERATION_BINDING_PROGRAM_ENTRY` appears only in the reference model.\n- **One sentence is wrong for `syntax-only`.** \u00a71 `:21` calls the default \"one `tsjs`/`rust`/`syntax-only` unit per directory by marker precedence\". Syntax-only has no marker: it is backed either by the U-9 zero-config fallback unit (`markerPath: \"\"`) or by no unit at all.\n\n## Each case separately\n| Case | `programEntry` | Actual retained entry |\n|---|---|---|\n| TS/JS default, `tsconfig.json`/`jsconfig.json` marker | null | `entryConfigPath` = marker path (non-null) \u2014 highest risk |\n| TS/JS default, `package.json` (synthesized) | null | `entryConfigPath` null, no nodes |\n| TS/JS explicit program | the selected config path | `entryConfigPath` = that same path |\n| Rust default | null (`Cargo.toml` is a unit marker, not an entry) | the universe H |\n| Rust explicit | not a complete program key; the universe H distinguishes it | the universe H |\n| Syntax-only default | null (no marker exists) | the syntax universe H |\n| Unavailable bindings | the schema allows a path or null; no owner states a value | \u2014 |\n\nFor unavailable bindings I added no rule; that stays open for the owners.\n\n## Proposed patch\nThe patch is `clarification.patch` (sha256 `2ccef46a\u2026`) and touches only `enumeration-contract.v1.md` \u00a71. The base equals frozen41 bytes (`ae4523a2\u2026`) and the result is `a4b6be3c\u2026`.\n- **\u00a71 `:21`:** say accurately which unit backs a default binding, including the syntax-only cases.\n- **\u00a71 `:24`:** replace the misleading parenthetical with a pointer to the new rule.\n- **New construction rule**, stated as a restatement that adds no rule:\n  - `programEntry` identifies which program of the cell a binding is; it is not the compiler entry.\n  - Three records must agree for one binding: the binding itself, the retained native inputs, and the native universe and context. Producers never copy the unit's `markerPath` into `programEntry`.\n  - The six-row table above.\n  - A non-null default binding is refused, never normalised into an admissible one.\n  - Unavailable bindings are unaffected.\n- **Example:** a `packages/web` cell. The default binding has `programEntry: null` and graph entry `packages/web/tsconfig.json`. An explicit binding has `packages/web/tsconfig.build.json` as both `programEntry` and graph entry. The wrong default encoding is shown with its refusal.\n\n## Consequences and limits\n- **Unchanged:** identity and admission. The schema, native documents and model are untouched.\n- **Repin needed at integration:** the contract's bytes are pinned by five `source-pins` files. `check-enumeration.v1.py` only hashes the file and checks none of its text.\n- **Not run:** no checkers, suites, pin updates, planning work or new controls. Model code is cited as evidence only.\n- **Open for owners:**\n  - what `programEntry` should be on unavailable bindings;\n  - what an explicit Rust `programEntry` path means;\n  - the schema says explicit TS/JS programs are non-null, but I read in the model code that it doesn't refuse a null explicit binding. I didn't test that.\n- **Hash index scope:** `hash-index.json` also hashed four pre-existing harness files in the runtime (`launch.py`, `process.json`, `prompt.md`, `public-events.jsonl`). I didn't create or read them.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-program-entry-clarification.v1`:\n- review.md\n- review.json\n- clarification.patch\n- delta-manifest.json\n- hash-index.json\n- receipts/\n- work/",
+  "type": "result",
+  "duration_ms": 495678
+}

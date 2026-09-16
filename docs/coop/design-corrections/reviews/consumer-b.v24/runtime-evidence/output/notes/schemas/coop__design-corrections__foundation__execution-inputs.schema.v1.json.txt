@@ -1,0 +1,87 @@
+# coop/design-corrections/foundation/execution-inputs.schema.v1.json
+top-level keys: $schema, $id, title, description, type, additionalProperties, required, properties, x-opensip-derived-carrier-law, x-opensip-new-internal-faults, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "opensip.product.execution-inputs.1"
+## title: "ExecutionInputsV1 — host-captured evaluator INPUT observation (DRAFT)"
+## description: "Post-Plan evaluator INPUT. Identity is raw SHA-256 of C(this record), not an H-domain and not a Plan parameter. planId is an explicit locator; the Plan descriptor has no planId field. Observes stage returns. Not findings, verdict, or proof. HostCapture is a TCB trust boundary: sealed replay checks proof selection equals this inventory; it cannot certify a malicious host omission. NativeCoverageAccount is references plus explicit applicability; completeness, coverage answer, resolution state, and ALL native causes derive from every owner entry of this cell/program/view/provider/U/pair. sele...
+## type: "object"
+## additionalProperties: false
+## required: ["schemaVersion", "planId", "executionPlanId", "evaluatorClosure", "enumerationPlanDigest", "analysisSpecDigest", "hostCapture", "selectedRefs", "cellOutcomes", "nativeCoverageAccounts", "candidateResultRefs"]
+## properties: keys=["schemaVersion", "planId", "executionPlanId", "evaluatorClosure", "enumerationPlanDigest", "analysisSpecDigest", "hostCapture", "selectedRefs", "cellOutcomes", "nativeCoverageAccounts", "candidateResultRefs"]
+## x-opensip-derived-carrier-law: keys=["standing", "primaryPair", "crossSourceOrder", "candidateCarrier", "pureMissingWork", "obligationIsKept", "realCarriersSurvive"]
+## x-opensip-new-internal-faults: keys=["standing", "keys"]
+### DigestHex | type="string" | pattern="^[0-9a-f]{64}(?![\\s\\S])"
+### LogicalPath | type="string" | pattern="^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])"
+### DeficiencyV2 | type="string" | enum=["language-tier-unsupported", "provider-unavailable", "input-closure-incomplete", "budget-exhausted", "confidence-floor-unmet", "derivation-policy-unmet", "resolution-incomplete", "external-consumers-unknown", "required-relation-missing"]
+### NativeCause | type="string" | enum=["body-language-owner-ambiguous", "body-language-owner-unenumerated", "body-language-ownership-missing", "capability-missing", "config-flag-stripped", "generated-file-missing", "generated-file-out-of-bounds", "generated-output-unavailable", "linker-unavailable", "lockfile-missing", "missing-dependency-source", "no-program-unit", "node-modules-outside-read-set", "source-replacement-outside-snapshot"]
+### InputRefV1 | type="object" | required=["domain", "digest"] | additionalProperties=false
+  domain: type="string" | enum=["view", "import", "coverage", "subject-inventory", "target-attribution", "incoming-search", "candidate-producer-result"]
+  digest: $ref="#/$defs/DigestHex"
+### StageReceiptV1 | type="object" | required=["ordinal", "stageSpecDigest", "producerClosure", "outputDomains", "outputRefs", "state", "unavailableReason"] | additionalProperties=false | allOf=[{"if": {"properties": {"state": {"const": "complete"}}}, "then": {"properties": {"unavailableReason": {"type": "null"}}}}, {"if": {"properties": {"state": {"const": "unavailable"}}}, "then": {"not": {"properties": {"unavailableReason": {"type": "null"}}}, "properties": {"outputRefs": {"maxItems": 0}, "unavailableReason": {"type": "string"}}}}] | description="Host observation of one admitted execution-plan stage obligation. Receipt ordinals are unique and total over execution-plan.stages. outputDomains equal that stage's admitted outputDomains; outputRefs domains are a subset of those domains. Imports are Plan-selected INPUT and are not stage products. Optional unavailable stages carry typed state, never silent omission. selectedRefs for stage-produced domains equals the union of complete-receipt outputRefs (exact totality, not a subset)."
+  ordinal: type="integer" | minimum=0 | maximum=1023
+  stageSpecDigest: $ref="#/$defs/DigestHex"
+  producerClosure: type="string" | pattern="^closure2:[0-9a-f]{64}(?![\\s\\S])"
+  outputDomains: type="array" | maxItems=128 | uniqueItems=true | x-opensip-order="canonical-set" | items={"maxLength": 64, "minLength": 1, "type": "string"}
+  outputRefs: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/InputRefV1"}
+  state: type="string" | enum=["complete", "unavailable"]
+  unavailableReason: oneOf=[{"enum": ["unavailable-binding", "optional-unselected", "provider-unavailable"], "type": "string"}, {"type": "null"}]
+### HostCaptureV1 | type="object" | required=["custody", "observation", "stageReceipts", "hostDerivedRefs"] | additionalProperties=false | description="TCB trust boundary, not a mathematically independent second witness. Equality of selectedRefs to this captured inventory does not prove a non-malicious host. Physical object/blob censuses are operational capture metadata excluded from this record and from Run identity. Ambient unselected store contents must not change C(this)."
+  custody: const="host-tcb-evidence-store"
+  observation: const="stage-return"
+  stageReceipts: type="array" | maxItems=1024 | x-opensip-order="ordinal" | items={"$ref": "#/$defs/StageReceiptV1"}
+  hostDerivedRefs: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/InputRefV1"}
+### CellProgramOutcomeV1 | type="object" | required=["ordinal", "cellOrdinal", "programOrdinal", "capabilityId", "languageMode", "workspaceRoot", "required", "kinds", "universe", "enumeratorStatus", "enumeratorClosure", "state", "deficiency", "nativeCause", "stageOrdinal", "stageOrdinalNullReason", "inventoryDigests", "viewDigests", "candidateResultDigest"] | additionalProperties=false | allOf=[{"if": {"properties": {"state": {"const": "complete"}}}, "then": {"properties": {"deficiency": {"type": "null"}, "nativeCause": {"type": "null"}, "stageOrdinal": {"type": "integer"}, "stageOrdinalNullReason": {"type": "null"}}}}, {"if": {"properties": {"stageOrdinal": {"type": "null"}}}, "then": {"not": {"properties": {"stageOrdinalNullReason": {"type": "null"}}}, "properties": {"stageOrdinalNullReason": {"type": "string"}}}}] | description="One row per enumeration binding. state/deficiency/nativeCause MUST equal the derived aggregate of inventories, coverage accounts, and candidate stage result. Host cannot mint a complete semantic by asserting the row."
+  ordinal: type="integer" | minimum=0 | maximum=1023
+  cellOrdinal: type="integer" | minimum=0 | maximum=1023
+  programOrdinal: type="integer" | minimum=0 | maximum=127
+  capabilityId: type="string" | enum=["inventory", "syntax", "imports", "references", "calls", "types", "reachability", "clones-fact", "clones-near", "clones-cross-tsjs", "unresolved-edge"]
+  languageMode: type="string" | enum=["ts-tsconfig", "js-allowjs", "js-synthesized", "rust-cargo", "rust-cargo-prepared", "syntax-only"]
+  workspaceRoot: type="string" | minLength=1 | maxLength=4096
+  required: type="boolean"
+  kinds: type="array" | maxItems=3 | uniqueItems=true | x-opensip-order="canonical-set" | items={"enum": ["file", "symbol", "package"], "type": "string"}
+  universe: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]
+  enumeratorStatus: type="string" | enum=["selected", "unselected"]
+  enumeratorClosure: oneOf=[{"pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])", "type": "string"}, {"type": "null"}]
+  state: type="string" | enum=["complete", "partial", "unavailable"]
+  deficiency: oneOf=[{"$ref": "#/$defs/DeficiencyV2"}, {"type": "null"}]
+  nativeCause: oneOf=[{"$ref": "#/$defs/NativeCause"}, {"type": "null"}]
+  stageOrdinal: oneOf=[{"maximum": 1023, "minimum": 0, "type": "integer"}, {"type": "null"}]
+  stageOrdinalNullReason: oneOf=[{"enum": ["unavailable-binding", "optional-unselected"], "type": "string"}, {"type": "null"}]
+  inventoryDigests: type="array" | maxItems=3 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/DigestHex"}
+  viewDigests: type="array" | maxItems=128 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/DigestHex"}
+  candidateResultDigest: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]
+### NativeCoverageAccountV1 | type="object" | required=["cellOrdinal", "programOrdinal", "relation", "resolution", "sourceUniverse", "targetUniverse", "applicability", "coverageIds"] | additionalProperties=false | allOf=[{"if": {"properties": {"applicability": {"enum": ["inapplicable-vcs", "unsupported-typed", "unavailable-unselected", "unavailable-null-universe"]}}}, "then": {"properties": {"coverageIds": {"maxItems": 0}}}}] | description="References plus explicit applicability for one matrix relation@rung on one binding. coverage/state/deficiency/nativeCause/scopeIds/examinedExhaustive are NOT host fields; admission derives them from ALL owner CoverageResultV3 entries of this cell/program/returned-view/enumerator/U/pair. complete is never a self-asserted scalar. coverageIds for a supported-available pair MUST equal every matching partition in this cell's returned views, not a selected-complete subset. Empty coverageIds on support" | x-opensip-external-joins={"deliberatelyNotJoined": {"field": "targetUniverse", "law": "targetUniverse is NOT constrained by the source-universe join. A Coverage or fact may name a target in another universe; cross-universe relationships, incoming targets and multi-universe Runs stay lawful. Nothing in this record may be read as prohibiting them."}, "joins": [{"equals": "EnumerationPlanV1.cells[cellOrdinal].programBindings[programOrdinal].universe", "field": "sourceUniverse", "law": "The account's sourceUniverse IS its binding's universe coordinate, for EVERY applicability. An inapplicable-vcs, unsupported-typed, un... | x-opensip-applicability-precedence={"matrixOutranksBoth": "unsupported-typed precedes both unavailable tokens, so an UNSUPPORTED-TYPED cell still discloses the matrix deficiency and its registered cause even when the enumerator is unselected and U is null. It never fabricates Coverage at null U.", "order": [{"token": "inapplicable-vcs", "when": "relation is vcs-change AND the admitted VCS observation kind is none"}, {"token": "unsupported-typed", "when": "the native capability matrix cell for (capabilityId, languageMode) is UNSUPPORTED-TYPED"}, {"token": "unavailable-unselected", "when": "the binding enumerator status is uns...
+  cellOrdinal: type="integer" | minimum=0 | maximum=1023
+  programOrdinal: type="integer" | minimum=0 | maximum=127
+  relation: type="string"
+  resolution: type="string"
+  sourceUniverse: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]
+  targetUniverse: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]
+  applicability: type="string" | enum=["supported-available", "unsupported-typed", "unavailable-unselected", "unavailable-null-universe", "inapplicable-vcs"]
+  coverageIds: type="array" | maxItems=1024 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/DigestHex"}
+### CandidateProducerResultV1 | type="object" | required=["schemaVersion", "planId", "executionPlanId", "cellOrdinal", "programOrdinal", "capabilityId", "languageMode", "universe", "producerClosure", "stageOrdinal", "state", "deficiency", "nativeCause", "authority", "semanticEquivalenceClaimed", "automaticDeletionEligible", "examinedPaths", "groupDigests", "sourceBodies"] | additionalProperties=false
+  schemaVersion: const=1
+  planId: type="string" | pattern="^plan2:[0-9a-f]{64}(?![\\s\\S])"
+  executionPlanId: type="string" | pattern="^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
+  cellOrdinal: type="integer" | minimum=0 | maximum=1023
+  programOrdinal: type="integer" | minimum=0 | maximum=127
+  capabilityId: type="string" | enum=["clones-near", "clones-cross-tsjs"]
+  languageMode: type="string" | enum=["ts-tsconfig", "js-allowjs", "js-synthesized", "rust-cargo", "rust-cargo-prepared", "syntax-only"]
+  universe: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]
+  producerClosure: type="string" | pattern="^closure2:[0-9a-f]{64}(?![\\s\\S])"
+  stageOrdinal: oneOf=[{"maximum": 1023, "minimum": 0, "type": "integer"}, {"type": "null"}]
+  state: type="string" | enum=["complete", "partial", "unavailable"]
+  deficiency: oneOf=[{"$ref": "#/$defs/DeficiencyV2"}, {"type": "null"}]
+  nativeCause: oneOf=[{"$ref": "#/$defs/NativeCause"}, {"type": "null"}]
+  authority: const="candidate-only"
+  semanticEquivalenceClaimed: const=false
+  automaticDeletionEligible: const=false
+  examinedPaths: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/LogicalPath"}
+  groupDigests: type="array" | maxItems=1000000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/DigestHex"}
+  sourceBodies: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/CandidateSourceBodyV1"}
+### CandidateSourceBodyV1 | type="object" | required=["id", "path", "contentSha256", "byteLength", "universe"] | additionalProperties=false
+  id: type="string" | minLength=1 | maxLength=256
+  path: $ref="#/$defs/LogicalPath"
+  contentSha256: $ref="#/$defs/DigestHex"
+  byteLength: type="integer" | minimum=0 | maximum=18446744073709551615
+  universe: oneOf=[{"$ref": "#/$defs/DigestHex"}, {"type": "null"}]

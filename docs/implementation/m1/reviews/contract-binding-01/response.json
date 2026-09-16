@@ -1,0 +1,74 @@
+{
+  "session_id": "628ff11d-052e-4006-b4f3-e014fc3b8e55",
+  "total_cost_usd": 1.8315849999999998,
+  "usage": {
+    "input_tokens": 290,
+    "cache_creation_input_tokens": 77634,
+    "cache_read_input_tokens": 465202,
+    "output_tokens": 32783,
+    "output_tokens_details": {
+      "thinking_tokens": 12883
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 77634,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1209,
+        "cache_read_input_tokens": 82867,
+        "cache_creation_input_tokens": 262,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 262
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1534,
+      "outputTokens": 17,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001619,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 290,
+      "outputTokens": 32783,
+      "cacheReadInputTokens": 465202,
+      "cacheCreationInputTokens": 77634,
+      "webSearchRequests": 0,
+      "costUSD": 1.829966,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 12883,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 20,
+  "subtype": "success",
+  "result": "The verdict is **ACCEPT-UNIT**: no required findings and 7 advisories. It covers only the code binding, not full M1 completion or product qualification. `review.md` and `review.json` are in `/tmp/opensip-implementation/m1-contract-binding-review-01`, with subjectManifestSha256 `37e1112f314f1ab8affcc2c53749ec20d150e8d5760806cee24cf3ffe821cfe3`.\n\n**Checks run**\n- **Frozen files:** all 13 match their sha256 and byte length, both before and after the review. There are no extra files and no bytecode. Compared with binding2, only the three files you named differ.\n- **Tests:** all 29 pass in a byte-identical copy.\n- **Real verification:** passes with the absolute arch path, both before and after my probes. It reports 46 inputs, inventory v3 (+4 files), 9 candidates, 4 passage overrides and `productQualification: false`. Running with `--architecture .` fails closed.\n- **Your failed test file:** it differs from the frozen tests only by the deep-copy fixes you described.\n- **Adversarial probes:** 80 probes ran on a copy of every pinned arch file, rebinding the manifest, review, assent and lock for each one.\n  - All 74 that should refuse or pass did. That covers the review/assent joins, candidate completeness, parent membership and overwrites, before-text, line and pointer edge cases, duplicates, malformed shapes and previousCandidate bytes. Lock v1/v2 still work and wrong version mixes refuse.\n  - The other 6 confirmed the loose behaviours listed below.\n- **Mutation testing:** 40 mutants of the new code. Every join, decision, membership, overwrite, duplicate, before-text and version guard was caught by the tests.\n\n**Advisories (non-blocking)**\n- **A01:** Candidates are only checked against the parents the record declares. A reviewed candidate could reuse the path of another accepted overlay file with different bytes. The real record has no such collision.\n- **A02:** `splitlines()` counts more line breaks than just `\\n`, so a consumer splitting on `\\n` could number lines differently. The real parents contain none of those characters, and each before-text appears exactly once.\n- **A03:** A line selector and a JSON Pointer can target the same JSON passage with conflicting replacements. The duplicate check only compares how the selector is written.\n- **A04:** The record's top-level fields and its `schemaVersion` are not checked, so unknown fields are silently ignored.\n- **A05:** Assent join pins and override parent pins accept a float byte count like `1521.0`. Pins that are actually read from disk still require an integer.\n- **A06:** A few malformed inputs raise a plain `ValueError` instead of `DesignError`. The tool still fails closed.\n- **A07:** Some guards could be deleted without any test failing:\n  - a pointer that does not resolve (`/files/7/description/x`)\n  - line 0, which would select the last line\n  - unknown override fields\n  - previousCandidate byte checks\n  - array indexes with a leading zero\n  - an empty replacement\n\n  My probes confirm the shipped verifier refuses all of these. I recommend adding tests for them.\n\nMy first probe run had the same aliasing mistake the author's tests had: the assent pins shared objects with the lock pins. I fixed it before counting any results, and the report says so.\n\nEverything I wrote stayed in the review directory. The probe scripts and `probe-results.json` are kept there; I deleted the mirror and mutation copies afterwards.",
+  "type": "result",
+  "duration_ms": 406343
+}

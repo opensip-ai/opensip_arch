@@ -1,0 +1,9 @@
+# Native universe, retention and Plan diagnostics — proposed runtime v4
+
+This successor composes frozen trials10–14 on the current live12inventory/16contract base. It adds syntax/TypeScript/Rust universe bindings, registered native retained-byte traversal and Plan-native checks over an explicit observed census. Earlier scoped Grok advisories support their exact bytes; formal unit review and root assent are still required. See materialization-map for exact owned product inputs. No input is installed by this draft.
+
+Plan selection precedes automatic universe context loading/binding. Local context owner remains mandatory. Private diagnostic results do not claim complete graph enumeration, Run closure, security, execution authority or evaluator replay. The full graph walker still refuses unsupported native/relation/import owner joins. Budgets are explicit local bounds, not an aggregate Run resource envelope.
+
+A small identity_record_shape API returns inert rehashed canonical schema/order data without reference traversal. The pure dependency source policy updates exactly the local closure.rs pin; external packages, versions, features, archives and guarded Hangul TCB are unchanged from accepted native-runtimev3. TypeScript config-node-kind metadata and Plan vocabulary/discovery metadata come from pinned selected sources. No schema, generator, package edge, compiler/provider or report changes.
+
+The frozen source14 review is pending. 383 actual-reference Plan comparisons and 304 public retention results are exact;99 Rust tests and strict Clippy pass, plus the unchanged dependency closure with110sourcefiles verified. Earlier10–13 suites and actual reviews remain distinct evidence. Source-only exports and base-lock composition checks will be recorded before formal freeze. These checks do not qualify M2, cross-platform execution or a release.

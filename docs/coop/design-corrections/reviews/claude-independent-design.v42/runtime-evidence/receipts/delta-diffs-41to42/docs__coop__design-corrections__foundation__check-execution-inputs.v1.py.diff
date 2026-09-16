@@ -1,0 +1,275 @@
+--- a41/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
++++ b42/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
+@@ -815,33 +815,51 @@
+ _VA_NATIVE = []
+ 
+ 
+-def view_attribution_world(build_kwargs, mutate):
++def semantic_full_run(graph):
++    """Owner ADMIT -> R.derive -> seal -> close_run for the TypeScript semantic fixture, exactly as
++    check-semantic-replay.v3.close_positive (its seed scanner, not the file-only F.seal_fixture one)."""
++    seed, objects, blobs, _ = S.seed_seal(graph)
++    _, owner = IDENTITY.open_run_closure(seed, objects, blobs)
++    i = graph["inputs"]
++    out = R.derive(i["planId"], i["executionPlanId"], i["evaluatorClosure"],
++                   i["evaluationInputRefs"], objects, blobs, owner)
++    run, objects, blobs = S.seal_derived(graph, out, objects, blobs)
++    result = R.replay(run, objects, blobs)
++    closed = IDENTITY.close_run(run, objects, blobs)
++    if closed != result["runId"]:
++        raise RuntimeError("close_run runId mismatch: " + str((closed, result["runId"])))
++    return result, out["proof"]
++
++
++def view_attribution_world(build_kwargs, mutate, graph_factory=None):
+     """Checker-only world for contract §3 "View attribution".
+ 
+-    Starts from the maintained owner fixture with the full-run atom, then lets `mutate` mint
+-    subject-scopes, native-owner-admitted Coverage and views on the graph's OWN store and return
+-    `(retire, add)` view ids, which are applied to the graph's own view census and evaluation refs.
+-    Nothing about attribution is asserted here: the shared host-capture builder derives the rows
+-    and admission re-derives them. Symbol-row worlds are deliberately not used: their unmutated
+-    graphs do not close a Run (`PAYLOAD_RECORD:#/$defs/DeclaresPayloadV1`), which would leave every
+-    closed-run column blind.
++    Starts from the maintained owner fixture with the full-run atom (or `graph_factory()`, e.g. the
++    TypeScript semantic fixture), then lets `mutate` mint subject-scopes, native-owner-admitted
++    Coverage and views on the graph's OWN store and return `(retire, add)` view ids, which are
++    applied to the graph's own view census and evaluation refs. Nothing about attribution is
++    asserted here: the shared host-capture builder derives the rows and admission re-derives them.
++    File-fixture symbol-row worlds are deliberately not used: their unmutated graphs do not close a
++    Run (`PAYLOAD_RECORD:#/$defs/DeclaresPayloadV1` with the checker's `nativeSubjectId: "x"`;
++    `POLICY_RULE_NOT_ADMISSIBLE` with a SubjectIdV1 spelling). The semantic fixture is the lawful
++    two-cell world.
+     """
+     if not _VA_NATIVE:
+         _VA_NATIVE.append(F.fixture_helpers())
+     NH = _VA_NATIVE[0]
+     cov_schema = NH.N.schema_document_digest(NH.N.NATIVE_SCHEMA_DOC)
+-    graph = F.build_file_inputs(atom_override=NONE_ATOM, **build_kwargs)
++    graph = graph_factory() if graph_factory else F.build_file_inputs(atom_override=NONE_ATOM, **build_kwargs)
+     objects, blobs = graph["objects"], graph["blobs"]
+     first = objects[graph["viewIds"][0]][1]
+     provider = first["producerClosure"]
+     rel_schema = next(d for d in first["schemaDigests"] if d != cov_schema)
+     paths = [r["path"] for r in graph["snapshot"]["sourceInventory"]]
+ 
+-    def scope(relation, resolution, uni):
++    def scope(relation, resolution, uni, subjects=()):
+         return _mint(objects, "subject-scope", {
+             "snapshotId": graph["inputs"]["plan"]["snapshotId"], "sourceUniverse": uni,
+             "targetUniverse": uni, "relation": relation, "resolution": resolution,
+-            "enumeratorClosure": provider, "subjects": [],
++            "enumeratorClosure": provider, "subjects": M.canon_str_list(list(subjects)),
+         })
+ 
+     def coverage(scope_id, uni):
+@@ -869,7 +887,7 @@
+         for b in cell["programBindings"]:
+             universes.setdefault(cell["capabilityId"], []).append(b["universe"])
+     retire, add = mutate({"scope": scope, "coverage": coverage, "view": view, "single": single,
+-                          "universes": universes, "objects": objects})
++                          "universes": universes, "objects": objects, "graph": graph})
+     retire, add = set(retire), list(add)
+     graph["viewIds"] = M.canon_str_list([v for v in graph["viewIds"] if v not in retire] + add)
+     refs = [r for r in graph["inputs"]["evaluationInputRefs"]
+@@ -884,18 +902,19 @@
+     return graph, add
+ 
+ 
+-def view_attribution_case(graph, *, row_edit=None, capture=(), closed=True):
++def view_attribution_case(graph, *, row_edit=None, capture=(), manifest_edit=None, closed=True, runner=None):
+     """Admission over the shared builder's rows (optionally host-edited), plus the SAME manifest through
+-    the maintained `full_run` driver when `closed`.
+-
+-    `capture` adds captured-but-unattributed views, with their Coverage, to the complete view
+-    receipt and selectedRefs; the shared builder never does that because it captures attributed
+-    views only. `row_edit` rewrites host `cellOutcomes` rows. An edited manifest is hashed into
+-    the Run graph exactly as `attach_host_capture` does, so the closed-run column is that manifest.
++    the maintained Run driver when `closed` (`full_run`, or `runner`, e.g. `semantic_full_run`).
++
++    `capture` explicitly puts views, with their Coverage, on the complete view receipt and
++    selectedRefs; since the builder captures every explicit returned view (contract §8) this is a
++    no-op for views the graph already declares returned. `row_edit` rewrites host `cellOutcomes`
++    rows and `manifest_edit` any other host field. An edited manifest is hashed into the Run graph
++    exactly as `attach_host_capture` does, so the closed-run column is that manifest.
+     """
+     kw = manifest_from_owner(copy.deepcopy(graph))
+     ei = kw["execution_inputs"]
+-    edited = bool(capture) or row_edit is not None
++    edited = bool(capture) or row_edit is not None or manifest_edit is not None
+     for vid in capture:
+         view = kw["objects"][vid][1]
+         for rc in ei["hostCapture"]["stageReceipts"]:
+@@ -905,6 +924,8 @@
+                                         + [{"domain": "coverage", "digest": hx(c)} for c in view["coverageIds"]])
+     if row_edit is not None:
+         row_edit(ei["cellOutcomes"])
++    if manifest_edit is not None:
++        manifest_edit(ei)
+     if edited:
+         kw["store_pointers"] = M.promised_pointers(
+             ei, kw["plan"], kw["execution_plan"], kw["enumeration_plan"],
+@@ -912,6 +933,10 @@
+     result = dict(admit(kw))
+     result["viewDigestsByRow"] = {r["capabilityId"] + "#" + str(r["programOrdinal"]): list(r["viewDigests"])
+                                   for r in ei["cellOutcomes"]}
++    result["executionInputsDigest"] = M.raw_digest(ei)
++    result["capturedViews"] = sorted({r["digest"] for rc in ei["hostCapture"]["stageReceipts"]
++                                      if rc["state"] == "complete" for r in rc["outputRefs"] if r["domain"] == "view"})
++    result["selectedViews"] = sorted({r["digest"] for r in ei["selectedRefs"] if r["domain"] == "view"})
+     if closed:
+         run_graph = copy.deepcopy(graph)
+         if edited:
+@@ -923,7 +948,7 @@
+             run_graph["executionInputs"] = ei
+             run_graph["executionInputsDigest"] = digest
+         try:
+-            run_result, proof = full_run(run_graph)
++            run_result, proof = (runner or full_run)(run_graph)
+             result["fullRun"] = {"verdict": run_result["verdict"], "runId": run_result["runId"],
+                                  "sameManifest": proof["executionInputsDigest"] == M.raw_digest(ei)}
+         except Exception as exc:  # noqa: BLE001
+@@ -1630,6 +1655,80 @@
+ 
+     va_rec("view-attribution-supported-rows-view-with-two-universes-coverage-refuses", view_attribution_case(
+         view_attribution_world({"multiple_universes": True}, va_two_universe_supported)[0], closed=False))
++
++    # --- capture of explicit stage returns (contract §1, §3, §8 build_manifest) ---
++    cap_world, cap_add = view_attribution_world(va_um, va_lawful_split)
++    va_rec("capture-builder-keeps-returned-view-that-no-cell-owns", view_attribution_case(cap_world))
++
++    census_only = []
++
++    def va_census_only(t):
++        _u0, u1 = va_refs_universes(t)
++        s = t["scope"]("references", "resolved-binding", u1)
++        census_only.append(t["view"]([s], (), [t["coverage"](s, u1)]))
++        return (), ()
++
++    census_world, _ = view_attribution_world(va_um, va_census_only)
++    va_rec("capture-builder-ignores-store-census-only-view", view_attribution_case(census_world, closed=False))
++    va_rec("capture-control-same-world-without-census-view", view_attribution_case(
++        view_attribution_world(va_um, lambda t: ((), ()))[0], closed=False))
++
++    def va_drop_from_receipt(ei):
++        for rc in ei["hostCapture"]["stageReceipts"]:
++            rc["outputRefs"] = [r for r in rc["outputRefs"] if r["digest"] != uns_refs_view]
++
++    va_rec("capture-selected-attributed-view-on-no-receipt-refuses",
++           view_attribution_case(uns_world, manifest_edit=va_drop_from_receipt))
++
++    # --- two capability cells on the SAME program/U (TypeScript semantic fixture) ---
++    va_declares = {"op": "exists", "relation": "declares", "minResolution": "syntactic", "filters": []}
++
++    def va_two_cell(t):
++        g = t["graph"]
++        u1 = g["u1"]
++        f, d = t["single"]("file", u1), t["single"]("declares", u1)
++        fv, dv = t["objects"][f][1], t["objects"][d][1]
++        shared = t["view"](fv["scopeIds"] + dv["scopeIds"], fv["facts"] + dv["facts"], fv["coverageIds"] + dv["coverageIds"])
++        s = t["scope"]("references", "resolved-binding", u1, [g["foo"]])
++        neither = t["view"]([s], (), [t["coverage"](s, u1)])
++        return (f, d), (shared, neither)
++
++    two_world, two_add = view_attribution_world(
++        {}, va_two_cell, graph_factory=lambda: S.build_ts_semantic_graph(atom=va_declares))
++    va_rec("two-cell-shared-view-and-captured-view-matching-neither-cell-close",
++           view_attribution_case(two_world, runner=semantic_full_run))
++
++    def va_syntax_omits_shared(rows):
++        for r in rows:
++            if r["capabilityId"] == "syntax":
++                r["viewDigests"] = [h for h in r["viewDigests"] if h != hx(two_add[0])]
++
++    def va_inventory_names_neither(rows):
++        for r in rows:
++            if r["capabilityId"] == "inventory":
++                r["viewDigests"] = M.canon_str_list(r["viewDigests"] + [hx(two_add[1])])
++
++    va_rec("two-cell-syntax-row-omitting-shared-view-refuses",
++           view_attribution_case(two_world, row_edit=va_syntax_omits_shared, runner=semantic_full_run))
++    va_rec("two-cell-row-naming-view-matching-neither-cell-refuses",
++           view_attribution_case(two_world, row_edit=va_inventory_names_neither, runner=semantic_full_run))
++
++    # --- relation-column membership (matrix relations are [relation, resolution] pairs) ---
++    def va_non_matrix_rung(t):
++        u0 = t["universes"]["references"][0]
++        s = t["scope"]("references", "syntactic-name-match", u0)
++        return (), (t["view"]([s], (), [t["coverage"](s, u0)]),)
++
++    rung_world, rung_add = view_attribution_world({"unsupported_cell": "required"}, va_non_matrix_rung)
++    va_rec("relation-column-membership-attributes-non-matrix-rung-view", view_attribution_case(rung_world))
++
++    def va_pair_reading(rows):
++        for r in rows:
++            if r["capabilityId"] == "references":
++                r["viewDigests"] = [h for h in r["viewDigests"] if h != hx(rung_add[0])]
++
++    va_rec("relation-column-membership-pair-reading-encoding-refuses",
++           view_attribution_case(rung_world, row_edit=va_pair_reading, closed=False))
+ 
+     want = {
+         "applicability-first-match-precedence": "ADMIT",
+@@ -1718,6 +1817,15 @@
+         "view-attribution-universe-and-relation-on-different-scopes-host-naming-it-refuses": "REFUSE",
+         "view-attribution-lawful-one-view-per-universe-split-admits": "ADMIT",
+         "view-attribution-supported-rows-view-with-two-universes-coverage-refuses": "REFUSE",
++        "capture-builder-keeps-returned-view-that-no-cell-owns": "ADMIT",
++        "capture-builder-ignores-store-census-only-view": "ADMIT",
++        "capture-control-same-world-without-census-view": "ADMIT",
++        "capture-selected-attributed-view-on-no-receipt-refuses": "REFUSE",
++        "two-cell-shared-view-and-captured-view-matching-neither-cell-close": "ADMIT",
++        "two-cell-syntax-row-omitting-shared-view-refuses": "REFUSE",
++        "two-cell-row-naming-view-matching-neither-cell-refuses": "REFUSE",
++        "relation-column-membership-attributes-non-matrix-rung-view": "ADMIT",
++        "relation-column-membership-pair-reading-encoding-refuses": "REFUSE",
+     }
+     mismatches = []
+     for c in cases:
+@@ -2053,6 +2161,46 @@
+     oracle("view-attribution-supported-rows-two-universes-coverage-derive",
+            "EXECUTION_INPUTS_COVERAGE_DERIVE" in (va_sup.get("refusals") or []), va_sup.get("refusals"))
+ 
++    # --- capture of explicit stage returns / two cells on one program-U / relation column ---
++    va_cap = va.get("capture-builder-keeps-returned-view-that-no-cell-owns") or {}
++    oracle("capture-returned-unowned-view-captured-selected-unattributed-and-run-closes-on-builder-manifest",
++           hx(cap_add[0]) in (va_cap.get("capturedViews") or []) and hx(cap_add[0]) in (va_cap.get("selectedViews") or [])
++           and all(hx(cap_add[0]) not in v for v in (va_cap.get("viewDigestsByRow") or {}).values())
++           and (va_cap.get("fullRun") or {}).get("verdict") == "indeterminate"
++           and (va_cap.get("fullRun") or {}).get("sameManifest") is True,
++           {"captured": va_cap.get("capturedViews"), "rows": va_cap.get("viewDigestsByRow"), "run": va_cap.get("fullRun")})
++    va_cen = va.get("capture-builder-ignores-store-census-only-view") or {}
++    va_ctl = va.get("capture-control-same-world-without-census-view") or {}
++    oracle("capture-store-census-only-view-not-captured-and-digest-unchanged",
++           bool(census_only) and hx(census_only[0]) not in (va_cen.get("capturedViews") or [])
++           and va_cen.get("executionInputsDigest") == va_ctl.get("executionInputsDigest"),
++           {"census": va_cen.get("executionInputsDigest"), "control": va_ctl.get("executionInputsDigest")})
++    va_drop = va.get("capture-selected-attributed-view-on-no-receipt-refuses") or {}
++    oracle("capture-selected-view-on-no-receipt-is-selected-cover-at-admission-and-in-the-run",
++           "EXECUTION_INPUTS_SELECTED_COVER" in (va_drop.get("refusals") or [])
++           and "EXECUTION_INPUTS_SELECTED_COVER" in str((va_drop.get("fullRun") or {}).get("refused")),
++           {"refusals": va_drop.get("refusals"), "run": va_drop.get("fullRun")})
++    va_two = va.get("two-cell-shared-view-and-captured-view-matching-neither-cell-close") or {}
++    va_two_rows = va_two.get("viewDigestsByRow") or {}
++    oracle("two-cell-shared-view-on-both-rows-neither-view-captured-on-no-row-and-run-closes",
++           hx(two_add[0]) in (va_two_rows.get("inventory#0") or []) and hx(two_add[0]) in (va_two_rows.get("syntax#0") or [])
++           and hx(two_add[1]) in (va_two.get("capturedViews") or [])
++           and all(hx(two_add[1]) not in v for v in va_two_rows.values())
++           and (va_two.get("fullRun") or {}).get("verdict") == "fail"
++           and (va_two.get("fullRun") or {}).get("sameManifest") is True,
++           {"rows": va_two_rows, "captured": va_two.get("capturedViews"), "run": va_two.get("fullRun")})
++    for va_name in ("two-cell-syntax-row-omitting-shared-view-refuses",
++                    "two-cell-row-naming-view-matching-neither-cell-refuses",
++                    "relation-column-membership-pair-reading-encoding-refuses"):
++        va_r = va.get(va_name) or {}
++        oracle(va_name + "::view-totality", "EXECUTION_INPUTS_VIEW_TOTALITY" in (va_r.get("refusals") or []),
++               {"refusals": va_r.get("refusals"), "run": va_r.get("fullRun")})
++    va_rung = va.get("relation-column-membership-attributes-non-matrix-rung-view") or {}
++    oracle("relation-column-non-matrix-rung-view-on-references-row-and-run-closes",
++           hx(rung_add[0]) in ((va_rung.get("viewDigestsByRow") or {}).get("references#0") or [])
++           and (va_rung.get("fullRun") or {}).get("sameManifest") is True,
++           {"rows": va_rung.get("viewDigestsByRow"), "run": va_rung.get("fullRun")})
++
+     mismatches.extend({"case": o["oracle"], "got": "ORACLE", "want": "HOLD", "refusals": [str(o["got"])]} for o in oracles)
+ 
+     report = {

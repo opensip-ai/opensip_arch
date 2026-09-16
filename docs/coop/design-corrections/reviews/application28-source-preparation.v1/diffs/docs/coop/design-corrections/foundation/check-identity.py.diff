@@ -1,0 +1,69 @@
+--- docs/coop/design-corrections/foundation/check-identity.py
++++ docs/coop/design-corrections/foundation/check-identity.py
+@@ -1461,14 +1461,33 @@
+ _PUBLIC_REGISTRY=json.loads((H.parent/'public-detail-registry.v1.json').read_text())
+ _PUBLIC_RECORDS={r['code'] for r in _PUBLIC_REGISTRY['records']}
+ _SCOPE_DETAILS=('BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER','BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH')
++# Current evaluator3 additions are separately closed and named. The historical
++# scope/native-route assertions below concern the unchanged 289-code substrate.
++_EVALUATOR3_PUBLIC_DETAILS = {
++    'BASELINE.ENTRY_PROJECTION_CONFLICT','COMPARISON.CORRESPONDENCE_INCOMPLETE',
++    'EVALUATION.FINDING_JOIN_REFUSED','EVALUATION.INPUT_REFUSED',
++    'EVALUATION.MIXED_OUTPUT_MAJOR','EVALUATION.OUTPUT_BOUND_EXCEEDED',
++    'EVALUATION.PROJECTION_INPUT_INCOMPLETE','EVALUATION.PROOF_VERDICT_INCONSISTENT',
++    'EVALUATION.REQUIRED_OUTPUT_OMITTED','EVALUATION.SELECTION_LIMIT',
++    'EVALUATION.WORK_BUDGET_EXHAUSTED','REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE',
++    'REPAIR.TARGET_METADATA_AMBIGUOUS'}
++# Query3 additions preserve the same 289-code historical substrate and all 13
++# evaluator3 details; enumerate the nine query additions rather than relaxing the guard.
++_QUERY3_PUBLIC_DETAILS = {
++    'QUERY.CURSOR_MISMATCH', 'QUERY.ENDPOINT_AMBIGUOUS', 'QUERY.ENDPOINT_UNKNOWN',
++    'QUERY.FACT_VIEW_UNAVAILABLE', 'QUERY.PARAMS_MALFORMED',
++    'QUERY.RELATION_UNSUPPORTED', 'QUERY.VIEW_AMBIGUOUS', 'QUERY.VIEW_UNKNOWN',
++    'QUERY.SCHEMA_MAJOR_UNSUPPORTED'}
++_CURRENT_PUBLIC_ADDITIONS = _EVALUATOR3_PUBLIC_DETAILS | _QUERY3_PUBLIC_DETAILS
++
+ check('both-scope-binding-details-are-members-of-the-closed-public-detail-registry',
+       all(c in _PUBLIC_RECORDS for c in _SCOPE_DETAILS))
+ check('both-scope-binding-details-are-members-of-the-mirrored-closed-schema-enum',
+       all(c in _COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'] for c in _SCOPE_DETAILS))
+ check('the-registry-and-the-mirrored-enum-still-agree-exactly-after-the-registration',
+       sorted(_PUBLIC_RECORDS)==_COMMON_SCHEMA['$defs']['DomainDetailCode']['enum'])
+-check('the-registration-added-exactly-these-two-members-and-nothing-else',
+-      len(_PUBLIC_RECORDS)==289 and
++check('retained-scope-details-and-explicit-evaluator3-additions-are-closed',
++      _CURRENT_PUBLIC_ADDITIONS <= _PUBLIC_RECORDS and len(_PUBLIC_RECORDS-_CURRENT_PUBLIC_ADDITIONS)==289 and
+       {c for c in _PUBLIC_RECORDS if c.startswith('BASELINE.SCOPE')}==set(_SCOPE_DETAILS))
+ check('both-are-owned-by-workflows-and-carry-the-mirroring-selector',
+       all(r['owner']=='workflows' and
+@@ -3522,8 +3541,8 @@
+ # Four public detail codes ARE added, deliberately and with the reason recorded: the failure
+ # envelope requires a nonempty errors array and these four routes had no code naming their remedy.
+ # Claiming `no new public code` would now be false, so the control states what is true instead.
+-check('exactly-four-public-detail-codes-are-added-and-each-is-named',
+-      len(PUBLIC_CODES)==289 and
++check('retained-four-native-route-details-remain-named-with-current-evaluator-additions',
++      _CURRENT_PUBLIC_ADDITIONS <= PUBLIC_CODES and len(PUBLIC_CODES-_CURRENT_PUBLIC_ADDITIONS)==289 and
+       {'native.capability-spec-invalid','native.release-declaration-invalid',
+        'native.coverage-cause-unsupported','HOST.INVARIANT_VIOLATED'}<=PUBLIC_CODES and
+       'four different things for a caller to do next' in PUBLIC['newInThisCorrection'])
+@@ -3776,8 +3795,8 @@
+ check('the-remedy-names-narrowing-and-denies-truncation',
+       'narrow' in _T['domainDetail']['remedy'] and 'no capability was truncated'
+       in _T['domainDetail']['remedy'] and 'default is unchanged' in _T['domainDetail']['remedy'])
+-check('no-new-public-detail-code-is-introduced-for-this-boundary',
+-      len(PUBLIC_CODES)==289 and 'PROJECT.SCOPE_LIMIT' in PUBLIC_CODES)
++check('scope-boundary-still-reuses-existing-public-detail-with-current-evaluator-additions',
++      _CURRENT_PUBLIC_ADDITIONS <= PUBLIC_CODES and len(PUBLIC_CODES-_CURRENT_PUBLIC_ADDITIONS)==289 and 'PROJECT.SCOPE_LIMIT' in PUBLIC_CODES)
+ # The EXPLICIT path through the COMPLETE analysis-spec boundary, not a raw list handed to the
+ # vocabulary helper. An earlier revision of these controls called admit_requested_capabilities with a
+ # bare array, which is not what an explicitly supplied spec traverses: such a spec reaches
+@@ -4422,7 +4441,7 @@
+ _DEFAULT_STAGED=N.default_capability_selection(_UNITS,[dict(r) for r in _STAGED])
+ check('a-full-release-declaration-leaves-nothing-undeclared',
+       _DEFAULT_FULL['undeclaredCapabilities']==[]
+-      and _DEFAULT_FULL['defaultIsCompleteSelectedProduct'] is True)
++      and _DEFAULT_FULL['defaultIsCompleteCapabilitySelection'] is True)
+ check('a-staged-release-subset-does-not-shrink-the-default',
+       _DEFAULT_STAGED['analysisSpec']['requestedCapabilities']
+       ==_DEFAULT_FULL['analysisSpec']['requestedCapabilities']

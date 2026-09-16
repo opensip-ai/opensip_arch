@@ -1,0 +1,114 @@
+--- a38/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
++++ b39/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
+@@ -377,7 +377,9 @@
+         "DELIVERY.CLOSURE_BYTES_MISSING",
+         "DELIVERY.CLOSURE_UNSPAWNABLE",
+         "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
++        "DELIVERY.REQUIRED_PROJECTION_FAILED",
+         "DOCTOR.DEFECTS_FOUND",
++        "DOCTOR.REPORT_NOT_PRODUCIBLE",
+         "ENVELOPE.BODY_DIGEST",
+         "ENVELOPE.KIND",
+         "ENVELOPE.SHAPE",
+@@ -440,6 +442,7 @@
+         "NT-TCB-IDENTITY",
+         "NT-TCB-PROFILE-UNQUALIFIED",
+         "OBSERVER.FAIL_STOP",
++        "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+         "OUTPUT.FORMAT_NOT_APPLICABLE",
+         "OUTPUT.RENDERER_QUOTA_EXCEEDED",
+         "PAYLOAD-NOT-ADMISSIBLE",
+@@ -499,6 +502,7 @@
+         "REPAIR.TARGET_PREIMAGE_MISMATCH",
+         "REVIEW.ADVISORY_ONLY",
+         "REVIEW.CANDIDATE_SUPPRESSED",
++        "REVIEW.CANDIDATE_UNKNOWN",
+         "ROOT.CHAIN_BACKDATED",
+         "ROOT.CHAIN_GAP",
+         "ROOT.CHAIN_NEW_THRESHOLD",
+@@ -738,7 +742,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate. Required-delivery detail law: DELIVERY.RENDERER_FAILED_AFTER_COMMIT names a failure after this invocation committed a Run and requires that runId; DELIVERY.REQUIRED_PROJECTION_FAILED names a required projection or renderer failure when no Run was committed and forbids runId. Both are operational-failed / DELIVERY.REQUIRED_FAILED; every other operational-failed termination keeps its existing optional runId.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -1164,6 +1168,76 @@
+               },
+               "errorCode": {
+                 "const": "REQUEST.PRECONDITION_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode",
++              "runId"
++            ],
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.REQUIRED_PROJECTION_FAILED"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode"
++            ],
++            "not": {
++              "required": [
++                "runId"
++              ]
++            },
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
+               }
+             }
+           }

@@ -1,0 +1,5792 @@
+{
+  "standing": "SYNTHETIC lstat/ACL maps evaluated by the pure DISCOVERY-V1 model (security_lifecycle_model_v1.discovery). Rule under test (AR-03): custody of every examined directory and config file requires owner in {invoker, root}, no other-write, no group-write unless the gid is explicitly authorized by --trust-group, no ACL write grant to another principal, readable ACLs; a VCS boundary without config selects the repository root (never the launch directory); nested repositories are recorded and not entered; VCS indirection files are data and never followed; explicit joins are custody-checked. Expected values were authored by hand from security-and-lifecycle.md S3 before the model was executed; same-author expectations, not an independent oracle. Genuine filesystem, ownership, ACL and race behaviour is qualification (DR-G12/DR-G18). v2: monorepo units inside the admitted root are discovered automatically from Cargo.toml/package.json/tsconfig.json/jsconfig.json markers (data only, never parsed for scripts); explicit --project joins and admitted Config2 discovery.workspaceRoots override with the same custody checks; nested repositories are other custody roots. v3 (post-reset review MUST-3/ADV-3): ONE shared discovery rule (../discovery-defaults.py) prunes dependency trees (node_modules), VCS trees and Cargo build output (`target` directly under a Cargo.toml directory) by exact path segment before any custody walk; installed package manifests are never units and never count toward the 4096 first-party cap, which refuses typed (PROJECT.WORKSPACE_UNIT_LIMIT -> REQUEST.UNSATISFIABLE); explicit roots use the identity sentinel `.` with the same normalization as the native unit instrument; a nested opensip.json is a deliberate project boundary in both directions.",
+  "model": "discovery",
+  "conventions": {
+    "invokingUid": 1000,
+    "accountHome": "/home/alice (from the account database, never the HOME variable)",
+    "fs": "path -> {kind: dir|file|symlink, uid, gid?, mode (octal string), dev, nlink, size, vcs: true|{kind:'indirection',target}, aclWrite?: ['uid:N'|'group:N'], aclUnreadable?: bool}",
+    "modes": "0755 dirs, 0644 files unless the case says otherwise"
+  },
+  "cases": [
+    {
+      "id": "nearest-ancestor-selects-repo",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/sub",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 120
+          },
+          "/home/alice/repo/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "config",
+        "provenance.selectedRoot": "/home/alice/repo",
+        "provenance.configPath": "/home/alice/repo/opensip.json",
+        "provenance.stopReason": "CANDIDATE",
+        "provenance.walked.length": 2,
+        "provenance.walked.1.candidate": "PRESENT",
+        "provenance.custodyWaiver": null
+      }
+    },
+    {
+      "id": "nested-project-nearest-wins",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/sub",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 120
+          },
+          "/home/alice/repo/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/sub/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 80
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/repo/sub",
+        "provenance.walked.length": 1,
+        "provenance.configPath": "/home/alice/repo/sub/opensip.json"
+      }
+    },
+    {
+      "id": "shared-directory-plant-in-sticky-tmp-is-never-examined",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/tmp/mine",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/tmp": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "1777",
+            "dev": 1
+          },
+          "/tmp/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 500
+          },
+          "/tmp/mine": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.selectedRoot": "/tmp/mine",
+        "provenance.configPath": null,
+        "provenance.stopReason": "CUSTODY:WRITABLE_BY_OTHERS",
+        "provenance.walked.length": 2,
+        "provenance.walked.1.custody": "WRITABLE_BY_OTHERS",
+        "provenance.walked.1.candidate": "NOT_EXAMINED"
+      }
+    },
+    {
+      "id": "foreign-owned-intermediate-directory-ends-walk",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/srv/shared/alice",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/shared": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/shared/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/srv/shared/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.selectedRoot": "/srv/shared/alice",
+        "provenance.stopReason": "CUSTODY:FOREIGN_OWNER",
+        "provenance.walked.1.custody": "FOREIGN_OWNER"
+      }
+    },
+    {
+      "id": "cwd-owned-by-other-user-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/srv/shared",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/shared": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "path": "/srv/shared",
+        "detail": "FOREIGN_OWNER",
+        "d9.class": "request-rejected",
+        "d9.exit": 2,
+        "d9.code": "CONFIG.INVALID"
+      }
+    },
+    {
+      "id": "cwd-writable-by-others-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/open",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/open": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0777",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_OTHERS"
+      }
+    },
+    {
+      "id": "sticky-shared-directory-as-cwd-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/tmp",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/tmp": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "1777",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_OTHERS"
+      }
+    },
+    {
+      "id": "group-writable-own-cwd-refuses-before-reading-planted-config",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "path": "/home/alice/repo",
+        "detail": "WRITABLE_BY_GROUP",
+        "provenance.walked.length": 0,
+        "provenance.configPath": null,
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "CONFIG.INVALID"
+        }
+      }
+    },
+    {
+      "id": "config-group-writable-refuses-not-skips",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0664",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_GROUP",
+        "provenance.walked.length": 1,
+        "provenance.selectedRoot": null
+      }
+    },
+    {
+      "id": "config-symlink-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "symlink",
+            "uid": 1000
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "SYMLINK"
+      }
+    },
+    {
+      "id": "config-hard-linked-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 2,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "HARD_LINKED"
+      }
+    },
+    {
+      "id": "config-over-4-mib-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 4194305
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "TOO_LARGE"
+      }
+    },
+    {
+      "id": "config-exactly-4-mib-accepts",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 4194304
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.configPath": "/home/alice/repo/opensip.json"
+      }
+    },
+    {
+      "id": "vcs-boundary-without-config-selects-repository-root-not-launch-directory",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.selectedRoot": "/home/alice/mono/repo",
+        "provenance.stopReason": "VCS",
+        "provenance.walked.length": 2,
+        "provenance.walked.1.boundary": "VCS",
+        "provenance.configPath": null,
+        "provenance.vcs": {
+          "kind": "directory",
+          "target": null,
+          "followed": false
+        },
+        "provenance.nestedRepositories": []
+      }
+    },
+    {
+      "id": "monorepo-package-manifest-is-not-a-boundary",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/packages/a/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/packages/a": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/packages/a/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 300
+          },
+          "/home/alice/mono/packages/a/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/mono",
+        "provenance.walked.length": 4,
+        "provenance.stopReason": "CANDIDATE"
+      }
+    },
+    {
+      "id": "home-boundary-config-above-home-ignored",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/proj",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/opensip.json": {
+            "kind": "file",
+            "uid": 0,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/proj": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.stopReason": "HOME",
+        "provenance.walked.length": 2,
+        "provenance.walked.1.boundary": "HOME"
+      }
+    },
+    {
+      "id": "mount-boundary-inclusive-of-mount-root",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/Users/alice",
+        "cwd": "/Volumes/Work/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/Volumes": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/Volumes/opensip.json": {
+            "kind": "file",
+            "uid": 0,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/Volumes/Work": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 2
+          },
+          "/Volumes/Work/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 2
+          },
+          "/Volumes/Work/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 2
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.stopReason": "MOUNT",
+        "provenance.walked.length": 3,
+        "provenance.walked.2.boundary": "MOUNT"
+      }
+    },
+    {
+      "id": "filesystem-root-reached-without-candidate",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/srv/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.stopReason": "FS_ROOT",
+        "provenance.walked.length": 4
+      }
+    },
+    {
+      "id": "root-owned-ancestor-config-applies-root-is-in-the-tcb",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/srv/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/opensip.json": {
+            "kind": "file",
+            "uid": 0,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/",
+        "provenance.configPath": "/opensip.json",
+        "provenance.walked.length": 3
+      }
+    },
+    {
+      "id": "explicit-project-selects-exactly-no-walk",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/home/alice/repo/sub",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 120
+          },
+          "/home/alice/repo/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "explicit",
+        "provenance.selectedRoot": "/home/alice/repo/sub",
+        "provenance.configPath": null,
+        "provenance.walked.length": 1,
+        "provenance.stopReason": "EXPLICIT",
+        "provenance.explicitPathWasSymlink": false
+      }
+    },
+    {
+      "id": "explicit-foreign-owner-without-flag-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/srv/checkout",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "FOREIGN_OWNER",
+        "d9.exit": 2
+      }
+    },
+    {
+      "id": "explicit-foreign-owner-with-trust-project-owner-accepts",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/srv/checkout",
+        "trustProjectOwner": true,
+        "ci": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.custodyWaiver": "trustProjectOwner",
+        "provenance.configPath": "/srv/checkout/opensip.json",
+        "provenance.ci": true
+      }
+    },
+    {
+      "id": "trust-project-owner-never-waives-other-writable",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/srv/checkout",
+        "trustProjectOwner": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0777",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_OTHERS"
+      }
+    },
+    {
+      "id": "trust-project-owner-never-waives-config-group-write",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/srv/checkout",
+        "trustProjectOwner": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/srv/checkout/opensip.json": {
+            "kind": "file",
+            "uid": 1001,
+            "mode": "0664",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_GROUP"
+      }
+    },
+    {
+      "id": "trust-project-owner-without-explicit-path-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "trustProjectOwner": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID"
+      }
+    },
+    {
+      "id": "explicit-path-symlink-resolved-and-recorded",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/home/alice/link",
+        "explicitResolved": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/link": {
+            "kind": "symlink",
+            "uid": 1000
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/repo",
+        "provenance.explicitPathWasSymlink": true
+      }
+    },
+    {
+      "id": "explicit-path-absent-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/nope",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "ABSENT"
+      }
+    },
+    {
+      "id": "explicit-path-is-a-file-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice",
+        "explicitProject": "/home/alice/repo/opensip.json",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "NOT_A_DIRECTORY"
+      }
+    },
+    {
+      "id": "ci-mode-uses-the-same-walk-rule",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/sub",
+        "ci": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 120
+          },
+          "/home/alice/repo/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.ci": true,
+        "provenance.selectedRoot": "/home/alice/repo"
+      }
+    },
+    {
+      "id": "group-writable-own-directory-refuses-without-explicit-group-authorization",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_GROUP",
+        "provenance.selectedRoot": null
+      }
+    },
+    {
+      "id": "cwd-symlink-component-refuses-walk-uses-lstat",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/sub",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "symlink",
+            "uid": 1000
+          },
+          "/home/alice/repo/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.stopReason": "CUSTODY:SYMLINK",
+        "provenance.walked.1.custody": "SYMLINK"
+      }
+    },
+    {
+      "id": "group-writable-directory-with-explicitly-authorized-group-accepts",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "authorizedGroupIds": [
+          50
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "gid": 50,
+            "mode": "0775",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "gid": 50,
+            "mode": "0664",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/repo",
+        "provenance.authorizedGroupIds": [
+          50
+        ],
+        "provenance.configPath": "/home/alice/repo/opensip.json"
+      }
+    },
+    {
+      "id": "group-writable-directory-authorized-for-a-different-group-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "authorizedGroupIds": [
+          60
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "gid": 50,
+            "mode": "0775",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_GROUP"
+      }
+    },
+    {
+      "id": "group-writable-ancestor-is-a-boundary-config-above-it-never-read",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/shared/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "gid": 50,
+            "mode": "0775",
+            "dev": 1
+          },
+          "/home/alice/shared/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/shared/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/shared/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "cwd-default",
+        "provenance.selectedRoot": "/home/alice/shared/repo/src",
+        "provenance.stopReason": "CUSTODY:WRITABLE_BY_GROUP",
+        "provenance.walked.2.candidate": "NOT_EXAMINED",
+        "provenance.configPath": null
+      }
+    },
+    {
+      "id": "acl-write-grant-to-another-user-on-directory-refuses-mode-bits-alone-insufficient",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "aclWrite": [
+              "uid:1001"
+            ]
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0600",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_ACL",
+        "path": "/home/alice/repo"
+      }
+    },
+    {
+      "id": "acl-write-grant-to-another-group-on-config-file-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100,
+            "aclWrite": [
+              "group:70"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "CONFIG.CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_ACL",
+        "provenance.walked.0.candidate": "REFUSED"
+      }
+    },
+    {
+      "id": "acl-write-grant-to-self-and-root-is-custody-preserving",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "aclWrite": [
+              "uid:1000",
+              "uid:0"
+            ]
+          },
+          "/home/alice/repo/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/repo"
+      }
+    },
+    {
+      "id": "acl-write-grant-to-authorized-group-accepts",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "authorizedGroupIds": [
+          50
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "aclWrite": [
+              "group:50"
+            ]
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/repo"
+      }
+    },
+    {
+      "id": "unreadable-acl-on-cwd-refuses-custody-cannot-be-established",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "aclUnreadable": true
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "ACL_UNREADABLE"
+      }
+    },
+    {
+      "id": "vcs-indirection-file-is-data-recorded-never-followed",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/wt/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/wt": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": {
+              "kind": "indirection",
+              "target": "/tmp/evil/.git"
+            }
+          },
+          "/home/alice/wt/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.selectedRoot": "/home/alice/wt",
+        "provenance.vcs": {
+          "kind": "indirection",
+          "target": "/tmp/evil/.git",
+          "followed": false
+        }
+      }
+    },
+    {
+      "id": "nested-repositories-under-selected-root-are-recorded-not-entered",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/mono",
+        "provenance.nestedRepositories": [
+          "/home/alice/mono/vendor/lib"
+        ],
+        "provenance.configPath": null,
+        "provenance.units": []
+      }
+    },
+    {
+      "id": "explicit-monorepo-joins-are-custody-checked-units",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono",
+        "explicitJoins": [
+          "packages/a",
+          "packages/b"
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/packages/a": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/packages/b": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.selectedRoot": "/home/alice/mono",
+        "provenance.units": [
+          {
+            "path": "/home/alice/mono/packages/a",
+            "kind": "explicit-join",
+            "markers": []
+          },
+          {
+            "path": "/home/alice/mono/packages/b",
+            "kind": "explicit-join",
+            "markers": []
+          }
+        ],
+        "provenance.unitSource": "explicit-joins"
+      }
+    },
+    {
+      "id": "explicit-join-escaping-the-root-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono",
+        "explicitJoins": [
+          "../other"
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/other": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_PATH_GRAMMAR",
+        "path": "../other"
+      }
+    },
+    {
+      "id": "explicit-join-through-other-writable-directory-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono",
+        "explicitJoins": [
+          "packages/a"
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0777",
+            "dev": 1
+          },
+          "/home/alice/mono/packages/a": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "detail": "WRITABLE_BY_OTHERS",
+        "path": "/home/alice/mono/packages"
+      }
+    },
+    {
+      "id": "explicit-join-absent-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono",
+        "explicitJoins": [
+          "packages/zz"
+        ],
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "ABSENT"
+      }
+    },
+    {
+      "id": "launch-directory-inside-repo-without-config-ci-selects-repo-root-deterministically",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/deep/er",
+        "ci": true,
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/deep": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/deep/er": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.selectedRoot": "/home/alice/repo",
+        "provenance.ci": true
+      }
+    },
+    {
+      "id": "zero-config-monorepo-discovers-language-workspace-units-automatically-inside-the-admitted-root",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.selectedRoot": "/home/alice/mono",
+        "provenance.unitSource": "automatic",
+        "provenance.units": [
+          {
+            "path": "/home/alice/mono",
+            "kind": "workspace-auto",
+            "markers": [
+              "Cargo.toml"
+            ]
+          },
+          {
+            "path": "/home/alice/mono/crates/core",
+            "kind": "workspace-auto",
+            "markers": [
+              "Cargo.toml"
+            ]
+          },
+          {
+            "path": "/home/alice/mono/web",
+            "kind": "workspace-auto",
+            "markers": [
+              "package.json",
+              "tsconfig.json"
+            ]
+          }
+        ],
+        "provenance.nestedRepositories": [
+          "/home/alice/mono/vendor/lib"
+        ],
+        "provenance.excludedUnits": [
+          {
+            "path": "/home/alice/mono/shared",
+            "reason": "DIRECTORY_CUSTODY:WRITABLE_BY_GROUP"
+          },
+          {
+            "path": "/home/alice/mono/tools",
+            "reason": "MARKER_CUSTODY:jsconfig.json:WRITABLE_BY_OTHERS"
+          },
+          {
+            "path": "/home/alice/mono/vendor/lib",
+            "reason": "INSIDE_NESTED_REPOSITORY"
+          }
+        ]
+      }
+    },
+    {
+      "id": "trust-group-admits-the-group-writable-workspace-unit",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "authorizedGroupIds": [
+          500
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.units.length": 4,
+        "provenance.units.2.path": "/home/alice/mono/shared",
+        "provenance.excludedUnits.length": 2
+      }
+    },
+    {
+      "id": "config2-workspace-roots-override-automatic-discovery-with-the-same-custody-checks",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "configWorkspaceRoots": [
+          "web"
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.unitSource": "config-workspace-roots",
+        "provenance.units": [
+          {
+            "path": "/home/alice/mono/web",
+            "kind": "config-workspace-root",
+            "markers": [
+              "package.json",
+              "tsconfig.json"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "config2-workspace-root-through-group-writable-directory-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "configWorkspaceRoots": [
+          "shared"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.ROOT_CUSTODY_REFUSED",
+        "path": "/home/alice/mono/shared",
+        "detail": "WRITABLE_BY_GROUP"
+      }
+    },
+    {
+      "id": "config2-workspace-root-crossing-into-nested-repository-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "configWorkspaceRoots": [
+          "vendor/lib"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_CROSSES_NESTED_REPOSITORY"
+      }
+    },
+    {
+      "id": "explicit-joins-take-precedence-over-config2-workspace-roots",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "explicitJoins": [
+          "crates/core"
+        ],
+        "configWorkspaceRoots": [
+          "web"
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.unitSource": "explicit-joins",
+        "provenance.units.length": 1,
+        "provenance.units.0.markers": [
+          "Cargo.toml"
+        ]
+      }
+    },
+    {
+      "id": "explicit-join-with-backslash-segment-refuses-grammar",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/crates/core",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/web/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/shared": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0775",
+            "gid": 500,
+            "dev": 1
+          },
+          "/home/alice/mono/shared/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/tools": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/tools/jsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 100
+          }
+        },
+        "explicitJoins": [
+          "crates\\core"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_PATH_GRAMMAR"
+      }
+    },
+    {
+      "id": "installed-dependencies-and-cargo-build-output-are-pruned-by-segment-legal-target-directories-stay-units",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.unitSource": "automatic",
+        "provenance.units": [
+          {
+            "path": "/home/alice/repo",
+            "kind": "workspace-auto",
+            "markers": [
+              "Cargo.toml",
+              "package.json"
+            ]
+          },
+          {
+            "path": "/home/alice/repo/packages/target",
+            "kind": "workspace-auto",
+            "markers": [
+              "package.json"
+            ]
+          },
+          {
+            "path": "/home/alice/repo/packages/web",
+            "kind": "workspace-auto",
+            "markers": [
+              "package.json"
+            ]
+          },
+          {
+            "path": "/home/alice/repo/src/target",
+            "kind": "workspace-auto",
+            "markers": [
+              "tsconfig.json"
+            ]
+          }
+        ],
+        "provenance.prunedTrees": [
+          {
+            "path": "/home/alice/repo/node_modules",
+            "reason": "dependency-tree",
+            "markerCount": 3
+          },
+          {
+            "path": "/home/alice/repo/packages/web/node_modules",
+            "reason": "dependency-tree",
+            "markerCount": 1
+          },
+          {
+            "path": "/home/alice/repo/target",
+            "reason": "cargo-build-output",
+            "markerCount": 1
+          }
+        ],
+        "provenance.excludedUnits": [],
+        "provenance.nestedProjects": []
+      },
+      "note": "packages/target and src/target are ordinary source directories: their parents hold no Cargo.toml. node_modules/rusty/Cargo.toml does not make a Cargo root. Four first-party units, three pruned trees, no cap pressure."
+    },
+    {
+      "id": "config2-workspace-root-dot-names-the-admitted-root-under-the-shared-sentinel-normalization",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "."
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.unitSource": "config-workspace-roots",
+        "provenance.units": [
+          {
+            "path": "/home/alice/repo",
+            "kind": "config-workspace-root",
+            "markers": [
+              "Cargo.toml",
+              "package.json"
+            ]
+          }
+        ],
+        "provenance.warnings": []
+      }
+    },
+    {
+      "id": "cli-workspace-root-with-trailing-slash-normalizes-like-the-native-instrument-config2-refuses-it-earlier",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "explicitJoins": [
+          "packages/web/"
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.units": [
+          {
+            "path": "/home/alice/repo/packages/web",
+            "kind": "explicit-join",
+            "markers": [
+              "package.json"
+            ]
+          }
+        ],
+        "provenance.unitSource": "explicit-joins"
+      },
+      "note": "CLI --workspace-root values are normalized by the shared rule (one trailing `/` dropped). A Config2 discovery.workspaceRoots value spelled `packages/web/` is refused by the foundation product-configuration resolver (CONFIG_LOGICAL_PATH) before either instrument sees it (post-reset review v2 A-4); this case therefore models the CLI path only."
+    },
+    {
+      "id": "explicit-root-without-a-language-marker-admits-custody-and-warns-the-language-layer-refuses-config-invalid",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "docs"
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.units": [
+          {
+            "path": "/home/alice/repo/docs",
+            "kind": "config-workspace-root",
+            "markers": []
+          }
+        ],
+        "provenance.warnings": [
+          "EXPLICIT_ROOT_WITHOUT_LANGUAGE_MARKER:/home/alice/repo/docs"
+        ]
+      },
+      "note": "Explicit roots are exact roots, never scan roots. Custody is admitted here; native discover_units refuses the same root as CONFIG.INVALID native.explicit-root-without-marker, so the invocation terminates typed with this provenance retained."
+    },
+    {
+      "id": "explicit-root-inside-an-installed-dependency-tree-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "node_modules/left-pad"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "path": "/home/alice/repo/node_modules/left-pad",
+        "detail": "JOIN_INSIDE_PRUNED_TREE:dependency-tree:node_modules",
+        "d9": {
+          "class": "request-rejected",
+          "exit": 2,
+          "code": "CONFIG.INVALID"
+        }
+      }
+    },
+    {
+      "id": "explicit-root-inside-cargo-build-output-refuses-but-a-source-directory-called-target-is-admitted",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "target/debug"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_INSIDE_PRUNED_TREE:cargo-build-output:target"
+      }
+    },
+    {
+      "id": "explicit-root-source-directory-called-target-is-admitted",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "packages/target"
+        ]
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.units": [
+          {
+            "path": "/home/alice/repo/packages/target",
+            "kind": "config-workspace-root",
+            "markers": [
+              "package.json"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "explicit-root-empty-string-and-dot-segments-are-grammar-refusals",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/left-pad/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/lodash": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/lodash/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/node_modules/rusty": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/node_modules/rusty/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/target/debug/build/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/target/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/packages/web/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/packages/web/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/src/target/tsconfig.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/repo/docs": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "configWorkspaceRoots": [
+          "packages/./web"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_PATH_GRAMMAR"
+      }
+    },
+    {
+      "id": "nested-config-inside-a-vcs-root-is-a-deliberate-project-boundary-launch-inside-selects-it",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/site/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other/deep": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "config",
+        "provenance.selectedRoot": "/home/alice/mono/site",
+        "provenance.configPath": "/home/alice/mono/site/opensip.json",
+        "provenance.stopReason": "CANDIDATE",
+        "provenance.units": [
+          {
+            "path": "/home/alice/mono/site",
+            "kind": "workspace-auto",
+            "markers": [
+              "package.json"
+            ]
+          }
+        ],
+        "provenance.nestedProjects": []
+      }
+    },
+    {
+      "id": "nested-config-inside-a-vcs-root-launch-elsewhere-selects-the-vcs-root-and-never-enters-the-nested-project",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/other/deep",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other/deep": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "status": "ACCEPT",
+        "provenance.mode": "vcs-default",
+        "provenance.selectedRoot": "/home/alice/mono",
+        "provenance.nestedProjects": [
+          "/home/alice/mono/site"
+        ],
+        "provenance.units": [
+          {
+            "path": "/home/alice/mono",
+            "kind": "workspace-auto",
+            "markers": [
+              "Cargo.toml"
+            ]
+          },
+          {
+            "path": "/home/alice/mono/crates/core",
+            "kind": "workspace-auto",
+            "markers": [
+              "Cargo.toml"
+            ]
+          }
+        ],
+        "provenance.excludedUnits": [
+          {
+            "path": "/home/alice/mono/site",
+            "reason": "INSIDE_NESTED_PROJECT"
+          }
+        ]
+      },
+      "note": "The decision (ADV-3): a config file is an author-declared project boundary. It wins over the VCS root for launches inside it, and the enclosing VCS-root project treats it like a nested repository: recorded, never entered. Scope therefore depends on which project you launched in, never on which directory of one project."
+    },
+    {
+      "id": "explicit-join-crossing-into-a-nested-project-refuses",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/other",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other/deep": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        },
+        "explicitJoins": [
+          "site/src"
+        ]
+      },
+      "expect": {
+        "status": "REFUSE",
+        "refusal": "PROJECT.EXPLICIT_PATH_INVALID",
+        "detail": "JOIN_CROSSES_NESTED_PROJECT",
+        "path": "/home/alice/mono/site/src"
+      }
+    },
+    {
+      "id": "boundary-inventory-exports-nested-repository-and-nested-project-as-relative-scope-paths",
+      "model": "boundary-inventory",
+      "outputSchema": "AdmittedBoundaryInventoryV1",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/vendor/lib/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps/site/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site/sub/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          }
+        }
+      },
+      "expect": {
+        "schemaVersion": 1,
+        "source": "security.discovery",
+        "selectedRoot": "/home/alice/repo",
+        "nestedRepositories": [
+          "vendor/lib"
+        ],
+        "nestedProjects": [
+          "apps/site"
+        ],
+        "custodyExcludedUnits": [],
+        "prunedTrees": [
+          {
+            "path": "vendor/lib/node_modules",
+            "reason": "dependency-tree",
+            "markerCount": 1
+          }
+        ]
+      },
+      "note": "The post-reset v2 P3 fixture. The inventory is the trusted output an operational host passes unchanged to the native discover_units; absolute custody locators become relative scope paths under the selected root."
+    },
+    {
+      "id": "boundary-inventory-from-a-launch-inside-the-nested-config-names-no-boundary",
+      "model": "boundary-inventory",
+      "outputSchema": "AdmittedBoundaryInventoryV1",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/mono/site/src",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/mono": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/mono/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/crates": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/crates/core/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 100
+          },
+          "/home/alice/mono/site/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/mono/other/deep": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          }
+        }
+      },
+      "expect": {
+        "selectedRoot": "/home/alice/mono/site",
+        "nestedRepositories": [],
+        "nestedProjects": [],
+        "custodyExcludedUnits": [],
+        "prunedTrees": []
+      }
+    },
+    {
+      "id": "boundary-inventory-carries-custody-excluded-units-verbatim",
+      "model": "boundary-inventory",
+      "outputSchema": "AdmittedBoundaryInventoryV1",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0666",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/tools": {
+            "kind": "dir",
+            "uid": 1001,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/tools/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          }
+        }
+      },
+      "expect": {
+        "selectedRoot": "/home/alice/repo",
+        "nestedRepositories": [],
+        "nestedProjects": [],
+        "custodyExcludedUnits": [
+          {
+            "path": "",
+            "reason": "MARKER_CUSTODY:Cargo.toml:WRITABLE_BY_OTHERS"
+          },
+          {
+            "path": "tools",
+            "reason": "DIRECTORY_CUSTODY:FOREIGN_OWNER"
+          }
+        ]
+      },
+      "note": "Custody-excluded units are explicit unknown required scope (S3); the native layer marks their files outside-project-boundary rather than scanning uncustodied source."
+    },
+    {
+      "id": "boundary-inventory-of-a-refused-discovery-exports-nothing",
+      "model": "boundary-inventory",
+      "input": {
+        "invokingUid": 1000,
+        "accountHome": "/home/alice",
+        "cwd": "/home/alice/repo",
+        "fs": {
+          "/": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home": {
+            "kind": "dir",
+            "uid": 0,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0700",
+            "dev": 1
+          },
+          "/home/alice/repo": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/vendor": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1,
+            "vcs": true
+          },
+          "/home/alice/repo/vendor/lib/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/vendor/lib/src": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules/x": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/vendor/lib/node_modules/x/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site/opensip.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps/site/package.json": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          },
+          "/home/alice/repo/apps/site/sub": {
+            "kind": "dir",
+            "uid": 1000,
+            "mode": "0755",
+            "dev": 1
+          },
+          "/home/alice/repo/apps/site/sub/Cargo.toml": {
+            "kind": "file",
+            "uid": 1000,
+            "mode": "0644",
+            "nlink": 1,
+            "size": 10
+          }
+        },
+        "trustProjectOwner": true
+      },
+      "expectReject": "BOUNDARY_INVENTORY_REQUIRES_ACCEPT"
+    }
+  ]
+}

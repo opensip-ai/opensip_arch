@@ -1,0 +1,82 @@
+{
+  "newShouldIssues": [
+    {
+      "id": "V23-S1",
+      "severity": "SHOULD",
+      "class": "two published statements disagree",
+      "title": "a graph endpoint of kind=package without packageManifestPath: section 2 says QUERY.ENDPOINT_AMBIGUOUS, but the owning schema REQUIRES the coordinate and section 8 admits the request against that schema before endpoints",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 2 \"Fault precedence\" step 2",
+        "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 8 steps 1 and 5",
+        "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 7 row \"malformed graph params\"",
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json#/$defs/GraphEndpoint allOf (kind=package then required packageManifestPath)"
+      ],
+      "whatWasAttempted": "executing the section-8 steps for {universe, kind: package, nativeSubjectId: app} with no coordinate",
+      "whatTheKitSays": "step 1 of section 2 lists the malformed shapes and does NOT include a missing package coordinate, which step 2 routes to ENDPOINT_AMBIGUOUS; the schema refuses the same request at section-8 step 1, whose section-7 row is PARAMS_MALFORMED",
+      "consequence": "same request, different DomainDetail (and a different remedy)",
+      "readingApplied": "I-Q4: the section-2 precedence decides; the executor re-admits the request with a placeholder coordinate and, if that is the only schema fault, emits ENDPOINT_AMBIGUOUS; both boundaries are retained (query/graph-query-reconstruction.json package-endpoint-without-manifest-path)",
+      "smallestFix": "say in section 2 (or section 8 step 1) that a schema refusal whose only fault is the package coordinate maps to QUERY.ENDPOINT_AMBIGUOUS, or relax the request-side GraphEndpoint requirement"
+    },
+    {
+      "id": "V23-S2",
+      "severity": "SHOULD",
+      "class": "two published statements disagree",
+      "title": "native-evidence section 10 names VERDICT.INDETERMINATE as the existing code for required-relation-missing, language-tier-unsupported and confidence-floor-unmet; the D9 exit contract terminates those Runs with COVERAGE.REQUIRED_RELATION_MISSING, COVERAGE.LANGUAGE_TIER_UNSUPPORTED and COVERAGE.CONFIDENCE_FLOOR_UNMET",
+      "selectors": [
+        "docs/v2/contracts/product-v1/native-evidence.md section 10 table columns \"D9 class (host-owned)\" and \"Existing code\"",
+        "docs/coop/artifacts/d9-exit-contract.v1.14.json scenarios analysis-required-coverage-missing, analysis-language-tier-unsupported, analysis-confidence-floor-unmet expectedTermination",
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json#/$defs/D9Deficiency description (\"per native-evidence.md section 10\")"
+      ],
+      "whatWasAttempted": "projecting the sealed TypeScript and rust Runs (required-cell-unsatisfied) and syntax-data (language-tier-unsupported) onto a whole-Run termination",
+      "whatTheKitSays": "both documents call the code the existing D9 code for the deficiency; neither says which surface its column governs",
+      "consequence": "the same sealed Run yields different termination reasonCodes",
+      "readingApplied": "the D9 exit contract governs whole-Run terminations (it is the D9 owner and its rows carry the host axes); lib/phase7.py d9_projection and the audit re-derivation use its scenario rows",
+      "smallestFix": "state that the section-10 column is the per-requirement / DomainDetail route and the D9 scenarios are the whole-Run termination, or align the three codes"
+    },
+    {
+      "id": "V23-S3",
+      "severity": "SHOULD",
+      "class": "missing contract",
+      "title": "graph-query availability `unavailable` must refuse with HOST.IO_FAILURE / evidence.*, but no evidence.* DomainDetailCode names it",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 7 identity availability paragraph",
+        "docs/v2/contracts/product-v1/identity-and-evidence.md section 5 (\"known purged, expired, corrupt or unavailable required evidence produces operational-failed / HOST.IO_FAILURE / exit 4\")",
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json#/$defs/DomainDetailCode (evidence.corrupt, expired, missing, pinned, purged, regeneration-mismatch)"
+      ],
+      "whatWasAttempted": "building the failure envelope for each availability state the selector names",
+      "whatTheKitSays": "purged, expired and corrupt have members; unavailable has none, and a kind=failure envelope requires a nonempty errors array of DomainDetail",
+      "consequence": "a consumer must choose a detail (evidence.missing? another?) that the kit does not name",
+      "readingApplied": "none invented: the executor exercises purged and corrupt only, and treats unavailable as unexercised",
+      "smallestFix": "name the detail for `unavailable` (a registered member or an explicit mapping)"
+    }
+  ],
+  "newAdvisories": [
+    {
+      "id": "V16-A3",
+      "severity": "advisory",
+      "class": "wording",
+      "title": "`traversalCoverage` and native CoverageResult share the word \"coverage\" while being different obligations",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json#/$defs/TraversalCoverage",
+        "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/CoverageResultV3"
+      ],
+      "observation": "the schema already says \"Not native CoverageResult\" in both places, which is why this is only advisory. The shared noun still invites a consumer to report a COMPLETE traversal over an INCOMPLETE evidence base as evidence completeness.",
+      "howThisOriginHandledIt": "the two are carried in different required fields and reported separately, with an explicit statement of why: see query/graph-query-reconstruction.json evidenceLimitationsVersusStoredEdgeCompletion.",
+      "whyOnlyAdvisory": "the distinction IS published; only the naming is inviting."
+    },
+    {
+      "id": "V23-A1",
+      "severity": "advisory",
+      "class": "carrier choice not stated",
+      "title": "an invocation interrupted before any Run commits has no single stated envelope kind: kind=run requires a run, kind=failure requires a DomainDetail and no registered code names an interruption",
+      "selectors": [
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json allOf (kind=run requires run; kind=failure requires errors)",
+        "docs/coop/design-corrections/workflows/command-inventory.v3.json golden interrupted-before-settle",
+        "docs/v2/contracts/product-v1/workflows-and-surfaces.md section 1 \"Cancellation\""
+      ],
+      "observation": "the golden fixes class interrupted and exit 130; kind=invocation with a cancelled step carries that without inventing a detail, but nothing says a single-step builtin uses it",
+      "howThisOriginHandledIt": "envelopes/public-termination.json termination-interrupted-before-settle is kind=invocation and says why",
+      "whyOnlyAdvisory": "every command-inventory parity field (termination-class, exit) is the same under either lawful carrier"
+    }
+  ]
+}

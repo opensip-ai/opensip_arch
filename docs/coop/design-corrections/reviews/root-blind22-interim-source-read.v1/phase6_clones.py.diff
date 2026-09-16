@@ -1,0 +1,176 @@
+--- historical20/phase6_clones.py
++++ ACTIVE22/phase6_clones.py
+@@ -21,7 +21,7 @@
+ import opensip_closure as CL
+ import opensip_eval as E
+ 
+-OUT = '/tmp/opensip-design-corrections/consumer-b.v20/output'
++OUT = '/tmp/opensip-design-corrections/consumer-b.v22/output'
+ KIT = S.KIT
+ 
+ 
+@@ -275,6 +275,142 @@
+                 'from another relation ladder is refused rather than ranked.')}
+ 
+ 
++# ------------------------------------- R-MIN-RESOLUTION-THREE-LEVELS, atom level (generation 22)
++class _AtomInputs:
++    """A typed SYNTHETIC input closure for the PRODUCT atom evaluator -- a helper-only
++    observation, not a Run -- carrying exactly the attributes opensip_eval reads."""
++    ladder = E.Inputs.ladder
++    rung_index = E.Inputs.rung_index
++    subject_kind_of_relation = E.Inputs.subject_kind_of_relation
++    source_field = E.Inputs.source_field
++    capability_for_relation = E.Inputs.capability_for_relation
++
++    def __init__(self, model):
++        self.relreg = json.load(open(KIT + '/' + S.doc_path(B.RELATION_DOC)))[
++            'x-opensip-relation-registry']
++        self.projreg = json.load(open(KIT + '/' + S.doc_path(
++            'foundation/evaluator-projection-registry.v1.json')))
++        self.enumeration_plan = {'cells': model['cells']}
++        self.universes = {u: (d, {}) for u, d in model['universeDomains'].items()}
++        self.facts = {f['id']: f['record'] for f in model['facts']}
++        self.fact_payloads = {f['id']: f['payload'] for f in model['facts']}
++        self.scopes = {s['id']: s['record'] for s in model['scopes']}
++        self.coverages = {c['id']: {'scopeId': c['scopeId']} for c in model['coverages']}
++        self.coverage_payloads = {c['id']: c['payload'] for c in model['coverages']}
++
++
++def min_resolution_atom_law():
++    """The three levels evaluated as ATOMS under the generation-22 atom contract s4 (not only as
++    sufficiency results): qualifying fact + complete Coverage; an insufficient fact (lower rung
++    of the same ladder, or none on a one-rung ladder) beside complete Coverage; insufficient
++    typed Coverage; missing relation Coverage (the three-valued case); a known fact beside
++    missing Coverage (completeness independent of truth); and, on the resolved levels, a
++    partial resolution under a universal negative. Coverage payloads are TEMPLATED from real
++    admitted payloads of the TypeScript Run and admitted against CoverageResultV3 before use;
++    facts are minimal records carrying only what the evaluator reads."""
++    st, c, _doc = load('typescript')
++    templates = {}
++    for cid, cv in c.coverages_seen.items():
++        pay = c.canonical_record(cv['payloadDigest'], B.NATIVE_DOC, '#/$defs/CoverageResultV3',
++                                 'P6MRT')
++        templates.setdefault(pay['key']['resolution'] in E.RESOLVED_RUNGS, pay)
++    U = [t.split('#', 1)[1] for t in st.objects
++         if t.startswith('native.semantic-universe.typescript.v2#')][0]
++    DOM = 'native.semantic-universe.typescript.v2'
++    nid = 'ts:src/min.ts#f'
++    subject = {'schemaVersion': 3, 'universe': U, 'kind': 'symbol', 'nativeSubjectId': nid}
++    levels = [('syntactic', 'declares', 'syntactic', None, 'syntax'),
++              ('resolved', 'imports', 'resolved-target', 'syntactic-specifier', 'imports'),
++              ('type', 'types', 'checked', 'annotated', 'types')]
++    field = {'declares': 'declared', 'imports': 'importer', 'types': 'subject'}
++    sid, cid = 'scope2:' + '5' * 64, 'coverage2:' + '6' * 64
++
++    def payload(rel, rung, coverage='complete', deficiency=None, nc=None, state=None):
++        p = json.loads(json.dumps(templates[rung in E.RESOLVED_RUNGS]))
++        p['key'].update({'relation': rel, 'resolution': rung, 'sourceUniverse': U,
++                         'targetUniverse': U})
++        p['entry'].update({'relation': rel, 'resolution': rung, 'coverage': coverage,
++                           'deficiency': deficiency, 'nativeCause': nc})
++        if state:
++            p['entry']['resolutionCompleteness']['state'] = state
++        return p
++
++    def fact(rel, rung, n=1):
++        return {'id': 'fact2:%s' % (('%d' % n) * 64), 'record': {
++            'relation': rel, 'resolution': rung, 'sourceUniverse': U, 'anchors': []},
++            'payload': {field[rel]: nid}}
++
++    out = []
++    for level, rel, rung, lower, cap in levels:
++        cells = [{'capabilityId': cap, 'languageMode': 'ts-tsconfig',
++                  'programBindings': [{'universe': U}]}]
++        scope = {'id': sid, 'record': {'relation': rel, 'resolution': rung,
++                                       'sourceUniverse': U, 'subjects': [nid]}}
++        resolved = rung in E.RESOLVED_RUNGS
++        specs = [
++            ('qualifying-fact-and-complete-coverage', [fact(rel, rung)], [scope],
++             [payload(rel, rung)], cells,
++             {'exists': 'true', 'none': 'false'}, 'A1 + A9: a match at the atom rung decides it'),
++            ('insufficient-fact-beside-complete-coverage',
++             [fact(rel, lower)] if lower else [], [scope], [payload(rel, rung)], cells,
++             {'exists': 'false', 'none': 'true'},
++             'a fact on a LOWER rung of the same ladder does not witness the atom; examined '
++             'absence at the atom rung is a determinate negative'),
++            ('insufficient-typed-coverage', [], [scope],
++             [payload(rel, rung, 'unknown', 'input-closure-incomplete', 'no-program-unit')], cells,
++             {'exists': 'indeterminate', 'none': 'indeterminate'},
++             's4 outgoing 4: unsatisfied view -> coverage-unknown with the typed carrier'),
++            ('missing-relation-coverage-is-three-valued', [], [], [], cells,
++             {'exists': 'indeterminate', 'none': 'indeterminate'},
++             's4 outgoing 2: no containing scope -> uncovered-expected-source-subject; never a '
++             'vacuous false'),
++            ('known-fact-beside-missing-coverage', [fact(rel, rung)], [], [], cells,
++             {'exists': 'true', 'none': 'false'},
++             's4 "a known match still makes exists true, none false"'),
++        ]
++        if resolved:
++            specs.append(('partial-resolution-under-a-universal-negative', [], [scope],
++                          [payload(rel, rung, state='partial')], cells,
++                          {'exists': 'false', 'none': 'indeterminate'},
++                          'native s4.6 step 6 applies to the universal negative only'))
++        cases = []
++        for name, facts, scopes, pays, cls, expect, clause in specs:
++            model = {'cells': cls, 'universeDomains': {U: DOM}, 'subject': subject,
++                     'facts': facts, 'scopes': scopes,
++                     'coverages': [{'id': cid, 'scopeId': sid, 'payload': p} for p in pays]}
++            adm = [S.admit(B.NATIVE_DOC, '#/$defs/CoverageResultV3', cov['payload'],
++                           'min-resolution:' + name) for cov in model['coverages']]
++            for op, want in sorted(expect.items()):
++                inp = _AtomInputs(model)
++                atom = {'op': op, 'relation': rel, 'minResolution': rung, 'filters': []}
++                r = E.evaluate_native_atom(inp, atom, subject, None, None, [])
++                got = {'value': r['value'], 'causes': r['causes'],
++                       'nativeDeficiencies': r['nativeDeficiencies'],
++                       'coverageIds': r['coverageIds'], 'scopeIds': r['scopeIds'],
++                       'returnedAt': r['completeness']['returnedAt']}
++                cases.append({'case': name, 'atom': atom, 'clause': clause,
++                              'standing': 'SYNTHETIC helper-only input closure',
++                              'inputs': model,
++                              'coverageAdmissions': [{'admitted': a['admitted'],
++                                                      'stockSchemaErrors': a['stockSchemaErrors'][:2],
++                                                      'publishedKeywordRefusals':
++                                                          a['publishedKeywordRefusals'][:2]}
++                                                     for a in adm],
++                              'expected': {'value': want}, 'productResult': got,
++                              'pass': got['value'] == want and all(a['admitted'] for a in adm)})
++        out.append({'level': level, 'relation': rel, 'atomMinResolution': rung,
++                    'rungBelow': lower, 'cases': cases})
++    bad = [(lv['level'], cs['case'], cs['atom']['op'], cs['productResult']['value'])
++           for lv in out for cs in lv['cases'] if not cs['pass']]
++    return {'requirement': 'R-MIN-RESOLUTION-THREE-LEVELS (atom level, generation 22)',
++            'classification': 'measured',
++            'law': ('foundation/atom-evaluation-contract.v1.md s4 (completeness result, outgoing '
++                    'steps 1-4, dependency view) + s5 quantifier + native-evidence s4.6, through '
++                    'opensip_eval.evaluate_native_atom; re-derived independently by '
++                    'lib/indep_atom_law.py from the inputs retained here'),
++            'levels': out, 'failures': bad}
++
++
+ def min_resolution():
+     """Three LEVELS on three different ladders, each with a qualifying and an insufficient
+     pairing. The evaluator's own atom evaluation decides it: a fact at a rung below the atom's
+@@ -341,17 +477,20 @@
+ 
+ 
+ def main():
+-    out = {'consumerId': 'consumer-b.v20',
++    out = {'consumerId': 'consumer-b.v22',
+            'jsBodyThroughTs': js_body_through_ts(),
+            'cloneNegatives': clone_negatives(),
+            'minResolutionLaw': min_resolution_law(),
++           'minResolutionAtom': min_resolution_atom_law(),
+            'minResolution': min_resolution()}
++    assert not out['minResolutionAtom']['failures'], out['minResolutionAtom']['failures']
+     with open(OUT + '/vectors/js-body-through-ts.json', 'w') as f:
+         json.dump(out['jsBodyThroughTs'], f, indent=1, default=str)
+     with open(OUT + '/vectors/clones-negatives.json', 'w') as f:
+         json.dump(out['cloneNegatives'], f, indent=1, default=str)
+     with open(OUT + '/vectors/min-resolution.json', 'w') as f:
+         json.dump({'lawHalf': out['minResolutionLaw'],
++                   'atomLevelHalf': out['minResolutionAtom'],
+                    'retainedGraphHalf': out['minResolution']}, f, indent=1, default=str)
+     j = out['jsBodyThroughTs']
+     print('R-JS-CLONE-BODY-THROUGH-TS  jsBodies=%d tsBodies=%d distinctBodyIdentities=%d'

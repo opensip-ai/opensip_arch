@@ -1,0 +1,53 @@
+# Active implementation work
+
+User authorizes continuous implementation with actual Grok reviewing and Codex leading until the project is implemented. Product lives in `/Users/sb/code/opensip-ai/opensip`; design/evidence here. Preserve dirty working trees and immutable review history. No new implementation commit/push authority. Do not substitute GPT for Grok or claim Claude agreement. No goal tool or GPT subagents active.
+
+## Current product
+
+Live design lock has **seven inventory and seven contract successors**, selected inventory9 (330file responsibilities/20packages), with three correctly projected inventory description overrides (CLI plus root/report manifest). Metadata CLI, contracts/identity,44schema/source files,8generated outputs, generator05, TypeScript checker10/wrapper/independent npm lanes, Cargo internal-edge checker and the platform entropy backend guard are installed.
+
+- Generator05: `m1/trials/generator-materialization-05`, private activation02. Live zero drift again after bootstrap. Old04 Python launcher failure remains preserved.
+- Bootstrap: `m1/trials/bootstrap-materialization-01` is PRODUCT-BOOTSTRAP-VERIFIED-INCOMPLETE-M1.52ownedfiles/160checker execution pins. Actual Grok design acceptance/root assent at `bootstrap-selection-v1-unit.json`; inventory7/8 accepted/installed. Private activation18commands passed; live all3TS lanes, Cargo graph and8output generator drift passed. Actual private reproduction at `/tmp/opensip-implementation/m1-bootstrap-activation-01`; liveverification sibling. No need repeat completed integration.
+- Entropy guard: `m1/trials/platform-backend-materialization-01` is PRODUCT-BACKEND-GUARD-VERIFIED-INCOMPLETE-M1.4ownedfiles. Actual Grok implementation/design review/root assent at `platform-backend-selection-v1-unit.json`; inventory9 accepted/installed. Private5realCargo controls,22Rustworkspace tests,strictClippy/fmt/packagegraph passed; live platform build and all3TS/design lanes passed. Closes only effective getrandom_backend override gap; fullA03/native build/platform qualifications remain. Tools README updated under actual selection.
+
+Implementation README is current. Entire project remains incomplete: M1 needs remaining isolated build/source/asset duties and fresh blind consumerB. M2/M3/M5/M6 not done; M4 staged views reviewed but full app/host delivery and R11retained source locations not integrated.32release and54recovery gates remain unperformed.
+
+## Actual Grok review now in progress
+
+Herdr Grok4.6(xhigh) `wN:p1`; root `wH:p1`. Use Herdr skill/public APIs, not private session files. Review task `/tmp/opensip-implementation/m1-grok-contracts-dependency-selection-v1-review/{prompt.md,review}`. Expected separate **inventory-review.md/json** and **selection-review.md/json**. Wait for substantive artifacts; pane done can precede completion or mean background test still running. No root command sessions active at this checkpoint.
+
+Two frozen architecture units:
+
+1. `m1/tooling-inventory-v10-subject.json`:3members, SHA7afbd34e564f6898ccc07fab63776eeaac6da59b7312fbfddd66d178caf7df6f.333rows preserve330inventory9rows/20packages; adds tools/check_dependencies.py, tools/contracts/dependency-policy.json, tools/tests/test_dependency_policy.py. Not accepted/installed yet.
+2. `m1/contracts-dependency-selection-v1-subject.json`:24members, SHAd6404eb9e18bdb7f7f76d57545e0e327154041de881ad90625f0ae3520e5e7be. Four owned files above plus tools README. Three code/config/test bytes equal frozen implementation02; README extends current installed guard guide. Parents current platform-backend selection and proposed inventory10. No passage overrides. No actual approval/root assent/activation yet. Do not edit frozen member bytes.
+
+Implementation reproduction subject `/tmp/opensip-implementation/m1-contracts-dependency-integration-subject-02`; `m1/trials/contracts-dependency-integration-02/subject.json` SHAa5994024d4b9a784249d54b79e91cf707c64affeac67255f4146183e71957563,242entries/192files; archive1299182B SHAdbc06f6551c460329b6b67dcfceab4516a701be9a1c15fb28ed0c8b4ddb9ded7. Candidate02 same path with candidate instead of subject. Do not modify either now-frozen implementation bytes; create successors for findings.
+
+## Dependency/source check semantics and evidence
+
+Historical checker from `/tmp/opensip-implementation/m1-cli-metadata-subject-02/tools/check_dependencies.py` and original tools/contracts/dependency-policy.json already enforced11contracts dependency identities/Cargo.lock checksums/resolvedfeatures and library-only target. Candidate01 staged unchanged checker against current product: positive, actual sibling reporting crate enabling serde_json raw_value refused, restored positive/lock unchanged. Candidate02 preserves those historical logs but adds source profile2.
+
+New source policy pins **eightfiles**: Cargo.toml and7Rust sources. All11dependency rows/checksums/features unchanged. New check_sources requires a local package, sorted unique pins including manifest, enumerates all src regular files, rejects extras/symlinks/nonregularentries and exact byte changes. It enforces a known reviewed source set, not arbitrary native-purity proof. Seven actual-Cargo permanent tests pass (baseline, sibling feature expansion, effectful lib addition, extra source, linked same bytes, FIFO, duplicate pin). Prior6test run preserved before FIFOcase. Caller must choose reviewed policy/trustedCargo after design verification; helper is NOT an approval verifier, malicious-tool sandbox, archive/tree rehasher or Rust flags/compiler attestation.
+
+The frozen baseline copy predates guard installation and has genuine6inventory/6contractlock; not authority for new code. Current live contracts still match all8pins. Historical `contracts-dependencies.v1.json` native TCB decisions remain bounded: external unsafe/CPUdispatch/build/procmacro effects accepted in scope, no safety proof. Provider isolation/current shared-source build proof and complete native build-input receipts remain open.
+
+## Next actions
+
+1. Read actual Grok inventory10 and dependency-selection verdicts, address findings on new frozen bytes if needed. Root independently assess pins/semantics/correspondence and archive reviews/root assent only if warranted. Inventory requires ACCEPT-UNIT; selection requires ACCEPT-DESIGN-UNIT. Never manufacture approval.
+2. Prepare fresh private activation using current7/7lock, actual inventory10 + selection approvals. Recompute ALL ancestor inventory description inheritance by stable path (threeoverrides), not merely existing inherited rows. Run full design/source verifier, selected dependency command on current sources, real7tests, and existing TS/Cargo boundaries; scope generation drift only if new concern justifies repeat. Prove CLI source/profile results honestly. Integrate four exact owned inputs after actual private activation; preserve user bytes and historical evidence. New helpers are not currently installed.
+3. Continue M1 remaining native dependency/build-input/source guards, independent lane builds and assets/channel duties. Read actual milestone/asset policy before assigning obligations: development host tests may use labelled fixture assets, full report/release remains M4/M6. Do not invent an unused fakepin to satisfy channel agreement. HostAssetPin/shared BUILD_CHANNEL/report-projection digest join, actual platform AssetSource and full report remain open. M1 Rust-provider probe is not a provider implementation.
+4. Obtain required actual fresh blind consumerB only on complete relevant bytes; prior reviewer sessions are not fresh/blind. Then continue M2–M6; do not stop at these development tools.
+
+Useful actual integration scripts, complete and historical: `/tmp/opensip-implementation/activate_bootstrap01.py`, `install_bootstrap01.py`, `activate_backend01.py`. Last helper correctly reprojects ancestor passages, including root package row157→158 throughinventory9. Do not rerun in place (fresh-dir assertions and preserved logs). Actual guard review at `m1/reviews/grok-platform-backend-selection-v1`; inventory9 review adjacent. Root first custody helper accidentally used architecture-relative path on external subject and stopped before writes; corrected177entries/archive verified, receipt notes it.
+
+## Remaining asset/report context
+
+`m1/report-assets-unit.v1.json` and report-asset-assembly-unit.v1.json are actual historical Claude unit acceptance, integrationApprovedfalse. They list remaining duties/advisories. Assetpolicy in buildplan allows labelled development fixtures; whole offline report and release requirements remain. Product assets.rs is `crates/reporting/src/assets.rs`, not CLI; currently only shared development metadata constant/semver tests, no compiledassetpin.
+
+Staged graph candidate `/tmp/opensip-implementation/m1-report-graph-view-candidate-01` includes reviewed view sources. Frozen graph manifest `m1/trials/report-graph-view-01-checkpoint-01/checkpoint.json`, SHA f21a8767d45ac81e90660a11da9481a3524a4e6c6d98b7adf55bc88a79deb790. Composition candidate is `/tmp/opensip-implementation/m1-report-view-composition-candidate-01`, manifest `m1/trials/report-view-composition-01-checkpoint-01/checkpoint.json`, SHA79e536aecd905dd6a46b656eb868872fce6dc6cf9359b9b382003f4edca4cbae. Composition was a3view harness, NOT a product report-view.ts implementation. Actual review folders use names grok-report-graph-view-01 / grok-report-composition-view-01. R11location gap remains; do not claim findings with no source spans complete. No new report application candidate was authored in this interval.
+
+## Tools and history
+
+Node `/Users/sb/.nvm/versions/node/v24.16.0/bin/node`; npm11.13 sibling lib CLI. Offline cache `/tmp/opensip-implementation/m1-typescript-bootstrap-candidate-01/provision-cache`. Cargo/Rust1.95 `/opt/homebrew/Cellar/rust/1.95.0/bin`. Root Python `/tmp/opensip-implementation/metadata-reference-env/bin/python -I -B`.
+Selected generator Python CHILD `/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Python`,51392B/SHA0c9a985712bb1235d8fe474a6a99810dc118bcae0dfb429a237aac0c907fa3af. Its sys.executable reports a different launcher; explicit --python is mandatory. Rust generator `/tmp/opensip-implementation/m1-generator-build-05/opensip-contract-generator`,7202304B/SHA18d6a0a89927ebb8383f09e6a442aab714b51a38a822cc38d219db5bc893a992.
+All prior guides preserved with hash receipts in checkpoints, latest active-work-before-dependency-source-review.md. Earlier statuses are historical; prefer current records. Do not recursively walk all /tmp/opensip-implementation (PATH_MAX fixtures). No Chrome test sessions active.

@@ -1,0 +1,63 @@
+--- docs/coop/design-corrections/foundation/check-enumeration.v1.py
++++ docs/coop/design-corrections/foundation/check-enumeration.v1.py
+@@ -263,6 +263,43 @@
+         inv("file", "complete", files, file_ext),
+         inv("package", "complete", pkgs, pkg_ext),
+     ], memb, sc, universes, retained, source))
++
++    # Internal root representation is admitted before path slicing / program binding.
++    # Keep a valid enumeration baseline, change only the host membership root spelling,
++    # and rebind its digest so a digest mismatch cannot mask the root-specific refusal.
++    # This exercises the enumeration boundary, not structural custody or a whole Run.
++    unit_root_cases = []
++    for label, root, members, expected, diagnostic in [
++        ("project-empty", "", [], "ADMIT", None),
++        ("project-dot", ".", [], "REFUSE", "units[0].rootPath:#/$defs/InternalUnitRootV1"),
++        ("project-dot-slash", "./", [], "REFUSE", "units[0].rootPath:#/$defs/InternalUnitRootV1"),
++        ("member-dot", "", ["."], "REFUSE", "units[0].memberPackageRoots[0]:#/$defs/CanonicalRelativeDirV1"),
++        ("member-empty", "", [""], "REFUSE", "units[0].memberPackageRoots[0]:#/$defs/CanonicalRelativeDirV1"),
++    ]:
++        changed_membership = copy.deepcopy(memb)
++        changed_membership["units"][0].update(rootPath=root, memberPackageRoots=members)
++        changed_plan = copy.deepcopy(ep)
++        changed_plan["membershipDigest"] = M.raw_digest(changed_membership)
++        native_refusal = None
++        try:
++            M.NV.admit_unit_roots(changed_membership["units"])
++            native_result = "ADMIT"
++        except M.NV.AdmissionError as exc:
++            native_result = "REFUSE"
++            native_refusal = str(exc)
++        result = admit(changed_plan, [
++            inv("file", "complete", copy.deepcopy(files), file_ext),
++            inv("package", "complete", copy.deepcopy(pkgs), pkg_ext),
++        ], changed_membership, sc, universes, retained, source)
++        exact_faults = [] if expected == "ADMIT" else ["ENUMERATION_MEMBERSHIP_UNIT_ROOT"]
++        passed = (native_result == expected and result["result"] == expected
++                  and result["refusals"] == exact_faults
++                  and (native_refusal is None if diagnostic is None else
++                       native_refusal == "NATIVE_UNIT_ROOT_REPRESENTATION:" + diagnostic))
++        unit_root_cases.append({"case": label, "expected": expected,
++                               "nativeResult": native_result, "nativeRefusal": native_refusal,
++                               "enumerationResult": result["result"], "refusals": result["refusals"],
++                               "passed": passed})
+ 
+     rec("missing-expected-inventory", admit(ep, [inv("file", "complete", files, file_ext)], memb, sc, universes, retained, source))
+ 
+@@ -694,6 +731,8 @@
+         exp = want.get(c["case"])
+         if exp and c["result"] != exp:
+             mismatches.append({"case": c["case"], "got": c["result"], "want": exp, "refusals": c.get("refusals")})
++    mismatches.extend({"case": "internal-root-" + row["case"], "observed": row}
++                      for row in unit_root_cases if not row["passed"])
+     historical = [c["case"] for c in cases if c["case"] in HISTORICAL_BOUNDED]
+     hashes = owned_hashes()
+     report = {
+@@ -707,6 +746,7 @@
+         "fileExtent": file_ext, "packageNamed": pkg_proj["named"], "symbolDefaultRoots": roots,
+         "packageCandidateOneBad": proj_bad,
+         "twoFooIds": ids, "twoFooPaths": paths,
++        "internalUnitRootControls": unit_root_cases,
+         "cases": cases, "expected": want, "mismatches": mismatches,
+         "ownedHashes": hashes,
+     }

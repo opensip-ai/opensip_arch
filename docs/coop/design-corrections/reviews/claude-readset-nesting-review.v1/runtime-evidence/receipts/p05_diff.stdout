@@ -1,0 +1,81 @@
+{
+ "files": [
+  {
+   "path": "docs/coop/design-corrections/foundation/identity-model.v3.py",
+   "hunks": 1,
+   "added": 5,
+   "removed": 0
+  },
+  {
+   "path": "docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py",
+   "hunks": 2,
+   "added": 9,
+   "removed": 1
+  },
+  {
+   "path": "docs/v2/contracts/product-v1/identity-and-evidence.md",
+   "hunks": 1,
+   "added": 4,
+   "removed": 2
+  }
+ ],
+ "diffSha256": "257df5f95e6eb9159e72319d800f1f65faf188a532654e63ae72f7de351d127a",
+ "lines": 56
+}
+--- before/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ after/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -698,6 +698,11 @@
+     packages={entry[field].rstrip('/') for layout in read_layouts for entry in layout['entries'] for field in ('installPath','realPath')}
+     faults=[]
+     for path in paths:
++        # Discovery reports the outermost pruned tree. A package read allowance must not
++        # hide a deeper VCS segment: VCS custody bytes are never selected program reads.
++        if any(segment in DD.VCS_TREE_SEGMENTS for segment in path.split('/')):
++            faults.append(path)
++            continue
+         hit=DD.classify_path(path,cargo_roots)
+         if hit is None:continue
+         if hit[1]=='dependency-tree' and any(path.startswith(package+'/') for package in packages):continue
+--- before/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
++++ after/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
+@@ -592,6 +592,10 @@
+     row("A4", "without-a-committed-read-set-no-dependency-row-is-lawful",
+         faults(["node_modules/left-pad/index.js"], ()) == ["node_modules/left-pad/index.js"])
+     row("A4", "vcs-tree-rows-are-never-reads", faults([".git/HEAD", "sub/.hg/store/data"]) == [".git/HEAD", "sub/.hg/store/data"])
++    nested_vcs = ["node_modules/left-pad/" + segment + "/metadata" for segment in (".git", ".hg", ".svn", ".jj")]
++    row("A4", "listed-package-read-allowance-never-overrides-nested-vcs", faults(nested_vcs) == sorted(nested_vcs))
++    row("A4", "nested-vcs-lookalike-segments-remain-lawful-package-reads",
++        faults(["node_modules/left-pad/.git-like/index.js", "node_modules/left-pad/.gitignore"]) == [])
+     row("A4", "cargo-build-output-rows-are-never-reads",
+         faults(first_party + ["target/debug/app.d"]) == ["target/debug/app.d"])
+     native_schema = json.loads((KIT / "native/native-evidence.schemas.v2.json").read_text())
+@@ -611,8 +615,12 @@
+     row("A4", "real-run-with-a-file-read-inside-a-listed-package-closes", got is None, got)
+     got = refusal_any(lambda: ts_run({"docs/extra.md": b"# extra\n"}))
+     row("A4", "real-run-control-with-an-extra-first-party-file-closes", got is None, got)
++    got = refusal_any(lambda: ts_run({"node_modules/left-pad/.git-like/index.js": b"module.exports = 1;\n"}))
++    row("A4", "real-run-package-vcs-lookalike-remains-lawful", got is None, got)
+     for name, extra in (("an-unlisted-dependency-file", {"node_modules/unlisted/index.js": b"module.exports = 2;\n"}),
+-                        ("a-vcs-tree-file", {".git/HEAD": b"ref: refs/heads/main\n"})):
++                        ("a-vcs-tree-file", {".git/HEAD": b"ref: refs/heads/main\n"}),
++                        ("listed-package-nested-git-metadata", {"node_modules/left-pad/.git/HEAD": b"ref: refs/heads/main\n"}),
++                        ("listed-package-nested-mercurial-metadata", {"node_modules/left-pad/.hg/store/data": b"metadata\n"})):
+         got = refusal_any(lambda e=extra: ts_run(e))
+         row("A4", "real-run-refuses-" + name, got is not None and "SNAPSHOT_PRUNED_TREE_NOT_A_READ" in got, got)
+ 
+--- before/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ after/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -567,8 +567,10 @@
+ snapshot row inside a dependency tree must lie inside a package directory
+ (`installPath` or `realPath`) of the retained `ResolvedNodeModulesLayoutV1` of a
+ Plan-selected context that committed `nodeModulesInReadSet`, and a VCS-tree or Cargo
+-build-output row is never a read input of any published universe. Either violation
+-refuses `SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay does not prove.** The
++build-output row is never a read input of any published universe. A dependency
++package's read allowance never overrides a VCS-tree exclusion deeper in that path;
++the VCS exclusion uses exact segments at every depth. Either violation refuses
++`SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay does not prove.** The
+ custody walk and the read set are host TCB observations retained with the Run.
+ Bytes-only replay re-checks every retained digest, and this join, at package-directory
+ granularity. It cannot prove that the host walked every first-party file, that it
+

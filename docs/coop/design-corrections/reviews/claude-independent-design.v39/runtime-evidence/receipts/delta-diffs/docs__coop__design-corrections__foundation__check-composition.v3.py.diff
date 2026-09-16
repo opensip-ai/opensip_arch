@@ -1,0 +1,37 @@
+--- a38/docs/coop/design-corrections/foundation/check-composition.v3.py
++++ b39/docs/coop/design-corrections/foundation/check-composition.v3.py
+@@ -65,4 +65,34 @@
+ i=make();i['plan']['budget']['limit']=0;b=E.compose(i,lambda *args:(_ for _ in ()).throw(AssertionError('budget evaluated')));check('budget-preflight-explicit-indeterminate',b['proof']['evaluationState']=='budget-exhausted' and b['proof']['verdict']=='indeterminate' and not b['proof']['findingIds'])
+ check('strong-kleene-known-and-false',E.truth('and',['indeterminate','false'])=='false')
+ check('strong-kleene-known-or-true',E.truth('or',['indeterminate','true'])=='true')
++# A6: first-applicable correspondence precedence; one deficiency per unmatched finding, reason equals it.
++def corr_rows(b):
++    fs=[v for d,v in b['objects'].values() if d=='finding'];rr=b['proof']['ruleResults'][0]
++    return sorted((f['subjectId'],f['correspondence']['reason']) for f in fs if f['fingerprint'] is None),sorted((d['subjectId'],d['cause']) for d in rr['deficiencies'] if d['source']=='correspondence')
++def peer(i,native):
++    first=next(iter(i['population'].values()));row=copy.deepcopy(first['row']);row['nativeSubjectId']=native
++    sid=E.M.identifier('evaluation-subject',{'schemaVersion':3,'universe':first['universe'],'kind':'symbol','nativeSubjectId':native})
++    i['population'][sid]={'subjectId':sid,'universe':first['universe'],'kind':'symbol','row':row,'collisionPopulationComplete':first['collisionPopulationComplete']}
++    i['enumerations']['r']['selectedSubjectIds']=E.cset(i['population']);i['inventoryRowCount']=i['inventoryLocatorCount']=len(i['population'])
++seen=set()
++i=make(kind='symbol');s=next(iter(i['population'].values()));s['row']['projections']=[];s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-projection-unavailable-precedes-population-incomplete',[r for _,r in got]==['projection-unavailable'] and got==defs)
++i=make(kind='symbol');s=next(iter(i['population'].values()));s['row']['projections'][0]['signatureTokens']=[];s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-empty-signature-tokens-are-projection-unavailable',[r for _,r in got]==['projection-unavailable'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g')
++for s in i['population'].values():s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-population-incomplete-precedes-signature-ambiguous',[r for _,r in got]==['population-incomplete','population-incomplete'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g')
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-complete-shared-signature-is-signature-ambiguous',[r for _,r in got]==['signature-ambiguous','signature-ambiguous'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g');next(iter(i['population'].values()))['row']['projections']=[]
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-mixed-population-one-cause-per-unmatched-finding',len(got)==1 and got==defs and got[0][1]=='projection-unavailable')
++check('a6-composed-causes-are-the-three-published-causes-only',seen=={'projection-unavailable','population-incomplete','signature-ambiguous'})
++# A9: a required declared evidence kind unavailable in the Plan applies independently of the root branch.
++RUNTIME_NONE={'op':'none','relation':'runtime-observation','minResolution':'observed','filters':[],'evidence':'runtime'}
++MISSING=[{'source':'import','cause':'evidence-kind-unavailable','subjectId':None,'predicateId':None,'inputRefs':[],'evidenceKind':'runtime','nativeCause':None,'universe':None}]
++i=make(atom=RUNTIME_NONE,requirement='required');i['requiredEvidenceDeficiencies']['r']=copy.deepcopy(MISSING)
++b=E.compose(i,scanner('false'));check('a9-required-import-unavailable-under-determinate-false-root-is-indeterminate',b['proof']['ruleResults'][0]['outcome']=='indeterminate' and b['proof']['verdict']=='indeterminate' and b['proof']['predicateProofs'][0]['value']=='false')
++b=E.compose(i,scanner('true'));check('a9-known-live-failure-dominates-missing-required-import',b['proof']['ruleResults'][0]['outcome']=='fail' and b['proof']['verdict']=='fail')
++i['policy']['rules'][0]['gate']=False;rebind(i);b=E.compose(i,scanner('false'));check('a9-advisory-rule-with-missing-required-import-passes',b['proof']['ruleResults'][0]['outcome']=='pass' and b['proof']['verdict']=='pass')
++i=make(atom=RUNTIME_NONE,requirement='optional');b=E.compose(i,scanner('false'));check('a9-optional-evidence-use-adds-no-required-deficiency',b['proof']['ruleResults'][0]['outcome']=='pass' and not any(d['source']=='import' for d in b['proof']['ruleResults'][0]['deficiencies']))
+ print(json.dumps({'standing':'BOUNDED COMPOSITION ONLY: synthesized universe/Plan/closure locators; no native input admission and no full retained Run replay. Mutation checks compare exact output preimages, not reminted full graphs.','results':results,'passed':all(x['passed'] for x in results),'count':len(results)},indent=2))

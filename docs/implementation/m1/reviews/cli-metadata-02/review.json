@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "reviewKind": "independent correction review of concrete implementation unit",
+  "subject": {
+    "root": "/tmp/opensip-implementation/m1-cli-metadata-subject-02",
+    "manifest": "/tmp/opensip-implementation/m1-cli-metadata-subject-02.json",
+    "manifestSha256": "9180e2a8a3abd5dd14934b5b735eb74646dea017960c8d11030049a07c0e4c44",
+    "manifestStanding": "correction candidate; no product integration"
+  },
+  "priorReview": "/tmp/opensip-implementation/m1-cli-metadata-review-01/review.json",
+  "verdict": "ACCEPT-UNIT",
+  "acceptanceStatement": "Accepted: only the concrete CLI metadata implementation unit on these frozen bytes (help/version/completion/parser refusal, process-custody request capability, OS-CSPRNG allocation, compiled development metadata, shared human/JSON projection, required-delivery faults). Not accepted: generator algorithm or adapter01 bindings, product integration, design-lock successor binding, HostAssetPinV1 channel agreement, build/asset/release qualification, or M1 completion. Generator partial status and the selected 45-command full-product goal are preserved; the CLI advertises only its 3 implemented commands.",
+  "changeSet": {
+    "method": "diff -rq subject-01 vs subject-02",
+    "changed": ["CLI-UNIT.md", "apps/cli/tests/startup_tests.rs (one test added; existing tests byte-unchanged)", "crates/platform/src/lib.rs", "crates/reporting/src/human_renderer.rs"],
+    "removed": ["crates/platform/src/entropy.rs", "check-cli-metadata-reference.py"],
+    "added": ["broken-pipe-result.json"],
+    "unchanged": "Cargo.toml/Cargo.lock, all other manifests, apps/cli/src/*, crates/host/*, reporting assets/json renderer, generated contracts, schemas, metadata-reference-results.json, design-lock.json"
+  },
+  "inheritedFindingDispositions": [
+    {
+      "id": "RF-1",
+      "status": "closed",
+      "basis": "crates/platform/src/entropy.rs is removed. The identical 16-byte getrandom::fill wrapper now lives in crates/platform/src/lib.rs, a path PRESENT in design-locked inventory v3 as opensip-platform public-api. No other file is outside the inventory, and no inventory successor is needed. getrandom is still reached only through opensip-platform; the lock and manifests are unchanged, and #![forbid(unsafe_code)] is retained."
+    },
+    {
+      "id": "RF-2",
+      "status": "closed",
+      "basis": "Human failure renderings now print 'Termination: <class>', 'Error: <errorCode>', one 'Detail: <code>' plus 'Remedy: <text>' pair per error, 'Request: <RequestId>', then diagnostics. Executed for 7 refusal cases (unknown option, sarif not applicable, no-args, unknown topic, bad shell, escape-bearing topic, duplicate correlation) and for 2 human delivery failures on a read-only stdout (help, completion fish), which go to stderr with operational-failed / DELIVERY.REQUIRED_FAILED / DELIVERY.REQUIRED_PROJECTION_FAILED at exit 4. Successful help and version add 'Termination: success'. Completions end with the valid shell comment '# Termination: success'. All labels are fixed, so the inventory4 human rule 'never omits termination-class' holds for every rendering and advisory A-10's owner question no longer arises."
+    }
+  ],
+  "priorAdvisoryDispositions": [
+    {"id": "A-01", "status": "addressed-by-disclosure", "basis": "CLI-UNIT now documents that Rust's runtime reopens a closed standard descriptor as /dev/null, which differs from the tested read-only handle and EPIPE cases."},
+    {"id": "A-02", "status": "open-nonblocking", "basis": "Unchanged: no bootstrap-level test injects an entropy or collision failure."},
+    {"id": "A-03", "status": "open-separate", "basis": "getrandom backend cfg guard, host/platform dependency-lane policy and the uncached r-efi archive remain build-lane qualification items."},
+    {"id": "A-04", "status": "open-nonblocking", "basis": "Parser value bounds and `version --help` are unchanged. Caller-controlled strings are never echoed in human output (see confirmed checks)."},
+    {"id": "A-05", "status": "open-nonblocking", "basis": "Catalogue usage spelling still differs from the inventory4 cli spelling."},
+    {"id": "A-06", "status": "open-separate", "basis": "projection_tests.rs and the HostAssetPinV1 channel-agreement check still await the real asset-pin carrier. They are not satisfied by this unit."},
+    {"id": "A-07", "status": "open-nonblocking", "basis": "The process-only host must not be reused for M2 analyses or mutations, and delivery handling should later move to host/src/delivery.rs."},
+    {"id": "A-08", "status": "superseded", "basis": "The path-bound reference checker was removed from the subject; metadata-reference-results.json is retained unchanged. I independently re-ran envelope4 validation on the new binary (see evidence)."},
+    {"id": "A-09", "status": "open-nonblocking", "basis": "The delivery-failure envelope still omits clientCorrelationId, which is schema-legal."},
+    {"id": "A-10", "status": "moot", "basis": "The correction applies the termination rule to success output and completions, so no owner exemption is needed."}
+  ],
+  "advisories": [
+    {
+      "id": "B-01",
+      "title": "The new human test does not pin labels or remedy text",
+      "text": "Mutant 'drop-detail-lines' replaced the \"Detail: {}\\nRemedy: {}\" format with \"{}{}\" and all 6 startup tests still passed. The test asserts only code substrings, and nothing asserts the Remedy text. Also consider asserting 'Error: ' plus the code and exact line order for one refusal and one delivery failure. The other 4 renderer mutants were killed."
+    },
+    {
+      "id": "B-02",
+      "title": "fish completion not executed",
+      "text": "fish is not installed on this host. The fish output is `complete -c opensip -f -a 'completion help version'` followed by a `#` comment line, which is valid fish syntax by inspection only. bash and zsh were loaded for real."
+    },
+    {
+      "id": "B-03",
+      "title": "Platform implementation now sits in lib.rs",
+      "text": "The inventory describes platform lib.rs as the intentionally public API. A 10-line OS draw wrapper there is acceptable. If platform grows, a later reviewed inventory row can move it without changing behavior."
+    },
+    {
+      "id": "B-04",
+      "title": "Human diagnostics ordering",
+      "text": "The human diagnostic sentence now follows the Request line. Readability is fine, but a user scanning only the first line sees 'Termination: request-rejected' rather than the reason. Presentation order is not owner-specified, so this is note only."
+    }
+  ],
+  "confirmedChecks": [
+    "JSON byte parity: 27 JSON argv cases (the 17 author reference cases plus 10 adversarial cases: non-Unicode, 4097-byte argument, 1025 arguments, duplicate correlation, control-character correlation, no-args, help --help, --, completion without a shell, duplicate or inapplicable formats) plus 3 read-only-stdout delivery cases produce stdout/stderr and exit codes identical to the review-01 subject-01 binary once RequestIds are masked. The correction therefore changed no JSON projection.",
+    "Envelope4 original-schema conformance via the accepted metadata-v2 check_metadata load adapter (ExactValidator): all 27 JSON cases, 3 read-only-stdout delivery envelopes and 1 EPIPE delivery envelope are valid.",
+    "Human injection: an ANSI/OSC escape as help topic, as correlation ID, and as a duplicate correlation ID never appears in human output. Every human line is a host constant, a catalogue row, a registered code or remedy, a termination class, or the host RequestId.",
+    "Completion syntax: `bash -n` passes, and sourcing it in bash 3.2 registers `complete -W 'completion help version' opensip`. `zsh -n` passes; installed as _opensip on fpath, zsh 5.9 `compinit -u -D` binds _comps[opensip]=_opensip and autoloads the function body `_arguments '1:command:(completion help version)'`. #compdef remains the first line.",
+    "Refusal and original tests preserved: the 5 earlier startup tests, including the parser errors=[] refusal test and the read-only JSON delivery test, are byte-unchanged and pass.",
+    "Side effects: under sandbox-exec denying network, writes other than /dev/null and tty/fd, and reads of the cwd fixture, /Users and /private/etc (denial controls for cat, touch, curl and ~/.zshrc all confirmed), 7 human, JSON and completion cases match unsandboxed output with RequestIds masked."
+  ],
+  "executedEvidence": [
+    {"id": "pins-before", "result": "pass", "detail": "Manifest sha256 9180e2a8... matches; 96/96 files match sha256 and bytes; no extra or missing files."},
+    {"id": "cargo", "result": "pass", "detail": "Private copy with isolated CARGO_TARGET_DIR, /opt/homebrew/bin/cargo 1.95.0: build --locked --offline --workspace --all-targets passes. Tests: 6 startup, 2 request-authority, 1 compiled-metadata and 10 identity, all pass. clippy --all-targets -D warnings passes, and cargo fmt --check exits 0."},
+    {"id": "json-parity-and-schema", "result": "pass", "detail": "31 schema-valid outputs; 0 differences from the review-01 binary modulo RequestId (work/probes/json-parity.txt)."},
+    {"id": "human-renderings", "result": "pass", "detail": "14 human cases captured (work/probes/human.txt)."},
+    {"id": "completion-shells", "result": "pass-with-limit", "detail": "bash and zsh parsed and loaded; fish unavailable (B-02)."},
+    {"id": "mutation", "result": "4/5 killed", "detail": "Renderer mutants on a separate copy and target: drop failure termination, rename Request label, drop completion comment and drop success termination were killed; drop Detail/Remedy labels survived (B-01). Logs: work/mut-*.log and work/mutants.txt."},
+    {"id": "sandbox", "result": "pass", "detail": "work/probes/sandbox.txt"},
+    {"id": "pins-after", "result": "pass", "detail": "Re-verified after the review was written; see review.md."}
+  ],
+  "scope": [
+    "In scope: the corrected concrete CLI metadata unit and dispositions of the review-01 findings and advisories.",
+    "Owners relied on: accepted metadata-v2 (envelope4, metadata1, inventory4 renderer rules), REQUEST-ID-V1 and trusted-request-context.v3, D9 pre-admission host-io, required-delivery law, and design-locked inventory v3. These were read in review-01 and their pins are unchanged."
+  ],
+  "limits": [
+    "This review does not cover the generator algorithm or adapter01, integration, design-lock binding, HostAssetPin channel agreement, release, or M1.",
+    "Executed only on macOS aarch64 with a debug build; no Linux, other targets, release build, startup performance, size or memory.",
+    "fish was not executed. A CSPRNG failure was not induced in the binary. The sandbox is evidence based on denial controls, not a syscall trace.",
+    "No frozen, product or architecture edits, commits or pushes were made, and no private agent reasoning was read. Writes are confined to /tmp/opensip-implementation/m1-cli-metadata-review-02."
+  ]
+}

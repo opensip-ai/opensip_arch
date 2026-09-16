@@ -1,0 +1,1733 @@
+"""Execution-inputs reference admission (design evidence, not a host runtime).
+
+Post-Plan evaluator INPUT. Uses M3 objects (H locators) and blobs (raw preimages)
+as the EvidenceStore. Does not re-admit native Coverage payloads (M3/N own that);
+it verifies joins against caller-supplied already-admitted maps. Completeness is
+derived from owner records. Not a Run.
+"""
+from __future__ import annotations
+
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+
+from jsonschema.exceptions import ValidationError
+
+HERE = Path(__file__).resolve().parent
+NATIVE = HERE.parent / "native"
+
+
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+C = _load("exec_in_canonical", HERE / "canonical.py")
+IM = _load("exec_in_identity_v3", HERE / "identity-model.v3.py")
+AdmissionError = C.AdmissionError
+CATCH = (AdmissionError, IM.C.AdmissionError, ValidationError)
+
+SCHEMA = json.loads((HERE / "execution-inputs.schema.v1.json").read_text(encoding="utf-8"))
+PLAN_SCHEMA = json.loads((HERE / "enumeration-plan.schema.v1.json").read_text(encoding="utf-8"))
+KIND_MAP = PLAN_SCHEMA["x-opensip-kind-derivation"]
+MATRIX = json.loads((NATIVE / "native-capability-matrix.v2.json").read_text(encoding="utf-8"))
+NATIVE_SCHEMA = json.loads((NATIVE / "native-evidence.schemas.v2.json").read_text(encoding="utf-8"))
+OWNER_DEF = NATIVE_SCHEMA["$defs"]["DeficiencyV2"]["enum"]
+OWNER_CAUSE = NATIVE_SCHEMA["$defs"]["NativeCause"]["enum"]
+CAUSE_REG = NATIVE_SCHEMA["x-opensip-deficiency-cause-registry"]["deficiencies"]
+
+CAP_BY_ID = {row["id"]: row for row in MATRIX["capabilities"]}
+CELL_STATE = {(row["capability"], row["mode"]): row for row in MATRIX["cells"]}
+CANDIDATE_CAPS = frozenset({"clones-near", "clones-cross-tsjs"})
+OUTPUT_DOMAINS = frozenset({"proof-bundle", "finding", "evaluation-seal", "run", "semantic-evidence"})
+H_DOMAINS = {"view": "view", "coverage": "coverage", "import": "import"}
+BLOB_DOMAINS = frozenset({
+    "subject-inventory", "candidate-producer-result", "target-attribution", "incoming-search",
+})
+HOST_DERIVED_DOMAINS = BLOB_DOMAINS
+CAND_MODE = {"clones-near": "near", "clones-cross-tsjs": "cross-tsjs"}
+STAGE_PRODUCED_FROM_OWNER = frozenset({"view"})
+
+INTERNAL_FAULTS = (
+    "EXECUTION_INPUTS_SCHEMA",
+    "EXECUTION_INPUTS_STORE_REQUIRED",
+    "EXECUTION_INPUTS_PLAN_JOIN",
+    "EXECUTION_INPUTS_EXECUTION_PLAN_JOIN",
+    "EXECUTION_INPUTS_ENUMERATION_DIGEST",
+    "EXECUTION_INPUTS_EVALUATOR_CLOSURE",
+    "EXECUTION_INPUTS_CELL_TOTALITY",
+    "EXECUTION_INPUTS_INVENTORY_KIND",
+    "EXECUTION_INPUTS_VIEW_TOTALITY",
+    "EXECUTION_INPUTS_REF_POINTER",
+    "EXECUTION_INPUTS_REF_LOST_BYTES",
+    "EXECUTION_INPUTS_REF_INVALID_BYTES",
+    "EXECUTION_INPUTS_REF_MISMATCH",
+    "EXECUTION_INPUTS_EVIDENCE_UNAVAILABLE",
+    "EXECUTION_INPUTS_STAGE_PRODUCER",
+    "EXECUTION_INPUTS_STAGE_ORDINAL",
+    "EXECUTION_INPUTS_RECEIPT_TOTALITY",
+    "EXECUTION_INPUTS_COVERAGE_DERIVE",
+    "EXECUTION_INPUTS_NATIVE_COVERAGE_TOTALITY",
+    "EXECUTION_INPUTS_OUTCOME_DERIVE",
+    "EXECUTION_INPUTS_CANDIDATE_REQUIRED",
+    "EXECUTION_INPUTS_CANDIDATE_GROUP",
+    "EXECUTION_INPUTS_CANDIDATE_BIND",
+    "EXECUTION_INPUTS_OUTPUT_BACKLINK",
+    "EXECUTION_INPUTS_VCS_APPLICABILITY",
+    "EXECUTION_INPUTS_ORDER",
+    "EXECUTION_INPUTS_SELECTED_COVER",
+    "EXECUTION_INPUTS_CAUSE_CARRIER",
+    "EXECUTION_INPUTS_CAUSE_ENUM_DRIFT",
+    "EXECUTION_INPUTS_KIND_MAP",
+    "EXECUTION_INPUTS_ENUMERATOR",
+    "EXECUTION_INPUTS_HOST_DERIVED",
+    "EXECUTION_INPUTS_CANDIDATE_SOURCE",
+    "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN",
+)
+
+RELATIONS = json.loads((HERE / "relation-payload-schemas.v2.json").read_text(encoding="utf-8"))[
+    "x-opensip-relation-registry"
+]["relations"]
+
+NEEDED_ROOT = (
+    "identity Domain/Ref/byDomain already names execution-inputs and candidate-producer-result "
+    "as canonical-record blob preimages; admit/helper stay blob-compatible if root registration "
+    "is present or still landing — do not require an H prefix",
+    "proof.executionInputsDigest must equal raw SHA-256 of C(ExecutionInputsV1) and "
+    "evaluationInputRefs must equal selectedRefs + {domain:execution-inputs,digest} "
+    "(the hashed selectedRefs must not include the execution-inputs ref)",
+    "execution-plan stage outputDomains: add subject-inventory / candidate-producer-result "
+    "only on stages that produce them; current owner fixture is view-only; do not add "
+    "target-attribution as a stage outputDomain",
+    "target-attribution is projected from negotiated FactBatchV3 OccupancyCompanionV1 "
+    "after fact2 mint into hostCapture.hostDerivedRefs domain=target-attribution; "
+    "FactBatch.stageId remains C-2 text correlated via DispatchBindingV1; "
+    "incoming-search remains host-derived selectedRefs via hostDerivedRefs; "
+    "FactCandidateV1/FactBatchV2 stay closed when token target-attribution-v2 is absent",
+    "execution_input_account: STOP iterating hostCapture.retainedObjectKeys/retainedBlobDigests "
+    "(removed from the semantic record). Pass store_pointers=promised_pointers(...)['store_pointers'] "
+    "derived from selectedRefs plus owner references; do not hash or require the ambient store census",
+)
+
+
+def raw_digest(obj) -> str:
+    return hashlib.sha256(C.canonical(obj)).hexdigest()
+
+
+def canon_str_list(values: list[str]) -> list[str]:
+    uniq = list(dict.fromkeys(values))
+    return sorted(uniq, key=lambda s: C.canonical(s))
+
+
+def _prefixed(domain: str, digest: str) -> str:
+    prefix = IM.PREFIX.get(domain)
+    if not prefix or not isinstance(digest, str):
+        return digest
+    if digest.startswith(prefix + ":"):
+        return digest
+    return prefix + ":" + digest
+
+
+def promised_pointers(
+    execution_inputs: dict,
+    plan: dict | None = None,
+    execution_plan: dict | None = None,
+    enumeration_plan: dict | None = None,
+    *,
+    objects: dict | None = None,
+    blobs: dict | None = None,
+) -> dict:
+    """Logical TCB pointers owed by the semantic record and its owner references.
+
+    Not a caller-store census. Ambient unselected objects/blobs are excluded.
+    Root execution_input_account must pass store_pointers=this['store_pointers']
+    instead of hostCapture.retainedObjectKeys + retainedBlobDigests.
+    """
+    obj: set[str] = set()
+    blob: set[str] = set()
+
+    def add_obj(key):
+        if isinstance(key, str) and key:
+            obj.add(key)
+
+    def add_blob(digest):
+        if isinstance(digest, str) and digest:
+            blob.add(digest)
+
+    add_obj(execution_inputs.get("planId"))
+    add_obj(execution_inputs.get("executionPlanId"))
+    add_obj(execution_inputs.get("evaluatorClosure"))
+    add_blob(execution_inputs.get("analysisSpecDigest"))
+    add_blob(execution_inputs.get("enumerationPlanDigest"))
+    for ref in execution_inputs.get("selectedRefs") or []:
+        if not isinstance(ref, dict):
+            continue
+        dom, digest = ref.get("domain"), ref.get("digest")
+        if not isinstance(digest, str):
+            continue
+        if dom in H_DOMAINS:
+            add_obj(_prefixed(H_DOMAINS[dom], digest))
+        elif dom in BLOB_DOMAINS:
+            add_blob(digest)
+    for row in execution_inputs.get("cellOutcomes") or []:
+        if not isinstance(row, dict):
+            continue
+        add_obj(row.get("enumeratorClosure"))
+        for d in row.get("inventoryDigests") or []:
+            add_blob(d)
+        add_blob(row.get("candidateResultDigest"))
+        for h in row.get("viewDigests") or []:
+            add_obj(_prefixed("view", h))
+    capture = execution_inputs.get("hostCapture") or {}
+    for recp in capture.get("stageReceipts") or []:
+        if not isinstance(recp, dict):
+            continue
+        add_blob(recp.get("stageSpecDigest"))
+        add_obj(recp.get("producerClosure"))
+        for ref in recp.get("outputRefs") or []:
+            if isinstance(ref, dict) and ref.get("domain") in H_DOMAINS and isinstance(ref.get("digest"), str):
+                add_obj(_prefixed(H_DOMAINS[ref["domain"]], ref["digest"]))
+    for ref in capture.get("hostDerivedRefs") or []:
+        if isinstance(ref, dict) and ref.get("domain") in BLOB_DOMAINS and isinstance(ref.get("digest"), str):
+            add_blob(ref["digest"])
+    for d in execution_inputs.get("candidateResultRefs") or []:
+        add_blob(d)
+    if isinstance(plan, dict):
+        add_obj(plan.get("snapshotId"))
+        for iid in plan.get("importIds") or []:
+            add_obj(iid)
+        add_blob(plan.get("analysisSpecDigest"))
+        add_blob(plan.get("vcsDigest"))
+    if isinstance(execution_plan, dict):
+        for st in execution_plan.get("stages") or []:
+            if isinstance(st, dict):
+                add_blob(st.get("stageSpecDigest"))
+    if isinstance(enumeration_plan, dict):
+        add_obj(enumeration_plan.get("snapshotId"))
+        add_blob(enumeration_plan.get("membershipDigest"))
+        add_blob(enumeration_plan.get("scopeDigest"))
+
+    def walk_object(key: str):
+        if not objects or key not in objects:
+            return
+        rec = objects[key]
+        if not rec or not isinstance(rec[1], dict):
+            return
+        domain, val = rec[0], rec[1]
+        if domain == "view":
+            add_obj(val.get("producerClosure"))
+            add_obj(val.get("planId"))
+            for cid in val.get("coverageIds") or []:
+                add_obj(cid if isinstance(cid, str) and ":" in cid else _prefixed("coverage", cid))
+            for sid in val.get("scopeIds") or []:
+                add_obj(sid)
+        elif domain == "coverage":
+            add_blob(val.get("payloadDigest"))
+            add_obj(val.get("scopeId"))
+        elif domain == "snapshot":
+            add_blob(val.get("vcsDigest"))
+        elif domain == "plan":
+            add_obj(val.get("snapshotId"))
+            add_blob(val.get("analysisSpecDigest"))
+
+    for key in list(obj):
+        walk_object(key)
+
+    if blobs:
+        for digest in list(blob):
+            raw = blobs.get(digest)
+            if raw is None:
+                continue
+            try:
+                parsed = C.parse(raw) if type(raw) is bytes else raw
+            except CATCH:
+                continue
+            if not isinstance(parsed, dict):
+                continue
+            if "groupDigests" in parsed or "sourceBodies" in parsed:
+                for gd in parsed.get("groupDigests") or []:
+                    add_blob(gd)
+                for body in parsed.get("sourceBodies") or []:
+                    if isinstance(body, dict):
+                        add_blob(body.get("contentSha256"))
+
+    object_keys = sorted(obj)
+    blob_digests = canon_str_list(list(blob))
+    return {
+        "objectKeys": object_keys,
+        "blobDigests": blob_digests,
+        "store_pointers": object_keys + blob_digests,
+    }
+
+
+def operational_capture_receipt(
+    promised: dict,
+    objects: dict,
+    blobs: dict,
+    *,
+    exclude_blob: str | None = None,
+) -> dict:
+    """Physical availability/retention receipt. Excluded from Run / C(ExecutionInputs)."""
+    avail_blob = [d for d in blobs if d != exclude_blob]
+    return {
+        "kind": "execution-inputs-operational-capture",
+        "schemaVersion": 1,
+        "promisedObjectKeys": list(promised.get("objectKeys") or []),
+        "promisedBlobDigests": list(promised.get("blobDigests") or []),
+        "availableObjectKeys": sorted(objects),
+        "availableBlobDigests": canon_str_list(avail_blob),
+        "store_pointers": list(promised.get("store_pointers") or []),
+    }
+
+
+def _add(faults: list[str], key: str) -> None:
+    if key not in faults:
+        faults.append(key)
+
+
+def _cap_kinds(capability_id: str) -> list[str]:
+    raw = KIND_MAP.get(capability_id)
+    if not isinstance(raw, list):
+        return []
+    return canon_str_list([k for k in raw if isinstance(k, str)])
+
+
+def _matrix_pairs(capability_id: str) -> list[tuple[str, str]]:
+    cap = CAP_BY_ID.get(capability_id) or {}
+    out = []
+    for item in cap.get("relations") or []:
+        if isinstance(item, list) and len(item) == 2:
+            out.append((item[0], item[1]))
+    return out
+
+
+def _matrix_cause(deficiency: str | None) -> str | None:
+    if deficiency is None:
+        return None
+    row = CAUSE_REG.get(deficiency) or {}
+    rule = row.get("nativeCause")
+    allowed = row.get("allowedCauses") or []
+    if rule == "required" and len(allowed) == 1:
+        return allowed[0]
+    if rule == "must-be-null":
+        return None
+    return None
+
+
+def _carrier(deficiency, native_cause, faults: list[str]) -> None:
+    if deficiency is None:
+        if native_cause is not None:
+            _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+        return
+    row = CAUSE_REG.get(deficiency)
+    if row is None:
+        _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+        return
+    rule = row.get("nativeCause")
+    allowed = row.get("allowedCauses") or []
+    if rule == "must-be-null" and native_cause is not None:
+        _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+    elif rule == "required" and native_cause not in allowed:
+        _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+    elif rule == "optional" and native_cause is not None and native_cause not in allowed:
+        _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+
+
+def _bindings(enumeration_plan: dict) -> list[tuple]:
+    out = []
+    for ci, cell in enumerate(enumeration_plan["cells"]):
+        for b in cell["programBindings"]:
+            out.append((ci, b["ordinal"], cell, b))
+    return out
+
+
+def _canonical_set_ok(arr) -> bool:
+    if type(arr) is not list:
+        return False
+    keys = [C.canonical(v) for v in arr]
+    return keys == sorted(keys) and len(keys) == len(set(keys))
+
+
+def _obj(objects: dict, domain: str, digest: str):
+    key = IM.PREFIX[domain] + ":" + digest
+    hit = objects.get(key)
+    if hit is None:
+        return None, key
+    return hit, key
+
+
+def _parse_blob(blobs: dict, digest: str):
+    raw = blobs.get(digest)
+    if raw is None:
+        return None
+    if type(raw) is not bytes:
+        raise AdmissionError("BLOB_TYPE")
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise AdmissionError("BLOB_HASH")
+    return C.parse(raw)
+
+
+def _snapshot_index(objects: dict, enumeration_plan: dict) -> tuple[list[str], dict]:
+    sid = enumeration_plan.get("snapshotId")
+    rec = objects.get(sid) if isinstance(sid, str) else None
+    paths, by_path = [], {}
+    if not rec or rec[0] != "snapshot" or not isinstance(rec[1], dict):
+        return paths, by_path
+    for row in rec[1].get("sourceInventory") or []:
+        if isinstance(row, dict) and isinstance(row.get("path"), str):
+            paths.append(row["path"])
+            by_path[row["path"]] = row
+    return paths, by_path
+
+
+def _binding_extent(binding: dict, kind: str) -> list[str]:
+    for ext in binding.get("extents") or []:
+        if isinstance(ext, dict) and ext.get("kind") == kind:
+            return canon_str_list([p for p in (ext.get("paths") or []) if isinstance(p, str)])
+    return []
+
+
+def _plan_candidate_extent(binding: dict) -> tuple[list[str] | None, str | None]:
+    """Plan-rooted candidate source paths. Empty kinds/extents are not a complete-empty census."""
+    if "candidateSourcePaths" not in binding:
+        return None, (
+            "EnumerationPlanV1.programBindings[].candidateSourcePaths on clones-near/clones-cross-tsjs "
+            "(Plan-selected source census; empty kinds/extents is not complete-empty work)"
+        )
+    raw = binding.get("candidateSourcePaths")
+    if not isinstance(raw, list):
+        return None, "candidateSourcePaths must be a canonical-set of LogicalPath"
+    return canon_str_list([p for p in raw if isinstance(p, str)]), None
+
+
+SOURCE_ORDER = (
+    ("enumerator-or-binding", "unavailable-row carrier only; inserted before the inventories"),
+    ("inventory", "per non-complete inventory, in the row's canonical-set inventoryDigests order"),
+    ("candidate", "at most one, candidate-only capabilities"),
+    ("account", "per owed matrix pair, in native-capability-matrix.v2.json#/capabilities[id]/"
+                "relations ARRAY order (authored, not lexical); partitions inside an account "
+                "follow contract §5"),
+)
+
+APPLICABILITY_PRECEDENCE = (
+    ("inapplicable-vcs", "relation vcs-change and admitted VCS observation kind=none"),
+    ("unsupported-typed", "matrix cell state UNSUPPORTED-TYPED"),
+    ("unavailable-unselected", "binding enumerator status unselected"),
+    ("unavailable-null-universe", "binding universe is null"),
+    ("supported-available", "otherwise"),
+)
+
+
+def derived_applicability(rel: str, uni, en_status: str, matrix_state: str | None, vcs_kind) -> str:
+    """FIRST-MATCH applicability (contract §5, `APPLICABILITY_PRECEDENCE`).
+
+    The order is normative and total: VCS-none, then matrix UNSUPPORTED-TYPED, then an
+    unselected enumerator, then a null binding universe, else supported-available.
+
+    `unavailable-unselected` deliberately precedes `unavailable-null-universe`. The
+    enumeration owner refuses a non-null universe on an unselected enumerator
+    (`enumeration-contract.v1.md` §1), so testing `uni is None` first would make
+    `unavailable-unselected` unreachable and collapse two advertised states into one.
+    With this order the two states have distinct reachable meanings: the enumerator was
+    not selected (optional-unselected disclosure), versus a SELECTED enumerator whose
+    binding has no universe (unavailable binding). Matrix-unsupported still outranks
+    both, so an UNSUPPORTED-TYPED cell discloses its matrix pair even at null U.
+    Malformed binding shapes are rejected by their own owner; no shape is invented here
+    solely to reach a branch.
+    """
+    if rel == "vcs-change" and vcs_kind == "none":
+        return "inapplicable-vcs"
+    if matrix_state == "UNSUPPORTED-TYPED":
+        return "unsupported-typed"
+    if en_status == "unselected":
+        return "unavailable-unselected"
+    if uni is None:
+        return "unavailable-null-universe"
+    return "supported-available"
+
+
+def _binding_carrier(binding: dict | None) -> tuple:
+    if not isinstance(binding, dict):
+        return "provider-unavailable", None
+    return binding.get("deficiency") or "provider-unavailable", binding.get("nativeCause")
+
+
+def _declared_binding_carrier(binding: dict | None) -> tuple:
+    """The binding's OWN declared pair, with no default.
+
+    `_binding_carrier` keeps its `provider-unavailable` default because the unselected and
+    null-universe branches are the only ones that read it, and the enumeration owner already
+    guarantees a real typed pair there: `enumeration_model.v1.py` refuses an unselected enumerator
+    on an available binding or a required cell, and refuses a null-universe binding whose
+    `deficiency` is null (`ENUMERATION_BINDING_CAUSE`). That default is therefore unreachable on a
+    lawful plan and the real binding carrier is preserved.
+
+    The candidate branch is different: it runs on an AvailableProgramBindingV1, which declares no
+    carrier at all, so a default there would be manufactured every time. Use this instead.
+    """
+    if not isinstance(binding, dict):
+        return None, None
+    return binding.get("deficiency"), binding.get("nativeCause")
+
+
+def derive_outcome(
+    *,
+    enumerator_status: str,
+    universe,
+    required: bool,
+    inventories: list[dict],
+    account_summaries: list[dict],
+    candidate_rec: dict | None,
+    candidate_digest: str | None,
+    candidate_cap: bool,
+    binding: dict | None = None,
+) -> dict:
+    """Aggregate cell row from binding, inventories, accounts, and candidate.
+
+    Unselected or universe=null does not discard inventory carriers. A selected
+    unavailable binding keeps its own budget-exhausted / input-closure-incomplete
+    pair rather than a generic provider-unavailable.
+
+    CROSS-SOURCE ORDER of `sources` (contract §4; `SOURCE_ORDER` names it). Deterministic and
+    fully owner-derived -- no host array order and no lexical guess is read anywhere in it:
+
+      1. `enumerator` / `binding` carrier, when the row is unavailable for that reason. Inserted
+         at index 0, so it precedes the same cell's inventories. Both branches return here.
+      2. `inventory`, one item per non-complete inventory, in the order of this row's
+         `inventoryDigests`, whose schema order is `canonical-set`.
+      3. `candidate`, at most one, for a candidate-only capability.
+      4. `coverage` / `account`, per owed matrix pair, in the `relations` ARRAY order authored in
+         `native-capability-matrix.v2.json#/capabilities[id]/relations` -- NOT lexical: `syntax`
+         is authored `declares, literal, control-flow`. Inside one account the partitions follow
+         the §5 order (returned in canonical H order, then named-but-not-returned).
+
+    The account leg reads `derived_accounts`, which admission rebuilds in this same owed order, so
+    the row pair does not depend on how the host ordered `nativeCoverageAccounts` (whose schema
+    order is `sequence`, i.e. the validator enforces nothing).
+
+    `_outcome_from_items` then takes the row carrier from the FIRST source in that order that
+    actually carries a typed pair, and (null, null) when none does.
+    """
+    items = []
+    bind_def, bind_cause = _binding_carrier(binding)
+    for inv in inventories:
+        if inv.get("state") != "complete":
+            items.append({
+                "source": "inventory",
+                "deficiency": inv.get("deficiency"),
+                "nativeCause": inv.get("nativeCause"),
+                "nativeCauses": [inv["nativeCause"]] if inv.get("nativeCause") else [],
+                "inputRefs": [{"domain": "subject-inventory", "digest": inv["digest"]}],
+            })
+    reason = None
+    if enumerator_status == "unselected":
+        reason = "optional-unselected" if not required else "unavailable-binding"
+        items.insert(0, {
+            "source": "enumerator", "deficiency": bind_def, "nativeCause": bind_cause,
+            "nativeCauses": [bind_cause] if bind_cause else [], "inputRefs": [],
+        })
+        return _outcome_from_items("unavailable", reason, items)
+    if universe is None:
+        items.insert(0, {
+            "source": "binding", "deficiency": bind_def, "nativeCause": bind_cause,
+            "nativeCauses": [bind_cause] if bind_cause else [], "inputRefs": [],
+        })
+        return _outcome_from_items("unavailable", "unavailable-binding", items)
+    if candidate_cap:
+        # Candidate carrier: the ENVELOPE's own declared pair, else the BINDING's own DECLARED
+        # pair, else explicit (null, null). No manufactured `provider-unavailable`.
+        #
+        # This branch is reached only with a SELECTED enumerator at a non-null universe, i.e. an
+        # AvailableProgramBindingV1, whose schema has no `deficiency`/`nativeCause` property at all
+        # (`additionalProperties: false`). `_binding_carrier`'s default would therefore ALWAYS have
+        # produced `provider-unavailable` here, on a source item with empty `inputRefs` -- a
+        # provider observation occurring on no retained record. That is the same manufacture §5
+        # forbids for accounts, and an optional candidate cell with no retained envelope admits, so
+        # it was reachable rather than theoretical. A required cell with no envelope still refuses
+        # `EXECUTION_INPUTS_CANDIDATE_REQUIRED` before this matters.
+        decl_def, decl_cause = _declared_binding_carrier(binding)
+        if candidate_rec is None:
+            items.append({
+                "source": "candidate", "deficiency": decl_def, "nativeCause": decl_cause,
+                "nativeCauses": [decl_cause] if decl_cause else [], "inputRefs": [],
+            })
+        elif candidate_rec.get("state") != "complete":
+            refs = [{"domain": "candidate-producer-result", "digest": candidate_digest}] if candidate_digest else []
+            items.append({
+                "source": "candidate",
+                "deficiency": candidate_rec.get("deficiency") if candidate_rec.get("deficiency") is not None else decl_def,
+                "nativeCause": candidate_rec.get("nativeCause") if candidate_rec.get("nativeCause") is not None else decl_cause,
+                "nativeCauses": [c for c in (candidate_rec.get("nativeCause"), decl_cause) if c],
+                "inputRefs": refs,
+            })
+    for acc in account_summaries:
+        if acc.get("accountState") not in ("complete", "inapplicable", "unsupported"):
+            recs = acc.get("coverageRecords") or []
+            typed = []
+            for rec in recs:
+                if rec.get("deficiency") is None and rec.get("nativeCause") is None:
+                    continue
+                typed.append(rec)
+                items.append({
+                    "source": "coverage",
+                    "deficiency": rec.get("deficiency"),
+                    "nativeCause": rec.get("nativeCause"),
+                    "nativeCauses": [rec["nativeCause"]] if rec.get("nativeCause") else [],
+                    "inputRefs": [rec["inputRef"]] if rec.get("inputRef") else list(acc.get("inputRefs") or []),
+                    "relation": acc.get("relation"),
+                    "resolution": acc.get("resolution"),
+                    "coverageId": rec.get("coverageId"),
+                })
+            if not typed:
+                # No retained Coverage record of this account carries a pair. The account
+                # item is the account's derived primary pair, which for pure missing work
+                # (empty returned partitions, or missing expected subjects over otherwise
+                # complete partitions) is explicitly (None, None). The row stays `partial`
+                # and keeps the account's originating Coverage refs; it does not become
+                # complete and it does not acquire a fabricated provider observation.
+                items.append({
+                    "source": "account",
+                    "deficiency": acc.get("deficiency"),
+                    "nativeCause": acc.get("nativeCause"),
+                    "nativeCauses": list(acc.get("nativeCauses") or []),
+                    "inputRefs": list(acc.get("inputRefs") or []),
+                    "relation": acc.get("relation"),
+                    "resolution": acc.get("resolution"),
+                })
+    inv_states = [i.get("state") for i in inventories]
+    cand_state = None if not candidate_cap else (None if candidate_rec is None else candidate_rec.get("state"))
+    if candidate_cap:
+        if cand_state is None or cand_state == "unavailable":
+            state = "unavailable"
+        elif items:
+            state = "partial"
+        else:
+            state = "complete"
+        return _outcome_from_items(state, None, items)
+    if any(s == "unavailable" for s in inv_states) and not any(s in ("complete", "partial") for s in inv_states):
+        return _outcome_from_items("unavailable", None, items)
+    if items:
+        return _outcome_from_items("partial", None, items)
+    return _outcome_from_items("complete", None, items)
+
+
+def _outcome_from_items(state: str, reason, items: list[dict]) -> dict:
+    # The row carrier is the FIRST retained source that ACTUALLY CARRIES a typed pair, walked in
+    # the cross-source order `derive_outcome` builds (contract §4). Taking items[0] unconditionally
+    # let an earlier untyped missing-work source -- typically a census-short or empty-partition
+    # account whose derived pair is explicitly (null, null) -- MASK a later source that does carry
+    # a real carrier, which is the opposite of "preserve actual typed source pairs". Every item
+    # stays in `sources` with its own pair and refs either way; only the row-level carrier moves.
+    # When NO retained source carries a typed pair the row pair stays explicitly (null, null).
+    primary = next(
+        (it for it in items
+         if it.get("deficiency") is not None or it.get("nativeCause") is not None),
+        None,
+    )
+    all_causes = []
+    for it in items:
+        pair = (it.get("deficiency"), it.get("nativeCause"))
+        if it.get("nativeCause") and it["nativeCause"] not in all_causes:
+            all_causes.append(it["nativeCause"])
+        for c in it.get("nativeCauses") or []:
+            if c not in all_causes:
+                all_causes.append(c)
+        _ = pair
+    return {
+        "state": state,
+        "stageOrdinalNullReason": reason,
+        "deficiency": None if state == "complete" else (primary.get("deficiency") if primary else None),
+        "nativeCause": None if state == "complete" else (primary.get("nativeCause") if primary else None),
+        "nativeCauses": all_causes,
+        "sources": items,
+        "inputRefs": [r for it in items for r in (it.get("inputRefs") or [])],
+    }
+
+
+def _primary_source_pair(coverage_records: list[dict]) -> tuple:
+    """Deterministic primary pair of an incomplete account: the FIRST retained record
+    that actually carries a typed pair, else `(None, None)`.
+
+    Records arrive in a deterministic order (returned partitions in canonical H order,
+    then any named-but-not-returned Coverage), so the choice is reproducible. The pair
+    is taken whole from one record; deficiency and nativeCause are never unzipped and
+    re-paired across records.
+
+    When the only incompleteness is MISSING WORK -- no returned partition at all, or
+    expected subjects that no returned partition covers -- no retained source carries a
+    pair, so the derived pair is explicitly `(None, None)`. Manufacturing
+    `provider-unavailable` there would assert a provider observation that occurs on no
+    source record, which contract §4/§5 forbid. `(None, None)` is what the proof bridge
+    (composition §9.6) maps to `required-cell-unsatisfied`, so the required obligation
+    is kept, not erased.
+    """
+    for rec in coverage_records:
+        if rec.get("deficiency") is not None or rec.get("nativeCause") is not None:
+            return rec.get("deficiency"), rec.get("nativeCause")
+    return None, None
+
+
+def _summarize_coverage_records(records: list[dict], expected: set, covered: set) -> dict:
+    """Extraction completeness from ALL owner Coverage records, pairs kept together.
+
+    Account complete is extraction completeness: every expected subject is in some
+    returned partition and every returned entry answers coverage=complete with
+    examinedExhaustive true. RC-1/RC-3 stay native: resolutionCompleteness.state may
+    be not-applicable or incomplete on a complete extraction. A record's deficiency
+    and nativeCause are never unzipped and re-paired across records.
+
+    An incomplete account's own `(deficiency, nativeCause)` is `_primary_source_pair`:
+    an ACTUAL retained pair when one exists, otherwise explicit null/null for pure
+    missing work. No carrier is invented for census-driven or empty-partition
+    incompleteness. Every retained record, every originating ref and every real native
+    cause survive on `coverageRecords` / `nativeCauses` / `deficiencies` regardless.
+    """
+    missing = expected - covered
+    coverage_records = []
+    for rec in records:
+        entry = rec.get("entry") or {}
+        rc = entry.get("resolutionCompleteness") or {}
+        coverage_records.append({
+            "coverageId": rec["id"],
+            "deficiency": entry.get("deficiency"),
+            "nativeCause": entry.get("nativeCause"),
+            "inputRef": {"domain": "coverage", "digest": rec["id"]},
+            "coverage": entry.get("coverage"),
+            "resolutionCompletenessState": rc.get("state"),
+            "examinedExhaustive": rc.get("examinedExhaustive"),
+        })
+    census_ok = not missing
+    extraction_ok = (
+        bool(coverage_records)
+        and census_ok
+        and all(r.get("coverage") == "complete" for r in coverage_records)
+        and all(r.get("examinedExhaustive") is True for r in coverage_records)
+    )
+    rc_states = [r.get("resolutionCompletenessState") for r in coverage_records]
+    rc_state = rc_states[0] if rc_states and all(s == rc_states[0] for s in rc_states) else (
+        "incomplete" if any(s in ("incomplete", "partial", "not-attempted") for s in rc_states) else (rc_states[0] if rc_states else None)
+    )
+    if extraction_ok:
+        return {
+            "accountState": "complete",
+            "coverage": "complete",
+            "resolutionCompletenessState": rc_state,
+            "examinedExhaustive": True,
+            "deficiency": None,
+            "nativeCause": None,
+            "nativeCauses": [r["nativeCause"] for r in coverage_records if r.get("nativeCause")],
+            "deficiencies": [r["deficiency"] for r in coverage_records if r.get("deficiency")],
+            "censusMissing": [],
+            "coverageRecords": coverage_records,
+        }
+    primary_def, primary_cause = _primary_source_pair(coverage_records)
+    if not coverage_records:
+        # Empty returned partitions: native work is incomplete and NO retained source
+        # carries a pair. Derive null/null; do not manufacture provider-unavailable.
+        return {
+            "accountState": "incomplete",
+            "coverage": "unknown",
+            "resolutionCompletenessState": None,
+            "examinedExhaustive": None,
+            "deficiency": None,
+            "nativeCause": None,
+            "nativeCauses": [],
+            "deficiencies": [],
+            "censusMissing": canon_str_list(list(missing)),
+            "coverageRecords": [],
+        }
+    return {
+        "accountState": "incomplete",
+        "coverage": "unknown",
+        "resolutionCompletenessState": rc_state,
+        "examinedExhaustive": all(r.get("examinedExhaustive") is True for r in coverage_records),
+        "deficiency": primary_def,
+        "nativeCause": primary_cause,
+        "nativeCauses": [r["nativeCause"] for r in coverage_records if r.get("nativeCause")],
+        "deficiencies": [r["deficiency"] for r in coverage_records if r.get("deficiency")],
+        "censusMissing": canon_str_list(list(missing)),
+        "coverageRecords": coverage_records,
+    }
+
+
+def body_eligible_census(rel: str, cell: dict, subjects: set) -> set:
+    """identity bodyEligibilityLaw census restriction for a relation that joins a body identity.
+
+    The file inventory stays broad; what a `clones` account is OWED is only the body-eligible paths
+    under the universe domain of this cell's languageMode. Eligibility reads the path suffix and the
+    domain row alone, never ownership, program membership, grammar selection or resolution, so an
+    eligible path whose owner is incomplete stays owed. An unmapped mode keeps the full census."""
+    if "bodyIdentityJoin" not in (RELATIONS.get(rel) or {}):
+        return subjects
+    language = IM.DIGESTS["languageModes"]["map"].get(cell.get("languageMode"))
+    rows = [row for row in IM.DIGESTS["domainSets"]["native-semantic-universe"].values()
+            if row.get("language") == language]
+    if len(rows) != 1:
+        return subjects
+    table = IM.body_eligibility_table(rows[0])
+    return {s for s in subjects if isinstance(s, str) and any(s.endswith(suffix) for suffix in table)}
+
+
+def expected_source_census(rel: str, cell: dict, binding: dict, inventories: dict, row_inv_digests: list[str]) -> set:
+    """Independent expected subjects for this pair from inventory/extent, not returned scopes."""
+    if rel == "vcs-change":
+        return set()
+    kind = (RELATIONS.get(rel) or {}).get("subjectKind")
+    invs = [inventories[d] for d in row_inv_digests if d in inventories]
+    if kind == "source-path":
+        file_inv = next((i for i in invs if i.get("kind") == "file"), None)
+        if file_inv is not None:
+            return body_eligible_census(rel, cell, {r.get("nativeSubjectId") or r.get("path")
+                                                    for r in (file_inv.get("rows") or []) if isinstance(r, dict)})
+        return body_eligible_census(rel, cell, set(_binding_extent(binding, "file")))
+    if kind == "package-name":
+        pkg_inv = next((i for i in invs if i.get("kind") == "package"), None)
+        if pkg_inv is not None:
+            return {r.get("nativeSubjectId") for r in (pkg_inv.get("rows") or []) if isinstance(r, dict) and r.get("nativeSubjectId")}
+        return set()
+    if kind == "symbol":
+        sym_inv = next((i for i in invs if i.get("kind") == "symbol"), None)
+        if sym_inv is not None:
+            return {r.get("nativeSubjectId") for r in (sym_inv.get("rows") or []) if isinstance(r, dict) and r.get("nativeSubjectId")}
+        return set()
+    return set()
+
+
+def admit_execution_inputs(
+    *,
+    plan_id: str,
+    plan: dict,
+    execution_plan_id: str,
+    execution_plan: dict,
+    enumeration_plan: dict,
+    analysis_spec: dict,
+    execution_inputs: dict,
+    objects: dict,
+    blobs: dict,
+    store_pointers: list,
+    inventories: dict,
+    views: dict | None = None,
+    coverages: dict | None = None,
+    candidate_results: dict | None = None,
+    imports: dict | None = None,
+    target_attributions: dict | None = None,
+    incoming_searches: dict | None = None,
+    groups: dict | None = None,
+    closures: dict | None = None,
+    stage_specs: dict | None = None,
+    vcs_observation: dict | None = None,
+) -> dict:
+    """Join-admit host-captured execution inputs against an M3 objects/blobs store.
+
+    plan_id is the actual plan2 locator (Plan descriptor has no planId).
+    store_pointers is required operational TCB input, not a field of ExecutionInputsV1.
+    Pass promised_pointers(...)['store_pointers'] (selectedRefs + owner references),
+    never a whole-store census. views/coverages/groups/candidate_results maps, when
+    supplied, must equal store-resolved records — never a permissive merge.
+    Clone member coordinates are CandidateProducerResultV1.sourceBodies retained
+    on the envelope; there is no unauthenticated caller locator map.
+    """
+    faults: list[str] = []
+    deficiencies: list[dict] = []
+    needed: list[str] = list(NEEDED_ROOT)
+    derived_accounts: list[dict] = []
+    derived_outcomes: list[dict] = []
+    empty = {
+        "result": "REFUSE", "refusals": faults, "digest": None,
+        "requiredCellDeficiencies": [],
+        "derivedAccounts": [], "derivedOutcomes": [],
+        "neededRootInputs": needed,
+        "causeRetention": (
+            "derivedAccounts[].coverageRecords retain each Coverage deficiency+nativeCause+inputRef together; "
+            "requiredCellDeficiencies is canonical-record unique, every distinct source/coordinate kept"
+        ),
+        "internalFaults": list(INTERNAL_FAULTS),
+        "standing": "execution-inputs join admission only; not a Run; host TCB trust boundary",
+    }
+    if SCHEMA["$defs"]["DeficiencyV2"]["enum"] != OWNER_DEF or SCHEMA["$defs"]["NativeCause"]["enum"] != OWNER_CAUSE:
+        empty["refusals"] = ["EXECUTION_INPUTS_CAUSE_ENUM_DRIFT"]
+        return empty
+    if not isinstance(objects, dict) or not isinstance(blobs, dict) or store_pointers is None:
+        empty["refusals"] = ["EXECUTION_INPUTS_STORE_REQUIRED"]
+        return empty
+    if type(store_pointers) is not list:
+        empty["refusals"] = ["EXECUTION_INPUTS_STORE_REQUIRED"]
+        return empty
+    try:
+        C.validate(SCHEMA, execution_inputs)
+    except CATCH:
+        empty["refusals"] = ["EXECUTION_INPUTS_SCHEMA"]
+        return empty
+
+    pointers = set(store_pointers)
+    if closures is None:
+        closures = {}
+    if stage_specs is None:
+        stage_specs = {}
+    if inventories is None:
+        inventories = {}
+    if candidate_results is None:
+        candidate_results = {}
+    if imports is None:
+        imports = {}
+    if target_attributions is None:
+        target_attributions = {}
+    if incoming_searches is None:
+        incoming_searches = {}
+    if groups is None:
+        groups = {}
+
+    if execution_inputs["planId"] != plan_id:
+        _add(faults, "EXECUTION_INPUTS_PLAN_JOIN")
+    if execution_inputs["analysisSpecDigest"] != plan.get("analysisSpecDigest"):
+        _add(faults, "EXECUTION_INPUTS_PLAN_JOIN")
+    if execution_inputs["analysisSpecDigest"] != raw_digest(analysis_spec):
+        _add(faults, "EXECUTION_INPUTS_PLAN_JOIN")
+    if execution_inputs["enumerationPlanDigest"] != raw_digest(enumeration_plan):
+        _add(faults, "EXECUTION_INPUTS_ENUMERATION_DIGEST")
+    if execution_inputs["executionPlanId"] != execution_plan_id:
+        _add(faults, "EXECUTION_INPUTS_EXECUTION_PLAN_JOIN")
+    if execution_plan.get("planId") != plan_id:
+        _add(faults, "EXECUTION_INPUTS_EXECUTION_PLAN_JOIN")
+
+    ev = execution_inputs["evaluatorClosure"]
+    if ev not in (plan.get("semanticClosures") or []):
+        _add(faults, "EXECUTION_INPUTS_EVALUATOR_CLOSURE")
+    if ev not in closures or not isinstance(closures.get(ev), dict) or closures[ev].get("kind") != "evaluator":
+        _add(faults, "EXECUTION_INPUTS_EVALUATOR_CLOSURE")
+
+    req_tuples = [(r["capabilityId"], r["languageMode"], r["workspaceRoot"], r["required"])
+                  for r in analysis_spec["requestedCapabilities"]]
+    cell_tuples = [(c["capabilityId"], c["languageMode"], c["workspaceRoot"], c["required"])
+                   for c in enumeration_plan["cells"]]
+    if len(req_tuples) != len(cell_tuples) or sorted(req_tuples) != sorted(cell_tuples):
+        _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+
+    selected = execution_inputs["selectedRefs"]
+    if not _canonical_set_ok(selected):
+        _add(faults, "EXECUTION_INPUTS_ORDER")
+    if not _canonical_set_ok(execution_inputs["candidateResultRefs"]):
+        _add(faults, "EXECUTION_INPUTS_ORDER")
+    for ref in selected:
+        if ref["domain"] in OUTPUT_DOMAINS:
+            _add(faults, "EXECUTION_INPUTS_OUTPUT_BACKLINK")
+
+    def locate_h(domain: str, digest: str):
+        rec, key = _obj(objects, H_DOMAINS[domain], digest)
+        if key not in pointers and digest not in pointers:
+            _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+            return None
+        if rec is None:
+            _add(faults, "EXECUTION_INPUTS_REF_LOST_BYTES")
+            return None
+        obj_domain, value = rec
+        if obj_domain != H_DOMAINS[domain]:
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        try:
+            minted = IM.identifier(obj_domain, value)
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        if minted != key:
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        return value
+
+    def locate_blob(digest: str, supplied: dict, required_map: bool):
+        if digest not in pointers:
+            _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+            return None
+        if digest not in blobs:
+            _add(faults, "EXECUTION_INPUTS_REF_LOST_BYTES")
+            return None
+        try:
+            parsed = _parse_blob(blobs, digest)
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_REF_INVALID_BYTES")
+            return None
+        if parsed is None:
+            _add(faults, "EXECUTION_INPUTS_REF_LOST_BYTES")
+            return None
+        mapped = supplied.get(digest)
+        if required_map and mapped is None:
+            _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+            return None
+        if mapped is not None and not C.equal_typed(mapped, parsed):
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        return mapped if mapped is not None else parsed
+
+    domain_maps = {
+        "subject-inventory": (inventories, True),
+        "candidate-producer-result": (candidate_results, True),
+        "target-attribution": (target_attributions, True),
+        "incoming-search": (incoming_searches, True),
+    }
+
+    resolved_views = {}
+    resolved_coverages = {}
+    for ref in selected:
+        if ref["domain"] == "view":
+            value = locate_h("view", ref["digest"])
+            if value is not None:
+                resolved_views[ref["digest"]] = value
+        elif ref["domain"] == "coverage":
+            value = locate_h("coverage", ref["digest"])
+            if value is not None:
+                resolved_coverages[ref["digest"]] = value
+        elif ref["domain"] == "import":
+            value = locate_h("import", ref["digest"])
+            if value is not None:
+                mapped = imports.get(ref["digest"])
+                if mapped is None:
+                    _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+                elif not C.equal_typed(mapped, value):
+                    _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+        elif ref["domain"] in domain_maps:
+            supplied, req = domain_maps[ref["domain"]]
+            locate_blob(ref["digest"], supplied, req)
+
+    fact_index = {}
+    for hx, view in resolved_views.items():
+        if not isinstance(view, dict):
+            continue
+        for fid in view.get("facts") or []:
+            rec = objects.get(fid)
+            if rec and rec[0] == "fact":
+                fact_index[fid] = rec[1]
+    for ref in selected:
+        if ref.get("domain") != "target-attribution":
+            continue
+        rec = (target_attributions or {}).get(ref["digest"])
+        if rec is None:
+            continue
+        if rec.get("schemaVersion") != 2:
+            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
+            continue
+        fid = rec.get("sourceFactId")
+        fact = fact_index.get(fid)
+        if fact is None:
+            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
+            continue
+        if rec.get("producerClosure") != fact.get("producerClosure"):
+            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
+        if rec.get("planId") != plan_id:
+            _add(faults, "EXECUTION_INPUTS_TARGET_ATTRIBUTION_JOIN")
+
+    if views is not None:
+        if set(views) != set(resolved_views):
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+        for k, v in views.items():
+            if k in resolved_views and not C.equal_typed(v, resolved_views[k]):
+                _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+    if coverages is not None:
+        if set(coverages) != set(resolved_coverages):
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+        for k, v in coverages.items():
+            if k in resolved_coverages and not C.equal_typed(v, resolved_coverages[k]):
+                _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+
+    bindings = _bindings(enumeration_plan)
+    outcomes = execution_inputs["cellOutcomes"]
+    if len(outcomes) != len(bindings):
+        _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+    for i, row in enumerate(outcomes):
+        if row.get("ordinal") != i:
+            _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+
+    receipts = execution_inputs["hostCapture"].get("stageReceipts") or []
+    stages = execution_plan.get("stages") or []
+    stage_ords = [s.get("ordinal") for s in stages]
+    rec_ords = [r.get("ordinal") for r in receipts]
+    if rec_ords != list(range(len(receipts))) or sorted(rec_ords) != sorted(stage_ords) or len(set(rec_ords)) != len(rec_ords):
+        _add(faults, "EXECUTION_INPUTS_RECEIPT_TOTALITY")
+    receipts_by_ord = {}
+    captured_stage_refs = []
+    for recp in receipts:
+        if not _canonical_set_ok(recp.get("outputRefs") or []):
+            _add(faults, "EXECUTION_INPUTS_ORDER")
+        if not _canonical_set_ok(recp.get("outputDomains") or []):
+            _add(faults, "EXECUTION_INPUTS_ORDER")
+        so = recp["ordinal"]
+        receipts_by_ord[so] = recp
+        if so >= len(stages) or stages[so].get("ordinal") != so:
+            _add(faults, "EXECUTION_INPUTS_RECEIPT_TOTALITY")
+            continue
+        st = stages[so]
+        if st.get("stageSpecDigest") != recp["stageSpecDigest"]:
+            _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+        spec_d = recp["stageSpecDigest"]
+        spec = stage_specs.get(spec_d)
+        if spec is None and spec_d in blobs:
+            try:
+                spec = _parse_blob(blobs, spec_d)
+                if spec is not None:
+                    stage_specs[spec_d] = spec
+            except CATCH:
+                spec = None
+        if not isinstance(spec, dict):
+            _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+        else:
+            if recp.get("producerClosure") != spec.get("producerClosure"):
+                _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+            if not C.equal_typed(recp.get("outputDomains"), spec.get("outputDomains")):
+                _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+            if not C.equal_typed(spec.get("outputDomains"), st.get("outputDomains")):
+                _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+        allowed = set(recp.get("outputDomains") or [])
+        if recp.get("state") == "unavailable":
+            if recp.get("outputRefs"):
+                _add(faults, "EXECUTION_INPUTS_RECEIPT_TOTALITY")
+        for ref in recp.get("outputRefs") or []:
+            if ref["domain"] not in allowed:
+                _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+            if recp.get("state") == "complete":
+                captured_stage_refs.append(ref)
+            if ref["domain"] == "view" and ref["digest"] not in resolved_views:
+                value = locate_h("view", ref["digest"])
+                if value is not None:
+                    resolved_views[ref["digest"]] = value
+
+    snapshot_paths, snapshot_by_path = _snapshot_index(objects, enumeration_plan)
+    if not snapshot_by_path:
+        needed.append("objects[enumerationPlan.snapshotId].sourceInventory")
+
+    vcs_kind = (vcs_observation or {}).get("kind")
+    inventory_named = set()
+    outcome_candidate = []
+    row_inv_states: dict[tuple, list] = {}
+    row_inv_records: dict[tuple, list] = {}
+    cell_view_hexes: dict[tuple, list] = {}
+
+    for row, (ci, po, cell, binding) in zip(outcomes, bindings):
+        if (row["cellOrdinal"], row["programOrdinal"]) != (ci, po):
+            _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+        if (row["capabilityId"] != cell["capabilityId"] or row["languageMode"] != cell["languageMode"]
+                or row["workspaceRoot"] != cell["workspaceRoot"] or row["required"] != cell["required"]):
+            _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+        expected_kinds = _cap_kinds(cell["capabilityId"])
+        if not C.equal_typed(row["kinds"], expected_kinds) or not C.equal_typed(cell["kinds"], expected_kinds):
+            _add(faults, "EXECUTION_INPUTS_KIND_MAP")
+        uni = binding.get("universe")
+        if row["universe"] != uni:
+            _add(faults, "EXECUTION_INPUTS_CELL_TOTALITY")
+        en = binding.get("enumerator") or {}
+        if row["enumeratorStatus"] != en.get("status"):
+            _add(faults, "EXECUTION_INPUTS_ENUMERATOR")
+        en_cl = en.get("closureId")
+        if en.get("status") == "selected":
+            if row.get("enumeratorClosure") != en_cl:
+                _add(faults, "EXECUTION_INPUTS_ENUMERATOR")
+            if not en_cl or en_cl not in (plan.get("semanticClosures") or []):
+                _add(faults, "EXECUTION_INPUTS_ENUMERATOR")
+            if not en_cl or en_cl not in closures or not isinstance(closures.get(en_cl), dict) or closures[en_cl].get("kind") != "provider":
+                _add(faults, "EXECUTION_INPUTS_ENUMERATOR")
+        cap_rels = {p[0] for p in _matrix_pairs(cell["capabilityId"])}
+        attributed = []
+        producer = row.get("enumeratorClosure")
+        for hx, view in resolved_views.items():
+            if not isinstance(view, dict):
+                continue
+            if producer and view.get("producerClosure") != producer:
+                continue
+            if view.get("planId") != plan_id:
+                _add(faults, "EXECUTION_INPUTS_PLAN_JOIN")
+                continue
+            if uni is None:
+                continue
+            # Contract §3 "View attribution": the binding universe and a matrix relation of this
+            # capability hold on ONE AND THE SAME named scope. A U match on one scope plus a
+            # relation match on another attributes nothing. The matrix cell state plays no part,
+            # so an UNSUPPORTED-TYPED row names its returned view exactly as a supported row does;
+            # a candidate-only capability (no matrix relations) needs the universe alone.
+            same_scope = False
+            for sid in view.get("scopeIds") or []:
+                sc = objects.get(sid)
+                if not sc or sc[0] != "subject-scope" or not isinstance(sc[1], dict):
+                    continue
+                if sc[1].get("sourceUniverse") == uni and (not cap_rels or sc[1].get("relation") in cap_rels):
+                    same_scope = True
+            if not same_scope:
+                continue
+            attributed.append(hx)
+            # Contract §3 named-scope check, for EVERY account applicability: an attributed view
+            # names no scope of another universe, with or without Coverage on it. load_coverage
+            # sees only supported-available Coverage envelopes, so it cannot decide this for an
+            # unsupported-typed row or for a coverage-less scope (§5 per-universe clause).
+            for sid in view.get("scopeIds") or []:
+                sc = objects.get(sid)
+                if sc and sc[0] == "subject-scope" and isinstance(sc[1], dict) and sc[1].get("sourceUniverse") != uni:
+                    _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+        attributed = canon_str_list(attributed)
+        cell_view_hexes[(ci, po)] = attributed
+        if not C.equal_typed(row["viewDigests"], attributed):
+            _add(faults, "EXECUTION_INPUTS_VIEW_TOTALITY")
+        inv_states = []
+        inv_recs = []
+        if expected_kinds:
+            if row["candidateResultDigest"] is not None:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_REQUIRED")
+            kinds_got = []
+            for d in row["inventoryDigests"]:
+                inv = inventories.get(d)
+                if inv is None:
+                    _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+                    continue
+                kinds_got.append(inv.get("kind"))
+                if inv.get("kind") not in expected_kinds:
+                    _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+                if inv.get("cellOrdinal") != ci or inv.get("programOrdinal") != po:
+                    _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+                if inv.get("planId") not in (None, plan_id) and inv.get("planId") != plan_id:
+                    _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+                st = inv.get("state")
+                if isinstance(st, str):
+                    inv_states.append(st)
+                inv_recs.append({"digest": d, **inv})
+                inventory_named.add(d)
+            if sorted(kinds_got) != list(expected_kinds) or len(kinds_got) != len(set(kinds_got)):
+                _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+        else:
+            if row["inventoryDigests"]:
+                _add(faults, "EXECUTION_INPUTS_INVENTORY_KIND")
+            if cell["required"] and cell["capabilityId"] in CANDIDATE_CAPS and row["candidateResultDigest"] is None:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_REQUIRED")
+            if row["candidateResultDigest"]:
+                outcome_candidate.append(row["candidateResultDigest"])
+        row_inv_states[(ci, po)] = inv_states
+        row_inv_records[(ci, po)] = inv_recs
+
+    # Coverage accounts: join totality, then derive from ALL owner entries of THIS cell.
+    owed = []
+    for ci, po, cell, binding in bindings:
+        cap = cell["capabilityId"]
+        if cap in CANDIDATE_CAPS:
+            continue
+        mode = cell["languageMode"]
+        state_row = CELL_STATE.get((cap, mode))
+        uni = binding.get("universe")
+        en_status = (binding.get("enumerator") or {}).get("status")
+        for rel, rung in _matrix_pairs(cap):
+            owed.append((ci, po, rel, rung, uni, state_row, cell, en_status, binding))
+    accounts = execution_inputs["nativeCoverageAccounts"]
+    have = [(a["cellOrdinal"], a["programOrdinal"], a["relation"], a["resolution"]) for a in accounts]
+    owed_keys = [(a[0], a[1], a[2], a[3]) for a in owed]
+    if sorted(have) != sorted(owed_keys):
+        _add(faults, "EXECUTION_INPUTS_NATIVE_COVERAGE_TOTALITY")
+    by_acc = {(a["cellOrdinal"], a["programOrdinal"], a["relation"], a["resolution"]): a for a in accounts}
+    account_states_by_cell: dict[tuple, list] = {}
+
+    def load_coverage(hx: str, uni):
+        rec, key = _obj(objects, "coverage", hx)
+        if key not in pointers and hx not in pointers:
+            _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+            return None
+        if rec is None:
+            _add(faults, "EXECUTION_INPUTS_REF_LOST_BYTES")
+            return None
+        if rec[0] != "coverage":
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        env = rec[1]
+        try:
+            if IM.identifier("coverage", env) != key:
+                _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+                return None
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            return None
+        payload_digest = env.get("payloadDigest")
+        if not isinstance(payload_digest, str) or payload_digest not in blobs:
+            _add(faults, "EXECUTION_INPUTS_EVIDENCE_UNAVAILABLE")
+            return None
+        try:
+            payload = _parse_blob(blobs, payload_digest)
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_REF_INVALID_BYTES")
+            return None
+        if payload is None:
+            _add(faults, "EXECUTION_INPUTS_EVIDENCE_UNAVAILABLE")
+            return None
+        sc = objects.get(env["scopeId"])
+        if sc and sc[0] == "subject-scope" and uni is not None and sc[1].get("sourceUniverse") != uni:
+            _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+        return env, payload
+
+    def partitions_in_cell(ci, po, rel, rung, uni, producer):
+        found = []
+        for hx in cell_view_hexes.get((ci, po), []):
+            view = resolved_views.get(hx)
+            if not isinstance(view, dict):
+                continue
+            if producer and view.get("producerClosure") != producer:
+                continue
+            for cid in view.get("coverageIds") or []:
+                chx = cid.split(":", 1)[1] if isinstance(cid, str) and ":" in cid else cid
+                loaded = load_coverage(chx, uni)
+                if loaded is None:
+                    continue
+                env, payload = loaded
+                key = payload.get("key") or {}
+                if key.get("relation") != rel or key.get("resolution") != rung:
+                    continue
+                if uni is not None and key.get("sourceUniverse") != uni:
+                    continue
+                sc = objects.get(env["scopeId"])
+                if sc and sc[0] == "subject-scope":
+                    if producer and sc[1].get("enumeratorClosure") not in (None, producer):
+                        continue
+                    if uni is not None and sc[1].get("sourceUniverse") != uni:
+                        continue
+                found.append((chx, env, payload))
+        # unique by hex, canonical order
+        by_h = {h: (h, e, p) for h, e, p in found}
+        return [by_h[h] for h in canon_str_list(list(by_h))]
+
+    for ci, po, rel, rung, uni, state_row, cell, en_status, binding in owed:
+        acc = by_acc.get((ci, po, rel, rung))
+        if acc is None:
+            continue
+        matrix_state = (state_row or {}).get("state")
+        want_app = derived_applicability(rel, uni, en_status, matrix_state, vcs_kind)
+        if acc.get("applicability") != want_app:
+            if want_app == "inapplicable-vcs" or acc.get("applicability") == "inapplicable-vcs":
+                _add(faults, "EXECUTION_INPUTS_VCS_APPLICABILITY")
+            else:
+                _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+        # Account sourceUniverse denotes its BINDING's universe coordinate, for every
+        # applicability. Lack of Coverage does not erase that coordinate: an inapplicable-vcs,
+        # unsupported-typed or unavailable account still belongs to the universe its binding
+        # names. A null binding universe stays null. This is an EXTERNAL join to
+        # EnumerationPlanV1.cells[ci].programBindings[po].universe that JSON Schema cannot
+        # express; it is published in contract §5 and annotated on the schema, and enforced
+        # here. targetUniverse is not a join: the schema types it null (contract §5), because the
+        # account aggregates every matching partition of this binding across target universes.
+        want_u = uni
+        if acc.get("sourceUniverse") != want_u:
+            _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+        producer = (binding.get("enumerator") or {}).get("closureId")
+        if want_app != "supported-available":
+            if acc.get("coverageIds"):
+                _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+            if want_app == "unsupported-typed":
+                want_def = (state_row or {}).get("deficiency")
+                want_cause = _matrix_cause(want_def)
+                _carrier(want_def, want_cause, faults)
+                summary = {
+                    "accountState": "unsupported", "coverage": None,
+                    "resolutionCompletenessState": None, "examinedExhaustive": None,
+                    "deficiency": want_def, "nativeCause": want_cause,
+                    "nativeCauses": [want_cause] if want_cause else [],
+                    "deficiencies": [want_def] if want_def else [],
+                    "scopeIds": [],
+                }
+                if cell.get("required"):
+                    deficiencies.append({
+                        "source": "execution", "cause": "unsupported-typed",
+                        "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                        "required": True, "relation": rel, "resolution": rung,
+                        "deficiency": want_def, "nativeCause": want_cause, "inputRefs": [],
+                    })
+                summary["coverageRecords"] = []
+            elif want_app == "inapplicable-vcs":
+                summary = {
+                    "accountState": "inapplicable", "coverage": None,
+                    "resolutionCompletenessState": None, "examinedExhaustive": None,
+                    "deficiency": None, "nativeCause": None, "nativeCauses": [],
+                    "deficiencies": [], "scopeIds": [], "coverageRecords": [],
+                }
+            else:
+                bind_def, bind_cause = _binding_carrier(binding)
+                summary = {
+                    "accountState": "unavailable", "coverage": None,
+                    "resolutionCompletenessState": None, "examinedExhaustive": None,
+                    "deficiency": bind_def, "nativeCause": bind_cause,
+                    "nativeCauses": [bind_cause] if bind_cause else [],
+                    "deficiencies": [bind_def] if bind_def else [], "scopeIds": [],
+                    "coverageRecords": [],
+                }
+                if cell.get("required"):
+                    deficiencies.append({
+                        "source": "execution", "cause": "required-cell-unsatisfied",
+                        "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                        "required": True, "relation": rel, "resolution": rung,
+                        "deficiency": bind_def, "nativeCause": bind_cause, "inputRefs": [],
+                    })
+            derived_accounts.append({
+                "cellOrdinal": ci, "programOrdinal": po, "relation": rel, "resolution": rung,
+                **summary,
+            })
+            account_states_by_cell.setdefault((ci, po), []).append(summary["accountState"])
+            continue
+
+        returned = partitions_in_cell(ci, po, rel, rung, uni, producer)
+        returned_ids = [h for h, _, _ in returned]
+        named = acc.get("coverageIds") or []
+        if canon_str_list(named) != canon_str_list(returned_ids):
+            _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+        records = []
+        scopes = []
+        for hx, env, payload in returned:
+            entry = payload.get("entry") or {}
+            key = payload.get("key") or {}
+            if key.get("relation") != rel or key.get("resolution") != rung:
+                _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+            if key.get("sourceUniverse") != uni:
+                _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+            _carrier(entry.get("deficiency"), entry.get("nativeCause"), faults)
+            records.append({"id": hx, "entry": entry})
+            scopes.append(env["scopeId"])
+        for hx in named:
+            if hx not in returned_ids:
+                loaded = load_coverage(hx, uni)
+                if loaded:
+                    _env, payload = loaded
+                    entry = payload.get("entry") or {}
+                    _carrier(entry.get("deficiency"), entry.get("nativeCause"), faults)
+                    records.append({"id": hx, "entry": entry})
+        expected = expected_source_census(rel, cell, binding, inventories, [r["digest"] for r in row_inv_records.get((ci, po), [])])
+        covered = set()
+        for hx, env, payload in returned:
+            sc = objects.get(env["scopeId"])
+            if sc and sc[0] == "subject-scope" and isinstance(sc[1], dict):
+                for subj in sc[1].get("subjects") or []:
+                    if isinstance(subj, str):
+                        covered.add(subj)
+        summary = _summarize_coverage_records(records, expected, covered)
+        summary["scopeIds"] = canon_str_list(scopes)
+        summary["inputRefs"] = [{"domain": "coverage", "digest": hx} for hx in named]
+        summary["relation"] = rel
+        summary["resolution"] = rung
+        if summary["accountState"] != "complete" and cell.get("required"):
+            recs = summary.get("coverageRecords") or []
+            if recs:
+                for rec in recs:
+                    # EXACT per-record pair with that record's own originating ref. A
+                    # record whose pair is (null, null) keeps null/null and bridges to
+                    # required-cell-unsatisfied; it never borrows a sibling record's
+                    # carrier and never gains a manufactured one.
+                    deficiencies.append({
+                        "source": "execution", "cause": "native-work-incomplete",
+                        "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                        "required": True, "relation": rel, "resolution": rung,
+                        "deficiency": rec.get("deficiency"),
+                        "nativeCause": rec.get("nativeCause"),
+                        "inputRefs": [rec["inputRef"]] if rec.get("inputRef") else [],
+                    })
+            else:
+                # No retained Coverage record at all: the genuinely missing-source account
+                # row is still published, with the derived null/null pair and whatever
+                # coverageIds the host named (empty when none). The obligation travels to
+                # the proof bridge as required-cell-unsatisfied; it is not dropped and it
+                # is not dressed up as a provider observation.
+                deficiencies.append({
+                    "source": "execution", "cause": "native-work-incomplete",
+                    "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                    "required": True, "relation": rel, "resolution": rung,
+                    "deficiency": summary.get("deficiency"),
+                    "nativeCause": summary.get("nativeCause"),
+                    "inputRefs": list(summary.get("inputRefs") or []),
+                })
+        derived_accounts.append({
+            "cellOrdinal": ci, "programOrdinal": po, "relation": rel, "resolution": rung,
+            **summary,
+        })
+        account_states_by_cell.setdefault((ci, po), []).append(summary["accountState"])
+
+    cand_schema = {"$defs": SCHEMA["$defs"], "allOf": [{"$ref": "#/$defs/CandidateProducerResultV1"}]}
+    group_schema = {"$defs": NATIVE_SCHEMA["$defs"], "allOf": [{"$ref": "#/$defs/CloneCandidateGroupV2"}]}
+    cand_refs = list(execution_inputs["candidateResultRefs"])
+    if canon_str_list(cand_refs) != canon_str_list(outcome_candidate):
+        _add(faults, "EXECUTION_INPUTS_CANDIDATE_REQUIRED")
+    bound_once = {}
+    cand_rec_by_cell: dict[tuple, dict] = {}
+    cand_digest_by_cell: dict[tuple, str] = {}
+
+    for digest in cand_refs:
+        rec = locate_blob(digest, candidate_results, True)
+        if rec is None:
+            continue
+        try:
+            C.validate(cand_schema, rec)
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_SCHEMA")
+            continue
+        try:
+            if raw_digest(rec) != digest:
+                _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+        except CATCH:
+            _add(faults, "EXECUTION_INPUTS_REF_INVALID_BYTES")
+            continue
+        if rec.get("planId") != plan_id or rec.get("executionPlanId") != execution_plan_id:
+            _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+        matches = [row for row in outcomes if row.get("candidateResultDigest") == digest]
+        if len(matches) != 1:
+            _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+            matched = matches[0] if matches else None
+        else:
+            matched = matches[0]
+            key = (matched["cellOrdinal"], matched["programOrdinal"])
+            if key in bound_once:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+            bound_once[key] = digest
+            cand_rec_by_cell[key] = rec
+            cand_digest_by_cell[key] = digest
+            for field in ("cellOrdinal", "programOrdinal", "capabilityId", "languageMode", "universe"):
+                if rec.get(field) != matched.get(field):
+                    _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+            if rec.get("producerClosure") != matched.get("enumeratorClosure"):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+            if rec.get("stageOrdinal") != matched.get("stageOrdinal"):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+            _carrier(rec.get("deficiency"), rec.get("nativeCause"), faults)
+        want_mode = CAND_MODE.get(rec.get("capabilityId"))
+        binding = None
+        if matched:
+            for ci, po, cell, b in bindings:
+                if ci == matched["cellOrdinal"] and po == matched["programOrdinal"]:
+                    binding = b
+                    break
+        extent, need = _plan_candidate_extent(binding or {})
+        if need:
+            needed.append(need)
+            _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+        if rec.get("state") == "complete":
+            if extent is None:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+            elif canon_str_list(rec.get("examinedPaths") or []) != canon_str_list(extent):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_BIND")
+        bodies = rec.get("sourceBodies") or []
+        body_by_id = {}
+        for body in bodies:
+            if not isinstance(body, dict):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+                continue
+            bid = body.get("id")
+            if not isinstance(bid, str) or bid in body_by_id:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+                continue
+            body_by_id[bid] = body
+            if body.get("universe") != rec.get("universe"):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+            path = body.get("path")
+            if extent is not None and path not in set(extent):
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+            row = snapshot_by_path.get(path) if isinstance(path, str) else None
+            if row is None:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+            else:
+                if body.get("contentSha256") != row.get("sha256") or body.get("byteLength") != row.get("bytes"):
+                    _add(faults, "EXECUTION_INPUTS_CANDIDATE_SOURCE")
+                sha = row.get("sha256")
+                if isinstance(sha, str):
+                    if sha not in pointers:
+                        _add(faults, "EXECUTION_INPUTS_REF_POINTER")
+                    elif sha not in blobs:
+                        _add(faults, "EXECUTION_INPUTS_REF_LOST_BYTES")
+                    else:
+                        raw_src = blobs.get(sha)
+                        try:
+                            if type(raw_src) is not bytes or hashlib.sha256(raw_src).hexdigest() != sha or len(raw_src) != row.get("bytes"):
+                                _add(faults, "EXECUTION_INPUTS_REF_INVALID_BYTES")
+                        except CATCH:
+                            _add(faults, "EXECUTION_INPUTS_REF_INVALID_BYTES")
+        for gd in rec.get("groupDigests") or []:
+            g = locate_blob(gd, groups, False)
+            if g is None:
+                continue
+            if groups and gd in groups and not C.equal_typed(groups[gd], g):
+                _add(faults, "EXECUTION_INPUTS_REF_MISMATCH")
+            try:
+                C.validate(group_schema, g)
+            except CATCH:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+                continue
+            if g.get("authority") != "candidate-only":
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+            if want_mode and g.get("mode") != want_mode:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+            if g.get("automaticDeletionEligible") is True:
+                _add(faults, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+            for member in g.get("members") or []:
+                if member not in body_by_id:
+                    _add(faults, "EXECUTION_INPUTS_CANDIDATE_GROUP")
+        if rec.get("state") in ("unavailable", "partial") and matched and matched.get("required"):
+            deficiencies.append({
+                "source": "execution", "cause": "required-cell-unsatisfied",
+                "cellOrdinal": rec["cellOrdinal"], "programOrdinal": rec["programOrdinal"],
+                "capabilityId": rec["capabilityId"], "required": True,
+                "deficiency": rec.get("deficiency"), "nativeCause": rec.get("nativeCause"),
+                "inputRefs": [{"domain": "candidate-producer-result", "digest": digest}],
+            })
+
+    # Derive each cell outcome and join to the host row.
+    for row, (ci, po, cell, binding) in zip(outcomes, bindings):
+        cap = cell["capabilityId"]
+        cand_cap = cap in CANDIDATE_CAPS
+        acc_summ = [a for a in derived_accounts if a.get("cellOrdinal") == ci and a.get("programOrdinal") == po]
+        derived = derive_outcome(
+            enumerator_status=row["enumeratorStatus"],
+            universe=row["universe"],
+            required=cell["required"],
+            inventories=row_inv_records.get((ci, po), []),
+            account_summaries=acc_summ,
+            candidate_rec=cand_rec_by_cell.get((ci, po)),
+            candidate_digest=cand_digest_by_cell.get((ci, po)),
+            candidate_cap=cand_cap,
+            binding=binding,
+        )
+        d_state, d_reason = derived["state"], derived["stageOrdinalNullReason"]
+        derived_outcomes.append({
+            "ordinal": row["ordinal"], "cellOrdinal": ci, "programOrdinal": po,
+            "state": d_state, "stageOrdinalNullReason": d_reason,
+            "deficiency": derived["deficiency"], "nativeCause": derived["nativeCause"],
+            "nativeCauses": derived["nativeCauses"], "inputRefs": derived["inputRefs"],
+            "sources": derived["sources"],
+        })
+        if row["state"] != d_state:
+            _add(faults, "EXECUTION_INPUTS_OUTCOME_DERIVE")
+        if d_state == "complete":
+            if row["deficiency"] is not None or row["nativeCause"] is not None:
+                _add(faults, "EXECUTION_INPUTS_CAUSE_CARRIER")
+            if row["stageOrdinal"] is None:
+                _add(faults, "EXECUTION_INPUTS_STAGE_ORDINAL")
+        else:
+            source_pairs = {(s.get("deficiency"), s.get("nativeCause")) for s in derived["sources"]}
+            host_pair = (row.get("deficiency"), row.get("nativeCause"))
+            derived_pair = (derived.get("deficiency"), derived.get("nativeCause"))
+            if host_pair != derived_pair:
+                _add(faults, "EXECUTION_INPUTS_OUTCOME_DERIVE")
+            elif derived["sources"] and host_pair not in source_pairs:
+                _add(faults, "EXECUTION_INPUTS_OUTCOME_DERIVE")
+            _carrier(row["deficiency"], row["nativeCause"], faults)
+            if cell.get("required"):
+                inv_or_cand = [s for s in derived["sources"] if s.get("source") in ("inventory", "candidate", "enumerator", "binding")]
+                for src in inv_or_cand:
+                    deficiencies.append({
+                        "source": "execution", "cause": "required-cell-unsatisfied",
+                        "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                        "required": True,
+                        "deficiency": src.get("deficiency"), "nativeCause": src.get("nativeCause"),
+                        "nativeCauses": list(src.get("nativeCauses") or []),
+                        "inputRefs": list(src.get("inputRefs") or []),
+                    })
+        if row["stageOrdinal"] is None:
+            if row.get("stageOrdinalNullReason") not in ("unavailable-binding", "optional-unselected"):
+                _add(faults, "EXECUTION_INPUTS_STAGE_ORDINAL")
+            if row["enumeratorStatus"] == "selected" and row["universe"] is not None and d_state != "unavailable":
+                _add(faults, "EXECUTION_INPUTS_STAGE_ORDINAL")
+        else:
+            if row.get("stageOrdinalNullReason") is not None:
+                _add(faults, "EXECUTION_INPUTS_STAGE_ORDINAL")
+            so = row["stageOrdinal"]
+            recp = receipts_by_ord.get(so)
+            if recp is None:
+                _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+            else:
+                if recp.get("producerClosure") != row.get("enumeratorClosure") and row.get("enumeratorClosure"):
+                    _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+                if d_state == "complete" and recp.get("state") != "complete":
+                    _add(faults, "EXECUTION_INPUTS_OUTCOME_DERIVE")
+                spec = stage_specs.get(recp["stageSpecDigest"])
+                if isinstance(spec, dict):
+                    for vd in row["viewDigests"]:
+                        view = resolved_views.get(vd)
+                        if isinstance(view, dict) and view.get("producerClosure") != spec.get("producerClosure"):
+                            _add(faults, "EXECUTION_INPUTS_STAGE_PRODUCER")
+
+    # selectedRefs exact totality (stage-produced ∪ view coverages ∪ hostDerivedRefs ∪ Plan imports)
+    host_derived = execution_inputs["hostCapture"].get("hostDerivedRefs") or []
+    if not _canonical_set_ok(host_derived):
+        _add(faults, "EXECUTION_INPUTS_ORDER")
+    host_set = {(r["domain"], r["digest"]) for r in host_derived}
+    for domain, digest in host_set:
+        if domain not in HOST_DERIVED_DOMAINS:
+            _add(faults, "EXECUTION_INPUTS_HOST_DERIVED")
+        for recp in receipts:
+            if recp.get("state") != "complete":
+                continue
+            allowed = set(recp.get("outputDomains") or [])
+            for ref in recp.get("outputRefs") or []:
+                if (ref["domain"], ref["digest"]) == (domain, digest) and domain not in allowed:
+                    _add(faults, "EXECUTION_INPUTS_HOST_DERIVED")
+    owed_host = set()
+    for d in inventory_named:
+        owed_host.add(("subject-inventory", d))
+    for d in outcome_candidate:
+        owed_host.add(("candidate-producer-result", d))
+    extra_host = host_set - owed_host
+    for domain, digest in extra_host:
+        if domain not in ("target-attribution", "incoming-search"):
+            _add(faults, "EXECUTION_INPUTS_HOST_DERIVED")
+    if owed_host - host_set:
+        _add(faults, "EXECUTION_INPUTS_HOST_DERIVED")
+    expected_set = set()
+    for ref in captured_stage_refs:
+        expected_set.add((ref["domain"], ref["digest"]))
+    # Contract §1: the stage-produced members of selectedRefs are EXACTLY the union of complete receipt
+    # outputRefs. An attributed view (§3) is one of those captured returns, never an addition to them,
+    # so a view named on selectedRefs and on a row but on no complete receipt refuses SELECTED_COVER.
+    view_hexes = {ref["digest"] for ref in captured_stage_refs if ref["domain"] == "view"}
+    for hx in view_hexes:
+        expected_set.add(("view", hx))
+        view = resolved_views.get(hx)
+        if isinstance(view, dict):
+            for cid in view.get("coverageIds") or []:
+                chx = cid.split(":", 1)[1] if isinstance(cid, str) and ":" in cid else cid
+                expected_set.add(("coverage", chx))
+    expected_set |= host_set
+    for iid in plan.get("importIds") or []:
+        hx = iid.split(":", 1)[1] if ":" in iid else iid
+        expected_set.add(("import", hx))
+    actual_set = {(r["domain"], r["digest"]) for r in selected}
+    if actual_set != expected_set:
+        _add(faults, "EXECUTION_INPUTS_SELECTED_COVER")
+    selected_blob = {(d, x) for d, x in actual_set if d in HOST_DERIVED_DOMAINS}
+    if selected_blob != host_set:
+        _add(faults, "EXECUTION_INPUTS_HOST_DERIVED")
+
+    uniq = []
+    seen_d = set()
+    for d in deficiencies:
+        k = C.canonical(d)
+        if k not in seen_d:
+            seen_d.add(k)
+            uniq.append(d)
+
+    needed = list(dict.fromkeys(needed))
+    standing = "execution-inputs join admission only; not a Run; host TCB trust boundary"
+    cause_ret = (
+        "derivedAccounts[].coverageRecords retain each Coverage deficiency+nativeCause+inputRef together; "
+        "requiredCellDeficiencies is canonical-record unique, every distinct source/coordinate kept"
+    )
+    if faults:
+        empty["refusals"] = faults
+        empty["requiredCellDeficiencies"] = uniq
+        empty["derivedAccounts"] = derived_accounts
+        empty["derivedOutcomes"] = derived_outcomes
+        empty["neededRootInputs"] = needed
+        empty["causeRetention"] = cause_ret
+        return empty
+    return {
+        "result": "ADMIT",
+        "refusals": [],
+        "digest": raw_digest(execution_inputs),
+        "requiredCellDeficiencies": uniq,
+        "derivedAccounts": derived_accounts,
+        "derivedOutcomes": derived_outcomes,
+        "neededRootInputs": needed,
+        "causeRetention": cause_ret,
+        "cellCount": len(outcomes),
+        "viewCount": len({hx for hexes in cell_view_hexes.values() for hx in hexes}),
+        "coverageAccountCount": len(accounts),
+        "candidateCount": len(cand_refs),
+        "internalFaults": list(INTERNAL_FAULTS),
+        "standing": standing,
+    }
+
+
+

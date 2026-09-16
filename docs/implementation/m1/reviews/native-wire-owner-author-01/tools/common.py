@@ -1,0 +1,144 @@
+"""Shared vocabulary for the native wire-carrier author candidate (TS2 + Rust3).
+
+AUTHOR candidate for independent review. Not approval, not a production wire decoder, not product code.
+Every integer literal in emitted documents is a decimal string so a TypeScript consumer never loses precision.
+"""
+
+ARCH_DEFAULT = "/Users/sb/code/opensip-ai/opensip_arch"
+TSDIR = "/tmp/opensip-implementation/m1-typescript-wire-translation-01/"
+RSDIR = "/tmp/opensip-implementation/m1-rust-wire-translation-01/"
+GAPDIR = "/tmp/opensip-implementation/m1-protocol-gap-resolution-01/"
+
+# Exact bytes read on 2026-09-14 (sha256, bytes). The architecture tree has unrelated uncommitted edits;
+# pins are of the bytes read and every tool refuses to run on drift.
+PINS = {
+    "delivery2": ("docs/coop/artifacts/delivery.v2.json", "47b6cfd17338fafd407c554afe1951ab23d2896aac99bcfd272fc0894e3cabf3"),
+    "rust2": ("docs/coop/artifacts/rust-provider-protocol.v2.json", "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b"),
+    "factPlane": ("docs/coop/artifacts/fact-plane.v1.json", "9057200822c5be59bcf8e691e3755cfa1acf2c89f0b1c2bc89237afaa0925b4d"),
+    "c2v3": ("docs/coop/artifacts/c2-plan-stage-schema.v3.json", "3c488ff66a1ec9ab746e99e0701d59460aff3e1d66cd072d9d564a1382b9d285"),
+    "checkRust1": ("docs/coop/artifacts/check-rust-provider-protocol.py", "c190ee7f62552ec342f5da1f66ba2b840cdffd5cd5cddb25e5987c315ee1502e"),
+    "checkRust2": ("docs/coop/artifacts/check-rust-provider-protocol-v2.py", "7b967b888fc172b27268fae2f59273e5cf10b58b97db7c1f19a15657826a48e4"),
+    "nativeMd": ("docs/v2/contracts/product-v1/native-evidence.md", "83b99783893bec4bcca76bc043310e1d33305fc41ef85e012fbcb19e5b222ca0"),
+    "identityMd": ("docs/v2/contracts/product-v1/identity-and-evidence.md", "c82404f3a0cf56fa6cc02e99cc3ebbd5356fedc3b36aeb38f9ef284077fbd31f"),
+    "handshake": ("docs/coop/design-corrections/native/provider-handshake.schemas.v1.json", "9090e2ad51b767a176f51da09f201803d1cc82c047ade68102adcae1ee3a5f84"),
+    "startup": ("docs/coop/design-corrections/native/provider-startup.schemas.v1.json", "1e35a77bae8d9c20171a934e9c16e4de4d7ce98bb024016d7e17cf9b0b38729c"),
+    "evidence": ("docs/coop/design-corrections/native/native-evidence.schemas.v2.json", "2d37b810bd9ffed741d74241fc8a11051606862d8af2f152eed16b92bdc66043"),
+    "factBatch3": ("docs/coop/design-corrections/native/fact-batch.schema.v3.json", "b0ebc133df8763f6cd5f3716542321eba21c69714fca368fbe31ba57677a24e0"),
+    "occupancy": ("docs/coop/design-corrections/native/occupancy-companion.schema.v1.json", "d2bbbcc49adbb130d0bb010fee0b4cf25af7727f730fc329725fa62cd46ae14f"),
+    "dispatch": ("docs/coop/design-corrections/native/dispatch-binding.schema.v1.json", "868c3cf241af9ecc205ba7d078354e38a7db5132974120c046ac23a2dd1df938"),
+    "p3": ("docs/coop/design-corrections/native/protocol3-transitions.v1.json", "b0aca55d89482be14e9c34554c1febb66d9751754b7c3057a383a010515feb0b"),
+    "ts2order": ("docs/coop/design-corrections/native/typescript-protocol2-order.v1.json", "007ef7affce224c7bac6af3bb7897e86691085e2dd788f4a613e45c1fa5b8bbb"),
+    "wireModel": ("docs/coop/design-corrections/native/provider_wire_model.v1.py", "a2a8b9d116552856412e4257069f8c75debd6d8b2fe165407477fb7b28e46295"),
+    "startupModel": ("docs/coop/design-corrections/native/provider_startup_model.v1.py", "3f75b859b45c4fc6d5e5c8ede642a981d8d83bdf55d8e19ef7c9ffe7d5e8d494"),
+    "nativeModel": ("docs/coop/design-corrections/native/native_evidence_model.v2.py", "7d1c0acf2c7d74e52c6570bba66dcb846c03710f64cb61a2c83bd1c39abab8be"),
+    "nativeCases": ("docs/coop/design-corrections/native/native-cases.v2.json", "a08b8cc380a2d332a752405fde11df1d5d63b050c7297ec21820516702367ddc"),
+    "identitySchemas3": ("docs/coop/design-corrections/foundation/identity-schemas.v3.json", "a76c9e2f07e8f8e52ee611f157548f6a09061866308652e3a0f7e3c24893db21"),
+    "identityModel3": ("docs/coop/design-corrections/foundation/identity-model.v3.py", "a6dc5f997b5b9502d185d1b68a61765516ccf5f64f1c33a4282682ebee2803dc"),
+    "identityModel2": ("docs/coop/design-corrections/foundation/identity-model.py", "12c9cc226b582adc8e34a55e8a59671f2611c46d3e27d1d8289a472d78ccacb6"),
+    "canonical": ("docs/coop/design-corrections/foundation/canonical.py", "d47f25db0fb09ceb84282a89fdf74055cb81ccb9de26f85a5a70b032b9a6b442"),
+    "relationRegistry2": ("docs/coop/design-corrections/foundation/relation-payload-schemas.v2.json", "53380a2455490e07028e1872557044fb1b69d062143deeeec0f44006f0b2be9a"),
+    "controlRoute": ("docs/implementation/m1/control-source-route.v1.json", "3965745fd1413e35a9913ed394e7d81075ed5d64c4e21f07533c52eb656c2c02"),
+    "tsFields": (TSDIR + "fields.json", "4c211bb5fd28115b9fad3384d978b3911dd8f1f63cbd6fcf2e633430a27efe6a"),
+    "rustFields": (RSDIR + "fields.json", "26cc2b9b2ad07287ed59afdd455b79c684a033078fd562684a27f417512af41b"),
+    "gapResolutions": (GAPDIR + "resolutions.md", "c60af837f526b2de5982c7abdb94f4400687a61d04aae0c516c1fe692ea90781"),
+}
+
+# Registered generator namespaces (generator candidate03 tools/contracts/options.json owners), used for extern refs.
+EXTERN_NS = {
+    "opensip.product.provider-handshake.1": "Handshake1",
+    "opensip.product.provider-startup.1": "Startup1",
+    "urn:opensip:product-v1:native:evidence-schemas:v2": "Native2",
+    "opensip.product.occupancy-companion.1": "Occupancy1",
+    "opensip.product.fact-batch.3": "FactBatch3",
+    "opensip.product.dispatch-binding.1": "Dispatch1",
+}
+HS, ST, NE, OC = ("opensip.product.provider-handshake.1", "opensip.product.provider-startup.1",
+                  "urn:opensip:product-v1:native:evidence-schemas:v2", "opensip.product.occupancy-companion.1")
+
+U64_MAX = 18446744073709551615
+I63_MAX = 9223372036854775807
+
+
+def s(n):
+    return None if n is None else str(n)
+
+
+def _clean(d):
+    return {k: v for k, v in d.items() if v is not None}
+
+
+# ----- closed type-expression grammar (see wire-carriers.meta.schema.json) -----
+def U(min=None, max=None, const=None):
+    return _clean({"t": "uint64", "min": s(min), "max": s(max), "const": s(const)})
+
+
+def T(min_scalars=None, max_scalars=None, max_utf8=None, pattern=None, enum=None, const=None, controls=None):
+    return _clean({"t": "text", "nfc": True, "minScalars": s(min_scalars), "maxScalars": s(max_scalars),
+                   "maxUtf8Bytes": s(max_utf8), "pattern": pattern,
+                   "enum": sorted(enum, key=lambda x: x.encode()) if enum else None, "const": const,
+                   "forbidC0C1": controls})
+
+
+def B(min_bytes, max_bytes):
+    return {"t": "bytes", "minBytes": s(min_bytes), "maxBytes": s(max_bytes)}
+
+
+def BOOL(const=None):
+    return _clean({"t": "bool", "const": const})
+
+
+NULL = {"t": "null"}
+
+
+def A(items, min_items, max_items, order="sequence"):
+    return _clean({"t": "array", "items": items, "minItems": s(min_items), "maxItems": s(max_items), "order": order})
+
+
+def REF(name):
+    return {"t": "ref", "ref": name}
+
+
+def EXT(schema_id, pointer):
+    name = pointer.rsplit("/", 1)[-1] if pointer != "#" else "Root"
+    return {"t": "extern", "schemaRef": schema_id + pointer, "generatedType": EXTERN_NS[schema_id] + name}
+
+
+def NULLABLE(x):
+    return {"t": "nullable", "of": x}
+
+
+def M(name, type_, presence="required", note=None):
+    return _clean({"name": name, "type": type_, "presence": presence, "note": note})
+
+
+def REC(members, source, admission=(), note=None):
+    return _clean({"kind": "record", "members": members, "source": source, "admission": list(admission), "note": note})
+
+
+def VREC(discriminator, member_order, variants, source, admission=(), note=None):
+    return _clean({"kind": "variant-record", "discriminator": discriminator, "memberOrder": member_order,
+                   "variants": variants, "source": source, "admission": list(admission), "note": note})
+
+
+def ALIAS(target, source, note=None):
+    return _clean({"kind": "alias", "target": target, "source": source, "note": note})
+
+
+def SRC(key, selector):
+    return {"pin": key, "selector": selector}
+
+
+# Order tokens (handwritten admission; shape carriers never sort).
+ORDERS = {
+    "sequence": "declared order preserved; no sort law beyond the member's admission rules",
+    "utf8-strict": "strictly ascending by UTF-8 bytes of the text item; duplicates refuse",
+    "path-utf8-strict": "strictly ascending by UTF-8 bytes of item.path; duplicates refuse",
+    "cbor-bytes-strict": "strictly ascending by deterministic-CBOR bytes of the item under the language profile; duplicates refuse",
+    "cve1-bytes-strict": "strictly ascending by CVE1(item) bytes (resolved-inputs.v2 planIdContract.canonicalValueEncoding); duplicates refuse",
+    "candidateOrdinal-contiguous": "candidateOrdinal contiguous, starting at DispatchBindingV1.expectedFirstCandidateOrdinal",
+    "candidateOrdinal-increasing": "candidateOrdinal unique strictly increasing (occupancy vocabulary); each names a candidate of this batch",
+    "package-then-path": "strictly ascending by (packageKey UTF-8 bytes, path UTF-8 bytes); equals DependencySourceSetV1.packages order then DependencyFileManifestV1 path order",
+    "nested-loop-relation-rung-target": "rust2 coverageDomainAlgorithm canonical nested-loop order; duplicates refuse",
+    "request-order": "exactly one item per requested stage, in Analyze request order",
+    "outputOrdinal-contiguous": "outputOrdinal equals array index; PreparedOutputSetV3.rows order",
+}

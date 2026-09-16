@@ -1,0 +1,13 @@
+# Native capability support — private trial16
+
+New evaluator/capability_support.rs and closed capability-support-registry.json. inspect_syntax_fact rehashes the fact and native frame inputs; compiler universes skip this syntax-only guard. Syntax uses the actual named context owner and selected grammar rows with their own suffixes. Inventory capabilities remain exempt. Private gate counts establish neither full fact admission nor Plan selection.
+
+inspect_coverage_prerequisites rehashes Coverage carrier, scope, snapshot, exact registered native schema and canonical CoverageResultV3 payload. It runs the ownership, syntax and source-variant guards in selected reference order. Rust missing/partial/ambiguous ownership derives a disclosure; uncompiled/unselected individual bodies do not invent universe-level unavailability. Source-path scopes require every subject, symbol scopes use any path in the committed inventory without inventing symbol-path attribution. Empty scopes cannot become vacuously complete. Wrong complete/deficiency/cause claims preserve their distinct refusal keys.
+
+These are only THREE LOCAL prerequisites. Actual Coverage producer commitment/count/resolution completeness/deficiency carrier/identity admission, Plan/view joins, inventory totality, complete graph, replay and public host routing remain outstanding. FullRun calls producer admission before these guards. No caller ADMIT or Plan-count authority. Each frame walk has its own budget; no global Run CPU claim.
+
+Identity adds registered_record_shape, which checks exact schema-document digest, retained raw schema bytes, retained canonical payload and shape; returns inert JSON, no producer or reference-walk admission. Only local identityclosure.rs sourcepolicy pin changes; external packages/features/TCB unchanged.
+
+660 actual selected-reference comparisons,363checked0mismatch; separate8correctedownership probes. Relation/rung matrix, compiler/syntax difference, inventory exemptions, empty/mixed scopes, every syntaxblob loss/corruption, selected/unselected same-language suffix rows, Rust ownership/disclosure order.101workspace tests/finalstrictClippy/sourcepolicy110; prior965body383Plan304retention161source outputs unchanged. Testharnessbudget/fixturecorrections documented separately from production behavior; no productionlimit relaxed.
+
+Live14inventory/18contracts selects inventory16/runtimev5. This candidate remains private and unselected. Layout acceptance cannot accept source bytes; source review and later formal runtime selection/rootassent/activation remain required. No M2/release/Claude claim.

@@ -1,0 +1,5 @@
+# Reviewer-neutral design binding01
+
+The current accepted developer verifier requires an assent field named actualClaudeReview for both inventory and contract successor units. New actual Grok work must not be labelled as Claude review. This successor allows exactly one review pin field: legacy actualClaudeReview or neutral independentReview. Both names together refuse even if identical. Missing, null, malformed, stale or differently bound references continue to refuse through the existing exact pin joins. No identity is inferred from a model label; substantive review and root assent remain external trusted acts bound by the lock.
+
+Historical base application46 approval fields remain unchanged and accurately name actual Claude. Existing records and product files remain unchanged. New reference syntax requires independent review before tool adoption. Review verdict, required findings, subject digest, root assent, candidate/source and parent/passage checks remain unchanged. This is not source promotion or product readiness.

@@ -1,0 +1,336 @@
+--- frozen34/docs/coop/design-corrections/foundation/check-atoms.v1.py
++++ successor/docs/coop/design-corrections/foundation/check-atoms.v1.py
+@@ -2138,7 +2138,7 @@
+                                    "examinedExhaustive": False, "stageTerminal": "budget-exhausted",
+                                    "unresolvedEdgeCount": 7,
+                                    "unresolvedEdgeClasses": ["computed-member-access",
+-                                                             "dynamic-import"]},
++                                                             "dynamic-import-nonliteral"]},
+         "closedWorld": {**CW_CLOSED, "exportsClosed": "open", "entryPointsRecognized": "all"},
+     })
+     cov_hi["entry"].update({
+@@ -2167,6 +2167,309 @@
+         fail(f"no partition carried a deficiency, so the carrier stays empty: {folded}")
+     if cited != [c_lo, c_hi]:
+         fail(f"every folded partition is cited: {cited}")
++
++
++C_PROV3 = "closure2:" + "dd" * 32
++U2_G = "ts-symbol:pkg-b/src/b.ts#g"
++U2_H = "ts-symbol:pkg-c/src/c.ts#h"
++REF_IN = {"relation": "references", "minResolution": "resolved-binding", "endpoint": "target", "filters": []}
++
++
++def _codes(r):
++    return {(c["code"], c.get("universe")) for c in r["causes"]}
++
++
++def cell_u1(cap="references", kinds=None):
++    return ("u1", ref_cell(cap, "ts-tsconfig", U1, "pkg-a", C_PROV, ["src/a.ts"], kinds=kinds))
++
++
++def cell_u1_unavailable():
++    return ("u1-unavailable", ref_cell("references", "ts-tsconfig", None, "pkg-a", C_PROV, ["src/a.ts"]))
++
++
++def cell_u2(cap="references", kinds=None):
++    return ("u2", ref_cell(cap, "ts-tsconfig", U2, "pkg-b", C_PROV2, ["pkg-b/src/b.ts"], kinds=kinds))
++
++
++def cell_u2b():
++    return ("u2b", ref_cell("references", "ts-tsconfig", U2, "pkg-c", C_PROV3, ["pkg-c/src/c.ts"]))
++
++
++def cell_rust():
++    return ("rust", ref_cell("references", "rust-cargo", UR, "crate", C_PROV2, ["crate/src/lib.rs"]))
++
++
++def cell_rust_unavailable():
++    return ("rust-unavailable", ref_cell("references", "rust-cargo", None, "crate-u", C_PROV2,
++                                         ["crate-u/src/lib.rs"]))
++
++
++def cell_unknown_family_unavailable():
++    """Synthetic atom-api shape: an unregistered languageMode, which the enumeration-plan schema refuses."""
++    return ("unknown-family", ref_cell("references", "unregistered-mode", None, "odd", C_PROV2, ["odd/x"]))
++
++
++def subject_program_inputs(rel, rung, cells, u1=False, u2=False, u3=False, facts=None, attributions=None):
++    """Subject f is inventoried at U1 through a `calls` cell, so U1 can lack a binding for `rel`.
++
++    u1: paired U1->U1 evidence. u2 / u3: provider C_PROV2 / C_PROV3 scopes at U2->U1 with complete
++    Coverage. Cells are schema-sorted and inventories address them by cellOrdinal.
++    """
++    keyed = [("subject-calls", ref_cell("calls", "ts-tsconfig", U1, "pkg-a", C_PROV, ["src/a.ts"]))]
++    keyed += list(cells)
++    keyed.sort(key=lambda kc: (kc[1]["capabilityId"], kc[1]["languageMode"], kc[1]["workspaceRoot"]))
++    plan = plan_one(cap="calls")
++    plan["cells"] = [c for _, c in keyed]
++    ordinal = {k: n for n, (k, _) in enumerate(keyed)}
++    inv_f = inv_symbol()
++    inv_f["cellOrdinal"] = ordinal["subject-calls"]
++    invs = [inv_f]
++    for key, sym, path in (("u2", U2_G, "pkg-b/src/b.ts"), ("u2b", U2_H, "pkg-c/src/c.ts")):
++        if key in ordinal:
++            inv = inv_symbol(universe=U2, nid=sym, path=path, qn=sym.rsplit("#", 1)[1])
++            inv["cellOrdinal"] = ordinal[key]
++            invs.append(inv)
++    inputs = base_inputs(enumerationPlan=plan, inventories=invs, facts=dict(facts or {}),
++                         targetAttributions=dict(attributions or {}))
++    inputs["closures"][C_PROV3] = {"kind": "provider"}
++    if u1:
++        install_pair(inputs, *paired(rel, rung, U1, U1, [F_SYM], tag="1"))
++    for flag, sym, tag, closure in ((u2, U2_G, "2", C_PROV2), (u3, U2_H, "3", C_PROV3)):
++        if flag:
++            sid, sc = scope(rel, rung, U2, U1, [sym], sid=tag)
++            sc["enumeratorClosure"] = closure
++            install_pair(inputs, sid, sc, *coverage(rel, rung, U2, U1, cid=tag))
++    return inputs
++
++
++def test_incoming_unbound_subject_universe_is_blocking():
++    """MUST-34-01 / section 4 I1: U unbound while a same-family U2 is fully evidenced is unknown."""
++    inputs = subject_program_inputs("references", "resolved-binding", [cell_u2()], u2=True)
++    for op, extra in (("none", {}), ("exists", {}), ("count-at-most", {"n": 0}), ("all-covered", {})):
++        r = AM.evaluate_atom({**REF_IN, "op": op, **extra}, F_SUBJ, inputs)
++        expect_value(r, "indeterminate", f"unbound-U1/{op}")
++        if {"code": "selector-unbound", "evidenceKind": None, "nativeCause": None} not in r["causes"]:
++            fail(f"unbound-U1/{op}: I1 record must be selector-unbound with the universe key omitted: {r['causes']}")
++        if cov2("2") not in r["coverageIds"] or scope2("2") not in r["scopeIds"]:
++            fail(f"unbound-U1/{op}: U2's own account must still be cited: {r['coverageIds']} {r['scopeIds']}")
++    out = AM.evaluate_atom({**REF_IN, "op": "none", "endpoint": "source"}, F_SUBJ, inputs)
++    if _codes(out) != {("selector-unbound", None)}:
++        fail(f"outgoing step 1 emits the same record: {out['causes']}")
++
++
++def test_incoming_unbound_subject_universe_foreign_family_only():
++    """Foreign-family-only owed bindings leave the subject's own program unsearched: unknown, disclosures kept."""
++    for label, cells, disclosures in (
++            ("available", [cell_rust()], {("cross-family-edge-not-owed", UR)}),
++            ("unavailable", [cell_rust_unavailable()], {("cross-family-edge-not-owed", None)}),
++            ("both", [cell_rust(), cell_rust_unavailable()],
++             {("cross-family-edge-not-owed", UR), ("cross-family-edge-not-owed", None)})):
++        inputs = subject_program_inputs("references", "resolved-binding", cells)
++        for op in ("none", "exists"):
++            r = AM.evaluate_atom({**REF_IN, "op": op}, F_SUBJ, inputs)
++            expect_value(r, "indeterminate", f"foreign-only-{label}/{op}")
++            if _codes(r) != disclosures | {("selector-unbound", None)}:
++                fail(f"foreign-only-{label}/{op}: causes {r['causes']}")
++
++
++def test_incoming_bound_subject_universe_and_p2_unchanged():
++    """I1 fires only when U is unbound: a bound U keeps its own causes, and P2 still returns first."""
++    rel, rung = "references", "resolved-binding"
++    r = AM.evaluate_atom({**REF_IN, "op": "none"}, F_SUBJ,
++                         subject_program_inputs(rel, rung, [cell_u1(), cell_u2()], u1=True, u2=True))
++    expect_value(r, "true", "bound-evidenced")
++    if r["causes"]:
++        fail(f"bound-evidenced: {r['causes']}")
++    r = AM.evaluate_atom({**REF_IN, "op": "none"}, F_SUBJ,
++                         subject_program_inputs(rel, rung, [cell_u1(), cell_u2()], u2=True))
++    expect_value(r, "indeterminate", "bound-unevidenced")
++    if _codes(r) != {("source-target-search-unattested", U1), ("uncovered-expected-source-subject", U1)}:
++        fail(f"bound-unevidenced keeps its own causes and no I1: {r['causes']}")
++    r = AM.evaluate_atom({**REF_IN, "op": "none"}, F_SUBJ, subject_program_inputs(rel, rung, []))
++    expect_value(r, "indeterminate", "no-binding-anywhere")
++    if _codes(r) != {("missing-relation-coverage", None)}:
++        fail(f"P2 returns before I1: {r['causes']}")
++
++
++def test_incoming_unbound_subject_universe_with_unavailable_obligations():
++    """An unavailable binding never satisfies I1; P1's unavailable-program-binding and I1 are both kept."""
++    rel, rung = "references", "resolved-binding"
++    for label, cells, kwargs, want in (
++            ("U1-unavailable+U2", [cell_u1_unavailable(), cell_u2()], {"u2": True},
++             {("unavailable-program-binding", None), ("selector-unbound", None)}),
++            ("U1-bound+unknown-family-unavailable", [cell_u1(), cell_unknown_family_unavailable()], {"u1": True},
++             {("unavailable-program-binding", None)}),
++            ("U1-unbound+unknown-family-unavailable", [cell_unknown_family_unavailable()], {},
++             {("unavailable-program-binding", None), ("selector-unbound", None)})):
++        r = AM.evaluate_atom({**REF_IN, "op": "none"}, F_SUBJ, subject_program_inputs(rel, rung, cells, **kwargs))
++        expect_value(r, "indeterminate", label)
++        if _codes(r) != want:
++            fail(f"{label}: causes {r['causes']}")
++
++
++def incoming_import_fact(fid, importer):
++    return {
++        "factId": fid, "relation": "imports", "resolution": "resolved-target",
++        "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
++        "confidenceMillionths": 1000000,
++        "payload": {"importer": importer, "specifier": "./a", "resolvedTarget": "file:src/a.ts"},
++        "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++    }
++
++
++def test_incoming_unbound_subject_universe_keeps_known_matches():
++    """I1 retracts no evidence: known facts still decide exists/none and an exceeded count-at-most."""
++    rel, rung = "imports", "resolved-target"
++    f1, f2 = fact2("1"), fact2("2")
++    facts = {f1: incoming_import_fact(f1, F_SYM), f2: incoming_import_fact(f2, "ts-symbol:src/a.ts#f2")}
++    attrs = {fid: sidecar(fid, "file:src/a.ts", kind="file", occupancy="first-party", evaluation="src/a.ts")
++             for fid in facts}
++    subj = {"universe": U1, "kind": "file", "nativeSubjectId": "src/a.ts"}
++    for bound in (False, True):
++        cells = [cell_u2(cap="imports", kinds=["symbol", "file"])]
++        if bound:
++            cells.append(cell_u1(cap="imports", kinds=["symbol", "file"]))
++        inputs = subject_program_inputs(rel, rung, cells, u1=bound, u2=True, facts=facts, attributions=attrs)
++        inv = inv_file()
++        inv["cellOrdinal"] = [n for n, c in enumerate(inputs["enumerationPlan"]["cells"])
++                              if c["capabilityId"] == "calls"][0]
++        inputs["inventories"].append(inv)
++        want = {"none": "false", "exists": "true", "count-at-most-1": "false",
++                "count-at-most-2": "true" if bound else "indeterminate",
++                "all-covered": "true" if bound else "indeterminate"}
++        for key, op, extra in (("none", "none", {}), ("exists", "exists", {}),
++                               ("count-at-most-1", "count-at-most", {"n": 1}),
++                               ("count-at-most-2", "count-at-most", {"n": 2}),
++                               ("all-covered", "all-covered", {})):
++            r = AM.evaluate_atom({"relation": rel, "minResolution": rung, "endpoint": "target",
++                                  "filters": [], "op": op, **extra}, subj, inputs)
++            expect_value(r, want[key], f"known/bound={bound}/{key}")
++            if r["knownFactIds"] != sorted([f1, f2]):
++                fail(f"known/bound={bound}/{key}: known facts must be retained: {r['knownFactIds']}")
++            if (("selector-unbound", None) in _codes(r)) == bound:
++                fail(f"known/bound={bound}/{key}: selector-unbound presence wrong: {r['causes']}")
++
++
++def test_incoming_unbound_subject_universe_multi_provider_order_independent():
++    """I1 sits beside each provider's own account, with one result for every insertion order."""
++    from itertools import permutations
++    rel, rung = "references", "resolved-binding"
++    base = subject_program_inputs(rel, rung, [cell_u2(), cell_u2b(), cell_rust()], u2=True)
++    atom = {**REF_IN, "op": "none"}
++    results = set()
++    for order in permutations(base["inventories"]):
++        for reverse in (False, True):
++            inputs = copy.deepcopy(base)
++            inputs["inventories"] = copy.deepcopy(list(order))
++            if reverse:
++                for key in ("scopes", "coverages", "coverageScopes"):
++                    inputs[key] = dict(reversed(list(inputs[key].items())))
++            results.add(json.dumps(AM.evaluate_atom(atom, F_SUBJ, inputs), sort_keys=True))
++    if len(results) != 1:
++        fail(f"multi-provider result depends on insertion order: {len(results)} results")
++    r = json.loads(results.pop())
++    expect_value(r, "indeterminate", "multi-provider-one-unevidenced")
++    if _codes(r) != {("selector-unbound", None), ("cross-family-edge-not-owed", UR),
++                     ("source-target-search-unattested", U2), ("uncovered-expected-source-subject", U2)}:
++        fail(f"multi-provider-one-unevidenced: causes {r['causes']}")
++    r = AM.evaluate_atom(atom, F_SUBJ,
++                         subject_program_inputs(rel, rung, [cell_u2(), cell_u2b(), cell_rust()], u2=True, u3=True))
++    expect_value(r, "indeterminate", "multi-provider-both-evidenced")
++    if _codes(r) != {("selector-unbound", None), ("cross-family-edge-not-owed", UR)}:
++        fail(f"multi-provider-both-evidenced: causes {r['causes']}")
++    r = AM.evaluate_atom(atom, F_SUBJ, subject_program_inputs(
++        rel, rung, [cell_u1(), cell_u2(), cell_u2b(), cell_rust()], u1=True, u2=True, u3=True))
++    expect_value(r, "true", "multi-provider-U1-bound")
++    if _codes(r) != {("cross-family-edge-not-owed", UR)}:
++        fail(f"multi-provider-U1-bound: causes {r['causes']}")
++
++
++def test_scope_without_enumerator_closure_refuses_at_atom_api():
++    """A-12: absent and null enumeratorClosure both fail the subject-scope carrier; no untagged fallback."""
++    for mode in ("absent", "null"):
++        for endpoint in ("target", "source"):
++            for with_coverage in (False, True):
++                inputs = base_inputs()
++                sid, sc = scope("references", "resolved-binding", U1, U1, [F_SYM], sid="1")
++                if mode == "absent":
++                    del sc["enumeratorClosure"]
++                else:
++                    sc["enumeratorClosure"] = None
++                inputs["scopes"][sid] = sc
++                if with_coverage:
++                    cid, cov = coverage("references", "resolved-binding", U1, U1, cid="1")
++                    inputs["coverages"][cid] = cov
++                    inputs["coverageScopes"][cid] = sid
++
++                def go():
++                    AM.evaluate_atom({**REF_IN, "op": "none", "endpoint": endpoint}, F_SUBJ, inputs)
++                expect_admit(go, "ATOM_NATIVE_CARRIER", f"untagged/{mode}/{endpoint}/coverage={with_coverage}")
++        # Global admission: an attestation naming such a scope refuses even when the evaluated atom's
++        # own relation never pairs it, so the untagged join fallback admits nothing.
++        plan = plan_one(cap="references")
++        plan["cells"] = sorted(plan["cells"] + [ref_cell("calls", "ts-tsconfig", U1, ".", C_PROV, ["src/a.ts"])],
++                               key=lambda c: (c["capabilityId"], c["languageMode"], c["workspaceRoot"]))
++        inv = inv_symbol()
++        inv["cellOrdinal"] = [n for n, c in enumerate(plan["cells"]) if c["capabilityId"] == "calls"][0]
++        inputs = base_inputs(enumerationPlan=plan, inventories=[inv])
++        install_pair(inputs, *paired("references", "resolved-binding", U1, U1, [F_SYM], tag="1"))
++        sid, sc = scope("calls", "resolved-callee", U1, U1, [F_SYM], sid="9")
++        if mode == "absent":
++            del sc["enumeratorClosure"]
++        else:
++            sc["enumeratorClosure"] = None
++        inputs["scopes"][sid] = sc
++        inputs["incomingSearchAttestations"] = [incoming_att("calls", "resolved-callee", U1, U1, [sid], [inv])]
++        expect_admit(lambda: AM.admit_atom_inputs(inputs), "ATOM_NATIVE_CARRIER", f"untagged/{mode}/named-by-attestation")
++
++
++def empty_program_inputs(scope_mode, attest=False):
++    """U1 fully evidenced, plus a second same-family selected program at U2 whose inventory is empty."""
++    plan = plan_one(cap="references")
++    plan["cells"].append(ref_cell("references", "ts-tsconfig", U2, "pkg-empty", C_PROV2, ["pkg-empty/src/index.ts"]))
++    empty = inv_symbol(universe=U2, nid="ts-symbol:pkg-empty/src/index.ts#unused",
++                       path="pkg-empty/src/index.ts", qn="unused")
++    empty.update({"cellOrdinal": 1, "rows": [], "examinedPaths": ["pkg-empty/src/index.ts"]})
++    inputs = base_inputs(enumerationPlan=plan, inventories=[inv_symbol(), empty])
++    install_pair(inputs, *paired("references", "resolved-binding", U1, U1, [F_SYM], tag="1"))
++    if scope_mode in ("empty-scope", "empty-scope-paired"):
++        sid, sc = scope("references", "resolved-binding", U2, U1, [], sid="7")
++        sc["enumeratorClosure"] = C_PROV2
++        inputs["scopes"][sid] = sc
++        if scope_mode == "empty-scope-paired":
++            cid, cov = coverage("references", "resolved-binding", U2, U1, cid="7")
++            inputs["coverages"][cid] = cov
++            inputs["coverageScopes"][cid] = sid
++    if attest:
++        refs = [scope2("7")] if scope_mode.startswith("empty-scope") else []
++        inputs["incomingSearchAttestations"] = [
++            incoming_att("references", "resolved-binding", U2, U1, refs, [empty], providerClosure=C_PROV2)]
++    return inputs
++
++
++def test_scopeless_provider_group_admission_boundary():
++    """A-12: a scope-less group has no admissible attestation; an explicit empty-subject scope closes it."""
++    atom = {**REF_IN, "op": "none"}
++    r = AM.evaluate_atom(atom, F_SUBJ, empty_program_inputs("none"))
++    expect_value(r, "indeterminate", "no-scope")
++    if _codes(r) != {("source-target-search-unattested", U2)}:
++        fail(f"no-scope: causes {r['causes']}")
++
++    def attest_without_scope():
++        AM.evaluate_atom(atom, F_SUBJ, empty_program_inputs("none", attest=True))
++    expect_admit(attest_without_scope, "INCOMING_SEARCH_SCHEMA", "no-scope-attestation-is-global-refusal")
++    r = AM.evaluate_atom(atom, F_SUBJ, empty_program_inputs("empty-scope"))
++    expect_value(r, "indeterminate", "empty-scope-unpaired")
++    if _codes(r) != {("scope-without-coverage", U2)}:
++        fail(f"empty-scope-unpaired: causes {r['causes']}")
++    r = AM.evaluate_atom(atom, F_SUBJ, empty_program_inputs("empty-scope-paired"))
++    expect_value(r, "true", "empty-scope-with-complete-coverage")
++    if r["causes"] or cov2("7") not in r["coverageIds"]:
++        fail(f"empty-scope-with-complete-coverage: {r['causes']} {r['coverageIds']}")
++    r = AM.evaluate_atom(atom, F_SUBJ, empty_program_inputs("empty-scope", attest=True))
++    expect_value(r, "true", "empty-scope-with-qualifying-attestation")
++    if r["causes"]:
++        fail(f"empty-scope-with-qualifying-attestation: {r['causes']}")
+ 
+ 
+ CASES = [
+@@ -2251,6 +2554,14 @@
+     test_same_family_unavailable_blocks_incoming_only,
+     test_same_kind_multi_scope_selection_is_ascending_coverage_id,
+     test_dep_fold_replaces_whole_records_and_keeps_ties,
++    test_incoming_unbound_subject_universe_is_blocking,
++    test_incoming_unbound_subject_universe_foreign_family_only,
++    test_incoming_bound_subject_universe_and_p2_unchanged,
++    test_incoming_unbound_subject_universe_with_unavailable_obligations,
++    test_incoming_unbound_subject_universe_keeps_known_matches,
++    test_incoming_unbound_subject_universe_multi_provider_order_independent,
++    test_scope_without_enumerator_closure_refuses_at_atom_api,
++    test_scopeless_provider_group_admission_boundary,
+ ]
+ 
+ 

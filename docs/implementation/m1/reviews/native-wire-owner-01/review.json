@@ -1,0 +1,137 @@
+{
+ "schemaVersion": 1,
+ "reviewKind": "fresh independent review of native TS2/Rust3 wire owner candidate",
+ "reviewer": "Claude (claude-opus-5), fresh session; no author, root-validation or private session files read",
+ "standing": "Independent review only. Not approval, not a product decoder/admission/compiler claim, not M2/M3 qualification. No commit or push. Writes confined to m1-native-wire-owner-review-01 (review.json, review.md, scratch/).",
+ "subject": {
+  "path": "/tmp/opensip-implementation/m1-native-wire-owner-subject-01",
+  "manifestPath": "/tmp/opensip-implementation/m1-native-wire-owner-subject-01.json",
+  "subjectManifestSha256": "01f4ba5d426f0cf7b80d2232fbdc7c334e994a4a6c13079549d217756c7a0cab",
+  "fileCount": 18,
+  "completeExactSetBefore": {"result": "PASS", "method": "os.walk of subject dir: 18 files, no extra, no missing, every sha256 and byte length equal to manifest; no symlinked dirs"},
+  "completeExactSetAfter": {"result": "PASS", "method": "same walk re-run after review.json/review.md were written: manifest sha256 01f4ba5d...0cab unchanged; 18 files, no extra, no missing, no hash or length mismatch"}
+ },
+ "architecture": {
+  "path": "/Users/sb/code/opensip-ai/opensip_arch",
+  "head": "c3856824b5084eb9336622e76796c70c64f2523d",
+  "workingTreeDirty": true,
+  "pinsChecked": "all 26 architecture pins and 3 external /tmp pins match their sha256 (checker pin:* results reproduced); 20 of the 26 architecture pins are modified or untracked relative to HEAD (see ADV-1)"
+ },
+ "verdict": "changes-required",
+ "verdictSummary": "The candidate is close. Its type grammar, presence/nullability, ByteString mapping, selectors, namespaces, 13 successor rows and field coverage are concrete and mostly owner-backed. It is not yet sufficient as the single reviewable input for a shared bytes-aware Rust/TS generator plus handwritten admission, for six reasons. (1) The checker cannot run from the 18 frozen files plus the pinned architecture. (2) The transitive executable/data pins are incomplete. (3) The PreparedOutput row bounds widen a retained limit and assign a host-invariant fate to a reachable input. (4) The ProviderFault phase and nullability rule cannot be satisfied by a conforming worker under lawful P3 interleavings. (5) Rust3CanonicalPath does not implement the rust2 rule it cites. (6) The packageKey grammar, bounds and order rest on an assumption that the owner schemas do not guarantee. Each has a scoped concrete fix below; none needs a wire change.",
+ "sufficiencyForGeneratorAndAdmission": {
+  "sufficientNow": false,
+  "sufficientAfterRequiredFindings": "yes for generator carrier derivation (records, variants, bytes, nullable/optional, externs, frame-payload selectors); handwritten admission additionally needs executable vectors for the prose rules listed in ADV-2",
+  "notClaimed": "The IDL is not yet generator input that has been implemented; no generator run, product decoder, admission or compiler, and no M2/M3 qualification was performed or is implied."
+ },
+ "authorChoices": [
+  {
+   "choice": "PreparedOutput row bounds (macro-expansion <= maxExpansionRows, generated-file <= maxGeneratedFileRows, build-script-directives <= maxPreparedOutputEntries; manifest over frame limit = no spawn, operational-failed/ILLEGAL_STATE)",
+   "assessment": "REJECTED as stated; see RF-3",
+   "subjectCitations": ["contract.md:176-179", "wire-carriers.v1.json:2286", "wire-carriers.v1.json:2391", "wire-carriers.v1.json:4208"],
+   "ownerCitations": ["docs/coop/artifacts/rust-provider-protocol.v2.json:385", "docs/coop/design-corrections/native/provider-handshake.schemas.v1.json:340", "docs/v2/contracts/product-v1/native-evidence.md:2929-2934", "docs/coop/artifacts/delivery.v2.json:998"]
+  },
+  {
+   "choice": "P3-25 guard outputSeen=false (reset at Analyze, set by FactBatch/CoverageV3); host never sends Cancel before Hello",
+   "assessment": "ACCEPTED. rust2 T019 guards on stageIndex==0 AND outputSeen==false, and T017/T018 set outputSeen on every Coverage. Stage advance therefore implies outputSeen, and the single outputSeen guard is equivalent. The published P3 table alone admits FactBatch then Unavailable (reviewer trace P3-23,P3-25 through native_evidence_model.v2.protocol3_run), so the overlay is necessary. TS2 T2-14 already carries the guard. Cancel in START: P3-29 *PRE_COMPLETE excludes START. Hello is host-to-worker, so START is host-controlled, and terminating the child without a frame keeps interrupted/130 (native-evidence.md:3838-3843). Advisories ADV-5 and ADV-11 apply.",
+   "subjectCitations": ["wire-carriers.v1.json:4076", "wire-carriers.v1.json:4081", "contract.md:188-192"],
+   "ownerCitations": ["docs/coop/artifacts/rust-provider-protocol.v2.json:710", "docs/coop/artifacts/rust-provider-protocol.v2.json:714", "docs/coop/design-corrections/native/protocol3-transitions.v1.json:52", "docs/coop/design-corrections/native/protocol3-transitions.v1.json:314", "docs/coop/design-corrections/native/protocol3-transitions.v1.json:342", "docs/coop/design-corrections/native/typescript-protocol2-order.v1.json#/rules/T2-14"]
+  },
+  {
+   "choice": "ProviderFault.phase = host phase at fault receipt; Cancelled.observedPhase = host phase at Cancel send; executionId/analysisOrdinal nullability",
+   "assessment": "SPLIT. Cancelled.observedPhase ACCEPTED: in every non-faulting trace no worker frame is in flight when Cancel is sent, because P3-29 moves to WAIT_CANCELLED, where any non-Cancelled worker frame is P3-34 (reviewer trace ...P3-29,P3-34). The host send phase therefore equals the worker receipt phase that rust2 names. ProviderFault.phase and its nullability are REJECTED; see RF-4.",
+   "subjectCitations": ["wire-carriers.v1.json:4362", "wire-carriers.v1.json:4341", "contract.md:220-223", "successor.json:481"],
+   "ownerCitations": ["docs/coop/artifacts/rust-provider-protocol.v2.json:457", "docs/v2/contracts/product-v1/native-evidence.md:3302", "docs/coop/design-corrections/native/protocol3-transitions.v1.json:335"]
+  },
+  {
+   "choice": "Ts2ExecutionIdText ^exec1_[0-9a-f]{32} end-anchored; Ts2ProjectPath 1..4096 scalars; Rust3CanonicalPath <= 4096 UTF-8 bytes",
+   "assessment": "ACCEPTED as bounds. exec1 grammar: identity-and-evidence.md:63-70 declares the end-anchored product successor grammar, and startup ExecutionIdText is the exact AttemptRecord value, so nothing lawful is refused. TS 4096 scalars: identity-schemas.v3 LogicalPath maxLength 4096 and fact.anchors path maxLength 4096 are JSON Schema scalar counts. Rust 4096 bytes: c2-plan-stage-schema.v3 canonicalRelativePath utf8Bytes max 4096. The Rust3CanonicalPath pattern itself is defective (RF-5), and Ts2SnapshotEntryV1.linkTarget 4096 is a separate unowned bound (ADV-6).",
+   "subjectCitations": ["wire-carriers.v1.json:427", "wire-carriers.v1.json:439", "wire-carriers.v1.json:492", "contract.md:235-237"],
+   "ownerCitations": ["docs/v2/contracts/product-v1/identity-and-evidence.md:63-70", "docs/coop/design-corrections/native/provider-startup.schemas.v1.json#/$defs/ExecutionIdText", "docs/coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/LogicalPath", "docs/coop/artifacts/c2-plan-stage-schema.v3.json:161"]
+  },
+  {
+   "choice": "Anchor count 1..100000 enforced at the wire",
+   "assessment": "ACCEPTED. identity-schemas.v3 fact.anchors maxItems 100000. fact-plane candidateSchema anchors and delivery.v2 FactCandidateV1 anchors state only non-empty. A candidate over 100000 anchors cannot mint fact2, and a worker fault yields no facts either way (native-evidence.md:3838-3843), so the earlier refusal is outcome-equivalent. ADV-8 applies.",
+   "subjectCitations": ["wire-carriers.v1.json:1403", "wire-carriers.v1.json:3163", "contract.md:109"],
+   "ownerCitations": ["docs/coop/design-corrections/foundation/identity-schemas.v3.json:1829", "docs/coop/artifacts/fact-plane.v1.json#/factRecordContractV1/candidateSchema/fields/anchors"]
+  }
+ ],
+ "requiredFindings": [
+  {
+   "id": "RF-1",
+   "title": "Checker is not runnable from the 18 frozen files plus pinned architecture: hidden /tmp author inputs",
+   "evidence": "tools/common.py:8-10 and :41-43 hard-code TSDIR/RSDIR/GAPDIR under /tmp/opensip-implementation/m1-{typescript,rust}-wire-translation-01 and m1-protocol-gap-resolution-01. tools/check_static.py:22-24 reads every PINS entry at construction. The reviewer copy scratch/run2, identical except for those three directories pointed at a non-existent path, fails immediately: FileNotFoundError '/nonexistent-hidden/ts/fields.json'. The inputs are hash-pinned (successor.json:172), but they are neither in the frozen subject nor in the architecture.",
+   "fix": "Keep the three method inputs build-only (tools/build.py:41-42 is their only content consumer), and drop them from the checker pin loop. Alternatively, freeze byte-identical copies inside the subject and pin them there. The checker must then pass from the 18 files plus the architecture alone."
+  },
+  {
+   "id": "RF-2",
+   "title": "Transitive executable/data source pins are incomplete",
+   "evidence": "The checker executes pinned models that load unpinned architecture files at module import: native_evidence_model.v2.py:36 discovery-defaults.py (itself modified in the working tree), :55 native-capability-matrix.v2.json, :246 foundation/identity-schemas.v2.json, :2540 capability-manifest-domains.v2.json; provider_wire_model.v1.py:46 artifacts/check-fact-plane.py. Reviewer run scratch/run4 uses an architecture copy in which check-fact-plane.py, discovery-defaults.py and native-capability-matrix.v2.json were byte-changed: the result is 133 checks, 0 failed. The IDL also cites unpinned data owners. wire-carriers.v1.json:344 defines cve1-bytes-strict by resolved-inputs.v2 planIdContract.canonicalValueEncoding (resolved-inputs.v2.json:688), which is not among the 29 pins; the checker uses its own tools/wirecodec.py:133 cve1. The extern generatedType names are defined as 'exactly as generator candidate03 options.json names them', and no options.json is pinned. The jsonschema/referencing package versions are unrecorded.",
+   "fix": "Pin (path, sha256, bytes) for discovery-defaults.py, native-capability-matrix.v2.json, capability-manifest-domains.v2.json, identity-schemas.v2.json, check-fact-plane.py, resolved-inputs.v2.json and the exact candidate03 options.json. Add a checker assertion that every module and JSON file loaded from under the architecture root is in the pin set: compare sys.modules __file__ origins and wrap Path.read_bytes/read_text during the run, failing on any unpinned read. That also covers lazy loads in identity-model.v3.py:29/41/862. Record the reference-env package versions."
+  },
+  {
+   "id": "RF-3",
+   "title": "PreparedOutput row bounds widen a retained limit and assign a host-invariant fate to a reachable input",
+   "evidence": "rust2 PreparedOutputManifestV2.entries is 'length 0..maxPreparedOutputEntries' (rust-provider-protocol.v2.json:385). ProtocolLimitsV3 retains maxPreparedOutputEntries=256 (provider-handshake.schemas.v1.json:340), and §9.3 says all 24 v2 limits are retained with identical values (native-evidence.md:2934). The candidate sets entries maxItems 2000256 and outputOrdinal max 2000255 (wire-carriers.v1.json:2391, :2286). The carrier admits 257 build-script-directives entries (scratch/probe_cbor.out.json), and the only check touching the value is limit-literals, which pins the author's own sum (reviewer mutant m_prepared_total_256). maxExpansionRows/maxGeneratedFileRows (handshake:415; §9.3) are preparation-set limits: no owner makes them per-kind wire limits. At 1,000,000 rows the encoded manifest cannot fit maxFramePayloadBytes (67,108,864), since every entry carries a full PreparedOutputRowV3 with 3 hex bindings, ownerKey and configuration, so those limits are unreachable on the wire. Separately, delivery.v2 overflowFate (delivery.v2.json:998) is justified only because a count <= 128 makes overflow a host defect. An oversized Plan-bound PreparedOutputSetV3 (rows maxItems 1000000, native-evidence.schemas.v2.json:2956) is a reachable user input, so operational-failed/SYSTEM.OUTCOME.ILLEGAL_STATE misclassifies it.",
+   "fix": "Use the retained total bound: entries maxItems 256 and outputOrdinal max 255, with maxExpansionRows/maxGeneratedFileRows staying set limits. State in PREPARED-V3-SET-JOIN and SUCC-PREPARED-V3 that the host refuses before spawn, as a request precondition, any prepared set that has more than 256 inert rows, whose totalBlobBytes exceed maxPreparedOutputTotalBlobBytes, or whose encoded manifest exceeds maxFramePayloadBytes. Route it like the non-inert/stale prepared refusals in the same D9 row family: request-rejected (2), REQUEST.PRECONDITION_FAILED, a typed detail such as native.prepared-output-exceeds-wire-limit (native-evidence.md:3525). If root instead wants more than 256 rows, it needs an explicit scoped successor for maxPreparedOutputEntries that is jointly satisfiable with maxFramePayloadBytes, for example a paged manifest; this IDL has no such mechanism."
+  },
+  {
+   "id": "RF-4",
+   "title": "ProviderFault.phase and its null rules are not satisfiable by a conforming worker under lawful P3 interleavings",
+   "evidence": "RUST3-FAULT-CANCEL-TYPES (wire-carriers.v1.json:4362) requires phase = 'the host phase in which ... the fault [was] received'. Host-to-worker frames change the P3 phase (for example P3-05 SnapshotManifest, P3-22 Analyze), and P3-28 admits ProviderFault from every *PRE_COMPLETE phase (protocol3-transitions.v1.json:335). The reviewer ran native_evidence_model.v2.protocol3_run on [...,UniverseAccepted, SnapshotManifest, ProviderFault] and on [..., NativeContextVerified, Analyze, ProviderFault]; both are admitted as P3-28 provider-fault (scratch/p3-race.out.json). A worker that faulted before reading the in-flight SnapshotManifest or Analyze can only report READY_SNAPSHOT_MANIFEST or READY_ANALYZE, yet the rule demands RECEIVING_SNAPSHOT or ANALYZING, so a lawful provider fault becomes a protocol violation. The null rules have the same problem. The IDL says 'null iff the worker has not received OpenUniverse/Analyze', which the host cannot observe, while contract.md:221 says 'has not been sent or received', and the two differ. D9 is unaffected, since both routes are operational-failed PROVIDER.PROTOCOL_VIOLATION (native-evidence.md:3838-3843), but terminalKind, trace and conformance vectors are nondeterministic. No reviewer mutant of this rule text was caught (m_fault_phase_worker_view).",
+   "fix": "Define phase as the worker's phase after the last frame it read or wrote. Host admission: let S be the phases the host has entered since it admitted the last worker-to-host frame (the phase at that admission included, host-to-worker transitions only). Admit phase iff it is in S. For executionId/analysisOrdinal, if OpenUniverse/Analyze was sent after that last admitted worker frame, admit null or the sent value; otherwise require the sent value, or null if never sent. Use the same wording in contract.md §2.8 and SUCC-RUST3-FAULT-CANCEL, and add vectors for the two interleavings above."
+  },
+  {
+   "id": "RF-5",
+   "title": "Rust3CanonicalPath pattern does not implement the rust2 CanonicalPath rule it cites; pattern dialect undeclared",
+   "evidence": "The note at wire-carriers.v1.json:504 claims the rust2 rule (rust-provider-protocol.v2.json:466: no leading slash, backslash, NUL, drive prefix, empty, dot or dot-dot segment). The pattern at :492 uses '.' inside its lookaheads, and '.' does not match U+000A. Under Python re, which is the checker's engine, and under ECMA-262 without the s flag, the pattern admits 'a\\n/../b', 'a\\n//b', 'x\\n/..' and 'a\\n/.' (scratch/probe_regex.out.json); every one violates the rule, and the rule does not forbid newline itself. Replacing the pattern with the weaker owner Native2 CanonicalPath (reviewer mutant m_canonical_path_native) is not caught. The owner CanonicalPath (native-evidence.schemas.v2.json:669), used for DependencySourceManifest/Chunk path, has the same newline bypass and additionally admits 'a//b', 'a/' and 'C:x'. The joins to host-constructed manifests currently mask the impact, but a generated validator would encode the wrong language. Across the scalars, 13 patterns use lookahead and Rust3CanonicalPath also uses lookbehind. The Rust regex crate supports neither, and privateRepresentation declares no dialect or lowering.",
+   "fix": "Make the segment algorithm normative in handwritten admission: split on '/'; each segment non-empty and not '.' or '..'; no U+0000 or backslash anywhere; not starting with [A-Za-z]:; <= 4096 UTF-8 bytes. Keep the pattern informative. Apply the same rule to DependencySource manifest/chunk paths inside DEPSRC-CUSTODY. Declare in privateRepresentation that patterns are ECMA-262 'u' semantics with (?![\\s\\S]) meaning end-of-text, and that a generator lowers any lookaround pattern to a handwritten check (\\z anchors in Rust). Add newline vectors."
+  },
+  {
+   "id": "RF-6",
+   "title": "packageKey grammar, bounds and entry order contradict the owner schemas",
+   "evidence": "DependencyPackageSourceV1 allows name <= 256, version <= 256 and sourceId <= 4096 scalars with no character restriction and no sourceId minLength (native-evidence.schemas.v2.json:1573). The constructed key 'name SP version SP sourceId' can therefore reach 4610 scalars, but the registered DependencySourceManifestV3.entries.packageKey maxLength is 4096 (:4125 def). Rust3PackageKey (wire-carriers.v1.json:556) has pattern [^ ]+ [^ ]+ [^ ]*, which admits an empty sourceId, but minScalars 5, which refuses the host-constructible 'a 1 ' (probe). A space in sourceId makes the key unparseable. The order claim (contract.md:143-144) that key bytes order equals packages order (name, version, sourceId) holds only if name and version contain no byte <= 0x20. That is a Cargo convention, not an owner constraint: with name 'a\\x01' the key order and tuple order disagree (probe keyVsTupleOrderWithControlByte). Mutants m_package_key_min4 and m_depsrc_order_sequence are not caught.",
+   "fix": "(a) Define entries order as the tuple (name bytes, version bytes, sourceId bytes, path bytes), which is exactly packages x-opensip-order then DependencyFileManifestV1 path order (as native_evidence_model.v2.py dependency_source_set_admit sorts), not packageKey bytes. (b) Make packageKey admission an exact echo join to the owning package row, with the pattern informative. (c) Add a scoped successor statement that dependency-source set admission refuses, before Plan binding, a package whose name/version contains a byte <= 0x20 or whose constructed key exceeds 4096. (d) Align minScalars with the sourceId domain: either 4, or state that every carried package has a non-empty sourceId, since path packages are excluded by dependency_source_set_admit."
+  }
+ ],
+ "advisories": [
+  {"id": "ADV-1", "text": "20 of 26 architecture pins are modified or untracked relative to HEAD c3856824: nativeMd, identityMd, handshake, startup, evidence, factBatch3, occupancy, dispatch, p3, ts2order, wireModel, startupModel, nativeModel, nativeCases, identitySchemas3, identityModel3, canonical and controlRoute among them. The hashes verify, but the bytes are recoverable only from this working tree. Root binding should snapshot or commit them."},
+  {"id": "ADV-2", "text": "The 133 checks and 16 selftest controls pin literals, member lists, sources and the author's vectors, not the handwritten semantics. 10 of 14 reviewer mutants of rules and author choices pass with 0 failures: m_canonical_path_native, m_ts_path_bytes, m_fault_phase_worker_view, m_cancel_in_start_allowed, m_depsrc_order_sequence, m_scope2_drop_closure, m_package_key_min4, m_outputseen_not_reset, m_prepared_limit_rule_text and m_commit_unavailable_stagecoverage (scratch/mutants-result.json). Admission rules are free-text strings. Before handwritten admission, give each rule an id-bound positive/negative vector set, especially PER-KEY-SCOPE2, DEPSRC-CUSTODY, PREPARED-V3-SET-JOIN, RUST3-FAULT-CANCEL-TYPES, the outputSeen reset and the COMMIT-MAP terminal domains."},
+  {"id": "ADV-3", "text": "field-coverage.json matches both prior inventories exactly: TS2 200/200 and Rust3 372/372, no missing or extra rows. However, TS2-G2, TS2-G9, R3-G18 and R3-G19 are attached to no row's gapResolutions (they are resolved only in successor.json falseGaps or SUCC rows); Rust3C2StageBudgetV1.limit/unit have no coverage row; and two rows use the non-member carrier 'array index i'. Either attach them or soften the claim that every cited gap is mapped."},
+  {"id": "ADV-4", "text": "Unavailable is selected by host phase. The TS2 owner instead guards T2-10/T2-14 on a payload-derived unavailablePayload observation. Outcomes are equivalent (a mismatch faults either way), but the trace ids differ (precheck vs T2-23); state this."},
+  {"id": "ADV-5", "text": "native_evidence_model.v2.protocol3_run reads the published P3 table and does not apply the outputSeen overlay. A conformance harness must run P3 plus the overlay; publish the overlay as a scoped P3 row-guard successor, and record the stageIndex==0 equivalence argument."},
+  {"id": "ADV-6", "text": "Ts2SnapshotEntryV1 symlink linkTarget maxScalars 4096 (tools/records_ts2.py:48) has no cited owner; delivery.v2.json:698 gives no bound. Cite an owner or leave it frame-bounded."},
+  {"id": "ADV-7", "text": "Anchor order: CVE1 strings are length-prefixed like CBOR text, so two anchors differing only in path sort identically (reviewer probe). The difference shown by anchor-order-languages-differ comes from map-key order, where CVE1 sorts contentSha256 first. Describe it that way. Also note that delivery.v2 AnchorRefV1 claims field-for-field fact-plane anchorSchema while stating CBOR order (delivery.v2.json:768 vs fact-plane.v1.json:272), and record the choice of the more specific TS owner as that resolution."},
+  {"id": "ADV-8", "text": "contract.md:109 'The 4096 limit is a JSON-vector bound only' cites no owner; cite it or remove it. State the outcome equivalence of the 100000 wire refusal."},
+  {"id": "ADV-9", "text": "COMMIT-MAP choices of coverage-stream for terminal coverage and stage-coverage for Coverage frames are consistent with native-evidence.md:126/129 and rust2 commitments (rust-provider-protocol.v2.json:212-214 region), but no owner vector executes them for Rust3 (mutant m_commit_unavailable_stagecoverage uncaught). Add vectors."},
+  {"id": "ADV-10", "text": "Cancel in START: delivery.v2 userCancellation (delivery.v2.json:1146) is TS-scoped. For Rust3, cite native-evidence.md:3838-3843 and rust2 d9Join interruption timing for why a P3-33 process observation after a user interrupt in START still reduces to interrupted/130."}
+ ],
+ "independentEvidence": {
+  "positive": [
+   "Exact-set verification of the 18 files before the review (and after, see completeExactSetAfter).",
+   "check.py rerun from a scratch copy with TMPDIR in scratch: 133/0, results byte-identical to check-result.json results. selftest.py rerun: 16/16 caught, selftest-result.json byte-identical.",
+   "Per-key scope2 descriptor {schemaVersion 2, snapshotId, sourceUniverse, targetUniverse, relation, resolution, enumeratorClosure, subjects} equals native_evidence_model.v2.py:1500 subject_scope_descriptor, native-evidence.md:1889ff and identity-and-evidence.md:287-294; the delivery.v2/rust2 per-stage key rule genuinely contradicts it.",
+   "TS2 manifestSha256 raw recipe matches the delivery.v2 SnapshotManifestV1 field text 'DigestHex over deterministic-CBOR entries' (delivery.v2.json:850) and rust2 commitments.snapshotManifest (rust-provider-protocol.v2.json:212); the domain form cannot fit DigestHex.",
+   "DependencySource self-reference is real: the evidence schema annotates manifestSha256 as 'the exact transport manifest frame bytes as sent' (native-evidence.schemas.v2.json:4150, :4229). The empty-set flow is owner-backed (P3 derivedObservations.dependencyMode).",
+   "Wire non-empty anchor rule is owner-backed (fact-plane.v1.json:252 'non-empty in-bounds'), and the fact2 rule stays 0<=a<=b<=len (identity-model.v3.py:1892). The carrier admits an empty span at shape level and the handwritten rule refuses it, which is the stated split.",
+   "fact-ref refusal is owner-backed: identity-schemas.v3.json:1829 fact.anchors items have no fact reference.",
+   "Inert-kind restriction is owner-backed: non-inert rows are refused before spawn (native_evidence_model.v2.py:2011-2012, :2047; native-evidence.md:3525; §9.2 native-evidence.md:2880).",
+   "CBOR probes on hand-built bytes: TS2 decodes -1 and -2^63 and refuses below -2^63; Rust3 refuses every major-type-1 item. Both refuse f7, f8 simple, half-float, tag, indefinite bytes, non-shortest length and a byte-string map key; uint64 max decodes. Empty bytes decode at CBOR level and are refused by carrier minBytes; hex text in a bytes member is refused as TYPE_BYTES. The map-order profiles coincide for text keys.",
+   "The wirecodec CVE1 encodings match resolved-inputs.v2.json:688 tags 00..07 and map key order.",
+   "Carrier typing probes: TS2 Cancel analysisOrdinal 1 is refused CONST; uppercase exec hex is refused; Rust3 ProviderFault START and WAIT_CANCELLED phases are refused ENUM; detailCode over 4096 UTF-8 bytes is refused; proc-macro-dylib kind is refused.",
+   "Field coverage set equality against the prior TS2 and Rust3 inventories (200/372), independently computed."
+  ],
+  "negative": [
+   "Hidden-input run failure (RF-1), unpinned-dependency run passing 133/0 (RF-2), 257-entry PreparedOutput manifest admitted by carrier (RF-3), P3 traces admitting ProviderFault after host-sent frames (RF-4), newline CanonicalPath bypass (RF-5), packageKey bound/order counterexamples (RF-6), and 10 of 14 semantic mutants uncaught (ADV-2)."
+  ]
+ },
+ "limits": [
+  "wirecodec.py is author scaffolding; CBOR probes exercise it and the IDL, not a production codec.",
+  "No generator was run; generator support for bytes/variant-record/alias/frame-payload/optional is not assessed beyond the declared representation.",
+  "Joins that need full fixtures (scope2 admission, prepared set identity, dependency file manifest) were accepted from the author's reference-owner checks plus reviewer reading of the owner code, not re-derived with new fixtures.",
+  "Lazy imports inside identity-model.v3.py were not traced at runtime; RF-2's loaded-file assertion is the proposed way to settle them.",
+  "Prior review 'gap lists' were taken from m1-typescript-wire-translation-01/fields.json, m1-rust-wire-translation-01/fields.json and m1-protocol-gap-resolution-01/resolutions.md; m1-native-wire-owner-author-01 and root-validation-01 were deliberately not read.",
+  "The scratch architecture copy used for RF-2 was deleted after its result was recorded (scratch/run4/out.json)."
+ ],
+ "scratch": "/tmp/opensip-implementation/m1-native-wire-owner-review-01/scratch (run1 rerun, run2 hidden-input, run3 selftest, run4 unpinned-dependency, mut/ mutants, probe_*.py and outputs, p3-race.out.json)"
+}

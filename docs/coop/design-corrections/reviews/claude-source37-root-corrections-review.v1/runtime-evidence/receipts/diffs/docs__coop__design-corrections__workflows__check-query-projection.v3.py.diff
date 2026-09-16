@@ -1,0 +1,86 @@
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -276,6 +276,21 @@
+         "context": ng_ctx, "termination": {"class": "success"},
+     }
+     must_valid("rsp-availability-snapshot-view", rsp_ref, avail_rsp)
++    # Admission must enforce the exact advisory-operation set in both directions.
++    # These carrier controls do not claim an independently replayed graph.
++    for operation in ("run.show", "finding.list", "availability.show"):
++        response = copy.deepcopy(avail_rsp)
++        response["operation"] = operation
++        must_valid("rsp-nonadvisory-false-" + operation, rsp_ref, response)
++        response["context"]["advisory"] = True
++        must_invalid("rsp-nonadvisory-true-" + operation, rsp_ref, response)
++    for operation in ("comparison.diff", "candidate.list", "inspection.show", "review.brief"):
++        response = copy.deepcopy(avail_rsp)
++        response["operation"] = operation
++        response["context"]["advisory"] = True
++        must_valid("rsp-advisory-true-" + operation, rsp_ref, response)
++        response["context"]["advisory"] = False
++        must_invalid("rsp-advisory-false-" + operation, rsp_ref, response)
+     diff_ctx = dict(ng_ctx, advisory=True, resolvedView={"runId": run_id()})
+     must_valid("rsp-advisory-diff-true", rsp_ref, {
+         "schemaFamily": "opensip.product.query", "schemaMajor": 3, "operation": "comparison.diff",
+@@ -620,6 +635,15 @@
+             env = exc.envelope()
+             check(cid, env["exitCode"] == 4 and env["termination"]["class"] == "operational-failed"
+                   and [e["code"] for e in env["errors"]] == [detail], env)
++    refuse("host-availability-direct-missing", lambda: ex(out_req, host_obs(availability="missing")), "HOST.IO_FAILURE", "evidence.missing")
++    for label, observation in (("unknown", "not-a-state"), ("null", None), ("boolean", False),
++                               ("number", 1), ("list", []), ("object", {})):
++        try:
++            ex(out_req, host_obs(availability=observation))
++        except Q.ReferenceCallPrecondition as exc:
++            check("host-availability-precondition-" + label, exc.missing == "host.availability")
++        else:
++            check("host-availability-precondition-" + label, False, "invalid trusted observation was ignored")
+     partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
+     check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
+     if victim is not None:
+@@ -883,6 +907,37 @@
+     check("strong-entry-has-no-standing-bypass", not hasattr(owner, "SYNTHETIC_STANDING") or "standing" not in (owner.execute_graph_query.__doc__ or ""))
+ 
+ 
++def semantic_refusal_controls():
++    # A digest-valid, fully reminted result can still be semantically false.
++    # Reuse the maintained mutation constructor, not an arbitrary close_run stub.
++    foundation = HERE.parent / "foundation"
++    semantic = load("query_refusal_semantic3", foundation / "check-semantic-replay.v3.py")
++    mutants = load("query_refusal_mutants3", foundation / "check-replay.v3.py")
++    graph, positive, actual = semantic.case_declares_exists()
++    run, objects, blobs = mutants.remint_finding(
++        *positive, lambda finding, _blobs: finding.update(severity="warning")
++    )
++    run_key, _ = Q.identity3().open_run_closure(run, objects, blobs)
++    check("semantic-query-mutant-structural-admit-new-identity", run_key != actual["runId"])
++    symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
++    req = request("graph.neighbors", run["projectId"], {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++        "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
++    })
++    refuse("semantic-query-mutant-refuses", lambda: Q.execute_graph_query(req, run, objects, blobs, host=host_obs()),
++           "HOST.IO_FAILURE", "evidence.corrupt")
++    try:
++        Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
++    except Q.QueryRefusal as exc:
++        env = exc.envelope()
++        check("semantic-query-mutant-retains-replay-boundary",
++              env["exitCode"] == 4 and exc.fault_cause == "host-io"
++              and "EVALUATOR_COMPLETE_PROOF_REPLAY" in str(exc.subject)
++              and "run" not in env and "queryResponse" not in env, env)
++    else:
++        check("semantic-query-mutant-retains-replay-boundary", False, "semantic mutant admitted")
++
++
+ def main():
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--report")
+@@ -896,6 +951,7 @@
+     table_controls()
+     algorithm_controls()
+     owner_controls()
++    semantic_refusal_controls()
+     hook_control()
+     failed = [c for c in CHECKS if not c["ok"]]
+     report = {

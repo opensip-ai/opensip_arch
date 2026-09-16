@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-native-wire-renderer-review-03",
+  "reviewer": "independent Claude reviewer (claude-opus-5)",
+  "subject": {
+    "path": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-03",
+    "manifest": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-03.json",
+    "manifestSha256": "dbb6f55dbc5453cbe8e83fcf80d2e000807310559ca8e570111395d69cc7e856",
+    "files": 24,
+    "integrityBefore": "manifest hash matched; exact 24-file set; every sha256 and byte size matched",
+    "integrityAfter": "manifest hash matched; exact 24-file set; every sha256 and byte size matched (verified after all probes, mutations and writes)",
+    "changedVsSubject02": ["UNIT.md", "generated/type-probes.ts", "render.py", "src/tests.rs", "test_render.py"],
+    "unchangedGenerated": "generated/wire.rs, wire.ts, render-result.json identical to subject-02 outputs",
+    "inputPins": "all 11 copies byte-equal to pinned origins: native owner01 (wire-carriers.v1.json, meta schema) and accepted control01 extern contracts/TS; owner helpers not executed"
+  },
+  "verdict": "changes-required",
+  "verdictSummary": "Review02 RF-1 and RF-2 are corrected, and every targeted guard mutation is caught. Generation reproduces identically and all gates pass. One narrow algorithm finding remains: selection payload shape is not checked, so a malformed selection can silently drop a declared frame from the rendered carriers. Everything else in scope is acceptable; the remaining items are advisories for the pending closed-profile/integration work.",
+  "acceptanceWithinScope": {
+    "accepted": [
+      "tagged-record readers: exact text keys, exact text tag, exact scalar kinds, required null vs map/array, duplicate/unknown/missing refusal in any order including tag-last",
+      "flat serde records: u64 exactness, required-null presence, optional absence vs empty/null, deny_unknown_fields (codec hint fidelity disclosed as future duty)",
+      "ByteString refuses JSON text/arrays and preserves real byte strings",
+      "no generic frame/payload serde (compile-fail doctests)",
+      "TypeScript frame unions correlate actual tag/direction/payload for both direction families; host selector unprovable as disclosed",
+      "layout validation over scalars, records and every frame payload including selection alternatives: uint64 domain, text enum/const, bool const, frame-payload location, envelope header/table binding, sequence type, variant count, memberOrder uniqueness, collisions, Rust keywords"
+    ],
+    "notAccepted": ["selection payload shape (RF-1)"]
+  },
+  "scope": {
+    "in": [
+      "generic inert Rust/TS carrier rendering of the declared owner01 input: 67 named native types, 23 distinct externs, two frame families",
+      "renderer validation of the actually supported input grammar",
+      "generated tagged readers and TS frame correlation",
+      "reproduction, gates, review01/review02 probe reruns, targeted mutations"
+    ],
+    "out": [
+      "native owner semantics; owner02/author03 work; no owner agreement",
+      "general malicious-IDL admission, final closed IDL profile/meta validation, source selection, owner rebind, generator/tool closure, product integration/install",
+      "production CBOR codec, canonical serialization, length-before-allocation and host resource bounds",
+      "handwritten admission: bounds, consts, NFC, path grammar, order, joins, commitments, frame state",
+      "performance, platform, release qualification"
+    ]
+  },
+  "reproduction": {
+    "freshRender": "render.py on own copy reproduced wire.rs, wire.ts, render-result.json byte-identically",
+    "cargoTest": "cargo test --locked --offline: 9 passed; 2 compile-fail doctests passed",
+    "clippy": "cargo clippy --locked --offline --all-targets -- -D warnings: clean",
+    "python": "python3 -B test_render.py: 12 tests OK",
+    "typescript": "tsc 6.0.3 (/tmp/opensip-implementation/m1-control-generation-candidate-02/tools/contracts/node_modules/typescript/bin/tsc, node v24.16.0) strict + exactOptionalPropertyTypes: exit 0",
+    "environment": "own TMPDIR and CARGO_TARGET_DIRs under review-03/work; cached pinned deps; Python -B (no __pycache__); no background tasks"
+  },
+  "review02Disposition": [
+    {"id": "review02-RF-1", "title": "frame payload positions not validated", "status": "corrected", "evidence": "2^64, -1, frame-payload and const+enum refused both as direct payload and as selection alternative; mutations removing the protocol walk (C3), disabling the frame-payload location check (C9) and widening the uint domain (C10) are caught"},
+    {"id": "review02-RF-2", "title": "duplicate guard untested", "status": "corrected", "evidence": "new test repeats every member and tag of all 4 records, before and after, with tag-last positive controls; removing the guard in generated wire.rs (C1) or in render.py with regeneration (C2) fails it"},
+    {"id": "review02-A1", "title": "narrow lawful callbacks", "status": "resolved by disclosure", "evidence": "UNIT.md requires visit_u64 for major-0 and visit_unit for null; probes confirm visit_none/visit_i64 refused, visit_u64/visit_u8/visit_unit accepted"},
+    {"id": "review02-A2", "title": "allocation before kind check", "status": "resolved by disclosure", "evidence": "UNIT.md states at most seven slots, unbounded text/bytes until the dedicated codec; no allocation qualification claimed"},
+    {"id": "review02-A3", "title": "operator-shape acceptance", "status": "corrected", "evidence": "empty enum, non-boolean bool const, single-variant record, sequence type refused; mutations C4-C7 caught"},
+    {"id": "review02-A4", "title": "repeated memberOrder", "status": "corrected", "evidence": "refused; mutation C8 caught"},
+    {"id": "review02-A5", "title": "host-to-worker direction untested", "status": "corrected", "evidence": "widening 13 host-to-worker rows (C11) and 15 worker-to-host rows (C12) both fail tsc with TS2578"},
+    {"id": "review02-A6", "title": "carried disclosed limits", "status": "unchanged, disclosed"}
+  ],
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Selection payload shape is unchecked; a malformed selection silently drops or narrows a declared frame",
+      "location": "render.py Renderer.run protocol loop (payload.get('alternatives', ...)) and validate_layout",
+      "detail": "Frame payloads that are selections are only walked for scalar rules; their layout is never checked. An empty alternatives map yields zero variants and zero TS rows for a frameType that the header enum and frame table still declare, so the carrier cannot represent a declared frame. The frame-table binding added in delta02 is meant to prevent exactly this header/table mismatch. A one-entry map, a missing or unknown select, and extra keys are also accepted. The declared grammar (meta schema 'selection') requires select in {negotiated-target-attribution-v2, host-phase} and exactly two alternatives with no additional properties.",
+      "evidence": [
+        "Ts2 FactBatch payload alternatives = {}: render ok; Ts2FrameV2 TS union has 0 FactBatch rows; by code, the enumerate over empty alternatives emits no Rust payload variant either",
+        "alternatives with one entry: render ok, 1 FactBatch row",
+        "select deleted: render ok; select 'bogus': render ok; extra key on selection: render ok",
+        "test_render.py test_all_frame_payload_positions_use_scalar_validation builds selections with key 'selector' rather than declared 'select'; its refusals come from the scalar walk, so no test checks selection shape"
+      ],
+      "requiredChange": "Recognize a payload as a selection only when it has no 't' key and its keys are exactly {select, alternatives}; require select in the declared enum and exactly two alternatives, each a type; refuse anything else. Fix the test to use 'select' and add refusal tests for empty/one/three alternatives, missing/unknown select and extra keys."
+    }
+  ],
+  "advisories": [
+    {"id": "A1", "title": "Extern generatedType and names are emitted into code unvalidated", "detail": "An extern generatedType 'Foo>); pub fn evil() {} //' renders into both wire.rs and wire.ts. Member names such as 'a-b' render as invalid Rust identifiers, and frameType strings are not pattern-checked. The closed IDL profile/generator closure must validate generatedType against the meta pattern and the actual extern export set, and member/frame names against their patterns. No malicious-IDL claim is made, so this is an advisory, but it matters for integration."},
+    {"id": "A2", "title": "Type objects are not closed", "detail": "Unknown or typo keys are ignored: text with 'enumm' renders unconstrained String, uint64 with 'maxx' renders, bytes without minBytes/maxBytes renders. Ts2 frame direction values are not checked (no header member). A non-string text const fails with TypeError instead of ValueError (fails closed). Expected to be covered by the pending closed profile; alternatively, check allowed keys per operator in the renderer."},
+    {"id": "A3", "title": "Redundant nullability forms accepted", "detail": "nullable(nullable(T)) renders Option<Option<T>> / ((T) | null) | null, and nullable(null) renders Option<()>. JSON cannot reach Some(None) or Some(()); semantics equal nullable(T)/null, but the representation is ambiguous. Refuse or canonicalize."},
+    {"id": "A4", "title": "Frame payload may reference its own envelope", "detail": "A payload ref to Ts2FrameV2 renders Hello(Box<Ts2FrameV2>). Schema-valid and not in the current input; consider refusing envelope refs in payload positions."},
+    {"id": "A5", "title": "Codec duties restated", "detail": "Tagged readers require visit_u64 (serde forwards visit_u8/u16/u32) and visit_unit, and accept visit_char as text. Flat serde records still accept bstr for String and bstr/u64-index keys under non-hinting deserializers. Text/bytes length is unbounded before kind check. All disclosed as dedicated-codec duties."},
+    {"id": "A6", "title": "Carried disclosed limits and cosmetics", "detail": "Rust frame struct fields are uncorrelated. Derived tagged Serialize emits the tag first and is not qualified CBOR. Consts are inert in Rust. In type-probes.ts the variable 'seal' holds a Rust3DependencySourceChunkV3; renaming it would avoid confusion."}
+  ],
+  "tests": {
+    "mutations": [
+      {"id": "C1", "change": "remove 4 duplicate guards in generated wire.rs", "result": "caught (tagged_record_duplicate_members_and_tags_refuse_in_any_order)"},
+      {"id": "C2", "change": "remove duplicate guard in render.py template, regenerate", "result": "caught (same test; regenerated wire.rs had 0 guards)"},
+      {"id": "C3", "change": "remove protocol frame payload walk", "result": "caught"},
+      {"id": "C4", "change": "remove text enum validity check", "result": "caught"},
+      {"id": "C5", "change": "remove bool const check", "result": "caught"},
+      {"id": "C6", "change": "remove envelope sequence type check", "result": "caught"},
+      {"id": "C7", "change": "remove two-variant check", "result": "caught"},
+      {"id": "C8", "change": "remove memberOrder duplicate check", "result": "caught"},
+      {"id": "C9", "change": "disable frame-payload location check", "result": "caught (2 tests)"},
+      {"id": "C10", "change": "widen uint64 literal domain to 2^65", "result": "caught"},
+      {"id": "C11", "change": "widen 13 host-to-worker TS direction rows", "result": "caught (TS2578 line 41)"},
+      {"id": "C12", "change": "widen 15 worker-to-host TS direction rows", "result": "caught (TS2578 line 34)"}
+    ],
+    "independentProbes": [
+      {"name": "review01 review_probes.rs rerun", "result": "identical to review02: all tagged wrong kinds refused under loose and strict deserializers; JSON duplicates/floats/negatives/overflow/{}/[] refused for tagged records; flat loose coercions unchanged (disclosed)"},
+      {"name": "review02 probes3.rs rerun", "result": "identical to review02: lawful u64/u8/unit/char/borrowed bytes/tag-last accepted; visit_none, visit_some, visit_i64, newtype, wrong-kind, duplicate, unknown, missing refused. The flat visit_none comparison remains inconclusive (probe lacks enum support)."},
+      {"name": "review02 RF-1 cases rerun (direct payload and selection alternative)", "result": "all refused with ValueError"},
+      {"name": "review03 grammar probes", "result": "RF-1 selection cases accepted; A1-A4 cases accepted; nested selection fails closed (KeyError); switching discriminator to a member refused"}
+    ]
+  },
+  "limitations": [
+    "Compile/tsc of RF-1 and advisory mutated renders not executed; findings rest on renderer acceptance, emitted text and code reading",
+    "No CBOR crate cached; codec callbacks modelled with hand-written serde deserializers",
+    "TypeScript compiler path taken from review02 (candidate-02, version 6.0.3 verified); this request did not restate it"
+  ]
+}

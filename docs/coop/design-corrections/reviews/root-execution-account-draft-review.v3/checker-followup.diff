@@ -1,0 +1,513 @@
+--- author1/check-execution-inputs.v1.py
++++ activeauthor2/check-execution-inputs.v1.py
+@@ -109,8 +109,15 @@
+     """Rebuild selectedRefs/receipts/accounts after checker-only object mints.
+ 
+     `view_ids` REPLACES the default "every minted view object" set, for a control that must
+-    retire a view rather than add one. The rebuild goes through the shared host-capture builder,
+-    so the host rows are still produced independently of the admission model that re-derives them.
++    retire a view rather than add one.
++
++    STANDING, stated correctly: the rebuild goes through the shared host-capture builder, and that
++    builder is NOT independent of the admission model. `execution_inputs_fixture.v3.py` calls
++    `M.derived_applicability`, `M._summarize_coverage_records` and `M.derive_outcome` to produce
++    the very rows admission then re-derives. So an ADMIT here is REFERENCE SELF-CONSISTENCY plus
++    the explicit oracles below, not an independent reconstruction of the host rows. The
++    independent consumer reconstruction that a real acceptance needs is a separate obligation and
++    is not what any control in this file provides.
+     """
+     if view_ids is None:
+         view_ids = [k for k, (dom, _) in objects.items() if dom == "view"]
+@@ -517,17 +524,20 @@
+         and (paired.get("coverageRecords") or [{}, {}])[1].get("deficiency") == "input-closure-incomplete"
+         and (paired.get("coverageRecords") or [{}, {}])[1].get("nativeCause") == "lockfile-missing"
+     )
+-    if ok:
+-        return {"result": "ADMIT", "refusals": [], "requiredCellDeficiencies": [],
+-                "derivedOutcomes": [{"state": "complete"}],
+-                "derivedAccounts": [summary, paired]}
+-    return {"result": "REFUSE", "refusals": ["RC3_OR_PAIRING"],
+-            "requiredCellDeficiencies": [], "derivedOutcomes": [],
++    # STANDING `helper-unit`: this calls `_summarize_coverage_records` directly. `derivedAccounts`
++    # below are that helper's REAL output; the cell/Run columns are not applicable and stay null.
++    return {"controlStanding": "helper-unit",
++            "result": "ADMIT" if ok else "REFUSE",
++            "refusals": [] if ok else ["RC3_OR_PAIRING"],
+             "derivedAccounts": [summary, paired]}
+ 
+ 
+ def applicability_precedence_table():
+     """Exhaustive FIRST-MATCH table, including the branch intersections.
++
++    STANDING `helper-unit`: this calls `M.derived_applicability` and reads two published tables.
++    It admits nothing and closes no Run, so the admission columns are NOT APPLICABLE and are
++    reported as null rather than as an invented complete cell.
+ 
+     Only LAWFUL binding shapes are exercised. `enumeration-contract.v1.md` §1 refuses a non-null
+     universe on an unselected enumerator, so every `unselected` row here carries `universe=null`;
+@@ -569,12 +579,12 @@
+     ]
+     if schema_order != want_published:
+         bad.append({"case": "schema-annotation-order", "want": want_published, "got": schema_order})
+-    if bad:
+-        return {"result": "REFUSE", "refusals": [str(bad)], "requiredCellDeficiencies": [],
+-                "derivedOutcomes": [], "derivedAccounts": []}
+-    return {"result": "ADMIT", "refusals": [], "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}], "derivedAccounts": [],
+-            "precedenceTable": got}
++    return {
++        "controlStanding": "helper-unit",
++        "result": "REFUSE" if bad else "ADMIT",
++        "refusals": [str(b) for b in bad],
++        "precedenceTable": got,
++    }
+ 
+ 
+ def set_account_source_universe(owner, predicate, value):
+@@ -601,6 +611,72 @@
+     if not hit:
+         raise RuntimeError("no account matched the target-universe mutation predicate")
+     return mutated
++
++
++def candidate_cell_without_envelope(owner, required):
++    """A candidate-only cell whose binding is SELECTED at a non-null universe and which retains
++    NO CandidateProducerResultV1 at all.
++
++    `AvailableProgramBindingV1` has no `deficiency`/`nativeCause` property (`additionalProperties:
++    false`), so the binding declares no carrier; the candidate item therefore has no source pair
++    of any kind and must derive (null, null). `required=True` is expected to refuse
++    `EXECUTION_INPUTS_CANDIDATE_REQUIRED` before that matters.
++    """
++    kw = copy.deepcopy(owner)
++    prov = next(k for k, v in kw["closures"].items() if v.get("kind") == "provider")
++    base_binding = kw["enumeration_plan"]["cells"][0]["programBindings"][0]
++    uni = base_binding["universe"]
++    enum = copy.deepcopy(kw["enumeration_plan"])
++    enum["cells"] = [{
++        "capabilityId": "clones-near", "languageMode": "syntax-only", "workspaceRoot": ".",
++        "required": required, "kinds": [],
++        "programBindings": [{
++            "ordinal": 0, "provenance": "default-unit",
++            "enumerator": {"status": "selected", "closureId": prov},
++            "nativeContextDigest": base_binding["nativeContextDigest"],
++            "universe": uni, "programEntry": None, "extents": [],
++            "candidateSourcePaths": ["src/index.ts"],
++        }],
++    }]
++    spec = {"requestedCapabilities": [{"capabilityId": "clones-near", "languageMode": "syntax-only",
++                                       "workspaceRoot": ".", "required": required}]}
++    plan = dict(kw["plan"])
++    plan["analysisSpecDigest"] = M.raw_digest(spec)
++    stage_d = kw["execution_plan"]["stages"][0]["stageSpecDigest"]
++    row = {
++        "ordinal": 0, "cellOrdinal": 0, "programOrdinal": 0, "capabilityId": "clones-near",
++        "languageMode": "syntax-only", "workspaceRoot": ".", "required": required, "kinds": [],
++        "universe": uni, "enumeratorStatus": "selected", "enumeratorClosure": prov,
++        "state": "unavailable", "deficiency": None, "nativeCause": None,
++        "stageOrdinal": 0, "stageOrdinalNullReason": None,
++        "inventoryDigests": [], "viewDigests": [], "candidateResultDigest": None,
++    }
++    manifest = {
++        "schemaVersion": 1, "planId": kw["plan_id"], "executionPlanId": kw["execution_plan_id"],
++        "evaluatorClosure": kw["execution_inputs"]["evaluatorClosure"],
++        "enumerationPlanDigest": M.raw_digest(enum), "analysisSpecDigest": plan["analysisSpecDigest"],
++        "hostCapture": {
++            "custody": "host-tcb-evidence-store", "observation": "stage-return",
++            "stageReceipts": [{
++                "ordinal": 0, "stageSpecDigest": stage_d,
++                "producerClosure": kw["stage_specs"][stage_d]["producerClosure"],
++                "outputDomains": list(kw["stage_specs"][stage_d]["outputDomains"]),
++                "outputRefs": [], "state": "complete", "unavailableReason": None,
++            }],
++            "hostDerivedRefs": [],
++        },
++        "selectedRefs": [], "cellOutcomes": [row], "nativeCoverageAccounts": [],
++        "candidateResultRefs": [],
++    }
++    return {
++        "plan_id": kw["plan_id"], "plan": plan, "execution_plan_id": kw["execution_plan_id"],
++        "execution_plan": kw["execution_plan"], "enumeration_plan": enum, "analysis_spec": spec,
++        "execution_inputs": manifest, "objects": kw["objects"], "blobs": kw["blobs"],
++        "store_pointers": pointers_of(kw["objects"], kw["blobs"]), "inventories": {},
++        "imports": {}, "target_attributions": {}, "incoming_searches": {},
++        "candidate_results": {}, "groups": {}, "closures": kw["closures"],
++        "stage_specs": kw["stage_specs"], "vcs_observation": kw["vcs_observation"],
++    }
+ 
+ 
+ def claim_row_pair(owner, deficiency, native_cause):
+@@ -632,15 +708,38 @@
+ NONE_ATOM = {"op": "none", "relation": "file", "minResolution": "enumerated", "filters": []}
+ 
+ 
++def bridge_cause(deficiency):
++    """Composition §9.6 step 3, as `evaluator_input_model.v3.py` implements it."""
++    registered = IDENTITY.SCHEMA["x-opensip-evaluator-deficiency-registry"]["sources"]["execution"]
++    if deficiency in registered:
++        return deficiency
++    if deficiency in (None, "source-syntax-invalid"):
++        return "required-cell-unsatisfied"
++    return "UNREGISTERED:" + str(deficiency)
++
++
+ def full_run_case(label, want_verdict, want_causes, **kwargs):
+-    """One closed Run. `want_causes` is the exact multiset of proof execution causes."""
++    """One closed Run, reported with REAL rows.
++
++    STANDING `closed-run`. The proof columns are the actual closed Run's. The admission columns
++    are the SAME graph's `admit_execution_inputs` result -- the very call the Run performs
++    internally through `evaluator_input_model.execution_input_account`, re-run here only because
++    `R.derive` does not return it. They are NOT a relabelling of proof success: an execution cell
++    that is `partial` is reported as `partial`, and `requiredCellDeficiencies` are the real rows.
++    `bridgedCausesEqualProof` checks the re-run admission really is the Run's, by bridging those
++    rows with §9.6 step 3 and comparing to the proof's own causes.
++    """
+     try:
+-        result, proof = full_run(F.build_file_inputs(atom_override=NONE_ATOM, **kwargs))
++        graph = F.build_file_inputs(atom_override=NONE_ATOM, **kwargs)
++        result, proof = full_run(graph)
++        admission = admit(manifest_from_owner(F.build_file_inputs(atom_override=NONE_ATOM, **kwargs)))
+     except Exception as exc:  # noqa: BLE001
+-        return {"result": "REFUSE", "refusals": [type(exc).__name__ + ":" + str(exc)],
+-                "requiredCellDeficiencies": [], "derivedOutcomes": [], "derivedAccounts": []}
++        return {"controlStanding": "closed-run", "result": "REFUSE",
++                "refusals": [type(exc).__name__ + ":" + str(exc)]}
+     causes = sorted(d["cause"] for d in proof["executionDeficiencies"])
+     pairs = sorted((d["cause"], d["nativeCause"]) for d in proof["executionDeficiencies"])
++    bridged = sorted(bridge_cause(d.get("deficiency"))
++                     for d in admission.get("requiredCellDeficiencies") or [])
+     bad = []
+     if result["verdict"] != want_verdict:
+         bad.append({"verdict": result["verdict"], "want": want_verdict})
+@@ -648,12 +747,19 @@
+         bad.append({"causes": causes, "want": sorted(want_causes)})
+     if any(d["cause"] == "provider-unavailable" for d in proof["executionDeficiencies"]):
+         bad.append({"fabricatedCarrier": "provider-unavailable reached the proof"})
++    if sorted(set(bridged)) != sorted(set(causes)):
++        bad.append({"bridgedCausesEqualProof": False, "bridged": bridged, "proof": causes})
++    if admission.get("result") != "ADMIT":
++        bad.append({"sameGraphAdmission": admission.get("result"),
++                    "refusals": admission.get("refusals")})
+     return {
++        "controlStanding": "closed-run",
+         "result": "REFUSE" if bad else "ADMIT",
+         "refusals": [str(b) for b in bad],
+-        "requiredCellDeficiencies": [],
+-        "derivedOutcomes": [{"state": "complete"}] if not bad else [],
+-        "derivedAccounts": [],
++        # Real admission rows for the same graph, not invented ones.
++        "requiredCellDeficiencies": admission.get("requiredCellDeficiencies") or [],
++        "derivedOutcomes": admission.get("derivedOutcomes") or [],
++        "derivedAccounts": admission.get("derivedAccounts") or [],
+         "fullRun": {
+             "case": label, "verdict": result["verdict"], "runId": result["runId"],
+             "executionCausePairs": pairs,
+@@ -661,6 +767,12 @@
+                 [(r["domain"], r["digest"]) for r in d["inputRefs"]]
+                 for d in proof["executionDeficiencies"]
+             ],
++            "sameGraphAdmissionResult": admission.get("result"),
++            "sameGraphCellStates": [d.get("state") for d in admission.get("derivedOutcomes") or []],
++            "bridgedCausesFromAdmission": bridged,
++            "admissionColumnProvenance":
++                "admit_execution_inputs on the same graph; the Run performs this same call via "
++                "evaluator_input_model.execution_input_account but does not return it.",
+         },
+     }
+ 
+@@ -703,31 +815,44 @@
+     cases = []
+ 
+     def rec(name, result):
++        # STANDING decides whether the admission columns MEAN anything for this control.
++        #   admission  - a real admit_execution_inputs result; every derived* column is real.
++        #   closed-run - a real M.close_run plus that same graph's real admission rows.
++        #   helper-unit / schema-unit - a pure helper or schema check that admits nothing and
++        #                closes no Run. Its admission columns are NOT APPLICABLE and are reported
++        #                as null. They are never filled with an invented complete cell.
++        # NOTE: the admission result carries its OWN `standing` string, so the control standing
++        # uses a distinct key that cannot collide with it.
++        standing = result.get("controlStanding") or "admission"
++        bears_admission = standing in ("admission", "closed-run")
+         derived_states = [d.get("state") for d in result.get("derivedOutcomes") or []]
+         derived_acc = [d.get("accountState") for d in result.get("derivedAccounts") or []]
+         defs = result.get("requiredCellDeficiencies") or []
++        na = not bears_admission
+         cases.append({
+-            "case": name, "result": result.get("result"),
++            "case": name, "controlStanding": standing, "result": result.get("result"),
+             "refusals": result.get("refusals"),
+-            "deficiencyCauses": [d.get("cause") for d in defs],
+-            "deficiencyRelations": [d.get("relation") for d in defs],
+-            "deficiencyPairs": [(d.get("deficiency"), d.get("nativeCause")) for d in defs],
+-            "deficiencyInputRefs": [d.get("inputRefs") for d in defs],
+-            "derivedOutcomeStates": derived_states,
+-            "derivedAccountStates": derived_acc,
+-            "derivedOutcomeDeficiencies": [
++            "deficiencyCauses": None if na else [d.get("cause") for d in defs],
++            "deficiencyRelations": None if na else [d.get("relation") for d in defs],
++            "deficiencyPairs": None if na else [(d.get("deficiency"), d.get("nativeCause")) for d in defs],
++            "deficiencyInputRefs": None if na else [d.get("inputRefs") for d in defs],
++            "derivedOutcomeStates": None if na else derived_states,
++            "derivedAccountStates": None if na else derived_acc,
++            "derivedOutcomeDeficiencies": None if na else [
+                 (d.get("deficiency"), d.get("nativeCause")) for d in result.get("derivedOutcomes") or []
+             ],
+-            "derivedSources": [
++            "derivedSources": None if na else [
+                 [(s.get("source"), s.get("deficiency"), s.get("nativeCause")) for s in (d.get("sources") or [])]
+                 for d in result.get("derivedOutcomes") or []
+             ],
++            # derivedAccounts may carry REAL helper output on a helper-unit control (the RC-3
++            # summariser returns actual summaries), so this column is kept when present.
+             "coverageRecordPairs": [
+                 [(r.get("deficiency"), r.get("nativeCause"), (r.get("inputRef") or {}).get("digest"))
+                  for r in (a.get("coverageRecords") or [])]
+                 for a in result.get("derivedAccounts") or []
+-            ],
+-            "rowComplete": derived_states == ["complete"] if derived_states else False,
++            ] or None,
++            "rowComplete": None if na else (derived_states == ["complete"] if derived_states else False),
+             "accountSourceUniverses": [
+                 (a.get("relation"), a.get("resolution"), a.get("applicability"), a.get("sourceUniverse"))
+                 for a in result.get("manifestAccounts") or []
+@@ -961,17 +1086,17 @@
+     }
+     try:
+         M.C.validate(CAND_SCHEMA, cand)
+-        rec("candidate-unavailable-envelope-schema", {"result": "ADMIT", "refusals": []})
++        rec("candidate-unavailable-envelope-schema", {"controlStanding": "schema-unit", "result": "ADMIT", "refusals": []})
+     except Exception as exc:
+-        rec("candidate-unavailable-envelope-schema", {"result": "REFUSE", "refusals": [str(exc)]})
++        rec("candidate-unavailable-envelope-schema", {"controlStanding": "schema-unit", "result": "REFUSE", "refusals": [str(exc)]})
+ 
+     autofix = dict(cand, state="complete", deficiency=None, universe="c" * 64, stageOrdinal=0,
+                    automaticDeletionEligible=True, examinedPaths=["src/index.ts"], sourceBodies=[])
+     try:
+         M.C.validate(CAND_SCHEMA, autofix)
+-        rec("schema-rejects-candidate-autofix", {"result": "ADMIT", "refusals": []})
++        rec("schema-rejects-candidate-autofix", {"controlStanding": "schema-unit", "result": "ADMIT", "refusals": []})
+     except Exception:
+-        rec("schema-rejects-candidate-autofix", {"result": "REFUSE", "refusals": ["EXECUTION_INPUTS_SCHEMA"]})
++        rec("schema-rejects-candidate-autofix", {"controlStanding": "schema-unit", "result": "REFUSE", "refusals": ["EXECUTION_INPUTS_SCHEMA"]})
+ 
+     group = {
+         "mode": "near", "evidenceLevel": "similar-candidate", "language": "typescript",
+@@ -982,9 +1107,9 @@
+     }
+     try:
+         M.C.validate(GROUP_SCHEMA, group)
+-        rec("clone-candidate-group-v2-schema", {"result": "ADMIT", "refusals": []})
++        rec("clone-candidate-group-v2-schema", {"controlStanding": "schema-unit", "result": "ADMIT", "refusals": []})
+     except Exception as exc:
+-        rec("clone-candidate-group-v2-schema", {"result": "REFUSE", "refusals": [str(exc)]})
++        rec("clone-candidate-group-v2-schema", {"controlStanding": "schema-unit", "result": "REFUSE", "refusals": [str(exc)]})
+ 
+     badm = copy.deepcopy(owner["execution_inputs"])
+     badm["verdict"] = "pass"
+@@ -1048,9 +1173,7 @@
+                 and "retainedBlobDigests" not in hc
+             ) else "REFUSE",
+             "refusals": [] if M.raw_digest(attached["manifest"]) == digest0 else ["HELPER_DIGEST_DRIFT"],
+-            "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}] if M.raw_digest(attached["manifest"]) == digest0 else [],
+-            "derivedAccounts": [],
++            "controlStanding": "helper-unit",
+         })
+         domains = {r.get("domain") for r in attached["evaluationInputRefs"]}
+         rec("helper-no-policy-schema-roots", {
+@@ -1096,9 +1219,7 @@
+         rec("ambient-blob-does-not-change-digest", {
+             "result": "ADMIT" if d1 == d2 and m1["selectedRefs"] == m2["selectedRefs"] else "REFUSE",
+             "refusals": [] if d1 == d2 else ["AMBIENT_BLOB_DIGEST"],
+-            "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}] if d1 == d2 else [],
+-            "derivedAccounts": [],
++            "controlStanding": "helper-unit",
+         })
+         g_obj = copy.deepcopy(g_amb)
+         g_obj["objects"]["finding3:" + "0" * 64] = ("finding", {"schemaVersion": 2})
+@@ -1106,18 +1227,14 @@
+         rec("ambient-object-does-not-change-digest", {
+             "result": "ADMIT" if d1 == d3 and m1["selectedRefs"] == m3["selectedRefs"] else "REFUSE",
+             "refusals": [] if d1 == d3 else ["AMBIENT_OBJECT_DIGEST"],
+-            "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}] if d1 == d3 else [],
+-            "derivedAccounts": [],
++            "controlStanding": "helper-unit",
+         })
+         mutated = copy.deepcopy(m1)
+         mutated["selectedRefs"] = [r for r in mutated["selectedRefs"] if r.get("domain") != "coverage"]
+         rec("selected-refs-change-changes-digest", {
+             "result": "ADMIT" if M.raw_digest(mutated) != d1 and mutated["selectedRefs"] != m1["selectedRefs"] else "REFUSE",
+             "refusals": [] if M.raw_digest(mutated) != d1 else ["SELECTED_DIGEST_UNCHANGED"],
+-            "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}] if M.raw_digest(mutated) != d1 else [],
+-            "derivedAccounts": [],
++            "controlStanding": "helper-unit",
+         })
+         att = H.attach_host_capture(copy.deepcopy(g_amb))
+         op1 = att["operationalCapture"]
+@@ -1131,9 +1248,7 @@
+                 and "retainedObjectKeys" not in att["manifest"]["hostCapture"]
+             ) else "REFUSE",
+             "refusals": [] if att["digest"] == d1 else ["OPERATIONAL_COUPLED"],
+-            "requiredCellDeficiencies": [],
+-            "derivedOutcomes": [{"state": "complete"}] if att["digest"] == d1 else [],
+-            "derivedAccounts": [],
++            "controlStanding": "helper-unit",
+         })
+     except Exception as exc:
+         rec("ambient-blob-does-not-change-digest",
+@@ -1205,8 +1320,17 @@
+     rec("unsupported-typed-account-null-source-universe-refuses",
+         admit(set_account_source_universe(uns, lambda a: a["relation"] == "references", None)))
+ 
++    # NOTE ON WHAT THIS SHOWS. This cell has a SELECTED enumerator at a NON-NULL universe with an
++    # admitted synthetic native `unknown` Coverage. What the oracle establishes is that an
++    # OPTIONAL matrix-unsupported cell owes NO requiredCellDeficiencies row and still closes. It
++    # establishes NOTHING about whether a provider was executed: no synthetic reference fixture
++    # executes or declines to execute a real provider, and absence of SELECTION is the separate
++    # `optional-unselected-account-retained-typed-disclosure` control.
+     uns_opt = manifest_from_owner(F.build_file_inputs(unsupported_cell="optional"))
+-    rec("optional-unsupported-cell-does-not-execute-a-provider", with_accounts(uns_opt, admit(uns_opt)))
++    rec("optional-unsupported-cell-owes-no-required-cell-row", with_accounts(
++        uns_opt, admit(uns_opt),
++        note="selected enumerator, non-null U, admitted synthetic unknown Coverage; establishes "
++             "the absence of a required-cell row only, not the absence of provider execution"))
+ 
+     unsel = manifest_from_owner(F.build_file_inputs(optional_unselected_cell=True))
+     rec("optional-unselected-account-retained-typed-disclosure", with_accounts(unsel, admit(unsel)))
+@@ -1242,6 +1366,30 @@
+         rec("typed-inventory-carriers-survive-alongside-census-failure",
+             {"result": "REFUSE", "refusals": [type(exc).__name__ + ":" + str(exc)]})
+ 
++    # Cross-source primary pair: an earlier UNTYPED account must not mask a later typed one.
++    # The file account is census-short with no typed record; the package account carries the
++    # producer's own derived budget-exhausted. They are owed in the capability matrix's authored
++    # relations order (file, package, vcs-change), so the untyped one comes FIRST.
++    MIXED = {"file_coverage_subjects": ["README.md"], "package_coverage_unknown": True}
++    mixed_acc = manifest_from_owner(F.build_file_inputs(**MIXED))
++    rec("mixed-accounts-first-typed-pair-not-first-source", admit(mixed_acc))
++    rec("full-run-mixed-accounts-first-typed-pair",
++        full_run_case("mixed-accounts", "indeterminate",
++                      ["budget-exhausted", "required-cell-unsatisfied"], **MIXED))
++
++    # Candidate carrier is not manufactured either. An optional candidate cell with no retained
++    # envelope ADMITS, so this path is reachable; the required one refuses first.
++    try:
++        rec("optional-candidate-absent-envelope-derives-null-pair",
++            admit(candidate_cell_without_envelope(owner, required=False)))
++        rec("required-candidate-absent-envelope-still-refuses",
++            admit(candidate_cell_without_envelope(owner, required=True)))
++    except Exception as exc:  # noqa: BLE001
++        rec("optional-candidate-absent-envelope-derives-null-pair",
++            {"result": "REFUSE", "refusals": [type(exc).__name__ + ":" + str(exc)]})
++        rec("required-candidate-absent-envelope-still-refuses",
++            {"result": "REFUSE", "refusals": [type(exc).__name__ + ":" + str(exc)]})
++
+     # Full retained Runs through M.close_run.
+     rec("full-run-empty-returned-partitions-bridge-required-cell-unsatisfied",
+         full_run_case("empty-returned-partitions", "indeterminate",
+@@ -1262,7 +1410,7 @@
+         "inapplicable-vcs-account-null-source-universe-refuses": "REFUSE",
+         "unsupported-typed-account-carries-binding-universe": "ADMIT",
+         "unsupported-typed-account-null-source-universe-refuses": "REFUSE",
+-        "optional-unsupported-cell-does-not-execute-a-provider": "ADMIT",
++        "optional-unsupported-cell-owes-no-required-cell-row": "ADMIT",
+         "optional-unselected-account-retained-typed-disclosure": "ADMIT",
+         "null-binding-universe-account-must-stay-null": "REFUSE",
+         "foreign-universe-account-source-universe-refuses": "REFUSE",
+@@ -1272,6 +1420,10 @@
+         "empty-returned-partitions-host-may-not-claim-provider-unavailable": "REFUSE",
+         "typed-native-carrier-survives-alongside-census-failure": "ADMIT",
+         "typed-inventory-carriers-survive-alongside-census-failure": "ADMIT",
++        "mixed-accounts-first-typed-pair-not-first-source": "ADMIT",
++        "full-run-mixed-accounts-first-typed-pair": "ADMIT",
++        "optional-candidate-absent-envelope-derives-null-pair": "ADMIT",
++        "required-candidate-absent-envelope-still-refuses": "REFUSE",
+         "full-run-empty-returned-partitions-bridge-required-cell-unsatisfied": "ADMIT",
+         "full-run-census-missing-subjects-bridge-keeps-originating-coverage": "ADMIT",
+         "full-run-required-unsupported-matrix-pair-bridge": "ADMIT",
+@@ -1476,7 +1628,7 @@
+            {"states": uns_case.get("derivedOutcomeStates"),
+             "pairs": uns_case.get("deficiencyPairs"),
+             "causes": uns_case.get("deficiencyCauses")})
+-    opt_uns = by_case.get("optional-unsupported-cell-does-not-execute-a-provider") or {}
++    opt_uns = by_case.get("optional-unsupported-cell-owes-no-required-cell-row") or {}
+     oracle("optional-unsupported-cell-needs-no-required-row",
+            opt_uns.get("deficiencyCauses") == [], opt_uns.get("deficiencyCauses"))
+ 
+@@ -1528,6 +1680,71 @@
+            {"unselectedCase": sorted({r[2] for r in (unsel_case.get("accountSourceUniverses") or [])}),
+             "selectedUnavailableCase": sorted(sel_tokens)})
+ 
++    # --- cross-source primary pair: first source ACTUALLY carrying a typed pair ---
++    mixed = by_case.get("mixed-accounts-first-typed-pair-not-first-source") or {}
++    mixed_sources = [tuple(s) for group in (mixed.get("derivedSources") or []) for s in group]
++    oracle("earlier-untyped-account-does-not-mask-a-later-typed-carrier",
++           (mixed_sources[:2] == [("account", None, None), ("coverage", "budget-exhausted", None)]
++            and [tuple(p) for p in (mixed.get("derivedOutcomeDeficiencies") or [])]
++            == [("budget-exhausted", None)]
++            and mixed.get("derivedOutcomeStates") == ["partial"]),
++           {"sources": mixed_sources, "row": mixed.get("derivedOutcomeDeficiencies"),
++            "states": mixed.get("derivedOutcomeStates")})
++    oracle("masked-untyped-source-is-still-retained-with-its-own-refs",
++           (("account", None, None) in mixed_sources
++            and any(tuple(p) == (None, None) for p in (mixed.get("deficiencyPairs") or []))
++            and sum(1 for refs in (mixed.get("deficiencyInputRefs") or [])
++                    for r in (refs or []) if r.get("domain") == "coverage") >= 2),
++           {"sources": mixed_sources, "pairs": mixed.get("deficiencyPairs"),
++            "refs": mixed.get("deficiencyInputRefs")})
++    # The published cross-source order must be the one the reference actually walks.
++    oracle("published-source-order-matches-the-reference",
++           [s for s, _why in M.SOURCE_ORDER]
++           == ["enumerator-or-binding", "inventory", "candidate", "account"],
++           [s for s, _why in M.SOURCE_ORDER])
++    schema_cross = (M.SCHEMA["x-opensip-derived-carrier-law"]["crossSourceOrder"]["order"])
++    oracle("schema-cross-source-annotation-matches-the-reference",
++           [r["source"] for r in schema_cross]
++           == ["enumerator-or-binding", "inventory", "candidate", "coverage-or-account"],
++           [r["source"] for r in schema_cross])
++    # The account leg's order is the matrix relations ARRAY as authored, not a lexical sort.
++    oracle("account-leg-order-is-the-authored-matrix-array-not-lexical",
++           (M._matrix_pairs("inventory") == [("file", "enumerated"),
++                                             ("package", "manifest-declared"),
++                                             ("vcs-change", "vcs-reported")]
++            and M._matrix_pairs("syntax") == [("declares", "syntactic"), ("literal", "syntactic"),
++                                              ("control-flow", "syntactic")]
++            and M._matrix_pairs("syntax") != sorted(M._matrix_pairs("syntax"))),
++           {"inventory": M._matrix_pairs("inventory"), "syntax": M._matrix_pairs("syntax")})
++
++    # --- candidate carrier is not manufactured either ---
++    cand_opt = by_case.get("optional-candidate-absent-envelope-derives-null-pair") or {}
++    cand_sources = [tuple(s) for group in (cand_opt.get("derivedSources") or []) for s in group]
++    oracle("absent-candidate-envelope-derives-null-null-and-keeps-unavailable",
++           (cand_sources == [("candidate", None, None)]
++            and cand_opt.get("derivedOutcomeStates") == ["unavailable"]
++            and [tuple(p) for p in (cand_opt.get("derivedOutcomeDeficiencies") or [])]
++            == [(None, None)]),
++           {"sources": cand_sources, "states": cand_opt.get("derivedOutcomeStates"),
++            "row": cand_opt.get("derivedOutcomeDeficiencies")})
++    cand_req = by_case.get("required-candidate-absent-envelope-still-refuses") or {}
++    oracle("required-candidate-absent-envelope-refuses-candidate-required",
++           "EXECUTION_INPUTS_CANDIDATE_REQUIRED" in (cand_req.get("refusals") or []),
++           cand_req.get("refusals"))
++
++    # --- reporting standing: no control may invent an admission row ---
++    bad_standing = [
++        {"case": c["case"], "controlStanding": c.get("controlStanding"),
++         "derivedOutcomeStates": c.get("derivedOutcomeStates")}
++        for c in cases
++        if c.get("controlStanding") not in ("admission", "closed-run")
++        and c.get("derivedOutcomeStates") is not None
++    ]
++    oracle("non-admission-controls-report-no-invented-cell", not bad_standing, bad_standing)
++    unknown_standing = sorted({c.get("controlStanding") for c in cases}
++                              - {"admission", "closed-run", "helper-unit", "schema-unit"})
++    oracle("every-control-declares-a-known-standing", not unknown_standing, unknown_standing)
++
+     fabricated = []
+     for c in cases:
+         for pair in (c.get("deficiencyPairs") or []) + (c.get("derivedOutcomeDeficiencies") or []):

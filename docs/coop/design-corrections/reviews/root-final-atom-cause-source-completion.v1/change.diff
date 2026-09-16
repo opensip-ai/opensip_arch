@@ -1,0 +1,75 @@
+--- author-v2
++++ root-prose-completion
+@@ -168,23 +168,38 @@
+ whose partitions are then not accounted further. Neither route is blocking — this is a disclosure,
+ not a deficiency.
+ 
+-An owed **same-family** unavailable binding is a different case and stays **blocking** incoming: P1
+-emits `unavailable-program-binding` for it, and it makes the incoming result `unknown`, because a
+-selected program that did not run cannot have searched. (Outgoing is unchanged: it emits nothing in
++An unavailable binding whose family **is owed** (the same family or an unknown family under the
++shared rule) stays **blocking** incoming: P1 emits `unavailable-program-binding` for it, and it makes
++the incoming completeness result `unknown`. (Outgoing is unchanged: it emits nothing in
+ P1 for that binding and is not poisoned by it, per the Outgoing paragraph above.)
+ 
+-The remaining incoming emissions are: `population-unknown` with `universe: S` when expected source
+-ids are unknown, as the incoming paragraph below already requires; `uncovered-expected-source-subject`
+-with `universe: S` when an expected source id appears in no source scope;
+-`source-target-search-unattested` with `universe: S` under the **Search of U** paragraph below; and
+-`scope-without-coverage` with `universe: S` for a scope group with no Coverage and no attestation.
+-`coverage-unknown` is emitted by the same shared sufficiency rule as outgoing step 4.
++The remaining population emissions are `population-unknown` with `universe: S` when expected
++source ids are unknown, and `uncovered-expected-source-subject` with `universe: S` when an expected
++source id appears in no source scope.
++
++For the search-accounting cases below, a **qualifying attestation** is a matching, globally admitted,
++provider-owned `IncomingSearchV1` with `completeSearch=true`, `coverage=complete`, and both its
++`examinedExhaustive` and `resolutionCompleteness.examinedExhaustive` true. Its shared sufficiency
++view is still evaluated; qualification alone does not establish sufficiency. Evaluate every paired
++Coverage as required below, then apply these cases:
++
++| Search-accounting case | Cause, with `universe: S` |
++|---|---|
++| Selected provider group has no source scopes and no qualifying attestation | `source-target-search-unattested` |
++| Represented source scope has paired Coverage only at *S→V* (*V*≠*U*), and no qualifying attestation for *S→U* | `source-target-search-unattested` |
++| Represented source scope has no paired Coverage at all, and no qualifying attestation | `scope-without-coverage` |
++
++A represented scope with paired *S→U* Coverage or a qualifying attestation emits neither of those
++two search-accounting causes; all other completeness and sufficiency causes remain. In particular,
++a present but admitted non-qualifying attestation is insufficient under the same cases as an absent
++one. `coverage-unknown` is emitted by the shared sufficiency rule in outgoing step 4, including when
++an attestation's view fails sufficiency.
+ 
+ **Incoming owed programs** = EnumerationPlan bindings for `capabilityForRelation[relation]`. Program identity is universe *U* (expected source IDs **union by U**). Contributors are per `(*U*, providerClosure)`: two selected providers on the same *U* across workspace cells are lawful (enumeration-plan does not forbid it). Incoming attestation `scopeRefs` / `expectedInventoryRefs` are that provider’s owned scopes and inventory locators, not a hidden first-PC collapse. Facts never define owed programs. Symbol/package expected IDs come **only from inventory rows**; extent paths mint **file** IDs only. Partial/unavailable inventory ⇒ `population-unknown`, not fake IDs. Unavailable bindings carry cell language-family; foreign-family unavailable work discloses `cross-family-edge-not-owed` and does **not** poison a TS incoming closure.
+ 
+ Take **all** exact-rung scopes of source *S* regardless of `targetUniverse`. Union source presence across *T* (do not sum). Account **every** represented Coverage *S→V* **and every source scope** (do not ignore an unpaired scope when another paired; do not ignore *S→V* when *S→U* exists).
+ 
+-**Search of U:** each **source partition** of *S* must have Coverage at exact `(relation, minResolution, S, U)` **or** a valid provider-owned whole-source `IncomingSearchV1` for that *(S, U)*. Coverage *S→V* (*V*≠*U*) is still sufficiency-accounted and unions source presence; it does **not** prove search of *U*. One partition’s complete *S→U* does not skip another partition of the same provider that only has *S→V*. Provider groups are seeded from **selected program contributors**, not only emitted scopes: a selected provider that emitted no scope cannot disappear (empty scope/population outcomes stay explicit). If Coverage exists at exact `(relation, minResolution, S, U)` **for that provider’s own scopes**, that record is the search law for those partitions. Partial Coverage of **this** provider cannot be overridden by that provider’s `completeSearch=true`. Another provider’s partial *S→U* does not make this provider’s honest complete attestation structurally invalid; incoming truth stays unknown until every owed provider is complete. If no *S→U* Coverage exists for a partition, admitted `IncomingSearchV1` may attest whole-source-to-target-universe search — **not** a per-subject Cartesian. Attestations are **globally admitted** by their own registered relation/rung, then only consumed when they match the current atom. `targetUniverse` must be an admitted selected native universe (portable domain / selected program identity), even when the sidecar is unused. `examinedExhaustive=false` never proves complete search. Missing/unadmitted/non-exhaustive attestation ⇒ `source-target-search-unattested`.
++**Search of U:** each **source partition** of *S* must have Coverage at exact `(relation, minResolution, S, U)` **or** a valid provider-owned whole-source `IncomingSearchV1` for that *(S, U)*. Coverage *S→V* (*V*≠*U*) is still sufficiency-accounted and unions source presence; it does **not** prove search of *U*. One partition’s complete *S→U* does not skip another partition of the same provider that only has *S→V*. Provider groups are seeded from **selected program contributors**, not only emitted scopes: a selected provider that emitted no scope cannot disappear (empty scope/population outcomes stay explicit). If Coverage exists at exact `(relation, minResolution, S, U)` **for that provider’s own scopes**, that record is the search law for those partitions. Partial Coverage of **this** provider cannot be overridden by that provider’s `completeSearch=true`. Another provider’s partial *S→U* does not make this provider’s honest complete attestation structurally invalid; incoming truth stays unknown until every owed provider is complete. If no *S→U* Coverage exists for a partition, admitted `IncomingSearchV1` may attest whole-source-to-target-universe search — **not** a per-subject Cartesian. Attestations are **globally admitted** by their own registered relation/rung, then only consumed when they match the current atom. `targetUniverse` must be an admitted selected native universe (portable domain / selected program identity), even when the sidecar is unused. `examinedExhaustive=false` never proves complete search. An absent or admitted non-qualifying attestation cannot establish search; the incoming search-accounting cases above determine the emitted cause. A schema-invalid or misjoined attestation is a global admission refusal, not an accepted unknown search.
+ 
+ `expectedInventoryRefs` are raw SHA-256 of `C(SubjectInventoryV1)` for *S* at the source kind (exact set). Caller-added `inventoryDigest` is not an authority. Empty inventory set is a misjoin, never a skipped check.
+ 
+@@ -206,9 +221,9 @@
+    Coverage occupies **no** position.
+ 3. A dependency relation with **several** selected partitions contributes **one** position, folded
+    over those partitions in the selection order above. The fold **starts from the first partition's
+-   entire entry** and considers each later partition in turn; a later partition changes the result
+-   only where it is **strictly worse**, so every tie retains what is already there — the earliest
+-   partition in selection order. Field by field:
++   entire entry** and considers each later partition in turn. Ranked replacements occur only on a
++   **strictly worse** rank; ties retain the incumbent whole value. The minimum, union and carrier
++   rules are specified separately below. Field by field:
+    * `coverage` — scalar replacement when strictly worse on `ViewEntryV3.coverage`:
+      complete < unknown.
+    * `confidenceMillionths` — scalar minimum.
+@@ -231,8 +246,8 @@
+      and keeps the **first** partition's value.
+ 
+    **Every** folded partition is cited in `coverageIds`, including those whose record or carrier
+-   lost the fold. Each rank above is a total order on the **admitted** enum, so an admitted
+-   partition set always folds to an admitted value.
++   lost the fold. The fixed precedence above includes the stated complete/not-applicable tie;
++   tie handling never independently merges fields from the tied records.
+ 4. `coverage-unknown`'s `nativeCause` is the **first non-null `nativeCause` scanning the positions
+    in the order of 1–3**, or null when no position carries one. Its `universe` is the evaluated
+    Coverage's key `sourceUniverse`.

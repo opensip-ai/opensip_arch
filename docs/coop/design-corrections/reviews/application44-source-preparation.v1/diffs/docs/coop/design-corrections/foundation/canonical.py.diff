@@ -1,0 +1,29 @@
+--- docs/coop/design-corrections/foundation/canonical.py
++++ docs/coop/design-corrections/foundation/canonical.py
+@@ -122,6 +122,13 @@
+             keys = [v['ordinal'] for v in instance]
+             if any(type(v) is not int for v in keys) or keys != list(range(len(keys))):
+                 raise ValueError('contiguous ordinal required')
++        elif order == 'candidateOrdinal':
++            # Published in native/occupancy-companion.schema.v1.json
++            # x-opensip-order-vocabulary. Integer unique strictly increasing.
++            # Not contiguous 0..n-1 (separate FactBatch candidate-stream law).
++            keys = [v['candidateOrdinal'] for v in instance]
++            if any(type(v) is not int for v in keys):
++                raise ValueError('integer candidateOrdinal required')
+         else:
+             raise ValueError('unregistered order annotation')
+         if keys != sorted(keys) or (order != 'canonical-order' and len(keys) != len(set(keys))):
+@@ -133,7 +140,10 @@
+     validators={'const':exact_const, 'enum':exact_enum, 'x-opensip-order':exact_order},
+     type_checker=Draft202012Validator.TYPE_CHECKER.redefine('integer',lambda checker, value:type(value) is int))
+ 
+-def validate(schema, value):
++def validate(schema, value, registry=None):
+     typed(value)
+-    ExactValidator(schema).validate(value)
++    if registry is None:
++        ExactValidator(schema).validate(value)
++    else:
++        ExactValidator(schema, registry=registry).validate(value)
+     return value

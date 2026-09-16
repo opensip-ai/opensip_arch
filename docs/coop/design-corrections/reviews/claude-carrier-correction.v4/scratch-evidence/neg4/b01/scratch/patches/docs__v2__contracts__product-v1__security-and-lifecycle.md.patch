@@ -1,0 +1,84 @@
+--- a/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -81,6 +81,7 @@
+ | host foundation v2 §§1–3 discovery | nearest-ancestor `opensip.json` walk to `/` | replaced by S3 |
+ | compatibility matrix v5 S-STATE/S-CTRL/S-SCHEMA | closed major one, no bridge | retained for stage 1; S9 is the explicit stage-2 successor |
+ | journal-record.schema v8 | GRANT/RA/ICI/RCI/ICO/RCO/REV/CLN/AUD | retained as historical bytes; schema-2 records added SEAL and `postimageSha256` (S6). **Current** product journal records are `recordSchema` 3 with `run3`. Schema-2 journals remain frozen historical bytes and are not read as 3. The bundle filename `security-lifecycle.schemas.v1.json` is not the record version. Grant tokens and root compatibility schema 2 are a different axis and stay. |
++| `security-schemas.v2/grant-journal.sql` physical carrier | 14 record types including `TERMINAL`, no `SEAL`, four display-alias platform values | retained as the immutable historical physical carrier. The **selected product physical carrier** is `design-corrections/security/grant-journal.carrier.v3.sql` (**carrierFormat 3**) with dispatch `carrier-dispatch.v3.json` and prose `carrier-format.v3.md`. `carrierFormat` is a third axis, distinct from `recordSchema` and from the S9 `stateSchema`; no historical row is rewritten, relabelled or re-admitted as current. |
+ 
+ Unchanged inherited constants: 24 h future tolerance, 90 d revocation freshness
+ and catalog expiry, 365 d root expiry, expiry boundaries (`expired iff tEval >=
+@@ -471,6 +472,37 @@
+ `executionInputsDigest` is required by identity reconstruct; this unit does
+ not mint it.
+ 
++**Commit-admission gate (one atomic bit state).** `ADMITTED = 1`, `LATCHED = 2`: `0` is
++preparing, `1` admitted, `2` latched before admission, `3` admitted then latched. Commit
++admission is a compare-exchange `0 → 1`; the observer always fetch-ORs `2`, including
++`1 → 3`, so a post-admission latch cannot be lost. No state resets during the attempt. A
++successful gate mints one internal single-use permit for the already prepared commit and is
++not a reusable grant for later effects. A latch winning at state `0` prevents the gate
++entirely. State `3` does **not** revoke the already admitted attempt or relabel its outcome:
++it records the latch and forbids further effect admission or retries. The observer bound
++bounds admitting new effects; it cannot abort an in-flight syscall or rewrite its outcome. A
++confirmed durable commit stays committed; an uncertain commit or barrier stays
++durability-undetermined with its ExecutionId and no automatic write retry. The gate orders
++admission only and is not the durability point.
++
++**`REV` after `SEAL` is not a refusal.** The linearization law above constrains one
++direction only: after `REV` no `RA`, intent, commit or `SEAL` is appended. It does not follow
++that a `REV` appearing later in sequence order refuses an earlier `SEAL`. Durable commitment
++is established solely by the guarded evidence-ledger receipt and its private association. A
++reader must not infer refusal from record order, and no member is added to the closed
++schema-3 `JournalRecord` to carry that correlation: the private association and the
++`AttemptCustodyV1` `executionId ↔ operationRef` mapping (identity §2) are its lawful home.
++
++**Required delivery is a separate phase.** On any end path security returns a stopped
++cleanup-only session. Required rendering and delivery draw no authority from it: they are a
++read-and-materialise activity in `SHARED-READ` mode (S7), not a brokered effect. The handoff
++is: cleanup `REV`/`CLN` through a fresh lawful level-3 then level-4 append while the stopped
++session still holds the operation lease; release the lease; ordinary S7 end handoff; then a
++new `SHARED-READ` phase over the committed snapshot. A latched attempt (state `2` or `3`)
++starts no delivery phase and cannot reacquire authority that way; for state `3` the commit
++stays committed with its RunId observable and the required delivery is reported failed
++through the existing `DELIVERY.REQUIRED_FAILED` path.
++
+ ## S7. Leases and lock order (AR-14)
+ 
+ The current security schema bundle declares every array's `x-opensip-order`
+@@ -640,6 +672,25 @@
+ keys; (3) stage-1 cores refuse N+1 typed and keep N until it expires; stage-2
+ cores accept it by the dual reader; (4) state migration 1→2 runs under
+ EXCLUSIVE. Both stages keep the metadata profile of S2.
++
++**Physical carrier bridge (carrierFormat).** The project grant-journal carrier has its
++own format axis, and it is not the state schema. Detection on open is by schema
++introspection only, because the oldest format carries no version row. Reader staging
++mirrors the root-reader and state-decoder pattern: a core supporting only carrierFormat
++{1, 2} refuses a carrierFormat 3 carrier **typed** and keeps its prior generation until it
++expires; a carrierFormat {1, 2, 3} core reads both, under recordSchema-1 semantics for
++historical generations and recordSchema-3 for current ones. A historical `platform` value
++is surfaced as a historical alias and is never presented as an S8 machine id, rewritten,
++or joined to `RepoExecutionGrantV2.platformId`. Migration 1 or 2 → 3 runs under the fence
++with `EXCLUSIVE` on the affected namespace, is additive, disables no inherited constraint
++or trigger, and rewrites no inherited row.
++
++**Grant-generation closure gains a third cause.** The inherited rule (security v8 §5.4
++WA-13, retained unchanged as historical text) advances `grantGeneration` only on
++whole-generation `REV` and on the uint53 rollover. Carrier-format migration is a third
++cause of generation closure. It reuses the existing typed `TERMINAL` cause
++`grantGenerationClosure` and changes no schema, enum or wire major. Floors copy forward
++unchanged and a poisoned floor is not lowered; only S4.5 lowers it.
+ 
+ Migration writes a `migrating` root: PREPARING → PREPARED → (old store fenced
+ `RESTORED`) → COMMITTED → final rename. Recovery from the durable footprint
+@@ -1043,6 +1094,9 @@
+ | `PROJECT.BUSY` (incl. a journaled transition lease set not re-acquired exactly, S9.2) | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` |
+ | `MIGRATION.CORRUPT` (incl. a registry differing from the frozen transition journal, S9.2) | operational-failed / 4 / `LEDGER.CORRUPT` |
+ | `OBSERVER.FAIL_STOP`, I/O failure | operational-failed / 4 / `HOST.IO_FAILURE` |
++| read-only recovery: requested attempt still `admitted`, or observations temporally skewed beyond the single permitted retry | operational-failed / 4 / `RECOVERY.CARRIER_SKEW` (detail `CARRIER.SKEWED`) |
++| read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`) | operational-failed / 4 / `LEDGER.CORRUPT` |
++| read-only recovery: requested binding names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
+ 
+ The common scope stage additionally refuses PROJECT.SCOPE_LIMIT with REQUEST.UNSATISFIABLE (exit2) when its distinct workspaceRoots exceed1024 or pathPrefixes/excludedPathPrefixes exceed65536, even if discovery's4096-unit limit admitted the repository. Public subject `field:count>limit` states the observed bound. PROJECT.DISCOVERY_INVENTORY_MISMATCH is REQUEST.PRECONDITION_FAILED (exit2) at the host's security/native inventory join. Boundary crossing still uses PROJECT.EXPLICIT_PATH_INVALID; native internal aliases do not create a second public code.
+ 

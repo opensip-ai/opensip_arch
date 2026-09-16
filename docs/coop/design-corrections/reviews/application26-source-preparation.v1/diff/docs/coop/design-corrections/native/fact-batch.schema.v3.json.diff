@@ -1,0 +1,130 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/fact-batch.schema.v3.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/fact-batch.schema.v3.json
+new file mode 100644
+index 00000000..1c535c55
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/fact-batch.schema.v3.json
+@@ -0,0 +1,124 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.fact-batch.3",
++  "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
++  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves historical FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates. Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is TEXT: the worker echo of the current requested C-2 stageId (StageRequestV1.stageId; StageRequestV2.planStage.stageId). It is NOT Analyze stageOrdinal and NOT execution-plan.stages[].ordinal. Provider Analyze may be a subset of Plan stages; host DispatchBindingV1 carries retainedStageOrdinal separately. When the token is absent, historical FactBatchV2 remains. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "analysisOrdinal",
++    "stageId",
++    "batchIndex",
++    "candidates",
++    "occupancyCompanions"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 3,
++      "description": "Payload discriminator for the negotiated FactBatchV3 contract. Not a narrowing of FactCandidateV1.schemaVersion."
++    },
++    "analysisOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "Exact echo of AnalyzeV1/AnalyzeV2.analysisOrdinal for this Analyze. Host correlates against DispatchBindingV1.expectedAnalysisOrdinal."
++    },
++    "stageId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 255,
++      "description": "Historical FactBatchV1/V2.stageId preserved as C-2 TEXT. Worker echo of the current requested stage's C-2 stageId (delivery.v2 StageRequestV1.stageId; rust-provider-protocol StageRequestV2.planStage.stageId). Host correlates batch.stageId == DispatchBindingV1.expectedStageId. Do not treat this string as execution-plan.stages[].ordinal or as Analyze request stageOrdinal."
++    },
++    "batchIndex": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "Contiguous from 0 for this requested stage, same as FactBatchV2. Host correlates against DispatchBindingV1.expectedBatchIndex."
++    },
++    "candidates": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 4096,
++      "items": {
++        "type": "object",
++        "additionalProperties": false,
++        "required": [
++          "candidateOrdinal",
++          "relation",
++          "resolution",
++          "layer",
++          "producer",
++          "producerVersion",
++          "schemaVersion",
++          "language",
++          "sourceUniverseId",
++          "targetUniverseId",
++          "confidenceMillionths",
++          "relationSchemaId",
++          "canonicalRelationPayloadHex",
++          "decodedRelationPayload",
++          "anchors"
++        ],
++        "properties": {
++          "candidateOrdinal": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
++          "relation": {"type": "string", "minLength": 1, "maxLength": 64},
++          "resolution": {"type": "string", "minLength": 1, "maxLength": 64},
++          "layer": {"type": "string", "minLength": 1, "maxLength": 64},
++          "producer": {"type": "string", "minLength": 1, "maxLength": 128},
++          "producerVersion": {"type": "string", "minLength": 1, "maxLength": 256},
++          "schemaVersion": {"type": "integer", "minimum": 0, "maximum": 18446744073709551615},
++          "language": {"type": "string", "minLength": 1, "maxLength": 64},
++          "sourceUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
++          "targetUniverseId": {"type": "string", "minLength": 1, "maxLength": 4096},
++          "confidenceMillionths": {"type": "integer", "minimum": 0, "maximum": 1000000},
++          "relationSchemaId": {"type": "string", "minLength": 1, "maxLength": 256},
++          "canonicalRelationPayloadHex": {
++            "type": "string",
++            "pattern": "^([0-9a-f]{2})+(?![\\s\\S])",
++            "minLength": 2,
++            "description": "JSON-vector transcription of FactCandidateV1.canonicalRelationPayload. Those wire bytes are deterministic-CBOR of the closed relation payload (fact-plane.v1 candidateSchema.transportRepresentation). The hex encodes those SAME CBOR bytes, not canonical JSON UTF-8. Admission requires hex == deterministic_cbor(decodedRelationPayload).hex()."
++          },
++          "decodedRelationPayload": {
++            "type": "object",
++            "description": "Verified TCB observation of one decode of the CBOR payload bytes. Not a wire field. Must round-trip to canonicalRelationPayloadHex via fact-plane _deterministic_cbor."
++          },
++          "anchors": {
++            "type": "array",
++            "minItems": 1,
++            "maxItems": 4096,
++            "items": {"type": "object"},
++            "x-opensip-order": "canonical-set"
++          }
++        }
++      },
++      "x-opensip-order": "candidateOrdinal",
++      "description": "Non-empty closed FactCandidateV1 membership as a JSON vector. No occupancy field. Array-order token candidateOrdinal (published in occupancy-companion.schema.v1.json x-opensip-order-vocabulary and implemented by canonical.py): integer unique strictly increasing by candidateOrdinal; gaps lawful at this annotation. Contiguous 0..n-1 across batches of one requested stage is a separate candidate-stream law, joined to DispatchBindingV1.expectedFirstCandidateOrdinal. Arrays are not silently sorted."
++    },
++    "occupancyCompanions": {
++      "type": "array",
++      "maxItems": 4096,
++      "items": {
++        "$ref": "opensip.product.occupancy-companion.1"
++      },
++      "x-opensip-order": "candidateOrdinal",
++      "description": "Zero or more OccupancyCompanionV1, each admitting as native/occupancy-companion.schema.v1.json including its allOf branches. Length <= candidates. Every candidateOrdinal names a candidate in this batch. Empty is lawful unknown except exact-id ephemeral. Same candidateOrdinal array-order token as candidates. Not silently sorted. This schema is independently complete via registered $ref; validators MUST resolve opensip.product.occupancy-companion.1 without mutating this dictionary at import time."
++    }
++  },
++  "x-opensip-negotiation": {
++    "token": "target-attribution-v2",
++    "fieldChanges": {
++      "standing": "Intentional V3 field description. schemaVersion remains 3. No new protocol3 frame and no implicit new channel.",
++      "stageId": "type string, exact C-2 stageId text. Restores historical FactBatchV1/V2 stageId. The integer typing that equated stageId with Analyze stageOrdinal / execution-plan.stages[].ordinal is withdrawn. Corresponding request: worker continues to echo StageRequestV1.stageId (TS delivery.v2) / StageRequestV2.planStage.stageId (Rust). Host DispatchBindingV1 carries retainedStageOrdinal, analyzeRequestOrdinal, expectedStageId, expectedAnalysisOrdinal, expectedBatchIndex, expectedFirstCandidateOrdinal. No new worker ordinal field.",
++      "analysisOrdinal": "unchanged uint64 echo of Analyze.analysisOrdinal; host correlates against DispatchBindingV1.expectedAnalysisOrdinal (required observation, not an optional caller kwarg).",
++      "batchIndex": "unchanged uint64 contiguous from 0 for this requested stage; host correlates against DispatchBindingV1.expectedBatchIndex.",
++      "occupancyCompanions": "unchanged parallel array; items $ref occupancy-companion.1 including allOf."
++    },
++    "stageCorrelation": "Host derives DispatchBindingV1 from the actual Plan stage selected into this Analyze. Worker FactBatch.stageId echoes the requested C-2 stageId text. Host requires batch.stageId == dispatch.expectedStageId, batch.analysisOrdinal == dispatch.expectedAnalysisOrdinal, batch.batchIndex == dispatch.expectedBatchIndex, and looks up execution-plan.stages[] by dispatch.retainedStageOrdinal. analyzeRequestOrdinal (contiguous in THIS Analyze) MUST NOT be equated with retainedStageOrdinal. Provider Analyze may omit Plan stages.",
++    "whenPresent": "FactBatch payload MUST admit as this schema",
++    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions).",
++    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and len(candidates).",
++    "protocolMajorUnchanged": true,
++    "newFrame": false
++  }
++}

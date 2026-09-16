@@ -1,0 +1,173 @@
+{
+ "source": "review.md embedded json (review.json absent)",
+ "reviewMdSha256": "398e0a1d94ec51af91f1526276bac112b947c0bd616fcff1ae5cc56dbc04c27f",
+ "findings": [
+  {
+   "id": "F-01",
+   "severity": "major",
+   "area": "custody / AR-03 / AR-05",
+   "path": "original-requirement-handoff.json",
+   "selector": "$.originalRequirementsSha256",
+   "claim": "'The complete original charter, including all 123 requirements, 8 standing rules and 3 future items, remains intact.'",
+   "evidence": "Pinned SHA 08dffd7f73d2e8d31830fae66818920488ab5c17d0eb82f6a60576f3bec5196e produces ZERO hits across every file of candidate-subject.v25, every file of the supplemental inputs tree, and every one of the 454 members of author-workspace-history.tar.gz.",
+   "impact": "The 123 enumerated requirements cannot be checked against their cited original, so the non-waivable AR-03/AR-05 charter is unverifiable by a reviewer.",
+   "requestedCorrection": "Ship the exact pinned charter bytes inside the frozen package (or inside candidate25) so the SHA resolves."
+  },
+  {
+   "id": "F-02",
+   "severity": "major",
+   "area": "custody / AR-03",
+   "path": "review-queue.json",
+   "selector": "$.items[?(@.id=='AR-03')].evidence[0..1]",
+   "claim": "AR-03 evidence: '../consumer-b.v13-pilot-admission.v6/root-owner-assessment.v1' and '../consumer-b.v13-pilot-admission.v7/root-partial-assessment.v1'.",
+   "evidence": "No path containing 'consumer-b.v13-pilot-admission', 'root-owner-assessment' or 'root-partial-assessment' exists in candidate25 or the supplemental inputs (recursive name search, 0 hits). starting-custody.json $.source points at a live working path /tmp/opensip-design-corrections/consumer-b.v13-pilot-admission.v6/output.",
+   "impact": "The preserved independent-consumer evidence AR-03 rests on is not deliverable to this reviewer; 'The old independent output remains unchanged' is unverifiable.",
+   "requestedCorrection": "Freeze and include the referenced consumer-b.v13 v6/v7 assessment artifacts, or replace the pointers with resolvable frozen paths plus SHAs."
+  },
+  {
+   "id": "F-03",
+   "severity": "major",
+   "area": "reproducibility",
+   "path": "check-author-query.py; README.md",
+   "selector": "check-author-query.py:7; README.md:21",
+   "claim": "README: 'The full working history is in author-workspace-history.tar.gz.'",
+   "evidence": "check-author-query.py:7 imports ROOT.parent/'check-blind13-exported-graphs.v4.py'. That file is absent from the 97-file package, absent from all 12869 candidate25 files, and absent from all 454 archive members (0 matches for 'blind13'). verify-package.py does not re-execute the query checks either.",
+   "impact": "query-checks1/*.json are retained-only evidence; no reviewer can regenerate them. The 'full working history' claim is inaccurate.",
+   "requestedCorrection": "Include check-blind13-exported-graphs.v4.py in the package or archive, repoint the import, and either wire the query checks into verify-package.py or state plainly that they are retained-only."
+  },
+  {
+   "id": "F-04",
+   "severity": "major",
+   "area": "normative under-specification (upholds and escalates the author's own review question)",
+   "path": "candidate25: docs/coop/design-corrections/native/native-evidence.schemas.v2.json; docs/v2/contracts/product-v1/native-evidence.md",
+   "selector": "$defs.WorkspaceUnitV2.properties.rootPath; native-evidence.md:579-591",
+   "claim": "review-queue AR-01 Q2 / README:13 treat internal root spelling as a documentation-clarity question only.",
+   "evidence": "rootPath is declared {'type':'string','maxLength':4096} with no minLength/pattern/description; jsonschema accepts BOTH '' and '.'. Measured consequences of the schema-valid wrong spelling: _under_unit (native_evidence_model.v2.py:2024) returns False for every file with '.', True for every file with '' -> whole default unit silently owns zero files (every file demoted to syntax-only/no-program-unit-for-language, no fault). _rel (:2028) with '.' silently corrupts paths: 'src/a.ts'->'c/a.ts', 'index.ts'->'dex.ts'. _unit_for_cell (enumeration_model.v1.py:248) normalizes the CELL workspaceRoot via _internal_root ('.'->'') but compares unit rootPath unnormalized, so '.' -> None -> _u1_entry -> None -> fault raised as ENUMERATION_BINDING_PROGRAM_ENTRY, misattributing a root-spelling error to program entry. spell_root() and native_evidence_model.v2.py:4171,4179 (u['rootPath'] or '.') confirm two deliberate spellings exist in different records.",
+   "impact": "A conforming independent implementation (exactly what AR-03/AR-05 require) can write '.', pass schema validation, and get either a silently empty analysis or a misattributed diagnostic. This is stronger than a clarity question.",
+   "requestedCorrection": "State the internal-root representation normatively on WorkspaceUnitV2.rootPath and memberPackageRoots (and in native-evidence.md U-1), reject the sentinel spelling at admission with a root-specific fault code, and document the workspaceRoot-vs-rootPath asymmetry."
+  },
+  {
+   "id": "F-05",
+   "severity": "minor",
+   "area": "control coverage / AR-01",
+   "path": "candidate25: docs/coop/design-corrections/foundation/enumeration_model.v1.py; package semantic-controls1/",
+   "selector": "enumeration_model.v1.py:711-712",
+   "claim": "AR-01 asserts the default-unit programEntry correction follows the normative contract.",
+   "evidence": "The rule IS enforced: if entry is not None and provenance=='default-unit' -> ENUMERATION_BINDING_PROGRAM_ENTRY. But that fault token occurs ONLY in enumeration_model.v1.py (5 occurrences) across all of candidate25 outside reviews/; no reference checker exercises it, and the package's three controls cover severity, scope and deficiency collapse only.",
+   "impact": "The AR-01 correction has no negative control demonstrating the refusal it relies on.",
+   "requestedCorrection": "Add a reminted control with provenance='default-unit' and non-null programEntry, asserting structural ADMIT and the ENUMERATION_BINDING_PROGRAM_ENTRY refusal."
+  },
+  {
+   "id": "F-06",
+   "severity": "minor",
+   "area": "fixture hygiene / AR-01 Q3 unanswerable",
+   "path": "author-helpers/ts_pilot.py",
+   "selector": "ts_pilot.py:27 (parameter program_entry), :29-30 (ordinal 0 / provenance 'default-unit'), :34, :326",
+   "claim": "AR-01 reviewQuestion 3: 'Are additional-program bindings kept distinct from default-unit bindings?'",
+   "evidence": "_binding hardcodes ordinal 0 and provenance 'default-unit' and (post-patch) programEntry None, ignoring its program_entry parameter. The single call site ts_pilot.py:326 still passes 'tsconfig.json' into that now-dead parameter. No non-default binding is constructed anywhere in the package.",
+   "impact": "The hardcode is lawful (it is the only legal pairing for default-unit), but the parameter is misleading dead code and the fixture structurally cannot express the non-default case, so AR-01 Q3 cannot be answered from this package.",
+   "requestedCorrection": "Remove the dead parameter or honour it, and add an additional-program binding example with non-null programEntry and non-default provenance."
+  },
+  {
+   "id": "F-07",
+   "severity": "minor",
+   "area": "control coverage / AR-02",
+   "path": "author-helpers/evaluator.py; evaluator.py.patch",
+   "selector": "evaluator.py:207 (and/or scopeIds union), :222 (not scopeIds), :157-158 (NotImplementedError)",
+   "claim": "AR-02: 'Assess the corrected predicate scope derivation.'",
+   "evidence": "Measured over all seven positive Runs, predicate operations are only 'exists' and 'none'; no and/or/not node occurs anywhere, so both combinator hunks of evaluator.py.patch are never executed by the shipped evidence. eval_atom raises NotImplementedError for count-at-most and all-covered. Scope diversity: 6 of 7 Runs have exactly 1 distinct scopeId tuple of size 1; only rust-partial discriminates (tuple sizes {0,1}).",
+   "impact": "Part of the AR-02 correction is untested; the predicate algebra is exercised for 2 of 4 atom ops and 0 of 3 combinators.",
+   "requestedCorrection": "Add at least one Run with a nested and/or/not predicate over differing scopes, or state the combinator paths as unexercised."
+  },
+  {
+   "id": "F-08",
+   "severity": "minor",
+   "area": "property evidence under-determines its claim",
+   "path": "author-properties.json; check-author-properties.py",
+   "selector": "$.rustComparisons.*.editionMap; check-author-properties.py:14,19,20",
+   "claim": "README:7 'different body identities for the same physical source under different selected editions, and a stable body identity when target selection changes without changing the effective edition'.",
+   "evidence": "Diffing the three universe payloads, the ONLY differing field is sourceUnitOwnershipId; edition, cfgSets, unifiedFeaturesId, configProjectionSha256, crateRootPaths, lockfileIdentity and rustflags are byte-identical. The published editionMap is therefore identical in all three. Opening sourceUnitOwnershipId confirms the claim IS true: units are identical (alpha lib targetEdition null->2018; alpha-bin targetEdition 2021) and selectedUnitIds differ - lib=[alpha-lib,hashy], bin=[alpha-bin,hashy] (effective edition 2018->2021), lib-only=[alpha-lib] (effective edition unchanged).",
+   "impact": "The claim is correct but not establishable from the published evidence file; I had to resolve a nested record the check never opens.",
+   "requestedCorrection": "Record selectedUnitIds and the effective targetEdition of the unit owning the measured body in author-properties.json, and assert the effective-edition change/stability in check-author-properties.py."
+  },
+  {
+   "id": "F-09",
+   "severity": "minor",
+   "area": "citation accuracy / AR-06",
+   "path": "README.md; review-queue.json",
+   "selector": "README.md:13; $.items[?(@.id=='AR-06')].authorDisposition",
+   "claim": "'mixing universes in one cell-bound view is refused under execution-inputs contract \u00a73'.",
+   "evidence": "The reproduced refusal code is EXECUTION_INPUTS_COVERAGE_DERIVE, raised in execution_inputs_model.v1.py:1094-1096, 1201-1211, which implement \u00a75 'Native Coverage accounts (derived)'. \u00a73 is 'Stage ordinal and receipts'; it does state a related per-scope sourceUniverse-vs-binding-U rule but is not the clause the probe trips.",
+   "impact": "Imprecise citation on the package's sole 'no new normative defect' claim.",
+   "requestedCorrection": "Cite \u00a75 as operative (with \u00a73 as the related scope rule) and name the observed refusal code."
+  },
+  {
+   "id": "F-10",
+   "severity": "minor",
+   "area": "reproducibility",
+   "path": "build-checkpoint3.py; build-normalized-examples6.py; build-rust-selection-examples.py; build-semantic-controls.py; check-author-properties.py; check-author-query.py; assess-author-query.py; probe-mixed-universe-view.py",
+   "selector": "sys.path.insert(0,str(ROOT/'output')) / from helpers import ...; ROOT.parent/'candidate-subject.v25'; writes into ROOT",
+   "claim": "README:21 'original working paths are retained in construction scripts. Construction scripts are not a portable product harness.'",
+   "evidence": "None of the eight scripts is executable as shipped: they import a 'helpers' package from ROOT/'output' (the package ships author-helpers/ instead), resolve candidate25 relative to ROOT.parent, and write outputs into their own frozen directory. Verified by path resolution; not executed.",
+   "impact": "Disclosure is honest, but only the replay path is reproducible. The seven Runs can be replayed, never reconstructed, by a reviewer.",
+   "requestedCorrection": "Provide a thin path-parameterised entry point, or state explicitly that construction is non-reproducible and only replay is verifiable."
+  },
+  {
+   "id": "F-11",
+   "severity": "info",
+   "area": "fixture hygiene",
+   "path": "author-helpers/runs.py",
+   "selector": "runs.py:543-545",
+   "claim": "n/a",
+   "evidence": "'derivedProof': proof, 'claimedProof': proof, 'comparison': evaluator.compare_proof(proof, proof) is a vacuous self-comparison, honestly commented '# first mint equals derived'. Confirmed it does NOT reach shipped artifacts: tokens replay/derivedProof/claimedProof/comparison are all absent from checkpoint3/ts.store.json.",
+   "impact": "None published; internal wart only.",
+   "requestedCorrection": "Drop the self-comparison or rename it so it cannot later be mistaken for replay agreement."
+  },
+  {
+   "id": "F-12",
+   "severity": "info",
+   "area": "evidential weighting / AR-04",
+   "path": "README.md; build-normalized-examples6.py; build-rust-selection-examples.py; build-checkpoint3.py",
+   "selector": "build-normalized-examples6.py:125; build-rust-selection-examples.py:138; runs.py:456",
+   "claim": "README:3 'Seven synthetic Runs pass structural admission and complete semantic replay'.",
+   "evidence": "Six of seven proofs are produced by R.derive(...) - the frozen evaluator_replay_model.v3.py - and then re-derived and compared by that same frozen code. Only checkpoint3 (TS) is composed by the author's own evaluator.compose_proof (runs.py:456 via ts_pilot) and independently matched by the frozen owner. The author does disclose this (README:5; AR-04 authorDisposition 'no independent derivation claim'), so labelling is accurate.",
+   "impact": "Six Runs are determinism/self-consistency checks, not two-implementation agreement. Equal weighting downstream would overstate them.",
+   "requestedCorrection": "State per-group in README/AR-04 which Runs are two-implementation agreements and which are frozen-owner self-derivations."
+  },
+  {
+   "id": "F-13",
+   "severity": "minor",
+   "area": "AR-07 residual concentration",
+   "path": "evaluation-residual-author-assessment.json",
+   "selector": "$.items[RES-EP13-02,-04,-12,-13,-16,-18; IR-EP13-NB-01,-03,-04; AX6; AX9; MD5; RX2c]",
+   "claim": "'Thirty individually reasoned author assessments are ready for substantive application review.'",
+   "evidence": "13 of 30 residuals are disposed by the same single move - declaring same-process adversarial route regions outside the TCB. The package nowhere states this coupling.",
+   "impact": "If an application reviewer rejects that one TCB assumption, 43% of the residual set reopens simultaneously. Not disclosed as a shared dependency.",
+   "requestedCorrection": "Record the shared TCB-scope dependency and list the 13 dependent residual IDs so AR-07 can adjudicate the assumption once, explicitly."
+  },
+  {
+   "id": "F-14",
+   "severity": "info",
+   "area": "AR-07 self-assessment signal",
+   "path": "evaluation-residual-author-assessment.json",
+   "selector": "$.items[*].authorAssessment",
+   "claim": "n/a",
+   "evidence": "All 30 items carry the identical verdict 'proposed-account-supported-with-stated-limits'; zero adverse or partially-supported self-assessments. Rationales and limits are nonetheless individually written (30 distinct rationales, 30 distinct limits).",
+   "impact": "Legitimate given the author is also the proposer and every independentGrade is PENDING, but the uniform verdict carries little independent signal.",
+   "requestedCorrection": "None required; noted so the application reviewer does not read uniformity as corroboration."
+  }
+ ],
+ "otherTopKeys": [
+  "reviewer",
+  "date",
+  "bindings",
+  "verifierRerun",
+  "firstRefusalBoundaries",
+  "verifiedPositives",
+  "arDisposition",
+  "residuals",
+  "coverage",
+  "acceptance",
+  "openNormativeQuestions"
+ ]
+}

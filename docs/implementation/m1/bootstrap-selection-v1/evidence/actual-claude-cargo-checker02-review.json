@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-package-boundaries-review-02 (narrow RF-1 delta)",
+  "subject": "/tmp/opensip-implementation/m1-package-boundaries-subject-02",
+  "subjectManifestSha256": "431b0c827b251538f5484d01e65acdb8e024b0422a633c8a607971c3cf55aa5d",
+  "subjectFiles": {
+    "UNIT.md": "0e587eb30b71fef3e14b295b087dfb211ed9d4f219f98110e8dadc9816ca9de6",
+    "tools/check_package_edges.py": "95b373666abc9abe7acce9fff21a0a8a79e601352ef17bc2968b48e079216716",
+    "tools/tests/test_package_edges.py": "277842807aaec80bf45834ae2e7f55c2069c4fe374e10401b17304c56ad1e609"
+  },
+  "frozenBytesVerified": {"before": true, "after": true, "fileCount": 3, "readOnlyHashEntriesUnchanged": 59, "coveredReadOnly": ["subject-01 and its manifest", "subject-02 and its manifest", "candidate-01", "review-01", "review-01-completion", "inventory v3"]},
+  "verdict": "ACCEPT-UNIT",
+  "verdictScope": "Accepts only this scoped internal package boundary developer unit. RF-1 is closed. This is not an inventory amendment, product integration, provider implementation, rustc/compiler integration, release, purity or M1 completion qualification. The existing pure build trial remains a disposable probe, not a provider implementation.",
+  "priorRequiredFinding": {
+    "id": "RF-1",
+    "status": "closed",
+    "delta": "Compared with subject-01, check_package_edges.py changes only line 40: the section list adds ('build_dependencies','build') and ('dev_dependencies','dev'). The loop already covers top-level and [target.*] tables. The tool file is byte-identical to the reviewer fix copy from review-01. The tests add two groups: synthetic stale checks for the four legacy tables, and a real Cargo edition-2021 metadata-before -> manifest-after -> fresh-metadata control. UNIT.md adds a description paragraph and changes twelve to fourteen; no new scope or qualification claim.",
+    "reproducers": {
+      "stale edition2021 [dev_dependencies] contracts->host": "subject-01 pass -> subject-02 refused 'forbidden manifest internal edge'",
+      "stale edition2021 [target.'cfg(windows)'.build_dependencies]": "refused 'forbidden manifest internal edge'",
+      "stale no-edition (2015) [dev_dependencies]": "refused 'forbidden manifest internal edge'",
+      "fresh edition2021 target build_dependencies": "refused 'forbidden declared internal edge' (unchanged)",
+      "fresh edition2021 allowed [build_dependencies] host->contracts": "subject-01 false refusal -> subject-02 pass"
+    }
+  },
+  "requiredFindings": [],
+  "advisories": [
+    {"id": "ADV-A", "title": "Conservative reading of legacy tables Cargo ignores", "detail": "Real Cargo 1.95 checks: when both hyphen and underscore tables are present (edition 2021, top-level or target), Cargo uses only the hyphen table and silently ignores the underscore one. Edition 2024 rejects underscore tables outright. The tool reads both, so a forbidden entry only in an ignored underscore table is refused, and differing allowed entries across the pair give 'declarations differ' with fresh or stale metadata. Identical duplicate entries pass. This fails closed and is acceptable, but the refusal can be spurious; optionally refuse underscore/hyphen coexistence and non-2024 editions with a clearer message."},
+    {"id": "ADV-B", "title": "Legacy kind mapping is not pinned by subject tests", "detail": "Mutating ('build_dependencies','build') to 'dev' survives the 14 tests; reviewer real-Cargo probes detect it (allowed legacy build edge becomes a false refusal). The failure is closed, not a bypass. A positive allowed-legacy-table test would pin it."},
+    {"id": "ADV-C", "title": "Carried from review-01: 13 of 31 mutants survive", "detail": "The 12 carried survivors are unchanged from subject-01 (build-dependencies hyphen table ignored in the manifest scan, optional flag on either side, workspace_root, duplicate local owner, manifest pathless and owner-path checks, manifest name, local missing from resolve, inventory escape, empty workspace, default members); the 13th is ADV-B's kind mapping. The hyphen build-dependencies survivor still removes part of the stale guarantee undetected by the subject tests, although reviewer probes detect it. All four new legacy mutants that drop or narrow coverage are killed."},
+    {"id": "ADV-D", "title": "Carried: stale guarantee is declaration-only", "detail": "A stale [lib] path escape and a stale addition of providers/rust to the host workspace still pass; fresh metadata refuses both. UNIT.md wording should stay limited to dependency declarations."},
+    {"id": "ADV-E", "title": "Carried: cfg whitespace false refusal; platform-filtered captures; hard-coded provider lane", "detail": "An allowed 'cfg( windows )' edge still refuses (fail-closed). CLI metadata and the 14-shared equality reproduce offline only with --filter-platform aarch64-apple-darwin. Provider name/root are hard-coded. Later new tool paths need additive inventory review."}
+  ],
+  "independentEvidence": {
+    "environment": {"python": "3.14.6", "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)", "TMPDIR": "review-02/scratch"},
+    "subjectTests": "14/14 pass on the reviewer copy (the real Cargo test ran, not skipped)",
+    "priorReproducers": {"file": "probes/probe-results.json", "cases": 36, "changedVsSubject01": ["stale edition2021 underscore dev_dependencies: pass -> refused", "fresh edition2021 underscore allowed: false refusal -> pass"], "otherOutcomesIdentical": true, "underscoreReproducers": "probes/underscore-results.json"},
+    "newLegacyProbes": {"file": "probes/legacy_tables.py", "results": "probes/legacy-results.json", "cases": 19, "asExpected": 19, "cargoBehaviour": "editions 2015/2018/2021 honor dev_dependencies; 2024 rejects it; with both tables Cargo keeps only the hyphen table", "covers": "allowed legacy (top-level/target/alias), duplicates with hyphen tables fresh and stale, forbidden legacy under 2015/2018/2021 top-level and triple target, legacy alias spoof, legacy pathless internal owner, legacy workspace inheritance, stale 2024 legacy table"},
+    "mutation": {"file": "probes/mutations.py", "results": "probes/mutation-results.json", "mutants": 31, "killedBySubjectTests": 18, "newLegacyMutants": {"legacy build_dependencies removed": "killed", "legacy dev_dependencies removed": "killed", "legacy tables top-level only": "killed", "legacy build mapped to dev kind": "survived tests, detected by reviewer probes (fail-closed)"}}
+  },
+  "limits": [
+    "Delta review of RF-1 plus conservative edge cases; review-01 evidence for CLI trial and provider isolation trial was not re-run because those artifacts and the rest of the tool are unchanged.",
+    "Only Cargo 1.95.0 legacy-key behaviour was probed.",
+    "No macro expansion, #[path]/include!, build-script behaviour, external feature attestation, target matrix, purity, or metadata authenticity review.",
+    "The mutation set is reviewer-chosen, not exhaustive."
+  ],
+  "writes": ["/tmp/opensip-implementation/m1-package-boundaries-review-02"],
+  "noCommitPushInventoryAmendmentOrProductInstall": true
+}

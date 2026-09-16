@@ -1,0 +1,201 @@
+--- a38/docs/coop/design-corrections/foundation/identity-schemas.v3.json
++++ b39/docs/coop/design-corrections/foundation/identity-schemas.v3.json
+@@ -2796,7 +2796,7 @@
+           "x-opensip-digest": {
+             "representation": "canonical-record",
+             "record": {
+-              "document": "workflows/schemas/policy-document.schema.json",
++              "document": "workflows/schemas/policy-document.v2.schema.json",
+               "selector": "#/$defs/Predicate"
+             },
+             "retention": "fragment",
+@@ -2852,6 +2852,59 @@
+               }
+             ]
+           }
++        }
++      }
++    },
++    "normalization-specification-map": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaVersion",
++        "normalizerId",
++        "levels"
++      ],
++      "description": "The per-level normalization specification map a body-interpreting closure publishes (x-opensip-digest-domains.normalizationSpecificationLaw). Its canonical bytes C(this) are the closure tree member at the law's closureTreePath; each row names the exact retained level-specification bytes for one normalisation level. levels is strictly ascending by the UTF-8 bytes of level, so one map has one spelling.",
++      "properties": {
++        "schemaVersion": {
++          "const": 1
++        },
++        "normalizerId": {
++          "$ref": "#/$defs/Text"
++        },
++        "levels": {
++          "type": "array",
++          "minItems": 1,
++          "maxItems": 4,
++          "uniqueItems": true,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "level",
++              "specificationDigest"
++            ],
++            "properties": {
++              "level": {
++                "type": "string",
++                "enum": [
++                  "L0-verbatim",
++                  "L1-lexical",
++                  "L2-comment-insensitive",
++                  "L3-identifier-insensitive"
++                ]
++              },
++              "specificationDigest": {
++                "type": "string",
++                "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++                "x-opensip-digest": {
++                  "representation": "raw-artifact",
++                  "artifact": "the exact retained canonical level-specification bytes for this level; a member of the tree of the closure that carries this map"
++                }
++              }
++            }
++          },
++          "x-opensip-order": "sequence",
++          "description": "Strictly ascending by the UTF-8 bytes of level; enforced at Run closure (BODY_NORMALIZATION_MAP_INVALID)."
+         }
+       }
+     },
+@@ -2947,7 +3000,27 @@
+           "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+           "x-opensip-digest": {
+             "representation": "raw-artifact",
+-            "artifact": "the exact complete registered stage output schema document bytes"
++            "artifactClass": "producer-interface-stage-output-schema",
++            "artifact": "the exact complete bytes of the stage output schema document REGISTERED BY this stage-spec's producerClosure: the member of that closure's tree at registeredBy.treePath",
++            "registeredBy": {
++              "closureField": "producerClosure",
++              "treePath": "opensip-interface/stage-output/{operation}.schema.json",
++              "operationSegment": "^[a-z0-9][a-z0-9._-]{0,127}(?![\\s\\S])",
++              "declaration": "x-opensip-stage-output",
++              "declares": {
++                "schemaVersion": 1,
++                "operation": "stage-spec.operation",
++                "outputDomains": "stage-spec.outputDomains"
++              },
++              "refusals": [
++                "STAGE_OUTPUT_SCHEMA_OPERATION_NOT_A_PATH_SEGMENT",
++                "STAGE_OUTPUT_SCHEMA_UNREGISTERED",
++                "STAGE_OUTPUT_SCHEMA_REGISTRATION_MISMATCH",
++                "STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID",
++                "STAGE_OUTPUT_SCHEMA_DECLARATION_MISMATCH"
++              ],
++              "law": "Retained bytes are not a registration. The producer interface that owns the operation owns its output schema, so the schema is registered exactly when the Plan-selected producer closure carries it at the tree path for that operation; a new operation is registered by shipping its interface document in the admitted closure, never by a host or platform table."
++            }
+           }
+         }
+       }
+@@ -4240,7 +4313,18 @@
+               "mjs": "javascript",
+               "cjs": "javascript"
+             },
+-            "bodyLanguageLaw": "The body languageId is DERIVED from the selected source variant, not from the provider universe. The universe language is the engine that reads the body; a .js body read by the TypeScript engine is a javascript body and must carry that identifier, exactly as native section 6.3 requires. The frame languageId and the record languageId are both taken from this one selector over the same anchor, so they cannot disagree. No JavaScript body is rewritten as TypeScript, and the cross-tsjs candidate projection of section 6.4 is untouched."
++            "bodyLanguageLaw": "The body languageId is DERIVED from the selected source variant, not from the provider universe. The universe language is the engine that reads the body; a .js body read by the TypeScript engine is a javascript body and must carry that identifier, exactly as native section 6.3 requires. The frame languageId and the record languageId are both taken from this one selector over the same anchor, so they cannot disagree. No JavaScript body is rewritten as TypeScript, and the cross-tsjs candidate projection of section 6.4 is untouched.",
++            "bodyEligibility": {
++              "form": "dialect-table"
++            },
++            "normalizationClosure": {
++              "source": "native-context",
++              "path": [
++                "toolClosure",
++                "closureId"
++              ],
++              "kind": "toolchain"
++            }
+           }
+         },
+         "native.semantic-universe.rust.v2": {
+@@ -4400,7 +4484,21 @@
+             "bodyLanguages": [
+               "rust"
+             ],
+-            "bodyLanguage": "rust"
++            "bodyLanguage": "rust",
++            "bodyEligibility": {
++              "form": "closed-suffix-set",
++              "suffixes": [
++                ".rs"
++              ]
++            },
++            "normalizationClosure": {
++              "source": "native-context",
++              "path": [
++                "toolClosure",
++                "closureId"
++              ],
++              "kind": "toolchain"
++            }
+           }
+         },
+         "native.semantic-universe.syntax.v2": {
+@@ -4497,7 +4595,18 @@
+               "mjs": "javascript",
+               "cjs": "javascript"
+             },
+-            "bodyLanguageLaw": "The body language is the language of the BODY, from the same suffix selector, and is closed to the body-language-version languageId enum. The bundled grammar set and that enum are held equal by an explicit drift check, so a newly bundled grammar cannot start producing bodies of an unregistered language and the advertised `any file whose extension maps to a bundled grammar` cannot silently outrun what the identity record can express."
++            "bodyLanguageLaw": "The body language is the language of the BODY, from the same suffix selector, and is closed to the body-language-version languageId enum. The bundled grammar set and that enum are held equal by an explicit drift check, so a newly bundled grammar cannot start producing bodies of an unregistered language and the advertised `any file whose extension maps to a bundled grammar` cannot silently outrun what the identity record can express.",
++            "bodyEligibility": {
++              "form": "dialect-table"
++            },
++            "normalizationClosure": {
++              "source": "native-context",
++              "path": [
++                "grammarBundle",
++                "closureId"
++              ],
++              "kind": "grammar"
++            }
+           }
+         }
+       },
+@@ -4635,9 +4744,37 @@
+       },
+       "note": "No new closure kind is invented for producer acts: enumeration, view production, fact production and stage production are all provider acts under the existing kind. `grammar` is a genuinely new INSTALLED-COMPONENT kind, in the same family as `toolchain`, `stdlib` and `rust-dev-llvm`: the syntax-only mode's body interpreter is a bundled grammar set, and binding it to an existing kind would either claim it is a toolchain (it executes no compiler) or leave the component that interprets a body span outside the closure law, which is the one thing every other universe pins down."
+     },
++    "normalizationSpecificationLaw": {
++      "standing": "Normative; consumed by identity Run closure's clones body-identity join (consumer24 S2). It replaces 'normalisationVersion names any retained blob' with one owner and one location per level.",
++      "record": {
++        "bundle": "identity",
++        "selector": "#/$defs/normalization-specification-map"
++      },
++      "closureTreePath": "opensip-interface/normalization/specification-map.v1.json",
++      "owner": "The closure that INTERPRETS the body span, named by the fact sourceUniverse's admitted native context through the universe row's languageVersionBinding.normalizationClosure: TypeScript and Rust toolClosure.closureId (kind toolchain), syntax grammarBundle.closureId (kind grammar). Exactly one closure owns the map for a body; no other closure's map, and no retained blob outside a map, is consulted.",
++      "joins": [
++        "the owning closure's tree has a member at closureTreePath (BODY_NORMALIZATION_MAP_MISSING); promised bytes that are absent are retention loss, not a refusal of the claim",
++        "those bytes are C(record) of a valid normalization-specification-map whose levels are strictly ascending (BODY_NORMALIZATION_MAP_INVALID)",
++        "the payload normalisationLevel has a row (BODY_NORMALIZATION_LEVEL_UNMAPPED)",
++        "that row's specificationDigest equals the payload normalisationVersion, so a specification of another level cannot stand in (BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH)",
++        "that digest is itself a member of the same closure's tree, so a map cannot point outside its own closure (BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE), and its bytes are retained"
++      ],
++      "extensibility": "A new level specification or normalizer version is new bytes in the owning closure (and therefore a new closure2 identity); no platform table, host map or implementation filename is consulted. The level vocabulary is the relation payload's normalisationLevel enum.",
++      "syntaxBundleNormalizer": "SyntaxGrammarBundleV1.normalizer.specificationDigest keeps its native admission meaning (a member of the grammar closure). It is not a per-level map and does not decide which specification a level uses; this map does.",
++      "historical": "identity-schemas.v2 and historical Runs keep their bytes and their earlier custody-only reading; this law is an evaluator3 closure law."
++    },
++    "bodyEligibilityLaw": {
++      "standing": "Normative; consumed by the native Coverage producer boundary and identity Run closure (through scopeCapabilityLaw) and by the execution-inputs expected-source census (foundation/execution-inputs-contract.v1.md section 5).",
++      "definition": "A snapshot path is BODY-ELIGIBLE under a native semantic universe exactly when its own suffix matches that universe row's languageVersionBinding.bodyEligibility. Form `dialect-table`: a key of the same row's closed dialect table (longest match still selects the variant; it does not change eligibility). Form `closed-suffix-set`: a member of `suffixes`. Eligibility is a property of the path and the universe DOMAIN only.",
++      "independentOf": "Ownership, program membership, selected compilation targets, grammar selection, resolution and extraction outcome never make an eligible path ineligible. A .rs file no selected Cargo target compiles, a .ts file outside programRootFiles and a .ts file whose grammar the syntax universe did not select all stay eligible. Whether the universe could read such a path is decided by its owning prerequisite (compilation ownership, grammar capability) and disclosed on Coverage; it is never decided by dropping the path from what is owed.",
++      "census": "For a relation carrying bodyIdentityJoin in the relation registry (today `clones`), the expected source-path subjects of a native coverage account are the ELIGIBLE paths of that cell's file inventory under the universe domain of the cell's languageMode. Configuration and data files (package.json, tsconfig.json, jsconfig.json, Cargo.toml, README.md, JSON/YAML/TOML data documents, unsupported files) stay inventoried and stay `file` subjects; they are owed no clones partition. Every other relation keeps its full census.",
++      "symmetry": "TypeScript and syntax take their eligible suffixes from their published dialect tables. Rust publishes a closed suffix set because its dialect axis is an ownership selection with no table. Every native semantic universe row declares one; a row without one, or with an unknown form, refuses (BODY_ELIGIBILITY_UNDECLARED / BODY_ELIGIBILITY_FORM).",
++      "explicitRequests": "A requested scope may still name ineligible paths. It is admitted only as the scopeCapabilityLaw onUnsupportedScope disclosure; a `complete` claim over it refuses. Eligibility narrows what is OWED; it never narrows what may be asked, and it never turns an ineligible path into a determinate absence."
++    },
+     "scopeCapabilityLaw": {
+       "standing": "Normative, and consumed by BOTH the native producer admission boundary and identity Run closure. It states what a COVERAGE claim over a body-dialect relation means under a universe whose dialect form is a closed suffix table. The per-BODY selector (`dialect.onUnknown`) was already total, but it is only reached while a body is being derived, so a scope that produced NO fact was classified by nothing and could claim a determinate `complete` for a path the universe cannot read in any dialect. Coverage is a claim about the EXAMINATION and must not be decided by whether the examination happened to produce output.",
+       "appliesToDialectForm": "closed-suffix-table",
++      "appliesToBodyEligibility": "Every native semantic universe. The suffix question is asked of the universe row's languageVersionBinding.bodyEligibility (bodyEligibilityLaw), not of its dialect form: for a closed-suffix-table dialect (TypeScript, syntax) the eligible suffixes ARE that table, and for the selected-compilation-target-edition dialect (Rust) they are the row's closed suffix set. appliesToDialectForm keeps its historical value for the first case; a Rust clones scope over Cargo.toml is now disclosed exactly as a TypeScript clones scope over package.json is, and a .rs path that no selected target compiles is still eligible and keeps the ownership law's own treatment.",
+       "gate": "Relations carrying a `bodyIdentityJoin` in the relation registry, which is where the dialect axis is consulted at all. Nothing here claims a suffix table decides SYMBOL capability, and no compiler, parser or grammar is executed, ranked or qualified: the only question asked is whether the path's own suffix selects a variant in the table this universe published.",
+       "subjectLaw": "The relation registry's own `subjectKind`. A `source-path` relation is judged on ALL of THIS scope's subjects, so a mixed scope cannot hide its unsupported part behind its supported one. Any other subject kind is judged on the committed snapshot inventory, where at least one path must be readable, because the retained record associates an opaque subject id with no path.",
+       "emptySubjects": "Unsupported. An empty `source-path` scope is never vacuously supported.",

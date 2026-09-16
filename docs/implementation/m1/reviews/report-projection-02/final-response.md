@@ -1,0 +1,32 @@
+**Verdict: CHANGES REQUIRED.** Most of the correction holds, but it has three blocking and three required findings.
+
+The review is in `m1-report-projection-review-02/` (`review.md`, `review.json`), with probe scripts and outputs under `work/`. The manifest SHA-256 `4ebe0279…aa4551` and all nine files matched before and after the review, with no extra or missing entries.
+
+**Running the checker:** on a copy of just the nine frozen files, `check.py` fails immediately because `build_owner.py` is missing. I added it and `build_fixtures.py` from author-02; both hashes match the pins in `successor.json`. With them, it passes: 48 pins, the 43 metadata cases through envelope5, the historical metadata checker, and 126 report cases plus 15 envelope cases.
+
+**Closed:**
+- **RPR-2:** envelope joins.
+- **RPR-3:** the subject3 index. My own stdlib implementation reproduces all goldens and index rows, and joins use exact subjectId only, never path.
+- **RPR-6:** the byte codec and per-owner depth.
+- **RPA-2, RPA-3, RPA-5.**
+
+The envelope5/inventory5 changes really are additive: restoring them reproduces the v4 documents.
+
+**Partly closed:** RPR-1, RPR-4, RPR-5, RPR-7, RPR-8 and RPA-1. What's left is covered by the findings below.
+
+**Blocking:**
+- **RPR2-1, fit:**
+  - A truncated candidate page is accepted as fit parity, and nothing fixes the fit query's page size or cursor.
+  - Refusing `fit --ephemeral` changes what an accepted flag means, with no passage override or command-owner decision.
+  - The contract never says which envelope kind the after-commit failure uses: `kind=run` is refused, `kind=failure` is accepted.
+- **RPR2-2, graph slots:** admission accepts a slot whose rows were cut while it still discloses `complete-page-set`. The reference byte projector produces exactly that, because it slices rows instead of re-running the owner query as the contract requires.
+- **RPR2-3, feature states:** the step/attempt ledger is marked "no admitted owner", but invocation:3 already defines those records. That hides a capability the inventory marks Preserve. Choosing a carrier is design work, as are multi-run history selection and graph slot selection. The missing rule, capability and recipe descriptions and symbol metrics really do lack owners and are disclosed correctly.
+
+**Required:**
+- **RPR2-4, provenance:** several "verified in document" claims aren't checked (resolution filter, path-row consistency, row counts). Budget omission causes and the report's command label are host decisions that aren't disclosed.
+- **RPR2-5, pins:** the frozen subject can't run its own checker. The envelope admission code also loads `discovery-defaults.py`, which is unpinned and has uncommitted edits in the architecture checkout.
+- **RPR2-6, passage scope:** overrides cover only chapter-14 lines 339 and 556. Changed text in workflows §1/§9, the fit flag, and chapter-14 lines 459, 463 and 564 is left unscoped.
+
+The review also lists 11 advisories: the subject-index bound derivation is wrong, the depth refusal code varies with nesting, the coverage overlay is incomplete, and generator handling is untested.
+
+Not tested: no generator, browser, HTML or product code was built, and nothing was measured. The worst-case index bound is arithmetic only. I did not read the author's response or session logs.

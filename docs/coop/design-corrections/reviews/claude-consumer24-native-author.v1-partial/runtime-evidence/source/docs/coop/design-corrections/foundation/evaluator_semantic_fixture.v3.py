@@ -1,0 +1,815 @@
+"""Synthetic TypeScript/package retained-input graphs for evaluator3 semantic replay.
+
+Reuses historical check-identity helper DEFINITIONS via evaluator_graph_fixture.v3.fixture_helpers
+(AST import; does not execute the identity suite). Native contexts/universes/coverage are minted
+through actual native admission. Not compiler extraction qualification.
+
+F.seal_fixture is file-only and cannot seed references/package atoms. seed_seal mints a
+schema-valid seed Run solely so open_run_closure can admit the retained native closure.
+The seed proof is discarded. Final authority is actual Atom/global admission plus public close_run.
+"""
+from __future__ import annotations
+
+import copy
+import hashlib
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+
+
+# identity section 3 stage-spec (consumer24 S1): the provider closure that owns `derive-semantic-view` registers its
+# output schema as the tree member at opensip-interface/stage-output/<operation>.schema.json.
+STAGE_OUTPUT_OPERATION = "derive-semantic-view"
+STAGE_OUTPUT_SCHEMA = {"$schema": "https://json-schema.org/draft/2020-12/schema",
+                       "$id": "urn:opensip:fixture:evaluator3-semantic-view",
+                       "type": "object", "additionalProperties": False, "required": ["viewId"],
+                       "properties": {"viewId": {"type": "string", "pattern": "^view2:[0-9a-f]{64}(?![\\s\\S])"}},
+                       "x-opensip-stage-output": {"schemaVersion": 1, "operation": STAGE_OUTPUT_OPERATION,
+                                                  "outputDomains": ["view"]}}
+STAGE_OUTPUT_MEMBER_PATH = "opensip-interface/stage-output/" + STAGE_OUTPUT_OPERATION + ".schema.json"
+
+
+def _load_graph_fixture():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("graph_fixture3_semantic", HERE / "evaluator_graph_fixture.v3.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+F = _load_graph_fixture()
+E = F.E
+M = E.M
+C = M.C
+
+_HELPERS = None
+_LANG_TABLE = (
+    ("typescript", (".cts", ".mts", ".ts", ".tsx")),
+    ("javascript", (".cjs", ".js", ".jsx", ".mjs")),
+    ("rust", (".rs",)),
+    ("json", (".json",)),
+    ("toml", (".toml",)),
+    ("markdown", (".md",)),
+    ("yaml", (".yaml", ".yml")),
+)
+
+
+def helpers():
+    global _HELPERS
+    if _HELPERS is None:
+        _HELPERS = F.fixture_helpers()
+    return _HELPERS
+
+
+def sha(value):
+    raw = value if type(value) is bytes else C.canonical(value)
+    return hashlib.sha256(raw).hexdigest()
+
+
+def subject_language(path):
+    name = path.rsplit("/", 1)[-1]
+    best, lang = "", "unspecified"
+    for language, suffixes in _LANG_TABLE:
+        for suf in suffixes:
+            if name.endswith(suf) and len(suf) >= len(best):
+                best, lang = suf, language
+    return lang
+
+
+def _inv_c(inv):
+    fields = (
+        "schemaVersion", "planId", "parameterDigest", "cellOrdinal", "programOrdinal",
+        "kind", "state", "deficiency", "nativeCause", "examinedPaths", "rows",
+    )
+    return {k: inv[k] for k in fields if k in inv}
+
+
+def _inv_digest(inv):
+    return hashlib.sha256(C.canonical(_inv_c(inv))).hexdigest()
+
+
+def _sort_cells(cells):
+    return sorted(cells, key=lambda c: (
+        c["capabilityId"].encode("utf-8"),
+        c["languageMode"].encode("utf-8"),
+        c["workspaceRoot"].encode("utf-8"),
+    ))
+
+
+def _named_package_paths(sources):
+    named = []
+    for path, body in sources.items():
+        if path.rsplit("/", 1)[-1] != "package.json":
+            continue
+        try:
+            data = C.parse(body if type(body) is bytes else body.encode())
+        except C.AdmissionError:
+            continue
+        if type(data) is not dict:
+            continue
+        name = data.get("name")
+        if type(name) is str and name:
+            named.append(path)
+    return E.cset(named)
+
+
+def _ts_config_graph(H):
+    return {
+        "schemaVersion": 1,
+        "entryConfigPath": "tsconfig.json",
+        "nodes": sorted([
+            {"path": "tsconfig.base.json",
+             "contentSha256": hashlib.sha256(H.TS_SOURCES["tsconfig.base.json"]).hexdigest(),
+             "kind": "other", "extendsResolved": []},
+            {"path": "tsconfig.strict.json",
+             "contentSha256": hashlib.sha256(H.TS_SOURCES["tsconfig.strict.json"]).hexdigest(),
+             "kind": "other", "extendsResolved": []},
+            {"path": "tsconfig.json",
+             "contentSha256": hashlib.sha256(H.TS_SOURCES["tsconfig.json"]).hexdigest(),
+             "kind": "tsconfig",
+             "extendsResolved": ["tsconfig.base.json", "tsconfig.strict.json"]},
+        ], key=lambda r: r["path"].encode()),
+    }
+
+
+def _ts_layout(H, blob):
+    return {
+        "schemaVersion": 1,
+        "entries": sorted(
+            ({"packageName": json.loads(body)["name"], "packageVersion": json.loads(body)["version"],
+              "installPath": path.rpartition("/package.json")[0],
+              "realPath": path.rpartition("/package.json")[0],
+              "contentSha256": blob(body)} for path, body in H.TS_NODE_MODULES.items()),
+            key=lambda r: r["installPath"].encode()),
+    }
+
+
+def seed_scanner(graph):
+    """Bootstrap scanner for owner-closure seed only. Not a semantic positive."""
+    objects, blobs = graph["objects"], graph["blobs"]
+
+    def scan(rule, subject, node, pid):
+        if node.get("evidence"):
+            return {"kind": "imported-atom", "value": "indeterminate", "matchingFactIds": [],
+                    "uncertainFactIds": [], "matchingImportRows": [], "uncertainImportRows": [],
+                    "coverageIds": [], "scopeIds": [], "inputRefs": graph["inputs"]["evaluationInputRefs"],
+                    "deficiencies": []}
+        matches = []
+        nid = subject["row"]["nativeSubjectId"]
+        u = subject["universe"]
+        rel = node.get("relation")
+        for vid in graph["viewIds"]:
+            view = objects[vid][1]
+            for fid in view["facts"]:
+                fact = objects[fid][1]
+                if fact["relation"] != rel:
+                    continue
+                payload = C.parse(blobs[fact["payloadDigest"]])
+                if rel == "file" and fact["sourceUniverse"] == u and payload.get("path") == nid:
+                    matches.append(fid)
+                elif rel == "declares" and fact["sourceUniverse"] == u and payload.get("declared") == nid:
+                    matches.append(fid)
+                elif rel == "references" and node.get("endpoint", "source") == "source":
+                    if fact["sourceUniverse"] == u and payload.get("referrer") == nid:
+                        matches.append(fid)
+                elif rel == "references" and node.get("endpoint") == "target":
+                    if fact["targetUniverse"] == u and payload.get("resolvedBinding") == nid:
+                        matches.append(fid)
+                elif rel == "package" and fact["sourceUniverse"] == u:
+                    if (payload.get("packageName") == nid
+                            and payload.get("manifestPath") == subject["row"].get("path")):
+                        matches.append(fid)
+        op = node.get("op", "exists")
+        if op == "exists":
+            value = "true" if matches else "false"
+        elif op == "none":
+            value = "false" if matches else "true"
+        elif op == "count-at-most":
+            value = "true" if len(matches) <= node.get("n", 0) else "false"
+        else:
+            value = "true"
+        return {"kind": "native-atom", "value": value, "matchingFactIds": E.cset(matches),
+                "uncertainFactIds": [], "matchingImportRows": [], "uncertainImportRows": [],
+                "coverageIds": graph["coverageIds"], "scopeIds": graph["scopeIds"],
+                "inputRefs": graph["inputs"]["evaluationInputRefs"], "deficiencies": []}
+    return scan
+
+
+def seed_seal(graph):
+    """Mint a schema-valid seed Run so open_run_closure can admit the retained native closure.
+
+    F.seal_fixture's file-only scanner cannot seed references/package atoms. Same mint shape as
+    F.seal_fixture, using seed_scanner. Seed proof is discarded after owner admission.
+    """
+    import importlib.util
+    xs = importlib.util.spec_from_file_location("semantic_execution_capture3", HERE / "execution_inputs_fixture.v3.py")
+    X = importlib.util.module_from_spec(xs); xs.loader.exec_module(X)
+    if "executionInputsDigest" not in graph["inputs"]:
+        X.attach_host_capture(graph)
+    out = E.compose(graph["inputs"], seed_scanner(graph))
+    objects = copy.deepcopy(graph["objects"])
+    blobs = copy.deepcopy(graph["blobs"])
+    objects.update(out["objects"])
+    blobs.update(out["blobs"])
+    i = graph["inputs"]
+
+    def add(domain, fields):
+        value = {"schemaVersion": 3, **fields}
+        key = M.identifier(domain, value)
+        objects[key] = (domain, value)
+        return key
+
+    evidence = add("semantic-evidence", {
+        "planId": i["planId"], "viewIds": graph["viewIds"], "coverageIds": graph["coverageIds"],
+        "importIds": i["plan"]["importIds"], "findingIds": out["proof"]["findingIds"],
+        "proofBundleId": out["proofBundleId"],
+    })
+    seal = add("evaluation-seal", {
+        "planId": i["planId"], "executionPlanId": i["executionPlanId"], "evidenceId": evidence,
+        "evaluatorClosure": i["evaluatorClosure"], "policyDigest": i["plan"]["policyDigest"],
+        "proofBundleId": out["proofBundleId"], "verdict": out["proof"]["verdict"],
+    })
+    run = {
+        "schemaVersion": 3, "projectId": graph["snapshot"]["projectId"],
+        "snapshotId": i["plan"]["snapshotId"], "planId": i["planId"], "evidenceId": evidence,
+        "evaluationSealId": seal, "capabilityManifestId": i["plan"]["capabilityManifestId"],
+    }
+    return run, objects, blobs, out
+
+
+def seal_derived(graph, result, objects, blobs):
+    objects = copy.deepcopy(objects)
+    blobs = copy.deepcopy(blobs)
+    objects.update(result["objects"])
+    blobs.update(result["blobs"])
+    i = graph["inputs"]
+
+    def add(domain, fields):
+        value = {"schemaVersion": 3, **fields}
+        key = M.identifier(domain, value)
+        objects[key] = (domain, value)
+        return key
+
+    evidence = add("semantic-evidence", {
+        "planId": i["planId"], "viewIds": graph["viewIds"], "coverageIds": graph["coverageIds"],
+        "importIds": i["plan"]["importIds"], "findingIds": result["proof"]["findingIds"],
+        "proofBundleId": result["proofBundleId"],
+    })
+    sid = add("evaluation-seal", {
+        "planId": i["planId"], "executionPlanId": i["executionPlanId"], "evidenceId": evidence,
+        "evaluatorClosure": i["evaluatorClosure"], "policyDigest": i["plan"]["policyDigest"],
+        "proofBundleId": result["proofBundleId"], "verdict": result["proof"]["verdict"],
+    })
+    run = {
+        "schemaVersion": 3, "projectId": graph["snapshot"]["projectId"],
+        "snapshotId": i["plan"]["snapshotId"], "planId": i["planId"], "evidenceId": evidence,
+        "evaluationSealId": sid, "capabilityManifestId": i["plan"]["capabilityManifestId"],
+    }
+    return run, objects, blobs
+
+
+def build_ts_semantic_graph(
+    *,
+    atom,
+    subject_kind="symbol",
+    universe_token="typescript",
+    has_declares=True,
+    has_references_fact=False,
+    references_resolved=True,
+    second_partition=True,
+    second_universe=False,
+    incoming_search=False,
+    incoming_complete=True,
+    target_sidecar=False,
+    extra_sources=None,
+    drop_package_paths=(),
+    cross_u_binding="foo",
+    partition_b_target="u1",
+    complete_required_inventory=True,
+    imports_occupancy="mapped-file",
+    budget_limit=1000000,
+    references_stage_terminals=None,
+):
+    """TypeScript native-admitted graph: declares and/or references@resolved-binding, or package.
+
+    Coverage is minted through N.admit_coverage_result_v3. Sidecars are canonical-record blobs
+    named from proof evaluationInputRefs (registered ProofInputRef domains).
+
+    `budget_limit` is the committed Plan/config work budget (composition section 3 preflight).
+    `references_stage_terminals` maps "foo"/"bar" to the StageTerminal an UNRESOLVED
+    references@resolved-binding partition retained (e.g. "budget-exhausted"): the entry keeps the
+    producer's declared `resolution-incomplete` and records an attempted stage that ended there
+    (RC-2 `partial`). Both are admitted by the actual native owner and Run closure, never asserted.
+    """
+    H = helpers()
+    N = H.N
+    objects = {}
+    blobs = {}
+
+    def blob(value):
+        raw = value if type(value) is bytes else C.canonical(value)
+        digest = hashlib.sha256(raw).hexdigest()
+        blobs[digest] = raw
+        return digest
+
+    def add(domain, **fields):
+        record = {"schemaVersion": 2, **fields}
+        key = M.identifier(domain, record)
+        objects[key] = (domain, record)
+        return key
+
+    def tree(files):
+        return sorted(({"path": p, "sha256": blob(b), "bytes": len(b)} for p, b in files.items()),
+                      key=lambda r: r["path"].encode())
+
+    evaluator = add("closure", kind="evaluator", manifestDigest=blob(b"evaluator3 ts semantic manifest"),
+                    tree=[], semanticVersion="3.0.0", protocolMajor=3, platform="macos-aarch64")
+    provider = add("closure", kind="provider", manifestDigest=blob(b"provider ts semantic manifest"),
+                   tree=tree({STAGE_OUTPUT_MEMBER_PATH: C.canonical(STAGE_OUTPUT_SCHEMA)}),
+                   semanticVersion="1.0.0", protocolMajor=3, platform="macos-aarch64")
+    detector = add("closure", kind="detector", manifestDigest=blob(b"detector ts semantic manifest"),
+                   tree=[], semanticVersion="1.0.0", protocolMajor=3, platform="any")
+
+    a_bytes = b"export const foo = 1;\nexport function bar() { return foo; }\n"
+    b_bytes = b"export const baz = 1;\n"
+    sources = dict(H.TS_SOURCES)
+    sources["a.ts"] = a_bytes
+    need_u2 = bool(second_universe or partition_b_target == "u2")
+    if need_u2 or extra_sources:
+        sources["b.ts"] = b_bytes
+    if extra_sources:
+        sources.update(extra_sources)
+    inventory = tree(sources)
+    paths = [r["path"] for r in inventory]
+    pkg_ext = _named_package_paths(sources)
+
+    native = H.native_inputs(objects, blobs, add, blob, ts_inventory=inventory, ts_source_path="a.ts")
+    u1 = native["universeDigest"]
+    universes = [u1]
+    u2 = None
+    if need_u2:
+        graph = _ts_config_graph(H)
+        layout = _ts_layout(H, blob)
+        universe2 = copy.deepcopy(native["universe"])
+        universe2["programRootFiles"] = ["b.ts"]
+        bound = N.bind_typescript_universe(
+            universe2, native["admission"], native["context"],
+            {"configGraph": graph, "nodeModulesLayout": layout}, inventory)
+        if bound["result"] != "ADMIT":
+            raise C.AdmissionError("SEMANTIC_FIXTURE_U2:" + ",".join(bound["refusals"]))
+        u2 = M.native_universe_frame("native.semantic-universe.typescript.v2", universe2, blobs)
+        if u2 != bound["sourceUniverse"]:
+            raise C.AdmissionError("SEMANTIC_FIXTURE_U2_IDENTITY")
+        universes.append(u2)
+
+    membership = N.assign_membership([], paths)
+    # A file READ from a pruned tree (identity section 3 sourceInventory, consumer24 A4) is an inventory row but
+    # never an enumeration subject: the file-kind extent excludes host-ignore-convention rows. Existing callers
+    # have no such row, so this is the same set as every inventoried path for them.
+    file_ext = E.cset(r["path"] for r in membership["rows"] if r["reason"] != "host-ignore-convention")
+    cap_bytes = H.CURRENT_CAPABILITY_MANIFEST_BYTES
+    cap_digest = blob(cap_bytes)
+    cap_id = hashlib.sha256(b"opensip.capability-manifest.v1\0" + cap_bytes).hexdigest()
+    config = blob({"analysis": {"profileId": "default", "capabilities": ["references"],
+                                "budget": {"unit": "work-units", "limit": budget_limit}},
+                   "components": {}, "discovery": {}, "policy": {}, "evidence": {}})
+    scope_desc = {"schemaVersion": 2, "workspaceRoots": ["."], "pathPrefixes": ["."], "excludedPathPrefixes": []}
+    scope = blob(scope_desc)
+    vcs = blob({"schemaVersion": 2, "kind": "none", "commitId": None, "dirty": False,
+                "sourceInventoryDigest": blob(inventory)})
+    project = "prj1-" + hashlib.sha256(b"semantic ts fixture").hexdigest()
+    snapshot = add("snapshot", projectId=project, sourceInventory=inventory, resolvedConfigDigest=config,
+                   scopeDigest=scope, vcsDigest=vcs)
+    memb_digest = blob(membership)
+
+    ctx = native["contextDigest"]
+    symbol_ext_u1 = ["a.ts"]
+    inv_kinds = E.cset(["file", "package"])
+    inv_extents = [
+        {"kind": "file", "paths": file_ext},
+        {"kind": "package", "paths": pkg_ext},
+    ]
+    inv_cell = {
+        "capabilityId": "inventory", "languageMode": "ts-tsconfig", "workspaceRoot": ".",
+        "required": True, "kinds": inv_kinds,
+        "programBindings": [{
+            "ordinal": 0, "provenance": "explicit-plan-selection",
+            "enumerator": {"status": "selected", "closureId": provider},
+            "nativeContextDigest": ctx, "universe": u1, "programEntry": "tsconfig.json",
+            "extents": inv_extents,
+        }],
+    }
+    if atom["relation"] in ("file", "package"):
+        cells = [inv_cell]
+    else:
+        rel_cap = {"declares": "syntax", "imports": "imports"}.get(atom["relation"], "references")
+        sym_cell = {
+            "capabilityId": rel_cap, "languageMode": "ts-tsconfig", "workspaceRoot": ".",
+            "required": True, "kinds": ["symbol"],
+            "programBindings": [{
+                "ordinal": 0, "provenance": "explicit-plan-selection",
+                "enumerator": {"status": "selected", "closureId": provider},
+                "nativeContextDigest": ctx, "universe": u1, "programEntry": "tsconfig.json",
+                "extents": [{"kind": "symbol", "paths": symbol_ext_u1}],
+            }],
+        }
+        if second_universe and u2 is not None:
+            sym_cell["programBindings"].append({
+                "ordinal": 1, "provenance": "explicit-plan-selection",
+                "enumerator": {"status": "selected", "closureId": provider},
+                "nativeContextDigest": ctx, "universe": u2, "programEntry": "tsconfig.json",
+                "extents": [{"kind": "symbol", "paths": ["b.ts"]}],
+            })
+        cells = _sort_cells([inv_cell, sym_cell])
+
+    enum = {"schemaVersion": 1, "snapshotId": snapshot, "scopeDigest": scope,
+            "membershipDigest": memb_digest, "cells": cells}
+    enum_digest = blob(enum)
+
+    primary_kind = subject_kind
+    rule = {
+        "ruleId": "semantic-atom",
+        "ruleProgramRef": {"contributionId": "fixture", "ruleStableId": "semantic-atom",
+                           "semanticsMajor": 2, "programDigest": blob(atom)},
+        "enabled": True, "severity": "error", "gate": True,
+        "subjectEnumeration": {"universe": universe_token, "subjectKind": primary_kind},
+        "emitWhen": atom, "evidenceUse": [],
+    }
+    policy = {"schemaFamily": "opensip.product.policy", "schemaMajor": 2,
+              "gateSeverityAtLeast": "error", "rules": [rule]}
+    policy_digest = blob(policy)
+    waivers = {"schemaFamily": "opensip.product.waivers", "schemaMajor": 1, "waivers": []}
+    emission = {"schemaVersion": 1, "policyDigest": policy_digest,
+                "rules": [{"ruleId": rule["ruleId"], "contributionId": "fixture", "ruleStableId": "semantic-atom",
+                           "semanticsMajor": 2, "detectorClosure": detector,
+                           "stabilityClass": "path-stable", "emissionProfile": "declarative-subject-v1"}]}
+    requested = E.cset([
+        {"capabilityId": c["capabilityId"], "languageMode": c["languageMode"],
+         "workspaceRoot": c["workspaceRoot"], "required": c["required"]} for c in cells
+    ])
+    parameters = E.cset([
+        {"schemaDigest": blob((HERE / "enumeration-plan.schema.v1.json").read_bytes()),
+         "payloadDigest": enum_digest},
+        {"schemaDigest": blob((HERE / "evaluator-emission-plan.schema.v1.json").read_bytes()),
+         "payloadDigest": blob(emission)},
+    ])
+    spec_record = {"schemaVersion": 2, "requestedCapabilities": requested,
+                   "policyPackIds": ["fixture.semantic-atom"], "parameters": parameters}
+    grant = blob({"schemaVersion": 2, "projectId": project,
+                  "principals": [{"kind": "first-party", "closureId": evaluator, "ownerSourceDigest": None}],
+                  "analysisOperations": sorted(["native-analysis", "read-source"]), "scopeDigest": scope})
+    plan_fields = N.admit_plan_selection_cardinality(dict(
+        snapshotId=snapshot, capabilityManifestId=cap_id, capabilityManifestBytesDigest=cap_digest,
+        semanticClosures=sorted([evaluator, provider, detector]), analysisSpecDigest=blob(spec_record),
+        resolvedConfigDigest=config, nativeContextDigests=[native["contextDigest"]],
+        importIds=[], policyDigest=policy_digest, waiverDigest=blob(waivers), scopeDigest=scope,
+        budget={"unit": "work-units", "limit": budget_limit}, semanticGrantDigest=grant))
+    plan_id = add("plan", **plan_fields)
+    plan = objects[plan_id][1]
+
+    inventory_results = []
+    population = {}
+    foo, bar, baz = "symbol:foo", "symbol:bar", "symbol:baz"
+
+    def add_subject(universe, kind, row):
+        desc = {"schemaVersion": 3, "universe": universe, "kind": kind, "nativeSubjectId": row["nativeSubjectId"]}
+        if kind == "package":
+            desc["packageManifestPath"] = row["path"]
+        sid = M.identifier("evaluation-subject", desc)
+        population[sid] = {"subjectId": sid, "universe": universe, "kind": kind, "row": row,
+                           "collisionPopulationComplete": True}
+        return sid
+
+    inv_cell_i = next(i for i, c in enumerate(cells) if c["capabilityId"] == "inventory")
+    file_rows = [{"nativeSubjectId": p, "kind": "file", "path": p, "qualifiedName": p,
+                  "subjectLanguage": subject_language(p), "signatureTokens": [], "projections": []}
+                 for p in file_ext]
+    file_inv = {"schemaVersion": 1, "planId": plan_id, "parameterDigest": enum_digest,
+                "cellOrdinal": inv_cell_i, "programOrdinal": 0, "kind": "file", "state": "complete",
+                "deficiency": None, "nativeCause": None, "examinedPaths": file_ext,
+                "rows": sorted(file_rows, key=lambda r: r["nativeSubjectId"].encode("utf-8"))}
+    inventory_results.append((blob(file_inv), file_inv))
+    for row in file_inv["rows"]:
+        add_subject(u1, "file", row)
+
+    pkg_rows = []
+    for p in pkg_ext:
+        name = C.parse(sources[p])["name"]
+        pkg_rows.append({"nativeSubjectId": name, "kind": "package", "path": p, "qualifiedName": name,
+                         "subjectLanguage": "json", "signatureTokens": [], "projections": []})
+    pkg_inv = {"schemaVersion": 1, "planId": plan_id, "parameterDigest": enum_digest,
+               "cellOrdinal": inv_cell_i, "programOrdinal": 0, "kind": "package", "state": "complete",
+               "deficiency": None, "nativeCause": None, "examinedPaths": pkg_ext,
+               "rows": sorted(pkg_rows, key=lambda r: (r["nativeSubjectId"].encode("utf-8"), r["path"].encode("utf-8")))}
+    inventory_results.append((blob(pkg_inv), pkg_inv))
+    for row in pkg_inv["rows"]:
+        add_subject(u1, "package", row)
+
+    symbol_rows_u1 = [
+        {"nativeSubjectId": foo, "kind": "symbol", "path": "a.ts", "qualifiedName": "foo",
+         "subjectLanguage": "typescript", "exported": "exported",
+         "signatureTokens": ["const", "foo"],
+         "projections": [{"closureId": detector, "signatureTokens": ["const", "foo"]}]},
+        {"nativeSubjectId": bar, "kind": "symbol", "path": "a.ts", "qualifiedName": "bar",
+         "subjectLanguage": "typescript", "exported": "exported",
+         "signatureTokens": ["function", "bar", "(", ")"],
+         "projections": [{"closureId": detector, "signatureTokens": ["function", "bar", "(", ")"]}]},
+    ]
+    if any(c["capabilityId"] in ("syntax", "references", "imports") for c in cells):
+        sym_cell_i = next(i for i, c in enumerate(cells) if c["capabilityId"] in ("syntax", "references", "imports"))
+        sym_inv = {"schemaVersion": 1, "planId": plan_id, "parameterDigest": enum_digest,
+                   "cellOrdinal": sym_cell_i, "programOrdinal": 0, "kind": "symbol", "state": "complete",
+                   "deficiency": None, "nativeCause": None, "examinedPaths": symbol_ext_u1,
+                   "rows": sorted(symbol_rows_u1, key=lambda r: r["nativeSubjectId"].encode("utf-8"))}
+        inventory_results.append((blob(sym_inv), sym_inv))
+        for row in sym_inv["rows"]:
+            add_subject(u1, "symbol", row)
+        if second_universe and u2 is not None:
+            baz_row = {"nativeSubjectId": baz, "kind": "symbol", "path": "b.ts", "qualifiedName": "baz",
+                       "subjectLanguage": "typescript", "exported": "exported",
+                       "signatureTokens": ["const", "baz"],
+                       "projections": [{"closureId": detector, "signatureTokens": ["const", "baz"]}]}
+            sym_inv2 = {"schemaVersion": 1, "planId": plan_id, "parameterDigest": enum_digest,
+                        "cellOrdinal": sym_cell_i, "programOrdinal": 1, "kind": "symbol", "state": "complete",
+                        "deficiency": None, "nativeCause": None, "examinedPaths": ["b.ts"],
+                        "rows": [baz_row]}
+            inventory_results.append((blob(sym_inv2), sym_inv2))
+            add_subject(u2, "symbol", baz_row)
+
+    relation_schema = blob((HERE / "relation-payload-schemas.v2.json").read_bytes())
+    coverage_schema = blob((HERE.parent / "native" / "native-evidence.schemas.v2.json").read_bytes())
+    view_ids, scope_ids, coverage_ids, all_facts = [], [], [], []
+    sidecar_refs = []
+    coverage_payloads = {}
+    drop_package = set(drop_package_paths)
+
+    def mint_coverage(scope_id, resolved, unresolved=(), stage_terminal=None):
+        desc = objects[scope_id][1]
+        payload = H.coverage_result(desc, desc["sourceUniverse"], resolved, blobs, paths, list(unresolved))
+        if stage_terminal is not None and not resolved:
+            rc = payload["entry"]["resolutionCompleteness"]
+            payload["entry"]["resolutionCompleteness"] = N.completeness_from_stage(
+                desc["relation"], desc["resolution"], desc["subjects"], list(unresolved),
+                stage_terminal, True, rc["examinedExhaustive"])
+        admitted = N.admit_coverage_result_v3(payload, desc, list(unresolved), coverage_schema)
+        if admitted["result"] != "ADMIT":
+            raise C.AdmissionError("SEMANTIC_FIXTURE_COVERAGE:" + str(admitted.get("refusals")) + str(admitted.get("faults")))
+        cid = add("coverage", scopeId=scope_id, payloadSchemaDigest=coverage_schema, payloadDigest=blob(payload))
+        coverage_payloads[cid] = payload
+        return cid, payload
+
+    def mint_view(scope_id, facts, cid):
+        vid = add("view", planId=plan_id, scopeIds=[scope_id], facts=E.cset(facts), coverageIds=[cid],
+                  producerClosure=provider, schemaDigests=sorted([relation_schema, coverage_schema]))
+        view_ids.append(vid)
+        scope_ids.append(scope_id)
+        coverage_ids.append(cid)
+        all_facts.extend(facts)
+        return vid
+
+    ref_payloads = []
+    if atom["relation"] == "declares" and has_declares:
+        decl_subjects = E.cset([foo, bar] if second_partition else [foo])
+        dscope = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                     relation="declares", resolution="syntactic", enumeratorClosure=provider,
+                     subjects=decl_subjects)
+        dfacts = []
+        raw = sources["a.ts"]
+        anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
+        for sid in decl_subjects:
+            dfacts.append(add("fact", snapshotId=snapshot, relation="declares", resolution="syntactic",
+                              sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                              payloadSchemaDigest=relation_schema,
+                              payloadDigest=blob({"container": "symbol:module", "declared": sid,
+                                                  "declarationKind": "function"}),
+                              anchors=[anchor], confidenceMillionths=1000000))
+        dcid, _ = mint_coverage(dscope, True)
+        mint_view(dscope, dfacts, dcid)
+
+    if atom["relation"] == "references":
+        s_foo = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                    relation="references", resolution="resolved-binding", enumeratorClosure=provider,
+                    subjects=E.cset([foo]))
+        facts_foo = []
+        raw = sources["a.ts"]
+        anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
+        if has_references_fact:
+            payload = {"referrer": foo, "name": "bar", "resolvedBinding": bar}
+            fid = add("fact", snapshotId=snapshot, relation="references", resolution="resolved-binding",
+                      sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                      payloadSchemaDigest=relation_schema, payloadDigest=blob(payload),
+                      anchors=[anchor], confidenceMillionths=1000000)
+            facts_foo.append(fid)
+            ref_payloads.append((fid, payload, u1))
+        stage_terminals = references_stage_terminals or {}
+        cid_foo, cov_foo = mint_coverage(s_foo, references_resolved, stage_terminal=stage_terminals.get("foo"))
+        mint_view(s_foo, facts_foo, cid_foo)
+        if second_partition:
+            bar_tgt = u2 if partition_b_target == "u2" and u2 is not None else u1
+            s_bar = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=bar_tgt,
+                        relation="references", resolution="resolved-binding", enumeratorClosure=provider,
+                        subjects=E.cset([bar]))
+            cid_bar, cov_bar = mint_coverage(s_bar, references_resolved, stage_terminal=stage_terminals.get("bar"))
+            mint_view(s_bar, [], cid_bar)
+        else:
+            cov_bar = cov_foo
+        if second_universe and u2 is not None:
+            s_baz = add("subject-scope", snapshotId=snapshot, sourceUniverse=u2, targetUniverse=u2,
+                        relation="references", resolution="resolved-binding", enumeratorClosure=provider,
+                        subjects=E.cset([baz]))
+            payload_u2 = {"referrer": baz, "name": cross_u_binding, "resolvedBinding": foo}
+            fid_u2 = add("fact", snapshotId=snapshot, relation="references", resolution="resolved-binding",
+                         sourceUniverse=u2, targetUniverse=u2, producerClosure=provider,
+                         payloadSchemaDigest=relation_schema, payloadDigest=blob(payload_u2),
+                         anchors=[{"path": "b.ts", "blobDigest": blob(sources["b.ts"]),
+                                   "startByte": 0, "endByte": len(sources["b.ts"])}],
+                         confidenceMillionths=1000000)
+            cid_baz, cov_baz = mint_coverage(s_baz, True)
+            mint_view(s_baz, [fid_u2], cid_baz)
+        else:
+            cov_baz = None
+        if target_sidecar and ref_payloads:
+            fid, payload, tu = ref_payloads[0]
+            sidecar = {
+                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+                "targetUniverse": tu, "targetNativeId": payload["resolvedBinding"],
+                "kind": "symbol", "occupancy": "first-party", "exported": "exported",
+                "logicalPath": None, "packageManifestPath": None,
+                "evaluationNativeId": payload["resolvedBinding"],
+            }
+            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
+        if incoming_search:
+            prove = bool(incoming_complete and references_resolved)
+            pairs = [(u1, u1, cov_foo)]
+            if second_universe and u2 is not None:
+                pairs.extend([(u1, u2, cov_foo), (u2, u1, cov_baz), (u2, u2, cov_baz)])
+            for src, tgt, cov in pairs:
+                owned = [sid for sid in scope_ids
+                         if objects[sid][1]["relation"] == "references"
+                         and objects[sid][1]["sourceUniverse"] == src
+                         and objects[sid][1]["enumeratorClosure"] == provider
+                         and objects[sid][1]["resolution"] == "resolved-binding"]
+                symbol_invs = []
+                for d, inv in inventory_results:
+                    if inv["kind"] != "symbol":
+                        continue
+                    cell = cells[inv["cellOrdinal"]]
+                    binding = next(b for b in cell["programBindings"] if b["ordinal"] == inv["programOrdinal"])
+                    if binding["universe"] == src:
+                        symbol_invs.append(inv)
+                att = {
+                    "schemaVersion": 1, "planId": plan_id, "providerClosure": provider,
+                    "sourceUniverse": src, "targetUniverse": tgt, "relation": "references",
+                    "minResolution": "resolved-binding", "scopeRefs": E.cset(owned),
+                    "expectedInventoryRefs": E.cset(_inv_digest(inv) for inv in symbol_invs),
+                    "completeSearch": prove,
+                    "examinedExhaustive": prove,
+                    "coverage": "complete" if prove else "unknown",
+                    "resolutionCompleteness": copy.deepcopy(cov["entry"]["resolutionCompleteness"]),
+                    "closedWorld": copy.deepcopy(cov["entry"]["closedWorld"]),
+                }
+                sidecar_refs.append({"domain": "incoming-search", "digest": blob(att)})
+
+    if atom["relation"] == "imports":
+        s_imp = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                    relation="imports", resolution="resolved-target", enumeratorClosure=provider,
+                    subjects=E.cset([foo, bar]))
+        raw = sources["a.ts"]
+        anchor = {"path": "a.ts", "blobDigest": blob(raw), "startByte": 0, "endByte": len(raw)}
+        if imports_occupancy in ("exact-id-symbol", "unknown-sidecar-symbol"):
+            payload = {"importer": bar, "specifier": "./a", "resolvedTarget": foo}
+            target_native = foo
+        else:
+            payload = {"importer": foo, "specifier": "./a", "resolvedTarget": "file:a.ts"}
+            target_native = "file:a.ts"
+        fid = add("fact", snapshotId=snapshot, relation="imports", resolution="resolved-target",
+                  sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                  payloadSchemaDigest=relation_schema, payloadDigest=blob(payload),
+                  anchors=[anchor], confidenceMillionths=1000000)
+        cid_imp, _ = mint_coverage(s_imp, True)
+        mint_view(s_imp, [fid], cid_imp)
+        if imports_occupancy == "mapped-file":
+            sidecar = {
+                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+                "targetUniverse": u1, "targetNativeId": target_native,
+                "kind": "file", "occupancy": "first-party", "exported": None,
+                "logicalPath": None, "packageManifestPath": None,
+                "evaluationNativeId": "a.ts",
+            }
+            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
+        elif imports_occupancy == "unknown-sidecar-symbol":
+            sidecar = {
+                "schemaVersion": 2, "planId": plan_id, "sourceFactId": fid, "producerClosure": provider,
+                "targetUniverse": u1, "targetNativeId": target_native,
+                "kind": "unknown", "occupancy": "unknown", "exported": None,
+                "logicalPath": None, "packageManifestPath": None,
+                "evaluationNativeId": None,
+            }
+            sidecar_refs.append({"domain": "target-attribution", "digest": blob(sidecar)})
+        # exact-id-symbol and unmapped-file: no sidecar; occupancy is ephemeral or unknown.
+
+    if atom["relation"] == "package" or complete_required_inventory:
+        pkg_fact_rows = [r for d, inv in inventory_results if inv["kind"] == "package" for r in inv["rows"]]
+        subjects = E.cset(r["nativeSubjectId"] for r in pkg_fact_rows)
+        pscope = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                     relation="package", resolution="manifest-declared", enumeratorClosure=provider,
+                     subjects=subjects)
+        pfacts = []
+        for r in pkg_fact_rows:
+            if r["path"] in drop_package:
+                continue
+            body = C.parse(sources[r["path"]])
+            pfacts.append(add("fact", snapshotId=snapshot, relation="package", resolution="manifest-declared",
+                              sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                              payloadSchemaDigest=relation_schema,
+                              payloadDigest=blob({"manifestPath": r["path"], "packageName": r["nativeSubjectId"],
+                                                  "packageVersion": str(body.get("version") or "0")}),
+                              anchors=[], confidenceMillionths=1000000))
+        pcid, _ = mint_coverage(pscope, True)
+        mint_view(pscope, pfacts, pcid)
+
+    if atom["relation"] == "file" or complete_required_inventory:
+        fscope = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=u1,
+                     relation="file", resolution="enumerated", enumeratorClosure=provider,
+                     subjects=file_ext)
+        ffacts = []
+        for row in (r for r in inventory if r["path"] in file_ext):
+            ffacts.append(add("fact", snapshotId=snapshot, relation="file", resolution="enumerated",
+                              sourceUniverse=u1, targetUniverse=u1, producerClosure=provider,
+                              payloadSchemaDigest=relation_schema,
+                              payloadDigest=blob({"path": row["path"], "contentSha256": row["sha256"],
+                                                  "byteLength": row["bytes"]}),
+                              anchors=[], confidenceMillionths=1000000))
+        fcid, _ = mint_coverage(fscope, True)
+        mint_view(fscope, ffacts, fcid)
+
+    if atom["relation"] == "declares":
+        # Other required syntax pairs have explicit complete-empty synthetic
+        # Coverage. Missing declares itself remains missing when requested.
+        for inv_digest, inv in inventory_results:
+            if inv["kind"] != "symbol": continue
+            binding = cells[inv["cellOrdinal"]]["programBindings"][inv["programOrdinal"]]
+            for relation in ("literal", "control-flow"):
+                sid = add("subject-scope", snapshotId=snapshot,
+                          sourceUniverse=binding["universe"], targetUniverse=binding["universe"],
+                          relation=relation, resolution="syntactic", enumeratorClosure=provider,
+                          subjects=E.cset(row["nativeSubjectId"] for row in inv["rows"]))
+                cid, _ = mint_coverage(sid, True)
+                mint_view(sid, [], cid)
+
+    stage_schema = STAGE_OUTPUT_SCHEMA
+    stage = blob({"schemaVersion": 2, "planId": plan_id, "producerClosure": provider,
+                  "operation": STAGE_OUTPUT_OPERATION, "parameters": parameters,
+                  "outputDomains": ["view"], "outputSchemaDigest": blob(stage_schema)})
+    execution_id = add("execution-plan", planId=plan_id,
+                       stages=[{"ordinal": 0, "stageSpecDigest": stage, "requires": [], "outputDomains": ["view"]}])
+    refs = E.cset(
+        [{"domain": "view", "digest": v.split(":", 1)[1]} for v in view_ids]
+        + [{"domain": "subject-inventory", "digest": d} for d, inv in inventory_results]
+        + sidecar_refs
+    )
+    enum_refs = [{"domain": "subject-inventory", "digest": d}
+                 for d, inv in inventory_results if inv["kind"] == primary_kind]
+    selected = [sid for sid, item in population.items() if item["kind"] == primary_kind]
+    if not second_universe:
+        selected = [sid for sid in selected if population[sid]["universe"] == u1]
+    inputs = {
+        "plan": plan, "planId": plan_id, "executionPlanId": execution_id, "evaluatorClosure": evaluator,
+        "policy": policy, "effectiveWaivers": waivers, "emissionPlan": emission, "population": population,
+        "enumerations": {rule["ruleId"]: {
+            "state": "complete", "inventoryRefs": E.cset(enum_refs),
+            "selectedSubjectIds": E.cset(selected), "unresolvedSubjectIds": [],
+            "incompleteInventoryRefs": [],
+        }},
+        "enumerationDeficiencies": {rule["ruleId"]: []},
+        "requiredEvidenceDeficiencies": {rule["ruleId"]: []},
+        "executionDeficiencies": [],
+        "evaluationInputRefs": refs,
+        "inventoryRowCount": sum(len(inv["rows"]) for d, inv in inventory_results),
+        "inventoryLocatorCount": len(inventory_results),
+        "factCount": len(all_facts), "observationCount": 0, "coverageCount": len(coverage_ids),
+        "importKinds": {},
+        "closures": {k: v for k, (dom, v) in objects.items() if dom == "closure"},
+    }
+    return {
+        "objects": objects, "blobs": blobs, "inputs": inputs, "native": native,
+        "snapshot": objects[snapshot][1], "membership": membership, "enumerationPlan": enum,
+        "inventoryResults": inventory_results, "viewIds": E.cset(view_ids),
+        "scopeIds": E.cset(scope_ids), "coverageIds": E.cset(coverage_ids),
+        "universes": universes, "u1": u1, "u2": u2, "provider": provider, "planId": plan_id,
+        "foo": foo, "bar": bar, "baz": baz, "detector": detector, "evaluator": evaluator,
+        "pkg_ext": pkg_ext, "file_ext": file_ext, "sources": sources,
+    }
+
+
+def build_package_graph(*, drop_package_paths=()):
+    extra = {
+        "packages/left/package.json": b'{"name":"dup","version":"1.0.0"}\n',
+        "packages/right/package.json": b'{"name":"dup","version":"2.0.0"}\n',
+    }
+    return build_ts_semantic_graph(
+        atom={"op": "exists", "relation": "package", "minResolution": "manifest-declared", "filters": []},
+        subject_kind="package", extra_sources=extra, has_declares=False, second_partition=False,
+        second_universe=False, drop_package_paths=drop_package_paths,
+    )

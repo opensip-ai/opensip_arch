@@ -1,0 +1,134 @@
+"""output/helper-corrections.json -- every helper defect this origin found IN ITS OWN CODE,
+with the original failure preserved, the kit selector that settled it, and the correction.
+
+A helper bug is NOT a design gap. These rows are kept separate from newMustIssues /
+newShouldIssues for exactly that reason, and every one of them was corrected from the kit
+alone -- no author model, checker or expected output was read.
+"""
+import json
+import os
+import sys
+
+OUT = '/tmp/opensip-design-corrections/consumer-b.v16/output'
+
+ROWS = [
+    {'id': 'V15-D1', 'generation': 'consumer-b.v15', 'status': 'corrected',
+     'where': 'lib/rebind_v15.py, lib/verify_kit.py',
+     'originalFailure': ('the path-rebinding helper rewrote its own pinned constants while '
+                         'rewriting every other module, so the verifier compared the new kit '
+                         'against itself'),
+     'kitSelector': 'n/a -- a helper self-reference defect, not a kit question',
+     'correction': ('a SELF_EXCLUDE set plus split string literals; before-images of every '
+                    'rewritten module are retained under lib.before-image.*')},
+    {'id': 'V15-D2', 'generation': 'consumer-b.v15', 'status': 'corrected',
+     'where': 'lib/run_ts.py language mode of record',
+     'originalFailure': ('the TypeScript subject was labelled `ts-tsconfig` while its '
+                         'tsconfig.json sets allowJs:true and admits src/legacy.js as a '
+                         'program root; the independent mode law refused it with '
+                         'section1.2:TS_TSCONFIG_REQUIRES_ALLOWJS_ABSENT_OR_FALSE and '
+                         'section1.2:TS_TSCONFIG_JAVASCRIPT_FILES_ARE_NOT_PROGRAM_ROOTS'),
+     'kitSelector': 'native-evidence.md section 1.2 closed mode table',
+     'correction': 'the mode of record is js-allowjs, shared by the universe, the context '
+                   'and the enumeration cells'},
+    {'id': 'V15-D3', 'generation': 'consumer-b.v15', 'status': 'corrected',
+     'where': 'lib/opensip_schema.py _resolve_local',
+     'originalFailure': ('$ref sibling keywords were discarded, so the keyword walker reached '
+                         '1 annotated digest site on TypeScriptNativeContextV2 instead of 12'),
+     'kitSelector': ('relation/native annotation law: "An annotation on the OCCURRENCE, its '
+                     'enclosing schema path, or an intermediate alias applies to that '
+                     'occurrence"; x-opensip-digest-domains.scope.nullableAlternatives'),
+     'correction': ('siblings are merged over the resolved target and oneOf/anyOf branches '
+                    'are resolved before probing, so nullable non-null branches are reached')},
+    {'id': 'V15-D4', 'generation': 'consumer-b.v15', 'status': 'corrected',
+     'where': 'lib/run_*.py VCS observation kind',
+     'originalFailure': ('four Runs declared the execution-inputs account '
+                         '`inapplicable-vcs` while their snapshots admitted a VCS '
+                         'observation of kind=git'),
+     'kitSelector': 'execution-inputs-contract.v1.md section 5 -- the basis of '
+                    '`inapplicable-vcs` is an admitted VCS observation of kind=none',
+     'correction': 'those subjects are unpacked trees with vcs_kind=none'},
+    {'id': 'V16-D1', 'generation': 'consumer-b.v16', 'status': 'corrected',
+     'where': 'lib/opensip_schema.py walk_keywords / _resolve_local',
+     'originalFailure': ("KeyError('D9Class') raised while admitting a CommandEnvelope: the "
+                         'walker kept passing the ORIGINAL document root down the recursion, '
+                         'so a subschema reached through a CROSS-DOCUMENT $ref '
+                         '(command-envelope -> common StepTermination) could not resolve its '
+                         'own LOCAL $ref. Recorded exactly as observed: '
+                         '{"check": "OWNING_SCHEMA", "detail": "\'D9Class\'"} on the '
+                         'pinned-purge positive, which stock Draft 2020-12 admits.'),
+     'kitSelector': ('identity-and-evidence section 3 payload registry: "validation by the '
+                     'row SELECTOR against that document, resolved through the pinned local '
+                     'registry closure" -- resolution is per-document, so the effective base '
+                     'must follow the reference'),
+     'correction': ('_resolve_local2 returns the resolved node WITH its effective root and '
+                    'the walker threads that root through every branch, item and property; '
+                    'measured effect: the native schema now reports 76 annotated occurrences '
+                    'instead of a truncated walk, and all five Runs still close, replay and '
+                    'pass their controls'),
+     'notADesignGap': ('the kit bytes were correct throughout; the defect was in this '
+                       "origin's keyword walker")},
+    {'id': 'V16-D2', 'generation': 'consumer-b.v16', 'status': 'corrected',
+     'where': 'lib/opensip_build.py component-manifest description',
+     'originalFailure': ('the v15 path rebind rewrote a CONTENT-BEARING label, so the '
+                         'runtime directory name entered component-manifest.description and '
+                         'therefore closure.manifestDigest and every Run identity: '
+                         'relocating the helper would have changed selected graph '
+                         'identities with no semantic change'),
+     'kitSelector': ('identity-and-evidence section 3: an identity is over the admitted '
+                     'record bytes; nothing authorises a runtime path to enter them'),
+     'correction': ('lib/opensip_fixture.py fixes the semantic fixture metadata explicitly, '
+                    'and lib/relocation_control.py proves both halves: no retained byte '
+                    'contains a runtime-location string, and a rebuild under a different '
+                    'output directory reproduces the selected graph identity')},
+    {'id': 'V16-R1', 'generation': 'consumer-b.v16',
+     'status': 'reconstruction-strengthening (NOT a helper bug and NOT a kit defect)',
+     'where': 'lib/run_ts.py, lib/run_ts_full.py -- the TypeScript subject and Run',
+     'originalFailure': ('not a failure. The graph-query endpoint law cannot project a '
+                         'resolved TARGET endpoint without a TargetAttributionV2 sidecar, and '
+                         'the Run retained none; the pagination control also had only one '
+                         'projectable outgoing edge, so a page boundary never arrived.'),
+     'kitSelector': ('foundation/evaluator-projection-registry.v1.json relations.imports '
+                     '(endpointTarget admitted-at-rung, targetNativeIdField) + '
+                     'foundation/target-attribution.schema.v2.json + '
+                     'execution-inputs-contract.v1.md section 6 '
+                     '("Missing token / empty companions: lawful occupancy-unknown")'),
+     'correction': ('the subject gained a second first-party import and the Run retains two '
+                    'TargetAttributionV2 records as part of the same synthetic trusted '
+                    'provider return as its facts. The Run was reminted and reclosed, and the '
+                    'closure gained the TARGET_ATTRIBUTION_* owner joins (778 passed checks, '
+                    'up from 716). The earlier Run was LAWFUL -- occupancy-unknown is the '
+                    'published outcome for an absent companion -- so this row is a '
+                    'strengthening, not a correction of an error.')},
+    {'id': 'V16-A1', 'generation': 'consumer-b.v16', 'status': 'self-correction',
+     'where': "this origin's own v15 SHOULD about the native retention catalogue",
+     'originalFailure': ('v15 reported that the native retention catalogue was missing a '
+                         '`fragment` entry. That reading was OVER-BROAD: no annotated site '
+                         'of the native document uses `fragment`, so declining to declare it '
+                         'there is correct, and the v16 kit declares only the member the '
+                         'document actually needs (`derived`, with the recipe this origin had '
+                         'independently derived).'),
+     'kitSelector': 'native x-opensip-digest-law.retention',
+     'correction': ('withdrawn by this origin. The kit was not treated as an oracle: the '
+                    'withdrawal follows from measuring the document, which reports '
+                    'retention counts of preimage-frame 31, preimage 21, owner-retained 11, '
+                    'closure-tree-member 10 and derived 3, and zero fragment sites.')},
+]
+
+
+def main():
+    doc = {'consumerId': 'consumer-b.v16', 'standing': __doc__,
+           'helperCorrections': ROWS,
+           'openHelperFailuresOnAClaimedPositive': [],
+           'rule': ('an OPEN helper failure on a claimed complete positive forbids ACCEPT. '
+                    'The list above is closed: every row is corrected or withdrawn, and the '
+                    'five claimed positives close, replay and pass their controls after the '
+                    'corrections.')}
+    with open(OUT + '/helper-corrections.json', 'w') as f:
+        json.dump(doc, f, indent=1)
+    print('helper-corrections.json: %d rows, %d open'
+          % (len(ROWS), len(doc['openHelperFailuresOnAClaimedPositive'])))
+    for r in ROWS:
+        print('  %-8s %-18s %s' % (r['id'], r['status'], r['where'][:60]))
+
+
+main()

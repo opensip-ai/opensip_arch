@@ -1,5 +1,7 @@
 # V2 Architecture Review Record
 
+> **Current applicability — D-372:** The [new scoped DR-201–205 reviews](../../coop/design-corrections/review-owner-dispositions.v1.json) and [application record](../../coop/design-corrections/application.v1.json) supply the complete intended-product review account. The findings and scope below are historical; their old labels do not override [current readiness](08-decision-and-readiness-register.md#unified-product-design-readiness).
+
 > **Status:** REVIEW FINDINGS RECORDED — corrections require re-review
 > **Authority:** Review evidence only; this record applies no V1 or V2 successor.
 > **Active checklist:** [OpenSIP V2 Decision and Readiness Register](08-decision-and-readiness-register.md)

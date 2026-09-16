@@ -1,0 +1,154 @@
+--- a38/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ b39/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -423,6 +423,141 @@
+         else:
+             raise AssertionError("semantic mutant accepted:" + name)
+     return rows
++
++
++def run_termination_composition(g, doc, T, Q, built, atoms, validate_shape, schema_valid):
++    """Section 7 host composition controls over actually closed Runs (run-termination-contract.v1.md).
++
++    Each case composes one candidate StepTermination against an admitted Run (a golden Run, a fixture Run, or none
++    for operational and ephemeral candidates) and a host attempt observation built from existing records: the
++    invocation-record Attempt, whose derivation binding names the Run's actual execution plan and stage count, and a
++    commit receipt minted by the reference commit path (identity-model.v3 EvidenceStore). For an
++    analysis candidate the pure check_projection standing is recorded beside the composition outcome, so a
++    composition refusal is never mistaken for a projection refusal.
++    """
++    faults, out = [], []
++    ids = {tag: "exec1_" + ch * 32 for tag, ch in g["executionIdHex"].items()}
++    other_run = "run3:" + "1" * 64
++    attempt_ref = "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/Attempt"
++    receipt_schema = copy.deepcopy(M.SCHEMA)
++    receipt_schema["$ref"] = "#/$defs/commit-receipt"
++
++    def validate_attempt(attempt):
++        Q.validate_schema(attempt_ref, attempt)
++
++    def validate_receipt(receipt):
++        C.validate(receipt_schema, receipt)
++
++    def placeholders(value):
++        text = json.dumps(value)
++        for tag, eid in ids.items():
++            text = text.replace("$" + tag.upper(), eid)
++        return json.loads(text.replace("$OTHER_RUN", other_run))
++
++    minted = {}
++
++    def committed_receipt(run, objects, blobs, execution_id):
++        """A receipt minted by the reference commit path, identity-model.v3 EvidenceStore.prepare then commit, whose
++        trusted replay adapter re-derives the proof with evaluator_replay_model.v3.derive over the admitted Run."""
++        key = (id(run), execution_id)
++        if key not in minted:
++            seal = objects[run["evaluationSealId"]][1]
++            _, owner = M.open_run_closure(run, objects, blobs)
++
++            def replay(plan, objs, bl, refs):
++                return R.derive(run["planId"], seal["executionPlanId"], seal["evaluatorClosure"], refs, objs, bl, owner)["proof"]
++
++            store = M.EvidenceStore()
++            store.prepare(run, objects, blobs, execution_id, replay)
++            if store.commit(execution_id) != "committed":
++                raise AssertionError("reference commit path did not commit")
++            minted[key] = store.receipts[0]
++        return dict(minted[key])
++
++    for case in g["cases"]:
++        try:
++            run = objects = blobs = derived = None
++            if "of" in case:
++                run, objects, blobs = built[case["of"]]
++            elif "build" in case:
++                fixture = doc["fixtures"][case["build"]["fixture"]]
++                params = dict(fixture["params"], **case["build"]["params"], atom=atoms[fixture["atom"]])
++                run, objects, blobs, _ = close_positive(S.build_ts_semantic_graph(**params))
++            if run is not None:
++                derived = T.finalize(run, objects, blobs)["termination"]
++            candidate = dict(case["termination"]) if "termination" in case else dict(derived)
++            for key in case.get("remove", []):
++                candidate.pop(key, None)
++            candidate.update(case.get("set", {}))
++            candidate = placeholders(candidate)
++            observation = None
++            spec = case.get("observation")
++            if spec is not None:
++                if run is not None:
++                    execution_plan = objects[run["evaluationSealId"]][1]["executionPlanId"]
++                    stage_count = len(objects[execution_plan][1]["stages"])
++                    own_plan = run["planId"]
++                else:  # ephemeral cases compose no Run, so no plan join applies
++                    execution_plan, stage_count, own_plan = "exec-plan2:" + "2" * 64, 1, "plan2:" + "2" * 64
++                plan = "plan2:" + "0" * 64 if spec.get("plan") == "other" else own_plan
++                binding = {"planId": plan,
++                           "executionPlanId": "exec-plan2:" + "0" * 64 if spec.get("executionPlan") == "other" else execution_plan,
++                           "stageCount": stage_count + spec.get("stageCountDelta", 0),
++                           # a host observation, never derived from the plan: "all" is the fixture's assumption
++                           "stagesCompleted": {"all": stage_count, "partial": stage_count - 1,
++                                               "over": stage_count + 1}[spec.get("stagesCompleted", "all")]}
++                if "firstFailedStage" in spec:
++                    binding["firstFailedStage"] = spec["firstFailedStage"]
++                attempts = []
++                for tag in spec["attempts"]:
++                    if tag == "busy":
++                        attempts.append({"executionId": ids["busy"], "outcome": "failed", "faultCause": "ledger-busy",
++                                         "retried": True})
++                    elif tag == "done":
++                        attempts.append({"executionId": ids["done"], "outcome": "completed", "derivation": dict(binding)})
++                    else:
++                        attempts.append({"executionId": ids["done"], "outcome": "failed", "faultCause": "host-io"})
++                receipt = None
++                if spec.get("receipt") is not None:
++                    who, which = spec["receipt"]
++                    receipt = committed_receipt(run, objects, blobs, ids[who])
++                    if which != "run":
++                        receipt["runId"] = other_run
++                    if spec.get("inventory") == "other":
++                        receipt["inventoryDigest"] = "f" * 64
++                    elif spec.get("inventory") == "missing-object":
++                        receipt["inventoryDigest"] = M.commit_inventory(derived["runId"], dict(list(objects.items())[1:]), blobs)[1]
++                observation = {"stepId": 0, "durability": spec.get("durability", "authoritative"),
++                               "attempts": attempts, "commitReceipt": receipt,
++                               "requiredClosureNotInstalled": spec.get("closureNotInstalled", False)}
++            validity = schema_valid(candidate)
++            try:
++                got = T.admit_analysis_step_termination(candidate, run, objects, blobs, observation, validate_shape,
++                                                        validate_attempt, validate_receipt)
++                outcome = {"composed-analysis-termination-admitted": "ADMIT:" + str(got.get("domainDetailCode") or "none"),
++                           "outside-analysis-projection": "OUTSIDE",
++                           "ephemeral-attribution-admitted": "EPHEMERAL"}[got["standing"]]
++            except T.RunTerminationError as exc:
++                outcome = str(exc).split(":", 1)[0]
++            pure = None
++            if derived is not None:
++                try:
++                    pure = (T.check_projection(candidate, derived, validate_shape)["delegatedStanding"]
++                            or "admitted-without-delegated-member")
++                except T.RunTerminationError as exc:
++                    pure = str(exc).split(":", 1)[0]
++            if outcome != case["expect"]:
++                faults.append(f"{case['label']}: composition {outcome}, expected {case['expect']}")
++            if case.get("schemaValid", True) and validity is not True:
++                faults.append(f"{case['label']}: candidate is not a schema-valid StepTermination, so it proves nothing: {validity}")
++            if "pureProjection" in case and pure != case["pureProjection"]:
++                faults.append(f"{case['label']}: pure projection {pure}, expected {case['pureProjection']}")
++            out.append({"label": case["label"], "composition": outcome, "pureProjection": pure, "schemaValid": validity})
++        except Exception as exc:
++            faults.append(f"{case['label']}: error {type(exc).__name__}: {str(exc)[:200]}")
++            out.append({"label": case["label"], "error": type(exc).__name__ + ": " + str(exc)[:300],
++                        "traceback": traceback.format_exc()[-1500:]})
++    return {"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "composition": out, "faults": faults}
+ 
+ 
+ def run_termination_goldens(exports):
+@@ -495,6 +630,9 @@
+                         refused.append({"label": case["label"], "refusal": code})
+                 rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT",
+                              "admittedProjectionWithDelegatedMembers": admitted, "refused": refused, "faults": faults})
++                continue
++            if g["kind"] == "composition":
++                rows.append(run_termination_composition(g, doc, T, Q, built, atoms, validate_shape, schema_valid))
+                 continue
+             spec = g["build"]
+             if "export" in spec:

@@ -1,0 +1,47 @@
+--- docs/coop/design-corrections/native/check_native_evidence.v2.py
++++ docs/coop/design-corrections/native/check_native_evidence.v2.py
+@@ -402,8 +402,11 @@
+         "sharedRungsAcrossRelations": {r: sorted(o) for r, o in sorted(owners.items()) if len(o) > 1},
+     }
+     open_objects = []
++    digest_sites = []
+     def walk(x, p):
+         if isinstance(x, dict):
++            if "x-opensip-digest" in x:
++                digest_sites.append({"path": p, **x["x-opensip-digest"]})
+             if x.get("type") == "object" and "additionalProperties" not in x:
+                 open_objects.append(p)
+             for k, v in x.items():
+@@ -413,6 +416,13 @@
+                 walk(v, p + "/" + str(i))
+     walk(model.SCHEMAS, "")
+     report["schemas"] = {"defs": len(model.SCHEMAS["$defs"]), "openObjects": open_objects}
++    digest_law = model.SCHEMAS["x-opensip-digest-law"]
++    undeclared_retention = [s["path"] for s in digest_sites if s.get("retention") not in digest_law["retention"]]
++    undeclared_representation = [s["path"] for s in digest_sites if s.get("representation") not in digest_law["representations"]]
++    report["digestLaw"] = {"annotationSites": len(digest_sites),
++                          "undeclaredRetentionSites": undeclared_retention,
++                          "undeclaredRepresentationSites": undeclared_representation}
++
+     matrix = model.C.parse(MATRIX_PATH.read_bytes())
+     model.validate_native("NativeCapabilityMatrixV2", matrix)
+     cells = matrix["cells"]
+@@ -453,7 +463,8 @@
+                        "results": results}
+     ok = (passed == len(results) and not missing_cells and not extra_cells and not duplicate_cells
+           and cell_count_is_the_product and not vocabulary_drift and not open_objects
+-          and not report["cases"]["uncoveredFeedback"] and not ladder_faults)
++          and not report["cases"]["uncoveredFeedback"] and not ladder_faults
++          and not undeclared_retention and not undeclared_representation)
+     report["result"] = "PASS" if ok else "FAIL"
+     report["limitations"] = [
+         "Observation inputs (edges, tokens, vendored file digests, stage terminals) are fixture-asserted, not measured from a compiler or Cargo.",
+@@ -468,6 +479,8 @@
+             print("FAIL", r["id"]); [print("   ", f) for f in r["faults"]]
+     for fault in ladder_faults:
+         print("FAIL ladder-drift:", fault)
++    for path in undeclared_retention + undeclared_representation:
++        print("FAIL digest-law vocabulary:", path)
+     print(f"{report['result']}: {passed}/{len(results)} cases; matrix cells {len(cells)}; open objects {len(open_objects)}; uncovered feedback {report['cases']['uncoveredFeedback']}")
+     return 0 if ok else 1
+ 

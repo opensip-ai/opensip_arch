@@ -1,0 +1,231 @@
+# coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json
+top-level keys: $schema, $id, title, description, type, additionalProperties, required, properties, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "urn:opensip:product-v1:workflows:evaluator3:invocation:3"
+## title: "InvocationRecord schemaMajor 3 — evaluator3 analysis Run is run3"
+## description: "Operational identity remains RequestId. Analysis/verify attempts seal run3 (not run2). Derivation DAG remains exec-plan2. schemaMajor 3 because AnalysisResult.runId pattern changed. Mixed run2/run3 graphs refuse."
+## type: "object"
+## additionalProperties: false
+## required: ["schemaFamily", "schemaMajor", "requestId", "workflow", "mode", "orderedSteps"]
+## properties: keys=["schemaFamily", "schemaMajor", "requestId", "clientCorrelationId", "projectId", "workflow", "mode", "orderedSteps", "stepResults", "cancellation", "termination", "terminationEmitted", "retentionDisclosure"]
+### WorkflowRef | oneOf=[{"additionalProperties": false, "properties": {"kind": {"const": "builtin"}, "name": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/CommandName"}}, "required": ["kind", "name"], "type": "object"}, {"additionalProperties": false, "properties": {"activationId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"}, "contributionId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ContributionId"}, "kind": {"const": "profile"}, "profileVersion": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:c...
+### Mode | type="object" | required=["interactive", "ci", "ephemeral"] | additionalProperties=false
+  interactive: type="boolean"
+  ci: type="boolean"
+  ephemeral: type="boolean"
+### StepKind | type="string" | enum=["analysis", "verify", "comparison", "query", "render", "import", "repair-preview", "repair-apply", "test-execution", "mutation", "export-delivery", "doctor", "native-preparation"] | description="comparison: the audit verdict step. It consumes the current analysis Run (currentStep) and a baseline artifact, mints no Run, and is the ONLY step whose verdict gates an audit; the analysis it consumes participates in the aggregate for completion, operational faults and required-coverage indeterminacy only (verdictGate=delegated)."
+### StepSpec | type="object" | required=["stepId", "kind", "requirement", "dependsOn", "dependencyGate", "retryPolicy", "params"] | additionalProperties=false | allOf=[{"if": {"properties": {"kind": {"enum": ["mutation", "import", "repair-apply", "test-execution", "repair-preview", "comparison", "native-preparation"]}}}, "then": {"properties": {"retryPolicy": {"const": "none"}}}}, {"if": {"properties": {"dependencyGate": {"const": "terminal"}}}, "then": {"properties": {"kind": {"enum": ["render", "export-delivery"]}}}}, {"if": {"properties": {"kind": {"const": "analysis"}}}, "then": {"properties": {"params": {"properties": {"kind": {"const": "analysis"}}}}}}, {"if": {"properties": {"kind": {"const": "verify"}}}, "then": {"properties": {"params": {"proper...
+  stepId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  kind: $ref="#/$defs/StepKind"
+  requirement: type="string" | enum=["required", "optional"]
+  dependsOn: type="array" | maxItems=8 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"}
+  dependencyGate: type="string" | enum=["completed", "terminal"]
+  retryPolicy: type="string" | enum=["idempotent-retry", "none"]
+  params: $ref="#/$defs/StepParams"
+### StepParams | oneOf=[{"$ref": "#/$defs/AnalysisParams"}, {"$ref": "#/$defs/VerifyParams"}, {"$ref": "#/$defs/ComparisonParams"}, {"$ref": "#/$defs/QueryParams"}, {"$ref": "#/$defs/RenderParams"}, {"$ref": "#/$defs/ImportParams"}, {"$ref": "#/$defs/RepairPreviewParams"}, {"$ref": "#/$defs/RepairApplyParams"}, {"$ref": "#/$defs/TestExecutionParams"}, {"$ref": "#/$defs/MutationParams"}, {"$ref": "#/$defs/ExportDeliveryParams"}, {"$ref": "#/$defs/DoctorParams"}, {"$ref": "#/$defs/NativePreparationParams"}]
+### AnalysisParams | type="object" | required=["kind", "profile", "role", "durability", "snapshotSource"] | additionalProperties=false | allOf=[{"if": {"properties": {"role": {"const": "pivot"}}}, "then": {"properties": {"durability": {"const": "authoritative"}}, "required": ["pivotOfStep", "pivotClosureIds"]}}, {"if": {"properties": {"snapshotSource": {"const": "fresh-after-step"}}}, "then": {"required": ["afterStep"]}}]
+  kind: const="analysis"
+  profile: $ref="urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/AnalysisProfile"
+  role: type="string" | enum=["primary", "pivot"]
+  verdictGate: type="string" | enum=["self", "delegated"]
+  pivotOfStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  pivotClosureIds: type="array" | minItems=1 | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"}
+  durability: type="string" | enum=["authoritative", "ephemeral"]
+  snapshotSource: type="string" | enum=["live-worktree", "fresh-after-step"]
+  afterStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  baseline: type="object" | additionalProperties=false | required=["path", "auditProfile"] | properties=["acceptOriginProjectIds", "auditProfile", "closureBundlePath", "path"]
+      path: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+      auditProfile: $ref="urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/AuditProfileName"
+      acceptOriginProjectIds: type="array" | maxItems=16 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"}
+      closureBundlePath: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+  importedEvidenceSteps: type="array" | maxItems=16 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"}
+### VerifyParams | type="object" | required=["kind", "afterStep", "profile"] | additionalProperties=false
+  kind: const="verify"
+  afterStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  profile: $ref="urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/AnalysisProfile"
+  importedEvidenceSteps: type="array" | maxItems=16 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"}
+### QueryParams | type="object" | required=["kind", "operation", "completeness", "page"] | additionalProperties=false
+  kind: const="query"
+  operation: $ref="urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
+  completeness: type="string" | enum=["required", "best-effort"]
+  page: $ref="urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Page"
+### RenderParams | type="object" | required=["kind", "format", "destination", "sourceSteps", "required"] | additionalProperties=false | allOf=[{"if": {"properties": {"destination": {"const": "file"}}}, "then": {"required": ["path"]}}]
+  kind: const="render"
+  format: $ref="urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/OutputFormat"
+  destination: type="string" | enum=["stdout", "file"]
+  path: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+  sourceSteps: type="array" | minItems=0 | maxItems=63 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"}
+  required: type="boolean"
+### ImportParams | type="object" | required=["kind", "evidenceKind", "path", "correspondence"] | additionalProperties=false
+  kind: const="import"
+  evidenceKind: $ref="urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+  path: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+  correspondence: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SourceCorrespondence"
+### RepairPreviewParams | type="object" | required=["kind", "evidenceSource", "recipe", "targets"] | additionalProperties=false
+  kind: const="repair-preview"
+  evidenceSource: oneOf=[{"additionalProperties": false, "properties": {"step": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"}}, "required": ["step"], "type": "object"}, {"additionalProperties": false, "properties": {"runId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"}}, "required": ["runId"], "type": "object"}]
+  recipe: $ref="urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/RecipeRef"
+  targets: type="array" | minItems=1 | maxItems=4096 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"}
+### RepairApplyParams | type="object" | required=["kind", "planStep", "repairPlanId", "consentSource", "authorizationRef"] | additionalProperties=false
+  kind: const="repair-apply"
+  planStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  repairPlanId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId"
+  consentSource: type="string" | enum=["policy", "interactive"]
+  authorizationRef: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairAuthorizationRef"
+### TestExecutionParams | $ref="urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepParams"
+### MutationParams | type="object" | required=["kind", "mutationClass", "idempotencyKey"] | additionalProperties=false | allOf=[{"if": {"properties": {"mutationClass": {"enum": ["core-update", "core-repair", "core-rollback", "store-migrate", "store-rollback", "repair-recover"]}}}, "then": {"required": ["inputDescriptorDigest"]}}]
+  kind: const="mutation"
+  mutationClass: $ref="urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation" | allOf=[{"not": {"const": "repair-apply"}}] | x-opensip-vocabulary={"commandEmissionMap": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommandGenericMutationStep", "fieldDomainAuthority": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/admissibleGenericFieldDomain", "scope": "GENERIC mutation steps. The ADMISSIBLE domain of this field is every MutationOperation member except repair-apply, which the `not` bes...
+  sourceStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  target: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+  idempotencyKey: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  inputDescriptorDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+### ExportDeliveryParams | type="object" | required=["kind", "sink", "sourceStep", "required"] | additionalProperties=false
+  kind: const="export-delivery"
+  sink: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  sourceStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  required: type="boolean"
+### DoctorParams | type="object" | required=["kind", "checks"] | additionalProperties=false
+  kind: const="doctor"
+  checks: type="array" | minItems=1 | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"enum": ["closures", "trust", "store", "platform", "project-marker", "offline-window"], "type": "string"}
+### Attempt | type="object" | required=["executionId", "outcome"] | additionalProperties=false | allOf=[{"if": {"required": ["installationRecoveryStartRef"]}, "then": {"required": ["installationJournalRefs"]}}]
+  executionId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ExecutionId"
+  outcome: type="string" | enum=["completed", "rejected", "failed", "cancelled", "abandoned"]
+  faultCause: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9FaultCause"
+  retried: type="boolean"
+  derivation: $ref="#/$defs/DerivationBinding"
+  installationJournalRefs: type="array" | minItems=1 | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/InstallationTransitionJournalRef"}
+  installationRecoveryStartRef: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/InstallationTransitionJournalRef"
+### DerivationBinding | type="object" | required=["planId", "executionPlanId", "stageCount", "stagesCompleted"] | additionalProperties=false | description="Explicit mapping from one analysis/verify attempt to its derivation DAG. The workflow step DAG (≤64 steps) and the derivation DAG (≤1024 stages) are distinct: a step never depends on a stage and a stage never references a step. One attempt owns exactly one execution plan; a retry attempt on identical admitted inputs may bind the same exec-plan2 and Run."
+  planId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+  executionPlanId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ExecutionPlanId"
+  stageCount: type="integer" | minimum=1 | maximum=1024
+  stagesCompleted: type="integer" | minimum=0 | maximum=1024
+  firstFailedStage: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StageOrdinal"
+### StepOutcome | type="string" | enum=["completed", "rejected", "failed", "skipped", "cancelled", "abandoned"] | description="completed: the step reached its own terminal domain result (an analysis verdict of fail or indeterminate is still completed). rejected: admission or precondition refusal. failed: operational fault. skipped: a dependency did not satisfy the gate. cancelled: cancellation arrived before a terminal result. abandoned: assigned only by crash recovery to a non-terminal step whose supervisor died."
+### StepResult | type="object" | required=["stepId", "outcome", "attempts", "termination"] | additionalProperties=false | allOf=[{"if": {"properties": {"outcome": {"const": "skipped"}}}, "then": {"required": ["skipReason"]}}, {"if": {"properties": {"outcome": {"const": "completed"}}}, "then": {"required": ["result"]}}]
+  stepId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  outcome: $ref="#/$defs/StepOutcome"
+  attempts: type="array" | minItems=0 | maxItems=3 | x-opensip-order="sequence" | items={"$ref": "#/$defs/Attempt"}
+  skipReason: type="string" | enum=["dependency-not-completed", "dependency-not-terminal", "dependency-cancelled"]
+  result: $ref="#/$defs/StepDomainResult"
+  termination: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
+### ComparisonParams | type="object" | required=["kind", "currentStep", "baseline", "auditProfile"] | additionalProperties=false
+  kind: const="comparison"
+  currentStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  pivotStep: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  baseline: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+  auditProfile: $ref="urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/AuditProfileName"
+  acceptOriginProjectIds: type="array" | maxItems=16 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"}
+  closureBundlePath: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+### ComparisonStepResult | type="object" | required=["kind", "comparisonResultId", "currentRunId", "baselineId", "verdict", "comparisonPerformed", "counts"] | additionalProperties=false | description="Operational projection of a ComparisonResultV1. The step termination is derived from verdict: fail → policy-failed (runId = currentRunId); indeterminate → indeterminate with reasonCodes [VERDICT.INDETERMINATE] or [BASELINE.RECIPE_UNSUPPORTED] per d9Deficiency and the descriptor remedy as domainDetail; pass → success (runId = currentRunId). Never defaults to success."
+  kind: const="comparison"
+  comparisonResultId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+  currentRunId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+  baselineId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+  verdict: type="string" | enum=["pass", "fail", "indeterminate"]
+  comparisonPerformed: type="boolean"
+  d9Deficiency: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+  remedy: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+  counts: type="object" | additionalProperties=false | required=["entries", "gating", "indeterminate"] | properties=["entries", "gating", "indeterminate"]
+      entries: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      gating: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      indeterminate: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+### StepDomainResult | oneOf=[{"$ref": "#/$defs/AnalysisResult"}, {"$ref": "#/$defs/ComparisonStepResult"}, {"$ref": "#/$defs/QueryResult"}, {"$ref": "#/$defs/RenderResult"}, {"$ref": "#/$defs/ImportResult"}, {"$ref": "#/$defs/RepairPreviewResult"}, {"$ref": "#/$defs/RepairApplyResult"}, {"$ref": "#/$defs/TestExecutionResult"}, {"$ref": "#/$defs/MutationResult"}, {"$ref": "#/$defs/ExportDeliveryResult"}, {"$ref": "#/$defs/DoctorResult"}, {"$ref": "#/$defs/NativePreparationResult"}]
+### AnalysisResult | oneOf=[{"additionalProperties": false, "allOf": [{"if": {"properties": {"kind": {"const": "verify"}}}, "then": {"required": ["verification"]}}], "properties": {"authority": {"const": "authoritative"}, "comparisonResultId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"}, "coverageId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"}, "deficiency": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"}, "durability": {"const": "committed"}, "kind": {"enum": ["analysis", "verify"], "type": "st... | description="Closed union. authoritative: a committed Run with receipt. ephemeral: no Run, no receipt, no authority; carries only semantic plan/evidence identities so that a result can be cited, and can never satisfy baseline adoption, repair preconditions, or verify."
+### VerificationOutcome | type="object" | required=["appliedSnapshotId", "verifiedSnapshotId", "snapshotMatched", "targetsRemaining", "netNewFindings"] | additionalProperties=false
+  appliedSnapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+  verifiedSnapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+  snapshotMatched: type="boolean"
+  targetsRemaining: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  netNewFindings: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+### QueryResult | type="object" | required=["kind", "items", "truncated", "completenessMet", "advisory"] | additionalProperties=false
+  kind: const="query"
+  items: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  truncated: type="boolean"
+  completenessMet: type="boolean"
+  advisory: type="boolean"
+  nextCursor: type="string" | minLength=1 | maxLength=256
+### RenderResult | type="object" | required=["kind", "format", "rendererVersion", "bytes", "truncation", "written"] | additionalProperties=false
+  kind: const="render"
+  format: $ref="urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/OutputFormat"
+  rendererVersion: type="integer" | minimum=1 | maximum=65535
+  bytes: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  truncation: type="boolean"
+  written: type="boolean"
+### ImportResult | type="object" | required=["kind", "importId", "payloadDigest", "staleness", "receiptId"] | additionalProperties=false
+  kind: const="import"
+  importId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+  payloadDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  staleness: $ref="urn:opensip:product-v1:workflows:imported-evidence#/$defs/Staleness"
+  receiptId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+### RepairPreviewResult | type="object" | required=["kind", "repairPlanId", "snapshotId", "applicable", "unmetPreconditions"] | additionalProperties=false
+  kind: const="repair-preview"
+  repairPlanId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId"
+  snapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+  applicable: type="boolean"
+  unmetPreconditions: type="array" | maxItems=64 | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"}
+### RepairApplyResult | type="object" | required=["kind", "receiptId", "effectOutcome", "journalState", "rollback"] | additionalProperties=false | allOf=[{"if": {"properties": {"effectOutcome": {"const": "COMPLETED"}}}, "then": {"required": ["appliedSnapshotId"]}}]
+  kind: const="repair-apply"
+  receiptId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+  effectOutcome: type="string" | enum=["COMPLETED", "FAILED", "INDETERMINATE"]
+  journalState: $ref="urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/JournalState"
+  appliedSnapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+  rollback: type="string" | enum=["not-needed", "completed", "blocked", "not-attempted"]
+### TestExecutionResult | $ref="urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepResult"
+### MutationResult | type="object" | required=["kind", "receiptId", "effectOutcome", "replayed"] | additionalProperties=false
+  kind: const="mutation"
+  receiptId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+  effectOutcome: type="string" | enum=["COMPLETED", "FAILED", "INDETERMINATE"]
+  replayed: type="boolean"
+### ExportDeliveryResult | type="object" | required=["kind", "delivered"] | additionalProperties=false
+  kind: const="export-delivery"
+  delivered: type="boolean"
+### DoctorResult | type="object" | required=["kind", "reportProduced", "defectsFound", "defects"] | additionalProperties=false
+  kind: const="doctor"
+  reportProduced: type="boolean"
+  defectsFound: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  defects: type="array" | maxItems=256 | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"}
+### Cancellation | type="object" | required=["requested", "signal", "phase"] | additionalProperties=false
+  requested: type="boolean"
+  signal: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Signal"
+  phase: type="string" | enum=["none", "before-settle", "after-settle"]
+### RetentionDisclosure | type="object" | required=["policy", "provenance", "firstUse", "storageRoot"] | additionalProperties=false
+  policy: type="string" | enum=["durable-unbounded", "durable-bounded", "ephemeral"]
+  provenance: type="string" | enum=["DEFAULTED", "CONFIGURED", "EXPLICIT-FLAG"]
+  firstUse: type="boolean"
+  storageRoot: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+### NativePreparationParams | type="object" | required=["kind", "authorizationDescriptorDigest", "securityGrantSetRef"] | additionalProperties=false | description="Digest is raw SHA-256 of canonical retained native AuthorizedExecutionV2. The host verifies that preimage and its grant-set reference, then composes security admission for every owner before spawning. No Run; no automatic retry."
+  kind: const="native-preparation"
+  authorizationDescriptorDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  securityGrantSetRef: type="string" | pattern="^security.repo-execution-grants.v2:[0-9a-f]{64}(?![\\s\\S])"
+### NativePreparationResult | type="object" | required=["kind", "receiptId", "importId", "ownerCount"] | additionalProperties=false | description="Completed preparation only: explicit execution receipt and admitted prepared import. Faults use step termination/journal, never this success record."
+  kind: const="native-preparation"
+  receiptId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+  importId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+  ownerCount: type="integer" | minimum=0 | maximum=4096
+### CoreTransitionIntentV1 | type="object" | required=["schemaVersion", "operation", "fromCoreClosure", "toCoreClosure", "fromStateSchema", "toStateSchema", "platformProfileSetBodyDigest", "preconditionGeneration", "rollbackDeadline", "fromStoreGeneration", "toStoreGeneration"] | additionalProperties=false | description="One closed installation intent for core update/repair/rollback and store migrate/rollback. Security S9.2 admits exact per-operation closure/schema/store/deadline semantics and journals the derived namespace lease set. Store operations keep the core closure; a same-schema core operation keeps the store. Target trust/profile/generation/time observations are host-admitted, never caller granted."
+  schemaVersion: const=1
+  operation: enum=["core-update", "core-repair", "core-rollback", "store-migrate", "store-rollback"]
+  fromCoreClosure: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+  toCoreClosure: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+  fromStateSchema: enum=[1, 2]
+  toStateSchema: enum=[1, 2]
+  platformProfileSetBodyDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  preconditionGeneration: type="integer" | minimum=0 | maximum=18446744073709551615
+  rollbackDeadline: oneOf=[{"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UtcTimestamp"}, {"type": "null"}]
+  fromStoreGeneration: type="integer" | minimum=0 | maximum=18446744073709551615
+  toStoreGeneration: type="integer" | minimum=0 | maximum=18446744073709551615
+### RepairRecoveryIntentV1 | type="object" | required=["schemaVersion", "kind", "journalRef", "repairPlanId", "recoveryAction", "authorizationRef"] | additionalProperties=false | description="Host-created after reading the exact apply journal and obtaining fresh security recovery admission. It binds the mutation step inputDescriptorDigest. All fields join the admitted authorization; inspection uses the query step and needs no authorization."
+  schemaVersion: const=1
+  kind: const="repair-recover"
+  journalRef: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairJournalRef"
+  repairPlanId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId"
+  recoveryAction: enum=["discard-temps", "roll-back-renamed", "verify-postimages-and-commit"]
+  authorizationRef: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairRecoveryAuthorizationRef"
+### MutationReplayScopeV1 | type="object" | required=["schemaVersion", "requestId", "stepId", "projectId", "operation"] | additionalProperties=false | description="Retained operational replay namespace for a generic mutation. H(workflow.mutation-intent, this complete record) is its idempotencyKey. The admitted immutable invocation and step own effect inputs; a key grants no authority and never deduplicates different fresh requests. Repair apply uses its separate exact content-derived recipe."
+  schemaVersion: const=1
+  requestId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
+  stepId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+  projectId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+  operation: allOf=[{"$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation"}, {"not": {"const": "repair-apply"}}] | x-opensip-vocabulary={"commandEmissionMap": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommandGenericMutationStep", "fieldDomainAuthority": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/admissibleGenericFieldDomain", "scope": "GENERIC mutation steps. The ADMISSIBLE domain of this field is every MutationOperation member except repair-apply, which the `not` bes...

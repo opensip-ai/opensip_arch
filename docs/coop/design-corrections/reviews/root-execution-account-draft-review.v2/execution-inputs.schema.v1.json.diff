@@ -1,0 +1,89 @@
+--- source32/docs/coop/design-corrections/foundation/execution-inputs.schema.v1.json
++++ active-draft/docs/coop/design-corrections/foundation/execution-inputs.schema.v1.json
+@@ -82,6 +82,13 @@
+       },
+       "x-opensip-order": "canonical-set"
+     }
++  },
++  "x-opensip-derived-carrier-law": {
++    "standing": "NORMATIVE, external to JSON Schema. cellOutcomes[].deficiency / nativeCause are DERIVED; this file can only type them. Published so that a conforming host that declines to invent a carrier is not refused for it.",
++    "primaryPair": "An incomplete/partial derivation's (deficiency, nativeCause) is the FIRST retained source record that actually carries a typed pair, in a deterministic order: for a native account, the returned partitions in canonical H order followed by any named-but-not-returned Coverage. The pair is taken WHOLE from that one record; deficiency and nativeCause are never unzipped and re-paired across records.",
++    "pureMissingWork": "When the only incompleteness is MISSING WORK - no returned partition at all, or expected source subjects (source-path / package-name / symbol) that no returned partition covers - no retained source carries a pair, and the derived pair is explicitly (null, null). It is NOT provider-unavailable: that would assert a provider observation occurring on no source record. Census-driven incompleteness has no named deficiency and needs none; (null, null) is the answer and no new vocabulary member is introduced.",
++    "obligationIsKept": "(null, null) does not weaken anything. The account stays incomplete, the cell row stays partial, a required cell still emits its requiredCellDeficiencies row, and composition section 9.6 maps the null deficiency to proof cause required-cell-unsatisfied with the ExecutionInputsV1 ref plus the originating refs. Nothing here may promote incomplete extraction to complete.",
++    "realCarriersSurvive": "Where a retained inventory, Coverage, candidate or binding record DOES carry a typed pair, that exact pair and its originating ref are kept. Inventory budget-exhausted is never rewritten as provider-unavailable, a sibling record's carrier is never borrowed, and every per-record triple stays on derivedAccounts[].coverageRecords."
+   },
+   "x-opensip-new-internal-faults": {
+     "standing": "NEW/internal. Typed missing/invalid/lost routes; object mismatch is not a missing pointer. Completeness is derived, not a host scalar.",
+@@ -610,7 +617,39 @@
+         "applicability",
+         "coverageIds"
+       ],
+-      "description": "References plus explicit applicability for one matrix relation@rung on one binding. coverage/state/deficiency/nativeCause/scopeIds/examinedExhaustive are NOT host fields; admission derives them from ALL owner CoverageResultV3 entries of this cell/program/returned-view/enumerator/U/pair. complete is never a self-asserted scalar. coverageIds for a supported-available pair MUST equal every matching partition in this cell's returned views, not a selected-complete subset. Empty coverageIds on supported-available means native-work-incomplete, not fabricated Coverage.",
++      "description": "References plus explicit applicability for one matrix relation@rung on one binding. coverage/state/deficiency/nativeCause/scopeIds/examinedExhaustive are NOT host fields; admission derives them from ALL owner CoverageResultV3 entries of this cell/program/returned-view/enumerator/U/pair. complete is never a self-asserted scalar. coverageIds for a supported-available pair MUST equal every matching partition in this cell's returned views, not a selected-complete subset. Empty coverageIds on supported-available means native-work-incomplete, not fabricated Coverage. Two laws of this record are EXTERNAL joins that JSON Schema cannot express, because the comparand is a different document: see x-opensip-external-joins. They are published in foundation/execution-inputs-contract.v1.md section 5 and enforced by admission, not by this file.",
++      "x-opensip-external-joins": {
++        "standing": "NORMATIVE but not schema-expressible. JSON Schema validates this record alone; it cannot compare a field to EnumerationPlanV1, to the capability matrix or to the admitted VCS observation. These rows say what admission compares, so a conforming host is not left to guess, and so nobody reads schema silence as permission.",
++        "joins": [
++          {
++            "field": "sourceUniverse",
++            "equals": "EnumerationPlanV1.cells[cellOrdinal].programBindings[programOrdinal].universe",
++            "law": "The account's sourceUniverse IS its binding's universe coordinate, for EVERY applicability. An inapplicable-vcs, unsupported-typed, unavailable-unselected or unavailable-null-universe account carries no Coverage, and that does NOT erase the coordinate. A null binding universe stays null. Violation: EXECUTION_INPUTS_COVERAGE_DERIVE.",
++            "notThis": "sourceUniverse is NOT 'null whenever coverageIds is empty'. That reading is also internally consistent, which is exactly why the normative one has to be published rather than left to the reference implementation."
++          },
++          {
++            "field": "applicability",
++            "equals": "first match of x-opensip-applicability-precedence over (relation, admitted VCS kind, matrix cell state, binding enumerator status, binding universe)",
++            "law": "Applicability is DERIVED, not host-chosen. Violation: EXECUTION_INPUTS_COVERAGE_DERIVE, or EXECUTION_INPUTS_VCS_APPLICABILITY when either side is inapplicable-vcs."
++          }
++        ],
++        "deliberatelyNotJoined": {
++          "field": "targetUniverse",
++          "law": "targetUniverse is NOT constrained by the source-universe join. A Coverage or fact may name a target in another universe; cross-universe relationships, incoming targets and multi-universe Runs stay lawful. Nothing in this record may be read as prohibiting them."
++        }
++      },
++      "x-opensip-applicability-precedence": {
++        "standing": "NORMATIVE FIRST-MATCH order. Total: exactly one token applies. Published because two of the tokens are otherwise indistinguishable to a host.",
++        "order": [
++          {"token": "inapplicable-vcs", "when": "relation is vcs-change AND the admitted VCS observation kind is none"},
++          {"token": "unsupported-typed", "when": "the native capability matrix cell for (capabilityId, languageMode) is UNSUPPORTED-TYPED"},
++          {"token": "unavailable-unselected", "when": "the binding enumerator status is unselected"},
++          {"token": "unavailable-null-universe", "when": "the binding universe is null"},
++          {"token": "supported-available", "when": "otherwise"}
++        ],
++        "whyUnselectedPrecedesNullUniverse": "The enumeration owner refuses a non-null universe on an unselected enumerator (foundation/enumeration-contract.v1.md section 1), so an unselected binding ALWAYS has universe null. Testing the universe first would make unavailable-unselected unreachable and would collapse two advertised enum members into one. With this order they have distinct reachable meanings: the enumerator was not selected, versus a SELECTED enumerator whose binding has no universe. Reject a malformed binding under its own owner; never invent a shape solely to reach a branch.",
++        "matrixOutranksBoth": "unsupported-typed precedes both unavailable tokens, so an UNSUPPORTED-TYPED cell still discloses the matrix deficiency and its registered cause even when the enumerator is unselected and U is null. It never fabricates Coverage at null U."
++      },
+       "properties": {
+         "cellOrdinal": {
+           "type": "integer",
+@@ -629,6 +668,7 @@
+           "type": "string"
+         },
+         "sourceUniverse": {
++          "description": "The BINDING's universe coordinate, for every applicability, including accounts with no Coverage. Null exactly when the binding universe is null. Nullable here only because a null binding universe is lawful; it is NOT a free choice. This file cannot check it (the comparand is EnumerationPlanV1) - see x-opensip-external-joins.",
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"
+@@ -639,6 +679,7 @@
+           ]
+         },
+         "targetUniverse": {
++          "description": "Deliberately NOT tied to the binding universe by section 5. Cross-universe targets, incoming targets and multi-universe Runs stay lawful; nothing here restricts them.",
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"
+@@ -649,6 +690,7 @@
+           ]
+         },
+         "applicability": {
++          "description": "Derived FIRST-MATCH from (relation, admitted VCS kind, matrix cell state, enumerator status, binding universe). See x-opensip-applicability-precedence. Enum membership is all this file can check; the order is the external join.",
+           "type": "string",
+           "enum": [
+             "supported-available",
+@@ -659,6 +701,7 @@
+           ]
+         },
+         "coverageIds": {
++          "description": "Every matching returned partition for a supported-available pair; empty for the other four. An UNSUPPORTED-TYPED cell that lawfully returned an unknown CoverageResultV3 still names NOTHING here: that Coverage stays retained in its view, in selectedRefs and in native disclosure, and the unsupported-typed applicability plus derivedAccounts' matrix pair are the account-level disclosure. Empty here never means the Coverage was discarded.",
+           "type": "array",
+           "maxItems": 1024,
+           "uniqueItems": true,

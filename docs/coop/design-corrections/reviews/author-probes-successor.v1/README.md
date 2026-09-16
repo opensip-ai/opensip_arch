@@ -1,0 +1,1 @@
+Author portability corrections to four auxiliary probes. Explicit source/package/output paths, bundled transport, fresh outputs outside input trees. No frozen file modified; factual/causal claims remain subject to ongoing actual Claude review. This is not independent consumer reconstruction.

@@ -1,0 +1,86 @@
+{
+  "mutationReplayScopeV1": {
+    "file": "docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json",
+    "def": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "stepId",
+        "projectId",
+        "operation"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
+        },
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+        },
+        "operation": {
+          "allOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation"
+            },
+            {
+              "not": {
+                "const": "repair-apply"
+              }
+            }
+          ],
+          "x-opensip-vocabulary": {
+            "fieldDomainAuthority": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/admissibleGenericFieldDomain",
+            "commandEmissionMap": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommandGenericMutationStep",
+            "scope": "GENERIC mutation steps. The ADMISSIBLE domain of this field is every MutationOperation member except repair-apply, which the `not` beside the $ref refuses; it is deliberately WIDER than the set of operations today's commands emit, and the command map is NOT this field's domain. An earlier annotation named the command list here, which was a different vocabulary."
+          }
+        }
+      },
+      "description": "Retained operational replay namespace for a generic mutation. H(workflow.mutation-intent, this complete record) is its idempotencyKey. The admitted immutable invocation and step own effect inputs; a key grants no authority and never deduplicates different fresh requests. Repair apply uses its separate exact content-derived recipe."
+    }
+  },
+  "mutationPreimageIdChecks": {
+    "requestId": "req-7f3a1c",
+    "stepId": "step-2",
+    "requestIdMatchesCommonPattern": false,
+    "stepIdType": "str",
+    "commonStepIdDef": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 63
+    }
+  },
+  "contractSection5Full": "## 5. Cursor, paging, and work bounds\n\nPublic bound constants (schema `Bounds`; unchanged):\n\n| Constant | Value |\n|---|---|\n| maxPageSize | 1000 |\n| defaultPageSize | 100 |\n| maxItemsPerOperation | 100000 |\n| maxTraversalDepth | 64 |\n| maxVisitedNodes | 1000000 |\n\n`host.testBounds` may only lower visited/produced caps for reference controls. Public constants do not change.\n\n**Visited-node law.** `visitedNodes` is the number of distinct canonical endpoints **entered** during this logical operation. Fact-id scans are not visits. Check the cap **before** entering an unvisited endpoint; do not increment past the cap. Neighbors enter only the query endpoint. Path and reach enter start, then each newly reached endpoint. Zero-hop path with `maxVisitedNodes=1` is exactly-at-cap complete when no further vertex is owed. One-edge path with `maxVisitedNodes=1` does not enter the target (`visitedNodes=1`, `truncated-bound` if that hop is owed).\n\n**Produced-item law.** `maxItemsPerOperation` counts result units of the logical operation, not per page, and does not reset on continuation. Take the canonical prefix. Remaining units after the prefix are owed work (`countBasis=lower-bound`).\n\n**Cursor.** Opaque token, max 256 chars. Reference form `q3.<runId-64hex>.<selectionHash64>.<position>` binds project+Run+fact-views+operation+effective params (including materialized `includeStart` default)+order+position. The token grants no authority: parameters and view membership are independently admitted. Continuation requires request `view.{runId}` equal to the bound Run. Rebuild from the same available closure is allowed. Cache presence must not change result, count, or completeness; this reference strong path does not read `host.cache`.\n\n**Page fullness** is `truncated-page`, `truncated=false`. It is not operation truncation. Empty `nextCursor` is not native closed-world. Completeness is `traversalCoverage=complete` and `countBasis=exact`. Exactly-at-cap with an empty owed frontier is complete, not incomplete. A cursor cannot continue past the caps.\n\n`completeness=required` plus `truncated-bound` \u2192 StepTermination class `indeterminate`, `reasonCodes: [\"QUERY.COMPLETENESS_UNMET\"]`.\n",
+  "typescriptImportFacts": [
+    {
+      "factId": "fact2:1dd1faa409d3a13317",
+      "payload": {
+        "importer": "ts:src/index.ts#main",
+        "resolvedTarget": "ts:src/legacy.js",
+        "specifier": "./legacy"
+      }
+    },
+    {
+      "factId": "fact2:6c95abd31e4f0f52e6",
+      "payload": {
+        "importer": "ts:src/index.ts#main",
+        "resolvedTarget": "ts:src/util.ts",
+        "specifier": "./util"
+      }
+    },
+    {
+      "factId": "fact2:824aa367a57f9bae1b",
+      "payload": {
+        "importer": "ts:src/index.ts#main",
+        "resolvedTarget": "ts:node_modules/left-pad/index.d.ts",
+        "specifier": "left-pad"
+      }
+    }
+  ]
+}

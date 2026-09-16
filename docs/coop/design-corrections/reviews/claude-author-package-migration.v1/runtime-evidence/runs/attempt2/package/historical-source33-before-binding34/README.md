@@ -1,0 +1,36 @@
+# Source33 author reference package (v10) — review pending
+
+Thirteen cases and seven queries, as before. What changed in this revision, and what did not:
+
+* **Reminted on frozen source33**: `checkpoint3` (the TypeScript positive), `binding-controls`
+  (three) and `semantic-controls1` (three). Their predecessors were source30 constructions whose
+  retained proof no longer replayed under source33 and are preserved verbatim under
+  `historical-source33-before-remint/`.
+* **Reused EXACT source30 construction bytes**: `normalized-examples6` (four) and
+  `rust-selection-examples1` (two). Their bytes are unchanged and they were re-verified against
+  frozen source33 in this same pass, so their standing is measured here, not inherited.
+* **Corrected**: the bundled `author-helpers/evaluator.py` execution-deficiency carrier. It had
+  kept the pre-source33 rule under which a Coverage record carrying no pair borrowed a sibling's
+  deficiency while keeping its own null nativeCause, with a manufactured `provider-unavailable`
+  behind that. It now emits each record's own exact pair and `(null, null)` when a record carries
+  none. `source33-remint.v1.json` records the exact proof difference this fixed. **No frozen
+  source byte was changed and no fixture was adjusted to make an old artifact pass.**
+* **Reproduced byte-identically** on source33: `author-properties.json` and
+  `mixed-universe-view.probe.json`.
+
+Run the reference interpreter with `-I -B verify-package.py --source <frozen-source33> --out
+<new-external-output>`. It verifies exact source/package hashes, executes structural and full
+semantic closure on all thirteen cases, then reproduces and asserts seven query checks. Property
+and mixed-universe probes remain separate: `check-author-properties.py` and
+`probe-mixed-universe-view.py` take `--source/--package/--out`. Prior execution does not imply
+current execution.
+
+Evidence limits remain unchanged. Only the TypeScript checkpoint compares a partial consumer
+helper with the owner; the six other positives are owner-derived/replayed self-consistency. The
+helper exercises `exists`/`none`; `and`/`or`/`not` are unexercised and `count-at-most`/
+`all-covered` are unimplemented. The two-binding construction is incomplete and retains a single
+explicit binding. Synthetic records qualify no compiler, provider, OS or process-isolation
+boundary, and the host TCB assumption of the thirteen cases is unchanged. This package holds
+author-assisted reference evidence, never independent review, blind acceptance or final
+application approval. It must never be supplied to the blind consumer. All thirty independent
+residual grades remain PENDING.

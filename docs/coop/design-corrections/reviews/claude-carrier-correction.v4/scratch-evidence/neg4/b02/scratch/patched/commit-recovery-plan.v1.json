@@ -1,0 +1,628 @@
+{
+  "schemaVersion": 1,
+  "standing": "Proposed local carrier design and future fault-injection plan; not public wire schema, executable storage, crash test results or independent acceptance. Extended by the carrierFormat 3 correction with cases F38-F49; every added case is not-executed.",
+  "recordName": "CommitRecoveryAssociationV1",
+  "recordSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Proposed private CommitRecoveryAssociationV1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "recordSchema",
+      "storeGenerationDigest",
+      "namespaceId",
+      "executionId",
+      "runId",
+      "inventoryDigest",
+      "commitSequence",
+      "receiptBytesSha256",
+      "journalCarrierDigest",
+      "grantGeneration",
+      "journalSeq",
+      "journalBodySha256",
+      "operationRef"
+    ],
+    "properties": {
+      "recordSchema": {
+        "description": "Constant 1; reject unknown versions before joins.",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1
+      },
+      "storeGenerationDigest": {
+        "description": "SHA-256 of exact canonical private StoreGenerationBindingV1; compare with the custody-admitted active or explicitly selected historical store generation.",
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "namespaceId": {
+        "description": "Exact receipt namespace and registered project namespace; binary equality, no path resolution.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "executionId": {
+        "description": "Exact host attempt ExecutionId and receipt executionId; never derived from operationRef.",
+        "type": "string",
+        "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])"
+      },
+      "runId": {
+        "description": "Byte-equal evaluator RunId, SEAL runId and receipt runId; current run3 only.",
+        "type": "string",
+        "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "inventoryDigest": {
+        "description": "Exact admitted retention inventory and receipt inventoryDigest.",
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "commitSequence": {
+        "description": "Canonical decimal text for receipt commitSequence 0..18446744073709551615; parse as an exact integer, never SQL REAL or JavaScript Number.",
+        "type": "string",
+        "pattern": "^(0|[1-9][0-9]{0,19})(?![\\s\\S])"
+      },
+      "receiptBytesSha256": {
+        "description": "Raw SHA-256 of the exact stored receipt bytes; verify its selected schema and signer/custody separately.",
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "journalCarrierDigest": {
+        "description": "Existing journal projectKeyDigest from the security-owned carrier binding, not a hash of a caller-supplied path.",
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "grantGeneration": {
+        "description": "Exact positive i64 security generation; inherited metadata range.",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9223372036854775807
+      },
+      "journalSeq": {
+        "description": "Exact ordinary-append sequence; inherited uint53 terminal slot 9007199254740991 stays reserved even though the broader product record shape permits i64.",
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740990
+      },
+      "journalBodySha256": {
+        "description": "Exact security carrier body hash of the validated SEAL; verify the owner hash chain and witness, not only this string.",
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+      },
+      "operationRef": {
+        "description": "Exact security-owned op- plus 32 lowercase hex token from the live session; map explicitly to executionId without changing either grammar.",
+        "type": "string",
+        "pattern": "^op-[0-9a-f]{32}(?![\\s\\S])"
+      }
+    }
+  },
+  "fieldKinds": {
+    "recordSchema": "integer",
+    "storeGenerationDigest": "hex64",
+    "namespaceId": "text",
+    "executionId": "execution",
+    "runId": "run",
+    "inventoryDigest": "hex64",
+    "commitSequence": "decimal-u64",
+    "receiptBytesSha256": "hex64",
+    "journalCarrierDigest": "hex64",
+    "grantGeneration": "integer",
+    "journalSeq": "integer",
+    "journalBodySha256": "hex64",
+    "operationRef": "operation"
+  },
+  "extraAdmissionRules": [
+    "commitSequence must decode exactly to uint64; length/pattern alone does not enforce the upper bound.",
+    "JSON booleans are not integers; unknown fields, duplicate keys and lossy numeric parsing are refused.",
+    "All exact owner joins and witness/hash-chain/high-water checks in the owning prose are mandatory.",
+    "Private SQL commitSequence is canonical decimal TEXT with binary collation and length 1..20; one private ledger accessor implements length-then-bytes comparison and exact uint64 decoding. No bare lexical MAX/ORDER BY, integer CAST or REAL path may allocate or order commits. The private association mirrors the already allocated receipt counter; it never allocates one."
+  ],
+  "primaryKey": [
+    "storeGenerationDigest",
+    "namespaceId",
+    "executionId"
+  ],
+  "uniqueKeys": [
+    [
+      "storeGenerationDigest",
+      "namespaceId",
+      "commitSequence"
+    ],
+    [
+      "journalCarrierDigest",
+      "grantGeneration",
+      "journalSeq"
+    ]
+  ],
+  "cases": [
+    {
+      "id": "F00",
+      "checkpoint": "Before project/store admission",
+      "possibleStoredState": "No new source-derived state",
+      "initialConclusion": "refused",
+      "expectedBehavior": "No live writer/session; no commit call; reads for diagnosis remain read-only.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F01",
+      "checkpoint": "Replay refuses or target/inventory is substituted",
+      "possibleStoredState": "No authoritative receipt",
+      "initialConclusion": "refused",
+      "expectedBehavior": "Neither structural-only validation nor a stale boolean/token can publish authority.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F02",
+      "checkpoint": "During temporary object write",
+      "possibleStoredState": "Partial private temp files; no ledger receipt",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Do not expose partial objects; later authorized reconciliation may remove orphans.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F03",
+      "checkpoint": "After temp write, before file barrier completes",
+      "possibleStoredState": "Temporary bytes may or may not survive",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Never infer durability from write return alone.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F04",
+      "checkpoint": "After object file barrier, during digest-addressed publication",
+      "possibleStoredState": "Some immutable objects may be present",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Verify existing collisions by exact digest/length; never overwrite unequal bytes.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F05",
+      "checkpoint": "After object publication, before directory barrier completes",
+      "possibleStoredState": "Visible names may not survive restart",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "No receipt has committed; presence alone grants no authority.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F06",
+      "checkpoint": "After object barriers, journal/evidence transaction acquisition refused or busy",
+      "possibleStoredState": "Durable orphan objects; no ledger receipt",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Acquire journal then evidence level-3 transactions before append lock; if either acquisition fails release earlier resources, apply S7 non-waiting rules and preserve orphan status.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F07",
+      "checkpoint": "After witness PENDING persist, before SEAL journal transaction",
+      "possibleStoredState": "Witness may lead journal tail by one",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Read-only diagnosis reports would-REVERT; only authorized lifecycle open reconciles it.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F08",
+      "checkpoint": "During SEAL journal append before journal commit",
+      "possibleStoredState": "Journal transaction may abort; witness PENDING",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "No evidence-ledger commit is permitted yet; validate actual journal tail before deciding REVERT/ADVANCE.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F09",
+      "checkpoint": "SEAL journal commit outcome unknown",
+      "possibleStoredState": "SEAL may be durable, witness PENDING",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Provided evidence ledger absence is verified: uncommitted; inability to read it remains indeterminate. Never proceed to evidence commit on an uncertain journal barrier.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F10",
+      "checkpoint": "SEAL durable, witness COMMITTED update interrupted",
+      "possibleStoredState": "Journal at PENDING target or finalized witness",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Read-only diagnosis reports would-ADVANCE where lawful; no evidence commit until witness finalization succeeds.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F11",
+      "checkpoint": "SEAL/witness durable, evidence ledger rows partially inserted inside transaction",
+      "possibleStoredState": "SEAL exists; receipt/association not yet committed",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Atomic transaction exposes all required rows or none; no commit from a lone SEAL.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F12",
+      "checkpoint": "Evidence ledger commit syscall returns error/connection lost",
+      "possibleStoredState": "Transaction may have committed or aborted",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Initial caller outcome durability-undetermined with ExecutionId. Fresh verified lookup may establish committed or uncommitted; no write retry.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F13",
+      "checkpoint": "Evidence commit observed before all required carrier barriers confirmed",
+      "possibleStoredState": "Durable result not yet established",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Do not return PublishedCommit; recovery examines actual committed receipt and barrier/carrier state.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F14",
+      "checkpoint": "All commit barriers completed, acknowledgement lost",
+      "possibleStoredState": "Exact receipt and association committed",
+      "initialConclusion": "committed",
+      "expectedBehavior": "Fresh read-only lookup confirms historical commitment and separately inspects object availability.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F15",
+      "checkpoint": "Acknowledgement delivered, later process crash",
+      "possibleStoredState": "Acknowledged sealed history remains",
+      "initialConclusion": "committed",
+      "expectedBehavior": "Do not re-run mutation or create a second receipt for the same attempt during recovery.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F16",
+      "checkpoint": "Required projection/HTML/output fails after commit",
+      "possibleStoredState": "Committed Run remains intact",
+      "initialConclusion": "committed-delivery-failed",
+      "expectedBehavior": "Preserve RunId and existing required-delivery operational failure/exit4.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F17",
+      "checkpoint": "Optional browser launch/export fails after required delivery",
+      "possibleStoredState": "Committed Run and required artifact remain",
+      "initialConclusion": "committed",
+      "expectedBehavior": "Optional effect failure is disclosed without rewriting result or treating export as required.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F18",
+      "checkpoint": "REV or observer fail-stop before final SEAL checkpoint",
+      "possibleStoredState": "No later SEAL or evidence commit",
+      "initialConclusion": "refused",
+      "expectedBehavior": "Disclose already completed external effects under S6; a prior semantic replay token grants no current authority.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F19",
+      "checkpoint": "Observer stall/freshness failure after SEAL but before evidence commit",
+      "possibleStoredState": "SEAL may survive; evidence commit prevented if checkpoint fails",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Recheck after blocking journal/witness work. On failure latch fail-stop, abort evidence transaction, release ordered locks, then record REV through a new lawful journal call; never reacquire level3 under level4. Actual syscall stall bounds require qualification.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F20",
+      "checkpoint": "Malformed, mismatched or hash-divergent witness",
+      "possibleStoredState": "Carrier cannot be admitted",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Quarantine/report the owner condition; never normalize or repair malformed bytes in a read-only query.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F21",
+      "checkpoint": "Missing witness with a nonempty journal",
+      "possibleStoredState": "Witnessless restore condition",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Use security quarantine semantics; a matching SEAL or receipt alone does not bypass custody.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F22",
+      "checkpoint": "Journal tail below trusted high-water / equal seq different hash",
+      "possibleStoredState": "Rollback or uncertain tail loss",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Preserve floors and historical bytes; only owner-authorized recovery can reconcile admitted cases.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F23",
+      "checkpoint": "Only receipt or only association appears committed",
+      "possibleStoredState": "Impossible partial transaction or corruption",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Refuse local commitment confirmation; preserve observed rows for diagnosis, do not synthesize the missing partner.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F24",
+      "checkpoint": "Evidence ledger unreadable or wrong store selected",
+      "possibleStoredState": "No reliable lookup conclusion",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Never interpret failed read, wrong generation or empty fallback DB as no commit.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F25",
+      "checkpoint": "Confirmed receipt, required evidence later missing/corrupt/purged",
+      "possibleStoredState": "Historical commitment with changed availability",
+      "initialConclusion": "committed-degraded",
+      "expectedBehavior": "Preserve assurance/verdict; disclose exact missing references and current availability, never reseal.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F26",
+      "checkpoint": "Revocation or expired grants observed after confirmed commit",
+      "possibleStoredState": "Historical receipt remains",
+      "initialConclusion": "committed",
+      "expectedBehavior": "Confirm history without reusing grants for new effects; current custody still gates reading.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F27",
+      "checkpoint": "Store-generation/namespace/operation/execution binding swap",
+      "possibleStoredState": "Contradictory local association",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Refuse substituted recovery target; compare all independent owner joins, not just RunId.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F28",
+      "checkpoint": "Journal record pruned or unavailable after retained receipt",
+      "possibleStoredState": "Historical record exists but required recovery custody cannot be reconstructed",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Never invent a journal proof or erase the historical receipt. Recovery metadata needs a retention root; lawful migrations preserve its verification lineage.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F29",
+      "checkpoint": "Reader observes transaction during publication",
+      "possibleStoredState": "Committed snapshot excludes in-flight rows",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Readers see old complete state or new complete state; no mixed receipt/association. A later valid PENDING journal append does not block confirmation of an earlier durable prefix. A snapshot missing an actively running requested attempt is not final absence.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F30",
+      "checkpoint": "Competing writer or EXCLUSIVE census while APPEND writer active",
+      "possibleStoredState": "First admitted writer retains its guard",
+      "initialConclusion": "refused",
+      "expectedBehavior": "Exercise actual process lock modes and S7 busy/retry behavior; no waiting/upgrades under the wrong lock.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F31",
+      "checkpoint": "Journal carrier cannot represent schema3 SEAL/current platform",
+      "possibleStoredState": "Carrier incompatibility detected before commit work",
+      "initialConclusion": "refused",
+      "expectedBehavior": "Explicit versioned migration required; never insert SEAL into the inherited SQL check set by disabling constraints.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F32",
+      "checkpoint": "Journal sequence reaches reserved terminal capacity",
+      "possibleStoredState": "No ordinary SEAL in terminal slot",
+      "initialConclusion": "refused",
+      "expectedBehavior": "Storage returns CarrierCapacityExhausted {grantGeneration, provenTailSeq} to host/finalization.rs. Host completes cleanup and releases the operation lease, then calls lifecycle under its fence to close/roll the generation. No storage-to-lifecycle reverse call, fence acquisition or rollover inside commit.",
+      "verificationOwner": "crates/host/tests/retention_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F33",
+      "checkpoint": "Receipt/inventory/signature or journal-body join differs",
+      "possibleStoredState": "Observed record cannot confirm claimed local commit",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Hash presence alone is insufficient; validate closed schemas, owner digests, signatures/custody and full object inventory.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F34",
+      "checkpoint": "Duplicate commit request for the same ExecutionId",
+      "possibleStoredState": "Existing exact attempt may already be committed",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Route to read-only recovery; compare requested binding exactly and refuse a different binding; do not INSERT OR REPLACE or auto-append a new SEAL.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F35",
+      "checkpoint": "Explicit store migration/restore with previous receipt associations",
+      "possibleStoredState": "Old associations remain tied to old generation",
+      "initialConclusion": "indeterminate",
+      "expectedBehavior": "Use admitted migration lineage for historical lookup or explicit adoption with a new attempt; never rewrite old association IDs to imply new local authority.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F36",
+      "checkpoint": "Orphan SEAL followed by a later successful operation",
+      "possibleStoredState": "An aborted attempt has a valid durable SEAL but no receipt/association; a later attempt commits successfully",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "Keep the earlier SEAL as operational history only. It must never become a committed Run in history, receipt, availability or query selection, including after restart or a later commit in the same journal generation. admit_analysis_seal establishes record and Run validity, not durable commitment; only the guarded evidence-ledger receipt/association establishes that attempt’s commit. A later attempt may lawfully commit the same semantic RunId: report that new ExecutionId/receipt as committed while the earlier ExecutionId remains uncommitted. Never globally blacklist a RunId because one attempt left an orphan SEAL.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F37",
+      "checkpoint": "Decimal sequence ordering and uint64 conversion boundaries",
+      "possibleStoredState": "Associations contain exact text values 0, 2, 9, 10, 100 and 18446744073709551615",
+      "initialConclusion": "validate-private-accessor",
+      "expectedBehavior": "The sole private ordering accessor returns numeric magnitude order and round-trips the full uint64 maximum. Reject leading zeroes, negatives, over-range values and lossy parsing. Exercise the bare lexical MAX/ORDER BY and CAST-to-i64 counterexamples to show why they are forbidden; no allocation decision may use the association column.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F38",
+      "checkpoint": "Observer latch wins before commit admission (atomic bit state reaches 2), after SEAL/witness durable and after association staging",
+      "possibleStoredState": "Durable SEAL and COMMITTED witness; receipt/association staged but never committed",
+      "initialConclusion": "uncommitted",
+      "expectedBehavior": "A latch winning at state 0 prevents the gate entirely, so the compare-exchange 0 to 1 fails and no commit permit is ever minted. The staged evidence transaction is aborted, level 4 and both level-3 transactions are released, then a fresh lawful level-3 to level-4 append records REV/CLN under the still-held stopped operation lease. The durable SEAL remains an uncommitted attempt exactly as F36 requires and must never become committed history.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F39",
+      "checkpoint": "Observer latch arrives after the atomic 0 to 1 admission (bit state becomes 3) and the commit is later confirmed",
+      "possibleStoredState": "Exact receipt and association committed and durable",
+      "initialConclusion": "committed-delivery-failed",
+      "expectedBehavior": "State 3 does not revoke the already admitted attempt or relabel its outcome. The commit stays committed and its RunId stays observable. The latch forbids further effect admission and retries, so no new required-delivery phase is started and required delivery is reported through the existing DELIVERY.REQUIRED_FAILED, operational-failed, exit 4 path. With no latch (state 1) the same commit proceeds to a normal successful required-delivery phase in SHARED-READ mode, drawing no authority from the returned stopped cleanup-only session. A failed or latching attempt cannot reacquire authority by opening a delivery phase.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F40",
+      "checkpoint": "Commit syscall returns an error or a required barrier is unconfirmed, with or without a concurrent latch",
+      "possibleStoredState": "Transaction may have committed or aborted",
+      "initialConclusion": "durability-undetermined",
+      "expectedBehavior": "Report DURABILITY.COMMIT_FAILED, operational-failed, exit 4. Retain ExecutionId for correlation and omit runId, because RunId is externally observable only for a committed Run. The settled ExecutionId is terminal: no automatic write retry, and a later attempt receives a fresh ExecutionId. A latch does not convert this into uncommitted. A later read-only recovery may establish committed or terminal-not-committed and may then report the RunId; that asymmetry is intended.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F41",
+      "checkpoint": "Latch and commit admission race on the one atomic bit state, across every interleaving",
+      "possibleStoredState": "Either no evidence commit was issued, or exactly one was",
+      "initialConclusion": "single-winner-invariant",
+      "expectedBehavior": "States stay within 0..3 and never reset during the attempt. Commit admission is compare-exchange 0 to 1 and fails from state 2. The observer always fetch-ORs 2, including 1 to 3, so a post-admission latch is never lost and the fetch-OR is idempotent and never clears ADMITTED. The successful gate mints one single-use permit: a second consume, including any retry path, obtains no commit. No effect is admitted while latched. Exercise the real atomic primitive with deterministic synchronisation, not only a model.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F42",
+      "checkpoint": "mem::forget, process abort or an indefinitely stalled syscall on the commit path",
+      "possibleStoredState": "Any state; no destructor is guaranteed to have run",
+      "initialConclusion": "unknown-custody",
+      "expectedBehavior": "Drop is best-effort only, and the outer prepared-commit state has no Drop that prevents moving its owned fields during publish. These paths must leave recovery evidence and return an honest unavailable or busy result, never a claimed cleanup success. Recovery in a fresh process reads the actual stored bytes and returns a verified conclusion or unknown-custody. No OS cancellation bound may be inferred from Rust types. An attempt left in the admitted phase by such a path stays unknown until an authorized sweep settles it.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F43",
+      "checkpoint": "Read-only recovery ordering hazard: the association journalSeq exceeds the observed journal tail",
+      "possibleStoredState": "Journal read snapshot older than the evidence ledger snapshot, or the tail was lost",
+      "initialConclusion": "unavailable-busy",
+      "expectedBehavior": "Take exactly one fresh capture and re-read tail, witness and floor; never re-read the ledger. If reconciled, continue. If still ahead and the floor lastSeq is at or above the requested sequence with two agreeing tail observations, report the F22 quarantine condition. Otherwise return unavailable or busy attributed to the security carrier owner. Never conclude uncommitted, and never draw a conclusion from two different snapshots.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F44",
+      "checkpoint": "Prefix anchor with a PENDING witness at the next slot and the requested sequence above the SC-TRUST floor",
+      "possibleStoredState": "Durable prefix exists but no live witnessed anchor names it; a newer append is in flight",
+      "initialConclusion": "unknown-custody",
+      "expectedBehavior": "Report unknown, explicitly not invalidated. An earlier committed receipt is never invalidated by a newer PENDING append. Report the witnessWouldRevert diagnosis and perform no REVERT, no ADVANCE, no witness write and no high-water raise. Do not wait on the writer.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F45",
+      "checkpoint": "Prefix anchor with a PENDING witness at the tail carrying the tail body digest",
+      "possibleStoredState": "The append became durable before the witness was advanced",
+      "initialConclusion": "committed-historically",
+      "expectedBehavior": "The witness still names the durable tail, so it anchors it. Confirm for any requested sequence at or below the tail under anchor class witness-pending-at-tail, provided the witness bracket was byte-stable. Report witnessWouldAdvance as a diagnosis and perform no ADVANCE. The conclusion class is confirmed-under-retained-custody, never a cryptographic proof, and every confirming result carries the interior-bodies-not-authenticated diagnosis.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F46",
+      "checkpoint": "The generation holding the requested attempt is carrierFormat 1 or 2",
+      "possibleStoredState": "Historical generation in which no schema-3 SEAL row can exist",
+      "initialConclusion": "unknown-carrier-incompatible",
+      "expectedBehavior": "Report carrier incompatibility, never not-committed and never uncommitted. Read historical bytes under recordSchema-1 semantics only; never relabel them as schema 3 and never present a historical platform alias as an S8 machine id. This is the read-side counterpart of F31. Note the measured scope: the inherited carrier refuses exactly the SEAL record type and the three alias-only machine platform ids, and admits the other eight schema-3 operational types.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F47",
+      "checkpoint": "Carrier-format migration from 1 or 2 to 3",
+      "possibleStoredState": "Inherited generation closed by TERMINAL; new carrierFormat 3 objects present",
+      "initialConclusion": "migrated",
+      "expectedBehavior": "TERMINAL closes the inherited generation under the inherited constraints with no constraint or trigger disabled and no row rewritten. The TERMINAL row carries the migration operation own op- token, never a released analysis operation ref. Inherited rows and inherited schema objects stay byte-unchanged and legacy platform aliases are retained verbatim. A second migration aborts. A write to a generation below first_generation is refused. Run the whole transition under the install fence with EXCLUSIVE on the affected namespace and an intent written only after every lease is held.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F48",
+      "checkpoint": "Post-migration open and read dispatch, including a core that does not support carrierFormat 3",
+      "possibleStoredState": "carrierFormat 3 carrier present",
+      "initialConclusion": "refused",
+      "expectedBehavior": "A carrierFormat 1-or-2-only core refuses the carrier typed and keeps its prior generation until it expires, mirroring the S9 dual-reader staging. A carrierFormat 1-2-3 core detects the format by schema introspection only, verifies that the frozen side-table SQL text byte-equals the frozen definition, verifies the carrier projectKeyDigest and the generation boundary, then reads both historical and current generations without relabelling either.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    },
+    {
+      "id": "F39b",
+      "checkpoint": "Concurrency capture races during read-only recovery: a lawful concurrent APPEND-WRITE advances the witness, tail or floor between the reader's own observations, and a writer commits and exits after the reader's ledger snapshot",
+      "possibleStoredState": "Carrier is entirely lawful; the reader's independently timed observations are mutually skewed, and its ledger snapshot may predate a commit that then completes",
+      "initialConclusion": "unavailable-busy",
+      "expectedBehavior": "Two separate laws. First, an adverse witness or floor observation is a reportable owner quarantine condition only when both bracketing reads are byte-identical AND two journal snapshots agree on the tail sequence and tail digest; otherwise it is attributed to temporal skew and reported busy. A lawful later append must never produce a corruption diagnosis, and the reader must never invent one from independently timed observations. Second, terminality comes from the ledger-owned AttemptCustodyV1 phase read in the SAME snapshot as the receipt; no in-memory active set or separately timed liveness probe is consulted, so a stale snapshot plus later inactivity never yields a terminal not-committed conclusion. Bound the whole protocol to one ledger snapshot, at most two journal snapshots, at most four witness and four floor reads, no lock, no wait on the writer and no mutation. Exercise real concurrent processes, not only the model.",
+      "verificationOwner": "crates/storage/tests/commit_tests.rs",
+      "executionStanding": "not-executed"
+    }
+  ],
+  "storeGenerationBindingSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "urn:opensip:design:private-store-generation-binding:1",
+    "title": "Private StoreGenerationBindingV1, author design only",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schemaVersion",
+      "namespaceId",
+      "storeInstanceId",
+      "storeGeneration",
+      "stateSchema"
+    ],
+    "properties": {
+      "schemaVersion": {
+        "type": "integer",
+        "const": 1
+      },
+      "namespaceId": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "storeInstanceId": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{32}(?![\\s\\S])"
+      },
+      "storeGeneration": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9223372036854775807
+      },
+      "stateSchema": {
+        "type": "integer",
+        "enum": [
+          1,
+          2
+        ]
+      }
+    }
+  }
+}

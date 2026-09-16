@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-generator-adapter-review-03",
+  "reviewer": "Claude (independent, fresh)",
+  "subject": {
+    "root": "/tmp/opensip-implementation/m1-generator-adapter-subject-03",
+    "manifest": "/tmp/opensip-implementation/m1-generator-adapter-subject-03.json",
+    "subjectManifestSha256": "ff8c39858d4ff2cc52449c897a99c7b58dd281415f2f17d14b0ca033eef1f4ef",
+    "files": 87,
+    "exactSetVerified": {"before": true, "midReview": true, "afterAllProbing": true, "unlisted": 0, "linkedOrNonregular": 0},
+    "bindingDigests": {
+      "registrySha256": "4cf6dbd5ee3449d25d18c3fda9814654aff154f387a0ff85c3cc2bdb1faa5979",
+      "generatorClosureSha256": "3473abef473b7f510afca16ffbc49a22ad0654c1caef1512ffa64849af8d1b7a",
+      "optionsSha256": "1719ef1860624e390af57f58c9670b60c68aa9d599eba3a4cee18d43343d7902",
+      "sourceMapSha256": "561cf9ef76d04bab37cec2791eb61786d48c52d8ac0938d38d9e3f003022708a",
+      "generatorExecutableSha256": "0a49cfc4d65818aa3d845487491b49d202519deda27236a2aa712a1d9ae0768e",
+      "designLockSha256": "d80a7eeecf561c270e2e409fdf705f1010b3545b83461cfe6fc5404d5e1b2aff"
+    }
+  },
+  "verdict": "CHANGES-REQUIRED",
+  "acceptedVerdict": null,
+  "verdictSummary": "One required finding, RF1: the parent renders the step-4 write/read grant from the step-3 child's mutable output root. With RF1 corrected and a real-sandbox regression test added, the reviewed evidence supports ACCEPT-UNIT for the concrete adapter and fixed macOS development host profile. A narrow delta review is needed. Not hermetic, not product integration, not release/runtime qualification.",
+  "scope": {
+    "reviewed": [
+      "tools/generate_contracts.py",
+      "tools/contracts/adapter.py",
+      "tools/contracts/prepare.py",
+      "tools/contracts/prepare-inputs.py",
+      "tools/build_contracts.py",
+      "tools/check_dependencies.py",
+      "tools/contracts/src/main.rs",
+      "tools/contracts/generate-ts.cjs",
+      "tools/contracts/validate-schemas.cjs",
+      "tools/contracts/render-types.cjs",
+      "tools/contracts/runtime/schema.ts",
+      "generator-closure.json",
+      "python-profile.json",
+      "build-receipt.json",
+      "dependency-policy.json",
+      "four test modules"
+    ],
+    "trustModel": "Parent/admission Python, the host kernel, sandbox-exec/system.sb, dyld and system libraries are the explicit reviewed TCB. Child steps (Python preparation code/modules, Node scripts and TypeScript package, Rust generator binary) are treated as untrusted for confinement.",
+    "notReaudited": "General architecture; the original Typify/pure-dependency algorithms accepted earlier."
+  },
+  "priorFindings": {
+    "NR1": {"status": "resolved", "evidence": "validate_options and flatten refuse denied refs and any denied+'/' prefix. The real CLI with --write refuses P5 (options-level HelloV3/properties/protocolMajor). A nested $ref into HelloV3/properties/protocolMajor added to a selected native definition (sources/source-map/closure rebound) is refused inside the confined Python child. Outputs unchanged in both cases. The TS facade refuses direct, nested and trailing-slash superseded refs.", "logs": ["logs/probe-E-guards-publish.json", "logs/probe-F-facade.json"]},
+    "NR2": {"status": "resolved", "evidence": "The policy row subjectDeclaredFeatures={} is enforced. Real cargo metadata refuses both an inactive serde/rc forwarding feature and an empty local feature; the unmodified workspace passes with 11 dependencies. The fixture tests pass.", "logs": ["logs/console-results.md"]},
+    "A1": {"status": "addressed within declared TCB", "evidence": "prettyplease replaces rustfmt, nativeLibraries=[], and the generator links only libSystem. The Python child is confined with exact interpreter/library/25 .py + 3 .so grants. The parent interpreter and entrypoint are declared TCB, not self-verified trust."},
+    "A2": {"status": "addressed as observed-build join (non-reproducible)", "evidence": "The receipt join checks sources, builder, dependencies, profile flags and executable. An independent clean vendor build (network denied) produced a different hash (6b35cbaf…) whose 8 output bodies are byte-identical to the frozen outputs."},
+    "A7": {"status": "resolved", "evidence": "Child stdout/stderr are captured; success prints exactly one JSON line (real runs and --write)."},
+    "A8": {"status": "resolved for adapter refusal logic", "evidence": "Nine stub execution tests exist; stubs bypass sandbox-exec by design. The real-sandbox behaviour was independently exercised (probes A-G)."},
+    "NA1": {"status": "resolved", "evidence": "convert() compares nested $id/$schema; test and code confirmed."},
+    "NA2": {"status": "resolved (see ADV1)", "evidence": "createReportShapeRegistry exposes a frozen {checkEntryPoints, matches} limited to the 586 selected refs."},
+    "NA3": {"status": "partially resolved", "evidence": "All 28 pins match the architecture checkout, but they bind worktree bytes (see ADV2)."},
+    "NA4": {"status": "not re-assessed in this review"},
+    "NA5": {"status": "resolved", "evidence": "validate-schemas writes schema-runtime.cjs into runtime-scratch, not inputs."},
+    "NA6": {"status": "unchanged design observation"}
+  },
+  "requiredFindings": [
+    {
+      "id": "RF1",
+      "title": "Step-4 confinement grant is derived from the step-3 child's mutable output root",
+      "location": "tools/generate_contracts.py:72-81 (child_profile) and :394-405 (run: shared output, quote()=Path.resolve(strict=True) at render time)",
+      "detail": "The Node/Rust child_profile grants file-write* and file-read* on (subpath output), which includes the root literal. The generator child (step 3) can rmdir the root and create a symlink at work/output pointing to any existing directory. The parent then renders the TypeScript child's (step 4) profile with Path(output).resolve(strict=True), so step 4 is granted read and write on the symlink target. The Python child's profile already excludes its root literal; the Node/Rust profile does not. The parent's O_NOFOLLOW collection then refuses publication, but the outside effect has already happened. The step-2 child can likewise replace runtime-scratch (demonstrated), which is currently harmless because scratch is only used as cwd.",
+      "evidence": {
+        "control": "Real generator plus a probe TS child: read, create and overwrite of the victim are all EPERM.",
+        "escape": "Symlinking generator stub plus the same probe TS child: victim canary read ALLOWED, new file written ALLOWED, canary overwritten ('victim canary\\ntampered\\n'). The parent exits 1; checked-in outputs are unchanged.",
+        "honestStep4": "An honest generate-ts.cjs got EPERM traversing the symlink path, so a single malicious step-3 child alone did not produce outside writes. The escape needs a step-4 child that targets the resolved path.",
+        "fixValidated": "In a rebound copy, a write grant of (require-all (subpath p) (require-not (literal p))) blocks the escape (all victim operations EPERM). Real four-step generation with the same change still publishes bodies identical to the frozen outputs.",
+        "logs": [
+          "logs/probe-B-output-root-escape.json",
+          "logs/probe-B2-two-step-escape.json",
+          "logs/probe-D-node-child.json",
+          "logs/probe-G-fix-validation-and-new-binary.json"
+        ]
+      },
+      "correction": "Make every child write root parent-owned and non-replaceable, and never derive a later grant from child-mutable state. Minimum: exclude the root literal from Node/Rust write grants (as the Python profile does). Before rendering each subsequent profile, lstat-check that output/scratch are still the parent-created directories (same st_dev/st_ino, not symlinks). Preferably give steps 3 and 4 distinct fresh output roots and render all profiles from paths resolved once before any child runs. Add a real sandbox-exec regression test (not the stub runner) where step 3 replaces its root and step 4 attempts an outside read/write."
+    }
+  ],
+  "advisories": [
+    {"id": "ADV1", "title": "report.ts still exports generic SchemaRegistry/parseExact/canonical", "detail": "The embedded selected bytes are reachable only through the frozen facade (all 9 probe refs and all 4 unselected definitions refused; facade mutation ineffective). Consumers can still construct their own SchemaRegistry. Either document it as a generic inert API or stop exporting it from the report output."},
+    {"id": "ADV2", "title": "Architecture pins bind worktree bytes, not a commit", "detail": "All 28 source-map pins match /Users/sb/code/opensip-ai/opensip_arch bytes. At HEAD c3856824…, 22 of the paths are untracked and 3 are modified. Integration binding should name a committed/reviewed architecture revision or an equivalent frozen manifest."},
+    {"id": "ADV3", "title": "Parent could re-derive owners.json", "detail": "owners.json from the confined Python child flows into the generator without comparison. The parent can cheaply require exactly json.dumps(options['owners'], indent=2)+'\\n'. Integrity currently rests on pinned prepare code."},
+    {"id": "ADV4", "title": "Receipt join is narrow and non-reproducible", "detail": "validate_build_receipt does not check tools/versions/target/python/environment/command fields against anything. It records an observed trusted-host build, not an attestation. Nine dependency build scripts and three proc-macros run unconfined on the trusted host at build time (prettyplease build.rs reviewed: benign)."},
+    {"id": "ADV5", "title": "Resource limits", "detail": "Fork and exec are denied in all child profiles (probes A, C, D), so the 300 s timeout kill covers the whole child. CPU/memory/disk use inside granted roots is unbounded until the 128 MiB collection check. The timeout path was reviewed in code, not triggered."},
+    {"id": "ADV6", "title": "Witness provenance record", "detail": "validation-03 witness-source.json names the trial-02 corpus (533f82b7…). The file actually used (d79f78e0…) is that corpus minus the 5 superseded rows with identical values. Record the derived file digest."}
+  ],
+  "selectedInputGenerationObligations": {
+    "metWithinExplicitTCB": "Yes for the exact selected inputs, except the RF1 cross-step confinement defect.",
+    "details": [
+      "Source/options/output-role/vocabulary guards refuse all exercised mutations (22 generation tests plus independent CLI probes).",
+      "Four real child steps run under sandbox-exec. Outside reads/writes, input/code writes, hardlinks, network (TCP, UDP, DNS, mDNSResponder, syslog), fork and exec are denied. Symlink/fifo/extra outputs are refused by the collector without reading outside bytes.",
+      "The Python child is strict: unpinned stdlib (csv, socket) cannot import, fork/exec are EPERM, and its root cannot be removed.",
+      "Malformed Python-profile, confinement, hostProfile and nativeLibraries mutations are refused with controlled GenerationError before any child runs.",
+      "Publishing preflight: a hard-linked destination is replaced without touching outside bytes, a symlinked generated directory refuses before any write, and stdout is one JSON line.",
+      "A fresh 8-output drift check on the frozen copy with the real binaries is clean.",
+      "The TS outputs pass a strict tsc compile, and all 1338 selected witnesses pass Rust roundtrip and TS original-schema matching."
+    ]
+  },
+  "remainingBootstrapCheckBeforeIntegration": "An external reviewed anchor (the inventory/design-lock successor, not these self hashes) must select registry 4cf6dbd5… plus recipe contracts-v1, whose generatorClosureSha256 3473abef… covers options 1719ef18…, source-map 561cf9ef…, build receipt and generator executable 0a49cfc4…, node 1ee75375… and python b502cb4c…. Its 28 architecture sources must be pinned at a committed architecture revision. verify_design currently carries the accepted predecessor lock and does not select these rows. Then the protocol/report source-closure owners, and other platform/release qualification, remain integration obligations.",
+  "limits": [
+    "macOS 26.6.2 aarch64 development host only. sandbox-exec/system.sb, kernel, dyld, CoreFoundation/Security, Homebrew Python and nvm Node are trusted, and the files are only integrity-checked before and after.",
+    "No hermeticity, reproducible-build or release/runtime claim. A malicious host user racing native files is out of scope.",
+    "Seatbelt behaviour was observed empirically on this OS build; SBPL semantics are undocumented.",
+    "Timeout expiry and memory/disk exhaustion were not triggered.",
+    "Rust Clippy/fmt were not re-run.",
+    "Linux and other targets were not examined.",
+    "Witness results are finite observations, not semantic admission."
+  ],
+  "evidence": {
+    "logs": [
+      "logs/manifest-before.json",
+      "logs/manifest-mid.json",
+      "logs/manifest-after.json",
+      "logs/unit-tests.log",
+      "logs/drift-check.stdout",
+      "logs/drift-check.stderr",
+      "logs/probe-A-direct-profile.json",
+      "logs/probe-B-output-root-escape.json",
+      "logs/probe-B2-two-step-escape.json",
+      "logs/probe-C-python-child.json",
+      "logs/probe-D-node-child.json",
+      "logs/probe-E-guards-publish.json",
+      "logs/probe-F-facade.json",
+      "logs/probe-G-fix-validation-and-new-binary.json",
+      "logs/new-build-receipt-compare.json",
+      "logs/console-results.md"
+    ],
+    "scripts": [
+      "work/verify_manifest.py",
+      "work/probe.c",
+      "work/rebind.py",
+      "work/probe_direct_profile.py",
+      "work/probe_output_root_escape.py",
+      "work/probe_B2_two_step_escape.py",
+      "work/probe_C_python_child.py",
+      "work/probe_D_node_child.py",
+      "work/probe_E_guards_publish.py",
+      "work/probe_F_facade.cjs"
+    ],
+    "tests": "75 tests OK on a byte-identical copy (22 generation + 9 execution + 4 build + 11 dependency = the claimed 46, plus 29 design-binding).",
+    "mutationsConfinedTo": "/tmp/opensip-implementation/m1-generator-adapter-review-03 (copies, victims, build/temp dirs); no leftover opensip temp dirs."
+  },
+  "standing": "Independent development review. No product admission, M1 acceptance, commit or push."
+}

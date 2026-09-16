@@ -1,0 +1,601 @@
+--- before/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ staged/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -2,3 +2,3 @@
+ 
+-Standing: product successor authored by Codex, with review and application
++Standing: product successor authored by Codex and actual Grok, with inherited actual Claude review, with review and application
+ standing governed by the [correction record](../../../coop/design-corrections/README.md)
+@@ -7,4 +7,6 @@
+ machine-readable descriptors and reference semantics are in
+-[foundation](../../../coop/design-corrections/foundation/). Every `schemaVersion`
+-in the new semantic identity graph is 2. Old identifiers remain old identifiers.
++[foundation](../../../coop/design-corrections/foundation/). The intended evaluator
++output profile is 3; unchanged native and input identities retain their declared
++profile-2 recipes. Historical identifiers are never relabelled. The explicit
++dispatch below selects one coherent graph.
+ 
+@@ -68,3 +70,3 @@
+ grammar is end-anchored**: `^exec1_[0-9a-f]{32}(?![\s\S])`, exactly as
+-`identity-schemas.v2.json#/$defs/commit-receipt/properties/executionId` and the
++`identity-schemas.v3.json#/$defs/commit-receipt/properties/executionId` and the
+ workflow `ExecutionId` spell it, and a trailing newline, carriage return or space
+@@ -76,2 +78,24 @@
+ with uniqueness checked in the corresponding operational ledger before use.
++That uniqueness reservation is unchanged and applies to **every** RequestId and ExecutionId,
++in every request mode. It is stated here only as the pre-use uniqueness rule; it is not by
++itself a durable permanent record of an attempt.
++
++**Separately, and only for durable-authoritative commit-capable attempts**, the evidence
++ledger additionally carries a private `AttemptCustodyV1` row (product canonical profile):
++`{phase: admitted | settled, settledOutcome: null | committed | refused, operationRef}`,
++keyed by `(storeGenerationDigest, namespaceId, executionId)`. Its scope is exactly the
++attempts that can publish an authoritative commit receipt through the guarded commit facade.
++**It is not acquired by read-only requests, and not by `--ephemeral`**, which §5 owns as
++explicitly non-authoritative, using temporary custody and minting no authoritative commit
++receipt: those modes take no persistent evidence-ledger write and no security operation
++reference from this record. `admitted → settled` is the only transition; it is never
++reversed, deleted, re-opened or rewritten, and the settle write is ordered **after** the
++receipt write, so a receipt present while the row is still `admitted` is the lawful pre-settle
++interval and not a defect. There are exactly two settled outcomes, because those are the only
++two an observer can prove: a durability-uncertain attempt stays `admitted` and its caller
++separately receives the D9 `DURABILITY.COMMIT_FAILED` response, which is not a custody claim.
++It authorizes nothing: settling records an outcome and never licenses a retry, so a settled
++ExecutionId stays terminal. `operationRef` here is the durable home of the
++`executionId ↔ operationRef` correlation for attempts that never commit, which is why no
++field is added to the closed schema-3 `JournalRecord` to correlate a pending `REV`.
+ Caller-supplied IDs and reuse are refused; neither is derived from a content hash.
+@@ -86,3 +110,3 @@
+ 
+-The authoritative schema is `foundation/identity-schemas.v2.json` (closed
++The authoritative schema is `foundation/identity-schemas.v3.json` (closed
+ Draft 2020-12 records); semantic joins below are equally mandatory. JSON Schema
+@@ -123,3 +147,3 @@
+ 
+-Every array in identity-schemas.v2 carries this annotation: semantic collections
++Every array in identity-schemas.v3 carries this annotation: semantic collections
+ use `canonical-set`, inventories use `path`, dependencies use `numeric`, stages
+@@ -129,4 +153,4 @@
+ `allowedScopes` preserves declared priority; declaration-signature tokens
+-preserve grammar order, including repeated tokens. PolicyDocumentV1 and
+-RuleProgramV1 `rules` preserve their schema's `ruleId` order, never canonical
++preserve grammar order, including repeated tokens. PolicyDocumentV2 and
++RuleProgramV2 `rules` preserve their schema's `ruleId` order, never canonical
+ rule-object order; WaiverSetV1 uses `waiverId`. Other native/workflow arrays
+@@ -164,9 +188,10 @@
+ | finding-fingerprint / finding-key2 | stable rule name, detector semantics major, logical subject key and related subject keys |
+-| finding / finding2 | fingerprint, exact rule closure, subject, message code/parameters, severity and evidence references |
+-| proof-bundle / proof2 | Plan, derivation plan, evaluator closure, rule program, admitted evaluation input references, predicate proofs, findings and verdict |
+-| semantic-evidence / evidence2 | Plan, views, Coverage, imports, findings and proof |
+-| evaluation-seal / seal2 | Plan, derivation plan, evidence, evaluator, policy, proof and verdict |
+-| run / run2 | ProjectId, snapshot, Plan, evidence, evaluation seal and capability manifest |
++| evaluation-subject / subject3 | native universe, primary kind and native subject ID; package also requires its manifest path |
++| finding / finding3 | nullable stable fingerprint and explicit correspondence state, rule closure and ruleId, subject3 and display attribution, message code/parameters, severity and evidence references |
++| proof-bundle / proof3 | Plan, derivation plan, evaluator closure, rule program, complete captured input selection, subject enumeration, all predicate proofs, findings, waived finding IDs, per-rule outcomes/deficiencies, execution deficiencies/state and verdict |
++| semantic-evidence / evidence3 | Plan, views, Coverage, imports, findings and proof |
++| evaluation-seal / seal3 | Plan, derivation plan, evidence, evaluator, policy, proof and verdict |
++| run / run3 | ProjectId, snapshot, Plan, evidence, evaluation seal and capability manifest |
+ | cache-key / cache2; regeneration-key / regen2 | Plan, exact producer, stage spec, scopes, inputs and output schema |
+-| policy-derivation / policy-derivation2 | Plan, proof, policy, waivers and verdict |
++| policy-derivation / policy-derivation3 | Plan, proof, policy, waivers and verdict |
+ | quality-difference (unprefixed operational digest) | G13 independently recomputed expected/actual observation difference; never Run authority |
+@@ -253,2 +278,9 @@
+ and digest for every selected file. A semantic version alone is not a closure.
++Security S1 owns the exact projection from the admitted selected-platform
++TreeCommitment: regular files map to Blob path, digest and byte length;
++directory, symlink and mode metadata remain bound by the component manifest.
++The optional `.opensip/detector-compatibility.json` file is part of that signed
++tree. Its listing bytes have their own Blob digest and never occupy
++`closure.manifestDigest`. Workflow §2 consumes the listing only after admission
++of the same closure and the exact reserved file commitment.
+ 
+@@ -374,6 +406,6 @@
+ 
+-Arrays have a closing default; so do digests. **Every 64-hex field in
+-identity-schemas.v2 has exactly one representation and one retention mode**,
++Arrays have a closing default; so do digests. **Every bare 64-hex digest field in
++identity-schemas.v3 has exactly one representation and one retention mode**,
+ declared field-by-field by the machine-readable `x-opensip-digest` schema
+-annotation. There is no residue: a 64-hex field carrying no annotation is
++annotation. There is no residue: a bare 64-hex digest field carrying no annotation is
+ inadmissible, and a producer may not choose a representation for it. Nothing in
+@@ -383,5 +415,26 @@
+ The array law closes by naming a default; this law closes by admitting **no**
+-default, which is stronger: a new 64-hex field added without an annotation
++default, which is stronger: a new bare 64-hex digest field added without an annotation
+ refuses at admission instead of silently inheriting a plausible rule, so the
+ omission that produced this paragraph cannot recur unnoticed.
++
++The same law governs every **foundation record document** this closure walks through a
++`{document, selector}` record: `enumeration-plan.schema.v1`, `subject-inventory.schema.v1`,
++`evaluator-emission-plan.schema.v1`, `target-attribution.schema.v1`/`v2`,
++`incoming-search.schema.v1`, `execution-inputs.schema.v1` and `import-source-context.schema`
++(identity-schemas and the relation payload document carry their own sweeps). Each bare 64-hex
++position there declares its own representation and retention on the leaf, branch, `items` node or
++enclosing property; none is presumed to be raw SHA256 because it is 64 hex characters. For example
++`ExecutionInputsV1.enumerationPlanDigest` is a `canonical-record` of `EnumerationPlanV1`,
++`viewDigests[]` and `coverageIds[]` are bare `h-identity` suffixes of `view2`/`coverage2`, the
++`universe` fields are `h-identity` suffixes of the native semantic-universe domain set,
++`InputRefV1.digest` is `by-domain`, and `CandidateSourceBodyV1.contentSha256` is a `raw-artifact`.
++Before such a record is walked its document is swept, and an unannotated position refuses
++(`FOUNDATION_DIGEST_UNANNOTATED:<document>:<position>`), so a host-input schema cannot reintroduce
++an unannotated digest that the Run walk passes silently.
++
++The machine-readable `x-opensip-digest-domains.scope` selects bare digest
++fields, including a reference to `#/$defs/Hash` and a non-null alternative of a
++nullable field. A typed-prefix identity field is outside this annotation scope:
++its prefix selects the identity domain and representation in the §3 identity
++table. Its hex suffix is not a separate bare digest field.
+ 
+@@ -411,3 +464,3 @@
+ | `preimage` (default) | the exact preimage bytes are retained in the content-addressed store **under this digest**; the closure checker fetches them and re-hashes. |
+-| `fragment` | the preimage is a canonical sub-object of an already retained record; the annotation's `locatedBy` states which record and which addressing rule, and the closure checker recomputes it there rather than storing it twice. Closed to `program-predicate.nodeDigest`. |
++| `fragment` | the preimage is a canonical sub-object of an already retained record; the annotation's `locatedBy` states which record and which addressing rule, and the closure checker recomputes it there rather than storing it twice. A fragment is still a canonical record: the located sub-object is validated against the annotation's own `{document, selector}` before its digest is compared, and a node that does not satisfy that record refuses even when its digest matches. Closed to `program-predicate.nodeDigest`, whose record is `workflows/schemas/policy-document.v2.schema.json#/$defs/Predicate` because the addressed rule program is `RuleProgramV2`. |
+ | `derived` | recomputed from another retained artifact by the stated recipe. Closed to `capabilityManifestId`, derived from the `capabilityManifestBytesDigest` artifact. |
+@@ -456,3 +509,3 @@
+ their representation from their sibling `domain` through the normative
+-`x-opensip-digest-domains.byDomain` registry in identity-schemas.v2. Every member
++`x-opensip-digest-domains.byDomain` registry in identity-schemas.v3. Every member
+ of every `domain` enum is registered; an unregistered domain refuses. The
+@@ -466,3 +519,3 @@
+ semantic value (§1.1 of admission-and-qualification). `scopeDigest` hashes the
+-closed scope-descriptor record in identity-schemas.v2 (workspace roots, requested
++closed scope-descriptor record in identity-schemas.v3 (workspace roots, requested
+ path prefixes and excluded path prefixes, canonical sets of admitted relative
+@@ -494,2 +547,49 @@
+ 
++**What `sourceInventory` contains (consumer24 A4).** The snapshot source inventory
++is (1) the deterministic custody walk of the admitted first-party files under the
++project root, which is every file the shared discovery rule reaches and never
++descends into a pruned tree (`node_modules`; `.git`, `.hg`, `.svn`, `.jj`; a Cargo
++`target` directly under a Cargo root; native §1.4 U-4a), **plus** (2) exactly the
++bytes the analysis actually required and read from inside the project root but
++outside that walk: files a Plan-selected TypeScript context read from an installed
++dependency tree it committed to its read set (`nodeModulesInReadSet`). Unread pruned
++material is excluded, so two hosts over the same checkout, analysis and read set mint
++the same `snapshot2` whatever else sits in `node_modules` or `target`. Required inputs
++read from **outside** the project root are not snapshot paths and are never flattened
++into this inventory: compiler files and the TypeScript standard library stay in their
++`toolchain` and `stdlib` closures, Rust dependency sources stay in their
++`DependencySourceSetV1` and closure records, and each is joined by its own owner. The
++retained `ResolvedNodeModulesLayoutV1` rows are package-directory resolution
++observations joined by blob digest, not inventory rows themselves; its registered
++schema description states the same law. Read pruned-tree bytes are retained
++under their inventory digests like every other row and appear in membership as
++`syntax-only` / `host-ignore-convention` (native U-4). Run closure joins them: a
++snapshot row inside a dependency tree must lie inside a package directory
++(`installPath` or `realPath`) of the retained `ResolvedNodeModulesLayoutV1` of a
++Plan-selected context that committed `nodeModulesInReadSet`, and a VCS-tree or Cargo
++build-output row is never a read input of any published universe. A dependency
++package's read allowance never overrides a VCS-tree exclusion deeper in that path;
++the VCS exclusion uses exact segments at every depth. **Nested packages have
++explicit custody.** A listed directory authorizes a read file below it only while
++the path suffix below that exact directory has no further exact `node_modules`
++segment. A nested installed package (for example
++`node_modules/left-pad/node_modules/evil`) is its own installed package directory
++and needs its own layout row; an enclosing listed directory never authorizes it.
++Listed directories are admitted `CanonicalPath` prefixes compared by exact segment,
++not package roots parsed from a path, so a package-manager store or workspace-link
++`realPath` authorizes its ordinary descendants, and a lookalike segment such as
++`node_modules-like` is no boundary. A row outside every pruned tree stays with the
++first-party custody walk even when a listed `realPath` contains it. Discovery's
++outermost pruned anchor is unchanged and is not this authorization boundary. Any
++violation refuses `SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay decides and
++what it does not prove.** Replay decides every inventoried row: a recorded read
++path that crosses a nested installed-package boundary without its own retained
++row refuses, whatever enclosing directory is listed. The custody walk and the read
++set are host TCB observations retained with the Run. Bytes-only replay re-checks
++every retained digest, and this join, at package-directory granularity. It cannot
++prove that the host walked every first-party file, that it read no file missing
++from the inventory, or which of a listed package's own files it read: those are
++properties of an unobserved host process, not of the retained bytes.
++Security S3 "Pruned trees and the read set" carries the matching custody statement.
++
+ The closure checker parses and exactly validates scope, semantic configuration,
+@@ -506,3 +606,10 @@
+ roots equal the named views and coverage roots equal their coverage union.
+-`semantic-evidence.importIds` repeats the Plan-selected import set **exactly**: the two are equal as canonical sets and any difference in either direction refuses (`IMPORT_JOIN`). It is a repetition of the Plan's selection, never a second selection — evidence can neither drop a selected import from the record nor add one the Plan did not select. `proof-bundle.evaluationInputRefs` separately names the subset actually **evaluated**, which must be a subset of the selected set (`UNSELECTED_EVALUATION_IMPORT`) and never grants authority to an unselected import. Selection is retention, not use: a selected import is resolved and admitted by the Run closure even when nothing evaluated it, and selection alone lets no finding cite it — import citations are restricted to the evaluated subset (`HIDDEN_FINDING_EVIDENCE`). A selected but non-evaluated import contributes no fact to any view.
++`semantic-evidence.importIds` repeats the Plan-selected import set exactly.
++The evaluator3 proof also names every Plan-selected import in
++evaluationInputRefs. Admission, scope relevance and availability assessment are
++evaluation inputs even when an import contributes no matching observation row.
++MatchingImportCount counts matched observation addresses, not selected wrappers.
++A finding may cite an evaluated import to explain a match or an availability
++decision; selection never turns imported observations into native facts. No
++unselected import acquires authority.
+ 
+@@ -512,7 +619,8 @@
+ registered payload adapters are separate trusted admission stages, not assumed
+-validated merely because an opaque digest exists. The finite reference fixture
+-carries a real PolicyDocumentV1 and its compiled RuleProgramV1 in the product DSL,
+-so the record shapes, digests and joins above are exercised as specified; only its
+-*interpreter* is small, evaluating a single-atom subset, and it qualifies neither
+-the declarative language nor a native Coverage or relation payload registry.
++validated merely because an opaque digest exists. The profile3 reference
++reconstructs the complete declarative predicate tree, subject population, native
++and imported atoms, finding parameters/citations, waivers and verdict. Synthetic
++extraction inputs are admitted by the actual native owner before complete replay.
++This is contract evidence; it does not qualify a real compiler or provider.
++Historical single-atom fixtures cannot establish profile3 admission.
+ 
+@@ -523,8 +631,8 @@
+ policy or compiler language in this contract. `plan.policyDigest` and
+-`policy-derivation.policyDigest` name `PolicyDocumentV1`; `plan.waiverDigest` and
++`policy-derivation.policyDigest` name `PolicyDocumentV2`; `plan.waiverDigest` and
+ `policy-derivation.waiverDigest` name the resolved effective `WaiverSetV1`;
+-`proof.ruleProgramDigest` names `RuleProgramV1`. The compiled program is not a
++`proof.ruleProgramDigest` names `RuleProgramV2`. The compiled program is not a
+ free artifact: its `policyDigest` must equal the Plan's, and it must be exactly
+ the projection of the Plan-selected policy's rules
+-(`{schemaVersion:1, policyDigest, rules:[{ruleId, ruleProgramRef, emitWhen}]}`,
++(`{schemaVersion:2, policyDigest, rules:[{ruleId, ruleProgramRef, emitWhen}]}`,
+ in the policy's own `ruleId` order). Blob bytes are `raw-artifact`. The source
+@@ -549,3 +657,3 @@
+ for each payload, exactly which document bytes are hashed and which selector
+-validates. `identity-schemas.v2.json#/x-opensip-payload-registry` is that
++validates. `identity-schemas.v3.json#/x-opensip-payload-registry` is that
+ registry. For every class in it:
+@@ -755,3 +863,3 @@
+ carried its own abstract tier vocabulary — `syntax`, `resolved`, `type`,
+-`external` — reached from `PolicyDocumentV1` `Atom.minResolution` and reused by
++`external` — reached from `PolicyDocumentV2` `Atom.minResolution` and reused by
+ repair's `EvidenceRequirement`. It shared **zero** members with the fifteen rung
+@@ -784,3 +892,3 @@
+ at admission: in the workflow policy resolver, and at the **Run closure**, over
+-both the Plan's `PolicyDocumentV1` and the proof's compiled `RuleProgramV1`. An
++both the Plan's `PolicyDocumentV2` and the proof's compiled `RuleProgramV2`. An
+ evaluator-only check would let a sealed Run assert a predicate that was never
+@@ -811,3 +919,3 @@
+ 
+-The closing digest law above governs identity-schemas.v2, and the native contract
++The closing digest law above governs identity-schemas.v3, and the native contract
+ extends it to its own bundle. `foundation/relation-payload-schemas.v2.json` was
+@@ -956,2 +1064,27 @@
+   inadmissible; the specification is retained and re-hashed at closure.
++- **Which specification a level uses, and who owns it (consumer24 S2).** Retention
++  alone did not say whose specification a digest is or for which level: a
++  specification of another level, or bytes outside any interpreting component,
++  re-hashed and closed. The closure that **interprets the body span** owns the answer.
++  For TypeScript and Rust that is the universe context's `toolClosure.closureId`; for
++  syntax-only it is `grammarBundle.closureId`, as published per universe domain by
++  `languageVersionBinding.normalizationClosure`. That closure's `tree` carries, at
++  exactly `opensip-interface/normalization/specification-map.v1.json`, the canonical
++  bytes of `identity-schemas.v3.json#/$defs/normalization-specification-map`:
++  `{schemaVersion: 1, normalizerId, levels: [{level, specificationDigest}]}`, with
++  `levels` strictly ascending by `level`. Run closure requires, in order: the member
++  exists (`BODY_NORMALIZATION_MAP_MISSING`); its bytes are that canonical record
++  (`BODY_NORMALIZATION_MAP_INVALID`); the payload's `normalisationLevel` has a row
++  (`BODY_NORMALIZATION_LEVEL_UNMAPPED`); that row's `specificationDigest` equals
++  `normalisationVersion` (`BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH`); and that digest is
++  a member of the same closure's tree (`BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE`),
++  with its bytes retained. Absent promised bytes remain retention loss. A new level
++  specification or normalizer version is new bytes in the owning closure, so it is a new
++  `closure2` and a new Plan/Run chain; no platform table or implementation file name is
++  consulted. `SyntaxGrammarBundleV1.normalizer.specificationDigest` keeps its native
++  admission meaning and does not select a level's specification. The machine-readable
++  statement is `x-opensip-digest-domains.normalizationSpecificationLaw`. The registered
++  relation document's `levelSpecificationRetained` sentence ("names the retained level
++  specification bytes") is unchanged in bytes and is read under this law for evaluator3
++  closure. Historical Runs keep their earlier custody-only reading.
+ - `bodyIdentity` is `sha256:` followed by SHA-256 of the **fully framed,
+@@ -992,3 +1125,3 @@
+ 
+-`body-language-version` is defined in identity-schemas.v2 and its retention is
++`body-language-version` is defined in identity-schemas.v3 and its retention is
+ **`derived`**: no field of it is a free input, every field is copied from a named
+@@ -1130,3 +1263,3 @@
+ `{schemaVersion: 2, ruleProgramDigest, ruleId, predicateId, operation, nodeDigest}`.
+-It **addresses** one predicate node of the admitted `RuleProgramV1`; it does not
++It **addresses** one predicate node of the admitted `RuleProgramV2`; it does not
+ restate the node. `ruleProgramDigest` equals the proof bundle's; `ruleId` names a
+@@ -1161,4 +1294,4 @@
+ Plan-selected semantic closure, its `outputDomains` equal the stage's, its
+-`outputSchemaDigest` is the exact complete registered stage output schema document
+-bytes, and every one of its `parameters` rows (`{schemaDigest, payloadDigest}`,
++`outputSchemaDigest` is the exact complete bytes of the output schema document that
++**its producer closure registers** (below), and every one of its `parameters` rows (`{schemaDigest, payloadDigest}`,
+ the same shape the analysis spec uses) must also be a row of the Plan's analysis
+@@ -1168,2 +1301,26 @@
+ `regeneration-key` continue to share one schema and differ only by H domain.
++
++**Who registers a stage output schema (consumer24 S1).** Retained bytes are not a
++registration. The earlier text called `outputSchemaDigest` "registered" while the
++closure admitted any retained blob under it, so a host could name arbitrary bytes as a
++stage's output contract. The owner of an operation's output contract is the producer
++interface that defines the operation, so registration is membership in that closure:
++the stage spec's `producerClosure` must carry, as a `tree` member at exactly
++`opensip-interface/stage-output/<operation>.schema.json`, the bytes whose raw SHA256 is
++`outputSchemaDigest`. `operation` must therefore be one path segment matching
++`^[a-z0-9][a-z0-9._-]{0,127}$`. The member must be a JSON Schema 2020-12 document
++(`$schema` `https://json-schema.org/draft/2020-12/schema`) that declares
++`x-opensip-stage-output: {schemaVersion: 1, operation, outputDomains}` equal to the stage
++spec's own `operation` and `outputDomains`. Each failure refuses by its own name:
++`STAGE_OUTPUT_SCHEMA_OPERATION_NOT_A_PATH_SEGMENT`, `STAGE_OUTPUT_SCHEMA_UNREGISTERED` (no
++member at the path, whatever bytes are retained), `STAGE_OUTPUT_SCHEMA_REGISTRATION_MISMATCH`
++(a member with other bytes), `STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID` and
++`STAGE_OUTPUT_SCHEMA_DECLARATION_MISMATCH`; missing promised bytes remain retention loss.
++The annotation publishes the same law as `artifactClass:
++producer-interface-stage-output-schema` with its `registeredBy` selector. Extensibility is
++unchanged: a new operation registers its output schema by shipping the interface document in
++the admitted producer closure, with no platform or host table to edit. Because a closure's
++`tree` is part of its `closure2` identity, registering a schema changes the producer closure
++identity and every Plan and Run that selects it. Historical closures, Plans and Runs keep their
++bytes and are not re-read under this law.
+ 
+@@ -1191,3 +1348,3 @@
+ Both `outputDomains` arrays use the existing domain vocabulary in
+-`identity-schemas.v2.json#/x-opensip-digest-domains/byDomain`, enumerated by
++`identity-schemas.v3.json#/x-opensip-digest-domains/byDomain`, enumerated by
+ `#/$defs/Domain` and, for a typed `Ref`, by `#/$defs/Ref/properties/domain`;
+@@ -1296,17 +1453,23 @@
+ 
+-*Omission* is **not** a general rule and is never inferred. A scope owes a
+-complete enumeration only where the relation registry gives its rung a
+-`coverageTotality` row, which today is `file@enumerated` alone: a snapshot
+-inventories exactly the files it contains, so a `complete` result there must carry
+-a fact for every inventoried subject it claims to have examined — a fact that
+-agrees with **that scope** on its own snapshot, relation, rung and *both*
+-universes. `package@manifest-declared` and `vcs-change@vcs-reported` have no row
+-and owe nothing, because most paths declare no package and most were not changed.
+-Neither do the nine `symbol`-kind relations, and that is a **stated trust
+-boundary rather than an omission**: native §1.2 records that the enumerator's
+-attribution of symbols to files is trusted and **not re-derivable from the
+-retained Run**, no enumeration of the symbol universe is published, and inventing
+-one would be fabricated evidence. Reading "without omissions" as a universal
+-obligation would therefore make the clause either unenforceable or a demand for
+-evidence the design deliberately does not claim.
++Fact totality and the population available for evaluation are separate
++obligations. The native relation registry's `coverageTotality` row for
++`file@enumerated` requires a fact for every inventoried subject claimed as
++examined, joined to that scope's snapshot, relation, rung and both universes.
++Other relations do not acquire a fact-per-source obligation: examining a
++function does not imply that it contains a call, and examining a file does not
++imply that it changed in version control.
++
++Evaluator3 additionally requires the independently selected subject census in
++the [enumeration contract](../../../coop/design-corrections/foundation/enumeration-contract.v1.md).
++The Plan selects programs and expected inventory locators before facts or
++findings exist. Every expected inventory has an explicit complete, partial or
++unavailable outcome, including empty populations. Complete file and package
++inventories satisfy their host-derived path totality; symbol inventories retain
++the selected program's examined paths and provider-attributed declarations.
++Those symbol attributions remain trusted extraction evidence. Retention makes
++them replayable inputs; it does not independently establish compiler truth.
++The [execution input contract](../../../coop/design-corrections/foundation/execution-inputs-contract.v1.md)
++separately accounts for every selected analysis cell and its required work.
++An omitted expected outcome is a structural refusal. A legitimate partial
++outcome remains evidence of uncertainty, and known subjects still evaluate.
+ 
+@@ -1327,58 +1490,109 @@
+ 
+-The deterministic evaluator consumes only the Plan-bound, schema-admitted
+-finite fact views, Coverage, imported evidence, declarative program, policy and
+-waivers. The declarative rule program defines the exact subject enumeration,
+-relation/rung, typed field filter, quantifier, deterministic work bound and
+-emission condition for each predicate. Query planning is an optimization only:
+-a retained full-scan reference must agree on selected facts. Neither a provider
+-nor a witness supplies its own expected result or filter. All consumed data are
+-listed in the proof's evaluationInputRefs; no hidden lookup is allowed.
+-
+-A predicate proof binds rule, subject, predicate, operation, admitted inputs,
+-scopes, value and a retained witness digest. The closed witness record contains
+-schemaVersion=2, program predicate digest, sorted matching fact IDs, sorted
+-Coverage IDs, optional integer count limit and sorted child-predicate IDs.
+-The program predicate digest is the §3 `program-predicate` record, which addresses
+-the exact node of the admitted rule program this proof discharges; the predicate
+-ID and the child predicate IDs are that section's node addresses, not free
+-labels. An atomic witness names no children; boolean witnesses name only earlier
+-nodes in the same subject/rule DAG, and each named child must itself be proven
+-for the same rule and subject. Predicate IDs are unique and the DAG is bounded
+-by the rule program's admitted work bound. Witness facts must be exactly those
+-selected by the program over the complete admitted view, not merely a subset
+-chosen by the producer. Counts count distinct selected fact IDs. The verifier
+-recomputes scope membership, matches, completeness and each result, and then
+-recomputes finding fingerprints, findings, rule outcomes and aggregate verdict.
+-Missing witness bytes is retention loss, not a false predicate.
+-
+-| Predicate | Positive/complete case | Incomplete case |
+-|---|---|---|
+-| exists | true on a matching fact; false only on complete absence | true on a known match, otherwise indeterminate |
+-| none | false on a known match; true only on complete absence | false on a known match, otherwise indeterminate |
+-| count-at-most N | false once more than N distinct matches exist; true when complete count ≤ N | false above N, otherwise indeterminate |
+-| all-covered | true only with admitted resolution-complete coverage for the requested universe/rung | indeterminate |
+-| and / or / not | strong Kleene three-valued logic; false dominates and, true dominates or | unresolved value propagates unless dominated |
+-
+-Completeness means the native contract's examined partition **and** resolution
+-and closed-world requirements. An unresolved `m[k]()` can never establish
+-no-consumer merely because the enumerator visited all subjects. Runtime unhit
+-observations never supply universal static completeness. A rule expression that
+-is true produces its declared outcome; findings arise only from the program's
+-emission condition. A false condition is a retained no-match proof. An
+-indeterminate required predicate is retained with typed deficiency. A schema,
+-identity or interpreter fault is an operational failure, not a fourth logical
+-truth value and not an authoritative Run. Aggregate policy fail dominates
+-indeterminate, which dominates pass; a required operational fault has D9's
+-operational precedence even if other steps have committed failing Runs.
+-
+-Before sealing, the host independently replays the admitted deterministic
+-program against the retained closure and compares the complete normalized
+-result (all predicate outcomes, omissions, findings and verdict), not just a
+-checksum supplied by the producer. This verifier is first-party trusted code;
+-this is reproducible verification, not a proof of mathematical soundness or a
+-sandbox against a malicious host. Semantic conformance uses independent
+-oracles and mutation cases. The exact evaluator executable, declarative program,
+-input closure and witness bytes are retained, so an independent installation
+-can replay without trusting the original result flags. No old Python route
+-region is executed to decide product authority.
++The selected evaluator output profile is 3. Output identity recipes
++(evaluation-subject, finding3, proof3, evidence3, seal3, run3) are unchanged.
++Its complete semantics incorporate
++the [enumeration contract](../../../coop/design-corrections/foundation/enumeration-contract.v1.md),
++[atom contract](../../../coop/design-corrections/foundation/atom-evaluation-contract.v1.md)
++(current selected attribution schema `target-attribution.schema.v2.json`; historical V1 is refused; worker delivery is OccupancyCompanionV1 on negotiated FactBatchV3; host projects TargetAttributionV2; COMPLETE58 post-fact2 envelope is not delivery),
++[execution input contract](../../../coop/design-corrections/foundation/execution-inputs-contract.v1.md),
++[composition contract](../../../coop/design-corrections/foundation/evaluator-composition-contract.v3.md)
++and [fault contract](../../../coop/design-corrections/foundation/evaluator-fault-contract.v3.md).
++Graph projection follows
++[query-projection-contract.v3.md](../../../coop/design-corrections/workflows/query-projection-contract.v3.md)
++occupancy-identity target vertices. Frozen24 remains historical under its own
++selected V1 attribution schema and payload-vs-N compare; this successor does
++not silently reinterpret those Runs.
++These are constituent contracts of the intended product design. Their separate
++reference files do not create an optional or alternative evaluator design.
++
++The Plan commits the resolved PolicyDocumentV2, compiled RuleProgramV2,
++effective waivers, deterministic budget, EnumerationPlanV1 and
++EvaluatorEmissionPlanV1. The enumeration parameter independently determines
++expected inventory outcomes; the emission parameter binds every policy rule
++to its selected detector closure and stable rule namespace. Post-execution
++inputs retain actual selected producer returns and host-derived inventory
++outcomes. They cannot add a program, universe or semantic closure to the Plan.
++Required work remains required when rules are disabled or no subjects match.
++
++Evaluation uses only admitted retained inputs. Every selected Plan import is
++an evaluation input, including one with no matching observation. Matching and
++availability are separate questions. No output finding, witness or producer
++result flag chooses the population or supplies an expected evaluator answer.
++Every selected subject has a subject3 identity; configurations with different
++universes remain separate subjects and findings even when their logical stable
++fingerprint agrees. Unknown export membership is retained as unresolved
++selection, and known subjects of partial inventories still evaluate.
++
++For each enabled rule and selected subject, evaluate the entire predicate tree
++in deterministic postorder and retain every node. Predicate-witness records
++have schemaVersion=3. They bind the exact compiled-program node, matching and
++uncertain facts or imported observation addresses, Coverage and scope references,
++typed deficiencies and any quantifier limit. Witnesses have no `inputRefs` field.
++The complete admitted evaluation input selection, including empty-population inputs,
++is projected onto every atomic `predicateProofs[].inputRefs`; boolean nodes take the
++canonical union of immediate children. Consulted witness `coverageIds` and
++predicateProof `scopeIds` may be narrower. See composition §9.
++Atomic nodes have no children; Boolean children are exactly the immediate
++grammar children for the same subject and rule. Optimization cannot omit a
++branch's retained evidence or change the complete reference result.
++
++| Predicate | Determinate evidence | Otherwise |
++| --- | --- | --- |
++| exists | true on a known match; false on complete absence | indeterminate |
++| none | false on a known match; true on complete absence | indeterminate |
++| count-at-most N | false above N known distinct matches; true when complete count is at most N | indeterminate |
++| all-covered | the atom contract's native or imported coverage law at the requested rung | indeterminate where sufficiency is unknown |
++| and / or / not | strong Kleene logic: false dominates and; true dominates or; not preserves unknown | indeterminate |
++
++Native completeness follows the registered relation, rung, examined partition
++and resolution requirements. Incoming absence requires accounted source
++partitions and searched source-to-target universe pairs for each selected
++provider. A search in one partition cannot establish absence in another.
++Target attribution cannot guess among ambiguous native subjects. Imported
++coverage and runtime evidence retain their scope, observation window,
++population and address; observed cold code does not prove static absence.
++
++All deficiencies remain visible, including those on a branch whose value does
++not determine the root. Truth-blocking causes are computed separately from
++that provenance. Required declaration availability, incomplete subject
++population and required execution completion have their specified independent
++obligations. Optional evidence does not acquire gating authority merely by
++appearing under none or not. The exact aggregation is the composition contract
++§§3 and 5; the existence of a warning alone is not an indeterminate verdict.
++
++A matching emission condition produces the complete declared finding, including
++parameters, severity, citations and stable correspondence state. A symbol with
++ambiguous or unavailable signature correspondence remains a finding with an
++explicit unmatched state. It may fail current policy; comparison cannot guess
++its stable identity. Effective waivers preserve findings and evidence, recording
++the exact waived finding IDs. They do not cure missing populations or work.
++Any live gating failure dominates semantic indeterminate, which dominates pass.
++Provider protocol and host faults retain D9 operational precedence.
++
++The deterministic scan budget uses admitted input sizes and the published
++checked integer formula. Exhaustion produces an explicit budget-exhausted
++semantic result before predicate evaluation. Output size overflow follows the
++serialization fault route with its measured bound; it never truncates or mints
++an empty successful Run. Missing required pointers, promised bytes that were
++lost, supplied invalid bytes and complete replay disagreement remain distinct
++typed boundary observations with their original diagnostic custody.
++
++Before sealing, independently reconstruct every subject, enumeration result,
++predicate descriptor and witness, complete finding and parameter payload,
++fingerprint, waiver membership, rule result and execution deficiency from the
++retained input closure. Compare the complete canonical proof and all referenced
++output preimages and identities, then reconstruct evidence, seal and Run IDs.
++Equal finding counts or equal verdicts are insufficient. Policy derivation uses
++the exact policy and waivers of its fully replayed Run; changing them requires
++a separately admitted Plan and Run.
++
++The public identity-model.v3.close_run boundary performs complete replay.
++open_run_closure is an internal owner-admission primitive and grants no claim
++that evaluator output is correct. Cache and storage admission against an
++authoritative Run inherit the complete replay requirement. Synthetic graphs
++admitted by the native owner demonstrate these joins and replay semantics;
++they do not qualify a compiler, host or platform implementation. Independent
++producer conformance and host qualification remain required implementation
++work. No historical Python route region decides product authority.
++
+ 
+@@ -1469,2 +1683,33 @@
+ mutation. Duplicate retry can share a Run but has a separate attempt receipt.
++
++**Read-only recovery selectors.** `recover(ExecutionId)` takes the `SHARED-READ` lease and
++reads **one** consistent committed ledger snapshot carrying the receipt, the private
++recovery association **and** the `AttemptCustodyV1` phase together. Terminality is decided
++inside that single snapshot and never from a separately timed liveness probe or an in-memory
++active set. A valid joined receipt establishes historical commitment on its own, including
++while the attempt row is still `admitted`: that is the lawful interval before the settle
++write, reported committed with pending settlement disclosed operationally, and it revives no
++authority. No writer may reopen a stopped session merely to settle it. The negative answer
++requires **all** of: phase `settled`, `settledOutcome` exactly `refused`, and both the
++receipt and the association confirmed absent, in that one snapshot. A `settled`+`committed`
++row with no receipt is a contradiction and unavailable history, never a negative; phase
++`admitted` with no receipt is `unknown-attempt-open`; no attempt row is
++`unknown-attempt-unobserved`. A purged historical receipt can never become never-committed,
++because a purge cannot produce the `refused` outcome and the retained sealed manifest,
++provenance and tombstone still name the Run. Carrier observations
++(journal tail, witness, SC-TRUST floor) are captured with before/after stability brackets and
++at most one fresh journal retry. It performs no witness INIT/REVERT/ADVANCE, no high-water
++raise, no store-binding allocation, no new execution grant, no fence acquisition and no wait
++on a writer. Security §S6 and §S9 own the exact carrier rules; the bounded algorithm is
++`architecture/commit-recovery-readonly.v3.md`.
++
++**Narrow assurance limit, stated here because recovery is often read as proof.** Confirming a
++historical commit from the retained carrier establishes that the sealing record is present
++with its joined digest, operation reference and Run identity, that the sequence is
++contiguous, and that no rollback below the last **observed** operation boundary occurred. It
++does **not** cryptographically authenticate the interior record prefix: the inherited chain
++value binds only the immediately previous body digest and index, and the witness names the
++tail body digest, so an interior substitution is not detected by either. The conclusion class
++is therefore `confirmed-under-retained-custody`, never a cryptographic proof, and an unmet
++anchor is reported `unknown`, never as invalidation of an earlier committed receipt.
+ An acknowledged Run with missing/corrupt objects becomes partially available or
+@@ -1507,7 +1752,15 @@
+ It never turns expired evidence into `no match`. Query of retained manifest is
+-allowed after purge and states evidence unavailable. Query requiring actual
+-proof, comparison baseline or repair input refuses with
+-REQUEST.PRECONDITION_FAILED and `evidence.{expired,purged,missing,corrupt}`
+-before evaluation (exit 2); inability during a selected operation is HOST.IO_FAILURE
+-with evidence detail (exit 4). Successfully admitted partial native inputs may
++allowed after purge and states evidence unavailable. For `graph.neighbors`,
++`graph.path` and `graph.reach`, query-projection-contract.v3 §7 explicitly owns
++current availability refusal: known purged, expired, corrupt or unavailable
++required evidence produces operational-failed / HOST.IO_FAILURE / exit 4,
++even when observed before full Run replay. This graph-specific selector does
++not change the other query operations. In particular, `finding.show` keeps its
++workflow-owned request precondition: a purged proof produces
++REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2, as recorded by
++`query-evidence-purged`. Command-specific comparison-baseline or repair-input
++prerequisites likewise keep request rejection before evaluation (exit 2) when
++their owner selects REQUEST.PRECONDITION_FAILED and
++`evidence.{expired,purged,missing,corrupt}`. Inability encountered during a
++selected operation remains HOST.IO_FAILURE with evidence detail (exit 4). Successfully admitted partial native inputs may
+ instead produce an indeterminate Run (exit 3) under the native and D9 contracts.
+@@ -1563,3 +1816,11 @@
+ or its original assurance. Read-only `recover(ExecutionId)` inspects the committed
+-receipt after a lost acknowledgement and never repeats effects. Verified restoration
++receipt after a lost acknowledgement and never repeats effects. A valid joined receipt
++establishes historical commitment on its own, including while the private attempt row is
++still `admitted`, which is the lawful interval before its settle write; pending
++settlement is disclosed operationally and revives no authority. Where **no** receipt is
++present, absence is never inferred: only a `settled` phase whose outcome is exactly
++`refused`, together with the confirmed absence of both the receipt and the association in
++that one snapshot, establishes that the attempt did not commit. A `settled`+`committed`
++row with no receipt is a contradiction and unavailable history, and an attempt still
++`admitted` with no receipt stays unknown until an authorized sweep settles it. Verified restoration
+ requires the same complete identity closure and replay result before availability

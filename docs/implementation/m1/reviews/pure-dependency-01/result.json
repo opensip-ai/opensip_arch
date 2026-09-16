@@ -1,0 +1,74 @@
+{
+  "session_id": "cc1fe268-10e0-4bfd-ba33-355aa9f7896f",
+  "total_cost_usd": 2.3547815,
+  "usage": {
+    "input_tokens": 322,
+    "cache_creation_input_tokens": 109423,
+    "cache_read_input_tokens": 588767,
+    "output_tokens": 38515,
+    "output_tokens_details": {
+      "thinking_tokens": 8437
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 109423,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1676,
+        "cache_read_input_tokens": 114272,
+        "cache_creation_input_tokens": 646,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 646
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1613,
+      "outputTokens": 14,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001683,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 322,
+      "outputTokens": 38515,
+      "cacheReadInputTokens": 588767,
+      "cacheCreationInputTokens": 109423,
+      "webSearchRequests": 0,
+      "costUSD": 2.3530985,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8437,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 33,
+  "subtype": "success",
+  "result": "The audit is finished and written to `/tmp/opensip-implementation/m1-pure-dependency-review-01/` as `audit.json` and `audit.md`, with raw evidence and a sha256 manifest. The planned serde 1.0.229 (derive) plus serde_json 1.0.151 (default) dependencies hold up, but six findings need a root decision before approval. I did not approve the dependencies and made no M1, registry or release claim.\n\n**Integrity and pinning:**\n- **Hashes:** all 11 downloaded crate archives match their lock checksums, and each unpacked archive is identical to the registry source I reviewed.\n- **Lock:** it has 11 entries, all from crates.io, and was unchanged after running cargo on the copy.\n- **Linked into contracts:** serde, serde_core, serde_json, itoa, memchr and zmij.\n- **Compile-time only on the build machine:** serde_derive, proc-macro2, quote, syn 3.0.5 and unicode-ident.\n- **Features:** match the plan. serde_json has only default/std, with preserve_order, arbitrary_precision, unbounded_depth, raw_value and float_roundtrip all off, so its maps are sorted BTreeMaps. No crate declares `links` and none have build-dependencies.\n- **Lock oddity:** two edges in the lock (`serde_json\u2192serde`, `serde_core\u2192serde_derive`) are gated on `cfg(any())`, which is never true. They only tie versions together and are never compiled.\n\n**Generated carriers (about 58k lines):** no unsafe code, no FFI, and no use of files, network, processes, environment, threads, clocks or randomness. They use no HashMap/HashSet and have no float fields. Dependency features they don't call, such as serde_json's reader/writer helpers and serde_core's impls for network addresses, SystemTime, Path and generic HashMap, are recorded as unused.\n\n**Accepted findings:**\n- **PD-01 to PD-03:** integrity, exact closure and features, and inert carriers all verify.\n- **PD-04 (unused effect-capable APIs):** accepted, but should be recorded so later use gets reviewed.\n- **PD-11 (input size):** accepted with a note. serde_json limits nesting to 128 levels but not input size, so callers must bound input bytes.\n\n**Findings that need a root decision:**\n- **PD-05, CPU detection:** serde_json turns on memchr's `std` feature. On x86_64 without compile-time AVX2, memchr then checks for AVX2 at runtime and caches the choice in a global. Results don't change. On this arm64 host the choice is made at compile time. I recommend accepting it under TCB-SCOPE-01 and recording it.\n- **PD-06, unsafe code:** unsafe Rust is linked in from memchr (SIMD), zmij (including 5 inline `asm!` hints whose body is only a comment), itoa, serde_json and serde/serde_core. There is no FFI. It needs explicit acceptance as trusted code; I did not review its soundness.\n- **PD-07, build-time effects:** six build scripts run `rustc --version`. proc-macro2 also runs rustc test compiles that follow `RUSTC_WRAPPER` and `RUSTFLAGS`. serde and serde_core write `OUT_DIR/private.rs`. The proc macro runs unsandboxed inside rustc. None touch the network. The build lane should record toolchain, target, profile, wrappers and RUSTFLAGS.\n- **PD-08, workspace features:** in a shared workspace, Cargo merges features across member crates. Another crate enabling serde_json `preserve_order` or similar would change contracts, so resolved features must be checked against each real workspace lock.\n- **PD-09, enforcement:** automated checks are needed for the dependency and feature allowlist, a source scan for effects, HashMap and unsafe, and generated-code drift.\n- **PD-10, trial binaries:** `main.rs` and `bin/carrier_probe.rs` read files from absolute paths. They are test harnesses and must not ship as production contracts targets.\n\nThe generator's separate lock (typify, schemars, syn 2.0.119 and others) is recorded but was not reviewed.\n\n**Limits:**\n- **No builds or tests:** I didn't build or run Rust. The build-script outputs I cite come from an earlier build of a byte-identical manifest and lock, and the roundtrip results are from that earlier trial.\n- **No safety tooling:** no soundness review of unsafe code, no miri, no sanitizers.\n- **Other targets:** x86_64 behaviour comes from reading source, not building.\n- **No online checks:** no network checks of index, yank state, RustSec advisories or licenses.\n- **Scope of scans:** the source scans are evidence, not proof that effects are absent.\n- **Production locks:** no production workspace lock exists yet to check.",
+  "type": "result",
+  "duration_ms": 475521
+}

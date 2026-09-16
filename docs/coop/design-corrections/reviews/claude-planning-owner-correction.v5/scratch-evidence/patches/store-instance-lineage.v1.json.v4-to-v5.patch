@@ -1,0 +1,161 @@
+--- v4/work/docs/v2/architecture/store-instance-lineage.v1.json
++++ v5/work/docs/v2/architecture/store-instance-lineage.v1.json
+@@ -1,8 +1,15 @@
+ {
+   "schemaVersion": 1,
+-  "standing": "Author correction for review finding PS-01, revision 4. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "standing": "Author correction for review finding PS-01, revision 5. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
+   "revision": {
+-    "supersedes": "claude-planning-owner-correction.v3 store-instance-lineage.v1.json (sha256 170ec81d5d3ad1d4...), which superseded v2 (7565223e825ebcfe...) and v1 (4dd6291fbf526010...)",
++    "supersedes": "claude-planning-owner-correction.v4 store-instance-lineage.v1.json (sha256 a8ee21b307b6ccc1...), superseding v3 (170ec81d5d3ad1d4...), v2 (7565223e825ebcfe...) and v1 (4dd6291fbf526010...)",
++    "v4ToV5Changes": [
++      "Marker availability is now PHASE-SENSITIVE, bound to the owner own decision. A forward selection target store does not exist at LEASED or PREPARING and may already be reclaimed at ABORTED; v4 required selectedStoreRoot in every branch and turned the owner lawful early ABORT into a quarantine. Only a settled transition requires the target marker.",
++      "The target observation is a closed three-way outcome: readable, absent (not materialised yet or reclaimed) and unreadable (observed but not admissible). An unreadable target never becomes an absent one, and an absence must be stated explicitly rather than inferred from a missing key.",
++      "admit_node now validates chain and uniqueness on the IDEMPOTENT path as well. v4 returned idempotent on an exact key match before checking ancestry, so an existing target whose chain was broken validated with no refusal. The idempotent path still writes nothing and rewrites no origin.",
++      "The single-lineage-root rule is scoped to the COMPONENT reachable from the node under consideration, not globally. An authorized restore or adoption starts its own lineage, so several roots may coexist across unrelated stores.",
++      "Node shape is admitted by the REAL closed schema through the frozen foundation ExactValidator, whose integer type checker refuses a JSON boolean. The law no longer assumes member sets, types or version constants; a caller that has already admitted its inputs must say so with an explicit labelled assumption, and otherwise the law refuses rather than guessing."
++    ],
+     "v3ToV4Changes": [
+       "Node identity at every decision point is now the FULL TRIPLE, whose instance component is read from the store-root MARKER of the store the transition actually selects. v3 searched by the numeric (storeGeneration, stateSchema) pair, so a retained old branch at (b,4,2) blocked a fresh target at (e,4,2); root executed the actual owner-admitted intentStoreMigrate and v3 wrongly quarantined against owner ABORT at LEASED and owner RESUME-COMMIT at COMMITTED. Accepted as a real defect.",
+       "intentDigest is never a global search key. The record schema already says it may repeat, so it is validated ON the selected node and never scanned for across the node set.",
+@@ -346,29 +353,32 @@
+     "nonForwardIsNotReconstructible": "A same-store or ancestor-reselect transition created no node. Its selected node was created by an EARLIER, unrelated act whose predecessor and origin digest this intent does not carry. Recovery therefore cannot repair a missing node in those cases and must quarantine; fabricating one from the current unrelated intent is exactly the v2 defect.",
+     "undeterminedBarrier": "If a forward-selection node write returns an UNDETERMINED barrier (A10), the writer refuses every further effect of the operation, reopens under the next fence and reconciles: absent means write the reconstruction, byte-identical means done, any difference means quarantine. It never assumes either the old or the new state.",
+     "boundary": "A node is written at the existing lifecycle-publication durability boundary named in A10, under the held fence and the exact leaseSet, and never inside a level-4 grant-journal append lock.",
+-    "markersFirst": "Marker presence and shape are validated before any dereference. A missing or unreadable marker refuses immediately and reads nothing."
++    "markersFirst": "Marker observations are classified and validated before any dereference, and their requirement is bound to the owner phase: a settled transition needs a readable target, an unsettled one accepts a stated absence, and an observed but unreadable target always refuses."
+   },
+   "recoveryTotality": {
+     "composition": "The companion never decides a journal state itself. It reads the action returned by the frozen recover_transition_journal and acts only where that action settles the transition as committed, which is action RESUME-COMMIT or RELEASE-ONLY with journalStateAfter DONE. Every other action, including BUSY, REFUSE and the owner QUARANTINE, leaves the node set untouched.",
+     "ownerPrecedenceAtPrepared": "At PREPARED the owner decides first and its decision stands: a core operation ABORTs because the published generation was never selected, and a store operation follows the S9 footprint, resuming to DONE only when the old store is fenced RESTORED. The companion then applies the case branch only if the owner settled it as committed. A missing node at PREPARED is never a quarantine and never replaces the owner ABORT.",
+-    "preCommittedInvariant": "It is wrong to say no node exists before the owner settles a transition: the currently selected store node and its whole ancestry exist and are expected, and a retained branch at the same numeric generation may also exist lawfully. What must not exist is a NEW node for THIS attempt at ITS OWN FULL TRIPLE, built from the selected marker. A node there before settlement, or a node at that triple already claiming this transition as its origin, is a premature-node contradiction and quarantines. A node at a merely equal numeric pair on another branch is a different store and is neither read nor disturbed.",
++    "preCommittedInvariant": "It is wrong to say no node exists before the owner settles a transition: the currently selected store node and its whole ancestry exist and are expected, and a retained branch at the same numeric generation may also exist lawfully. It is equally wrong to demand the target marker there: at LEASED and PREPARING the target store has not been materialised, and after an abort an unpublished target may already have been reclaimed, so an explicitly stated ABSENT target is the expected observation and no premature node is possible. Where a target IS observable, what must not exist is a NEW node for THIS attempt at ITS OWN FULL TRIPLE, built from the selected marker; a node there, or a node there already claiming this transition as its origin, is a premature-node contradiction and quarantines. A node at a merely equal numeric pair on another branch is a different store and is neither read nor disturbed. No numeric pair and no intent digest is ever scanned.",
+     "byOwnerAction": [
+       {
+         "ownerAction": "REFUSE, BUSY or QUARANTINE",
+         "journalStates": "any; fence not held, lease set not re-acquired exactly, registry differs, or a PREPARED store operation with no durable footprint",
+-        "companionAction": "no-decision; nothing inspected, nothing read, nothing written"
++        "companionAction": "no-decision; nothing inspected, nothing read, nothing written",
++        "markerRequirement": "none; no marker is consulted at all"
+       },
+       {
+         "ownerAction": "ABORT",
+         "journalStates": "LEASED, PREPARING, PREPARED for a core operation, PREPARED for a store operation whose old store is not fenced RESTORED",
+         "companionAction": "none; only the premature-node check at this attempt own full triple",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only"
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only",
++        "markerRequirement": "predecessor marker required; target observation required to be STATED, and an absent target is expected"
+       },
+       {
+         "ownerAction": "RELEASE-ONLY reaching ABORTED",
+         "journalStates": "ABORTED",
+         "companionAction": "none; same premature-node check",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only"
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only",
++        "markerRequirement": "same as ABORT: an absent target is expected after reclamation"
+       },
+       {
+         "ownerAction": "RESUME-COMMIT reaching DONE",
+@@ -376,18 +386,21 @@
+         "companionAction": "apply the case branch",
+         "forwardSelection": "admit_node the reconstruction at the selected full triple; an existing byte-identical node is idempotent, a disagreeing one refuses",
+         "sameStoreOrAncestorReselect": "validate the retained node at its own full triple; absent, duplicated-and-disagreeing, or claiming this transition as origin refuses; an ancestor must additionally lie on the verified chain from the current node",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT"
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT",
++        "markerRequirement": "both markers required and readable; an absent target at a settled transition is corruption"
+       },
+       {
+         "ownerAction": "RELEASE-ONLY reaching DONE",
+         "journalStates": "DONE",
+         "companionAction": "the same case branch as RESUME-COMMIT",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT"
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT",
++        "markerRequirement": "same as RESUME-COMMIT reaching DONE"
+       }
+     ],
+     "originsAreStable": "In every non-forward case the retained node keeps its original predecessor and selectedByIntentDigest. Recovery validates and never rewrites an origin.",
+-    "executedBy": "controls/check_lineage_recovery.py sections C (seven owner-admitted operation cases x six journal states), D (root v3 regressions), E (composed migrate, rollback, second forward selection with a retained branch), F (damaged and duplicate) and G (owner actions that decide nothing).",
+-    "noDecisionActions": "BUSY, REFUSE and QUARANTINE make no transition decision, so the companion makes none either: it inspects no node, reads no marker and changes nothing. v3 prose said this but its generic non-settled branch still inspected the node set; law and prose now agree and the behaviour is executed in control section G."
++    "executedBy": "controls/check_lineage_recovery.py sections C (seven owner-admitted operation cases x six journal states with phase-accurate target observations), D (root v3 regressions), E (composed migrate, rollback, second forward selection with a retained branch), F (damaged and duplicate), G (owner actions that decide nothing), H (phase-sensitive markers), I (idempotent path validation) and J (lineage components).",
++    "noDecisionActions": "BUSY, REFUSE and QUARANTINE make no transition decision, so the companion makes none either: it inspects no node, reads no marker and changes nothing. v3 prose said this but its generic non-settled branch still inspected the node set; law and prose now agree and the behaviour is executed in control section G.",
++    "phaseSensitiveMarkers": "The marker requirement follows the owner phase. See identityAndMarkers.markerContract.phaseSensitivity. Executed in control section H across LEASED, PREPARING and ABORTED with an absent target, an observable target with no node, an unreadable target, a genuinely premature node at the full triple, and a retained branch at an equal numeric pair."
+   },
+   "retryTrace": {
+     "purpose": "Shows that a lawful retry of a byte-identical intent produces no contradiction, and that a retry after a committed transition is refused by the owner's own checks.",
+@@ -494,11 +507,13 @@
+     "The companion node and recovery rules are a design reference exercised against the frozen owner functions. They are models: no carrier implementation, no crash test and no qualification.",
+     "Only the two rollback operations can retreat a schema, and StateSchema is currently the two-member enum {1, 2}. A wider enum would admit longer chains and multiple distinct ancestors at one schema; the ancestor-reselect branch already refuses an ambiguous match, but that case has no owner-admitted example to exercise today.",
+     "Node identity depends on the store-root markers being readable. An unreadable marker refuses rather than guessing, but a marker that is readable and wrong, for example after an out-of-band copy, is in the same stated undetected class as A9.",
+-    "The companion asserts no global uniqueness of storeGeneration. Two lawful branches may carry the same numeric pair; only instance identity and the verified chain distinguish them, and a lookup that cannot verify a chain reports unavailability rather than guessing."
++    "The companion asserts no global uniqueness of storeGeneration. Two lawful branches may carry the same numeric pair; only instance identity and the verified chain distinguish them, and a lookup that cannot verify a chain reports unavailability rather than guessing.",
++    "The target observation is a companion-internal argument, not a public record member. The six-member node schema is unchanged, and no new public schema, member or operation is introduced by this revision.",
++    "Whether a target store root is absent or merely unreadable is an observation the implementation must make honestly at the existing S9 footprint boundaries. This design states the three outcomes and their consequences; it does not measure any filesystem."
+   ],
+   "rootCounterexamples": {
+     "accepted": true,
+-    "source": "root-counterexamples/ retains all four supplied files unchanged: lineage-recovery-control.py/.json against v2 and repeated-generation.py/.json against v3.",
++    "source": "root-counterexamples/ retains all six supplied files unchanged, plus early-abort.observed.json recording my re-run: lineage-recovery-control (v2), repeated-generation (v3), early-abort with the exact copied v4 law (v4).",
+     "findings": [
+       {
+         "id": "RC-1",
+@@ -529,6 +544,18 @@
+         "what": "Root supplied an empty node set to forward reconstruction. v3 wrote a node whose predecessor did not exist, with refusal None; only the unused whole-set invariants helper reported the broken ancestry afterwards.",
+         "rootCause": "Predecessor presence, acyclicity and uniqueness were checked in invariants(), which was never on the decision path, and publication and recovery did not share one admission law.",
+         "fix": "admit_node is the single decision-path law used by publication and recovery: predecessor presence at its exact triple, no self reference, acyclicity after insertion, exactly one lineage root, and primary-key agreement. A refusal writes nothing."
++      },
++      {
++        "id": "RC-6",
++        "what": "For the owner-admitted intentStoreMigrate at LEASED the owner returns ABORT. That phase precedes materialisation of the new store, so its marker cannot exist; v4 markers_refusal nevertheless required selectedStoreRoot in every branch and converted the lawful early abort into QUARANTINE. ABORTED is the same class, because an unpublished target may already have been reclaimed.",
++        "rootCause": "The marker requirement was unconditional instead of bound to the owner phase and decision.",
++        "fix": "markers_refusal now takes the settled flag derived from the owner returned action. A settled forward publication or recovery needs both markers; before materialisation an explicitly stated absent target is expected and the owner abort stands with no companion refusal. If a target IS observable its marker is validated before any dereference and a premature node is refused at that FULL triple only, never by scanning numeric pairs or digests. An observed-but-unreadable target still refuses and is never read as absence. BUSY, REFUSE and QUARANTINE remain no-decision and consult no marker at all."
++      },
++      {
++        "id": "RC-7",
++        "what": "admit_node returned idempotent on an exact target match BEFORE running ancestry. Root supplied an existing exact target whose immediate predecessor existed but whose predecessor chain was broken; v4 returned validated with refusal None while the whole-set auditor reported the broken chain.",
++        "rootCause": "The idempotent short-circuit bypassed the mandatory chain and uniqueness checks, so the decision path and the auditor disagreed.",
++        "fix": "Chain and uniqueness validation runs on the idempotent path too, over the set that will stand. It still writes nothing and never rewrites an origin. The same validation was added to the non-forward validation path. A clean existing node validates positively; a broken or cyclic one refuses."
+       }
+     ]
+   },
+@@ -562,9 +589,16 @@
+     "principle": "A node is identified by its FULL TRIPLE (storeInstanceId, storeGeneration, stateSchema) at every decision point. The numeric pair alone never identifies a node, because S9.2 generations are not monotonic and a retained branch can present the same pair as a fresh target.",
+     "markerContract": {
+       "selectedStoreRoot": "The storeInstanceId read from the root of the store this transition SELECTS: the newly materialised store for a forward selection, the retained ancestor for a re-selection, the unchanged store for a same-store operation.",
+-      "predecessorStoreRoot": "The storeInstanceId read from the root of the store the transition comes from.",
+-      "validatedBeforeDereference": "Both markers are checked for presence and 32-lowercase-hex shape before any dereference or lookup. A missing or unreadable marker refuses immediately; nothing is read, dereferenced or written.",
+-      "caseConsistency": "A same-store operation requires the two markers to be equal; a forward selection requires them to differ. A mismatch refuses."
++      "predecessorStoreRoot": "The storeInstanceId read from the root of the store the transition comes from. That store is the currently selected one, so it exists in every phase and is always required whenever the companion decides anything.",
++      "validatedBeforeDereference": "Both observations are classified and validated before any dereference or lookup. Nothing is read, dereferenced or written before that classification.",
++      "caseConsistency": "A same-store operation requires the two markers to be equal; a forward selection requires them to differ. A mismatch refuses.",
++      "targetObservationIsThreeWay": {
++        "readable": "A 32-lowercase-hex identity was read from the target store root.",
++        "absent": "Stated explicitly. No target store root is present: before materialisation, and after an unpublished target is reclaimed. This is the expected observation at LEASED and PREPARING, and after an abort.",
++        "unreadable": "A target was observed but its marker is missing or malformed. This is NOT absence and is never treated as one; it refuses.",
++        "notObserved": "No observation supplied at all. Absence must be stated, never inferred from a missing key, so this refuses."
++      },
++      "phaseSensitivity": "The requirement is bound to the owner own decision, not to the companion wish. A SETTLED transition selected store exists by construction, so a readable marker is required; an absent target there is corruption. An UNSETTLED transition (owner ABORT, or RELEASE-ONLY reaching ABORTED) may precede materialisation or follow reclamation, so an absent target is expected, no target triple can be formed, no premature node is possible and the owner abort stands. Where a target IS observable at an unsettled phase, its marker is validated first and a premature node is refused at that FULL triple only. BUSY, REFUSE and QUARANTINE consult no marker at all."
+     },
+     "intentDigestIsNotAKey": "selectedByIntentDigest is evidence validated ON the selected node, never a search key. The record schema states it may repeat across nodes and retries, so scanning the node set for it would be unsound.",
+     "noInventedUniqueness": "No global uniqueness of storeGeneration is asserted beyond what the owner already enforces. Two distinct stores may lawfully carry the same numeric pair; only their instance identities distinguish them."
+@@ -572,14 +606,16 @@
+   "admissionLaw": {
+     "oneLawBothPaths": "Publication and recovery both call admit_node. They cannot diverge, which is the correction for the v3 boundary defect.",
+     "checks": [
+-      "Exactly the six members; schemaVersion 1.",
+-      "predecessor and selectedByIntentDigest are null together (a lineage root) or non-null together.",
++      "Node shape is admitted by the REAL closed schema of this document through the frozen foundation ExactValidator, whose integer type checker refuses a JSON boolean. The law assumes no member set, type or version constant of its own; a caller that already admitted its inputs must state that assumption explicitly, and otherwise the law refuses.",
++      "predecessor and selectedByIntentDigest are null together (a lineage root) or present together.",
+       "A node never names its own triple as predecessor.",
+       "A non-null predecessor must already EXIST as a node at that exact full triple. This is checked on the decision path, not by a later audit.",
+-      "A duplicate exact primary key whose contents disagree refuses; it never selects the first match. A byte-identical key is idempotent.",
+-      "After insertion the chain from the new node is acyclic and the node set still has exactly one lineage root."
++      "A duplicate exact primary key whose contents disagree refuses; it never selects the first match.",
++      "The chain from the node under consideration is acyclic, every hop is present at its exact triple, every chain member is itself schema-admitted, and the chain terminates at exactly ONE lineage root."
+     ],
+     "onRefusal": "Nothing is written. The node set returned is the input set unchanged.",
+-    "executedBy": "controls/check_lineage_recovery.py section F: absent predecessor, a predecessor naming a node that does not exist, duplicate predecessor keys identical and disagreeing, a duplicate target key disagreeing, a target key holding a different origin, a missing marker, a malformed marker and forward markers naming the same store."
++    "executedBy": "controls/check_lineage_recovery.py sections F (damaged and duplicate, including a node failing real schema admission), I (idempotent path: broken chain, clean chain, cyclic chain, and the non-forward dangling chain) and J (component scoping beside a restored lineage).",
++    "idempotentPathValidatesToo": "An exact byte-identical match at the target key is idempotent, but it is NOT a short circuit: the same chain and uniqueness validation runs over the set that will stand. It writes nothing and rewrites no origin. v4 returned idempotent before that validation, so a broken existing chain passed with no refusal.",
++    "rootScoping": "Exactly one lineage root is a COMPONENT invariant. Several lineages may coexist, for example after an authorized restore or adoption starts its own, so the rule is that the chain from the node under consideration reaches exactly one root, not that the whole node set has one. The whole-set auditor takes an explicit expected component count rather than assuming one."
+   }
+ }

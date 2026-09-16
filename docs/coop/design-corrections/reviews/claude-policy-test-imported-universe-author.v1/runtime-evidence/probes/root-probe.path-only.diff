@@ -1,0 +1,13 @@
+--- root-probe.py
++++ root-probe.path-only.py
+@@ -1,8 +1,8 @@
+ from pathlib import Path
+ import copy,hashlib,importlib.util,json
+-B=Path('/tmp/opensip-design-corrections');P=Path(__file__).parent
++import sys;B=Path('/tmp/opensip-design-corrections');P=Path(sys.argv[1]).resolve();P.mkdir(parents=True,exist_ok=False)
+ rows=[]
+-for label,source in [('frozen39',B/'candidate-subject.v39'),('author-correction',B/'claude-policy-test-known-hit-author.v1/work/source39')]:
++for label,source in [('frozen39',B/'candidate-subject.v39'),('author-correction',Path('/private/tmp/opensip-design-corrections/claude-policy-test-imported-universe-author.v1/work/source'))]:
+  wf=source/'docs/coop/design-corrections/workflows';s=importlib.util.spec_from_file_location('root_import_universe_'+label.replace('-','_'),wf/'workflows_model.v3.py');W=importlib.util.module_from_spec(s);s.loader.exec_module(W)
+  suites=json.loads((wf/'policy-test-cases.v3.json').read_bytes());base=copy.deepcopy(suites['currentSuite']);rule=next(r for r in base['candidatePolicy']['rules']if r['ruleId']=='runtime-hit');rule['subjectEnumeration']['universe']='typescript';rule['gate']=True;rule['severity']='error';base['candidatePolicy']['rules']=[rule];base['waivers']['waivers']=[]
+  case=next(c for c in base['cases']if c['id']=='runtime-observed-hit-is-a-known-match');case['subject']['facts']=[f for f in case['subject']['facts']if f['relation']=='runtime-observation'];base['cases']=[case]

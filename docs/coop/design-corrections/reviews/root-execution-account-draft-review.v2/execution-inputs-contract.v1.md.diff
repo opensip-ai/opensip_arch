@@ -1,0 +1,108 @@
+--- source32/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ active-draft/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -65,13 +65,54 @@
+ | any inventory `partial`, or any supported-available account not complete | `partial` |
+ | all inventories complete, every account complete/inapplicable/unsupported, candidate complete if owed | `complete` |
+ 
+-Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** (first retained source) and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. `requiredCellDeficiencies` and `derivedAccounts` are internal admission-result records, not schema `evaluation-deficiency`; they may use internal tokens `native-work-incomplete` / `unsupported-typed` that are not proof `cause` values. The proof bridge (composition §9.6) reads `row.deficiency` (a `DeficiencyV2`, `null`, or `source-syntax-invalid`), maps `null`/`source-syntax-invalid` to proof cause `required-cell-unsatisfied`, keeps `source=execution` as the required-execution assessment layer, and sets proof `inputRefs` to the canonical set of the ExecutionInputsV1 ref plus each originating `row.inputRefs`. Inventory failure originating refs are `subject-inventory` digests. Native-account failure originating refs are Coverage digests from `coverageRecords` (or named `coverageIds` when no records exist). Candidate failure originating refs are `candidate-producer-result` digests. The ExecutionInputsV1 ref is committed execution context, not a replacement for those originating refs. Empty `kinds` is not complete-empty work.
++Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** — the **first retained source that actually carries a typed pair**, in the deterministic order of §5 — and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. When **no** retained source carries a pair (pure missing work), the derived pair is explicitly `(null, null)`; the row stays `partial` and nothing is manufactured (§5). Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. `requiredCellDeficiencies` and `derivedAccounts` are internal admission-result records, not schema `evaluation-deficiency`; they may use internal tokens `native-work-incomplete` / `unsupported-typed` that are not proof `cause` values. The proof bridge (composition §9.6) reads `row.deficiency` (a `DeficiencyV2`, `null`, or `source-syntax-invalid`), maps `null`/`source-syntax-invalid` to proof cause `required-cell-unsatisfied`, keeps `source=execution` as the required-execution assessment layer, and sets proof `inputRefs` to the canonical set of the ExecutionInputsV1 ref plus each originating `row.inputRefs`. Inventory failure originating refs are `subject-inventory` digests. Native-account failure originating refs are Coverage digests from `coverageRecords` (or named `coverageIds` when no records exist). Candidate failure originating refs are `candidate-producer-result` digests. The ExecutionInputsV1 ref is committed execution context, not a replacement for those originating refs. Empty `kinds` is not complete-empty work.
+ 
+ `derive_outcome` threads the binding carrier explicitly (`UnavailableProgramBindingV1.deficiency` / `nativeCause`). Unselected or `universe=null` **does not discard** same-cell inventory items. A selected unavailable binding may be `budget-exhausted` or `input-closure-incomplete` rather than generic `provider-unavailable`; the original typed pair is kept with inventory coordinates. Host join requires the outcome pair to be a member of those source pairs, not equal only to a first unzipped cause.
+ 
+ ## 5. Native Coverage accounts (derived)
+ 
+ Account fields are **references + explicit applicability**. Admission derives `accountState`, `coverage`, `resolutionCompletenessState`, `examinedExhaustive`, `deficiency`, **every** `nativeCause`, `scopeIds`, and **`coverageRecords`** from **all** owner `CoverageResultV3` entries of **this** cell/program's returned views, own enumerator/provider, U, and pair. Each coverage record keeps `deficiency+nativeCause+inputRef` together. No branch may unzip deficiencies and nativeCauses and re-pair the first of each.
++
++**Applicability is FIRST-MATCH, and the order is normative.** Exactly one token applies.
++
++| # | `applicability` | Matches when | `sourceUniverse` |
++|---|---|---|---|
++| 1 | `inapplicable-vcs` | relation is `vcs-change` **and** the admitted VCS observation `kind` is `none` | binding U |
++| 2 | `unsupported-typed` | the matrix cell for `(capabilityId, languageMode)` is `UNSUPPORTED-TYPED` | binding U |
++| 3 | `unavailable-unselected` | the binding enumerator `status` is `unselected` | binding U (null) |
++| 4 | `unavailable-null-universe` | the binding `universe` is null | null |
++| 5 | `supported-available` | otherwise | binding U |
++
++Row 3 deliberately precedes row 4. `enumeration-contract.v1.md` §1 refuses a non-null universe on an
++unselected enumerator, so an unselected binding always has `universe=null`; testing the universe first
++would make `unavailable-unselected` **unreachable** and collapse two advertised enum members into one.
++In this order they have distinct reachable meanings: **the enumerator was not selected** (an optional
++`{status:"unselected", reason:"optional-unselected"}` binding), versus **a selected enumerator whose
++binding has no universe** (an unavailable binding — pre-Plan input or provider unavailable). Row 2
++outranks both, so an `UNSUPPORTED-TYPED` cell still discloses its matrix deficiency and that
++deficiency's registered cause even when the enumerator is unselected and U is null. A malformed
++binding shape is rejected by **its own owner**; no shape is ever constructed here solely to reach a
++branch.
++
++**`sourceUniverse` is the binding's universe coordinate — an EXTERNAL join.** For **every**
++applicability, `nativeCoverageAccounts[i].sourceUniverse` **equals**
++`EnumerationPlanV1.cells[cellOrdinal].programBindings[programOrdinal].universe`. Carrying no Coverage
++does **not** erase that coordinate: an `inapplicable-vcs`, `unsupported-typed` or unavailable account
++still belongs to the universe its binding names. A **null binding U remains null**. The competing rule
++"null whenever `coverageIds` is empty" is internally consistent too — which is exactly why the
++normative one is published here instead of living only in the reference implementation. Violation is
++`EXECUTION_INPUTS_COVERAGE_DERIVE`.
++
++JSON Schema **cannot** state this: the comparand is a different document. `NativeCoverageAccountV1`
++therefore publishes the join as `x-opensip-external-joins` and the precedence as
++`x-opensip-applicability-precedence`, annotations that say what admission compares, rather than
++pretending a per-record schema compares an external binding. `sourceUniverse` stays nullable there
++only because a null binding U is lawful.
++
++**`targetUniverse` is deliberately not joined.** This section constrains only `sourceUniverse`. A
++Coverage or fact may name a target in another universe; cross-universe relationships, incoming
++targets and multi-universe Runs stay lawful (see the per-universe attribution clause below). Nothing
++in this section may be read as prohibiting them.
+ 
+ | `applicability` (joined to binding+matrix+VCS) | Envelopes |
+ |---|---|
+@@ -80,7 +121,49 @@
+ | `unavailable-unselected` / `unavailable-null-universe` | none — do not fabricate Coverage at null U |
+ | `inapplicable-vcs` | none; admitted VCS observation `kind=none` is the basis |
+ 
++**A selected-U `UNSUPPORTED-TYPED` cell may lawfully have returned Coverage, and the account names
++none of it.** Native says such a cell **is** requestable and is *answered* with `unknown` plus its own
++named deficiency and cause (`native-evidence.md` §"`UNSUPPORTED-TYPED` is not on any of these
++routes"). That Coverage is real retained evidence: it stays in its returned view, in the stage
++capture, in `selectedRefs` (via the view's `coverageIds`) and in native disclosure. Its
++`nativeCoverageAccount` nonetheless has `coverageIds` **empty**, under the existing rule that only
++`supported-available` names envelopes — the account is not the Coverage's only home, so nothing is
++lost. The disclosure is **not** the `unsupported-typed` token alone, as an earlier reading had it:
++`derivedAccounts[]` for that pair carries `accountState=unsupported` with the **matrix**
++`(deficiency, nativeCause)` pair, and a **required** such cell additionally emits a
++`requiredCellDeficiencies` row that bridges to proof (§9.6) and holds the Run at
++`indeterminate`. Consequently a cell **outcome** of `complete` here means *this cell's execution
++account has been answered*, not that the native capability became supported: `accountState`
++`unsupported` is an answered account, and `derive_outcome` treats it as such. An optional
++`UNSUPPORTED-TYPED` cell is therefore not forced to execute a provider to close.
++
+ Required unsupported / unavailable / incomplete work is **semantic indeterminate** (`requiredCellDeficiencies`). Admission retains **all** native causes on `derivedAccounts[].nativeCauses` and the exact per-Coverage triples on `derivedAccounts[].coverageRecords`. `requiredCellDeficiencies` is **canonical-record unique**: every distinct cause and coordinate is kept (two partial inventories, or two Coverage of the same relation with different carriers, must both survive). Dedup on `(cell, program, cause, relation)` is forbidden because it drops the second inventory/rung/source. That uniqueness is of the **internal** admission row, which includes cell/program/relation/resolution coordinates. Proof `executionDeficiencies` uniqueness is canonical-set of the bridged evaluation-deficiency record (composition §9.6), which has no those coordinates. Distinct originating Coverage/inventory/candidate refs keep distinct proof items. Byte-identical bridged records carry identical proof-level information; remaining cell/relation coordinates stay on hashed ExecutionInputsV1 `nativeCoverageAccounts` / `cellOutcomes`. Required unsupported-typed stays an explicit matrix pair. Complete extraction with RC-3 resolution-incomplete stays native: account complete is extraction completeness; do not manufacture a carrier.
++
++**Derived carrier: primary pair, and the carrier for missing work.** An incomplete account's own
++`(deficiency, nativeCause)` is the **first retained source record that actually carries a typed pair**,
++in a deterministic order — the returned partitions in canonical H order, then any named-but-not-returned
++Coverage. The pair is taken **whole** from that one record; it is never unzipped and re-paired across
++records, and a record that carries no pair never borrows a sibling's.
++
++Where the only incompleteness is **missing work** — **no returned partition at all**, or **expected
++source subjects that no returned partition covers** — no retained source carries a pair, and the
++derived pair is explicitly **`(null, null)`**. It is **not** `provider-unavailable`. That token would
++assert a provider observation occurring on no source record, which the §4 rule ("must actually occur on
++a source record … not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`") and
++the "do not manufacture a carrier" rule below already forbid. Census-driven incompleteness has **no**
++named deficiency and needs none; no new vocabulary member is minted for it.
++
++`(null, null)` weakens nothing. The account stays `incomplete`; the cell row stays `partial`; a
++**required** cell still emits its `requiredCellDeficiencies` row — including the genuinely
++missing-source row that names no Coverage at all — and the existing proof bridge (composition §9.6)
++maps the null `deficiency` to proof cause `required-cell-unsatisfied`, retaining the ExecutionInputsV1
++ref plus each originating ref. Required work stays partial/indeterminate; incomplete extraction is
++never promoted to complete. Both the missing-partition and the missing-subject case are governed by
++this paragraph. Where a retained inventory, Coverage, candidate or binding record **does** carry a
++typed pair, that exact pair and its originating ref are kept — including alongside a census failure,
++where the typed native carrier is the primary pair and the census is reported by `censusMissing` and
++by the account staying incomplete. Real native causes are never suppressed, inventory budget failures
++are never rewritten, and no provider is qualified.
+ 
+ Population/exhaustiveness evidence for source coverage is the native owner handle per partition (Scope2 + inventory join). Global missing expected subjects still needs a reconstruct join; this unit does not invent that census.
+ 

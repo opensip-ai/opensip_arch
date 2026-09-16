@@ -1,0 +1,77 @@
+{
+  "session_id": "0aa529b3-0da1-44b1-b2b9-dbcd9f1bd206",
+  "total_cost_usd": 27.758023499999997,
+  "usage": {
+    "input_tokens": 172,
+    "cache_creation_input_tokens": 178326,
+    "cache_read_input_tokens": 44984257,
+    "output_tokens": 139271,
+    "output_tokens_details": {
+      "thinking_tokens": 33996
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 178326,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1496,
+        "cache_read_input_tokens": 602712,
+        "cache_creation_input_tokens": 1458,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1458
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 172,
+      "outputTokens": 139271,
+      "cacheReadInputTokens": 44984257,
+      "cacheCreationInputTokens": 178326,
+      "webSearchRequests": 0,
+      "costUSD": 27.758023499999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 33996,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01Ds8yTBu9jt8WwDRiEmgdN2",
+      "tool_input": {
+        "command": "python3 -c \"\nimport os,shutil,hashlib\nV3='/tmp/opensip-design-corrections/claude-carrier-correction.v3'\nV4='/private/tmp/opensip-design-corrections/claude-carrier-correction.v4'\nfor d in ['scratch/proposal/docs/coop/design-corrections/security','scratch/proposal/docs/v2/architecture',\n          'scratch/proposal/owner-patches','scratch/controls','scratch/out','scratch/patched','scratch/patches','scratch/v3-evidence']:\n    os.makedirs(os.path.join(V4,d),exist_ok=True)\n# reuse unchanged v3 artifacts\nsame=[('scratch/proposal/docs/coop/design-corrections/security/grant-journal.carrier.v3.sql',)*2,\n      ('scratch/proposal/docs/coop/design-corrections/security/carrier-highwater.schema.v1.json',)*2,\n      ('scratch/controls/c1.py',)*2,('scratch/controls/c2.py',)*2]\nfor a,b in same:\n    shutil.copy2(os.path.join(V3,a),os.path.join(V4,b))\n    print('reused',b,hashlib.sha256(open(os.path.join(V4,b),'rb').read()).hexdigest()[:16])\n# preserve v3 evidence (old case bytes + v3 reports) read-only\nfor f in ['scratch/out/c1.json','scratch/out/c2.json','scratch/out/c3.json','scratch/out/c4-check.json',\n          'scratch/out/c5-negative.json','scratch/out/c4-patches.json','scratch/output-manifest.json',\n          'scratch/REPORT.md','scratch/proposal/carrier-fault-cases.v1.json']:\n    shutil.copy2(os.path.join(V3,f),os.path.join(V4,'scratch/v3-evidence',os.path.basename(f)))\nprint('v3 evidence preserved:',sorted(os.listdir(os.path.join(V4,'scratch/v3-evidence'))))\n\"",
+        "description": "Set up v4 scratch, reuse and preserve v3"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01KvQGcbAUuQHNUdJGTtZufB",
+      "tool_input": {
+        "command": "python3 -c \"\nt=open('/tmp/opensip-design-corrections/candidate-subject.v25/docs/v2/contracts/product-v1/security-and-lifecycle.md',encoding='utf-8').read()\nfor a in ['## S1. Authority, applicability and superseded selectors',\n          'This dispatch does not change lease modes,',\n          'Bridge. Stage 1: root readers {1}',\n          '| `OBSERVER.FAIL_STOP`, I/O failure | operational-failed / 4 / `HOST.IO_FAILURE` |']:\n    print(t.count(a), repr(a[:60]))\nprint()\ni=t.find('## S1.'); print(t[i:i+700])\n\"",
+        "description": "Locate security patch anchors"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 86,
+  "subtype": "success",
+  "result": "Done. Source25 pristine (12869/12869), root's inputs unmodified, v3 untouched.\n\n## Both schedules were real defects in my v1 algorithm\n\nI accept both diagnoses. v1 read tail, witness and floor once each and treated the tuple as coherent \u2014 it isn't.\n\n**Race 1.** With receipt `k=9`, tail `t=10`, and a lawful concurrent append landing 11 plus witness `COMMITTED 11` before the reader's witness read, v1 hits `COMMITTED n > tail` and emits a quarantine diagnosis for an ordinary later append. Fixed by **bracketed capture**: witness-before, floor-before, journal snapshot, witness-after, floor-after, with byte stability per bracket. An anchor is usable only if its own bracket was stable, and an owner quarantine condition is reportable only under five stated conditions (both brackets stable, two journal snapshots agreeing on tail *seq and digest*, closed witness shape validated first, carrier naming matched). Otherwise \u2192 `unavailable-busy`. I state the stability argument as an **assumption about writer monotonicity, not a proof**.\n\n**Race 2.** Fixed by removing the liveness probe entirely. I traced owners first: identity \u00a72 **already** requires ExecutionId \"reserved with uniqueness checked in the corresponding operational ledger before use\", so the admitted phase is existing law. What's missing is durable terminality for a non-committing attempt. So `AttemptCustodyV1` adds a monotone phase to that *existing* reservation \u2014 settle ordered after the receipt write, read in the **same** snapshot. The crash case stays `unknown-attempt-open` forever, and the authorized settle-sweep is **named and not discharged**.\n\n**Covered by schedules, not tuples:** 78,653 enumerated schedules, 14 configs, 0 violations, 7/7 coverage assertions \u2014 including that skew actually suppressed a corruption claim and that all five quiescent corrupt carriers are *still* diagnosable.\n\n## Owners now selected, not just linked\n\nTwo candidate25 files patched (`identity-and-evidence.md` +35/\u22121, `security-and-lifecycle.md` +54/\u22120), both before-hashes asserted against the frozen manifest. No historical file touched \u2014 and since `WA-13` occurs **only** in immutable v8, the third generation-closure cause is stated in the current owner. F32's typed route is asserted preserved verbatim, including its move to `retention_tests.rs`. Cases renumbered F38\u2013F49, no `F39b`. New S12 rows use only registered errorCodes and detail codes; the one carrier-quarantine detail code is **left undecided** with both options costed, since reusing `MIGRATION.CORRUPT` would put two remedies behind one code.\n\nPS05 adopted verbatim: 132 schedules, 0 violations, all four bit states, permit single-use, fetch-OR idempotent, CAS-from-2 fails. Required delivery after a successful commit **can** proceed as a separate SHARED-READ phase drawing nothing from the closed session; for state 3 I selected the conservative reading (no delivery phase; existing `DELIVERY.REQUIRED_FAILED`) and flagged the alternative.\n\n## Three things I'd want you to read skeptically\n\n**My overclaim is withdrawn with a measurement.** C8: the frozen carrier admits **8 of 9** schema-3 types; incompatible cases are exactly `SEAL` and the three alias-only platform ids. And I separated attribution \u2014 the weak-chain limitation was already in your prompt and followup \u00a74.2; only the two-frozen-document wording contradiction is mine.\n\n**One negative-control drift is undetected and I did not hide it.** A2 keeps the brackets but drops the two-agreeing-tails requirement, and produces no violation \u2014 because in a lawful append the tail only moves with the witness. **My controls do not justify keeping that clause.** I retained it as defence in depth; you may drop it.\n\n**My own validator was weak twice more.** Two drifts initially detected only by crashing it, and two drifts I wrote were badly constructed. Both fixed \u2014 clean failures now, and sandboxes carry the model reports.\n\n`REPORT.md` \u00a76 lists 11 remaining actual design gaps, kept separate from \u00a77 unperformed qualification (no real processes \u2014 C6 interleaves a model, not two OS processes; no Rust compiled) and \u00a78 already-selected honest limits.",
+  "type": "result",
+  "duration_ms": 1732544
+}

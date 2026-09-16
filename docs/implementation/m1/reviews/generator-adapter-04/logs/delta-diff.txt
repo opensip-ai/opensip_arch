@@ -1,0 +1,173 @@
+--- /tmp/opensip-implementation/m1-generator-adapter-subject-03/tools/generate_contracts.py	2026-09-14 17:26:37
++++ /tmp/opensip-implementation/m1-generator-adapter-subject-04/tools/generate_contracts.py	2026-09-14 17:53:34
+@@ -66,6 +66,20 @@
+     return result
+ 
+ 
++def directory_identity(path):
++    """Identity of a parent-created root, never following a child-made link."""
++    value = path.lstat()
++    if not stat.S_ISDIR(value.st_mode):
++        raise GenerationError('child root is no longer a parent-created directory')
++    return value.st_dev, value.st_ino
++
++
++def verify_directory_roots(roots):
++    for path, expected in roots.items():
++        if directory_identity(path) != expected:
++            raise GenerationError('parent-created child directory was replaced')
++
++
+ def child_profile(executable, reads, writes):
+     """macOS development profile; system runtime remains explicitly trusted."""
+     quote = lambda path: json.dumps(str(Path(path).resolve(strict=True)))
+@@ -77,7 +91,7 @@
+         '(allow process-exec (literal ' + quote(executable) + '))',
+         '(allow file-read* (literal ' + quote(executable) + ')' + ''.join(' (subpath ' + quote(p) + ')' for p in [*reads, *writes]) + ')',
+         '(allow file-read-metadata' + ''.join(' (path-ancestors ' + quote(p) + ')' for p in [executable, *reads, *writes]) + ')',
+-        '(allow file-write* ' + ' '.join('(subpath ' + quote(p) + ')' for p in writes) + ')',
++        '(allow file-write* ' + ' '.join('(require-all (subpath ' + quote(p) + ') (require-not (literal ' + quote(p) + ')))' for p in writes) + ')',
+     ]) + '\n'
+ 
+ 
+@@ -378,6 +392,8 @@
+             raise GenerationError('Python preparation failed: '+preparation.stderr.strip())
+         verify_python_profile(python_profile)
+         prepared=collect_outputs(prepared_output,{'owners.json','rust-projection.json','ts-projection.json'})
++        if prepared['owners.json'] != (json.dumps(options['owners'], indent=2)+'\n').encode():
++            raise GenerationError('prepared owner mapping differs from parent options')
+         inputs=work/'inputs';inputs.mkdir()
+         for name,raw in prepared.items(): (inputs/name).write_bytes(raw)
+         (inputs/'options.json').write_bytes(options_raw)
+@@ -391,12 +407,15 @@
+         env={'PATH':'/usr/bin:/bin','HOME':str(home),'LANG':'C','LC_ALL':'C','TZ':'UTC'}
+         output=work/'output';output.mkdir()
+         scratch=work/'runtime-scratch';scratch.mkdir()
++        directory_roots = {path: directory_identity(path) for path in (output, scratch, home)}
+         def run(argv, reads, writes):
++            verify_directory_roots(directory_roots)
+             profile=work/'child-profile.sb'
+             profile.write_text(child_profile(argv[0], reads, writes))
+             result = subprocess.run(['/usr/bin/sandbox-exec','-f',str(profile),*argv], cwd=scratch,
+                 env=env, stdin=subprocess.DEVNULL, close_fds=True, capture_output=True, text=True,
+                 timeout=closure['confinement']['timeoutSeconds'])
++            verify_directory_roots(directory_roots)
+             if result.returncode:
+                 raise GenerationError('generator child failed: ' + result.stderr.strip())
+         code=work/'tools/contracts'
+--- /tmp/opensip-implementation/m1-generator-adapter-subject-03/tools/tests/test_generation_execution.py	2026-09-14 17:26:37
++++ /tmp/opensip-implementation/m1-generator-adapter-subject-04/tools/tests/test_generation_execution.py	2026-09-14 17:53:34
+@@ -103,6 +103,17 @@
+         with self.assertRaisesRegex(G.GenerationError, 'digest mismatch'): self.run_generation(write=True)
+         self.assert_original()
+ 
++    def test_prepared_owners_cannot_override_parent_options(self):
++        source = self.root / 'tools/contracts/prepare.py'
++        text = source.read_text()
++        old = "json.dumps(options['owners'], indent=2)"
++        self.assertEqual(text.count(old), 1)
++        source.write_text(text.replace(old, "json.dumps([], indent=2)"))
++        self.seal()
++        with self.assertRaisesRegex(G.GenerationError, 'prepared owner mapping differs'):
++            self.run_generation(write=True)
++        self.assert_original()
++
+     def test_materialized_package_change_refuses(self):
+         (self.root / 'tools/contracts/node_modules/typescript/package.json').write_text('{}')
+         with self.assertRaisesRegex(ValueError, 'TypeScript'): self.run_generation(write=True)
+@@ -153,5 +164,53 @@
+         self.assertEqual(G.collect_outputs(output, {'result.rs'}, max_bytes=5), {'result.rs': b'12345'})
+ 
+ 
++class DirectoryCustodyTests(unittest.TestCase):
++    def test_replaced_or_linked_root_refuses_before_profile_construction(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            base = Path(tmp).resolve()
++            root = base / 'output'; root.mkdir()
++            roots = {root: G.directory_identity(root)}
++            G.verify_directory_roots(roots)
++            # Keep the original inode alive, so an allocator cannot recycle it.
++            root.rename(base / 'original')
++            root.mkdir()
++            with self.assertRaisesRegex(G.GenerationError, 'directory was replaced'):
++                G.verify_directory_roots(roots)
++            root.rmdir(); root.symlink_to(base / 'original', target_is_directory=True)
++            with self.assertRaisesRegex(G.GenerationError, 'parent-created directory'):
++                G.verify_directory_roots(roots)
++
++    @unittest.skipUnless(sys.platform == 'darwin' and Path('/usr/bin/sandbox-exec').is_file(), 'requires the actual macOS sandbox')
++    def test_real_sandbox_denies_output_root_replacement(self):
++        compiler = shutil.which('cc')
++        if compiler is None:
++            self.skipTest('native C compiler required for real sandbox syscall probe')
++        with tempfile.TemporaryDirectory() as tmp:
++            base = Path(tmp).resolve()
++            source = base / 'probe.c'
++            source.write_text('#include <unistd.h>\n#include <stdio.h>\nint main(int n,char**v){if(n!=3)return 2;int a=rmdir(v[1]);int b=symlink(v[2],v[1]);printf("%d %d\\n",a,b);return 0;}\n')
++            executable = base / 'probe'
++            build = REAL_RUN([compiler, str(source), '-o', str(executable)], capture_output=True, text=True)
++            self.assertEqual(build.returncode, 0, build.stderr)
++            output = base / 'output'; output.mkdir()
++            victim = base / 'victim'; victim.mkdir()
++            (victim / 'canary').write_bytes(b'outside original')
++            roots = {output: G.directory_identity(output)}
++            profile = base / 'profile.sb'
++            profile.write_text(G.child_profile(executable, [], [output]))
++            confined = REAL_RUN(['/usr/bin/sandbox-exec', '-f', str(profile), str(executable), str(output), str(victim)], stdin=subprocess.DEVNULL, close_fds=True, capture_output=True, text=True, env={}, timeout=10)
++            self.assertEqual(confined.returncode, 0, confined.stderr)
++            self.assertEqual(confined.stdout.strip(), '-1 -1')
++            G.verify_directory_roots(roots)
++            self.assertEqual((victim / 'canary').read_bytes(), b'outside original')
++            control = REAL_RUN([str(executable), str(output), str(victim)], stdin=subprocess.DEVNULL, close_fds=True, capture_output=True, text=True, env={}, timeout=10)
++            self.assertEqual(control.returncode, 0, control.stderr)
++            self.assertEqual(control.stdout.strip(), '0 0')
++            self.assertTrue(output.is_symlink())
++            with self.assertRaises(G.GenerationError):
++                G.verify_directory_roots(roots)
++            self.assertEqual((victim / 'canary').read_bytes(), b'outside original')
++
++
+ if __name__ == '__main__':
+     unittest.main()
+--- /tmp/opensip-implementation/m1-generator-adapter-subject-03/GENERATOR-UNIT.md	2026-09-14 17:26:37
++++ /tmp/opensip-implementation/m1-generator-adapter-subject-04/GENERATOR-UNIT.md	2026-09-14 17:53:34
+@@ -1,4 +1,4 @@
+-# Generator adapter03 correction unit
++# Generator adapter04 confinement correction unit
+ 
+ Candidate for actual Claude review. Not product integration or M1 completion.
+ The source closure still needs complete native-wire/control/report/fit owners and
+@@ -59,3 +59,22 @@
+ passing TS original-schema validation. TS compile, Rust Clippy/fmt and the fresh
+ 8-output drift check pass. Those are finite algorithm/development observations,
+ not semantic admission, language analyzer, report UI or release qualification.
++
++Adapter03 independent review required RF1: child output root replacement could
++redirect the next child's grants. Adapter04 excludes each write-root literal
++from the recursive write grant and verifies original device/inode directory
++identity before and after every Node/Rust step. Parents alone own these roots;
++child outputs cannot change later grants. Prepared owners.json must also equal
++the parent-derived options mapping (ADV3). Real sandbox regression tests cover
++root replacement, with a successful unconfined control. A narrow actual Claude
++delta review remains required. No architecture commit is needed to manufacture
++an approval: accepted immutable source45/application46 and scoped successor
++manifests are the external reviewed anchor; source preflight checks those bytes.
++Product integration must additionally select this final generator closure.
++
++Generic report runtime exports are inert utilities; only createReportShapeRegistry
++provides the selected schema facade. Constructing SchemaRegistry separately does
++not admit product/report evidence. Host admission retains all lexical/semantic
++checks. Build receipt fields are an observed-build record, not attestation; native
++build tools remain trusted. CPU/memory/disk limits and other OS profiles remain
++explicit future qualification, with the existing300-second child timeout.
+--- /tmp/opensip-implementation/m1-generator-adapter-subject-03/schemas/registry.json	2026-09-14 17:26:37
++++ /tmp/opensip-implementation/m1-generator-adapter-subject-04/schemas/registry.json	2026-09-14 17:53:34
+@@ -229,7 +229,7 @@
+   "recipes": [
+     {
+       "recipeId": "contracts-v1",
+-      "generatorClosureSha256": "3473abef473b7f510afca16ffbc49a22ad0654c1caef1512ffa64849af8d1b7a",
++      "generatorClosureSha256": "2d64a8d8638ca92582c266957d205b9b1c41e3627e2d66584db194924cfdbc44",
+       "optionsPath": "tools/contracts/options.json",
+       "optionsSha256": "1719ef1860624e390af57f58c9670b60c68aa9d599eba3a4cee18d43343d7902",
+       "sourceSha256s": [

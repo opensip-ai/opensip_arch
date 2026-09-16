@@ -1,0 +1,355 @@
+--- v33/docs/coop/design-corrections/foundation/check-atoms.v1.py
++++ v34/docs/coop/design-corrections/foundation/check-atoms.v1.py
+@@ -1839,6 +1839,334 @@
+     def go():
+         AM.evaluate_atom(atom, {"universe": U1, "kind": "symbol", "nativeSubjectId": "ts-symbol:src/a.ts#f"}, inputs)
+     expect_admit(go, "ATOM_NATIVE_CARRIER", "invalid-typed-scope")
++
++
++F_SYM = "ts-symbol:src/a.ts#f"
++G_SYM = "ts-symbol:src/a.ts#g"
++IMPORTS_ATOM = {"op": "exists", "relation": "imports", "minResolution": "resolved-target",
++                "filters": []}
++F_SUBJ = {"universe": U1, "kind": "symbol", "nativeSubjectId": F_SYM}
++
++
++def outgoing_import_fact(fid):
++    return {
++        "factId": fid, "relation": "imports", "resolution": "resolved-target",
++        "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV,
++        "confidenceMillionths": 1000000,
++        "payload": {"importer": F_SYM, "specifier": "./b", "resolvedTarget": "file:src/b.ts"},
++        "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++    }
++
++
++def early_stops(fid=None):
++    """The four outgoing early stops of contract section 4, as (label, inputs, cause, universe)."""
++    facts = {fid: outgoing_import_fact(fid)} if fid else {}
++    invs = [inv_symbol(), inv_symbol(nid=G_SYM, qn="g")]
++    out = []
++
++    out.append(("no-owed-binding",
++                base_inputs(enumerationPlan=plan_one(cap="inventory"), facts=dict(facts)),
++                "missing-relation-coverage", None))
++
++    out.append(("bindings-none-at-u",
++                base_inputs(enumerationPlan=plan_one(universe=U2, cap="imports"), facts=dict(facts)),
++                "selector-unbound", None))
++
++    i3 = base_inputs(enumerationPlan=plan_one(cap="imports"), facts=dict(facts), inventories=invs)
++    install_pair(i3, *paired("imports", "resolved-target", U1, U1, [G_SYM], tag="2"))
++    out.append(("no-containing-scope", i3, "uncovered-expected-source-subject", U1))
++
++    i4 = base_inputs(enumerationPlan=plan_one(cap="imports"), facts=dict(facts), inventories=invs)
++    install_pair(i4, *paired("imports", "resolved-target", U1, U1, [F_SYM], tag="1"))
++    sb, scb = scope("imports", "resolved-target", U1, U1, [F_SYM, G_SYM], sid="2")
++    i4["scopes"][sb] = scb
++    out.append(("unmatched-scope", i4, "scope-without-coverage", U1))
++    return out
++
++
++def test_outgoing_early_stop_cause_and_universe():
++    """Section 4 steps 2-5: which cause each stop emits, and the universe it carries."""
++    for label, inputs, code, universe in early_stops():
++        r = AM.evaluate_atom(dict(IMPORTS_ATOM), F_SUBJ, inputs)
++        expect_value(r, "indeterminate", label)
++        got = {c["code"]: c for c in r["causes"]}
++        if code not in got:
++            fail(f"{label}: causes {r['causes']}")
++        if got[code].get("universe") != universe:
++            fail(f"{label}: {code} universe {got[code].get('universe')!r} != {universe!r}")
++        if r["coverageIds"]:
++            fail(f"{label}: early stop cited coverage {r['coverageIds']}")
++        if label != "unmatched-scope" and r["scopeIds"]:
++            fail(f"{label}: early stop cited scopes {r['scopeIds']}")
++
++
++def test_unmatched_scope_stop_cites_every_scope_and_no_coverage():
++    """Section 4 step 5: scopeIds is every containing scope; coverageIds stays empty."""
++    _label, inputs, _code, _u = early_stops()[3]
++    r = AM.evaluate_atom(dict(IMPORTS_ATOM), F_SUBJ, inputs)
++    if r["scopeIds"] != sorted([scope2("1"), scope2("2")]):
++        fail(f"unmatched stop scopeIds {r['scopeIds']}")
++    if r["coverageIds"]:
++        fail(f"unmatched stop must not cite a paired sibling: {r['coverageIds']}")
++
++
++def test_known_hit_dominates_every_outgoing_early_stop():
++    """A completeness return ends completeness only: a known match still decides the value."""
++    fid = fact2("1")
++    for label, inputs, code, _u in early_stops(fid):
++        e = AM.evaluate_atom({**IMPORTS_ATOM, "op": "exists"}, F_SUBJ, inputs)
++        expect_value(e, "true", f"{label}-exists")
++        if fid not in e["knownFactIds"]:
++            fail(f"{label}: completeness return erased the known fact")
++        if code not in {c["code"] for c in e["causes"]}:
++            fail(f"{label}: dominance erased the completeness cause")
++        n = AM.evaluate_atom({**IMPORTS_ATOM, "op": "none"}, F_SUBJ, inputs)
++        expect_value(n, "false", f"{label}-none")
++        c0 = AM.evaluate_atom({**IMPORTS_ATOM, "op": "count-at-most", "n": 0}, F_SUBJ, inputs)
++        expect_value(c0, "false", f"{label}-count-at-most-0")
++
++
++def test_cross_family_disclosure_survives_outgoing_selector_stop():
++    """Section 4 step 1 runs before the returns, and outgoing carries the binding's null universe."""
++    plan = plan_one(universe=U2, cap="imports")
++    plan["cells"].append({
++        "capabilityId": "imports", "languageMode": "rust-cargo", "workspaceRoot": "crate",
++        "required": True, "kinds": ["symbol"],
++        "programBindings": [{
++            "ordinal": 0, "provenance": "default-unit",
++            "enumerator": {"status": "selected", "closureId": C_PROV2},
++            "nativeContextDigest": H("0"), "universe": None, "programEntry": None,
++            "extents": [{"kind": "symbol", "paths": ["src/lib.rs"]}],
++        }],
++    })
++    r = AM.evaluate_atom(dict(IMPORTS_ATOM), F_SUBJ, base_inputs(enumerationPlan=plan))
++    got = {c["code"]: c for c in r["causes"]}
++    if "selector-unbound" not in got or "cross-family-edge-not-owed" not in got:
++        fail(f"cross-family must survive the selector stop: {r['causes']}")
++    if got["cross-family-edge-not-owed"].get("universe") is not None:
++        fail(f"outgoing cross-family universe {got['cross-family-edge-not-owed']!r}")
++    if "unavailable-program-binding" in got:
++        fail("unavailable-program-binding is incoming only")
++
++
++def dep_fold_inputs(low_cause, high_cause, reverse=False):
++    sr, scr, cr, covr = paired("reachability", "from-resolved-calls", U1, U1, [F_SYM], tag="1")
++    sa, sca, ca, cova = paired("calls", "resolved-callee", U1, U1, [F_SYM], tag="2", cov="unknown")
++    sb, scb, cb, covb = paired("calls", "resolved-callee", U1, U1, [F_SYM], tag="3", cov="unknown")
++    cova["entry"]["deficiency"] = covb["entry"]["deficiency"] = "input-closure-incomplete"
++    cova["entry"]["nativeCause"], covb["entry"]["nativeCause"] = low_cause, high_cause
++    inputs = base_inputs(enumerationPlan=plan_one(cap="reachability"))
++    pairs = [(sr, scr, cr, covr), (sa, sca, ca, cova), (sb, scb, cb, covb)]
++    for p in (reversed(pairs) if reverse else pairs):
++        install_pair(inputs, *p)
++    return inputs
++
++
++def _expect_folded_carrier(r, label, cause):
++    cu = [c for c in r["causes"] if c["code"] == "coverage-unknown"]
++    if len(cu) != 1 or cu[0].get("nativeCause") != cause:
++        fail(f"{label}: coverage-unknown {cu}")
++    if cu[0].get("universe") != U1:
++        fail(f"{label}: coverage-unknown universe {cu[0].get('universe')!r}")
++    if not {cov2("2"), cov2("3")} <= set(r["coverageIds"]):
++        fail(f"{label}: every folded partition must be cited, got {r['coverageIds']}")
++    if r["nativeDeficiencies"] != ["input-closure-incomplete"]:
++        fail(f"{label}: nativeDeficiencies {r['nativeDeficiencies']}")
++
++
++def test_dep_fold_carrier_is_first_partition_in_selection_order():
++    """The typed carrier follows the ascending coverage2 id, not the host map's insertion order."""
++    for endpoint in ("source", "target"):
++        atom = {"op": "all-covered", "relation": "reachability",
++                "minResolution": "from-resolved-calls", "endpoint": endpoint, "filters": []}
++        for low, high in (("lockfile-missing", "no-program-unit"),
++                          ("no-program-unit", "lockfile-missing")):
++            for reverse in (False, True):
++                label = f"{endpoint}/{low}/reverse={reverse}"
++                r = AM.evaluate_atom(atom, F_SUBJ, dep_fold_inputs(low, high, reverse))
++                expect_value(r, "indeterminate", label)
++                _expect_folded_carrier(r, label, low)
++
++
++def test_incoming_reports_every_universe_without_early_stop():
++    """After the shared prelude, incoming makes no further early return: a failing U1 partition
++    cannot hide U2's own causes. The prelude's own return is checked separately."""
++    g = "ts-symbol:src/b.ts#g"
++    plan = plan_one(cap="references")
++    plan["cells"].append({
++        "capabilityId": "references", "languageMode": "ts-tsconfig", "workspaceRoot": "pkg-b",
++        "required": True, "kinds": ["symbol"],
++        "programBindings": [{
++            "ordinal": 0, "provenance": "explicit-plan-selection",
++            "enumerator": {"status": "selected", "closureId": C_PROV2},
++            "nativeContextDigest": H("0"), "universe": U2, "programEntry": None,
++            "extents": [{"kind": "symbol", "paths": ["src/b.ts"]}],
++        }],
++    })
++    inv_b = inv_symbol(universe=U2, nid=g, path="src/b.ts", qn="g")
++    inv_b["cellOrdinal"] = 1
++    s1, sc1 = scope("references", "resolved-binding", U1, U1, [F_SYM], sid="1")
++    inputs = base_inputs(enumerationPlan=plan, inventories=[inv_symbol(), inv_b],
++                         scopes={s1: sc1})
++    r = AM.evaluate_atom({"op": "none", "relation": "references", "minResolution": "resolved-binding",
++                          "endpoint": "target", "filters": []}, F_SUBJ, inputs)
++    expect_value(r, "indeterminate", "incoming-two-universes")
++    got = {(c["code"], c.get("universe")) for c in r["causes"]}
++    for want in (("scope-without-coverage", U1),
++                 ("uncovered-expected-source-subject", U2),
++                 ("source-target-search-unattested", U2)):
++        if want not in got:
++            fail(f"incoming dropped {want}: {r['causes']}")
++
++
++def ref_cell(cap, mode, universe, root, closure, paths, kinds=None):
++    return {"capabilityId": cap, "languageMode": mode, "workspaceRoot": root, "required": True,
++            "kinds": kinds or ["symbol"],
++            "programBindings": [{
++                "ordinal": 0, "provenance": "default-unit",
++                "enumerator": {"status": "selected", "closureId": closure},
++                "nativeContextDigest": H("0"), "universe": universe, "programEntry": None,
++                "extents": [{"kind": k, "paths": paths} for k in (kinds or ["symbol"])],
++            }]}
++
++
++def test_no_owed_binding_return_is_shared_by_both_endpoints():
++    """The missing-relation-coverage return sits in the shared prelude, before the endpoint split."""
++    inputs = base_inputs(enumerationPlan=plan_one(cap="inventory"))
++    for endpoint in ("source", "target"):
++        r = AM.evaluate_atom({"op": "none", "relation": "references",
++                              "minResolution": "resolved-binding", "endpoint": endpoint,
++                              "filters": []}, F_SUBJ, inputs)
++        expect_value(r, "indeterminate", f"no-owed-binding-{endpoint}")
++        got = {c["code"]: c for c in r["causes"]}
++        if "missing-relation-coverage" not in got:
++            fail(f"no-owed-binding-{endpoint}: causes {r['causes']}")
++        if got["missing-relation-coverage"].get("universe") is not None:
++            fail(f"no-owed-binding-{endpoint}: universe must project to null")
++        if r["scopeIds"] or r["coverageIds"]:
++            fail(f"no-owed-binding-{endpoint}: shared return cites {r['scopeIds']} {r['coverageIds']}")
++
++
++def test_incoming_keeps_both_cross_family_shapes():
++    """Incoming carries the prelude's unavailable/null disclosure AND the available/S one."""
++    plan = plan_one(cap="references")
++    plan["cells"].append(ref_cell("references", "rust-cargo", None, "crate-a", C_PROV2,
++                                  ["crate-a/src/lib.rs"]))
++    plan["cells"].append(ref_cell("references", "rust-cargo", UR, "crate-b", C_PROV2,
++                                  ["crate-b/src/lib.rs"]))
++    inputs = base_inputs(enumerationPlan=plan)
++    install_pair(inputs, *paired("references", "resolved-binding", U1, U1, [F_SYM], tag="1"))
++    inputs["incomingSearchAttestations"] = [
++        incoming_att("references", "resolved-binding", U1, U1, [scope2("1")], [inv_symbol()])]
++    r = AM.evaluate_atom({"op": "none", "relation": "references",
++                          "minResolution": "resolved-binding", "endpoint": "target",
++                          "filters": []}, F_SUBJ, inputs)
++    got = {(c["code"], c.get("universe")) for c in r["causes"]}
++    for want in (("cross-family-edge-not-owed", None), ("cross-family-edge-not-owed", UR)):
++        if want not in got:
++            fail(f"incoming lost cross-family shape {want}: {r['causes']}")
++    expect_value(r, "true", "cross-family-disclosures-are-not-blocking")
++
++
++def test_same_family_unavailable_blocks_incoming_only():
++    """A same-family unavailable binding is blocking incoming and leaves outgoing alone."""
++    plan = plan_one(cap="references")
++    plan["cells"].append(ref_cell("references", "ts-tsconfig", None, "pkg-b", C_PROV2,
++                                  ["pkg-b/src/b.ts"]))
++    inputs = base_inputs(enumerationPlan=plan)
++    install_pair(inputs, *paired("references", "resolved-binding", U1, U1, [F_SYM], tag="1"))
++    inputs["incomingSearchAttestations"] = [
++        incoming_att("references", "resolved-binding", U1, U1, [scope2("1")], [inv_symbol()])]
++    out = AM.evaluate_atom({"op": "none", "relation": "references",
++                            "minResolution": "resolved-binding", "filters": []}, F_SUBJ, inputs)
++    expect_value(out, "true", "same-family-unavailable-outgoing")
++    if "unavailable-program-binding" in {c["code"] for c in out["causes"]}:
++        fail("unavailable-program-binding is incoming only")
++    inc = AM.evaluate_atom({"op": "none", "relation": "references",
++                            "minResolution": "resolved-binding", "endpoint": "target",
++                            "filters": []}, F_SUBJ, inputs)
++    expect_value(inc, "indeterminate", "same-family-unavailable-incoming")
++    if "unavailable-program-binding" not in {c["code"] for c in inc["causes"]}:
++        fail(f"incoming must disclose the unavailable binding: {inc['causes']}")
++
++
++def multi_scope_dep_inputs(reverse_mapping):
++    """One reachability partition, and TWO same-kind `calls` scopes over the SAME subject.
++
++    With reverse_mapping the lower scope id carries the HIGHER Coverage id, so a scope-ordered walk
++    would hand the fold a descending Coverage list. Aligned tags conceal that branch.
++    """
++    inputs = base_inputs(enumerationPlan=plan_one(cap="reachability"))
++    install_pair(inputs, *paired("reachability", "from-resolved-calls", U1, U1, [F_SYM], tag="1"))
++    s_lo, sc_lo = scope("calls", "resolved-callee", U1, U1, [F_SYM], sid="5")
++    s_hi, sc_hi = scope("calls", "resolved-callee", U1, U1, [F_SYM], sid="6")
++    c_lo, cov_lo = coverage("calls", "resolved-callee", U1, U1, cov="unknown", cid="2")
++    c_hi, cov_hi = coverage("calls", "resolved-callee", U1, U1, cov="unknown", cid="3")
++    cov_lo["entry"]["deficiency"] = cov_hi["entry"]["deficiency"] = "input-closure-incomplete"
++    cov_lo["entry"]["nativeCause"] = "lockfile-missing"
++    cov_hi["entry"]["nativeCause"] = "no-program-unit"
++    inputs["scopes"].update({s_lo: sc_lo, s_hi: sc_hi})
++    inputs["coverages"].update({c_lo: cov_lo, c_hi: cov_hi})
++    if reverse_mapping:
++        inputs["coverageScopes"].update({c_hi: s_lo, c_lo: s_hi})
++    else:
++        inputs["coverageScopes"].update({c_lo: s_lo, c_hi: s_hi})
++    return inputs
++
++
++def test_same_kind_multi_scope_selection_is_ascending_coverage_id():
++    """Combined selection is sorted after pairing, so scope order cannot flip the typed carrier."""
++    for endpoint in ("source", "target"):
++        atom = {"op": "all-covered", "relation": "reachability",
++                "minResolution": "from-resolved-calls", "endpoint": endpoint, "filters": []}
++        for reverse in (False, True):
++            label = f"{endpoint}/reverse={reverse}"
++            r = AM.evaluate_atom(atom, F_SUBJ, multi_scope_dep_inputs(reverse))
++            expect_value(r, "indeterminate", label)
++            _expect_folded_carrier(r, label, "lockfile-missing")
++
++
++def test_dep_fold_replaces_whole_records_and_keeps_ties():
++    """resolutionCompleteness/closedWorld replace WHOLE on strictly worse rank; ties keep the first."""
++    c_lo, cov_lo = coverage("calls", "resolved-callee", U1, U1, cov="unknown", cid="2")
++    c_hi, cov_hi = coverage("calls", "resolved-callee", U1, U1, cov="unknown", cid="3")
++    cov_lo["entry"].update({
++        "confidenceMillionths": 900000,
++        "derivationKinds": ["declared"],
++        "rungUnavailableBecause": "low-record",
++        "resolutionCompleteness": {"state": "partial", "attempted": True,
++                                   "examinedExhaustive": False, "stageTerminal": "budget-exhausted",
++                                   "unresolvedEdgeCount": 7,
++                                   "unresolvedEdgeClasses": ["computed-member-access",
++                                                             "dynamic-import"]},
++        "closedWorld": {**CW_CLOSED, "exportsClosed": "open", "entryPointsRecognized": "all"},
++    })
++    cov_hi["entry"].update({
++        "confidenceMillionths": 800000,
++        "derivationKinds": ["compiler-inferred"],
++        "rungUnavailableBecause": "high-record",
++        "resolutionCompleteness": {"state": "incomplete", "attempted": True,
++                                   "examinedExhaustive": True, "stageTerminal": "complete",
++                                   "unresolvedEdgeCount": 1,
++                                   "unresolvedEdgeClasses": ["computed-member-access"]},
++        "closedWorld": {**CW_CLOSED, "exportsClosed": "open", "entryPointsRecognized": "none"},
++    })
++    folded, cited = AM._conservative_entry("calls", [(c_lo, cov_lo), (c_hi, cov_hi)])
++    rc, cw = folded["resolutionCompleteness"], folded["closedWorld"]
++    if rc != cov_hi["entry"]["resolutionCompleteness"]:
++        fail(f"resolutionCompleteness must be replaced WHOLE by the worse-state record: {rc}")
++    if cw != cov_lo["entry"]["closedWorld"]:
++        fail(f"closedWorld tie must retain the first record whole: {cw}")
++    if folded["derivationKinds"] != ["declared", "compiler-inferred"]:
++        fail(f"derivationKinds must be the ordered union: {folded['derivationKinds']}")
++    if folded["rungUnavailableBecause"] != "low-record":
++        fail(f"unfolded fields keep the first partition: {folded['rungUnavailableBecause']!r}")
++    if folded["confidenceMillionths"] != 800000:
++        fail(f"confidenceMillionths must be the minimum: {folded['confidenceMillionths']}")
++    if (folded["deficiency"], folded["nativeCause"]) != (None, None):
++        fail(f"no partition carried a deficiency, so the carrier stays empty: {folded}")
++    if cited != [c_lo, c_hi]:
++        fail(f"every folded partition is cited: {cited}")
+ 
+ 
+ CASES = [
+@@ -1912,6 +2240,17 @@
+     test_c15_agreement_same_identity_admits,
+     test_c15_unknown_sidecar_keeps_ephemeral,
+     test_wrong_universe_still_nomatch,
++    test_outgoing_early_stop_cause_and_universe,
++    test_unmatched_scope_stop_cites_every_scope_and_no_coverage,
++    test_known_hit_dominates_every_outgoing_early_stop,
++    test_cross_family_disclosure_survives_outgoing_selector_stop,
++    test_dep_fold_carrier_is_first_partition_in_selection_order,
++    test_incoming_reports_every_universe_without_early_stop,
++    test_no_owed_binding_return_is_shared_by_both_endpoints,
++    test_incoming_keeps_both_cross_family_shapes,
++    test_same_family_unavailable_blocks_incoming_only,
++    test_same_kind_multi_scope_selection_is_ascending_coverage_id,
++    test_dep_fold_replaces_whole_records_and_keeps_ties,
+ ]
+ 
+ 

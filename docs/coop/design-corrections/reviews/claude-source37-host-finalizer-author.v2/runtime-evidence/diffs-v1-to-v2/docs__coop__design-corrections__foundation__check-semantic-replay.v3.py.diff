@@ -1,0 +1,74 @@
+--- a/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ b/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -440,12 +440,17 @@
+     d9_goldens = {g["id"]: g for g in d9["goldenCases"]}
+     rows, built = [], {}
+ 
++    def validate_shape(term):
++        Q.validate_schema(Q.COMMON_ID + "#/$defs/StepTermination", term)
++
+     def schema_valid(term):
+         try:
+-            Q.validate_schema(Q.COMMON_ID + "#/$defs/StepTermination", term)
++            validate_shape(term)
+             return True
+         except Exception as exc:  # recorded, never read as refusal of the law
+             return "INVALID:" + str(exc).split("\n")[0][:160]
++
++    derived_by = {}
+ 
+     drift = T.route_drift()
+     rows.append({"case": "run-termination:route-drift", "ownerAdmission": "ADMIT", "drift": drift,
+@@ -462,6 +467,35 @@
+                 rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "permutation": got,
+                              "faults": faults})
+                 continue
++            if g["kind"] == "projection":
++                derived = derived_by[g["of"]]
++                admitted, refused = [], []
++                for case in g["admitDelegated"]:
++                    candidate = dict(derived, **case["add"])
++                    try:
++                        got = T.check_projection(candidate, derived, validate_shape)
++                    except T.RunTerminationError as exc:
++                        faults.append("delegated member refused: " + case["label"] + " " + str(exc)[:200])
++                        continue
++                    if (got["projection"] != derived or sorted(got["delegated"]) != case["delegated"]
++                            or got["delegatedStanding"] != "owner-validation-required"):
++                        faults.append("delegated projection " + case["label"] + " " + json.dumps(got, sort_keys=True))
++                    admitted.append({"label": case["label"], "delegated": sorted(got["delegated"]),
++                                     "standing": got["delegatedStanding"]})
++                for case in g["refuse"]:
++                    candidate = {k: v for k, v in derived.items() if k not in case.get("remove", [])}
++                    candidate.update(case.get("set", {}))
++                    try:
++                        T.check_projection(candidate, derived, None if case.get("noShapeValidator") else validate_shape)
++                        faults.append("candidate admitted: " + case["label"])
++                    except T.RunTerminationError as exc:
++                        code = str(exc).split(":", 1)[0]
++                        if code != case["expect"]:
++                            faults.append(f"{case['label']} refused as {code}, expected {case['expect']}")
++                        refused.append({"label": case["label"], "refusal": code})
++                rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT",
++                             "admittedProjectionWithDelegatedMembers": admitted, "refused": refused, "faults": faults})
++                continue
+             spec = g["build"]
+             if "export" in spec:
+                 run, objects, blobs = exports[spec["export"]]
+@@ -472,6 +506,7 @@
+             built[g["id"]] = (run, objects, blobs)
+             fin = T.finalize(run, objects, blobs)
+             derived, reduction = fin["termination"], fin["reduction"]
++            derived_by[g["id"]] = derived
+             want = g["expect"]
+             if derived != want["termination"]:
+                 faults.append("termination " + json.dumps(derived, sort_keys=True))
+@@ -497,7 +532,7 @@
+                 if validity is not True:
+                     faults.append("alternative " + alt["label"] + " is not schema-valid, so it proves nothing: " + str(validity))
+                 try:
+-                    T.check_candidate(alt["termination"], derived)
++                    T.check_projection(alt["termination"], derived, validate_shape)
+                     faults.append("alternative admitted: " + alt["label"])
+                 except T.RunTerminationError:
+                     refused.append(alt["label"])

@@ -1,0 +1,143 @@
+# coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json
+top-level keys: $schema, $id, title, description, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "urn:opensip:product-v1:workflows:evaluator3:graph-query:3"
+## title: "Bounded read-only graph/query operations over one sealed view (ISOLATED SUCCESSOR major 3)"
+## description: "Every query names one ProjectId and exactly one view selector. The 20 operation names are unchanged. Parameters are closed per operation. Graph operations (graph.neighbors|path|reach) select an admitted Run plus fact-view set and native endpoints {universe,kind,nativeSubjectId,(packageManifestPath)}. They do not accept LogicalPath-only subject/target. Response ResolvedView for graph.* is {runId} only; request View may still name snapshotId or latest as a resolver that must yield a unique Run. Non-graph snapshot metadata operations keep request View on the response and MUST NOT be forced to...
+### View | oneOf=[{"additionalProperties": false, "properties": {"runId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"}}, "required": ["runId"], "type": "object"}, {"additionalProperties": false, "properties": {"snapshotId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"}}, "required": ["snapshotId"], "type": "object"}, {"additionalProperties": false, "description": "a resolver, never an authority: graph responses must carry ResolvedView {runId}; empty domain is request-rejected", "properties": {"latest": {"const": true}}, "required": ["late... | description="Request selector. latest is an explicitly trusted host observation of current run identity; it is never derived from static Run bytes. snapshotId is joined to the admitted Run's snapshotId; a host index is not authority. Empty domain is IDENTITY.UNKNOWN with QUERY.VIEW_UNKNOWN. Two candidate Runs for one snapshot is QUERY.VIEW_AMBIGUOUS, not untyped IDENTITY.UNKNOWN-by-count."
+### ResolvedView | type="object" | required=["runId"] | additionalProperties=false | description="Graph-operation response view. Concrete run3 only. latest and snapshotId are forbidden here so a page cannot re-resolve."
+  runId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+### ViewDigest | type="string" | pattern="^view2:[0-9a-f]{64}(?![\\s\\S])" | description="Existing view2 identity of an admitted fact-view. Not a new FactViewId recipe."
+### FactId | type="string" | pattern="^fact2:[0-9a-f]{64}(?![\\s\\S])"
+### ScopeId | type="string" | pattern="^scope2:[0-9a-f]{64}(?![\\s\\S])"
+### StoredKind | type="string" | enum=["file", "symbol", "package"]
+### NativeSubjectId | type="string" | description="Native evaluation-subject id as stored on inventory/fact payload. Not a backend numeric id."
+### GraphEndpoint | type="object" | required=["universe", "kind", "nativeSubjectId"] | additionalProperties=false | allOf=[{"else": {"not": {"required": ["packageManifestPath"]}}, "if": {"properties": {"kind": {"const": "package"}}, "required": ["kind"]}, "then": {"required": ["packageManifestPath"]}}]
+  universe: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  kind: $ref="#/$defs/StoredKind"
+  nativeSubjectId: $ref="#/$defs/NativeSubjectId"
+  packageManifestPath: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
+### GraphDirection | type="string" | enum=["outgoing", "incoming", "both"]
+### FactViewDigests | type="array" | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/ViewDigest"} | minItems=1 | maxItems=100000 | uniqueItems=true | description="Explicit admitted view2 set. Omitted means all admitted views of the resolved Run whose scopes match relation@minResolution. Silent newest-provider is forbidden."
+### GraphNeighborsParams | type="object" | required=["relation", "minResolution", "direction", "endpoint"] | additionalProperties=false
+  relation: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  minResolution: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  direction: $ref="#/$defs/GraphDirection"
+  endpoint: $ref="#/$defs/GraphEndpoint"
+  factViewDigests: $ref="#/$defs/FactViewDigests"
+### GraphPathParams | type="object" | required=["relation", "minResolution", "direction", "start", "target", "maxDepth"] | additionalProperties=false
+  relation: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  minResolution: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  direction: $ref="#/$defs/GraphDirection"
+  start: $ref="#/$defs/GraphEndpoint"
+  target: $ref="#/$defs/GraphEndpoint"
+  maxDepth: type="integer" | minimum=1 | maximum=64
+  factViewDigests: $ref="#/$defs/FactViewDigests"
+### GraphReachParams | type="object" | required=["relation", "minResolution", "direction", "start", "maxDepth"] | additionalProperties=false
+  relation: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  minResolution: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  direction: $ref="#/$defs/GraphDirection"
+  start: $ref="#/$defs/GraphEndpoint"
+  maxDepth: type="integer" | minimum=1 | maximum=64
+  includeStart: type="boolean"
+  factViewDigests: $ref="#/$defs/FactViewDigests"
+### Page | type="object" | required=["size"] | additionalProperties=false
+  size: type="integer" | minimum=1 | maximum=1000
+  cursor: type="string" | minLength=1 | maxLength=256
+### Operation | type="string" | enum=["run.show", "run.list", "finding.list", "finding.show", "fact.list", "coverage.show", "artifact.get", "graph.neighbors", "graph.path", "graph.reach", "baseline.show", "comparison.show", "comparison.diff", "candidate.list", "inspection.show", "review.brief", "policy.effective", "import.show", "receipt.show", "availability.show"]
+### GraphOperation | type="string" | enum=["graph.neighbors", "graph.path", "graph.reach"]
+### AdvisoryOperation | type="string" | enum=["comparison.diff", "candidate.list", "inspection.show", "review.brief"]
+### Bounds | type="object" | required=["maxPageSize", "defaultPageSize", "maxItemsPerOperation", "maxTraversalDepth", "maxVisitedNodes"] | additionalProperties=false
+  maxPageSize: const=1000
+  defaultPageSize: const=100
+  maxItemsPerOperation: const=100000
+  maxTraversalDepth: const=64
+  maxVisitedNodes: const=1000000
+### GraphQueryRequestV1 | type="object" | required=["schemaFamily", "schemaMajor", "projectId", "view", "operation", "params", "completeness", "page"] | additionalProperties=false | allOf=[{"if": {"properties": {"operation": {"const": "graph.neighbors"}}, "required": ["operation"]}, "then": {"properties": {"params": {"$ref": "#/$defs/GraphNeighborsParams"}}}}, {"if": {"properties": {"operation": {"const": "graph.path"}}, "required": ["operation"]}, "then": {"properties": {"params": {"$ref": "#/$defs/GraphPathParams"}}}}, {"if": {"properties": {"operation": {"const": "graph.reach"}}, "required": ["operation"]}, "then": {"properties": {"params": {"$ref": "#/$defs/GraphReachParams"}}}}, {"if": {"properties": {"operation": {"not": {"enum": ["graph.neighbors", "graph.path", "grap...
+  schemaFamily: const="opensip.product.query"
+  schemaMajor: const=3
+  projectId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+  view: $ref="#/$defs/View"
+  operation: $ref="#/$defs/Operation"
+  params: type="object"
+  completeness: type="string" | enum=["required", "best-effort"]
+  page: $ref="#/$defs/Page"
+  fieldSelection: type="array" | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"}
+### Params | type="object" | additionalProperties=false | description="Closed optional bag for the 17 non-graph operations only. Graph operations must not use this shape."
+  relation: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  subject: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
+  target: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
+  direction: type="string" | enum=["outgoing", "incoming", "both"]
+  maxDepth: type="integer" | minimum=1 | maximum=64
+  ruleId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  fingerprint: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
+  artifactRef: type="object" | additionalProperties=false | required=["domain", "digest"] | properties=["digest", "domain"]
+      domain: type="string" | minLength=1 | maxLength=64
+      digest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  otherRunId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+  baselineId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+  comparisonResultId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+  candidateId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CandidateId"
+  importId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+  receiptId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+  includeSuppressed: type="boolean"
+  findingId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/FindingId"
+### CountBasis | type="string" | enum=["exact", "lower-bound"] | description="Qualifies totalItems. exact: totalItems is the cardinality of the declared selection within semantic maxDepth. lower-bound: totalItems is a produced prefix, not a claimed universe cardinality. An empty nextCursor does not by itself make the count exact."
+### TraversalCoverage | type="string" | enum=["complete", "truncated-page", "truncated-bound"] | description="Graph traversal completion for the declared semantic depth. complete: no owed unexamined work remains within maxDepth (exactly-at-cap is complete when the queue is empty). truncated-page: this page is full and more result units exist in the produced selection; page fullness is not operation truncation. truncated-bound: a work bound stopped the logical operation and owed unexamined work remains. Not native CoverageResult."
+### GraphEvidenceDisclosure | type="object" | required=["coverageIds", "scopeIds", "deficiencyCitations", "resolutionLimitations"] | additionalProperties=false | description="Mandatory Q3 disclosure for graph.*. Cites existing native Coverage, scopes, evaluation deficiencies and resolution limitations. Does not mint negative proof or run a parallel absence evaluator."
+  coverageIds: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"}
+  scopeIds: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/ScopeId"}
+  deficiencyCitations: type="array" | maxItems=100000 | x-opensip-order="sequence" | items={"additionalProperties": false, "properties": {"cause": {"maxLength": 128, "minLength": 1, "type": "string"}, "coverageId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"}, "inputRefs": {"items": {"additionalProperties": false, "properties": {"digest": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"}, "domain": {"maxLength": 64...
+  resolutionLimitations: type="array" | maxItems=100000 | x-opensip-order="sequence" | items={"additionalProperties": false, "properties": {"attempted": {"type": "boolean"}, "coverage": {"enum": ["complete", "partial", "unknown"], "type": "string"}, "coverageId": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"}, "examinedExhaustive": {"type": "boolean"}, "factId": {"$ref": "#/$defs/FactId"}, "incomingSearchDigest": {"$ref": "urn:opensip:product-v1:work...
+### GraphNeighborRow | type="object" | required=["factId", "relation", "resolution", "source", "target"] | additionalProperties=false
+  factId: $ref="#/$defs/FactId"
+  relation: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  resolution: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  source: $ref="#/$defs/GraphEndpoint"
+  target: $ref="#/$defs/GraphEndpoint"
+  producerClosure: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+  confidenceMillionths: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+### GraphPathEdge | type="object" | required=["factId", "source", "target"] | additionalProperties=false
+  factId: $ref="#/$defs/FactId"
+  source: $ref="#/$defs/GraphEndpoint"
+  target: $ref="#/$defs/GraphEndpoint"
+### GraphPathRow | type="object" | required=["hopCount", "start", "target", "nodes", "edges"] | additionalProperties=false | description="One simple path. start==target yields hopCount 0, nodes [start], edges []. Otherwise shortest hop count with canonical fact2-id-sequence tie-break. No optional closing cycle."
+  hopCount: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  start: $ref="#/$defs/GraphEndpoint"
+  target: $ref="#/$defs/GraphEndpoint"
+  nodes: type="array" | minItems=1 | maxItems=65 | x-opensip-order="sequence" | items={"$ref": "#/$defs/GraphEndpoint"}
+  edges: type="array" | maxItems=64 | x-opensip-order="sequence" | items={"$ref": "#/$defs/GraphPathEdge"}
+### GraphReachRow | type="object" | required=["endpoint", "depth"] | additionalProperties=false
+  endpoint: $ref="#/$defs/GraphEndpoint"
+  depth: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  viaFactId: $ref="#/$defs/FactId"
+### GraphQueryResponseContext | type="object" | required=["projectId", "resolvedView", "coverage", "availability", "truncated", "totalItems", "advisory"] | additionalProperties=false | description="Response context for the 17 non-graph operations. resolvedView remains request View so snapshot metadata operations are not forced to run-only. Graph operations MUST use GraphOperationResponseContext instead."
+  projectId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+  resolvedView: $ref="#/$defs/View"
+  coverage: type="string" | enum=["complete", "partial", "unavailable"]
+  availability: type="string" | enum=["retained", "partial", "expired", "purged", "corrupt", "unavailable"]
+  truncated: type="boolean"
+  totalItems: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  nextCursor: type="string" | minLength=1 | maxLength=256
+  advisory: type="boolean"
+### GraphOperationResponseContext | type="object" | required=["projectId", "resolvedView", "factViewDigests", "availability", "truncated", "totalItems", "countBasis", "traversalCoverage", "visitedNodes", "producedItems", "advisory", "evidence"] | additionalProperties=false | description="Mandatory graph.* response context. resolvedView is run3 only. traversalCoverage is not native CoverageResult. totalItems is qualified by countBasis. evidence is required. advisory is const false."
+  projectId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+  resolvedView: $ref="#/$defs/ResolvedView"
+  factViewDigests: type="array" | maxItems=100000 | uniqueItems=true | x-opensip-order="canonical-set" | items={"$ref": "#/$defs/ViewDigest"}
+  availability: type="string" | enum=["retained", "partial", "expired", "purged", "corrupt", "unavailable"]
+  truncated: type="boolean"
+  totalItems: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  countBasis: $ref="#/$defs/CountBasis"
+  traversalCoverage: $ref="#/$defs/TraversalCoverage"
+  visitedNodes: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  producedItems: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  nextCursor: type="string" | minLength=1 | maxLength=256
+  advisory: const=false
+  evidence: $ref="#/$defs/GraphEvidenceDisclosure"
+### GraphQueryResponseV1 | type="object" | required=["schemaFamily", "schemaMajor", "operation", "context"] | additionalProperties=false | allOf=[{"else": {"properties": {"context": {"$ref": "#/$defs/GraphQueryResponseContext"}}}, "if": {"properties": {"operation": {"$ref": "#/$defs/GraphOperation"}}, "required": ["operation"]}, "then": {"properties": {"context": {"$ref": "#/$defs/GraphOperationResponseContext"}}, "required": ["items", "context"]}}, {"if": {"properties": {"operation": {"const": "graph.neighbors"}}, "required": ["operation"]}, "then": {"properties": {"items": {"items": {"$ref": "#/$defs/GraphNeighborRow"}, "maxItems": 1000, "type": "array", "x-opensip-order": "sequence"}}}}, {"if": {"properties": {"operation": {"cons...
+  schemaFamily: const="opensip.product.query"
+  schemaMajor: const=3
+  operation: $ref="#/$defs/Operation"
+  context: type="object"
+  items: type="array" | maxItems=1000 | x-opensip-order="sequence"
+  termination: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"

@@ -1,0 +1,85 @@
+--- before/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
++++ after/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
+@@ -32,6 +32,10 @@
+ 
+ 
+ SR = load("c24_semantic_replay", HERE / "check-semantic-replay.v3.py")
++
++# native-evidence section 1.4 U-4b.2, whitespace-normalised: the published TS/JS unitKind projection.
++TSJS_UNIT_KIND_LAW = ("whose `unitKind` is `ts-program` exactly when that mode is `ts-tsconfig` and `js-program` "
++                      "when it is `js-allowjs` or `js-synthesized`")
+ M = SR.M
+ C = M.C
+ ROWS: list[dict] = []
+@@ -469,6 +473,46 @@
+         got = law(m)
+         row("M3", "law-" + name, got == expected, got)
+ 
++    # native-evidence section 1.4 U-4b.2: a tsjs unit's unitKind is the projection of its languageMode, and the TS/JS kinds
++    # belong to tsjs units only. unitKind enters PlanId through membershipDigest, so the published projection is checked at
++    # the owner (NV.TSJS_UNIT_KIND, used by discover_units) and at every enumeration admission (the law, ORDER).
++    published = {"ts-tsconfig": "ts-program", "js-allowjs": "js-program", "js-synthesized": "js-program"}
++    table = getattr(NV, "TSJS_UNIT_KIND", None)
++    row("M3", "tsjs-unit-kind-owner-projection-is-the-published-closed-table",
++        table == published and set(published) == set(ENUM.TS_MODES)
++        and set(published.values()) <= set(NV.SCHEMAS["$defs"]["WorkspaceUnitV2"]["properties"]["unitKind"]["enum"]), table)
++    owner_text = " ".join((KIT.parents[1] / "v2/contracts/product-v1/native-evidence.md").read_text().split())
++    row("M3", "tsjs-unit-kind-law-is-stated-in-the-normative-owner", TSJS_UNIT_KIND_LAW in owner_text)
++    marker_sha = "d" * 64
++    for label, markers, expected_unit in (
++            ("ts-tsconfig", {"tsconfig.json": {"sha256": marker_sha}},
++             ("ts-tsconfig", "ts-program", "tsconfig.json", "typescript-config")),
++            ("js-allowjs-from-a-tsconfig-marker", {"tsconfig.json": {"sha256": marker_sha, "allowJs": True}},
++             ("js-allowjs", "js-program", "tsconfig.json", "typescript-config")),
++            ("js-allowjs-from-a-jsconfig-marker", {"jsconfig.json": {"sha256": marker_sha}},
++             ("js-allowjs", "js-program", "jsconfig.json", "typescript-config")),
++            ("js-synthesized", {"package.json": {"sha256": marker_sha}},
++             ("js-synthesized", "js-program", "package.json", "node-package"))):
++        found = NV.discover_units(markers)["units"]
++        got_unit = tuple(found[0][k] for k in ("languageMode", "unitKind", "markerPath", "recognizerId")) if len(found) == 1 else found
++        row("M3", "discovered-tsjs-unit-" + label, got_unit == expected_unit, got_unit)
++        canonical = NV.assign_membership(found, ["index.ts", "lib.js", "README.md"])
++        row("M3", "law-admits-the-published-unit-kind-" + label, law(canonical) == [], law(canonical))
++        reminted = copy.deepcopy(canonical)
++        reminted["units"][0]["unitKind"] = "js-program" if expected_unit[1] == "ts-program" else "ts-program"
++        row("M3", "law-refuses-a-reminted-unit-kind-" + label, law(reminted) == [ORDER], law(reminted))
++    rust = NV.assign_membership(NV.discover_units({"Cargo.toml": {"sha256": marker_sha, "isCargoWorkspace": False}})["units"], ["src/main.rs"])
++    fallback_only = NV.assign_membership([dict(NV.SYNTAX_ONLY_FALLBACK_UNIT, unitOrdinal=0)], ["a.ts"])
++    tsjs_ts = NV.assign_membership(NV.discover_units({"tsconfig.json": {"sha256": marker_sha}})["units"], ["index.ts"])
++    for name, membership, mutate, expected in (
++            ("rust-unit-canonical-kind-is-lawful", rust, lambda m: None, []),
++            ("rust-unit-carrying-js-program", rust, lambda m: m["units"][0].update(unitKind="js-program"), [ORDER]),
++            ("fallback-unit-carrying-ts-program", fallback_only, lambda m: m["units"][0].update(unitKind="ts-program"), [ORDER]),
++            ("tsjs-unit-with-a-non-tsjs-mode", tsjs_ts, lambda m: m["units"][0].update(languageMode="rust-cargo"), [ORDER])):
++        m = copy.deepcopy(membership)
++        mutate(m)
++        row("M3", "law-" + name, law(m) == expected, law(m))
++
+     # Real complete Runs: the syntax graph fixture's membership is built by THE FIXTURE'S native copy and mutated before
+     # it is hashed into membershipDigest, so the whole Plan is coherent and only the membership law can object. Run
+     # closure re-derives with its own, unpatched copies. fixture_helpers() re-executes its definitions on every call,
+@@ -514,9 +558,23 @@
+             ("fallback-unit-ordinal-not-its-index", lambda m: m["units"][0].update(unitOrdinal=1), [fallback], ORDER),
+             ("unsupported-projection-dropped", lambda m: m.update(unsupportedFiles=[]), (), ORDER),
+             ("missing-row", lambda m: m["rows"].pop(), (), "ENUMERATION_ADMISSION_PRECONDITION"),
+-            ("duplicate-row", lambda m: m["rows"].append(copy.deepcopy(m["rows"][-1])), (), ORDER)):
++            ("duplicate-row", lambda m: m["rows"].append(copy.deepcopy(m["rows"][-1])), (), ORDER),
++            ("fallback-unit-reminted-with-a-tsjs-unit-kind", lambda m: m["units"][0].update(unitKind="js-program"), [fallback], ORDER)):
+         graph, got = run_with(mutate_after(fn, units))
+         row("M3", "real-run-refuses-" + name, got is not None and token in got, got)
++
++    # Real complete Runs with a discovered TS/JS unit: the published kind closes; a kind reminted BEFORE membershipDigest
++    # (so the whole Plan is coherent) must refuse at Run closure rather than admit a second PlanId for the same project.
++    for label, markers in (("ts-tsconfig", {"tsconfig.json": {"sha256": "d" * 64}}),
++                           ("js-allowjs-from-a-tsconfig-marker", {"tsconfig.json": {"sha256": "d" * 64, "allowJs": True}}),
++                           ("js-synthesized", {"package.json": {"sha256": "d" * 64}})):
++        units = NV.discover_units(markers)["units"]
++        graph, got = run_with(mutate_after(lambda m: None, units))
++        row("M3", "real-run-closes-with-the-published-unit-kind-" + label,
++            got is None and graph["membership"]["units"][0]["unitKind"] == units[0]["unitKind"], got)
++        wrong = "js-program" if units[0]["unitKind"] == "ts-program" else "ts-program"
++        graph, got = run_with(mutate_after(lambda m, w=wrong: m["units"][0].update(unitKind=w), units))
++        row("M3", "real-run-refuses-a-reminted-unit-kind-" + label, got is not None and ORDER in got, got)
+ 
+ 
+ # ------------------------------------------------------------------------------------------------ S3

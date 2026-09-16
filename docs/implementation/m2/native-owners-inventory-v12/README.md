@@ -1,0 +1,7 @@
+# Native and capability owner file layout
+
+Add21 files under existing packages: pure CVE1/relation helpers in identity; capability/native-context/Plan-capability/case-law owners in evaluator; host boundary fixtures/tests; separate identity source policy and offline Unicode generator/data in tooling. Evaluator→identity and host→evaluator already permitted. No new package, reverse edge, build.rs, or code execution from retained data.
+
+JSON filenames use kebab-case (capability-registry.json/native-context-registry.json). Earlier private trials07/08 used underscore JSON filenames; those frozen historical candidates remain unchanged and the next candidate refactors include paths only. Generated Rust tables live under src/generated/. Unicode data directory is unicode-v15, preserving original upstream txt filenames. Rust algorithms/modules use snake_case and test modules *_tests.rs. No invented factory family.
+
+348 parent rows and20 package/policy records are preserved exactly. Inherited contract description overrides must be projected from ALL selected ancestors by stable filepath at activation, never stale row indices. This layout does not accept candidate runtime, source/dependency policy, complete native closure/replay, or release qualification. Candidate09 implements Unicode15 casing (the selected native law), separately from proposed Unicode16 NFC normalization; neither follows ambient Rust Unicode17.

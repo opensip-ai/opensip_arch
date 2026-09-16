@@ -1,0 +1,5 @@
+# Evidence scope
+
+Earlier-bootstrap01 files record independently provisioned npm lanes, selected tool versions and fixture compilation. They are historical preliminary evidence, not current registry custody or product feature completion. The current generator05 separately has actual design selection/public activation and live verification. Current report/provider compilation succeeded; original08boundary failed on generated JS;09resolved that issue and10closes the reviewer S1 failing-path parse. Compiler/boundary logs here are historical reproductions, not actual selected-wrapper activation.
+
+Helper controls exercise the wrapper's path/pin validation and descendant termination without synthetic approval. The permanent test has three groups(17controls). Refusal01 stopped at an earlier missing schema registry; refusal02 reached the actual unselected registry gate. The wrapper later gained interrupt cleanup and Node regular-file/length checks. A genuine post-selection public positive and negative activation trial is required before product installation. No historical fixture approval bytes become actual authority.

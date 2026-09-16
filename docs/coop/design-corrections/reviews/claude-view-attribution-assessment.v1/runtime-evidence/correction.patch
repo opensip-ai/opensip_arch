@@ -1,0 +1,400 @@
+--- a/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
++++ b/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
+@@ -812,6 +812,126 @@
+     return adm
+ 
+ 
++_VA_NATIVE = []
++
++
++def view_attribution_world(build_kwargs, mutate):
++    """Checker-only world for contract §3 "View attribution".
++
++    Starts from the maintained owner fixture with the full-run atom, then lets `mutate` mint
++    subject-scopes, native-owner-admitted Coverage and views on the graph's OWN store and return
++    `(retire, add)` view ids, which are applied to the graph's own view census and evaluation refs.
++    Nothing about attribution is asserted here: the shared host-capture builder derives the rows
++    and admission re-derives them. Symbol-row worlds are deliberately not used: their unmutated
++    graphs do not close a Run (`PAYLOAD_RECORD:#/$defs/DeclaresPayloadV1`), which would leave every
++    closed-run column blind.
++    """
++    if not _VA_NATIVE:
++        _VA_NATIVE.append(F.fixture_helpers())
++    NH = _VA_NATIVE[0]
++    cov_schema = NH.N.schema_document_digest(NH.N.NATIVE_SCHEMA_DOC)
++    graph = F.build_file_inputs(atom_override=NONE_ATOM, **build_kwargs)
++    objects, blobs = graph["objects"], graph["blobs"]
++    first = objects[graph["viewIds"][0]][1]
++    provider = first["producerClosure"]
++    rel_schema = next(d for d in first["schemaDigests"] if d != cov_schema)
++    paths = [r["path"] for r in graph["snapshot"]["sourceInventory"]]
++
++    def scope(relation, resolution, uni):
++        return _mint(objects, "subject-scope", {
++            "snapshotId": graph["inputs"]["plan"]["snapshotId"], "sourceUniverse": uni,
++            "targetUniverse": uni, "relation": relation, "resolution": resolution,
++            "enumeratorClosure": provider, "subjects": [],
++        })
++
++    def coverage(scope_id, uni):
++        payload = NH.coverage_result(objects[scope_id][1], uni, True, blobs, paths)
++        admitted = NH.N.admit_coverage_result_v3(payload, objects[scope_id][1], [], cov_schema)
++        if admitted.get("result") != "ADMIT":
++            raise RuntimeError("view-attribution coverage not admitted: " + str(admitted))
++        return _mint(objects, "coverage", {"scopeId": scope_id, "payloadSchemaDigest": cov_schema,
++                                           "payloadDigest": _blob(blobs, payload)})
++
++    def view(scope_ids, facts=(), coverage_ids=()):
++        return _mint(objects, "view", {
++            "planId": graph["inputs"]["planId"], "scopeIds": M.canon_str_list(list(scope_ids)),
++            "facts": M.canon_str_list(list(facts)), "coverageIds": M.canon_str_list(list(coverage_ids)),
++            "producerClosure": provider, "schemaDigests": M.canon_str_list([rel_schema, cov_schema]),
++        })
++
++    def single(relation, uni):
++        return next(k for k in graph["viewIds"]
++                    if [(objects[s][1]["relation"], objects[s][1]["sourceUniverse"])
++                        for s in objects[k][1]["scopeIds"]] == [(relation, uni)])
++
++    universes = {}
++    for cell in graph["enumerationPlan"]["cells"]:
++        for b in cell["programBindings"]:
++            universes.setdefault(cell["capabilityId"], []).append(b["universe"])
++    retire, add = mutate({"scope": scope, "coverage": coverage, "view": view, "single": single,
++                          "universes": universes, "objects": objects})
++    retire, add = set(retire), list(add)
++    graph["viewIds"] = M.canon_str_list([v for v in graph["viewIds"] if v not in retire] + add)
++    refs = [r for r in graph["inputs"]["evaluationInputRefs"]
++            if not (r["domain"] == "view" and "view2:" + r["digest"] in retire)]
++    graph["inputs"]["evaluationInputRefs"] = canon_refs(refs + [{"domain": "view", "digest": hx(a)} for a in add])
++    kept = [objects[v][1] for v in graph["viewIds"]]
++    graph["coverageIds"] = M.canon_str_list([c for v in kept for c in v["coverageIds"]])
++    graph["scopeIds"] = M.canon_str_list([s for v in kept for s in v["scopeIds"]])
++    graph["inputs"]["coverageCount"] = len(graph["coverageIds"])
++    if graph.get("viewId") in retire:
++        graph["viewId"] = add[0]
++    return graph, add
++
++
++def view_attribution_case(graph, *, row_edit=None, capture=(), closed=True):
++    """Admission over the shared builder's rows (optionally host-edited), plus the SAME manifest through
++    the maintained `full_run` driver when `closed`.
++
++    `capture` adds captured-but-unattributed views, with their Coverage, to the complete view
++    receipt and selectedRefs; the shared builder never does that because it captures attributed
++    views only. `row_edit` rewrites host `cellOutcomes` rows. An edited manifest is hashed into
++    the Run graph exactly as `attach_host_capture` does, so the closed-run column is that manifest.
++    """
++    kw = manifest_from_owner(copy.deepcopy(graph))
++    ei = kw["execution_inputs"]
++    edited = bool(capture) or row_edit is not None
++    for vid in capture:
++        view = kw["objects"][vid][1]
++        for rc in ei["hostCapture"]["stageReceipts"]:
++            if "view" in rc["outputDomains"]:
++                rc["outputRefs"] = canon_refs(rc["outputRefs"] + [{"domain": "view", "digest": hx(vid)}])
++        ei["selectedRefs"] = canon_refs(ei["selectedRefs"] + [{"domain": "view", "digest": hx(vid)}]
++                                        + [{"domain": "coverage", "digest": hx(c)} for c in view["coverageIds"]])
++    if row_edit is not None:
++        row_edit(ei["cellOutcomes"])
++    if edited:
++        kw["store_pointers"] = M.promised_pointers(
++            ei, kw["plan"], kw["execution_plan"], kw["enumeration_plan"],
++            objects=kw["objects"], blobs=kw["blobs"])["store_pointers"]
++    result = dict(admit(kw))
++    result["viewDigestsByRow"] = {r["capabilityId"] + "#" + str(r["programOrdinal"]): list(r["viewDigests"])
++                                  for r in ei["cellOutcomes"]}
++    if closed:
++        run_graph = copy.deepcopy(graph)
++        if edited:
++            digest = M.raw_digest(ei)
++            run_graph["blobs"][digest] = M.C.canonical(ei)
++            run_graph["inputs"]["executionInputsDigest"] = digest
++            run_graph["inputs"]["evaluationInputRefs"] = canon_refs(
++                list(ei["selectedRefs"]) + [{"domain": "execution-inputs", "digest": digest}])
++            run_graph["executionInputs"] = ei
++            run_graph["executionInputsDigest"] = digest
++        try:
++            run_result, proof = full_run(run_graph)
++            result["fullRun"] = {"verdict": run_result["verdict"], "runId": run_result["runId"],
++                                 "sameManifest": proof["executionInputsDigest"] == M.raw_digest(ei)}
++        except Exception as exc:  # noqa: BLE001
++            result["fullRun"] = {"refused": type(exc).__name__ + ":" + str(exc)}
++        result["controlStanding"] = "closed-run"
++    return result
++
++
+ def owned_hashes():
+     names = [
+         "execution-inputs.schema.v1.json", "execution-inputs-contract.v1.md",
+@@ -1419,6 +1539,97 @@
+     rec("full-run-optional-unselected-and-optional-unsupported-close-without-execution-deficiency",
+         full_run_case("optional-unselected+optional-unsupported", "pass", [],
+                       optional_unselected_cell=True, unsupported_cell="optional"))
++
++    # --- view attribution (contract §3 "View attribution") ---
++    va = {}
++
++    def va_rec(name, result):
++        va[name] = result
++        rec(name, result)
++
++    def va_refs_universes(t):
++        u0 = t["universes"]["references"][0]
++        return u0, next(u for u in t["universes"]["inventory"] if u != u0)
++
++    uns_world, _ = view_attribution_world({"unsupported_cell": "required"}, lambda t: ((), ()))
++    uns_refs_view = hx(next(k for k in uns_world["viewIds"]
++                            if [uns_world["objects"][s][1]["relation"] for s in uns_world["objects"][k][1]["scopeIds"]]
++                            == ["references"]))
++    va_rec("view-attribution-unsupported-row-names-its-returned-view", view_attribution_case(uns_world))
++
++    def va_refs_row_names_nothing(rows):
++        for r in rows:
++            if r["capabilityId"] == "references":
++                r["viewDigests"] = []
++
++    va_rec("view-attribution-unsupported-row-naming-no-view-refuses",
++           view_attribution_case(uns_world, row_edit=va_refs_row_names_nothing, closed=False))
++
++    def va_shared_file_package(t):
++        u0 = t["universes"]["inventory"][0]
++        f, p = t["single"]("file", u0), t["single"]("package", u0)
++        fv, pv = t["objects"][f][1], t["objects"][p][1]
++        return (f, p), (t["view"](fv["scopeIds"] + pv["scopeIds"], fv["facts"] + pv["facts"],
++                                  fv["coverageIds"] + pv["coverageIds"]),)
++
++    shared_world, shared_add = view_attribution_world({}, va_shared_file_package)
++    va_rec("view-attribution-one-view-several-relations-of-one-cell-admits", view_attribution_case(shared_world))
++
++    va_um = {"unsupported_cell": "required", "multiple_universes": True}
++
++    def va_refs_view_plus(relation, resolution, foreign, with_coverage):
++        def mutate(t):
++            u0, u1 = va_refs_universes(t)
++            uni = u1 if foreign else u0
++            r = t["single"]("references", u0)
++            rv = t["objects"][r][1]
++            extra = t["scope"](relation, resolution, uni)
++            covs = [t["coverage"](extra, uni)] if with_coverage else []
++            return (r,), (t["view"](rv["scopeIds"] + [extra], rv["facts"], rv["coverageIds"] + covs),)
++        return mutate
++
++    va_rec("view-attribution-unsupported-row-view-with-two-universes-coverage-refuses", view_attribution_case(
++        view_attribution_world(va_um, va_refs_view_plus("references", "resolved-binding", True, True))[0]))
++    va_rec("view-attribution-attributed-view-naming-coverage-less-foreign-scope-refuses", view_attribution_case(
++        view_attribution_world(va_um, va_refs_view_plus("declares", "syntactic", True, False))[0]))
++    va_rec("view-attribution-attributed-view-naming-coverage-less-same-universe-scope-admits", view_attribution_case(
++        view_attribution_world(va_um, va_refs_view_plus("declares", "syntactic", False, False))[0]))
++
++    def va_split_scopes(t):
++        u0, u1 = va_refs_universes(t)
++        return (), (t["view"]([t["scope"]("declares", "syntactic", u0),
++                               t["scope"]("references", "resolved-binding", u1)]),)
++
++    split_world, split_add = view_attribution_world(va_um, va_split_scopes)
++    va_rec("view-attribution-universe-and-relation-on-different-scopes-attributes-nothing",
++           view_attribution_case(split_world, capture=split_add))
++
++    def va_refs_row_names_split(rows):
++        for r in rows:
++            if r["capabilityId"] == "references":
++                r["viewDigests"] = M.canon_str_list(r["viewDigests"] + [hx(split_add[0])])
++
++    va_rec("view-attribution-universe-and-relation-on-different-scopes-host-naming-it-refuses",
++           view_attribution_case(split_world, capture=split_add, row_edit=va_refs_row_names_split, closed=False))
++
++    def va_lawful_split(t):
++        _u0, u1 = va_refs_universes(t)
++        s = t["scope"]("references", "resolved-binding", u1)
++        return (), (t["view"]([s], (), [t["coverage"](s, u1)]),)
++
++    lawful_world, lawful_add = view_attribution_world(va_um, va_lawful_split)
++    va_rec("view-attribution-lawful-one-view-per-universe-split-admits",
++           view_attribution_case(lawful_world, capture=lawful_add))
++
++    def va_two_universe_supported(t):
++        u0, u1 = t["universes"]["inventory"][:2]
++        a, b = t["single"]("file", u0), t["single"]("file", u1)
++        av, bv = t["objects"][a][1], t["objects"][b][1]
++        return (a, b), (t["view"](av["scopeIds"] + bv["scopeIds"], av["facts"] + bv["facts"],
++                                  av["coverageIds"] + bv["coverageIds"]),)
++
++    va_rec("view-attribution-supported-rows-view-with-two-universes-coverage-refuses", view_attribution_case(
++        view_attribution_world({"multiple_universes": True}, va_two_universe_supported)[0], closed=False))
+ 
+     want = {
+         "applicability-first-match-precedence": "ADMIT",
+@@ -1497,6 +1708,16 @@
+         "ambient-object-does-not-change-digest": "ADMIT",
+         "selected-refs-change-changes-digest": "ADMIT",
+         "operational-receipt-may-vary-without-run-identity": "ADMIT",
++        "view-attribution-unsupported-row-names-its-returned-view": "ADMIT",
++        "view-attribution-unsupported-row-naming-no-view-refuses": "REFUSE",
++        "view-attribution-one-view-several-relations-of-one-cell-admits": "ADMIT",
++        "view-attribution-unsupported-row-view-with-two-universes-coverage-refuses": "REFUSE",
++        "view-attribution-attributed-view-naming-coverage-less-foreign-scope-refuses": "REFUSE",
++        "view-attribution-attributed-view-naming-coverage-less-same-universe-scope-admits": "ADMIT",
++        "view-attribution-universe-and-relation-on-different-scopes-attributes-nothing": "ADMIT",
++        "view-attribution-universe-and-relation-on-different-scopes-host-naming-it-refuses": "REFUSE",
++        "view-attribution-lawful-one-view-per-universe-split-admits": "ADMIT",
++        "view-attribution-supported-rows-view-with-two-universes-coverage-refuses": "REFUSE",
+     }
+     mismatches = []
+     for c in cases:
+@@ -1794,6 +2015,44 @@
+                for refs in (census_run.get("executionInputRefs") or [])),
+            census_run.get("executionInputRefs"))
+ 
++    # --- view attribution (contract §3 "View attribution") ---
++    va_uns = va.get("view-attribution-unsupported-row-names-its-returned-view") or {}
++    va_rows = va_uns.get("viewDigestsByRow") or {}
++    oracle("view-attribution-unsupported-row-names-exactly-its-references-view",
++           va_rows.get("references#0") == [uns_refs_view] and uns_refs_view not in (va_rows.get("inventory#0") or [])
++           and (va_uns.get("fullRun") or {}).get("sameManifest") is True, {"rows": va_rows, "run": va_uns.get("fullRun")})
++    for va_name in ("view-attribution-unsupported-row-naming-no-view-refuses",
++                    "view-attribution-universe-and-relation-on-different-scopes-host-naming-it-refuses"):
++        oracle(va_name + "::view-totality",
++               "EXECUTION_INPUTS_VIEW_TOTALITY" in ((va.get(va_name) or {}).get("refusals") or []),
++               (va.get(va_name) or {}).get("refusals"))
++    va_shared = va.get("view-attribution-one-view-several-relations-of-one-cell-admits") or {}
++    oracle("view-attribution-shared-view-named-once-and-run-closes",
++           (va_shared.get("viewDigestsByRow") or {}).get("inventory#0") == [hx(shared_add[0])]
++           and (va_shared.get("fullRun") or {}).get("verdict") == "pass"
++           and (va_shared.get("fullRun") or {}).get("sameManifest") is True,
++           {"rows": va_shared.get("viewDigestsByRow"), "run": va_shared.get("fullRun")})
++    for va_name in ("view-attribution-unsupported-row-view-with-two-universes-coverage-refuses",
++                    "view-attribution-attributed-view-naming-coverage-less-foreign-scope-refuses"):
++        va_r = va.get(va_name) or {}
++        oracle(va_name + "::coverage-derive-at-admission-and-in-the-run",
++               "EXECUTION_INPUTS_COVERAGE_DERIVE" in (va_r.get("refusals") or [])
++               and "EXECUTION_INPUTS_COVERAGE_DERIVE" in str((va_r.get("fullRun") or {}).get("refused")),
++               {"refusals": va_r.get("refusals"), "run": va_r.get("fullRun")})
++    for va_name in ("view-attribution-attributed-view-naming-coverage-less-same-universe-scope-admits",
++                    "view-attribution-universe-and-relation-on-different-scopes-attributes-nothing",
++                    "view-attribution-lawful-one-view-per-universe-split-admits"):
++        va_run = (va.get(va_name) or {}).get("fullRun") or {}
++        oracle(va_name + "::run-closes-on-the-same-manifest",
++               va_run.get("verdict") == "indeterminate" and va_run.get("sameManifest") is True, va_run)
++    va_split = va.get("view-attribution-universe-and-relation-on-different-scopes-attributes-nothing") or {}
++    oracle("view-attribution-split-scope-view-is-on-no-row",
++           all(hx(split_add[0]) not in v for v in (va_split.get("viewDigestsByRow") or {}).values()),
++           va_split.get("viewDigestsByRow"))
++    va_sup = va.get("view-attribution-supported-rows-view-with-two-universes-coverage-refuses") or {}
++    oracle("view-attribution-supported-rows-two-universes-coverage-derive",
++           "EXECUTION_INPUTS_COVERAGE_DERIVE" in (va_sup.get("refusals") or []), va_sup.get("refusals"))
++
+     mismatches.extend({"case": o["oracle"], "got": "ORACLE", "want": "HOLD", "refusals": [str(o["got"])]} for o in oracles)
+ 
+     report = {
+--- a/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ b/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -49,6 +49,8 @@
+ ## 3. Stage ordinal and receipts
+ 
+ Selected producer outputs (`enumerator=selected`, non-null U, derived `state` complete or partial): `stageOrdinal` **non-null**, matching a receipt. Check enumerator closure (Plan-selected **provider**), stage-spec `producerClosure`, view `planId`, each named scope `sourceUniverse` vs binding U, and receipt `outputDomains` vs the stage.
++
++**View attribution (`CellProgramOutcomeV1.viewDigests`, normative).** The candidate views are the captured returned views: `view` refs on `selectedRefs` and `view` `outputRefs` of complete receipts; a candidate view whose `planId` is not the Plan's refuses `EXECUTION_INPUTS_PLAN_JOIN`. For a row whose binding enumerator is `selected` with closure P and whose binding universe U is non-null, a candidate view V is **attributed** to that row iff `V.producerClosure` = P **and one and the same** subject-scope S named by `V.scopeIds` has `S.sourceUniverse` = U **and** `S.relation` ∈ `native-capability-matrix.v2.json#/capabilities[capabilityId]/relations` (a candidate-only capability, whose matrix entry has no relations, needs `S.sourceUniverse` = U alone). A U match on one scope and a relation match on another scope of the same view attribute nothing. The matrix cell state plays no part: an `UNSUPPORTED-TYPED` cell's returned view is attributed exactly like a supported cell's, although its account still names no `coverageIds` (§5), and a view carrying none of the capability's relations at U is not attributed to that row even when it shares the provider and U. One view may be attributed to several rows (several relations of one or several cells at U). An unselected enumerator or a null U attributes nothing. `viewDigests` equals the canonical set of attributed views, otherwise `EXECUTION_INPUTS_VIEW_TOTALITY`. A captured view attributed to no row stays lawful and stays on `selectedRefs` (§1). The named-scope check above applies to **every attributed view, for every account applicability**: each subject-scope the view names must have `sourceUniverse` = U, whether or not that scope carries Coverage, otherwise `EXECUTION_INPUTS_COVERAGE_DERIVE` (the refusal §5 uses for a foreign-universe Coverage; no new code).
+ 
+ Unavailable / optional-unselected: `stageOrdinal` may be null with typed reason, **or** may name an `unavailable` receipt (`provider-unavailable`). Selected U cannot become complete by omitting the stage and views.
+ 
+@@ -226,9 +228,10 @@
+ `key.sourceUniverse` MUST equal U -- a foreign-universe Coverage reached this way is
+ `EXECUTION_INPUTS_COVERAGE_DERIVE`, not a silently skipped row -- and the account's declared
+ `coverageIds` MUST equal the complete matching returned partition set for
+-`(cell, program, relation, resolution, U, producer)`. Section 3 separately requires each
+-NAMED scope's `sourceUniverse` to equal the binding U and binds view `planId`, enumerator
+-closure, stage `producerClosure` and receipt `outputDomains`.
++`(cell, program, relation, resolution, U, producer)`. Section 3 separately defines which views
++are attributed to that binding ("View attribution"), requires each scope NAMED by such a view to
++have `sourceUniverse` equal to the binding U, and binds view `planId`, enumerator closure, stage
++`producerClosure` and receipt `outputDomains`.
+ 
+ This clause is deliberately narrow. It does NOT constrain the `targetUniverse` of a Coverage or
+ fact (the account's own `targetUniverse` is the constant `null` above): a Coverage or a
+@@ -237,11 +240,13 @@
+ view per selected binding admits. It does NOT ban a view that carries more than one universe
+ in general; it constrains only views REACHED THROUGH a selected cell/program binding's
+ account derivation, so a retained fact view that no selected binding resolves is not
+-restricted here. It forbids exactly one thing: making a SINGLE view carry two universes'
+-Coverage and then attributing that view to a cell/program binding fixed at one of them.
+-Splitting the selected evidence into one view per universe is the lawful construction. No
+-new refusal code and no new semantic scope are introduced: both conditions above are what
+-the derivation already decides today.
++restricted here. It forbids exactly one thing: attributing (section 3 "View attribution") a
++view to a cell/program binding fixed at U while that view names a scope of another universe --
++the principal instance being a SINGLE view that carries two universes' Coverage. This holds for
++every account applicability, including `unsupported-typed`, whose account resolves no Coverage
++and so could never meet the envelope check above. Splitting the selected evidence into one view
++per universe is the lawful construction. No new refusal code and no new semantic scope are
++introduced: the section 3 named-scope check refuses `EXECUTION_INPUTS_COVERAGE_DERIVE`.
+ 
+ ## 6. Candidate-only
+ 
+--- a/docs/coop/design-corrections/foundation/execution_inputs_fixture.v3.py
++++ b/docs/coop/design-corrections/foundation/execution_inputs_fixture.v3.py
+@@ -229,17 +229,16 @@
+                 if vid not in objects:
+                     continue
+                 view = objects[vid][1]
+-                matched_u = matched_rel = False
++                same_scope = False
+                 for sid in view.get("scopeIds") or []:
+                     sc = objects.get(sid)
+                     if not sc:
+                         continue
+                     scv = sc[1]
+-                    if scv.get("sourceUniverse") == uni:
+-                        matched_u = True
+-                    if scv.get("relation") in cap_rels or not cap_rels:
+-                        matched_rel = True
+-                if matched_u and matched_rel:
++                    # contract §3 "View attribution": universe and relation on the SAME scope.
++                    if scv.get("sourceUniverse") == uni and (scv.get("relation") in cap_rels or not cap_rels):
++                        same_scope = True
++                if same_scope:
+                     bound_views.append(hx(vid))
+                     bound_cov.extend(hx(c) for c in view.get("coverageIds") or [])
+             en = b.get("enumerator") or {}
+--- a/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
++++ b/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
+@@ -1139,20 +1139,29 @@
+                 continue
+             if uni is None:
+                 continue
+-            matched_u = False
+-            matched_rel = False
++            # Contract §3 "View attribution": the binding universe and a matrix relation of this
++            # capability hold on ONE AND THE SAME named scope. A U match on one scope plus a
++            # relation match on another attributes nothing. The matrix cell state plays no part,
++            # so an UNSUPPORTED-TYPED row names its returned view exactly as a supported row does;
++            # a candidate-only capability (no matrix relations) needs the universe alone.
++            same_scope = False
+             for sid in view.get("scopeIds") or []:
+                 sc = objects.get(sid)
+                 if not sc or sc[0] != "subject-scope" or not isinstance(sc[1], dict):
+                     continue
+-                if sc[1].get("sourceUniverse") == uni:
+-                    matched_u = True
+-                if sc[1].get("relation") in cap_rels or (not cap_rels and cell["capabilityId"] in CANDIDATE_CAPS):
+-                    matched_rel = True
+-                if sc[1].get("enumeratorClosure") and producer and sc[1].get("enumeratorClosure") != producer:
+-                    continue
+-            if matched_u and (matched_rel or not cap_rels):
+-                attributed.append(hx)
++                if sc[1].get("sourceUniverse") == uni and (not cap_rels or sc[1].get("relation") in cap_rels):
++                    same_scope = True
++            if not same_scope:
++                continue
++            attributed.append(hx)
++            # Contract §3 named-scope check, for EVERY account applicability: an attributed view
++            # names no scope of another universe, with or without Coverage on it. load_coverage
++            # sees only supported-available Coverage envelopes, so it cannot decide this for an
++            # unsupported-typed row or for a coverage-less scope (§5 per-universe clause).
++            for sid in view.get("scopeIds") or []:
++                sc = objects.get(sid)
++                if sc and sc[0] == "subject-scope" and isinstance(sc[1], dict) and sc[1].get("sourceUniverse") != uni:
++                    _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+         attributed = canon_str_list(attributed)
+         cell_view_hexes[(ci, po)] = attributed
+         if not C.equal_typed(row["viewDigests"], attributed):

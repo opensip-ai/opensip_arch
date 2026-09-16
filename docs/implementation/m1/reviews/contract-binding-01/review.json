@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "reviewKind": "independent code-binding review: developer design-lock v3 contract successor",
+  "verdict": "ACCEPT-UNIT",
+  "subjectManifest": "/tmp/opensip-implementation/m1-contract-binding-subject-01.json",
+  "subjectManifestSha256": "37e1112f314f1ab8affcc2c53749ec20d150e8d5760806cee24cf3ffe821cfe3",
+  "comparisonBaseline": "/tmp/opensip-implementation/m1-successor-subject-02 (accepted binding2)",
+  "acceptanceStatement": "The v3 contractSuccessor binding in tools/verify_design.py and design-lock.json implements design-lock-v3.proposed.md as a checked-in-lock trust anchor. It checks closed lock, version and pin shapes. It joins the review, root assent, subject manifest and record immutably. It requires complete, exactly pinned candidates, parents that are members of the accepted set with bytes preserved, and exact before-text selected by line or JSON Pointer. It refuses duplicate, stale and malformed input with named diagnostics, and it keeps lock v1/v2 compatibility. The real 46-input lock verifies. Acceptance covers only this code binding. It does not establish full M1 completion, product qualification, runtime authorization or cryptographic reviewer identity.",
+  "requiredFindings": [],
+  "advisories": [
+    {
+      "id": "CB-A01",
+      "topic": "candidate collision with accepted non-parent paths",
+      "detail": "Candidates are checked against declared parents only (verify_design.py:214). A reviewed and assented candidate can reuse the path of a file in the accepted source/application overlay that is neither a lock input nor a declared parent, with different bytes, and still verify. Probe: a candidate at docs/coop/artifacts/c2-plan-stage-schema.v4.json passed. The real record has no collision (0 of 9 candidates fall in the effective overlay). This matches the spec wording ('cannot overwrite a parent path'). Consider also refusing candidate paths that are in the accepted set, or documenting that such paths must be declared parents.",
+      "blocking": false
+    },
+    {
+      "id": "CB-A02",
+      "topic": "line-number semantics",
+      "detail": "selected_passage uses str.splitlines(), which also splits on \\x0b, \\x0c, \\x1c-\\x1e, \\x85, U+2028 and U+2029. A consumer that splits only on \\n numbers lines differently (probe: line 3 is 'c' under splitlines and 'd\\r' under \\n split). The two real markdown parents contain none of these characters or CR, and both real line overrides match under either rule, each with exactly one occurrence of the before-text. Consider specifying \\n-only line splitting for future records.",
+      "blocking": false
+    },
+    {
+      "id": "CB-A03",
+      "topic": "selector aliasing",
+      "detail": "Duplicate detection keys on the exact selector spelling for each parent. A line selector and a JSON Pointer that address the same JSON passage with conflicting afters both verify (probe passed on repository-file-inventory.v1.json). The record and its overrides are reviewed and pinned, so this is not a present defect.",
+      "blocking": false
+    },
+    {
+      "id": "CB-A04",
+      "topic": "record shape not closed",
+      "detail": "The successor record's top-level keys and schemaVersion are not checked. An unknown semantic field (for example passageDeletions) or schemaVersion 99 is silently ignored when the chain is re-bound. Consider closing the record shape so a future reviewed record cannot carry semantics this verifier neither enforces nor reports.",
+      "blocking": false
+    },
+    {
+      "id": "CB-A05",
+      "topic": "numeric equality in joins",
+      "detail": "Python == treats 1521.0 as equal to 1521, so the same_reference and override-parent dict equality accept float byte counts in assent join pins and override parent pins. Both probes passed. Every pin that reads bytes goes through pinned_bytes, which requires an int. The same_reference behavior predates this change (binding2).",
+      "blocking": false
+    },
+    {
+      "id": "CB-A06",
+      "topic": "unnamed diagnostics",
+      "detail": "A jsonPointer selector on a non-JSON parent raises json.JSONDecodeError, and a line selector on non-UTF-8 bytes raises UnicodeDecodeError. Both subclass ValueError and are caught by main, so the tool still fails closed, but they are not DesignError. Deeply nested JSON could raise an uncaught RecursionError (nonzero exit); this predates the change.",
+      "blocking": false
+    },
+    {
+      "id": "CB-A07",
+      "topic": "test discrimination gaps (verifier behavior verified correct by independent probes)",
+      "detail": "Mutation testing of the new guards against the 29-test suite. Killed: all review, assent, subject, candidate, parent-acceptance, overwrite, override-parent, duplicate, before-text, closed-binding and version guards. Survivors that would fail open without a failing test: 'pointer does not resolve' (a pointer through a string such as /files/7/description/x would select the parent string), 'line >= 1' (line 0 would select the last line), 'override unknown fields', previousCandidate byte verification, leading-zero array index (the fixture array has length 1), empty 'after', 'unsupported selector', 'pointer must start with slash', 'overrides must be a list', and 'nonempty pin list'. Positive-path survivors: parent-scoped duplicate keys (the same pointer on two parents) and parents selected only through the effective overlay; both are exercised by the real lock, not by unit tests. Equivalent mutants caused by redundant pinning: member/candidate re-pinning, record pin equality, bytes in the parent acceptance comparison, and size=True on the root successor join. Consider adding isolated tests for the fail-open survivors.",
+      "blocking": false
+    }
+  ],
+  "executedChecks": [
+    "Before and after: the manifest hashed to 37e1112f314f1ab8affcc2c53749ec20d150e8d5760806cee24cf3ffe821cfe3. All 13 listed files match sha256 and byte length. There are no extra files, and no __pycache__ or .pyc in the frozen root.",
+    "diff -rq against m1-successor-subject-02: only design-lock.json, tools/verify_design.py and tools/tests/test_design_binding.py differ, so Rust bytes are unchanged. The lock diff is schemaVersion 2->3 plus the contractSuccessor block. The verifier diff adds pin_rows, selected_passage and contract_successor, restructures version field selection, and changes inventory handling to version >= 2.",
+    "Read design-lock-v3.proposed.md, the complete verify_design.py, the complete test_design_binding.py and design-lock.json. Read the arch successor.json, m1-metadata-subject-02.json, metadata-unit.v1.json and review.json (verdict ACCEPT-DESIGN-UNIT, requiredFindings [], subjectManifestSha256 1b456017...).",
+    "Compared contract-tests-01-failed.py with the frozen tests. The only differences are copy.deepcopy of parents, override parent and assent, which confirms the stated fixture-aliasing correction.",
+    "In a byte-identical review copy: python3 -m unittest discover gave 29 tests OK.",
+    "Real verification with --architecture set to the absolute opensip_arch path gave passed=true, inputsVerified=46, inventory successor selects repository-file-inventory.v3.json (addedFiles=4), contractSuccessor with 9 candidate inputs and 4 passageOverrides, productQualification=false. Rerun after all probes gave the same result, so the pinned arch bytes are unchanged.",
+    "--architecture . run from the product copy: fails closed with exit 1 ('missing or escaping regular file').",
+    "Real-data scan: parents include 2 evaluator3 schemas accepted only through the source/application overlay, not lock inputs, which matches the spec. The markdown parents contain no CR or other splitlines terminators. Each before-text occurs exactly once. No candidate path collides with the effective overlay.",
+    "Mutation testing (mutate.py): 25 raise-removal and 15 condition mutants over the new code; results are summarized in CB-A07.",
+    "Adversarial probes (probe.py; probe-results.json) on a mirror of all pinned arch files, with the downstream manifest, review, assent and lock rebound for each probe. 80 probes in total: 74 refusal/pass expectations all met, and 6 advisory behaviors confirmed (CB-A01, A03, A04, A05). Coverage: line 0/-1/float/EOF; mixed, empty and unsupported selectors; pointer through a string, trailing slash, leading zero, +7, Unicode digit, no slash, non-string, empty, non-string target, wrong index; stale before, before with newline, non-string before/after, empty after, after equal to before; extra or missing override fields; overrides as a string or missing; identical and conflicting duplicate selectors; override parent with bytes mismatch, extra key, or an accepted input outside the record's parents; parents unsorted, duplicate, empty, sha mismatch, unaccepted (correctly sorted), and override targeting an unaccepted parent; candidate omitted, pin differs, record listed as a candidate, extra subject member; candidate overwriting a parent path; tampered candidate and previousCandidate bytes; previousCandidate extra key or null; review verdict, findings or missing findings, other manifest; assent status, rootSubstantiveAssent=1, findings missing, review sha or path differs, manifest bytes differ, successor sha differs, missing or list; lock pin extra key; non-object contractSuccessor; versions v2-without-contract and v1 pass; v2 with contract, v1 with inventory, v3 missing either successor, 3.0 and 4 refuse.",
+    "Probe-harness self-correction: the first probe run aliased assent join pins with the lock pins, and its unaccepted-parent case was refused for sort order. Both were fixed with deep copies and a correctly sorted path before the probes were counted."
+  ],
+  "limitations": [
+    "Code-binding review only. It does not establish full M1 completion, product qualification, runtime authorization or cryptographic reviewer identity. The checked-in lock is the trust anchor.",
+    "The substance of metadata-v2 (schemas, fixtures, the check_metadata.py reference checker, coverage) and the semantic correctness of the passage overrides were not reviewed. They are taken from the existing Claude design-unit acceptance and root assent.",
+    "The Rust crates were not rebuilt or retested (bytes unchanged from accepted binding2, per scope).",
+    "The arch working tree has unrelated uncommitted modifications. Verification relies on exact pins, not git state.",
+    "Probes ran on a mirror of pinned arch files plus synthetic review and assent rebinding. The mirror and mutation work trees were deleted after the runs; the scripts and probe-results.json are kept in this directory."
+  ]
+}

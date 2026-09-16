@@ -1,0 +1,10 @@
+from pathlib import Path
+import json,hashlib,difflib,shutil
+B=Path('/tmp/opensip-design-corrections');L=Path('/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews');old=B/'root-blind36-tool-binding.v1';out=B/'root-blind37-tool-binding.v1';h=lambda b:hashlib.sha256(b).hexdigest()
+mf=L/'candidate-subject.v37.json';digest=h(mf.read_bytes());cust=json.loads((B/'root-final37-custody.v1/verification.json').read_bytes());assert cust['manifestSha256']==digest and cust['archiveEveryMemberVerified'];assert not out.exists();out.mkdir();rows=[]
+source_rows=json.loads((old/'binding.json').read_bytes())['files']
+source_rows.append({'path':'replay-blind-query36.v2.py','afterSha256':'ceb0dc5bbe1442a806c64fe11b7e68c42ffb71647f36af72e5d92254c979312b','rootCurrentAdapter':True})
+for r in source_rows:
+ p=(B if r.get('rootCurrentAdapter') else old)/r['path'];raw=p.read_bytes();assert h(raw)==r['afterSha256'];name=r['path'].replace('36','37');s=raw.decode().replace('successor36','successor37').replace('blind36','blind37').replace('source36','source37').replace('subject.v36','subject.v37').replace('a729406b9de0d865294884f7575ea943c0935437091389e2acebe8e5aedb4235',digest)
+ assert not (B/name).exists();new=s.encode();(out/name).write_bytes(new);(B/name).write_bytes(new);(out/(name+'.diff')).write_text(''.join(difflib.unified_diff(raw.decode().splitlines(True),s.splitlines(True))));rows.append({'path':name,'beforeSha256':h(raw),'afterSha256':h(new)})
+(out/'binding.json').write_text(json.dumps({'standing':'Prepared only. Exact source37 transport/strong owner/query replay adapters prepared for fresh consumer24. The fresh consumer may choose a different artifact layout; root must review and adapt only the transport adapter to its exact final exports after completion, preserving semantic checks; no execution or acceptance yet. Source36 tools preserved. No consumer imports, repairs or answer oracle.','sourceManifestSha256':digest,'files':rows},indent=2)+'\n');shutil.copytree(out,L/out.name);print('Prepared4 bound37 root replay tools')

@@ -1,0 +1,9 @@
+# Fresh independent review request for actual Grok or Claude
+
+Review this author-assisted package substantively against its exact source-manifest.json (candidate25 SHA-256 fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d). This is an author-package review, not the required blind reconstruction or final application review. Start a fresh reviewer origin and retain actual public review evidence. Do not claim agreement from a successful command alone.
+
+Verify artifact-manifest.json and source bytes, read review-queue.json, the source patches, final construction/derivation scripts, selected exports and owner reports, property/query probes, and all thirty individual residual assessments. Rerun verify-package.py into a new directory. Independently test the important claims and report exact first-refusal boundaries. Code under author-helpers remains a partial fixture implementation; general evaluator completeness is not claimed.
+
+Assess whether the corrections follow existing laws, whether synthetic inputs and borrowed frozen derivation are labelled accurately, whether root/view attribution needs a normative clarification, and whether any claimed example property is merely unused retained data. The Rust property probe deliberately reads the selected evidence views. Review the broad trust-boundary and historical-preservation claims in each residual, rather than grading them by count.
+
+Return a substantive Markdown report and machine-readable findings with severity, exact file/selector, evidence, requested correction and open questions. Bind the report to the author package manifest SHA and candidate25 SHA. Clearly separate author-package acceptance from independent-consumer and application acceptance. Original independent reconstruction still owes all 123 requirements and its standing constraints; no waiver is authorized by this package.

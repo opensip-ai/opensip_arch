@@ -1,0 +1,9 @@
+# Retained-input resolver trial
+
+Pure explicit-input lookup, hashing, canonical-record decoding and candidate closure-role checks. The library depends only on the exact frozen identity implementation now accepted in admission-runtime-selection-v1. Host is test-only; the separate harness uses compiled host sources. No library I/O, cache, public Run, closed-graph handle or replay authority.
+
+RetainedInputs borrows immutable domain-tagged descriptor and byte maps. ObjectInput is inert. object recomputes expected domain, shape/order/H identity, and nine candidate-domain closure role rows; regeneration uses cache-key roles. Blob lookup distinguishes missing from incorrect SHA; length and canonical decoding are separate checks. A valid role can still reference missing payloads. Return values intentionally do not imply transitive closure, native context, capability admission or complete replay.
+
+Three focused tests and strict Clippy pass. An AST-based oracle composes the selected original get/blob/canonical_bytes and role functions with current schema and accepted exact-profile canonical implementation:2442cases,151ok/112unavailable/2179invalid,zero mismatch.2143inputobjects/12blobs. Tests bind the nine role rows to the one selected schema table. Object-value admission does not claim a physical descriptor file was stored canonically; that is a separate store boundary. Per-descriptor work budget is reused for at most two role lookups, not a whole-graph resource bound.
+
+No transitive annotation walk, local/foreign payload registry, H-frame sets, native semantics, Plan membership, source/universe joins, graph availability aggregate or ReplayedRun yet. This trial is a foundation for that work, not the public model open_run_closure. Actual review requested as advisory. Historical/frozen predecessor files remain unchanged.

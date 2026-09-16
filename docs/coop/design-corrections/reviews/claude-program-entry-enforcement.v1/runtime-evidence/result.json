@@ -1,0 +1,60 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 6.5986885,
+  "usage": {
+    "input_tokens": 386,
+    "cache_creation_input_tokens": 114894,
+    "cache_read_input_tokens": 7612087,
+    "output_tokens": 65671,
+    "output_tokens_details": {
+      "thinking_tokens": 28915
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 114894,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2231,
+        "cache_read_input_tokens": 638274,
+        "cache_creation_input_tokens": 1558,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1558
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 386,
+      "outputTokens": 65671,
+      "cacheReadInputTokens": 7612087,
+      "cacheCreationInputTokens": 114894,
+      "webSearchRequests": 0,
+      "costUSD": 6.5986885,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 28915,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 49,
+  "subtype": "success",
+  "result": "**The gap is real: CORRECTION_REQUIRED.** I tested it with owner graphs at admission and in closed Runs, rather than relying on the earlier code reading. Frozen41 matched its manifest before and after (12912 members, 0 missing, mismatched or extra), and all relevant source files match it byte for byte. All subprocesses have finished.\n\n## Does changing only provenance to explicit (keeping null) admit?\nYes, and no existing check refuses it.\n- **Admission** (the maintained `check-enumeration` harness):\n  - the default `ts-tsconfig` binding with only provenance changed to `explicit-plan-selection` admits;\n  - `js-synthesized` explicit null also admits, given a matching context.\n- **Full Run:** I used the semantic fixture, executed from its own bytes with two asserted changes: a real `tsconfig.json` default unit from `discover_units`, and the binding's provenance and `programEntry`.\n  - R3 (default control with only provenance changed) closes on the exact manifest.\n  - Controls: R2 (default null) and R1 (explicit `\"tsconfig.json\"`) close.\n  - Refused: R4 (default with non-null entry) refuses `ENUMERATION_BINDING_PROGRAM_ENTRY`.\n- **Why nothing catches it:** the model refuses a non-null entry on a default binding. It also compares the retained graph entry against either the given path or, when null, the path it derives from the default unit's marker. It never checks provenance when the entry is null. An explicit null is refused only by accident, when that derived path differs from the retained graph entry (R5, or a graph entry of `tsconfig.build.json`).\n- **My first `js-synthesized` world failed** because the harness hardcodes a `ts-tsconfig` context. I preserved it and retried directly.\n\n## Proposed correction\nThe patch is `correction.patch` (sha256 `89097b0c\u2026`); base and after hashes are in `delta-manifest.json`.\n- **Model** (`enumeration_model.v1.py`): an available binding with `explicit-plan-selection` in a TS/JS mode and a null `programEntry` now refuses the existing `ENUMERATION_BINDING_PROGRAM_ENTRY`.\n  - Unchanged: defaults, non-null entries, Rust, syntax-only, candidate cells, unavailable bindings, schema and identity.\n  - `js-synthesized` is included because the published text says \"TS/JS\", so a synthesized program is encoded only as a default binding. Excluding that mode is a one-token change but would need owner wording.\n- **Checker** (`check-enumeration.v1.py`): the harness can now take a `native_contexts` override. There are 8 new cases:\n  - **new refusals:** TS explicit null and `js-synthesized` explicit null;\n  - **existing behaviour guarded:** default binding with a non-null entry is refused;\n  - **preservation, all admit:** explicit TS naming the marker config, `js-synthesized` default null, Rust explicit null, syntax explicit null, unavailable explicit null.\n  - The three refusal cases must produce exactly `ENUMERATION_BINDING_PROGRAM_ENTRY`.\n\n**Receipts:**\n\n| Run | Cases | Mismatches |\n|---|---|---|\n| Unpatched copy | 46 | 0 |\n| Patched copy | 54 | 0 |\n| Patched checker on unpatched model | 54 | 4, exactly the two new refusals and their exact-refusal checks |\n\n- The 46 shared cases are identical between base and patched.\n- **Patched Run:** R3 is now refused, while R0, R1 and R2 still close on the exact manifest.\n- **Patched admission:** Rust, syntax and every unavailable variant are unchanged.\n\n**Maintained explicit-null shapes that would stop admitting.** Some explicit-null `ts-tsconfig` bindings in `check-atoms.v1.py` (and a mode-less workflow projection helper) never reach enumeration admission, so they're unaffected at runtime. I report them and did not change them.\n\n## The two other open notes\n- **Unavailable bindings (path or null): no change needed.** It is Plan-selection input the owners intentionally leave free, not a missing rule.\n  - With a null universe there is no native entry to compare, and admission only checks that a non-null value is a snapshot path. All four variants admit.\n  - No evaluator, execution-input or native model reads `programEntry`, and no owner claims a canonical encoding.\n  - Different values are different Plans, not nondeterminism.\n- **Explicit Rust path: no change needed.** It is a Plan label; the universe identity is the program key.\n  - Native `bind_rust_universe` takes no `programEntry`, and the schema and \u00a79 say it isn't a complete program key.\n  - Duplicate universes in a cell are already refused. Default null, explicit null and explicit `Cargo.toml` all admit.\n  - Contract \u00a71 `:24` slightly overstates `programEntry` as a Rust/syntax bind input. That is prose imprecision with no behavioural effect.\n\n## Root's scope correction\nReplacing \"It never copies the U-1 marker \u2026\" with \"For an available default-unit binding, it never copies \u2026\" is **correct and necessary**:\n- **It protects lawful explicit selection.** Explicit bindings naming the marker config are maintained lawful shapes: the semantic fixture (its Run closes), `check-atoms`, and my admitted probe case. The unscoped sentence would forbid them.\n- **It matches the enforced rule.** The scoped sentence matches exactly what admission refuses, and doesn't reach unavailable bindings.\n\n## Limits\n- **Standing:** admission results are the enumeration owner join. Run results come from the maintained semantic sequence on a probe variant; no fixture file was written.\n- **Not run:** broad suites, pins, planning, `check-atoms`, workflow or other Run checkers. \"No other admission-reaching explicit TS/JS null bindings\" rests on source search, not execution.\n- **Hash index scope:** `hash-index.json` also hashed pre-existing harness files in the runtime (`launch.py`, `process.json`, `prompt.md`, `public-events.jsonl`). I didn't create or read them.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-program-entry-enforcement.v1`:\n- review.md\n- review.json\n- correction.patch\n- delta-manifest.json\n- hash-index.json\n- receipts/\n- tools/",
+  "type": "result",
+  "duration_ms": 797296
+}

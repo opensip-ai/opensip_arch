@@ -1,0 +1,113 @@
+--- a41/docs/coop/design-corrections/foundation/check-enumeration.v1.py
++++ b42/docs/coop/design-corrections/foundation/check-enumeration.v1.py
+@@ -208,10 +208,11 @@
+         if type(i) is dict:
+             i["parameterDigest"] = pdigest
+     domains = kw.pop("universe_domains", {U1: TS_DOMAIN, U2: TS_DOMAIN})
++    contexts = kw.pop("native_contexts", {CTX: {"languageMode": "ts-tsconfig"}})
+     return M.admit_enumeration(
+         plan=plan_obj(sc), plan_id=PLAN_ID, analysis_spec=spec_obj or spec(),
+         scope_descriptor=sc, membership=memb, enumeration_plan=enum, inventories=inventories,
+-        native_contexts={CTX: {"languageMode": "ts-tsconfig"}}, universes=universes,
++        native_contexts=contexts, universes=universes,
+         closures={PROV: {"kind": "provider"}, DET: {"kind": "detector"}},
+         snapshot_paths=kw.pop("snapshot_paths", list(SNAPSHOT)), source_blobs=source,
+         retained_inputs=retained, policy_document=policy, universe_domains=domains, **kw,
+@@ -731,6 +732,70 @@
+         inv("file", "complete", files, file_ext),
+         inv("package", "complete", pkgs, pkg_ext),
+     ], memb, sc, universes, retained, source))
++
++    # programEntry x provenance (enumeration-plan.schema AvailableProgramBindingV1.programEntry: U-1 default
++    # uses null; a TS/JS extra program names the non-null selected inventoried config). Each case keeps the
++    # default-unit baseline world and changes only the named binding fields (and, for js-synthesized, the
++    # unit/context/universe/graph that mode requires).
++    def entry_world(unit_patch=None):
++        m_obj = copy.deepcopy(memb)
++        if unit_patch:
++            m_obj["units"][0].update(unit_patch)
++        f_ext = M.host_file_extent(m_obj, SNAPSHOT, sc, ".", [])
++        proj = M.project_named_packages(SNAPSHOT, sc, ".", m_obj, source, [])
++        return {"memb": m_obj, "fileExt": f_ext, "pkgExt": proj["namedPaths"],
++                "ext": [{"kind": "file", "paths": f_ext}, {"kind": "package", "paths": proj["namedPaths"]}],
++                "files": sort_files([file_row(p) for p in f_ext]),
++                "pkgs": sort_pkgs([pkg_row(n["path"], n["packageName"]) for n in proj["named"]])}
++
++    def entry_admit(w, mode, bindings, unis, ret, domains=None, contexts=None, state="complete"):
++        plan_rec = {"schemaVersion": 1, "snapshotId": SNAP, "scopeDigest": M.raw_digest(sc),
++                    "membershipDigest": M.raw_digest(w["memb"]),
++                    "cells": [{"capabilityId": "inventory", "languageMode": mode, "workspaceRoot": ".",
++                               "required": True, "kinds": M._cap_kinds("inventory"), "programBindings": bindings}]}
++        rows = []
++        for p in range(len(bindings)):
++            if state == "complete":
++                rows += [inv("file", "complete", copy.deepcopy(w["files"]), w["fileExt"], prog=p),
++                         inv("package", "complete", copy.deepcopy(w["pkgs"]), w["pkgExt"], prog=p)]
++            else:
++                carrier = {"deficiency": "provider-unavailable", "nativeCause": None}
++                rows += [inv("file", "unavailable", [], [], prog=p, extra=dict(carrier)),
++                         inv("package", "unavailable", [], [], prog=p, extra=dict(carrier))]
++        kw = {}
++        if domains is not None:
++            kw["universe_domains"] = domains
++        if contexts is not None:
++            kw["native_contexts"] = contexts
++        return admit(plan_rec, rows, w["memb"], sc, unis, ret, source,
++                     spec_obj=spec([{"capabilityId": "inventory", "languageMode": mode, "workspaceRoot": ".", "required": True}]),
++                     **kw)
++
++    ts_w = entry_world()
++    rec("available-default-unit-nonnull-entry-refused", entry_admit(
++        ts_w, "ts-tsconfig", [binding(0, U1, "tsconfig.json", ts_w["ext"])], universes, retained))
++    rec("available-explicit-ts-names-marker-config-admits", entry_admit(
++        ts_w, "ts-tsconfig", [binding(0, U1, "tsconfig.json", ts_w["ext"], "explicit-plan-selection")], universes, retained))
++    rec("available-explicit-ts-null-entry-refused", entry_admit(
++        ts_w, "ts-tsconfig", [binding(0, U1, None, ts_w["ext"], "explicit-plan-selection")], universes, retained))
++    syn_w = entry_world({"languageMode": "js-synthesized", "unitKind": "js-program", "markerPath": "package.json",
++                         "recognizerId": "node-package"})
++    syn_args = dict(unis={U1: uni("js-synthesized", roots)}, ret={U1: {"configGraph": graph(None)}},
++                    domains={U1: TS_DOMAIN}, contexts={CTX: {"languageMode": "js-synthesized"}})
++    rec("available-js-synthesized-default-null-admits", entry_admit(
++        syn_w, "js-synthesized", [binding(0, U1, None, syn_w["ext"])], **syn_args))
++    rec("available-explicit-js-synthesized-null-entry-refused", entry_admit(
++        syn_w, "js-synthesized", [binding(0, U1, None, syn_w["ext"], "explicit-plan-selection")], **syn_args))
++    rec("available-explicit-rust-null-entry-admits", entry_admit(
++        ts_w, "rust-cargo", [binding(0, U1, None, ts_w["ext"], "explicit-plan-selection")],
++        {U1: {"nativeContextId": CTX}}, {}, {U1: RUST_DOMAIN}))
++    rec("available-explicit-syntax-null-entry-admits", entry_admit(
++        ts_w, "syntax-only", [binding(0, U1, None, ts_w["ext"], "explicit-plan-selection")],
++        {U1: {"nativeContextId": CTX}}, {}, {U1: "native.semantic-universe.syntax.v2"}))
++    unavail_explicit = unavail_binding(0, ts_w["ext"])
++    unavail_explicit["provenance"] = "explicit-plan-selection"
++    rec("unavailable-explicit-null-entry-admits", entry_admit(
++        ts_w, "ts-tsconfig", [unavail_explicit], universes, retained, state="unavailable"))
+ 
+     want = {
+         "positive-complete-default-unit": "ADMIT",
+@@ -779,6 +844,14 @@
+         "inventory-cell-rejects-candidate-source-paths": "REFUSE",
+         "nested-cargo-workspace-derivation-differs-refused": "REFUSE",
+         "nested-cargo-workspace-derivation-folds-into-surviving-unit": "ADMIT",
++        "available-default-unit-nonnull-entry-refused": "REFUSE",
++        "available-explicit-ts-names-marker-config-admits": "ADMIT",
++        "available-explicit-ts-null-entry-refused": "REFUSE",
++        "available-js-synthesized-default-null-admits": "ADMIT",
++        "available-explicit-js-synthesized-null-entry-refused": "REFUSE",
++        "available-explicit-rust-null-entry-admits": "ADMIT",
++        "available-explicit-syntax-null-entry-admits": "ADMIT",
++        "unavailable-explicit-null-entry-admits": "ADMIT",
+     }
+     mismatches = []
+     for c in cases:
+@@ -789,6 +862,11 @@
+                       for row in unit_root_cases if not row["passed"])
+     mismatches.extend({"case": "tsjs-unit-kind-" + row["case"], "observed": row}
+                       for row in tsjs_unit_kind_cases if not row["passed"])
++    for entry_name in ("available-default-unit-nonnull-entry-refused", "available-explicit-ts-null-entry-refused",
++                       "available-explicit-js-synthesized-null-entry-refused"):
++        entry_refusals = next((c["refusals"] for c in cases if c["case"] == entry_name), None)
++        if entry_refusals != ["ENUMERATION_BINDING_PROGRAM_ENTRY"]:
++            mismatches.append({"case": entry_name + "::exact-refusal", "refusals": entry_refusals})
+     nested_refusals = next(c["refusals"] for c in cases if c["case"] == "nested-cargo-workspace-derivation-differs-refused")
+     if (nested_refusals != ["ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION"]
+             or nested_rust_units != [["", "cargo-workspace", ["nested", "nested/pkg"]]]):

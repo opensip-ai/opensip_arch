@@ -1,0 +1,74 @@
+{
+  "session_id": "08da293b-2604-4387-9821-645d5d95f672",
+  "total_cost_usd": 8.027516499999999,
+  "usage": {
+    "input_tokens": 738,
+    "cache_creation_input_tokens": 344214,
+    "cache_read_input_tokens": 4651307,
+    "output_tokens": 90186,
+    "output_tokens_details": {
+      "thinking_tokens": 33373
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 344214,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1360,
+        "cache_read_input_tokens": 348806,
+        "cache_creation_input_tokens": 903,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 903
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1303,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001383,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 738,
+      "outputTokens": 90186,
+      "cacheReadInputTokens": 4651307,
+      "cacheCreationInputTokens": 344214,
+      "webSearchRequests": 0,
+      "costUSD": 8.0261335,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 33373,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 85,
+  "subtype": "success",
+  "result": "I've written `resolutions.json` and `resolutions.md` in the task folder, and the JSON parses cleanly. They are a proposal for root review; I changed nothing in the architecture repo. One caveat: the repo has uncommitted edits in other files, including `COORDINATOR-DECISIONS.md`, so my hashes are of the files as they stand today.\n\nOf the 14 gaps, 4 need a design change from an owner, 1 needs only your confirmation of a source, and 9 are already settled by current documents.\n\n## Needs a scoped successor (exact patch text is in both files)\n- **TS2-G4, subject-scope commitment (P-1):** delivery.v2 says every coverage key in a stage shares one commitment. The current native-evidence and identity documents give each key its own `scope2` commitment, and keys within a stage differ, so both can't hold. \u00a70 has no row superseding the old rule. The fix keeps `SubjectScopeV1` and `domainCommitment` exactly as they are. The host mints each key's commitment before spawn and the worker just echoes it. No wire change.\n- **TS2-G5, `fact-ref` anchors (P-2):** fact identity is always fact2 under major 2, and fact2 anchors can't point at another fact, so a `fact-ref` anchor can never be admitted. The proposal refuses it at admission and leaves the wire vocabulary unchanged. The `source-span` member types are already settled.\n- **TS2-G10, `manifestSha256` (P-3):** delivery.v2 contradicts itself here. The field is plain hex over the CBOR entries. I chose that over the domain-prefixed reading because the field's type can't hold a `sha256:` prefix, and the Rust v2 contract states the same plain-hex recipe explicitly.\n- **Audit G10, report projection (P-5):** no report projection schema exists anywhere. Envelope4 is closed and has no history, catalog or graph panels, and the owners forbid adding them to it. So report.ts has to stay blocked. I proposed a `report-projection:1` document that references envelope4 for the parity fields and adds optional panels.\n\n## Already settled\n- **TS2-G1, byte strings:** the wire stays CBOR bstr. The private carriers are a `ByteString(Vec<u8>)` newtype in Rust and `Uint8Array` in TS, with hex only in JSON vectors.\n- **TS2-G3, stageId length:** the 1..255 bound applies to request, result and `dependsOn` ids through `DispatchBindingV1.expectedStageId`.\n- **TS2-G12, commitment domains:** the full field-to-domain table is in the files; P-4 is optional wording.\n- **The rest (G2, G6, G7, G8, G9, G11):** handled in code as stated in the files, with no design text needed.\n\n## Audit G9, control protocol: the owner exists\nThe earlier audit missed it. `control-protocol-contract.v2.json` (DR-102, accepted in D-015 and retained by D-372) owns framing and the handshake. `control-completion.schema.v3.json` owns the closed bodies of all 16 control messages and was reviewed with no objection. Control frames are JSON on separate channels, and their version is independent of the provider protocol versions. That schema is reachable only through `architecture-application.v1.json`, not directly as a source45 member, so you need to confirm it as a registry source.\n\n## Code changes\n- Register the control schema for `protocol.rs`.\n- Handle the settled gaps in the provider protocol code now. The G4, G5 and G10 behaviour waits on P-1, P-2 and P-3.\n- Have the host build one subject-scope descriptor per key before spawn.\n- Implement control framing and its state machine by hand. The effect messages stay inactive until the security journal work lands.\n\n## Still open\n**UQ-1:** the report panel size limits and which record backs the catalog panel. The report inventory requires measured limits and bars reusing the prototype's budgets, so only the workflow/output owner can set them.\n\nRust major-3 gaps were outside this task.",
+  "type": "result",
+  "duration_ms": 1324007
+}

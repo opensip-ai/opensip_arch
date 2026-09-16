@@ -1,0 +1,98 @@
+--- a38/docs/coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json
++++ b39/docs/coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json
+@@ -325,7 +325,8 @@
+         "requiredCoverage",
+         "enabled",
+         "gating",
+-        "evidenceUse"
++        "evidenceUse",
++        "absenceKnowledge"
+       ],
+       "properties": {
+         "ruleId": {
+@@ -348,6 +349,14 @@
+             "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/EvidenceUse"
+           },
+           "x-opensip-order": "sequence"
++        },
++        "absenceKnowledge": {
++          "type": "string",
++          "enum": [
++            "complete-hit-set",
++            "unknown"
++          ],
++          "description": "complete-hit-set when this side can prove absence of a non-emitted fingerprint of the rule: enabled, not budget-exhausted, outcome not indeterminate, complete enumeration and every selected emitWhen root determinate. Otherwise unknown (including disabled rules). Independent of requiredCoverage."
+         }
+       }
+     },
+@@ -542,7 +551,9 @@
+         "required-evidence-unavailable",
+         "evidence-availability-changed",
+         "evidence-content-changed",
+-        "fingerprint-migration-only"
++        "fingerprint-migration-only",
++        "baseline-absence-unknown",
++        "current-absence-unknown"
+       ]
+     },
+     "Axis": {
+@@ -572,7 +583,7 @@
+     },
+     "PivotPresence": {
+       "type": "object",
+-      "description": "Presence of the fingerprint at each pivot. null = pivot not available. waivedB/waivedC record waiver status on the two real sides.",
++      "description": "Presence knowledge of the fingerprint at each pivot. true = a known matched occurrence (waived included). false = non-selection (that side's policy does not enable the rule or its ScopeDocument does not select the path; attributed to the policy or scope axis, never CODE-FIXED) or evaluated absence proved by that side's rule under the complete-hit-set law (enabled rule, evaluated, complete enumeration, every selected emitWhen root determinate, fingerprint absent from the emitted matched set, path inside the attested extent, no unmatched occurrence at that side that might be the fingerprint). null = not known. No fingerprint is minted for an unmatched occurrence. B is evaluated-absent only when the baseline RuleCoverage absenceKnowledge is complete-hit-set. waivedB/waivedC record waiver status on the two real sides.",
+       "additionalProperties": false,
+       "required": [
+         "B",
+@@ -586,7 +597,14 @@
+       ],
+       "properties": {
+         "B": {
+-          "type": "boolean"
++          "oneOf": [
++            {
++              "type": "boolean"
++            },
++            {
++              "type": "null"
++            }
++          ]
+         },
+         "E0": {
+           "oneOf": [
+@@ -629,7 +647,14 @@
+           ]
+         },
+         "E4": {
+-          "type": "boolean"
++          "oneOf": [
++            {
++              "type": "boolean"
++            },
++            {
++              "type": "null"
++            }
++          ]
+         },
+         "waivedB": {
+           "type": "boolean"
+@@ -692,7 +717,7 @@
+         },
+         "liveInCurrent": {
+           "type": "boolean",
+-          "description": "present in E4 and not waived on the current side"
++          "description": "true only when E4 is a known hit and the current occurrence is not waived"
+         },
+         "gates": {
+           "type": "boolean"
+@@ -705,7 +730,8 @@
+             "newly-live-policy-axis",
+             "current-live",
+             "indeterminate-gating-rule"
+-          ]
++          ],
++          "description": "code-net-new-policy-hidden: a gating CODE-NET-NEW entry that is not live in current because a later axis hid it (a detector, policy or scope change, or a waiver added in the same change); subsequentDeltas names the later axes."
+         }
+       },
+       "allOf": [

@@ -1,0 +1,74 @@
+{
+  "session_id": "21eeb02c-9b13-41d0-91c2-6abc95bf6fe2",
+  "total_cost_usd": 4.947264500000001,
+  "usage": {
+    "input_tokens": 866,
+    "cache_creation_input_tokens": 151677,
+    "cache_read_input_tokens": 2557029,
+    "output_tokens": 85848,
+    "output_tokens_details": {
+      "thinking_tokens": 43134
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 151677,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1859,
+        "cache_read_input_tokens": 155481,
+        "cache_creation_input_tokens": 1691,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1691
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1365,
+      "outputTokens": 17,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.00145,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 866,
+      "outputTokens": 85848,
+      "cacheReadInputTokens": 2557029,
+      "cacheCreationInputTokens": 151677,
+      "webSearchRequests": 0,
+      "costUSD": 4.945814500000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 43134,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 58,
+  "subtype": "success",
+  "result": "A confined Python child now runs `source/prepare.py` under the same deny-default + `system.sb` profile shape as trial-01. Its three prepared files are byte-identical to the unconfined results. I ran the whole pipeline end to end three times with the same results. Nothing was written outside the trial directory, and nothing was committed or pushed. The details are in `profile.md` and `logs/summary.md`.\n\n**Interpreter.** The child is Homebrew Python 3.14.6, run as `Resources/Python.app/Contents/MacOS/Python` with `-I -B -S`, an empty environment and piped stdio.\n- **Why not the other two:** Homebrew's `bin/python3.14` is only a launcher that starts that binary as a second process, which the sandbox refuses. `/usr/bin/python3` is a shim that re-execs the Command Line Tools Python.\n- **Exact grants:** the executable and framework dylib (both pinned), 25 stdlib `.py` files, 3 extensions (`_json`, `fcntl`, `grp`, each linking only libSystem), and directory listings for 7 stdlib directories.\n- **Also granted:** metadata on the `os.py` landmark (without it every run printed a prefix warning) and on ancestor directories.\n- **Not reachable:** site-packages, `__pycache__`, and any other stdlib file.\n- **Derivation:** `scripts/pin_python.py` finds the list by running the real entry confined and tracing its imports. It fails if anything resolves outside the pinned stdlib.\n\n**Entry (`prepare-inputs.py`).**\n- It refuses to run unless the isolation flags are set.\n- It reads the raw schemas and options without following symlinks, and indexes the schemas by `$id`.\n- It executes `prepare.py` directly from its bytes and runs `prepare.prepare`.\n- It creates only `owners.json`, `rust-projection.json` and `ts-projection.json` in the empty output root.\n\nI checked the filenames: `prepare.prepare` also writes `targets.json`, but nothing reads it, so the entry drops it. The entry's in-memory interception is not a security boundary; your collector is.\n\n**Positive result.** Two confined runs and one unconfined run each exit 0 and pass candidate-03's `collect_outputs`. Their outputs are byte-identical to a direct `prepare.prepare` reference and to trial-01's prepared inputs. The work tree was unchanged afterwards.\n\n**Negative result.** Each confined denial below was ALLOWED in an unconfined control. The exception is four paths outside the trial, which I only tried confined and then confirmed were not created.\n- **Reads denied:** the canary, the `source/` copy, candidate-03, the unselected `runtime/patterns.ts`, unimported stdlib, `.pyc` files, site-packages, `/etc/passwd`.\n- **Writes denied:** inputs, code, the entry, the output root itself (rmdir/chmod), `/tmp`, and the stdlib.\n- **Processes and links denied:** fork, spawn and `exec /bin/sh`, and hard links.\n- **Network:** with `_socket` deliberately granted, loopback TCP/UDP was denied and the test listeners saw nothing.\n- **Collector:** after a probe planted a symlink and an extra file in the output root, candidate-03's collector refused the output.\n\n**Remaining limitations:**\n- **Output root:** the child can create symlinks and extra files there. Only your lstat/`O_NOFOLLOW` collection of the three names makes that safe.\n- **Self re-exec:** the child can re-exec the interpreter, because the sandbox needs that exec grant to start it. I showed the new process is still confined.\n- **Syslog socket:** connecting to `/private/var/run/syslog` is allowed by Apple's `system.sb`. The child can't reach it with the exact grants only because no socket module is readable.\n- **Executable-mapping grant:** `file-map-executable` is not enforced on this OS build (macOS 26.6.2, 25G83). What actually stops other native code from loading is the read grants.\n- **Native closure not proven complete:** I trust the pinned dylib, CoreFoundation and the system library cache.\n- **Homebrew files:** they are writable by your user, and pins are checked before the run, not atomically at exec. The framework can't simply be copied, because its library paths are absolute.\n- **Script mode only:** `-c` fails under these grants, because Python 3.14 imports `linecache` for it.\n- **Evidence:** kernel denial logs are deduplicated, so the conclusions rest on return codes and parent-side checks, not on the logs.\n- **Brittleness:** the grants break on any Homebrew or OS update, or if `prepare.py` gains an import. That fails closed, and you need to re-run `pin_python.py`. `sandbox-exec` is deprecated.\n- **No resource limits:** only a timeout applies.\n\nThis is not an approval claim, and external bootstrap anchoring stays with you. `profile.md` \u00a76 proposes how to integrate it, including no unconfined fallback; I haven't applied it.\n\nTo reproduce, from the trial directory:\n```sh\npython3 -I -B scripts/build_work.py\npython3 -I -B scripts/pin_python.py\npython3 -I -B scripts/run_trial.py\npython3 -I -B scripts/summarize.py\n```",
+  "type": "result",
+  "duration_ms": 1253066
+}

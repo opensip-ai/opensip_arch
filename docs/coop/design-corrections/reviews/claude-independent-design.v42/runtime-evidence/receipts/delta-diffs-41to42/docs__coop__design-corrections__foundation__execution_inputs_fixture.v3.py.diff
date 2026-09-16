@@ -1,0 +1,23 @@
+--- a41/docs/coop/design-corrections/foundation/execution_inputs_fixture.v3.py
++++ b42/docs/coop/design-corrections/foundation/execution_inputs_fixture.v3.py
+@@ -338,7 +338,19 @@
+                 "viewDigests": M.canon_str_list(bound_views), "candidateResultDigest": cand_digest,
+             })
+             ordinal += 1
+-    view_hexes = M.canon_str_list([h for row in outcomes for h in row["viewDigests"]])
++    # Contract §1/§3: capture observes the EXPLICIT stage returns handed to this builder (`viewIds` /
++    # `viewId` plus `view` refs on existing `evaluationInputRefs`, i.e. `view_ids` above), never the
++    # object census and never only the attributed subset: a returned view no row owns stays captured
++    # and selected. A view whose producer is no view stage's producer is not a stage return.
++    view_stage_producers = [
++        (stage_specs.get(st["stageSpecDigest"]) or {}).get("producerClosure")
++        for st in exec_plan.get("stages") or []
++        if "view" in (st.get("outputDomains") or (stage_specs.get(st["stageSpecDigest"]) or {}).get("outputDomains") or [])
++    ]
++    view_hexes = M.canon_str_list([
++        hx(v) for v in view_ids
++        if v in objects and any(not p or objects[v][1].get("producerClosure") == p for p in view_stage_producers)
++    ])
+     cov_hexes = []
+     for h in view_hexes:
+         view = objects["view2:" + h][1]

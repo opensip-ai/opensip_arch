@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-ts-runtime-review-01",
+  "subject": "/tmp/opensip-implementation/m1-ts-runtime-subject-01",
+  "subjectManifest": "/tmp/opensip-implementation/m1-ts-runtime-subject-01.json",
+  "subjectManifestSha256": "48089c1e4daa161dd5a18deebcd396514901a290d4ac0ac80a89fd2cbacf8ba3",
+  "verdict": "CHANGES-REQUIRED",
+  "verdictScope": "Trial exact-JSON codec and shape interpreter algorithms only. Not a generator, public API, Rust carrier, build/tool selection, or M1/release qualification.",
+  "requiredFindings": [
+    {
+      "id": "R1",
+      "title": "Regex dialect is unpinned and TS is more permissive than the reference on pinned path patterns",
+      "location": "schema.ts:35 (new RegExp(pattern, 'u')), schema.ts:129, schema.ts:151",
+      "detail": "Pinned patterns use '.' and '$'. With the u flag, JS '.' does not match \\r, U+2028 or U+2029, and JS '$' matches only at the end. Python re '.' excludes only \\n, and '$' also matches before a final \\n. On pinned schemas, TS accepts inputs that the Python reference rejects. That includes a parent-traversal path in the negative-lookahead CanonicalPath pattern. The 11191 generic cases, 43 metadata cases and my 1.47M harvested rows never contain line terminators, so none of them exposes this.",
+      "evidence": {
+        "patternEdgeDifferential": "68640 rows (66 pinned patterns x edge strings), 428 mismatches in 4 patterns: '(^|/)\\.\\.?(/|$)' 2, CanonicalPath '...[^\\u0000\\\\]*' 32, '...[^\\u0000\\\\]+' 32, '^.+$' 362 (sarif-adapter:2 messageStrings patternProperties)",
+        "endToEndTsTruePythonFalse": [
+          "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/CanonicalPath \"a\\r/../../etc/passwd\"",
+          "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/CanonicalPath \"a\\u2028/../../x\"",
+          "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/CanonicalPath \"..\\n\" and \"a/..\\n\"",
+          "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath \"..\\n\" and \"a/..\\n\"",
+          "urn:opensip:product-v1:identity:v3#/$defs/LogicalPath \"..\\n\" and \"a/..\\n\""
+        ],
+        "patternUsage": "The CanonicalPath-style lookahead pattern appears at 34 pinned locations, and LogicalPath/not '(^|/)\\.\\.?(/|$)' at 4",
+        "artifacts": ["work/probes/regex-diff.json", "work/probes/regex-e2e-ts.json", "work/probes/regex-e2e.py", "work/probes/patloc.py"]
+      },
+      "requiredChange": "Pin one normative pattern dialect for the shared runtime and record who owns that decision (ECMA-262 as in 2020-12, or the reference behaviour). Then make TS, the Python reference and Rust agree, either by rewriting affected patterns to be terminator-explicit (for example [\\s\\S] instead of '.', (?![\\s\\S]) instead of '$') or by translating in the runtime. Add a retained line-terminator edge corpus (\\n, \\r, U+2028, U+2029, U+0085) over every pinned pattern to the differential."
+    },
+    {
+      "id": "R2",
+      "title": "matches() checks an inertness profile but evaluates the live caller value; array prototype is not checked",
+      "location": "schema.ts:91 (canonical(value) result discarded), exact-json.ts:115-124 (no Array.prototype check)",
+      "detail": "canonical() rejects accessors and hidden or extra properties. It does not check array prototypes, and it cannot see Proxy traps. evaluate() then reads the original object with ordinary [[Get]] and calls item.every/item.some. So a value can pass the inert-data check and then show different data, or different methods, to the interpreter. Proxy traps also run during canonical(), which contradicts the no-effects ownership claim tested only for accessors.",
+      "evidence": {
+        "arrayCustomPrototype": "[1n,2n] with a prototype overriding every() matched {type:array, items:{type:string}} as true",
+        "arraySubclass": "class X extends Array{every(){return true}} matched true",
+        "proxyInvalidToValid": "Proxy over {a:5n} whose get trap returns 'x' matched {properties:{a:{type:string}},required:[a],additionalProperties:false} as true",
+        "proxyEffectsDuringCanonical": "ownKeys trap invoked 3 times by canonical()",
+        "artifacts": ["work/probes/own.mjs", "work/probes/toctou.mjs"]
+      },
+      "requiredChange": "Evaluate an owned snapshot (for example const owned = parseExact(canonical(value))), as the SchemaRegistry constructor already does, or accept only bytes. Require Object.getPrototypeOf(array) === Array.prototype in canonical(). Either reject Proxies where the host allows it (for example node:util types.isProxy) or explicitly scope the effect-free claim to non-Proxy inputs. Add regression tests for all three probes."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "A1",
+      "title": "x-opensip-order data faults throw SchemaError and accept types the reference rejects",
+      "location": "schema.ts:163-184",
+      "detail": "ordered() throws SchemaError('invalid order key' or 'missing order key') for instance-dependent conditions such as utf8 over objects, mixed types, missing 'by' fields, or 'by' values that are arrays of unequal length. The reference treats these as invalid. Under not/anyOf/if the throw aborts evaluation instead of contributing false, which blurs the invalid-shape vs invalid-schema separation. It also accepts integers under utf8/path/ruleId/waiverId/predicate/{by}, and strings under numeric/candidateOrdinal, where the reference returns invalid. This is not reachable on current pins: 2680 targeted cases over all 134 non-sequence order nodes gave 0 mismatches, because items constraints in the same node run first. But allOf is evaluated before items (schema.ts:118 vs 133), so a sibling-branch layout would expose it. Recommend returning false with per-annotation type checks that match the reference.",
+      "artifacts": ["work/probes/own.mjs", "work/probes/order-py.py", "work/probes/order.mjs", "work/probes/order-diff.json"]
+    },
+    {
+      "id": "A2",
+      "title": "Keyword value types are not validated in checkEntryPoints",
+      "detail": "Malformed schema values fail open or coerce. Non-array enum and non-array required are ignored (both matched true). A bigint pattern is coerced to a RegExp. A string minimum uses JS mixed comparison. A non-string $ref throws TypeError instead of SchemaError. type 'number' is accepted by the keyword gate but never matches bigint. A static scan of the 28 pins found 0 malformed keyword values, no 'number' type, no nested $id, and no percent-encoded, array-index or non-exact refs, so this is latent. Add structural validation before this becomes shared runtime."
+    },
+    {
+      "id": "A3",
+      "title": "Non-productive reference cycles are reported as ShapeLimit",
+      "detail": "{$id:'urn:cyc2', allOf:[{$ref:'urn:cyc2'}]} throws ShapeLimit, the same as the frozen self-ref check. A cycle that consumes no instance is a schema defect and can be detected statically in checkEntryPoints. The pinned closure contains only instance-consuming recursion (policy-document and policy-document:2 Predicate). 31-deep not-chains and 2^15-leaf and-trees finish without ShapeLimit."
+    },
+    {
+      "id": "A4",
+      "title": "43-case metadata differential is not reproducible from frozen scripts",
+      "detail": "schema-probe.mjs reads metadata-v1 sources.json and fixtures, writes schema-outcomes.json, and compares nothing. No frozen script produces schema-differential-02.json. I reproduced it on my own: with metadata-v2 pins, all 43 TS results equal both the v2 Resource-adapter Python results and the frozen expected list, and the v1 adapter differs on unsorted-help and duplicate-help-name. Freeze the script that actually produced the retained result."
+    },
+    {
+      "id": "A5",
+      "title": "Unmetered work and default limit are policy inputs",
+      "detail": "The default limit of 1,000,000 raises ShapeLimit on a parsable ~2M-element integer array (about 781 ms). canonical(), regex, const/enum equality, required and the patternProperties inner loop are unmetered. They are bounded by input and schema size but are not logical work units. Regex wall-clock is, as stated, not bounded. Timings: 358784-key 4 MiB object parse 132 ms and canonical 497 ms; 2M-integer array parse 199 ms and canonical 707 ms."
+    },
+    {
+      "id": "A6",
+      "title": "Byte-input edge cases",
+      "detail": "parseExact accepts a Uint8Array backed by SharedArrayBuffer, which another thread could mutate concurrently in worker contexts. The instanceof check rejects Uint8Array from another realm. Both are minor, but document the accepted input class."
+    }
+  ],
+  "executedChecks": [
+    "Manifest sha256 48089c1e...ba3 and all 12 file sha256/bytes verified before (and after, see review.md) review; frozen root listing unchanged",
+    "Read exact-json.ts, schema.ts, canonical.py, metadata-v2 check_metadata.py and all frozen harness scripts in full",
+    "Copied frozen subject to work/subject; tsc (TypeScript 7.0.2, Node 24.16.0) exit 0",
+    "boundaries.mjs: passed, 34 checks",
+    "probe.mjs: 14000 corpus cases, 4490 accepted / 9510 refused; differential.json retained 0 mismatches",
+    "shape-differential.mjs: 11191 cases, 0 mismatches; retained reference has only 362 valid cases over 63 refs",
+    "schema-probe.mjs: runs (589 entrypoints, 43 cases) but uses metadata-v1 and does not compare",
+    "Independent 43-case metadata reproduction vs metadata-v2 Python adapter and frozen expectations: 0 mismatches; v1 adapter differs on 2",
+    "Static scan of 28 pins: keyword inventory within known/annotation sets, 0 malformed keyword values, no nested $id, no relative/percent/array-pointer refs, 66 patterns, 379 order annotations (245 sequence)",
+    "Reference graph over 589 selected entrypoints: recursion only via the two Predicate definitions",
+    "Adversarial lexical probes: 25 extra malformed inputs refused with JsonError (empty, sign/float/hex/NaN forms, bad escapes, raw control characters, truncated literals, trailing brackets, NBSP/U+2028 outside strings, reversed and mixed surrogate escapes); UTF-8-encoded surrogate refused; valid escapes canonicalise as expected; UTF-8 key order puts supplementary characters after U+FFFF; boxed BigInt, Number and cyclic objects refused",
+    "Ownership probes: array custom prototype, Array subclass and Proxy TOCTOU bypasses demonstrated (R2)",
+    "Order differential: 2680 cases over 134 real non-sequence order nodes vs Python, 0 mismatches; synthetic probes show SchemaError throws and type acceptance (A1)",
+    "Keyword-malformation and cycle probes (A2, A3)",
+    "Regex dialect differential: 68640 rows, 428 mismatches; end-to-end path probes on real registry (R1)",
+    "Harvested differential: 2500 distinct real values from 60542 architecture JSON files x 589 refs = 1472500 rows, 64091 valid across 110 refs, 0 mismatches, 0 ShapeLimit",
+    "Deep recursion: 31-level not-chain and 2^15-leaf and-tree against both Predicate defs, no ShapeLimit at default limit",
+    "Performance and work-limit timing at 4 MiB (A5)"
+  ],
+  "limitations": [
+    "The Python metadata-v2 Resource adapter is used as a comparator, not as an authority. Agreement with it does not establish correctness, and R1 is partly a question of which dialect is normative.",
+    "Rust regex and identity crates were not executed or re-reviewed. Rust pattern behaviour on line terminators was not measured.",
+    "Harvested values come from architecture docs only, are capped at 2500 values and 20000 canonical bytes, and give valid witnesses for only 110 of 589 refs. The other 479 refs have no valid-case differential evidence.",
+    "No coverage-guided fuzzing of the lexer beyond the retained 14000-case corpus and 25 targeted probes.",
+    "Proxy detection alternatives and cross-runtime (browser/Deno) behaviour were not evaluated.",
+    "Did not assess regex wall-clock or catastrophic backtracking beyond noting it is unclaimed.",
+    "The entrypoint selection decision (589 targets, one excluded historical Atom declaration) was taken as given, not re-derived."
+  ],
+  "productQualification": false
+}

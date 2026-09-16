@@ -1,0 +1,10 @@
+# Root draft review — not acceptance
+
+The currently authored clause/code comparison needs these corrections before freezing. This is a draft observation, not a final author handoff assessment.
+
+1. Incoming “never returns early” conflicts with the shared no-owed-binding return before endpoint dispatch. Publish that common missing-relation-coverage/null case and make the remaining incoming accumulation claim conditional.
+2. Incoming cross-family-edge-not-owed can arise from an unavailable binding in the shared first loop, with universe null, AND from an available foreign binding with universe S. The new incoming paragraph describes only the latter as if exhaustive. Preserve both and the existing nonblocking behavior.
+3. Ascending Coverage ID selection does not survive current-source scope pairing. _select_dep_coverages and _coverages_for_current_source concatenate matches in ascending SCOPE order, which can put Coverage IDs in reverse order. The retained synthetic helper probe demonstrates a different typed carrier from the stated ascending-ID fold. This is a specification/reference mismatch at a helper boundary, not a claimed admitted full-Run failure. Sort the actual combined/deduplicated selected Coverage list, or explicitly publish a coherent scope-first order. Root prefers the simple existing proposed global ascending Coverage IDs law. Add a same-kind multiple-scope control; current cross-kind clones→declares probe skips this branch.
+4. Dependency folding replaces entire resolutionCompleteness and closedWorld records only on strictly worse rank; ties retain the first entire object. The new prose should say this (including rungUnavailableBecause remaining from the first partition and ordered derivation union). Otherwise a consumer can invent per-field merges or tie choices affecting downstream sufficiency. Do not imply all nested RC fields are independently worst-ranked.
+
+Root accepts the bounded publication gap and minimal deterministic-selection approach, not these incomplete draft bytes. Full reference validation and independent reviews remain pending.

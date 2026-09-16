@@ -1,0 +1,69 @@
+{
+  "session_id": "ce3dec3b-0620-44ec-86e6-129b0e25cb1b",
+  "total_cost_usd": 30.266497999999995,
+  "usage": {
+    "input_tokens": 1262,
+    "cache_creation_input_tokens": 1508445,
+    "cache_read_input_tokens": 16103917,
+    "output_tokens": 249016,
+    "output_tokens_details": {
+      "thinking_tokens": 133180
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 1508445,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2295,
+        "cache_read_input_tokens": 557414,
+        "cache_creation_input_tokens": 488,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 488
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 10093,
+      "outputTokens": 264091,
+      "cacheReadInputTokens": 17058616,
+      "cacheCreationInputTokens": 1508445,
+      "webSearchRequests": 0,
+      "costUSD": 30.266497999999995,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 133180,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_018zgHro1ckUmWK98syFW9sU",
+      "tool_input": {
+        "command": "command -v node; node --version 2>&1; ls -la /tmp/opensip-design-corrections/root-consumer24-js-options.v1/compiler; shasum -a 256 /tmp/opensip-design-corrections/root-consumer24-js-options.v1/compiler/lib/typescript.js /tmp/opensip-design-corrections/root-consumer24-js-options.v1/source/docs/v2/contracts/product-v1/native-evidence.md /tmp/opensip-design-corrections/root-consumer24-js-options.v1/source/docs/coop/design-corrections/native/native_evidence_model.v2.py",
+        "description": "Check node availability and hash A5 compiler and changed files"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 213,
+  "subtype": "success",
+  "result": "I corrected all three advisories in my own copy of source38 and reviewed root's A5 patch, which needs corrections. Both focused owner checks pass on the final bytes, all 7 controls that break a law on purpose caught the break, and the source38 bytes are unchanged. None of this is design acceptance, and all 54 recovery cases (F00\u2013F53) are still not executed.\n\n## ADV38-01: details and attribution on an analysis termination\nThe pure projection check is unchanged. I added a new \u00a77 to `run-termination-contract.v1.md`: the rules the host finalizer applies when it builds the whole termination.\n- **Faults, rejections and interruptions** are returned to their owners without reading a Run, so they never go through verdict derivation.\n- **`executionId`** must belong to the step's last, completed attempt. That attempt's commit receipt must name the same Run, and the attempt must be bound to the Run's plan.\n- **`authority`** is left out on a committed Run. An ephemeral attempt must carry `authority=ephemeral`, never a `runId`, and no detail.\n- **Allowed details, first match wins; nothing else is allowed:**\n  1. `EVALUATION.WORK_BUDGET_EXHAUSTED`, only when a work-budget record is retained and it is the primary reason.\n  2. `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED`, only when the first reason is provider-unavailable and the host observed the closure missing.\n  3. The deficiency of the Coverage record named by `coverageId`, when it is one of the five registered native codes.\n  - Query, doctor, host-invariant and every other code are refused.\n- **Controls:** 37 cases over real closed Runs. Unrelated but schema-valid details and wrong-attempt or wrong-Run attribution are refused, while the pure projection check still reports `owner-validation-required` for the same inputs.\n\nThree choices are new host behaviour, so please weigh them:\n- the matching detail is required, not just permitted;\n- `authority` is omitted on committed Runs;\n- the work-budget detail applies only when the budget is the primary reason.\n\nI made the detail required because it becomes the failure envelope's `errors` and decides the aggregate tie-break.\n\n## ADV38-02: association naming an unmigrated carrier\nThe read-only map now sends format 1 and format 2 carriers explicitly to F46 `unknown-carrier-incompatible` (exit 4, `HOST.IO_FAILURE`). The order is now stated:\n1. a binding mismatch;\n2. then, if any format 3 object exists, the existing corruption and quarantine checks, then the below-`first_generation` check;\n3. then F46 for a carrier with no format 3 objects.\n\nNothing is migrated or written. SQLite checks cover:\n- both formats, at several generations;\n- a binding mismatch taking precedence;\n- a foreign witness not displacing F46;\n- one format 3 object counting as corruption, not F46;\n- the existing migrated below-`first_generation` case.\n\n## ADV38-03\n`commit-recovery-readonly.v3.md` now:\n- records F00\u2013F37 as the plan when the document was written, with F00\u2013F53 current and all 54 cases not executed;\n- scopes `MIGRATION.CORRUPT` to writer and maintenance opens, never read-only paths.\n\n## A5 review: corrections required\nThe effective `allowJs` default and both flag formulas are right, and they agree with the model, the context agreement check and the context schemas. The patch has three problems:\n- **A5-C1:** \"apply inheritance before these defaults\" is wrong. TypeScript 5.6.3 applies the jsconfig default per file, then merges `extends`. So a `jsconfig.json` extending a base with `allowJs:false` is effectively `true`, and so is a `tsconfig.json` extending a base named `jsconfig.json`. Over 52 compiler observations (root's 32 plus 20 new `extends` cases run offline with the verified compiler), root's wording is wrong on 8 and my amended wording on 0.\n- **A5-C2:** the retained native case `ts-tsconfig-without-allowjs-excludes-js` still expects the old default, and root's corrected model now fails it.\n- **A5-C3 (editorial):** the `ts-tsconfig` mode row leaves out jsconfig entries that set `allowJs:false`.\n\nThe proposed fix is `a5-review/proposed-amendment.r2.diff`; the amended cases agree with root's model. Root's patch was not copied into my tree.\n\n## Controls and custody\n| Check | Baseline | Edited |\n|---|---|---|\n| Semantic replay | 30/30 | 31/31 |\n| Carrier validator | 362/0 | 384/0 |\n\nEach deliberate break failed exactly the checks it should:\n- restoring the old model;\n- disabling the detail check, the receipt check, or the `executionId` check;\n- sending fault terminations through derivation;\n- restoring the old dispatch JSON or the old prose.\n\nAt the start, all 12904 manifest files matched and the working copies had no hardlinks. At the end, the touched and dependency files are unchanged in source38, and the review and A5 inputs are unchanged. I ran only the two focused validators; I did not run the planning checker or the six global groups.\n\n## For root to merge and rebind\n- **Shared sentence:** the last paragraph of `workflows-and-surfaces.md` \u00a79 changed.\n- **Pins to rebind:**\n  - five source-pin ledgers pin all 10 touched files;\n  - the implementation coverage, normative-inputs and planning-sources files pin 6 of them;\n  - planning sections `security-and-lifecycle:12` and `workflows-and-surfaces:10` changed text, and `workflows-and-surfaces:11`\u2013`13` shifted by 4 lines.\n\n## Limits\n- Host inputs to \u00a77 are trusted, not authenticated.\n- Ephemeral reasons are not derived by this contract.\n- The second read-only stability snapshot is covered by the route law check, not simulated.\n- A carrier with no journal table at all plus an association still has no read-only standing; that is outside ADV38-02.\n- I found no owner that routes compiler diagnostic 5052 into admission.\n\n## Failed attempt\nThe first A5 amendment run exited 1 because re-serializing the native cases JSON would have rewritten unrelated bytes. Its output is kept; the second run replaces only the stale case and keeps every other byte.\n\nEverything is in `/tmp/opensip-design-corrections/claude-source38-advisory-author.v1`; the full before/after hashes are in `review.json`, and all background processes have finished.\n- `review.md`\n- `review.json`\n- `proposed-edits.diff`\n- `a5-review/assessment.md`\n- `a5-review/proposed-amendment.r2.diff`",
+  "type": "result",
+  "duration_ms": 2927295
+}

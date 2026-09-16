@@ -1,0 +1,49 @@
+# Development tools
+
+The product Cargo workspace, Rust provider, TypeScript provider, browser report and contract generator have separate dependency/build inputs. TypeScript packages use npm11.13.0 and independent package-lock.json files in apps/report, providers/typescript, tools/contracts and tools/typescript-boundary. The root package.json coordinates commands; it has no npm workspaces, dependencies or root lock. Installing one lane does not install a sibling lane.
+
+Use Node24.16.0 and the selected Python3.14 development runtime. Tool arguments require explicit executable paths and an architecture checkout. Ordinary Cargo builds do not install npm/Python packages, build the contract generator or fetch report assets. Review changes to schemas, tool closures and loader policies before updating the design lock.
+
+## Check design and boundaries
+
+From the product root:
+
+```sh
+python3 -I -B tools/verify_design.py --architecture ../opensip_arch
+python3 -I -B tools/check_typescript.py --architecture ../opensip_arch --node /absolute/path/to/selected/node
+```
+
+The boundary entry point first verifies the actual design/source approval chain. It then verifies the selected registry, checker/dependency files and Node executable. It checks the current report, provider and generator lanes. These checks do not prove host semantic admission, whole-tooling source purity or complete dynamic dependency closure. The checker itself is a trusted reviewed tool whose execution inputs are pinned; this command does not analyze its own regression harness as a product lane. Generator compiler-loader limitations are explicit in the selected policy and checker output. No caller exception list can replace that policy.
+
+The selected registry records concrete source inputs. Adding a source file requires updating its lane record; the checker refuses undeclared source. A generator policy also pins all declared inputs/config/lock and each exception site, so changes require an updated reviewed policy. Repository JavaScript and plugins are not executed by resolution. Developer tools and system runtime remain trusted.
+
+## Provision dependencies explicitly
+
+Provision a lane with its own lock, after placing the exact required archives in an explicitly chosen npm cache. Use npm ci --offline --ignore-scripts --no-audit --no-fund with that cache and explicit empty user/global npm configs. A missing cached archive fails. The scripts do not fetch a substitute. The generator's Python packages are separately materialized by tools/provision_python.py from five supplied pinned wheel archives; no wheel installer or entry-point script runs. tools/build_contracts.py consumes supplied locked crate archives and an explicit Cargo/Rust toolchain to build the generator with a recorded receipt.
+
+The current Python framework, native libraries, Seatbelt policy and executable pins describe this macOS development profile. They are not portable release qualification. Follow the selected manifests and observed provisioning receipts for exact inputs; do not change hashes just to admit a different installed tool.
+
+## Regenerate contracts
+
+```sh
+python3 -I -B tools/generate_contracts.py --architecture ../opensip_arch --output /absolute/fresh/workdir --node /absolute/path/to/selected/node --generator /absolute/path/to/selected/generator --python /absolute/path/to/selected/child-python
+```
+
+The child Python path is explicit: macOS sys.executable may report a different launcher. Generation verifies the exact selected closure, snapshots inputs and runs seven confined phases. Default mode checks drift and returns nonzero for changed or missing generated files. Add --write to replace changed outputs after complete collection. Replacement is per file, not an eight-file transaction. Unexpected generated members refuse and are preserved; interrupted replacements are caught by the next check. No packages are provisioned or tools built implicitly.
+
+## Checker regression tests
+
+After explicitly provisioning tools/typescript-boundary, run its npm test script. The current regression profile requires macOS and Node24.16.0 and executes234tests, including real CLI aliases. Historical/synthetic approval records are test fixtures only. The runner creates and removes a disposable harness directory; capture stdout/stderr to inspect a failure. These tests do not constitute fresh blind consumer or release approval.
+
+The full report application, provider protocol/runtime, release asset assembly and other milestones are still being implemented. Package/bootstrap selection does not represent feature completion.
+
+## Cargo package boundaries
+
+After design verification, capture fresh metadata from the exact workspace using the selected Cargo1.95.0 executable. Provision missing locked crate archives explicitly before this offline operation. The checker is read-only; it does not authenticate caller-supplied metadata or choose an inventory itself.
+
+```sh
+cargo metadata --locked --offline --format-version 1 > /absolute/fresh/cargo-metadata.json
+python3 -I -B tools/check_package_edges.py --repository . --metadata /absolute/fresh/cargo-metadata.json --inventory ../opensip_arch/docs/implementation/m1/repository-file-inventory.v8.json --lane host
+```
+
+The inventory argument must be the selected inventory reported by the preceding design verification. Current manifests are compared with metadata, including inactive optional, target, build and dev declarations. The separate Rust-provider workspace uses its own metadata and `--lane rust-provider` once implemented. This is an internal dependency check; macro expansion, source inclusion, build-script effects, external feature closure and release target qualification remain separate obligations. Run `python3 -I -B tools/tests/test_package_edges.py` for the14regression groups and `python3 -I -B tools/tests/test_typescript_check.py` for wrapper helper regressions. The Cargo test process must have the selected Cargo executable on PATH.

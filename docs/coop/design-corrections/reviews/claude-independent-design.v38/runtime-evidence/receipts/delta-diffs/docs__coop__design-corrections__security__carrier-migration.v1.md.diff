@@ -1,0 +1,55 @@
+--- a37/docs/coop/design-corrections/security/carrier-migration.v1.md
++++ b38/docs/coop/design-corrections/security/carrier-migration.v1.md
+@@ -4,6 +4,8 @@
+ readiness, no application and no implementation authorization. Private design/reference work, not
+ OS qualification. Authored against frozen Source25
+ `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Why this document exists.** The v4 dispatch said the carrier transition used an
+ "`InstallationTransitionJournalV1`-shaped intent". Root's supplied counterexample
+@@ -112,7 +114,7 @@
+ |---|---|---|
+ | **A** | one `TERMINAL` row appended to the inherited `grant_journal` at tail+1, cause `grantGenerationClosure`, carrying `migrationOpRef` as its `operationRef` | single INSERT under the inherited append triggers |
+ | **B** | `grant_journal_v3`, `carrier_format` and their triggers created | **one explicit transaction on the same connection**: `BEGIN`, every statement, `COMMIT`, and `ROLLBACK` on any failure |
+-| **C** | the single `carrier_format` row inserted, publishing `first_generation` and `chain_law` | single INSERT, immutable by trigger |
++| **C** | the single `carrier_format` row inserted, publishing `first_generation` and `chain_law` | single INSERT, immutable by trigger, in one transaction that first verifies the definitions, that `grant_journal_v3` holds no row and that a surviving witness names the admitted `projectKeyDigest` |
+ 
+ **Act B must be an explicit transaction, and a corrected claim about how.** An earlier draft said
+ "one DDL transaction; SQLite DDL is transactional, so B is all-or-nothing", and its reference
+@@ -147,6 +149,15 @@
+ one, under the same held `EXCLUSIVE` lease. It is never fixed at planning time, so a benign
+ interleaving (§5) cannot make it stale.
+ 
++**Publication law at C (source37 owner correction, A37-02).** The corrected DDL refuses every
++`grant_journal_v3` append while no format row exists, and couples `first_generation` to
++`migrated_from` (exactly 1 fresh, at least 2 migrated). Act C, fresh or resuming `{A, B}`, therefore
++verifies in the transaction that publishes the row: the seven definitions, an empty `grant_journal_v3`,
++and a surviving witness naming the admitted `projectKeyDigest`. A row or definition failure is
++`MIGRATION.CORRUPT`; a witness naming another project is a carrier project binding mismatch; either
++way nothing is published and no marker is written. Values are read under the held lease at C, never
++carried from the stopped attempt. Routes: `carrier-format.v3.md` §8.1.
++
+ ### Total recovery over every durable prefix
+ 
+ There is no torn state to repair, because each act is atomic and the physical state is
+@@ -156,7 +167,7 @@
+ |---|---|---|---|
+ | ∅ | no `TERMINAL` at the inherited tail, no new objects | carrierFormat 1 or 2, generation open | none; a later `store-gc` may start at A |
+ | **{A}** | inherited tail is `TERMINAL`; no new objects | carrierFormat 1 or 2, generation **closed** | resume at **B**, recomputing `closedGeneration`. This is the "failure after TERMINAL and before final metadata" case |
+-| **{A, B}** | new objects exist, `carrier_format` has **no row** | still carrierFormat 1 or 2 by detection | resume at **C**, after verifying the existing object definitions byte-equal the selected DDL; otherwise `MIGRATION.CORRUPT` |
++| **{A, B}** | new objects exist, `carrier_format` has **no row** | still carrierFormat 1 or 2 by detection | resume at **C**, after verifying the existing object definitions byte-equal the selected DDL, that `grant_journal_v3` holds no row and that a surviving witness names the admitted `projectKeyDigest`; otherwise `MIGRATION.CORRUPT` (definitions or rows) or a carrier project binding mismatch (witness), and nothing is published |
+ | {A, B, C} | `carrier_format` row present | carrierFormat 3 | none; complete |
+ 
+ **Commit or barrier uncertainty stops the attempt. It does not continue it.** An earlier draft read
+@@ -213,7 +224,8 @@
+   otherwise would be an overclaim.
+ - **Detection is exact**: the read dispatch treats any generation greater than or equal to
+   `first_generation` appearing in the **inherited** table as a split-brain custody condition, never
+-  as valid history, and never merges it into the current generation sequence.
++  as valid history, and never merges it into the current generation sequence. Its public route is
++  `carrier-format.v3.md` §8.1.
+ - **The mitigation is the existing ordered-release pattern**, not a new mechanism. S9 already ships
+   a stage-2 core under the stage-1 catalog so every install updates by its ordinary path. The
+   format-3-capable core ships first; migration is enabled only once the install's selected core

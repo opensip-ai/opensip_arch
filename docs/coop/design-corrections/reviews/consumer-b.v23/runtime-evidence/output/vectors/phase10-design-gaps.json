@@ -1,0 +1,341 @@
+{
+ "consumerId": "consumer-b.v23",
+ "phase": 10,
+ "standing": "Phase 10 -- design-gap identification.\n\nEach finding states the exact selector, what was attempted, what the kit says, and why it is\nor is not a gap. The distinction the charter demands is applied explicitly:\n\n  ALGORITHM FREEDOM   the kit deliberately leaves a STRATEGY open while pinning the OBSERVABLE\n                      (an identity recipe, an admission rule, a refusal code). A consumer can\n                      reconstruct it without inventing anything. NOT a gap.\n  MISSING CONTRACT    a value a consumer MUST produce has no published derivation, or two\n                      published statements disagree, or the authority is circular, so the\n                      consumer is forced to invent. A gap.\n\nSeverity:\n  MUST    reconstruction of a required observable is impossible or contradictory\n  SHOULD  reconstruction is possible, but two conforming consumers can disagree on an\n          outcome the kit treats as normative\n  advisory  accounting, wording or ergonomics; no outcome depends on it\n",
+ "distinctionApplied": {
+  "algorithmFreedom": "a strategy left open while the observable is pinned; reconstructible without invention",
+  "missingContract": "a required observable with no published derivation, a contradiction, a circular authority, an ambiguous default that changes a normative outcome, or a forced invention"
+ },
+ "newMustIssues": [],
+ "newShouldIssues": [
+  {
+   "id": "V23-S1",
+   "severity": "SHOULD",
+   "class": "two published statements disagree",
+   "title": "a graph endpoint of kind=package without packageManifestPath: section 2 says QUERY.ENDPOINT_AMBIGUOUS, but the owning schema REQUIRES the coordinate and section 8 admits the request against that schema before endpoints",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 2 \"Fault precedence\" step 2",
+    "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 8 steps 1 and 5",
+    "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 7 row \"malformed graph params\"",
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json#/$defs/GraphEndpoint allOf (kind=package then required packageManifestPath)"
+   ],
+   "whatWasAttempted": "executing the section-8 steps for {universe, kind: package, nativeSubjectId: app} with no coordinate",
+   "whatTheKitSays": "step 1 of section 2 lists the malformed shapes and does NOT include a missing package coordinate, which step 2 routes to ENDPOINT_AMBIGUOUS; the schema refuses the same request at section-8 step 1, whose section-7 row is PARAMS_MALFORMED",
+   "consequence": "same request, different DomainDetail (and a different remedy)",
+   "readingApplied": "I-Q4: the section-2 precedence decides; the executor re-admits the request with a placeholder coordinate and, if that is the only schema fault, emits ENDPOINT_AMBIGUOUS; both boundaries are retained (query/graph-query-reconstruction.json package-endpoint-without-manifest-path)",
+   "smallestFix": "say in section 2 (or section 8 step 1) that a schema refusal whose only fault is the package coordinate maps to QUERY.ENDPOINT_AMBIGUOUS, or relax the request-side GraphEndpoint requirement"
+  },
+  {
+   "id": "V23-S2",
+   "severity": "SHOULD",
+   "class": "two published statements disagree",
+   "title": "native-evidence section 10 names VERDICT.INDETERMINATE as the existing code for required-relation-missing, language-tier-unsupported and confidence-floor-unmet; the D9 exit contract terminates those Runs with COVERAGE.REQUIRED_RELATION_MISSING, COVERAGE.LANGUAGE_TIER_UNSUPPORTED and COVERAGE.CONFIDENCE_FLOOR_UNMET",
+   "selectors": [
+    "docs/v2/contracts/product-v1/native-evidence.md section 10 table columns \"D9 class (host-owned)\" and \"Existing code\"",
+    "docs/coop/artifacts/d9-exit-contract.v1.14.json scenarios analysis-required-coverage-missing, analysis-language-tier-unsupported, analysis-confidence-floor-unmet expectedTermination",
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json#/$defs/D9Deficiency description (\"per native-evidence.md section 10\")"
+   ],
+   "whatWasAttempted": "projecting the sealed TypeScript and rust Runs (required-cell-unsatisfied) and syntax-data (language-tier-unsupported) onto a whole-Run termination",
+   "whatTheKitSays": "both documents call the code the existing D9 code for the deficiency; neither says which surface its column governs",
+   "consequence": "the same sealed Run yields different termination reasonCodes",
+   "readingApplied": "the D9 exit contract governs whole-Run terminations (it is the D9 owner and its rows carry the host axes); lib/phase7.py d9_projection and the audit re-derivation use its scenario rows",
+   "smallestFix": "state that the section-10 column is the per-requirement / DomainDetail route and the D9 scenarios are the whole-Run termination, or align the three codes"
+  },
+  {
+   "id": "V23-S3",
+   "severity": "SHOULD",
+   "class": "missing contract",
+   "title": "graph-query availability `unavailable` must refuse with HOST.IO_FAILURE / evidence.*, but no evidence.* DomainDetailCode names it",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/query-projection-contract.v3.md section 7 identity availability paragraph",
+    "docs/v2/contracts/product-v1/identity-and-evidence.md section 5 (\"known purged, expired, corrupt or unavailable required evidence produces operational-failed / HOST.IO_FAILURE / exit 4\")",
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json#/$defs/DomainDetailCode (evidence.corrupt, expired, missing, pinned, purged, regeneration-mismatch)"
+   ],
+   "whatWasAttempted": "building the failure envelope for each availability state the selector names",
+   "whatTheKitSays": "purged, expired and corrupt have members; unavailable has none, and a kind=failure envelope requires a nonempty errors array of DomainDetail",
+   "consequence": "a consumer must choose a detail (evidence.missing? another?) that the kit does not name",
+   "readingApplied": "none invented: the executor exercises purged and corrupt only, and treats unavailable as unexercised",
+   "smallestFix": "name the detail for `unavailable` (a registered member or an explicit mapping)"
+  }
+ ],
+ "resolvedByTheNormativeSuccessorThisGeneration": [
+  {
+   "id": "V16-S1",
+   "severity": "SHOULD",
+   "class": "ambiguous default",
+   "title": "the repair descriptor's closedWorld projection names \"that same Run's ClosedWorldV2\" without saying which Coverage entry owns it when a Run carries several that differ",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/repair.schema.json#/$defs/RepairPlanDescriptor/properties/closedWorld (description)",
+    "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/CoverageResultV3 entry.closedWorld"
+   ],
+   "whatWasAttempted": "reconstructing RepairPlanDescriptor.closedWorld as \"the five-field PROJECTION of the evidence Run's native ClosedWorldV2 ... each taken unchanged from that same Run's ClosedWorldV2\". ClosedWorldV2 is a member of EVERY CoverageResultV3 entry, so a Run with N Coverage entries holds N of them.",
+   "whatTheKitSays": "the clause is written in the singular (\"the evidence Run's native ClosedWorldV2\") and pins the projection, the seven-member closure, the two dropped members and the authority direction. It does not publish a selection rule over several entries, nor a requirement that they agree.",
+   "whyItIsNotAlgorithmFreedom": "the five projected values enter repairPlanId, and deadCodeRepairEligible gates every unsafe edit. Two conforming hosts that pick different Coverage entries mint DIFFERENT repairplan2 identities for the same plan, and one may gate an unsafe edit that the other admits. That is an outcome the kit treats as normative, not a strategy it left open.",
+   "measuredOnThisReconstruction": "the TypeScript Run used as the evidence Run carries several Coverage entries whose ClosedWorldV2 records reduce to ONE distinct canonical value, so this origin could project unambiguously and did NOT have to choose. The ambiguity was found by measuring the count, and is reported rather than worked around: see vectors/repair-descriptor.json evidenceRun.closedWorldNote.",
+   "smallestFix": "one sentence naming the owner -- for example \"the ClosedWorldV2 of the Coverage entry of the relation@rung each EvidenceRequirement names, which must agree across the requirements of one plan or REPAIR.CLOSED_WORLD_AMBIGUOUS\" -- or a requirement that a Run's ClosedWorldV2 records be equal.",
+   "notAMustBecause": "every other input to the gate and to the identity is published, and a host with agreeing entries (the common case, and this origin's case) reconstructs it exactly. Reconstruction is possible; agreement between hosts is not guaranteed.",
+   "disposition": "RESOLVED BY THE NORMATIVE SUCCESSOR, at generation 19",
+   "whatTheNewBytesSay": "workflows-and-surfaces.md section 6 now states the problem and then the answer: \"A Run holds one ClosedWorldV2 per Coverage entry, not one per Run, so the gate states which entries it reads\", and \"An earlier revision of this section said the prerequisite was decided against the evidence Run's own native ClosedWorldV2, as though a Run held one. It does not, and with several retained records that phrase did not denote.\" The three published steps are relevant universes (target occurrences UNION the retained selected-program census of the EnumerationPlan, with a selected-but-unavailable binding contributing typed unresolved ownership), selected records (every retained coverage2 whose scope sourceUniverse is relevant, independent of evidenceRequirements, totally ordered on six members), and a NON-VACUOUS conjunction gate. repair.schema.json closedWorld carries the same law and adds the five-field least-closed DISPLAY SUMMARY with absence folded in, the display sentinel, and \"NO MEMBER OF IT IS AUTHORITATIVE, the boolean included\".",
+   "howThisOriginClosedIt": "lib/repair_selection_v19.py reconstructs the three steps and the reduction; lib/phase6_repair.py now derives the descriptor member from that selection and gates unsafe edits on the selected records. Measured: the TypeScript Run selects 5 records over 1 relevant universe, the Rust Run 5 over 2 (the census join makes a second universe relevant for one unsafe path) and rust-partial 8 over 3; every one dissents, so no unsafe edit is eligible in any of them. Nine law-branch controls measure the branches no Run contains, including the selected-but-unavailable binding whose unresolved ownership \"does not vanish because some other owner of the same path is closed\". Two new descriptor controls refuse a summary copied from one recipe-selected favourable Coverage entry and a literal seven-field copy.",
+   "whatThisOriginDidNOTDo": "it did not keep its earlier workaround. The v16-v18 reconstruction projected ONE Coverage entry and relied on the measured accident that this subject's entries agreed; that is exactly the recipe-selected record the published law forbids, and it is gone."
+  },
+  {
+   "id": "V16-S2",
+   "severity": "SHOULD",
+   "class": "ambiguous default",
+   "title": "GlobPattern publishes a whole-segment `**` and one example, which does not decide whether a TRAILING `**` matches the files of that directory",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json#/$defs/GlobPattern (\"literal characters plus '*', '?' and a whole-segment '**'. No brace, class or escape syntax.\")",
+    "docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md:217 (\"`**/*.ts` matches root `a.ts`\")",
+    "docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md:109 (the same sentence, for rule include/exclude)"
+   ],
+   "whatWasAttempted": "admitting a RepairPlanDescriptor whose permittedEditScope is `src/**` against an edit to `src/legacy.js`, and selecting rule subjects with include globs.",
+   "whatTheKitSays": "the alphabet is closed and ONE semantic fact is published: `**/*.ts` matches root `a.ts`, i.e. a LEADING `**/` may match ZERO segments. Nothing states what a TRAILING `**` matches.",
+   "mathematicalCorrectionToThisOriginsV16Rationale": "the v16 write-up said \"Under 'zero or more segments' `src/**` matches `src/` only; under 'one or more' it matches `src/legacy.js`\". The first clause is WRONG as stated: a zero-or-more set CONTAINS the nonzero lengths, so a zero-or-more reading of `src/**` matches `src/`, `src/legacy.js` AND `src/a/b.js`. Correcting that arithmetic does NOT dissolve the underspecification, and the two are kept separate here.",
+   "whyItIsNotAlgorithmFreedom": "permittedEditScope decides whether a repair edit is admissible, and policy include/exclude decides subject enumeration and therefore which findings exist. Both are normative outcomes.",
+   "whatTheLoneExampleLOGICALLYFORCES": "exactly one thing, and it is about a LEADING `**/`: since `**/*.ts` matches root `a.ts`, the token sequence `**/` must be able to consume ZERO segments (the `**` together with its following separator may elide). The example says nothing about a `**` that has no following separator, because it contains none. A trailing-`**` rule therefore cannot be DERIVED from it in either direction.",
+   "oneInterpretationThatExplainsTheExample": "read `**` as a SEGMENT-GROUP that is always followed by a separator, the separator included in the group and the group allowed to be empty. That account explains the published example, and under it a TRAILING `**` -- with no following segment -- matches a path only if the path ends at a separator, so `src/**` matches NO file. This is presented as a POSSIBLE interpretation that is consistent with the example, not as what the example forces.",
+   "aDifferentInterpretationAlsoConsistent": "read a trailing `**` as \"any remaining suffix\". That reading also satisfies the closed alphabet and the same published example, and under it `src/**` matches every descendant file.",
+   "thereforeTheGap": "the two readings agree on the one published example and DISAGREE on whether the same repair plan and the same subject set are admissible. The gap is not which reading is right: it is that the kit does not say, and that nothing in the kit forces either answer.",
+   "measuredOnThisReconstruction": "this origin writes a trailing wildcard as `**/*` so the final segment is matched explicitly, and recorded that choice at the site (lib/phase6_repair.py permittedEditScope). No reconstruction depended on the unstated reading, and NO glob law was invented to close it.",
+   "smallestFix": "one sentence, or a second published example with a trailing `**`.",
+   "notAMustBecause": "a consumer can always avoid the unstated case by spelling the final segment, so reconstruction is possible.",
+   "disposition": "RESOLVED BY THE NORMATIVE SUCCESSOR, at generation 19",
+   "whatTheNewBytesSay": "foundation/glob-pattern-contract.v1.md is NEW in this input and is the normative owner of the predicate: \"A pattern segment that is exactly `**` instead matches zero or more whole candidate segments. This rule applies at the beginning, middle, and end, and may consume the final filename segment. It does not require a directory.\" Its required-example table settles the exact case this origin reported as unstated: `src/**` matches `src`, `src/legacy.js` AND `src/nested/legacy.js`, while `src/**/*` does NOT match `src`. workflow-projection-contract section 14 and the atom contract both link to it, and common.schema.json GlobPattern repeats the rule in its description.",
+   "whichReadingWon": "the \"any remaining suffix\" reading, NOT the segment-group-followed-by-a-separator account this origin had written up as one possible interpretation. The generation-18 write-up was careful to present that as possible rather than forced, which is why the correction here is a measurement rather than a retraction of a claim.",
+   "howThisOriginClosedIt": "lib/opensip_eval.py glob_match is reconstructed from the published equivalence and lib/glob_law_v19.py measures all 23 required-table rows, 22 further properties the prose states (anchoring, case sensitivity, dotfiles, scalar-counting `?`, literal braces/brackets, no escape syntax, trailing slash as an empty segment, no `.`/`..` resolution) and 5 composition cases: 0 failures. The generation-18 predicate is kept in that module so the delta is MEASURED: for every glob this origin actually uses the two readings agree, because this origin had deliberately written terminal wildcards as `**/*`, so no Run needed reminting for the glob law."
+  }
+ ],
+ "whatTheGeneration20SuccessorDecidedAboutThisOriginsOwnReadings": {
+  "standing": "recorded because these are NOT design gaps and never were: each was a reading this origin chose where the text had not decided, and the newly frozen clauses decide them. They are listed here so the review carries the change of reading as well as the corrected code (helper-corrections rows V20-D1, V20-D2, V20-D4, V20-D5), together with the ONE law this origin had invented and has now withdrawn (V20-D3).",
+  "applicabilityOrder": "this origin tested availability first and keyed the matrix row on capabilityForRelation; the published FIRST-MATCH order puts inapplicable-vcs first and unsupported-typed AHEAD of both unavailable tokens, keyed on the CELL (capabilityId, languageMode)",
+  "sourceUniverseOnNonSupportedAccounts": "this origin nulled it; the kit names that exact competing rule, says it \"is also internally consistent\", and publishes the other one -- the binding coordinate for EVERY applicability",
+  "carrierOrderAndMasking": "this origin ordered the account leg lexically and let an earlier source with no typed pair mask a later one that had one; the published cross-source order is owner-derived and the carrier is the first source ACTUALLY CARRYING a pair",
+  "requiredExecutionBridgeShape": "this origin merged one proof item per cell; the published table is per source, and a required UNSUPPORTED-TYPED cell contributes even when its row is complete",
+  "theOneInventionWithdrawn": "V20-D3: the generation-19 check that refused an unsupported-typed account whose relation had a returned partition. The clause now states the opposite, so the check is removed rather than weakened."
+ },
+ "coverageLimitationsDisclosedNotDesignGaps": [
+  {
+   "limitation": "section 6 CANDIDATE-ONLY custody (group bytes, sourceBodies id/path/universe/snapshot joins, complete examinedPaths, complete-empty envelope) is IMPLEMENTED in the retained closure and in the independent Area-3 instrument, but no positive Run declares a clones-near / clones-cross-tsjs cell, so no CandidateProducerResultV1 exists to exercise it",
+   "whyNotAGap": "the kit publishes the law completely; this is a limit of this origin's own fixture set, recorded as an exercise gap. The equality law passes VACUOUSLY on all five Runs and is reported that way, and a cell whose capability is candidate-only is refused when it owes an envelope and has none",
+   "measuredWhere": "vectors/indep-execution-inputs.json SECTION_6_CANDIDATE_CUSTODY_IS_UNEXERCISED_BY_THIS_RUN"
+  },
+  {
+   "limitation": "a SELECTED-but-UNAVAILABLE enumerator binding (status selected, universe null) appears in no positive Run: the only unavailable binding is the optional-unselected shape, so the `unavailable-binding` typed null-stage reason and the `provider-unavailable` unavailable RECEIPT are reached by controls and by law-branch measurements rather than by a Run",
+   "whyNotAGap": "both shapes are published and both are implemented and measured",
+   "measuredWhere": "vectors/execution-inputs-negative-controls.json null-stage-reason-swapped; vectors/repair-closed-world-selection.json lawBranchControls"
+  },
+  {
+   "limitation": "every positive Run declares exactly ONE execution-plan stage, so receipt totality over several stages is exercised by a control rather than by a positive",
+   "whyNotAGap": "the totality law is implemented and measured",
+   "measuredWhere": "vectors/execution-inputs-negative-controls.json execution-plan-stage-without-a-receipt"
+  },
+  {
+   "limitation": "the required-UNSUPPORTED-TYPED case IS now exercised by a positive Run (syntax-data requests the imports cell as required), so the generation-19 limitation about it is withdrawn; what remains unexercised is a required cell whose row is UNAVAILABLE rather than complete",
+   "whyNotAGap": "the bridge class for it is implemented and measured by the enumeration controls; no published law lacks a measurement",
+   "measuredWhere": "runs/syntax-data.store.json proof executionDeficiencies: one required-execution deficiency carrying the MATRIX pair on a COMPLETE row"
+  },
+  {
+   "limitation": "atom contract section 4 for the INCOMING endpoint (search-accounting table) and an endpoint=target atom are measured only on typed synthetic models: no retained Run has such an atom",
+   "whyNotAGap": "the clauses are published; lib/indep_atom_law.py derives them from the text and labels the models synthetic",
+   "measuredWhere": "vectors/indep-atom-law.json lawVectors + claimLimits"
+  },
+  {
+   "limitation": "no retained Run has a non-empty atom filter, an imported count-at-most/all-covered atom or a vcs-revision staleness correspondence; the independent atom instrument raises NotExercised if it meets one",
+   "whyNotAGap": "a limit of this origin's fixtures, not of the published law",
+   "measuredWhere": "vectors/indep-atom-law.json claimLimits"
+  },
+  {
+   "limitation": "the measured read graph hooks every stage process but not the child processes a stage spawns (Run builders, fresh-process replays): their writes are measured by a post-stage snapshot, their reads are not",
+   "whyNotAGap": "a limit of this origin's own instrument, disclosed",
+   "measuredWhere": "notes/v23-read-graph.json + notes/v23-stage-io/"
+  },
+  {
+   "limitation": "the admitted TypeScript Run carries only imports@resolved-target as a graph-projectable relation, no IncomingSearchV1, no unresolved-edge fact and no weaker-rung fact inside a selected view, so the incoming-search-incomplete, unresolved-edge-present, unsupported-rung-omitted and resolution-* disclosure branches and the single-kind external/unknown vertex rule are implemented but not reached by a retained graph",
+   "whyNotAGap": "the clauses are published; a limit of this origin's fixtures",
+   "measuredWhere": "query/graph-query-reconstruction.json vertexDomain + indep-query-surface.json"
+  },
+  {
+   "limitation": "candidate.list, inspection.show, review.brief and availability.show have actual schema-admitted records but no retained projection bound to the queried Run, so they are schema-only (I-Q9); the availability state `unavailable` is not exercised (V23-S3)",
+   "whyNotAGap": "disclosed per operation in the artifact layersMeasured field",
+   "measuredWhere": "query/indep-query-surface.json rawRequestAndResponseRecords"
+  },
+  {
+   "limitation": "four comparison scenarios need a baseline or current side no retained Run provides (an alternative runtime payload, a narrower scope, a prior detector, an empty population); those sides are labelled synthetic helper-only and only the real side is bound to an export",
+   "whyNotAGap": "the comparison law is executed over labelled premises and re-derived",
+   "measuredWhere": "vectors/comparison-premises.json syntheticHelperOnly"
+  },
+  {
+   "limitation": "every retained Run is sealed indeterminate, so the success and policy-failed public termination examples cannot be bound to a retained Run and carry labelled synthetic Run identities",
+   "whyNotAGap": "the examples follow the command-inventory goldens they cite",
+   "measuredWhere": "envelopes/public-termination.json"
+  },
+  {
+   "limitation": "a js-synthesized CELL appears in no positive Run, so the SYNTHESIZED programEntry provenance is measured at the law level over synthetic parameters",
+   "whyNotAGap": "the clause is published and all three provenances are measured",
+   "measuredWhere": "vectors/program-entry-law.json"
+  }
+ ],
+ "advisories": [
+  {
+   "id": "V16-A3",
+   "severity": "advisory",
+   "class": "wording",
+   "title": "`traversalCoverage` and native CoverageResult share the word \"coverage\" while being different obligations",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json#/$defs/TraversalCoverage",
+    "docs/coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/CoverageResultV3"
+   ],
+   "observation": "the schema already says \"Not native CoverageResult\" in both places, which is why this is only advisory. The shared noun still invites a consumer to report a COMPLETE traversal over an INCOMPLETE evidence base as evidence completeness.",
+   "howThisOriginHandledIt": "the two are carried in different required fields and reported separately, with an explicit statement of why: see query/graph-query-reconstruction.json evidenceLimitationsVersusStoredEdgeCompletion.",
+   "whyOnlyAdvisory": "the distinction IS published; only the naming is inviting."
+  },
+  {
+   "id": "V23-A1",
+   "severity": "advisory",
+   "class": "carrier choice not stated",
+   "title": "an invocation interrupted before any Run commits has no single stated envelope kind: kind=run requires a run, kind=failure requires a DomainDetail and no registered code names an interruption",
+   "selectors": [
+    "docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json allOf (kind=run requires run; kind=failure requires errors)",
+    "docs/coop/design-corrections/workflows/command-inventory.v3.json golden interrupted-before-settle",
+    "docs/v2/contracts/product-v1/workflows-and-surfaces.md section 1 \"Cancellation\""
+   ],
+   "observation": "the golden fixes class interrupted and exit 130; kind=invocation with a cancelled step carries that without inventing a detail, but nothing says a single-step builtin uses it",
+   "howThisOriginHandledIt": "envelopes/public-termination.json termination-interrupted-before-settle is kind=invocation and says why",
+   "whyOnlyAdvisory": "every command-inventory parity field (termination-class, exit) is the same under either lawful carrier"
+  }
+ ],
+ "itemsThisOriginWithdrewOrThatTheNewKitResolved": [
+  {
+   "id": "V16-A2 (WITHDRAWN by this origin as factually wrong about the kit)",
+   "wasReportedAs": "advisory: \"the execution-inputs inventory-kind equality rule does not state the case where a cell binding is UNAVAILABLE\", with the further claim that an unavailable binding has no inventory to produce, so the case is NOT-STATED",
+   "disposition": "WITHDRAWN -- the clauses do state it, and they state the opposite",
+   "why": "three published clauses, read this generation: (1) enumeration-contract section 1, UNAVAILABLE binding -- \"`extents` still populated from host membership so expected file/package paths are not lost\", and the enumerator row requires \"inventories empty `unavailable` matching that pair\"; (2) enumeration-contract sections 3/4 -- EXACTLY ONE SubjectInventoryV1 per (cellOrdinal, programOrdinal, kind) of cell.kinds, with the `unavailable` shape given explicitly (rows=[], examinedPaths=[], deficiency non-null) and ENUMERATION_INVENTORY_MISSING_RECORD named for a whole missing expected inventory; (3) execution-inputs section 6 -- \"Inventory digests: exactly one per kind, kinds set-equal to the cell\" with NO available-only qualifier, plus \"Unselected or `universe=null` DOES NOT DISCARD same-cell inventory items.\" A MISSING record is not a retained `unavailable` record.",
+   "whatThisOriginHadToFix": "the advisory was not merely wording: this origin's own syntax-code graph carried NO inventory for its unavailable cell and an EMPTY extent on that binding, and the v16 checker had been weakened to make that pass. Both are corrected (V17-D5), the set-equality is now applied to every binding, and two controls now distinguish a missing record from a retained unavailable one.",
+   "notAnOracleClaim": "no successor bytes answered this. The withdrawal follows from reading the three clauses in the kit this origin already held -- the 101 normative files are byte-identical to the v16 kit."
+  },
+  {
+   "id": "V15-S1 (withdrawn by this origin)",
+   "wasReportedAs": "SHOULD: the native retention catalogue omitted a `fragment` entry",
+   "disposition": "WITHDRAWN as over-broad",
+   "why": "no annotated site of the native document uses `fragment`, so declining to declare it there is correct. Measured: retention counts are preimage-frame 31, preimage 21, owner-retained 11, closure-tree-member 10, derived 3, and ZERO fragment sites (notes/native-annotated-site-audit.json).",
+   "notAnOracleClaim": "the withdrawal follows from measuring the document, not from the successor agreeing or disagreeing with this origin."
+  },
+  {
+   "id": "V15-A1 (resolved in the new kit bytes)",
+   "wasReportedAs": "advisory: the native digest law carried a hand-maintained `sites: 68` total beside the annotations it described",
+   "disposition": "RESOLVED at the source",
+   "why": "the v16 native schema replaces it with `siteCountLaw`: \"Count syntactic x-opensip-digest annotation occurrences in this schema document; the reference checker reports the measured count. No second hand-maintained total is normative.\" This origin now MEASURES 76 occurrences and asserts the absence of the old key."
+  },
+  {
+   "id": "V15-observation on the `derived` retention recipe",
+   "wasReportedAs": "the native retention vocabulary needed a declared recipe for the derived sites this origin had independently derived",
+   "disposition": "RESOLVED at the source",
+   "why": "the v16 native schema declares `derived` with the recipe this origin had already derived from the plan/run capabilityManifestId join; the closure now asserts the declared statement rather than this origin's inference (check_native_digest_law_vocabulary)."
+  }
+ ],
+ "algorithmFreedomNotGaps": [
+  {
+   "topic": "how a host ENUMERATES subjects",
+   "pinnedObservable": "SubjectInventoryV1 rows, examinedPaths equal to the Plan census, and the locator identity (planId, parameterDigest, cellOrdinal, programOrdinal, kind)",
+   "left open": "the traversal strategy, parallelism and caching",
+   "why": "the retained record is fully specified, so any strategy is checkable"
+  },
+  {
+   "topic": "how a normalizer computes an L1-L3 body",
+   "pinnedObservable": "the framed body identity, the retained level specification bytes, and bodyIdentityJoin.recomputableAt = [L0-verbatim] only",
+   "left open": "the normalisation algorithm itself",
+   "why": "the kit states in terms that it is NOT recomputable above L0 and demands exact retained preimage custody instead -- a deliberate, published limit, not a missing recipe"
+  },
+  {
+   "topic": "which shortest path a graph.path returns when several tie",
+   "pinnedObservable": "canonical fact2-id-sequence tie-break",
+   "left open": "the search algorithm",
+   "why": "the tie-break makes the RESULT total, so the algorithm is free"
+  },
+  {
+   "topic": "how a host stores and indexes the evidence store",
+   "pinnedObservable": "the exported object table plus every blob keyed by its digest",
+   "left open": "the storage engine, indexes and compaction",
+   "why": "a host index is explicitly never authority; resolution goes through digests"
+  }
+ ],
+ "emptyMustJustification": "newMustIssues is EMPTY because every observable this origin was required to produce had a published derivation that it could execute: the C/H recipes, the closing digest law and its four representations and retention modes, the capability-manifest gates, the relation/rung registry with its anchor, snapshot, totality and partition laws, the grammar-capability registry and its three enforcement boundaries, the section 1.2 mode table, the config node-kind law, the Rust context projection, the execution-inputs cell and account derivation, the composition section 9 proof/evidence/seal/Run joins, the repair descriptor and its two idempotency recipes, the comparison and baseline identities, the D9 class/exit table, and the graph-query operations with their bounds and mandatory disclosure. Where a value could not be recomputed (L1-L3 normalisation, symbol-to-path attribution, provider occupancy) the kit SAYS so and substitutes custody, which this origin executed rather than worked around.",
+ "v17ClauseToCodeAuditOfTheRECORDCONSTRUCTIONandADMISSIONfunctions": {
+  "standing": "a second audit, run against BOTH the emitters and the admission/replay functions. \"A check saying that the emitter and replay agree does not establish a normative clause that both omitted\" -- so each area below names a clause, what the code did instead, and the control that now distinguishes it.",
+  "findingsInThisOriginsOwnWork": [
+   {
+    "id": "V17-D3",
+    "area": "atom subject-kind / endpoint admission",
+    "clause": "atom-evaluation-contract section 4 \"Wrong `subject.kind` for the relation/endpoint is ATOM_KIND_INCOMPATIBLE, never vacuous `none`\" + evaluator-projection-registry kindApplicability",
+    "whatBothSidesOmitted": "neither the emitter nor the checker compared the atom subject kind to the endpoint's registered kinds; only relation registration, ladder membership and tree shape were checked",
+    "measuredConsequence": "TWO of the five sealed graphs carried a DISABLED rule whose atom was kind-incompatible (literal@symbol with subjectKind file / package), and the `disabled` outcome hid it from every execution-side check",
+    "nowDistinguishedBy": "6 new policy controls reaching ATOM_KIND_INCOMPATIBLE / ATOM_ENDPOINT_UNAVAILABLE / atom3:FILTER_FIELD_FORBIDDEN_AT_THE_REQUESTED_RUNG, plus a LAWFUL endpoint=target contrast"
+   },
+   {
+    "id": "V17-D2",
+    "area": "per-rung filter admissibility",
+    "clause": "atom-evaluation-contract section 3 \"Absent field at the requested rung => filter forbidden at admission\"",
+    "whatBothSidesOmitted": "the registry filter spec is EITHER a string or a PER-RUNG map; the checker compared the map to the string \"forbidden\", so every per-rung forbidden filter was admitted",
+    "nowDistinguishedBy": "the filter-forbidden-at-the-requested-rung control"
+   },
+   {
+    "id": "V17-D4",
+    "area": "enumeration plan and inventory totality",
+    "clause": "enumeration-contract sections 1/3/4/5/8 + x-opensip-file-membership-extent-law",
+    "whatBothSidesOmitted": "the v16 checker validated the enumeration plan NOT AT ALL -- it read the plan only to index cells -- so a compiler-filtered file extent, a consumer-chosen `kinds` subset and a missing expected inventory all passed",
+    "measuredConsequence": "four of five graphs declared a clones-fact FILE extent restricted to compiler/grammar-readable paths; one narrowed an `inventory` cell to [file]; one had a binding with no extents and no symbol inventory",
+    "nowDistinguishedBy": "8 enumeration controls, each reaching its intended law"
+   },
+   {
+    "id": "V17-D5",
+    "area": "unavailable bindings",
+    "clause": "enumeration-contract sections 1/3/4 + execution-inputs section 6",
+    "whatBothSidesOmitted": "the v16 checker was WEAKENED to make an unavailable cell with no inventory pass, and the gap was then published as advisory V16-A2",
+    "nowDistinguishedBy": "the unconditional kinds-set-equality plus the missing-record and dropped-extent controls"
+   },
+   {
+    "id": "V17-D6",
+    "area": "invocation step/result joins",
+    "clause": "workflows-and-surfaces section 1 + invocation-record",
+    "whatBothSidesOmitted": "the v16 envelope was schema-valid with ONE-based stepIds, no comparison step result and no attempt derivation binding; only the schema was checked",
+    "nowDistinguishedBy": "12 invocation controls, 10 of which the owning schema ADMITS and only the normative joins refuse"
+   },
+   {
+    "id": "V17-D7",
+    "area": "repair preimage / snapshot condition",
+    "clause": "workflows-and-surfaces section 6 \"preimage digest from the snapshot inventory\"",
+    "whatBothSidesOmitted": "only the local null/non-null image shape was checked, so the v16 \"valid\" descriptor asked to CREATE a path the selected snapshot already contained",
+    "nowDistinguishedBy": "4 snapshot-condition controls reaching REPAIR.CREATE_PATH_ALREADY_IN_THE_SELECTED_SNAPSHOT / REPAIR.SOURCE_MOVED / REPAIR.TARGET_PREIMAGE_MISMATCH / DELETE_HAS_NO_POSTIMAGE"
+   },
+   {
+    "id": "V17-D1",
+    "area": "helper rebinding",
+    "clause": "n/a -- a helper defect, not a kit question",
+    "whatBothSidesOmitted": "the v16->v17 path rebind rewrote an ancestry ROW LABEL while leaving the previous generation's digests beside it, so the table claimed the v17 manifest digest was the v16 value",
+    "nowDistinguishedBy": "digest constants are written beside their own generation and the current pair is asserted against the measured manifest"
+   }
+  ],
+  "areasAuditedWithNoNewFinding": [
+   {
+    "area": "execution-inputs sections 4/5/6 coverage accounts and the derived cell outcome",
+    "result": "the four applicability branches, the per-branch envelope prohibitions, the matrix+cause-registry pair for unsupported-typed, the per-universe attribution refusal and the derived state table were already implemented and independently recomputed from the retained Plan, inventories and receipts. THREE additions were made rather than corrections: the carrier must be a MEMBER of the owned source pairs (not an unzipped combination), \"empty kinds is not complete-empty work\", and an explicit record that complete EXECUTION is not native capability support."
+   }
+  ]
+ },
+ "blockerStatement": "0 MUST and 3 SHOULD design issues are open (V23-S1, V23-S2, V23-S3); each is reported with its exact selectors and smallest fix rather than an adjusted meaning.",
+ "whatTheGeneration23SuccessorDecidedAboutThisOriginsOwnReadings": {
+  "standing": "not design gaps: the generation-23 kit changes three files (the atom evaluation contract, the evaluator projection registry and the IncomingSearchV1 schema), and their text decides questions this origin had answered differently (helper-corrections V23-D1..V23-D3).",
+  "runtimePolarity": "generation 22 made observed-hit the only runtime match (V22-D3); section 6 now says an unfiltered exists is satisfied by observed-hit or observable-unhit and a filter restricts the polarity set",
+  "absentDependency": "generation 22 read an absent dependency as adding no cause (I-A1); section 4 now says the removed position answers required-relation-missing and a same-kind totality gap is evaluated with and without its gap positions",
+  "carrierAndFallback": "this origin paired untagged scopes and fell back to mapped scopes; section 4 refuses ATOM_NATIVE_CARRIER on pairing and publishes that there is no mapped-scope fallback",
+  "incomingI1": "a subject universe with no available owed binding is disclosed and blocking under I1, never silently skipped"
+ },
+ "whatTheGeneration22SuccessorDecidedAboutThisOriginsOwnReadings": {
+  "standing": "not design gaps: the generation-22 kit changes ONE file, the atom evaluation contract, and its new section-4 text decides questions this origin's atom evaluator had answered differently (helper-corrections V22-D2). The imported polarity defect (V22-D3) was found while re-reading section 6 and is not a change of text.",
+  "completenessIsIndependentOfTruth": "this origin let any cause block a negative answer; the contract gives a completeness result of its own and a known match decides exists/none/count-at-most regardless of it",
+  "enumerationUncertaintyIsRootNotAtom": "this origin censused every expected subject inside the atom; the contract restricts uncovered-expected-source-subject to the CURRENT subject",
+  "unavailableOwedBinding": "this origin emitted missing-relation-coverage with the subject universe; the prelude gives selector-unbound with a null universe, and a foreign family is a non-blocking cross-family-edge-not-owed disclosure",
+  "coverageUnknownCarrier": "this origin had no dependency view, fold or carrier; the contract publishes a deterministic DEPENDS_ON view, a fold and a first-non-null carrier"
+ }
+}

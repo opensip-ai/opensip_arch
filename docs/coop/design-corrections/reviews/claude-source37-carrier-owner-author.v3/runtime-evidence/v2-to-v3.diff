@@ -1,0 +1,446 @@
+--- v2/docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
++++ v3/docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
+@@ -15,8 +15,9 @@
+ --                  operation_ref format, contiguity, TERMINAL closure, reserved slot).
+ -- carrierFormat 3: this file.
+ --
+--- Source37 owner correction (review advisories A37-01 and A37-02), revised after root reproduced embedded-NUL
+--- and ASCII-hex BLOB admissions against the source37 v1 bytes. These bytes supersede the earlier PROPOSED
++-- Source37 owner correction (review advisories A37-01 and A37-02). Revised after root reproduced embedded-NUL
++-- and ASCII-hex BLOB admissions against the source37 v1 bytes, and again after root showed that the source37 v2
++-- byte-length predicate refused lawful rows in UTF-16 databases. These bytes supersede the earlier PROPOSED
+ -- carrierFormat 3 bytes in place. No product implementation or deployed carrier was created from the earlier
+ -- bytes. Reference in-memory SQLite instances were created from them by earlier design checks and review
+ -- probes; those instances and their receipts remain historical evidence. The open dispatch validates the
+@@ -24,15 +25,18 @@
+ -- rather than read as this definition. carrierFormat 1 and 2 bytes stay frozen.
+ --
+ -- Storage class and whole-value grammar. SQLite types values dynamically: TEXT affinity keeps a BLOB,
+--- INTEGER affinity keeps a non-integral REAL, and length() and GLOB stop at an embedded NUL. Every column
+--- therefore states its storage class with typeof(). Every hex-bearing column also requires
+--- length(column) = N (characters before any NUL) and length(CAST(column AS BLOB)) = N (every byte); the
+--- two agree only for a NUL-free ASCII value, so the prefix GLOB and NOT GLOB '*[^0-9a-f]*' then see the
+--- whole value. Enumerated TEXT columns compare whole values, which never equal a BLOB or a NUL-suffixed
+--- text. CHECKs see values after column affinity, so an integer supplied as text '5' is checked as 5.
+--- Byte lengths assume the SQLite database text encoding UTF-8 (the default, fixed at creation); under
+--- another encoding every hex-bearing row is refused, which fails closed. Host record admission still
+--- validates the closed record bodies; these CHECKs are defence in depth.
++-- INTEGER affinity keeps a non-integral REAL, and length() and GLOB stop at an embedded NUL. Every column's
++-- storage class is enforced either by an explicit typeof() guard (every INTEGER column, every free TEXT
++-- column and every hex-bearing column) or by exact enumeration (record_type and platform, whose IN lists
++-- hold only TEXT literals and so never equal a BLOB, a number or a NUL-suffixed text). Every hex-bearing
++-- column is an exact whole TEXT value: typeof(column) = 'text', length(column) = N, no NUL anywhere
++-- (instr(column, char(0)) = 0), the prefix GLOB where a prefix exists, and NOT GLOB '*[^0-9a-f]*' over
++-- the hex part. With no NUL, length() and GLOB see the whole value, and the case-sensitive hex class admits
++-- only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. The
++-- conjunction evaluates the TEXT value by character and does not depend on the database text encoding
++-- (exercised under UTF-8, UTF-16le and UTF-16be); no encoding is required of a carrier. CHECKs see values
++-- after column affinity, so an integer supplied as text '5' is stored and checked as integer 5. Host
++-- record admission still validates the closed record bodies; these CHECKs are defence in depth.
+ --
+ -- Publication: no grant_journal_v3 row may exist before the carrier_format row is published, and
+ -- first_generation is 1 on the fresh path and at least 2 on the migrated path.
+@@ -42,7 +46,7 @@
+   carrier_format     INTEGER NOT NULL CHECK (typeof(carrier_format) = 'integer' AND carrier_format = 3),
+   project_key_digest TEXT    NOT NULL CHECK (typeof(project_key_digest) = 'text'
+                                AND length(project_key_digest) = 64
+-                               AND length(CAST(project_key_digest AS BLOB)) = 64
++                               AND instr(project_key_digest, char(0)) = 0
+                                AND project_key_digest NOT GLOB '*[^0-9a-f]*'),
+   first_generation   INTEGER NOT NULL CHECK (typeof(first_generation) = 'integer'
+                                AND first_generation >= 1
+@@ -56,7 +60,7 @@
+   migration_op_ref   TEXT             CHECK (migration_op_ref IS NULL
+                                OR (typeof(migration_op_ref) = 'text'
+                                    AND length(migration_op_ref) = 35
+-                                   AND length(CAST(migration_op_ref AS BLOB)) = 35
++                                   AND instr(migration_op_ref, char(0)) = 0
+                                    AND migration_op_ref GLOB 'op-*'
+                                    AND substr(migration_op_ref, 4) NOT GLOB '*[^0-9a-f]*')),
+   CHECK ((migrated_from IS NULL AND migration_op_ref IS NULL)
+@@ -82,7 +86,7 @@
+                  ('GRANT','RA','ICI','RCI','ICO','RCO','REV','CLN','SEAL','TERMINAL')),
+   operation_ref TEXT   NOT NULL CHECK (typeof(operation_ref) = 'text'
+                               AND length(operation_ref) = 35
+-                              AND length(CAST(operation_ref AS BLOB)) = 35
++                              AND instr(operation_ref, char(0)) = 0
+                               AND operation_ref GLOB 'op-*'
+                               AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),
+   request_ref  TEXT    CHECK (request_ref IS NULL OR typeof(request_ref) = 'text'),
+@@ -90,23 +94,23 @@
+   install_generation_id TEXT CHECK (install_generation_id IS NULL OR typeof(install_generation_id) = 'text'),
+   manifest_digest TEXT CHECK (manifest_digest IS NULL OR (typeof(manifest_digest) = 'text'
+                               AND length(manifest_digest) = 64
+-                              AND length(CAST(manifest_digest AS BLOB)) = 64
++                              AND instr(manifest_digest, char(0)) = 0
+                               AND manifest_digest NOT GLOB '*[^0-9a-f]*')),
+   platform     TEXT    CHECK (platform IS NULL OR platform IN
+                  ('macos-aarch64','macos-x86_64','linux-x86_64-gnu','linux-aarch64-gnu')),
+   run_id       TEXT    CHECK (run_id IS NULL OR (typeof(run_id) = 'text'
+                               AND length(run_id) = 69
+-                              AND length(CAST(run_id AS BLOB)) = 69
++                              AND instr(run_id, char(0)) = 0
+                               AND run_id GLOB 'run3:*'
+                               AND substr(run_id, 6) NOT GLOB '*[^0-9a-f]*')),
+   body         TEXT    NOT NULL CHECK (typeof(body) = 'text'),
+   body_sha256  TEXT    NOT NULL CHECK (typeof(body_sha256) = 'text'
+                               AND length(body_sha256) = 64
+-                              AND length(CAST(body_sha256 AS BLOB)) = 64
++                              AND instr(body_sha256, char(0)) = 0
+                               AND body_sha256 NOT GLOB '*[^0-9a-f]*'),
+   prev_sha256  TEXT    NOT NULL CHECK (typeof(prev_sha256) = 'text'
+                               AND length(prev_sha256) = 64
+-                              AND length(CAST(prev_sha256 AS BLOB)) = 64
++                              AND instr(prev_sha256, char(0)) = 0
+                               AND prev_sha256 NOT GLOB '*[^0-9a-f]*'),
+   -- Capacity records are the FROZEN recordSchema-1 TERMINAL body
+   -- (security-schemas.v2/journal-record.schema.json). Operational records are the
+--- v2/docs/coop/design-corrections/security/carrier-format.v3.md
++++ v3/docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -158,7 +158,7 @@
+   carrier refusal (F32), not a schema change; `CommitRecoveryAssociationV1.journalSeq` already
+   states the same bound with maximum 9007199254740990.
+ - **operation_ref grammar.** `op-` plus 32 lowercase hex, length 35, as one whole TEXT value: storage
+-  class, character and byte length, prefix and hex tail (§5.1). The frozen carrierFormat 2 bytes check only
++  class, character length, no NUL, prefix and hex tail (§5.1). The frozen carrierFormat 2 bytes check only
+   the first character after the prefix, and the source37 v1 revision of this DDL checked the tail but still
+   admitted an embedded-NUL suffix or an ASCII-hex BLOB; see §5.1.
+ - **GRANT completeness.** `install_generation_id`, `manifest_digest`, `platform` and `token` all
+@@ -169,22 +169,24 @@
+ 
+ **Storage class and grammar (A37-01, revised).** SQLite types values dynamically: a column's TEXT affinity
+ keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and `length()` and `GLOB` stop at an embedded NUL.
+-Every carrierFormat 3 column therefore states its storage class with `typeof()`: `integer` for `singleton`,
+-`carrier_format`, `first_generation`, `chain_law`, `migrated_from`, `grantGeneration`, `seq` and
+-`record_schema`; `text` for `request_ref`, `token`, `install_generation_id`, `body` and every hex-bearing
+-column. Each hex-bearing column (`carrier_format.project_key_digest` and `migration_op_ref`, and
+-`grant_journal_v3.operation_ref`, `run_id`, `manifest_digest`, `body_sha256` and `prev_sha256`) also
+-requires `length(column) = N`, which counts characters before any NUL, and
+-`length(CAST(column AS BLOB)) = N`, which counts every byte. The two agree only for a NUL-free ASCII value,
+-so the prefix `GLOB` and `NOT GLOB '*[^0-9a-f]*'` then see the whole value; `GLOB` is case-sensitive. The
+-enumerated columns `record_type` and `platform` compare whole values, which never equal a BLOB or a
+-NUL-suffixed text, so they need no further guard. CHECKs see values after column affinity, so an integer
+-supplied as text `'5'` is stored and checked as integer 5 and no lawful row is refused. The private
+-`attempt_custody` DDL applies the same laws to `store_generation_digest`, `execution_id`,
+-`operation_ref`, `namespace_id` and `record_schema`. Byte lengths assume the SQLite database text encoding
+-UTF-8, the default fixed at database creation; under another encoding every hex-bearing row is refused,
+-which fails closed. Host record admission still validates the closed record bodies; the DDL is defence in
+-depth.
++Every carrierFormat 3 column's storage class is therefore enforced, by one of two mechanisms. An explicit
++`typeof()` guard states `integer` for `singleton`, `carrier_format`, `first_generation`, `chain_law`,
++`migrated_from`, `grantGeneration`, `seq` and `record_schema`, and `text` for `request_ref`, `token`,
++`install_generation_id`, `body` and every hex-bearing column. Exact enumeration enforces it for
++`record_type` and `platform`: their `IN` lists hold only TEXT literals, and a whole-value comparison never
++equals a BLOB, a number or a NUL-suffixed text. Each hex-bearing column (`carrier_format.project_key_digest`
++and `migration_op_ref`, and `grant_journal_v3.operation_ref`, `run_id`, `manifest_digest`, `body_sha256` and
++`prev_sha256`) is then an exact whole TEXT value: `typeof(column) = 'text'`, `length(column) = N`, no NUL
++anywhere (`instr(column, char(0)) = 0`), the prefix `GLOB` where a prefix exists, and
++`NOT GLOB '*[^0-9a-f]*'` over the hex part. With no NUL, `length()` and `GLOB` see the whole value, and the
++case-sensitive hex class admits only ASCII `0`–`9` and `a`–`f`, so a multibyte or malformed character is
++refused by the same conjunction. Removing any one conjunct admits a hostile value. The conjunction evaluates
++the TEXT value by character and does not depend on the database text encoding; it was exercised under
++UTF-8, UTF-16le and UTF-16be, and no encoding is required of a carrier. CHECKs see values after column
++affinity, so an integer supplied as text `'5'` is stored and checked as integer 5. The private
++`attempt_custody` DDL applies the same laws: `typeof()` on `store_generation_digest`, `execution_id`,
++`operation_ref`, `namespace_id` and `record_schema`, and exact enumeration on `phase` and `settled_outcome`.
++Host record admission still validates the closed record bodies; the DDL is defence in depth.
+ 
+ **Revision history of this law.** The source37 v1 correction replaced a first-character-only `GLOB` with a
+ whole-tail `NOT GLOB` and described the result as exact. Root then reproduced, against those v1 bytes, an
+@@ -197,12 +199,20 @@
+ older than 3.37.0, which would contradict the staging in which a format-unaware core still reads historical
+ generations (§9).
+ 
++The source37 v2 revision then paired `length(column) = N` with a byte count,
++`length(CAST(column AS BLOB)) = N`, assumed a UTF-8 database and described the refusal of every UTF-16
++hex-bearing row as failing closed. Root showed that this refused otherwise lawful rows in UTF-16le and
++UTF-16be databases, although no earlier owner requires a text encoding for historical SQLite carriers. This
++revision replaces the byte count with `instr(column, char(0)) = 0`; with the retained storage class,
++character length, prefix and whole-hex guards it gives the same exact grammar in all three encodings, and
++the v2 encoding restriction is withdrawn.
++
+ **Historical scope.** carrierFormat 1 and 2 bytes are frozen and unchanged. Their `GLOB` checks inspect only
+ the first character after a prefix, and they also admit embedded-NUL and BLOB values. That weakness is
+ disclosed, not repaired: historical rows are read as history under recordSchema-1 semantics, are never
+ re-admitted through the schema-3 gate and can never satisfy a schema-3 `SEAL` join (§9, F46), so a
+ malformed historical value confers no commitment. No product implementation or deployed carrier was
+-created from the earlier PROPOSED carrierFormat 3 bytes. Reference in-memory SQLite instances were created
++created from the earlier PROPOSED carrierFormat 3 bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created
+ from them by earlier design checks and review probes, and those instances and their receipts remain
+ historical evidence. The open dispatch validates definitions byte-exactly, so a carrier created from
+ earlier bytes is refused `MIGRATION.CORRUPT` rather than read as this definition.
+--- v2/docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ v3/docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -457,8 +457,8 @@
+   },
+   "rootIntegrationClarification": "Scope inherited-table post-checks and incomplete-row recovery to distinguish interrupted fresh installation from interrupted migration. No public field or format axis changes.",
+   "ddlGrammar": {
+-    "standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 DDL (sha256 f0a22382f8a5a5bc356334cfde16f7ca1fa6caa37e537cc7924cd46ffd81e3ba). Those are DDL admission counterexamples, not a demonstrated product exploit; host record admission remains separate.",
+-    "law": "Every hex-bearing column of the carrierFormat 3 DDL and of the private attempt_custody DDL is an exact whole TEXT value: typeof(column) = 'text', length(column) = N (characters before any NUL), length(CAST(column AS BLOB)) = N (every byte), a prefix GLOB where a prefix exists, then substr(column, prefix + 1) NOT GLOB '*[^0-9a-f]*'. The two lengths agree only for a NUL-free ASCII value, so GLOB sees the whole value; GLOB is case-sensitive.",
++    "standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 DDL (sha256 f0a22382f8a5a5bc356334cfde16f7ca1fa6caa37e537cc7924cd46ffd81e3ba). Those are DDL admission counterexamples, not a demonstrated product exploit; host record admission remains separate. Revised in v3: root showed that the v2 predicate length(CAST(column AS BLOB)) = N refused lawful rows in UTF-16le and UTF-16be databases; it is replaced by instr(column, char(0)) = 0 and no database text encoding is required.",
++    "law": "Every hex-bearing column of the carrierFormat 3 DDL and of the private attempt_custody DDL is an exact whole TEXT value: typeof(column) = 'text', length(column) = N (characters before any NUL), instr(column, char(0)) = 0 (no NUL anywhere), a prefix GLOB where a prefix exists, then substr(column, prefix + 1) NOT GLOB '*[^0-9a-f]*'. With no NUL, length() and GLOB see the whole value; the case-sensitive hex class admits only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. Removing any one conjunct admits a hostile value.",
+     "carrierFormat3Columns": [
+       "carrier_format.project_key_digest",
+       "carrier_format.migration_op_ref",
+@@ -482,8 +482,8 @@
+       "attempt_custody: attempt-custody.schema.v1.json storeGenerationDigest, executionId and operationRef patterns"
+     ],
+     "authority": "Host record admission still validates the closed record bodies. The DDL is defence in depth.",
+-    "historicalScope": "carrierFormat 1 and 2 bytes are frozen and unchanged: their GLOB checks inspect only the first character after a prefix, and they also admit embedded-NUL and BLOB values. That is a disclosed historical limit, not repaired: historical rows are read as history under recordSchema-1 semantics, are never re-admitted through the schema-3 gate and can never satisfy a schema-3 SEAL join (F46), so a malformed historical value confers no commitment. No product implementation or deployed carrier or ledger table was created from the earlier PROPOSED carrierFormat 3 or attempt_custody bytes. Reference in-memory SQLite instances were created from them by earlier design checks and review probes and remain historical evidence; the open dispatch validates definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT rather than read as this definition.",
+-    "storageClassLaw": "Every carrierFormat 3 and attempt_custody column states its storage class with typeof(): 'integer' for the INTEGER columns (the v1 range checks admitted a non-integral REAL in first_generation and grantGeneration), 'text' for the free TEXT columns request_ref, token, install_generation_id, body and namespace_id (a BLOB was admitted) and for every hex-bearing column. The enumerated TEXT columns record_type, platform, phase and settled_outcome compare whole values, which never equal a BLOB or a NUL-suffixed text, so they carry no further guard. CHECK constraints see values after column affinity: an integer supplied as text '5' is stored and checked as integer 5, and no lawful row is refused.",
++    "historicalScope": "carrierFormat 1 and 2 bytes are frozen and unchanged: their GLOB checks inspect only the first character after a prefix, and they also admit embedded-NUL and BLOB values. That is a disclosed historical limit, not repaired: historical rows are read as history under recordSchema-1 semantics, are never re-admitted through the schema-3 gate and can never satisfy a schema-3 SEAL join (F46), so a malformed historical value confers no commitment. No product implementation or deployed carrier or ledger table was created from the earlier PROPOSED carrierFormat 3 or attempt_custody bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created from them by earlier design checks and review probes and remain historical evidence; the open dispatch validates definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT rather than read as this definition.",
++    "storageClassLaw": "Every carrierFormat 3 and attempt_custody column's storage class is enforced by one of two mechanisms. An explicit typeof() guard: 'integer' for the INTEGER columns (the v1 range checks admitted a non-integral REAL in first_generation and grantGeneration), 'text' for the free TEXT columns request_ref, token, install_generation_id, body and namespace_id (a BLOB was admitted) and for every hex-bearing column. Exact enumeration: record_type, platform, phase and settled_outcome have IN lists of TEXT literals only, and a whole-value comparison never equals a BLOB, a number or a NUL-suffixed text. CHECK constraints see values after column affinity, so an integer supplied as text '5' is stored and checked as integer 5.",
+     "carrierFormat3IntegerColumns": [
+       "carrier_format.singleton",
+       "carrier_format.carrier_format",
+@@ -514,11 +514,13 @@
+       "phase",
+       "settled_outcome"
+     ],
+-    "encodingAssumption": "Byte lengths are UTF-8 byte lengths: the carrier and ledger database text encoding is UTF-8, the SQLite default fixed at database creation. Under a UTF-16 encoding every hex-bearing row is refused, so a wrong encoding fails closed and never widens admission.",
+     "alternativesRejected": [
+       "STRICT tables: they refuse a BLOB in a TEXT column and a REAL in an INTEGER column, but do not refuse an embedded NUL, and SQLite documents that a database containing a STRICT table cannot be read by SQLite libraries older than 3.37.0, which would contradict the selected staging in which a format-unaware core still reads historical generations.",
+-      "instr(CAST(column AS BLOB), x'00') = 0 alone: refuses an embedded NUL but not a multibyte character of equal character count; the character and byte length pair refuses both."
+-    ]
++      "length(CAST(column AS BLOB)) = N (source37 v2): the byte count of a TEXT value depends on the database text encoding, so it refused every lawful hex-bearing row in UTF-16le and UTF-16be databases; withdrawn.",
++      "instr(CAST(column AS BLOB), x'00') = 0: the BLOB view of a UTF-16 value contains zero bytes, so it also refuses lawful UTF-16 rows; the selected guard is the TEXT instr(column, char(0)) = 0.",
++      "instr(column, char(0)) = 0 without the character length, prefix and hex guards: admits uppercase, non-hex, short and long values; each retained conjunct is necessary."
++    ],
++    "encodingIndependence": "The grammar evaluates TEXT values by character and does not depend on the database text encoding. The reference matrix and the owner checker admit every canonical lawful row and refuse the NUL, BLOB, REAL, malformed UTF-8 or UTF-16, multibyte, non-ASCII digit, prefix and length variants under UTF-8, UTF-16le and UTF-16be, and a UTF-16 carrierFormat 2 carrier migrates, publishes and seals. No carrier or ledger is required to use a particular encoding."
+   },
+   "publicationLaw": {
+     "standing": "Source37 owner correction (review advisory A37-02).",
+--- v2/docs/coop/design-corrections/security/check-carrier-v3.py
++++ v3/docs/coop/design-corrections/security/check-carrier-v3.py
+@@ -440,13 +440,14 @@
+ ck('the fresh-install path does not read absent tables',
+    disp['openDispatch']['freshInstallPath'].get('readsAbsentTables') is False)
+ 
+-# ---- 7. source37 owner correction: exact storage class and whole-value grammar (A37-01, revised v2) -------
++# ---- 7. source37 owner correction: exact storage class and whole-value grammar (A37-01, revised v3) -------
+ # SQLite types values dynamically: TEXT affinity keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and
+-# length() and GLOB stop at an embedded NUL. Every column of the carrierFormat 3 DDL and of the private
+-# attempt_custody DDL is exercised: canonical lawful values must be admitted and stored in their exact storage
+-# class, and hostile values (embedded NUL, ASCII-hex BLOB, invalid UTF-8, multibyte, REAL, wrong prefix or length)
+-# must never be stored outside the column law. Read-back uses typeof() and CAST(... AS BLOB), so no admitted value
+-# can crash the observation.
++# length() and GLOB stop at an embedded NUL. Every column's storage class is enforced by an explicit typeof() guard
++# or by exact enumeration, and every hex-bearing column is an exact whole TEXT value (typeof text, character length,
++# instr(column, char(0)) = 0, prefix, whole-hex guard). Every column is exercised under the UTF-8, UTF-16le and
++# UTF-16be database encodings: canonical lawful values must be admitted in their exact storage class and hostile
++# values must never be stored outside the column law. Read-back uses typeof() and CAST(... AS BLOB) decoded in the
++# observed database encoding, so no admitted value can crash the observation.
+ _S37_CF = 'INSERT INTO carrier_format VALUES (?,?,?,?,?,?,?)'
+ _S37_FRESH = (1, 3, 'e' * 64, 1, 1, None, None)
+ _S37_MIG = (1, 3, 'e' * 64, 2, 1, 2, 'op-' + 'f' * 32)
+@@ -482,6 +483,8 @@
+ _S37_AC = sload(os.path.join(ROOT, 'scratch', 'proposal', 'docs/v2/architecture/attempt-custody.schema.v1.json'))['proposedPrivateDDL']
+ _S37_A64, _S37_B64, _S37_C64, _S37_E64 = 'a' * 64, 'b' * 64, 'c' * 64, 'e' * 64
+ _S37_EXEC = 'exec1_' + 'a' * 32
++_S37_ENCODINGS = ('UTF-8', 'UTF-16le', 'UTF-16be')
++_S37_CODEC = {'UTF-8': 'utf-8', 'UTF-16le': 'utf-16-le', 'UTF-16be': 'utf-16-be'}
+ 
+ 
+ def _s37_hexlaw(prefix, n, nullable):
+@@ -532,6 +535,20 @@
+     return rows
+ 
+ 
++def _s37_hex_extra(v, enc):
++    """Encoding-specific malformed TEXT: overlong and surrogate UTF-8; lone surrogate, NUL unit and odd byte in UTF-16."""
++    head = v[:-1]
++    if enc == 'UTF-8':
++        raw = [('overlong-nul', head.encode() + b'\xc0\x80'), ('overlong-hex-digit', head.encode() + b'\xc0\xb0'),
++               ('cesu-surrogate', head.encode() + b'\xed\xa0\x80'), ('lone-continuation', head.encode() + b'\x80')]
++    else:
++        codec = _S37_CODEC[enc]
++        raw = [('lone-surrogate', head.encode(codec) + (b'\x00\xd8' if enc == 'UTF-16le' else b'\xd8\x00')),
++               ('nul-code-unit', v.encode(codec) + '\x00'.encode(codec)), ('odd-trailing-byte', v.encode(codec) + b'\x41')]
++    return [(l_, 'CAST(? AS TEXT)', b_) for l_, b_ in raw] + [('fullwidth-digit', '?', head + '０'),
++                                                            ('arabic-indic-digit', '?', head + '٠')]
++
++
+ def _s37_int_hostile(v):
+     return [('text-integral', '?', str(v)), ('real-integral', '?', float(v)), ('real-fraction', '?', v + 0.5),
+             ('text-fraction', '?', str(v) + '.5'), ('blob', '?', bytes([v])), ('text-nul', '?', str(v) + '\x00')]
+@@ -539,7 +556,7 @@
+ 
+ def _s37_enum_hostile(v):
+     return [('blob', '?', v.encode()), ('nul-suffix', '?', v + '\x00'), ('nul-suffix-Z', '?', v + '\x00Z'),
+-            ('uppercase', '?', v.upper()), ('integer', '?', 7)]
++            ('lowercase', '?', v.lower() if v.lower() != v else v.upper()), ('integer', '?', 7)]
+ 
+ 
+ def _s37_text_hostile(v):
+@@ -547,6 +564,10 @@
+ 
+ 
+ _S37_OPF = 'op-' + 'f' * 32
++_S37_HEX = {('carrier_format', 'project_key_digest'), ('carrier_format', 'migration_op_ref'), ('grant_journal_v3', 'operation_ref'),
++            ('grant_journal_v3', 'run_id'), ('grant_journal_v3', 'manifest_digest'), ('grant_journal_v3', 'body_sha256'),
++            ('grant_journal_v3', 'prev_sha256'), ('attempt_custody', 'store_generation_digest'), ('attempt_custody', 'execution_id'),
++            ('attempt_custody', 'operation_ref')}
+ _S37_SPEC = [
+     ('carrier_format', 'singleton', _s37_intlaw(lambda v: v == 1), [('fresh', 1)], 'fresh', _s37_int_hostile(1)),
+     ('carrier_format', 'carrier_format', _s37_intlaw(lambda v: v == 3), [('fresh', 3)], 'fresh', _s37_int_hostile(3)),
+@@ -597,72 +618,101 @@
+ ]
+ 
+ 
+-def _s37_insert(table, base, column, expr, value, encoding=None):
+-    """Insert one row with `column` supplied through `expr`; return (typeof, bytes) as stored, or None if refused."""
++def _s37_insert(table, base, column, expr, value, encoding='UTF-8'):
++    """Insert one row in a database of `encoding`; return ((typeof, utf8 value bytes) or None if refused, observed encoding)."""
+     c = sqlite3.connect(':memory:', isolation_level=None)
+     try:
+-        if encoding:
+-            c.execute("PRAGMA encoding = '%s'" % encoding)
++        c.execute("PRAGMA encoding = '%s'" % encoding)
+         c.executescript(_S37_AC if table == 'attempt_custody' else ddl3)
+         if table == 'grant_journal_v3':
+             c.execute(_S37_CF, _S37_FRESH)
++        observed = c.execute('PRAGMA encoding').fetchone()[0]
+         cols = list(_S37_BASE[base])
+         c.execute('INSERT INTO %s (%s) VALUES (%s)' % (table, ','.join(cols), ','.join(expr if k == column else '?' for k in cols)),
+                   [value if k == column else _S37_BASE[base][k] for k in cols])
+-        return c.execute('SELECT typeof(%s), CAST(%s AS BLOB) FROM %s' % (column, column, table)).fetchone()
++        t, b = c.execute('SELECT typeof(%s), CAST(%s AS BLOB) FROM %s' % (column, column, table)).fetchone()
++        if t in ('null', 'blob'):
++            return (t, b), observed
++        try:
++            return (t, b.decode(_S37_CODEC[observed]).encode('utf-8')), observed
++        except UnicodeDecodeError:
++            return (t, b'\xff<undecodable>'), observed
+     except sqlite3.Error:
+-        return None
++        return None, None
+     finally:
+         c.close()
+ 
+ 
+-for _table, _col, _law, _canon, _hbase, _hostile in _S37_SPEC:
+-    _key = _table + '.' + _col
+-    _bad = []
+-    for _i, (_b, _v) in enumerate(_canon):
+-        _g = _s37_insert(_table, _b, _col, '?', _v)
+-        if _g is None or not _law(*_g):
+-            _bad.append(_i)
+-    ck('source37 storage: %s admits every canonical lawful value in its exact storage class' % _key, not _bad, _bad)
+-    _holes = []
+-    for _label, _expr, _v in _hostile:
+-        _g = _s37_insert(_table, _hbase, _col, _expr, _v)
+-        if _g is not None and not _law(*_g):
+-            _holes.append('%s -> %s %r' % (_label, _g[0], (_g[1] or b'')[:24]))
+-    ck('source37 storage: %s never stores a hostile value outside its law (NUL, BLOB, REAL, invalid UTF-8, multibyte, prefix, length)'
+-       % _key, not _holes, _holes)
+-
+-ck('source37 storage: root counterexamples (embedded-NUL suffix; ASCII-hex BLOB64) are refused',
+-   all(_s37_insert(t, b, col, '?', v) is None for t, b, col, v in (
+-       ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64 + '\x00Z'),
+-       ('grant_journal_v3', 'seal', 'operation_ref', _OP + '\x00Z'),
+-       ('grant_journal_v3', 'seal', 'run_id', _S37_RUN3 + '\x00Z'),
+-       ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64.encode()),
+-       ('carrier_format', 'fresh', 'project_key_digest', _S37_E64.encode()))))
+-for _script, _name, _hexcols, _intcols, _textcols in (
++for _enc in _S37_ENCODINGS:
++    for _table, _col, _law, _canon, _hbase, _hostile in _S37_SPEC:
++        _key = '%s.%s [%s]' % (_table, _col, _enc)
++        _bad = []
++        for _i, (_b, _v) in enumerate(_canon):
++            _g, _obs = _s37_insert(_table, _b, _col, '?', _v, _enc)
++            if _g is None or _obs != _enc or not _law(*_g):
++                _bad.append(_i)
++        ck('source37 storage: %s admits every canonical lawful value in its exact storage class' % _key, not _bad, _bad)
++        _extra = _s37_hex_extra(_S37_BASE[_hbase][_col], _enc) if (_table, _col) in _S37_HEX else []
++        _holes = []
++        for _label, _expr, _v in _hostile + _extra:
++            _g, _obs = _s37_insert(_table, _hbase, _col, _expr, _v, _enc)
++            if _g is not None and not _law(*_g):
++                _holes.append('%s -> %s %r' % (_label, _g[0], (_g[1] or b'')[:24]))
++        ck('source37 storage: %s never stores a hostile value outside its law (NUL, BLOB, REAL, malformed UTF-8/UTF-16, multibyte, prefix, length)'
++           % _key, not _holes, _holes)
++    ck('source37 storage: root counterexamples (embedded-NUL suffix, ASCII-hex BLOB64, uppercase) are refused [%s]' % _enc,
++       all(_s37_insert(t, b, col, '?', v, _enc)[0] is None for t, b, col, v in (
++           ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64 + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'operation_ref', _OP + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'run_id', _S37_RUN3 + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64.encode()),
++           ('carrier_format', 'fresh', 'project_key_digest', _S37_E64.encode()),
++           ('carrier_format', 'fresh', 'project_key_digest', _S37_E64[:-1] + 'A'),
++           ('attempt_custody', 'admitted', 'store_generation_digest', _S37_A64 + '\x00Z'))))
++for _script, _name, _hexcols, _intcols, _textcols, _enums in (
+         (ddl3, 'carrierFormat 3', {'project_key_digest': 64, 'migration_op_ref': 35, 'operation_ref': 35, 'run_id': 69,
+                                    'manifest_digest': 64, 'body_sha256': 64, 'prev_sha256': 64},
+          ['singleton', 'carrier_format', 'first_generation', 'chain_law', 'migrated_from', 'grantGeneration', 'seq', 'record_schema'],
+-         ['request_ref', 'token', 'install_generation_id', 'body']),
++         ['request_ref', 'token', 'install_generation_id', 'body'], ['record_type IN', 'platform IN']),
+         (_S37_AC, 'attempt_custody', {'store_generation_digest': 64, 'execution_id': 38, 'operation_ref': 35},
+-         ['record_schema'], ['namespace_id'])):
++         ['record_schema'], ['namespace_id'], ['phase IN', 'settled_outcome IN'])):
+     _missing = [c_ for c_, n_ in _hexcols.items()
+                 if ("typeof(%s) = 'text'" % c_) not in _script or ('length(%s) = %d' % (c_, n_)) not in _script
+-                or ('length(CAST(%s AS BLOB)) = %d' % (c_, n_)) not in _script]
++                or ('instr(%s, char(0)) = 0' % c_) not in _script]
+     _missing += [c_ for c_ in _intcols if ("typeof(%s) = 'integer'" % c_) not in _script]
+     _missing += [c_ for c_ in _textcols if ("typeof(%s) = 'text'" % c_) not in _script]
+-    ck('source37 storage: every %s column states its storage class and every hex column its character and byte length' % _name,
+-       not _missing, _missing)
+-ck('source37 storage: a lawful carrier_format and attempt_custody row are admitted under the UTF-8 database encoding',
+-   _s37_insert('carrier_format', 'fresh', 'project_key_digest', '?', _S37_E64) is not None
+-   and _s37_insert('attempt_custody', 'admitted', 'execution_id', '?', _S37_EXEC) is not None)
+-ck('source37 storage: under a UTF-16 database encoding hex-bearing rows fail closed (lawful, NUL and BLOB values all refused)',
+-   all(_s37_insert('carrier_format', 'fresh', 'project_key_digest', '?', v, encoding='UTF-16le') is None
+-       for v in (_S37_E64, _S37_E64 + '\x00Z', _S37_E64.encode()))
+-   and all(_s37_insert('attempt_custody', 'admitted', 'execution_id', '?', v, encoding='UTF-16le') is None
+-           for v in (_S37_EXEC, _S37_EXEC + '\x00Z', _S37_EXEC.encode())))
+-ck('source37 storage: the dispatch states the storage-class law, encoding assumption, rejected alternatives and historical scope',
+-   all(k in disp.get('ddlGrammar', {}) for k in ('storageClassLaw', 'encodingAssumption', 'alternativesRejected', 'historicalScope')))
++    _missing += [e_ for e_ in _enums if e_ not in _script]
++    ck('source37 storage: every %s column enforces its storage class by typeof() or exact enumeration, and every hex column its character length and NUL guard'
++       % _name, not _missing, _missing)
++ck('source37 storage: no hex-bearing column uses an encoding-dependent byte-length or BLOB predicate',
++   'AS BLOB' not in ddl3 and 'AS BLOB' not in _S37_AC)
++_S37_SEVEN7 = ('carrier_format', 'cf_no_update', 'cf_no_delete', 'grant_journal_v3', 'gj3_no_update', 'gj3_no_delete', 'gj3_append_laws')
++_S37_Q7L = 'SELECT name, sql FROM sqlite_master WHERE name IN (%s)' % ','.join('?' * 7)
++_s37_r = sqlite3.connect(':memory:')
++_s37_r.executescript(ddl3)
++_S37_DEFS7 = dict(_s37_r.execute(_S37_Q7L, _S37_SEVEN7).fetchall())
++_s37_r.close()
++_S37_GJ2L = ("INSERT INTO grant_journal (grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256)"
++             " VALUES (?,?,?,?,'{}',?,?)")
++for _enc in ('UTF-16le', 'UTF-16be'):
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    c.execute("PRAGMA encoding = '%s'" % _enc)
++    c.executescript(ddl2)
++    c.execute(_S37_GJ2L, (1, 1, 'REV', _OP, _H, _H))
++    c.execute(_S37_GJ2L, (1, 2, 'TERMINAL', 'op-' + '9' * 32, _H, _H))
++    c.executescript(ddl3)
++    _obs = (c.execute('PRAGMA encoding').fetchone()[0], dict(c.execute(_S37_Q7L, _S37_SEVEN7).fetchall()) == _S37_DEFS7,
++            _s37_try(c, _S37_CF, (1, 3, _S37_E64, 2, 1, 2, 'op-' + '9' * 32)),
++            _s37_try(c, _Q, _s37_v3(gen=2, rt='SEAL', rid=_S37_RUN3)),
++            _s37_try(c, _Q, _s37_v3(gen=2, seq=2, op=_OP + '\x00Z')),
++            _s37_try(c, _Q, _s37_v3(gen=2, seq=2, bs=_S37_B64.encode())))
++    c.close()
++    ck('source37 storage: a %s carrierFormat 2 carrier migrates to carrierFormat 3, publishes, admits a lawful SEAL and refuses NUL and BLOB values'
++       % _enc, _obs == (_enc, True, True, True, False, False), _obs)
++_S37_G = disp.get('ddlGrammar', {})
++ck('source37 storage: the dispatch states the storage-class law, encoding independence, rejected alternatives and historical scope, and no encoding requirement',
++   all(k in _S37_G for k in ('storageClassLaw', 'encodingIndependence', 'alternativesRejected', 'historicalScope'))
++   and 'encodingAssumption' not in _S37_G)
+ ck('source37: no carrierFormat 3 or attempt_custody CHECK keeps a first-character-only hex GLOB',
+    "[0-9a-f]*'" not in ddl3 and "[0-9a-f]*'" not in _S37_AC,
+    [l.strip() for l in (ddl3 + '\n' + _S37_AC).splitlines() if "[0-9a-f]*'" in l])
+--- v2/docs/v2/architecture/attempt-custody.schema.v1.json
++++ v3/docs/v2/architecture/attempt-custody.schema.v1.json
+@@ -150,9 +150,9 @@
+     "Excluded from every semantic hash, Run identity, Coverage, Plan bound and public schema. It adds no field to the closed receipt or JournalRecord schemas.",
+     "Scoped to durable-authoritative commit-capable attempts. A read-only request or an --ephemeral attempt neither creates nor requires a row, and its absence for such a request is not a custody condition."
+   ],
+-  "proposedPrivateDDL": "CREATE TABLE attempt_custody (\n  store_generation_digest TEXT NOT NULL CHECK (typeof(store_generation_digest) = 'text' AND length(store_generation_digest) = 64 AND length(CAST(store_generation_digest AS BLOB)) = 64 AND store_generation_digest NOT GLOB '*[^0-9a-f]*'),\n  namespace_id    TEXT NOT NULL CHECK (typeof(namespace_id) = 'text' AND length(namespace_id) BETWEEN 1 AND 4096),\n  execution_id    TEXT NOT NULL CHECK (typeof(execution_id) = 'text' AND length(execution_id) = 38 AND length(CAST(execution_id AS BLOB)) = 38 AND execution_id GLOB 'exec1_*' AND substr(execution_id, 7) NOT GLOB '*[^0-9a-f]*'),\n  operation_ref   TEXT NOT NULL CHECK (typeof(operation_ref) = 'text' AND length(operation_ref) = 35 AND length(CAST(operation_ref AS BLOB)) = 35 AND operation_ref GLOB 'op-*' AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),\n  record_schema   INTEGER NOT NULL CHECK (typeof(record_schema) = 'integer' AND record_schema = 1),\n  phase           TEXT NOT NULL CHECK (phase IN ('admitted','settled')),\n  settled_outcome TEXT CHECK (settled_outcome IS NULL OR settled_outcome IN ('committed','refused')),\n  CHECK ((phase = 'admitted' AND settled_outcome IS NULL)\n      OR (phase = 'settled'  AND settled_outcome IS NOT NULL)),\n  PRIMARY KEY (store_generation_digest, namespace_id, execution_id)\n) WITHOUT ROWID;\nCREATE TRIGGER ac_no_delete BEFORE DELETE ON attempt_custody\n  BEGIN SELECT RAISE(ABORT, 'attempt custody is append-and-settle only'); END;\nCREATE TRIGGER ac_monotone BEFORE UPDATE ON attempt_custody\n  BEGIN\n    SELECT CASE WHEN OLD.phase = 'settled'\n      THEN RAISE(ABORT, 'attempt custody is already settled') END;\n    SELECT CASE WHEN NEW.phase <> 'settled' OR NEW.settled_outcome IS NULL\n      THEN RAISE(ABORT, 'the only lawful transition is admitted to settled') END;\n    SELECT CASE WHEN NEW.store_generation_digest <> OLD.store_generation_digest\n              OR NEW.namespace_id <> OLD.namespace_id\n              OR NEW.execution_id <> OLD.execution_id\n              OR NEW.operation_ref <> OLD.operation_ref\n              OR NEW.record_schema <> OLD.record_schema\n      THEN RAISE(ABORT, 'attempt custody identity is immutable') END;\n  END;\n",
++  "proposedPrivateDDL": "CREATE TABLE attempt_custody (\n  store_generation_digest TEXT NOT NULL CHECK (typeof(store_generation_digest) = 'text' AND length(store_generation_digest) = 64 AND instr(store_generation_digest, char(0)) = 0 AND store_generation_digest NOT GLOB '*[^0-9a-f]*'),\n  namespace_id    TEXT NOT NULL CHECK (typeof(namespace_id) = 'text' AND length(namespace_id) BETWEEN 1 AND 4096),\n  execution_id    TEXT NOT NULL CHECK (typeof(execution_id) = 'text' AND length(execution_id) = 38 AND instr(execution_id, char(0)) = 0 AND execution_id GLOB 'exec1_*' AND substr(execution_id, 7) NOT GLOB '*[^0-9a-f]*'),\n  operation_ref   TEXT NOT NULL CHECK (typeof(operation_ref) = 'text' AND length(operation_ref) = 35 AND instr(operation_ref, char(0)) = 0 AND operation_ref GLOB 'op-*' AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),\n  record_schema   INTEGER NOT NULL CHECK (typeof(record_schema) = 'integer' AND record_schema = 1),\n  phase           TEXT NOT NULL CHECK (phase IN ('admitted','settled')),\n  settled_outcome TEXT CHECK (settled_outcome IS NULL OR settled_outcome IN ('committed','refused')),\n  CHECK ((phase = 'admitted' AND settled_outcome IS NULL)\n      OR (phase = 'settled'  AND settled_outcome IS NOT NULL)),\n  PRIMARY KEY (store_generation_digest, namespace_id, execution_id)\n) WITHOUT ROWID;\nCREATE TRIGGER ac_no_delete BEFORE DELETE ON attempt_custody\n  BEGIN SELECT RAISE(ABORT, 'attempt custody is append-and-settle only'); END;\nCREATE TRIGGER ac_monotone BEFORE UPDATE ON attempt_custody\n  BEGIN\n    SELECT CASE WHEN OLD.phase = 'settled'\n      THEN RAISE(ABORT, 'attempt custody is already settled') END;\n    SELECT CASE WHEN NEW.phase <> 'settled' OR NEW.settled_outcome IS NULL\n      THEN RAISE(ABORT, 'the only lawful transition is admitted to settled') END;\n    SELECT CASE WHEN NEW.store_generation_digest <> OLD.store_generation_digest\n              OR NEW.namespace_id <> OLD.namespace_id\n              OR NEW.execution_id <> OLD.execution_id\n              OR NEW.operation_ref <> OLD.operation_ref\n              OR NEW.record_schema <> OLD.record_schema\n      THEN RAISE(ABORT, 'attempt custody identity is immutable') END;\n  END;\n",
+   "ddlStanding": "SELECTED placement: the storage-owned evidence ledger, within the already inventoried crates/storage/src/ledger_store.rs, commit.rs and recovery.rs modules. The authorized settlement sweep writes through that same ledger and the same table, so it needs no separate DDL. This is a settled selection.",
+-  "ddlGrammarCorrection": {"standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 bytes. The planned private DDL is corrected in place. No product implementation or deployed ledger table was created from the earlier bytes; reference in-memory SQLite instances were created from them by earlier design checks and review probes, and those instances and their receipts remain historical evidence.", "law": "Every column states its storage class with typeof(): text for store_generation_digest, namespace_id, execution_id and operation_ref, integer for record_schema; phase and settled_outcome compare whole values against their enumerations. Each hex-bearing column additionally requires length(column) = N and length(CAST(column AS BLOB)) = N, which agree only for a NUL-free ASCII value, then its prefix GLOB and NOT GLOB '*[^0-9a-f]*' over the whole value, matching this record's patterns ^[0-9a-f]{64}, ^exec1_[0-9a-f]{32} and ^op-[0-9a-f]{32}. Byte lengths assume the SQLite database text encoding UTF-8; under another encoding every hex-bearing row is refused, which fails closed.", "authority": "The ledger's record admission remains the owner of the closed record; the DDL is defence in depth. namespace_id keeps its character-length bound, which SQLite counts before any embedded NUL; the record's own minLength and maxLength govern. No member, phase, outcome, key or join changes."},
++  "ddlGrammarCorrection": {"standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 bytes, and again after root showed that the source37 v2 byte-length predicate refused lawful rows in UTF-16 databases. The planned private DDL is corrected in place. No product implementation or deployed ledger table was created from the earlier bytes; reference in-memory SQLite instances were created from them by earlier design checks and review probes, and those instances and their receipts remain historical evidence.", "law": "Every column's storage class is enforced: by typeof() on store_generation_digest, namespace_id, execution_id and operation_ref (text) and on record_schema (integer), and by exact enumeration on phase and settled_outcome. Each hex-bearing column is an exact whole TEXT value: length(column) = N, instr(column, char(0)) = 0, its prefix GLOB and NOT GLOB '*[^0-9a-f]*' over the whole value, matching this record's patterns ^[0-9a-f]{64}, ^exec1_[0-9a-f]{32} and ^op-[0-9a-f]{32}. The conjunction does not depend on the database text encoding (exercised under UTF-8, UTF-16le and UTF-16be); no encoding is required.", "authority": "The ledger's record admission remains the owner of the closed record; the DDL is defence in depth. namespace_id keeps its character-length bound, which SQLite counts before any embedded NUL; the record's own minLength and maxLength govern. No member, phase, outcome, key or join changes."},
+   "readOnlyRecoveryUse": {
+     "receiptPresentAndPhaseSettledCommitted": "committed-historically; proceed to the carrier capture and anchor selection",
+     "receiptPresentAndPhaseAdmitted": "committed-historically with pendingSettlement disclosed; proceed to the carrier capture. LAWFUL interval, not a contradiction, and it revives no authority",

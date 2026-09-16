@@ -1,0 +1,60 @@
+{
+  "session_id": "ce3dec3b-0620-44ec-86e6-129b0e25cb1b",
+  "total_cost_usd": 8.756189500000001,
+  "usage": {
+    "input_tokens": 488,
+    "cache_creation_input_tokens": 123613,
+    "cache_read_input_tokens": 10327544,
+    "output_tokens": 61619,
+    "output_tokens_details": {
+      "thinking_tokens": 24989
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 123613,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2233,
+        "cache_read_input_tokens": 42241,
+        "cache_creation_input_tokens": 1438,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1438
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 13259,
+      "outputTokens": 72614,
+      "cacheReadInputTokens": 11276829,
+      "cacheCreationInputTokens": 123613,
+      "webSearchRequests": 0,
+      "costUSD": 8.756189500000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 24989,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 48,
+  "subtype": "success",
+  "result": "I made the ADV-1 fix: a listed package no longer lets through reads from a package installed inside it. That nested package now needs its own row in the layout. Everything passes, the older identity model fails exactly the new refusal tests, and nothing that was allowed before is now refused except those nested crossings. All child commands have finished.\n\n## The rule as written\nIn `identity-model.v3.py`, `snapshot_pruned_tree_faults` checks each inventory row in this order:\n1. **Version-control folders** (`.git`, `.hg`, `.svn`, `.jj`) at any depth are refused first. This is the fix already confirmed last round, unchanged.\n2. **Paths outside every pruned tree** stay first-party, even under a listed first-party `realPath`.\n3. **Paths inside `node_modules`** are allowed only if some listed `installPath` or `realPath` is a whole-folder prefix of the path, and the rest of the path below it has no further exact `node_modules` folder. That check is the new `listed_package_authorizes_read`.\n   - The listed path is taken as given, so store and link paths that themselves contain `node_modules` still work.\n   - Names like `node_modules-like` or `Node_modules` are not boundaries.\n4. **Anything else** is refused with `SNAPSHOT_PRUNED_TREE_NOT_A_READ`.\n\nDiscovery's outermost prune anchor is unchanged. There is no new record, schema change, D9 code or recipe change, and the registered layout description stays as is. I found no further contradiction with other owners: the native layout rule (\"one row per installed package directory\", a linked `realPath` must itself be an `installPath`) agrees with this.\n\n**Prose:**\n- **Identity \u00a73** has a new paragraph, \"Nested packages have explicit custody\".\n- **\"What replay decides and what it does not prove\"** replaces the old disclaimer:\n  - Replay decides: an inventoried path that crosses into a nested package without its own row is refused.\n  - Replay can't prove: a complete first-party walk, reads missing from the inventory, or which files inside a listed package were read.\n  - The ambiguous \"or that every package it read is listed\" is gone.\n- **Security S3** gets one matching sentence.\n\n## Change set\nThe diff against the prior review's source is `delta-vs-prior-review-source.diff` (sha256 `364cb75b\u2026`, 222 lines). Only these four files changed, none added or removed, and the prior review and its source are byte-unchanged.\n\n| File | Before | After |\n|---|---|---|\n| `identity-model.v3.py` | `05d084a7\u2026` | `a6dc5f99\u2026` |\n| `check-native-consumer24-corrections.v1.py` | `eaa1f0ca\u2026` | `caa60293\u2026` |\n| `identity-and-evidence.md` | `0e4be039\u2026` | `c82404f3\u2026` |\n| `security-and-lifecycle.md` | `06a3174a\u2026` | `6dc2ca82\u2026` |\n\n## Results (all new runs; the earlier 164 and 31 are not relabelled)\n- **Real full Runs on the same fixture:**\n  - With only `left-pad` listed, `node_modules/left-pad/node_modules/evil/index.js` is refused, naming that path. With `evil` also listed, it closes as `run3:b7cc65a8\u2026`. The layout, its digest and the Run were all rebuilt by the maintained constructors.\n  - A nested `@scope/util/node_modules/@inner/pkg` behaves the same way: refused when unlisted, and it closes as `run3:46026099\u2026` when listed.\n  - `evil/.git/HEAD` is still refused even with `evil` listed.\n  - The `node_modules-like` path and ordinary scoped files still close.\n- **A4 checker:** 36/36 (12 new helper rows and 7 new real-Run rows). **All ten sections:** 183/183.\n- **Semantic replay goldens:** passed, 31 goldens, nothing blocked, no faults.\n- **Old identity model with the new checker:** 29/36. It fails exactly the 7 new refusal tests; every positive, lookalike and VCS row still passes.\n- **Substring mutant** (substring match instead of exact folder names): 34/36, failing exactly the two lookalike tests.\n- **Helper matrix** (27 paths \u00d7 three layouts, the check function called directly, not Runs), old model vs new:\n  - base layout: exactly 8 paths are newly refused, including `packages/lib/node_modules/x/index.js`, which the old model allowed through the first-party `realPath`;\n  - with the nested rows listed: exactly 3;\n  - with no read set: none.\n  - Discovery output is identical under both models.\n- Every receipt exited 0, and the final summary re-checked the diff and confirmed only owned files changed.\n\n## Limitations\n- **How the layout was changed:** the fixture has no layout parameter, so the controls temporarily add packages to the helper global `TS_NODE_MODULES` and restore it afterwards. Everything after that is real constructor, admission and `close_run` output. As before, nested package manifests are kept as layout blobs, not inventory rows.\n- **Store and link layouts** are covered only by the helper rows; the real-Run fixture uses `installPath == realPath`.\n- **A file literally named `node_modules`** under a listed package counts as a boundary (helper matrix only).\n- **Not run or not claimed:** the six global groups and `check-identity.py`, and no claim of independent final-source acceptance.\n\n**For root:** merging changes the four file hashes above, so the source-pin ledgers and planning section hashes for identity \u00a73, security S3, the identity model and the checker will need updating; I didn't write those. The checker count on the merged tree becomes 183 (A4: 36).\n\nEverything is in `/tmp/opensip-design-corrections/claude-readset-package-boundary-author.v1`:\n- `review.md` (sha256 `7d73425d\u2026`)\n- `review.json` (sha256 `214655dc\u2026`)\n- `receipts/p05-summary.final.json`",
+  "type": "result",
+  "duration_ms": 833614
+}

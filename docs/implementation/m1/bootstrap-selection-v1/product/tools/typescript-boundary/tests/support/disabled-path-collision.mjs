@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {createBrowserResolver} from '../checker/src/browser-scanner.mjs';
+const H=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const dir=path.join(H,'work/disabled-collision');fs.mkdirSync(dir,{recursive:true});
+fs.writeFileSync(path.join(dir,'entry.mjs'),'');fs.writeFileSync(path.join(dir,'(disabled):target.js'),'export const x=1;');
+const r=await createBrowserResolver(dir);
+const result=await r.resolve('./(disabled):target.js',path.join(dir,'entry.mjs'),'import');
+await r.dispose();fs.writeFileSync(path.join(H,'root06-disabled-collision03.json'),JSON.stringify({result,passed:result.kind==='resolved'},null,2)+'\n');console.log(result);if(result.kind!=='resolved')process.exitCode=1;

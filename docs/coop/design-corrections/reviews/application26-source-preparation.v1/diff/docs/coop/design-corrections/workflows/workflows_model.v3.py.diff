@@ -1,0 +1,61 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/workflows_model.v3.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/workflows_model.v3.py
+new file mode 100644
+index 00000000..8c30d95c
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -0,0 +1,55 @@
++"""Evaluator3 policy owner. Historical workflow1 is a separate compatibility profile.
++No source mutation or data coercion. Full surface migration is separately checked.
++"""
++import importlib.util,json
++from pathlib import Path
++HERE=Path(__file__).resolve().parent
++spec=importlib.util.spec_from_file_location('workflows_legacy_profile',HERE/'workflows_model.v1.py')
++_base=importlib.util.module_from_spec(spec);spec.loader.exec_module(_base)
++for _name in dir(_base):
++    if not _name.startswith('__'):globals()[_name]=getattr(_base,_name)
++PROFILE_ROOT=Path(__file__).resolve().parent
++ATOM_REGISTRY=json.loads((PROFILE_ROOT.parent/'foundation/evaluator-projection-registry.v1.json').read_text())
++def rule_program_digest(policy):
++    if policy['schemaMajor']!=2:raise canonical.AdmissionError('EVALUATOR_POLICY_MAJOR')
++    return doc_digest({'schemaVersion':2,'policyDigest':doc_digest(policy),'rules':[{k:r[k] for k in ('ruleId','ruleProgramRef','emitWhen')} for r in policy['rules']]})
++_ATOM_OWNER=None
++def atom_owner():
++    global _ATOM_OWNER
++    if _ATOM_OWNER is None:
++        spec=importlib.util.spec_from_file_location('workflow_atom_admission3',PROFILE_ROOT.parent/'foundation/atom_model.v1.py')
++        _ATOM_OWNER=importlib.util.module_from_spec(spec);spec.loader.exec_module(_ATOM_OWNER)
++    return _ATOM_OWNER
++
++def admit_atom(atom,rule_id=None,subject_kind=None):
++    """Use the exact atom owner's field/endpoint/rung admission even on empty populations."""
++    A=atom_owner();row=ATOM_REGISTRY['relations'].get(atom['relation'])
++    if row is None:raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','unregistered relation',rule_id)
++    endpoint=atom.get('endpoint','source')
++    kinds=row.get('targetKinds',[]) if endpoint=='target' else row.get('sourceSubjectKinds',[row.get('sourceSubjectKind')])
++    kind=('symbol' if subject_kind=='export' else subject_kind) if subject_kind else next((k for k in kinds if k),None)
++    try:A._admit_atom(atom,{'kind':kind})
++    except A.AtomAdmissionError as exc:raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE',str(exc),rule_id) from exc
++    return atom
++
++def admit_policy_rule(rule):
++    declared={x['kind'] for x in rule['evidenceUse']}
++    if len(declared)!=len(rule['evidenceUse']):raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','duplicate evidence declaration',rule['ruleId'])
++    count=0
++    def visit(node,depth=1):
++        nonlocal count
++        count+=1
++        if count>64 or depth>8:raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','predicate node/depth bound',rule['ruleId'])
++        if node['op'] in ('and','or'):
++            for child in node['operands']:visit(child,depth+1)
++        elif node['op']=='not':visit(node['operand'],depth+1)
++        else:
++            admit_atom(node,rule['ruleId'],rule['subjectEnumeration']['subjectKind'])
++            if node.get('evidence') and node['evidence'] not in declared:raise Refusal('CONFIG.INVALID','IMPORT.ABSENT_FOR_PREDICATE','undeclared evidence',rule['ruleId'])
++    visit(rule['emitWhen']);return rule
++
++def resolve_policy(doc):
++    ids=[r['ruleId'] for r in doc['rules']]
++    if ids!=sorted(set(ids),key=lambda s:s.encode()):raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','ruleIds must be unique and sorted')
++    for rule in doc['rules']:admit_policy_rule(rule)
++    return doc

@@ -1,0 +1,66 @@
+<!-- BEGIN CURRENT RESUME STATE -->
+**Current task, 2026-09-12:** finish the OpenSIP architecture, design and reference corrections with **actual Claude**. Preserve historical evidence and live changes. Do not implement product code, commit or push in this resume. There is no current quota blocker. The design is **not ready for implementation**: final source assent, blind acceptance, application review and activation remain outstanding.
+
+This block supersedes earlier checkpoints. The full preceding detail is preserved in [checkpoint v13](root-resume-reconciliation.v13/previous-current-block.md); do not re-read the historical tail as current instructions.
+
+## Resume these active processes
+
+All runtimes below are under `/tmp/opensip-design-corrections/`. Use `/Users/sb/.local/bin/claude` (2.1.269), actual `claude-opus-5`. Public launchers already filter out hidden reasoning. Do not concurrently resume an active session, interrupt it merely because it is slow, or substitute a GPT agent.
+
+1. **Repair source coauthor v1 — ACTIVE.** Runtime `claude-repair-selection-author.v1`, session `919c766d-f2d0-4cfa-abaa-9d7425d9395f`, tool session **68052**. Edits only `repair-selection-successor.v1/source`. It has drafted eight source changes, passed 431 workflow-projection checks including 42 repair checks and the historical 1803 workflow cases, and is executing `probes/final_verify.py` before finishing its handoff. `assessment-corrections.md` and `changed-file-handoff.json` already exist; root read both fully, but they are not final until completion. A native generated report was overwritten by a checker; the author is restoring it and recording that side effect. Do not integrate it as authored design.
+2. **Original blind consumer continuation 17 — ACTIVE.** Runtime `consumer-b.v17`, session `79569ae1-10f4-4181-972b-334f7ed2f07a`, tool **10061**. This is the same originally fresh origin 14→15→16→17. Its 101-file normative kit manifest SHA is `4cee77543946d66f2282dcbc7a8621e0b4117d78d37b44cf57a5f0ad3ca5e237`, parent source31. Every normative row is byte-identical to its previous source29 kit. It is correcting its own enumeration, execution-input, step and repair-preimage checks. It knows its own S1/S2 await new normative bytes. **Never feed it root outputs, expected IDs, author code or other reviews.** Supply a new frozen normative kit later, continuing the same origin.
+3. **Bounded independent glob/repair review — ACTIVE.** Runtime `claude-glob-repair-bounded-review.v1`, session `ce3dec3b-0620-44ec-86e6-129b0e25cb1b`, tool **85940**. This is the completed independent31 reviewer's same origin, still read-only and independent. It reviews the five glob changes plus root's repair ownership finding against FOUR captured in-progress author files. It must not edit source or claim final-source acceptance. Its independent matcher agrees with the reference on 5,927,922 pairs, all 22 prescribed examples and 28 edge cases; remaining caller/repair assessment is active. Initial dispatch is retained live. Final results require substantive root assessment and retention.
+
+## Root's next concrete work
+
+**First finish the repair revision loop.** Read [root's captured-draft assessment](root-repair-selection-author-review.v1/assessment.md), then the completed author handoff and bounded independent assessment when available. Root's RRS-A1 is a static normative completeness finding, **not yet a full admitted asymmetric counterexample**: source-path scopes prove their paths, but do not enumerate every selected program owning an edited path. A selected symbol-only program may own the same path through required EnumerationPlan extents without producing a file/clones/vcs-change scope. Candidate-only bindings also retain candidateSourcePaths. An unavailable binding's selected path extent must not disappear behind a favorable known owner. The existing required retained enumeration parameter provides that join without parsing opaque symbol IDs. Assess and fix this before integration.
+
+RRS-A2 asks for precise empty-summary wording (least-closed sentinel, not “all unknown”), no authoritative label on the display boolean, explicit UTF-8/full-key ordering and remedies that identify each exact Coverage record. After v1 completes, preserve its source/runtime and resume **the same repair coauthor** in a new runtime/source copy on these findings. Do not overwrite the handed-off source or claim the bounded reviewer has read the final handoff. The repair author is permanently forbidden as a final independent acceptor.
+
+**Glob correction is authored and partly integrated.** `glob-semantics-successor.v1` has five files: new `foundation/glob-pattern-contract.v1.md`, both workflow common-schema descriptions, the atom contract link and an added atom-checker case containing 30 prescribed vectors plus exclusion precedence. Root's 70 atom cases pass; matcher code is unchanged. Exact before-images, hashes and tests are retained live. The five files are already integrated into mutable combined source **T** at `claude-return-successor.v1`. The workflow projection/chapter links are deferred until the repair coauthor releases ownership. Root's glob source copied and verified 1350 non-review source31 rows; the repair copy's 1353 count includes three feedback files.
+
+After integrating corrected repair and glob links: refresh planning and all five pin ledgers, run the full required reference suites, freeze source32 or later and verify all bytes. Then refresh the author package, application draft/source delta and actual independent source review. Finish the original blind reconstruction and root validation of its **final** exports and full charter. No assembly or readiness activation before those prerequisites actually pass.
+
+## Frozen source and existing assessments
+
+Current frozen source is still **candidate31**, unchanged by prospective work:
+
+- Manifest `candidate-subject.v31.json`: `ca713db549f9337ae52a4bccc2ebbb84b136b8dc5d0545003bb3b2a24dfc95b5`.
+- Archive `candidate-source.v31.tar.gz`: `0a980be4067958d01f3927a63b1a8819ac63e7960f499bbb59695630b3c883e0`.
+- Snapshot `/tmp/opensip-design-corrections/candidate-subject.v31`: 12895 files, 736536507 bytes, all snapshot/archive bytes verified without extras. Full6 reference groups plus16 evaluator children pass (`final31-reference.v1`). Identity trace:1596 calls,1584 distinct,12 extra. Native375 cases/66 cells/0 qualified.
+- Native schema digest stays `3e37c7b7a6a620dcadc0aaed862eed242065ebd0ce9910da16faa25464f8b0b0`.
+
+Actual independent31 completed **ACCEPT, no MUST/SHOULD, A7/A8 advisories**. Its 6925-file public runtime/probe custody is retained (143 stored, remaining exact-source duplicates). Root read its entire prose and all107 mapped JSON rows. Its16 evaluator children and11 group checks passed;1242 pins verified. Root still withholds final source assent because of the subsequently confirmed repair gap.
+
+Before accepting a successor, have that reviewer address the record corrections in `root-independent31-assessment.v1`: all16 DR011 rows need actual currentOwnerFiles; distinguish the changed RES-EP13-13 checker from inherited same-byte reading; A7's pointer was unchanged but the native schema file was in the delta; enumeration joins occur **after** structural closure admission; finite hash controls are not a proof of global injectivity. A7 requires no cosmetic v2→v3 pointer/schema churn because the referenced definitions are byte-identical. A8's exact historical input bundle is `independent31-advisory8-evidence.v1` (10 files): source29 failed receipt and manifest-bound29/30 native-cases show the one digest replacement. Preserve failed29 evidence; new custody does not retroauthenticate it.
+
+The genuine repair gap is independently demonstrated on fully admitted Run `run3:56ea69ae352ae95d45dd797a5b43002175602988f1453ba3139d6c798b56d802`: four Coverage entries with two different native eligibility values. Actual peer assessment and root reproduction are retained. Earlier peer overclaims and the root's eight corrections are preserved separately. The new author law uses all matched target occurrences, all relevant native Coverage and a non-vacuous conjunction independent of recipe-selected relations; the remaining ownership issue is described above.
+
+## Blind reconstruction: actual limits
+
+Consumer16 completed CHANGES_REQUIRED (0 MUST,2 SHOULD,2 advisories), claiming131 non-future requirements executed and3 deferred. Root read its whole prose and verified75 artifact hashes, **not all131 artifact semantics**. All five final positive exports failed root semantic validation; syntax-code and Rust also failed structural policy admission. S1 is the genuine repair gap. S2 warrants the glob clarification, although its “zero or more means only zero” argument was mathematically wrong. A2's claim that unavailable bindings need no inventories contradicts enumeration §1/§3 and execution-inputs §6; the current consumer is correcting that. A3 does not require a new source change because native and traversal coverage are already typed distinctly.
+
+Root's **mid17**, not final, capture is retained in `root-blind17-mid-source31.v1` (22 files). All five now pass structural admission but fail semantic replay:
+
+- syntax-code `run3:f8dc43…`: enumeration inventory cause carrier.
+- Rust `run3:56d0f7…`: ExecutionInputs Coverage/outcome derivation.
+- TypeScript `run3:e22b6c…`: EnumerationBinding programEntry.
+- Rust partial `run3:21cdc5…`: enumeration extent/kind joins.
+- syntax-data `run3:89fdb7…`: ExecutionInputs Coverage/outcome/cause.
+
+Exact full IDs, hashes, exports, commands and reports are retained there. Do not feed this evidence to the blind consumer, treat it as final, or re-use a receipt without exact final export/source equality. Root's strict reader admits exact transport only, with no consumer imports, missing-byte fillers or reminting, and invokes both `M.open_run_closure` and `M.close_run`.
+
+## Tooling and final sequence
+
+Use reference Python `/tmp/opensip-architecture-review-env/bin/python -I -B`; system Python lacks jsonschema. Prospective preparation **v5** now adds the glob normative owner and pin-only repair reference module. It is copied from preserved v4 and has **not run**. `rebind-planning.py` now requires `--layer-version` (next3), preserves original source25 and previous layers. `prepare-blind-kit.py` requires `--origin-standing continuation` for the existing consumer. The v5 tools are retained live; the later pin-only addition is separately retained in `final-claude-source-preparation.v5-reference-additions`. No reference code belongs in the blind kit.
+
+Use `run-target-proof-successor-final-suites.v2.py` for6 groups/16 children with reference Python. Seal through v5 `rebind-normative-pins.py`, then the planning input layer, and recheck the pin dependency order. Freeze with explicit **T**, never live source; verify via `verify-frozen-custody.v1.py`; record current dynamic counts via `record-frozen-reference.v1.py`. Retain completed actual reviews with `retain-final-claude-review.v1.py`, binding the **actual** parent manifest. Quota/interruption is partial evidence, never fabricated completion. Preserve public tool evidence only, excluding hidden reasoning before writing.
+
+Current author package7 has270 members, artifact SHA `c9f632820f760245f7c9a259d28cc97839180f290f1771f51225edfb8969f258`;13 Run/control outcomes and7 query checks pass, including actual independent31 replay/rebuild. This is author-assisted evidence, not blind acceptance. Current app draft12 has17 conditional documents, source31 delta132 files,28 pending rows/76 pins. Planning layer2 has28 inputs,198 paths/20 packages/46 directories/9 pending decisions,320 mappings/11 groups,54 unexecuted recovery cases and M0–M6. These bindings must be refreshed after successor integration.
+
+Application tooling is `application-successor-root.v2`. It now forbids FIVE Claude author origins as final design/blind/application reviewers: `eaa8276c-dc65-4d26-8ca2-703b345698f9`, `36a89be8-3442-4edb-90d8-a6fd959a437c`, `0aa529b3-0da1-44b1-b2b9-dbcd9f1bd206`, `329a5132-ee66-4303-97a9-b9ebd1b7ffc0`, **`919c766d-f2d0-4cfa-abaa-9d7425d9395f`**. Guard evidence is retained;35 envelope checks pass. Final application review must cover this change and the previous gradeAuthority wording/bundled fixture correction.
+
+Only after actual design acceptance, actual blind ACCEPT-RECONSTRUCTABLE and root exact-source assents: bind review receipts → assemble refreshed records → prepared validation/reference/tool/row/link checks → freeze application → **fresh actual independent application review** → actual acceptance → live before-image checks → finalizer activation **last** → applied/readiness verification. Review all30 evaluator,28 condition2,16 AR,15 FW,27 inherited and5 owner rows substantively;13 rows share the TCB limitation.32 product gates and54 recovery cases remain unperformed; condition5 (separate implementation authorization) is NOT MET; D9 remains carried. Reconcile the README's stale progress paragraphs during application preparation while preserving history and before-images.
+
+HEAD remains `c3856824b5084eb9336622e76796c70c64f2523d`. No new commit or push.
+<!-- END CURRENT RESUME STATE -->

@@ -1,0 +1,137 @@
+--- docs/coop/design-corrections/security/revocation-live-cases.v1.json
++++ docs/coop/design-corrections/security/revocation-live-cases.v1.json
+@@ -1,5 +1,5 @@
+ {
+-  "standing": "SYNTHETIC schedules evaluated by security_lifecycle_model_v1.revocation_observe, .observer_tick and .linearize (AR-05). `schedule` is the order in which actors acquire the journal append lock L. Linearization covers BROKERED effects only: no brokered effect commits after REV; a reversible completed effect is rolled back only when its current bytes equal the committed postimage (EDIT models a user change since commit; INDET an unreadable target); unconfined children (CHILD) are cancelled within the bound and disclosed, their external effects are not enumerable. Observer bounds are implementation qualification obligations under OS scheduling assumptions. Expected values were authored by hand from security-and-lifecycle.md S6 before execution (same author, not an independent oracle). No process was spawned or killed.",
++  "standing": "SYNTHETIC schedules evaluated by security_lifecycle_model_v1.revocation_observe, .observer_tick, .linearize, .admit_journal_record and .admit_seal_run_id_prefix (AR-05). `schedule` is the order in which actors acquire the journal append lock L. Linearization covers BROKERED effects only and is not product analysis SEAL. Prefix dispatch is not close_run. Complete analysis-SEAL cases live in check-analysis-seal-adapter.v1.py. Schema-2 journals are frozen historical bytes and are not read as 3. The all-zero SEAL runId is a linearization fixture. Observer bounds are implementation qualification obligations under OS scheduling assumptions. Expected values were authored by hand from security-and-lifecycle.md S6 before execution (same author, not an independent oracle). No process was spawned or killed.",
+   "observeCases": [
+     {
+       "id": "unrelated-revocation-continues-with-drift-recorded",
+@@ -437,6 +437,9 @@
+         "sealSeq": 2,
+         "revocationSeq": 3,
+         "sealedBeforeRevocation": true,
++        "journal.0.recordSchema": 3,
++        "journal.1.recordSchema": 3,
++        "journal.1.runId": "run3:0000000000000000000000000000000000000000000000000000000000000000",
+         "journalTypes": [
+           "GRANT",
+           "SEAL",
+@@ -780,5 +783,117 @@
+       },
+       "expectReject": "MONOTONIC_MALFORMED"
+     }
++  ],
++  "journalRecordCases": [
++    {
++      "id": "current-journal-record-schema-3-run3-admits",
++      "model": "journal-record",
++      "input": {
++        "record": {
++          "recordType": "SEAL",
++          "recordSchema": 3,
++          "grantGeneration": 1,
++          "seq": 1,
++          "operationRef": "op-00000000000000000000000000000000",
++          "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++        }
++      },
++      "expect": {
++        "result": "CURRENT",
++        "recordSchema": 3,
++        "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++      }
++    },
++    {
++      "id": "historical-journal-record-schema-2-refused-as-current",
++      "model": "journal-record",
++      "input": {
++        "record": {
++          "recordType": "SEAL",
++          "recordSchema": 2,
++          "grantGeneration": 1,
++          "seq": 1,
++          "operationRef": "op-00000000000000000000000000000000",
++          "runId": "run2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++        }
++      },
++      "expectReject": "JOURNAL_RECORD_SCHEMA_HISTORICAL"
++    },
++    {
++      "id": "journal-record-schema-3-run2-mixed-prefix-refused",
++      "model": "journal-record",
++      "input": {
++        "record": {
++          "recordType": "SEAL",
++          "recordSchema": 3,
++          "grantGeneration": 1,
++          "seq": 1,
++          "operationRef": "op-00000000000000000000000000000000",
++          "runId": "run2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++        }
++      },
++      "expectReject": "JOURNAL_RECORD_MIXED_PREFIX"
++    },
++    {
++      "id": "journal-record-schema-2-run3-mixed-prefix-refused",
++      "model": "journal-record",
++      "input": {
++        "record": {
++          "recordType": "SEAL",
++          "recordSchema": 2,
++          "grantGeneration": 1,
++          "seq": 1,
++          "operationRef": "op-00000000000000000000000000000000",
++          "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++        }
++      },
++      "expectReject": "JOURNAL_RECORD_MIXED_PREFIX"
++    },
++    {
++      "id": "journal-record-schema-3-missing-recordType-refused",
++      "model": "journal-record",
++      "input": {
++        "record": {
++          "recordSchema": 3,
++          "grantGeneration": 1,
++          "seq": 1,
++          "operationRef": "op-00000000000000000000000000000000",
++          "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++        }
++      },
++      "expectReject": "JOURNAL_RECORD_SCHEMA_INVALID"
++    }
++  ],
++  "hostSealRunCases": [
++    {
++      "id": "host-seal-prefix-admits-nonfixture-run3",
++      "model": "host-seal-run",
++      "input": {
++        "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++      },
++      "expect": {
++        "result": "ADMIT",
++        "standing": "prefix-dispatch",
++        "authority": "run3-pattern",
++        "runId": "run3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++        "fixture": false
++      }
++    },
++    {
++      "id": "host-seal-fixture-zero-run-id-is-not-authority",
++      "model": "host-seal-run",
++      "input": {
++        "runId": "run3:0000000000000000000000000000000000000000000000000000000000000000"
++      },
++      "expectReject": "SEAL_RUN_ID_FIXTURE_NOT_AUTHORITY"
++    },
++    {
++      "id": "host-seal-historical-run2-prefix-refused",
++      "model": "host-seal-run",
++      "input": {
++        "runId": "run2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
++      },
++      "expectReject": "JOURNAL_RECORD_MIXED_PREFIX"
++    }
+   ]
+ }

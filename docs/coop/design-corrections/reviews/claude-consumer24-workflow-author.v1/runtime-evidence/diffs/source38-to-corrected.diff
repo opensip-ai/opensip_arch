@@ -1,0 +1,2048 @@
+--- a/docs/coop/design-corrections/foundation/check-composition.v3.py
++++ b/docs/coop/design-corrections/foundation/check-composition.v3.py
+@@ -65,4 +65,34 @@
+ i=make();i['plan']['budget']['limit']=0;b=E.compose(i,lambda *args:(_ for _ in ()).throw(AssertionError('budget evaluated')));check('budget-preflight-explicit-indeterminate',b['proof']['evaluationState']=='budget-exhausted' and b['proof']['verdict']=='indeterminate' and not b['proof']['findingIds'])
+ check('strong-kleene-known-and-false',E.truth('and',['indeterminate','false'])=='false')
+ check('strong-kleene-known-or-true',E.truth('or',['indeterminate','true'])=='true')
++# A6: first-applicable correspondence precedence; one deficiency per unmatched finding, reason equals it.
++def corr_rows(b):
++    fs=[v for d,v in b['objects'].values() if d=='finding'];rr=b['proof']['ruleResults'][0]
++    return sorted((f['subjectId'],f['correspondence']['reason']) for f in fs if f['fingerprint'] is None),sorted((d['subjectId'],d['cause']) for d in rr['deficiencies'] if d['source']=='correspondence')
++def peer(i,native):
++    first=next(iter(i['population'].values()));row=copy.deepcopy(first['row']);row['nativeSubjectId']=native
++    sid=E.M.identifier('evaluation-subject',{'schemaVersion':3,'universe':first['universe'],'kind':'symbol','nativeSubjectId':native})
++    i['population'][sid]={'subjectId':sid,'universe':first['universe'],'kind':'symbol','row':row,'collisionPopulationComplete':first['collisionPopulationComplete']}
++    i['enumerations']['r']['selectedSubjectIds']=E.cset(i['population']);i['inventoryRowCount']=i['inventoryLocatorCount']=len(i['population'])
++seen=set()
++i=make(kind='symbol');s=next(iter(i['population'].values()));s['row']['projections']=[];s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-projection-unavailable-precedes-population-incomplete',[r for _,r in got]==['projection-unavailable'] and got==defs)
++i=make(kind='symbol');s=next(iter(i['population'].values()));s['row']['projections'][0]['signatureTokens']=[];s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-empty-signature-tokens-are-projection-unavailable',[r for _,r in got]==['projection-unavailable'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g')
++for s in i['population'].values():s['collisionPopulationComplete']=False
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-population-incomplete-precedes-signature-ambiguous',[r for _,r in got]==['population-incomplete','population-incomplete'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g')
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-complete-shared-signature-is-signature-ambiguous',[r for _,r in got]==['signature-ambiguous','signature-ambiguous'] and got==defs)
++i=make(kind='symbol');peer(i,'symbol:g');next(iter(i['population'].values()))['row']['projections']=[]
++got,defs=corr_rows(E.compose(i,scanner()));seen|={r for _,r in got}|{c for _,c in defs};check('a6-mixed-population-one-cause-per-unmatched-finding',len(got)==1 and got==defs and got[0][1]=='projection-unavailable')
++check('a6-composed-causes-are-the-three-published-causes-only',seen=={'projection-unavailable','population-incomplete','signature-ambiguous'})
++# A9: a required declared evidence kind unavailable in the Plan applies independently of the root branch.
++RUNTIME_NONE={'op':'none','relation':'runtime-observation','minResolution':'observed','filters':[],'evidence':'runtime'}
++MISSING=[{'source':'import','cause':'evidence-kind-unavailable','subjectId':None,'predicateId':None,'inputRefs':[],'evidenceKind':'runtime','nativeCause':None,'universe':None}]
++i=make(atom=RUNTIME_NONE,requirement='required');i['requiredEvidenceDeficiencies']['r']=copy.deepcopy(MISSING)
++b=E.compose(i,scanner('false'));check('a9-required-import-unavailable-under-determinate-false-root-is-indeterminate',b['proof']['ruleResults'][0]['outcome']=='indeterminate' and b['proof']['verdict']=='indeterminate' and b['proof']['predicateProofs'][0]['value']=='false')
++b=E.compose(i,scanner('true'));check('a9-known-live-failure-dominates-missing-required-import',b['proof']['ruleResults'][0]['outcome']=='fail' and b['proof']['verdict']=='fail')
++i['policy']['rules'][0]['gate']=False;rebind(i);b=E.compose(i,scanner('false'));check('a9-advisory-rule-with-missing-required-import-passes',b['proof']['ruleResults'][0]['outcome']=='pass' and b['proof']['verdict']=='pass')
++i=make(atom=RUNTIME_NONE,requirement='optional');b=E.compose(i,scanner('false'));check('a9-optional-evidence-use-adds-no-required-deficiency',b['proof']['ruleResults'][0]['outcome']=='pass' and not any(d['source']=='import' for d in b['proof']['ruleResults'][0]['deficiencies']))
+ print(json.dumps({'standing':'BOUNDED COMPOSITION ONLY: synthesized universe/Plan/closure locators; no native input admission and no full retained Run replay. Mutation checks compare exact output preimages, not reminted full graphs.','results':results,'passed':all(x['passed'] for x in results),'count':len(results)},indent=2))
+--- a/docs/coop/design-corrections/foundation/check-replay.v3.py
++++ b/docs/coop/design-corrections/foundation/check-replay.v3.py
+@@ -192,6 +192,29 @@
+   unmatched_count=sum(objects[fid][1]['fingerprint'] is None for fid in proof['findingIds'])
+   assert (actual['verdict'],actual['findingCount'],unmatched_count)==(want,count,unmatched),(name,actual,unmatched_count)
+   exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'unmatchedFindings':unmatched_count})
++ # A6 on complete replayed Runs: co-occurring correspondence conditions publish the first applicable cause once.
++ for name,options,want_reasons in [
++  ('correspondence-projection-unavailable-precedes-population-incomplete',{'symbol_rows':[{'nativeSubjectId':'symbol:x','projectionAvailable':False}],'symbol_state':'partial'},['projection-unavailable']),
++  ('correspondence-population-incomplete-precedes-signature-ambiguous',{'symbol_rows':[{'nativeSubjectId':'symbol:x1'},{'nativeSubjectId':'symbol:x2'}],'symbol_state':'partial'},['population-incomplete','population-incomplete']),
++ ]:
++  graph=positive(**options);actual=R.replay(*graph);run,objects,blobs=graph;proof=objects[objects[run['evaluationSealId']][1]['proofBundleId']][1]
++  findings=[objects[fid][1] for fid in proof['findingIds']]
++  reasons=sorted((f['subjectId'],f['correspondence']['reason']) for f in findings if f['fingerprint'] is None)
++  corr=sorted((d['subjectId'],d['cause']) for r in proof['ruleResults'] for d in r['deficiencies'] if d['source']=='correspondence')
++  assert [c for _,c in reasons]==want_reasons and corr==reasons,(name,reasons,corr)
++  exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'correspondenceReasons':[c for _,c in reasons]})
++ # A9 on complete replayed Runs: required evidence kind absent from the Plan applies regardless of the root value.
++ none_file={'op':'none','relation':'file','minResolution':'enumerated','filters':[]}
++ for name,options,want in [
++  ('required-import-unavailable-false-root-gating-indeterminate',{'atom_override':none_file,'evidence_use':[{'kind':'runtime','requirement':'required'}]},'indeterminate'),
++  ('required-import-unavailable-known-live-failure-dominates',{'evidence_use':[{'kind':'runtime','requirement':'required'}]},'fail'),
++  ('required-import-unavailable-advisory-pass',{'atom_override':none_file,'evidence_use':[{'kind':'runtime','requirement':'required'}],'gate':False},'pass'),
++ ]:
++  graph=positive(**options);actual=R.replay(*graph);run,objects,blobs=graph;proof=objects[objects[run['evaluationSealId']][1]['proofBundleId']][1];rr=proof['ruleResults'][0]
++  roots={p['value'] for p in proof['predicateProofs'] if p['predicateId']=='p'}
++  assert actual['verdict']==want and rr['outcome']==want and any(d['source']=='import' and d['cause']=='evidence-kind-unavailable' for d in rr['deficiencies']),(name,actual,rr['outcome'])
++  assert want!='indeterminate' or roots=={'false'},(name,roots)
++  exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'ruleOutcome':rr['outcome'],'rootValues':sorted(roots)})
+  kind_controls=load('closure_field_kind_controls3','closure_field_kind_controls.v3.py')
+  import types
+  rows.extend(kind_controls.run_controls(types.SimpleNamespace(M=M,C=C,F=F,R=R,positive=positive)))
+--- a/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
++++ b/docs/coop/design-corrections/foundation/evaluator-composition-contract.v3.md
+@@ -43,7 +43,7 @@
+ 
+ The declarative-subject-v1 parameter record is `{schemaVersion:2,messageCode,parameters:{ruleId,subjectPath,qualifiedName,subjectKind,subjectLanguage,matchingFactCount,matchingImportCount}}`. Counts are distinct union of all descendant atom known matches, including branches whose truth did not control the root; counts never include uncertain matches. EvidenceRefs are exactly the root predicate-witness digest; every descendant known and uncertain fact; every descendant witness Coverage id (consulted, and allowed to be narrower than evaluationInputRefs); every descendant matching/uncertain observation importId; and every evaluationInputRefs member with domain=import (under whole-selection this equals the Plan import set). Observation addresses themselves remain on the witness. Enumeration and execution inventory refs remain on the proof. See §9.7. Full replay recomputes every value and citation. This fixed emission profile does not claim to reconstruct arbitrary third-party detector parameter templates.
+ 
+-File/package discriminator is SHA256(C([])); their qualifiedName is admitted path/package name. Symbol uses this detectorClosure's nonempty ordered signatureTokens. Collision class is `(universe,subjectLanguage,kind,path,qualifiedName,detectorClosure)` across the independently enumerated population, not merely subjects which emitted. Identical projected signatures among distinct native IDs, empty/missing projection, anonymous unavailable name, or incomplete collision-class population cannot establish stable correspondence. Duplicate observations of the SAME subject3 are not a collision. Across distinct universes, independently equal logical descriptors may yield one stable fingerprint.
++File/package discriminator is SHA256(C([])); their qualifiedName is admitted path/package name. Symbol uses this detectorClosure's nonempty ordered signatureTokens. Collision class is `(universe,subjectLanguage,kind,path,qualifiedName,detectorClosure)` across the independently enumerated population, not merely subjects which emitted. Identical projected signatures among distinct native IDs, empty/missing projection, anonymous unavailable name, or incomplete collision-class population cannot establish stable correspondence. When several of these hold for one emitted subject, exactly one correspondence cause is published, the first applicable in this order: (1) `projection-unavailable`, the symbol has no projection for the binding `detectorClosure` or its `signatureTokens` are empty; (2) `population-incomplete`, its collision-class population is incomplete; (3) `signature-ambiguous`, the complete collision class holds another distinct subject3 with equal projected tokens. More than one projection for one detectorClosure is an admission refusal (`EVALUATOR_DUPLICATE_DETECTOR_PROJECTION`) before any cause. An anonymous subject is not a separate published cause: without a unique enclosing name or signature it has empty projected tokens or shares its projection, so one of the three causes keeps it unmatched (identity-and-evidence §3); registry member `anonymous-subject` remains closed membership and is not emitted. File and package subjects have no correspondence cause. Duplicate observations of the SAME subject3 are not a collision. Across distinct universes, independently equal logical descriptors may yield one stable fingerprint.
+ 
+ Stable fingerprint descriptor remains finding-key2 with ruleStableId, detectorSemanticsMajor, subjectKey and empty relatedSubjectKeys for this unary declarative emission profile. Its key excludes universe. Related subjects are not invented from arbitrary predicate matches. Clone grouping/candidate producers retain their separate relation/projection contracts; no semantic similarity claim is introduced here.
+ 
+@@ -53,7 +53,7 @@
+ 
+ Consume ONLY the effective WaiverSet bytes committed by Plan. Trust-clock expiry and duplicate target rejection were already resolved at Plan construction; replay does not read today's clock. An occurrence is waived iff any effective target equals its nonnull fingerprint or equals its exact `(ruleId,subjectPath)`. Preserve waived findings, list exact waivedFindingIds in proof, never remove their evidence. A waiver does not cure unknown subject population, unknown predicate truth, correspondence uncertainty needed by a comparison, or required execution failure.
+ 
+-A rule gates iff enabled AND gate=true AND severity >= policy.gateSeverityAtLeast, with note<warning<error. A live unwaived finding for a gating rule makes its outcome fail. Otherwise a gating rule is indeterminate if its population is incomplete/unresolved or its root truth is indeterminate with at least one blocking native or required imported cause. Optional-only root unknown remains disclosed with rule outcome pass. An advisory rule's outcome is pass even if it retains findings/deficiencies. Required import obligations are assessed according to declared evidenceUse independently of a boolean branch suppressing their use; no undeclared import acquires authority. Disabled remains disabled.
++A rule gates iff enabled AND gate=true AND severity >= policy.gateSeverityAtLeast, with note<warning<error. A live unwaived finding for a gating rule makes its outcome fail. Otherwise a gating rule is indeterminate if its population is incomplete/unresolved, if it carries a required-import deficiency (§9.5 `evidence-kind-unavailable`: a `required` declared `evidenceUse` kind absent from the Plan-selected imports) whatever its root value, or if its root truth is indeterminate with at least one blocking native or required imported cause. Optional-only root unknown remains disclosed with rule outcome pass. An advisory rule's outcome is pass even if it retains findings/deficiencies. Required import obligations are assessed according to declared evidenceUse independently of a boolean branch suppressing their use; no undeclared import acquires authority. Disabled remains disabled.
+ 
+ Required execution cells contribute independent executionDeficiencies even with all rules disabled or empty populations. Operational provider protocol violations remain invocation failure under the existing operational dominance law; they are not converted to semantic unknown. Among admitted semantic results, any gating rule fail wins; otherwise any gating rule indeterminate or required execution deficiency produces indeterminate; otherwise pass. Sealed verdict has only pass|fail|indeterminate. Surface advisory is a derived display for pass with live advisory findings. Each ruleResult includes all its emitted finding IDs and complete deficiencies, not just failing findings.
+ 
+@@ -167,7 +167,7 @@
+ |---|---|---|---|---|---|---|---|
+ | `requirement=required` and that `kind` is not among Plan-selected import wrapper kinds | `import` | `evidence-kind-unavailable` | null / null | `[]` | the declared `evidenceUse.kind` | null | null |
+ 
+-No import pointer is required. Optional `evidenceUse` entries emit nothing here.
++No import pointer is required. Optional `evidenceUse` entries emit nothing here. The deficiency makes an enabled gating rule `indeterminate` independently of its root value unless a live unwaived finding makes it `fail` (§5); an advisory rule stays `pass`.
+ 
+ **Atom-mapped (per atomic node, copied onto that node's witness and into the rule's `deficiencies`):**
+ 
+@@ -187,7 +187,7 @@
+ | collision-class population incomplete | `correspondence` | `population-incomplete` | that subject3 | `p` | same inventory refs | null | null | null |
+ | two distinct native ids share the projected signature | `correspondence` | `signature-ambiguous` | that subject3 | `p` | same inventory refs | null | null | null |
+ 
+-File/package use discriminator `SHA-256(C([]))` and do not emit correspondence deficiencies. Registry member `anonymous-subject` remains closed membership; the current correspondence algorithm classifies empty symbol tokens as `projection-unavailable`.
++File/package use discriminator `SHA-256(C([]))` and do not emit correspondence deficiencies. Registry member `anonymous-subject` remains closed membership; the current correspondence algorithm classifies empty symbol tokens as `projection-unavailable`. Precedence is §4 first-applicable: each unmatched finding has exactly one correspondence deficiency, and its `correspondence.reason` (§9.7) is that deficiency `cause`; co-occurring conditions never add a second correspondence row.
+ 
+ **Work-budget on a ruleResult** (when §3 preflight exceeds budget): one additional `{source:execution, cause:work-budget-exhausted, subjectId:null, predicateId:null, inputRefs:[], evidenceKind:null, nativeCause:null, universe:null}` on that enabled rule. Disabled rules stay disabled with empty deficiencies.
+ 
+@@ -252,7 +252,7 @@
+ | `schemaVersion` | `3` |
+ | `fingerprint` | finding-key2 H if correspondence succeeded, else null |
+ | `correspondence.state` | `matched` iff fingerprint non-null, else `unmatched` |
+-| `correspondence.reason` | null if matched; else the correspondence cause of §9.5 |
++| `correspondence.reason` | null if matched; else the single first-applicable correspondence cause of §4 / §9.5 |
+ | `ruleClosure` | emission binding `detectorClosure` |
+ | `ruleId` | policy rule id |
+ | `subjectId` | subject3 |
+--- a/docs/coop/design-corrections/public-detail-registry.v1.json
++++ b/docs/coop/design-corrections/public-detail-registry.v1.json
+@@ -318,7 +318,17 @@
+       "selector": "workflows/schemas/common.schema.json#/$defs/DomainDetailCode"
+     },
+     {
++      "code": "DELIVERY.REQUIRED_PROJECTION_FAILED",
++      "owner": "workflows",
++      "selector": "workflows/schemas/common.schema.json#/$defs/DomainDetailCode"
++    },
++    {
+       "code": "DOCTOR.DEFECTS_FOUND",
++      "owner": "workflows",
++      "selector": "workflows/schemas/common.schema.json#/$defs/DomainDetailCode"
++    },
++    {
++      "code": "DOCTOR.REPORT_NOT_PRODUCIBLE",
+       "owner": "workflows",
+       "selector": "workflows/schemas/common.schema.json#/$defs/DomainDetailCode"
+     },
+@@ -631,6 +641,11 @@
+       "code": "OBSERVER.FAIL_STOP",
+       "owner": "security",
+       "selector": "security model D9 mapping"
++    },
++    {
++      "code": "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
++      "owner": "workflows",
++      "selector": "workflows/schemas/common.schema.json#/$defs/DomainDetailCode"
+     },
+     {
+       "code": "OUTPUT.FORMAT_NOT_APPLICABLE",
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -433,6 +433,47 @@
+     }, [f1], project_id=prj, run_id=rid), "REQUEST.PRECONDITION_FAILED", "QUERY.RELATION_UNSUPPORTED", envelope=False)
+ 
+ 
++def surface_carrier_controls(response, project):
++    """Retained-Run owner graph response through the public CommandEnvelope major 3 carrier and every renderer."""
++    QS = load("query_surface_projection3_checker", HERE / "query_surface_projection.v3.py")
++    inv = json.loads((HERE / "command-inventory.v3.json").read_text())
++    command = next(c for c in inv["commands"] if c["name"] == "query")
++    term = copy.deepcopy(response.get("termination") or {"class": "success"})
++    env = {
++        "schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "query", "requestId": host_obs()["requestId"],
++        "projectId": project, "termination": term, "exitCode": QS.Wlegacy.EXIT[term["class"]],
++        "query": QS.graph_query_result_summary(response), "querySurface": "graph-query-response", "queryResponse": copy.deepcopy(response),
++    }
++    must_valid("m5-retained-run-graph-response-in-public-envelope", U + "command-envelope:3", env)
++    try:
++        proj = QS.project_query_surface(response, term, envelope=env, command=command)
++        rnd = QS.render_query_formats(proj["parity"], env, command, hints=["hint"])
++        bodies = {r["format"]: r["body"] for r in rnd["renderings"]}
++        check("m5-retained-run-all-advertised-renderers-hold-parity", rnd["ok"] and rnd["parityHolds"] and sorted(bodies) == ["agent", "human", "json"], rnd.get("ok"))
++        check("m5-retained-run-json-rendering-is-the-schema-valid-envelope", bodies["json"] == env and valid(U + "command-envelope:3", bodies["agent"])[0] and "agentHints" not in bodies["json"])
++        check("m5-retained-run-query-response-is-the-owner-response", proj["parity"]["query-response"] == response and proj["parity"]["total-items"] == response["context"]["totalItems"])
++        partial = {k: v for k, v in proj["parity"].items() if k != "query-response"}
++        failed = QS.render_query_formats(partial, env, command)
++        dt = failed["deliveryTermination"] or {}
++        check(
++            "m5-a13-retained-run-missing-query-response-is-precommit-delivery-fault",
++            failed["ok"] is False and "runId" not in dt and dt.get("domainDetail", {}).get("code") == "DELIVERY.REQUIRED_PROJECTION_FAILED" and valid(U + "common:3#/$defs/StepTermination", dt)[0],
++            dt,
++        )
++    except Exception as exc:
++        check("m5-retained-run-all-advertised-renderers-hold-parity", False, type(exc).__name__ + ": " + str(exc)[:200])
++    missing = copy.deepcopy(env)
++    del missing["queryResponse"]
++    must_invalid("m5-retained-run-graph-envelope-cannot-omit-query-response", U + "command-envelope:3", missing)
++    other_project = copy.deepcopy(env)
++    other_project["projectId"] = project_id("elsewhere")
++    try:
++        QS.project_query_surface(response, term, envelope=other_project, command=command)
++        check("m5-retained-run-envelope-project-join", False, "admitted")
++    except QS.QuerySurfaceProjectionError as exc:
++        check("m5-retained-run-envelope-project-join", exc.code == "QUERY_SURFACE_PROJECT_JOIN", exc.code)
++
++
+ def owner_controls():
+     foundation = HERE.parent / "foundation"
+     S = load("query_semantic_fixture3", foundation / "evaluator_semantic_fixture.v3.py")
+@@ -472,6 +513,11 @@
+ 
+     cites = neigh["context"]["evidence"]["deficiencyCitations"]
+     check("owner-deficiency-keeps-inputRefs", bool(cites) and all("inputRefs" in c and c["source"] in Q.DEFICIENCY_SOURCES for c in cites), cites[:2])
++    surface_carrier_controls(neigh, project)
++    refuse("a8-request-project-differs-from-admitted-run", lambda: ex(request("graph.neighbors", project_id("elsewhere"), {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing", "endpoint": foo_ep,
++    })), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    check("a8-query-contract-publishes-project-mismatch-route", "| request `projectId` differs from the admitted Run's project | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |" in (HERE / "query-projection-contract.v3.md").read_text())
+ 
+     in_req = request("graph.neighbors", project, {"runId": run_key}, {
+         "relation": "references", "minResolution": "resolved-binding", "direction": "incoming", "endpoint": foo_ep,
+--- a/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -234,13 +234,14 @@
+     return {"importKinds": [], "relations": [], "imports": []}
+ 
+ 
+-def rule_cov(gating=True, required="satisfied", rule_id="r"):
++def rule_cov(gating=True, required="satisfied", rule_id="r", knowledge="complete-hit-set"):
+     return {
+         "ruleId": rule_id,
+         "requiredCoverage": required,
+         "enabled": True,
+         "gating": gating,
+         "evidenceUse": [],
++        "absenceKnowledge": knowledge,
+     }
+ 
+ 
+@@ -366,6 +367,7 @@
+     pivots=None,
+     bound=None,
+     bindings=None,
++    knowledge=True,
+ ):
+     pol = policy if policy is not None else POLICY
+     occs = occurrences
+@@ -385,6 +387,9 @@
+         "requiredCoverage": required if required is not None else {r["ruleId"]: "satisfied" for r in pol["rules"]},
+         "boundPivots": [] if bound is None else bound,
+         "pivotPresence": pivots if pivots is not None else pivot_true(fps),
++        # Synthetic admitted proof projection: complete roots for the (empty) selected subjects and a covering
++        # extent. knowledge=False models a projection without admitted root proofs (no absence knowledge).
++        **({"predicateProofs": [], "absenceExtent": {"examinedPaths": [], "scopeDocument": SCOPE, "foundationScope": {"pathPrefixes": ["."], "excludedPathPrefixes": []}, "extractionComplete": True}} if knowledge else {}),
+     }
+ 
+ 
+@@ -1473,7 +1478,16 @@
+     }
+ ]
+ art_extra["baselineId"] = P.wid("baseline2", "workflow.baseline", art_extra["descriptor"])
+-P.verify_baseline_artifact_v3(art_extra)
++try:
++    P.verify_baseline_artifact_v3(art_extra)
++    check("m4-extra-noncontributing-detector-refused-at-baseline-admission", False, "admitted")
++except P.Refusal as _extra_exc:
++    check(
++        "m4-extra-noncontributing-detector-refused-at-baseline-admission",
++        _extra_exc.error_code == "CONFIG.INVALID" and _extra_exc.detail == "EVALUATION.FINDING_JOIN_REFUSED"
++        and "embedded policy rule contributions" in str(_extra_exc.remedy),
++        repr((_extra_exc.error_code, _extra_exc.detail, _extra_exc.remedy)),
++    )
+ reject(
+     "bound-e0-extra-detector-on-baseline-refused",
+     lambda: P.compare_admitted_v3(
+@@ -3179,6 +3193,326 @@
+         "sidecar/candidate parent locators are stripped; incoming-search expectedInventoryRefs expand to stripped inventory bodies",
+     ],
+ }
++
++# ----------------------------------------------------------------------------- consumer24 corrections (root-selected M4/S7/S5/S6/A13/A11/A12/A8/A14)
++def _remint_baseline(artifact, mutate):
++    out = copy.deepcopy(artifact)
++    mutate(out["descriptor"])
++    out["baselineId"] = P.wid("baseline2", "workflow.baseline", out["descriptor"])
++    return out
++
++
++def _m4_rename(desc):
++    for row in desc["detectorClosure"]:
++        row["detectorId"] = "renamed-detector"
++    for e in desc["entries"]:
++        e["detectorId"] = "renamed-detector"
++
++
++def _m4_entry_outside(desc):
++    for e in desc["entries"]:
++        e["detectorId"] = "not-in-closure"
++
++
++def _m4_duplicate_row(desc):
++    row = copy.deepcopy(desc["detectorClosure"][0])
++    row["semanticsMajor"] += 1
++    desc["detectorClosure"].append(row)
++
++
++def _m4_major(desc):
++    for row in desc["detectorClosure"]:
++        row["semanticsMajor"] += 1
++
++
++_m4_art = P.adopt_admitted_baseline_v3(*scope_graph, CUSTODY)
++_m4_desc = _m4_art["descriptor"]
++check(
++    "m4-admitted-detector-rows-are-emission-contributions",
++    all(r["detectorId"] == r["contributionId"] for r in _m4_desc["detectorClosure"])
++    and {e["detectorId"] for e in _m4_desc["entries"]} <= {r["detectorId"] for r in _m4_desc["detectorClosure"]}
++    and {r["detectorId"] for r in _m4_desc["detectorClosure"]} == {row["contributionId"] for row in scope_view["emission"]["rules"]},
++)
++check("m4-admitted-baseline-admits", P.verify_baseline_artifact_v3(_m4_art) is True)
++_m4_renamed = _remint_baseline(_m4_art, _m4_rename)
++must_valid("m4-reminted-rename-is-schema-valid-so-schema-alone-cannot-decide", U + "baseline:2", _m4_renamed)
++check("m4-reminted-rename-has-self-consistent-new-baselineId", _m4_renamed["baselineId"] != _m4_art["baselineId"])
++reject("m4-reminted-rename-refused-at-baseline-admission", lambda: P.verify_baseline_artifact_v3(_m4_renamed), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++_m4_stale = copy.deepcopy(_m4_art)
++_m4_rename(_m4_stale["descriptor"])
++reject("m4-stale-hash-rename-is-artifact-corruption", lambda: P.verify_baseline_artifact_v3(_m4_stale), "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
++reject("m4-reminted-entry-detector-outside-closure-refused", lambda: P.verify_baseline_artifact_v3(_remint_baseline(_m4_art, _m4_entry_outside)), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++_m4_dup = _remint_baseline(_m4_art, _m4_duplicate_row)
++must_valid("m4-reminted-conflicting-contribution-row-is-schema-valid", U + "baseline:2", _m4_dup)
++reject("m4-reminted-conflicting-contribution-row-refused", lambda: P.verify_baseline_artifact_v3(_m4_dup), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++reject("m4-reminted-detector-major-disagreeing-with-rule-refused", lambda: P.verify_baseline_artifact_v3(_remint_baseline(_m4_art, _m4_major)), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++
++# S7: presence knowledge over full owner-admitted comparisons (retained graphs replayed through close_run).
++_S7_X1 = {"nativeSubjectId": "symbol:x1"}
++_S7_X2 = {"nativeSubjectId": "symbol:x2", "signatureTokens": ["function", "x", "(", "number", ")"]}
++
++
++def _s7_host(art, graph):
++    h = host_from_graph({"runId": art["descriptor"]["runId"]}, graph[1])
++    h["pivotRunId"] = art["descriptor"]["runId"]
++    return h
++
++
++def _s7_compare(art, graph, host_):
++    return P.compare_admitted_v3(baseline_artifact=art, current_run=graph[0], current_objects=graph[1], current_blobs=graph[2], host=host_, profile_name="code-regression")
++
++
++def _s7_entry(res, fp):
++    return next(e for e in res["descriptor"]["entries"] if e["fingerprint"] == fp)
++
++
++for _gate in (True, False):
++    _tag = "gating" if _gate else "nongating"
++    _b = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, gate=_gate)
++    _art = P.adopt_admitted_baseline_v3(*_b, CUSTODY)
++    _h = _s7_host(_art, _b)
++    _fps = [e["fingerprint"] for e in _art["descriptor"]["entries"]]
++    check("s7-%s-baseline-records-complete-absence-knowledge" % _tag, len(_fps) == 2 and all(r["absenceKnowledge"] == "complete-hit-set" for r in _art["descriptor"]["ruleCoverage"] if r["enabled"]))
++    _complete = RC.positive(symbol_rows=[_S7_X2], scope_document=SCOPE_ALL, gate=_gate)
++    _kept = {o["finding"]["fingerprint"] for o in P.project_admitted_run_v3(*_complete)["occurrences"]}
++    _removed = [fp for fp in _fps if fp not in _kept]
++    _res = _s7_compare(_art, _complete, _h)
++    must_valid("s7-%s-complete-removal-comparison-schema" % _tag, U + "comparison:2", cmp_obj(_res))
++    check(
++        "s7-%s-complete-enumeration-row-removal-is-lawful-code-fixed" % _tag,
++        len(_removed) == 1 and _s7_entry(_res, _removed[0])["classification"] == "CODE-FIXED" and _s7_entry(_res, _removed[0])["presence"]["E4"] is False,
++        [(_s7_entry(_res, fp)["classification"], _s7_entry(_res, fp)["presence"]["E4"]) for fp in _fps],
++    )
++    for _name, _opts in (("partial-inventory", dict(symbol_rows=[_S7_X2], symbol_state="partial")), ("budget-exhausted", dict(symbol_rows=[_S7_X1, _S7_X2], budget_limit=1))):
++        _cur = RC.positive(scope_document=SCOPE_ALL, gate=_gate, **_opts)
++        _curv = P.project_admitted_run_v3(*_cur)
++        _rid = _curv["policy"]["rules"][0]["ruleId"]
++        _res = _s7_compare(_art, _cur, _h)
++        must_valid("s7-%s-%s-comparison-schema" % (_tag, _name), U + "comparison:2", cmp_obj(_res))
++        _ents = [_s7_entry(_res, fp) for fp in _fps]
++        check(
++            "s7-%s-%s-unknown-current-absence-is-indeterminate-not-code-fixed" % (_tag, _name),
++            all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "current-absence-unknown" and e["presence"]["E4"] is None and e["gates"] is False for e in _ents),
++            [(e["classification"], e.get("indeterminateReason"), e["presence"]["E4"]) for e in _ents],
++        )
++        check(
++            "s7-%s-%s-current-law-equals-pivot-law" % (_tag, _name),
++            P.axis_presence_knowledge(_curv)["prove_absence"][_rid] is False
++            and P.fingerprint_absence_known(_curv, P.presence_absence_extent(_curv), _rid, None) is False,
++        )
++        if _gate:
++            check(
++                "s7-gating-%s-verdict-indeterminate-with-independent-deficiencies" % _name,
++                _res["descriptor"]["verdict"] == "indeterminate" and bool(_res["descriptor"]["ruleDeficiencies"] or _res["descriptor"]["currentExecutionDeficiencies"]),
++                _res["descriptor"]["verdict"],
++            )
++        else:
++            check("s7-nongating-%s-never-fails" % _name, _res["descriptor"]["verdict"] in ("pass", "indeterminate"), _res["descriptor"]["verdict"])
++    try:
++        _ub = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, gate=_gate, budget_limit=1)
++        _uart = P.adopt_admitted_baseline_v3(*_ub, CUSTODY)
++        check("s7-%s-budget-exhausted-baseline-records-unknown-absence" % _tag, _uart["descriptor"]["entries"] == [] and all(r["absenceKnowledge"] == "unknown" for r in _uart["descriptor"]["ruleCoverage"]))
++        _ures = _s7_compare(_uart, _b, _s7_host(_uart, _ub))
++        must_valid("s7-%s-unknown-baseline-comparison-schema" % _tag, U + "comparison:2", cmp_obj(_ures))
++        check(
++            "s7-%s-hit-over-unknown-baseline-is-not-code-net-new" % _tag,
++            bool(_ures["descriptor"]["entries"])
++            and all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "baseline-absence-unknown" and e["presence"]["B"] is None for e in _ures["descriptor"]["entries"])
++            and _ures["descriptor"]["verdict"] != "fail",
++            [(e["classification"], e.get("indeterminateReason")) for e in _ures["descriptor"]["entries"]],
++        )
++    except Exception as _exc:
++        check("s7-%s-unknown-baseline-control-executed" % _tag, False, type(_exc).__name__ + ": " + str(_exc)[:200])
++
++_kf_new = occurrence("s7-known-new", path="src/new.ts")
++_kf_old = occurrence("s7-known-old", path="src/old.ts")
++_kf_art = adopt(P.project_baseline_entries([_kf_old], {"r": BINDING}, []))
++
++
++def _kf_compare(cur):
++    res = P.compare_v3(baseline_artifact=_kf_art, current=cur, host=host(), profile_name="code-regression", current_detectors=detectors())
++    return res, {e["fingerprint"]: e for e in res["descriptor"]["entries"]}
++
++
++_kf_res, _kf_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", enum=incomplete_enum(), findings=[_kf_new["findingId"]])]))
++check(
++    "s7-known-code-net-new-failure-dominates-unknown-current-absence",
++    _kf_res["descriptor"]["verdict"] == "fail"
++    and _kf_e[_kf_new["finding"]["fingerprint"]]["classification"] == "CODE-NET-NEW"
++    and _kf_e[_kf_old["finding"]["fingerprint"]].get("indeterminateReason") == "current-absence-unknown",
++    [(e["classification"], e.get("indeterminateReason")) for e in _kf_e.values()],
++)
++_kc_res, _kc_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", findings=[_kf_new["findingId"]])]))
++check("s7-complete-current-root-proofs-prove-code-fixed", _kc_e[_kf_old["finding"]["fingerprint"]]["classification"] == "CODE-FIXED" and _kc_e[_kf_old["finding"]["fingerprint"]]["presence"]["E4"] is False)
++_kn_res, _kn_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", findings=[_kf_new["findingId"]])], knowledge=False))
++check("s7-current-without-admitted-root-proofs-has-no-absence-knowledge", _kn_e[_kf_old["finding"]["fingerprint"]].get("indeterminateReason") == "current-absence-unknown")
++_kn_unknown = _kn_e[_kf_old["finding"]["fingerprint"]]
++must_valid("s7-entry-with-null-e4-and-absence-reason-admitted", U + "comparison:2#/$defs/Entry", _kn_unknown)
++must_invalid("s7-indeterminate-entry-without-reason-refused", U + "comparison:2#/$defs/Entry", {k: v for k, v in _kn_unknown.items() if k != "indeterminateReason"})
++must_invalid("s7-unknown-reason-outside-closed-enum-refused", U + "comparison:2#/$defs/Entry", dict(_kn_unknown, indeterminateReason="absence-unknown"))
++
++# S7 non-selection: a side that does not select the fingerprint cannot emit it; attributed to policy/scope, never CODE-FIXED.
++_ns_base = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL)
++_ns_art = P.adopt_admitted_baseline_v3(*_ns_base, CUSTODY)
++_ns_host = _s7_host(_ns_art, _ns_base)
++_ns_disabled = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, enabled=False)
++try:
++    _ns_with_e1 = P.compare_admitted_v3(baseline_artifact=_ns_art, current_run=_ns_disabled[0], current_objects=_ns_disabled[1], current_blobs=_ns_disabled[2], host=_ns_host, profile_name="code-regression", pivot_runs={"E1": _ns_base})
++    must_valid("s7-disabled-current-with-bound-e1-comparison-schema", U + "comparison:2", cmp_obj(_ns_with_e1))
++    check(
++        "s7-disabled-current-rule-with-bound-e1-is-policy-delta-not-code-fixed",
++        bool(_ns_with_e1["descriptor"]["entries"])
++        and all(e["classification"] == "POLICY-DELTA" and e["direction"] == "vanished" and e["presence"]["E4"] is False and e["presence"]["E1"] is True for e in _ns_with_e1["descriptor"]["entries"]),
++        [(e["classification"], e.get("indeterminateReason"), e["presence"]) for e in _ns_with_e1["descriptor"]["entries"]],
++    )
++except Exception as _ns_exc:
++    check("s7-disabled-current-rule-with-bound-e1-is-policy-delta-not-code-fixed", False, type(_ns_exc).__name__ + ": " + str(_ns_exc)[:200])
++_ns_without = P.compare_admitted_v3(baseline_artifact=_ns_art, current_run=_ns_disabled[0], current_objects=_ns_disabled[1], current_blobs=_ns_disabled[2], host=_ns_host, profile_name="code-regression")
++check(
++    "s7-disabled-current-rule-without-e1-is-pivot-unavailable-not-code-fixed",
++    bool(_ns_without["descriptor"]["entries"]) and all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "pivot-reevaluation-unavailable" for e in _ns_without["descriptor"]["entries"]),
++    [(e["classification"], e.get("indeterminateReason")) for e in _ns_without["descriptor"]["entries"]],
++)
++_ns_policy = _ns_art["descriptor"]["contextDocuments"]["policy"]
++_ns_rule = _ns_art["descriptor"]["entries"][0]["ruleId"]
++check(
++    "s7-non-selection-is-structural-scope-and-policy",
++    P.selection_excludes(_ns_policy, SCOPE_DOC, _ns_rule, "README.md") is True
++    and P.selection_excludes(_ns_policy, SCOPE_ALL, _ns_rule, "README.md") is False
++    and P.selection_excludes(P.project_admitted_run_v3(*_ns_disabled)["policy"], SCOPE_ALL, _ns_rule, "README.md") is True,
++)
++
++# S5: argvDigest is raw SHA-256 of C(exact ordered argv); no shell-joined surrogate.
++_te = json.loads((HERE / "workflow-cases.v1.json").read_text())["testExecution"]
++_te_sub = {"$PRJ": PRJ, "$SNAP1": SNAP, "$GRANT": "security.repo-execution-grant.v2:" + token("grant"), "$TOOL0": DET}
++
++
++def _te_resolve(value):
++    if isinstance(value, dict):
++        return {_te_sub.get(k, k): _te_resolve(v) for k, v in value.items()}
++    if isinstance(value, list):
++        return [_te_resolve(v) for v in value]
++    return _te_sub.get(value, value) if isinstance(value, str) else value
++
++
++_te_params = _te_resolve(_te["params"])
++_te_ctx = _te_resolve(_te["ctx"])
++
++
++def _te_admit(argv, digest):
++    ctx_ = copy.deepcopy(_te_ctx)
++    ctx_["grant"]["argvDigest"] = digest
++    return P.W.admit_test_execution(dict(_te_params, argv=argv), ctx_)
++
++
++def _argv_digest(v):
++    return hashlib.sha256(canonical.canonical(v)).hexdigest()
++
++
++_te_argv = list(_te_params["argv"])
++check("s5-exact-ordered-argv-canonical-digest-admits", _te_admit(_te_argv, _argv_digest(_te_argv))["admitted"] is True)
++reject("s5-shell-joined-argv-surrogate-refused", lambda: _te_admit(_te_argv, hashlib.sha256(" ".join(_te_argv).encode()).hexdigest()), "REQUEST.PRECONDITION_FAILED", "TEST.PRINCIPAL_NOT_ADMITTED")
++reject("s5-repeated-argument-is-a-different-argv", lambda: _te_admit(_te_argv + [_te_argv[-1]], _argv_digest(_te_argv)), "REQUEST.PRECONDITION_FAILED", "TEST.PRINCIPAL_NOT_ADMITTED")
++check("s5-repeated-argument-admits-under-its-own-digest", _te_admit(_te_argv + [_te_argv[-1]], _argv_digest(_te_argv + [_te_argv[-1]]))["admitted"] is True)
++reject("s5-reordered-arguments-refused", lambda: _te_admit(list(reversed(_te_argv)), _argv_digest(_te_argv)), "REQUEST.PRECONDITION_FAILED")
++check(
++    "s5-member-boundaries-and-empty-strings-change-the-digest-where-a-join-collides",
++    _argv_digest(["run", "a b"]) != _argv_digest(["run", "a", "b"])
++    and " ".join(["run", "a b"]) == " ".join(["run", "a", "b"])
++    and _argv_digest(["run", "x", ""]) != _argv_digest(["run", "x"]),
++)
++check("s5-test-payload-uses-the-same-recipe", P.W.test_payload(_te_params, 0, b"", b"")["argvDigest"] == _argv_digest(_te_argv))
++
++# S6 / A13: failure goldens carry actual detail; required-delivery detail binds the committed-Run reference.
++_inv3 = json.loads((HERE / "command-inventory.v3.json").read_text())
++_fault_for = {v: k for k, v in P.W.FAULT_TO_ERROR.items()}
++_golden_envelopes = []
++for _g in _inv3["goldens"]:
++    if _g["class"] not in ("request-rejected", "operational-failed"):
++        continue
++    _d = {"code": _g["domainDetail"], "remedy": _g["remedy"]}
++    _t = {"class": _g["class"], "errorCode": _g["errorCode"], "domainDetail": _d}
++    if _g["class"] == "operational-failed":
++        _t["faultCause"] = _fault_for[_g["errorCode"]]
++        if _g["domainDetail"] == "DELIVERY.RENDERER_FAILED_AFTER_COMMIT":
++            _t["runId"] = RUN
++    _ok, _why = valid(U + "command-envelope:3", {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "c" * 32, "termination": _t, "exitCode": _g["exitCode"], "errors": [_d]})
++    _golden_envelopes.append((_g["id"], _ok, _why))
++check("s6-every-v3-failure-golden-forms-a-lawful-failure-envelope", len(_golden_envelopes) >= 20 and all(ok for _, ok, _ in _golden_envelopes), [x for x in _golden_envelopes if not x[1]])
++check(
++    "s6-formerly-unconstructible-goldens-carry-owner-detail",
++    {g["id"]: g.get("domainDetail") for g in _inv3["goldens"] if g["id"] in ("doctor-report-not-producible", "query-latest-empty", "envelope-major-unsupported")}
++    == {"doctor-report-not-producible": "DOCTOR.REPORT_NOT_PRODUCIBLE", "query-latest-empty": "QUERY.VIEW_UNKNOWN", "envelope-major-unsupported": "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED"},
++)
++_qle = next(g for g in _inv3["goldens"] if g["id"] == "query-latest-empty")
++check(
++    "s6-query-latest-empty-detail-is-the-query-owner-row",
++    "| empty, missing, stale, or mismatched latest/snapshot/run selector | request-rejected | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |" in (HERE / "query-projection-contract.v3.md").read_text()
++    and _qle["errorCode"] == "IDENTITY.UNKNOWN",
++)
++_qle_no_detail = {k: v for k, v in _qle.items() if k != "domainDetail"}
++must_invalid("s6-failure-golden-without-detail-refused", U + "command-inventory:3#/$defs/Golden", _qle_no_detail)
++must_valid("s6-failure-golden-with-named-composition-admitted", U + "command-inventory:3#/$defs/Golden", dict(_qle_no_detail, detailSuppliedBy="native-route-composition"))
++must_invalid("s6-named-composition-and-detail-together-refused", U + "command-inventory:3#/$defs/Golden", dict(_qle, detailSuppliedBy="native-route-composition"))
++for _label, _gid in (("doctor", "doctor-report-not-producible"), ("query-empty", "query-latest-empty"), ("envelope-major", "envelope-major-unsupported")):
++    _g = next(g for g in _inv3["goldens"] if g["id"] == _gid)
++    _t = {"class": _g["class"], "errorCode": _g["errorCode"]}
++    if _g["class"] == "operational-failed":
++        _t["faultCause"] = _fault_for[_g["errorCode"]]
++    _env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "c" * 32, "termination": _t, "exitCode": _g["exitCode"]}
++    must_invalid("s6-%s-failure-envelope-without-errors-refused" % _label, U + "command-envelope:3", _env)
++    _d = {"code": _g["domainDetail"], "remedy": _g["remedy"]}
++    must_valid("s6-%s-failure-envelope-with-golden-detail-admitted" % _label, U + "command-envelope:3", dict(_env, termination=dict(_t, domainDetail=_d), errors=[_d]))
++_new_details = {"DOCTOR.REPORT_NOT_PRODUCIBLE", "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED", "DELIVERY.REQUIRED_PROJECTION_FAILED"}
++_registry_codes = {r["code"] for r in json.loads((HERE.parent / "public-detail-registry.v1.json").read_text())["records"]}
++check(
++    "s6-a13-new-details-registered-and-in-both-common-mirrors",
++    _new_details <= _registry_codes
++    and _new_details <= set(SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
++    and _new_details <= set(SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"])
++    and _registry_codes == set(SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"]),
++)
++_post = {"class": "operational-failed", "errorCode": "DELIVERY.REQUIRED_FAILED", "faultCause": "delivery-required", "domainDetail": {"code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT", "remedy": "r"}}
++_pre = dict(_post, domainDetail={"code": "DELIVERY.REQUIRED_PROJECTION_FAILED", "remedy": "r"})
++for _label, _ref, _run in (("current", U + "common:3#/$defs/StepTermination", RUN), ("retained", "urn:opensip:product-v1:workflows:common#/$defs/StepTermination", "run2:" + token("run"))):
++    must_valid("a13-%s-postcommit-detail-with-committed-run-admitted" % _label, _ref, dict(_post, runId=_run))
++    must_invalid("a13-%s-postcommit-detail-without-run-refused" % _label, _ref, _post)
++    must_valid("a13-%s-precommit-detail-without-run-admitted" % _label, _ref, _pre)
++    must_invalid("a13-%s-precommit-detail-with-run-refused" % _label, _ref, dict(_pre, runId=_run))
++    must_invalid("a13-%s-precommit-detail-on-another-class-refused" % _label, _ref, {"class": "request-rejected", "errorCode": "REQUEST.PRECONDITION_FAILED", "domainDetail": {"code": "DELIVERY.REQUIRED_PROJECTION_FAILED", "remedy": "r"}})
++    must_valid("a13-%s-other-operational-failure-keeps-optional-run" % _label, _ref, {"class": "operational-failed", "errorCode": "DURABILITY.COMMIT_FAILED", "faultCause": "durability-commit", "runId": _run})
++    must_invalid("a13-%s-termination-exclusivity-retained" % _label, _ref, dict(_pre, reasonCodes=["VERDICT.INDETERMINATE"]))
++
++# A11: current test execution admits only the selected truth-table profile values.
++_te_enum = SCHEMAS["urn:opensip:product-v1:workflows:test-execution"]["$defs"]["EnforcementValue"]
++check("a11-selected-truth-table-profile-has-no-platform-primitive-row", "ENFORCED-PLATFORM" not in (HERE.parent.parent / "artifacts" / "permission-truth-tables.v9.json").read_text())
++must_invalid(
++    "a11-enforced-platform-effect-not-admissible-in-current-profile",
++    "urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepParams",
++    dict(_te_params, effects=dict(_te_params["effects"], network="ENFORCED-PLATFORM:seatbelt")),
++)
++check("a11-enforcement-description-states-profile-law", "cannot be claimed" in _te_enum["description"] and "admitted only when" not in _te_enum["description"])
++reject(
++    "a11-schema-member-still-must-equal-truth-table-row",
++    lambda: P.W.admit_test_execution(dict(_te_params, effects=dict(_te_params["effects"], network="ENFORCED-AT-HOST-BROKER")), copy.deepcopy(dict(_te_ctx, grant=dict(_te_ctx["grant"], argvDigest=_argv_digest(_te_argv))))),
++    "REQUEST.PRECONDITION_FAILED",
++    "TEST.CONFINEMENT_CLAIM_REFUSED",
++)
++
++# A12: the existing hidden reason covers any later axis; A8/A14 published selections.
++_a12_rule = {"enabled": True, "gating": True, "evidenceUse": []}
++_a12_entry, _a12_sig = P.W.classify(
++    hid("finding-key2", "a12"), "r",
++    {"B": False, "E0": True, "E1": False, "E2": False, "E3": False, "E4": False, "waivedB": False, "waivedC": False},
++    _a12_rule, _a12_rule, empty_evidence(), empty_evidence(), {"detectorId": "fixture", "method": "identical-closure"}, P.AUDIT_PROFILES["code-regression"],
++)
++check("a12-detector-hidden-code-net-new-gates-with-hidden-reason", _a12_entry["gates"] and _a12_entry["gateReason"] == "code-net-new-policy-hidden" and _a12_entry["subsequentDeltas"] == ["detection"] and _a12_sig == "fail")
++_chapter_ws = (HERE.parents[3] / "docs/v2/contracts/product-v1/workflows-and-surfaces.md").read_text()
++check("a12-hidden-reason-defined-over-any-later-axis", "hidden by a later detector, policy or scope change" in " ".join(_chapter_ws.split()) and "detector" in SCHEMAS[U + "comparison:2"]["$defs"]["Entry"]["properties"]["gateReason"]["description"])
++check("a8-workflows-publishes-present-listing-refusal-route", "`REQUEST.PRECONDITION_FAILED` / `EVALUATION.PROJECTION_INPUT_INCOMPLETE`" in _chapter_ws)
++reject("a8-present-listing-missing-blob-route", lambda: P.parse_detector_manifest_body({}, "f" * 64, present=True), "REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE")
++check("a14-conservative-evidence-attribution-preserved", "Evidence-change attribution is deliberately conservative" in _chapter_ws and "A future evidence-pivot recipe requires its own reviewed successor." in _chapter_ws)
++
+ 
+ def _sha256_file(path):
+     return hashlib.sha256(path.read_bytes()).hexdigest()
+--- a/docs/coop/design-corrections/workflows/command-inventory.v3.json
++++ b/docs/coop/design-corrections/workflows/command-inventory.v3.json
+@@ -1569,7 +1569,7 @@
+         "trust"
+       ],
+       "requiredFailureClass": "operational-failed",
+-      "parityRule": "the CommandEnvelope major 3 is the parity reference for every other renderer"
++      "parityRule": "the CommandEnvelope major 3 is the parity reference for every other renderer; the query command carries its complete query-response in queryResponse (querySurface=graph-query-response) and every other query-class command selects querySurface=command-owned-summary"
+     },
+     {
+       "format": "sarif",
+@@ -1845,6 +1845,7 @@
+       "class": "operational-failed",
+       "exitCode": 4,
+       "errorCode": "HOST.IO_FAILURE",
++      "domainDetail": "DOCTOR.REPORT_NOT_PRODUCIBLE",
+       "remedy": "check permissions on the private store root"
+     },
+     {
+@@ -1854,6 +1855,7 @@
+       "class": "request-rejected",
+       "exitCode": 2,
+       "errorCode": "IDENTITY.UNKNOWN",
++      "domainDetail": "QUERY.VIEW_UNKNOWN",
+       "remedy": "run an analysis first"
+     },
+     {
+@@ -1908,6 +1910,7 @@
+       "class": "request-rejected",
+       "exitCode": 2,
+       "errorCode": "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
++      "domainDetail": "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+       "remedy": "pin schemaMajor 3"
+     },
+     {
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -153,7 +153,7 @@
+ 
+ ## 7. Faults (CommandEnvelope kind=failure)
+ 
+-`QueryRefusal.termination()` is a StepTermination. The public failure carrier is CommandEnvelope major 3, `kind=failure`, nonempty `errors` of registered DomainDetail, and **no** `run` field. A query does not mint a Run. Reading an old Run does not commit a new Run. `runId` appears on termination only for indeterminate completeness of an already admitted Run.
++`QueryRefusal.termination()` is a StepTermination. The public failure carrier is CommandEnvelope major 3, `kind=failure`, nonempty `errors` of registered DomainDetail, and **no** `run` field. The public success carrier is CommandEnvelope major 3 `kind=query` with `querySurface=graph-query-response` and the complete response in `queryResponse` (workflows-and-surfaces §8). Refusal messages are diagnostic; the table below selects every public route. A query does not mint a Run. Reading an old Run does not commit a new Run. `runId` appears on termination only for indeterminate completeness of an already admitted Run.
+ 
+ Failure `requestId` is an already reserved host observation (`host.requestId`, `req1_` + 32 hex). It is never hashed from request bytes and this reference model does not implement CSPRNG. Missing or malformed host RequestId is a **reference-call precondition** (`ReferenceCallPrecondition`), distinct from public request refusal. Optional envelope `projectId` is included only when the request projectId is schema-admitted; malformed projectId is omitted.
+ 
+@@ -176,6 +176,7 @@
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+ | malformed or incomplete graph params / extra properties / LogicalPath endpoint / `package` endpoint without a non-empty `packageManifestPath` | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
++| request `projectId` differs from the admitted Run's project | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
+ | unsupported relation or non-projectable request rung | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.RELATION_UNSUPPORTED` |
+ | well-formed complete endpoint tuple resolving to more than one admitted vertex | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
+ | well-formed endpoint outside the vertex domain | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_UNKNOWN` |
+--- a/docs/coop/design-corrections/workflows/query_surface_projection.v3.py
++++ b/docs/coop/design-corrections/workflows/query_surface_projection.v3.py
+@@ -1,8 +1,9 @@
+ """Query renderer-parity projection. Design/reference only.
+ 
+-Pure helper: no semantic authority, no Run admission, no graph walk, no envelope
+-schema change. Callers must supply an already owner-admitted GraphQueryResponseV1
+-and the enclosing actual StepTermination / CommandEnvelope.
++Pure helper: no semantic authority, no Run admission, no graph walk. The public
++carrier is CommandEnvelope major 3 kind=query with querySurface=graph-query-response
++and the complete owner-admitted GraphQueryResponseV1 in queryResponse. Callers supply
++that response and the enclosing actual StepTermination / CommandEnvelope.
+ 
+ query-response is the complete owned response. Leftover scalars are projections
+ of that record. Graph QueryResult summary is derived for graph.* only; other 17
+@@ -40,6 +41,8 @@
+ TERMINATION_REF = "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
+ ENVELOPE_REF = "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3"
+ QUERY_RESULT_REF = "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/QueryResult"
++QUERY_SURFACE_GRAPH = "graph-query-response"
++QUERY_SURFACE_OTHER = "command-owned-summary"
+ CONTEXT_SCALARS = ("resolvedView", "availability", "truncated", "totalItems")
+ LEFTOVER_FROM_CONTEXT = {
+     "resolved-view": "resolvedView",
+@@ -74,17 +77,27 @@
+     return canonical.equal_typed(a, b)
+ 
+ 
+-def delivery_required_termination(enclosing=None):
+-    """Existing required-delivery law. Copy runId only when the enclosing termination already has one.
+-    A historical query read does not mint a committed Run.
++def delivery_required_termination(enclosing=None, *, committed=None):
++    """Existing required-delivery law with its registered detail.
++
++    committed=None infers a committed Run from the enclosing termination's runId (analysis commands). Query
++    renderings pass committed=False: a historical query read never commits a Run. After commit the runId is
++    retained with DELIVERY.RENDERER_FAILED_AFTER_COMMIT; otherwise no runId is invented and the detail is
++    DELIVERY.REQUIRED_PROJECTION_FAILED.
+     """
+     t = {
+         "class": "operational-failed",
+         "errorCode": "DELIVERY.REQUIRED_FAILED",
+         "faultCause": "delivery-required",
+     }
+-    if isinstance(enclosing, dict) and "runId" in enclosing:
+-        t["runId"] = enclosing["runId"]
++    run_id = enclosing.get("runId") if isinstance(enclosing, dict) else None
++    if committed is None:
++        committed = run_id is not None
++    if committed and run_id is not None:
++        t["runId"] = run_id
++        t["domainDetail"] = {"code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT", "remedy": "the Run is committed; rerun the renderer with this runId"}
++    else:
++        t["domainDetail"] = {"code": "DELIVERY.REQUIRED_PROJECTION_FAILED", "remedy": "no Run was committed; retry when the required projection can be delivered"}
+     return t
+ 
+ 
+@@ -166,6 +179,10 @@
+                 "QUERY_SURFACE_EXIT_JOIN",
+                 str(envelope.get("exitCode")) + "!=" + str(expected_exit),
+             )
++        if envelope.get("querySurface") != QUERY_SURFACE_GRAPH:
++            raise QuerySurfaceProjectionError("QUERY_SURFACE_ENVELOPE_SELECTOR", str(envelope.get("querySurface")))
++        if not _equal(envelope.get("queryResponse"), response):
++            raise QuerySurfaceProjectionError("QUERY_SURFACE_ENVELOPE_RESPONSE_MISMATCH")
+     parity = {
+         "resolved-view": copy.deepcopy(ctx["resolvedView"]),
+         "availability": ctx["availability"],
+@@ -197,27 +214,59 @@
+     return out
+ 
+ 
++def _parity_from_rendering(rendering, command):
++    """Recover parity from one rendering alone (no caller memory)."""
++    body = rendering["body"]
++    if rendering["format"] in ("json", "agent"):
++        if rendering["format"] == "json" and "agentHints" in body:
++            raise QuerySurfaceProjectionError("QUERY_SURFACE_JSON_CARRIES_AGENT_HINTS")
++        _admit(ENVELOPE_REF, body, "QUERY_SURFACE_ENVELOPE_NOT_ADMITTED")
++        return project_query_surface(body["queryResponse"], body["termination"], envelope=body, command=command)["parity"]
++    out = {}
++    for line in body.splitlines():
++        label, _, value = line.partition(": ")
++        out[label] = canonical.parse(value.encode())
++    return out
++
++
+ def render_query_formats(parity, envelope, command, hints=None):
+-    """Inherited strict render across advertised query formats."""
+-    env = {"parity": parity, "envelope": envelope}
+-    if hints is not None:
+-        env["hints"] = hints
+-    try:
+-        renderings = [Wlegacy.render(env, fmt, command) for fmt in ADVERTISED_QUERY_FORMATS]
+-    except KeyError:
+-        return {
+-            "ok": False,
+-            "deliveryTermination": delivery_required_termination(envelope.get("termination") if isinstance(envelope, dict) else None),
+-            "renderings": [],
+-        }
+-    except Wlegacy.Refusal as exc:
+-        raise QuerySurfaceProjectionError("QUERY_SURFACE_RENDER_REFUSED", exc.error_code) from exc
+-    return {
+-        "ok": True,
+-        "deliveryTermination": None,
+-        "renderings": renderings,
+-        "parityHolds": Wlegacy.parity_holds(renderings),
+-    }
++    """Render every advertised query format from the public CommandEnvelope major 3 carrier.
++
++    json is the envelope itself; agent is the same envelope plus agentHints; human prints every parity field
++    by its fixed label with the canonical JSON value. Parity is recovered from each rendering alone and must
++    equal the owner projection. A carrier or parity field that cannot be delivered is the required-delivery
++    fault; a query never commits a Run, so no runId is invented.
++    """
++    def failed():
++        return {"ok": False, "deliveryTermination": delivery_required_termination(committed=False), "renderings": []}
++
++    for fmt in ADVERTISED_QUERY_FORMATS:
++        if fmt not in command["formats"]:
++            raise QuerySurfaceProjectionError("QUERY_SURFACE_RENDER_REFUSED", "OUTPUT.FORMAT_NOT_APPLICABLE")
++    if not isinstance(envelope, dict) or not isinstance(parity, dict) or any(k not in parity for k in command["parityFields"]):
++        return failed()
++    try:
++        _admit(ENVELOPE_REF, envelope, "QUERY_SURFACE_ENVELOPE_NOT_ADMITTED")
++        owner = project_query_surface(envelope["queryResponse"], envelope["termination"], envelope=envelope, command=command)["parity"]
++    except (QuerySurfaceProjectionError, KeyError):
++        return failed()
++    fields = list(command["parityFields"])
++    if not _equal({k: parity[k] for k in fields}, {k: owner[k] for k in fields}):
++        raise QuerySurfaceProjectionError("QUERY_SURFACE_PARITY_NOT_OWNER_PROJECTION")
++    renderings = []
++    for fmt in ADVERTISED_QUERY_FORMATS:
++        if fmt == "json":
++            body = copy.deepcopy(envelope)
++            body.pop("agentHints", None)
++        elif fmt == "agent":
++            body = copy.deepcopy(envelope)
++            body["agentHints"] = list(hints or [])
++        else:
++            body = "".join(k + ": " + canonical.canonical(parity[k]).decode() + "\n" for k in fields)
++        renderings.append({"format": fmt, "body": body})
++    recovered = [_parity_from_rendering(r, command) for r in renderings]
++    holds = all(_equal({k: p.get(k) for k in fields}, {k: owner[k] for k in fields}) for p in recovered)
++    return {"ok": True, "deliveryTermination": None, "renderings": renderings, "parityHolds": holds}
+ 
+ 
+ def run_projection_controls(inventory):
+@@ -310,7 +359,7 @@
+         "faultCause": "delivery-required",
+     }
+ 
+-    def envelope_for(summary, term, extra_query=None):
++    def envelope_for(summary, term, response, extra_query=None):
+         q = extra_query if extra_query is not None else summary
+         env = {
+             "schemaFamily": "opensip.product.envelope",
+@@ -321,6 +370,8 @@
+             "termination": copy.deepcopy(term),
+             "exitCode": Wlegacy.EXIT[term["class"]],
+             "query": copy.deepcopy(q),
++            "querySurface": QUERY_SURFACE_GRAPH,
++            "queryResponse": copy.deepcopy(response),
+         }
+         return env
+ 
+@@ -352,7 +403,7 @@
+     ctx_page = graph_ctx(totalItems=5, producedItems=5, countBasis="exact", traversalCoverage="truncated-page", truncated=False)
+     resp_page = graph_response([neighbor, neighbor2], ctx_page)
+     summary_page = graph_query_result_summary(resp_page)
+-    env_page = envelope_for(summary_page, success_term)
++    env_page = envelope_for(summary_page, success_term, resp_page)
+     try:
+         proj = project_query_surface(resp_page, success_term, envelope=env_page, command=prospective)
+         rnd = render_query_formats(proj["parity"], env_page, prospective)
+@@ -392,7 +443,7 @@
+     resp_lb = graph_response([neighbor, neighbor2], ctx_lb)
+     try:
+         summary_lb = graph_query_result_summary(resp_lb)
+-        env_lb = envelope_for(summary_lb, success_term)
++        env_lb = envelope_for(summary_lb, success_term, resp_lb)
+         proj_lb = project_query_surface(resp_lb, success_term, envelope=env_lb, command=prospective)
+         rnd_lb = render_query_formats(proj_lb["parity"], env_lb, prospective)
+         record(
+@@ -426,7 +477,7 @@
+     resp_empty = graph_response([], ctx_empty)
+     try:
+         summary_empty = graph_query_result_summary(resp_empty)
+-        env_empty = envelope_for(summary_empty, success_term)
++        env_empty = envelope_for(summary_empty, success_term, resp_empty)
+         proj_empty = project_query_surface(resp_empty, success_term, envelope=env_empty, command=prospective)
+         rnd_empty = render_query_formats(proj_empty["parity"], env_empty, prospective)
+         native_inferred = (
+@@ -450,7 +501,7 @@
+ 
+     # --- other17: coverage preserved inside query-response, not as standalone parity key ---
+     resp17 = other17_response()
+-    env17 = envelope_for(other17_summary, success_term)
++    env17 = envelope_for(other17_summary, success_term, resp17)
+     try:
+         proj17 = project_query_surface(resp17, success_term, envelope=env17, command=prospective)
+         rnd17 = render_query_formats(proj17["parity"], env17, prospective)
+@@ -568,7 +619,7 @@
+         mutated = copy.deepcopy(resp_page)
+         mutated["context"]["totalItems"] = 99
+         # truncated-page + truncated false still; schema admits 99
+-        env_mut = envelope_for(graph_query_result_summary(mutated), success_term)
++        env_mut = envelope_for(graph_query_result_summary(mutated), success_term, mutated)
+         proj_mut = project_query_surface(mutated, success_term, envelope=env_mut, command=prospective)
+         record(
+             "derived-scalars-follow-context-not-caller-memory",
+@@ -585,6 +636,7 @@
+         # summary still from a success-shaped graph page would fail query join; use matching summary after admit
+         {"kind": "query", "items": 2, "truncated": False, "completenessMet": True, "advisory": False, "nextCursor": cursor},
+         other_failed_term,
++        resp_term,
+     )
+     try:
+         project_query_surface(resp_term, other_failed_term, envelope=env_conflict, command=prospective)
+@@ -602,7 +654,7 @@
+     # agreeing full termination on both sides
+     try:
+         resp_agree = graph_response([neighbor, neighbor2], ctx_page, termination=success_term)
+-        env_agree = envelope_for(graph_query_result_summary(resp_agree), success_term)
++        env_agree = envelope_for(graph_query_result_summary(resp_agree), success_term, resp_agree)
+         proj_agree = project_query_surface(resp_agree, success_term, envelope=env_agree, command=prospective)
+         record(
+             "response-envelope-termination-full-agree",
+@@ -640,6 +692,81 @@
+     except Exception as exc:
+         record("query-response-is-complete-owned-object", False, error=str(exc))
+ 
++    # --- public carrier: CommandEnvelope major 3 queryResponse selected by querySurface ---
++    def schema_ok(ref, value):
++        try:
++            Wprof.validate_profile(ref, value)
++            return True
++        except Exception:
++            return False
++
++    record("envelope-carries-complete-query-response", schema_ok(ENVELOPE_REF, env_page) and _equal(env_page["queryResponse"], resp_page))
++    no_response = copy.deepcopy(env_page)
++    del no_response["queryResponse"]
++    record("graph-selector-without-query-response-refused-by-schema", not schema_ok(ENVELOPE_REF, no_response))
++    no_selector = copy.deepcopy(env_page)
++    del no_selector["querySurface"]
++    record("query-kind-without-selector-refused-by-schema", not schema_ok(ENVELOPE_REF, no_selector))
++    other_with_response = copy.deepcopy(env_page)
++    other_with_response["querySurface"] = QUERY_SURFACE_OTHER
++    record("command-owned-summary-with-query-response-refused-by-schema", not schema_ok(ENVELOPE_REF, other_with_response))
++    other_summary = copy.deepcopy(other_with_response)
++    del other_summary["queryResponse"]
++    record("command-owned-summary-without-query-response-admitted", schema_ok(ENVELOPE_REF, other_summary))
++    try:
++        project_query_surface(resp_page, success_term, envelope=other_summary, command=live)
++        record("query-command-cannot-select-command-owned-summary", False)
++    except QuerySurfaceProjectionError as exc:
++        record("query-command-cannot-select-command-owned-summary", exc.code == "QUERY_SURFACE_ENVELOPE_SELECTOR", code=exc.code)
++    failure_env = {
++        "schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": request_id,
++        "termination": {"class": "request-rejected", "errorCode": "IDENTITY.UNKNOWN", "domainDetail": {"code": "QUERY.VIEW_UNKNOWN", "remedy": "run an analysis first"}},
++        "exitCode": 2, "errors": [{"code": "QUERY.VIEW_UNKNOWN", "remedy": "run an analysis first"}], "queryResponse": copy.deepcopy(resp_page),
++    }
++    record("non-query-kind-cannot-carry-query-response", not schema_ok(ENVELOPE_REF, failure_env))
++    del failure_env["queryResponse"]
++    record("query-latest-empty-failure-envelope-with-owner-detail-admitted", schema_ok(ENVELOPE_REF, failure_env))
++    swapped = copy.deepcopy(env_page)
++    swapped["queryResponse"] = copy.deepcopy(resp_lb)
++    try:
++        project_query_surface(resp_page, success_term, envelope=swapped, command=live)
++        record("envelope-response-must-equal-projected-response", False)
++    except QuerySurfaceProjectionError as exc:
++        record("envelope-response-must-equal-projected-response", exc.code == "QUERY_SURFACE_ENVELOPE_RESPONSE_MISMATCH", code=exc.code)
++    try:
++        page_parity = project_query_surface(resp_page, success_term, envelope=env_page, command=live)["parity"]
++        carrier = render_query_formats(page_parity, env_page, live, hints=["advisory hint"])
++        bodies = {r["format"]: r["body"] for r in carrier["renderings"]}
++        record(
++            "json-and-agent-renderings-are-public-envelopes",
++            carrier["ok"] and carrier["parityHolds"] and schema_ok(ENVELOPE_REF, bodies["json"]) and schema_ok(ENVELOPE_REF, bodies["agent"])
++            and "agentHints" not in bodies["json"] and bodies["agent"]["agentHints"] == ["advisory hint"]
++            and _equal(bodies["json"]["queryResponse"], resp_page) and isinstance(bodies["human"], str),
++        )
++        missing_carrier = render_query_formats(page_parity, no_response, live)
++        pre = missing_carrier["deliveryTermination"] or {}
++        record(
++            "missing-carrier-is-precommit-required-delivery",
++            missing_carrier["ok"] is False and "runId" not in pre
++            and pre.get("domainDetail", {}).get("code") == "DELIVERY.REQUIRED_PROJECTION_FAILED" and schema_ok(TERMINATION_REF, pre),
++            delivery=pre,
++        )
++        post = delivery_required_termination({"class": "success", "runId": run_id})
++        bad_post = {k: v for k, v in post.items() if k != "runId"}
++        record(
++            "after-commit-detail-requires-committed-run",
++            schema_ok(TERMINATION_REF, post) and post["domainDetail"]["code"] == "DELIVERY.RENDERER_FAILED_AFTER_COMMIT" and not schema_ok(TERMINATION_REF, bad_post),
++        )
++        record("precommit-detail-forbids-run", not schema_ok(TERMINATION_REF, dict(pre, runId=run_id)))
++    except Exception as exc:
++        record("json-and-agent-renderings-are-public-envelopes", False, error=str(exc))
++    surfaces = {c["name"]: (QUERY_SURFACE_GRAPH if "query-response" in c["parityFields"] else QUERY_SURFACE_OTHER) for c in inventory["commands"] if c["requestClass"] == "query"}
++    record(
++        "query-class-selector-join-only-query-command-carries-response",
++        [n for n, s in surfaces.items() if s == QUERY_SURFACE_GRAPH] == ["query"] and len(surfaces) > 1,
++        surfaces=surfaces,
++    )
++
+     return {
+         "standing": "projection controls over schema-admitted owned-response shapes; not Run admission; not traversal evidence",
+         "passed": not failed,
+--- a/docs/coop/design-corrections/workflows/schemas/common.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/common.schema.json
+@@ -377,7 +377,9 @@
+         "DELIVERY.CLOSURE_BYTES_MISSING",
+         "DELIVERY.CLOSURE_UNSPAWNABLE",
+         "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
++        "DELIVERY.REQUIRED_PROJECTION_FAILED",
+         "DOCTOR.DEFECTS_FOUND",
++        "DOCTOR.REPORT_NOT_PRODUCIBLE",
+         "ENVELOPE.BODY_DIGEST",
+         "ENVELOPE.KIND",
+         "ENVELOPE.SHAPE",
+@@ -440,6 +442,7 @@
+         "NT-TCB-IDENTITY",
+         "NT-TCB-PROFILE-UNQUALIFIED",
+         "OBSERVER.FAIL_STOP",
++        "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+         "OUTPUT.FORMAT_NOT_APPLICABLE",
+         "OUTPUT.RENDERER_QUOTA_EXCEEDED",
+         "PAYLOAD-NOT-ADMISSIBLE",
+@@ -738,7 +741,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate. Required-delivery detail law: DELIVERY.RENDERER_FAILED_AFTER_COMMIT names a failure after this invocation committed a Run and requires that runId; DELIVERY.REQUIRED_PROJECTION_FAILED names a required projection or renderer failure when no Run was committed and forbids runId. Both are operational-failed / DELIVERY.REQUIRED_FAILED; every other operational-failed termination keeps its existing optional runId.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -1167,6 +1170,76 @@
+               }
+             }
+           }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode",
++              "runId"
++            ],
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.REQUIRED_PROJECTION_FAILED"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode"
++            ],
++            "not": {
++              "required": [
++                "runId"
++              ]
++            },
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
++              }
++            }
++          }
+         }
+       ]
+     },
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/baseline-artifact.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/baseline-artifact.schema.json
+@@ -190,7 +190,8 @@
+       ],
+       "properties": {
+         "detectorId": {
+-          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier",
++          "description": "equals contributionId"
+         },
+         "closureId": {
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+@@ -209,7 +210,8 @@
+         "manifestDigest": {
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+         }
+-      }
++      },
++      "description": "Exactly one row per distinct contributionId of the origin EvaluatorEmissionPlanV1 rule rows (disabled rules included): detectorId equals contributionId; closureId and semanticsMajor are that contribution row detectorClosure and semanticsMajor. Rows sharing a contributionId with a different closure or major refuse (CONFIG.INVALID / EVALUATION.FINDING_JOIN_REFUSED)."
+     },
+     "PivotClosureEntry": {
+       "type": "object",
+@@ -276,7 +278,8 @@
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+         },
+         "detectorId": {
+-          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier",
++          "description": "the entry rule's emission-binding contributionId; a member of detectorClosure detectorId"
+         },
+         "stabilityClass": {
+           "type": "string",
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
+@@ -2,7 +2,7 @@
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3",
+   "title": "CommandEnvelope schemaMajor 3 — evaluator3 run3/finding3 surfaces",
+-  "description": "Evaluator3 envelope. schemaMajor 3 because AnalysisResult.runId is run3 and the intermediate findings projection is FindingSurface (finding3, nullable fingerprint; not a SARIF result). SARIF 2.1.0 output is urn:opensip:product-v1:workflows:evaluator3:sarif-adapter:2. Consumers pin this major; major 2 envelopes are REQUEST.SCHEMA_MAJOR_UNSUPPORTED, never reshaped. Output serialization overflow uses OUTPUT.SERIALIZATION_FAILED / faultCause output-serialization.",
++  "description": "Evaluator3 envelope. schemaMajor 3 because AnalysisResult.runId is run3 and the intermediate findings projection is FindingSurface (finding3, nullable fingerprint; not a SARIF result). SARIF 2.1.0 output is urn:opensip:product-v1:workflows:evaluator3:sarif-adapter:2. Consumers pin this major; major 2 envelopes are REQUEST.SCHEMA_MAJOR_UNSUPPORTED, never reshaped. Output serialization overflow uses OUTPUT.SERIALIZATION_FAILED / faultCause output-serialization. Query carrier: kind=query requires querySurface. The query command (the twenty graph-query:3 operations) selects graph-query-response and carries the complete owner-admitted GraphQueryResponseV1 in queryResponse, which is its query-response parity field; every other query-class command selects command-owned-summary and carries no queryResponse. Unsupported envelope majors terminate REQUEST.SCHEMA_MAJOR_UNSUPPORTED with detail OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -66,6 +66,18 @@
+     "query": {
+       "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/QueryResult"
+     },
++    "querySurface": {
++      "type": "string",
++      "enum": [
++        "graph-query-response",
++        "command-owned-summary"
++      ],
++      "description": "Required exactly on kind=query. graph-query-response is selected by the command whose inventory parityFields include query-response (the query command); command-owned-summary is selected by every other query-class command (recommend, baseline show, policy show, policy test, candidates, inspect, review brief, repair preview), whose own parity fields keep their owners."
++    },
++    "queryResponse": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseV1",
++      "description": "The complete owner-admitted query response, required exactly when querySurface=graph-query-response. Cross-record joins beyond JSON Schema: context.projectId equals projectId; a present response termination equals termination; for graph.* the query summary is the owner projection of this response."
++    },
+     "mutation": {
+       "$ref": "#/$defs/MutationReceiptProjection"
+     },
+@@ -150,7 +162,8 @@
+       "then": {
+         "required": [
+           "query",
+-          "projectId"
++          "projectId",
++          "querySurface"
+         ]
+       }
+     },
+@@ -230,6 +243,69 @@
+               }
+             }
+           }
++        }
++      }
++    },
++    {
++      "if": {
++        "required": [
++          "querySurface"
++        ],
++        "properties": {
++          "querySurface": {
++            "const": "graph-query-response"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "queryResponse"
++        ]
++      }
++    },
++    {
++      "if": {
++        "required": [
++          "querySurface"
++        ],
++        "properties": {
++          "querySurface": {
++            "const": "command-owned-summary"
++          }
++        }
++      },
++      "then": {
++        "not": {
++          "required": [
++            "queryResponse"
++          ]
++        }
++      }
++    },
++    {
++      "if": {
++        "not": {
++          "properties": {
++            "kind": {
++              "const": "query"
++            }
++          }
++        }
++      },
++      "then": {
++        "not": {
++          "anyOf": [
++            {
++              "required": [
++                "querySurface"
++              ]
++            },
++            {
++              "required": [
++                "queryResponse"
++              ]
++            }
++          ]
+         }
+       }
+     }
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/command-inventory.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/command-inventory.schema.json
+@@ -492,8 +492,61 @@
+         },
+         "remedy": {
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
++        },
++        "detailSuppliedBy": {
++          "type": "string",
++          "enum": [
++            "native-route-composition"
++          ],
++          "description": "workflows-and-surfaces §8: the native §10 route composition supplies errors from the route detail. Absent when domainDetail is present."
+         }
+-      }
++      },
++      "description": "A failure golden (request-rejected or operational-failed) carries its actual domainDetail, unless detailSuppliedBy names the composition that supplies the failure envelope errors.",
++      "allOf": [
++        {
++          "if": {
++            "required": [
++              "class"
++            ],
++            "properties": {
++              "class": {
++                "enum": [
++                  "request-rejected",
++                  "operational-failed"
++                ]
++              }
++            }
++          },
++          "then": {
++            "anyOf": [
++              {
++                "required": [
++                  "domainDetail"
++                ]
++              },
++              {
++                "required": [
++                  "detailSuppliedBy"
++                ]
++              }
++            ]
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "detailSuppliedBy"
++            ]
++          },
++          "then": {
++            "not": {
++              "required": [
++                "domainDetail"
++              ]
++            }
++          }
++        }
++      ]
+     }
+   }
+ }
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
+@@ -377,7 +377,9 @@
+         "DELIVERY.CLOSURE_BYTES_MISSING",
+         "DELIVERY.CLOSURE_UNSPAWNABLE",
+         "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
++        "DELIVERY.REQUIRED_PROJECTION_FAILED",
+         "DOCTOR.DEFECTS_FOUND",
++        "DOCTOR.REPORT_NOT_PRODUCIBLE",
+         "ENVELOPE.BODY_DIGEST",
+         "ENVELOPE.KIND",
+         "ENVELOPE.SHAPE",
+@@ -440,6 +442,7 @@
+         "NT-TCB-IDENTITY",
+         "NT-TCB-PROFILE-UNQUALIFIED",
+         "OBSERVER.FAIL_STOP",
++        "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+         "OUTPUT.FORMAT_NOT_APPLICABLE",
+         "OUTPUT.RENDERER_QUOTA_EXCEEDED",
+         "PAYLOAD-NOT-ADMISSIBLE",
+@@ -738,7 +741,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate. Required-delivery detail law: DELIVERY.RENDERER_FAILED_AFTER_COMMIT names a failure after this invocation committed a Run and requires that runId; DELIVERY.REQUIRED_PROJECTION_FAILED names a required projection or renderer failure when no Run was committed and forbids runId. Both are operational-failed / DELIVERY.REQUIRED_FAILED; every other operational-failed termination keeps its existing optional runId.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -1164,6 +1167,76 @@
+               },
+               "errorCode": {
+                 "const": "REQUEST.PRECONDITION_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode",
++              "runId"
++            ],
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.REQUIRED_PROJECTION_FAILED"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode"
++            ],
++            "not": {
++              "required": [
++                "runId"
++              ]
++            },
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
+               }
+             }
+           }
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json
+@@ -325,7 +325,8 @@
+         "requiredCoverage",
+         "enabled",
+         "gating",
+-        "evidenceUse"
++        "evidenceUse",
++        "absenceKnowledge"
+       ],
+       "properties": {
+         "ruleId": {
+@@ -348,6 +349,14 @@
+             "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/EvidenceUse"
+           },
+           "x-opensip-order": "sequence"
++        },
++        "absenceKnowledge": {
++          "type": "string",
++          "enum": [
++            "complete-hit-set",
++            "unknown"
++          ],
++          "description": "complete-hit-set when this side can prove absence of a non-emitted fingerprint of the rule: enabled, not budget-exhausted, outcome not indeterminate, complete enumeration and every selected emitWhen root determinate. Otherwise unknown (including disabled rules). Independent of requiredCoverage."
+         }
+       }
+     },
+@@ -542,7 +551,9 @@
+         "required-evidence-unavailable",
+         "evidence-availability-changed",
+         "evidence-content-changed",
+-        "fingerprint-migration-only"
++        "fingerprint-migration-only",
++        "baseline-absence-unknown",
++        "current-absence-unknown"
+       ]
+     },
+     "Axis": {
+@@ -572,7 +583,7 @@
+     },
+     "PivotPresence": {
+       "type": "object",
+-      "description": "Presence of the fingerprint at each pivot. null = pivot not available. waivedB/waivedC record waiver status on the two real sides.",
++      "description": "Presence knowledge of the fingerprint at each pivot. true = a known matched occurrence (waived included). false = non-selection (that side's policy does not enable the rule or its ScopeDocument does not select the path; attributed to the policy or scope axis, never CODE-FIXED) or evaluated absence proved by that side's rule under the complete-hit-set law (enabled rule, evaluated, complete enumeration, every selected emitWhen root determinate, fingerprint absent from the emitted matched set, path inside the attested extent). null = not known. B is evaluated-absent only when the baseline RuleCoverage absenceKnowledge is complete-hit-set. waivedB/waivedC record waiver status on the two real sides.",
+       "additionalProperties": false,
+       "required": [
+         "B",
+@@ -586,7 +597,14 @@
+       ],
+       "properties": {
+         "B": {
+-          "type": "boolean"
++          "oneOf": [
++            {
++              "type": "boolean"
++            },
++            {
++              "type": "null"
++            }
++          ]
+         },
+         "E0": {
+           "oneOf": [
+@@ -629,7 +647,14 @@
+           ]
+         },
+         "E4": {
+-          "type": "boolean"
++          "oneOf": [
++            {
++              "type": "boolean"
++            },
++            {
++              "type": "null"
++            }
++          ]
+         },
+         "waivedB": {
+           "type": "boolean"
+@@ -692,7 +717,7 @@
+         },
+         "liveInCurrent": {
+           "type": "boolean",
+-          "description": "present in E4 and not waived on the current side"
++          "description": "true only when E4 is a known hit and the current occurrence is not waived"
+         },
+         "gates": {
+           "type": "boolean"
+@@ -705,7 +730,8 @@
+             "newly-live-policy-axis",
+             "current-live",
+             "indeterminate-gating-rule"
+-          ]
++          ],
++          "description": "code-net-new-policy-hidden: a gating CODE-NET-NEW entry that is not live in current because a later axis hid it (a detector, policy or scope change, or a waiver added in the same change); subsequentDeltas names the later axes."
+         }
+       },
+       "allOf": [
+--- a/docs/coop/design-corrections/workflows/schemas/test-execution.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/test-execution.schema.json
+@@ -11,7 +11,7 @@
+         "ENFORCED-BY-CONSTRUCTION",
+         "ENFORCED-AT-HOST-BROKER"
+       ],
+-      "description": "ENFORCED-PLATFORM:<primitiveId> values are admitted only when the security unit's measured primitive table names that primitive; the reference model treats any other enforcement claim as TEST.CONFINEMENT_CLAIM_REFUSED"
++      "description": "Closed current test-execution vocabulary. Membership is necessary, not sufficient: each effect value must equal the selected security permission truth-table profile row for the platform (permission-truth-tables.v9 through security-and-lifecycle S10, child-process execution mode), otherwise TEST.CONFINEMENT_CLAIM_REFUSED. That profile has no measured platform-primitive row, so ENFORCED-PLATFORM:<primitiveId> cannot be claimed and is not a member. Security EnforcementV1 retains that future vocabulary; admitting it here requires a successor truth-table profile with a measured primitive and a successor of this schema."
+     },
+     "TestExecutionStepParams": {
+       "type": "object",
+--- a/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
+@@ -54,7 +54,7 @@
+ - `runId` run3, `snapshotId` snapshot2, `planId` plan2, `projectId`
+ - `occurrences[]`: `{findingId, finding, fingerprintDescriptor?, parameterRecord, legacyFingerprint?}`
+ - `finding.subjectId` is an opaque `subject3:` value. Do not reconstruct subject3 from universe/kind/nativeId. `finding.subject.logicalPath` owns path (package: the manifest path; same packageName at two manifests are two fingerprints).
+-- `emissionBindings` keyed by ruleId (contributionId, ruleStableId, semanticsMajor, detectorClosure, stabilityClass, emissionProfile)
++- `emissionBindings` keyed by ruleId (contributionId, ruleStableId, semanticsMajor, detectorClosure, stabilityClass, emissionProfile); every `detectorId` in this projection is the binding `contributionId`
+ - `waivedFindingIds` exact list from proof
+ - `ruleResults` exact admitted per-rule results (enumeration + outcome + findingIds + deficiencies). There is **no** `gating` field. Missing `occurrences` / `ruleResults` is refusal (`EVALUATION.PROJECTION_INPUT_INCOMPLETE`); an omitted key is never `[]`.
+ - `executionDeficiencies` and `evaluationState` (including `budget-exhausted`) are required current fields and remain independent of rule findings.
+@@ -79,7 +79,7 @@
+ 
+ Unmatched occurrences are excluded from `entries` and retained in `unmatchedOccurrences` with `side` (`baseline`|`current`), findingId, ruleId, subjectId, subjectPath, severity, waived.
+ 
+-`adopt_baseline` remains a pure projection over caller-admitted policy/scope/waivers. ScopeDocumentV1 parameter join is **mandatory** (`verify_scope_parameter_binding`); `analysis_spec=None` is not a bypass. `exportedAtUtc` / `exportedByHostRelease` are **trusted custody inputs**, not a hardcoded observed timestamp. `verify_baseline_artifact_v3` enforces schemaMajor 2, H(baselineId), context-document digest bindings, `side=baseline` unmatched, and `run3|closure2` retention pins. It does **not** call `evaluator_replay_model.v3.derive/replay`; origin Run admission is a prerequisite. Descriptor `schemaMajor` is 2; `runId` is run3; fingerprint recipe major stays 2. Historical schemaMajor 1 is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` / `BASELINE.SCHEMA_MAJOR_UNSUPPORTED` before any unmatched-array coercion.
++`adopt_baseline` remains a pure projection over caller-admitted policy/scope/waivers. ScopeDocumentV1 parameter join is **mandatory** (`verify_scope_parameter_binding`); `analysis_spec=None` is not a bypass. `exportedAtUtc` / `exportedByHostRelease` are **trusted custody inputs**, not a hardcoded observed timestamp. `verify_baseline_artifact_v3` enforces schemaMajor 2, H(baselineId), context-document digest bindings, `side=baseline` unmatched, `run3|closure2` retention pins, and the detector identity joins of workflows-and-surfaces §2 (one `detectorClosure` row per embedded policy rule contribution with `detectorId = contributionId` and the rule `semanticsMajor`; every entry `detectorId` equal to its rule contribution), refusing `CONFIG.INVALID` / `EVALUATION.FINDING_JOIN_REFUSED` also for a self-consistently reminted rename. It does **not** call `evaluator_replay_model.v3.derive/replay`; origin Run admission is a prerequisite. Descriptor `schemaMajor` is 2; `runId` is run3; fingerprint recipe major stays 2. Historical schemaMajor 1 is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` / `BASELINE.SCHEMA_MAJOR_UNSUPPORTED` before any unmatched-array coercion.
+ 
+ ## 4. Comparison
+ 
+@@ -187,7 +187,7 @@
+ ## 11. pivot presence / detector map / envelope / Boolean coverage
+ 
+ - E0–E3 measured presence uses the same `derive_current_matched` law as E4 (matched occurrences, `waivedFindingIds`, `emissionBindings`). Waived matched findings remain present; waiver status is `waivedC`, not absence.
+-- E0 detector join is the exact baseline selected `{detectorId → (closureId, semanticsMajor)}` map, not a subset of common IDs. Extra, missing, or major-disagreeing detectors refuse.
++- E0 detector join is the exact baseline selected `{detectorId → (closureId, semanticsMajor)}` map, not a subset of common IDs. Extra, missing, or major-disagreeing detectors refuse. `detectorId` is the emission `contributionId`.
+ - `compare_admitted_v3` derives `detectorChanged` from that map. It does not hardcode false and does not copy E1→E0 for a changed detector. Unbound changed axes stay `null`; `null` is not false-absence.
+ - CommandEnvelope `kind=failure` requires `errors` and **prohibits** `run`, including a schema-valid AnalysisResult.
+ - Isolated DomainDetailCode prose preserves shared registration of `EVALUATION.INPUT_REFUSED`, `EVALUATION.SELECTION_LIMIT`, and `EVALUATION.REQUIRED_OUTPUT_OMITTED`.
+@@ -198,6 +198,7 @@
+ 
+ - E4 / E0–E3 presence is ANY matched occurrence, including waived (`waivedC` is separate). Waived presence is distinct from suppression at the waiver axis.
+ - Pivot absence is per-fingerprint/per-rule: `true` = known hit; `false` only when that rule can prove complete negative from admitted emitWhen root `p` values for every selected subject (enabled, evaluated, complete population, every root determinate `true` or `false`, and that fingerprint absent from the exact admitted emitted set); otherwise `null`. Advisory pass is not inherently unknown. Strong-Kleene AND(false, required unknown) is determinate false while witnesses may retain unknown child causes. Optional unknown stays indeterminate. Incomplete enumeration on one row does not drop known hits on another. Unrelated unknown must not erase a known CODE-NET-NEW fail.
++- Current E4 and baseline B use that same law (workflows-and-surfaces §3). Every side is `true` for a matched occurrence; `false` for non-selection (that side's policy does not enable the rule or its ScopeDocument does not select the path; for B the embedded baseline documents) or for evaluated absence (the side's rule proves absence under the pivot predicate including the attested path extent; for B the baseline RuleCoverage records `absenceKnowledge=complete-hit-set`, recorded at adoption by the same predicate); else `null`. An entry whose first attributable change rests on `null` is `INDETERMINATE` (`current-absence-unknown` / `baseline-absence-unknown`); an earlier known change keeps its classification. A `compare_v3` projection without admitted root predicate proofs and an absence extent has no absence knowledge; caller presence maps remain refused.
+ - Comparison universe is baseline entries ∪ current matched occurrences ∪ bound pivot matched fingerprints. A fingerprint that exists only on E0–E3 (disabled current, empty baseline, enabled E1) remains, with admitted pivot `(ruleId, detectorId)` metadata. A bug introduced and hidden by disabling the rule is `CODE-NET-NEW` with `subsequentDeltas` including policy, per workflows-and-surfaces §3. Disabled/unknown current must not erase a baseline gating unmatched obligation (`gateRuleUnder=baseline-or-current`).
+ - `command-inventory.v1.json` stays the historical major-1 artifact. `command-inventory.v3.json` is the evaluator3 instance (JSON renderer 3 / envelope 3). This unit does not rewrite the v1 instance.
+ 
+@@ -205,7 +206,7 @@
+ 
+ - E1..E3 re-evaluate retained **current** facts. Bind snapshot, resolvedConfig, nativeContext, Plan-selected imports, foundation `plan.scopeDigest`, capability bytes, closures, fact/coverage evidence, and inventory rows (parent `planId` stripped). policy/waiver/emission/analysis-spec/rule-program are the axis substitutions and may remint Plan locators. A same-snapshot same-policy pivot with a different admitted import/coverage/config is refused (`EVALUATION.FINDING_JOIN_REFUSED`).
+ - E0 may use the prior detector: detector closures are excluded from the E0 source-input map. Current native/provider/toolchain equality is not required on E0.
+-- Absence False is not claimed for a fingerprint whose `subjectPath` is outside the attested inventory examined extent or the pivot ScopeDocument, unless foundation `plan.scopeDigest` covers the path and inventories are complete (deleted under a covering census). Snapshot `sourceInventory` membership is not extraction proof. A wider baseline ScopeDocument over the same snapshot is a real E2 counterfactual; a ScopeDocument wider than the admitted extraction is typed missing-extent, not false absence.
++- Evaluated absence False is not claimed for a fingerprint whose `subjectPath` is outside the attested inventory examined extent, unless foundation `plan.scopeDigest` covers the path and inventories are complete (deleted under a covering census). A path the pivot's own ScopeDocument does not select, or a rule its policy does not enable, is non-selection `false` on that pivot, not evaluated absence (§12). Snapshot `sourceInventory` membership is not extraction proof. A wider baseline ScopeDocument over the same snapshot is a real E2 counterfactual; a ScopeDocument wider than the admitted extraction is typed missing-extent, not false absence.
+ - `DetectorManifestV1` is **not** `closure.manifestDigest`. That digest is the DR-103 component-manifest body. The listing is the reserved tree file `.opensip/detector-compatibility.json` on the admitted same `closure2`.
+ 
+ ## 14. sidecar locators / proof-root absence / required manifest / TCB body
+@@ -213,7 +214,7 @@
+ - Sidecar and candidate records (`target-attribution`, `incoming-search`, `candidate-producer-result`) bind `planId` / `executionPlanId`. Legitimate policy/scope/waiver remints must join on stripped parent locators. Preserve sourceFactId, universes, member/group, source-body, coverage, and other native evidence. `incoming-search.expectedInventoryRefs` expand to stripped inventory bodies (those C hashes remint with planId). `candidateResultRefs` expand the same way. Groups remain semantically identical when they do not carry parent locators.
+ - Negative knowledge is the admitted proof emitWhen root `p` for every selected subject, not an advisory `pass`/gating flag or arbitrary retained child deficiencies. Complete determinate roots and the exact emitted set prove absence for a non-emitted fingerprint, even if another subject has a known finding. Advisory all-false roots also prove absence. Boolean AND(false, required unknown) is determinate false. Optional unknown remains true-indeterminate. A live known hit remains usable when other roots are unknown.
+ - Execution-inputs is required on a public admitted Run. Missing capture is `EVALUATION.PROJECTION_INPUT_INCOMPLETE`.
+-- Host-only compatibility projection after existing TCB admission of the same `closure2`: `{closureId, componentManifestDigest, listing:{path,sha256,bytes}, trustOrigin, compatibleClosures, tree, platform, protocolMajor}`. `trustOrigin` is retained-generation / installed-signed-release / signed-closure-bundle. Select the unique reserved tree path; compare exact retained blob SHA-256 and length. Path absent is no declaration. Empty `compatibleClosures` is a complete listing. Present malformed / unrecognized / missing / hash-or-length mismatch refuses (never silent no-declaration). Request maps never assert trust or admission. Signature verification remains security TCB.
++- Host-only compatibility projection after existing TCB admission of the same `closure2`: `{closureId, componentManifestDigest, listing:{path,sha256,bytes}, trustOrigin, compatibleClosures, tree, platform, protocolMajor}`. `trustOrigin` is retained-generation / installed-signed-release / signed-closure-bundle. Select the unique reserved tree path; compare exact retained blob SHA-256 and length. Path absent is no declaration. Empty `compatibleClosures` is a complete listing. Present malformed / unrecognized / missing / hash-or-length mismatch refuses `REQUEST.PRECONDITION_FAILED` / `EVALUATION.PROJECTION_INPUT_INCOMPLETE` (never silent no-declaration). Request maps never assert trust or admission. Signature verification remains security TCB.
+ - ScopeDocument matching follows the normative [portable glob contract](../foundation/glob-pattern-contract.v1.md). The reference implements its include/exclude law with `W.in_scope` / `W.glob_match`; `**/*.ts` matches root `a.ts`, and terminal `src/**` includes `src/legacy.js`.
+ - A now-absent path inside a complete covering foundation scope may be determinate absence (deleted-file CODE-FIXED). A path outside the foundation walk is unexamined even if a wider ScopeDocument names it.
+ 
+--- a/docs/coop/design-corrections/workflows/workflow_projection_model.v3.py
++++ b/docs/coop/design-corrections/workflows/workflow_projection_model.v3.py
+@@ -428,6 +428,27 @@
+             raise Refusal("REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR", "retentionPins are run3|closure2", pin)
+     if not any(p["kind"] == "detector" for p in d["pivotClosure"]):
+         raise Refusal("CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT", "pivotClosure must include the origin detector")
++    # Detector identity (workflows-and-surfaces §2): one detectorClosure row per emission contribution,
++    # detectorId = contributionId, rule semanticsMajor, and entry detectorId = its rule's contribution.
++    # Checked after baselineId recomputation, so a reminted rename is refused, not only a stale hash.
++    detector_rows = d["detectorClosure"]
++    detector_ids = [row["detectorId"] for row in detector_rows]
++    for row in detector_rows:
++        if row["detectorId"] != row["contributionId"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure detectorId must equal its emission contributionId", row["detectorId"])
++    if len(set(detector_ids)) != len(detector_ids):
++        raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure has exactly one row per contributionId", ",".join(sorted(detector_ids)))
++    by_detector = {row["detectorId"]: row for row in detector_rows}
++    rule_refs = {rule["ruleId"]: rule["ruleProgramRef"] for rule in docs["policy"]["rules"]}
++    if {ref["contributionId"] for ref in rule_refs.values()} != set(detector_ids):
++        raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure must be exactly the embedded policy rule contributions")
++    for rule_id, ref in rule_refs.items():
++        if by_detector[ref["contributionId"]]["semanticsMajor"] != ref["semanticsMajor"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure semanticsMajor disagrees with the rule contribution", rule_id)
++    for entry in d["entries"]:
++        ref = rule_refs.get(entry["ruleId"])
++        if ref is None or entry["detectorId"] != ref["contributionId"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "BaselineEntry detectorId must be its rule contribution in detectorClosure", entry["fingerprint"])
+     return True
+ 
+ 
+@@ -642,8 +663,11 @@
+     return False
+ 
+ 
+-def _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta):
+-    """Unchanged policy/scope/waiver/detector axes copy E4. Do not invent measured absence.
++def _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta, absence_known=None):
++    """Unchanged policy/scope/waiver/detector axes copy E4 knowledge, including null. Do not invent measured absence.
++
++    E4 is True for a matched current occurrence, False only when absence_known(fp) proves absence under the
++    pivot law, otherwise None: a missing matched hit is not by itself known absence.
+ 
+     Independently admitted pivotPresence supplies E0-E3 when present. Mock maps are not
+     full comparison evidence; compare_admitted_v3 is the retained-run adapter.
+@@ -656,7 +680,12 @@
+     )
+     presence = {}
+     for fp in fps:
+-        e4 = bool(derived_e4.get(fp, {}).get("E4"))
++        if derived_e4.get(fp, {}).get("E4"):
++            e4 = True
++        elif absence_known is not None and absence_known(fp):
++            e4 = False
++        else:
++            e4 = None
+         waived_c = bool(derived_e4.get(fp, {}).get("waivedC", False))
+         measured = {}
+         if pivot and fp in pivot:
+@@ -775,8 +804,13 @@
+     pivot = current.get("pivotPresence")
+     b_entries = {x["fingerprint"]: x for x in bdesc["entries"]}
+     fps = set(b_entries) | set(derived_e4) | set(pivot or {}) | set(extra_rules)
+-    presence = _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta)
+-    current_v1 = dict(stub, presence=presence, entryRules=entry_rules)
++    absence_known = current_absence_knowledge(current, b_entries, extra_rules)
++    presence = _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta, absence_known)
++    fingerprint_paths = {fp: e.get("subjectPath") for fp, e in b_entries.items()}
++    for occ in occurrences:
++        if occ["finding"]["fingerprint"]:
++            fingerprint_paths[occ["finding"]["fingerprint"]] = occ["finding"]["subject"]["logicalPath"]
++    current_v1 = dict(stub, presence=presence, entryRules=entry_rules, fingerprintPaths=fingerprint_paths)
+     res = _compare_matched(bdesc, current_v1, host, profile_name, current_detectors, accept_origins, baseline_id=baseline_artifact["baselineId"])
+     return _finish_comparison(res, current, occurrences, waived, profile, bdesc, None)
+ 
+@@ -976,7 +1010,7 @@
+         if det_id not in dets:
+             raise Refusal("REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE", "pivot/current detector identity missing from detector union", det_id)
+         pres = dict(current["presence"][fp])
+-        pres["B"] = fp in b_entries
++        pres["B"] = baseline_presence_knowledge(fp, rule_id, b_entries, b_rules, baseline, current.get("fingerprintPaths", {}).get(fp))
+         if pres["B"]:
+             pres["waivedB"] = b_entries[fp]["waived"]
+         m = dets[det_id]["method"]
+@@ -1014,6 +1048,13 @@
+             profile,
+             entry_unavail,
+         )
++        entry["liveInCurrent"] = bool(pres["E4"] is True and not pres.get("waivedC"))
++        unknown_reason = first_attribution_unknown(pres)
++        if unknown_reason and entry["classification"] != "INDETERMINATE":
++            entry.pop("direction", None)
++            entry.pop("gateReason", None)
++            entry.update(classification="INDETERMINATE", indeterminateReason=unknown_reason, gates=False, subsequentDeltas=[])
++            sig = "indeterminate" if comparison_rule_gating(b_rules.get(rule_id), c_rules.get(rule_id), profile) else None
+         desc["entries"].append(entry)
+         counts[entry["classification"]] += 1
+         if entry["gates"]:
+@@ -1047,6 +1088,12 @@
+             desc["remedy"] = {
+                 "code": "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
+                 "remedy": "restore required coverage/evidence for " + ",".join(d["ruleId"] for d in gating_def),
++            }
++        elif any(e.get("indeterminateReason") in ("current-absence-unknown", "baseline-absence-unknown") for e in desc["entries"]):
++            unknown_rules = sorted({e["ruleId"] for e in desc["entries"] if e.get("indeterminateReason") in ("current-absence-unknown", "baseline-absence-unknown")})
++            desc["remedy"] = {
++                "code": "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
++                "remedy": "absence is not established for " + ",".join(unknown_rules) + "; complete enumeration and determinate evaluation on the unknown side",
+             }
+         else:
+             desc["remedy"] = {
+@@ -1616,7 +1663,7 @@
+     return "satisfied"
+ 
+ 
+-def _rule_coverage_from_admitted(policy, rule_results):
++def _rule_coverage_from_admitted(policy, rule_results, view=None):
+     by = {r["ruleId"]: r for r in rule_results}
+     out = []
+     for rule in policy["rules"]:
+@@ -1628,6 +1675,7 @@
+                 "enabled": bool(rule["enabled"]),
+                 "gating": rule_gates(policy, rule["ruleId"]),
+                 "evidenceUse": copy.deepcopy(rule["evidenceUse"]),
++                "absenceKnowledge": rule_absence_knowledge(view, rule["ruleId"]) if view is not None else "unknown",
+             }
+         )
+     return out
+@@ -1664,7 +1712,7 @@
+         detectors,
+         view["evaluationInputRefs"],
+     )
+-    coverage = _rule_coverage_from_admitted(view["policy"], view["ruleResults"])
++    coverage = _rule_coverage_from_admitted(view["policy"], view["ruleResults"], view)
+     overlay = {
+         "authority": "authoritative",
+         "availability": "retained",
+@@ -1720,6 +1768,8 @@
+         "emissionBindings": view["emissionBindings"],
+         "context": ctx,
+         "requiredCoverage": req,
++        "predicateProofs": copy.deepcopy((view.get("proof") or {}).get("predicateProofs")),
++        "absenceExtent": presence_absence_extent(view),
+         "boundPivots": [] if bound is None else bound,
+         **({"pivotPresence": pivots} if pivots is not None else {}),
+     }
+@@ -1855,6 +1905,115 @@
+     hits = {fp: True for fp, rec in presence.items() if rec.get("E4")}
+     prove = {rule["ruleId"]: rule_has_complete_hit_set(view, rule["ruleId"]) for rule in view["policy"]["rules"]}
+     return {"hits": hits, "prove_absence": prove, "entry_rules": entry_rules}
++
++
++def selection_excludes(policy, scope_doc, rule_id, path) -> bool:
++    """Structural non-emission at one side: its policy does not enable the rule, or its ScopeDocument does not
++    select the path. This is not evaluated absence; it attributes the change to the policy or scope axis."""
++    if rule_id and policy is not None:
++        rule = policy_rule(policy, rule_id)
++        if rule is None or not rule.get("enabled"):
++            return True
++    return bool(path and scope_doc and not path_in_scope_document(scope_doc, path))
++
++
++def rule_absence_knowledge(view, rule_id) -> str:
++    """RuleCoverage.absenceKnowledge recorded at baseline adoption: the same complete-hit-set law as pivots."""
++    return "complete-hit-set" if rule_has_complete_hit_set(view, rule_id) else "unknown"
++
++
++def presence_absence_extent(view) -> dict:
++    """Attested extent one admitted view contributes to the path absence law (pivot and current alike)."""
++    return {
++        "examinedPaths": sorted(extracted_source_paths(view)),
++        "scopeDocument": copy.deepcopy(view.get("scopeDocument")),
++        "foundationScope": foundation_scope_record(view),
++        "extractionComplete": inventories_are_complete(view),
++    }
++
++
++def fingerprint_absence_known(knowledge_view, extent, rule_id, path) -> bool:
++    """Known non-emission of one fingerprint at one side: structural non-selection, or evaluated absence under the
++    law _bind_pivot_runs/compare_admitted_v3 apply to pivots.
++
++    Requires the owning rule's complete hit set (enabled, evaluated, complete enumeration, every selected root
++    determinate, not budget-exhausted) and the path absence law over the attested extent. Missing admitted
++    root predicate proofs or extent is unknown, never false.
++    """
++    if selection_excludes(knowledge_view.get("policy"), (extent or {}).get("scopeDocument"), rule_id, path):
++        return True
++    if not rule_id or extent is None:
++        return False
++    try:
++        complete = rule_has_complete_hit_set(knowledge_view, rule_id)
++    except Refusal:
++        return False
++    if not complete:
++        return False
++    return path_absence_claim_allowed(
++        path,
++        examined=set(extent.get("examinedPaths") or []),
++        scope_doc=extent.get("scopeDocument"),
++        foundation_scope=extent.get("foundationScope"),
++        extraction_complete=bool(extent.get("extractionComplete")),
++    )
++
++
++def current_absence_knowledge(current, b_entries, extra_rules):
++    """E4 absence knowledge for compare_v3 from the admitted current projection only.
++
++    Uses the admitted proof predicateProofs and absenceExtent the admitted-run adapter carries. A unit
++    projection without them has no absence knowledge. Caller presence maps remain refused.
++    """
++    knowledge_view = {
++        "policy": current["policy"],
++        "evaluationState": current["evaluationState"],
++        "ruleResults": current["ruleResults"],
++        "proof": {"predicateProofs": current.get("predicateProofs")},
++    }
++    extent = current.get("absenceExtent")
++    rules, paths = {}, {}
++    for fp, entry in b_entries.items():
++        rules[fp] = entry["ruleId"]
++        paths[fp] = entry.get("subjectPath")
++    for fp, pair in (extra_rules or {}).items():
++        rules.setdefault(fp, pair[0])
++    for occ in current["occurrences"]:
++        finding = occ["finding"]
++        if finding["fingerprint"]:
++            rules[finding["fingerprint"]] = finding["ruleId"]
++            paths[finding["fingerprint"]] = finding["subject"]["logicalPath"]
++    return lambda fp: fingerprint_absence_known(knowledge_view, extent, rules.get(fp), paths.get(fp))
++
++
++def baseline_presence_knowledge(fp, rule_id, b_entries, b_rules, baseline=None, path=None):
++    """B: True for a baseline entry; False for non-selection by the embedded baseline policy/ScopeDocument or under
++    recorded complete-hit-set absence knowledge; else None."""
++    if fp in b_entries:
++        return True
++    docs = (baseline or {}).get("contextDocuments") or {}
++    if selection_excludes(docs.get("policy"), docs.get("scope"), rule_id, path):
++        return False
++    rule = b_rules.get(rule_id)
++    return False if rule is not None and rule.get("absenceKnowledge") == "complete-hit-set" else None
++
++
++def first_attribution_unknown(pres):
++    """Reason when the first attributable change along B..E4 would rest on an unknown presence value."""
++    chain = [pres["B"], pres["E0"] if pres["E0"] is not None else pres["E1"], pres["E1"], pres["E2"], pres["E3"], pres["E4"]]
++    for i in range(5):
++        if chain[i] is None or chain[i + 1] is None:
++            return "baseline-absence-unknown" if pres["B"] is None else "current-absence-unknown"
++        if chain[i] != chain[i + 1]:
++            return None
++    return None
++
++
++def comparison_rule_gating(rule_b, rule_c, profile) -> bool:
++    """classify()'s gating selection, reused for an entry reclassified as unknown."""
++    gating_b = bool(rule_b and rule_b["enabled"] and rule_b["gating"])
++    gating_c = bool(rule_c and rule_c["enabled"] and rule_c["gating"])
++    return (gating_b or gating_c) if profile["gateRuleUnder"] == "baseline-or-current" else gating_c
+ 
+ 
+ def path_in_scope_document(scope_doc, path: str) -> bool:
+@@ -2460,6 +2619,7 @@
+         knowledge = axis_presence_knowledge(pview)
+         knowledge["examined_paths"] = extracted_source_paths(pview)
+         knowledge["scope_document"] = pview["scopeDocument"]
++        knowledge["policy"] = pview["policy"]
+         knowledge["foundation_scope"] = foundation_scope_record(pview)
+         knowledge["extraction_complete"] = inventories_are_complete(pview)
+         measured[axis] = knowledge
+@@ -2522,6 +2682,7 @@
+         fp = o["finding"]["fingerprint"]
+         if fp:
+             fp_paths[fp] = o["finding"]["subject"]["logicalPath"]
++    current_extent = presence_absence_extent(view)
+     for fp in fps_union:
+         measured = {}
+         rule_id = None
+@@ -2539,6 +2700,9 @@
+             if fp in rec["hits"]:
+                 measured[axis] = True
+                 continue
++            if selection_excludes(rec.get("policy"), rec.get("scope_document"), rule_id, path):
++                measured[axis] = False
++                continue
+             if not (rule_id and rec["prove_absence"].get(rule_id)):
+                 continue
+             examined = rec.get("examined_paths")
+@@ -2554,7 +2718,12 @@
+             ):
+                 continue
+             measured[axis] = False
+-        e4 = bool(e4_map.get(fp, {}).get("E4"))
++        if e4_map.get(fp, {}).get("E4"):
++            e4 = True
++        elif fingerprint_absence_known(view, current_extent, rule_id, path):
++            e4 = False
++        else:
++            e4 = None
+         e0, e1, e2, e3 = _presence_from_equalities(e4, delta, measured)
+         pivot_presence[fp] = {"E0": e0, "E1": e1, "E2": e2, "E3": e3}
+     current = _current_from_admitted_view(view, bound=bound, pivots=pivot_presence)
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -3732,7 +3732,7 @@
+ dependency-closure-member) and receives one class-specific RepoExecutionGrantV2.
+ The preparation bound is 4096 owners; this composes as up to 4096 single-owner
+ grants and does not enlarge security's 64-owner per-grant bound. Each grant binds
+-the actual host-selected argv/runner, class, project, snapshot, platform, tool and
++the actual host-selected argv (`argvDigest` per security S10) and runner, class, project, snapshot, platform, tool and
+ dependency closures, consent and effect disclosure. Every grant is admitted through
+ security's complete schema and decision model before any spawn, with live boundaries
+ rechecked during execution. Native preflight success alone cannot authorize a spawn.
+--- a/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -1062,7 +1062,7 @@
+ A `RepoExecutionGrantV2` (supersedes the never-accepted V1 draft, retained in
+ the bundle as superseded) is admitted only when: schema 2; principal
+ `repository-code`, `semanticPrincipalKind` `trusted-repository-code`;
+-projectId, snapshotId (`snapshot2:`) and argv digest equal the invocation's;
++projectId, snapshotId (`snapshot2:`) and argv digest (`argvDigest`: lowercase hex raw SHA-256 of `C` of the exact ordered argument array selected for the spawn, every element preserved, no shell-joined surrogate; workflows-and-surfaces §7) equal the invocation's;
+ execution class in {build-script, proc-macro, test-runner}; **owners** (≤ 64,
+ unique) each bind `{ownerKey, source, ownerFileManifestSha256}` where `source`
+ is `snapshot-member` (validated against the sealed snapshot's owner manifests)
+--- a/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ b/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -57,7 +57,7 @@
+ |---|---|---|
+ | `docs/coop/artifacts/versioning-policy.v8.json` | `$.comparisonSchema.ComparisonResult` (five classifications, `pivotDetectorVersion`) | **Superseded** by the major2 comparison result (§3): nine classifications, explicit pivot chain, audit profiles, typed indeterminacy. |
+ | `docs/coop/artifacts/versioning-policy.v8.json` | `$.detectorSemanticDelta.theFix.requires` and "B-CSG-04 / CS-04" (dual emission justifies the pivot) | **Corrected**: fact/fingerprint dual emission migrates identity only; the pivot needs the retained or bundled executable closure (§3.3). |
+-| `docs/coop/architecture/07-outcomes-and-failure.md` | CANDIDATE `CommandEnvelope` major-1 union | **Succeeded** by envelope major 3 (§8): adds `invocation` and `doctor` kinds, mandatory `requestId` and `exitCode`. Major-1 consumers are refused with `REQUEST.SCHEMA_MAJOR_UNSUPPORTED`, never reshaped. |
++| `docs/coop/architecture/07-outcomes-and-failure.md` | CANDIDATE `CommandEnvelope` major-1 union | **Succeeded** by envelope major 3 (§8): adds `invocation` and `doctor` kinds, mandatory `requestId` and `exitCode`. Major-1 consumers are refused with `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` and detail `OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED`, never reshaped. |
+ | `docs/coop/architecture/08-surfaces-and-topology.md`, `docs/MAP-VS-CONTROL.md` | Historical command surface and Map/Control grammar | **Superseded** by the single command inventory (§8) and the advisory boundary (§5). |
+ | `docs/coop/completion/reference-architecture.v2.md` | Preview analyze/doctor/help command set | Historical D-369 scope; no restriction on §8. |
+ | `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md` §§5–7, 9 | Workflow, baseline, import and repair prose | **Replaced** by §§1–7 here. |
+@@ -262,7 +262,7 @@
+ evaluator, provider, toolchain/stdlib, schema set; each a `closure2` with manifest digest,
+ protocol major and platform), the evaluation context digests, the **embedded**
+ policy/scope/waiver documents whose digests equal those context digests, rule
+-coverage, sorted unique matched entries and explicit unmatched occurrences.
++coverage (including each rule's recorded absence knowledge, §3), sorted unique matched entries and explicit unmatched occurrences.
+ Matched occurrences group only after equal fingerprint preimages and agreement
+ on every BaselineEntry field. Messages, parameters and citations remain on each
+ original finding. Unmatched findings retain their finding and subject identities;
+@@ -270,6 +270,18 @@
+ Custody (outside identity) carries host release,
+ export time, `retentionPins` (the Run and every pivot closure) and an optional signed
+ `closureBundle` reference.
++
++**Detector identity.** A detector is identified by its evaluator emission contribution.
++`detectorClosure` has exactly one row per distinct `contributionId` of the origin Plan's
++`EvaluatorEmissionPlanV1` rule rows, disabled rules included: `detectorId` equals that
++`contributionId`, and `closureId` and `semanticsMajor` are that row's `detectorClosure` and
++`semanticsMajor`, which equal the policy rule's `ruleProgramRef` major. Two rows for one
++contribution with a different closure or major refuse (`CONFIG.INVALID` /
++`EVALUATION.FINDING_JOIN_REFUSED`). `BaselineEntry.detectorId` is the `contributionId` of the
++entry rule's emission binding and is a member of `detectorClosure`; comparison `detectorId`
++values use the same identity. Baseline admission checks these joins after recomputing
++`baselineId`, so a self-consistently reminted rename of a detector identity is refused rather
++than accepted as a different baseline.
+ 
+ **Fresh CI.** Comparison never reads the origin machine's store. A fresh host admits
+ the artifact by recomputing `baselineId`, checking schema major, recipe major,
+@@ -293,7 +305,8 @@
+ `closure.manifestDigest` continues to identify the component manifest body.
+ An absent reserved path means no declaration; a valid empty listing declares
+ no compatible peers; a present invalid, non-file or unavailable listing refuses
+-and cannot silently become absence. The host admission origin is one of the
++(`REQUEST.PRECONDITION_FAILED` / `EVALUATION.PROJECTION_INPUT_INCOMPLETE`; the refusal
++message is diagnostic only) and cannot silently become absence. The host admission origin is one of the
+ three current-trust paths above. Caller-provided compatibility or trust claims
+ do not supply that admission. Otherwise the baseline detector
+ must run over current source (`three-way-pivot`, an authoritative pivot analysis step
+@@ -351,6 +364,25 @@
+ roots, incomplete enumeration, disabled evaluation and exhausted budgets do
+ not establish a negative result. Known hits remain usable in a partial result.
+ 
++**One presence-knowledge law on every side.** B, E0–E3 and E4 are each `true` (a known
++matched occurrence), `false` or `null` (not known). `false` is either non-selection or
++evaluated absence. Non-selection holds when that side's own policy does not enable the rule or
++its ScopeDocument does not select the path: the side cannot emit the fingerprint, so the change
++is attributed to the policy or scope axis that removed the selection. It is not an evaluated
++negative result, and because B, E0 and E1 share the baseline selection it never becomes
++`CODE-FIXED`. Evaluated absence is proved under the law above for that side's rule, including
++the attested path extent. The absence of a matched current hit is not by itself a known
++`false`: for an enabled rule selecting the path, incomplete or unknown enumeration, unknown
++roots and an exhausted budget leave E4 `null`. B is evaluated-absent for a non-entry only when
++the baseline's `RuleCoverage.absenceKnowledge` for that rule is `complete-hit-set`, recorded at
++adoption by the same law; B non-selection is read from the embedded baseline policy and
++ScopeDocument. The baseline artifact records per-rule knowledge, not a per-path extent. An entry whose first attributable change along B→E4 would rest on a `null`
++value is `INDETERMINATE` with `current-absence-unknown` (unknown E4) or
++`baseline-absence-unknown` (unknown B), never `CODE-FIXED`, `UNCHANGED` or `CODE-NET-NEW` by
++default. A change already established between known values before the unknown value keeps its
++classification, so a known `CODE-NET-NEW` still fails. Rule coverage, evidence and execution
++deficiencies remain independent of this knowledge.
++
+ E1–E3 preserve current non-substituted inputs: selected source, configuration,
+ provider/toolchain contexts, imports, native facts and Coverage, subject
+ inventories, attribution/search records and candidate-producer evidence.
+@@ -388,9 +420,10 @@
+ | `full-current` | yes | yes | yes | yes | current only |
+ | `report-only` | no | no | no | yes | current only |
+ 
+-A `CODE-NET-NEW` entry that is not live in current (hidden by a later policy/scope
+-change or by a waiver added in the same change) still gates under
+-`baseline-or-current` with `gateReason=code-net-new-policy-hidden`. Verdict is `fail`
++A `CODE-NET-NEW` entry that is not live in current (hidden by a later detector, policy or scope
++change, or by a waiver added in the same change; `subsequentDeltas` names the later axes) still gates under
++`baseline-or-current` with `gateReason=code-net-new-policy-hidden`; that existing reason covers every
++later hiding axis. Verdict is `fail`
+ if any entry gates, else `indeterminate` if any `INDETERMINATE` entry belongs to a
+ gating rule or a current gating rule has unsatisfied/unknown required Coverage or
+ evidence, else `pass`. Rule deficiencies are enumerated independently of findings;
+@@ -940,10 +973,25 @@
+ the live tree still equals the `afterStep` snapshot. There is no shell string and no
+ interpolation anywhere in the schema.
+ 
++**Argv digest.** `argvDigest` is the lowercase hexadecimal raw SHA-256 of `C(argv)`, where
++`C` is product canonical JSON (identity-and-evidence §3) and `argv` is the exact ordered array
++of argument strings actually selected for the spawn. Every element stays a separate array
++member, preserving order, repeated elements and any empty string an owning schema admits; no
++shell-joined, quoted, normalized or PATH-resolved surrogate is digested. The recipe is the same
++wherever the digest binds, `RepoExecutionGrantV2.argvDigest` (security S10) and
++`TestPayloadV1.argvDigest`: host test execution digests `TestExecutionStepParams.argv`, native
++preparation digests the host-selected preparation argv of its grant, and an independently
++prepared test payload digests the argument array its adapter recorded.
++
+ The step **discloses** and does not confine: `effects.network/subprocess/
+ filesystemWrite` are `DISCLOSURE-ONLY` unless the security unit's platform truth
+ table measures a primitive; a claimed enforcement without a measured primitive is
+-refused (`TEST.CONFINEMENT_CLAIM_REFUSED`). The mandatory sentence before spawn is
++refused (`TEST.CONFINEMENT_CLAIM_REFUSED`). Every effect value must equal the selected
++truth-table profile row (security S10). The selected `permission-truth-tables.v9` profile has
++no measured platform-primitive row, so `ENFORCED-PLATFORM:<primitiveId>` cannot be claimed in
++this profile and is not a member of `TestExecutionStepParams` `EnforcementValue`; security
++`EnforcementV1` keeps that vocabulary for a future measured primitive, which requires a
++successor truth-table profile and test-execution schema. The mandatory sentence before spawn is
+ "Repository test command will run with your user authority. OpenSIP does not prevent
+ network access or other effects on this platform." Output is bounded and truncation
+ is recorded. The outcome is a `TestPayloadV1` wrapped as an `import2` of kind `test`
+@@ -999,7 +1047,9 @@
+ result or a successful partial rendering: `operational-failed`, exit 4,
+ `faultCause=delivery-required`, `DELIVERY.REQUIRED_FAILED`. If a Run was already
+ committed, the termination retains its RunId and the after-commit detail below;
+-otherwise no RunId is invented. This classification also covers a pure reference
++otherwise no RunId is invented and the detail is `DELIVERY.REQUIRED_PROJECTION_FAILED`. The
++termination schema enforces both directions: the after-commit detail requires a `runId`, the
++no-Run detail forbids one. This classification also covers a pure reference
+ projection helper raising `KeyError`; that exception alone is not a public
+ termination. Actual host exception handling and renderer conformance remain
+ DR-G17/DR-G20 implementation qualification obligations.
+@@ -1064,6 +1114,19 @@
+ termination. The envelope and response must identify the same project. Missing
+ required query disclosure follows the existing required-delivery fault law.
+ 
++**Public query carrier.** Every `kind=query` envelope names `querySurface`. The query command,
++whose inventory parity fields include `query-response`, selects `graph-query-response` and
++carries that complete owner-admitted response in `CommandEnvelope.queryResponse`: the JSON
++rendering is that envelope, the agent rendering is the same envelope plus `agentHints`, and
++the human rendering prints every parity field; parity recovered from each rendering is
++identical. `queryResponse` is required for that selector and forbidden for every other
++selector and envelope kind, so a query-command envelope cannot omit it silently and no private
++wrapper carries it. Every other query-class command (`recommend`, `baseline show`,
++`policy show`, `policy test`, `candidates`, `inspect`, `review brief`, `repair preview`)
++selects `command-owned-summary`; its compact `QueryResult` and parity fields keep their owners.
++A query never commits a Run, so a query rendering that cannot deliver the carrier is
++`DELIVERY.REQUIRED_FAILED` with `DELIVERY.REQUIRED_PROJECTION_FAILED` and no `runId`.
++
+ The envelope's compact `QueryResult` remains a separate record. For graph.*,
+ `items` is the number of rows on the current page, `truncated` equals the context
+ flag, `advisory` is false, and `nextCursor` is present exactly when the context
+@@ -1079,7 +1142,7 @@
+ **Doctor.** `opensip doctor` produces a typed report over closures, trust, store,
+ platform, project marker and the offline window. A produced report is `success` (0)
+ even when defects are found (detail `DOCTOR.DEFECTS_FOUND`); CI must inspect
+-`doctor.defectsFound`. Only an unproducible report is `HOST.IO_FAILURE` (4).
++`doctor.defectsFound`. Only an unproducible report is `HOST.IO_FAILURE` (4), with detail `DOCTOR.REPORT_NOT_PRODUCIBLE`.
+ 
+ A `doctor` report is a **different invocation** and therefore cannot deliver the
+ absences of an analysis invocation; `DoctorResult.defects[]` remains the
+@@ -1128,7 +1191,11 @@
+ `domainDetail` is absent, the composition in native §10 supplies the array from
+ the route's own detail code, and where it is present `errors` is exactly that
+ detail so the two surfaces never disagree. Before a Plan or Run exists no run
+-envelope is fabricated.
++envelope is fabricated. A failure golden (request-rejected or operational-failed) carries its
++actual `domainDetail`; only a golden whose `detailSuppliedBy` names that composition may omit
++it. An unsupported envelope major is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with
++`OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED`; an empty latest resolver is `IDENTITY.UNKNOWN` with the
++query owner's `QUERY.VIEW_UNKNOWN`.
+ 
+ ---
+ 
+@@ -1156,6 +1223,7 @@
+ | required provider closure not installed | indeterminate 3 | `COVERAGE.PROVIDER_UNAVAILABLE` | `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` → `opensip install provider-typescript` |
+ | installed closure bytes corrupt / unspawnable | operational-failed 4 | `HOST.IO_FAILURE` | `DELIVERY.CLOSURE_BYTES_CORRUPT` / `DELIVERY.CLOSURE_UNSPAWNABLE` → `opensip doctor` |
+ | selected renderer fails after commit | operational-failed 4 | `DELIVERY.REQUIRED_FAILED` | `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`; runId retained |
++| required projection or renderer fails with no committed Run | operational-failed 4 | `DELIVERY.REQUIRED_FAILED` | `DELIVERY.REQUIRED_PROJECTION_FAILED`; no runId |
+ | optional export sink fails | success 0 | — | egress never changes a verdict |
+ | `--ephemeral` with baseline/repair prerequisite | request-rejected 2 | `REQUEST.UNSATISFIABLE` | `WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY` |
+ | pivot closure missing / revoked / unmapped project | indeterminate 3 | `BASELINE.RECIPE_UNSUPPORTED` | `BASELINE.PIVOT_DETECTOR_UNAVAILABLE` / `..._CLOSURE_REVOKED` / `BASELINE.PROJECT_UNMAPPED` |
+@@ -1166,6 +1234,9 @@
+ | recovery blocked | operational-failed 4 | `HOST.IO_FAILURE` | `REPAIR.RECOVERY_BLOCKED`; journal retained |
+ | CI interactive test consent / confinement claim | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `TEST.INTERACTIVE_CONSENT_IN_CI` / `TEST.CONFINEMENT_CLAIM_REFUSED` |
+ | doctor report with defects | success 0 | — | `DOCTOR.DEFECTS_FOUND`; inspect typed outcome |
++| doctor report not producible | operational-failed 4 | `HOST.IO_FAILURE` | `DOCTOR.REPORT_NOT_PRODUCIBLE` |
++| latest resolver on an empty domain | request-rejected 2 | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |
++| envelope major other than 3 requested | request-rejected 2 | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED` |
+ | SIGINT before / after settle | interrupted 130 / settled class | — | after-settle is never reclassified |
+ 
+ The exact class/detail pairing is determined by the golden observation and

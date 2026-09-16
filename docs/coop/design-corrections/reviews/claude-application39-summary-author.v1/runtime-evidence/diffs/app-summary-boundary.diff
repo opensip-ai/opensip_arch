@@ -1,0 +1,299 @@
+--- captured/apply-advisory-records.successor.v1.py
++++ corrected/apply-advisory-records.successor.v1.py
+@@ -4,6 +4,8 @@
+ Design subject path comes from the assembled application record, not hardcoded v21.
+ Historical CLAUDE-V13-ADV-1/2 and v13 SHA remain historical evidence; they are
+ not renamed. Current matrix cell count is measured from the accepted snapshot.
++The accepted frozen validation summary keeps its own evidence vintage; current counts come only from the
++source-bound reference receipts (current_reference_summary.accepted_summary_boundary).
+ """
+ from __future__ import annotations
+ 
+@@ -19,7 +21,7 @@
+ sys.path.insert(0, str(HERE))
+ import coverage_contract as C
+ import review_envelope as E
+-from current_reference_summary import current_reference_summary
++from current_reference_summary import accepted_summary_boundary
+ 
+ p = argparse.ArgumentParser()
+ p.add_argument('--root', type=Path, required=True)
+@@ -56,34 +58,17 @@
+ assert sha(root / app['freshBlindConsumerReview']['path']) == app['freshBlindConsumerReview']['sha256']
+ assert blind['verdict'] == 'ACCEPT-RECONSTRUCTABLE'
+ E.require_findings_none(blind, 'fresh blind')
+-manifest = load(root / app['designSubject']['path'])
+ snapshot = Path(app['designSnapshotRoot'])
+-expected = {r['path']: r for r in manifest['files']}
+-sources = []
+-
+-
+-def accepted(rel):
+-    p = snapshot / rel
+-    assert sha(p) == expected[rel]['sha256']
+-    sources.append({'path': rel, 'sha256': sha(p), 'resolveAgainst': app['designSubject']})
+-    return load(p)
+-
+-
+-old = accepted(dc + 'validation-summary.v1.json')
+-matrix = accepted(dc + 'native/native-capability-matrix.v2.json')
+-native = accepted(dc + 'native/native-evidence-report.v2.json')
+-identity = accepted(dc + 'foundation/identity-report.json')
+-security = accepted(dc + 'security/security-lifecycle-report.v1.json')
+-workflow = accepted(dc + 'workflows/workflows-report.v1.json')
+-integration = accepted(dc + 'integration-report.v1.json')
+-assert old['foundation']['checksPassed'] == sum(old['foundation']['components'].values())
+-assert old['foundation']['components']['identity'] == identity['passed']
+-assert old['security']['casesPassed'] == security['counts']['pass'] and old['security']['invariantSweepsPassed'] == len(security['sweeps'])
+-assert old['native']['casesPassed'] == native['cases']['passed']
+-assert old['workflows']['checksPassed'] == workflow['passed'] and old['integration']['checksPassed'] == integration['passed']
+-measured_cells = len(matrix['cells'])
+-assert measured_cells == native['matrix']['cells'] and native['matrix']['qualifiedCells'] == 0
+-assert old['native']['matrixCells'] == measured_cells
++# Two evidence vintages meet here. The accepted subject may retain an older validation summary byte-for-byte while
++# its generated reports and the bound reference receipts are current. The summary is checked only as itself; every
++# current count and every presented generated report is bound to the source-bound receipts. Historical counts are
++# recorded beside current ones, never equated with them.
++boundary = accepted_summary_boundary(root, app['designSubject'], app['designSnapshotRoot'],
++    app['acceptedDesignReproduction']['originalExecutedCommandRecord'],
++    app['referenceEvidenceSummary']['identityCountMeasurement'])
++old = boundary['acceptedSummary']
++measured_cells = boundary['measuredCells']
++sources = boundary['sources']
+ historical_manifest_path = root / (dc + 'reviews/candidate-subject.v13.json')
+ historical_manifest = load(historical_manifest_path)
+ assert sha(historical_manifest_path) == C.HISTORICAL_V13_MANIFEST_SHA256
+@@ -91,11 +76,8 @@
+ historical_row = next(r for r in historical_manifest['files'] if r['path'] == dc + 'validation-summary.v1.json')
+ assert sha(historical_path) == historical_row['sha256']
+ assert load(historical_path)['native']['matrixCells'] == C.HISTORICAL_V13_MATRIX_CELLS
+-current = current_reference_summary(root, app['designSubject'],
+-    app['acceptedDesignReproduction']['originalExecutedCommandRecord'],
+-    app['referenceEvidenceSummary']['identityCountMeasurement'], old)
+-current['native']['matrixCells'] = measured_cells
+-current['native']['qualifiedCells'] = native['matrix']['qualifiedCells']
++current = boundary['current']
++assert current['native']['matrixCells'] == measured_cells and current['native']['qualifiedCells'] == 0
+ current['standing'] = (
+     'Current reference summary effective only through the independently reviewed D372 '
+     'application activation. Synthetic reference evidence; no product qualification or '
+@@ -106,6 +88,11 @@
+     'path': dc + 'validation-summary.v1.json',
+     'sha256': sha(snapshot / (dc + 'validation-summary.v1.json')),
+     'resolveAgainst': app['designSubject'],
++    'meaning': (
++        'The accepted frozen summary as recorded by its own evidence vintage; not current execution. Its counts '
++        'are listed beside the receipt-bound current counts; a difference is not a correction of it.'
++    ),
++    'recordedCountsVersusCurrent': boundary['acceptedSummaryCounts'],
+ }
+ # Preserve historical Claude routing keys as historical. Do not write a Grok
+ # review path into claudeFinalReview.
+@@ -174,9 +161,15 @@
+     q0 = before / rel0
+     q0.parent.mkdir(parents=True, exist_ok=True)
+     shutil.copyfile(files / rel0, q0)
++frozen_ref = app['referenceEvidenceSummary']['validationSummary']
++assert sha(root / frozen_ref['path']) == frozen_ref['sha256']
++assert app['referenceEvidenceSummary']['foundationPassingCalls'] == load(root / frozen_ref['path'])['foundation']['checksPassed']
+ app['referenceEvidenceSummary']['acceptedFrozenValidationSummary'] = app['referenceEvidenceSummary']['validationSummary']
+ app['referenceEvidenceSummary']['acceptedFrozenValidationSummary']['resolveAgainst'] = app['designSubject']
+ app['referenceEvidenceSummary']['validationSummary'] = current_ref
++# The assembled foundation count came from the frozen summary; keep it under that name and state the current count.
++app['referenceEvidenceSummary']['acceptedFrozenFoundationPassingCalls'] = app['referenceEvidenceSummary']['foundationPassingCalls']
++app['referenceEvidenceSummary']['foundationPassingCalls'] = current['foundation']['checksPassed']
+ app['referenceEvidenceSummary']['standing'] = (
+     'Current applied summary verifies the already corrected accepted matrix count and '
+     'updates actual review routing; both historical v13 and accepted design summaries '
+@@ -258,7 +251,7 @@
+ text = text.replace(
+     needle,
+     'The [current reference summary](validation-summary.applied.v1.json) and [advisory clarifications](accepted-review-advisories.v1.json) verify the measured matrix count and qualify the historical crate-size illustration.\n\n'
+-    + f"Current reference evidence records {native['cases']['passed']} native cases, {workflow['passed']} workflow controls and {current['evaluator3']['suiteCount']} current evaluator suites. Counts describe their retained reference scope, not product qualification. Full semantic Run admission uses `close_run`; `open_run_closure` provides structural owner admission only. The exact accepted contracts and their current review dispositions govern these boundaries. Historical source23 recording corrections are not presented as unresolved current advisories.\n\n"
++    + f"Current reference evidence records {current['native']['casesPassed']} native cases, {current['workflows']['checksPassed']} workflow controls and {current['evaluator3']['suiteCount']} current evaluator suites. Counts describe their retained reference scope, not product qualification. Full semantic Run admission uses `close_run`; `open_run_closure` provides structural owner admission only. The exact accepted contracts and their current review dispositions govern these boundaries. Historical source23 recording corrections are not presented as unresolved current advisories.\n\n"
+     + needle,
+ )
+ readme.write_text(text)
+@@ -295,6 +288,7 @@
+             'designSubject': app['designSubject'],
+             'historicalFindingIdsPreserved': list(C.HISTORICAL_V13_ADVISORY_IDS),
+             'measuredMatrixCells': measured_cells,
++            'acceptedSummaryCountsVersusCurrent': boundary['acceptedSummaryCounts'],
+             'vendor': vendor,
+         },
+         indent=2,
+--- captured/current_reference_summary.py
++++ corrected/current_reference_summary.py
+@@ -2,6 +2,12 @@
+ 
+ Pure record construction and read-only verification. Does not grant acceptance,
+ write an application, or change the frozen historical validation summary.
++
++Two evidence vintages meet at the application boundary. An accepted subject may retain an older validation summary
++byte-for-byte while its generated reports and the bound reference receipts are current. Current counts come only from
++the source-bound receipts; every frozen generated report the application presents as current must be the executed
++copy; the accepted summary is checked only as itself (accepted_summary_boundary) and its counts are recorded, never
++equated with current execution.
+ """
+ from pathlib import Path
+ import copy
+@@ -32,6 +38,10 @@
+     suite = load(directory / 'report.json')
+     assert suite['passed'] is True and len(suite['checks']) == 6
+     assert len(commands['commands']) == 7
++    # The derived six-group view names the original runner receipt; the bound receipt adds only the subject binding.
++    original = load(directory / 'runner-original-reference-checks.json')
++    assert sha(directory / 'runner-original-reference-checks.json') == suite['originalRunnerReceiptSha256']
++    assert original['passed'] is True and original['commands'] == commands['commands']
+     evidence = []
+ 
+     def measured(name):
+@@ -80,8 +90,37 @@
+     security = measured('security.json')
+     workflow = measured('workflow-surface-report.json')
+     integration = measured('integration.json')
+-    matrix = load(snapshot / (dc + 'native/native-capability-matrix.v2.json'))
++    parent = measured('workflows.json')
++    assert parent['passed'] is True and parent['sourcePinsValid'] is True and parent['check']['exitCode'] == 0
++    assert parent['check']['reportSha256'] == sha(directory / 'workflow-surface-report.json')
++    assert json.loads(parent['check']['stdout']) == {'checks': workflow['passed'], 'passed': workflow['passed'], 'failed': 0}
++    assert native['cases']['failed'] == 0 and native['cases']['passed'] == native['cases']['total']
++    assert workflow['failed'] == [] and integration['failed'] == [] and len(integration['checks']) == integration['passed']
++    assert security['passed'] is True and security['counts']['fail'] == 0
++    assert security['counts']['pass'] == security['counts']['total'] and all(row['holds'] is True for row in security['sweeps'])
++    matrix_rel = dc + 'native/native-capability-matrix.v2.json'
++    assert sha(snapshot / matrix_rel) == members[matrix_rel]['sha256']
++    matrix = load(snapshot / matrix_rel)
+     assert native['matrix']['cells'] == len(matrix['cells']) and native['matrix']['qualifiedCells'] == 0
++    assert matrix['platformQualified'] is False
++    custody = []
++    for group, executed, frozen in GENERATED_REPORTS:
++        frozen_rel = dc + frozen
++        assert sha(snapshot / frozen_rel) == members[frozen_rel]['sha256']
++        same = sha(directory / executed) == sha(snapshot / frozen_rel)
++        assert same or group not in EXECUTED_COPY_GROUPS, 'frozen generated report is not the executed copy: ' + group
++        custody.append({'group': group,
++                        'executedReport': {'path': (directory / executed).relative_to(root).as_posix(),
++                                           'sha256': sha(directory / executed)},
++                        'frozenGeneratedReport': {'path': frozen_rel, 'sha256': sha(snapshot / frozen_rel),
++                                                  'resolveAgainst': subject},
++                        'relation': EXECUTED_COPY if same else NOT_EXECUTED_COPY})
++    # The workflow checker validates the v1 command inventory; its commands and goldens are measured, not carried.
++    checker = next(row for row in commands['commands'] if row['name'] == 'workflow-surface')
++    inventory_rel = dc + 'workflows/command-inventory.v1.json'
++    assert inventory_rel.rsplit('/', 1)[1].encode() in (snapshot / checker['source']).read_bytes()
++    assert sha(snapshot / inventory_rel) == members[inventory_rel]['sha256']
++    inventory = load(snapshot / inventory_rel)
+     current = copy.deepcopy(previous)
+ 
+     def report(name):
+@@ -98,7 +137,10 @@
+                            'invariantSweepsPassed': len(security['sweeps']), 'report': report('security.json')}
+     current['native'] = {'casesPassed': native['cases']['passed'], 'matrixCells': len(matrix['cells']),
+                          'qualifiedCells': 0, 'report': report('native-report.json')}
+-    current['workflows'].update(checksPassed=workflow['passed'], report=report('workflows.json'))
++    current['workflows'] = {'checksPassed': workflow['passed'], 'commands': len(inventory['commands']),
++                            'goldens': len(inventory['goldens']), 'report': report('workflows.json'),
++                            'inventory': {'path': inventory_rel, 'sha256': sha(snapshot / inventory_rel),
++                                          'resolveAgainst': subject}}
+     current['integration'] = {'checksPassed': integration['passed'], 'report': report('integration.json')}
+     current['evaluator3'] = {'suiteCount': len(evaluator['checks']), 'allPassed': True,
+                             'sourcePinsVerified': len(pins['files']), 'report': report('evaluator3/report.json'),
+@@ -107,5 +149,97 @@
+         'standing': 'Actual recorded final-source commands and reports; not a new execution or product qualification.',
+         'subject': subject, 'commands': command_ref, 'identityCounts': count_ref,
+         'reports': evidence,
++        'originalRunnerReceipt': {'path': (directory / 'runner-original-reference-checks.json').relative_to(root).as_posix(),
++                                  'sha256': suite['originalRunnerReceiptSha256']},
++        'generatedReportCustody': custody,
+     }
+     return current
++
++
++EXECUTED_COPY = 'byte-identical-executed-copy'
++NOT_EXECUTED_COPY = 'frozen-generated-report-differs; not current execution evidence'
++# (group, executed report under the receipt directory, frozen generated report in the accepted subject)
++GENERATED_REPORTS = (
++    ('native', 'native-report.json', 'native/native-evidence-report.v2.json'),
++    ('workflows', 'workflow-surface-report.json', 'workflows/workflows-report.v1.json'),
++    ('integration', 'integration.json', 'integration-report.v1.json'),
++    ('identity', 'foundation/identity-report.json', 'foundation/identity-report.json'),
++    ('security', 'security.json', 'security/security-lifecycle-report.v1.json'),
++    ('foundation', 'foundation.json', 'foundation/validation-report.json'),
++)
++# Groups whose frozen generated report the application presents as current: they must be the executed copy.
++EXECUTED_COPY_GROUPS = ('native', 'workflows', 'integration', 'identity')
++ACCEPTED_SUMMARY_INPUTS = (
++    ('summary', 'validation-summary.v1.json'),
++    ('matrix', 'native/native-capability-matrix.v2.json'),
++    ('native', 'native/native-evidence-report.v2.json'),
++    ('identity', 'foundation/identity-report.json'),
++    ('security', 'security/security-lifecycle-report.v1.json'),
++    ('workflows', 'workflows/workflows-report.v1.json'),
++    ('integration', 'integration-report.v1.json'),
++)
++SUMMARY_COUNT_FIELDS = (
++    'foundation.checksPassed', 'foundation.sourcePinsVerified', 'foundation.components.identity',
++    'security.casesPassed', 'security.invariantSweepsPassed', 'native.casesPassed', 'native.matrixCells',
++    'native.qualifiedCells', 'workflows.checksPassed', 'workflows.commands', 'workflows.goldens',
++    'integration.checksPassed', 'evaluator3.suiteCount', 'evaluator3.sourcePinsVerified',
++)
++
++
++def _field(record, dotted):
++    node = record
++    for key in dotted.split('.'):
++        if not isinstance(node, dict) or key not in node:
++            return None
++        node = node[key]
++    return node
++
++
++def accepted_summary_boundary(root, subject, snapshot_root, command_ref, count_ref):
++    """The application boundary between the accepted frozen summary and current execution.
++
++    The accepted summary is checked only as itself: pinned bytes, internal foundation consistency and the already
++    corrected v13 matrix equality (summary == matrix == generated report). It is never compared with current execution
++    counts. Current counts come from current_reference_summary over the source-bound receipts; the frozen generated
++    reports read here are pinned by the subject, the presented ones are the executed copies (verified there), and the
++    frozen security report must agree in counts only. Both vintages' counts are returned side by side; a difference
++    is data, not a failure."""
++    root = Path(root)
++    dc = 'docs/coop/design-corrections/'
++    assert sha(root / subject['path']) == subject['sha256']
++    manifest = load(root / subject['path'])
++    assert str(snapshot_root) == manifest['snapshotRoot']
++    snapshot = Path(snapshot_root)
++    members = {r['path']: r for r in manifest['files']}
++    accepted, sources = {}, []
++    for key, rel in ACCEPTED_SUMMARY_INPUTS:
++        path = snapshot / (dc + rel)
++        assert sha(path) == members[dc + rel]['sha256'], 'accepted subject pin: ' + rel
++        accepted[key] = load(path)
++        sources.append({'path': dc + rel, 'sha256': sha(path), 'resolveAgainst': subject})
++    old = accepted['summary']
++    assert old['foundation']['checksPassed'] == sum(old['foundation']['components'].values())
++    cells = len(accepted['matrix']['cells'])
++    assert cells == accepted['native']['matrix']['cells'] and accepted['native']['matrix']['qualifiedCells'] == 0
++    assert old['native']['matrixCells'] == cells
++    current = current_reference_summary(root, subject, command_ref, count_ref, old)
++    custody = {row['group']: row for row in current['currentExecutedReference']['generatedReportCustody']}
++    assert current['native']['casesPassed'] == accepted['native']['cases']['passed'] and current['native']['matrixCells'] == cells
++    assert current['workflows']['checksPassed'] == accepted['workflows']['passed']
++    assert current['integration']['checksPassed'] == accepted['integration']['passed']
++    assert current['foundation']['components']['identity'] == accepted['identity']['passed']
++    assert current['security']['casesPassed'] == accepted['security']['counts']['pass']
++    assert current['security']['invariantSweepsPassed'] == len(accepted['security']['sweeps'])
++    for (key, _), row in zip(ACCEPTED_SUMMARY_INPUTS, sources):
++        if key == 'summary':
++            row['role'] = 'accepted frozen summary: its own evidence vintage; not a current count source'
++        elif key == 'matrix':
++            row['role'] = 'accepted matrix: current cell count and zero qualification'
++        elif custody[key]['relation'] == EXECUTED_COPY:
++            row['role'] = 'frozen generated report: byte-identical copy of the bound execution'
++        else:
++            row['role'] = 'frozen generated report: counts agree with the bound execution; not an executed copy'
++    counts = [{'field': f, 'acceptedSummary': _field(old, f), 'current': _field(current, f),
++               'equal': _field(old, f) == _field(current, f)} for f in SUMMARY_COUNT_FIELDS]
++    return {'acceptedSummary': old, 'accepted': accepted, 'sources': sources, 'measuredCells': cells,
++            'current': current, 'acceptedSummaryCounts': counts}

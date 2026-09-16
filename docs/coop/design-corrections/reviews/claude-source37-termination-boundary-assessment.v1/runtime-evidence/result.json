@@ -1,0 +1,79 @@
+{
+  "session_id": "ce3dec3b-0620-44ec-86e6-129b0e25cb1b",
+  "total_cost_usd": 9.790737999999997,
+  "usage": {
+    "input_tokens": 802,
+    "cache_creation_input_tokens": 265406,
+    "cache_read_input_tokens": 7358873,
+    "output_tokens": 106755,
+    "output_tokens_details": {
+      "thinking_tokens": 53843
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 265406,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1850,
+        "cache_read_input_tokens": 233942,
+        "cache_creation_input_tokens": 1154,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1154
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 7723,
+      "outputTokens": 117589,
+      "cacheReadInputTokens": 8316676,
+      "cacheCreationInputTokens": 265406,
+      "webSearchRequests": 0,
+      "costUSD": 9.790737999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 53843,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01Pktgs73Fhvm7ovWBihWiY7",
+      "tool_input": {
+        "command": "mkdir -p /tmp/opensip-design-corrections/claude-source37-termination-boundary-assessment.v1/disposable/baseline && rsync -a --exclude 'reviews/' --exclude '__pycache__/' /tmp/opensip-design-corrections/candidate-subject.v37/docs /tmp/opensip-design-corrections/claude-source37-termination-boundary-assessment.v1/disposable/baseline/",
+        "timeout": 300000,
+        "description": "Copy frozen docs into pristine disposable baseline"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01NqosJvAE7hokBFEMTv6GgX",
+      "tool_input": {
+        "command": "mkdir -p /tmp/opensip-design-corrections/claude-source37-termination-boundary-assessment.v1/disposable/edited && rsync -a --exclude 'reviews/' --exclude '__pycache__/' /tmp/opensip-design-corrections/candidate-subject.v37/docs /tmp/opensip-design-corrections/claude-source37-termination-boundary-assessment.v1/disposable/edited/",
+        "timeout": 300000,
+        "description": "Copy frozen docs into disposable edit copy"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 100,
+  "subtype": "success",
+  "result": "This is a real gap. The schema that defines the public termination record (StepTermination) accepts cause and code combinations that the retained D9 law forbids. No other check rejects them, and nothing in the owner docs says the schema was meant to check shape only. Every piece of code that builds terminations today builds lawful ones; the gap is that the published admission rule is weaker than the law it claims to keep.\n\n**What I found in candidate37**\n- **Root's result reproduces, and the gap is wider.** 13 combinations break the retained D9 law. All 13 are accepted at all seven places that reference StepTermination: both common schemas, both command-envelope majors, the graph-query response, and both invocation-record step results.\n- **No other gate enforces the law:**\n  - `exit_code` only looks at the class.\n  - `validate_envelope` only checks that the envelope matches its evaluator-fault route.\n  - `validate_pinned_purge_refusal` only checks purge fields.\n  - `render` only projects fields.\n  - The \u00a78 query rule only requires the response termination to equal the enclosing one.\n  - No import kind or retained Run record carries a termination.\n- **Why it isn't intentional:**\n  - Workflows line 66 says StepTermination replaces the D9 union's field rules (\"no undeclared D9 field is admitted\") and that \"Class/code/exit legality remains retained\". It names no other place that enforces it.\n  - \u00a79 calls the branch rules \"(schema-enforced)\".\n  - The D9 union being replaced refused reasonCodes on every class except indeterminate. The current schema accepts them.\n- **Producers are lawful:** `terminate`, the evaluator-fault routes, native `public_termination_for` and the host `public_termination` emit no illegal termination.\n- **One host observation:** `public_termination` silently drops a code supplied with a success outcome. It also passes request-rejected with fault-family codes.\n\n**Dispositions**\n- **R1, required:** faultCause may appear only on operational-failed, and reasonCodes only on indeterminate. The law is D9 codeDerivation plus cross-axis invariants X1, X3 and X4.\n- **R2, required:** on operational-failed, faultCause must match errorCode through the 11-entry fault map, including host-invariant \u2192 `SYSTEM.OUTCOME.ILLEGAL_STATE`. Only the new carrier publishes both fields, so a mismatch contradicts itself under the D9 code maps.\n- **A1, advisory:** limit request-rejected errorCode to the D9 rejection codes. This was always the host finalizer's derivation job, so I left it out of the diff.\n- **A2, advisory:** `public_termination` should refuse a class/code the law forbids instead of dropping or passing it.\n- **A3, advisory:** add a check that the workflows and evaluator3 StepTermination definitions stay identical.\n\n**Proposed edit** (`proposed-edits.diff`, applied only to my disposable copy)\n- **Schemas:** the same branch constraints for R1 and R2 in both common schemas, plus one sentence in the description.\n- **Controls:** 12 new reject vectors in `workflow-cases.v1.json`, and a `check_workflows` check that the schema's fault pairs equal `FAULT_TO_ERROR`.\n- **Prose:** one sentence in workflows \u00a79. Native \u00a710 is unchanged.\n\n**Checks on the edited copy:** all 12 gates passed.\n- All 13 illegal combinations are now refused at all seven sites, while every lawful control still passes.\n- What the producers emit is byte-identical to before and lawful.\n- The termination and envelope vectors behave as intended.\n- None of the 52 termination-shaped fixture objects changes result.\n\n**Digest consequence**\n- The raw digests of both common schemas change, so owners would need to regenerate:\n  - the five source-pins ledgers;\n  - `workflows-report.v1.json`;\n  - any rebound package manifest.\n- Pins for the other three changed files would also move; I didn't locate those.\n- The registered payload schema digests don't change: no registered payload document references StepTermination.\n- Nothing retained in exports changes either: no retained Run or import payload contains a termination.\n\n**Limits**\n- I ran no group or global suites. The new control and vectors were reproduced in my own probe, not run inside `check_workflows`.\n- I regenerated no pins.\n- The legality predicate is my own transcription of D9, always reported beside the actual result.\n- The fixture scan covers JSON files only.\n- I didn't assess signal on operational-failed.\n- The frozen source is unchanged, and no background process was started.\n\n**Kept failures**\n- **p00:** exited 1 because it matched manifest pins by path suffix, which caught copies under `reviews/`. p00b redid the match by exact path and passed.\n- **p01, first run:** exited 1 on a type error in my fixture scan. I fixed the guard and the rerun passed.\n\nFiles are in /tmp/opensip-design-corrections/claude-source37-termination-boundary-assessment.v1/ (probes and receipts are in the same folder):\n- assessment.md \u2014 SHA-256 7ad6095a\u2026\n- assessment.json \u2014 SHA-256 cb98d2c9\u2026\n- proposed-edits.diff \u2014 SHA-256 a2e3a27a\u2026",
+  "type": "result",
+  "duration_ms": 1377370
+}

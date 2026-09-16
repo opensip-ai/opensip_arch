@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-generator-adapter-review-04",
+  "kind": "narrow delta review of adapter03 RF1/advisory corrections",
+  "reviewer": "Claude (independent)",
+  "subject": {
+    "root": "/tmp/opensip-implementation/m1-generator-adapter-subject-04",
+    "manifest": "/tmp/opensip-implementation/m1-generator-adapter-subject-04.json",
+    "subjectManifestSha256": "d25b7713ca29296df964497a75c6bef205edf5f08ac13f6b533dc99fd02d3f2f",
+    "files": 87,
+    "exactSetVerified": {"before": true, "afterAllProbing": true, "unlisted": 0, "linkedOrNonregular": 0},
+    "predecessor": {"subjectManifestSha256": "ff8c39858d4ff2cc52449c897a99c7b58dd281415f2f17d14b0ca033eef1f4ef", "review": "/tmp/opensip-implementation/m1-generator-adapter-review-03"},
+    "delta": {
+      "addedFiles": [],
+      "removedFiles": [],
+      "changedFiles": [
+        "GENERATOR-UNIT.md",
+        "tools/generate_contracts.py",
+        "tools/tests/test_generation_execution.py",
+        "tools/contracts/generator-closure.json (only the generate_contracts.py pin)",
+        "schemas/registry.json (only generatorClosureSha256)",
+        "8 generated outputs (lines 2-3 provenance header only; bodies byte-identical to subject-03)"
+      ]
+    },
+    "bindingDigests": {
+      "registrySha256": "4b1b4915c96eb1064341b01cfe67b091a794328a05cb90aabc8546a6275e404b",
+      "generatorClosureSha256": "2d64a8d8638ca92582c266957d205b9b1c41e3627e2d66584db194924cfdbc44",
+      "optionsSha256": "1719ef1860624e390af57f58c9670b60c68aa9d599eba3a4cee18d43343d7902",
+      "sourceMapSha256": "561cf9ef76d04bab37cec2791eb61786d48c52d8ac0938d38d9e3f003022708a",
+      "generatorExecutableSha256": "0a49cfc4d65818aa3d845487491b49d202519deda27236a2aa712a1d9ae0768e"
+    }
+  },
+  "verdict": "ACCEPT-UNIT",
+  "acceptedVerdict": "ACCEPT-UNIT",
+  "verdictSummary": "Review03 RF1 is closed on the frozen subject-04 bytes. The corrected profile denies child replacement of every Node/Rust write root. The parent independently refuses if a root's identity changes. The same exploit still reproduces on subject-03 in this session. There are no new required findings. Acceptance covers the concrete adapter and fixed macOS development host profile only. It is not hermetic, not product integration or install, not runtime/release qualification, and not M1 acceptance.",
+  "requiredFindings": [],
+  "priorFindings": {
+    "RF1": {
+      "status": "closed",
+      "codeReview": [
+        "child_profile write grant is (require-all (subpath p) (require-not (literal p))) for every Node/Rust write root, matching the Python profile.",
+        "The parent records lstat (st_dev, st_ino) of output, runtime-scratch and home after creating them. verify_directory_roots runs before each profile is rendered and after each Node/Rust child exits, refusing non-directories (symlinks) and replaced inodes.",
+        "Children run sequentially, and fork/exec are denied, so no child can act between the post-check and the next profile rendering.",
+        "Later grants are the same paths, now proven to be the parent-created directories."
+      ],
+      "evidence": {
+        "exploitPositiveControl": "subject-03, root-replacing generator stub + probe TS child: victim canary read ALLOWED, outside file written, canary overwritten.",
+        "corrected": "subject-04, same stub + same probe TS child: chmod/rename/rmdir/symlink of the output root all EPERM (stub's own report, read back by step 4). Root not a symlink. Victim read/write/overwrite EPERM. Victim and checked-in outputs unchanged.",
+        "realGeneratorControls": "subject-03 and subject-04: probe TS child denied victim access; no escape report exists.",
+        "unconfinedStubControl": "chmod, rmdir and symlink of the root ALLOWED; the root became a symlink to the victim (the stub is capable).",
+        "directProfile": "The native effects probe under the new child_profile denies rmdir and chmod of the output root (previously ALLOWED/ENOTEMPTY). All other review03 denials are unchanged, and the collector still refuses child symlink/fifo outputs.",
+        "parentCustodyUnderSimulatedSandboxFailure": "Real sandboxed steps ran, then a root was mutated unconfined, one scenario at a time. Output symlinked or inode replaced after the generator step, scratch symlinked after the validate step, and home replaced after the validate step: each gave a controlled GenerationError immediately, and no later sandboxed step ran. Outputs and victim were unchanged.",
+        "logs": [
+          "logs/probe-rf1-exploit.json",
+          "logs/escape-unconfined-control.txt",
+          "logs/probe-direct-profile.json",
+          "logs/probe-custody-owners-publish.json"
+        ]
+      }
+    },
+    "ADV1": {"status": "closed as documentation", "evidence": "GENERATOR-UNIT.md now states the generic report runtime exports are inert utilities and that only createReportShapeRegistry provides the selected facade. report.ts bodies are unchanged; review03 facade probes still apply."},
+    "ADV2": {"status": "accepted as equivalent-frozen-manifest route, not independently re-reviewed here", "evidence": "The unit claims no integration. The binding4-subject-02 source preflight is under its own independent review and was not assessed here. Product install still requires an accepted integration manifest selecting registry 4b1b4915…/closure 2d64a8d8…."},
+    "ADV3": {"status": "closed", "evidence": "The parent requires owners.json bytes to equal json.dumps(options['owners'], indent=2)+'\\n'. End to end through the confined Python step with a rebound prepare.py, reordered owners, changed modules and a reformatting of identical data (indent=1) all refuse with outputs unchanged. There is also a new stub test."},
+    "ADV4": {"status": "unchanged, documented limit", "evidence": "GENERATOR-UNIT.md now states the receipt is an observed-build record and native build tools are trusted."},
+    "ADV5": {"status": "unchanged, documented limit", "evidence": "CPU/memory/disk limits are explicit future qualification; the 300 s timeout remains."},
+    "ADV6": {"status": "closed", "evidence": "opensip_arch docs/implementation/m1/trials/generator-witness-source-correction.v1.json (sha256 99bb1ced…) names historical record 4d8e46ed… and derived corpus d79f78e0… (452378 bytes, 1338 cases). Both match the actual files; the historical record is unchanged."}
+  },
+  "advisories": [
+    {"id": "DA1", "title": "Real-sandbox regression test can skip silently", "detail": "test_real_sandbox_denies_output_root_replacement skips when no C compiler or sandbox-exec is present. A qualification run should treat that skip as a failure, or ship a prebuilt pinned probe."},
+    {"id": "DA2", "title": "Python prepared_output identity not recorded", "detail": "This is informational; no grant is derived from it. The Python profile already excludes the root literal, and collect_outputs opens the root with O_NOFOLLOW. Adding it to the identity set would make custody uniform."}
+  ],
+  "independentDeltaEvidence": {
+    "tests": "78 tests OK on a byte-identical copy (review03's 75 plus prepared-owners, simulated replaced/linked root, and real-sandbox root replacement), none skipped.",
+    "driftCheck": "A fresh 4-step drift check with the build-04 generator, node and python (all hash-matching the closure) plus the 140-file TS tree is clean at registry 4b1b4915…, with one JSON stdout line.",
+    "outputs": "All 8 output bodies after the 3-line header are byte-identical between subject-03 and subject-04; only the registry/closure header lines changed.",
+    "publish": "Two corrupted checked-in outputs are restored by --write to exact subject-04 bytes; the following drift check is clean.",
+    "closureDelta": "generator-closure.json differs from subject-03 only in the tools/generate_contracts.py pin; toolchain, TS tree, Python profile and confinement pins are unchanged."
+  },
+  "remainingIntegrationObligations": [
+    "An accepted integration manifest must select registry 4b1b4915…, generator closure 2d64a8d8… (covering options, source-map, receipt, executable 0a49cfc4…, node and python) and the architecture source anchor before any product install.",
+    "Complete protocol/report source-closure owners.",
+    "Inventory/design bootstrap binding, whose binding4 review is separate.",
+    "Other platform, resource-limit and release qualification."
+  ],
+  "limits": [
+    "Delta scope only; unrelated accepted algorithms and architecture were not reopened.",
+    "macOS 26.6.2 aarch64 development host. Seatbelt semantics observed empirically; kernel/sandbox/system runtime and pinned interpreters remain trusted.",
+    "The parent custody check was exercised by simulating a sandbox bypass in-process; real children cannot trigger it because the sandbox denies root replacement.",
+    "Timeout and resource exhaustion were not triggered. No rebuild was performed in this delta, because the generator binary is unchanged."
+  ],
+  "evidence": {
+    "logs": [
+      "logs/manifest-before.json",
+      "logs/manifest-after.json",
+      "logs/delta-files.txt",
+      "logs/delta-diff.txt",
+      "logs/unit-tests.log",
+      "logs/drift-check.stdout",
+      "logs/drift-check.stderr",
+      "logs/escape-unconfined-control.txt",
+      "logs/probe-direct-profile.json",
+      "logs/probe-rf1-exploit.json",
+      "logs/probe-custody-owners-publish.json"
+    ],
+    "scripts": [
+      "work/verify_manifest.py",
+      "work/escape.c",
+      "work/rebind.py",
+      "work/probe_exploit.py",
+      "work/probe_guard_owners.py",
+      "work/probe_direct_profile.py"
+    ],
+    "harnessNote": "A first custody run stacked subprocess wrappers across scenarios (a reviewer harness bug). It was fixed to restore subprocess.run per scenario, and the log reflects the isolated rerun.",
+    "mutationsConfinedTo": "/tmp/opensip-implementation/m1-generator-adapter-review-04; no leftover opensip temp dirs; no commits or pushes."
+  },
+  "standing": "Independent development delta review. No product admission, integration selection or M1 acceptance."
+}

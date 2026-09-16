@@ -1,0 +1,74 @@
+--- historical20/phase6_repair.py
++++ ACTIVE22/phase6_repair.py
+@@ -26,7 +26,7 @@
+ import opensip_eval as E
+ import repair_selection_v19 as RS
+ 
+-OUT = '/tmp/opensip-design-corrections/consumer-b.v20/output'
++OUT = '/tmp/opensip-design-corrections/consumer-b.v22/output'
+ KIT = S.KIT
+ REPAIR_DOC = 'workflows/schemas/evaluator3/repair.schema.json'
+ IMPORTED_DOC = 'workflows/schemas/imported-evidence.schema.json'
+@@ -582,8 +582,34 @@
+                 'postimageDigest': K.raw_sha256(POST), 'postimageBytes': len(POST)}]))
+ 
+     # ---- R-MUTATION-REPLAY-SCOPE and R-REPAIR-APPLY-KEY
+-    scope_rec = {'schemaVersion': 1, 'requestId': 'req-7f3a1c', 'stepId': 'step-2',
+-                 'projectId': ev['projectId'], 'operation': 'purge'}
++    # V22-D6: every retained library since generation 16 built this preimage with
++    # requestId 'req-7f3a1c' and stepId 'step-2', which the owning schema
++    # (invocation-record #/$defs/MutationReplayScopeV1: requestId ^req1_[0-9a-f]{32}, integer
++    # stepId) refuses; the key was computed over a record that could never be admitted, and the
++    # requirement status only checked that a key existed. The preimages below use typed
++    # identities and are ADMITTED before any key is derived; the generation-20 preimage is kept
++    # as a measured refused control rather than silently replaced.
++    INVOC_DOC = 'workflows/schemas/evaluator3/invocation-record.schema.json'
++    scope_rec = {'schemaVersion': 1, 'requestId': 'req1_7b31d0c4e5a2498fa0d17c6b3e58f29a',
++                 'stepId': 2, 'projectId': ev['projectId'], 'operation': 'purge'}
++    predecessor_scope = {'schemaVersion': 1, 'requestId': 'req-7f3a1c', 'stepId': 'step-2',
++                         'projectId': ev['projectId'], 'operation': 'purge'}
++    scope_admissions = {}
++    for role, rec in (('genericMutation', scope_rec),
++                      ('importStep', dict(scope_rec, operation='import')),
++                      ('nativePreparationStep', dict(scope_rec, operation='native-preparation')),
++                      ('generation20PredecessorPreimage', predecessor_scope),
++                      ('replayScopeNamingRepairApply', dict(scope_rec, operation='repair-apply'))):
++        r = S.admit(INVOC_DOC, '#/$defs/MutationReplayScopeV1', rec, 'replay-scope:' + role)
++        scope_admissions[role] = {'document': INVOC_DOC,
++                                  'selector': '#/$defs/MutationReplayScopeV1',
++                                  'instance': rec, 'admitted': r['admitted'],
++                                  'firstError': (r['stockSchemaErrors'][:1]
++                                                 or r['publishedKeywordRefusals'][:1] or None)}
++    for role in ('genericMutation', 'importStep', 'nativePreparationStep'):
++        assert scope_admissions[role]['admitted'], scope_admissions[role]
++    for role in ('generation20PredecessorPreimage', 'replayScopeNamingRepairApply'):
++        assert not scope_admissions[role]['admitted'], role
+     mutation_key = K.H('workflow.mutation-intent', scope_rec)
+     apply_pre = {'operation': 'repair-apply', 'projectId': ev['projectId'],
+                  'repairPlanId': pos['repairPlanId'],
+@@ -632,11 +658,24 @@
+         'repairApplyIsRefusedByTheGenericOperationEnum': 'repair-apply' not in set(
+             kitdoc(REPAIR_DOC)['x-opensip-mutation-operation-map'][
+                 'admissibleGenericFieldDomain']['operations']),
++        'replayScopeAdmissions': scope_admissions,
++        'repairApplyPreimageOwner': {
++            'standing': ('the kit publishes this key only as a RECIPE string in the mutation '
++                         'operation map; there is no $defs record for the preimage, so it is not '
++                         'schema-admitted as a record. Its three identity members are checked '
++                         'against the typed identities they carry, and the repairPlanId is the '
++                         'admitted positive descriptor of vectors/repair-descriptor.json.'),
++            'projectIdIsTheAdmittedReplayScopeProjectId':
++                apply_pre['projectId'] == scope_rec['projectId']
++                and scope_admissions['genericMutation']['admitted'],
++            'repairPlanIdIsTheAdmittedPositiveDescriptor':
++                apply_pre['repairPlanId'] == pos['repairPlanId'] and pos['admitted'],
++            'baseSnapshotIdIsTheEvidenceRunSnapshot': apply_pre['baseSnapshotId'] == ev['snapshotId']},
+     }
+ 
+     # V20-D6: CURRENT origin id, re-stated each generation; the records below are this
+     # generation's own reconstructions over this generation's admitted Run.
+-    doc = {'consumerId': 'consumer-b.' + 'v20',
++    doc = {'consumerId': 'consumer-b.' + 'v22',
+            'standing': ('reconstructed from the admitted TypeScript Run. No repair was '
+                         'previewed, applied or authorized against any product: these are '
+                         'record reconstructions and admission controls only.'),

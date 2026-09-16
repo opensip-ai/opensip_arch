@@ -1,0 +1,60 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 12.501833500000004,
+  "usage": {
+    "input_tokens": 674,
+    "cache_creation_input_tokens": 179935,
+    "cache_read_input_tokens": 17461577,
+    "output_tokens": 78733,
+    "output_tokens_details": {
+      "thinking_tokens": 34557
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 179935,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1863,
+        "cache_read_input_tokens": 866026,
+        "cache_creation_input_tokens": 301,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 301
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 674,
+      "outputTokens": 78733,
+      "cacheReadInputTokens": 17461577,
+      "cacheCreationInputTokens": 179935,
+      "webSearchRequests": 0,
+      "costUSD": 12.501833500000004,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 34557,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 69,
+  "subtype": "success",
+  "result": "The gap is real, and I've corrected it in my capture. In U-4b.2 the TS/JS `unitKind` was never specified, so two readers could give the same allowJs project different `membershipDigest`s. On the unchanged capture, a full `close_run` admitted both values. Every affected check passes after the fix, except the pin-gated owner launchers, which stop at their pin checks.\n\n**Custody.** I verified the LIVE frozen39 manifest (SHA `f71a5992\u2026`) and all 12909 members against their hash and length, with no mismatches. My regular-file capture is under `work/source`. At the end, exactly the 5 changed files differ from frozen39; the other 12904 members are unchanged, and there are no new files.\n\n**Diagnosis.**\n- **Text:** U-4b.2 assigns the Rust `unitKind` and the TS/JS marker, mode and `recognizerId`, but not the TS/JS `unitKind`. The schema enum allows both `ts-program` and `js-program`.\n- **Model:** the only decision is `discover_units` line 3948, which picks `ts-program` only for `ts-tsconfig`.\n- **Enforcement:** nothing checked it. `admit_unit_roots` explicitly ignores `unitKind`, the enumeration admission law ran during Run closure but never looked at unit fields, and no other owner assigns or checks the value.\n- **Run closure:** on the unchanged capture, complete Runs with a `ts-tsconfig`, `js-allowjs` (from a `tsconfig.json` with `allowJs`) or `js-synthesized` unit closed. They also closed with the kind swapped before hashing. That is two `PlanId`s for one project.\n\n**Law, following the current model.**\n- **U-4b.2:** a TS/JS unit's `unitKind` is `ts-program` exactly when its mode is `ts-tsconfig`, and `js-program` for `js-allowjs` or `js-synthesized`. The kind follows the mode, not the marker file name.\n- **U-4b.5:** a TS/JS unit with a kind that doesn't match its mode, or a TS/JS kind on another family's unit, refuses `ENUMERATION_MEMBERSHIP_ORDER`. U-4b.5 already assigns \"mismatched projections\" to that key, and the enumeration-plan schema already lists it, so no schema bytes change.\n- **Code:** the mapping is one table, `TSJS_UNIT_KIND`, in the native model. `discover_units` now uses it, with identical output, and the enumeration check reads the same table.\n\n**Controls.** I added them before the fix, so they failed first:\n- **consumer24 checker:** 25 new rows.\n  - They cover discovery, a lawful kind and a swapped kind for `ts-tsconfig`, `js-allowjs` (tsconfig and jsconfig markers) and `js-synthesized`.\n  - They add wrong kinds on Rust, fallback and non-TS/JS-mode units, and real-Run closes and refusals.\n- **Enumeration checker:** 2 new rows, with the digest recomputed, to show the published kind is admitted and the swapped kind refused.\n\n**Results.**\n\n| Run | Result |\n|---|---|\n| Unchanged capture | all 17 evaluator children exit 0 (consumer24 183/183); native 380/380 |\n| Before the fix | consumer24 195/208 (13 new rows fail as designed); enumeration admitted the swapped kind |\n| After the fix | all 17 children exit 0 (consumer24 208/208; other counts unchanged); swapped kinds refuse at Run closure with `ENUMERATION_MEMBERSHIP_ORDER`; integration 412; security body (pin gate bypassed) 464/464 with 11/11 sweeps |\n| Native checker, real pin gate | stops at `PIN-MISMATCH` |\n| Native checker, pin gate bypassed (labelled) | 380/380 |\n| `run-evaluator3-checks.py`, `run-reference-checks.py` | invalid pins for exactly the 5 files; no child run |\n\n**Limitations and observations.**\n- **Pins:** the pin ledgers are stale for the 5 files, and the in-tree native report was not regenerated.\n- **Admission is narrower:** memberships a reader of the old text could have produced now refuse. Lawful memberships and identities are unchanged.\n- **Not checked at closure:** TS/JS mode against its marker, `recognizerId`, and the Rust workspace-versus-package choice.\n- **Mode discrepancy, not fixed:** `discover_units` treats every `jsconfig.json` as `js-allowjs`, but the \u00a71.2 mode table says one that writes `allowJs: false` is `ts-tsconfig`. The new law follows whichever mode is decided, so this is a separate question for you.\n- **Receipt quirk:** my runner overwrote the enumeration checker's receipt file of the same name. Its full report is kept in `enumeration.stdout`.\n- **Integration run:** the first attempt failed only because its report directory didn't exist; the rerun passed.\n- **No claim:** none of this is an acceptance or readiness claim.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-tsjs-unitkind-author.v1`:\n- review.md (sha 4fd4f58f\u2026)\n- review.json (sha ec5a4d47\u2026)\n- correction.patch (202 lines, sha ab1826f0\u2026)\n- delta-manifest.json (sha 5a353d68\u2026)",
+  "type": "result",
+  "duration_ms": 1976507
+}

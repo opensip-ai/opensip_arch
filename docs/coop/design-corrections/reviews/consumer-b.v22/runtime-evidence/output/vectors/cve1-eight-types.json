@@ -1,0 +1,215 @@
+{
+ "closedTypes": [
+  "null",
+  "false",
+  "true",
+  "unsigned-64",
+  "negative-signed-64",
+  "NFC-UTF8-string",
+  "array",
+  "string-keyed-map"
+ ],
+ "constraints": [
+  "Strings MUST already be Unicode NFC; a non-NFC string is rejected rather than silently normalised.",
+  "Map keys are unique strings; duplicate keys are rejected before encoding.",
+  "Floating-point values and byte strings are forbidden. A schema needing a decimal or digest uses its canonical string form.",
+  "Arrays preserve order unless the field-specific rule below declares set semantics; declared sets are sorted and duplicates rejected before CVE1 encoding."
+ ],
+ "roundTrips": [
+  {
+   "type": "null",
+   "declaredEncoding": "00",
+   "value": null,
+   "encodedHex": "00",
+   "encodedLength": 1,
+   "tagByte": "0x00",
+   "decoded": null,
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "false",
+   "declaredEncoding": "01",
+   "value": false,
+   "encodedHex": "01",
+   "encodedLength": 1,
+   "tagByte": "0x01",
+   "decoded": false,
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "true",
+   "declaredEncoding": "02",
+   "value": true,
+   "encodedHex": "02",
+   "encodedLength": 1,
+   "tagByte": "0x02",
+   "decoded": true,
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "unsigned-64",
+   "declaredEncoding": "03 || u64be(value)",
+   "value": 18446744073709551615,
+   "encodedHex": "03ffffffffffffffff",
+   "encodedLength": 9,
+   "tagByte": "0x03",
+   "decoded": 18446744073709551615,
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "negative-signed-64",
+   "declaredEncoding": "07 || i64be(value in two's-complement)",
+   "value": -9223372036854775808,
+   "encodedHex": "078000000000000000",
+   "encodedLength": 9,
+   "tagByte": "0x07",
+   "decoded": -9223372036854775808,
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "NFC-UTF8-string",
+   "declaredEncoding": "04 || u32be(byteLength) || UTF8(value)",
+   "value": "relation\u00e9",
+   "encodedHex": "040000000a72656c6174696f6ec3a9",
+   "encodedLength": 15,
+   "tagByte": "0x04",
+   "decoded": "relation\u00e9",
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "array",
+   "declaredEncoding": "05 || u32be(elementCount) || CVE1(element[0]) ... CVE1(element[n-1])",
+   "value": [
+    "b",
+    "a",
+    1
+   ],
+   "encodedHex": "0500000003040000000162040000000161030000000000000001",
+   "encodedLength": 26,
+   "tagByte": "0x05",
+   "decoded": [
+    "b",
+    "a",
+    1
+   ],
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "string-keyed-map",
+   "declaredEncoding": "06 || u32be(entryCount) || CVE1(key) || CVE1(value), entries sorted by unsigned lexicographic order of NFC UTF-8 key bytes",
+   "value": {
+    "b": 1,
+    "a": null,
+    "\u00e4": true
+   },
+   "encodedHex": "0600000003040000000161000400000001620300000000000000010400000002c3a402",
+   "encodedLength": 35,
+   "tagByte": "0x06",
+   "decoded": {
+    "a": null,
+    "b": 1,
+    "\u00e4": true
+   },
+   "roundTrip": true,
+   "classification": "valid"
+  },
+  {
+   "type": "string-keyed-map",
+   "aspect": "key order",
+   "input": [
+    "\u00e4",
+    "b",
+    "a"
+   ],
+   "encodedKeyOrder": [
+    "a",
+    "b",
+    "\u00e4"
+   ],
+   "rule": "06 || u32be(entryCount) || CVE1(key) || CVE1(value), entries sorted by unsigned lexicographic order of NFC UTF-8 key bytes",
+   "classification": "valid"
+  }
+ ],
+ "negatives": [
+  {
+   "case": "non-NFC string refused rather than normalised",
+   "refused": true,
+   "firstRefusal": "STRING_NOT_NFC",
+   "expectedCode": "STRING_NOT_NFC",
+   "masksLater": false,
+   "input": {
+    "pythonType": "str",
+    "codepoints": [
+     101,
+     769
+    ]
+   },
+   "classification": "invalid"
+  },
+  {
+   "case": "float forbidden",
+   "refused": true,
+   "firstRefusal": "FLOAT_FORBIDDEN",
+   "expectedCode": "FLOAT_FORBIDDEN",
+   "masksLater": false,
+   "input": {
+    "pythonType": "float",
+    "repr": "1.5"
+   },
+   "classification": "invalid"
+  },
+  {
+   "case": "byte string forbidden",
+   "refused": true,
+   "firstRefusal": "BYTE_STRING_FORBIDDEN",
+   "expectedCode": "BYTE_STRING_FORBIDDEN",
+   "masksLater": false,
+   "input": {
+    "pythonType": "bytes",
+    "hex": "01"
+   },
+   "classification": "invalid"
+  },
+  {
+   "case": "unsigned overflow",
+   "refused": true,
+   "firstRefusal": "UNSIGNED_64_RANGE",
+   "expectedCode": "UNSIGNED_64_RANGE",
+   "masksLater": false,
+   "input": {
+    "pythonType": "int",
+    "decimal": "18446744073709551616"
+   },
+   "classification": "invalid"
+  },
+  {
+   "case": "negative underflow",
+   "refused": true,
+   "firstRefusal": "NEGATIVE_SIGNED_64_RANGE",
+   "expectedCode": "NEGATIVE_SIGNED_64_RANGE",
+   "masksLater": false,
+   "input": {
+    "pythonType": "int",
+    "decimal": "-9223372036854775809"
+   },
+   "classification": "invalid"
+  },
+  {
+   "case": "duplicate map key",
+   "whereRefused": "raw-input parse hook (section 7.5 parse hook analogue); an already-parsed object cannot express it",
+   "rawInput": "{\"a\":1,\"a\":2}",
+   "refused": true,
+   "firstRefusal": "DUPLICATE_KEY",
+   "expectedCode": "DUPLICATE_KEY",
+   "masksLater": false,
+   "classification": "invalid"
+  }
+ ]
+}

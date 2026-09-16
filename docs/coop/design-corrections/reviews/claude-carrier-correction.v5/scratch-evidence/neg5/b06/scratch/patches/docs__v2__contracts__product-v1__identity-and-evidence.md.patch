@@ -1,0 +1,67 @@
+--- a/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ b/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -76,6 +76,18 @@
+ successor is what admits.
+ Both RequestId and ExecutionId use independent 16-byte host-CSPRNG draws, reserved
+ with uniqueness checked in the corresponding operational ledger before use.
++That reservation additionally carries a **monotone attempt phase**. `AttemptCustodyV1`
++(private, ledger-owned, product canonical profile) extends the existing reservation row with
++`{phase: admitted | settled, settledOutcome: null | committed | refused, operationRef}`.
++`admitted → settled` is the only transition; it is never reversed, deleted, re-opened or
++rewritten, and the settle write is ordered **after** the receipt write. There are exactly two
++settled outcomes, because those are the only two an observer can prove: a durability-uncertain
++attempt stays `admitted` and its caller separately receives the D9 `DURABILITY.COMMIT_FAILED`
++response, which is not a custody claim. It authorizes nothing: settling records an outcome and
++never licenses a retry, so a settled ExecutionId stays terminal. `operationRef` here is the
++durable home of the `executionId ↔ operationRef` correlation for attempts that never commit,
++which is why no field is added to the closed schema-3 `JournalRecord` to correlate a pending
++`REV`.
+ Caller-supplied IDs and reuse are refused; neither is derived from a content hash.
+ This prospectively settles RES-C2V4-01 ownership in the shared identity contract.
+ StepId is the zero-based integer position in the invocation's ordered DAG.
+@@ -1542,6 +1554,33 @@
+ exit 4, with an ExecutionId for read-only recovery. Recovery checks the ledger
+ and actual objects; it returns committed or failed, never repeats a repository
+ mutation. Duplicate retry can share a Run but has a separate attempt receipt.
++
++**Read-only recovery selectors.** `recover(ExecutionId)` takes the `SHARED-READ` lease and
++reads **one** consistent committed ledger snapshot carrying the receipt, the private
++recovery association **and** the `AttemptCustodyV1` phase together. Terminality is decided
++inside that single snapshot and after confirming the attempt is absent from the active set and an in-memory
++active set. The negative answer requires **all** of: phase `settled`, `settledOutcome`
++exactly `refused`, and both the receipt and the association confirmed absent, in that one
++snapshot. A `settled`+`committed` row with no receipt is a contradiction and unavailable
++history, never a negative; phase `admitted` is `unknown-attempt-open`; no attempt row is
++`unknown-attempt-unobserved`. A purged historical receipt can never become never-committed,
++because a purge cannot produce the `refused` outcome and the retained sealed manifest,
++provenance and tombstone still name the Run. Carrier observations
++(journal tail, witness, SC-TRUST floor) are captured with before/after stability brackets and
++at most one fresh journal retry. It performs no witness INIT/REVERT/ADVANCE, no high-water
++raise, no store-binding allocation, no new execution grant, no fence acquisition and no wait
++on a writer. Security §S6 and §S9 own the exact carrier rules; the bounded algorithm is
++`architecture/commit-recovery-readonly.v3.md`.
++
++**Narrow assurance limit, stated here because recovery is often read as proof.** Confirming a
++historical commit from the retained carrier establishes that the sealing record is present
++with its joined digest, operation reference and Run identity, that the sequence is
++contiguous, and that no rollback below the last **observed** operation boundary occurred. It
++does **not** cryptographically authenticate the interior record prefix: the inherited chain
++value binds only the immediately previous body digest and index, and the witness names the
++tail body digest, so an interior substitution is not detected by either. The conclusion class
++is therefore `confirmed-under-retained-custody`, never a cryptographic proof, and an unmet
++anchor is reported `unknown`, never as invalidation of an earlier committed receipt.
+ An acknowledged Run with missing/corrupt objects becomes partially available or
+ corrupt; the host does not pretend it was never sealed.
+ 
+@@ -1636,7 +1675,10 @@
+ The reference store instantiates closed commit-receipt and availability records.
+ An availability transition increments generation and never rewrites a sealed Run
+ or its original assurance. Read-only `recover(ExecutionId)` inspects the committed
+-receipt after a lost acknowledgement and never repeats effects. Verified restoration
++receipt after a lost acknowledgement and never repeats effects. Where **no** receipt is
++present it reports the §5 selectors rather than inferring absence: only the ledger-owned
++`settled` phase in that same snapshot establishes that the attempt did not commit, and an
++attempt still `admitted` stays unknown until an authorized sweep settles it. Verified restoration
+ requires the same complete identity closure and replay result before availability
+ returns to retained; a regeneration mismatch refuses. Physical fsync, authenticated
+ receipt signing, shared-blob deletion and OS crash recovery remain implementation

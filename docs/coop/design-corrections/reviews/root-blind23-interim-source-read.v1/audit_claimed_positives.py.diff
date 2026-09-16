@@ -1,0 +1,306 @@
+--- 22/audit_claimed_positives.py
++++ 23-interim/audit_claimed_positives.py
+@@ -44,7 +44,7 @@
+ import opensip_schema as S
+ import opensip_store as ST
+ 
+-RUNTIME = '/tmp/opensip-design-corrections/consumer-b.v22'
++RUNTIME = '/tmp/opensip-design-corrections/consumer-b.v23'
+ OUT = RUNTIME + '/output'
+ SUBJ = RUNTIME + '/subject'
+ RUNS = ['syntax-code', 'typescript', 'rust', 'rust-partial', 'syntax-data']
+@@ -327,29 +327,29 @@
+ 
+ 
+ # =========================================================================== phase 0
+-@handler('S-FRESH-ORIGIN', 'reconstructed-behavior', ['notes/v22-input-custody.json'],
++@handler('S-FRESH-ORIGIN', 'reconstructed-behavior', ['notes/v23-input-custody.json'],
+          'the current generation label and the manifest digest are re-measured here')
+ def _():
+-    c = J('notes/v22-input-custody.json')
+-    A.need(c['generation'] == 'consumer-b.v22', 'CUSTODY_NAMES_THE_CURRENT_ORIGIN', c['generation'])
++    c = J('notes/v23-input-custody.json')
++    A.need(c['generation'] == 'consumer-b.v23', 'CUSTODY_NAMES_THE_CURRENT_ORIGIN', c['generation'])
+     measured = hashlib.sha256(open(SUBJ + '/consumer-input-manifest.json', 'rb').read()).hexdigest()
+     A.need(measured == A.whole['inputKit']['manifestSha256'] == c['claim1_manifestOwnBytes']['measured'],
+            'MANIFEST_DIGEST_REMEASURED_EQUALS_REQUIREMENTS_AND_CUSTODY', measured)
+ 
+ 
+ @handler('S-NOT-PRODUCT', 'reconstructed-behavior',
+-         ['notes/v22-history-standing.json', 'notes/v22-path-census.json'],
++         ['notes/v23-history-standing.json', 'notes/v23-path-census.json'],
+          'kit bytes re-hashed here; confinement and census of this command')
+ def _():
+     bad = [r['path'] for r in manifest_rows()
+            if hashlib.sha256(open(SUBJ + '/' + r['path'], 'rb').read()).hexdigest() != r['sha256']]
+     A.need(not bad and len(manifest_rows()) == 102, 'KIT_UNCHANGED_EVERY_ROW_REHASHED_HERE', bad)
+-    h = J('notes/v22-history-standing.json')
++    h = J('notes/v23-history-standing.json')
+     A.need(h['measuredA_writeConfinement']['result'] == 'CONFINED', 'WRITES_CONFINED_TO_THIS_RUNTIME')
+-    A.need(J('notes/v22-path-census.json')['verdict'] == 'CLEAN', 'PATH_CENSUS_CLEAN')
+-
+-
+-@handler('S-KIT-ONLY', 'measured-control', ['output/lib/*.py', 'notes/v22-input-custody.json'],
++    A.need(J('notes/v23-path-census.json')['verdict'] == 'CLEAN', 'PATH_CENSUS_CLEAN')
++
++
++@handler('S-KIT-ONLY', 'measured-control', ['output/lib/*.py', 'notes/v23-input-custody.json'],
+          'every absolute path literal of every active module is scanned here')
+ def _():
+     offenders = []
+@@ -366,7 +366,7 @@
+                     continue
+                 offenders.append('%s:%d %s' % (os.path.basename(p), i, s[:80]))
+     A.need(not offenders, 'NO_ACTIVE_MODULE_NAMES_A_PATH_OUTSIDE_THIS_RUNTIME', offenders[:10])
+-    c = J('notes/v22-input-custody.json')
++    c = J('notes/v23-input-custody.json')
+     A.need(c['runtimeFilesNotNamedAsInputs']['standing'].startswith('present in the runtime'),
+            'NON_INPUT_RUNTIME_FILES_DISCLOSED_AS_NOT_OPENED')
+ 
+@@ -396,10 +396,10 @@
+     A.need(not hits, 'NO_AUTHOR_MODEL_IMPORTED_OR_OPENED', hits)
+ 
+ 
+-@handler('S-MISSING-DEP-IS-CUSTODY', 'reconstructed-behavior', ['notes/v22-input-custody.json'],
++@handler('S-MISSING-DEP-IS-CUSTODY', 'reconstructed-behavior', ['notes/v23-input-custody.json'],
+          'every kit document opened by active code resolved against the verified manifest')
+ def _():
+-    c = J('notes/v22-input-custody.json')['custody']
++    c = J('notes/v23-input-custody.json')['custody']
+     A.need(c['documentsOpened'] > 0 and c['resolved'] == c['documentsOpened'],
+            'EVERY_OPENED_KIT_DOCUMENT_RESOLVES_IN_CUSTODY', {'opened': c['documentsOpened'],
+                                                             'resolved': c['resolved']})
+@@ -1533,66 +1533,126 @@
+ 
+ 
+ # =========================================================================== phase 8
+-def _cmp(rel):
+-    rec = J(rel)
++def _cmp_scenario(scenario, record_rel, pointer=None):
++    """V23-D6: a comparison positive is the INDEPENDENT re-derivation of every semantic field from
++    the scenario's retained premises (vectors/indep-comparison-law.json), plus re-admission, the
++    identity, and the real-or-synthetic standing of each side. Checks below read the DERIVED
++    fields, never the emitted record's own labels."""
++    ic = J('vectors/indep-comparison-law.json')
++    row = next((s for s in ic['scenarios'] if s['scenario'] == scenario), None)
++    if not A.need(row is not None, 'SCENARIO_RE_DERIVED_INDEPENDENTLY:' + scenario):
++        return None, None, None
++    A.need(row['result'] == 'PASS',
++           'INDEPENDENT_RE_DERIVATION_FROM_PREMISES_EQUALS_EVERY_SEMANTIC_FIELD:' + scenario,
++           [r['check'] for r in row['refusals'][:6]])
++    rec = J(record_rel)
++    if pointer:
++        rec = rec[pointer]
+     ok, errs = readmit(CMP_DOC, '#', rec)
+-    A.need(ok, 'COMPARISON_READMITTED:' + rel, errs)
+-    A.need(K.ID('workflow.comparison', rec['descriptor']) == rec['comparisonResultId'], 'COMPARISON_ID_RECOMPUTED:' + rel)
+-    A.need(rec['descriptor']['currentRunId'] == current_run_ids()['typescript'],
+-           'COMPARISON_CURRENT_SIDE_IS_THE_CURRENT_EXPORTED_TS_RUN:' + rel,
+-           {'recorded': rec['descriptor']['currentRunId'], 'current': current_run_ids()['typescript']})
+-    return rec['descriptor']
+-
+-
+-@handler('R-BASELINE-AUDIT', 'schema-admitted-record', ['vectors/baseline-audit.json'],
+-         'baseline and unchanged comparison re-admitted; ids recomputed; bound to the current Run')
++    A.need(ok, 'COMPARISON_READMITTED:' + scenario, errs)
++    A.need(K.ID('workflow.comparison', rec['descriptor']) == rec['comparisonResultId'],
++           'COMPARISON_ID_RECOMPUTED:' + scenario)
++    prem = next(s for s in J('vectors/comparison-premises.json')['scenarios']
++                if s['scenario'] == scenario)
++    if prem['realSides']['currentSide']:
++        A.need(rec['descriptor']['currentRunId'] == current_run_ids()['typescript'],
++               'REAL_CURRENT_SIDE_IS_THE_CURRENT_EXPORTED_TS_RUN:' + scenario)
++    else:
++        A.need('currentSide' in prem['syntheticHelperOnly'],
++               'NON_REAL_CURRENT_SIDE_IS_LABELLED_SYNTHETIC:' + scenario)
++    return row['derived'] or {}, rec, prem
++
++
++@handler('R-BASELINE-AUDIT', 'reconstructed-behavior',
++         ['vectors/baseline-audit.json', 'vectors/comparison-premises.json', 'vectors/indep-comparison-law.json'],
++         'baseline re-admitted and rebuilt from premises; the unchanged comparison re-derived independently')
+ def _():
+     v = J('vectors/baseline-audit.json')
+     ok, errs = readmit(BASE_DOC, '#', v['baselineArtifact'])
+     A.need(ok, 'BASELINE_READMITTED', errs)
+-    A.need(K.ID('workflow.baseline', v['baselineArtifact']['descriptor']) == v['baselineArtifact']['baselineId'], 'BASELINE_ID_RECOMPUTED')
+-    A.need(v['baselineArtifact']['descriptor']['runId'] == current_run_ids()['typescript'], 'BASELINE_RUN_IS_THE_CURRENT_EXPORTED_TS_RUN')
+-    ok, errs = readmit(CMP_DOC, '#', v['comparisonUnchanged'])
+-    A.need(ok and K.ID('workflow.comparison', v['comparisonUnchanged']['descriptor']) == v['comparisonUnchanged']['comparisonResultId'],
+-           'UNCHANGED_COMPARISON_READMITTED', errs)
+-
+-
+-@handler('R-CMP-MISSING', 'schema-admitted-record', ['vectors/comparison-missing.json'], 're-admitted')
+-def _():
+-    d = _cmp('vectors/comparison-missing.json')
+-    A.need(d['comparisonPerformed'] is False and d['verdict'] == 'indeterminate' and not d['entries'], 'NOT_PERFORMED_IS_INDETERMINATE')
+-
+-
+-@handler('R-CMP-EVIDENCE-CHANGED', 'schema-admitted-record', ['vectors/comparison-evidence-changed.json'], 're-admitted')
+-def _():
+-    A.need(_cmp('vectors/comparison-evidence-changed.json')['contextDelta']['evidenceAvailabilityChanged'] is True, 'EVIDENCE_AXIS_CHANGED')
+-
+-
+-@handler('R-CMP-EMPTY-RESULT', 'schema-admitted-record', ['vectors/comparison-empty-result.json'], 're-admitted')
+-def _():
+-    d = _cmp('vectors/comparison-empty-result.json')
+-    A.need(d['comparisonPerformed'] is True and not d['entries'] and d['verdict'] == 'pass', 'EMPTY_IS_PERFORMED_AND_COMPLETE')
+-
+-
+-@handler('R-SCOPE-POLICY-ONLY-COMPARISON', 'schema-admitted-record', ['vectors/comparison-scope-policy-only.json'], 're-admitted')
+-def _():
+-    d = _cmp('vectors/comparison-scope-policy-only.json')
+-    delta = d['contextDelta']
+-    A.need(delta['scopeChanged'] and not any(v for k, v in delta.items() if k != 'scopeChanged')
+-           and d['baselineContext']['scopeDigest'] != d['currentContext']['scopeDigest'], 'ONLY_THE_BOUND_SCOPE_DOCUMENT_CHANGED')
+-
+-
+-@handler('R-PIVOT-ONLY-FINGERPRINTS', 'schema-admitted-record', ['vectors/comparison-pivot-only-fingerprints.json'],
+-         're-admitted; a pivot-only entry retained')
+-def _():
+-    d = _cmp('vectors/comparison-pivot-only-fingerprints.json')
+-    hits = []
+-    for e in d['entries']:
+-        pr = e['presence']
+-        base, cur = pr.get('B', pr.get('baseline')), pr.get('E4', pr.get('current'))
+-        if not base and not cur and any(pr.get(k) for k in ('E0', 'E1', 'E2', 'E3')):
+-            hits.append(e['fingerprint'])
+-    A.need(bool(hits), 'A_FINGERPRINT_PRESENT_ONLY_IN_A_PIVOT_IS_RETAINED', [e['presence'] for e in d['entries']][:2])
++    A.need(K.ID('workflow.baseline', v['baselineArtifact']['descriptor']) == v['baselineArtifact']['baselineId'],
++           'BASELINE_ID_RECOMPUTED')
++    A.need(v['baselineArtifact']['descriptor']['runId'] == current_run_ids()['typescript'],
++           'BASELINE_RUN_IS_THE_CURRENT_EXPORTED_TS_RUN')
++    derived, rec, _p = _cmp_scenario('baseline-audit-unchanged', 'vectors/baseline-audit.json',
++                                     'comparisonUnchanged')
++    if derived:
++        A.need(derived['comparisonPerformed'] and all(e['classification'] == 'UNCHANGED'
++                                                      for e in derived['entries']),
++               'DERIVED_SELF_COMPARISON_IS_PERFORMED_AND_EVERY_ENTRY_UNCHANGED')
++        A.need(derived['verdict'] == ('indeterminate' if derived['currentExecutionDeficiencies']
++                                      else 'pass'),
++               'DERIVED_VERDICT_FOLLOWS_THE_CURRENT_EXECUTION_DEFICIENCIES',
++               {'verdict': derived['verdict'],
++                'executionDeficiencies': len(derived['currentExecutionDeficiencies'])})
++
++
++@handler('R-CMP-MISSING', 'reconstructed-behavior',
++         ['vectors/comparison-missing.json', 'vectors/indep-comparison-law.json'],
++         'not-performed comparison re-derived from a baseline whose embedded context document is not the named one')
++def _():
++    derived, _r, _p = _cmp_scenario('missing-context-document', 'vectors/comparison-missing.json')
++    if derived:
++        A.need(derived['comparisonPerformed'] is False and derived['wholeIndeterminateReason']
++               and not derived['entries'] and derived['verdict'] == 'indeterminate',
++               'DERIVED_WHOLE_COMPARISON_INDETERMINACY', derived['wholeIndeterminateReason'])
++
++
++@handler('R-CMP-EVIDENCE-CHANGED', 'reconstructed-behavior',
++         ['vectors/comparison-evidence-changed.json', 'vectors/indep-comparison-law.json'],
++         'evidence axis re-derived from two different same-kind import2 identities')
++def _():
++    derived, _r, _p = _cmp_scenario('evidence-changed', 'vectors/comparison-evidence-changed.json')
++    if derived:
++        b = {i['importId'] for i in derived['baselineContext']['evidenceAvailability']['imports']}
++        c = {i['importId'] for i in derived['currentContext']['evidenceAvailability']['imports']}
++        A.need(derived['contextDelta']['evidenceAvailabilityChanged'] and b != c
++               and derived['baselineContext']['evidenceAvailability']['importKinds']
++               == derived['currentContext']['evidenceAvailability']['importKinds'],
++               'DERIVED_EVIDENCE_AXIS_CHANGED_BY_IDENTITY_NOT_KIND')
++        A.need(any(e['classification'] == 'EVIDENCE-DELTA' or e.get('indeterminateReason', '').startswith('evidence')
++                   for e in derived['entries']), 'DERIVED_ENTRY_ON_THE_EVIDENCE_AXIS')
++
++
++@handler('R-CMP-EMPTY-RESULT', 'reconstructed-behavior',
++         ['vectors/comparison-empty-result.json', 'vectors/indep-comparison-law.json'],
++         'empty performed comparison re-derived from (labelled synthetic) empty premises')
++def _():
++    derived, _r, _p = _cmp_scenario('empty-result', 'vectors/comparison-empty-result.json')
++    if derived:
++        A.need(derived['comparisonPerformed'] and not derived['entries']
++               and all(c['zeroFindings'] and not c['populationUnknown']
++                       for c in derived['correspondenceCoverage']),
++               'DERIVED_EMPTY_IS_PERFORMED_WITH_A_MEASURED_ZERO_POPULATION')
++
++
++@handler('R-SCOPE-POLICY-ONLY-COMPARISON', 'reconstructed-behavior',
++         ['vectors/comparison-scope-policy-only.json', 'vectors/indep-comparison-law.json'],
++         'scope-only comparison re-derived; the discovery scope-descriptor re-read from the TS plan')
++def _():
++    derived, rec, prem = _cmp_scenario('scope-policy-only', 'vectors/comparison-scope-policy-only.json')
++    if derived:
++        delta = derived['contextDelta']
++        A.need(delta['scopeChanged'] and not any(val for k, val in delta.items() if k != 'scopeChanged'),
++               'DERIVED_ONLY_THE_BOUND_SCOPE_DOCUMENT_CHANGED')
++        A.need(all(e['classification'] in ('UNCHANGED', 'SCOPE-DELTA') for e in derived['entries'])
++               and any(e['classification'] == 'SCOPE-DELTA' for e in derived['entries']),
++               'DERIVED_ENTRIES_CHANGE_ONLY_ON_THE_SCOPE_AXIS')
++        plan = views('typescript')['run']['planId']
++        A.need(str(run_store('typescript')[0].objects[plan].get('scopeDigest')) in prem['derivationNotes']['discoveryScope'],
++               'DISCOVERY_SCOPE_DESCRIPTOR_IS_THE_SAME_ON_BOTH_SIDES')
++
++
++@handler('R-PIVOT-ONLY-FINGERPRINTS', 'reconstructed-behavior',
++         ['vectors/comparison-pivot-only-fingerprints.json', 'vectors/indep-comparison-law.json'],
++         'pivot-only fingerprint re-derived from the bound pivot premises')
++def _():
++    derived, _r, _p = _cmp_scenario('pivot-only-fingerprint', 'vectors/comparison-pivot-only-fingerprints.json')
++    if derived:
++        hits = [e for e in derived['entries'] if not e['presence']['B'] and not e['presence']['E4']
++                and any(e['presence'][k] for k in ('E0', 'E1', 'E2', 'E3'))]
++        A.need(bool(hits), 'DERIVED_FINGERPRINT_PRESENT_ONLY_IN_A_PIVOT_IS_RETAINED',
++               [(e['classification'], e.get('direction'), e['subsequentDeltas']) for e in hits])
+ 
+ 
+ @handler('R-TEST-PREP-REPAIR-AUTH', 'schema-admitted-record', ['vectors/test-prep-repair-authorization.json'],
+@@ -1656,16 +1716,28 @@
+         A.need(bool(words & parts), 'OWNER_CITES_A_KIT_DOCUMENT:' + o['decision'][:40], sorted(words)[:5])
+ 
+ 
+-@handler('R-E0-VS-E1-E3', 'reconstructed-behavior', ['vectors/baseline-e0-e3.json', 'vectors/baseline-audit.json'],
+-         'pivot vocabulary re-read from the comparison schema and joined to the admitted comparison')
++@handler('R-E0-VS-E1-E3', 'reconstructed-behavior',
++         ['vectors/baseline-e0-e3.json', 'vectors/indep-comparison-law.json'],
++         'E0 disposition and E1/E2 availability re-derived independently and joined to the vector')
+ def _():
+     v = J('vectors/baseline-e0-e3.json')
+     A.need(set(v['pivots']) == {'B', 'E0', 'E1', 'E2', 'E3', 'E4'}, 'SIX_PIVOT_ROLES')
+     s = find_prop(kitjson(CMP_DOC), 'pivotsAvailable')
+     A.need(s is not None and {'E0', 'E1', 'E2', 'E3'} <= set(s.get('properties', {})), 'PIVOTS_E0_E3_IN_THE_SCHEMA')
+-    A.need(v['measuredOnThisReconstruction']['pivotsAvailableInTheUnchangedComparison']
+-           == J('vectors/baseline-audit.json')['comparisonUnchanged']['descriptor']['pivotsAvailable'],
+-           'MEASURED_PIVOTS_EQUAL_THE_ADMITTED_COMPARISON')
++    ic = {r['scenario']: r for r in J('vectors/indep-comparison-law.json')['scenarios']}
++    pv, sc = (ic.get('pivot-only-fingerprint') or {}).get('derived'), (ic.get('scope-policy-only') or {}).get('derived')
++    if A.need(pv and sc, 'BOTH_PIVOT_SCENARIOS_RE_DERIVED'):
++        A.need(any(d['method'] == 'three-way-pivot' and d.get('pivotRunId') for d in pv['detectors'])
++               and pv['pivotsAvailable']['E0'] == 'available',
++               'DERIVED_E0_IS_A_COMMITTED_PRIOR_DETECTOR_PIVOT_RUN')
++        A.need(pv['pivotsAvailable']['E1'] == 'available' and sc['pivotsAvailable']['E2'] == 'available'
++               and not any('pivotRunId' in d and d['method'] != 'three-way-pivot' for d in pv['detectors']),
++               'DERIVED_E1_E2_ARE_RE_EVALUATIONS_WITH_NO_PIVOT_RUN')
++        m = v['measuredFromTheDerivedRecords']
++        A.need(m['pivotOnlyScenario']['pivotsAvailable'] == pv['pivotsAvailable']
++               and m['pivotOnlyScenario']['detectors'] == pv['detectors']
++               and m['scopeOnlyScenario']['pivotsAvailable'] == sc['pivotsAvailable'],
++               'VECTOR_MEASUREMENTS_EQUAL_THE_INDEPENDENT_DERIVATION')
+ 
+ 
+ @handler('R-HOST-CAPTURED-VS-CANDIDATE', 'reconstructed-behavior', ['vectors/host-captured-vs-candidate.json'],
+@@ -1752,7 +1824,7 @@
+     A.need(v['stages'] and all(s['exit'] == 0 for s in v['stages']) and not v['readOrderGuard']['violations'],
+            'EVERY_RECORDED_STAGE_EXITED_ZERO_AND_READ_ORDER_HOLDS',
+            [s['script'] for s in v['stages'] if s['exit'] != 0] or len(v['stages']))
+-    rg = J('notes/v22-read-graph.json')
++    rg = J('notes/v23-read-graph.json')
+     A.need(rg['result'] == 'PASS' and rg['commandStageIoDir'] == v['stageIoDir'],
+            'MEASURED_READ_GRAPH_OF_THIS_COMMAND_PASSES', rg['result'])
+ 
+@@ -1906,7 +1978,7 @@
+     A.need(v['command'].startswith('/tmp/opensip-architecture-review-env/bin/python -I -B')
+            and RUNTIME + '/output/lib/verify_all.py' in v['command'], 'COMMAND_IS_THE_REFERENCE_INTERPRETER_OVER_THIS_RUNTIME')
+     A.need(not v['readOrderGuard']['violations'], 'STATIC_READ_ORDER_GUARD_HOLDS')
+-    rg = J('notes/v22-read-graph.json')
++    rg = J('notes/v23-read-graph.json')
+     A.need(rg['result'] == 'PASS' and rg['commandStageIoDir'] == v['stageIoDir'] and not rg['orderViolations'],
+            'NO_STAGE_READ_AN_ARTIFACT_BEFORE_THIS_COMMAND_WROTE_IT', len(rg['orderViolations']))
+ 

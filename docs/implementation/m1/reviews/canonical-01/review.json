@@ -1,0 +1,157 @@
+{
+  "verdict": null,
+  "reviewStatus": "INCOMPLETE-EXECUTION-DENIED",
+  "verdictWithheldReason": "Bash was denied for the whole session, so no hash, cargo, Python or probe command ran. Static reading found no required finding. ACCEPT-UNIT is not issued without subject-hash verification, reproduced validation and executed probes. The null verdict fails closed.",
+  "subjectManifestSha256": "8b2c31253d4699c9b25539000930234553df7f915eea011643ec675d70a3ef07",
+  "subjectManifestSha256Recomputed": false,
+  "requiredFindings": [],
+  "advisories": [
+    {
+      "id": "ADV-01",
+      "summary": "Pure-layer transitive effects are not yet recorded against a permitted graph. sha2 0.11.0 dispatches at runtime through cpufeatures 0.3.1: a constant true for sha2 on aarch64-apple, getauxval on aarch64 linux/android, CPUID on x86. cpufeatures has a target-conditioned libc 0.2.189 edge. libc's build script runs $RUSTC_WRAPPER/$RUSTC --version on every build and reads environment variables. No network or package manager; digest bytes do not depend on the dispatch; dependencies contain unsafe that forbid(unsafe_code) does not cover.",
+      "lines": ["crates/identity/Cargo.toml:10", "crates/identity/src/lib.rs:7", "sha2-0.11.0/Cargo.toml:79-80", "sha2-0.11.0/src/sha256.rs:49-78", "cpufeatures-0.3.1/Cargo.toml:57-71", "cpufeatures-0.3.1/src/aarch64.rs:35-38,118-120", "libc-0.2.189/build.rs:87,121-122,242-261"],
+      "obligation": "implementation-boundaries-and-build-plan.md:847-850; 14-repository-and-module-layout.md:196-200",
+      "scope": "M1 inventory/tooling successor (permitted-graph record, or a SHA-256 implementation without the libc edge)"
+    },
+    {
+      "id": "ADV-02",
+      "summary": "Public H minting accepts any lexical Value and any syntactically valid domain, and returns an untyped [u8;32]. Counterexample: digest::identity(\"snapshot\", <parsed {\"inventory\":[{\"path\":\"b\"},{\"path\":\"a\"}]}>) returns an H for a descriptor that path-order admission would refuse. Documented as the caller's duty and inside this unit's scope.",
+      "lines": ["crates/identity/src/digest.rs:25-46", "crates/identity/src/lib.rs:11-12"],
+      "obligation": "identity-and-evidence.md:148-152,173-174; 14-repository-and-module-layout.md:350-352",
+      "scope": "Future descriptors.rs/digests.rs: registered-domain H must consume admitted typed descriptors; Value must not become a carrier"
+    },
+    {
+      "id": "ADV-03",
+      "summary": "Names and public surface differ from the approved inventory: digest.rs vs digests.rs; canonical_tests.rs is not in the inventory; whole modules are public although internal modules are meant to stay private.",
+      "lines": ["crates/identity/src/lib.rs:11-15"],
+      "obligation": "14-repository-and-module-layout.md:343-352",
+      "scope": "Already covered by the required layout-successor plan refinement; not repeated as a finding"
+    },
+    {
+      "id": "ADV-04",
+      "summary": "Refusal precedence differs from canonical.py, though both refuse. {\"a\":1,\"a\":1.5} gives DuplicateKey here and a float refusal in the reference; 33 nested arrays around 1.0 give DepthLimit here and a float refusal in the reference.",
+      "lines": ["crates/identity/src/canonical.rs:104,246-249", "foundation/canonical.py:60-61"],
+      "obligation": "No D9 code mapping is claimed in this unit",
+      "scope": "Future D9 mapping must pin precedence if codes become observable"
+    },
+    {
+      "id": "ADV-05",
+      "summary": "Memory amplification within the 4 MiB bound is unmeasured. Estimated Value size is 32 bytes, so [0,0,...] at 4 MiB grows a Vec<Value> toward roughly 64-128 MiB. All paths are linear. A counting-allocator probe is prepared but has not run.",
+      "lines": ["crates/identity/src/canonical.rs:30-37,221,240"],
+      "obligation": "identity-and-evidence.md:117-120 (bounded admission)",
+      "scope": "Host memory qualification gates"
+    },
+    {
+      "id": "ADV-06",
+      "summary": "Derived Clone/PartialEq/Debug/Drop recurse without a bound on caller-built Values nested deeper than 32. Parsed values are bounded, and encode stops at depth 33.",
+      "lines": ["crates/identity/src/canonical.rs:29-37,326"],
+      "obligation": "none in this unit",
+      "scope": "Future carriers should not hold unbounded caller-built Values"
+    },
+    {
+      "id": "ADV-07",
+      "summary": "Oracle provenance and coverage gaps. The four H hex goldens have no retained provenance (H is still pinned by the literal frame plus FIPS SHA vectors). 21 malformed cases assert only is_err. Untested: UTF-8 key order across widths and prefixes, the full C0 escape table and escapes in keys, uppercase \\u hex, duplicates via \\/, frame lengths over 255, mixed depth, ByteLimit precedence. The Python verifier tests cover only the activation cross-link, not the review/assent/completion refusal branches.",
+      "lines": ["crates/identity/src/canonical_tests.rs:145,231-261", "tests/conformance/test_design_binding.py:63-69", "tools/verify_design.py:67-79"],
+      "obligation": "Test oracle independence",
+      "scope": "This unit's tests (non-blocking); probes prepared"
+    },
+    {
+      "id": "ADV-08",
+      "summary": "Verifier looseness, all failing closed or digest-bound. Approval rows are not field-closed and bytes is optional. completion.remainingRequiredDesignFindings is not checked. A non-object approval document raises AttributeError outside main's catch set. The verifier proves membership in the accepted subject, not that a selected input is the current normative source.",
+      "lines": ["tools/verify_design.py:44-50,57-59,71-79,92-93,108"],
+      "obligation": "Developer design binding",
+      "scope": "Developer tooling; which inputs are current belongs to plan review"
+    },
+    {
+      "id": "ADV-09",
+      "summary": "Validation capture m1-canonical-validation-01 ran in the product working tree, not the snapshot. It started with a mutating cargo fmt --all, records no source digests, omits the unittest (7) and verifier (46) runs, and keeps only the pre-fix source of the failing initial run. The corrected boundary is arithmetically right: 699050*6+2=4194302, 699051*6+2=4194308. Running the snapshot unittest without -B writes __pycache__ into the snapshot's tools/.",
+      "lines": ["m1-canonical-validation-01/validation.json:3-49", "tests/conformance/test_design_binding.py:10-13", "crates/identity/src/canonical_tests.rs:188-198"],
+      "obligation": "Evidence binding to the frozen subject",
+      "scope": "Validation process"
+    },
+    {
+      "id": "ADV-10",
+      "summary": "digest::Error has no Display or core::error::Error impl, unlike canonical::Error.",
+      "lines": ["crates/identity/src/digest.rs:7-11", "crates/identity/src/canonical.rs:52-58"],
+      "obligation": "none",
+      "scope": "Minor API"
+    }
+  ],
+  "futureMilestoneScope": [
+    "Generated schema carrier; closed-schema and x-opensip-order admission",
+    "maxLength in scalars, logical paths and source spans",
+    "Domain registry, identifier prefixes and typed semantic references",
+    "D9 refusal codes and their precedence",
+    "descriptors.rs / closure.rs / digests.rs",
+    "Semantic replay, provider, CLI, TypeScript integers",
+    "Memory/size qualification gates and dependency permitted-graph tooling",
+    "M1 completion and release"
+  ],
+  "executedChecks": [
+    {"check": "Bash: shasum/find/cargo/python", "status": "DENIED", "detail": "Every Bash invocation was denied (don't-ask mode); nothing executed"},
+    {"check": "Static read of all 13 manifest-listed snapshot files", "status": "DONE-STATIC", "detail": "Read tool; the bytes were not hashed"},
+    {"check": "Static read of the validation capture (validation.json, test/clippy stdout+stderr, pre-fix test source)", "status": "DONE-STATIC"},
+    {"check": "Conformance reading against identity-and-evidence.md:109-175, admission-and-qualification.md:8-41, canonical.py, check-foundation.py:45-55,101-103", "status": "DONE-STATIC", "detail": "No deviation found"},
+    {"check": "Test vectors 1-5 compared with check-foundation UR-1..5 goldens", "status": "DONE-STATIC", "detail": "Byte-identical"},
+    {"check": "Grep of the architecture for the four H goldens", "status": "DONE-STATIC", "detail": "Not present"},
+    {"check": "Dependency source reading: sha2 Cargo.toml and sha256.rs, cpufeatures Cargo.toml and aarch64.rs, libc build.rs; product-tree libc build-script output", "status": "DONE-STATIC"},
+    {"check": "Verifier logic against the real completion/review/assessment/activation/application-subject chain fields", "status": "DONE-STATIC"},
+    {"check": "Probes prepared (manifest check, Rust edge/boundary/amplification/differential, reference differential with hashlib H goldens, 34 verifier probes)", "status": "PREPARED-NOT-EXECUTED", "detail": "probes/RUN.md"}
+  ],
+  "reviewedFiles": [
+    "/tmp/opensip-implementation/m1-canonical-subject-01.json",
+    "m1-canonical-subject-01/.gitignore",
+    "m1-canonical-subject-01/Cargo.lock",
+    "m1-canonical-subject-01/Cargo.toml",
+    "m1-canonical-subject-01/README.md",
+    "m1-canonical-subject-01/crates/identity/Cargo.toml",
+    "m1-canonical-subject-01/crates/identity/src/canonical.rs",
+    "m1-canonical-subject-01/crates/identity/src/canonical_tests.rs",
+    "m1-canonical-subject-01/crates/identity/src/digest.rs",
+    "m1-canonical-subject-01/crates/identity/src/lib.rs",
+    "m1-canonical-subject-01/design-lock.json",
+    "m1-canonical-subject-01/rust-toolchain.toml",
+    "m1-canonical-subject-01/tests/conformance/test_design_binding.py",
+    "m1-canonical-subject-01/tools/verify_design.py",
+    "m1-canonical-validation-01/validation.json",
+    "m1-canonical-validation-01/test.stdout",
+    "m1-canonical-validation-01/test.stderr",
+    "m1-canonical-validation-01/clippy.stderr",
+    "m1-canonical-validation-01/canonical-tests.before-boundary-fix.rs (lines 170-204)",
+    "opensip_arch/docs/v2/contracts/product-v1/identity-and-evidence.md (lines 100-184)",
+    "opensip_arch/docs/v2/contracts/product-v1/admission-and-qualification.md (lines 1-43)",
+    "opensip_arch/docs/coop/design-corrections/foundation/canonical.py",
+    "opensip_arch/docs/coop/design-corrections/foundation/check-foundation.py",
+    "opensip_arch/docs/coop/design-corrections/application-activation.v1.json",
+    "opensip_arch/docs/coop/design-corrections/reviews/root-application46-delivery.v1/completion.json (lines 1-60; chain fields)",
+    "opensip_arch/docs/coop/design-corrections/reviews/application-review.v46/review.json (chain fields)",
+    "opensip_arch/docs/coop/design-corrections/reviews/root-application46-substantive-assessment.v1/assessment.json (chain fields)",
+    "opensip_arch/docs/coop/design-corrections/reviews/application-subject.v46.json (lines 1-40; designSubject)",
+    "opensip_arch/docs/v2/architecture/14-repository-and-module-layout.md (lines 188-212, 282-293, 343-352)",
+    "opensip_arch/docs/v2/architecture/implementation-boundaries-and-build-plan.md (lines 655-679, 835-869)",
+    "~/.cargo/registry/src/.../sha2-0.11.0/Cargo.toml, src/sha256.rs",
+    "~/.cargo/registry/src/.../cpufeatures-0.3.1/Cargo.toml, src/aarch64.rs",
+    "~/.cargo/registry/src/.../libc-0.2.189/build.rs (lines 1-133, 236-275)",
+    "opensip/target/debug/build/libc-aa833a1d99b7670b/output"
+  ],
+  "limitations": [
+    "Subject identity is unverified: the snapshot files were read but not hashed against the manifest, and not compared with the product working tree.",
+    "No cargo test/clippy/metadata/tree, Python unittest, design verifier or probe was executed; the claimed 9/clippy/7/46 passes are unreproduced.",
+    "Probe expectations come from static reading and may contain reviewer errors; they are not results.",
+    "Only sha2, cpufeatures and libc sources were read; the other transitive crates were inferred from Cargo.lock. Target-effect analysis covers only the cfg branches read.",
+    "The H hex goldens could not be recomputed; the memory amplification figure is an estimate.",
+    "Architecture reading was limited to the named sections, the approval chain fields and the cited layout/build-plan passages; no historical archives were read."
+  ],
+  "preparedProbes": [
+    "probes/RUN.md",
+    "probes/verify_manifest.py",
+    "probes/gen_corpus.py",
+    "probes/compare_reference.py",
+    "probes/test_verifier_probes.py",
+    "probes/rust/Cargo.toml",
+    "probes/rust/Cargo.lock",
+    "probes/rust/rust-toolchain.toml",
+    "probes/rust/src/lib.rs",
+    "probes/rust/src/probes.rs"
+  ]
+}

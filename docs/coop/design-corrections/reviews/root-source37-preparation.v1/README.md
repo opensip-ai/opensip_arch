@@ -1,0 +1,1 @@
+Preparation only: source37 custody and complete delta checkers adapted from reviewed36. Parent36 pinned exactly; prospective new planning5 layer explicitly allowed, no other addition/removal. Scripts parsed; not executed against an unfrozen candidate. No acceptance.

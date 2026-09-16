@@ -1,0 +1,145 @@
+--- a37/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ b38/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -422,6 +422,126 @@
+                          "replay": "REFUSE", "reason": str(exc)})
+         else:
+             raise AssertionError("semantic mutant accepted:" + name)
++    return rows
++
++
++def run_termination_goldens(exports):
++    """Whole-Run indeterminate termination goldens (run-termination-contract.v1.md) over actually closed Runs.
++
++    Each golden Run is either an exported positive above or a fixture graph closed by close_positive. The
++    derived termination must equal the retained golden; every retained alternative must be a schema-valid
++    StepTermination AND be refused by derivation (schema validity grants nothing).
++    """
++    T = load("run_termination1", "run_termination_model.v1.py")
++    Q = load("run_termination_step_schema3", "../workflows/query_projection_model.v3.py")
++    doc = json.loads((HERE / "run-termination-goldens.v1.json").read_text())
++    atoms = {"REFS_NONE_TGT": REFS_NONE_TGT, "DECLARES": DECLARES}
++    d9 = json.loads((HERE.parents[1] / "artifacts" / "d9-exit-contract.v1.14.json").read_text())
++    d9_goldens = {g["id"]: g for g in d9["goldenCases"]}
++    rows, built = [], {}
++
++    def validate_shape(term):
++        Q.validate_schema(Q.COMMON_ID + "#/$defs/StepTermination", term)
++
++    def schema_valid(term):
++        try:
++            validate_shape(term)
++            return True
++        except Exception as exc:  # recorded, never read as refusal of the law
++            return "INVALID:" + str(exc).split("\n")[0][:160]
++
++    derived_by = {}
++
++    drift = T.route_drift()
++    rows.append({"case": "run-termination:route-drift", "ownerAdmission": "ADMIT", "drift": drift,
++                 "faults": [] if drift == doc["routeDrift"] else ["route drift " + json.dumps(drift)]})
++    for g in doc["goldens"]:
++        faults = []
++        try:
++            if g["kind"] == "permutation":
++                run, objects, blobs = built[g["of"]]
++                _, _, population, ctx = T.retained_population(run, objects, blobs)
++                got = T.permutation_invariance(T.conditions(population, objects, blobs, ctx["xi"]))
++                if got != g["expect"]:
++                    faults.append("permutation " + json.dumps(got, sort_keys=True))
++                rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "permutation": got,
++                             "faults": faults})
++                continue
++            if g["kind"] == "projection":
++                derived = derived_by[g["of"]]
++                admitted, refused = [], []
++                for case in g["admitDelegated"]:
++                    candidate = dict(derived, **case["add"])
++                    try:
++                        got = T.check_projection(candidate, derived, validate_shape)
++                    except T.RunTerminationError as exc:
++                        faults.append("delegated member refused: " + case["label"] + " " + str(exc)[:200])
++                        continue
++                    if (got["projection"] != derived or sorted(got["delegated"]) != case["delegated"]
++                            or got["delegatedStanding"] != "owner-validation-required"):
++                        faults.append("delegated projection " + case["label"] + " " + json.dumps(got, sort_keys=True))
++                    admitted.append({"label": case["label"], "delegated": sorted(got["delegated"]),
++                                     "standing": got["delegatedStanding"]})
++                for case in g["refuse"]:
++                    candidate = {k: v for k, v in derived.items() if k not in case.get("remove", [])}
++                    candidate.update(case.get("set", {}))
++                    try:
++                        T.check_projection(candidate, derived, None if case.get("noShapeValidator") else validate_shape)
++                        faults.append("candidate admitted: " + case["label"])
++                    except T.RunTerminationError as exc:
++                        code = str(exc).split(":", 1)[0]
++                        if code != case["expect"]:
++                            faults.append(f"{case['label']} refused as {code}, expected {case['expect']}")
++                        refused.append({"label": case["label"], "refusal": code})
++                rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT",
++                             "admittedProjectionWithDelegatedMembers": admitted, "refused": refused, "faults": faults})
++                continue
++            spec = g["build"]
++            if "export" in spec:
++                run, objects, blobs = exports[spec["export"]]
++            else:
++                fixture = doc["fixtures"][spec["fixture"]]
++                params = dict(fixture["params"], **spec["params"], atom=atoms[fixture["atom"]])
++                run, objects, blobs, _ = close_positive(S.build_ts_semantic_graph(**params))
++            built[g["id"]] = (run, objects, blobs)
++            fin = T.finalize(run, objects, blobs)
++            derived, reduction = fin["termination"], fin["reduction"]
++            derived_by[g["id"]] = derived
++            want = g["expect"]
++            if derived != want["termination"]:
++                faults.append("termination " + json.dumps(derived, sort_keys=True))
++            for key in ("deficiency", "secondaryDeficiencies", "primaryCause", "carrierKind"):
++                if reduction[key] != want[key]:
++                    faults.append(f"{key} {reduction[key]!r} != {want[key]!r}")
++            if schema_valid(derived) is not True:
++                faults.append("derived termination not a StepTermination")
++            if "carrierEntry" in want:
++                entry = C.parse(blobs[objects[derived["coverageId"]][1]["payloadDigest"]])["entry"]
++                got_entry = {"deficiency": entry["deficiency"],
++                             "stageTerminal": entry["resolutionCompleteness"]["stageTerminal"],
++                             "state": entry["resolutionCompleteness"]["state"]}
++                if got_entry != want["carrierEntry"]:
++                    faults.append("carrierEntry " + json.dumps(got_entry, sort_keys=True))
++            if "d9Golden" in g:
++                expected = dict(d9_goldens[g["d9Golden"]]["expectedTermination"], runId=derived["runId"])
++                if expected != derived:
++                    faults.append("D9 golden " + g["d9Golden"] + " expects " + json.dumps(expected, sort_keys=True))
++            refused = []
++            for alt in g["refuse"]:
++                validity = schema_valid(alt["termination"])
++                if validity is not True:
++                    faults.append("alternative " + alt["label"] + " is not schema-valid, so it proves nothing: " + str(validity))
++                try:
++                    T.check_projection(alt["termination"], derived, validate_shape)
++                    faults.append("alternative admitted: " + alt["label"])
++                except T.RunTerminationError:
++                    refused.append(alt["label"])
++            rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "close_run": "ADMIT",
++                         "termination": derived, "refusedSchemaValidAlternatives": refused, "faults": faults})
++        except Exception as exc:
++            rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "BLOCKED",
++                         "error": type(exc).__name__ + ": " + str(exc), "traceback": traceback.format_exc(),
++                         "faults": ["error"]})
+     return rows
+ 
+ 
+@@ -460,6 +580,15 @@
+             rows.append({"case": "finding-mutants", "ownerAdmission": "BLOCKED",
+                          "error": type(exc).__name__ + ": " + str(exc),
+                          "traceback": traceback.format_exc()})
++    try:
++        termination_rows = run_termination_goldens(exports)
++        rows.extend(termination_rows)
++        failures.extend(r["case"] for r in termination_rows if r["faults"])
++    except Exception as exc:
++        failures.append("run-termination-goldens")
++        rows.append({"case": "run-termination-goldens", "ownerAdmission": "BLOCKED",
++                     "error": type(exc).__name__ + ": " + str(exc),
++                     "traceback": traceback.format_exc()})
+     passed = all(r.get("ownerAdmission") == "ADMIT" and r.get("close_run", "ADMIT") == "ADMIT"
+                  for r in rows if "error" not in r) and not failures
+     report = {

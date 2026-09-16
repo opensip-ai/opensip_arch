@@ -1,0 +1,77 @@
+--- frozen36/docs/v2/contracts/product-v1/native-evidence.md
++++ assembly/docs/v2/contracts/product-v1/native-evidence.md
+@@ -2904,13 +2904,48 @@
+ | `external-consumers-unknown` | `entry.closedWorld.exportsClosed` ∈ {`open`, `unknown`} — the values the old cell spelled `exports-open`, `exports-unknown` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+ | `derivation-policy-unmet` | relation **must be `types`** (§4.7 / `sufficiency_v2` give no other relation a derivation policy) **and** `entry.derivationKinds` must contain `compiler-inferred` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+ | `provider-unavailable` | `entry.nativeCause` — `capability-missing` or `linker-unavailable` where one applies; the row is otherwise self-describing (incl. missing identity tokens) | optional | `indeterminate` (3) | `COVERAGE.PROVIDER_UNAVAILABLE` | coverage2 record |
+-| `language-tier-unsupported` | `entry.nativeCause` = `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law); **no other cause is lawful here** | **required** | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `language-tier-unsupported` | `entry.nativeCause` = `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law); **no other cause is lawful here** | **required** | `indeterminate` (3) | `COVERAGE.LANGUAGE_TIER_UNSUPPORTED` | coverage2 record |
+ | `budget-exhausted` | `entry.resolutionCompleteness.stageTerminal` = `budget-exhausted` — the stage terminal the old cell referred to parenthetically | `null` | `indeterminate` (3) | `COVERAGE.BUDGET_EXHAUSTED` | coverage2 record |
+-| `confidence-floor-unmet` | **none in the entry** — the floor is `RequirementV2.minConfidenceMillionths` and the entry carries only its own `confidenceMillionths`, so the comparison is the sufficiency evaluation's. Stated as a limit rather than given an invented entry-level predicate | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `required-relation-missing` | **none in the entry** — a sufficiency verdict about a relation the view carries *no* entry for, so an entry can never be its own evidence | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `confidence-floor-unmet` | **none in the entry** — the floor is `RequirementV2.minConfidenceMillionths` and the entry carries only its own `confidenceMillionths`, so the comparison is the sufficiency evaluation's. Stated as a limit rather than given an invented entry-level predicate | `null` | `indeterminate` (3) | `COVERAGE.CONFIDENCE_FLOOR_UNMET` | coverage2 record |
++| `required-relation-missing` | **none in the entry** — a sufficiency verdict about a relation the view carries *no* entry for, so an entry can never be its own evidence | `null` | `indeterminate` (3) | `COVERAGE.REQUIRED_RELATION_MISSING` | coverage2 record |
+ 
+ A `null` deficiency requires a `null` cause: a cause without a deficiency names
+ why nothing went wrong.
++
++**Which surface the class and code columns govern.** They are the **whole-Run (or
++step) termination route** of a native deficiency and nothing else: the class, exit
++and reason code a host termination carries when that deficiency is the Run's
++primary deficiency. They are the D9 exit contract's own map, not a native choice —
++`docs/coop/artifacts/d9-exit-contract.v1.14.json#/codeMaps/deficiencyToReasonCode`
++over its `D9Deficiency` vocabulary. Native owns only the bridge into that
++vocabulary: the five `DeficiencyV2` members that are also `D9Deficiency` members
++map to themselves, and the four without one (`input-closure-incomplete`,
++`resolution-incomplete`, `external-consumers-unknown`, `derivation-policy-unmet`)
++map to `verdict-indeterminate`, hence `VERDICT.INDETERMINATE`. The route is total
++over all nine rows (`native_deficiency_d9` in the reference model) and is held to
++the D9 owner by `d9_route_drift`. An earlier revision of this table spelled
++`VERDICT.INDETERMINATE` for `language-tier-unsupported`, `confidence-floor-unmet`
++and `required-relation-missing`, while the D9 contract terminates those Runs
++`COVERAGE.LANGUAGE_TIER_UNSUPPORTED`, `COVERAGE.CONFIDENCE_FLOOR_UNMET` and
++`COVERAGE.REQUIRED_RELATION_MISSING`; the D9 owner decides, and the table now
++agrees with it. No D9 class, code, exit or vocabulary changes.
++
++The **primary** deficiency is chosen by the precedence above over every deficiency
++the Run's admitted Coverage entries declare and the one a clean typed stage
++terminal implies (`BudgetExhausted` → `budget-exhausted`, `Unavailable` →
++`provider-unavailable`). A faulted or cancelled stage mints nothing and keeps its
++own operational-failed or interrupted termination, so no deficiency accompanies
++it. The typed detail still names the most specific deficiency an entry actually
++carries and every `nativeCause` those entries carry. The reference
++`run_termination` returns the one primary code; the ordered `reasonCodes` list with
++`secondaryDeficiencies` (`causeModel.codeDerivation` of the D9 contract) is
++composed by the host termination and is **not** produced by that helper.
++
++These columns are **not** a per-requirement code. One requirement's outcome stays
++its `DeficiencyV2` member (§4.6), and a repair emits the existing
++`REPAIR.EVIDENCE_RUN_UNAVAILABLE` once per unsatisfied requirement with that
++requirement's exact deficiency in its remedy (workflows-and-surfaces §6). Neither
++route replaces the other.
+ 
+ **Some rows are scoped by relation, because their owning law is.** `§4.7` and
+ `sufficiency_v2` apply `derivationPolicy` only where the relation is `types` and
+@@ -3314,6 +3349,11 @@
+ (`admitted-incomplete-inputs-yield-authoritative-indeterminate-3`).
+ `BudgetExhausted` and `Unavailable` are clean typed terminals: facts before the
+ terminal are admitted and the Run is authoritative with the stage `partial`.
++The termination code is the whole-Run route of the Run's primary deficiency (the
++class and code columns above): `VERDICT.INDETERMINATE` for the incomplete-input
++deficiencies named here, and `COVERAGE.BUDGET_EXHAUSTED` /
++`COVERAGE.PROVIDER_UNAVAILABLE` for those two terminals unless an entry declares a
++more specific deficiency (`run-termination-code-is-the-primary-deficiency-route`).
+ 
+ ---
+ 
+@@ -3608,7 +3648,9 @@
+   codes are requested. Native deficiencies are typed detail inside the coverage2
+   record named by the termination's `coverageId`; the D9 codes used are exactly
+   the existing `VERDICT.INDETERMINATE`, `COVERAGE.PROVIDER_UNAVAILABLE`,
+-  `COVERAGE.BUDGET_EXHAUSTED`, `REQUEST.PRECONDITION_FAILED`, `CONFIG.INVALID`,
++  `COVERAGE.BUDGET_EXHAUSTED`, `COVERAGE.LANGUAGE_TIER_UNSUPPORTED`,
++  `COVERAGE.CONFIDENCE_FLOOR_UNMET`, `COVERAGE.REQUIRED_RELATION_MISSING`,
++  `REQUEST.PRECONDITION_FAILED`, `CONFIG.INVALID`,
+   `REQUEST.UNSATISFIABLE`, `PROVIDER.PROTOCOL_VIOLATION`, `HOST.IO_FAILURE` (§10).
+ - **H-4 (host error codes) — closed.** Withdrawn: preparation bounds and ambient
+   config are `HOST.IO_FAILURE` with the native detail strings; no

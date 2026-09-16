@@ -1,0 +1,270 @@
+--- a38/docs/coop/design-corrections/foundation/execution-inputs.schema.v1.json
++++ b39/docs/coop/design-corrections/foundation/execution-inputs.schema.v1.json
+@@ -37,11 +37,32 @@
+     },
+     "enumerationPlanDigest": {
+       "type": "string",
+-      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++      "x-opensip-digest": {
++        "representation": "canonical-record",
++        "retention": "preimage",
++        "authority": "foundation",
++        "record": {
++          "document": "foundation/enumeration-plan.schema.v1.json",
++          "selector": "#"
++        }
++      },
++      "description": "raw SHA-256 of C(EnumerationPlanV1); the preimage is retained under this digest."
+     },
+     "analysisSpecDigest": {
+       "type": "string",
+-      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++      "x-opensip-digest": {
++        "representation": "canonical-record",
++        "retention": "preimage",
++        "authority": "foundation",
++        "record": {
++          "bundle": "identity",
++          "document": "foundation/identity-schemas.v3.json",
++          "selector": "#/$defs/analysis-spec"
++        }
++      },
++      "description": "raw SHA-256 of C(analysis-spec); equals the Plan's analysisSpecDigest."
+     },
+     "hostCapture": {
+       "$ref": "#/$defs/HostCaptureV1"
+@@ -78,7 +99,16 @@
+       "maxItems": 1024,
+       "uniqueItems": true,
+       "items": {
+-        "$ref": "#/$defs/DigestHex"
++        "$ref": "#/$defs/DigestHex",
++        "x-opensip-digest": {
++          "representation": "canonical-record",
++          "retention": "preimage",
++          "authority": "foundation",
++          "record": {
++            "document": "foundation/execution-inputs.schema.v1.json",
++            "selector": "#/$defs/CandidateProducerResultV1"
++          }
++        }
+       },
+       "x-opensip-order": "canonical-set"
+     }
+@@ -208,7 +238,11 @@
+           ]
+         },
+         "digest": {
+-          "$ref": "#/$defs/DigestHex"
++          "$ref": "#/$defs/DigestHex",
++          "x-opensip-digest": {
++            "representation": "by-domain",
++            "registry": "x-opensip-digest-domains"
++          }
+         }
+       }
+     },
+@@ -232,7 +266,17 @@
+           "maximum": 1023
+         },
+         "stageSpecDigest": {
+-          "$ref": "#/$defs/DigestHex"
++          "$ref": "#/$defs/DigestHex",
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "retention": "preimage",
++            "authority": "foundation",
++            "record": {
++              "bundle": "identity",
++              "document": "foundation/identity-schemas.v3.json",
++              "selector": "#/$defs/stage-spec"
++            }
++          }
+         },
+         "producerClosure": {
+           "type": "string",
+@@ -454,6 +498,13 @@
+           "x-opensip-order": "canonical-set"
+         },
+         "universe": {
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "retention": "preimage",
++            "authority": "native",
++            "domainSet": "native-semantic-universe",
++            "nullable": true
++          },
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"
+@@ -540,7 +591,16 @@
+           "maxItems": 3,
+           "uniqueItems": true,
+           "items": {
+-            "$ref": "#/$defs/DigestHex"
++            "$ref": "#/$defs/DigestHex",
++            "x-opensip-digest": {
++              "representation": "canonical-record",
++              "retention": "preimage",
++              "authority": "foundation",
++              "record": {
++                "document": "foundation/subject-inventory.schema.v1.json",
++                "selector": "#"
++              }
++            }
+           },
+           "x-opensip-order": "canonical-set"
+         },
+@@ -549,12 +609,28 @@
+           "maxItems": 128,
+           "uniqueItems": true,
+           "items": {
+-            "$ref": "#/$defs/DigestHex"
++            "$ref": "#/$defs/DigestHex",
++            "x-opensip-digest": {
++              "representation": "h-identity",
++              "retention": "preimage",
++              "authority": "foundation",
++              "domain": "view"
++            }
+           },
+           "x-opensip-order": "canonical-set",
+           "description": "view2 H suffixes, never sha256(C(view)). Must equal captured receipt views attributed to this cell/program/U/producer."
+         },
+         "candidateResultDigest": {
++          "x-opensip-digest": {
++            "representation": "canonical-record",
++            "retention": "preimage",
++            "authority": "foundation",
++            "record": {
++              "document": "foundation/execution-inputs.schema.v1.json",
++              "selector": "#/$defs/CandidateProducerResultV1"
++            },
++            "nullable": true
++          },
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"
+@@ -645,9 +721,10 @@
+             "law": "Applicability is DERIVED, not host-chosen. Violation: EXECUTION_INPUTS_COVERAGE_DERIVE, or EXECUTION_INPUTS_VCS_APPLICABILITY when either side is inapplicable-vcs."
+           }
+         ],
+-        "deliberatelyNotJoined": {
++        "singleCanonicalTargetUniverse": {
+           "field": "targetUniverse",
+-          "law": "targetUniverse is NOT constrained by the source-universe join. A Coverage or fact may name a target in another universe; cross-universe relationships, incoming targets and multi-universe Runs stay lawful. Nothing in this record may be read as prohibiting them."
++          "equals": "null",
++          "law": "An account is one (cellOrdinal, programOrdinal, relation, resolution) obligation on its binding's source universe. It aggregates EVERY matching returned Coverage partition of that binding whatever target universe each partition or fact names, so it has no target coordinate and null is its only canonical value. Unlike the rows above this one IS schema-expressible: the property is typed null and a non-null value refuses EXECUTION_INPUTS_SCHEMA before any derivation. This is NOT a prohibition on cross-universe evidence: cross-universe relationships, incoming targets and multi-universe Runs stay lawful and are carried by the Coverage, fact, target-attribution and incoming-search records, never by this field."
+         }
+       },
+       "x-opensip-applicability-precedence": {
+@@ -680,6 +757,13 @@
+           "type": "string"
+         },
+         "sourceUniverse": {
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "retention": "preimage",
++            "authority": "native",
++            "domainSet": "native-semantic-universe",
++            "nullable": true
++          },
+           "description": "The BINDING's universe coordinate, for every applicability, including accounts with no Coverage. Null exactly when the binding universe is null. Nullable here only because a null binding universe is lawful; it is NOT a free choice. This file cannot check it (the comparand is EnumerationPlanV1) - see x-opensip-external-joins.",
+           "oneOf": [
+             {
+@@ -691,15 +775,8 @@
+           ]
+         },
+         "targetUniverse": {
+-          "description": "Deliberately NOT tied to the binding universe by section 5. Cross-universe targets, incoming targets and multi-universe Runs stay lawful; nothing here restricts them.",
+-          "oneOf": [
+-            {
+-              "$ref": "#/$defs/DigestHex"
+-            },
+-            {
+-              "type": "null"
+-            }
+-          ]
++          "description": "Always null: the account aggregates the binding's Coverage across every target universe and has no target coordinate (x-opensip-external-joins.singleCanonicalTargetUniverse, contract section 5). Cross-universe targets stay lawful on the Coverage and fact records.",
++          "type": "null"
+         },
+         "applicability": {
+           "description": "Derived FIRST-MATCH from (relation, admitted VCS kind, matrix cell state, enumerator status, binding universe). See x-opensip-applicability-precedence. Enum membership is all this file can check; the order is the external join.",
+@@ -718,7 +795,13 @@
+           "maxItems": 1024,
+           "uniqueItems": true,
+           "items": {
+-            "$ref": "#/$defs/DigestHex"
++            "$ref": "#/$defs/DigestHex",
++            "x-opensip-digest": {
++              "representation": "h-identity",
++              "retention": "preimage",
++              "authority": "foundation",
++              "domain": "coverage"
++            }
+           },
+           "x-opensip-order": "canonical-set"
+         }
+@@ -812,6 +895,13 @@
+           ]
+         },
+         "universe": {
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "retention": "preimage",
++            "authority": "native",
++            "domainSet": "native-semantic-universe",
++            "nullable": true
++          },
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"
+@@ -888,7 +978,16 @@
+           "maxItems": 1000000,
+           "uniqueItems": true,
+           "items": {
+-            "$ref": "#/$defs/DigestHex"
++            "$ref": "#/$defs/DigestHex",
++            "x-opensip-digest": {
++              "representation": "canonical-record",
++              "retention": "preimage",
++              "authority": "native",
++              "record": {
++                "document": "native/native-evidence.schemas.v2.json",
++                "selector": "#/$defs/CloneCandidateGroupV2"
++              }
++            }
+           },
+           "x-opensip-order": "canonical-set"
+         },
+@@ -925,7 +1024,13 @@
+           "$ref": "#/$defs/LogicalPath"
+         },
+         "contentSha256": {
+-          "$ref": "#/$defs/DigestHex"
++          "$ref": "#/$defs/DigestHex",
++          "x-opensip-digest": {
++            "representation": "raw-artifact",
++            "retention": "preimage",
++            "authority": "foundation",
++            "artifact": "the exact snapshot source file bytes named by path; byteLength is their exact length"
++          }
+         },
+         "byteLength": {
+           "type": "integer",
+@@ -934,6 +1039,13 @@
+           "description": "Admitted snapshot SOURCE FILE length for the path this opaque id is anchored to. Not a body-span. Whole-file snapshot join is acceptable only as this explicit opaque provider coordinate. A future full body-span option is not a qualifying compiler and is not required here."
+         },
+         "universe": {
++          "x-opensip-digest": {
++            "representation": "h-identity",
++            "retention": "preimage",
++            "authority": "native",
++            "domainSet": "native-semantic-universe",
++            "nullable": true
++          },
+           "oneOf": [
+             {
+               "$ref": "#/$defs/DigestHex"

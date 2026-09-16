@@ -1,0 +1,60 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 6.5540765,
+  "usage": {
+    "input_tokens": 546,
+    "cache_creation_input_tokens": 128259,
+    "cache_read_input_tokens": 8119613,
+    "output_tokens": 48358,
+    "output_tokens_details": {
+      "thinking_tokens": 14069
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 128259,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2076,
+        "cache_read_input_tokens": 517030,
+        "cache_creation_input_tokens": 632,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 632
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 546,
+      "outputTokens": 48358,
+      "cacheReadInputTokens": 8119613,
+      "cacheCreationInputTokens": 128259,
+      "webSearchRequests": 0,
+      "costUSD": 6.5540765,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 14069,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 64,
+  "subtype": "success",
+  "result": "RC37-01 and RC37-A1 are corrected in my proposal, and every focused check has finished in the foreground. check-evaluator-faults.v3 is the one failing check, and it already fails the same way on the original overlay. This is coauthor work, not independent acceptance. No pins or planning were rebound, nothing was frozen or committed, and all product gates and recovery cases remain unperformed.\n\n**v1 ended incomplete.** It exited while claiming to wait on two background checker batches that were stopped at teardown, and it wrote no review. I didn't count any v1 result as a pass. v2 copied the v1 trees, checked them against the manifests and v1's edit hashes, and reran everything here. v1 is byte-identical before and after (25,832 files).\n\n**RC37-01.** Before the fix, the four reminted false-result Runs, the structural refusal and four simulated host bugs all came out as `evidence.corrupt`. Every refusal was a class from a separately loaded copy of the identity model. So the query's `isinstance` test never matched, and the `EVIDENCE_UNAVAILABLE` string prefix was what actually routed missing bytes. The fix:\n- **Identity model:** a new condition-only `CompleteReplayMismatch`, which carries the exact comparison key but no route or origin. `close_run` converts its replay stack's declared outcomes into its own classes by exact class object, keeping the message and the original error. Anything else passes through unchanged. `restore` maps the mismatch to the existing `RegenerationMismatch`.\n- **Replay and composition models:** the comparisons raise that mismatch with unchanged keys.\n- **Query model:** it routes by type only.\n  - Missing bytes \u2192 `evidence.missing`.\n  - Replay disagreement \u2192 the existing retained-regeneration route (`HOST.IO_FAILURE` / `evidence.regeneration-mismatch`, subject the refused RunId), copied from the identity carrier.\n  - Other admission refusals \u2192 `evidence.corrupt`.\n  - Any other exception \u2192 the existing host-invariant route (`SYSTEM.OUTCOME.ILLEGAL_STATE` / `HOST.INVARIANT_VIOLATED`).\n  - The exact error text is kept privately and never picks the route; no prefix parsing remains.\n- **Query contract \u00a77:** the paragraph that allowed `evidence.corrupt` is replaced. A live evaluator contradicting itself keeps the host-internal route at its own boundary.\n\nResults:\n- The query checker has 31 new controls: 162 \u2192 193 checks, 0 failed.\n- Structural, missing, replay-mismatch and host-bug cases land on four distinct routes.\n- The three maintained RunIds are unchanged.\n- The evaluator fault routes and details are identical across frozen37, the original overlay and my edited tree.\n- The new condition-only class is refused as an owner carrier, so it can't skip origin assignment.\n\n**RC37-A1.** `ReferenceCallPrecondition` stays the right signal for the reference entry point, where the observation is a call argument. The contract now also says:\n- A product host adapter's own invalid observation goes to the host-invariant route when a valid RequestId exists. Without one, the precondition is re-raised.\n- A malformed or wrong-Run retained availability record is `evidence.corrupt`.\n\nNo new public code was added, and both laws have passing controls.\n\n**Effect of the foundation changes.** They change exception classes, not decisions or messages. One behavior change: `restore` now raises `RegenerationMismatch` for a Run whose replay disagrees, where before a generic refusal escaped. The other 11 affected checkers produce the same output on the original and edited trees, apart from tree names in file paths. That includes check-identity (1596 passed), check-workflow-projection (493 passed), and check-replay, semantic, execution and candidate replay. No registered schema changed.\n\n**New findings:**\n- **QF-I1 (existing failure, for root):** check-evaluator-faults.v3 exits 1 on both the original overlay and my edited tree, but passes on frozen37. The root overlay's StepTermination pair law now rejects one mutated test envelope at schema validation, before the parity check the control expects. The checker then aborts before its carrier rows. The bad envelope is still refused, so this breaks the test, not the safety. The checker isn't one of my six files, so I didn't edit it. A probe that runs each of its rows separately shows every other row as expected.\n- **QF-I2 (pins, not rebound):** all six files are pinned in the five source-pins files. The three foundation files are newly stale. The three query files were already stale from the root overlay.\n\n**Limitations.** The list of known refusal classes is closed and explicit: a new refusal class would show up as host-invariant until it is added. Atom, enumeration and native refusals weren't individually triggered through `close_run`. Host bugs were simulated with in-process monkeypatches.\n\nThe six changed files, hash before \u2192 after:\n\n| File | Before | After |\n|---|---|---|\n| `identity-model.v3.py` | `204e0f00\u2026` | `9376aaae\u2026` |\n| `evaluator_replay_model.v3.py` | `59d3fc33\u2026` | `26e88580\u2026` |\n| `evaluator_composition_model.v3.py` | `c2e7f58f\u2026` | `cceeb42b\u2026` |\n| `query_projection_model.v3.py` | `0d4433ae\u2026` | `bb9de8f7\u2026` |\n| `query-projection-contract.v3.md` | `f7b2e7ca\u2026` | `6a504eb5\u2026` |\n| `check-query-projection.v3.py` | `cfe85f88\u2026` | `82eddd74\u2026` |\n\nThe root successor still has the original bytes for all six, so they don't overlap its integration.\n\nFiles are in /private/tmp/opensip-design-corrections/claude-source37-query-fault-author.v2:\n- review.md\n- review.json (sha `6b235dd9\u2026`; full hashes and all 30 run receipts)\n- proposed-edits.diff (sha `8167db3b\u2026`, identical to v1's)",
+  "type": "result",
+  "duration_ms": 1844408
+}

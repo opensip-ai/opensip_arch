@@ -1,0 +1,5 @@
+# Initial report contextual help control
+
+Product source snapshot plus passing Chrome DOM/keyboard evidence. No framework or bundler is selected by this unit. Copy to a new writable directory before running check-browser.mjs; it creates a fresh Chrome profile and local loopback test server. Only its CSS input path differs from the original passing harness, to make it read this source snapshot. No profile is retained or shared. Compile help-view.ts using the pinned TypeScript compiler before browser execution to prove emitted/source equality. Compiler call used strict, target ES2022, module ES2022, lib ES2022,DOM and noEmitOnError.
+
+Root evidence: docs/implementation/m1/report-help-start. Two first harness runs lacked Enter text/keypress and failed to activate the button; product code unchanged, third corrected run passed. Six checks and a screenshot do not qualify all browsers, screen readers, contrast, final report CSP/assets or actual report features. Claude source and browser review is pending. Help copy belongs to each report view and must describe the actual evidence limitations; this helper only creates inert text and accessible native dialog controls.

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-ts-runtime-review-02",
+  "subject": "/tmp/opensip-implementation/m1-ts-runtime-subject-02",
+  "subjectManifest": "/tmp/opensip-implementation/m1-ts-runtime-subject-02.json",
+  "subjectManifestSha256": "f4cb31f4d7144f6c00e47c712da1ba5772aede4404d6f3365da02a1903a79ab9",
+  "subjectFiles": 37,
+  "verdict": "ACCEPT-TRIAL-UNIT",
+  "verdictScope": "Accepts only the trial algorithms in exact-json.ts, schema.ts and patterns.ts for later integration review. It does not accept generated product integration, a public API, a production Rust dependency (regress is a probe only), build/tool selection, or M1/release qualification. Author test counts were not treated as approval: every conclusion below rests on my own reruns and independent probes.",
+  "priorFindings": {
+    "R1": {
+      "status": "RESOLVED",
+      "basis": "The runtime no longer applies native JS regex semantics to pinned patterns. It looks each pattern up in an exact 66-entry table and refuses anything else. Six entries are rewritten: an unescaped dot outside a class becomes [^\\n], and a bare $ becomes (?=\\n?(?![\\s\\S])). Everything else is unchanged. These are exactly Python re semantics without DOTALL or MULTILINE, and jsonschema 4.25.1 _keywords.pattern uses re.search. I checked the remaining constructs by hand: ASCII classes, \\u escapes, [\\s\\S] only as a pair, (?!, (?:, bounded quantifiers, and ^ without the m flag. They have the same language in both engines. Independent evidence: 26,790,060 exhaustive small-alphabet and structured-insertion comparisons with 0 mismatches. A mutation control running the unmapped sources on the same harness gives 185,478 mismatches, so the harness does detect divergence. My review-01 corpus of 68,640 rows now gives 0 mismatches, and the end-to-end path booleans agree. The Rust regress probe rerun on my copy gives 0 of 39,336 mismatches."
+    },
+    "R2": {
+      "status": "RESOLVED",
+      "basis": "matches() now evaluates parseExact(canonical(value)) (schema.ts:114). canonical() requires Array.prototype (exact-json.ts:117). My review-01 bypasses are all refused or now report the correct result: a custom array prototype and an Array subclass throw PLAIN_ARRAY_REQUIRED; a Proxy get trap and a Proxy returning a fake every() both return false. Arrays and objects from another vm realm are refused, and local and growable SharedArrayBuffer views are refused. Proxy effects are explicitly outside the inert-input contract. Even a Proxy that lies in its descriptors yields a snapshot that is consistent with itself."
+    },
+    "A1": "RESOLVED: 18,000 random arrays across 12 annotations, evaluated both bare and under not (36,000 evaluations) against canonical.py exact_order, 0 mismatches. The review-01 set of 2680 real-node cases gives 0 mismatches.",
+    "A2": "RESOLVED for the selected vocabulary. Additional malformations are refused with SchemaError: duplicate type entries, a foreign nested $id or $schema, an unprofiled patternProperties key, a non-object properties, an extra key in an order annotation, and a structurally duplicate enum. Unreferenced $defs are not validated, by design.",
+    "A3": "CARRIED LIMITATION, confirmed: a fragment-less self $ref still yields ShapeLimit.",
+    "A4": "RESOLVED: schema-probe.mjs runs metadata-reference.py and compares; 43 of 43 match.",
+    "A5": "CARRIED LIMITATION: a 4 MiB object with the snapshot takes 523 ms; there is still no hard time budget.",
+    "A6": "Partially resolved; see advisory ADV-3."
+  },
+  "patternProfileAssessment": {
+    "profile": "opensip-selected-pattern-reference-compatibility-1",
+    "decision": "ACCEPTABLE as a scoped finite compatibility mapping for exactly these 66 source patterns in the 28 pinned metadata-v2 documents. Root assent is still required before product integration.",
+    "grounds": [
+      "Product identity-and-evidence.md section 2 (lines 64-76) explicitly treats a bare trailing $ as admitting a final LF (exec1_<hex>\\n) and treats (?![\\s\\S]) as the exact end guard. Preserving reference $ semantics is therefore consistent with the documented product reading, not an invention.",
+      "The mapping preserves the raw schema bytes and the historical evidence, and refuses unknown patterns. It is not a general Python re port.",
+      "Regenerating pattern-profile.py in a separate copy reproduces pattern-profile.json, patterns.ts and pattern-cases.json byte-for-byte. Its sources equal metadata-v2 sources.json, and its 66 patterns are the same set I extracted in review-01.",
+      "Semantic equivalence was established by construct analysis and by an exhaustive differential whose sensitivity was checked by mutation (see R1)."
+    ],
+    "conditions": [
+      "Any changed source pattern, added pattern or new engine requires regenerating the table, an independent differential and review, as PROFILE.md states.",
+      "The translator in pattern-profile.py is a character scanner, not a regex parser. Cases such as ] as the first class member, inline flags and lookbehind are not handled. It is acceptable only because its output is frozen and reviewed for these 66 inputs.",
+      "Shape acceptance is never filesystem or identity authority (ADV-1, ADV-2)."
+    ]
+  },
+  "requiredFindings": [],
+  "advisories": [
+    {
+      "id": "ADV-1",
+      "title": "Retained CanonicalPath pattern admits LF-separated parent traversal in every engine",
+      "detail": "Both the reference and TS accept 'a\\n/../../etc/passwd', 'a\\n/..' and 'a\\r\\n/../x' as evidence-schemas:v2#/$defs/CanonicalPath, because the lookahead's .* / [^\\n]* cannot cross LF. The runtime reproduces this faithfully and PROFILE.md discloses it. native-evidence.md:644 separates CanonicalPath from the canonical relative directory grammar and does not claim it is traversal-free. The LogicalPath variants refuse these inputs. Owner obligation: host path and custody admission must check components independently, and a successor schema should use [\\s\\S] or (?![\\s\\S]). This is not a runtime defect.",
+      "artifacts": ["work/probes/lfgap.py", "work/probes/lfgap.mjs"]
+    },
+    {
+      "id": "ADV-2",
+      "title": "Unescaped dots in the security.repo-execution-grant(s).v2 identity patterns",
+      "detail": "Faithful to the reference: both engines accept 'securityXrepo-execution-grantXv2:<64 hex>', and the grants variant accepts U+2028 and / as separators. These patterns appear in native-evidence.schemas.v2.json, invocation-record.schema.json and test-execution.schema.json. Semantic owners must compare the exact digest domain prefix, and a successor schema should escape the dots."
+    },
+    {
+      "id": "ADV-3",
+      "title": "SharedArrayBuffer refusal is realm-local",
+      "detail": "parseExact(new Uint8Array(sabFromAnotherVmRealm)) is accepted, because raw.buffer instanceof SharedArrayBuffer is false. It is same-thread and inside the declared trusted-builtins scope, so the risk is low. A brand check (Object.prototype.toString.call(raw.buffer) === '[object SharedArrayBuffer]') would close it. Resizable non-shared ArrayBuffer and Buffer inputs are accepted, which is correct."
+    },
+    {
+      "id": "ADV-4",
+      "title": "Rust probe log provenance",
+      "detail": "The frozen rust-pattern-check.log records a run from /tmp/opensip-implementation/m1-ts-runtime-trial-02, not from the frozen subject path. I reran cargo --locked --offline against my copy: 0 of 39,336 mismatches. With the probe's workspace configuration, cargo placed target/ at /tmp/opensip-implementation/m1-ts-runtime-review-02/target, which is inside the permitted write area."
+    },
+    {
+      "id": "ADV-5",
+      "title": "Carried A3/A5 limitations remain integration inputs",
+      "detail": "A non-productive $ref cycle is reported as ShapeLimit, not SchemaError. canonical, snapshot and regex work is not metered, and there is no wall-clock or regex backtracking budget. Integration must choose the limits and host timeouts."
+    }
+  ],
+  "executedChecks": [
+    "Subject manifest sha256 and all 37 file sha256/byte pins verified before the review (and after, see review.md); the file count outside target/ equals 37",
+    "Read PROFILE.md, exact-json.ts, schema.ts, patterns.ts, pattern-profile.py, regressions.mjs, harness-notes.md, the Rust probe, metadata-reference.py, canonical-differential.py and schema-probe.mjs in full; read identity-and-evidence.md section 2 lines 58-87 and native-evidence.md lines 630-660; confirmed jsonschema _keywords.pattern uses re.search",
+    "Copied the subject to work/subject; tsc (TS 7.0.2, Node 24.16.0) exit 0",
+    "Frozen scripts on the copy: boundaries 34, regressions 38, pattern-differential 39336/0, schema-probe 43/0, shape-differential 11191/0, probe 14000 (4490/9510), canonical-differential 14000/0, reviewer-regex 68640/0 with e2e diffs [], Rust regress probe 39336/0",
+    "Regenerated the pattern table in work/regen: byte-identical; 66 patterns equal the review-01 extraction; sources equal metadata-v2",
+    "Exhaustive differential (work/probes/exhaust.*): 405,910 strings x 66 patterns = 26,790,060 comparisons, 0 mismatches; mutation control with unmapped sources gives 185,478 mismatches",
+    "R2/A2 adversarial probes (work/probes/r2.mjs): prototype/subclass/Proxy/cross-realm/SAB/resizable/null-prototype/frozen cases, 12 extra keyword malformations, 4 MiB snapshot timing",
+    "A1 randomized differential vs canonical.py (work/probes/a1.*): 36,000 evaluations, 0 mismatches",
+    "Rerun of review-01 cached real-node order cases (2680/0) and harvested rows (1,472,500 rows, 64,091 valid, 0 mismatches, 0 ShapeLimit) on the new TS",
+    "LF path-gap and unescaped-dot identity probes in both engines (ADV-1, ADV-2)"
+  ],
+  "limitations": [
+    "The Python reference and the metadata-v2 adapter are comparators whose selection is the root's decision; this review accepts the profile only as a faithful compatibility mapping, not as the ideal pattern grammar.",
+    "The exhaustive alphabet has 13 symbols and strings up to length 5, plus structured insertions. Equivalence beyond that rests on construct analysis of the frozen 66 patterns.",
+    "Regress was run only as a conformance probe. Its production suitability, supply chain and performance were not evaluated.",
+    "No coverage-guided lexer fuzzing, no backtracking or wall-clock analysis, and no non-Node runtimes.",
+    "Only 110 of 589 refs have valid-case witnesses in the harvested data; the 589-entrypoint selection was taken as given.",
+    "Proxy, concurrent-mutation and untrusted-builtin inputs are outside the declared contract and were probed only for snapshot consistency."
+  ],
+  "productQualification": false
+}

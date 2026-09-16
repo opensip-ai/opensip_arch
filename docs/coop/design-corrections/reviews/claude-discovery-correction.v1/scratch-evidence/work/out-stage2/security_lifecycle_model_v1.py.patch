@@ -1,0 +1,115 @@
+--- docs/coop/design-corrections/security/security_lifecycle_model_v1.py
++++ docs/coop/design-corrections/security/security_lifecycle_model_v1.py
+@@ -80,6 +80,24 @@
+     schema=copy.deepcopy(_SCHEMA_BUNDLE);schema['$ref']='#/schemas/'+name
+     _C.validate(schema,value)
+     return value
++
++
++DISCOVERY_PROVENANCE_RECORDS = {1: 'DiscoveryProvenanceV1', 2: 'DiscoveryProvenanceV2'}
++
++
++def validate_discovery_provenance(value):
++    """Explicit version dispatch for the discovery provenance record (XA-02 / CR-25).
++
++    Version 1 is the historical record: `{path, reason, markerCount}` pruned rows with a non-null count and
++    marker-derived anchors only. Version 2 is what this instrument now produces. A changed record is NEVER
++    named V1: the schemaVersion selects the definition, and an unknown version is refused rather than being
++    validated against the nearest neighbour."""
++    if not isinstance(value, dict) or type(value.get('schemaVersion')) is not int:
++        raise Reject('DISCOVERY_PROVENANCE_SHAPE')
++    name = DISCOVERY_PROVENANCE_RECORDS.get(value['schemaVersion'])
++    if name is None:
++        raise Reject('DISCOVERY_PROVENANCE_VERSION_UNKNOWN:%d' % value['schemaVersion'])
++    return validate_input(name, value)
+ 
+ 
+ # ---------------------------------------------------------------------------------------------
+@@ -562,7 +580,8 @@
+     # Closed synthetic host-observation vocabulary, not a public request carrier.
+     # A misspelled fixture/host projection is an instrument error, never an ignored option.
+     allowed = {'invokingUid','accountHome','cwd','fs','ci','trustProjectOwner',
+-               'authorizedGroupIds','explicitProject','explicitResolved','explicitJoins','configWorkspaceRoots'}
++               'authorizedGroupIds','explicitProject','explicitResolved','explicitJoins','configWorkspaceRoots',
++               'prunedTreeMarkerInventory'}
+     required = {'invokingUid','accountHome','cwd','fs'}
+     if not isinstance(inp, dict) or not required <= set(inp) or set(inp) - allowed:
+         raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+@@ -579,6 +598,12 @@
+             raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+     if any(not _int(g) or g < 0 for g in inp.get('authorizedGroupIds', [])):
+         raise Reject('DISCOVERY_OBSERVATION_SHAPE')
++    # XA-02: the supplier DECLARES whether its marker inventory enumerated inside pruned trees. This
++    # instrument's `fs` map is one complete supplied observation, so `observed-inventory` is its own honest
++    # default; a production scanner that does not descend must declare `not-enumerated` and get null counts.
++    # The declaration is never inferred from whether markers happen to be present.
++    if inp.get('prunedTreeMarkerInventory', DD.OBSERVED_INVENTORY) not in DD.MARKER_COUNT_BASES:
++        raise Reject('DISCOVERY_OBSERVATION_SHAPE')
+     uid = inp['invokingUid']
+     home = inp['accountHome']
+     fs = inp['fs']
+@@ -588,7 +613,8 @@
+     explicit = inp.get('explicitProject')
+     joins = inp.get('explicitJoins', [])
+     config_roots = inp.get('configWorkspaceRoots', [])   # admitted Config2 `discovery.workspaceRoots` (after foundation admission)
+-    prov = {'schemaVersion': 1, 'mode': None, 'ci': ci, 'selectedRoot': None, 'configPath': None,
++    marker_basis = inp.get('prunedTreeMarkerInventory', DD.OBSERVED_INVENTORY)
++    prov = {'schemaVersion': 2, 'mode': None, 'ci': ci, 'selectedRoot': None, 'configPath': None,
+             'walked': [], 'stopReason': None, 'custodyWaiver': 'trustProjectOwner' if waive else None,
+             'authorizedGroupIds': sorted(groups), 'vcs': None, 'nestedRepositories': [], 'nestedProjects': [], 'unitSource': None, 'units': [],
+             'excludedUnits': [], 'prunedTrees': [], 'explicitPathWasSymlink': None, 'warnings': []}
+@@ -691,6 +717,33 @@
+         return sorted(p[len(base):] for p, e in fs.items()
+                       if e.get('kind') == 'file' and p.rsplit('/', 1)[-1] in WORKSPACE_MARKERS and p.startswith(base))
+ 
++    def _relative_directories(root):
++        """Relative paths of every DIRECTORY entry observed under the selected root (CR-25).
++
++        This is the admitted directory observation the instrument already holds. It is the anchor source for
++        pruned trees; it is NOT a descent. A directory inside a pruned tree maps to the same outermost anchor,
++        so listing it adds no anchor and discloses nothing about the tree contents."""
++        base = root.rstrip('/') + '/'
++        return sorted(p[len(base):] for p, e in fs.items()
++                      if e.get('kind') == 'dir' and p.startswith(base))
++
++    def _unreadable_pruned_anchors(root):
++        """Pruned anchors whose OWN directory entry could not be read (`aclUnreadable`, modelling
++
++        EACCES/ENOTSUP on the ACL read). The anchor stays known and reported; its marker count becomes null
++        with basis `not-enumerated`, because a count drawn from a directory whose own observation failed is
++        not an observation. Only the anchor entry itself is consulted - never its contents."""
++        base = root.rstrip('/') + '/'
++        cargo = DD.cargo_roots_from_markers(_relative_marker_paths(root))
++        out = set()
++        for p, e in fs.items():
++            if e.get('kind') != 'dir' or not p.startswith(base) or not e.get('aclUnreadable'):
++                continue
++            hit = DD.classify_path(p[len(base):], cargo)
++            if hit is not None and hit[0] == p[len(base):]:
++                out.add(hit[0])
++        return out
++
+     def finish(root):
+         prov['selectedRoot'] = root
+         # nested repositories under the selected root are other authority/custody roots: recorded, never
+@@ -728,8 +781,18 @@
+             # output (`target` directly under a directory holding Cargo.toml) are pruned by exact path segment BEFORE
+             # any custody walk; each pruned tree is recorded once. Installed package manifests therefore never become
+             # units and never count toward the cap. The cap counts first-party marker directories and refuses typed.
+-            enum = DD.enumerate_units(_relative_marker_paths(root), enforce_limit=False)
+-            prov['prunedTrees'] = [{'path': _join(root, t['path']), 'reason': t['reason'], 'markerCount': t['markerCount']} for t in enum['prunedTrees']]
++            # CR-25: pruned anchors come from the ADMITTED DIRECTORY OBSERVATION, not only from marker paths.
++            # Discovery already holds every directory entry it observed; a `node_modules`, `.hg`, `.svn`, `.jj` or
++            # Cargo `target` tree holding no manifest was previously pruned with no record that it existed. No
++            # descent occurs: the shared rule returns the OUTERMOST anchor, and nothing reads inside a pruned tree.
++            # An anchor whose OWN entry could not be read (`aclUnreadable`) is still reported, with a null count.
++            enum = DD.enumerate_units(_relative_marker_paths(root), enforce_limit=False,
++                                      observed_directories=_relative_directories(root),
++                                      marker_inventory_basis=marker_basis,
++                                      unreadable_anchors=_unreadable_pruned_anchors(root))
++            prov['prunedTrees'] = [{'path': _join(root, t['path']), 'reason': t['reason'],
++                                    'markerCount': t['markerCount'], 'markerCountBasis': t['markerCountBasis']}
++                                   for t in enum['prunedTrees']]
+             for rel in enum['unitDirs']:
+                 d = root if rel == DD.INTERNAL_ROOT else _join(root, rel)
+                 if _in_nested_repo(d):

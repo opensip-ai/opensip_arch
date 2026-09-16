@@ -1,0 +1,126 @@
+--- author1/execution_inputs_model.v1.py
++++ activeauthor2/execution_inputs_model.v1.py
+@@ -403,6 +403,15 @@
+     return canon_str_list([p for p in raw if isinstance(p, str)]), None
+ 
+ 
++SOURCE_ORDER = (
++    ("enumerator-or-binding", "unavailable-row carrier only; inserted before the inventories"),
++    ("inventory", "per non-complete inventory, in the row's canonical-set inventoryDigests order"),
++    ("candidate", "at most one, candidate-only capabilities"),
++    ("account", "per owed matrix pair, in native-capability-matrix.v2.json#/capabilities[id]/"
++                "relations ARRAY order (authored, not lexical); partitions inside an account "
++                "follow contract §5"),
++)
++
+ APPLICABILITY_PRECEDENCE = (
+     ("inapplicable-vcs", "relation vcs-change and admitted VCS observation kind=none"),
+     ("unsupported-typed", "matrix cell state UNSUPPORTED-TYPED"),
+@@ -446,6 +455,24 @@
+     return binding.get("deficiency") or "provider-unavailable", binding.get("nativeCause")
+ 
+ 
++def _declared_binding_carrier(binding: dict | None) -> tuple:
++    """The binding's OWN declared pair, with no default.
++
++    `_binding_carrier` keeps its `provider-unavailable` default because the unselected and
++    null-universe branches are the only ones that read it, and the enumeration owner already
++    guarantees a real typed pair there: `enumeration_model.v1.py` refuses an unselected enumerator
++    on an available binding or a required cell, and refuses a null-universe binding whose
++    `deficiency` is null (`ENUMERATION_BINDING_CAUSE`). That default is therefore unreachable on a
++    lawful plan and the real binding carrier is preserved.
++
++    The candidate branch is different: it runs on an AvailableProgramBindingV1, which declares no
++    carrier at all, so a default there would be manufactured every time. Use this instead.
++    """
++    if not isinstance(binding, dict):
++        return None, None
++    return binding.get("deficiency"), binding.get("nativeCause")
++
++
+ def derive_outcome(
+     *,
+     enumerator_status: str,
+@@ -463,6 +490,26 @@
+     Unselected or universe=null does not discard inventory carriers. A selected
+     unavailable binding keeps its own budget-exhausted / input-closure-incomplete
+     pair rather than a generic provider-unavailable.
++
++    CROSS-SOURCE ORDER of `sources` (contract §4; `SOURCE_ORDER` names it). Deterministic and
++    fully owner-derived -- no host array order and no lexical guess is read anywhere in it:
++
++      1. `enumerator` / `binding` carrier, when the row is unavailable for that reason. Inserted
++         at index 0, so it precedes the same cell's inventories. Both branches return here.
++      2. `inventory`, one item per non-complete inventory, in the order of this row's
++         `inventoryDigests`, whose schema order is `canonical-set`.
++      3. `candidate`, at most one, for a candidate-only capability.
++      4. `coverage` / `account`, per owed matrix pair, in the `relations` ARRAY order authored in
++         `native-capability-matrix.v2.json#/capabilities[id]/relations` -- NOT lexical: `syntax`
++         is authored `declares, literal, control-flow`. Inside one account the partitions follow
++         the §5 order (returned in canonical H order, then named-but-not-returned).
++
++    The account leg reads `derived_accounts`, which admission rebuilds in this same owed order, so
++    the row pair does not depend on how the host ordered `nativeCoverageAccounts` (whose schema
++    order is `sequence`, i.e. the validator enforces nothing).
++
++    `_outcome_from_items` then takes the row carrier from the FIRST source in that order that
++    actually carries a typed pair, and (null, null) when none does.
+     """
+     items = []
+     bind_def, bind_cause = _binding_carrier(binding)
+@@ -490,18 +537,30 @@
+         })
+         return _outcome_from_items("unavailable", "unavailable-binding", items)
+     if candidate_cap:
++        # Candidate carrier: the ENVELOPE's own declared pair, else the BINDING's own DECLARED
++        # pair, else explicit (null, null). No manufactured `provider-unavailable`.
++        #
++        # This branch is reached only with a SELECTED enumerator at a non-null universe, i.e. an
++        # AvailableProgramBindingV1, whose schema has no `deficiency`/`nativeCause` property at all
++        # (`additionalProperties: false`). `_binding_carrier`'s default would therefore ALWAYS have
++        # produced `provider-unavailable` here, on a source item with empty `inputRefs` -- a
++        # provider observation occurring on no retained record. That is the same manufacture §5
++        # forbids for accounts, and an optional candidate cell with no retained envelope admits, so
++        # it was reachable rather than theoretical. A required cell with no envelope still refuses
++        # `EXECUTION_INPUTS_CANDIDATE_REQUIRED` before this matters.
++        decl_def, decl_cause = _declared_binding_carrier(binding)
+         if candidate_rec is None:
+             items.append({
+-                "source": "candidate", "deficiency": bind_def, "nativeCause": bind_cause,
+-                "nativeCauses": [bind_cause] if bind_cause else [], "inputRefs": [],
++                "source": "candidate", "deficiency": decl_def, "nativeCause": decl_cause,
++                "nativeCauses": [decl_cause] if decl_cause else [], "inputRefs": [],
+             })
+         elif candidate_rec.get("state") != "complete":
+             refs = [{"domain": "candidate-producer-result", "digest": candidate_digest}] if candidate_digest else []
+             items.append({
+                 "source": "candidate",
+-                "deficiency": candidate_rec.get("deficiency") or bind_def,
+-                "nativeCause": candidate_rec.get("nativeCause") if candidate_rec.get("nativeCause") is not None else bind_cause,
+-                "nativeCauses": [c for c in (candidate_rec.get("nativeCause"), bind_cause) if c],
++                "deficiency": candidate_rec.get("deficiency") if candidate_rec.get("deficiency") is not None else decl_def,
++                "nativeCause": candidate_rec.get("nativeCause") if candidate_rec.get("nativeCause") is not None else decl_cause,
++                "nativeCauses": [c for c in (candidate_rec.get("nativeCause"), decl_cause) if c],
+                 "inputRefs": refs,
+             })
+     for acc in account_summaries:
+@@ -556,7 +615,18 @@
+ 
+ 
+ def _outcome_from_items(state: str, reason, items: list[dict]) -> dict:
+-    primary = items[0] if items else None
++    # The row carrier is the FIRST retained source that ACTUALLY CARRIES a typed pair, walked in
++    # the cross-source order `derive_outcome` builds (contract §4). Taking items[0] unconditionally
++    # let an earlier untyped missing-work source -- typically a census-short or empty-partition
++    # account whose derived pair is explicitly (null, null) -- MASK a later source that does carry
++    # a real carrier, which is the opposite of "preserve actual typed source pairs". Every item
++    # stays in `sources` with its own pair and refs either way; only the row-level carrier moves.
++    # When NO retained source carries a typed pair the row pair stays explicitly (null, null).
++    primary = next(
++        (it for it in items
++         if it.get("deficiency") is not None or it.get("nativeCause") is not None),
++        None,
++    )
+     all_causes = []
+     for it in items:
+         pair = (it.get("deficiency"), it.get("nativeCause"))

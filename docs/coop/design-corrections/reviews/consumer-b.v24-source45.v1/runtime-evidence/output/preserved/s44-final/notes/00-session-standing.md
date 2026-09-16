@@ -1,0 +1,71 @@
+# Session standing — consumer-b.v24, runtime consumer-b.v24-source42.v1
+
+- **Origin.** 9d3dfb70-b2d3-498c-a3c1-f8de9e488514, continued in a new runtime. Independence is not claimed anew. No subagents, other consumers, coauthors, LIVE, author models, fixtures, reports, root results or other runtimes are read. Harness files (`launch.py`, `prompt.md`, `preparation.json`, `process.json`, `public-events.jsonl`) are not read.
+- **Inputs.**
+  - The kit is this runtime's `subject/`: `consumer-input-manifest.json` SHA-256 `9c90a1e849b1a33fb1aec507d6a4f59632fc3497922c99de847e4802fb89db05`, 104 members; parent frozen manifest `f602fc7e45a90e32e0d076aa27e4ee7e51d8c298727a69bdf32489d5a7b0b307`.
+  - Also read: `charter.md`, `requirements.json` (both identical to source41 apart from runtime paths and kit hashes), the installed standard library and jsonschema, and my own old and new outputs.
+- **Kit delta against my own source41 custody rows (orientation only).** Two documents changed: `foundation/enumeration-contract.v1.md` and `foundation/execution-inputs-contract.v1.md`. Both were read in full.
+- **Scope.** Unchanged: 123 requirements, 8 standing rules, 3 future qualification items. No design acceptance or expected result is supplied, and none is implied.
+- **Own history, read-only.**
+  - consumer-b.v24; source39.v1–v3.
+  - source41.v1: copied non-store files plus a full hash manifest at `preserved/source41-v1/` (its verdict was ACCEPT-RECONSTRUCTABLE on the source41 kit; root admission unobserved).
+  - None of it establishes source42 conformance.
+- **Helper provenance.**
+  - My source41 `*.py` were ported with only the runtime root rebound (`port-manifest.json`).
+  - The unchanged port is executed against source42 first (logs `s42-original*`) and the output tree is preserved before any correction.
+  - Every later code change is a numbered helper correction (HC-47 onward; HC-1..HC-46 remain history), with its kit selector, the original measured behaviour and the re-executed result.
+- **Execution.** Every script runs as `/tmp/opensip-architecture-review-env/bin/python -I -B` through `tools/seq.py`, with retained logs; the shell prefix is `python3` only. Reused prior measurements are labelled and never counted as source42 execution.
+- **Continuation into runtime consumer-b.v24-source42.v2.**
+  - The source42.v1 process ended while its last background chain (`s42-fin-neg`, `s42-fin-final`) was running, and no checkpoint, `requirement-status.json` or review was written. That pass is preserved in place at `/tmp/opensip-design-corrections/consumer-b.v24-source42.v1`.
+  - The root copied its `output/` into this runtime. I verified the copy equal file-for-file (4566 files, every SHA-256), the kit identical (manifest `9c90a1e8…`, parent `f602fc7e…`, 104 members), and the charter and requirements identical apart from the runtime path.
+  - Found finished in v1: everything through `s42-fin-p4to9.*` and `s42-fin-neg.0.retention_negatives`. Not finished: `prepost_s42`, `provenance_s42`, `final_custody` (no logs, no artifacts), the HC-50 control rebuild, phase 0 custody and every checkpoint.
+  - Before any execution, `output/rebind_v2.py` rebound the copied executable code from the v1 root to the v2 root (`output/rebind-v2-manifest.json`: 100 files, 120 occurrences, including the `preserved/pre-s42` execution copy). Runtime labels in tools were then edited to v2. Exact-bytes history is untouched.
+  - **Reuse versus fresh execution.**
+    - Reused as exact prior measurements (same code and bytes, logs carry `s42-original*` and `s42-fin-*` labels): builds, tamper, discovery/mode, phases 4–8 vectors, graph query, run termination, retention negatives, and the unchanged-helper chains.
+    - Executed fresh in v2 under `s42v2-*` labels: the HC-50 control rebuild, replay of every store, from-scratch closure, export replay, admission log, pre/post matrix, provenance, final custody, phase 0 custody, phases 1–3 vectors, and checkpoints 0–11.
+- **Continuation into runtime consumer-b.v24-source42.v3** (bounded completion of the same source42 charter).
+  - The root copied the completed source42.v2 `output/` (4651 files) and the byte-identical 104-file kit (manifest `9c90a1e8…`, parent `f602fc7e…`). No semantic outcome, diagnosis or expected result was supplied. The source42.v2 runtime is preserved in place and not written.
+  - **The obligation.** The charter's "Current incorporated correction owners" requires the provider-trace reconstruction to apply the current negotiated payload selection, exact payload-byte representation and request/batch correlation law.
+    - My v2 traces negotiated `target-attribution-v2` but emitted FactBatch frame names without payloads, and listed payload schema validation as a future-host item.
+    - My v2 review called FactBatchV3 companions "read but not exercised" while R-TRACE-* stood executed.
+    - That reconciliation is HC-53 (`notes/11-provider-trace-payload-law.md`).
+  - **Before any execution.**
+    - `output/rebind_v3.py` rebound the copied executable code (100 files, 120 occurrences; `rebind-v3-manifest.json`).
+    - `output/preserve_v2_final.py` copied the v2 final bytes of every file changed here to `preserved/s42-v2-final/`, with a manifest. The 4 rebound `.py` files differ from the v2 runtime only by the rebinding.
+  - **Executed fresh in v3** (`logs/s42v3-*`):
+    - the payload vectors and payload-carrying traces (`s42v3-p3.*` failed on two own construction errors and is preserved; `s42v3-p3b.*` passed);
+    - phase 0 custody, checkpoints 0–3, final custody, and phases 10–11.
+  - **Reused unchanged from v2:** every other measurement, including builds, stores, the 27 exports and run ids, closure, replay, negatives, the pre/post matrix, provenance, phases 4–9 and checkpoints 4–9. No input or helper they execute changed: `ref/schemas.py` and `ref/protocol3.py` are byte-unchanged, and the new code lives in new files.
+- **Continuation into runtime consumer-b.v24-source43.v1** (source43 kit).
+  - **Kit.** Manifest `6d8912f4…`, parent `db43ee76…`, all 104 members verified. Against my own source42 custody rows exactly one member changed: `workflows/query-projection-contract.v3.md`, 29699 → 30278 bytes. Its source42 bytes are not in my custody.
+  - **Charter and requirements.** Same 123/8/3 IDs, source43 runtime path and hashes. The charter again allows reading my original consumer-b.v24 runtime as own history; it was not read.
+  - **Before any execution.**
+    - `output/rebind_s43.py` rebound the copied code (102 files, 121 occurrences; `rebind-s43-manifest.json`). It exited 1 only on the runtime labels in `tools/finalize_review.py` and `vectors/phase0_custody.py`, which were then edited.
+    - `output/preserve_s42v3_final.py` copied the source42.v3 bytes of changed files to `preserved/s42-v3-final/`.
+    - `output/preserve_s42v3_runs_manifest.py` hashed all 404 copied runs/selfcheck/negatives files.
+  - **Affected construction.** Only `tools/phase9_graph_query.py` reads the changed member. The re-audit and correction are HC-54 (`notes/12-source43-query-contract.md`); the runtime adaptation is HC-55.
+  - **Executed fresh in source43** (`logs/s43-*`):
+    - unchanged graph query (`s43-original.0`);
+    - corrected graph query (`s43-hc54.0` and `s43-hc54b.0` preserved as own tool errors; `s43-hc54c.0` passed);
+    - from-scratch closure and complete replay of every claimed positive, export replay, admission log (`s43-fin.0-.2`);
+    - phase 0 custody and checkpoints 1–8 (`s43-cp.*`);
+    - checkpoint 9, provenance (`s43-prov.0` preserved as an own census error), final custody, and phases 10–11 (`s43-fin10.*`, `s43-fin11.*`).
+  - **Reused as exact source42 measurements** (`selfcheck/s43-provenance.json`: prose-only delta read by no other helper; helper bytes rebound-only; stores byte-identical):
+    - phases 1–8 vectors and traces, including the source42.v3 FactBatch payload/trace work;
+    - builds and controls, mutation replay, tamper, retention negatives and census;
+    - the source42 pre/post matrix and provenance.
+- **Continuation into runtime consumer-b.v24-source44.v1** (source44 kit).
+  - **Kit.** Manifest `a3a5fba8…`, parent `e873c8db…`, all 107 members verified. Against my own source43 custody rows, six members changed and three were added, all provider wire, startup and attribution owners (`s44-kit-delta.json`). The charter and requirements are source43-identical apart from paths and hashes: the same 123/8/3 IDs, and line 248 unchanged.
+  - **Before any execution.**
+    - `output/rebind_s44.py` rebound the copied code (104 files, 123 occurrences; `rebind-s44-manifest.json`). It exited 1 only on runtime label text.
+    - `output/preserve_s43_final.py` copied the source43.v1 bytes of files source44 may change to `preserved/s43-final/`, and hashed all 473 copied result files (`preserved/s43-final/results-manifest.json`).
+  - **Affected construction.** Phase 3 only (AST census, `selfcheck/s44-provenance.json`).
+    - The unchanged source43 phase-3 scripts ran first on the source44 kit: `logs/s44-original.0/.1`, outputs in `preserved/s44-original/`.
+    - Corrections: HC-57 and HC-58; runtime adaptation: HC-56 (`notes/13-source44-provider-wire.md`).
+  - **Executed fresh in source44** (`logs/s44-*`):
+    - smoke probe (`s44-smoke.0` preserved as an own fixture error);
+    - phase 3 (`s44-p3.1` preserved as an own control error; `s44-p3.0`, `s44-p3.2`, `s44-p3b.0` passed);
+    - from-scratch closure/replay, export replay, admission log, graph query, reference census and retention negatives (`s44-fin.0-.5`);
+    - phase 0 custody, checkpoints 1–9, provenance and final custody (`s44-cp.*`), and phases 10–11 (`s44-fin10.*`, `s44-fin11.*`).
+  - **Reused as exact prior measurements:** phases 1–2 and 4–8 vectors, builds and stores, mutation replay, tamper, and the source42 pre/post matrix. Reason: no helper outside phase 3 reads a changed member, no unchanged kit document references a changed `$id`, helper bytes are rebound-only, and stores are byte-identical.
+- **Boundaries.** Write only this runtime's `output/`. No product, commit or push, activation or root acceptance. A verdict is written only after every subprocess has finished and every charter condition has been evaluated.

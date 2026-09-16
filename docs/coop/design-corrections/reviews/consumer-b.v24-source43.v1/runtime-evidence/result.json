@@ -1,0 +1,69 @@
+{
+  "session_id": "9d3dfb70-b2d3-498c-a3c1-f8de9e488514",
+  "total_cost_usd": 13.519219000000001,
+  "usage": {
+    "input_tokens": 772,
+    "cache_creation_input_tokens": 300271,
+    "cache_read_input_tokens": 14410448,
+    "output_tokens": 132297,
+    "output_tokens_details": {
+      "thinking_tokens": 44080
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 300271,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1466,
+        "cache_read_input_tokens": 692404,
+        "cache_creation_input_tokens": 1333,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1333
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 772,
+      "outputTokens": 132297,
+      "cacheReadInputTokens": 14410448,
+      "cacheCreationInputTokens": 300271,
+      "webSearchRequests": 0,
+      "costUSD": 13.519219000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 44080,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01XLVTrsG4vE62VirFyUgDwc",
+      "tool_input": {
+        "command": "ls -la && ls output | head -50 && python3 - <<'EOF'\nimport hashlib, json, os\nroot = '/private/tmp/opensip-design-corrections/consumer-b.v24-source43.v1/'\nmb = open(root + 'subject/consumer-input-manifest.json', 'rb').read()\nprint('manifest sha', hashlib.sha256(mb).hexdigest())\nm = json.loads(mb)\nprint('keys', list(m.keys()))\nprint('parent', m.get('parentSubjectSha256'), 'files', len(m['files']))\nbad = []; listed = set()\nfor f in m['files']:\n    b = open(root + 'subject/' + f['path'], 'rb').read()\n    if hashlib.sha256(b).hexdigest() != f['sha256'] or len(b) != f['bytes']: bad.append(f['path'])\n    listed.add(f['path'])\nunl = [os.path.relpath(os.path.join(d, x), root + 'subject') for d, _, fs in os.walk(root + 'subject') for x in fs]\nunl = [u for u in unl if u not in listed and u != 'consumer-input-manifest.json']\nprint('bad', bad, 'unlisted', unl)\nold = {r['path']: r['sha256'] for r in json.load(open(root + 'output/vectors/phase0-custody.json'))['fileRows']}\nnew = {f['path']: f['sha256'] for f in m['files']}\nprint('added', sorted(set(new) - set(old)))\nprint('removed', sorted(set(old) - set(new)))\nprint('changed', sorted(p for p in set(new) & set(old) if new[p] != old[p]))\nfor k, v in m.items():\n    if k != 'files': print(k, str(v)[:600])\nEOF",
+        "description": "Inspect runtime, verify kit manifest, compute kit delta"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 109,
+  "subtype": "success",
+  "result": "**Verdict: ACCEPT-RECONSTRUCTABLE.** All 123 requirements and 8 standing rules are executed, with nothing failed or unexecuted. All background processes have finished, and kit custody passed again just before phase 11. The review is in `output/blind-review.md` and `output/blind-review.json`.\n\n## What changed in source43\nThe kit checks out (104 members, manifest `6d8912f4\u2026`, parent `db43ee76\u2026`). Compared with my own source42 records, exactly one document changed: `workflows/query-projection-contract.v3.md`, which grew from 29699 to 30278 bytes. I only have the hash of the old version, not its text, so I couldn't diff it. Instead I checked every rule in the current text against my graph-query tool.\n\nThat tool is the only code that reads the changed document. Everything else loads the kit's JSON only. The exported stores are byte-identical to source42.v3 (104/104), and apart from the files I edited here, the only change to my code is the rebind to the new path.\n\n## Graph query (HC-54)\nBefore any change, my old tool still passed its own 53 checks on source43. Those checks just never tested the rules it had skipped:\n- **Path edges:** it reported each edge in its stored direction, not the direction actually walked, for `incoming` and `both` queries.\n- **Availability input:** it treated `missing` and unrecognised values as permission to answer. It also lacked the host-adapter error route and the check on a retained availability record.\n- **Closure outcomes:** it chose error routes by matching message text. It reported a replay mismatch as `evidence.corrupt` instead of `evidence.regeneration-mismatch`, and let unexpected exceptions escape. It also used its own remedy text instead of the kit's.\n- **Ambiguous endpoints:** the kit's refusal for an endpoint matching two vertices was only implicit.\n\nThe corrected tool passes 66 checks with 0 failures (`logs/s43-hc54c.0`). I ran the old and new tools on identical inputs. Every new check separates them except two controls where both should agree, and do.\n\nOne check builds a tampered store: the proof's verdict flipped, with all enclosing IDs recomputed. It passes both admission stages, fails replay, and now routes to `evidence.regeneration-mismatch`; the old tool said `evidence.corrupt`.\n\nThe old document grew by only 579 bytes, while the rules I corrected run to thousands. So most of them were already in source42, which means my source42.v3 graph-query result rested on those omissions. That result is superseded.\n\nThree errors in my own new tooling are preserved in their logs:\n- `logs/s43-hc54.0` wrongly expected every check to differ;\n- `logs/s43-hc54b.0` compared old and new outputs in different shapes;\n- `logs/s43-prov.0` counted mere mentions of the document as reads.\n\n## Executed fresh versus reused\n- **Fresh in this runtime:**\n  - From-scratch closure and full proof replay of all 27 claimed positives passed. The designed negative is still refused.\n  - Export replay of all 27 is byte-equal.\n  - The per-record admission log has 0 failures.\n  - Also fresh: the graph query, phase-0 custody, all checkpoints, provenance, and final custody.\n- **Reused from source42 as-is:** everything else, recorded in `selfcheck/s43-provenance.json`. This includes the source42.v3 provider-trace payload work (71 payload checks, 25 traces), which I kept because every document it depends on is byte-identical in source43.\n\n## Issues\nThere are no new MUST or SHOULD issues. One new advisory, A-s43-1: a successful query with no availability input must still report `availability`, but the contract doesn't say what value. This only arises in the reference harness, because a real host always has an availability record. I report `retained`.\n\n**From-scratch command:**\n`cd /private/tmp/opensip-design-corrections/consumer-b.v24-source43.v1/output && /tmp/opensip-architecture-review-env/bin/python -I -B tools/from_scratch.py && /tmp/opensip-architecture-review-env/bin/python -I -B tools/replay_export.py`\n\nThis makes no product qualification or implementation claim, and root admission of the exports has not been observed.",
+  "type": "result",
+  "duration_ms": 1514384
+}

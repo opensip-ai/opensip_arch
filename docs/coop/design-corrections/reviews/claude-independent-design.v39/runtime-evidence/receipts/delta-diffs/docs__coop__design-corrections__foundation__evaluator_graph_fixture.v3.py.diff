@@ -1,0 +1,135 @@
+--- a38/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
++++ b39/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
+@@ -11,6 +11,13 @@
+ spec=importlib.util.spec_from_file_location('graph_composition3',HERE/'evaluator_composition_model.v3.py');E=importlib.util.module_from_spec(spec);spec.loader.exec_module(E)
+ M=E.M;C=M.C
+ 
++# identity section 3 stage-spec (consumer24 S1): the stage output schema is registered by the producer closure that
++# owns the operation, as the tree member at opensip-interface/stage-output/<operation>.schema.json.
++STAGE_OUTPUT_OPERATION='derive-inventory-view'
++STAGE_OUTPUT_SCHEMA={'$schema':'https://json-schema.org/draft/2020-12/schema','$id':'urn:opensip:fixture:evaluator3-view-output','type':'object','additionalProperties':False,'required':['viewId'],'properties':{'viewId':{'type':'string','pattern':'^view2:[0-9a-f]{64}(?![\\s\\S])'}},
++    'x-opensip-stage-output':{'schemaVersion':1,'operation':STAGE_OUTPUT_OPERATION,'outputDomains':['view']}}
++STAGE_OUTPUT_MEMBER_PATH='opensip-interface/stage-output/'+STAGE_OUTPUT_OPERATION+'.schema.json'
++
+ def fixture_helpers():
+     p=HERE/'check-identity.py';tree=ast.parse(p.read_text());body=[]
+     for node in tree.body:
+@@ -21,7 +28,7 @@
+     exec(compile(ast.Module(body=body,type_ignores=[]),str(p),'exec'),scope)
+     return types.SimpleNamespace(**scope)
+ 
+-def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True, import_producer_kind='provider', import_adapter_kind='adapter', additional_disabled_rule=False, symbol_only_second_program=False, unsupported_cell=None, optional_unselected_cell=False, file_coverage_subjects=None, package_coverage_unknown=False):
++def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True, import_producer_kind='provider', import_adapter_kind='adapter', additional_disabled_rule=False, symbol_only_second_program=False, unsupported_cell=None, optional_unselected_cell=False, file_coverage_subjects=None, package_coverage_unknown=False, clones_fact_subjects=None, clone_body_fact=None):
+     """`symbol_only_second_program` (AUTHOR_PENDING_REVIEW, default OFF, changes nothing unless
+     set) builds the ASYMMETRIC selected-program shape: the first universe binds only on the
+     `inventory` cell and the second binds only on the symbol-kind `syntax` cell. The second
+@@ -58,7 +65,21 @@
+     package account carries a REAL typed carrier while an earlier account may carry none. That is
+     the discriminating shape for the cross-source first-typed-pair law.
+ 
+-    All four options are keyword-only and default OFF: every existing caller stays byte-identical."""
++    `clones_fact_subjects` (list of paths, default OFF) appends the REQUIRED default
++    `clones-fact|syntax-only` cell over the same mixed code-and-data sources (`src/index.ts` code,
++    `README.md` data, `extensionless` unsupported). Its file inventory names every path, as the
++    enumeration owner requires; the returned `clones@normalized-body-hash` partition commits exactly
++    these subjects and the producer helper DERIVES its answer (complete over eligible code, the
++    published unknown disclosure over anything else). Used by the consumer24 M1 body-eligibility
++    census controls.
++
++    `clone_body_fact` (dict, default OFF, requires `clones_fact_subjects` naming `src/index.ts`) mints ONE clones
++    body fact over `src/index.ts` under the syntax universe: {'map': normalization-specification-map record or None,
++    'specificationBytes': the retained level specification the payload names, 'level': default L0-verbatim}. The
++    map, when given, is added to the grammar closure tree at the normalizationSpecificationLaw path. Used by the
++    consumer24 S2 controls; the fixture asserts nothing about admissibility.
++
++    All options are keyword-only and default OFF: every existing caller stays byte-identical."""
+     if unsupported_cell not in (None,'required','optional'):raise C.AdmissionError('FIXTURE3_UNSUPPORTED_CELL_OPTION')
+     H=fixture_helpers();N=H.N;objects={};blobs={}
+     def blob(value):
+@@ -68,8 +89,12 @@
+         record={'schemaVersion':2,**fields};key=M.identifier(domain,record);objects[key]=(domain,record);return key
+     def tree(files):return sorted(({'path':p,'sha256':blob(b),'bytes':len(b)} for p,b in files.items()),key=lambda r:r['path'].encode())
+     evaluator=add('closure',kind='evaluator',manifestDigest=blob(b'evaluator3 fixture manifest'),tree=[],semanticVersion='3.0.0',protocolMajor=3,platform='macos-aarch64')
+-    provider=add('closure',kind='provider',manifestDigest=blob(b'enumerator fixture manifest'),tree=[],semanticVersion='1.0.0',protocolMajor=3,platform='macos-aarch64')
++    provider=add('closure',kind='provider',manifestDigest=blob(b'enumerator fixture manifest'),tree=tree({STAGE_OUTPUT_MEMBER_PATH:C.canonical(STAGE_OUTPUT_SCHEMA)}),semanticVersion='1.0.0',protocolMajor=3,platform='macos-aarch64')
+     detector=add('closure',kind='detector',manifestDigest=blob(b'declarative detector fixture manifest'),tree=[],semanticVersion='1.0.0',protocolMajor=3,platform='any')
++    if clone_body_fact is not None and clone_body_fact.get('map') is not None:
++        # The grammar closure that interprets the body publishes its per-level map. H is a fresh namespace per call.
++        grammar_globals=H.syntax_inputs.__globals__
++        grammar_globals['GRAMMAR_FILES']={**grammar_globals['GRAMMAR_FILES'],M.NORMALIZATION_MAP_PATH:C.canonical(clone_body_fact['map'])}
+     native=H.syntax_inputs(objects,blobs,add,blob,tree)
+     sources={'README.md':b'# Synthetic fixture\n','src/index.ts':b'export const x = 1;\n','extensionless':b'fixture\n'}
+     if symbol_rows is not None:sources['src/index.ts']=b'export function x() {}\n'
+@@ -125,6 +150,13 @@
+                 'nativeContextDigest':None,'universe':None,'programEntry':None,
+                 'extents':[{'kind':'symbol','paths':['src/index.ts']}],
+                 'deficiency':'provider-unavailable','nativeCause':None}]})
++    if clones_fact_subjects is not None:
++        enum['cells'].append({'capabilityId':'clones-fact','languageMode':'syntax-only','workspaceRoot':'.',
++            'required':True,'kinds':['file'],
++            'programBindings':[{'ordinal':0,'provenance':'default-unit',
++                'enumerator':{'status':'selected','closureId':provider},
++                'nativeContextDigest':native['contextDigest'],'universe':universe_ids[0],
++                'programEntry':None,'extents':[{'kind':'file','paths':E.cset(paths)}]}]})
+     # cells is x-opensip-order {by:[capabilityId,languageMode,workspaceRoot]} and cellOrdinal IS
+     # the index in that sorted array, so a new cell may land before an existing one. Sort once and
+     # read every cellOrdinal from this map instead of a literal. With no extra cell the order is
+@@ -155,6 +187,7 @@
+     if symbol_rows is not None:spec_record['requestedCapabilities'].append({'capabilityId':'syntax','languageMode':'syntax-only','workspaceRoot':'.','required':True})
+     if unsupported_cell is not None:spec_record['requestedCapabilities'].append({'capabilityId':'references','languageMode':'syntax-only','workspaceRoot':'.','required':unsupported_cell=='required'})
+     if optional_unselected_cell:spec_record['requestedCapabilities'].append({'capabilityId':'syntax','languageMode':'syntax-only','workspaceRoot':'.','required':False})
++    if clones_fact_subjects is not None:spec_record['requestedCapabilities'].append({'capabilityId':'clones-fact','languageMode':'syntax-only','workspaceRoot':'.','required':True})
+     # requestedCapabilities is x-opensip-order: canonical-set. Cells and requests are joined as
+     # sorted TUPLE SETS, so this reorders nothing for existing callers and only keeps the new
+     # rows lawful. (The default and `syntax` callers are already in canonical order.)
+@@ -215,6 +248,13 @@
+         inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['syntax'],
+             'programOrdinal':0,'kind':'symbol','state':'unavailable','deficiency':'provider-unavailable',
+             'nativeCause':None,'examinedPaths':[],'rows':[]}
++        inventory_results.append((blob(inv),inv))
++    if clones_fact_subjects is not None:
++        # The clones cell's own complete FILE inventory: every scoped path, data files included.
++        rows=[{'nativeSubjectId':path,'kind':'file','path':path,'qualifiedName':path,'subjectLanguage':languages[path],'signatureTokens':[],'projections':[]} for path in paths]
++        inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['clones-fact'],
++            'programOrdinal':0,'kind':'file','state':'complete','deficiency':None,'nativeCause':None,
++            'examinedPaths':E.cset(paths),'rows':sorted(rows,key=lambda r:r['nativeSubjectId'].encode())}
+         inventory_results.append((blob(inv),inv))
+     view_ids=[];scope_ids=[];coverage_ids=[];all_facts=[]
+     for universe in inventory_universes:
+@@ -286,11 +326,33 @@
+         cid=add('coverage',scopeId=sid,payloadSchemaDigest=coverage_schema,payloadDigest=blob(payload))
+         vid=add('view',planId=plan_id,scopeIds=[sid],facts=[],coverageIds=[cid],producerClosure=provider,schemaDigests=sorted([relation_schema,coverage_schema]))
+         view_ids.append(vid);scope_ids.append(sid);coverage_ids.append(cid)
+-    stage_schema={'$schema':'https://json-schema.org/draft/2020-12/schema','$id':'urn:opensip:fixture:evaluator3-view-output','type':'object','additionalProperties':False,'required':['viewId'],'properties':{'viewId':{'type':'string','pattern':'^view2:[0-9a-f]{64}(?![\\s\\S])'}}}
+-    stage=blob({'schemaVersion':2,'planId':plan_id,'producerClosure':provider,'operation':'derive-inventory-view','parameters':parameters,'outputDomains':['view'],'outputSchemaDigest':blob(stage_schema)})
++    if clones_fact_subjects is not None:
++        # No clone body is claimed: a complete clones partition over eligible code with no body is an
++        # ordinary finding. The helper DERIVES complete or the published unknown disclosure.
++        sid=add('subject-scope',snapshotId=snapshot,sourceUniverse=universe_ids[0],targetUniverse=universe_ids[0],relation='clones',resolution='normalized-body-hash',enumeratorClosure=provider,subjects=E.cset(clones_fact_subjects))
++        clone_facts=[]
++        if clone_body_fact is not None:
++            raw=sources['src/index.ts'];level=clone_body_fact.get('level','L0-verbatim')
++            anchor={'path':'src/index.ts','blobDigest':blob(raw),'startByte':0,'endByte':len(raw)}
++            projection=M.body_language_version(native['universe'],native['context'],
++                M.DIGESTS['domainSets']['native-semantic-universe']['native.semantic-universe.syntax.v2'],anchor,None)
++            version=blob(clone_body_fact['specificationBytes'])
++            frame=H.framed_body_preimage(level,bytes.fromhex(version),projection['languageId'],
++                hashlib.sha256(C.canonical(projection)).digest(),len(raw).to_bytes(4,'big')+raw)
++            body={'bodyIdentity':'sha256:'+blob(frame),'normalisationLevel':level,'normalisationVersion':version}
++            clone_facts.append(add('fact',snapshotId=snapshot,relation='clones',resolution='normalized-body-hash',sourceUniverse=universe_ids[0],targetUniverse=universe_ids[0],producerClosure=provider,payloadSchemaDigest=relation_schema,payloadDigest=blob(body),anchors=[anchor],confidenceMillionths=1000000))
++        payload=H.coverage_result(objects[sid][1],universe_ids[0],True,blobs,paths)
++        admitted=N.admit_coverage_result_v3(payload,objects[sid][1],[],coverage_schema)
++        if admitted['result']!='ADMIT':raise C.AdmissionError('FIXTURE3_CLONES_COVERAGE:'+str(admitted))
++        cid=add('coverage',scopeId=sid,payloadSchemaDigest=coverage_schema,payloadDigest=blob(payload))
++        vid=add('view',planId=plan_id,scopeIds=[sid],facts=E.cset(clone_facts),coverageIds=[cid],producerClosure=provider,schemaDigests=sorted([relation_schema,coverage_schema]))
++        view_ids.append(vid);scope_ids.append(sid);coverage_ids.append(cid);all_facts.extend(clone_facts)
++    stage_schema=STAGE_OUTPUT_SCHEMA
++    stage=blob({'schemaVersion':2,'planId':plan_id,'producerClosure':provider,'operation':STAGE_OUTPUT_OPERATION,'parameters':parameters,'outputDomains':['view'],'outputSchemaDigest':blob(stage_schema)})
+     execution_id=add('execution-plan',planId=plan_id,stages=[{'ordinal':0,'stageSpecDigest':stage,'requires':[],'outputDomains':['view']}])
+     refs=E.cset([{'domain':'view','digest':v.split(':',1)[1]} for v in view_ids]+[{'domain':'import','digest':iid.split(':',1)[1]} for iid in import_ids]+[{'domain':'subject-inventory','digest':d} for d,inv in inventory_results])
+-    enum_refs=[{'domain':'subject-inventory','digest':d} for d,inv in inventory_results if inv['kind']==primary_kind]
++    enum_refs=[{'domain':'subject-inventory','digest':d} for d,inv in inventory_results if inv['kind']==primary_kind
++               and not (clones_fact_subjects is not None and inv['cellOrdinal']==cell_ordinal_of['clones-fact'])]
+     inputs={'plan':plan,'planId':plan_id,'executionPlanId':execution_id,'evaluatorClosure':evaluator,'policy':policy,'effectiveWaivers':waivers,'emissionPlan':emission,'population':population,
+         'enumerations':{rule['ruleId']:{'state':'complete','inventoryRefs':E.cset(enum_refs),'selectedSubjectIds':E.cset(sid for sid,item in population.items() if item['kind']==primary_kind),'unresolvedSubjectIds':[],'incompleteInventoryRefs':[]}},'enumerationDeficiencies':{rule['ruleId']:[]},'requiredEvidenceDeficiencies':{rule['ruleId']:[]},'executionDeficiencies':[],'evaluationInputRefs':refs,'inventoryRowCount':sum(len(inv['rows']) for d,inv in inventory_results),'inventoryLocatorCount':len(inventory_results),'factCount':len(all_facts),'observationCount':0,'coverageCount':len(coverage_ids),'importKinds':{iid:objects[iid][1]['kind'] for iid in import_ids},'closures':{k:v for k,(dom,v) in objects.items() if dom=='closure'}}
+     if not enabled:inputs['enumerations'][rule['ruleId']]={'state':'disabled','inventoryRefs':[],'selectedSubjectIds':[],'unresolvedSubjectIds':[],'incompleteInventoryRefs':[]}

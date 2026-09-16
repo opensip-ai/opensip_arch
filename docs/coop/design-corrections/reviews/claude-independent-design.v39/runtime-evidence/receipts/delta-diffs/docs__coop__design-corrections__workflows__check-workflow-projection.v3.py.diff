@@ -1,0 +1,1306 @@
+--- a38/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b39/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -64,12 +64,16 @@
+     "policy-document.schema.json",
+     "policy-document.v2.schema.json",
+     "test-execution.schema.json",
++    "policy-test.schema.json",
+ ):
+     path = WF / name
+     if path.exists():
+         doc = canonical.parse(path.read_bytes())
+         Draft202012Validator.check_schema(doc)
+         SCHEMAS[doc["$id"]] = doc
++_native_schema = canonical.parse((HERE.parent / "native" / "native-evidence.schemas.v2.json").read_bytes())
++Draft202012Validator.check_schema(_native_schema)
++SCHEMAS[_native_schema["$id"]] = _native_schema
+ 
+ REG = Registry().with_resources(
+     [(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()]
+@@ -234,13 +238,14 @@
+     return {"importKinds": [], "relations": [], "imports": []}
+ 
+ 
+-def rule_cov(gating=True, required="satisfied", rule_id="r"):
++def rule_cov(gating=True, required="satisfied", rule_id="r", knowledge="complete-hit-set"):
+     return {
+         "ruleId": rule_id,
+         "requiredCoverage": required,
+         "enabled": True,
+         "gating": gating,
+         "evidenceUse": [],
++        "absenceKnowledge": knowledge,
+     }
+ 
+ 
+@@ -366,6 +371,7 @@
+     pivots=None,
+     bound=None,
+     bindings=None,
++    knowledge=True,
+ ):
+     pol = policy if policy is not None else POLICY
+     occs = occurrences
+@@ -385,6 +391,9 @@
+         "requiredCoverage": required if required is not None else {r["ruleId"]: "satisfied" for r in pol["rules"]},
+         "boundPivots": [] if bound is None else bound,
+         "pivotPresence": pivots if pivots is not None else pivot_true(fps),
++        # Synthetic admitted proof projection: complete roots for the (empty) selected subjects and a covering
++        # extent. knowledge=False models a projection without admitted root proofs (no absence knowledge).
++        **({"predicateProofs": [], "absenceExtent": {"examinedPaths": [], "scopeDocument": SCOPE, "foundationScope": {"pathPrefixes": ["."], "excludedPathPrefixes": []}, "extractionComplete": True}} if knowledge else {}),
+     }
+ 
+ 
+@@ -407,7 +416,7 @@
+ 
+ 
+ # ----------------------------------------------------------------------------- schema shape vs v1
+-check("schema-count", len(list(E3.glob("*.schema.json"))) == 11)
++check("schema-count", len(list(E3.glob("*.schema.json"))) == 12)
+ check("common-run3-not-mixed", SCHEMAS[U + "common:3"]["$defs"]["RunId"]["pattern"].startswith("^run3:"))
+ check("common-no-run2-alternation", "run[23]" not in json.dumps(SCHEMAS[U + "common:3"]["$defs"]["RunId"]))
+ check("fingerprint-retained-key2", SCHEMAS[U + "common:3"]["$defs"]["Fingerprint"]["pattern"].startswith("^finding-key2:"))
+@@ -1473,7 +1482,16 @@
+     }
+ ]
+ art_extra["baselineId"] = P.wid("baseline2", "workflow.baseline", art_extra["descriptor"])
+-P.verify_baseline_artifact_v3(art_extra)
++try:
++    P.verify_baseline_artifact_v3(art_extra)
++    check("m4-extra-noncontributing-detector-refused-at-baseline-admission", False, "admitted")
++except P.Refusal as _extra_exc:
++    check(
++        "m4-extra-noncontributing-detector-refused-at-baseline-admission",
++        _extra_exc.error_code == "CONFIG.INVALID" and _extra_exc.detail == "EVALUATION.FINDING_JOIN_REFUSED"
++        and "embedded policy rule contributions" in str(_extra_exc.remedy),
++        repr((_extra_exc.error_code, _extra_exc.detail, _extra_exc.remedy)),
++    )
+ reject(
+     "bound-e0-extra-detector-on-baseline-refused",
+     lambda: P.compare_admitted_v3(
+@@ -1751,11 +1769,12 @@
+ check("v8-control-coverage-preserved", V8_CONTROL >= 292)
+ 
+ # ----------------------------------------------------------------------------- v9: per-fp absence knowledge, pivot-only fps, declared-compatible standing
+-clar = Path("/tmp/opensip-design-corrections/grok-workflow-projection.v8/root-clarification.txt")
+-check(
+-    "root-clarification-waived-matched-presence-is-honest-law",
+-    clar.is_file()
+-    and "Do NOT delete waived findings" in clar.read_text()
++# v2: the historical /tmp root clarification is not a retained manifest file and is not this check's subject;
++# the operative law is the current projection contract §11 plus the model derivation.
++_contract_wpc = " ".join((HERE / "workflow-projection-contract.v3.md").read_text().split())
++check(
++    "waived-matched-presence-is-current-contract-law",
++    "Waived matched findings remain present; waiver status is `waivedC`, not absence." in _contract_wpc
+     and "E4 / waivedC / entryRules from admitted occurrences only" in (HERE / "workflow_projection_model.v3.py").read_text()
+     and "ANY matched occurrence is present, including waived" in (HERE / "workflow_projection_model.v3.py").read_text(),
+ )
+@@ -1911,19 +1930,56 @@
+ check("disabled-current-has-no-matched-occurrences", all(o["finding"]["correspondence"]["state"] != "matched" for o in dis_view["occurrences"]))
+ check("enabled-e1-has-matched-fingerprint", bool(e1_fps))
+ net = [e for e in cmp_dis["descriptor"]["entries"] if e["fingerprint"] in e1_fps]
+-check(
+-    "pivot-only-fp-is-code-net-new-with-subsequent-policy",
+-    any(e["classification"] == "CODE-NET-NEW" and e.get("gates") and "policy" in e.get("subsequentDeltas", []) for e in net),
++# v2 root replacement of the contradictory selected example: this baseline retains a projection-unavailable
++# unmatched x, so it is not an empty proven absence; the pivot-only fingerprint is baseline-absence-unknown.
++check(
++    "pivot-only-fp-over-unmatched-baseline-is-baseline-absence-unknown",
++    bool(net) and all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "baseline-absence-unknown"
++                      and e["presence"]["B"] is None and e["presence"]["E1"] is True and e["gates"] is False for e in net),
++    [(e["classification"], e.get("indeterminateReason"), e["presence"]) for e in net],
+ )
+ check("disabled-current-does-not-drop-pivot-only-fingerprint", bool(net))
+ check(
+     "disabled-current-does-not-erase-baseline-unmatched-gating",
+     any(d["gating"] and d["cause"] == "correspondence-incomplete" for d in cmp_dis["descriptor"]["ruleDeficiencies"])
+-    or cmp_dis["descriptor"]["verdict"] == "fail",
++    and cmp_dis["descriptor"]["verdict"] != "pass",
++    cmp_dis["descriptor"]["verdict"],
+ )
+ must_valid("disabled-e1-comparison-schema", U + "comparison:2", cmp_obj(cmp_dis))
+-
+-_chapter_s2 = Path("/tmp/opensip-design-corrections/evaluator-successor.v1/docs/v2/contracts/product-v1/workflows-and-surfaces.md").read_text()
++# A genuinely complete baseline (path selected, complete absence knowledge, no unmatched occurrence that could be x)
++# proves B=false: the pivot-only x is a real CODE-NET-NEW hidden by disabling the rule and still gates.
++base_empty_x = RC.positive(symbol_rows=[{"nativeSubjectId": "symbol:y", "qualifiedName": "y", "signatureTokens": ["function", "y", "(", ")"]}], scope_document=SCOPE_DOC)
++check("complete-empty-baseline-shares-policy-with-e1", base_empty_x[1][base_empty_x[0]["planId"]][1]["policyDigest"] == e1_enabled[1][e1_enabled[0]["planId"]][1]["policyDigest"])
++art_empty_x = P.adopt_admitted_baseline_v3(*base_empty_x, CUSTODY)
++check(
++    "complete-empty-baseline-proves-absence-of-x",
++    art_empty_x["descriptor"]["unmatchedOccurrences"] == []
++    and all(r["absenceKnowledge"] == "complete-hit-set" for r in art_empty_x["descriptor"]["ruleCoverage"] if r["enabled"])
++    and not any(e["fingerprint"] in e1_fps for e in art_empty_x["descriptor"]["entries"]),
++)
++host_empty_x = host_from_graph({"runId": art_empty_x["descriptor"]["runId"]}, base_empty_x[1])
++host_empty_x["pivotRunId"] = art_empty_x["descriptor"]["runId"]
++cmp_empty_x = P.compare_admitted_v3(
++    baseline_artifact=art_empty_x,
++    current_run=cur_disabled[0],
++    current_objects=cur_disabled[1],
++    current_blobs=cur_disabled[2],
++    host=host_empty_x,
++    profile_name="code-regression",
++    pivot_runs={"E1": e1_enabled},
++)
++net_empty_x = [e for e in cmp_empty_x["descriptor"]["entries"] if e["fingerprint"] in e1_fps]
++check(
++    "complete-empty-baseline-pivot-only-fp-is-code-net-new-policy-hidden",
++    bool(net_empty_x) and all(e["classification"] == "CODE-NET-NEW" and e["gates"] is True and e["gateReason"] == "code-net-new-policy-hidden"
++                              and "policy" in e["subsequentDeltas"] and e["presence"]["B"] is False for e in net_empty_x)
++    and cmp_empty_x["descriptor"]["verdict"] == "fail",
++    [(e["classification"], e.get("gateReason"), e["presence"]) for e in net_empty_x],
++)
++must_valid("complete-empty-baseline-comparison-schema", U + "comparison:2", cmp_obj(cmp_empty_x))
++
++# v2: the current-source chapter owns declared-compatible law; no unrelated historical runtime tree is read.
++_chapter_s2 = " ".join((HERE.parents[3] / "docs/v2/contracts/product-v1/workflows-and-surfaces.md").read_text().split())
+ check(
+     "declared-compatible-already-in-workflows-and-surfaces-section-2",
+     "authenticated compatibility listing names the baseline" in _chapter_s2
+@@ -2528,9 +2584,9 @@
+ # graph fixture, admitted at the native producer boundary (admit_coverage_result_v3, inside the
+ # fixture), then closed by identity-model.v3.close_run, which runs the complete evaluator3
+ # semantic replay. A schema fragment or a pre-selected adapter input would not establish that
+-# native selection join. The _cw_preview helper separately uses the historical synthetic
+-# host adapter and major-1 descriptor constructor; it does not establish an admitted current
+-# descriptor or a joined real-Run snapshot/trust/requirements projection. Controls marked UNIT
++# native selection join. The _cw_preview helper uses a synthetic host adapter (tree, project,
++# snapshot, trust, requirements) with the CURRENT evaluator3 owner constructor, which returns an
++# owner-admitted repair:2 plan; it does not establish a joined real-Run snapshot/trust/requirements projection. Controls marked UNIT
+ # exercise one published rule on a
+ # constructed view or plan and are NOT full-Run controls; they are labelled so in their ids.
+ #
+@@ -2620,8 +2676,8 @@
+     """Synthetic host projection using the current selection hook over real retained evidence.
+ 
+     The tree/project/snapshot/trust/requirements adapter is historical fixture data, not derived
+-    from the Run. The inherited constructor emits a major-1 descriptor; this helper therefore
+-    demonstrates gate integration only, not current descriptor admission or snapshot joins.
++    from the Run. The evaluator3 owner constructor joins the targets to the retained Run and returns
++    an admitted repair:2 plan; snapshot equality is still judged against the synthetic adapter.
+     """
+     view = SEL.RetainedRunView(run, objects, blobs)
+     adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable",
+@@ -3112,7 +3168,7 @@
+         "repair-cw-evaluator3-refuses-a-caller-selected-record",
+         "repair-cw-witnesses-are-redundant-in-a-symmetric-run",
+     ],
+-    "projectionScope": "The listed controls read native evidence from fully admitted Runs. _cw_preview uses a separate synthetic host adapter and inherited major-1 descriptor constructor; its outputs are not admitted current RepairPlanDescriptors. Pure derive(..., targets=[], ...) calls isolate path ownership only and are not lawful repair requests.",
++    "projectionScope": "The listed controls read native evidence from fully admitted Runs. _cw_preview uses a separate synthetic host adapter with the evaluator3 owner constructor; its outputs are owner-admitted repair:2 RepairPlanV1 whose snapshot join is against that adapter. Pure derive(..., targets=[], ...) calls isolate path ownership only and are not lawful repair requests.",
+     "unitControls": [
+         "repair-cw-unit-relevant-universe-without-coverage-refuses-non-vacuously",
+         "repair-cw-unit-unrelated-dissenting-universe-does-not-join",
+@@ -3134,7 +3190,7 @@
+     },
+     "notClaimed": [
+         "a lawful old-preview bypass from the asymmetric empty-target control; its valid target already reaches the dissenting symbol universe",
+-        "current RepairPlanDescriptor admission, real-Run snapshot/project/preimage joins, or sufficiency derivation from the synthetic host projection",
++        "real-Run snapshot/project/preimage joins, or sufficiency derivation from the synthetic host projection",
+         "native producer qualification: every ClosedWorldV2 here is a synthetic producer observation minted by the native owner's own closed_world_v2 helper",
+         "a full product repair, an apply, or any authorization: preview is a Query-class step",
+         "real extraction, compiler, provider or repository observation",
+@@ -3180,6 +3236,1093 @@
+     ],
+ }
+ 
++# ----------------------------------------------------------------------------- consumer24 corrections (root-selected M4/S7/S5/S6/A13/A11/A12/A8/A14)
++def _remint_baseline(artifact, mutate):
++    out = copy.deepcopy(artifact)
++    mutate(out["descriptor"])
++    out["baselineId"] = P.wid("baseline2", "workflow.baseline", out["descriptor"])
++    return out
++
++
++def _m4_rename(desc):
++    for row in desc["detectorClosure"]:
++        row["detectorId"] = "renamed-detector"
++    for e in desc["entries"]:
++        e["detectorId"] = "renamed-detector"
++
++
++def _m4_entry_outside(desc):
++    for e in desc["entries"]:
++        e["detectorId"] = "not-in-closure"
++
++
++def _m4_duplicate_row(desc):
++    row = copy.deepcopy(desc["detectorClosure"][0])
++    row["semanticsMajor"] += 1
++    desc["detectorClosure"].append(row)
++
++
++def _m4_major(desc):
++    for row in desc["detectorClosure"]:
++        row["semanticsMajor"] += 1
++
++
++_m4_art = P.adopt_admitted_baseline_v3(*scope_graph, CUSTODY)
++_m4_desc = _m4_art["descriptor"]
++check(
++    "m4-admitted-detector-rows-are-emission-contributions",
++    all(r["detectorId"] == r["contributionId"] for r in _m4_desc["detectorClosure"])
++    and {e["detectorId"] for e in _m4_desc["entries"]} <= {r["detectorId"] for r in _m4_desc["detectorClosure"]}
++    and {r["detectorId"] for r in _m4_desc["detectorClosure"]} == {row["contributionId"] for row in scope_view["emission"]["rules"]},
++)
++check("m4-admitted-baseline-admits", P.verify_baseline_artifact_v3(_m4_art) is True)
++_m4_renamed = _remint_baseline(_m4_art, _m4_rename)
++must_valid("m4-reminted-rename-is-schema-valid-so-schema-alone-cannot-decide", U + "baseline:2", _m4_renamed)
++check("m4-reminted-rename-has-self-consistent-new-baselineId", _m4_renamed["baselineId"] != _m4_art["baselineId"])
++reject("m4-reminted-rename-refused-at-baseline-admission", lambda: P.verify_baseline_artifact_v3(_m4_renamed), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++_m4_stale = copy.deepcopy(_m4_art)
++_m4_rename(_m4_stale["descriptor"])
++reject("m4-stale-hash-rename-is-artifact-corruption", lambda: P.verify_baseline_artifact_v3(_m4_stale), "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
++reject("m4-reminted-entry-detector-outside-closure-refused", lambda: P.verify_baseline_artifact_v3(_remint_baseline(_m4_art, _m4_entry_outside)), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++_m4_dup = _remint_baseline(_m4_art, _m4_duplicate_row)
++must_valid("m4-reminted-conflicting-contribution-row-is-schema-valid", U + "baseline:2", _m4_dup)
++reject("m4-reminted-conflicting-contribution-row-refused", lambda: P.verify_baseline_artifact_v3(_m4_dup), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++reject("m4-reminted-detector-major-disagreeing-with-rule-refused", lambda: P.verify_baseline_artifact_v3(_remint_baseline(_m4_art, _m4_major)), "CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED")
++
++# S7: presence knowledge over full owner-admitted comparisons (retained graphs replayed through close_run).
++_S7_X1 = {"nativeSubjectId": "symbol:x1"}
++_S7_X2 = {"nativeSubjectId": "symbol:x2", "signatureTokens": ["function", "x", "(", "number", ")"]}
++
++
++def _s7_host(art, graph):
++    h = host_from_graph({"runId": art["descriptor"]["runId"]}, graph[1])
++    h["pivotRunId"] = art["descriptor"]["runId"]
++    return h
++
++
++def _s7_compare(art, graph, host_):
++    return P.compare_admitted_v3(baseline_artifact=art, current_run=graph[0], current_objects=graph[1], current_blobs=graph[2], host=host_, profile_name="code-regression")
++
++
++def _s7_entry(res, fp):
++    return next(e for e in res["descriptor"]["entries"] if e["fingerprint"] == fp)
++
++
++for _gate in (True, False):
++    _tag = "gating" if _gate else "nongating"
++    _b = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, gate=_gate)
++    _art = P.adopt_admitted_baseline_v3(*_b, CUSTODY)
++    _h = _s7_host(_art, _b)
++    _fps = [e["fingerprint"] for e in _art["descriptor"]["entries"]]
++    check("s7-%s-baseline-records-complete-absence-knowledge" % _tag, len(_fps) == 2 and all(r["absenceKnowledge"] == "complete-hit-set" for r in _art["descriptor"]["ruleCoverage"] if r["enabled"]))
++    _complete = RC.positive(symbol_rows=[_S7_X2], scope_document=SCOPE_ALL, gate=_gate)
++    _kept = {o["finding"]["fingerprint"] for o in P.project_admitted_run_v3(*_complete)["occurrences"]}
++    _removed = [fp for fp in _fps if fp not in _kept]
++    _res = _s7_compare(_art, _complete, _h)
++    must_valid("s7-%s-complete-removal-comparison-schema" % _tag, U + "comparison:2", cmp_obj(_res))
++    check(
++        "s7-%s-complete-enumeration-row-removal-is-lawful-code-fixed" % _tag,
++        len(_removed) == 1 and _s7_entry(_res, _removed[0])["classification"] == "CODE-FIXED" and _s7_entry(_res, _removed[0])["presence"]["E4"] is False,
++        [(_s7_entry(_res, fp)["classification"], _s7_entry(_res, fp)["presence"]["E4"]) for fp in _fps],
++    )
++    for _name, _opts in (("partial-inventory", dict(symbol_rows=[_S7_X2], symbol_state="partial")), ("budget-exhausted", dict(symbol_rows=[_S7_X1, _S7_X2], budget_limit=1))):
++        _cur = RC.positive(scope_document=SCOPE_ALL, gate=_gate, **_opts)
++        _curv = P.project_admitted_run_v3(*_cur)
++        _rid = _curv["policy"]["rules"][0]["ruleId"]
++        _res = _s7_compare(_art, _cur, _h)
++        must_valid("s7-%s-%s-comparison-schema" % (_tag, _name), U + "comparison:2", cmp_obj(_res))
++        _ents = [_s7_entry(_res, fp) for fp in _fps]
++        check(
++            "s7-%s-%s-unknown-current-absence-is-indeterminate-not-code-fixed" % (_tag, _name),
++            all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "current-absence-unknown" and e["presence"]["E4"] is None and e["gates"] is False for e in _ents),
++            [(e["classification"], e.get("indeterminateReason"), e["presence"]["E4"]) for e in _ents],
++        )
++        check(
++            "s7-%s-%s-current-law-equals-pivot-law" % (_tag, _name),
++            P.axis_presence_knowledge(_curv)["prove_absence"][_rid] is False
++            and P.fingerprint_absence_known(_curv, P.presence_absence_extent(_curv), _rid, None) is False,
++        )
++        if _gate:
++            check(
++                "s7-gating-%s-verdict-indeterminate-with-independent-deficiencies" % _name,
++                _res["descriptor"]["verdict"] == "indeterminate" and bool(_res["descriptor"]["ruleDeficiencies"] or _res["descriptor"]["currentExecutionDeficiencies"]),
++                _res["descriptor"]["verdict"],
++            )
++        else:
++            check("s7-nongating-%s-never-fails" % _name, _res["descriptor"]["verdict"] in ("pass", "indeterminate"), _res["descriptor"]["verdict"])
++    try:
++        _ub = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, gate=_gate, budget_limit=1)
++        _uart = P.adopt_admitted_baseline_v3(*_ub, CUSTODY)
++        check("s7-%s-budget-exhausted-baseline-records-unknown-absence" % _tag, _uart["descriptor"]["entries"] == [] and all(r["absenceKnowledge"] == "unknown" for r in _uart["descriptor"]["ruleCoverage"]))
++        _ures = _s7_compare(_uart, _b, _s7_host(_uart, _ub))
++        must_valid("s7-%s-unknown-baseline-comparison-schema" % _tag, U + "comparison:2", cmp_obj(_ures))
++        check(
++            "s7-%s-hit-over-unknown-baseline-is-not-code-net-new" % _tag,
++            bool(_ures["descriptor"]["entries"])
++            and all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "baseline-absence-unknown" and e["presence"]["B"] is None for e in _ures["descriptor"]["entries"])
++            and _ures["descriptor"]["verdict"] != "fail",
++            [(e["classification"], e.get("indeterminateReason")) for e in _ures["descriptor"]["entries"]],
++        )
++    except Exception as _exc:
++        check("s7-%s-unknown-baseline-control-executed" % _tag, False, type(_exc).__name__ + ": " + str(_exc)[:200])
++
++_kf_new = occurrence("s7-known-new", path="src/new.ts")
++_kf_old = occurrence("s7-known-old", path="src/old.ts")
++_kf_art = adopt(P.project_baseline_entries([_kf_old], {"r": BINDING}, []))
++
++
++def _kf_compare(cur):
++    res = P.compare_v3(baseline_artifact=_kf_art, current=cur, host=host(), profile_name="code-regression", current_detectors=detectors())
++    return res, {e["fingerprint"]: e for e in res["descriptor"]["entries"]}
++
++
++_kf_res, _kf_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", enum=incomplete_enum(), findings=[_kf_new["findingId"]])]))
++check(
++    "s7-known-code-net-new-failure-dominates-unknown-current-absence",
++    _kf_res["descriptor"]["verdict"] == "fail"
++    and _kf_e[_kf_new["finding"]["fingerprint"]]["classification"] == "CODE-NET-NEW"
++    and _kf_e[_kf_old["finding"]["fingerprint"]].get("indeterminateReason") == "current-absence-unknown",
++    [(e["classification"], e.get("indeterminateReason")) for e in _kf_e.values()],
++)
++_kc_res, _kc_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", findings=[_kf_new["findingId"]])]))
++check("s7-complete-current-root-proofs-prove-code-fixed", _kc_e[_kf_old["finding"]["fingerprint"]]["classification"] == "CODE-FIXED" and _kc_e[_kf_old["finding"]["fingerprint"]]["presence"]["E4"] is False)
++_kn_res, _kn_e = _kf_compare(make_current(occurrences=[_kf_new], rule_results=[rr(outcome="fail", findings=[_kf_new["findingId"]])], knowledge=False))
++check("s7-current-without-admitted-root-proofs-has-no-absence-knowledge", _kn_e[_kf_old["finding"]["fingerprint"]].get("indeterminateReason") == "current-absence-unknown")
++_kn_unknown = _kn_e[_kf_old["finding"]["fingerprint"]]
++must_valid("s7-entry-with-null-e4-and-absence-reason-admitted", U + "comparison:2#/$defs/Entry", _kn_unknown)
++must_invalid("s7-indeterminate-entry-without-reason-refused", U + "comparison:2#/$defs/Entry", {k: v for k, v in _kn_unknown.items() if k != "indeterminateReason"})
++must_invalid("s7-unknown-reason-outside-closed-enum-refused", U + "comparison:2#/$defs/Entry", dict(_kn_unknown, indeterminateReason="absence-unknown"))
++
++# S7 non-selection: a side that does not select the fingerprint cannot emit it; attributed to policy/scope, never CODE-FIXED.
++_ns_base = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL)
++_ns_art = P.adopt_admitted_baseline_v3(*_ns_base, CUSTODY)
++_ns_host = _s7_host(_ns_art, _ns_base)
++_ns_disabled = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, enabled=False)
++try:
++    _ns_with_e1 = P.compare_admitted_v3(baseline_artifact=_ns_art, current_run=_ns_disabled[0], current_objects=_ns_disabled[1], current_blobs=_ns_disabled[2], host=_ns_host, profile_name="code-regression", pivot_runs={"E1": _ns_base})
++    must_valid("s7-disabled-current-with-bound-e1-comparison-schema", U + "comparison:2", cmp_obj(_ns_with_e1))
++    check(
++        "s7-disabled-current-rule-with-bound-e1-is-policy-delta-not-code-fixed",
++        bool(_ns_with_e1["descriptor"]["entries"])
++        and all(e["classification"] == "POLICY-DELTA" and e["direction"] == "vanished" and e["presence"]["E4"] is False and e["presence"]["E1"] is True for e in _ns_with_e1["descriptor"]["entries"]),
++        [(e["classification"], e.get("indeterminateReason"), e["presence"]) for e in _ns_with_e1["descriptor"]["entries"]],
++    )
++except Exception as _ns_exc:
++    check("s7-disabled-current-rule-with-bound-e1-is-policy-delta-not-code-fixed", False, type(_ns_exc).__name__ + ": " + str(_ns_exc)[:200])
++_ns_without = P.compare_admitted_v3(baseline_artifact=_ns_art, current_run=_ns_disabled[0], current_objects=_ns_disabled[1], current_blobs=_ns_disabled[2], host=_ns_host, profile_name="code-regression")
++check(
++    "s7-disabled-current-rule-without-e1-is-pivot-unavailable-not-code-fixed",
++    bool(_ns_without["descriptor"]["entries"]) and all(e["classification"] == "INDETERMINATE" and e["indeterminateReason"] == "pivot-reevaluation-unavailable" for e in _ns_without["descriptor"]["entries"]),
++    [(e["classification"], e.get("indeterminateReason")) for e in _ns_without["descriptor"]["entries"]],
++)
++_ns_policy = _ns_art["descriptor"]["contextDocuments"]["policy"]
++_ns_rule = _ns_art["descriptor"]["entries"][0]["ruleId"]
++check(
++    "s7-non-selection-is-structural-scope-and-policy",
++    P.selection_excludes(_ns_policy, SCOPE_DOC, _ns_rule, "README.md") is True
++    and P.selection_excludes(_ns_policy, SCOPE_ALL, _ns_rule, "README.md") is False
++    and P.selection_excludes(P.project_admitted_run_v3(*_ns_disabled)["policy"], SCOPE_ALL, _ns_rule, "README.md") is True,
++)
++
++# R1 (v2): absence requires correspondence knowledge. Collision under COMPLETE enumeration is not proof of a fix.
++_R1_X3 = {"nativeSubjectId": "symbol:x3"}
++_R1_X4 = {"nativeSubjectId": "symbol:x4", "qualifiedName": "z", "signatureTokens": ["function", "z", "(", ")"]}
++for _gate in (True, False):
++    _tag = "gating" if _gate else "nongating"
++    _r1_base = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL, gate=_gate)
++    _r1_art = P.adopt_admitted_baseline_v3(*_r1_base, CUSTODY)
++    _r1_cur = RC.positive(symbol_rows=[_S7_X1, _S7_X2, _R1_X3], scope_document=SCOPE_ALL, gate=_gate)
++    _r1_view = P.project_admitted_run_v3(*_r1_cur)
++    _r1_unmatched = [o["finding"]["correspondence"]["reason"] for o in _r1_view["occurrences"] if o["finding"]["correspondence"]["state"] == "unmatched"]
++    check("r1-%s-current-is-complete-enumeration-with-colliding-unmatched" % _tag,
++          _r1_view["ruleResults"][0]["enumeration"]["state"] == "complete" and _r1_unmatched == ["signature-ambiguous", "signature-ambiguous"], _r1_unmatched)
++    _r1_kept = {o["finding"]["fingerprint"] for o in _r1_view["occurrences"] if o["finding"]["fingerprint"]}
++    _r1_fps = [e["fingerprint"] for e in _r1_art["descriptor"]["entries"]]
++    _r1_lost = [fp for fp in _r1_fps if fp not in _r1_kept]
++    _r1_res = _s7_compare(_r1_art, _r1_cur, _s7_host(_r1_art, _r1_base))
++    must_valid("r1-%s-collision-comparison-schema" % _tag, U + "comparison:2", cmp_obj(_r1_res))
++    check("r1-%s-collision-is-indeterminate-not-code-fixed" % _tag,
++          len(_r1_lost) == 1 and _s7_entry(_r1_res, _r1_lost[0])["classification"] == "INDETERMINATE"
++          and _s7_entry(_r1_res, _r1_lost[0])["indeterminateReason"] == "current-absence-unknown" and _s7_entry(_r1_res, _r1_lost[0])["presence"]["E4"] is None
++          and _s7_entry(_r1_res, _r1_lost[0])["gates"] is False,
++          [(e["classification"], e.get("indeterminateReason"), e["presence"]["E4"]) for e in _r1_res["descriptor"]["entries"]])
++    check("r1-%s-known-matched-hit-stays-true" % _tag,
++          len(_r1_kept & set(_r1_fps)) == 1 and all(_s7_entry(_r1_res, fp)["classification"] == "UNCHANGED" and _s7_entry(_r1_res, fp)["presence"]["E4"] is True for fp in _r1_kept & set(_r1_fps)))
++    check("r1-%s-unmatched-occurrence-never-minted-into-entries" % _tag, {e["fingerprint"] for e in _r1_res["descriptor"]["entries"]} == set(_r1_fps))
++    if _gate:
++        _r1_new = RC.positive(symbol_rows=[_S7_X1, _S7_X2, _R1_X3, _R1_X4], scope_document=SCOPE_ALL, gate=_gate)
++        _r1_new_res = _s7_compare(_r1_art, _r1_new, _s7_host(_r1_art, _r1_base))
++        _r1_added = [e for e in _r1_new_res["descriptor"]["entries"] if e["fingerprint"] not in _r1_fps]
++        check("r1-gating-unrelated-unknown-does-not-erase-separate-code-net-new",
++              len(_r1_added) == 1 and _r1_added[0]["classification"] == "CODE-NET-NEW" and _r1_added[0]["gates"] is True and _r1_added[0]["presence"]["B"] is False
++              and _s7_entry(_r1_new_res, _r1_lost[0])["indeterminateReason"] == "current-absence-unknown" and _r1_new_res["descriptor"]["verdict"] == "fail",
++              [(e["classification"], e.get("indeterminateReason"), e["presence"]["B"]) for e in _r1_new_res["descriptor"]["entries"]])
++        must_valid("r1-gating-separate-code-net-new-schema", U + "comparison:2", cmp_obj(_r1_new_res))
++        _r1_rule = _r1_view["policy"]["rules"][0]["ruleId"]
++        _r1_ext = P.presence_absence_extent(_r1_view)
++        check("r1-law-same-rule-same-path-unmatched-is-a-barrier", P.fingerprint_absence_known(_r1_view, _r1_ext, _r1_rule, "src/index.ts") is False)
++        check("r1-law-unrelated-path-is-not-a-barrier", P.fingerprint_absence_known(_r1_view, _r1_ext, _r1_rule, "README.md") is True)
++        check("r1-law-provably-different-subject-identity-is-not-a-barrier",
++              P.fingerprint_absence_known(_r1_view, _r1_ext, _r1_rule, "src/index.ts", {"kind": "symbol", "language": "typescript", "qualifiedName": "other"}) is True)
++        check("r1-law-same-subject-identity-is-a-barrier",
++              P.fingerprint_absence_known(_r1_view, _r1_ext, _r1_rule, "src/index.ts", {"kind": "symbol", "language": "typescript", "qualifiedName": "x"}) is False)
++        check("r1-law-other-rule-unmatched-is-not-a-barrier", P.correspondence_barrier(P.unmatched_correspondence_rows(_r1_view["occurrences"]), "another-rule", "src/index.ts") is False)
++# Pivot side: an E1 pivot whose complete enumeration retains a colliding unmatched occurrence cannot prove absence.
++_r1p_base = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL)
++_r1p_art = P.adopt_admitted_baseline_v3(*_r1p_base, CUSTODY)
++_r1p_cur = RC.positive(symbol_rows=[_S7_X1, _S7_X2, _R1_X3], scope_document=SCOPE_ALL, enabled=False)
++_r1p_e1 = RC.positive(symbol_rows=[_S7_X1, _S7_X2, _R1_X3], scope_document=SCOPE_ALL)
++try:
++    _r1p_res = P.compare_admitted_v3(baseline_artifact=_r1p_art, current_run=_r1p_cur[0], current_objects=_r1p_cur[1], current_blobs=_r1p_cur[2],
++                                     host=_s7_host(_r1p_art, _r1p_base), profile_name="code-regression", pivot_runs={"E1": _r1p_e1})
++    _r1p_kept = {o["finding"]["fingerprint"] for o in P.project_admitted_run_v3(*_r1p_e1)["occurrences"] if o["finding"]["fingerprint"]}
++    _r1p_fps = [e["fingerprint"] for e in _r1p_art["descriptor"]["entries"]]
++    _r1p_lost = [fp for fp in _r1p_fps if fp not in _r1p_kept]
++    must_valid("r1-pivot-collision-comparison-schema", U + "comparison:2", cmp_obj(_r1p_res))
++    check("r1-pivot-collision-is-pivot-reevaluation-unavailable-not-code-fixed",
++          len(_r1p_lost) == 1 and _s7_entry(_r1p_res, _r1p_lost[0])["classification"] == "INDETERMINATE"
++          and _s7_entry(_r1p_res, _r1p_lost[0])["indeterminateReason"] == "pivot-reevaluation-unavailable" and _s7_entry(_r1p_res, _r1p_lost[0])["presence"]["E1"] is None,
++          [(e["classification"], e.get("indeterminateReason"), e["presence"]) for e in _r1p_res["descriptor"]["entries"]])
++    check("r1-pivot-known-hit-is-policy-delta",
++          all(_s7_entry(_r1p_res, fp)["classification"] == "POLICY-DELTA" and _s7_entry(_r1p_res, fp)["presence"]["E1"] is True for fp in _r1p_kept & set(_r1p_fps)) and bool(_r1p_kept & set(_r1p_fps)))
++except Exception as _r1p_exc:
++    check("r1-pivot-collision-is-pivot-reevaluation-unavailable-not-code-fixed", False, type(_r1p_exc).__name__ + ": " + str(_r1p_exc)[:200])
++# Baseline side: retained unmatched rows (rule + path) are a barrier; an unrelated path is not.
++_r1b_rules = {r["ruleId"]: r for r in art_un["descriptor"]["ruleCoverage"]}
++_r1b_rule = art_un["descriptor"]["unmatchedOccurrences"][0]["ruleId"]
++check("r1-baseline-same-rule-same-path-unmatched-row-is-a-barrier",
++      _r1b_rules[_r1b_rule]["absenceKnowledge"] == "complete-hit-set"
++      and P.baseline_presence_knowledge("finding-key2:" + "f" * 64, _r1b_rule, {}, _r1b_rules, art_un["descriptor"], art_un["descriptor"]["unmatchedOccurrences"][0]["subjectPath"]) is None
++      and P.baseline_presence_knowledge("finding-key2:" + "f" * 64, _r1b_rule, {}, _r1b_rules, art_un["descriptor"], "src/other.ts") is False)
++
++# ----------------------------------------------------------------------------- R2 (v2): closed dispatch and typed public carriers for all nine query-class commands
++_qs_spec = importlib.util.spec_from_file_location("r2_query_surface", HERE / "query_surface_projection.v3.py")
++QS = importlib.util.module_from_spec(_qs_spec)
++_qs_spec.loader.exec_module(QS)
++_R2_INV = json.loads((HERE / "command-inventory.v3.json").read_text())
++_R2_CMD = {c["name"]: c for c in _R2_INV["commands"]}
++_R2_QUERY_CLASS = [c for c in _R2_INV["commands"] if c["requestClass"] == "query"]
++_R2_ENV = U + "command-envelope:3"
++_R2_GQ_OPS = SCHEMAS[U + "graph-query:3"]["$defs"]["Operation"]["enum"]
++_R2_HOST_OPS = SCHEMAS[U + "invocation:3"]["$defs"]["HostQueryOperation"]["enum"]
++_R2_NINE = ["query", "recommend", "baseline-show", "policy-show", "policy-test", "candidates", "inspect", "review-brief", "repair-preview"]
++
++check("r2-inventory-exactly-the-nine-query-class-commands-dispatch", sorted(c["name"] for c in _R2_QUERY_CLASS) == sorted(_R2_NINE) and all("queryDispatch" in c for c in _R2_QUERY_CLASS))
++check("r2-inventory-no-other-command-dispatches", all("queryDispatch" not in c for c in _R2_INV["commands"] if c["requestClass"] != "query"))
++check("r2-inventory-surfaces-are-the-closed-envelope-selector", sorted(c["queryDispatch"]["surface"] for c in _R2_QUERY_CLASS) == sorted(SCHEMAS[_R2_ENV]["properties"]["querySurface"]["enum"]))
++check("r2-inventory-parity-paths-cover-exactly-parity-fields", all(set(c["queryDispatch"]["parityPaths"]) == set(c["parityFields"]) for c in _R2_QUERY_CLASS))
++check("r2-inventory-dispatch-step-is-a-declared-command-step", all(c["queryDispatch"]["stepKind"] in c["steps"] for c in _R2_QUERY_CLASS))
++check("r2-public-graph-query-operation-enum-is-not-widened", len(_R2_GQ_OPS) == 20 and not (set(_R2_HOST_OPS) & set(_R2_GQ_OPS)))
++check("r2-query-command-dispatches-exactly-the-twenty-public-operations", _R2_CMD["query"]["queryDispatch"]["operations"] == _R2_GQ_OPS)
++check("r2-host-operations-are-exactly-the-mapped-host-dispatches", sorted(op for c in _R2_QUERY_CLASS for op in c["queryDispatch"]["operations"] if op not in _R2_GQ_OPS) == sorted(_R2_HOST_OPS))
++check("r2-single-operation-commands-and-repair-preview-own-step",
++      all(len(_R2_CMD[n]["queryDispatch"]["operations"]) == 1 for n in _R2_NINE if n not in ("query", "repair-preview"))
++      and _R2_CMD["repair-preview"]["queryDispatch"]["stepKind"] == "repair-preview" and _R2_CMD["repair-preview"]["queryDispatch"]["operations"] == [])
++check("r2-candidates-and-inspect-dispatch-public-operations", [_R2_CMD[n]["queryDispatch"]["operations"][0] for n in ("candidates", "inspect")] == ["candidate.list", "inspection.show"])
++must_valid("r2-inventory-instance-admitted", U + "command-inventory:3", _R2_INV)
++_r2_mut = copy.deepcopy(_R2_CMD["candidates"])
++del _r2_mut["queryDispatch"]
++must_invalid("r2-inventory-query-class-command-without-dispatch-refused", U + "command-inventory:3#/$defs/Command", _r2_mut)
++_r2_mut = copy.deepcopy(_R2_CMD["import"])
++_r2_mut["queryDispatch"] = copy.deepcopy(_R2_CMD["candidates"]["queryDispatch"])
++must_invalid("r2-inventory-non-query-command-with-dispatch-refused", U + "command-inventory:3#/$defs/Command", _r2_mut)
++_r2_mut = copy.deepcopy(_R2_CMD["candidates"])
++_r2_mut["queryDispatch"]["operations"] = ["candidates.list"]
++must_invalid("r2-inventory-unclosed-operation-refused", U + "command-inventory:3#/$defs/Command", _r2_mut)
++_r2_mut = copy.deepcopy(_R2_CMD["candidates"])
++_r2_mut["queryDispatch"]["surface"] = "command-owned-summary"
++must_invalid("r2-inventory-retired-selector-refused", U + "command-inventory:3#/$defs/Command", _r2_mut)
++
++_r2_public_step = {"kind": "query", "operation": qreq["operation"], "completeness": qreq["completeness"], "page": qreq["page"], "request": qreq}
++check("r2-public-query-step-admitted-with-request-join", QS.admit_query_step_params(_r2_public_step) is _r2_public_step)
++must_invalid("r2-public-query-step-without-request-refused", U + "invocation:3#/$defs/QueryParams", {k: v for k, v in _r2_public_step.items() if k != "request"})
++try:
++    QS.admit_query_step_params(dict(_r2_public_step, operation="finding.list"))
++    check("r2-public-query-step-request-operation-join", False, "admitted")
++except QS.QuerySurfaceProjectionError as _r2_exc:
++    check("r2-public-query-step-request-operation-join", _r2_exc.code == "QUERY_SURFACE_STEP_REQUEST_JOIN", _r2_exc.code)
++_r2_host_requests = {
++    "baseline.inspect": {"operation": "baseline.inspect", "path": "opensip.baseline.json"},
++    "discovery.recommend": {"operation": "discovery.recommend", "emitConfigProposalPath": "opensip.config.proposal.json"},
++    "policy.show": {"operation": "policy.show"},
++    "policy.test": {"operation": "policy.test", "suitePath": "policy-tests/suite.json"},
++    "review.produce-brief": {"operation": "review.produce-brief", "view": {"latest": True}, "producer": {"kind": "policy-rule", "id": "opensip.review.heuristic"}},
++}
++check("r2-every-host-operation-has-an-admitted-closed-request",
++      sorted(_r2_host_requests) == sorted(_R2_HOST_OPS)
++      and all(QS.admit_query_step_params({"kind": "query", "operation": op, "request": req}) for op, req in _r2_host_requests.items()))
++must_invalid("r2-host-operation-with-another-operation-request-refused", U + "invocation:3#/$defs/QueryParams", {"kind": "query", "operation": "policy.test", "request": _r2_host_requests["policy.show"]})
++must_invalid("r2-host-operation-with-graph-request-refused", U + "invocation:3#/$defs/QueryParams", {"kind": "query", "operation": "policy.test", "completeness": "required", "page": {"size": 1}, "request": qreq})
++must_invalid("r2-public-operation-spelled-as-host-operation-refused", U + "invocation:3#/$defs/QueryParams", {"kind": "query", "operation": "candidate.list", "request": {"operation": "candidate.list"}})
++must_invalid("r2-host-request-extra-member-refused", U + "invocation:3#/$defs/QueryParams", {"kind": "query", "operation": "policy.show", "request": {"operation": "policy.show", "asOfDate": "2026-09-12"}})
++must_invalid("r2-model-producer-without-closure-refused", U + "invocation:3#/$defs/QueryParams", {"kind": "query", "operation": "review.produce-brief", "request": {"operation": "review.produce-brief", "view": {"latest": True}, "producer": {"kind": "model", "id": "m"}}})
++
++
++def _r2_envelope(surface, record, project):
++    env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "query", "requestId": "req1_" + "d" * 32,
++           "projectId": project, "termination": {"class": "success"}, "exitCode": 0, "querySurface": surface, "queryRecord": record}
++    env["query"] = QS.command_surface_summary(surface, record, env)
++    return env
++
++
++_R2_ENVS = {}
++_R2_COMMAND_OF = {}
++# candidates / inspect / review brief over a close_run-admitted Run with one real suppressing disposition.
++_r2_graph = RC.positive(symbol_rows=[_S7_X1, _S7_X2], scope_document=SCOPE_ALL)
++_r2_view0 = P.project_admitted_run_v3(*_r2_graph)
++_r2_suppressed_id = _r2_view0["candidates"][0]["candidateId"]
++_r2_view = P.project_admitted_run_v3(*_r2_graph, dispositions={_r2_suppressed_id: {"disposition": "reject", "suppressUntil": "2026-12-31", "receiptId": hid("receipt2", "r2-review")}},
++                                     suppression_today="2026-09-12")
++_r2_project = _r2_view["projectId"]
++check("r2-candidates-fixture-has-one-suppressed-candidate", len(_r2_view["candidates"]) == 2 and sum(1 for c in _r2_view["candidates"] if c["suppressed"]) == 1)
++for _incl, _key in ((True, "candidates"), (False, "candidates-hidden")):
++    _r2_list = P.project_candidate_list(_r2_view, _incl)
++    _R2_ENVS[_key] = _r2_envelope("candidate-list", {"surface": "candidate-list", "context": P.non_graph_query_context(_r2_view, len(_r2_list["candidates"]), True),
++                                                     "includeSuppressed": _incl, "candidates": _r2_list["candidates"], "evidenceLevels": _r2_list["evidenceLevels"],
++                                                     "suppressedCount": _r2_list["suppressedCount"]}, _r2_project)
++    _R2_COMMAND_OF[_key] = "candidates"
++check("r2-hidden-listing-still-counts-suppressed", _R2_ENVS["candidates-hidden"]["queryRecord"]["suppressedCount"] == 1 and len(_R2_ENVS["candidates-hidden"]["queryRecord"]["candidates"]) == 1)
++_r2_inspect_id = next(c["candidateId"] for c in _r2_view["candidates"] if not c["suppressed"])
++_r2_bundle = P.project_inspection_bundle(_r2_view, _r2_inspect_id)
++_R2_ENVS["inspect"] = _r2_envelope("candidate-inspection", {"surface": "candidate-inspection", "context": P.non_graph_query_context(_r2_view, len(_r2_bundle["facts"]), True),
++                                                            "inspection": _r2_bundle}, _r2_project)
++_R2_COMMAND_OF["inspect"] = "inspect"
++must_valid("r2-inspection-bundle-owner-schema", U + "review:2#/$defs/InspectionBundle", _r2_bundle)
++reject("r2-inspect-unknown-candidate-refused", lambda: P.project_inspection_bundle(_r2_view, hid("candidate2", "unknown")), "IDENTITY.UNKNOWN", "REVIEW.CANDIDATE_UNKNOWN")
++_r2_ids = [c["candidateId"] for c in _r2_view["candidates"]]
++_r2_producer = {"kind": "model", "id": "fixture-model", "modelClosureId": DET}
++_R2_ENVS["review-brief"] = _r2_envelope("review-brief", {"surface": "review-brief", "context": P.non_graph_query_context(_r2_view, len(_r2_ids), True),
++                                                         "brief": P.W.review_brief(_r2_view["runId"], _r2_ids, _r2_producer)}, _r2_project)
++_R2_ENVS["review-brief-truncated"] = _r2_envelope("review-brief", {"surface": "review-brief", "context": P.non_graph_query_context(_r2_view, len(_r2_ids), True, truncated=True),
++                                                                   "brief": P.W.review_brief(_r2_view["runId"], _r2_ids, _r2_producer, limit=1)}, _r2_project)
++_R2_COMMAND_OF["review-brief"] = _R2_COMMAND_OF["review-brief-truncated"] = "review-brief"
++# policy show through the owner resolvers.
++_r2_policy = WF3.resolve_policy(copy.deepcopy(_r2_view["policy"]))
++_r2_fp = next(o["finding"]["fingerprint"] for o in _r2_view["occurrences"] if o["finding"]["fingerprint"])
++_r2_waivers = {"schemaFamily": "opensip.product.waivers", "schemaMajor": 1, "waivers": [
++    {"waiverId": "w-active", "target": {"ruleId": _r2_view["policy"]["rules"][0]["ruleId"], "subjectPath": "src/index.ts"}, "reason": "reviewed", "expires": None},
++    {"waiverId": "w-expired", "target": {"fingerprint": _r2_fp}, "reason": "superseded", "expires": "2026-01-01"}]}
++_r2_effective, _r2_resolution = P.W.resolve_waivers(_r2_waivers, "2026-09-12")
++check("r2-policy-show-resolution-discloses-expired-waiver", _r2_resolution["expired"] == ["w-expired"] and _r2_resolution["effectiveCount"] == 1)
++_R2_ENVS["policy-show"] = _r2_envelope("effective-policy", {"surface": "effective-policy", "policyDigest": P.doc_digest(_r2_policy), "policy": _r2_policy,
++                                                            "waiverSetDigest": P.doc_digest(_r2_effective), "effectiveWaivers": _r2_effective, "waiverResolution": _r2_resolution}, _r2_project)
++_R2_COMMAND_OF["policy-show"] = "policy-show"
++reject("r2-policy-show-duplicate-waiver-is-a-refusal", lambda: P.W.resolve_waivers({"schemaFamily": "opensip.product.waivers", "schemaMajor": 1,
++                                                                                    "waivers": [_r2_waivers["waivers"][0], dict(_r2_waivers["waivers"][0], waiverId="w-dup")]}, "2026-09-12"),
++       "CONFIG.INVALID", "POLICY.DUPLICATE_WAIVER")
++# policy test through the owner authoring test over the retained suite fixture.
++_R2_RAW = canonical.parse((HERE / "workflow-cases.v1.json").read_bytes())
++_R2_C = dict(_R2_RAW["constants"])
++_R2_C["ARGV"] = P.W.raw_sha(canonical.canonical(["scripts/test.sh", "--ci"]))
++_R2_C["ARGV2"] = P.W.raw_sha(canonical.canonical(["/usr/bin/bash", "-c", "rm -rf ."]))
++_R2_C["TOOL0#bin/node"] = _R2_C["TOOL0"] + "#bin/node"
++_R2_C["ARGV4"] = P.W.raw_sha(canonical.canonical(["node", "test.js"]))
++_R2_C["ARGV3"] = P.W.raw_sha(canonical.canonical(["bin/node", "test.js"]))
++
++
++def _r2_sub(o):
++    """The owner checker's workflow-cases substitution (check_workflows.v1.py sub)."""
++    if isinstance(o, str) and o.startswith("$"):
++        if o[1:] in _R2_C:
++            return _R2_C[o[1:]]
++        if o[1:] in _R2_RAW["policyDocs"]:
++            return _r2_sub(_R2_RAW["policyDocs"][o[1:]])
++        raise KeyError(o)
++    if isinstance(o, dict):
++        return {_r2_sub(k) if isinstance(k, str) and k.startswith("$") else k: _r2_sub(v) for k, v in o.items()}
++    if isinstance(o, list):
++        return [_r2_sub(v) for v in o]
++    return o
++
++
++# The historical workflow1 route (the projection owner's legacy module) stays byte-unchanged over the retained
++# PolicyTestSuiteV1 and its identity is pinned. It is not the evaluator3 route and never feeds a current carrier.
++_R2_HISTORICAL_V1_POLICY_TEST_ID = "policytest2:5ce020d40b29ce7f1592189d66efd007d732c699a4c612e75b6c788cd497ee27"
++_r2_v1_result, _r2_v1_refusal = P.W.run_policy_test(_r2_sub(_R2_RAW)["policySuite"])
++check("pt2-historical-workflow1-policy-test-route-unchanged",
++      _r2_v1_refusal is None and _r2_v1_result["policyTestResultId"] == _R2_HISTORICAL_V1_POLICY_TEST_ID, _r2_v1_result["policyTestResultId"])
++# The current route: the explicitly authored PolicyTestSuiteV2 of policy-test-cases.v3.json through admission, the current
++# resolver and policy_test_model.v3.
++_PT2 = canonical.parse((HERE / "policy-test-cases.v3.json").read_bytes())
++_pt2_suite = _PT2["currentSuite"]
++must_valid("pt2-current-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_suite)
++must_valid("pt2-current-candidate-is-policy-document-v2", "urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2", _pt2_suite["candidatePolicy"])
++must_invalid("pt2-current-candidate-is-not-a-policy-document-v1", "urn:opensip:product-v1:workflows:policy-document#/$defs/PolicyDocumentV1", _pt2_suite["candidatePolicy"])
++check("pt2-current-candidate-resolver-admitted", WF3.resolve_policy(copy.deepcopy(_pt2_suite["candidatePolicy"])) == _pt2_suite["candidatePolicy"])
++_r2_policy_result, _r2_policy_refusal = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_suite))
++check("r2-policy-test-owner-result-produced", _r2_policy_refusal is None and _r2_policy_result["resolverAccepted"] is True)
++
++# ------------------------------------------------ owner completion 2: policy-test suite admission route (PolicyTestSuiteV2)
++_oc2_suite = _pt2_suite
++_oc2_result, _oc2_refusal = WF3.run_admitted_policy_test(copy.deepcopy(_oc2_suite))
++check("oc2-admitted-suite-runs-the-same-authoring-test",
++      _oc2_refusal is None and WF3.admit_policy_test_suite(_oc2_suite) is _oc2_suite
++      and _oc2_result["policyTestResultId"] == WF3.run_policy_test(copy.deepcopy(_oc2_suite))[0]["policyTestResultId"]
++      and WF3.run_policy_test is not WF3._base.run_policy_test)
++_OC2_REGISTRY = {r["code"]: r for r in json.loads((HERE.parent / "public-detail-registry.v1.json").read_text())["records"]}
++
++
++def _oc2_termination(suite):
++    try:
++        WF3.admit_policy_test_suite(suite)
++        return None
++    except WF3.Refusal as exc:
++        return exc
++
++
++def _oc2_route(cid, suite, detail):
++    exc = _oc2_termination(suite)
++    if exc is None:
++        return check(cid, False, "admitted")
++    term = exc.termination()
++    env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "e" * 32,
++           "termination": term, "exitCode": WF3.exit_code(term), "errors": [term["domainDetail"]]}
++    ok_env, why = valid(U + "command-envelope:3", env)
++    return check(cid, exc.error_code == "CONFIG.INVALID" and exc.detail == detail and term["class"] == "request-rejected"
++                 and term["errorCode"] == "CONFIG.INVALID" and term["domainDetail"]["code"] == detail and env["exitCode"] == 2 and ok_env,
++                 f"{exc.error_code}/{exc.detail} {why}")
++
++
++_oc2_no_cases = {k: v for k, v in copy.deepcopy(_oc2_suite).items() if k != "cases"}
++_oc2_route("oc2-suite-missing-cases-is-config-invalid-with-the-shared-config-invalid-detail", _oc2_no_cases, "CONFIG.INVALID")
++_oc2_severity = copy.deepcopy(_oc2_suite)
++_oc2_severity["candidatePolicy"]["rules"][0]["severity"] = "fatal"
++_oc2_route("oc2-policy-enum-violation-is-not-a-grammar-violation", _oc2_severity, "CONFIG.INVALID")
++_oc2_waiver_extra = copy.deepcopy(_oc2_suite)
++_oc2_waiver_extra["waivers"]["hook"] = "node scripts/waive.js"
++_oc2_route("oc2-waiver-set-member-is-not-a-policy-grammar-refusal", _oc2_waiver_extra, "CONFIG.INVALID")
++_oc2_cases = {c["id"]: c for c in _R2_RAW["policyRefusals"]}
++_oc2_hook = copy.deepcopy(_oc2_suite)
++_oc2_hook["candidatePolicy"].update(_oc2_cases["imperative-key-schema-violation"]["policyExtra"])
++_oc2_route("oc2-owner-imperative-key-case-is-policy-imperative-key-refused", _oc2_hook, "POLICY.IMPERATIVE_KEY_REFUSED")
++_oc2_expr = copy.deepcopy(_oc2_suite)
++_oc2_expr["candidatePolicy"]["rules"][0]["emitWhen"] = _oc2_cases["string-expression-schema-violation"]["policyEmitWhen"]
++_oc2_route("oc2-owner-string-expression-case-is-policy-imperative-key-refused", _oc2_expr, "POLICY.IMPERATIVE_KEY_REFUSED")
++_oc2_include = copy.deepcopy(_oc2_suite)
++_oc2_include["candidatePolicy"]["rules"][0]["include"] = "other-policy.json"
++check("oc2-include-is-a-declared-member-elsewhere-in-the-policy-grammar",
++      '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:policy-document:2"]["$defs"]["Rule"])
++      or '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:policy-document:2"]["$defs"]))
++_oc2_route("oc2-grammar-law-is-positional-for-a-member-declared-elsewhere", _oc2_include, "POLICY.IMPERATIVE_KEY_REFUSED")
++check("oc2-grammar-law-does-not-flag-the-admitted-candidate-policy", not WF3.policy_grammar_violation(_oc2_suite["candidatePolicy"]))
++_oc2_dup = copy.deepcopy(_oc2_suite)
++_oc2_dup["waivers"]["waivers"] = _r2_sub(_oc2_cases["duplicate-waiver"]["waivers"])
++_oc2_dup_result, _oc2_dup_refusal = WF3.run_admitted_policy_test(_oc2_dup)
++_oc2_dup_term = _oc2_dup_refusal.termination() if _oc2_dup_refusal is not None else {}
++_oc2_goldens = {g["id"]: g for g in _R2_INV["goldens"]}
++_oc2_gdup = _oc2_goldens["policy-test-duplicate-waiver"]
++check("oc2-resolver-refusal-of-an-admitted-suite-is-the-request-rejection-its-golden-names",
++      _oc2_dup_refusal is not None and _oc2_dup_result["resolverAccepted"] is False
++      and _oc2_dup_term.get("class") == _oc2_gdup["class"] and WF3.exit_code(_oc2_dup_term) == _oc2_gdup["exitCode"]
++      and _oc2_dup_term.get("errorCode") == _oc2_gdup["errorCode"]
++      and _oc2_dup_term.get("domainDetail", {}).get("code") == _oc2_gdup["domainDetail"], _oc2_dup_term)
++must_valid("oc2-resolver-refused-result-is-still-a-valid-policy-test-result",
++           "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1", _oc2_dup_result)
++must_invalid("oc2-resolver-refused-result-is-never-a-policy-test-carrier", U + "command-envelope:3#/$defs/PolicyTestResultRecordV1",
++             {"surface": "policy-test-result", "result": _oc2_dup_result})
++must_valid("oc2-resolver-accepted-result-is-a-policy-test-carrier", U + "command-envelope:3#/$defs/PolicyTestResultRecordV1",
++           {"surface": "policy-test-result", "result": _r2_policy_result})
++_oc2_residual = _oc2_goldens.get("policy-test-suite-inadmissible", {})
++_oc2_residual_term = _oc2_termination(_oc2_no_cases).termination()
++check("oc2-residual-route-golden-is-the-owner-termination",
++      _oc2_residual.get("command") == "policy-test" and _oc2_residual.get("class") == _oc2_residual_term["class"]
++      and _oc2_residual.get("exitCode") == WF3.exit_code(_oc2_residual_term)
++      and _oc2_residual.get("errorCode") == _oc2_residual_term["errorCode"]
++      and _oc2_residual.get("domainDetail") == _oc2_residual_term["domainDetail"]["code"])
++check("oc2-imperative-key-golden-is-the-owner-termination",
++      _oc2_goldens["policy-test-imperative-key"]["domainDetail"] == _oc2_termination(_oc2_hook).termination()["domainDetail"]["code"]
++      and _oc2_goldens["policy-test-imperative-key"]["errorCode"] == _oc2_termination(_oc2_hook).termination()["errorCode"])
++check("oc2-config-invalid-is-a-d9-error-code-and-a-separately-registered-shared-detail",
++      "CONFIG.INVALID" in SCHEMAS[U + "common:3"]["$defs"]["D9ErrorCode"]["enum"]
++      and "CONFIG.INVALID" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"]
++      and "CONFIG.INVALID" in SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"]
++      and _OC2_REGISTRY["CONFIG.INVALID"]["owner"] == "security"
++      and _OC2_REGISTRY["POLICY.IMPERATIVE_KEY_REFUSED"]["owner"] == "workflows")
++# ------------------------------------------------ PolicyTestSuiteV2 route controls: majors, current resolver, fixture semantics
++def _pt2_cases(result):
++    return {c["id"]: {"outcome": c["outcome"], "observedVerdict": c["observedVerdict"],
++                      "findings": [[f["ruleId"], f["subject"], f["waived"]] for f in c["findings"]],
++                      "indeterminateRules": c["indeterminateRules"], "expectationOutcomes": c["expectationOutcomes"]} for c in result["results"]}
++
++
++_pt2_expect = _PT2["currentSuiteExpect"]
++check("pt2-admitted-current-suite-reaches-the-authored-outcomes",
++      _r2_policy_result["resolverAccepted"] is _pt2_expect["resolverAccepted"]
++      and _r2_policy_result["waiverResolution"]["expired"] == _pt2_expect["expired"]
++      and _r2_policy_result["summary"] == _pt2_expect["summary"]
++      and _pt2_cases(_r2_policy_result) == _pt2_expect["cases"], _pt2_cases(_r2_policy_result))
++check("pt2-current-result-identity-preimages",
++      _r2_policy_result["schemaMajor"] == 1 and _r2_policy_result["policyTestResultId"].startswith("policytest2:")
++      and _r2_policy_result["suiteDigest"] == canonical.identity("workflow.policy-test-suite", _pt2_suite)
++      and _r2_policy_result["candidatePolicyDigest"] == P.W.doc_digest(_pt2_suite["candidatePolicy"]) == _r2_policy_result["effectivePolicyDigest"]
++      and _r2_policy_result["suiteDigest"] != canonical.identity("workflow.policy-test-suite", dict(_pt2_suite, schemaMajor=1)))
++must_valid("pt2-current-result-is-a-policy-test-result", "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1", _r2_policy_result)
++_pt2_disc = _pt2_cases(_r2_policy_result)["target-endpoint-discrimination"]
++check("pt2-target-and-source-endpoint-decide-different-subjects-through-the-public-route",
++      ["unimported-file", "src/b.ts", False] in _pt2_disc["findings"] and ["import-free-export", "src/a.ts", False] in _pt2_disc["findings"]
++      and ["unimported-file", "src/a.ts", False] not in _pt2_disc["findings"] and ["import-free-export", "src/b.ts", False] not in _pt2_disc["findings"],
++      _pt2_disc)
++_pt2_test_rule = next(r for r in _pt2_suite["candidatePolicy"]["rules"] if r["ruleId"] == "failed-test-exit1")
++_pt2_test_case = _pt2_cases(_r2_policy_result)["test-filter-unrepresentable-is-unknown"]
++check("pt2-test-filter-rule-is-resolved-then-honestly-unknown",
++      WF3.admit_policy_rule(copy.deepcopy(_pt2_test_rule)) == _pt2_test_rule
++      and "failed-test-exit1" in _pt2_test_case["indeterminateRules"]
++      and not any(f[0] == "failed-test-exit1" for f in _pt2_test_case["findings"])
++      and _pt2_test_case["expectationOutcomes"][1:3] == ["indeterminate", "indeterminate"], _pt2_test_case)
++_pt2_runtime_absent = _pt2_cases(_r2_policy_result)["runtime-absence-does-not-prove-no-hit"]
++check("pt2-absent-imported-observation-never-proves-absence",
++      _pt2_runtime_absent["expectationOutcomes"][1] == "indeterminate" and "runtime-hit" in _pt2_runtime_absent["indeterminateRules"], _pt2_runtime_absent)
++
++
++def _pt2_major_route(cid, suite, subject):
++    exc = _oc2_termination(suite)
++    if exc is None:
++        return check(cid, False, "admitted")
++    term = exc.termination()
++    env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "e" * 32,
++           "termination": term, "exitCode": WF3.exit_code(term), "errors": [term["domainDetail"]]}
++    ok_env, why = valid(U + "command-envelope:3", env)
++    return check(cid, exc.error_code == "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" and exc.detail == "EVALUATION.MIXED_OUTPUT_MAJOR" and exc.subject == subject
++                 and term["class"] == "request-rejected" and env["exitCode"] == 2 and ok_env, f"{exc.error_code}/{exc.detail}/{exc.subject} {why}")
++
++
++_pt2_v1_suite = _r2_sub(_R2_RAW)["policySuite"]
++_pt2_major_route("pt2-historical-v1-suite-refused-by-the-typed-major-route", _pt2_v1_suite, "1")
++_pt2_v1_candidate = dict(copy.deepcopy(_pt2_suite), candidatePolicy=copy.deepcopy(_pt2_v1_suite["candidatePolicy"]))
++_pt2_major_route("pt2-v1-candidate-in-a-v2-suite-refused-by-the-typed-major-route", _pt2_v1_candidate, "1")
++_pt2_v1_candidate_hook = copy.deepcopy(_pt2_v1_candidate)
++_pt2_v1_candidate_hook["candidatePolicy"]["hook"] = "node scripts/check.js"
++_pt2_major_route("pt2-wrong-major-precedes-and-is-never-classified-imperative", _pt2_v1_candidate_hook, "1")
++try:
++    WF3.resolve_policy(copy.deepcopy(_pt2_v1_suite["candidatePolicy"]))
++    check("pt2-current-resolver-refuses-a-historical-policy-typed", False, "admitted")
++except WF3.Refusal as _pt2_exc:
++    check("pt2-current-resolver-refuses-a-historical-policy-typed",
++          _pt2_exc.error_code == "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" and _pt2_exc.detail == "EVALUATION.MIXED_OUTPUT_MAJOR", f"{_pt2_exc.error_code}/{_pt2_exc.detail}")
++_pt2_gmajor = {g["id"]: g for g in _R2_INV["goldens"]}.get("policy-test-suite-major-unsupported", {})
++_pt2_major_term = _oc2_termination(_pt2_v1_suite).termination()
++check("pt2-major-refusal-golden-is-the-owner-termination",
++      _pt2_gmajor.get("command") == "policy-test" and _pt2_gmajor.get("class") == _pt2_major_term["class"]
++      and _pt2_gmajor.get("exitCode") == WF3.exit_code(_pt2_major_term) and _pt2_gmajor.get("errorCode") == _pt2_major_term["errorCode"]
++      and _pt2_gmajor.get("domainDetail") == _pt2_major_term["domainDetail"]["code"], _pt2_gmajor)
++
++
++def _pt2_with_rule(rule):
++    suite = copy.deepcopy(_pt2_suite)
++    suite["candidatePolicy"]["rules"] = sorted(suite["candidatePolicy"]["rules"] + [copy.deepcopy(rule)], key=lambda r: r["ruleId"].encode())
++    return suite
++
++
++for _pt2_label, _pt2_key, _pt2_cause in (("legacy-resolver-only-filter", "legacyResolverOnlyRule", "ATOM_FILTER_FIELD_FORBIDDEN"),
++                                          ("forbidden-target-endpoint", "forbiddenTargetEndpointRule", "ATOM_ENDPOINT_UNAVAILABLE")):
++    _pt2_bad = _pt2_with_rule(_PT2["controls"][_pt2_key])
++    _pt2_bad_ok = valid(U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_bad)[0] and WF3.admit_policy_test_suite(copy.deepcopy(_pt2_bad)) is not None
++    _pt2_res, _pt2_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_bad))
++    check("pt2-%s-policy-is-schema-admitted-then-refused-by-the-current-resolver" % _pt2_label,
++          _pt2_bad_ok and _pt2_ref is not None and _pt2_ref.error_code == "CONFIG.INVALID" and _pt2_ref.detail == "POLICY.UNKNOWN_RULE"
++          and str(_pt2_ref.remedy).startswith(_pt2_cause) and _pt2_res["resolverAccepted"] is False
++          and not valid(U + "command-envelope:3#/$defs/PolicyTestResultRecordV1", {"surface": "policy-test-result", "result": _pt2_res})[0],
++          (_pt2_ref.error_code, _pt2_ref.detail, _pt2_ref.remedy) if _pt2_ref else None)
++check("pt2-historical-resolver-alone-accepts-the-legacy-only-filter",
++      P.W.resolve_policy(dict(copy.deepcopy(_pt2_suite["candidatePolicy"]), rules=[copy.deepcopy(_PT2["controls"]["legacyResolverOnlyRule"])])) is not None)
++check("pt2-valid-v2-endpoint-member-is-not-an-imperative-key",
++      any("endpoint" in r["emitWhen"] for r in _pt2_suite["candidatePolicy"]["rules"]) and not WF3.policy_grammar_violation(_pt2_suite["candidatePolicy"]))
++_oc2_route("pt2-override-of-an-unknown-rule-is-config-invalid",
++           dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "not-a-rule", "field": "gate", "value": False}]), "CONFIG.INVALID")
++_oc2_route("pt2-override-value-of-the-wrong-type-is-config-invalid",
++           dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "unimported-file", "field": "gate", "value": "error"}]), "CONFIG.INVALID")
++_pt2_bad_rung = copy.deepcopy(_pt2_suite)
++_pt2_bad_rung["cases"][0]["subject"]["facts"][0]["resolution"] = "observed"
++_oc2_route("pt2-fixture-fact-rung-off-its-relation-ladder-is-config-invalid", _pt2_bad_rung, "CONFIG.INVALID")
++_pt2_override = dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "unimported-file", "field": "gate", "value": False}])
++_pt2_ov_res, _pt2_ov_ref = WF3.run_admitted_policy_test(_pt2_override)
++check("pt2-lawful-override-changes-only-the-effective-policy",
++      _pt2_ov_ref is None and _pt2_ov_res["candidatePolicyDigest"] == _r2_policy_result["candidatePolicyDigest"]
++      and _pt2_ov_res["effectivePolicyDigest"] != _pt2_ov_res["candidatePolicyDigest"] and _pt2_ov_res["overridesApplied"] == _pt2_override["overrides"]
++      and _pt2_cases(_pt2_ov_res)["target-endpoint-discrimination"]["observedVerdict"] == "advisory")
++_R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
++_R2_COMMAND_OF["policy-test"] = "policy-test"
++# baseline show through adoption, admission and current-trust pivot resolution.
++_r2_art = P.adopt_admitted_baseline_v3(*_r2_graph, CUSTODY)
++_r2_host = host_from_graph({"runId": _r2_art["descriptor"]["runId"]}, _r2_graph[1])
++for _r2_rec in _r2_host["closures"].values():
++    _r2_rec["trustOrigin"] = "retained-generation"
++_r2_rows = P.pivot_closure_availability(_r2_art, _r2_host)
++check("r2-baseline-show-all-pivots-available", bool(_r2_rows) and all(r["state"] == "available" and r["trustOrigin"] == "retained-generation" for r in _r2_rows))
++_R2_ENVS["baseline-show"] = _r2_envelope("baseline-inspection", {"surface": "baseline-inspection", "baseline": _r2_art, "pivotClosureAvailability": _r2_rows}, _r2_project)
++_r2_host_bad = copy.deepcopy(_r2_host)
++_r2_pivots = [p["closureId"] for p in _r2_art["descriptor"]["pivotClosure"]]
++_r2_host_bad["closures"].pop(_r2_pivots[0])
++if len(_r2_pivots) > 1:
++    _r2_host_bad["closures"][_r2_pivots[1]]["trust"] = "revoked"
++_r2_rows_bad = P.pivot_closure_availability(_r2_art, _r2_host_bad)
++check("r2-baseline-show-missing-and-revoked-pivots-are-data",
++      _r2_rows_bad[0]["state"] == "missing" and "trustOrigin" not in _r2_rows_bad[0] and (len(_r2_pivots) < 2 or _r2_rows_bad[1]["state"] == "revoked"))
++_R2_ENVS["baseline-show-unavailable"] = _r2_envelope("baseline-inspection", {"surface": "baseline-inspection", "baseline": _r2_art, "pivotClosureAvailability": _r2_rows_bad}, _r2_project)
++_R2_COMMAND_OF["baseline-show"] = _R2_COMMAND_OF["baseline-show-unavailable"] = "baseline-show"
++_r2_no_origin = copy.deepcopy(_r2_host)
++next(iter(_r2_no_origin["closures"].values())).pop("trustOrigin")
++reject("r2-baseline-show-available-without-trust-origin-refused", lambda: P.pivot_closure_availability(_r2_art, _r2_no_origin), "REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE")
++# recommend through security discovery joined by native unit discovery (fixture copied from the security owner's P3 case).
++_r2_sec_spec = importlib.util.spec_from_file_location("r2_security_model", HERE.parent / "security" / "security_lifecycle_model_v1.py")
++_R2_SEC = importlib.util.module_from_spec(_r2_sec_spec)
++_r2_sec_spec.loader.exec_module(_R2_SEC)
++_r2_nat_spec = importlib.util.spec_from_file_location("r2_native_model", HERE.parent / "native" / "native_evidence_model.v2.py")
++_R2_NAT = importlib.util.module_from_spec(_r2_nat_spec)
++_r2_nat_spec.loader.exec_module(_R2_NAT)
++_R2_ROOT = "/home/alice/repo"
++
++
++def _r2_dir(**kw):
++    return dict({"kind": "dir", "uid": 1000, "mode": "0755", "dev": 1}, **kw)
++
++
++def _r2_file():
++    return {"kind": "file", "uid": 1000, "mode": "0644", "nlink": 1, "size": 10}
++
++
++_r2_fs = {"/": {"kind": "dir", "uid": 0, "mode": "0755", "dev": 1}, "/home": {"kind": "dir", "uid": 0, "mode": "0755", "dev": 1},
++          "/home/alice": _r2_dir(mode="0700"), _R2_ROOT: _r2_dir(vcs=True), _R2_ROOT + "/package.json": _r2_file(),
++          _R2_ROOT + "/vendor": _r2_dir(), _R2_ROOT + "/vendor/lib": _r2_dir(vcs=True), _R2_ROOT + "/vendor/lib/package.json": _r2_file(), _R2_ROOT + "/vendor/lib/src": _r2_dir(),
++          _R2_ROOT + "/vendor/lib/node_modules": _r2_dir(), _R2_ROOT + "/vendor/lib/node_modules/x": _r2_dir(), _R2_ROOT + "/vendor/lib/node_modules/x/package.json": _r2_file(),
++          _R2_ROOT + "/apps": _r2_dir(), _R2_ROOT + "/apps/site": _r2_dir(), _R2_ROOT + "/apps/site/opensip.json": _r2_file(), _R2_ROOT + "/apps/site/package.json": _r2_file(),
++          _R2_ROOT + "/apps/site/sub": _r2_dir(), _R2_ROOT + "/apps/site/sub/Cargo.toml": _r2_file()}
++_r2_sd = _R2_SEC.discovery({"invokingUid": 1000, "accountHome": "/home/alice", "cwd": _R2_ROOT, "fs": _r2_fs})
++_r2_inv = _R2_SEC.boundary_inventory(_r2_sd)
++_r2_markers = {p[len(_R2_ROOT) + 1:]: {"sha256": "1" * 64} for p, e in _r2_fs.items()
++               if p.startswith(_R2_ROOT + "/") and e["kind"] == "file" and p.rpartition("/")[2] in _R2_SEC.WORKSPACE_MARKERS}
++_r2_discovery = _R2_NAT.discover_units(_r2_markers, None, _r2_inv)
++check("r2-recommend-discovery-is-boundary-admitted-native-output",
++      _r2_sd["status"] == "ACCEPT" and _r2_discovery["refused"] is None and _r2_discovery["boundaries"]["source"] == "security.discovery" and bool(_r2_discovery["units"]))
++_r2_roots = sorted({QS.DD.spell_root(u["rootPath"]) for u in _r2_discovery["units"]})
++_R2_ENVS["recommend"] = _r2_envelope("discovery-recommendation", {"surface": "discovery-recommendation", "advisory": True, "discovery": _r2_discovery, "recommendations": [],
++                                                                  "config2Proposals": [{"key": "discovery.workspaceRoots", "workspaceRoots": _r2_roots,
++                                                                                        "unitOrdinals": [u["unitOrdinal"] for u in _r2_discovery["units"]]}]}, _r2_project)
++_R2_COMMAND_OF["recommend"] = "recommend"
++_r2_refused = _R2_NAT.discover_units(_r2_markers, ["vendor/lib"], _r2_inv)
++check("r2-recommend-boundary-crossing-root-is-a-native-refusal", _r2_refused["refused"] is not None and _r2_refused["refused"]["detail"] == "native.explicit-root-crosses-boundary")
++_r2_refused_env = copy.deepcopy(_R2_ENVS["recommend"])
++_r2_refused_env["queryRecord"]["discovery"] = _r2_refused
++must_invalid("r2-recommend-refused-discovery-is-never-carried", _R2_ENV, _r2_refused_env)
++_r2_unregistered = copy.deepcopy(_R2_ENVS["recommend"])
++_r2_unregistered["queryRecord"]["recommendations"] = [{"code": "RECOMMEND.ANYTHING", "remedy": "r"}]
++must_invalid("r2-recommend-unregistered-recommendation-refused", _R2_ENV, _r2_unregistered)
++_r2_registered_row = {"code": "native.explicit-root-without-marker", "remedy": "r"}
++must_valid("r2-recommend-closure-control-row-is-a-registered-domain-detail", U + "common:3#/$defs/DomainDetail", _r2_registered_row)
++_r2_registered = copy.deepcopy(_R2_ENVS["recommend"])
++_r2_registered["queryRecord"]["recommendations"] = [_r2_registered_row]
++must_invalid("r2-recommend-registered-detail-is-not-a-recommendation-in-this-profile", _R2_ENV, _r2_registered)
++check("r2-recommend-config2-proposal-roots-are-the-discovered-unit-roots",
++      [QS.DD.normalize_explicit_root(r) for r in _R2_ENVS["recommend"]["queryRecord"]["config2Proposals"][0]["workspaceRoots"]]
++      == sorted({u["rootPath"] for u in _r2_discovery["units"]}, key=lambda s: QS.DD.spell_root(s))
++      and _R2_ENVS["recommend"]["query"]["items"] == 0)
++# repair preview carries the evaluator3 owner-produced plan exactly as returned (no relabel, no remint).
++_r2_plan = copy.deepcopy(cw_pos_plan)
++_r2_desc = _r2_plan["descriptor"]
++must_valid("r2-repair-preview-plan-admitted-as-repair-2", U + "repair:2#/$defs/RepairPlanV1", _r2_plan)
++_r2_preview = {"kind": "repair-preview", "repairPlanId": _r2_plan["repairPlanId"], "snapshotId": _r2_desc["snapshotId"], "applicable": _r2_desc["applicable"],
++               "unmetPreconditions": copy.deepcopy(_r2_desc["unmetPreconditions"])}
++must_valid("r2-repair-preview-result-owner-schema", U + "invocation:3#/$defs/RepairPreviewResult", _r2_preview)
++_R2_ENVS["repair-preview"] = _r2_envelope("repair-preview", {"surface": "repair-preview", "preview": _r2_preview, "plan": _r2_plan}, _r2_desc["projectId"])
++_R2_COMMAND_OF["repair-preview"] = "repair-preview"
++
++# ------------------------------------------------ owner completion 1: the evaluator3 repair:2 constructor
++check("oc1-current-constructor-plan-is-repair-2-and-owner-admitted",
++      cw_pos_plan["descriptor"]["schemaMajor"] == 2 and WF3.admit_repair_plan_v2(copy.deepcopy(cw_pos_plan)) == cw_pos_plan
++      and cw_pos_plan["repairPlanId"] == P.W.wid("repairplan2", "workflow.repair-plan", cw_pos_plan["descriptor"])
++      and cw_pos_plan["descriptor"]["evidenceRunId"] == cw_pos_id)
++check("oc1-every-current-preview-control-plan-is-repair-2",
++      all(p["descriptor"]["schemaMajor"] == 2 for p in (cw_pos_plan, cw_neg_plan, cw_neg_alt, cw_create, cw_dyn_plan)))
++check("oc1-current-and-historical-profiles-are-separate-module-instances",
++      WF3.repair_preview is not WF3._base.repair_preview and P.W.CLOSED_WORLD_SELECTOR is None
++      and WF3._base.CLOSED_WORLD_SELECTOR is WF3.evaluator3_closed_world)
++import inspect as _oc1_inspect  # noqa: E402
++_oc1_param = _oc1_inspect.signature(P.W.repair_preview).parameters["descriptor_major"]
++check("oc1-historical-constructor-keeps-a-keyword-only-major-1-default",
++      _oc1_param.default == 1 and _oc1_param.kind is _oc1_inspect.Parameter.KEYWORD_ONLY)
++_oc1_hist_adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable",
++                     "runId": cw_neg_id, "planId": cw_neg_run["planId"], "snapshotId": P.W.tree_snapshot_id(CW_PROJECT, CW_TREE),
++                     "findings": CW_FPS[:1], "closedWorld": copy.deepcopy(CW_CLOSED), "evidenceOrigin": "native-analysis"}
++_oc1_hist = P.W.repair_preview(CW_PROJECT, CW_TREE, _oc1_hist_adapter, CW_RECIPE, CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST)
++check("oc1-historical-profile-still-emits-major-1-from-a-caller-selected-record",
++      _oc1_hist["descriptor"]["schemaMajor"] == 1
++      and _oc1_hist["repairPlanId"] == P.W.wid("repairplan2", "workflow.repair-plan", _oc1_hist["descriptor"]))
++
++
++def _oc1_refusal(cid, fn, error, detail):
++    try:
++        fn()
++        return check(cid, False, "not refused")
++    except WF3.Refusal as exc:
++        return check(cid, exc.error_code == error and exc.detail == detail, f"{exc.error_code}/{exc.detail}")
++
++
++_oc1_refusal("oc1-current-admission-refuses-a-historical-major-1-plan", lambda: WF3.admit_repair_plan_v2(copy.deepcopy(_oc1_hist)),
++             "REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR")
++_oc1_relabel = copy.deepcopy(_oc1_hist)
++_oc1_relabel["descriptor"]["schemaMajor"] = 2
++must_valid("oc1-unreminted-relabel-is-schema-valid", U + "repair:2#/$defs/RepairPlanV1", _oc1_relabel)
++_oc1_refusal("oc1-current-admission-refuses-an-unreminted-relabel", lambda: WF3.admit_repair_plan_v2(_oc1_relabel),
++             "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
++_oc1_absent = hid("finding-key2", "not-a-finding-of-this-run")
++check("oc1-historical-profile-trusts-a-caller-listed-target",
++      P.W.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_hist_adapter, findings=[_oc1_absent]), CW_RECIPE, [_oc1_absent],
++                         CW_DELETE, CW_REQS, ["**"], CW_TRUST)["descriptor"]["targets"] == [_oc1_absent])
++_oc1_refusal("oc1-current-constructor-refuses-a-target-not-matched-in-the-retained-run",
++             lambda: _cw_preview(cw_pos_id, cw_pos_run, cw_pos_obj, cw_pos_blob, [_oc1_absent], CW_DELETE),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE")
++_oc1_adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable", "runId": cw_pos_id,
++                "planId": cw_pos_run["planId"], "snapshotId": WF3.tree_snapshot_id(CW_PROJECT, CW_TREE), "findings": CW_FPS[:1],
++                "retained": SEL.RetainedRunView(cw_pos_run, cw_pos_obj, cw_pos_blob), "evidenceOrigin": "native-analysis"}
++_oc1_refusal("oc1-current-constructor-refuses-a-retained-closure-of-another-run",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, planId=hid("plan2", "another")), CW_RECIPE,
++                                        CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_UNAVAILABLE")
++_oc1_refusal("oc1-current-constructor-refuses-a-historical-run2-evidence-run",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, runId=hid("run2", "historical")), CW_RECIPE,
++                                        CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST),
++             "REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR")
++_oc1_refusal("oc1-current-constructor-keeps-authority-first",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, retained=None), CW_RECIPE, CW_FPS[:1], CW_DELETE,
++                                        CW_REQS, ["**"], CW_TRUST, ephemeral=True),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE")
++
++# ------------------------------------------------ owner completion 1: exact evidence Run join and declared unavailability
++# A retained closure of another Run refuses by exact identity: the request runId must be identity-model.v3's own
++# identifier of the retained Run record (RC.M is a separate identity instance from the owner's). cw_dyn and cw_neg are
++# fully admitted by close_run above and share cw_pos's Plan, so substitution is controlled with actually admitted Runs as
++# well as with a well-formed arbitrary id. The shared builder is spied: zero calls means refused before any descriptor.
++# SEL is a SEPARATE instance of the selection owner, so its views declare their own unavailability class; that class and
++# the owner's own map typed by exact identity, and everything else propagates as the same object. The views remain
++# trusted host adapters over admitted Runs; no host, snapshot or trust is qualified here.
++_OC1_BUILDER = WF3._base.repair_preview
++
++
++def _oc1_outcome(adapter):
++    """("ADMIT", plan | "REFUSE", Refusal | "PROPAGATE", exception, shared-builder calls)."""
++    calls = []
++
++    def spy(*args, **kwargs):
++        calls.append(1)
++        return _OC1_BUILDER(*args, **kwargs)
++    WF3._base.repair_preview = spy
++    try:
++        return ("ADMIT", WF3.repair_preview(CW_PROJECT, CW_TREE, adapter, CW_RECIPE, CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST), len(calls))
++    except WF3.Refusal as exc:
++        return ("REFUSE", exc, len(calls))
++    except Exception as exc:
++        return ("PROPAGATE", exc, len(calls))
++    finally:
++        WF3._base.repair_preview = _OC1_BUILDER
++
++
++def _oc1_why(outcome):
++    kind, value, calls = outcome
++    return f"{kind}/{getattr(value, 'detail', type(value).__name__)}/{type(getattr(value, '__cause__', None)).__name__}/{calls}"
++
++
++def _oc1_unavailable(outcome, cause_class, builder_calls):
++    kind, value, calls = outcome
++    cause = getattr(value, "__cause__", None)
++    return (kind == "REFUSE" and (value.error_code, value.detail) == ("REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_UNAVAILABLE")
++            and (cause is None if cause_class is None else type(cause) is cause_class) and calls == builder_calls), _oc1_why(outcome)
++
++
++def _oc1_same_object(outcome, marker):
++    return outcome[0] == "PROPAGATE" and outcome[1] is marker, _oc1_why(outcome)
++
++
++def _oc1_raising(method, exc):
++    view = SEL.RetainedRunView(cw_pos_run, cw_pos_obj, cw_pos_blob)
++
++    def raise_it(*args, **kwargs):
++        raise exc
++    setattr(view, method, raise_it)
++    return view
++
++
++_oc1_lawful = _oc1_outcome(_oc1_adapter)
++check("oc1-lawful-full-run-preview-names-the-identity-owner-run-id",
++      _oc1_lawful[0] == "ADMIT" and _oc1_lawful[2] == 1 and _oc1_lawful[1] == cw_pos_plan
++      and _oc1_lawful[1]["descriptor"]["evidenceRunId"] == cw_pos_id == RC.M.identifier("run", cw_pos_run), _oc1_why(_oc1_lawful))
++check("oc1-same-retained-closure-and-plan-with-another-run3-id-refuses-before-descriptor",
++      *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, runId="run3:" + "a" * 64)), None, 0))
++_OC1_SHARED = [(n, i, r, o, b) for n, i, r, o, b in (("dyn", cw_dyn_id, cw_dyn_run, cw_dyn_obj, cw_dyn_blob),
++                                                     ("neg", cw_neg_id, cw_neg_run, cw_neg_obj, cw_neg_blob))
++               if r["planId"] == cw_pos_run["planId"] and i != cw_pos_id and r["evidenceId"] != cw_pos_run["evidenceId"]]
++check("oc1-two-further-admitted-runs-share-the-positive-plan-with-different-evidence", len(_OC1_SHARED) == 2, str(len(_OC1_SHARED)))
++for _oc1_name, _oc1_id, _oc1_run, _oc1_obj, _oc1_blob in _OC1_SHARED:
++    _oc1_own = _oc1_outcome(dict(_oc1_adapter, runId=_oc1_id, retained=SEL.RetainedRunView(_oc1_run, _oc1_obj, _oc1_blob)))
++    check("oc1-admitted-%s-run-own-preview-names-its-own-run-id" % _oc1_name,
++          _oc1_own[0] == "ADMIT" and _oc1_own[1]["descriptor"]["evidenceRunId"] == _oc1_id == RC.M.identifier("run", _oc1_run), _oc1_why(_oc1_own))
++    check("oc1-admitted-%s-run-id-over-the-positive-run-closure-refuses-before-descriptor" % _oc1_name,
++          *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, runId=_oc1_id)), None, 0))
++    check("oc1-positive-run-id-over-the-admitted-%s-run-closure-refuses-before-descriptor" % _oc1_name,
++          *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, retained=SEL.RetainedRunView(_oc1_run, _oc1_obj, _oc1_blob))), None, 0))
++_OC1_SEL = WF3.closed_world_selection()
++check("oc1-each-selection-instance-view-declares-its-own-unavailability-class",
++      SEL is not _OC1_SEL and SEL.RetainedEvidenceUnavailable is not _OC1_SEL.RetainedEvidenceUnavailable
++      and getattr(SEL.RetainedRunView, "UNAVAILABLE", None) is SEL.RetainedEvidenceUnavailable
++      and getattr(_OC1_SEL.RetainedRunView, "UNAVAILABLE", None) is _OC1_SEL.RetainedEvidenceUnavailable)
++_OC1_MISSING = {
++    "finding": ({k: v for k, v in cw_pos_obj.items() if k != cw_pos_obj[cw_pos_run["evidenceId"]][1]["findingIds"][0]}, 0),
++    "subject": ({k: v for k, v in cw_pos_obj.items() if v[0] != "evaluation-subject"}, 1),
++}
++for _oc1_name, _oc1_inst in (("reference", SEL), ("owner", _OC1_SEL)):
++    for _oc1_what, (_oc1_objects, _oc1_calls) in _OC1_MISSING.items():
++        check("oc1-declared-missing-retained-%s-maps-typed-for-a-%s-instance-view" % (_oc1_what, _oc1_name),
++              *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_inst.RetainedRunView(cw_pos_run, _oc1_objects, cw_pos_blob))),
++                                _oc1_inst.RetainedEvidenceUnavailable, _oc1_calls))
++_OC1_FOREIGN = type("RetainedEvidenceUnavailable", (Exception,), {"__doc__": "Checker-local: the owner's class name, not the owner's class."})
++for _oc1_method in ("matched_findings", "coverage_records"):
++    _oc1_marker = _OC1_FOREIGN("foreign host defect")
++    check("oc1-foreign-same-name-exception-from-%s-propagates-as-the-same-object" % _oc1_method.replace("_", "-"),
++          *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_raising(_oc1_method, _oc1_marker))), _oc1_marker))
++_oc1_marker = OSError("host read fault")
++check("oc1-host-fault-from-matched-findings-propagates-as-the-same-object",
++      *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_raising("matched_findings", _oc1_marker))), _oc1_marker))
++
++
++class _Oc1UndeclaredView:
++    """Duck-typed retained view that declares no unavailability class."""
++
++    def __init__(self, run, exc):
++        self.run, self._exc = run, exc
++
++    def matched_findings(self):
++        raise self._exc
++
++
++_oc1_marker = SEL.RetainedEvidenceUnavailable("finding:undeclared-view")
++check("oc1-an-undeclared-view-raising-a-separate-owner-instance-class-is-not-normalized",
++      *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_Oc1UndeclaredView(cw_pos_run, _oc1_marker))), _oc1_marker))
++check("oc1-shared-builder-restored-after-the-join-controls", WF3._base.repair_preview is _OC1_BUILDER)
++check("oc1-repair-preview-command-surface-admits-the-owner-plan-without-relabel",
++      QS.project_command_surface(_R2_ENVS["repair-preview"], _R2_CMD["repair-preview"])["parity"]["repair-plan-id"] == cw_pos_plan["repairPlanId"]
++      and _R2_ENVS["repair-preview"]["queryRecord"]["plan"] == cw_pos_plan)
++
++
++def _r2_bump(path, delta=1):
++    def mutate(env):
++        node = env
++        for token in path[:-1]:
++            node = node[token]
++        node[path[-1]] = node[path[-1]] + delta
++    return mutate
++
++
++def _r2_set(path, value):
++    def mutate(env):
++        node = env
++        for token in path[:-1]:
++            node = node[token]
++        node[path[-1]] = value
++    return mutate
++
++
++_R2_MUTANTS = {
++    "candidates": (_r2_bump(["queryRecord", "evidenceLevels", "proof-backed"]), "QUERY_SURFACE_EVIDENCE_LEVEL_JOIN"),
++    "candidates-hidden": (_r2_set(["queryRecord", "includeSuppressed"], True), "QUERY_SURFACE_SUPPRESSED_COUNT_JOIN"),
++    "inspect": (_r2_bump(["queryRecord", "context", "totalItems"]), "QUERY_SURFACE_TOTAL_ITEMS_JOIN"),
++    "review-brief": (_r2_set(["queryRecord", "brief", "truncated"], True), "QUERY_SURFACE_TRUNCATED_JOIN"),
++    "review-brief-truncated": (_r2_set(["queryRecord", "context", "totalItems"], 1), "QUERY_SURFACE_TOTAL_ITEMS_JOIN"),
++    "policy-show": (_r2_set(["queryRecord", "policyDigest"], "0" * 64), "QUERY_SURFACE_POLICY_DIGEST_JOIN"),
++    "policy-test": (_r2_bump(["queryRecord", "result", "summary", "passed"]), "QUERY_SURFACE_POLICY_TEST_ID_JOIN"),
++    "baseline-show": (lambda env: env["queryRecord"]["pivotClosureAvailability"].pop(), "QUERY_SURFACE_PIVOT_AVAILABILITY_JOIN"),
++    "baseline-show-unavailable": (_r2_set(["queryRecord", "baseline", "baselineId"], "baseline2:" + "0" * 64), "QUERY_SURFACE_BASELINE_NOT_ADMITTED"),
++    "recommend": (_r2_set(["queryRecord", "config2Proposals", 0, "workspaceRoots"], ["not/discovered"]), "QUERY_SURFACE_CONFIG2_ROOT_NOT_DISCOVERED"),
++    "repair-preview": (lambda env: env["queryRecord"]["preview"].__setitem__("applicable", not env["queryRecord"]["preview"]["applicable"]), "QUERY_SURFACE_REPAIR_PREVIEW_JOIN"),
++}
++check("r2-every-non-graph-command-has-positive-envelopes", sorted(set(_R2_COMMAND_OF.values())) == sorted(n for n in _R2_NINE if n != "query") and sorted(_R2_MUTANTS) == sorted(_R2_ENVS))
++for _key, _name in _R2_COMMAND_OF.items():
++    _cmd = _R2_CMD[_name]
++    _env = _R2_ENVS[_key]
++    must_valid("r2-%s-positive-envelope-admitted" % _key, _R2_ENV, _env)
++    try:
++        _proj = QS.project_command_surface(_env, _cmd)
++        _rnd = QS.render_command_formats(_env, _cmd, hints=["advisory hint"])
++        _bodies = {r["format"]: r["body"] for r in _rnd["renderings"]}
++        check(
++            "r2-%s-parity-read-at-paths-and-recovered-from-every-rendering" % _key,
++            _rnd["ok"] and _rnd["parityHolds"] and set(_bodies) == {"human", "json", "agent"}
++            and all(canonical.equal_typed(_proj["parity"][f], QS.json_pointer(_env, p)) for f, p in _cmd["queryDispatch"]["parityPaths"].items())
++            and _bodies["json"] == _env and _bodies["agent"]["agentHints"] == ["advisory hint"],
++            _rnd.get("ok"),
++        )
++        _lines = _bodies["human"].splitlines()
++        _label = _lines[0].partition(": ")[0]
++        _lines[0] = _label + ": " + json.dumps({"mutated": True})
++        check("r2-%s-mutated-human-parity-detected" % _key, not canonical.equal_typed(QS.parity_from_human("\n".join(_lines) + "\n")[_label], _rnd["parity"][_label]))
++    except Exception as _r2_exc:
++        check("r2-%s-parity-read-at-paths-and-recovered-from-every-rendering" % _key, False, type(_r2_exc).__name__ + ": " + str(_r2_exc)[:200])
++    _missing = copy.deepcopy(_env)
++    del _missing["queryRecord"]
++    must_invalid("r2-%s-missing-carrier-refused" % _key, _R2_ENV, _missing)
++    _missing_render = QS.render_command_formats(_missing, _cmd)
++    check("r2-%s-missing-carrier-is-precommit-delivery-fault" % _key,
++          _missing_render["ok"] is False and "runId" not in _missing_render["deliveryTermination"]
++          and _missing_render["deliveryTermination"]["domainDetail"]["code"] == "DELIVERY.REQUIRED_PROJECTION_FAILED")
++    _other = next(e for e in _R2_ENVS.values() if e["querySurface"] != _env["querySurface"])
++    _cross = copy.deepcopy(_env)
++    _cross["queryRecord"] = copy.deepcopy(_other["queryRecord"])
++    must_invalid("r2-%s-cross-command-carrier-refused" % _key, _R2_ENV, _cross)
++    try:
++        QS.project_command_surface(copy.deepcopy(_other), _cmd)
++        check("r2-%s-another-command-surface-refused" % _key, False, "admitted")
++    except QS.QuerySurfaceProjectionError as _r2_exc:
++        check("r2-%s-another-command-surface-refused" % _key, _r2_exc.code == "QUERY_SURFACE_ENVELOPE_SELECTOR", _r2_exc.code)
++    _untyped = copy.deepcopy(_env)
++    _untyped["queryRecord"]["data"] = {"untyped": True}
++    must_invalid("r2-%s-untyped-member-refused" % _key, _R2_ENV, _untyped)
++    _mutate, _code = _R2_MUTANTS[_key]
++    _mutant = copy.deepcopy(_env)
++    _mutate(_mutant)
++    must_valid("r2-%s-join-mutant-is-schema-valid" % _key, _R2_ENV, _mutant)
++    try:
++        QS.project_command_surface(_mutant, _cmd)
++        check("r2-%s-join-mutant-refused-before-rendering" % _key, False, "admitted")
++    except QS.QuerySurfaceProjectionError as _r2_exc:
++        check("r2-%s-join-mutant-refused-before-rendering" % _key, _r2_exc.code == _code, _r2_exc.code)
++_r2_summary_mutant = copy.deepcopy(_R2_ENVS["candidates"])
++_r2_summary_mutant["query"]["items"] += 1
++try:
++    QS.project_command_surface(_r2_summary_mutant, _R2_CMD["candidates"])
++    check("r2-compact-query-result-join-refused", False, "admitted")
++except QS.QuerySurfaceProjectionError as _r2_exc:
++    check("r2-compact-query-result-join-refused", _r2_exc.code == "QUERY_SURFACE_QUERYRESULT_JOIN", _r2_exc.code)
++
++# S5: argvDigest is raw SHA-256 of C(exact ordered argv); no shell-joined surrogate.
++_te = json.loads((HERE / "workflow-cases.v1.json").read_text())["testExecution"]
++_te_sub = {"$PRJ": PRJ, "$SNAP1": SNAP, "$GRANT": "security.repo-execution-grant.v2:" + token("grant"), "$TOOL0": DET}
++
++
++def _te_resolve(value):
++    if isinstance(value, dict):
++        return {_te_sub.get(k, k): _te_resolve(v) for k, v in value.items()}
++    if isinstance(value, list):
++        return [_te_resolve(v) for v in value]
++    return _te_sub.get(value, value) if isinstance(value, str) else value
++
++
++_te_params = _te_resolve(_te["params"])
++_te_ctx = _te_resolve(_te["ctx"])
++
++
++def _te_admit(argv, digest):
++    ctx_ = copy.deepcopy(_te_ctx)
++    ctx_["grant"]["argvDigest"] = digest
++    return P.W.admit_test_execution(dict(_te_params, argv=argv), ctx_)
++
++
++def _argv_digest(v):
++    return hashlib.sha256(canonical.canonical(v)).hexdigest()
++
++
++_te_argv = list(_te_params["argv"])
++check("s5-exact-ordered-argv-canonical-digest-admits", _te_admit(_te_argv, _argv_digest(_te_argv))["admitted"] is True)
++reject("s5-shell-joined-argv-surrogate-refused", lambda: _te_admit(_te_argv, hashlib.sha256(" ".join(_te_argv).encode()).hexdigest()), "REQUEST.PRECONDITION_FAILED", "TEST.PRINCIPAL_NOT_ADMITTED")
++reject("s5-repeated-argument-is-a-different-argv", lambda: _te_admit(_te_argv + [_te_argv[-1]], _argv_digest(_te_argv)), "REQUEST.PRECONDITION_FAILED", "TEST.PRINCIPAL_NOT_ADMITTED")
++check("s5-repeated-argument-admits-under-its-own-digest", _te_admit(_te_argv + [_te_argv[-1]], _argv_digest(_te_argv + [_te_argv[-1]]))["admitted"] is True)
++reject("s5-reordered-arguments-refused", lambda: _te_admit(list(reversed(_te_argv)), _argv_digest(_te_argv)), "REQUEST.PRECONDITION_FAILED")
++check(
++    "s5-member-boundaries-and-empty-strings-change-the-digest-where-a-join-collides",
++    _argv_digest(["run", "a b"]) != _argv_digest(["run", "a", "b"])
++    and " ".join(["run", "a b"]) == " ".join(["run", "a", "b"])
++    and _argv_digest(["run", "x", ""]) != _argv_digest(["run", "x"]),
++)
++check("s5-test-payload-uses-the-same-recipe", P.W.test_payload(_te_params, 0, b"", b"")["argvDigest"] == _argv_digest(_te_argv))
++
++# S6 / A13: failure goldens carry actual detail; required-delivery detail binds the committed-Run reference.
++_inv3 = json.loads((HERE / "command-inventory.v3.json").read_text())
++_fault_for = {v: k for k, v in P.W.FAULT_TO_ERROR.items()}
++_golden_envelopes = []
++for _g in _inv3["goldens"]:
++    if _g["class"] not in ("request-rejected", "operational-failed"):
++        continue
++    _d = {"code": _g["domainDetail"], "remedy": _g["remedy"]}
++    _t = {"class": _g["class"], "errorCode": _g["errorCode"], "domainDetail": _d}
++    if _g["class"] == "operational-failed":
++        _t["faultCause"] = _fault_for[_g["errorCode"]]
++        if _g["domainDetail"] == "DELIVERY.RENDERER_FAILED_AFTER_COMMIT":
++            _t["runId"] = RUN
++    _ok, _why = valid(U + "command-envelope:3", {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "c" * 32, "termination": _t, "exitCode": _g["exitCode"], "errors": [_d]})
++    _golden_envelopes.append((_g["id"], _ok, _why))
++check("s6-every-v3-failure-golden-forms-a-lawful-failure-envelope", len(_golden_envelopes) >= 20 and all(ok for _, ok, _ in _golden_envelopes), [x for x in _golden_envelopes if not x[1]])
++check(
++    "s6-formerly-unconstructible-goldens-carry-owner-detail",
++    {g["id"]: g.get("domainDetail") for g in _inv3["goldens"] if g["id"] in ("doctor-report-not-producible", "query-latest-empty", "envelope-major-unsupported")}
++    == {"doctor-report-not-producible": "DOCTOR.REPORT_NOT_PRODUCIBLE", "query-latest-empty": "QUERY.VIEW_UNKNOWN", "envelope-major-unsupported": "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED"},
++)
++_qle = next(g for g in _inv3["goldens"] if g["id"] == "query-latest-empty")
++check(
++    "s6-query-latest-empty-detail-is-the-query-owner-row",
++    "| empty, missing, stale, or mismatched latest/snapshot/run selector | request-rejected | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |" in (HERE / "query-projection-contract.v3.md").read_text()
++    and _qle["errorCode"] == "IDENTITY.UNKNOWN",
++)
++_qle_no_detail = {k: v for k, v in _qle.items() if k != "domainDetail"}
++must_invalid("s6-failure-golden-without-detail-refused", U + "command-inventory:3#/$defs/Golden", _qle_no_detail)
++must_valid("s6-failure-golden-with-named-composition-admitted", U + "command-inventory:3#/$defs/Golden", dict(_qle_no_detail, detailSuppliedBy="native-route-composition"))
++must_invalid("s6-named-composition-and-detail-together-refused", U + "command-inventory:3#/$defs/Golden", dict(_qle, detailSuppliedBy="native-route-composition"))
++for _label, _gid in (("doctor", "doctor-report-not-producible"), ("query-empty", "query-latest-empty"), ("envelope-major", "envelope-major-unsupported")):
++    _g = next(g for g in _inv3["goldens"] if g["id"] == _gid)
++    _t = {"class": _g["class"], "errorCode": _g["errorCode"]}
++    if _g["class"] == "operational-failed":
++        _t["faultCause"] = _fault_for[_g["errorCode"]]
++    _env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "c" * 32, "termination": _t, "exitCode": _g["exitCode"]}
++    must_invalid("s6-%s-failure-envelope-without-errors-refused" % _label, U + "command-envelope:3", _env)
++    _d = {"code": _g["domainDetail"], "remedy": _g["remedy"]}
++    must_valid("s6-%s-failure-envelope-with-golden-detail-admitted" % _label, U + "command-envelope:3", dict(_env, termination=dict(_t, domainDetail=_d), errors=[_d]))
++_new_details = {"DOCTOR.REPORT_NOT_PRODUCIBLE", "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED", "DELIVERY.REQUIRED_PROJECTION_FAILED"}
++_registry_codes = {r["code"] for r in json.loads((HERE.parent / "public-detail-registry.v1.json").read_text())["records"]}
++check(
++    "s6-a13-new-details-registered-and-in-both-common-mirrors",
++    _new_details <= _registry_codes
++    and _new_details <= set(SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"])
++    and _new_details <= set(SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"])
++    and _registry_codes == set(SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"]),
++)
++_post = {"class": "operational-failed", "errorCode": "DELIVERY.REQUIRED_FAILED", "faultCause": "delivery-required", "domainDetail": {"code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT", "remedy": "r"}}
++_pre = dict(_post, domainDetail={"code": "DELIVERY.REQUIRED_PROJECTION_FAILED", "remedy": "r"})
++for _label, _ref, _run in (("current", U + "common:3#/$defs/StepTermination", RUN), ("retained", "urn:opensip:product-v1:workflows:common#/$defs/StepTermination", "run2:" + token("run"))):
++    must_valid("a13-%s-postcommit-detail-with-committed-run-admitted" % _label, _ref, dict(_post, runId=_run))
++    must_invalid("a13-%s-postcommit-detail-without-run-refused" % _label, _ref, _post)
++    must_valid("a13-%s-precommit-detail-without-run-admitted" % _label, _ref, _pre)
++    must_invalid("a13-%s-precommit-detail-with-run-refused" % _label, _ref, dict(_pre, runId=_run))
++    must_invalid("a13-%s-precommit-detail-on-another-class-refused" % _label, _ref, {"class": "request-rejected", "errorCode": "REQUEST.PRECONDITION_FAILED", "domainDetail": {"code": "DELIVERY.REQUIRED_PROJECTION_FAILED", "remedy": "r"}})
++    must_valid("a13-%s-other-operational-failure-keeps-optional-run" % _label, _ref, {"class": "operational-failed", "errorCode": "DURABILITY.COMMIT_FAILED", "faultCause": "durability-commit", "runId": _run})
++    must_invalid("a13-%s-termination-exclusivity-retained" % _label, _ref, dict(_pre, reasonCodes=["VERDICT.INDETERMINATE"]))
++
++# A11: current test execution admits only the selected truth-table profile values.
++_te_enum = SCHEMAS["urn:opensip:product-v1:workflows:test-execution"]["$defs"]["EnforcementValue"]
++check("a11-selected-truth-table-profile-has-no-platform-primitive-row", "ENFORCED-PLATFORM" not in (HERE.parent.parent / "artifacts" / "permission-truth-tables.v9.json").read_text())
++must_invalid(
++    "a11-enforced-platform-effect-not-admissible-in-current-profile",
++    "urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepParams",
++    dict(_te_params, effects=dict(_te_params["effects"], network="ENFORCED-PLATFORM:seatbelt")),
++)
++check("a11-enforcement-description-states-profile-law", "cannot be claimed" in _te_enum["description"] and "admitted only when" not in _te_enum["description"])
++reject(
++    "a11-schema-member-still-must-equal-truth-table-row",
++    lambda: P.W.admit_test_execution(dict(_te_params, effects=dict(_te_params["effects"], network="ENFORCED-AT-HOST-BROKER")), copy.deepcopy(dict(_te_ctx, grant=dict(_te_ctx["grant"], argvDigest=_argv_digest(_te_argv))))),
++    "REQUEST.PRECONDITION_FAILED",
++    "TEST.CONFINEMENT_CLAIM_REFUSED",
++)
++
++# A12: the existing hidden reason covers any later axis; A8/A14 published selections.
++_a12_rule = {"enabled": True, "gating": True, "evidenceUse": []}
++_a12_entry, _a12_sig = P.W.classify(
++    hid("finding-key2", "a12"), "r",
++    {"B": False, "E0": True, "E1": False, "E2": False, "E3": False, "E4": False, "waivedB": False, "waivedC": False},
++    _a12_rule, _a12_rule, empty_evidence(), empty_evidence(), {"detectorId": "fixture", "method": "identical-closure"}, P.AUDIT_PROFILES["code-regression"],
++)
++check("a12-detector-hidden-code-net-new-gates-with-hidden-reason", _a12_entry["gates"] and _a12_entry["gateReason"] == "code-net-new-policy-hidden" and _a12_entry["subsequentDeltas"] == ["detection"] and _a12_sig == "fail")
++_chapter_ws = (HERE.parents[3] / "docs/v2/contracts/product-v1/workflows-and-surfaces.md").read_text()
++check("a12-hidden-reason-defined-over-any-later-axis", "hidden by a later detector, policy or scope change" in " ".join(_chapter_ws.split()) and "detector" in SCHEMAS[U + "comparison:2"]["$defs"]["Entry"]["properties"]["gateReason"]["description"])
++check("a8-workflows-publishes-present-listing-refusal-route", "`REQUEST.PRECONDITION_FAILED` / `EVALUATION.PROJECTION_INPUT_INCOMPLETE`" in _chapter_ws)
++reject("a8-present-listing-missing-blob-route", lambda: P.parse_detector_manifest_body({}, "f" * 64, present=True), "REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE")
++check("a14-conservative-evidence-attribution-preserved", "Evidence-change attribution is deliberately conservative" in _chapter_ws and "A future evidence-pivot recipe requires its own reviewed successor." in _chapter_ws)
++
++
+ def _sha256_file(path):
+     return hashlib.sha256(path.read_bytes()).hexdigest()
+ 
+@@ -3191,6 +4334,8 @@
+     HERE / "command-inventory.v1.json",
+     HERE / "repair_closed_world_selection.v1.py",
+     HERE / "workflows_model.v3.py",
++    HERE / "policy_test_model.v3.py",
++    HERE / "policy-test-cases.v3.json",
+ ]
+ OWNED += sorted((HERE / "schemas" / "evaluator3").glob("*.schema.json"))
+ source_hashes = {str(p.relative_to(HERE)): _sha256_file(p) for p in OWNED}

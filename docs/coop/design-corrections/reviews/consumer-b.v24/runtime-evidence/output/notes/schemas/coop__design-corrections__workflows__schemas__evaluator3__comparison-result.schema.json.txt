@@ -1,0 +1,132 @@
+# coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json
+top-level keys: $schema, $id, title, description, type, additionalProperties, required, properties, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "urn:opensip:product-v1:workflows:evaluator3:comparison:2"
+## title: "ComparisonResult schemaMajor 2 — evaluator3 unmatched + correspondence coverage"
+## description: "Explicit successor to versioning-policy.v8.json#comparisonSchema.ComparisonResult. Attribution follows a fixed pivot chain over CURRENT source: E0 = (prior detector, prior policy, prior scope, prior waivers); E1 = (current detector, prior policy/scope/waivers); E2 = (current detector, current policy, prior scope/waivers); E3 = (current detector/policy/scope, prior waivers); E4 = current Run. Baseline B is the artifact's entry set. Each entry's classification is the FIRST axis in the order code→detection→policy→scope→waiver at which its presence (or waived status, for the waiver axis) chang...
+## type: "object"
+## additionalProperties: false
+## required: ["comparisonResultId", "descriptor"]
+## properties: keys=["comparisonResultId", "descriptor"]
+### AuditProfileName | type="string" | enum=["code-regression", "policy-change", "full-current", "report-only"]
+### AuditProfile | type="object" | required=["name", "gateCodeNetNew", "gateNewlyLiveByPolicyAxes", "gateAllCurrentLive", "newWaiverSuppressesCodeNetNew", "gateRuleUnder"] | additionalProperties=false | description="Explicit, visible gate semantics. code-regression (default for audit): gates CODE-NET-NEW on rules gating under baseline OR current policy; a new waiver added in the same change does not suppress it. policy-change: additionally gates findings newly live through POLICY/SCOPE/WAIVER deltas (used to review a policy change; code regressions still gate). full-current: every live unwaived gating finding on the current side gates, whatever its axis. report-only: nothing gates; verdict is pass or indete"
+  name: $ref="#/$defs/AuditProfileName"
+  gateCodeNetNew: type="boolean"
+  gateNewlyLiveByPolicyAxes: type="boolean"
+  gateAllCurrentLive: type="boolean"
+  newWaiverSuppressesCodeNetNew: type="boolean"
+  gateRuleUnder: type="string" | enum=["baseline-or-current", "current-only"]
+### EvaluationContext | type="object" | required=["policyDigest", "scopeDigest", "waiverSetDigest", "detectorClosureIds", "evidenceAvailability"] | additionalProperties=false | description="Digests of the evaluation context on one side. policyDigest = raw SHA-256 of the canonical PolicyDocumentV1 bytes (equals plan.policyDigest); waiverSetDigest = raw SHA-256 of the canonical RESOLVED WaiverSetV1 bytes (equals plan.waiverDigest); scopeDigest = raw SHA-256 of the canonical ScopeDocumentV1 bytes (the workflow glob scope-policy document, bound as an analysis-spec parameter; distinct from plan.scopeDigest, which is the foundation scope-descriptor). All three are retained blobs. detecto"
+  policyDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  scopeDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  waiverSetDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  detectorClosureIds: type="array" | minItems=1 | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"}
+  evidenceAvailability: $ref="#/$defs/EvidenceAvailability"
+### EvidenceAvailability | type="object" | required=["importKinds", "relations", "imports"] | additionalProperties=false | description="Evidence actually bound on one side. imports lists the exact import2 identities (each already binds payload content, correspondence, scope and observation digests) so that the evidence axis compares identities, not kind presence: the same kind with different payload/correspondence/scope/window is a changed axis. importKinds is derived from imports and retained for the rule evidenceUse join."
+  importKinds: type="array" | maxItems=5 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"}
+  relations: type="array" | maxItems=256 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"}
+  imports: type="array" | maxItems=256 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "#/$defs/BoundImport"}
+### BoundImport | type="object" | required=["kind", "importId", "payloadDigest", "sourceCorrespondenceDigest", "scopeDigest", "observationDigest"] | additionalProperties=false
+  kind: $ref="urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+  importId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+  payloadDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  sourceCorrespondenceDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  scopeDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  observationDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+### ExecutionDeficiency | type="object" | required=["source", "cause", "subjectId", "predicateId", "inputRefs", "evidenceKind", "nativeCause", "universe"] | additionalProperties=false | description="Drift-checked copy of foundation3 evaluation-deficiency required fields. Full Run replay is a prerequisite. Not a Comparison RuleDeficiency cause key."
+  source: type="string" | enum=["enumeration", "native", "import", "execution", "correspondence"]
+  cause: type="string" | minLength=1 | maxLength=128
+  subjectId: oneOf=[{"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SubjectId"}, {"type": "null"}]
+  predicateId: oneOf=[{"maxLength": 128, "minLength": 1, "type": "string"}, {"type": "null"}]
+  inputRefs: type="array" | maxItems=100000 | x-opensip-order="canonical-set" | items={"additionalProperties": false, "properties": {"digest": {"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"}, "domain": {"maxLength": 64, "minLength": 1, "type": "string"}}, "required": ["domain", "digest"], "type": "object"}
+  evidenceKind: oneOf=[{"enum": ["test", "runtime", "history", "dependency", "prepared"], "type": "string"}, {"type": "null"}]
+  nativeCause: oneOf=[{"maxLength": 128, "minLength": 1, "type": "string"}, {"type": "null"}]
+  universe: oneOf=[{"maxLength": 128, "minLength": 1, "type": "string"}, {"type": "null"}]
+### RuleDeficiency | type="object" | required=["ruleId", "gating", "cause"] | additionalProperties=false | description="Current-side rule deficiency independent of classified matched entries. correspondence-incomplete covers unmatched findings and semantic population unknown (unavailable inventory record or no-covering-program) including zero-finding rules. A missing expected inventory POINTER is not this cause: that is structural admission refusal."
+  ruleId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  gating: type="boolean"
+  cause: type="string" | enum=["required-coverage-unsatisfied", "required-coverage-unknown", "required-evidence-unavailable", "correspondence-incomplete"]
+### RuleCoverage | type="object" | required=["ruleId", "requiredCoverage", "enabled", "gating", "evidenceUse"] | additionalProperties=false
+  ruleId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  requiredCoverage: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequiredCoverage"
+  enabled: type="boolean"
+  gating: type="boolean"
+  evidenceUse: type="array" | maxItems=5 | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/EvidenceUse"}
+### DetectorDisposition | type="object" | required=["detectorId", "baselineClosureId", "currentClosureId", "baselineSemanticsMajor", "currentSemanticsMajor", "method"] | additionalProperties=false | allOf=[{"if": {"properties": {"method": {"const": "three-way-pivot"}}}, "then": {"required": ["pivotRunId"]}}, {"if": {"properties": {"method": {"const": "indeterminate"}}}, "then": {"required": ["indeterminateReason"]}}, {"if": {"properties": {"method": {"const": "detector-added"}}}, "then": {"properties": {"baselineClosureId": {"type": "null"}, "currentClosureId": {"type": "string"}}}}, {"if": {"properties": {"method": {"const": "detector-removed"}}}, "then": {"properties": {"baselineClosureId": {"type": "string"}, "currentClosureId": {"type": "null"}}, "required": ["pivotRunId"]}}, {"if": {"pr...
+  detectorId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  baselineClosureId: oneOf=[{"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"}, {"type": "null"}]
+  currentClosureId: oneOf=[{"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"}, {"type": "null"}]
+  baselineSemanticsMajor: oneOf=[{"maximum": 65535, "minimum": 0, "type": "integer"}, {"type": "null"}]
+  currentSemanticsMajor: oneOf=[{"maximum": 65535, "minimum": 0, "type": "integer"}, {"type": "null"}]
+  method: type="string" | enum=["identical-closure", "declared-compatible", "three-way-pivot", "detector-added", "detector-removed", "indeterminate"]
+  pivotRunId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+  indeterminateReason: $ref="#/$defs/IndeterminateReason"
+### IndeterminateReason | type="string" | enum=["pivot-detector-unavailable", "pivot-closure-revoked", "pivot-closure-incompatible", "pivot-run-not-committed", "pivot-detector-nondeterministic", "pivot-reevaluation-unavailable", "baseline-recipe-unsupported", "baseline-project-unmapped", "baseline-context-document-missing", "baseline-schema-major-unsupported", "required-evidence-unavailable", "evidence-availability-changed", "evidence-content-changed", "fingerprint-migration-only"]
+### Axis | type="string" | enum=["code", "detection", "policy", "scope", "waiver", "evidence"]
+### Classification | type="string" | enum=["UNCHANGED", "CODE-NET-NEW", "CODE-FIXED", "DETECTION-DELTA", "POLICY-DELTA", "SCOPE-DELTA", "WAIVER-DELTA", "EVIDENCE-DELTA", "INDETERMINATE"]
+### PivotPresence | type="object" | required=["B", "E0", "E1", "E2", "E3", "E4", "waivedB", "waivedC"] | additionalProperties=false | description="Presence of the fingerprint at each pivot. null = pivot not available. waivedB/waivedC record waiver status on the two real sides."
+  B: type="boolean"
+  E0: oneOf=[{"type": "boolean"}, {"type": "null"}]
+  E1: oneOf=[{"type": "boolean"}, {"type": "null"}]
+  E2: oneOf=[{"type": "boolean"}, {"type": "null"}]
+  E3: oneOf=[{"type": "boolean"}, {"type": "null"}]
+  E4: type="boolean"
+  waivedB: type="boolean"
+  waivedC: type="boolean"
+### Entry | type="object" | required=["fingerprint", "ruleId", "detectorId", "presence", "classification", "subsequentDeltas", "liveInCurrent", "gates"] | additionalProperties=false | allOf=[{"if": {"properties": {"classification": {"const": "INDETERMINATE"}}}, "then": {"required": ["indeterminateReason"]}}, {"if": {"properties": {"classification": {"enum": ["CODE-NET-NEW", "CODE-FIXED", "DETECTION-DELTA", "POLICY-DELTA", "SCOPE-DELTA", "EVIDENCE-DELTA", "WAIVER-DELTA"]}}}, "then": {"required": ["direction"]}}, {"if": {"properties": {"gates": {"const": true}}}, "then": {"required": ["gateReason"]}}]
+  fingerprint: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
+  ruleId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  detectorId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  presence: $ref="#/$defs/PivotPresence"
+  classification: $ref="#/$defs/Classification"
+  direction: type="string" | enum=["appeared", "vanished", "waiver-added", "waiver-removed"]
+  subsequentDeltas: type="array" | maxItems=5 | uniqueItems=true | x-opensip-order="sequence" | items={"$ref": "#/$defs/Axis"}
+  indeterminateReason: $ref="#/$defs/IndeterminateReason"
+  liveInCurrent: type="boolean"
+  gates: type="boolean"
+  gateReason: type="string" | enum=["code-net-new", "code-net-new-policy-hidden", "newly-live-policy-axis", "current-live", "indeterminate-gating-rule"]
+### ComparisonDescriptor | type="object" | required=["schemaFamily", "schemaMajor", "baselineId", "currentRunId", "currentSnapshotId", "auditProfile", "projectCorrespondence", "comparisonPerformed", "baselineContext", "currentContext", "contextDelta", "pivotsAvailable", "detectors", "ruleDeficiencies", "entries", "counts", "verdict", "unmatchedOccurrences", "correspondenceCoverage", "currentEvaluationState", "currentExecutionDeficiencies"] | additionalProperties=false | allOf=[{"if": {"properties": {"comparisonPerformed": {"const": false}}}, "then": {"properties": {"correspondenceCoverage": {"maxItems": 0}, "entries": {"maxItems": 0}, "unmatchedOccurrences": {"maxItems": 0}, "verdict": {"const": "indeterminate"}}, "required": ["wholeIndeterminateReason", "remedy"]}}] | description="Identity-bearing: H('workflow.comparison', descriptor). Excludes RequestId/ExecutionId/clocks/receipts."
+  schemaFamily: const="opensip.product.comparison"
+  schemaMajor: const=2
+  baselineId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+  currentRunId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+  currentSnapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+  auditProfile: $ref="#/$defs/AuditProfile"
+  projectCorrespondence: type="string" | enum=["same-project", "declared", "unmapped"]
+  comparisonPerformed: type="boolean"
+  wholeIndeterminateReason: $ref="#/$defs/IndeterminateReason"
+  remedy: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+  baselineContext: $ref="#/$defs/EvaluationContext"
+  currentContext: $ref="#/$defs/EvaluationContext"
+  contextDelta: type="object" | additionalProperties=false | required=["codeChanged", "detectorChanged", "policyChanged", "scopeChanged", "waiversChanged", "evidenceAvailabilityChanged"] | properties=["codeChanged", "detectorChanged", "evidenceAvailabilityChanged", "policyChanged", "scopeChanged", "waiversChanged"]
+      codeChanged: type="boolean"
+      detectorChanged: type="boolean"
+      policyChanged: type="boolean"
+      scopeChanged: type="boolean"
+      waiversChanged: type="boolean"
+      evidenceAvailabilityChanged: type="boolean"
+  pivotsAvailable: type="object" | additionalProperties=false | required=["E0", "E1", "E2", "E3"] | properties=["E0", "E1", "E2", "E3"]
+      E0: type="string" | enum=["available", "not-needed", "unavailable"]
+      E1: type="string" | enum=["available", "not-needed", "unavailable"]
+      E2: type="string" | enum=["available", "not-needed", "unavailable"]
+      E3: type="string" | enum=["available", "not-needed", "unavailable"]
+  detectors: type="array" | maxItems=64 | x-opensip-order="sequence" | items={"$ref": "#/$defs/DetectorDisposition"}
+  ruleDeficiencies: type="array" | maxItems=512 | x-opensip-order="sequence" | items={"$ref": "#/$defs/RuleDeficiency"}
+  entries: type="array" | maxItems=3145728 | x-opensip-order="sequence" | items={"$ref": "#/$defs/Entry"}
+  counts: type="object" | additionalProperties=false | required=["UNCHANGED", "CODE-NET-NEW", "CODE-FIXED", "DETECTION-DELTA", "POLICY-DELTA", "SCOPE-DELTA", "WAIVER-DELTA", "EVIDENCE-DELTA", "INDETERMINATE", "gating"] | properties=["CODE-FIXED", "CODE-NET-NEW", "DETECTION-DELTA", "EVIDENCE-DELTA", "INDETERMINATE", "POLICY-DELTA", "SCOPE-DELTA", "UNCHANGED", "WAIVER-DELTA", "gating"]
+      UNCHANGED: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      CODE-NET-NEW: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      CODE-FIXED: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      DETECTION-DELTA: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      POLICY-DELTA: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      SCOPE-DELTA: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      WAIVER-DELTA: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      EVIDENCE-DELTA: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      INDETERMINATE: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+      gating: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+  verdict: type="string" | enum=["pass", "fail", "indeterminate"]
+  d9Deficiency: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+  unmatchedOccurrences: type="array" | maxItems=3145728 | uniqueItems=true | x-opensip-order={"by": ["side", "findingId"]} | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UnmatchedOccurrence"}
+  correspondenceCoverage: type="array" | maxItems=512 | x-opensip-order={"by": ["ruleId"]} | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CorrespondenceCoverage"}
+  currentEvaluationState: type="string" | enum=["evaluated", "budget-exhausted"]
+  currentExecutionDeficiencies: type="array" | maxItems=4096 | x-opensip-order="sequence" | items={"$ref": "#/$defs/ExecutionDeficiency"}

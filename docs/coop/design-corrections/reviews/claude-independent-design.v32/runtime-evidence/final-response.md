@@ -1,0 +1,17 @@
+The review is complete. `review.md` and `review.json` are written; frozen source32 and package 8 are byte-unchanged.
+
+## Verdict: ACCEPT — source32
+
+**Verification.** Manifest `3897e8d1…`, archive `acbc2beb…`, 12,898/12,898 rows by hash *and* size, zero extras, plus **full archive-to-manifest equality on all 12,898 members**, and ancestry to the exact frozen31 I graded. Package 8: 277/277, source-manifest byte-equal to the frozen32 manifest. My delta — 3 added, 0 removed, 23 changed — agrees with root's inventory on all 26 paths.
+
+**The new repair owner is substantively correct.** I executed it rather than reading it for agreement. Ownership now comes from the retained EnumerationPlan census, so the symbol-extent owner my bounded review showed was *missed* is now returned; `candidateSourcePaths` counts; a selected **unavailable** binding yields typed unresolved ownership that an available *closed* owner cannot discharge; unselected programs are never inferred; extents stay distinct; source-path scopes are demoted to witnesses; coverage selection is independent of the recipe; the conjunction is non-vacuous with absence folded into the display; and remedies now name all six coordinates including the `coverage2` identity. Chapter 6, both repair schemas, the native link and the model seam all publish that same law.
+
+**One concern I raised and resolved myself:** the module derives `cellOrdinal` by `enumerate()`, and `ordered()` has no `cells` branch — but I tested the validator directly and the declared `{by:[…]}` order admits in-order and refuses shuffled, so the ordinal is normative. No finding.
+
+**RRS-A3 — I agree with root and add nothing.** The bounded evidence is honestly scoped: the empty-target derivation is labelled as not a lawful repair request, the source itself says the control "does not prove a lawful old-preview bypass", the projection control now uses real nonempty targets, and `_cw_preview` carries its own limit. **No narrow reference correction is needed.** I do not report invalid adapter input as a product bypass, and I do not demand a product repair implementation as a design prerequisite.
+
+**All five record corrections verified against my actual v31 file before accepting**, plus one of my own. Two deserve emphasis: RR31-05 was simply wrong in my v31 report — tracing a real replay gives `open_run_closure → derive → admit_enumeration`, so structural custody runs **first**, and I withdraw the inverse claim along with any implication that the admit-then-refuse shape is impossible. And **RR31-07 is mine**: my bounded review's remedy-ambiguity pair used pseudo IDs with an unequal source/target universe on a `same-only` relation, so it did **not** demonstrate two lawfully admitted records — the structural finding survives, that particular construction does not.
+
+A-8 is discharged on evidence I inspected: exactly one 64-hex leaf differs between the 29 and 30 native-cases bytes, and the failed receipt is preserved with `passed: false`. That is new custody supplied now, **not** retro-authentication.
+
+Zero new MUST, zero new SHOULD, two advisories. Design review only: no application grade, activation, blind acceptance or implementation authorization; 28 condition-2 obligations retained, 32 gates unperformed (**condition 5 NOT MET**), 54 recovery cases unexecuted, D9 successor still assigned. Six probes failed on my own errors and are preserved and labelled in both reports.

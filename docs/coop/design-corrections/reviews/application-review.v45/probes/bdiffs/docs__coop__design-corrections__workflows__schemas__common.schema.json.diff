@@ -1,0 +1,327 @@
+--- before/docs/coop/design-corrections/workflows/schemas/common.schema.json
++++ staged/docs/coop/design-corrections/workflows/schemas/common.schema.json
+@@ -121,3 +121,3 @@
+       "pattern": "^[^\\\\\\u0000]+(?![\\s\\S])",
+-      "description": "Closed glob over LogicalPath: literal characters plus '*', '?' and a whole-segment '**'. No brace, class or escape syntax."
++      "description": "Portable glob matching is normative in docs/coop/design-corrections/foundation/glob-pattern-contract.v1.md: full-string, case-sensitive matching; '*' and '?' stay within a segment; whole-segment '**' matches zero or more segments including a final filename. Braces and brackets are literal; no escape syntax. Candidate admission remains owned by its field."
+     },
+@@ -357,2 +357,3 @@
+         "BASELINE.CONTEXT_DOCUMENT_MISSING",
++        "BASELINE.ENTRY_PROJECTION_CONFLICT",
+         "BASELINE.PIVOT_CLOSURE_INCOMPATIBLE",
+@@ -366,2 +367,3 @@
+         "CLOCK-EXCURSION-FORWARD",
++        "COMPARISON.CORRESPONDENCE_INCOMPLETE",
+         "COMPARISON.PIVOT_REEVALUATION_UNAVAILABLE",
+@@ -377,3 +379,5 @@
+         "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
++        "DELIVERY.REQUIRED_PROJECTION_FAILED",
+         "DOCTOR.DEFECTS_FOUND",
++        "DOCTOR.REPORT_NOT_PRODUCIBLE",
+         "ENVELOPE.BODY_DIGEST",
+@@ -381,2 +385,11 @@
+         "ENVELOPE.SHAPE",
++        "EVALUATION.FINDING_JOIN_REFUSED",
++        "EVALUATION.INPUT_REFUSED",
++        "EVALUATION.MIXED_OUTPUT_MAJOR",
++        "EVALUATION.OUTPUT_BOUND_EXCEEDED",
++        "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
++        "EVALUATION.PROOF_VERDICT_INCONSISTENT",
++        "EVALUATION.REQUIRED_OUTPUT_OMITTED",
++        "EVALUATION.SELECTION_LIMIT",
++        "EVALUATION.WORK_BUDGET_EXHAUSTED",
+         "GRANT.ARGV_MISMATCH",
+@@ -431,2 +444,3 @@
+         "OBSERVER.FAIL_STOP",
++        "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+         "OUTPUT.FORMAT_NOT_APPLICABLE",
+@@ -463,2 +477,11 @@
+         "PROVIDER.UNAVAILABLE.UNSUPPORTED_COMPILER_MODE",
++        "QUERY.CURSOR_MISMATCH",
++        "QUERY.ENDPOINT_AMBIGUOUS",
++        "QUERY.ENDPOINT_UNKNOWN",
++        "QUERY.FACT_VIEW_UNAVAILABLE",
++        "QUERY.PARAMS_MALFORMED",
++        "QUERY.RELATION_UNSUPPORTED",
++        "QUERY.SCHEMA_MAJOR_UNSUPPORTED",
++        "QUERY.VIEW_AMBIGUOUS",
++        "QUERY.VIEW_UNKNOWN",
+         "RECOVERY.REFUSED",
+@@ -476,2 +499,4 @@
+         "REPAIR.SOURCE_MOVED",
++        "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE",
++        "REPAIR.TARGET_METADATA_AMBIGUOUS",
+         "REPAIR.TARGET_PREIMAGE_MISMATCH",
+@@ -479,2 +504,3 @@
+         "REVIEW.CANDIDATE_SUPPRESSED",
++        "REVIEW.CANDIDATE_UNKNOWN",
+         "ROOT.CHAIN_BACKDATED",
+@@ -718,3 +744,3 @@
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate. Required-delivery detail law: DELIVERY.RENDERER_FAILED_AFTER_COMMIT names a failure after this invocation committed a Run and requires that runId; DELIVERY.REQUIRED_PROJECTION_FAILED names a required projection or renderer failure when no Run was committed and forbids runId. Both are operational-failed / DELIVERY.REQUIRED_FAILED; every other operational-failed termination keeps its existing optional runId.",
+       "additionalProperties": false,
+@@ -791,2 +817,7 @@
+                     "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
+                   ]
+@@ -839,2 +870,12 @@
+                   ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+@@ -876,4 +917,18 @@
+             "not": {
+-              "required": [
+-                "signal"
++              "anyOf": [
++                {
++                  "required": [
++                    "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+@@ -901,2 +956,119 @@
+               }
++            },
++            "anyOf": [
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-io"
++                  },
++                  "errorCode": {
++                    "const": "HOST.IO_FAILURE"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-busy"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.BUSY_TIMEOUT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-corrupt"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.CORRUPT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "cas-link"
++                  },
++                  "errorCode": {
++                    "const": "CAS.LINK_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "provider-protocol"
++                  },
++                  "errorCode": {
++                    "const": "PROVIDER.PROTOCOL_VIOLATION"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "durability-commit"
++                  },
++                  "errorCode": {
++                    "const": "DURABILITY.COMMIT_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "delivery-required"
++                  },
++                  "errorCode": {
++                    "const": "DELIVERY.REQUIRED_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "output-serialization"
++                  },
++                  "errorCode": {
++                    "const": "OUTPUT.SERIALIZATION_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "extension-install-io"
++                  },
++                  "errorCode": {
++                    "const": "EXTENSION.INSTALL_IO_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "serve-protocol"
++                  },
++                  "errorCode": {
++                    "const": "SERVE.PROTOCOL_FAULT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-invariant"
++                  },
++                  "errorCode": {
++                    "const": "SYSTEM.OUTCOME.ILLEGAL_STATE"
++                  }
++                }
++              }
++            ],
++            "not": {
++              "required": [
++                "reasonCodes"
++              ]
+             }
+@@ -927,2 +1099,7 @@
+                   ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+@@ -945,4 +1122,18 @@
+             "not": {
+-              "required": [
+-                "errorCode"
++              "anyOf": [
++                {
++                  "required": [
++                    "errorCode"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+@@ -979,2 +1170,72 @@
+                 "const": "REQUEST.PRECONDITION_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode",
++              "runId"
++            ],
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "domainDetail"
++            ],
++            "properties": {
++              "domainDetail": {
++                "required": [
++                  "code"
++                ],
++                "properties": {
++                  "code": {
++                    "const": "DELIVERY.REQUIRED_PROJECTION_FAILED"
++                  }
++                }
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "errorCode"
++            ],
++            "not": {
++              "required": [
++                "runId"
++              ]
++            },
++            "properties": {
++              "class": {
++                "const": "operational-failed"
++              },
++              "errorCode": {
++                "const": "DELIVERY.REQUIRED_FAILED"
+               }

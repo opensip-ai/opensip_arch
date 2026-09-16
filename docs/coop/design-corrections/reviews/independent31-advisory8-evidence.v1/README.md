@@ -1,0 +1,1 @@
+Exact source29/source30 manifest-bound native-cases bytes differ only by the one schema digest. The source29 foundation receipt remains failed; its exact identity child report matches its original receipt hash. These are explicit inputs for the next actual independent review, not a new source correction or retroactive acceptance.

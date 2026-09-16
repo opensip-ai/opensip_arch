@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-native-wire-renderer-review-04",
+  "reviewer": "independent Claude reviewer (claude-opus-5)",
+  "subject": {
+    "path": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-04",
+    "manifest": "/tmp/opensip-implementation/m1-native-wire-renderer-subject-04.json",
+    "manifestSha256": "606639b214ca6cd25702319146faf4ced4510d967b3ee0e46b839f37e11671b5",
+    "files": 24,
+    "integrityBefore": "manifest hash matched; exact 24-file set; every sha256 and byte size matched",
+    "integrityAfter": "manifest hash matched; exact 24-file set; every sha256 and byte size matched; all 11 input pins still equal origins (verified after all probes, mutations and writes)",
+    "deltaVsSubject03": "same 24-path set; only render.py, test_render.py, UNIT.md changed; all Rust/TS sources, probes, extern copies, inputs and generated outputs byte-identical",
+    "inputPins": "all 11 copies byte-equal to pinned origins (native owner01 input + meta schema; accepted control01 extern contracts/TS); owner helpers not executed"
+  },
+  "verdict": "changes-required",
+  "verdictSummary": "Review03 RF-1 is corrected: selection shape is closed and a declared frame can no longer silently disappear. The pinned owner01 input still renders byte-identically, so review03's Rust/TS compilation evidence carries over. One narrow representation finding remains, present since subject-01 and missed in my earlier reviews: generated selection variants are bound by JSON member order and do not record which admitted selector each alternative belongs to.",
+  "scope": {
+    "in": [
+      "delta04 renderer change: frame selection grammar validation and its tests",
+      "reproduction of generated outputs for the pinned owner01 input",
+      "generic representation of selection alternatives in generated Rust/TS"
+    ],
+    "reliedOnFromReview03": "Rust tests/Clippy/strict TS results for byte-identical compiled inputs and outputs; not rerun (no compiled byte changed)",
+    "out": [
+      "native owner semantics, including which frames use which selection mechanism (other author)",
+      "final closed IDL profile, external reference/name/injection validation, source selection, generator closure, product integration",
+      "CBOR codec, admission, host resource bounds, platform/performance/release qualification"
+    ]
+  },
+  "reproduction": {
+    "freshRender": "render.py on own copy reproduced wire.rs, wire.ts, render-result.json byte-identically",
+    "python": "python3 -B test_render.py: 13 tests OK",
+    "rustTs": "not rebuilt: compiled sources and generated outputs are byte-identical to subject-03, which review03 built (9 Rust + 2 doctests, Clippy -D warnings, tsc 6.0.3 strict all passing)",
+    "environment": "own TMPDIR under review-04/work; Python -B; no cargo invocation; no background tasks"
+  },
+  "review03Disposition": [
+    {"id": "review03-RF-1", "title": "selection payload shape unchecked", "status": "corrected", "evidence": "refused with ValueError: empty/one/three alternatives, missing/unknown select, extra key, 'selector' typo key, host-phase keys under attribution select, list alternatives, non-type and nested-selection alternatives, frame-payload and 2^64 alternatives, mixed t+select, type object with selector member, string/null payload. Mutations D1-D5 are caught by the new test; fixture now uses the actual 'select' key."},
+    {"id": "review03-A1..A6", "title": "closed profile, extern/name injection, open type objects, redundant nullability, envelope self-ref, codec duties, carried limits", "status": "unchanged; UNIT.md now explicitly assigns closed-profile/external-reference/name/injection validation to final integration", "evidence": "diff of UNIT.md and render.py"}
+  ],
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Selection variant identity depends on JSON member order and does not record the selector key",
+      "location": "render.py Renderer.run protocol loop: variant = pascal(frameType) + str(index) over alternatives.items()",
+      "detail": "Rust payload variants for selections are named FactBatch0/FactBatch1 and Unavailable0/Unavailable1 by the enumeration index of the alternatives object. JSON object member order is not semantically significant, yet reordering an equivalent input reassigns which alternative is 0 or 1. No generated artifact (wire.rs, wire.ts, render-result.json) records which selector value ('false'/'true', 'WAIT_NATIVE_CONTEXT_VERIFIED'/'ANALYZING') a variant belongs to. With the pinned input the alternative types differ, so a handwritten M3 decoder is protected by type checking. But the renderer accepts two alternatives of the same type, and then the index is the only, order-derived, discriminator. UNIT.md requires M3 to decode by frame tag plus admitted host selector, so the carrier must bind selector to variant deterministically.",
+      "evidence": [
+        "baseline: FactBatch0(Box<Ts2FactBatchV1>), FactBatch1(Box<Ts2FactBatchV3>); no selector string appears in wire.rs payload enums or in wire.ts",
+        "Ts2 FactBatch alternatives reordered (true before false): render ok; variant 0 becomes the V3 alternative, TS rows reorder",
+        "both alternatives set to the same type: render ok, two rows/variants distinguished only by index",
+        "mutation D9 (swap indices) is caught only because the positive test pins FactBatch0 to V1, which in turn relies on input order"
+      ],
+      "requiredChange": "Bind variants to declared selector keys independently of input order. Either derive names from the key (e.g. FactBatchFalse/FactBatchTrue, UnavailableWaitNativeContextVerified/UnavailableAnalyzing), or iterate alternatives in the renderer's fixed per-mechanism key order and emit the selector key per variant (doc comment or render-result mapping). Refuse or explicitly disclose same-type alternatives. Add a test that a reordered alternatives object yields identical output. Option 2 keeps current outputs byte-identical if the fixed order matches the pinned input."
+    }
+  ],
+  "advisories": [
+    {"id": "A1", "title": "Two new guards have no test", "detail": "Removing 'payload must be a dict' (D6) or 'alternatives must be a dict' (D7) still passes all 13 groups. Without them, string/None payloads and non-empty list alternatives still fail, but with TypeError instead of the intended ValueError. Add string/null payload and non-empty list-alternatives cases."},
+    {"id": "A2", "title": "Positive control's TS assertion is not protocol-specific", "detail": "assertIn('\"frameType\": \"FactBatch\"', ts) is satisfied by Rust3ProviderFrameV3 rows. Dropping only Ts2 selection rows (D8) passes the Python tests and is caught only by comparing generated outputs. Assert on the Ts2FrameV2 block's two FactBatch rows."},
+    {"id": "A3", "title": "Selections outside frame payload positions fail with KeyError", "detail": "A selection object nested in a nullable, or used as a record member type, raises KeyError('t'). This fails closed; a ValueError would match the renderer's refusal contract."},
+    {"id": "A4", "title": "Review03 advisories carried", "detail": "Extern generatedType/member/frame names emitted unvalidated; unknown keys in type objects; nullable(nullable)/nullable(null); payload self-envelope refs; codec callback and length duties; Rust frame fields uncorrelated; derived tagged Serialize order. UNIT.md now assigns closed-profile/name/injection validation to final integration."}
+  ],
+  "tests": {
+    "mutations": [
+      {"id": "D1", "change": "drop exact {select, alternatives} key check", "result": "caught"},
+      {"id": "D2", "change": "allow alternatives subset (review03 silent-drop regression)", "result": "caught"},
+      {"id": "D3", "change": "drop select mechanism membership check", "result": "caught (error)"},
+      {"id": "D4", "change": "drop alternative type-object check", "result": "caught (error)"},
+      {"id": "D5", "change": "drop mixed type/selection refusal", "result": "caught"},
+      {"id": "D6", "change": "drop non-dict payload check", "result": "NOT caught (A1)"},
+      {"id": "D7", "change": "drop alternatives dict-type check", "result": "NOT caught (A1)"},
+      {"id": "D8", "change": "omit Ts2 selection TS rows", "result": "NOT caught by Python tests; caught by generated-output comparison (A2)"},
+      {"id": "D9", "change": "swap selection variant indices", "result": "caught; generated wire.rs also differs"}
+    ],
+    "independentProbes": [
+      {"name": "18 malformed frame payload/selection cases", "result": "all refused with ValueError (list in RF-1 disposition)"},
+      {"name": "selection in non-frame positions", "result": "refused via KeyError (A3)"},
+      {"name": "baseline rows", "result": "Ts2FrameV2 has both FactBatch rows (V1, V3); Rust has FactBatch0/1 and Unavailable0/1 for both protocols"},
+      {"name": "alternatives reorder and same-type alternatives", "result": "both render; variant/selector binding is order-derived and unrecorded (RF-1)"}
+    ]
+  },
+  "limitations": [
+    "Rust/TS not rebuilt; relies on review03 for byte-identical compiled inputs/outputs",
+    "RF-1 fix options that rename variants would change wire.rs and require a Rust/TS rebuild review"
+  ]
+}

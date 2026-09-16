@@ -1,0 +1,25 @@
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -159,6 +159,10 @@
+ 
+ Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. Its `availability.state` values (`foundation/identity-schemas.v3.json#/$defs/availability`) route exactly as follows, every refusal being operational-failed / `HOST.IO_FAILURE` (`faultCause=host-io`) / exit 4 with the named registered detail: `purged` → `evidence.purged`; `expired` → `evidence.expired`; `corrupt` → `evidence.corrupt`; `unavailable` → `evidence.missing`. `unavailable` has no detail of its own and none is invented: required evidence that cannot be supplied is the identity owner's missing-evidence carrier (`EvidenceUnavailable` → `evidence.missing`, identity-and-evidence §5), the same detail as missing retained bytes below. `retained`, `partial` and an omitted observation neither refuse nor grant: `close_run` still decides, and retained bytes it finds missing or corrupt refuse under the rows below. The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
+ 
++The reference host observation vocabulary is closed: `retained`, `partial`, `purged`, `expired`, `corrupt`, `unavailable`, plus `missing` for a direct host report of missing bytes. `missing` uses the same `HOST.IO_FAILURE` / `evidence.missing` / exit 4 route as `unavailable`; it is not an additional identity availability state. An omitted field is allowed; a present null, wrong type or unknown token is a `ReferenceCallPrecondition` for `host.availability`, like malformed trusted `host.requestId`. It must not be silently treated as an omitted observation, a public request rejection or an empty graph. The host adapter owns supplying the admitted internal observation; this reference precondition is not a new public error code or an implemented host finalizer. Request-schema admission still precedes observation consumption.
++
++Complete replay disagreement is a distinct identity boundary observation even when every retained digest and shape is valid. The graph-query route deliberately uses the existing `evidence.corrupt` detail for this unusable retained result, with the complete-replay diagnostic retained as its subject. This public projection does not assert a physical checksum failure and does not collapse the identity owner's structural-admission and semantic-replay checks. It grants no result items and no new Run.
++
+ | Condition | class | errorCode / reason | domainDetail |
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+@@ -171,9 +175,10 @@
+ | cursor bind mismatch | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.CURSOR_MISMATCH` |
+ | view2 not admitted on this Run | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.FACT_VIEW_UNAVAILABLE` |
+ | graph availability observation `purged` / `expired` / `corrupt` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.purged` / `evidence.expired` / `evidence.corrupt` |
+-| graph availability observation `unavailable` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
++| graph availability observation `unavailable` or direct missing-bytes observation `missing` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
++| structurally admitted retained Run whose complete proof replay disagrees | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt`; subject preserves the complete-replay diagnostic |
+ | work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |
+ 
+ ## 8. Strong wrapper versus internal traversal

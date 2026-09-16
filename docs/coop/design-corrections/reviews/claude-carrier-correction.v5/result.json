@@ -1,0 +1,93 @@
+{
+  "session_id": "0aa529b3-0da1-44b1-b2b9-dbcd9f1bd206",
+  "total_cost_usd": 51.370182,
+  "usage": {
+    "input_tokens": 262,
+    "cache_creation_input_tokens": 178275,
+    "cache_read_input_tokens": 93232344,
+    "output_tokens": 118798,
+    "output_tokens_details": {
+      "thinking_tokens": 21238
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 178275,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 1653,
+        "cache_read_input_tokens": 781531,
+        "cache_creation_input_tokens": 914,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 914
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 262,
+      "outputTokens": 118798,
+      "cacheReadInputTokens": 93232344,
+      "cacheCreationInputTokens": 178275,
+      "webSearchRequests": 0,
+      "costUSD": 51.370182,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 21238,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_013hpFeofUdtJcSuEokBWhmA",
+      "tool_input": {
+        "command": "python3 -c \"\nimport json\np='scratch/proposal/attempt-custody.schema.v1.json'\nd=json.load(open(p))\n# DDL and readOnlyRecoveryUse must drop the undetermined outcome too\nd['proposedPrivateDDL']=d['proposedPrivateDDL'].replace(\\\"IN ('committed','refused','undetermined')\\\",\\\"IN ('committed','refused')\\\")\nu=d['readOnlyRecoveryUse']\nu.pop('receiptAbsentAndPhaseSettledUndetermined',None)\nu['durabilityUncertainAttempt']='stays phase=admitted, so it reads as unknown-attempt-open until the authorized sweep resolves it; the caller separately received the D9 durability-undetermined response'\nopen(p,'w').write(json.dumps(d,indent=2)+chr(10))\nprint('undetermined remaining:', json.dumps(d).count('undetermined'))\nprint([k for k in u])\n\"",
+        "description": "Drop undetermined from DDL and recovery use"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01G5qEu8VTSpDzDShH36i5KM",
+      "tool_input": {
+        "command": "python3 -c \"\np='/private/tmp/opensip-design-corrections/claude-carrier-correction.v5/scratch/controls/c11-negative-v5.py'\nt=open(p).read()\n# the sandboxes must also carry the planning inputs from the v4 root and the new model reports\na=\\\"    for f in ('commit-recovery-plan.v1.json', 'implementation-boundaries-and-build-plan.md'):\\n        shutil.copy2(os.path.join(ROOT, f), os.path.join(sand, f))\\\"\nb=\\\"    PLANROOT = '/tmp/opensip-design-corrections/claude-carrier-correction.v4'\\n    for f in ('commit-recovery-plan.v1.json', 'implementation-boundaries-and-build-plan.md'):\\n        shutil.copy2(os.path.join(PLANROOT, f), os.path.join(sand, f))\\\"\nassert t.count(a)==1; t=t.replace(a,b)\na2=\\\"    for f in ('c6.json', 'c7.json'):\\\"\nb2=\\\"    for f in ('c6.json', 'c7.json', 'c12.json', 'c13.json', 'c14.json'):\\\"\nassert t.count(a2)==1; t=t.replace(a2,b2)\nopen(p,'w').write(t)\nprint('sandbox wiring updated')\n\"",
+        "description": "Wire negative-control sandboxes for v5"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01LJWjgW78GWnKg9YUCMAwwh",
+      "tool_input": {
+        "command": "python3 -c \"\nimport json\np='scratch/proposal/docs/coop/design-corrections/security/carrier-dispatch.v3.json'\nd=json.load(open(p))\n# chain_law: reject the unselected value 2 and drop the unsupported networking argument\ncl=d['digestAndChain']['prevSha256SeqK']\ncl['chainLaw1Pinning']='SHA256(ascii_hex(body_sha256[k-1]) || ascii_decimal(k-1)). This is a PROSPECTIVE choice, not a derivation: seq is an INTEGER column, so no reading is forced by the column types.'\ncl['chainLaw2IsRefusedByTheDDL']='The carrier_format CHECK is chain_law = 1. Value 2 is not selected and not implemented, so the column refuses it rather than advertising an unbuilt alternative.'\no=d['strongerAuthenticationOptions']\no['adopted']='none; root is not requesting stronger authentication'\nfor x in o['options']:\n    if x['id']=='C':\n        x['cost']='requires a signing key available at every append, which is an operational key-custody and cost question at each append boundary. It does NOT inherently require networking and does not by itself violate offline operation; the earlier claim that it did is withdrawn as unsupported.'\nopen(p,'w').write(json.dumps(d,indent=2)+chr(10))\nprint('chain law and option C corrected')\n\"",
+        "description": "Correct chain law and the withdrawn networking claim"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_016BA7GzxEC5JJiX7eWLSTvx",
+      "tool_input": {
+        "command": "python3 -c \"\nimport re\np='scratch/proposal/docs/coop/design-corrections/security/carrier-format.v3.md'\nt=open(p,encoding='utf-8').read()\nfor pat in ['chain_law` 2','signing key','both operands','only reading consistent','chain_law IN','InstallationTransitionJournalV1']:\n    n=len(re.findall(re.escape(pat),t)); print(n,pat)\n\"",
+        "description": "Find stale claims in the carrier format doc"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 131,
+  "subtype": "success",
+  "result": "Done. Source25 pristine, v4 immutable, all writes confined to v5 `scratch/`.\n\n## Root's four findings\n\n**1. Carrier migration cannot borrow the logical protocol.** Accepted; the v4 dispatch was wrong. C13 reproduces your counterexample on frozen bytes and asserts the shapes: the intent is a closed **11**-member record, the journal a closed **20**-member record, **neither has a carrier field**. My v4 phrase also conflated an intent with a journal. Withdrawn in both the dispatch JSON and `carrier-format.v3.md`.\n\nNew `carrier-migration.v1.md` traces authorization to an existing owner rather than inventing one: `store-gc` \u2014 `owner: security`, `authorizationClass: exclusive-lease`, and decisively **`writesTrackedIntent: false`**, which is exactly why it doesn't drag in S9.2. Locks are your S7 fence + non-blocking `EXCLUSIVE`, busy = skip-and-retain; reporting is the existing `store-status` `migration-state` field. No new command, operation, enum or authorization class.\n\nThree atomic acts (TERMINAL \u2192 objects \u2192 format row), with the **format row as commit point and detection keyed on that row** \u2014 that single change is what makes prefix `{A,B}` recoverable rather than merely idempotent. Commit uncertainty on A resolves from the **frozen TERMINAL body's own `operationRef`**, adding no field anywhere. \"Table already exists\" is explicitly not the mechanism.\n\n**2. AttemptCustodyV1 \u2014 and a flaw C14 found in my own draft.** The settlement matrix is normative with exactly one negative cell (`settled` + `refused` + both rows absent). Then C14 showed my `undetermined` outcome was **unresolvable**: the row is immutable, so nothing could ever settle it \u2014 your exact objection. Removed. `durability-undetermined` is the D9 *response*; the row stays `admitted`, which *is* the honest unknown; the sweep is the reconciliation. Two outcomes only, because those are the only two provable.\n\n**3. Sweep specified** (\u00a74): same `store-gc` owner, fence + `EXCLUSIVE` as the custody that makes proof possible, one coherent snapshot, writes only `committed`/`refused`, nothing when busy/unreadable/one-sided/already-settled, no authority reuse, GC-only cleanup.\n\n**4. Three claims withdrawn.** DDL now `CHECK (chain_law = 1)`. The \"only consistent reading / both operands TEXT\" claim was **false** \u2014 `seq` is INTEGER \u2014 so the encoding is prospective and claims nothing more. The signing-key-requires-networking argument is **withdrawn as unsupported**.\n\n## Your dispositions applied\n\nItems 1/2/5/6 are now selected limits with the chain-head contradiction disposed in S1/S6 (old bytes preserved; no limit listed as both gap and non-gap). Item 4 **settled by execution**: C12 proves `domainDetail` is optional, so `LEDGER.CORRUPT` + `faultCause ledger-corrupt` with **no detail** is schema-valid \u2014 nothing minted, `MIGRATION.CORRUPT` not misused. Item 8 selected as law, and C12 additionally demonstrates **`policy-failed`(1) and `indeterminate`(3) survive publication** and that `success` can carry neither an `errorCode` nor `reasonCodes`, so **no lawful reset exists**. Item 9 kept as labelled policy. Item 10 is yours; F32's route and F38\u2013F49 preserved and asserted.\n\n## Two things to weigh\n\n**C11 A8 found that one of my own rules is only policy.** Treating *receipt present but attempt `admitted`* as a contradiction isn't needed for safety \u2014 the receipt is the authority. So alongside the second-tail clause, **two** rules are conservative policy, not correctness; both are labelled in the document and you may drop either. I also mis-constructed three drifts as \"safe\" before getting them right, and fixed them rather than counting them as detections.\n\n**A new gap I did not chase:** `common.schema.json` carries `RunId: run2` while `evaluator3/common.schema.json` carries `run3`. I validated against evaluator3 and asserted the split as the retained-predecessor pattern \u2014 but if the non-evaluator3 document is still a live projection owner anywhere, my projections wouldn't validate there.\n\nExecuted: C12 39/39, C13 41/41, C14 51/51, C6 78,653 schedules 0 violations, C7 132/0, C4b 74/74, C10 84/84, C11 17/19. `REPORT.md` \u00a75 lists 6 remaining actual gaps, \u00a76 unperformed qualification (still no real processes, no Rust, all 16 added cases `not-executed`), \u00a77 selected limits. No self-acceptance.",
+  "type": "result",
+  "duration_ms": 1649873
+}

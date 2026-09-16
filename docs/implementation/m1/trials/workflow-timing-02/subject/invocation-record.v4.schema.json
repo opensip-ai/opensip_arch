@@ -1,0 +1,2408 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:invocation:4",
+  "title": "InvocationRecord schemaMajor 4 \u2014 operational attempt duration",
+  "description": "Successor of invocation:3 adding required operational duration observations to terminal Attempt records. Timing has no Run identity, verdict, gating, retry, authority or D9 effect. Historical v3 is retained under its own schema and cannot be silently reclassified as v4.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaFamily",
+    "schemaMajor",
+    "requestId",
+    "workflow",
+    "mode",
+    "orderedSteps"
+  ],
+  "properties": {
+    "schemaFamily": {
+      "const": "opensip.product.invocation"
+    },
+    "schemaMajor": {
+      "const": 4
+    },
+    "requestId": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
+    },
+    "clientCorrelationId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "projectId": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+    },
+    "workflow": {
+      "$ref": "#/$defs/WorkflowRef"
+    },
+    "mode": {
+      "$ref": "#/$defs/Mode"
+    },
+    "orderedSteps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/StepSpec"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "stepResults": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "$ref": "#/$defs/StepResult"
+      },
+      "x-opensip-order": "sequence"
+    },
+    "cancellation": {
+      "$ref": "#/$defs/Cancellation"
+    },
+    "termination": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
+    },
+    "terminationEmitted": {
+      "type": "boolean"
+    },
+    "retentionDisclosure": {
+      "$ref": "#/$defs/RetentionDisclosure"
+    }
+  },
+  "$defs": {
+    "WorkflowRef": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "name"
+          ],
+          "properties": {
+            "kind": {
+              "const": "builtin"
+            },
+            "name": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/CommandName"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "contributionId",
+            "activationId",
+            "profileVersion"
+          ],
+          "properties": {
+            "kind": {
+              "const": "profile"
+            },
+            "contributionId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ContributionId"
+            },
+            "activationId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+            },
+            "profileVersion": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SemanticVersion"
+            }
+          }
+        }
+      ]
+    },
+    "Mode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "interactive",
+        "ci",
+        "ephemeral"
+      ],
+      "properties": {
+        "interactive": {
+          "type": "boolean"
+        },
+        "ci": {
+          "type": "boolean"
+        },
+        "ephemeral": {
+          "type": "boolean",
+          "description": "true only with explicit --ephemeral; a non-authoritative invocation cannot supply baseline/repair prerequisites"
+        }
+      }
+    },
+    "StepKind": {
+      "type": "string",
+      "enum": [
+        "analysis",
+        "verify",
+        "comparison",
+        "query",
+        "render",
+        "import",
+        "repair-preview",
+        "repair-apply",
+        "test-execution",
+        "mutation",
+        "export-delivery",
+        "doctor",
+        "native-preparation"
+      ],
+      "description": "comparison: the audit verdict step. It consumes the current analysis Run (currentStep) and a baseline artifact, mints no Run, and is the ONLY step whose verdict gates an audit; the analysis it consumes participates in the aggregate for completion, operational faults and required-coverage indeterminacy only (verdictGate=delegated)."
+    },
+    "StepSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepId",
+        "kind",
+        "requirement",
+        "dependsOn",
+        "dependencyGate",
+        "retryPolicy",
+        "params"
+      ],
+      "properties": {
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "kind": {
+          "$ref": "#/$defs/StepKind"
+        },
+        "requirement": {
+          "type": "string",
+          "enum": [
+            "required",
+            "optional"
+          ],
+          "description": "required steps determine the aggregate termination; an optional step's rejection/failure never changes it. A required step may not depend on an optional step (WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL, request-rejected)."
+        },
+        "dependsOn": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+          },
+          "description": "every entry is a lower stepId (acyclic by construction; a forward or self reference is WORKFLOW.DEPENDENCY_CYCLE)",
+          "x-opensip-order": "sequence"
+        },
+        "dependencyGate": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "terminal"
+          ],
+          "description": "completed: every dependency outcome must be completed. terminal: every dependency must have reached any terminal outcome; used only by render/export-delivery steps that project whatever happened."
+        },
+        "retryPolicy": {
+          "type": "string",
+          "enum": [
+            "idempotent-retry",
+            "none"
+          ],
+          "description": "idempotent-retry is lawful only for analysis, verify, query, render, doctor and export-delivery and only for faultCause ledger-busy; at most 3 attempts in total. Mutation, import, repair-preview, repair-apply and test-execution are never implicitly retried."
+        },
+        "params": {
+          "$ref": "#/$defs/StepParams"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "mutation",
+                  "import",
+                  "repair-apply",
+                  "test-execution",
+                  "repair-preview",
+                  "comparison",
+                  "native-preparation"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "retryPolicy": {
+                "const": "none"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "dependencyGate": {
+                "const": "terminal"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "render",
+                  "export-delivery"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "analysis"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "analysis"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "verify"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "verify"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "comparison"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "comparison"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "query"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "query"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "render"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "render"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "import"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "import"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "repair-preview"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "repair-preview"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "repair-apply"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "repair-apply"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "test-execution"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "test-execution"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "mutation"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "mutation"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "export-delivery"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "export-delivery"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "doctor"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "doctor"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "native-preparation"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "params": {
+                "properties": {
+                  "kind": {
+                    "const": "native-preparation"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "StepParams": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AnalysisParams"
+        },
+        {
+          "$ref": "#/$defs/VerifyParams"
+        },
+        {
+          "$ref": "#/$defs/ComparisonParams"
+        },
+        {
+          "$ref": "#/$defs/QueryParams"
+        },
+        {
+          "$ref": "#/$defs/RenderParams"
+        },
+        {
+          "$ref": "#/$defs/ImportParams"
+        },
+        {
+          "$ref": "#/$defs/RepairPreviewParams"
+        },
+        {
+          "$ref": "#/$defs/RepairApplyParams"
+        },
+        {
+          "$ref": "#/$defs/TestExecutionParams"
+        },
+        {
+          "$ref": "#/$defs/MutationParams"
+        },
+        {
+          "$ref": "#/$defs/ExportDeliveryParams"
+        },
+        {
+          "$ref": "#/$defs/DoctorParams"
+        },
+        {
+          "$ref": "#/$defs/NativePreparationParams"
+        }
+      ]
+    },
+    "AnalysisParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "profile",
+        "role",
+        "durability",
+        "snapshotSource"
+      ],
+      "properties": {
+        "kind": {
+          "const": "analysis"
+        },
+        "profile": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/AnalysisProfile"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "pivot"
+          ],
+          "description": "pivot: the baseline's prior detector closure over current source, auto-planned before the primary analysis when a comparison needs the detector pivot and the closure is admitted"
+        },
+        "verdictGate": {
+          "type": "string",
+          "enum": [
+            "self",
+            "delegated"
+          ],
+          "description": "Step gate participation. self (default when absent): the Run verdict terminates this step (fail \u2192 policy-failed). delegated: this analysis supplies the current Run to exactly one later comparison step (which must name it as currentStep); its Run verdict does NOT terminate the step \u2014 completion, operational faults and requiredCoverage\u2260satisfied / verdict=indeterminate still do. A delegated analysis with no consuming comparison step is WORKFLOW.VERDICT_GATE_UNBOUND (request-rejected). A pivot analysis is always delegated."
+        },
+        "pivotOfStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "pivotClosureIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "durability": {
+          "type": "string",
+          "enum": [
+            "authoritative",
+            "ephemeral"
+          ]
+        },
+        "snapshotSource": {
+          "type": "string",
+          "enum": [
+            "live-worktree",
+            "fresh-after-step"
+          ],
+          "description": "fresh-after-step: a new snapshot is admitted after afterStep completed; never reuses a snapshot captured before a mutation"
+        },
+        "afterStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "auditProfile"
+          ],
+          "properties": {
+            "path": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+            },
+            "auditProfile": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/AuditProfileName"
+            },
+            "acceptOriginProjectIds": {
+              "type": "array",
+              "maxItems": 16,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "closureBundlePath": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+            }
+          }
+        },
+        "importedEvidenceSteps": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "role": {
+                "const": "pivot"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "pivotOfStep",
+              "pivotClosureIds"
+            ],
+            "properties": {
+              "durability": {
+                "const": "authoritative"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "snapshotSource": {
+                "const": "fresh-after-step"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "afterStep"
+            ]
+          }
+        }
+      ]
+    },
+    "VerifyParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "afterStep",
+        "profile"
+      ],
+      "properties": {
+        "kind": {
+          "const": "verify"
+        },
+        "afterStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId",
+          "description": "the repair-apply step whose appliedSnapshotId the fresh snapshot must equal; verify always resnapshots and always seals a new authoritative Run"
+        },
+        "profile": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/AnalysisProfile"
+        },
+        "importedEvidenceSteps": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "QueryParams": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/PublicQueryParams"
+        },
+        {
+          "$ref": "#/$defs/HostQueryParams"
+        }
+      ],
+      "description": "Closed query-step params: public graph-query:3 operations or the closed host-only extension. The command->operation mapping is command-inventory:3 queryDispatch."
+    },
+    "RenderParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "format",
+        "destination",
+        "sourceSteps",
+        "required"
+      ],
+      "properties": {
+        "kind": {
+          "const": "render"
+        },
+        "format": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/OutputFormat"
+        },
+        "destination": {
+          "type": "string",
+          "enum": [
+            "stdout",
+            "file"
+          ]
+        },
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        },
+        "sourceSteps": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 63,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "true for the selected primary renderer: its failure after a committed Run is DELIVERY.REQUIRED_FAILED (exit 4) and never rewrites the Run"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "destination": {
+                "const": "file"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "path"
+            ]
+          }
+        }
+      ]
+    },
+    "ImportParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "evidenceKind",
+        "path",
+        "correspondence"
+      ],
+      "properties": {
+        "kind": {
+          "const": "import"
+        },
+        "evidenceKind": {
+          "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/ImportKind"
+        },
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        },
+        "correspondence": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SourceCorrespondence"
+        }
+      }
+    },
+    "RepairPreviewParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "evidenceSource",
+        "recipe",
+        "targets"
+      ],
+      "properties": {
+        "kind": {
+          "const": "repair-preview"
+        },
+        "evidenceSource": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "step"
+              ],
+              "properties": {
+                "step": {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "runId"
+              ],
+              "properties": {
+                "runId": {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+                }
+              }
+            }
+          ]
+        },
+        "recipe": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/RecipeRef"
+        },
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RepairApplyParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "planStep",
+        "repairPlanId",
+        "consentSource",
+        "authorizationRef"
+      ],
+      "properties": {
+        "kind": {
+          "const": "repair-apply"
+        },
+        "planStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId",
+          "description": "must equal the plan step's result; apply is bound to the exact plan identity, not to the step"
+        },
+        "consentSource": {
+          "type": "string",
+          "enum": [
+            "policy",
+            "interactive"
+          ]
+        },
+        "authorizationRef": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairAuthorizationRef"
+        }
+      }
+    },
+    "TestExecutionParams": {
+      "$ref": "urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepParams"
+    },
+    "MutationParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "mutationClass",
+        "idempotencyKey"
+      ],
+      "properties": {
+        "kind": {
+          "const": "mutation"
+        },
+        "mutationClass": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation",
+          "allOf": [
+            {
+              "not": {
+                "const": "repair-apply"
+              }
+            }
+          ],
+          "x-opensip-vocabulary": {
+            "fieldDomainAuthority": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/admissibleGenericFieldDomain",
+            "commandEmissionMap": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommandGenericMutationStep",
+            "scope": "GENERIC mutation steps. The ADMISSIBLE domain of this field is every MutationOperation member except repair-apply, which the `not` beside the $ref refuses; it is deliberately WIDER than the set of operations today's commands emit, and the command map is NOT this field's domain. An earlier annotation named the command list here, which was a different vocabulary."
+          }
+        },
+        "sourceStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "target": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        },
+        "idempotencyKey": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex",
+          "description": "Bare H(\"workflow.mutation-intent\", MutationReplayScopeV1) binding this host-minted requestId, stepId, projectId and mutationClass as operation. The exact scope and admitted immutable step parameters are retained and checked before receipt lookup. Equal COMPLETED replay performs no second effect; separate fresh requests have different keys. Repair apply has a separate step/recipe."
+        },
+        "inputDescriptorDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex",
+          "description": "Retained closed operation-specific input: CoreTransitionIntentV1 for installation operations; RepairRecoveryIntentV1 for repair-recover."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "mutationClass": {
+                "enum": [
+                  "core-update",
+                  "core-repair",
+                  "core-rollback",
+                  "store-migrate",
+                  "store-rollback",
+                  "repair-recover"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "inputDescriptorDigest"
+            ]
+          }
+        }
+      ]
+    },
+    "ExportDeliveryParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "sink",
+        "sourceStep",
+        "required"
+      ],
+      "properties": {
+        "kind": {
+          "const": "export-delivery"
+        },
+        "sink": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+        },
+        "sourceStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "required": {
+          "type": "boolean",
+          "description": "optional egress failure never changes a local verdict (success); explicitly required delivery failure is operational-failed"
+        }
+      }
+    },
+    "DoctorParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "checks"
+      ],
+      "properties": {
+        "kind": {
+          "const": "doctor"
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "closures",
+              "trust",
+              "store",
+              "platform",
+              "project-marker",
+              "offline-window"
+            ]
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "Attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "executionId",
+        "outcome",
+        "observedDuration"
+      ],
+      "properties": {
+        "executionId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ExecutionId"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "rejected",
+            "failed",
+            "cancelled",
+            "abandoned"
+          ]
+        },
+        "faultCause": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9FaultCause"
+        },
+        "retried": {
+          "type": "boolean"
+        },
+        "derivation": {
+          "$ref": "#/$defs/DerivationBinding"
+        },
+        "installationJournalRefs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/InstallationTransitionJournalRef"
+          },
+          "description": "Installation mutation attempts only. Initial attempt: first LEASED after all locks, then durable revisions written in order. Recovery attempt: first is the observed installationRecoveryStartRef (any closed state), then revisions written by this attempt. Earlier attempt records remain unchanged. Required once a journal exists, including failed/abandoned attempts; absent before any journal. Operational custody, excluded from Run identity.",
+          "x-opensip-order": "sequence"
+        },
+        "installationRecoveryStartRef": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/InstallationTransitionJournalRef",
+          "description": "Recovery attempt only: exact current durable revision read under the installation fence; equals installationJournalRefs[0]. It is host-observed, never accepted from request input."
+        },
+        "observedDuration": {
+          "$ref": "#/$defs/AttemptDurationV1"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "installationRecoveryStartRef"
+            ]
+          },
+          "then": {
+            "required": [
+              "installationJournalRefs"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "const": "abandoned"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "observedDuration": {
+                "const": {
+                  "state": "unavailable",
+                  "reason": "supervisor-lost"
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "observedDuration": {
+                "not": {
+                  "required": [
+                    "reason"
+                  ],
+                  "properties": {
+                    "reason": {
+                      "const": "supervisor-lost"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DerivationBinding": {
+      "type": "object",
+      "description": "Explicit mapping from one analysis/verify attempt to its derivation DAG. The workflow step DAG (\u226464 steps) and the derivation DAG (\u22641024 stages) are distinct: a step never depends on a stage and a stage never references a step. One attempt owns exactly one execution plan; a retry attempt on identical admitted inputs may bind the same exec-plan2 and Run.",
+      "additionalProperties": false,
+      "required": [
+        "planId",
+        "executionPlanId",
+        "stageCount",
+        "stagesCompleted"
+      ],
+      "properties": {
+        "planId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+        },
+        "executionPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ExecutionPlanId"
+        },
+        "stageCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "stagesCompleted": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        },
+        "firstFailedStage": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StageOrdinal"
+        }
+      }
+    },
+    "StepOutcome": {
+      "type": "string",
+      "enum": [
+        "completed",
+        "rejected",
+        "failed",
+        "skipped",
+        "cancelled",
+        "abandoned"
+      ],
+      "description": "completed: the step reached its own terminal domain result (an analysis verdict of fail or indeterminate is still completed). rejected: admission or precondition refusal. failed: operational fault. skipped: a dependency did not satisfy the gate. cancelled: cancellation arrived before a terminal result. abandoned: assigned only by crash recovery to a non-terminal step whose supervisor died."
+    },
+    "StepResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepId",
+        "outcome",
+        "attempts",
+        "termination"
+      ],
+      "properties": {
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "outcome": {
+          "$ref": "#/$defs/StepOutcome"
+        },
+        "attempts": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/Attempt"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "skipReason": {
+          "type": "string",
+          "enum": [
+            "dependency-not-completed",
+            "dependency-not-terminal",
+            "dependency-cancelled"
+          ]
+        },
+        "result": {
+          "$ref": "#/$defs/StepDomainResult"
+        },
+        "termination": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "skipped"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "skipReason"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "result"
+            ]
+          }
+        }
+      ]
+    },
+    "ComparisonParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "currentStep",
+        "baseline",
+        "auditProfile"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comparison"
+        },
+        "currentStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId",
+          "description": "the authoritative primary analysis whose Run is the current side; that step must carry verdictGate=delegated and must be in dependsOn"
+        },
+        "pivotStep": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId",
+          "description": "the role=pivot analysis step when E0 is needed; must be in dependsOn"
+        },
+        "baseline": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        },
+        "auditProfile": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/AuditProfileName"
+        },
+        "acceptOriginProjectIds": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "closureBundlePath": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        }
+      }
+    },
+    "ComparisonStepResult": {
+      "type": "object",
+      "description": "Operational projection of a ComparisonResultV1. The step termination is derived from verdict: fail \u2192 policy-failed (runId = currentRunId); indeterminate \u2192 indeterminate with reasonCodes [VERDICT.INDETERMINATE] or [BASELINE.RECIPE_UNSUPPORTED] per d9Deficiency and the descriptor remedy as domainDetail; pass \u2192 success (runId = currentRunId). Never defaults to success.",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "comparisonResultId",
+        "currentRunId",
+        "baselineId",
+        "verdict",
+        "comparisonPerformed",
+        "counts"
+      ],
+      "properties": {
+        "kind": {
+          "const": "comparison"
+        },
+        "comparisonResultId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+        },
+        "currentRunId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+        },
+        "baselineId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+        },
+        "verdict": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail",
+            "indeterminate"
+          ]
+        },
+        "comparisonPerformed": {
+          "type": "boolean"
+        },
+        "d9Deficiency": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+        },
+        "remedy": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entries",
+            "gating",
+            "indeterminate"
+          ],
+          "properties": {
+            "entries": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "gating": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            },
+            "indeterminate": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+            }
+          }
+        }
+      }
+    },
+    "StepDomainResult": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/AnalysisResult"
+        },
+        {
+          "$ref": "#/$defs/ComparisonStepResult"
+        },
+        {
+          "$ref": "#/$defs/QueryResult"
+        },
+        {
+          "$ref": "#/$defs/RenderResult"
+        },
+        {
+          "$ref": "#/$defs/ImportResult"
+        },
+        {
+          "$ref": "#/$defs/RepairPreviewResult"
+        },
+        {
+          "$ref": "#/$defs/RepairApplyResult"
+        },
+        {
+          "$ref": "#/$defs/TestExecutionResult"
+        },
+        {
+          "$ref": "#/$defs/MutationResult"
+        },
+        {
+          "$ref": "#/$defs/ExportDeliveryResult"
+        },
+        {
+          "$ref": "#/$defs/DoctorResult"
+        },
+        {
+          "$ref": "#/$defs/NativePreparationResult"
+        }
+      ]
+    },
+    "AnalysisResult": {
+      "description": "Closed union. authoritative: a committed Run with receipt. ephemeral: no Run, no receipt, no authority; carries only semantic plan/evidence identities so that a result can be cited, and can never satisfy baseline adoption, repair preconditions, or verify.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "authority",
+            "runId",
+            "planId",
+            "verdict",
+            "requiredCoverage",
+            "durability",
+            "deficiency",
+            "secondaryDeficiencies"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "analysis",
+                "verify"
+              ]
+            },
+            "authority": {
+              "const": "authoritative"
+            },
+            "runId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+            },
+            "planId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+            },
+            "verdict": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Verdict"
+            },
+            "requiredCoverage": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequiredCoverage"
+            },
+            "durability": {
+              "const": "committed"
+            },
+            "deficiency": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+            },
+            "secondaryDeficiencies": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "coverageId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"
+            },
+            "comparisonResultId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+            },
+            "verification": {
+              "$ref": "#/$defs/VerificationOutcome"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "verify"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "verification"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "authority",
+            "planId",
+            "evidenceId",
+            "verdict",
+            "requiredCoverage",
+            "durability",
+            "deficiency",
+            "secondaryDeficiencies"
+          ],
+          "properties": {
+            "kind": {
+              "const": "analysis"
+            },
+            "authority": {
+              "const": "ephemeral"
+            },
+            "planId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+            },
+            "evidenceId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/EvidenceId"
+            },
+            "verdict": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Verdict"
+            },
+            "requiredCoverage": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequiredCoverage"
+            },
+            "durability": {
+              "const": "not-required"
+            },
+            "deficiency": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+            },
+            "secondaryDeficiencies": {
+              "type": "array",
+              "maxItems": 8,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Deficiency"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "coverageId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"
+            },
+            "comparisonResultId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
+            }
+          }
+        }
+      ]
+    },
+    "VerificationOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "appliedSnapshotId",
+        "verifiedSnapshotId",
+        "snapshotMatched",
+        "targetsRemaining",
+        "netNewFindings"
+      ],
+      "properties": {
+        "appliedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+        },
+        "verifiedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+        },
+        "snapshotMatched": {
+          "type": "boolean"
+        },
+        "targetsRemaining": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "netNewFindings": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        }
+      }
+    },
+    "QueryResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "items",
+        "truncated",
+        "completenessMet",
+        "advisory"
+      ],
+      "properties": {
+        "kind": {
+          "const": "query"
+        },
+        "items": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "completenessMet": {
+          "type": "boolean"
+        },
+        "advisory": {
+          "type": "boolean"
+        },
+        "nextCursor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      }
+    },
+    "RenderResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "format",
+        "rendererVersion",
+        "bytes",
+        "truncation",
+        "written"
+      ],
+      "properties": {
+        "kind": {
+          "const": "render"
+        },
+        "format": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-inventory:3#/$defs/OutputFormat"
+        },
+        "rendererVersion": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "bytes": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "truncation": {
+          "type": "boolean"
+        },
+        "written": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ImportResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "importId",
+        "payloadDigest",
+        "staleness",
+        "receiptId"
+      ],
+      "properties": {
+        "kind": {
+          "const": "import"
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+        },
+        "payloadDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "staleness": {
+          "$ref": "urn:opensip:product-v1:workflows:imported-evidence#/$defs/Staleness"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+        }
+      }
+    },
+    "RepairPreviewResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "repairPlanId",
+        "snapshotId",
+        "applicable",
+        "unmetPreconditions"
+      ],
+      "properties": {
+        "kind": {
+          "const": "repair-preview"
+        },
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId"
+        },
+        "snapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+        },
+        "applicable": {
+          "type": "boolean"
+        },
+        "unmetPreconditions": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RepairApplyResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "receiptId",
+        "effectOutcome",
+        "journalState",
+        "rollback"
+      ],
+      "properties": {
+        "kind": {
+          "const": "repair-apply"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+        },
+        "effectOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        },
+        "journalState": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/JournalState"
+        },
+        "appliedSnapshotId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+        },
+        "rollback": {
+          "type": "string",
+          "enum": [
+            "not-needed",
+            "completed",
+            "blocked",
+            "not-attempted"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "effectOutcome": {
+                "const": "COMPLETED"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "appliedSnapshotId"
+            ]
+          }
+        }
+      ]
+    },
+    "TestExecutionResult": {
+      "$ref": "urn:opensip:product-v1:workflows:test-execution#/$defs/TestExecutionStepResult"
+    },
+    "MutationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "receiptId",
+        "effectOutcome",
+        "replayed"
+      ],
+      "properties": {
+        "kind": {
+          "const": "mutation"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+        },
+        "effectOutcome": {
+          "type": "string",
+          "enum": [
+            "COMPLETED",
+            "FAILED",
+            "INDETERMINATE"
+          ]
+        },
+        "replayed": {
+          "type": "boolean"
+        }
+      }
+    },
+    "ExportDeliveryResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "delivered"
+      ],
+      "properties": {
+        "kind": {
+          "const": "export-delivery"
+        },
+        "delivered": {
+          "type": "boolean"
+        }
+      }
+    },
+    "DoctorResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "reportProduced",
+        "defectsFound",
+        "defects"
+      ],
+      "properties": {
+        "kind": {
+          "const": "doctor"
+        },
+        "reportProduced": {
+          "type": "boolean"
+        },
+        "defectsFound": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "defects": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "Cancellation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requested",
+        "signal",
+        "phase"
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "signal": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/D9Signal"
+        },
+        "phase": {
+          "type": "string",
+          "enum": [
+            "none",
+            "before-settle",
+            "after-settle"
+          ],
+          "description": "before-settle: at least one required step had not reached a terminal outcome; aggregate is interrupted (130). after-settle: every required step already reached a terminal outcome; the aggregate termination is not reclassified."
+        }
+      }
+    },
+    "RetentionDisclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "policy",
+        "provenance",
+        "firstUse",
+        "storageRoot"
+      ],
+      "properties": {
+        "policy": {
+          "type": "string",
+          "enum": [
+            "durable-unbounded",
+            "durable-bounded",
+            "ephemeral"
+          ]
+        },
+        "provenance": {
+          "type": "string",
+          "enum": [
+            "DEFAULTED",
+            "CONFIGURED",
+            "EXPLICIT-FLAG"
+          ]
+        },
+        "firstUse": {
+          "type": "boolean"
+        },
+        "storageRoot": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        }
+      }
+    },
+    "NativePreparationParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "authorizationDescriptorDigest",
+        "securityGrantSetRef"
+      ],
+      "properties": {
+        "kind": {
+          "const": "native-preparation"
+        },
+        "authorizationDescriptorDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "securityGrantSetRef": {
+          "type": "string",
+          "pattern": "^security.repo-execution-grants.v2:[0-9a-f]{64}(?![\\s\\S])"
+        }
+      },
+      "description": "Digest is raw SHA-256 of canonical retained native AuthorizedExecutionV2. The host verifies that preimage and its grant-set reference, then composes security admission for every owner before spawning. No Run; no automatic retry."
+    },
+    "NativePreparationResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "receiptId",
+        "importId",
+        "ownerCount"
+      ],
+      "properties": {
+        "kind": {
+          "const": "native-preparation"
+        },
+        "receiptId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
+        },
+        "importId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
+        },
+        "ownerCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096
+        }
+      },
+      "description": "Completed preparation only: explicit execution receipt and admitted prepared import. Faults use step termination/journal, never this success record."
+    },
+    "CoreTransitionIntentV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "operation",
+        "fromCoreClosure",
+        "toCoreClosure",
+        "fromStateSchema",
+        "toStateSchema",
+        "platformProfileSetBodyDigest",
+        "preconditionGeneration",
+        "rollbackDeadline",
+        "fromStoreGeneration",
+        "toStoreGeneration"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operation": {
+          "enum": [
+            "core-update",
+            "core-repair",
+            "core-rollback",
+            "store-migrate",
+            "store-rollback"
+          ]
+        },
+        "fromCoreClosure": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+        },
+        "toCoreClosure": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+        },
+        "fromStateSchema": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "toStateSchema": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "platformProfileSetBodyDigest": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+        },
+        "preconditionGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "rollbackDeadline": {
+          "oneOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UtcTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fromStoreGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "toStoreGeneration": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        }
+      },
+      "description": "One closed installation intent for core update/repair/rollback and store migrate/rollback. Security S9.2 admits exact per-operation closure/schema/store/deadline semantics and journals the derived namespace lease set. Store operations keep the core closure; a same-schema core operation keeps the store. Target trust/profile/generation/time observations are host-admitted, never caller granted."
+    },
+    "RepairRecoveryIntentV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "kind",
+        "journalRef",
+        "repairPlanId",
+        "recoveryAction",
+        "authorizationRef"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "kind": {
+          "const": "repair-recover"
+        },
+        "journalRef": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairJournalRef"
+        },
+        "repairPlanId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairPlanId"
+        },
+        "recoveryAction": {
+          "enum": [
+            "discard-temps",
+            "roll-back-renamed",
+            "verify-postimages-and-commit"
+          ]
+        },
+        "authorizationRef": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RepairRecoveryAuthorizationRef"
+        }
+      },
+      "description": "Host-created after reading the exact apply journal and obtaining fresh security recovery admission. It binds the mutation step inputDescriptorDigest. All fields join the admitted authorization; inspection uses the query step and needs no authorization."
+    },
+    "MutationReplayScopeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "requestId",
+        "stepId",
+        "projectId",
+        "operation"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "requestId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
+        },
+        "stepId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepId"
+        },
+        "projectId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+        },
+        "operation": {
+          "allOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation"
+            },
+            {
+              "not": {
+                "const": "repair-apply"
+              }
+            }
+          ],
+          "x-opensip-vocabulary": {
+            "fieldDomainAuthority": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/admissibleGenericFieldDomain",
+            "commandEmissionMap": "workflows/schemas/repair.schema.json#/x-opensip-mutation-operation-map/byCommandGenericMutationStep",
+            "scope": "GENERIC mutation steps. The ADMISSIBLE domain of this field is every MutationOperation member except repair-apply, which the `not` beside the $ref refuses; it is deliberately WIDER than the set of operations today's commands emit, and the command map is NOT this field's domain. An earlier annotation named the command list here, which was a different vocabulary."
+          }
+        }
+      },
+      "description": "Retained operational replay namespace for a generic mutation. H(workflow.mutation-intent, this complete record) is its idempotencyKey. The admitted immutable invocation and step own effect inputs; a key grants no authority and never deduplicates different fresh requests. Repair apply uses its separate exact content-derived recipe."
+    },
+    "HostQueryOperation": {
+      "type": "string",
+      "enum": [
+        "baseline.inspect",
+        "discovery.recommend",
+        "policy.show",
+        "policy.test",
+        "review.produce-brief"
+      ],
+      "description": "Closed host-only query-step operations for query-class CLI commands whose request has no member of the public graph-query:3 Operation/Params API. Never members of that public Operation enum and never public query operations."
+    },
+    "PublicQueryParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operation",
+        "completeness",
+        "page",
+        "request"
+      ],
+      "properties": {
+        "kind": {
+          "const": "query"
+        },
+        "operation": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
+        },
+        "completeness": {
+          "type": "string",
+          "enum": [
+            "required",
+            "best-effort"
+          ]
+        },
+        "page": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Page"
+        },
+        "request": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryRequestV1"
+        }
+      },
+      "description": "A query step over one of the twenty public graph-query:3 operations; request is the complete admitted GraphQueryRequestV1 whose operation, completeness and page equal the step fields (cross-field join)."
+    },
+    "HostQueryParams": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operation",
+        "request"
+      ],
+      "properties": {
+        "kind": {
+          "const": "query"
+        },
+        "operation": {
+          "$ref": "#/$defs/HostQueryOperation"
+        },
+        "request": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/BaselineInspectRequestV1"
+            },
+            {
+              "$ref": "#/$defs/DiscoveryRecommendRequestV1"
+            },
+            {
+              "$ref": "#/$defs/PolicyShowRequestV1"
+            },
+            {
+              "$ref": "#/$defs/PolicyTestRequestV1"
+            },
+            {
+              "$ref": "#/$defs/ReviewBriefProduceRequestV1"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "const": "baseline.inspect"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "$ref": "#/$defs/BaselineInspectRequestV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "const": "discovery.recommend"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "$ref": "#/$defs/DiscoveryRecommendRequestV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "const": "policy.show"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "$ref": "#/$defs/PolicyShowRequestV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "const": "policy.test"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "$ref": "#/$defs/PolicyTestRequestV1"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "operation"
+            ],
+            "properties": {
+              "operation": {
+                "const": "review.produce-brief"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "$ref": "#/$defs/ReviewBriefProduceRequestV1"
+              }
+            }
+          }
+        }
+      ],
+      "description": "A query step over one closed host-only operation; request is the closed record of exactly that operation."
+    },
+    "BaselineInspectRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "path"
+      ],
+      "properties": {
+        "operation": {
+          "const": "baseline.inspect"
+        },
+        "path": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        }
+      },
+      "description": "baseline show [PATH]: the tracked baseline artifact path (default opensip.baseline.json resolved by the host)."
+    },
+    "DiscoveryRecommendRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "const": "discovery.recommend"
+        },
+        "emitConfigProposalPath": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        }
+      },
+      "description": "recommend [--emit-config-proposal PATH]."
+    },
+    "PolicyShowRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation"
+      ],
+      "properties": {
+        "operation": {
+          "const": "policy.show"
+        }
+      },
+      "description": "policy show: tracked policy and waiver documents resolved at the admitted trust-clock date (host observation, not a request field)."
+    },
+    "PolicyTestRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "suitePath"
+      ],
+      "properties": {
+        "operation": {
+          "const": "policy.test"
+        },
+        "suitePath": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+        }
+      },
+      "description": "policy test SUITE: suitePath names an evaluator3 PolicyTestSuiteV2 document (urn:opensip:product-v1:workflows:evaluator3:policy-test:2); a suite or candidate policy of another major is refused before evaluation."
+    },
+    "ReviewBriefProduceRequestV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "view",
+        "producer"
+      ],
+      "properties": {
+        "operation": {
+          "const": "review.produce-brief"
+        },
+        "view": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/View"
+        },
+        "producer": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:review:2#/$defs/ReviewerPrincipal"
+        }
+      },
+      "description": "review brief [--producer model|heuristic]: model selects a ReviewerPrincipal of kind model with its admitted modelClosureId; heuristic selects kind policy-rule with id opensip.review.heuristic."
+    },
+    "AttemptDurationV1": {
+      "description": "Host monotonic observation of this attempt only, with explicit inability to measure. Milliseconds are truncated from the elapsed monotonic nanoseconds; zero is a valid measured duration. Source custody and lifecycle rules are semantic admission duties.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "milliseconds"
+          ],
+          "properties": {
+            "state": {
+              "const": "measured"
+            },
+            "milliseconds": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "enum": [
+                "supervisor-lost",
+                "clock-unavailable",
+                "clock-regressed",
+                "duration-overflow"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  }
+}

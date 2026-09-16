@@ -1,0 +1,22 @@
+from pathlib import Path
+import json,hashlib,subprocess,ast,shutil
+B=Path('/tmp/opensip-design-corrections');L=Path('/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews');P=Path(__file__).parent;A=B/'claude-independent-design.v42';N=B/'claude-independent-design.v43';H=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+assert json.loads((A/'process-completion.json').read_bytes())['exitCode']==0 and json.loads((A/'review.json').read_bytes())['verdict']=='ACCEPT'
+ps=subprocess.run(['ps','-axo','comm=,args='],capture_output=True,text=True).stdout
+assert not any(r.strip().split()[0].endswith('/claude') and '--resume 85a08aec-9d22-4ac6-8ec2-c10170e727d7' in r for r in ps.splitlines() if r.strip())
+mf=L/'candidate-subject.v43.json';src=B/'candidate-subject.v43';archive=L/'candidate-source.v43.tar.gz';pkg=B/'claude-author-package-successor.v20';v=B/'author-package-final43-verification.v1/verification.json';ref=L/'codex-post-reset.v1/final-reference.v43/reference-checks.json';c=json.loads((B/'root-final43-custody.v1/verification.json').read_bytes());m=json.loads(mf.read_bytes());binding=json.loads((pkg/'source-binding.v43.json').read_bytes())
+assert H(mf)==c['manifestSha256']==binding['formalSubjectManifestSha256']=='db43ee76f91b08dc5076d152761ddef795a3645fafa690a3974d693bedaf897d';assert H(archive)==c['archiveSha256'] and c['allMembersAndPinsVerified'];assert m['parentManifestSha256']==H(L/'candidate-subject.v42.json')=='f602fc7e45a90e32e0d076aa27e4ee7e51d8c298727a69bdf32489d5a7b0b307'
+assert json.loads(v.read_bytes())['passed'] and json.loads(ref.read_bytes())['passed'];assert H(pkg/'artifact-manifest.json')=='803d1e1692c71dcede01efa0206fec68050c596a9c228b55123435dbdde4920b'
+assert not N.exists();N.mkdir()
+inputs=[mf,archive,L/'candidate-subject.v42.json',pkg/'artifact-manifest.json',pkg/'source-binding.v43.json',v,ref,B/'root-author-package-final43-rebuild.v1/rebuild-report.json',B/'root-author-package-formal43-binding.v1/binding.json',B/'root-query43-independent-note.v1/note.json',B/'root-source43-planning-verification.v1/verification.json',src/'docs/v2/architecture/implementation-normative-inputs.v11.json',A/'review.json']
+header='Exact source43 binding, parent42. Source '+str(src)+f'; {m["fileCount"]} members {m["totalBytes"]} bytes. Source43 has9changed0added0removedfiles:3querycontract/model/checker,5pinledgers,generatedworkflowreport. Current actual root6groups17children PASS. Package20 rebuilt from15+native-v2overlay; all17Run IDs happen to equal prior19, explicitly measured rather than forced reminting. Exact binding is custody, not direction to accept. Source-only note supplied; do not read query-author runtime or reports, which contain consumer observations. No blind inputs/results/helpers provided.\n\n'
+for p in inputs:header+=str(p)+' SHA256 '+H(p)+'\n'
+(N/'prompt.md').write_text(header+'\n'+(P/'review-scope.md').read_text())
+text=(A/'launch.py').read_text();t=ast.parse(text);node=next(n for n in t.body if isinstance(n,ast.Assign) and any(isinstance(x,ast.Name) and x.id=='cmd' for x in n.targets))
+cmd=['/Users/sb/.local/bin/claude','--safe-mode','--strict-mcp-config','--model','opus','--resume','85a08aec-9d22-4ac6-8ec2-c10170e727d7','--permission-mode','dontAsk','--tools','Read,Glob,Grep,Bash,Write,Edit','--allowedTools','Read','Glob','Grep','Write','Edit','Bash(python3 *)','Bash(/tmp/opensip-architecture-review-env/bin/python *)','--output-format','stream-json','--verbose','-p']
+for p in [src,B/'candidate-subject.v42',B/'candidate-subject.v40',L,Path('/tmp/opensip-architecture-review-env'),A,B/'claude-independent-design.v40',pkg,v.parent,B/'root-author-package-final43-rebuild.v1',B/'root-author-package-formal43-binding.v1',B/'root-query43-independent-note.v1',B/'root-source43-planning-verification.v1',B/'root-source43-final-reference.v1']:
+ cmd+=['--add-dir',str(p)]
+lines=text.splitlines(True);lines[node.lineno-1:node.end_lineno]=['cmd='+repr(cmd)+'\n'];(N/'launch.py').write_text(''.join(lines))
+d={'standing':'PREPARED UNLAUNCHED original non-author85 current43 review. Prior42 complete/idle; no blind inputs or acceptance prescribed.','sourceManifestSha256':H(mf),'parentReviewSha256':H(A/'review.json'),'promptSha256':H(N/'prompt.md'),'launcherSha256':H(N/'launch.py'),'runtime':str(N),'actualSessionId':'85a08aec-9d22-4ac6-8ec2-c10170e727d7'};(N/'preparation.json').write_text(json.dumps(d,indent=2)+'\n');D=L/(N.name+'-dispatch');D.mkdir()
+for name in ['prompt.md','launch.py','preparation.json']:shutil.copyfile(N/name,D/name)
+print(json.dumps(d))

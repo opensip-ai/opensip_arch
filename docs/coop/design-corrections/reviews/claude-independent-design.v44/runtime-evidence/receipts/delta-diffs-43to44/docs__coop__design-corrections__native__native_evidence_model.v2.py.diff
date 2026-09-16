@@ -1,0 +1,167 @@
+--- a43/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b44/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -573,6 +573,18 @@
+                 "d9": {"class": "operational-failed", "exitCode": 4, "code": "PROVIDER.PROTOCOL_VIOLATION"}}
+     return {"stage": "hello-ack", "spawned": True, "sourceBytesSent": False, "outcome": "accepted",
+             "identityNegotiated": all(t in hello_ack for t in IDENTITY_TOKENS), "next": "OpenUniverse"}
++
++
++# Provider handshake and FactBatch WIRE records (native-evidence 9.1, 9.3, 9.4, 9.6). `negotiate` above decides
++# token sets only. The field-level Hello/HelloAck records, the per-language limit maps, the historical-versus-
++# negotiated FactBatch payloads and their cross-record joins are published in provider-handshake.schemas.v1.json
++# and executed by provider_wire_model.v1.py, which carries the bytes-bearing wire CBOR this file does not.
++WIRE = _load("provider_wire_model_v1", HERE / "provider_wire_model.v1.py")
++admit_provider_hello = WIRE.admit_hello
++admit_provider_hello_ack = WIRE.admit_hello_ack
++admit_provider_fact_batch = WIRE.admit_fact_batch
++validate_provider_wire = WIRE.validate_wire
++provider_wire_limits = WIRE.published_limits
+ 
+ 
+ # The Rust major-3 transition system, READ from its published artifact rather than restated here.
+@@ -4545,4 +4557,145 @@
+             "units": [u["unit"] for u in per_unit if u["coverage"] != "complete"]}
+ 
+ 
++# ---------------------------------------------------------------------------
++# Provider startup exchange (native-evidence 9.7): admitted startup payloads -> event machine -> host conversion
++# ---------------------------------------------------------------------------
++# The startup WIRE records (OpenUniverse, UniverseAccepted, NativeContextVerified, pre-/post-Analyze Unavailable,
++# Coverage wrappers) and the typescript-semantic major-2 order table are published in provider-startup.schemas.v1.json
++# and typescript-protocol2-order.v1.json and admitted by provider_startup_model.v1.py. The host conversion of a clean
++# pre-Analyze Unavailable composes the EXISTING coverage owners below - subject_scope_commitment,
++# completeness_from_stage, closed_world_v2, admit_coverage_result_v3, stage_authority and run_termination - and reads
++# no requested stage or coverage from the worker.
++STARTUP = _load("provider_startup_model_v1", HERE / "provider_startup_model.v1.py")
++validate_provider_startup = STARTUP.validate_startup
++typescript_protocol2_run = STARTUP.typescript_protocol2_run
++admit_provider_open_universe = STARTUP.admit_open_universe
++admit_provider_universe_accepted = STARTUP.admit_universe_accepted
++admit_provider_unavailable = STARTUP.admit_unavailable
++admit_provider_coverage_frame = STARTUP.admit_coverage_frame
++
++
++def protocol3_open_universe_event(open_universe: dict, hello: dict, hello_ack: dict, expected: dict) -> dict:
++    """Executable binding from an ADMITTED OpenUniverseV3 to the protocol3_run event. dependencyMode and preparedMode
++    are derived observations of the admitted payload, never wire members. Event-only traces that assert the booleans
++    directly stay abstract table tests and make no whole-wire claim."""
++    return STARTUP.admit_open_universe("rust-semantic", open_universe, hello, hello_ack, expected)["event"]
++
++
++def pre_analyze_unavailable_conversion(language: str, unavailable: dict, open_universe: dict,
++                                       planned_stages: list[dict]) -> dict:
++    """Host conversion of a clean pre-Analyze Unavailable(native-context-mismatch), applied only after zero-exit and
++    EOF. `planned_stages` is the host's OWN pre-spawn selection, [{stageId, scopeDescriptors}], one foundation
++    subject-scope descriptor per requested key in key order; the worker supplies none of it."""
++    universe_hex = STARTUP.universe_identity(language, open_universe["universe"]).removeprefix("sha256:")
++    stages: list[dict] = []
++    entries: list[dict] = []
++    for stage in planned_stages:
++        admissions = []
++        for descriptor in stage["scopeDescriptors"]:
++            if descriptor["snapshotId"] != open_universe["snapshotId"] or descriptor["sourceUniverse"] != universe_hex:
++                raise AdmissionError("native.pre-analyze-conversion-scope-not-this-universe:" + stage["stageId"])
++            commitment = subject_scope_commitment(descriptor)
++            entry = {"relation": descriptor["relation"], "resolution": descriptor["resolution"], "coverage": "unknown",
++                     "examinedUniverse": {"subjectScopeCommitment": commitment["subjectScopeCommitment"],
++                                          "subjectCount": commitment["subjectCount"]},
++                     "resolutionCompleteness": completeness_from_stage(descriptor["relation"], descriptor["resolution"],
++                                                                       [], [], "unavailable", False, False),
++                     "closedWorld": closed_world_v2(None, {"source": "none", "state": "none"}, [], "unknown"),
++                     "derivationKinds": [], "confidenceMillionths": 0,
++                     "deficiency": "provider-unavailable", "nativeCause": None}
++            payload = {"schemaVersion": 3,
++                       "key": {"relation": descriptor["relation"], "resolution": descriptor["resolution"],
++                               "sourceUniverse": descriptor["sourceUniverse"], "targetUniverse": descriptor["targetUniverse"],
++                               "subjectScopeCommitment": commitment["subjectScopeCommitment"]},
++                       "entry": entry}
++            admissions.append({"payload": payload, "admission": admit_coverage_result_v3(payload, descriptor, [])})
++            entries.append(entry)
++        stages.append({"stageId": stage["stageId"], "coverage": admissions})
++    authority = stage_authority("unavailable")
++    return {"coverageSource": "host-derived", "workerCoverageCarried": False, "reason": unavailable["reason"],
++            "affectedStageIds": [s["stageId"] for s in planned_stages], "stages": stages,
++            "allAdmitted": all(a["admission"]["result"] == "ADMIT" for s in stages for a in s["coverage"]),
++            "stageAuthority": authority, "termination": run_termination(authority, entries)}
++
++
++def provider_startup_exchange(language: str, frames: list[dict], inputs: dict, stage_count: int = 1) -> dict:
++    """One startup-to-terminal exchange over ACTUAL payloads for the frames section 9.7 publishes.
++
++    Each frame's payload is admitted in the phase the language's published event machine is in (protocol3_run for
++    rust-semantic, typescript_protocol2_run for typescript-semantic); the admitted frame becomes an event carrying only
++    derived observations; a refused payload is PROVIDER.PROTOCOL_VIOLATION and ends the exchange in FAULT. SCOPE:
++    Hello, HelloAck, OpenUniverse, UniverseAccepted, NativeContextVerified and Unavailable have the selected
++    schema/join checks here. Coverage checks only wrapper shape and requested-key correspondence, not commitment,
++    complete entry or request-ordinal admission. Cancelled checks only TypeScript's inserted observedPhase interval,
++    not the inherited full record/correlation, Rust phase or host cancellation reduction. Other inherited owner
++    checks remain prerequisites; snapshot, dependency-source, prepared, Analyze and FactBatch frames are abstract
++    events. Fixture host inputs and placeholder commitments do not establish a verified Plan or complete Run.
++    No framing, process or compiler is exercised."""
++    rust = language == "rust-semantic"
++
++    def run(events):
++        if rust:
++            return protocol3_run(events, stage_count=stage_count)
++        return STARTUP.typescript_protocol2_run(events, stage_count=stage_count)
++
++    events: list[dict] = []
++    ctx = {"hello": None, "ack": None, "openUniverse": None, "unavailable": None, "unavailableClass": None}
++    refusal = None
++    coverage_frame = STARTUP.DEFS[language]["coverageFrame"]
++    for frame in frames:
++        name, payload = frame["frame"], frame.get("payload")
++        state = run(events)
++        phase = state["finalPhase"]
++        event = {"frame": name}
++        try:
++            if name == "Hello" and phase == "START":
++                WIRE.admit_hello(language, payload, inputs["envelopeProtocolMajor"], inputs["signedRow"], inputs["helloExpected"])
++                ctx["hello"] = payload
++            elif name == "HelloAck" and phase == "WAIT_HELLO_ACK":
++                WIRE.admit_hello_ack(language, ctx["hello"], payload, inputs["envelopeProtocolMajor"], inputs.get("ackExpected", {}))
++                ctx["ack"] = payload
++                event["capabilities"] = list(payload["capabilities"])
++            elif name == "OpenUniverse" and phase == "READY_OPEN_UNIVERSE" and state["identityNegotiated"]:
++                admitted = STARTUP.admit_open_universe(language, payload, ctx["hello"], ctx["ack"], inputs["universeExpected"])
++                ctx["openUniverse"] = payload
++                event = admitted["event"]
++            elif name == "UniverseAccepted" and phase == "WAIT_UNIVERSE_ACCEPTED":
++                STARTUP.admit_universe_accepted(language, payload, ctx["openUniverse"])
++            elif name == "NativeContextVerified" and phase == "WAIT_NATIVE_CONTEXT_VERIFIED":
++                STARTUP.admit_native_context_verified(payload, ctx["openUniverse"])
++            elif name == "Unavailable":
++                admitted = STARTUP.admit_unavailable(language, payload, phase, ctx["openUniverse"])
++                event = admitted["event"]
++                if admitted["payloadClass"] is not None:
++                    ctx["unavailable"], ctx["unavailableClass"] = payload, admitted["payloadClass"]
++            elif name == coverage_frame and phase == "ANALYZING":
++                stage = inputs["analyzeStages"][state["stagesCompleted"]]
++                STARTUP.admit_coverage_frame(language, payload, stage["stageId"], stage["requestedKeys"])
++            elif name == "Cancelled" and phase == "WAIT_CANCELLED":
++                STARTUP.cancelled_observed_phase(language, state.get("cancelPhase"), payload)
++        except (AdmissionError, STARTUP.C.AdmissionError, WIRE.C.AdmissionError) as exc:
++            # The wire and startup modules each load their own foundation canonical module, so their refusal
++            # classes derive from distinct AdmissionError instances; all three are typed admission refusals.
++            detail = str(getattr(exc, "detail", "") or "")
++            refusal = {"frame": name, "phase": phase, "refusal": getattr(exc, "message", None) or str(exc),
++                       "key": getattr(exc, "key", None), "detailHead": ":".join(detail.split(":")[:2]) or None}
++            break
++        events.append(event)
++    final = run(events)
++    trace = list(final["trace"])
++    final_phase, terminal = final["finalPhase"], final["terminalKind"]
++    if refusal is not None:
++        final_phase = "FAULT"
++        trace.append("payload-refused")
++    conversion = None
++    if final_phase == "DONE" and terminal == "unavailable" and ctx["unavailableClass"] == "pre-analyze":
++        conversion = pre_analyze_unavailable_conversion(language, ctx["unavailable"], ctx["openUniverse"], inputs["plannedStages"])
++    elif final_phase == "FAULT":
++        conversion = {"coverageSource": None, "stages": [], "stageAuthority": stage_authority("fault")}
++    return {"language": language, "finalPhase": final_phase, "terminalKind": terminal, "trace": trace, "refusal": refusal,
++            "sourceBytesSent": final["sourceBytesSent"], "identityNegotiated": final["identityNegotiated"],
++            "events": events, "hostConversion": conversion}
++
++
+ __all__ = [name for name in dir() if not name.startswith("_")]

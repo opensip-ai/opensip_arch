@@ -1,0 +1,60 @@
+{
+  "session_id": "f5617310-c7c7-4d85-acdd-31370f220944",
+  "total_cost_usd": 8.695672000000002,
+  "usage": {
+    "input_tokens": 674,
+    "cache_creation_input_tokens": 207565,
+    "cache_read_input_tokens": 7366270,
+    "output_tokens": 81833,
+    "output_tokens_details": {
+      "thinking_tokens": 35857
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 207565,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2341,
+        "cache_read_input_tokens": 114558,
+        "cache_creation_input_tokens": 857,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 857
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 7758,
+      "outputTokens": 96788,
+      "cacheReadInputTokens": 8323064,
+      "cacheCreationInputTokens": 207565,
+      "webSearchRequests": 0,
+      "costUSD": 8.695672000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 35857,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 76,
+  "subtype": "success",
+  "result": "**Answer: only partly.** For typescript-semantic major 2, the payload when `target-attribution-v2` is negotiated can be reconstructed from the current owners. The handshake cannot, and neither can the default FactBatch payload when the token is absent. There are two MUST findings, two SHOULD and two advisory. This is my author assessment only: nothing in frozen43 or LIVE was edited, nothing was committed, and the proposed corrections are not implemented.\n\n**Custody.** All 12913 manifest members matched and the manifest SHA `db43ee76\u2026` checked out. The pinned `delivery.v2.json` and `rust-provider-protocol.v2.json` match their source pins. Every file I cite was re-hashed after the probe run and is unchanged. The run wrote no `__pycache__` into frozen43.\n\n## Findings\n\n**Precedence baseline.** In \u00a70 of `native-evidence.md` (lines 112-127), the only TS wire selector named is `CoverageResultV1.completenessRule`. The TS `major`, the envelope `protocolMajor`, `HelloV1`, `HelloAckV1`, `FactBatchV1` and the `factBatch` commitment domain are all unnamed there. So every TS change has to come from the prose in \u00a79.\n\n- **M1 (MUST): the TS major-2 Hello/HelloAck payloads cannot be reconstructed.**\n  - **What is fixed:** the token set, the `identityVersions` values, the exact-equality rule, the fault on mismatch, and the major value 2.\n  - **What is not fixed:**\n    - **Fields:** which fields Hello and HelloAck carry.\n    - **Limits:** which limits go in Hello (the 10 TS delivery.v2 limits or the 8 in `ProtocolLimitsV3`).\n    - **Order:** the order of the capabilities array.\n    - **Placement:** where `protocolMajor` sits.\n  - **Why not:** `HelloV3`/`HelloAckV3` are closed and fixed to major 3, so the probe refuses major 2. \u00a79.4 is a list of capabilities, not a field-level change. Keeping `HelloAckV1` unchanged can't express the identity tokens at all.\n  - **Two incompatible readings:**\n    - **A:** use the V3 shape with major 2.\n    - **B:** keep the `HelloV1` fields and add the tokens and `identityVersions`.\n\n    A closed decoder following one reading refuses the other's Hello and HelloAck.\n  - **Consequence:** a host and a TS worker can both follow frozen43 and still fault with `PROVIDER.PROTOCOL_VIOLATION` at HelloAck. That affects every TS/JS semantic cell. Reading A also loses the descriptor fields that `producerVersion` depends on.\n\n- **M2 (MUST): the FactBatch payload when the token is absent has two incompatible readings.**\n  - **Reading U-V1:** the retained TS `FactBatchV1` `{analysisOrdinal, stageId, batchIndex, facts, batchCommitment}` stays. Nothing supersedes it.\n  - **Reading U-V2:** the payload is the \"historical FactBatchV2\" named in \u00a79.1, \u00a79.6, the `whenAbsent` rule of `fact-batch.schema.v3.json` and `occupancy-companion.schema.v1.json`. The only definition of that name is Rust's `{\u2026, candidates}`; TypeScript never had a V2.\n  - **Consequence:** a TS batch shaped like V1 is admitted under one reading and is a protocol violation under the other. This is the default path, since the token is optional.\n  - **Reference model:** `_token_gate` treats a V1-shaped batch, a V2-shaped batch and junk the same way, so it can't settle the question.\n\n- **S1 (SHOULD):** the TS major value 2 overrides the retained \"exactly 1\" selectors without \u00a70 rows. There is only one possible value, so this is an incomplete selector table rather than a competing wire reading.\n\n- **Negotiated FactBatchV3 (no defect):** its field set is fixed by an explicit successor whose scope is the token and which names TS itself. The closed payload is:\n  - `schemaVersion` 3 and `analysisOrdinal` 0;\n  - `stageId` as text and `batchIndex`;\n  - 1..4096 `FactCandidateV1`, carrying CBOR bytes on the wire;\n  - 0..4096 `occupancyCompanions`;\n  - no `facts` and no `batchCommitment`.\n\n  It can only be reached once M1 is fixed.\n\n- **S2 (SHOULD):** V3 drops the TS `batchCommitment`. What happens to that commitment domain is never stated, although the stage and stream commitments still work.\n- **A1 (advisory):** the text says `maxFactBatchCandidates`, which is Rust's limit name. TS calls it `maxFactBatchFacts`; both are 4096.\n- **A2 (advisory):** how the V3 JSON-vector form maps to the wire is stated only in field descriptions.\n\n## Proposed corrections (not implemented)\n\n- **P1 (fixes M2):** make the absent-token payload language-specific wherever it is stated. TS keeps delivery.v2 `FactBatchV1` and Rust keeps `FactBatchV2`; a language's historical payload sent with the token is a protocol violation. Add a \u00a70 row retaining `FactBatchV1` when the token is absent.\n- **P2 (fixes M1 and S1):** add \u00a70 rows superseding the TS `major`, envelope `protocolMajor`, `HelloV1` and `HelloAckV1`. Add an exact TS major-2 handshake to \u00a79.4:\n  - keep the `HelloV1` and `HelloAckV1` fields, set major to 2, and keep the TS limits unchanged;\n  - add `expectedCapabilities` and `identityVersions`, and make HelloAck echo both exactly;\n  - state one array-order rule.\n- **P3 / P4 (fix S2, A1 and A2):** one sentence each on the commitment, the limit name and the wire mapping.\n\nSeparately, the Rust `HelloV3` and `ProtocolLimitsV3` schemas contradict \u00a79.3's \"all 24 v2 limits retained\". I noted this but did not classify it; it needs its own question. I did not assess TS `CoverageV3`, `NativeContextVerified` ordering or `Unavailable` reasons. The probes are reference evidence only, not compiler or worker qualification.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-ts-protocol43-publication-assessment.v1/`:\n- `review.md`\n- `review.json`\n- `hash-index.json`\n- `probes/ts_protocol_probe.py`\n- `probes/probe-output.json`\n- `receipts/frozen43-verify.json`",
+  "type": "result",
+  "duration_ms": 1149438
+}

@@ -1,0 +1,92 @@
+--- frozen34/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md
++++ successor/docs/coop/design-corrections/foundation/atom-evaluation-contract.v1.md
+@@ -160,7 +160,41 @@
+ **Incoming cause derivation (`endpoint=target`).** After the shared prelude — **including P2's
+ return, which incoming takes** — incoming makes **no further early return**: it accumulates across
+ every owed universe and provider and reports one completeness result at the end, which is what
+-"account **every** represented Coverage *S→V* **and every source scope**" below requires.
++"account **every** represented Coverage *S→V* **and every source scope**" below requires. Its first
++accumulation is I1.
++
++* **I1 — the subject's own program is always an owed source.** The subject universe *U* is itself
++  a source of incoming edges (*U→U*), whatever other programs are bound, so no incoming negative can
++  stand unless *U*'s own referrers were accounted.
++  **Precondition:** `endpoint=target`, P2 did not return, and **no available owed binding has
++  `universe = U`** — the same test as outgoing step 1.
++  **Emission:** `selector-unbound` with `evidenceKind: null`, `nativeCause: null` and `universe: null`
++  (the projected value; the atom record omits the key) — exactly the record outgoing step 1 emits.
++  The null is deliberate: no binding coordinate equal to *U* exists to attribute, *U* is already the
++  atom subject's own coordinate, and naming *U* here would present a program that was never searched
++  as an examined source partition.
++  **Effect:** blocking — the completeness result is `complete=false`, `unknown=true` — but it is
++  **not** a return. Every other owed universe and provider is still accounted and every cause it owes
++  is still emitted, and matching is untouched, so a known match still decides `exists`, `none` and
++  an exceeded `count-at-most` exactly as the completeness-result paragraph above states; only the
++  answers that need completeness (`none`/`exists` without a known match, `count-at-most` not
++  exceeded, `all-covered`) become `unknown`.
++  **Precedence:** after P1 and P2, before the per-universe accumulation below. It is emitted at most
++  once per evaluation and does not depend on binding, scope, Coverage, inventory or attestation order.
++* **Unavailable bindings never satisfy I1.** An unavailable binding has `universe: null`, so it can
++  never be the available binding at *U* that I1 requires. When an owed unavailable binding whose
++  family is owed also exists, P1 has already emitted `unavailable-program-binding`; I1 emits
++  `selector-unbound` beside it and both are retained.
++* **Foreign-family-only obligations.** When every owed binding is of a family not owed for the
++  subject — available, unavailable or both — I1's precondition holds, so the incoming answer is
++  `unknown` with `selector-unbound`, and the `cross-family-edge-not-owed` disclosures of both routes
++  below are retained beside it. Foreign-family work stays non-blocking in itself; what blocks is that
++  the subject's own program was never searched.
++* **Explicit selection scope.** An explicit request — `analysis.capabilities`, or any admitted
++  analysis-spec whose ownership tuples omit the subject's unit for `capabilityForRelation[relation]`
++  — is a visible, lawful narrowing of the **work requested**. It does not narrow what an incoming
++  negative must have searched: such an atom answers `unknown` with `selector-unbound`, never a
++  negative that cites only other programs' Coverage. I1 applies however the request was produced.
+ 
+ `cross-family-edge-not-owed` reaches an incoming result by **two** routes, and both are retained:
+ from prelude P1 with `universe: null`, for an **unavailable** foreign-family binding; and from the
+@@ -185,7 +219,7 @@
+ 
+ | Search-accounting case | Cause, with `universe: S` |
+ |---|---|
+-| Selected provider group has no source scopes and no qualifying attestation | `source-target-search-unattested` |
++| Selected provider group has no source scopes (no admitted attestation can exist for it; see below) | `source-target-search-unattested` |
+ | Represented source scope has paired Coverage only at *S→V* (*V*≠*U*), and no qualifying attestation for *S→U* | `source-target-search-unattested` |
+ | Represented source scope has no paired Coverage at all, and no qualifying attestation | `scope-without-coverage` |
+ 
+@@ -195,7 +229,30 @@
+ one. `coverage-unknown` is emitted by the shared sufficiency rule in outgoing step 4, including when
+ an attestation's view fails sufficiency.
+ 
+-**Incoming owed programs** = EnumerationPlan bindings for `capabilityForRelation[relation]`. Program identity is universe *U* (expected source IDs **union by U**). Contributors are per `(*U*, providerClosure)`: two selected providers on the same *U* across workspace cells are lawful (enumeration-plan does not forbid it). Incoming attestation `scopeRefs` / `expectedInventoryRefs` are that provider’s owned scopes and inventory locators, not a hidden first-PC collapse. Facts never define owed programs. Symbol/package expected IDs come **only from inventory rows**; extent paths mint **file** IDs only. Partial/unavailable inventory ⇒ `population-unknown`, not fake IDs. Unavailable bindings carry cell language-family; foreign-family unavailable work discloses `cross-family-edge-not-owed` and does **not** poison a TS incoming closure.
++**Admitted inputs for these cases.** Two shapes a reader might expect are **not** admitted
++alternatives, and no rule may rely on them:
++
++1. **An attestation for a scope-less provider group.** `IncomingSearchV1.scopeRefs` has
++   `minItems: 1`, and admission requires it to equal **exactly** that provider's owned scopes at the
++   attestation's relation, rung and *S*. A group with no owned scopes therefore has no admissible
++   attestation: offering one is a **global admission refusal** (`INCOMING_SEARCH_SCHEMA`) that refuses
++   the whole atom-input set, not an absent attestation that leaves this atom `unknown`. The first
++   table row therefore always emits `source-target-search-unattested`. The admitted way for an empty
++   selected program to close incoming is an explicit scope2 record owned by that provider with an
++   **empty `subjects` array**, paired with complete *S→U* Coverage or named by a qualifying
++   attestation; the native subject-scope carrier admits `subjects: []` with `subjectCount: 0`. This
++   names an existing admitted shape; it qualifies no provider to produce it.
++2. **A scope without `enumeratorClosure`.** The subject-scope carrier
++   (`identity-schemas.v3.json#/$defs/subject-scope`) requires `enumeratorClosure` as a `closure2`
++   string. A scope whose key is **absent or null** is refused `ATOM_NATIVE_CARRIER` wherever it is
++   paired, and pairing validates the carrier: when an evaluation on either endpoint consumes the
++   scope, and during global `IncomingSearchV1` admission for every scope an attestation names, which
++   refuses the whole atom-input set even when the evaluated atom's relation never pairs that scope.
++   A missing field is never read as "no commitment". Provider groups are therefore always keyed by an admitted
++   `enumeratorClosure`, and the `IncomingSearchV1` join text "untagged scopes fall back to all S
++   scopes", like the matching defensive branches in the reference, describes no admitted input.
++
++**Incoming owed programs** = EnumerationPlan bindings for `capabilityForRelation[relation]`, and the subject's own universe is always among the owed sources: a subject universe with no available binding is disclosed and blocking under I1, never silently skipped. Program identity is universe *U* (expected source IDs **union by U**). Contributors are per `(*U*, providerClosure)`: two selected providers on the same *U* across workspace cells are lawful (enumeration-plan does not forbid it). Incoming attestation `scopeRefs` / `expectedInventoryRefs` are that provider’s owned scopes and inventory locators, not a hidden first-PC collapse. Facts never define owed programs. Symbol/package expected IDs come **only from inventory rows**; extent paths mint **file** IDs only. Partial/unavailable inventory ⇒ `population-unknown`, not fake IDs. Unavailable bindings carry cell language-family; foreign-family unavailable work discloses `cross-family-edge-not-owed` and does **not** poison a TS incoming closure.
+ 
+ Take **all** exact-rung scopes of source *S* regardless of `targetUniverse`. Union source presence across *T* (do not sum). Account **every** represented Coverage *S→V* **and every source scope** (do not ignore an unpaired scope when another paired; do not ignore *S→V* when *S→U* exists).
+ 
+@@ -340,4 +397,4 @@
+ 
+ ## 9. Conceptual cases (implemented in `check-atoms.v1.py`)
+ 
+-Known-hit partial ⇒ none false; missing runtime observable ⇒ unknown; history empty complete all-paths ⇒ covered; scope *S*→*V* does not omit incoming owed *S* for *U*; source kind vs incoming target kind; equal nativeId different *U* no match; two-cap identical inventory lookup not ambiguous; conflicting sidecar refuses; all-covered non-resolved N/A plus resolved partial; wrong enum `neq` admission; tests exit 1 empty; optional unknown disclosure; known count>*N* partial; two same-name packages distinguished by manifest path; mixed-atom incoming attestations globally admitted; examinedExhaustive false never complete; unmatched scope detected beside a paired sibling; duplicate inventory observations are not overloads; first-party sidecar absent from inventory refuses; import workspaceRoots∧pathPrefixes intersection; history duplicate path retains every ordinal; contrary runtime window/pop refuses; admit_atom_inputs missing wrapper with no atom refuses; ordinary first-party FILE/PACKAGE import targets with schema-admitted SubjectIdV1 payloads and V2 `evaluationNativeId` mapping; missing sidecar namespaced file is unknown not none; malformed first-party sidecar is admission refusal; V1 sidecars refused; exact-id symbol ephemeral without sidecar remains first-party; same-provider occupancy conflict refused; different providers’ equal opaque ids are not aliases; C15 exact-id colon-path file vs contradictory sidecar first-party identity refuses without overwrite; agreeing C15 identity admits; unknown sidecar keeps ephemeral.
++Known-hit partial ⇒ none false; missing runtime observable ⇒ unknown; history empty complete all-paths ⇒ covered; scope *S*→*V* does not omit incoming owed *S* for *U*; source kind vs incoming target kind; equal nativeId different *U* no match; two-cap identical inventory lookup not ambiguous; conflicting sidecar refuses; all-covered non-resolved N/A plus resolved partial; wrong enum `neq` admission; tests exit 1 empty; optional unknown disclosure; known count>*N* partial; two same-name packages distinguished by manifest path; mixed-atom incoming attestations globally admitted; examinedExhaustive false never complete; unmatched scope detected beside a paired sibling; duplicate inventory observations are not overloads; first-party sidecar absent from inventory refuses; import workspaceRoots∧pathPrefixes intersection; history duplicate path retains every ordinal; contrary runtime window/pop refuses; admit_atom_inputs missing wrapper with no atom refuses; ordinary first-party FILE/PACKAGE import targets with schema-admitted SubjectIdV1 payloads and V2 `evaluationNativeId` mapping; missing sidecar namespaced file is unknown not none; malformed first-party sidecar is admission refusal; V1 sidecars refused; exact-id symbol ephemeral without sidecar remains first-party; same-provider occupancy conflict refused; different providers’ equal opaque ids are not aliases; C15 exact-id colon-path file vs contradictory sidecar first-party identity refuses without overwrite; agreeing C15 identity admits; unknown sidecar keeps ephemeral; incoming with the subject universe unbound (same-family *U2* evidenced, foreign-family-only available/unavailable/both, beside an unavailable or unknown-family obligation) is unknown with `selector-unbound` while a bound *U* and P2 are unchanged; known incoming matches survive I1 for `exists`/`none`/exceeded `count-at-most`; I1 beside two providers is order independent; a scope with absent or null `enumeratorClosure` refuses `ATOM_NATIVE_CARRIER`; a scope-less provider group cannot hold an admitted attestation, and an explicit empty-subject scope with complete Coverage or a qualifying attestation closes it.

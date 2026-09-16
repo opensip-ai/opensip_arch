@@ -1,0 +1,185 @@
+diff --git a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/discovery-defaults.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/discovery-defaults.py
+index e6a84562..00a8f4f1 100644
+--- a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/discovery-defaults.py
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/discovery-defaults.py
+@@ -62,6 +62,16 @@ CARGO_MARKER = 'Cargo.toml'
+ MAX_WORKSPACE_UNITS = 4096
+ PRUNE_REASONS = ('dependency-tree', 'vcs-tree', 'cargo-build-output')
+ 
++# Pruned-tree row version 2 (XA-02 / CR-25). Version 1 was `{path, reason, markerCount}` with a
++# non-null count a caller could read as an exhaustive claim about an UNENUMERATED tree, and whose anchor
++# existed only when a marker happened to be observed inside it. Row 2 adds an explicit basis and admits a
++# known anchor with no observed descendant marker. Historical version-1 records keep their bytes and their
++# meaning; they are read as version 1, never re-read as version 2.
++PRUNED_TREE_ROW_VERSION = 2
++NOT_ENUMERATED = 'not-enumerated'
++OBSERVED_INVENTORY = 'observed-inventory'
++MARKER_COUNT_BASES = (NOT_ENUMERATED, OBSERVED_INVENTORY)
++
+ 
+ class RootGrammarError(ValueError):
+     """An explicit root value violates the logical path grammar (detail is the exception text)."""
+@@ -91,6 +101,31 @@ def _dir_of(relpath: str) -> str:
+     return relpath.rpartition('/')[0]
+ 
+ 
++def pruned_anchors_from_directories(dir_relpaths, cargo_roots):
++    """Pruned-tree anchors known from the ADMITTED DIRECTORY OBSERVATION alone (CR-25).
++
++    `enumerate_units` can only see an anchor when a marker file happens to be observed inside it, so a
++    `node_modules`, `.hg` or Cargo `target` tree holding no manifest was silently absent from `prunedTrees`:
++    the host pruned it and no record said so. This takes the directory entries the host already observed
++    and returns every anchor among them.
++
++    NO DESCENT. `_segment_prune` returns the OUTERMOST pruned segment, so a directory deep inside a pruned
++    tree maps to the same anchor as the tree root and contributes no second anchor; nothing here reads,
++    walks or counts anything inside a pruned tree. Observing that `a/node_modules` exists is a fact about
++    `a`, not about the contents of `a/node_modules`.
++
++    Returns {(anchor, reason): None} over the shared rule's existing reason vocabulary.
++    """
++    out = {}
++    for rel in dir_relpaths:
++        if not isinstance(rel, str) or rel.startswith('/') or rel == INTERNAL_ROOT:
++            continue
++        hit = classify_path(rel, cargo_roots)
++        if hit is not None:
++            out[hit] = None
++    return out
++
++
+ def cargo_roots_from_markers(marker_relpaths: Iterable[str]) -> set[str]:
+     """Directories (internal relative form, `` = root) that hold `Cargo.toml` and are not themselves inside a
+     dependency or VCS tree. A `Cargo.toml` under `node_modules/` never makes a Cargo root."""
+@@ -126,16 +161,44 @@ def classify_path(relpath: str, cargo_roots: Iterable[str]):
+     return None
+ 
+ 
+-def enumerate_units(marker_relpaths: Iterable[str]) -> dict:
++def enumerate_units(marker_relpaths: Iterable[str], *, enforce_limit: bool = True,
++                    observed_directories: Iterable[str] | None = None,
++                    marker_inventory_basis: str = OBSERVED_INVENTORY,
++                    unreadable_anchors: Iterable[str] = ()) -> dict:
+     """Zero-config unit enumeration over the relative paths of marker FILES found under the admitted root.
+ 
+-    Returns {'unitDirs': [...sorted internal relative dirs...], 'prunedTrees': [{'path', 'reason',
+-    'markerCount'}], 'refusal': None | {'detail': 'WORKSPACE_UNIT_LIMIT', 'unitCount': n, 'limit': 4096}}.
++    Returns {'unitDirs': [...sorted internal relative dirs...], 'prunedTrees': [version-2 rows],
++    'refusal': None | {'detail': 'WORKSPACE_UNIT_LIMIT', 'unitCount': n, 'limit': 4096}}.
+     On refusal `unitDirs` is empty (no truncation). Marker paths must be relative (no leading `/`); a path
+-    whose file name is not a marker is ignored so callers may pass any inventory."""
++    whose file name is not a marker is ignored so callers may pass any inventory.
++
++    PRUNED-TREE ROW 2 (XA-02 / CR-25) separates three facts version 1 conflated:
++
++    * `observed_directories` - relative directory paths from the admitted directory observation. Supplying
++      them makes a known anchor with ZERO observed descendant markers visible, which is the CR-25 defect:
++      before this, a `node_modules/` holding no manifest produced no row anywhere. `None` means the caller
++      supplied no directory observation and the anchor set stays marker-derived exactly as before; that is
++      the STANDALONE/ALGORITHM lane, never the authoritative host composition.
++    * `marker_inventory_basis` - whether the SUPPLIED marker inventory enumerated inside pruned trees.
++      `observed-inventory` is the disposable instrument's own contract (its `fs` map is one complete supplied
++      observation) and yields an exact count OVER THAT SUPPLIED INVENTORY. Production discovery that does
++      not descend must declare `not-enumerated`, which yields `markerCount: null`. ZERO OBSERVED IS NEVER
++      ZERO HIDDEN: `{basis: observed-inventory, markerCount: 0}` says only that the supplied inventory holds
++      no marker under this anchor, and carries no claim about the tree.
++    * `unreadable_anchors` - anchors whose OWN directory observation could not be established (an unreadable
++      ACL, for example). The anchor is still known and still reported; its count is forced to
++      `not-enumerated`/null, because a count over an inventory drawn from a directory we could not read is
++      not an observation. A PER-ROW basis is therefore required: one global basis cannot express it.
++
++    The count and the basis are PROVENANCE. They never select a unit, never bound work and never enter the
++    scope descriptor, which takes `t['path']` alone (`unit_scope_descriptor`). They DO change the exact
++    bytes of the provenance and boundary records, so an OPERATIONAL digest taken over those records changes;
++    that is a truthful provenance change, not a semantic one."""
+     markers = sorted({p for p in marker_relpaths if isinstance(p, str) and not p.startswith('/') and p.rpartition('/')[2] in WORKSPACE_MARKERS},
+                      key=lambda s: s.encode('utf-8'))
+     cargo_roots = cargo_roots_from_markers(markers)
++    if marker_inventory_basis not in MARKER_COUNT_BASES:
++        raise ValueError('unknown markerCountBasis: %r' % (marker_inventory_basis,))
+     pruned: dict[tuple[str, str], int] = {}
+     unit_dirs: set[str] = set()
+     for mp in markers:
+@@ -144,9 +207,19 @@ def enumerate_units(marker_relpaths: Iterable[str]) -> dict:
+             pruned[hit] = pruned.get(hit, 0) + 1
+             continue
+         unit_dirs.add(_dir_of(mp))
+-    pruned_trees = [{'path': anchor, 'reason': reason, 'markerCount': n}
+-                    for (anchor, reason), n in sorted(pruned.items(), key=lambda kv: (kv[0][0].encode('utf-8'), kv[0][1]))]
+-    if len(unit_dirs) > MAX_WORKSPACE_UNITS:
++    if observed_directories is not None:
++        for key in pruned_anchors_from_directories(observed_directories, cargo_roots):
++            pruned.setdefault(key, 0)
++    unreadable = {a for a in unreadable_anchors if isinstance(a, str)}
++    pruned_trees = []
++    for (anchor, reason), n in sorted(pruned.items(), key=lambda kv: (kv[0][0].encode('utf-8'), kv[0][1])):
++        if anchor in unreadable or marker_inventory_basis == NOT_ENUMERATED:
++            pruned_trees.append({'path': anchor, 'reason': reason, 'markerCount': None,
++                                 'markerCountBasis': NOT_ENUMERATED})
++        else:
++            pruned_trees.append({'path': anchor, 'reason': reason, 'markerCount': n,
++                                 'markerCountBasis': OBSERVED_INVENTORY})
++    if enforce_limit and len(unit_dirs) > MAX_WORKSPACE_UNITS:
+         return {'unitDirs': [], 'prunedTrees': pruned_trees,
+                 'refusal': {'detail': 'WORKSPACE_UNIT_LIMIT', 'unitCount': len(unit_dirs), 'limit': MAX_WORKSPACE_UNITS}}
+     return {'unitDirs': sorted(unit_dirs, key=lambda s: s.encode('utf-8')), 'prunedTrees': pruned_trees, 'refusal': None}
+@@ -155,7 +228,10 @@ def enumerate_units(marker_relpaths: Iterable[str]) -> dict:
+ # ---------------------------------------------------------------------------------------------------
+ # Admitted boundary inventory (P3): security's authority boundaries, converted once for the native instrument
+ # ---------------------------------------------------------------------------------------------------
+-BOUNDARY_INVENTORY_VERSION = 1
++CURRENT_PROVENANCE_VERSION = 2
++SUPPORTED_PROVENANCE_VERSIONS = (1, 2)
++SUPPORTED_BOUNDARY_INVENTORY_VERSIONS = (1, 2)
++BOUNDARY_INVENTORY_VERSION = 2   # row-2 pruned trees (XA-02 / CR-25); version 1 stays a historical record
+ BOUNDARY_INVENTORY_SOURCE = 'security.discovery'
+ BOUNDARY_REASONS = ('nested-repository', 'nested-project', 'custody-excluded')
+ _MARKER_CUSTODY_PREFIX = 'MARKER_CUSTODY:'
+@@ -187,15 +263,34 @@ def relative_locator(selected_root: str, absolute: str) -> str:
+ 
+ 
+ def boundary_inventory_from_provenance(provenance: dict) -> dict:
+-    """Convert an ACCEPTed security `DiscoveryProvenanceV1` into the closed `AdmittedBoundaryInventoryV1`:
+-    {schemaVersion: 1, source: 'security.discovery', selectedRoot, nestedRepositories: [rel dirs],
++    """Convert an ACCEPTed security `DiscoveryProvenanceV2` into the closed `AdmittedBoundaryInventoryV2`:
++    {schemaVersion: 2, source: 'security.discovery', selectedRoot, nestedRepositories: [rel dirs],
+      nestedProjects: [rel dirs], custodyExcludedUnits: [{path: rel dir, reason}], prunedTrees: [{path: rel, reason,
+-     markerCount}]}. Lists are sorted by UTF-8 bytes. `custodyExcludedUnits` carries the security `excludedUnits`
++     markerCount, markerCountBasis}]}. Lists are sorted by UTF-8 bytes. VERSION 2 (XA-02 / CR-25): the pruned rows
++    carry an explicit basis and may name an anchor with no observed descendant marker. The count and the basis
++    travel as PROVENANCE and are never comparison keys; the native instrument compares `(path, reason)` only.
++    TWO LANES, made explicit after root probe 1 (this converter previously read no version at all and
++    relabelled ANY input as version 2). READING a historical record is not the same act as CONVERTING one for
++    a current operation. Schema validation and read APIs still admit both versions
++    (SUPPORTED_PROVENANCE_VERSIONS); this converter is a CURRENT-OPERATION boundary and admits only
++    CURRENT_PROVENANCE_VERSION. A version-1 record is refused explicitly as
++    PROVENANCE_VERSION_UNSUPPORTED:1, never silently relabelled and never upgraded by inventing a
++    markerCountBasis or an observed-inventory count for rows that carry neither. A version this kit does not
++    define at all is PROVENANCE_VERSION_UNKNOWN, and a non-integer version (a bool included) is
++    PROVENANCE_VERSION_SHAPE. The security wrapper maps all three onto its existing BOUNDARY_INVENTORY
++    Reject detail; no new public code is minted. `custodyExcludedUnits` carries the security `excludedUnits`
+     rows whose reason is a custody/depth exclusion (`DIRECTORY_CUSTODY:*`, `MARKER_CUSTODY:*`, `DEPTH`); rows already
+     explained by a nested boundary (`INSIDE_NESTED_*`) are not repeated. The result is TRUSTED OUTPUT of the security
+     instrument, never a caller-authored ignore list; a host passes it unchanged to the native `discover_units`."""
+     if not isinstance(provenance, dict):
+         raise BoundaryError('PROVENANCE_SHAPE')
++    version = provenance.get('schemaVersion')
++    if type(version) is not int:
++        raise BoundaryError('PROVENANCE_VERSION_SHAPE')
++    if version not in SUPPORTED_PROVENANCE_VERSIONS:
++        raise BoundaryError('PROVENANCE_VERSION_UNKNOWN:%d' % version)
++    if version != CURRENT_PROVENANCE_VERSION:
++        raise BoundaryError('PROVENANCE_VERSION_UNSUPPORTED:%d' % version)
+     root = provenance.get('selectedRoot')
+     if not isinstance(root, str) or not root:
+         raise BoundaryError('NO_SELECTED_ROOT')
+@@ -208,7 +303,8 @@ def boundary_inventory_from_provenance(provenance: dict) -> dict:
+             continue
+         custody.append({'path': relative_locator(root, row['path']), 'reason': reason})
+     custody.sort(key=lambda r: (_bytes_key(r['path']), _bytes_key(r['reason'])))
+-    pruned = [{'path': relative_locator(root, t['path']), 'reason': t['reason'], 'markerCount': t['markerCount']}
++    pruned = [{'path': relative_locator(root, t['path']), 'reason': t['reason'], 'markerCount': t['markerCount'],
++               'markerCountBasis': t['markerCountBasis']}
+               for t in provenance.get('prunedTrees', [])]
+     pruned.sort(key=lambda t: (_bytes_key(t['path']), t['reason']))
+     return {'schemaVersion': BOUNDARY_INVENTORY_VERSION, 'source': BOUNDARY_INVENTORY_SOURCE, 'selectedRoot': root,

@@ -1,0 +1,81 @@
+--- a/docs/coop/design-corrections/foundation/run_termination_model.v1.py
++++ b/docs/coop/design-corrections/foundation/run_termination_model.v1.py
+@@ -22,7 +22,11 @@
+      carrier, else omitted.
+ 
+ Discovery order, proof array order, host scheduling and trusted host observations of the invocation are not
+-inputs, so any permutation of the population yields the same termination. Reference evidence only.
++inputs, so any permutation of the population yields the same termination. What is derived is the ANALYSIS
++PROJECTION of the step termination (class, runId, reasonCodes, coverageId, and the absence of errorCode, faultCause
++and signal). A host StepTermination may also carry executionId, domainDetail or authority; those members are
++delegated to their own owners, and `check_projection` reports them as owner-validation-required, never as lawful.
++Reference evidence only.
+ """
+ from __future__ import annotations
+ 
+@@ -215,16 +219,56 @@
+     return {"termination": term, "reduction": reduction}
+ 
+ 
+-def check_candidate(candidate, derived):
+-    """Exact equality with an already derived termination; schema validity of the candidate grants nothing."""
+-    if candidate != derived:
++# The ANALYSIS PROJECTION: the StepTermination members this owner derives from the admitted Run. errorCode,
++# faultCause and signal belong to it because the derived classes (success, policy-failed, indeterminate) never
++# carry them, so their presence contradicts the derived class.
++PROJECTION_FIELDS = ("class", "runId", "reasonCodes", "coverageId", "errorCode", "faultCause", "signal")
++# Optional StepTermination members this owner neither derives nor licenses. Their owners alone decide whether a
++# value is lawful; this owner checks only that the whole candidate is shape-valid.
++DELEGATED_FIELDS = {
++    "executionId": "attempt identity: workflows-and-surfaces section 1 (a fresh ExecutionId per admitted attempt) "
++                   "and identity-and-evidence section 2 (host-CSPRNG draw); not a function of retained Run content",
++    "domainDetail": "explanatory DomainDetail beside the existing code: workflows-and-surfaces sections 8 and 9, the "
++                    "public detail registry, and composition section 8 for EVALUATION.WORK_BUDGET_EXHAUSTED",
++    "authority": "workflows-and-surfaces section 9 and the StepTermination branch contract (authority=ephemeral "
++                 "only without a runId)",
++}
++
++
++def check_projection(candidate, derived, validate_shape=None):
++    """Admit a candidate StepTermination's analysis projection; never report its delegated members as lawful.
++
++    Refusal order is fixed: a non-object; a member outside PROJECTION_FIELDS and DELEGATED_FIELDS
++    (RUN_TERMINATION_UNKNOWN_FIELD); a projection that is not exactly the derived one - class, runId, reasonCodes
++    and their order, coverageId presence and value, or any errorCode/faultCause/signal (RUN_TERMINATION_NOT_DERIVED);
++    a delegated member with no shape validator (RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED) or whose candidate the
++    validator refuses (RUN_TERMINATION_DELEGATED_SHAPE). Otherwise it returns the projection, the delegated members
++    and their owners with standing `owner-validation-required`: a shape-valid delegated value is not thereby lawful.
++    """
++    if type(candidate) is not dict:
++        raise RunTerminationError("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
++    unknown = sorted(set(candidate) - set(PROJECTION_FIELDS) - set(DELEGATED_FIELDS))
++    if unknown:
++        raise RunTerminationError("RUN_TERMINATION_UNKNOWN_FIELD:" + ",".join(unknown))
++    projection = {k: candidate[k] for k in PROJECTION_FIELDS if k in candidate}
++    if projection != derived:
+         raise RunTerminationError("RUN_TERMINATION_NOT_DERIVED:" + json.dumps({"derived": derived}, sort_keys=True))
+-    return derived
+-
+-
+-def admit_termination(candidate, run, objects, blobs):
+-    """Refuse every termination for this Run except the derived one (no schema-validity shortcut)."""
+-    return check_candidate(candidate, finalize(run, objects, blobs)["termination"])
++    delegated = {k: candidate[k] for k in DELEGATED_FIELDS if k in candidate}
++    if delegated:
++        if validate_shape is None:
++            raise RunTerminationError("RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED:" + ",".join(sorted(delegated)))
++        try:
++            validate_shape(candidate)
++        except Exception as exc:
++            raise RunTerminationError("RUN_TERMINATION_DELEGATED_SHAPE:" + str(exc).split("\n")[0][:200]) from exc
++    return {"projection": projection, "delegated": delegated,
++            "delegatedOwners": {k: DELEGATED_FIELDS[k] for k in sorted(delegated)},
++            "delegatedStanding": "owner-validation-required" if delegated else None}
++
++
++def admit_projection(candidate, run, objects, blobs, validate_shape=None):
++    """Derive the analysis projection from the admitted Run, then check_projection."""
++    return check_projection(candidate, finalize(run, objects, blobs)["termination"], validate_shape)
+ 
+ 
+ def d9_concurrent_reducer(deficiencies):

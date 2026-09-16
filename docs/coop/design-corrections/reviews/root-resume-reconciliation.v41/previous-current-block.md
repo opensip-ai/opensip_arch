@@ -1,0 +1,31 @@
+<!-- BEGIN CURRENT RESUME STATE -->
+**Checkpoint40: original blind23 COMPLETE CHANGES_REQUIRED; source acceptance REOPENED pending actual Claude assessment. All five final exported Runs structurally ADMIT but fail complete semantic replay. Design/readiness remains pending, application unapplied.**
+
+Read [checkpoint39](root-resume-reconciliation.v40/previous-current-block.md) for exact frozen36/source review/root assent/package13/application18 and historical custody. Preserve historical acceptance records: they cover source36 before the newly reported ambiguities; do not rewrite them. Architecture/design/reference only, actual Claude, no product/newcommit/push. Public-only launchers, no private/session logs, no concurrent same-SID resumes. Commentary and waits <=60 seconds.
+
+Frozen36 unchanged: manifest a729406b9de0d865294884f7575ea943c0935437091389e2acebe8e5aedb4235; archive 7db498f0b48de362eee70ff41c6e7b762d61227e6cf4b82477d1601cc8329e8f; snapshot /tmp/opensip-design-corrections/candidate-subject.v36, 12899 files. No source37 or blind24 prepared.
+
+### Completed original blind23 and root replay
+Actual Opus5 CLI2.1.270, SID79569ae1-10f4-4181-972b-334f7ed2f07a, exec92076 COMPLETE0 nonerror. Final CHANGES_REQUIRED: no MUST, three SHOULD and two advisories. Full public retention complete LIVE consumer-b.v23: 2068 exact public files, 1966 stored and102 exact-source deduplications. Root verified all2068 plus145 consumer artifact digests; final JSON77cfab1f6f2cea89a9b8d301e725ec69314e6b94298b0707e565305fd9c66a66. Whole512line Markdown and final public response read; selected JSON, not entire manual JSON. Final three SHOULD exactly equal interim report captured for focused peer. Own54 final stages all0; these claims do not establish independent replay agreement.
+
+Root final exact5 export replay COMPLETE, retained root-blind23-final36-replay.v1: all transport/structural ADMIT, all full semantic REFUSE EVALUATOR_COMPLETE_PROOF_REPLAY. root-blind23-witness-differences36.v1 derives reference proofs separately from exact structurally admitted bytes, no consumer imports/remint/repair: all65 predicate values agree, but missing dependency coverage citations, TS Boolean scope propagation and syntax-data deficiency records differ; downstream finding identities differ. Do not execute positive strong query replay until Run fully ADMIT. No root blind assent or completed whole-charter artifact audit.
+
+Root custody v1 preparation KeyError (dict treated as array) preserved; root-blind23-custody-assessment.v2 completed corrected verification. No consumer/source mutation.
+
+### ACTIVE actual Claude focused source assessment
+Exec45607 PID10384 SIDce3dec3b-0620-44ec-86e6-129b0e25cb1b, /tmp/opensip-design-corrections/claude-consumer23-gap-assessment.v1. Resume of COMPLETED source36 independent origin, now explicitly NONBLIND focused assessment; not successor acceptance or blind B. Writes only own runtime, source36 unchanged. Independently assess/probe three source findings and propose minimal exact patch, no root oracle supplied to original blind.
+
+V23-S1: missing packageManifestPath is QUERY.ENDPOINT_AMBIGUOUS in query section2, but required schema admission/section8 and actual model produce QUERY.PARAMS_MALFORMED.
+V23-S2: native section10 D9 table maps three deficiencies to generic VERDICT.INDETERMINATE while D9 owner names specific COVERAGE.* details. Need coherent normative/reference assessment, not invented distinction.
+V23-S3: unavailable evidence is routed to evidence.* but no evidence.unavailable; actual model maps unavailable/missing to evidence.missing without explicit normative mapping.
+Advisories: V16-A3 graph traversal vs native coverage naming; V23-A1 interrupted before any Run envelope kind unspecified. Must account substantively.
+
+### Next work
+Finish focused peer and root assessment/correction; preserve public evidence; construct a separately frozen successor only after all required source remedies and pin/reference checks. Review new bytes with actual Claude. Resume original blind from normative successor and its own work without root oracles. Root must assess all original123+8+3 charter obligations and exact outputs, not self-report/schema/count alone. Remaining root final helper investigations include config precedence proof, protocol token vocabulary, unsafe repair requirement cardinality, complete human query-response parity, and syntax-data deficiencies. Interim read evidence is historical and cannot alone establish final artifacts.
+
+Application draft18 unchanged/unbound. Current runbook application-completion-runbook.source36.v3.md is procedural preparation only; source36 acceptance is now reopened. Root TCB tool correction retained root-application-tcb-account.v1: ONE shared assumption with13 dependent accounts, not13 independent outcomes; final application reviewer must adjudicate explicitly. Actual final source+blind+root acceptance before real bind/assemble; then checks/freeze/NEW fresh actual Claude final application review, guarded apply activation LAST and applied verification.32 product gates and54 recovery cases unperformed, condition5 NOTMET; implementation authorization remains separate. No commit/push.
+### Root final-artifact assessment after checkpoint40
+root-blind23-final-artifact-assessment.v1 LIVE/runtime records five confirmed consumer errors on exact final bytes: RB23-01 complete proof citations/scopes/deficiencies; RB23-02 multi-base claimed es2019 vs retained es2022 and negative still accepted; RB23-03 wrong wire identity capability tokens; RB23-04 two unsatisfied requirements combined into one unmet precondition in admitted evidence-requirements-over-both-planes (NOT the unsafe gate case); RB23-05 human query response is only SHA256. Existing contracts own these rules; no new normative defect proven by them. No oracle sent to original blind. Whole charter artifact audit remains incomplete.
+Root preparing /tmp/opensip-design-corrections/consumer23-source-clarifications.v1/source as an exact verified writable copy of source36 (exec42255; inspect completion). No remedies applied/freeze37 yet. This is intended isolated assembly only. Active focused Claude remains exec45607, checking actual source3 findings and correction controls.
+
+<!-- END CURRENT RESUME STATE -->

@@ -1,0 +1,40 @@
+--- a38/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ b39/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -149,14 +149,22 @@
+ pretending a per-record schema compares an external binding. `sourceUniverse` stays nullable there
+ only because a null binding U is lawful.
+ 
+-**`targetUniverse` is deliberately not joined.** This section constrains only `sourceUniverse`. A
+-Coverage or fact may name a target in another universe; cross-universe relationships, incoming
+-targets and multi-universe Runs stay lawful (see the per-universe attribution clause below). Nothing
+-in this section may be read as prohibiting them.
++**`targetUniverse` has one canonical value: `null`.** An account is one `(cellOrdinal,
++programOrdinal, relation, resolution)` obligation on its binding's source universe, and it aggregates
++**every** matching returned Coverage partition of that binding whatever target universe each
++partition or fact names. It therefore has no target coordinate. Earlier text left the field an
++unjoined free value, which gave one account two admissible encodings (`null` or any 64-hex), so two
++conforming hosts minted different `ExecutionInputsV1` digests, proofs and Run ids for the same
++evidence. `NativeCoverageAccountV1.targetUniverse` is now typed `null`, so this law, unlike the
++`sourceUniverse` join, is schema-expressible: a non-null value refuses as `EXECUTION_INPUTS_SCHEMA`
++before any derivation.
++This does **not** prohibit cross-universe evidence: cross-universe relationships, incoming targets
++and multi-universe Runs stay lawful (see the per-universe attribution clause below) and are carried
++by the Coverage, fact, target-attribution and incoming-search records, never by this account field.
+ 
+ | `applicability` (joined to binding+matrix+VCS) | Envelopes |
+ |---|---|
+-| `supported-available` | `coverageIds` **equals** every matching returned partition (not a complete subset). Empty → semantic `native-work-incomplete`. Mixed complete+unknown → not complete. Independently, every expected source subject from this cell's inventory/extent of the relation's subject-kind must be a member of some returned partition (`source-path` / `package-name` / `symbol`). A broad matched partition may cover many subjects. Missing expected subjects → incomplete even if the remaining Coverage is complete. Account complete is **extraction** completeness (`coverage=complete` over those partitions), not universal fully-resolved semantics (RC-1 `not-applicable` and RC-3 complete-with-unresolved stay lawful). |
++| `supported-available` | `coverageIds` **equals** every matching returned partition (not a complete subset). Empty → semantic `native-work-incomplete`. Mixed complete+unknown → not complete. Independently, every expected source subject from this cell's inventory/extent of the relation's subject-kind must be a member of some returned partition (`source-path` / `package-name` / `symbol`). A broad matched partition may cover many subjects. Missing expected subjects → incomplete even if the remaining Coverage is complete. For a relation that joins a body identity (`bodyIdentityJoin`, today `clones`) the expected `source-path` subjects are only the **body-eligible** file-inventory paths under the universe domain of the cell's `languageMode` (identity `bodyEligibilityLaw`: the TypeScript/syntax dialect tables, Rust's closed `.rs` set). Configuration and data files stay inventoried but are owed no clones partition. An eligible path is owed one whatever its ownership, program membership, grammar selection or resolution state, so an unowned or unreadable eligible file keeps the account incomplete unless a returned partition covers it (possibly as a disclosed unknown). Account complete is **extraction** completeness (`coverage=complete` over those partitions), not universal fully-resolved semantics (RC-1 `not-applicable` and RC-3 complete-with-unresolved stay lawful). |
+ | `unsupported-typed` | none; matrix cell `deficiency` and the cause-registry cause for **that** deficiency (not a hardcoded `capability-missing` for every cell) |
+ | `unavailable-unselected` / `unavailable-null-universe` | none — do not fabricate Coverage at null U |
+ | `inapplicable-vcs` | none; admitted VCS observation `kind=none` is the basis |
+@@ -222,7 +230,8 @@
+ NAMED scope's `sourceUniverse` to equal the binding U and binds view `planId`, enumerator
+ closure, stage `producerClosure` and receipt `outputDomains`.
+ 
+-This clause is deliberately narrow. It does NOT constrain `targetUniverse`: a Coverage or a
++This clause is deliberately narrow. It does NOT constrain the `targetUniverse` of a Coverage or
++fact (the account's own `targetUniverse` is the constant `null` above): a Coverage or a
+ fact may name a target in another universe, and cross-universe relationships and incoming
+ targets stay lawful. It does NOT ban a multi-universe Run: a Run carrying one per-universe
+ view per selected binding admits. It does NOT ban a view that carries more than one universe

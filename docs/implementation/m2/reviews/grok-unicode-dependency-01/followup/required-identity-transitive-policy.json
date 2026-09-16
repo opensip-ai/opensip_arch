@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "standing": "Required pure-identity registry-closure policy identified by independent Grok review. Not installed live. Not a substitute for a successor selection. check_dependencies.py remains contracts-only and must not be reused as if it covered identity.",
+  "subjectPackage": "opensip-identity",
+  "lane": "pure-identity",
+  "notLane": "opensip-contracts",
+  "architectureBasis": [
+    "docs/v2/architecture/14-repository-and-module-layout.md: identity may use explicitly reviewed pure external libraries; no OS, provider, store or report UI dependency",
+    "docs/v2/architecture/implementation-boundaries-and-build-plan.md Enforcement 1: compare direct Cargo normal/build/dev/target/feature edges to the inventory graph; inspect transitive effects/build scripts of pure-layer external libraries",
+    "docs/v2/architecture/implementation-boundaries-and-build-plan.md tooling: Cargo metadata plus explicit source/build rules; a dependency list alone does not prove purity; record license/dependency closures when a candidate is selected",
+    "docs/v2/architecture/implementation-boundaries-and-build-plan.md Rust workspace policy: shared pure packages must resolve in the pinned provider workspace without inheriting host compiler/dependency settings",
+    "docs/implementation/m2/foundation-primitives-selection-v2: target-filtered metadata versions/sources/features must match the selected closure; default features that are unused must be disabled (libc lesson); identity currently adds no extra serializer/dependency without selection",
+    "canonical-02 / software-hash-01: sha2-const-stable =0.1.0 exact version, lock checksum equals .crate, no build.rs, no FFI, empty normal deps, source-review file hashes"
+  ],
+  "whyContractsCheckerIsInsufficient": [
+    "tools/check_dependencies.py hard-codes subjectPackage opensip-contracts and tools/contracts/dependency-policy.json",
+    "contracts selected closure includes std, proc-macro, and build-script packages (serde_derive, proc-macro2, syn, zmij, serde build.rs) under ACCEPT-BUILD-HOST-EFFECTS / ACCEPT-BOUNDED-NATIVE-TCB",
+    "identity forbid(unsafe_code) + no_std forbids that contracts TCB from being treated as identity's registry allowlist",
+    "contracts checker does not refuse custom-build targets, std features, proc-macro packages, or Unicode-version drift",
+    "contracts checker compares lock checksums but does not rehash registry archives or pin identity-local sources",
+    "inventory internal edges (check_package_edges.py) do not cover registry packages at all"
+  ],
+  "requiredChecker": {
+    "name": "identity registry-closure check (sibling of check_dependencies.py, separate policy file)",
+    "inputs": [
+      "cargo metadata --locked --offline --format-version 1 --filter-platform <target> from the identity-containing workspace",
+      "Cargo.lock",
+      "this policy"
+    ],
+    "must": [
+      "exactly one local opensip-identity library production target",
+      "walk identity's production resolve (exclude kind=dev and cfg(any()) version-coupling edges)",
+      "every non-local package in the walk must appear in policy.dependencies with matching version, registry source, and lock checksum",
+      "resolved feature lists must equal policy.resolvedFeatures exactly (including empty default if metadata emits it)",
+      "package.links must be null",
+      "no target kind custom-build unless an explicit reviewed exception exists (none in the proposed NFC closure)",
+      "no proc-macro package in the production walk",
+      "unicode-normalization must resolve with features [] (std off); identity Cargo.toml must declare default-features=false",
+      "tinyvec must be an exact version/checksum, not the upstream version \"1\" float",
+      "tinyvec_macros must be absent",
+      "sha2-const-stable 0.1.0 remains in the allowlist with features []",
+      "identity local source census (Cargo.toml + src/** regular files, no symlinks) like contracts schemaVersion 2 localSources",
+      "refuse extra registry packages, feature expansion, and missing allowlist members"
+    ],
+    "mustNot": [
+      "reuse tools/contracts/dependency-policy.json",
+      "treat a passing contracts check as identity purity",
+      "claim OS-sandbox or memory-safety proof from a metadata match"
+    ],
+    "beyondMetadataReviewStillRequired": [
+      "source-review file hashes of extracted registry trees",
+      "Hangul from_u32_unchecked in unicode-normalization 0.1.24 (identity forbid does not audit deps)",
+      "license identifiers including tinyvec Zlib OR Apache-2.0 OR MIT",
+      "UNICODE_VERSION (16,0,0) matching selected Python 3.14.6 unidata 16.0.0; refuse 0.1.25 / Unicode 17",
+      "NFC API restricted to is_nfc / nfc iterator; NFKC and stream-safe unused",
+      "provider-lane lock must resolve the same identity registry tuples"
+    ]
+  },
+  "proposedProductionRegistryClosure": [
+    {
+      "name": "sha2-const-stable",
+      "version": "0.1.0",
+      "checksum": "5f179d4e11094a893b82fff208f74d448a7512f99f5a0acbd5c679b705f83ed9",
+      "resolvedFeatures": [],
+      "role": "already-selected pure hash"
+    },
+    {
+      "name": "unicode-normalization",
+      "version": "0.1.24",
+      "checksum": "5033c97c4262335cded6d6fc3e5c18ab755e1a3dc96376350f3d8e9f009ad956",
+      "resolvedFeatures": [],
+      "defaultFeatures": false,
+      "UNICODE_VERSION": [16, 0, 0],
+      "role": "proposed NFC; not live-selected"
+    },
+    {
+      "name": "tinyvec",
+      "version": "1.13.3",
+      "checksum": "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee",
+      "resolvedFeatures": ["alloc", "default"],
+      "defaultFeatureContents": [],
+      "role": "transitive of 0.1.24; exact pin required because upstream req is \"1\""
+    }
+  ],
+  "graph06Observation": {
+    "identityManifest": "unicode-normalization = { version = \"=0.1.24\", default-features = false }",
+    "tinyvecMacrosInLock": false,
+    "targetFilteredClosureMatchesProposedAllowlist": true,
+    "formalPolicyFilePresent": false,
+    "graph06OwnStanding": "README: selection/source policy required before live; not a formal dependency policy selection"
+  },
+  "manifestPinGap": "Identity Cargo.toml pins unicode-normalization =0.1.24 but does not pin tinyvec. Lock currently holds 1.13.3. Policy plus --locked must freeze tinyvec; a future cargo update without lock discipline can pull 1.x including 1.13.2 tinyvec_macros. Prefer an explicit identity tinyvec = { version = \"=1.13.3\", default-features = false, features = [\"alloc\"] } or equivalent lock-enforced successor so the float cannot move.",
+  "sourceOwnerNeeded": "docs/implementation/m2/<identity-nfc-or-pure-deps successor>/ like docs/implementation/m1/contracts-dependencies.v1.json and software-hash-01/source-review.json"
+}

@@ -1,0 +1,54 @@
+# coop/design-corrections/workflows/schemas/test-execution.schema.json
+top-level keys: $schema, $id, title, description, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "urn:opensip:product-v1:workflows:test-execution"
+## title: "Explicitly authorized repository test execution step and its evidence payload (PROPOSED, revised)"
+## description: "Repository code execution is disabled by default. A test-execution step is admitted only when selected explicitly, the security unit admits a RepoExecutionGrantV2 with principal P-TRUSTED-REPO and executionClass test-runner bound to this projectId, snapshot digest and the exact argv digest (expiry operation-end, never inherited), and CI mode uses a pre-existing policy record rather than interactive consent. The host spawns the exact argv with no shell: argv[0] is either a LogicalPath member of the sealed snapshot or a member of the declared toolchain closure2; the environment is constructe...
+### EnforcementValue | type="string" | enum=["DISCLOSURE-ONLY", "ENFORCED-BY-CONSTRUCTION", "ENFORCED-AT-HOST-BROKER"] | description="ENFORCED-PLATFORM:<primitiveId> values are admitted only when the security unit's measured primitive table names that primitive; the reference model treats any other enforcement claim as TEST.CONFINEMENT_CLAIM_REFUSED"
+### TestExecutionStepParams | type="object" | required=["kind", "argv", "argv0Source", "cwdIsRoot", "principal", "executionClass", "platformId", "authorizationRef", "consentSource", "afterStep", "timeoutMilliseconds", "maxOutputBytes", "environmentAllowlist", "effects"] | additionalProperties=false | allOf=[{"if": {"properties": {"cwdIsRoot": {"const": true}}}, "then": {"not": {"required": ["cwd"]}}}, {"if": {"properties": {"cwdIsRoot": {"const": false}}}, "then": {"required": ["cwd"]}}]
+  kind: const="test-execution"
+  argv: type="array" | minItems=1 | maxItems=64 | x-opensip-order="sequence" | items={"maxLength": 4096, "minLength": 1, "type": "string"}
+  argv0Source: oneOf=[{"additionalProperties": false, "properties": {"kind": {"const": "snapshot-member"}, "path": {"$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"}}, "required": ["kind", "path"], "type": "object"}, {"additionalProperties": false, "description": "argv[0] must be byte-equal to member, member must be an inventoried tree entry of the admitted closure2, and the closure must be the ...
+  cwd: $ref="urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"
+  cwdIsRoot: type="boolean"
+  principal: const="P-TRUSTED-REPO"
+  executionClass: const="test-runner"
+  platformId: type="string" | enum=["macos-aarch64", "macos-x86_64", "linux-x86_64-gnu", "linux-aarch64-gnu"]
+  authorizationRef: type="string" | pattern="^security.repo-execution-grant.v2:[0-9a-f]{64}(?![\\s\\S])"
+  consentSource: type="string" | enum=["pre-existing-policy", "interactive-consent"]
+  afterStep: $ref="urn:opensip:product-v1:workflows:common#/$defs/StepId"
+  timeoutMilliseconds: type="integer" | minimum=1 | maximum=86400000
+  maxOutputBytes: type="integer" | minimum=1 | maximum=67108864
+  environmentAllowlist: type="array" | maxItems=64 | uniqueItems=true | x-opensip-order="sequence" | items={"maxLength": 128, "pattern": "^[A-Z_][A-Z0-9_]*(?![\\s\\S])", "type": "string"}
+  effects: type="object" | additionalProperties=false | required=["network", "subprocess", "filesystemWrite", "environment"] | properties=["environment", "filesystemWrite", "network", "subprocess"]
+      network: $ref="#/$defs/EnforcementValue"
+      subprocess: $ref="#/$defs/EnforcementValue"
+      filesystemWrite: $ref="#/$defs/EnforcementValue"
+      environment: $ref="#/$defs/EnforcementValue"
+### TestExecutionStepResult | type="object" | required=["kind", "importId", "payloadDigest", "testResult", "timedOut", "outputTruncated", "disclosureEmitted"] | additionalProperties=false
+  kind: const="test-execution"
+  importId: $ref="urn:opensip:product-v1:workflows:common#/$defs/ImportId"
+  payloadDigest: $ref="urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+  testResult: type="string" | enum=["passed", "failed", "error"]
+  exitStatus: type="integer" | minimum=0 | maximum=255
+  signal: type="string" | minLength=1 | maxLength=32
+  timedOut: type="boolean"
+  outputTruncated: type="boolean"
+  disclosureEmitted: const=true
+### TestPayloadV1 | type="object" | required=["payloadDomain", "producer", "argvDigest", "toolClosureId", "exitStatus", "signal", "timedOut", "stdoutDigest", "stderrDigest", "stdoutBytes", "stderrBytes", "outputTruncated", "tests", "selection"] | additionalProperties=false | description="Payload domain workflow.import-payload.test.v1; wrapped by the foundation import descriptor with kind=test. Produced by the host test-execution step or imported from an independently prepared run."
+  payloadDomain: const="workflow.import-payload.test.v1"
+  producer: type="string" | enum=["host-test-execution", "independent-prepared"]
+  argvDigest: $ref="urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+  toolClosureId: oneOf=[{"$ref": "urn:opensip:product-v1:workflows:common#/$defs/ClosureId"}, {"type": "null"}]
+  exitStatus: oneOf=[{"maximum": 255, "minimum": 0, "type": "integer"}, {"type": "null"}]
+  signal: oneOf=[{"maxLength": 32, "minLength": 1, "type": "string"}, {"type": "null"}]
+  timedOut: type="boolean"
+  stdoutDigest: $ref="urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+  stderrDigest: $ref="urn:opensip:product-v1:workflows:common#/$defs/Sha256Hex"
+  stdoutBytes: type="integer" | minimum=0 | maximum=67108864
+  stderrBytes: type="integer" | minimum=0 | maximum=67108864
+  outputTruncated: type="boolean"
+  tests: type="array" | maxItems=1048576 | x-opensip-order="sequence" | items={"additionalProperties": false, "properties": {"durationMillis": {"$ref": "urn:opensip:product-v1:workflows:common#/$defs/Uint53"}, "outcome": {"enum": ["pass", "fail", "skip", "error"], "type": "string"}, "subjectPath": {"$ref": "urn:opensip:product-v1:workflows:common#/$defs/LogicalPath"}, "testId": {"maxLength": 1024, "minLength": 1, "type": "string"}}, "required": ["testId", "outcome"], "ty...
+  selection: type="object" | additionalProperties=false | required=["mode", "completenessEstablished"] | properties=["completenessEstablished", "mode"]
+      mode: type="string" | enum=["full", "impact-selected", "explicit"]
+      completenessEstablished: type="boolean"

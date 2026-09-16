@@ -1,0 +1,11 @@
+# Mutable author remint package — final review pending
+
+Seven positive synthetic Runs and three semantic refusal controls were rebuilt with actual Claude on the merged native schema. Root independently replays the exact exports through the selected reference owner; all seven positives admit, all three negatives structurally admit and fail at complete-proof replay. Binding controls also demonstrate a lawful default, a refused non-null default entry and a lawful single explicit selection.
+
+The current source manifest binds the intermediate merged reference snapshot, not final candidate26. Final carrier/lifecycle integration and independent review remain pending. No product qualification or implementation authorization is claimed.
+
+The four construction commands and build-binding-controls.py take explicit --source, --package and fresh --out paths. The patched bundled helpers are required; the commands supply their kit binding before import. Example: `python -I -B build-checkpoint3.py --source <source> --package <this-package> --out <fresh-outside-inputs>`. Source, package, kit and helper inputs cannot contain the output. The current package artifact manifest will be written only after root checks and final source selection.
+
+Checkpoint3 compares the author helper with the reference owner; the other six positives have the owner both derive and replay proof, establishing self-consistency. These Runs exercise exists/none only. and/or/not remain unexercised; count-at-most/all-covered remain unimplemented in the partial helper. The attempted two-binding construction is incomplete and demonstrates no owner defect; the explicit-selection control is single-binding only.
+
+The original 123/8/3 blind charter is unchanged. This author package must never be provided to a consumer described as blind. Historical source25 preparation is retained under historical-source25-preparation; the original source25 thirty-residual author assessment remains historical proposed evidence with independent grades pending. Earlier immutable packages and failed reviews are unchanged. The latest Claude report and root exact-export reports are included as evidence, not self-acceptance.

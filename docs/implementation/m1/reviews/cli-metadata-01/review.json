@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "reviewKind": "independent concrete implementation unit review",
+  "subject": {
+    "root": "/tmp/opensip-implementation/m1-cli-metadata-subject-01",
+    "manifest": "/tmp/opensip-implementation/m1-cli-metadata-subject-01.json",
+    "manifestSha256": "67e7b09fe028f657509537bcdc47312df1f34b46e0ebc43493816f4e62bdd4b1",
+    "manifestStanding": "unreviewed CLI metadata implementation candidate"
+  },
+  "verdict": "CHANGES-REQUIRED",
+  "verdictSummary": "Most of the code is sound: the request capability and registry, pre-parse OS CSPRNG allocation, the process-only metadata bootstrap, compiled development channel/version, envelope4 conformance, catalogue parity, and required-delivery faults for read-only fd and broken-pipe stdout all hold up. Two findings block acceptance: one new product file is outside the design-locked inventory, and human failure renderings omit the termination class and error code that the inventory4 human renderer rule requires.",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "New product file crates/platform/src/entropy.rs is outside the design-locked M1 repository inventory v3",
+      "evidence": [
+        "docs/implementation/m1/repository-file-inventory.v3.json (sha256 63027fb6...) lists crates/platform/{Cargo.toml,src/clock.rs,filesystem.rs,lib.rs,linux.rs,locks.rs,macos.rs,process.rs}; crates/platform/src/entropy.rs is ABSENT (executed lookup). The same platform file set is in 14-repository-and-module-layout.md 'opensip-platform'.",
+        "Every other new candidate file (apps/cli/src/{main,arguments,bootstrap,terminal}.rs, apps/cli/tests/startup_tests.rs, crates/host/src/{lib,outcomes,request}.rs, crates/platform/src/lib.rs, crates/reporting/src/{assets,human_renderer,json_renderer,lib}.rs) is PRESENT.",
+        "Precedent: adding four tooling/test paths needed the reviewed inventory successor v3. The metadata-v2 statement 'No new product file is needed for this producer' covers assets.rs only. The architecture README itself lists 'inventory additions' as an open review item for this candidate."
+      ],
+      "ownerGap": "The accepted inventory has no named owner for OS CSPRNG draws, but REQUEST-ID-V1 requires them.",
+      "smallestResolution": "Choose one of two options. (a) A scoped inventory successor adds exactly one row: crates/platform/src/entropy.rs, package opensip-platform, role adapter, description 'Provide complete OS CSPRNG draws for operational identifiers; never an input to semantic identity.' It gets bound through the existing design-lock route. (b) Move the 10-line function into an already inventoried platform owner. Neither option needs a behavior change. Do not invent any other approval flow."
+    },
+    {
+      "id": "RF-2",
+      "title": "Human failure renderings omit termination class and error code",
+      "evidence": [
+        "command-inventory.v4.json renderers[human].parityRule: 'prints every parity field of the command verbatim or by a documented fixed label; never omits termination-class'. Its applicability includes meta.",
+        "Executed: `opensip --nope` gives exit 2 and stdout 'Unknown command option. Use opensip help.' No request-rejected or REQUEST.UNKNOWN_OPTION appears.",
+        "Executed: `opensip version --format=sarif` gives exit 2 and stdout 'The selected format is not applicable to this command.' No OUTPUT.FORMAT_NOT_APPLICABLE detail appears.",
+        "Executed: `opensip version 1</etc/hosts` gives exit 4 and stderr 'Required output delivery failed.' No operational-failed, DELIVERY.REQUIRED_FAILED or RequestId appears. The JSON counterpart carries all of these.",
+        "crates/reporting/src/human_renderer.rs:43-50: for FieldPresence::Missing meta, only diagnostics rows are written."
+      ],
+      "requiredChange": "For every failure envelope, the human renderer must print the termination class and errorCode, each error detail code, and the diagnostics, all under documented fixed labels. Printing the RequestId is recommended for the stderr delivery-failure path. Add human-rendering assertions for request rejection, format-not-applicable and delivery failure to startup_tests.rs, or to reporting projection_tests.rs once that exists. The JSON path needs no change.",
+      "scopeNote": "Whether the same clause also requires a success termination label on help/version human output, and how it applies to completion scripts, is an owner question. See A-10. RF-2 is limited to failure renderings, where the rule clearly applies and operators currently lose the class and code."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "A-01",
+      "title": "Closed stdout at exec is silently discarded (exit 0)",
+      "text": "Executed: `opensip --format=json version >&-` exits 0 with empty stderr. The same happens with both stdout and stderr closed. The cause is Rust std sys/pal/unix/mod.rs sanitize_standard_fds (toolchain 1.95.0 source inspected), which reopens a closed fd 1 as /dev/null before main. No owner passage enumerates this case, and the owned-dup File cannot observe it. CLI-UNIT should disclose it, and no closed-stdout detection should be claimed. Read-only fd and EPIPE are detected correctly (see evidence)."
+    },
+    {
+      "id": "A-02",
+      "title": "Entropy/collision failure mapping is not exercised at bootstrap level",
+      "text": "request.rs unit tests cover the collision budget (8 draws), the entropy error, and no replacement. bootstrap.rs maps both failures to a stderr text line 'HOST.IO_FAILURE: ...' with exit 4. That is lawful: the D9 pre-admission-host-io-failure golden gives operational-failed/HOST.IO_FAILURE/host-io, and envelope4 requires a valid requestId, so no envelope can exist. However, no test injects a failing draw through MetadataHost/bootstrap. Consider a crate-private injectable draw test. Consider also including operational-failed/host-io in the readable line."
+    },
+    {
+      "id": "A-03",
+      "title": "getrandom backend/TCB selection needs the build-lane guard before qualification",
+      "text": "getrandom 0.4.3 has no default features, and resolved features are [] (cargo metadata, aarch64-apple-darwin). Backends: macOS uses getentropy(2) via libc. Linux gnu/musl on common arches uses linux_android_with_fallback, which is the getrandom syscall with a /dev/urandom fallback after a poll of /dev/random. That is a device-file effect inside the platform lane, not a project/store/provider effect. `--cfg getrandom_backend=\"custom|unsupported|rdrand|rndr|linux_raw|extern_impl|...\"` supplied through RUSTFLAGS or Cargo config silently changes the TCB, so a lane guard must refuse it. Build scripts run at build time: getrandom's only reads CARGO_CFG_SANITIZE, and libc's executes $RUSTC (or RUSTC_WRAPPER) -vV. tools/check_dependencies.py and dependency-policy.json cover only the contracts lane; the host/platform lane policy is still pending. Lock row r-efi 6.0.0 applies only to target_os=uefi with getrandom_backend=efi_rng. Its .crate archive is not cached locally, so its bytes were not validated. It is not compiled for any selected target."
+    },
+    {
+      "id": "A-04",
+      "title": "Parser edge hardening",
+      "text": "Values consumed after `--format` or `--client-correlation-id` are not counted toward the 1024-argument bound and skip the 4096-byte check. The effect is bounded, because correlation is limited to 128 scalars and format is matched against a closed set, but the stated limits are not uniform. `version --help` is refused instead of resolving as a help alias. `--` and `-` are unknown options, which is lawful. Correlation admits control characters, which is schema-legal and JSON-escaped. The metadata review-01 A-01/N-05 control-character hardening remains open. Human-mode refusal text goes to stdout; no owner stream law was found, so this is note only."
+    },
+    {
+      "id": "A-05",
+      "title": "Catalogue usage text differs from inventory4 cli spellings",
+      "text": "The host catalogue uses 'opensip help [command] [--format human|json]', 'opensip completion <bash|zsh|fish>' and 'opensip version [--format human|json]'. Inventory4 cli has 'opensip help [COMMAND]', 'opensip completion SHELL' and 'opensip version'. This is lawful, because metadata-v2 admits against a trusted build-selected catalogue, but a later parity or doc check should fix one source. Usage also omits --client-correlation-id."
+    },
+    {
+      "id": "A-06",
+      "title": "HostAssetPinV1 channel agreement and projection_tests.rs remain open",
+      "text": "metadata-v2 names crates/reporting/tests/projection_tests.rs as owner of producer and channel-agreement negatives. That file is not created. Producer SemVer and development negatives live in an assets.rs unit test instead. The candidate bindings contain no HostAssetPin carrier and no real asset pin exists, so the agreement check cannot be executed yet. It is honestly open, not satisfied by this unit, and must not count toward M1 completion."
+    },
+    {
+      "id": "A-07",
+      "title": "Process-custody host scope must stay confined",
+      "text": "RequestContext is fieldless to callers, has no public constructor, and projects only through ptr-equality against its own authority's retained Arc. Because reservations are never freed, address reuse cannot alias. MetadataHost::new is public, but an independent host is a different root, and the foreign-root test passes. execute and delivery_failure may reuse one context. That is lawful for delivery failure inside a single invocation, but the type cannot enforce one invocation per context. M2 durable ingress must replace it for analyses and mutations, as CLI-UNIT states. Required-delivery handling sits in bootstrap/outcomes although inventory has crates/host/src/delivery.rs. That is acceptable for metadata-only now; revisit at M2."
+    },
+    {
+      "id": "A-08",
+      "title": "Reference checker is path-bound",
+      "text": "check-cli-metadata-reference.py hardcodes root m1-cli-metadata-candidate-01, and the frozen metadata-reference-results.json came from that tree's binary, not the subject. I reproduced it with a one-line root redirect in a private copy: same 17 cases, all valid, and outputs equal modulo RequestIds."
+    },
+    {
+      "id": "A-09",
+      "title": "Delivery-failure envelope drops clientCorrelationId",
+      "text": "delivery_failure does not carry a valid correlation token into the stderr failure envelope. This is schema-legal (the field is optional) and not required, but carrying it would help audit correlation."
+    },
+    {
+      "id": "A-10",
+      "title": "Owner clarification: human termination-class for meta success and completion",
+      "text": "Proposed smallest scoped clarification from the inventory4 human renderer owner: state whether 'never omits termination-class' applies to successful help/version human output (a fixed 'success' label would be lawful and cheap) and exempt completion scripts, whose stdout must remain valid shell code, with exit status conveying termination. No new vocabulary is needed."
+    }
+  ],
+  "confirmedProperties": [
+    "Nonforgeable context: RequestContext has a private field and no public constructor, and is not Serialize/Deserialize/Clone/Copy. Projection is exact object identity in the selected authority's own BTreeMap. Foreign-root and unreserved contexts return None (unit test executed). Reservations are retained for host lifetime, so ABA is impossible.",
+    "Allocation precedes argument parsing (bootstrap.rs: host.begin() before arguments::parse). There are 16 OS-CSPRNG bytes, rendered as req1_ plus 32 lowercase hex characters, with an 8-candidate collision budget and no replacement. 600 sequential invocations produced 600 distinct RequestIds.",
+    "Request spoofing: --request-id, --request-id=, requestId=... words and an OPENSIP_REQUEST_ID env var all leave RequestId host-minted. Flags are refused with REQUEST.UNKNOWN_OPTION exit 2 and a fresh id. Correlation never replaces RequestId.",
+    "Process-custody bootstrap: runs under a sandbox-exec profile denying all network, all file writes except /dev/null and tty/fd, and reads of the cwd fixture, /Users and /private/etc (controls for cat, ls, touch, curl and ~/.zshrc all denied). version, help, help version, completion, refusal and no-arg cases all succeed with identical outputs.",
+    "Version authority: buildChannel is a compiled const Development, hostRelease comes from env!(CARGO_PKG_VERSION) with SemVer validation, and closureIds is []. OPENSIP_BUILD_CHANNEL=release, OPENSIP_HOST_RELEASE, OPENSIP_CLOSURE_IDS, CARGO_PKG_VERSION=9.9.9 in the environment, and --build-channel=release are all ineffective or refused.",
+    "Envelope4 conformance (ExactValidator via the accepted check_metadata load adapter): the 17 author cases, 11 additional probe cases (non-Unicode, overlong, 1025 args, duplicate correlation echo, control-character correlation, no-args, help --help, --, completion without shell, duplicate/inapplicable formats) and 5 delivery-failure envelopes (read-only fd x4 including a refusal and correlation case, plus EPIPE) are all valid.",
+    "Parser refusal carrier: errors=[] only with request-rejected/REQUEST.UNKNOWN_OPTION, exit 2 and nonempty diagnostics. Format-not-applicable carries OUTPUT.FORMAT_NOT_APPLICABLE. A known but unimplemented topic (help analyze) and default analysis are refused. Only 3 commands are advertised in help, JSON and completions for bash, zsh and fish, from one host catalogue.",
+    "Required delivery: a read-only stdout fd (EBADF) and a broken pipe (EPIPE) give exit 4 and a schema-valid stderr envelope with operational-failed, DELIVERY.REQUIRED_FAILED, delivery-required and DELIVERY.REQUIRED_PROJECTION_FAILED, no meta or run, and the same RequestId. The Rust Stdout EBADF-as-success behavior was confirmed in std sys/stdio/unix.rs (handle_ebadf).",
+    "Library edges: cli->host, host->{contracts,platform,reporting}, reporting->contracts and platform->{} are all within 14-repository-and-module-layout.md proposed direct dependencies.",
+    "Generator partial status preserved: the candidate does not claim complete TS2/Rust3/control/report generation, and generated bindings were not re-reviewed here. The selected 45-command inventory4 goal is preserved and unaltered."
+  ],
+  "executedEvidence": [
+    {"id": "pins", "result": "pass", "detail": "Manifest sha256 67e7b09f... matches. All 97 listed files match sha256 and bytes, with no extra or missing files. Re-verified after review with the same result."},
+    {"id": "arch-owner-pins", "result": "pass", "detail": "All 10 metadata-v2 files match the design-lock contractSuccessor input hashes (successor.json 9d324821...). trusted-request-context.v3.json sha256 bc53c267... matches the IMPLEMENTER-BLUEPRINT pin. The architecture checkout has unrelated uncommitted modifications; only pinned or read-only files were consulted."},
+    {"id": "design-verify", "result": "pass", "detail": "python3 tools/verify_design.py --architecture opensip_arch in the private copy: passed, 46 inputs."},
+    {"id": "cargo-build", "result": "pass", "detail": "cargo 1.95.0, `cargo build --locked --offline --workspace --all-targets` in a private copy with isolated CARGO_TARGET_DIR."},
+    {"id": "cargo-test", "result": "pass", "detail": "`cargo test --locked --offline --workspace`: 5 startup, 2 request-authority, 1 compiled-metadata and 10 identity tests pass."},
+    {"id": "clippy-fmt", "result": "pass", "detail": "`cargo clippy --locked --offline --workspace --all-targets -- -D warnings` passes, and `cargo fmt --check` prints no diff."},
+    {"id": "reference-17", "result": "pass", "detail": "Redirected copy of check-cli-metadata-reference.py run with metadata-reference-env python -I -B: 17 cases, 0 invalid, equal to the frozen results modulo RequestId."},
+    {"id": "reference-extra", "result": "pass", "detail": "16 additional JSON outputs (11 parser/format probes and 5 delivery-failure envelopes) validated by ExactValidator."},
+    {"id": "parser-probes", "result": "recorded", "detail": "35 argv probes covering non-Unicode argument/format value/correlation, 4097-byte argument, 1025 arguments, duplicate format/correlation, 129-scalar emoji correlation, control-character correlation, --request-id forms, --, -, uppercase command, alias topics and completion shells. Outputs are in work/probes/probes*.txt."},
+    {"id": "delivery-probes", "result": "recorded", "detail": "Closed stdout gives exit 0 (A-01). Read-only fd gives exit 4 in JSON and human mode. EPIPE gives exit 4 for JSON and completion. Closed stderr with a refusal gives exit 2."},
+    {"id": "sandbox", "result": "pass", "detail": "sandbox-exec deny profile with effective controls. All metadata paths ran with identical outputs. See work/probes/sandbox2.txt."},
+    {"id": "fresh-ids", "result": "pass", "detail": "600 invocations produced 600 unique RequestIds."},
+    {"id": "dependency-archives", "result": "pass-with-limit", "detail": "Cached .crate sha256 equals the Cargo.lock checksum for getrandom 0.4.3, libc 0.2.189 and cfg-if 1.0.4. Each archive extracts identically to the registry src tree. r-efi 6.0.0 is not cached and was not validated. cargo tree per target shows getrandom->libc,cfg-if on apple and linux gnu/musl, and only cfg-if on windows-msvc (whose build is compile_error by terminal.rs)."},
+    {"id": "inventory-edges", "result": "RF-1", "detail": "All new files except crates/platform/src/entropy.rs are in inventory v3. Package edges are within the allowed table."}
+  ],
+  "scope": [
+    "In scope: the concrete CLI metadata unit, meaning the apps/cli, crates/host, crates/platform and crates/reporting code, the root Cargo manifests and lock, CLI-UNIT.md, startup and unit tests, and the reference checker output.",
+    "Checked against accepted metadata-v2 (the unit acceptance and design-lock contractSuccessor, using the README content as the current accepted text rather than its historical candidate wording), REQUEST-ID-V1 in operability.v3 requestIdContract, trusted-request-context.v3, the D9 pre-admission-host-io-failure golden, the build-plan M1 row with its accepted passage override, workflows-and-surfaces required-delivery law, and inventory v3 plus module-layout package edges."
+  ],
+  "limits": [
+    "This review does not re-review the generator algorithm or adapter01 bindings (under separate review), and it does not accept integration, design-lock successor binding or M1 completion.",
+    "Executed only on macOS aarch64 with a debug build. Linux backends, other targets, release builds, startup performance (DR-G03 thresholds), memory, size and network-firewall qualification were not executed.",
+    "sandbox-exec is a deprecated macOS facility. The side-effect evidence rests on its denial controls and is not a syscall trace.",
+    "A CSPRNG failure could not be induced in the real binary. The mapping was assessed by code reading and authority unit tests.",
+    "The r-efi 6.0.0 archive was not available offline.",
+    "No commits, pushes or changes were made to frozen, product or architecture files. All writes are confined to /tmp/opensip-implementation/m1-cli-metadata-review-01 (review files and work/)."
+  ],
+  "acceptanceStatement": "Not accepted. Once RF-1 is resolved (inventory disposition or relocation) and RF-2 is fixed (human failure renderings print termination class and error code, with tests), the unit is expected to be acceptable, subject to re-verification of the frozen successor. Even then, acceptance would cover this unit only, not integration, generator selection, HostAssetPin channel agreement or M1."
+}

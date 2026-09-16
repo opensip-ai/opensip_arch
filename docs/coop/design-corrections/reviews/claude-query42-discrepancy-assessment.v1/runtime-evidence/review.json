@@ -1,0 +1,140 @@
+{
+  "assessment": "query42 discrepancies: consumer graph-query vectors vs strong-owner captures on frozen source42",
+  "author": "bounded AUTHOR f5617310-c7c7-4d85-acdd-31370f220944",
+  "standing": "author diagnosis; not independent source acceptance; not blind reconstruction; no writes outside this runtime; independent85 runtime neither read nor contacted; consumer code/results read only to understand interpretation",
+  "inputs": {
+    "sourceManifestSha256": "f602fc7e45a90e32e0d076aa27e4ee7e51d8c298727a69bdf32489d5a7b0b307",
+    "members": 12913,
+    "consumerVectorsSha256": "f47edb50affbab018390c6599d3aae5b780af826ad30a4f4b29b5e1416111884",
+    "rootReplayVerificationSha256": "139799cd8a0438f06b959dfc58f477a2db229328c619876dc523a25be7826a54",
+    "rootCaptureReports": {"cmp-base": "6000c8f595804433512a2cdf3fdad3db6c03f952095739b8735cccd44a4b9316", "cmp-code": "8aa8e4dab707acce2e86ffd6d3d2a2acbad8008b9db213d613dcd37b830d6983"},
+    "rootTransportSha256": "6fa376bb59548bd9d52dbc52a3a35f27e0d12e4a963a6730624467c3a8f63074",
+    "rootReaderSha256": "6e0cd4acf2a38469a4ad638b9eb1b7ba512648e5bb48421c18bdcd78e33897d1",
+    "exports": {"cmp-base": "f4039acfce5cfe79828a705c2aa2f60e8febace652456caadc3c7888f5c9530b", "cmp-code": "a1e19ef79e0db5a27fa89dced840cd3f71a4c02ba9a3ae7802cd174b41c9fc8a"},
+    "queryOwnerSha256": "bb9de8f7c7fece1bee3cdda9b9f0c93f4afa33a0a17ec822db8db2dc77a2a62c",
+    "identityOwnerSha256": "a6dc5f997b5b9502d185d1b68a61765516ccf5f64f1c33a4282682ebee2803dc",
+    "verify": ["receipts/inputs-verify.json", "receipts/inputs-verify-final.json"]
+  },
+  "classifications": [
+    {
+      "item": 1,
+      "discrepancy": "page1-latest-size1 nextCursor hash (consumer 842048..., owner 0143c8...); owner refuses consumer tokens on page2-after-newer-latest-bound-run and page2-with-host-cache-present",
+      "classification": "permitted-choice",
+      "blocker": false,
+      "selectors": [
+        "query-projection-contract.v3.md section 5 line 136 (Opaque token; Reference form q3.<runId>.<selectionHash64>.<position>; binds project+Run+fact-views+operation+effective params+order+position; token grants no authority; continuation requires view.runId = bound Run)",
+        "graph-query.schema.json#/$defs/Page/properties/cursor/description (Opaque host token ... Reference form)",
+        "workflows-and-surfaces.md:1174-1178 (continuation binding; incompatible inputs -> typed refusal)",
+        "query-projection-contract.v3.md section 7 line 185 (cursor bind mismatch -> request-rejected / REQUEST.PRECONDITION_FAILED / QUERY.CURSOR_MISMATCH)"
+      ],
+      "preimages": {
+        "owner": {"hash": "0143c88c0d70b2b5c3333a23f31300557bb9a8ff4cf96a250f448e0d21e7c8d4", "recordKeys": ["factViewDigests", "operation", "params", "projectId", "runId"]},
+        "consumer": {"hash": "842048242abf784efa5114f74a19ab6d604db6e3522324ad0bb3994969f6b58d", "recordKeys": ["factViewDigests", "operation", "order", "params", "projectId", "runId"], "orderValue": "query-projection-contract.v3 s3/s4"},
+        "bothReproducedWithOwnerCanonical": true,
+        "onlyDifference": "order member",
+        "effectiveParamsEqualRequestParams": true,
+        "exactUtf8": "receipts/probe-owner-base.json newWorld.cursorPreimages"
+      },
+      "evidence": {
+        "ownerOnConsumerToken": "complete envelope request-rejected / REQUEST.PRECONDITION_FAILED / QUERY.CURSOR_MISMATCH, exit 2, projectId present, no run",
+        "ownerSelfContinuation": "owner page1 token on the page2 request (view.runId bound, newer latestRunId) RETURNED page 2, complete, items equal consumer page2 items",
+        "cacheInvariant": true,
+        "portabilityLaw": "none found in product contracts, workflows contracts or evaluator3 schemas"
+      },
+      "conclusion": "normative binding law is sufficient and mandatory as to bound inputs; the preimage/encoding is expressly opaque host freedom; neither implementation wrong; page2 vectors are not a cross-host control; no cursor translation performed"
+    },
+    {
+      "item": 2,
+      "discrepancy": "path-both-direction: same fact; consumer keeps stored source/target, owner reports traversal orientation",
+      "classification": "normative-gap",
+      "blocker": "owner decision required; neither implementation defective under present law",
+      "selectors": [
+        "query-projection-contract.v3.md section 3 lines 76-80 (projected edge endpoints from fact/payload)",
+        "section 4 line 95 (path law), line 98 (outgoing source->target; incoming reverse; both undirected), lines 102-116 (eligible directed hops; other backends must reproduce the same result)",
+        "graph-query.schema.json#/$defs/GraphPathEdge (factId, source, target; no description); #/$defs/GraphPathRow (nodes/edges sequence; no orientation statement)",
+        "check-query-projection.v3.py path goldens check hopCount/factId only"
+      ],
+      "evidence": {
+        "storedFact": "fact2:44e53189... main->helper calls@resolved-callee",
+        "owner": {"path-both-helper-to-main": "helper->main, edges chain nodes", "path-incoming-helper-to-main": "helper->main, chains", "path-outgoing-main-to-helper": "main->helper, chains", "neighbors-both-helper": "stored main->helper"},
+        "consumerPathEdgesChainNodes": false,
+        "bothPathResponsesSchemaAdmitted": true
+      },
+      "proposal": "section 4 sentence: path edges[i] is the directed hop nodes[i]->nodes[i+1] (may reverse stored fact under incoming/both; factId names the stored fact; neighbors rows keep fact orientation) + two pinning controls; pins existing reference behaviour; stored-orientation alternative equally coherent (owner decision)"
+    },
+    {
+      "item": 3,
+      "discrepancy": "availability-partial-does-not-grant-or-refuse: consumer context.availability=partial, owner=retained",
+      "classification": "reference-defect",
+      "blocker": true,
+      "selectors": [
+        "query-projection-contract.v3.md section 7 line 160 (identity availability is a trusted current host observation; retained/partial/omitted neither refuse nor grant; close_run decides)",
+        "identity-and-evidence.md:1721-1725 (current availability separate record incl. partial; A query reports both)",
+        "workflows-and-surfaces.md:1185 (all query responses carry availability), :1190 (availability required parity field)",
+        "graph-query.schema.json#/$defs/GraphOperationResponseContext/properties/availability (required; enum includes partial)"
+      ],
+      "evidence": {
+        "admissionAgreement": "identical items; partial still cannot admit missing bytes (existing control)",
+        "frozenOwner": {"omitted": "retained", "retained": "retained", "partial": "retained", "itemsSha256": "ed465d59c7d45d9f3c446bdcd7ef45a0e03236504aa79c20ef2c7362c41c2dbf"},
+        "cause": "observe_availability returns 'retained' for partial; execute_graph_query passes hardcoded 'retained' to finish_operation",
+        "partialResponseSchemaAdmitted": true
+      },
+      "conclusion": "strong owner upgrades an observed current partial availability to retained, erasing the disclosure identity law says a query reports; consumer consistent",
+      "residual": "omitted-observation response value is unstated; both report retained after close_run admission; preserved, not claimed as new law"
+    },
+    {
+      "item": 4,
+      "discrepancy": "owner success responses carry termination {class: success}; consumer omits; resolutionLimitations note prose differs/omitted; refusal remedy/subject prose differs",
+      "classification": "permitted-choice",
+      "blocker": false,
+      "selectors": [
+        "graph-query.schema.json#/$defs/GraphQueryResponseV1 (termination not required)",
+        "workflows-and-surfaces.md:1193 (any optional termination), :1198 (if carried, equals enclosing termination)",
+        "graph-query.schema.json#/$defs/GraphEvidenceDisclosure resolutionLimitations[].note optional BoundedText",
+        "query-projection-contract.v3.md section 7 line 156 (Refusal messages are diagnostic; the table selects every public route)"
+      ],
+      "evidence": {
+        "ownerResponsesWithoutTerminationOrNotesSchemaAdmitted": true,
+        "failureRouteEquality": "23/23 consumer failure vectors equal owner actual envelopes on kind, exitCode, requestId, projectId, termination class/errorCode/faultCause, domainDetail.code, errors codes/count, no run; only remedy/subject prose differ",
+        "consumerFailureEnvelopesSchemaAdmitted": "23/23",
+        "consumerPositiveResponsesSchemaAdmitted": "all",
+        "ownerRefusalsCaptured": 25
+      }
+    }
+  ],
+  "proposal": {
+    "standing": "PROPOSAL ONLY; author copy; not acceptance",
+    "patch": {"file": "correction.patch", "sha256": "4c32d6c3abcc78d8794ba53eb11b03c0989b6eb45561bceb520bb0dbc3b10738", "bytes": 10714},
+    "deltaManifest": "delta-manifest.json",
+    "files": [
+      {"path": "docs/coop/design-corrections/workflows/query_projection_model.v3.py", "baseSha256": "bb9de8f7c7fece1bee3cdda9b9f0c93f4afa33a0a17ec822db8db2dc77a2a62c", "afterSha256": "9a8f9c09c70cf56aff8f353b7592fb5ce0eb2a58ad101a08a1ce56f006568b7c", "change": "report observed retained/partial availability in successful response (omitted stays retained); refusal routes unchanged"},
+      {"path": "docs/coop/design-corrections/workflows/check-query-projection.v3.py", "baseSha256": "8e2c2b6b4b202cb630e99c97d095a5efe34d0bf34aca8cf81d1dd6bfddc5ed52", "afterSha256": "466d6abb2a9ccdb2be7e6a0b655e9e33cef94fc64d5facdfb478bc6b58a531f9", "change": "5 controls: partial reported (discriminator), partial changes only availability, retained/omitted report retained, path incoming/both edges are traversed hops"},
+      {"path": "docs/coop/design-corrections/workflows/query-projection-contract.v3.md", "baseSha256": "923ff32fc9e063f8c9af00bb7943f77bb47a09d876826ca425e0cd580cee8a4b", "afterSha256": "47ccc81ccc33263520affe0340946aba5178bcac33131de88e6be638a1718d5f", "change": "section 7 availability response sentence; section 4 path edge orientation sentence"}
+    ],
+    "unchanged": ["graph-query.schema.json", "identity/native owners", "workflows-and-surfaces.md"]
+  },
+  "receipts": {
+    "probeOwnerBase": {"file": "receipts/probe-owner-base.json", "sha256": "01d6293fa01e5d57e1ede4eecab61e3e10bf7b9002bca5eb929d8c25f271fcac"},
+    "probeOwnerPatched": {"file": "receipts/probe-owner-patched.json", "sha256": "1e4663c0af08c4d0fbe03049be086955a48c6c29fe8434ecb1df78f982049926"},
+    "copyTrees": "receipts/copy-trees.json (1347 files x2, 0 mismatches)",
+    "checkQueryBase": {"sha256": "7fd0b56bbe7e8b4a7844e286a755caf340d02982638845ea49f8319fb335b697", "checks": 204, "failed": 0, "exit": 0},
+    "checkQueryPatched": {"sha256": "111ca6166c1822cf1e9578a505be6209e60a2c9f96bfd7a20ad5fc2a336848fb", "checks": 209, "failed": 0, "exit": 0},
+    "checkQueryControlsOnly": {"sha256": "8de602672395629118de63e83add7d9548543ce43fcde0843e0fb9791f2ef5f0", "checks": 209, "failed": ["host-availability-partial-reported-in-response"], "exit": 1},
+    "compareBasePatched": "receipts/compare-base-patched.json (204 shared checks unchanged; probe diff only availability-partial context.availability and matching new-world row)"
+  },
+  "remainingBlockers": [
+    "item 3 strong-owner availability disclosure until root integrates the correction or an equivalent owner decision",
+    "item 2 requires an owner decision on path edge orientation (not a defect of either implementation)"
+  ],
+  "rootAccounting": [
+    "uncaptured vectors not inferred: neighbors-evidence-limitations-with-complete-traversal (syntax-mixed-disclosed), missing-retained-bytes (cmp-code~missing-bytes), corrupt-retained-bytes (cmp-code~corrupt-bytes)",
+    "cmp-scope wrapper failure is bookkeeping (No vectors for explicit Run label), not a query issue",
+    "root command/capture metadata trailing backslash-n not used; per-run report.json files used"
+  ],
+  "limitations": [
+    "owner outcomes are reference executions over exact exported stores after full admission; not product qualification, renderer parity or application acceptance",
+    "consumer code was not executed; consumer behaviour taken from recorded vectors and source",
+    "no broad suites, pins, planning, source freeze or independent85 artifacts",
+    "owned hashes of three files change; pin updates belong to root"
+  ]
+}

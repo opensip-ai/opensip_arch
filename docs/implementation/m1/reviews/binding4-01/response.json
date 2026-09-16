@@ -1,0 +1,74 @@
+{
+  "session_id": "cd7d8523-6f37-4acf-9b75-7cf18999de45",
+  "total_cost_usd": 3.4056254999999998,
+  "usage": {
+    "input_tokens": 514,
+    "cache_creation_input_tokens": 124531,
+    "cache_read_input_tokens": 1319069,
+    "output_tokens": 59866,
+    "output_tokens_details": {
+      "thinking_tokens": 27017
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 124531,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1754,
+        "cache_read_input_tokens": 129512,
+        "cache_creation_input_tokens": 514,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 514
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1481,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.0015609999999999999,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 514,
+      "outputTokens": 59866,
+      "cacheReadInputTokens": 1319069,
+      "cacheCreationInputTokens": 124531,
+      "webSearchRequests": 0,
+      "costUSD": 3.4040645,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 27017,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 32,
+  "subtype": "success",
+  "result": "**Verdict: ACCEPT-UNIT, with no required findings and 6 non-blocking advisories.** Subject manifest SHA-256 is `8b21cac77b479b8d69c327b4aa01d26f32b45ca7ce9e8e4545dab20cec0235b0`. It covers the developer binding unit only; no integration or M1 completion is implied, and no future unit is approved.\n\n**Integrity and scope**\n- **Subject unchanged:** the manifest hash, all 4 file hashes and byte counts, and the exact file set match before and after. The review copy is byte-identical.\n- **Baseline:** the live product tool, tests and lock match the accepted contract-binding-01 pins.\n- **Verifier diff:** it adds `successor_chain` and the v4 field and dispatch lines, and changes the v2/v3 check from `>= 2` to `in (2, 3)`. Everything else is unchanged.\n- **Tests and lock:** the 29 older tests are unchanged and 9 were added. The lock keeps the same pins, wrapped into chains, with an empty inheritance list.\n\n**What I ran**\n- **Tests:** 38/38 pass.\n- **Real verification:**\n  - The v4 lock passes against the architecture repo: 46 inputs, inventory3 (4 added files), metadata-v2 (9 candidates, 4 overrides), empty inheritance.\n  - The accepted live v3 lock also still passes under the new verifier.\n- **Why empty inheritance is correct:** the real row (`apps/cli/src/bootstrap.rs`) is at index 7 in both v1 and v3, so the v1 override matches the identical direct v3 override exactly. The real chain never shifts an index.\n- **Synthetic probes, 46/46 as expected:** every fixture was fully rebound and refusals were matched on their error text, so an earlier digest failure can't hide a guard. They covered:\n  - one-hop and two-hop reindexing\n  - direct and ancestor conflicts\n  - unsupported selectors\n  - ordering, branches, cycles and reordered chains\n  - reuse of an already-accepted path\n  - earlier inventories and contracts still accepted as parents\n  - versions 1\u20133 still passing and bad versions refused\n- **Probes on a mirror of the real pinned files, 14/14 as expected:**\n  - With the real v3 override removed from metadata-v2, the lock fails unless it lists the exact `/files/7` entry.\n  - I added a synthetic reviewed v4 hop that moves `bootstrap.rs` from index 7 to 8. It needs exactly one `/files/8` entry (the v1 and v3 meanings merge) and leaves the v1 and v3 bytes unchanged.\n- **Mutation testing, 24 mutants:** the tests kill 15 and my probes kill 22. Two mutants can never behave differently from the real code.\n\n**Advisories**\n- **B4-A01 (most important):** the 38 tests miss 7 behavior-changing mutants that my probes catch. Without these guards, all 38 tests still pass:\n  - the inventory path-reuse guard, including its accepted-overlay check\n  - the controlled refusal of unsupported selectors\n  - the inherited-vs-direct and inherited-vs-inherited conflict checks (without the second, the last writer silently wins, which UNIT.md rules out)\n  - the canonical sort\n  - skipping the inheritance entry when an identical direct override exists\n\n  The test named `\u2026repeated_candidate_refuse` never tests a repeated candidate. The current code is correct, but add these tests before any lock uses a second hop or non-empty inheritance.\n- **B4-A02:** conflicts are only caught when two overrides use the same selector. A line selector and a JSON Pointer can give the real inventory3 `bootstrap.rs` description two different meanings, and the lock still verifies. This would take two reviewed, assented records, so it isn't a present defect.\n- **B4-A03:** the required inheritance order is lexicographic, so `/files/10` sorts before `/files/2`. It fails closed but isn't documented.\n- **B4-A04:** an unhashable candidate path raises `TypeError` instead of a controlled `DesignError`; the CLI still exits 1.\n- **B4-A05:** the \"row changed\" guard can't be reached, and the `seen` set is redundant with `accepted`. Both are harmless.\n- **B4-A06:**\n  - CB-A01 is resolved: path reuse is now refused against the whole accepted overlay.\n  - CB-A02, CB-A04, CB-A05 and CB-A06 still apply.\n  - CB-A03 is superseded by B4-A02.\n\n**Limits:** all multi-hop and inheritance behavior was tested only with synthetic reviews and assents. I didn't reaudit the base approval, the content of inventory3 or metadata-v2, or the older v1\u2013v3 guards.\n\nFiles are in `/tmp/opensip-implementation/m1-binding4-review-01`:\n- `review.json`\n- `review.md`\n- `probe.py`\n- `real_probe.py`\n- `mutate.py`\n- three result JSON files\n- `copy/`",
+  "type": "result",
+  "duration_ms": 718842
+}

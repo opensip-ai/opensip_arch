@@ -1,0 +1,7 @@
+# Required process-output delivery selection
+
+Move required-output write-all/flush policy to the existing host delivery.rs owner. CLI terminal.rs only duplicates the actual stdout descriptor into File (preserving EBADF behavior); bootstrap passes the complete rendered response to the host and retains the exact terminal-only OUTPUT.SERIALIZATION_FAILED/exit4 mapping on acquisition/write/flush error. No replacement envelope is appended after a prefix or flush failure. Human/JSON bytes, normal exit codes and compiled metadata are unchanged. Completion goes through the same host delivery path.
+
+The host accepts an explicitly supplied Write port and consumes the response; no ambient stdout/project/store/provider/assets/network discovery, atomic stdout promise or rollback claim. Artifact publication, Run association and browser launch remain later duties. An io::Result is not evidence or commit authority. Four existing planned file owners only; no dependency/lock/schema/generated/inventory/DAG change.
+
+Root34workspace tests, strictClippy and fmt pass. Four new real Write behavior groups exercise every prefix failure, short writes, Interrupted, WriteZero, flush failure after all bytes, empty-output flush, exact settled exit0/2/4 and no fallback writes. Existing CLI startup read-only-stdout test verifies actual exit4/stderr wiring. This is private preparation, not fresh consumer B acceptance or complete M1/M2/release qualification. Frozen bytes must not be edited.

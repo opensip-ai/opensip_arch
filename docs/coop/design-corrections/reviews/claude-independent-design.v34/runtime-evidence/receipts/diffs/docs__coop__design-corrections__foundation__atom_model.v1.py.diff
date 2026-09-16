@@ -1,0 +1,88 @@
+--- v33/docs/coop/design-corrections/foundation/atom_model.v1.py
++++ v34/docs/coop/design-corrections/foundation/atom_model.v1.py
+@@ -840,6 +840,16 @@
+ 
+ 
+ def _coverages_exact(inputs: dict, rel: str, rung: str, source_u: str, target_u: str | None = None) -> list[tuple[str, dict]]:
++    """Selected partitions in ASCENDING COVERAGE ID order (contract section 4, selection order).
++
++    The caller's `coverages` map is built by the evaluator input reconstruction from a Python SET
++    of ids, so its insertion order is hash-seeded and differs between processes. Several folds
++    downstream are FIRST-WINS over this list -- `_conservative_entry`'s carrier, and `run_suff`'s
++    nativeCause scan through it -- so an unordered list makes the emitted `deficiency` /
++    `nativeCause` depend on process identity rather than on the logical input. Sorting here is the
++    minimal fix that gives every such fold a deterministic logical input, and ascending id is the
++    order the contract publishes, so a normative-only consumer can reproduce it.
++    """
+     out = []
+     for cid, cov in (inputs.get("coverages") or {}).items():
+         key = cov.get("key") or {}
+@@ -850,10 +860,11 @@
+         if target_u is not None and key.get("targetUniverse") != target_u:
+             continue
+         out.append((cid, cov))
+-    return out
++    return sorted(out, key=lambda pair: pair[0])
+ 
+ 
+ def _scopes_exact(inputs: dict, rel: str, rung: str, source_u: str) -> list[tuple[str, dict]]:
++    """Selected scopes in ASCENDING SCOPE ID order, for the same reason as `_coverages_exact`."""
+     out = []
+     for sid, sc in (inputs.get("scopes") or {}).items():
+         if sc.get("relation") != rel or sc.get("resolution") != rung:
+@@ -861,7 +872,7 @@
+         if sc.get("sourceUniverse") != source_u:
+             continue
+         out.append((sid, sc))
+-    return out
++    return sorted(out, key=lambda pair: pair[0])
+ 
+ 
+ def _scope_descriptor(sc: dict) -> dict | None:
+@@ -1059,13 +1070,22 @@
+ 
+ 
+ def _unique_pairs(pairs: list) -> list:
++    """Dedup by Coverage id, then ASCENDING Coverage id (contract section 4, selection order).
++
++    The callers build this list by walking SCOPES in ascending scope id and concatenating each
++    scope's paired Coverage, so with two scopes over the same subject the combined list can come
++    out in descending Coverage order whenever `coverageScopes` maps the higher Coverage id to the
++    lower scope id. `_coverages_exact` sorting its own scan is not enough: the order that reaches
++    `_conservative_entry`'s first-wins carrier is THIS combined one. Sorting after pairing and
++    dedup is what actually makes the published ascending-Coverage-ID fold true.
++    """
+     seen, out = set(), []
+     for cid, cov in pairs:
+         if cid in seen:
+             continue
+         seen.add(cid)
+         out.append((cid, cov))
+-    return out
++    return sorted(out, key=lambda pair: pair[0])
+ 
+ 
+ def _select_dep_coverages(drel: str, drung: str, source_u: str, want_t: str | None,
+@@ -1278,7 +1298,12 @@
+ 
+ 
+ def _coverages_for_current_source(inputs: dict, rel: str, rung: str, source_u: str, native_id: str) -> tuple[list, list, list]:
+-    """Coverages at EXACT rung whose associated scope contains current native_id only. No 1:1 fallback."""
++    """Coverages at EXACT rung whose associated scope contains current native_id only. No 1:1 fallback.
++
++    Scopes are walked in ascending scope id so an unpaired scope is reported in a stable place, and
++    the COMBINED paired list is then deduplicated and sorted ascending by Coverage id: it is that
++    combined order, not the per-scope walk, that the section 4 fold reads.
++    """
+     scopes = _scopes_exact(inputs, rel, rung, source_u)
+     containing = [(sid, sc) for sid, sc in scopes if _scope_contains(sc, native_id)]
+     covs_all = _coverages_exact(inputs, rel, rung, source_u, None)
+@@ -1289,7 +1314,7 @@
+             paired.extend(found)
+         else:
+             unmatched.append(sid)
+-    return paired, [s for s, _ in containing], unmatched
++    return _unique_pairs(paired), [s for s, _ in containing], unmatched
+ 
+ 
+ def _attestation_key(att: dict) -> tuple:

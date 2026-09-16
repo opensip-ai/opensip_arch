@@ -1,0 +1,30 @@
+# coop/design-corrections/foundation/subject-inventory.schema.v1.json
+top-level keys: $schema, $id, title, description, type, additionalProperties, required, properties, allOf, x-opensip-new-internal-faults, x-opensip-subject-language-table, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "opensip.product.subject-inventory.1"
+## title: "SubjectInventoryV1 — native-attested inventory result (DRAFT, isolated successor)"
+## description: "Closed Draft 2020-12 producer-output record. Locator identity is (planId, parameterDigest, cellOrdinal, programOrdinal, kind) — one result per that tuple. No H-domain, no per-row self-hash, no expected-findings flag. Rows and examinedPaths are native attestations; the host does not recompute symbol extraction. Raw SHA-256 of C(this record) is the retained canonical-record digest. 4 MiB C-byte ceiling, no truncation. Standing: draft only."
+## type: "object"
+## additionalProperties: false
+## required: ["schemaVersion", "planId", "parameterDigest", "cellOrdinal", "programOrdinal", "kind", "state", "deficiency", "nativeCause", "examinedPaths", "rows"]
+## properties: keys=["schemaVersion", "planId", "parameterDigest", "cellOrdinal", "programOrdinal", "kind", "state", "deficiency", "nativeCause", "examinedPaths", "rows"]
+## allOf: [{"if": {"properties": {"state": {"const": "unavailable"}}}, "then": {"not": {"properties": {"deficiency": {"type": "null"}}}, "properties": {"deficiency": {"$ref": "#/$defs/EnumerationDeficiencyV1"}, "examinedPaths": {"maxItems": 0}, "rows": {"maxItems": 0}}}}, {"if": {"properties": {"state": {"const": "complete"}}}, "then": {"properties": {"deficiency": {"type": "null"}, "nativeCause": {"type": "null"}}}}, {"if": {"properties": {"state": {"const": "partial"}}}, "then": {"not": {"properties": {"deficiency": {"type": "null"}}}, "properties": {"deficiency": {"$ref": "#/$defs/EnumerationDefic...
+## x-opensip-new-internal-faults: keys=["standing", "keys"]
+## x-opensip-subject-language-table: keys=["standing", "authority", "members", "packageLanguage", "unspecified"]
+### EnumerationDeficiencyV1 | oneOf=[{"$ref": "#/$defs/DeficiencyV2"}, {"const": "source-syntax-invalid"}] | description="Enumeration-local deficiency vocabulary: copied native DeficiencyV2 OR the local member source-syntax-invalid. Do not add the local member to copied DeficiencyV2 or NativeCause. nativeCause MUST be null for the local member. Complete inventories forbid any deficiency. Partial/unavailable condition references this local def. Parse/classification failure of a first-party manifest is this local member, never provider-unavailable."
+### LogicalPath | type="string" | pattern="^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])" | description="Byte-identical constraint to identity-schemas.v2.json#/$defs/LogicalPath."
+### DeficiencyV2 | type="string" | enum=["language-tier-unsupported", "provider-unavailable", "input-closure-incomplete", "budget-exhausted", "confidence-floor-unmet", "derivation-policy-unmet", "resolution-incomplete", "external-consumers-unknown", "required-relation-missing"] | description="Copied closed membership of native-evidence.schemas.v2.json#/$defs/DeficiencyV2."
+### NativeCause | type="string" | enum=["body-language-owner-ambiguous", "body-language-owner-unenumerated", "body-language-ownership-missing", "capability-missing", "config-flag-stripped", "generated-file-missing", "generated-file-out-of-bounds", "generated-output-unavailable", "linker-unavailable", "lockfile-missing", "missing-dependency-source", "no-program-unit", "node-modules-outside-read-set", "source-replacement-outside-snapshot"] | description="Copied closed membership of native-evidence.schemas.v2.json#/$defs/NativeCause."
+### SubjectLanguage | type="string" | enum=["typescript", "javascript", "rust", "json", "toml", "markdown", "yaml", "unspecified"]
+### DetectorProjectionV1 | type="object" | required=["closureId", "signatureTokens"] | additionalProperties=false | description="Per-detector token projection bound to a selected detector closure. Naming finding.ruleClosure alone does NOT compute a discriminator. Empty signatureTokens on a symbol projection is unavailable projection (pending GR6), NOT the file/package canonical-empty discriminator and NOT anonymous-symbol correspondence."
+  closureId: type="string" | pattern="^closure2:[0-9a-f]{64}(?![\\s\\S])"
+  signatureTokens: type="array" | maxItems=256 | x-opensip-order="sequence" | items={"maxLength": 4096, "minLength": 0, "type": "string"}
+### InventoryRowV1 | type="object" | required=["nativeSubjectId", "kind", "path", "qualifiedName", "subjectLanguage", "signatureTokens", "projections"] | additionalProperties=false
+  nativeSubjectId: type="string" | minLength=1 | maxLength=4096
+  kind: type="string" | enum=["file", "symbol", "package"]
+  path: $ref="#/$defs/LogicalPath"
+  qualifiedName: type="string" | minLength=1 | maxLength=4096
+  subjectLanguage: $ref="#/$defs/SubjectLanguage"
+  exported: type="string" | enum=["exported", "not-exported", "unknown"]
+  signatureTokens: type="array" | maxItems=256 | x-opensip-order="sequence" | items={"maxLength": 4096, "minLength": 0, "type": "string"}
+  projections: type="array" | maxItems=64 | uniqueItems=true | x-opensip-order={"by": ["closureId"]} | items={"$ref": "#/$defs/DetectorProjectionV1"}

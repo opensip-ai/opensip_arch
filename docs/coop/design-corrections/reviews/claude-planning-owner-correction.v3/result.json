@@ -1,0 +1,60 @@
+{
+  "session_id": "329a5132-ee66-4303-97a9-b9ebd1b7ffc0",
+  "total_cost_usd": 20.941657,
+  "usage": {
+    "input_tokens": 124,
+    "cache_creation_input_tokens": 109591,
+    "cache_read_input_tokens": 36266854,
+    "output_tokens": 68468,
+    "output_tokens_details": {
+      "thinking_tokens": 11826
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 109591,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2825,
+        "cache_read_input_tokens": 631480,
+        "cache_creation_input_tokens": 1205,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1205
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 124,
+      "outputTokens": 68468,
+      "cacheReadInputTokens": 36266854,
+      "cacheCreationInputTokens": 109591,
+      "webSearchRequests": 0,
+      "costUSD": 20.941657,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 11826,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 62,
+  "subtype": "success",
+  "result": "# PS-01 node recovery contradiction fixed \u2014 v3\n\nBoth of root's counterexamples are correct and accepted. v2 and all earlier inputs are immutable (44/44 hashes verified); root's two counterexample files are retained unchanged in `root-counterexamples/`. Frozen25 re-verified at 12869 members, 0 mismatches. **PS-04 bytes unchanged** (`ae82ca6a\u2026`), as directed.\n\n---\n\n## 1. Recovery is now conditional on the same case as publication\n\nThe v2 defect was real: publication branched on the selection case, recovery did not. For a same-store operation `from == to`, so the unconditional reconstruction named itself.\n\nBoth paths now call one derivation in `controls/lineage_law.py`:\n\n- **forward selection** \u2014 this transition created the node, so it alone is reconstructible from the committed intent plus the two markers. Because the owner forbids a same store here, the predecessor can never equal the node; a reconstruction that would name itself is **refused rather than written**.\n- **same-store** / **ancestor re-selection** \u2014 the selected node came from an **earlier, unrelated act**. Recovery validates it and **never rewrites its predecessor or origin digest**. A missing one is not repairable from the current intent \u2014 the intent does not carry that origin \u2014 so it is `QUARANTINE` / `MIGRATION.CORRUPT`, never fabricated. The ancestor branch additionally verifies the target really is an ancestor, which the owner cannot check.\n- **owner precedence at PREPARED** is honoured exactly: a core operation ABORTs, a store operation follows the S9 footprint, and the companion acts only once the owner's *returned action* settles the transition as committed (`RESUME-COMMIT`/`RELEASE-ONLY` \u2192 `DONE`). It never decides a journal state itself.\n- **pre-COMMITTED** no longer says \"node absent\" \u2014 that was also wrong, since the selected store's ancestry always exists. The invariant is: *no node may carry this transition's `intentDigest`, and for a forward selection no node may occupy its `to` pair.* Either is a premature-node contradiction.\n\nRoot's exact scenario, now:\n```\nownerAdmitted: true   ownerAction: RESUME-COMMIT\ncompanionNodeAction: validated-existing\nselfPredecessorProduced: false\noriginPreserved: {predecessor: null, selectedByIntentDigest: null}\n```\n\n## 2. Composed controls against the actual owner\n\n`check_lineage_recovery.py` imports the frozen model and calls `admit_transition_intent`, `transition_intent_digest`, `transition_journal_record`, `recover_transition_journal`. Seven owner-admitted **eleven-member** intents (six frozen fixtures + one composed schema-retreating `core-rollback`, admitted before use) \u00d7 six journal states = 42 cells. Both RC-2 refusals are regressed:\n\n```\ncore-rollback  (5,1)->(4,1) -> [\"TRANSITION.SAME_SCHEMA_KEEPS_STORE\"]\nstore-rollback (5,1)->(4,1) -> [\"TRANSITION.STORE_ROLLBACK_REQUIRES_SCHEMA_RETREAT\"]\n```\n\nMatrix summary \u2014 all three same-store cases and both ancestor cases `validated-existing` with no node written; both forward cases `reconstructed-and-written` only where the owner settled to DONE (including `store-migrate` at PREPARED with a RESTORED-fenced footprint); every stripped-ancestry variant quarantines. Zero self-predecessor or cyclic nodes anywhere.\n\n**A second defect found while developing this revision is on the record:** an interim draft derived the case from *stored ancestry*, which let a damaged lineage reclassify a rollback as a forward selection and fabricate a node. My own control caught it. The case is now a pure function of the admitted intent \u2014 decidable without trusting the very records recovery is about to check.\n\n## 3. Overstatement withdrawn; pair law added to S9.2\n\n`admit_transition_intent` lines 2189\u20132192 and 2198\u20132201 enforce the pair for `core-update` **and** `core-rollback`, and the module's own comment says it outright. Read off the owner:\n\n| operation | same schema, different store | schema change, same store |\n|---|---|---|\n| core-update | `SAME_SCHEMA_KEEPS_STORE` | `SCHEMA_CHANGE_SELECTS_NEW_STORE` |\n| core-rollback | `SAME_SCHEMA_KEEPS_STORE` | `ROLLBACK_CANNOT_RAISE_SCHEMA`, `SCHEMA_CHANGE_SELECTS_NEW_STORE` |\n\nThe owner patch is now **two hunks, both pure insertions, +82/\u22120**: hunk 1 states the pair law in S9.2 itself (so a blind consumer needs no excluded model, restating existing behaviour and changing no refusal); hunk 2 inserts the corrected S9.3. I placed hunk 1 between paragraphs rather than mid-sentence specifically to keep it removal-free for the carrier author's three-way merge.\n\n## 4. Collision claim corrected\n\nReplaced \"cannot collide\" with: distinct construction and preimage framing give **domain separation**, enforced by where each digest is required; any non-collision statement rests on the standard SHA-256 **collision-resistance assumption**, which this design assumes and does not prove. Still no new public H-domain.\n\n## 5. Lineage root covers restore and adoption\n\nGeneralised from \"installation\" to any authorized local act materialising a new physical store \u2014 installation, or an authorized evidence restore / portable adoption. Obligations: allocate a fresh `storeInstanceId`; **replace** any marker present in copied bytes before first publication so a restored store never impersonates its source; import no node, floor, grant or local authority; invent no transition to manufacture an `intentDigest`. A source digest is simply not in the local chain \u2014 the walk terminates at the local root and reports unavailability. Which act created a root is recorded by `installation.rs` / `backup.rs`, so the **six-member record shape is unchanged**.\n\n---\n\n## Deliverables\n\n| File | v2 | v3 | Patch |\n|---|---|---|---|\n| `implementation-boundaries-and-build-plan.md` | 85756 B | 86912 B | 1 hunk, +32/\u221216 |\n| `store-instance-lineage.v1.json` | 35761 B | 49961 B | 15 hunks, +207/\u2212111 |\n| `report-asset-binding.v1.json` | 27714 B | **unchanged** `ae82ca6a\u2026` | \u2014 |\n| `security-and-lifecycle.md` (25) | `12dcebea\u2026` 94428 B | `18601fa1\u2026` 99928 B | **2 hunks, +82/\u22120** |\n\nEight of nine planning inputs byte-identical to frozen; both generated plan blocks byte-identical; JSON valid with no duplicate keys; no trailing whitespace or tabs; links resolve. Exact digests in `manifest.json`.\n\n**All six controls PASS** (`control-evidence.json`): both planning checkers unchanged (198 paths; 320 mappings, 38 cases), `check_store_instance_lineage`, `check_lineage_recovery`, `check_report_asset_binding`, `check_report_asset_fixture`. Unrelated suites not rerun.\n\n## Limitations\n\nProposed, unaccepted, unfrozen; no readiness \u2014 another substantive review on newly frozen bytes is required and I do not accept my own corrections. No product code; all owning modules already exist in the inventory, so no inventory row or generated-section change, and the companions are planned architecture sources. Owner results in `check_lineage_recovery` are the frozen model's own returns; the companion law is a design reference, not a carrier implementation, crash test or qualification. `StateSchema` is `{1,2}`, so chains are short \u2014 a wider enum would admit multiple distinct ancestors at one schema, and although the ancestor branch already refuses an ambiguous match, no owner-admitted example exercises that today. Whole-install-root substitution stays undetected (frozen25's existing bound). The CORE release catalog/manifest shape remains not provided by candidate25 and **unassigned** \u2014 not the grant-journal carrier author's work; COV-03 and the separately active carrier work remain open.",
+  "type": "result",
+  "duration_ms": 874081
+}

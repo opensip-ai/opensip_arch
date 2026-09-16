@@ -1,0 +1,95 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/dispatch-binding.schema.v1.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/dispatch-binding.schema.v1.json
+new file mode 100644
+index 00000000..2fab7f68
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/native/dispatch-binding.schema.v1.json
+@@ -0,0 +1,89 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.dispatch-binding.1",
++  "title": "DispatchBindingV1 — host TCB observation at Analyze dispatch",
++  "description": "Host operational binding derived by dispatch from the actual Plan stage selected into THIS Analyze request. Not a protocol3 frame, not a worker field, not a new channel. FactBatch.stageId remains C-2 TEXT. Analyze may be a subset of execution-plan stages, so analyzeRequestOrdinal (contiguous in THIS Analyze) MUST NOT be equated with retainedStageOrdinal (execution-plan.stages[].ordinal). Host bind looks up the execution-plan row by retainedStageOrdinal and correlates the worker batch against expectedStageId / expectedAnalysisOrdinal / expectedBatchIndex / expectedFirstCandidateOrdinal.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "planId",
++    "retainedStageOrdinal",
++    "analyzeRequestOrdinal",
++    "expectedStageId",
++    "expectedAnalysisOrdinal",
++    "expectedBatchIndex",
++    "expectedFirstCandidateOrdinal",
++    "producerClosure",
++    "stageSpecDigest"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 1
++    },
++    "planId": {
++      "type": "string",
++      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "Retained Plan locator. Must equal execution-plan.planId and the stage-spec planId."
++    },
++    "retainedStageOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "execution-plan.stages[].ordinal of the Plan stage this Analyze request selected. Host looks up the execution-plan row by this integer. Not FactBatch.stageId. Not analyzeRequestOrdinal."
++    },
++    "analyzeRequestOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "StageRequestV1.stageOrdinal / StageRequestV2.stageOrdinal: contiguous 0..n-1 in THIS Analyze request order. Provider Analyze may omit Plan stages, so this MAY differ from retainedStageOrdinal. Not echoed as FactBatch.stageId."
++    },
++    "expectedStageId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 255,
++      "description": "Exact C-2 stageId text of the selected Plan stage (StageRequestV1.stageId; StageRequestV2.planStage.stageId). Worker FactBatch.stageId must byte-equal this text."
++    },
++    "expectedAnalysisOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "AnalyzeV1/AnalyzeV2.analysisOrdinal for this Analyze. Worker FactBatch.analysisOrdinal must equal this integer. Omitting this observation cannot be replaced by a caller scalar on the batch."
++    },
++    "expectedBatchIndex": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "Contiguous batchIndex the host expects for this stage's next FactBatch (0..n-1 per requested stage)."
++    },
++    "expectedFirstCandidateOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615,
++      "description": "candidateOrdinal of the first candidate in this batch. Batch 0 of a stage is 0. Later batches continue the per-stage candidate stream. Unique-increasing inside the batch is the candidateOrdinal array-order annotation; contiguous 0..n-1 across batches of one stage is a separate candidate-stream law."
++    },
++    "producerClosure": {
++      "type": "string",
++      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "Stage-spec producerClosure of the retained stage. Occupancy joins this producer, not EnumerationPlan enumerator.closureId."
++    },
++    "stageSpecDigest": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++      "description": "execution-plan.stages[retainedStageOrdinal].stageSpecDigest. Host re-derives producerClosure from the stage spec at this digest."
++    }
++  },
++  "x-opensip-wire": {
++    "notAFrame": true,
++    "notAWorkerField": true,
++    "authority": "host TCB observation at Analyze dispatch from the actual Plan stage",
++    "correlation": [
++      "batch.stageId == expectedStageId (C-2 text)",
++      "batch.analysisOrdinal == expectedAnalysisOrdinal",
++      "batch.batchIndex == expectedBatchIndex",
++      "batch.candidates[0].candidateOrdinal == expectedFirstCandidateOrdinal when the batch is non-empty",
++      "execution-plan lookup uses retainedStageOrdinal, never integer(batch.stageId)",
++      "analyzeRequestOrdinal is not FactBatch.stageId and is not retainedStageOrdinal"
++    ]
++  }
++}

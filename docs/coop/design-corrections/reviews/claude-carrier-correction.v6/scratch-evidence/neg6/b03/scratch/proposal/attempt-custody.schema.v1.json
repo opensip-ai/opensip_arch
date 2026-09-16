@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:design:private-attempt-custody:1",
+  "title": "PROPOSED private AttemptCustodyV1 (ledger-owned monotone attempt phase and outcome)",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "standing": "Design/reference proposal only: no acceptance, no readiness, no application and no implementation authorization. Private local operational record. Not a public request, wire schema, authority token or extension to any Run/receipt/journal schema.",
+  "revisionNote": "Corrects the v4 draft. v4 defined settledOutcome but its read-only recovery Step 1 branched on phase alone, so a settled row whose outcome was committed or undetermined could be read as terminal-not-committed. That was wrong: a settled-committed row with no receipt is a contradiction, and an undetermined outcome proves nothing about absence. Phase/outcome coupling, the exact joins and the negative-conclusion rule are now normative below.",
+  "tracedExistingOwners": {
+    "standing": "Traced before proposing anything, as root required. This extends an ALREADY REQUIRED durable reservation; it does not invent a record from nothing.",
+    "executionIdReservationAlreadyDurable": "Identity section 2: both RequestId and ExecutionId use independent 16-byte host-CSPRNG draws, reserved with uniqueness checked in the corresponding operational ledger before use. That reservation, and therefore the admitted phase, is existing law.",
+    "executionIdCarriers": "The commit receipt (identity section 5 step 3) and CommitRecoveryAssociationV1 both carry executionId. D9 fixes requiredTerminationIdentity as executionId and states that a settled ExecutionId is terminal.",
+    "operationRefCarriers": "The journal carries operation_ref on every record type, and RCO, ICO, CLN and REV terminate an operation.",
+    "theActualGap": "Nothing durably records that a PARTICULAR ExecutionId reached a terminal state when it did NOT commit. The executionId-to-operationRef map is private host state whose only durable home is the association row, which exists only on success. Identity section 6 states that read-only recover(ExecutionId) inspects the committed receipt after a lost acknowledgement; it has no statement at all for the absent-receipt case.",
+    "whatIsAdded": "A monotone phase and a two-valued outcome on that existing reservation row, plus the operationRef correlation. No second record, no new authorization, no public schema member.",
+    "alternativesConsideredAndRejected": [
+      "A separately timed liveness probe after the ledger snapshot. Rejected: that is the race root's schedule 2 defeats.",
+      "A non-blocking LOCK_EX writer-lease census by the reader. Sound in principle, but the S7 census pattern requires the install fence and read-only recovery must not take the fence. It is instead exactly what the authorized settlement sweep uses.",
+      "A caller-supplied settled D9 termination as the precondition. Works whenever a caller holds one, but cannot cover a crashed writer that never emitted a termination."
+    ]
+  },
+  "canonicalProfile": {
+    "selected": "product / foundation canonicalizer of identity-and-evidence section 3",
+    "rules": "no normalization, integers to 2^64-1, H(domain, descriptor) where a domain digest is taken, raw SHA-256 over the exact canonical bytes where a plain digest is taken",
+    "notSelected": "opensip-metadata-canonical.1",
+    "why": "Security section S2 splits the two profiles and states that a decoder for one never admits the other's documents. The metadata profile covers signed security metadata: root, catalog, revocation, JOURNAL RECORDS, recovery challenge and epoch, and platform profile population. This record is none of those. It is private storage/ledger operational metadata in the same family as CommitRecoveryAssociationV1, whose storeGenerationDigest is already a raw SHA-256 over canonical bytes.",
+    "contrastToStateExplicitly": "The journal body_sha256 this record joins against IS domain-framed under opensip.metadata.journal.1. This record's own digests are NOT. Conflating the two is the exact error the earlier followup predicate made, so the two profiles are named at every join."
+  },
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "recordSchema",
+    "storeGenerationDigest",
+    "namespaceId",
+    "executionId",
+    "operationRef",
+    "phase",
+    "settledOutcome"
+  ],
+  "properties": {
+    "recordSchema": {
+      "description": "Constant 1; reject unknown versions before any join.",
+      "type": "integer",
+      "const": 1
+    },
+    "storeGenerationDigest": {
+      "description": "Raw SHA-256 of the canonical private StoreGenerationBindingV1, exactly the value the private association uses. PS-01 owns the binding tuple and digest shape; this record consumes it and allocates nothing.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "namespaceId": {
+      "description": "Exact registered project namespace; binary equality, no path resolution.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "executionId": {
+      "description": "The reserved attempt ExecutionId, product successor grammar, end-anchored.",
+      "type": "string",
+      "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "operationRef": {
+      "description": "The security-owned operation token for this attempt, keeping its own grammar. This is the durable home of the executionId-to-operationRef correlation for attempts that never commit, which is why no member is added to the closed schema-3 JournalRecord to correlate a pending REV.",
+      "type": "string",
+      "pattern": "^op-[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "phase": {
+      "description": "Monotone. admitted is written when the ExecutionId reservation is taken; settled is written by the guarded cleanup path or by the authorized settlement sweep. The only lawful transition is admitted to settled.",
+      "enum": ["admitted", "settled"]
+    },
+    "settledOutcome": {
+      "description": "Null exactly while phase is admitted. Exactly two settled outcomes, committed or refused, because those are the only two an observer can ever prove. There is deliberately NO undetermined outcome: see durabilityUndeterminedIsNotACustodyOutcome. Records what happened; it authorizes nothing.",
+      "oneOf": [
+        {"type": "null"},
+        {"enum": ["committed", "refused"]}
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"phase": {"const": "admitted"}}, "required": ["phase"]},
+      "then": {"properties": {"settledOutcome": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"phase": {"const": "settled"}}, "required": ["phase"]},
+      "then": {"properties": {"settledOutcome": {"enum": ["committed", "refused"]}}}
+    }
+  ],
+  "durabilityUndeterminedIsNotACustodyOutcome": {
+    "finding": "The v5 draft of this record carried a third settled outcome, undetermined. Control C14 showed that state is UNRESOLVABLE: the row is immutable once settled, so nothing can ever move a settled+undetermined attempt to a real outcome, and root correctly required that undetermined cannot prove absence without actual durable reconciliation. It is removed.",
+    "correctSeparation": "durability-undetermined is a D9 RESPONSE to the caller at the time the commit syscall or barrier failed: operational-failed / DURABILITY.COMMIT_FAILED / durability-commit, with the ExecutionId retained, the runId omitted and no automatic retry. It is not a durable custody claim.",
+    "whatTheRowDoes": "An attempt whose durability was uncertain stays phase=admitted, because its terminality is genuinely unknown at that moment. The authorized settlement sweep later resolves it to committed or refused from one coherent ledger snapshot under fence plus EXCLUSIVE custody, which is exactly the durable reconciliation root required.",
+    "whyTheSweepCanDecide": "Holding the fence and EXCLUSIVE proves no writer for the namespace is live, so the attempt's writer is gone and can never commit. With a readable ledger, absence of both the receipt and the association then proves not-committed, and presence proves committed. Absence observed under that custody cannot later become presence."
+  },
+  "primaryKey": ["storeGenerationDigest", "namespaceId", "executionId"],
+  "phaseOutcomeCoupling": {
+    "admitted": "settledOutcome is null. The attempt is not terminal. No negative conclusion is available.",
+    "admitted": "settledOutcome is null. The attempt is not terminal. No negative conclusion is available. If a joined receipt IS present this is the lawful pre-settle interval, not a defect: the receipt establishes historical commitment and pending settlement is disclosed operationally.",
+    "settled+committed": "A receipt and association for this exact primary key MUST exist in the same coherent ledger snapshot. If they do not, that is a contradiction between two rows the same transaction family owns: report the contradiction and unavailable history. NEVER terminal-not-committed.",
+    "settled+refused": "No receipt and no association exist for this primary key, and the writer that wrote this outcome held custody proving no other writer for this attempt could commit. This is the ONLY outcome that can support a negative conclusion, and only together with a confirmed absent receipt in the same snapshot.",
+    "noThirdOutcome": "There is no undetermined outcome. An attempt whose durability was uncertain stays admitted until the authorized sweep resolves it. See durabilityUndeterminedIsNotACustodyOutcome."
+  },
+  "negativeConclusionRule": {
+    "statement": "terminal-not-committed requires ALL of: phase settled; settledOutcome exactly refused; no receipt row for the primary key; no association row for the primary key; all four observed in ONE coherent ledger snapshot.",
+    "everythingElse": "unknown, never a negative",
+    "forbidden": [
+      "Concluding a negative from phase alone.",
+      "Concluding a negative from settledOutcome undetermined.",
+      "Concluding a negative from absence in an in-memory active set.",
+      "Concluding a negative from two separately timed observations."
+    ]
+  },
+  "purgedReceiptLaw": {
+    "statement": "A historical receipt that was retained and later purged must NEVER become never-committed.",
+    "mechanism": "Purge retains the minimal sealed manifest, provenance and tombstone (identity section 5). A settled+committed row whose receipt bytes are no longer present but whose retained manifest or tombstone still names the Run is COMMITTED with degraded availability, reported through the existing evidence availability vocabulary. Absence of receipt BYTES is not absence of a RECEIPT.",
+    "consequence": "The negative conclusion rule therefore requires settledOutcome refused, which a purge can never produce, so no purge can ever flip a committed attempt to a negative."
+  },
+  "joins": {
+    "correctionNote": "An earlier draft said the receipt carries the store binding. It does not. The actual owner, foundation/identity-schemas.v3.json $defs/commit-receipt, is CLOSED with additionalProperties false and exactly eight members: schemaVersion, runId, executionId, namespaceId, commitSequence, inventoryDigest, sealedAssurance, signerKeyId. There is NO storeGenerationDigest on the receipt and none is implied. No member is widened here.",
+    "receiptMembersActuallyAvailableForJoins": ["executionId", "namespaceId", "runId", "commitSequence", "inventoryDigest"],
+    "toReceipt": "Join on the members the closed receipt actually has: executionId and namespaceId by binary equality against this record, and, where the caller supplies them, runId, commitSequence and inventoryDigest against the association's copies of the same values. schemaVersion, sealedAssurance and signerKeyId are verified by the receipt's own admission and signer/custody checks, not by this join.",
+    "toStoreBinding": "The store binding is NOT joined through the receipt, because the receipt has no such member. It is established through the admitted store handle and registry, which yield the StoreGenerationBindingV1, and is carried by CommitRecoveryAssociationV1.storeGenerationDigest. This record's storeGenerationDigest must equal the association's; a mismatch is caught at that owning join, not inferred from the receipt.",
+    "toAssociation": "(storeGenerationDigest, namespaceId, executionId) is CommitRecoveryAssociationV1's primary key, so the association row is the same attempt by construction, and it is the only place the store binding and the receipt values meet.",
+    "toOperation": "operationRef equals the operationRef the association carries when an association exists, and is the sole durable correlation when it does not.",
+    "toCarrier": "this record carries NO carrier field. The carrier join is the association's journalCarrierDigest, grantGeneration, journalSeq and journalBodySha256, where journalBodySha256 is the DOMAIN-FRAMED journal body digest, not a raw SHA-256.",
+    "whereABindingMismatchIsCaught": "At the association join. A receipt naming the right namespaceId and executionId but sitting under a different store generation is detected because the association's storeGenerationDigest differs from the one the admitted handle produced, and the read-only conclusion is binding-unusable rather than a commitment claim."
+  },
+  "laws": [
+    "Written only by the guarded commit facade, its cleanup path, or the authorized settlement sweep. Low-level row insertion stays private; no INSERT OR REPLACE, mutation-on-read, unchecked restore constructor or convenience API may bypass these invariants.",
+    "admitted to settled is the only transition. Never reversed, never deleted, never re-opened, no second row for the same primary key, and settledOutcome is never rewritten once set.",
+    "The settle write is ordered AFTER the receipt write, so one coherent ledger snapshot can never show settled+committed without a receipt that was committed earlier. This ordering is what makes a single snapshot sufficient and removes every separately timed liveness probe from read-only recovery.",
+    "It authorizes nothing. Settling records an outcome and never licenses a retry, so the D9 law that a settled ExecutionId is terminal is preserved exactly. A later attempt after authority restoration receives a fresh ExecutionId.",
+    "Read by read-only recovery in the SAME snapshot as the receipt and the association, never through a second separately timed query.",
+    "Excluded from every semantic hash, Run identity, Coverage, Plan bound and public schema. It adds no field to the closed receipt or JournalRecord schemas."
+  ],
+  "proposedPrivateDDL": "CREATE TABLE attempt_custody (\n  store_generation_digest TEXT NOT NULL CHECK (length(store_generation_digest) = 64 AND store_generation_digest GLOB '[0-9a-f]*'),\n  namespace_id    TEXT NOT NULL CHECK (length(namespace_id) BETWEEN 1 AND 4096),\n  execution_id    TEXT NOT NULL CHECK (execution_id GLOB 'exec1_[0-9a-f]*' AND length(execution_id) = 38),\n  operation_ref   TEXT NOT NULL CHECK (operation_ref GLOB 'op-[0-9a-f]*' AND length(operation_ref) = 35),\n  record_schema   INTEGER NOT NULL CHECK (record_schema = 1),\n  phase           TEXT NOT NULL CHECK (phase IN ('admitted','settled')),\n  settled_outcome TEXT CHECK (settled_outcome IS NULL OR settled_outcome IN ('committed','refused')),\n  CHECK ((phase = 'admitted' AND settled_outcome IS NULL)\n      OR (phase = 'settled'  AND settled_outcome IS NOT NULL)),\n  PRIMARY KEY (store_generation_digest, namespace_id, execution_id)\n) WITHOUT ROWID;\nCREATE TRIGGER ac_no_delete BEFORE DELETE ON attempt_custody\n  BEGIN SELECT RAISE(ABORT, 'attempt custody is append-and-settle only'); END;\nCREATE TRIGGER ac_monotone BEFORE UPDATE ON attempt_custody\n  BEGIN\n    SELECT CASE WHEN OLD.phase = 'settled'\n      THEN RAISE(ABORT, 'attempt custody is already settled') END;\n    SELECT CASE WHEN NEW.phase <> 'settled' OR NEW.settled_outcome IS NULL\n      THEN RAISE(ABORT, 'the only lawful transition is admitted to settled') END;\n    SELECT CASE WHEN NEW.store_generation_digest <> OLD.store_generation_digest\n              OR NEW.namespace_id <> OLD.namespace_id\n              OR NEW.execution_id <> OLD.execution_id\n              OR NEW.operation_ref <> OLD.operation_ref\n              OR NEW.record_schema <> OLD.record_schema\n      THEN RAISE(ABORT, 'attempt custody identity is immutable') END;\n  END;\n",
+  "ddlStanding": "SELECTED placement: the storage-owned evidence ledger, within the already inventoried crates/storage/src/ledger_store.rs, commit.rs and recovery.rs modules. The authorized settlement sweep writes through that same ledger and the same table, so it needs no separate DDL. This is a settled selection, not a proposal awaiting a different storage session's choice.",
+  "readOnlyRecoveryUse": {
+    "receiptPresentAndPhaseSettledCommitted": "proceed to the carrier capture and anchor selection",
+    "receiptPresentAndPhaseAdmitted": "LAWFUL INTERVAL, not a contradiction. Proceed to the carrier capture exactly as for settled+committed. Because the settle write is ordered AFTER the receipt write, every committing attempt passes through this state, and the sweep case committed-but-unsettled exists precisely to settle it later. A valid joined receipt establishes historical commitment on its own. Disclose pendingSettlement operationally alongside the committed answer; never treat the receipt as absent and never revive the attempt's authority.",
+    "receiptAbsentAndPhaseSettledRefused": "terminal-not-committed",
+    "receiptAbsentAndPhaseSettledCommitted": "contradiction: report unavailable history, never a negative",
+    "receiptAbsentAndPhaseAdmitted": "unknown-attempt-open. This is also where a durability-uncertain attempt lands, because uncertainty is not a custody outcome; the authorized sweep resolves it",
+    "receiptAbsentAndNoRow": "unknown-attempt-unobserved",
+    "exactlyOneOfReceiptOrAssociation": "unknown-custody contradiction (F23); synthesize nothing"
+  },
+  "notEstablished": [
+    "No OS durability, fsync behaviour or real crash behaviour for this row. That is product qualification, not an architectural gap.",
+    "The DDL was executed only against in-memory SQLite for its constraint and trigger behaviour; no on-disk ledger was created or migrated. C14 is reference execution, not a qualification of the sweep."
+  ]
+}

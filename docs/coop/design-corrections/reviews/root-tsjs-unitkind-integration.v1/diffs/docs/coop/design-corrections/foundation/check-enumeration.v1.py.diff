@@ -1,0 +1,44 @@
+--- before/docs/coop/design-corrections/foundation/check-enumeration.v1.py
++++ after/docs/coop/design-corrections/foundation/check-enumeration.v1.py
+@@ -303,6 +303,24 @@
+                                "nativeResult": native_result, "nativeRefusal": native_refusal,
+                                "enumerationResult": result["result"], "refusals": result["refusals"],
+                                "passed": passed})
++
++    # native section 1.4 U-4b.2: a tsjs unit's unitKind is the projection of its languageMode. Change ONLY unitKind on
++    # this ts-tsconfig baseline and rebind membershipDigest, so a digest mismatch cannot mask the unit-kind decision.
++    tsjs_unit_kind_cases = []
++    for label, kind, expected in [("ts-tsconfig-published-ts-program", "ts-program", "ADMIT"),
++                                  ("ts-tsconfig-reminted-js-program", "js-program", "REFUSE")]:
++        changed_membership = copy.deepcopy(memb)
++        changed_membership["units"][0]["unitKind"] = kind
++        changed_plan = copy.deepcopy(ep)
++        changed_plan["membershipDigest"] = M.raw_digest(changed_membership)
++        result = admit(changed_plan, [
++            inv("file", "complete", copy.deepcopy(files), file_ext),
++            inv("package", "complete", copy.deepcopy(pkgs), pkg_ext),
++        ], changed_membership, sc, universes, retained, source)
++        exact_faults = [] if expected == "ADMIT" else ["ENUMERATION_MEMBERSHIP_ORDER"]
++        tsjs_unit_kind_cases.append({"case": label, "expected": expected, "enumerationResult": result["result"],
++                                     "refusals": result["refusals"],
++                                     "passed": result["result"] == expected and result["refusals"] == exact_faults})
+ 
+     rec("missing-expected-inventory", admit(ep, [inv("file", "complete", files, file_ext)], memb, sc, universes, retained, source))
+ 
+@@ -736,6 +754,8 @@
+             mismatches.append({"case": c["case"], "got": c["result"], "want": exp, "refusals": c.get("refusals")})
+     mismatches.extend({"case": "internal-root-" + row["case"], "observed": row}
+                       for row in unit_root_cases if not row["passed"])
++    mismatches.extend({"case": "tsjs-unit-kind-" + row["case"], "observed": row}
++                      for row in tsjs_unit_kind_cases if not row["passed"])
+     historical = [c["case"] for c in cases if c["case"] in HISTORICAL_BOUNDED]
+     hashes = owned_hashes()
+     report = {
+@@ -750,6 +770,7 @@
+         "packageCandidateOneBad": proj_bad,
+         "twoFooIds": ids, "twoFooPaths": paths,
+         "internalUnitRootControls": unit_root_cases,
++        "tsjsUnitKindControls": tsjs_unit_kind_cases,
+         "cases": cases, "expected": want, "mismatches": mismatches,
+         "ownedHashes": hashes,
+     }

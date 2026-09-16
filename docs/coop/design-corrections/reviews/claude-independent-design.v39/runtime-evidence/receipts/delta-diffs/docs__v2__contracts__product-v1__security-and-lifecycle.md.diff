@@ -1,0 +1,67 @@
+--- a38/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b39/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -263,14 +263,20 @@
+ `installed-dependencies-and-cargo-build-output-are-pruned-by-segment-*`,
+ `config2-workspace-root-dot-*`, `explicit-root-*`.
+ 
+-**Pruned trees and the read set (A-5).** "No custody walk" for a pruned tree
+-means discovery neither enumerates units in it nor walks its directories for
+-custody. Bytes a language program later reads from such a tree (a TypeScript
+-resolution reading `node_modules`, native §2.2/§9.4) enter the snapshot read
+-set through the identity unit's snapshot custody, are Plan-bound like every
+-other read-set byte, and are never a discovery unit; they are not exempt from
+-custody, they are custody-checked by the snapshot reader instead of the
+-discovery walk.
++**Pruned trees and the read set (A-5).** A pruned tree is never custody-walked.
++Its files enter the snapshot source inventory only when a Plan-selected context
++actually read them under a committed read set. Today that means `node_modules`
++package directories listed by a retained `ResolvedNodeModulesLayoutV1` of a
++context with `nodeModulesInReadSet`. Such rows are `host-ignore-convention`
++members joined at Run closure, refusing `SNAPSHOT_PRUNED_TREE_NOT_A_READ`.
++A nested installed package below a listed directory (a further exact
++`node_modules` segment) needs its own row; the enclosing listed directory never
++authorizes it. VCS trees and Cargo build output are never reads, at any depth.
++Required inputs outside the
++project root stay in their owning closures. Which files inside a listed package
++were read, and that the custody walk was complete, are host TCB observations
++that bytes-only replay cannot prove. Identity §3 owns the inventory and joins;
++native §1.4 U-4a/U-4b owns discovery and membership.
+ 
+ **Admitted boundary inventory for the language-unit instrument (decided; post-reset
+ v2 N-1/P3).** The native unit instrument (native §1.4 U-8) never re-derives a
+@@ -282,9 +288,12 @@
+ `discovery-defaults.boundary_inventory_from_provenance`; one boundary prefix
+ rule `classify_boundary` is used by both instruments). The host passes that
+ record unchanged to native `discover_units`, `assign_membership` and
+-`unit_scope_descriptor`; the native instrument then yields exactly this
+-instrument's unit set, excludes every marker directory and file at or below a
+-boundary, refuses an explicit root crossing one (`native.explicit-root-crosses-boundary`,
++`unit_scope_descriptor`; the native instrument then yields this instrument's
++marker-derived unit set. Native §1.4 U-9 additionally supplies its one default
++syntax-only fallback when no language unit survives; that fallback is not a
++marker directory, does not count toward the workspace-unit cap and claims no
++program-member row. The native instrument excludes every marker directory and
++file at or below a boundary, refuses an explicit root crossing one (`native.explicit-root-crosses-boundary`,
+ the counterpart of `JOIN_CROSSES_NESTED_*`) and enters every boundary anchor
+ into the Plan scope descriptor's `excludedPathPrefixes`. An inventory whose
+ pruned trees do not equal the ones the native instrument derives from the same
+@@ -1062,7 +1071,7 @@
+ A `RepoExecutionGrantV2` (supersedes the never-accepted V1 draft, retained in
+ the bundle as superseded) is admitted only when: schema 2; principal
+ `repository-code`, `semanticPrincipalKind` `trusted-repository-code`;
+-projectId, snapshotId (`snapshot2:`) and argv digest equal the invocation's;
++projectId, snapshotId (`snapshot2:`) and argv digest (`argvDigest`: lowercase hex raw SHA-256 of `C` of the exact ordered argument array selected for the spawn, every element preserved, no shell-joined surrogate; workflows-and-surfaces §7) equal the invocation's;
+ execution class in {build-script, proc-macro, test-runner}; **owners** (≤ 64,
+ unique) each bind `{ownerKey, source, ownerFileManifestSha256}` where `source`
+ is `snapshot-member` (validated against the sealed snapshot's owner manifests)
+@@ -1303,8 +1312,8 @@
+ | read-only recovery: requested attempt still `admitted` **with no receipt**, or observations temporally skewed beyond the single permitted retry | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT`, `faultCause` `ledger-busy` (detail `PROJECT.BUSY`) |
+ | read-only recovery: a valid joined receipt is present while the attempt row is still `admitted`, or is absent entirely | **not** a busy or custody condition. The receipt establishes historical commitment, so the termination is the ordinary successful observation; pending or unknown settlement is disclosed operationally |
+ | read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`; and, with the association naming the admitted carrier, a carrier whose own published row or witness names another project, a migration footprint that is not a lawful durable prefix, or the F51 split-brain condition) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
+-| read-only recovery: unreadable ledger or carrier, unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io` |
+-| read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
++| read-only recovery: unreadable ledger or carrier, a bound carrier observed absent (an association names it, but the journal snapshot holds no `grant_journal` and no carrierFormat 3 object; never absence, not-committed or success, and never initialized), unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted |
++| read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`, or of a carrier observed unmigrated, with no carrierFormat 3 object, in the same journal snapshot), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46; decided before the SEAL join, after the binding row and any carrierFormat 3 footprint row) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
+ | read-only recovery: the requested binding (the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest`) names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
+ 
+ A journal-carrier quarantine deliberately publishes **no** `domainDetail`. `StepTermination` requires only `class`, and `domainDetail` is optional, so the projection is schema-valid with `class`, `errorCode` and a non-none `faultCause` alone. No new `DomainDetailCode` is registered for it, and `MIGRATION.CORRUPT` is **not** reused: that code is the detail of a store transition footprint and of a carrierFormat 3 migration footprint at a writer or maintenance open, and borrowing it for ordinary journal corruption, a carrier project binding mismatch or any read-only carrier observation would put two remedies behind one code. The typed reason travels in the owner diagnosis and the operational record, not in a public detail code.

@@ -1,0 +1,747 @@
+--- 22/phase8.py
++++ 23-interim/phase8.py
+@@ -32,30 +32,19 @@
+ import opensip_store as ST
+ import opensip_closure as CL
+ import envelopes as EV
+-
+-OUT = '/tmp/opensip-design-corrections/consumer-b.v22/output'
++import comparison_law as CMPL
++import opensip_eval as E
++
++OUT = '/tmp/opensip-design-corrections/consumer-b.v23/output'
+ KIT = S.KIT
+ BASE_DOC = 'workflows/schemas/evaluator3/baseline-artifact.schema.json'
+ CMP_DOC = 'workflows/schemas/evaluator3/comparison-result.schema.json'
+ REQ = 'req1_9c4f70ab23d8416eb5207fd1ac36e8b9'
+ 
+-AUDIT_PROFILES = {
+-    'code-regression': {'name': 'code-regression', 'gateCodeNetNew': True,
+-                        'gateNewlyLiveByPolicyAxes': False, 'gateAllCurrentLive': False,
+-                        'newWaiverSuppressesCodeNetNew': False,
+-                        'gateRuleUnder': 'baseline-or-current'},
+-    'policy-change': {'name': 'policy-change', 'gateCodeNetNew': True,
+-                      'gateNewlyLiveByPolicyAxes': True, 'gateAllCurrentLive': False,
+-                      'newWaiverSuppressesCodeNetNew': False,
+-                      'gateRuleUnder': 'baseline-or-current'},
+-    'report-only': {'name': 'report-only', 'gateCodeNetNew': False,
+-                    'gateNewlyLiveByPolicyAxes': False, 'gateAllCurrentLive': False,
+-                    'newWaiverSuppressesCodeNetNew': False,
+-                    'gateRuleUnder': 'current-only'},
+-}
+-ZERO_COUNTS = {k: 0 for k in ('UNCHANGED', 'CODE-NET-NEW', 'CODE-FIXED', 'DETECTION-DELTA',
+-                              'POLICY-DELTA', 'SCOPE-DELTA', 'WAIVER-DELTA',
+-                              'EVIDENCE-DELTA', 'INDETERMINATE', 'gating')}
++# V23-D6: the generation-22 hand-written comparison helpers (AUDIT_PROFILES with report-only
++# suppressing nothing, ZERO_COUNTS, evidence_availability, context, baseline, baseline_entries,
++# comparison) are removed; their bytes are kept in lib.before-image.v22/phase8.py. The profile
++# table and every derivation now live in comparison_law.py.
+ 
+ 
+ def current_side():
+@@ -102,141 +91,6 @@
+             'snapshotId': run['snapshotId'], 'planId': run['planId']}
+ 
+ 
+-def evidence_availability(cur, *, drop_imports=False, change_payload=False):
+-    rows = []
+-    for tid, w in cur['imports']:
+-        if drop_imports:
+-            continue
+-        pd = w['payloadDigest']
+-        if change_payload:
+-            pd = K.raw_sha256(b'a different runtime payload with the same kind')
+-        rows.append({'kind': w['kind'], 'importId': tid, 'payloadDigest': pd,
+-                     'sourceCorrespondenceDigest': w['sourceCorrespondenceDigest'],
+-                     'scopeDigest': w.get('scopeDigest') or K.raw_sha256(b'import-scope'),
+-                     'observationDigest': (w.get('observationDigest')
+-                                           or K.raw_sha256(b'observation'))})
+-    return {'importKinds': sorted({r['kind'] for r in rows}),
+-            'relations': sorted({'runtime-observation'}) if rows else [],
+-            'imports': sorted(rows, key=lambda r: r['importId'].encode())}
+-
+-
+-def context(cur, *, scope_digest=None, policy_digest=None, avail=None):
+-    # all three are RAW SHA-256 of the canonical document bytes, and all three are the exact
+-    # digests the retained Plan and the retained blob store already carry
+-    return {'policyDigest': policy_digest or cur['policyDigest'],
+-            'scopeDigest': scope_digest or cur['scopeDocumentDigest'],
+-            'waiverSetDigest': cur['waiverDigest'],
+-            'detectorClosureIds': [cur['detector'][0]] if cur['detector'] else [],
+-            'evidenceAvailability': avail if avail is not None
+-            else evidence_availability(cur)}
+-
+-
+-def baseline(cur, *, entries=None, avail=None, scope_digest=None):
+-    det_tid, det = cur['detector']
+-    desc = {
+-        'schemaFamily': 'opensip.product.baseline', 'schemaMajor': 2,
+-        'originProjectId': cur['projectId'],
+-        'source': {'snapshotId': cur['snapshotId']},
+-        'runId': cur['runId'], 'planId': cur['planId'],
+-        'fingerprintRecipe': {'domain': 'finding-fingerprint', 'recipeMajor': 2},
+-        'detectorClosure': [{'detectorId': 'detector.ts-hygiene', 'closureId': det_tid,
+-                             'semanticsMajor': 2,
+-                             'semanticVersion': det['semanticVersion'],
+-                             'contributionId': 'contrib.clone-hygiene',
+-                             'manifestDigest': det['manifestDigest']}],
+-        'pivotClosure': sorted([
+-            {'closureId': det_tid, 'kind': 'detector',
+-             'manifestDigest': det['manifestDigest'],
+-             'protocolMajor': det['protocolMajor'], 'platform': det['platform']}],
+-            key=lambda r: r['closureId'].encode()),
+-        'context': context(cur, avail=avail, scope_digest=scope_digest),
+-        'contextDocuments': {'policy': cur['policy'],
+-                             'scope': cur['scope'] or {'schemaVersion': 1, 'include': [],
+-                                                       'exclude': []},
+-                             'waivers': cur['waivers']},
+-        'ruleCoverage': sorted([
+-            {'ruleId': r['ruleId'], 'requiredCoverage': 'satisfied',
+-             'enabled': r['enabled'],
+-             'gating': bool(r['gate']), 'evidenceUse': r['evidenceUse']}
+-            for r in cur['policy']['rules']], key=lambda r: r['ruleId'].encode()),
+-        'entries': entries if entries is not None else baseline_entries(cur),
+-        'unmatchedOccurrences': [],
+-    }
+-    art = {'baselineId': K.ID('workflow.baseline', desc), 'descriptor': desc,
+-           'custody': {'exportedByHostRelease': '3.0.0',
+-                       'exportedAtUtc': '2026-09-12T00:00:00Z',
+-                       'runRetainedAtExport': True,
+-                       'retentionPins': sorted([cur['runId'], det_tid])}}
+-    return art
+-
+-
+-def baseline_entries(cur, *, drop=0):
+-    """Entries are keyed by the FINGERPRINT the Run already minted (finding-key2), and the
+-    subject PATH is read from that fingerprint's own subjectKey -- not invented, and not taken
+-    from the finding record, which carries an opaque subject3 instead."""
+-    # the POLICY ruleId that owns each finding is read from the proof's ruleResults, which is
+-    # the record that binds them; the fingerprint carries the rule STABLE id, a different name
+-    rule_of = {}
+-    for rr in (cur['proof'] or {}).get('ruleResults', []):
+-        for fid in rr.get('findingIds', []):
+-            rule_of[fid] = rr['ruleId']
+-    rows = []
+-    for tid, f in cur['findings']:
+-        fp = f['fingerprint']
+-        key = cur['store'].objects.get(fp) or {}
+-        sk = key.get('subjectKey') or {}
+-        rows.append({'fingerprint': fp,
+-                     'ruleId': rule_of.get(tid, 'unknown'),
+-                     'detectorId': 'detector.ts-hygiene',
+-                     'stabilityClass': 'path-stable',
+-                     'subjectPath': sk.get('logicalPath') or 'src/index.ts',
+-                     'waived': False})
+-    rows = sorted({r['fingerprint']: r for r in rows}.values(),
+-                  key=lambda r: r['fingerprint'].encode())
+-    return rows[:len(rows) - drop] if drop else rows
+-
+-
+-def comparison(cur, bl, *, profile='code-regression', performed=True,
+-               entries=None, counts=None, verdict='pass', rule_def=None,
+-               corr=None, baseline_ctx=None, current_ctx=None, delta=None,
+-               pivots=None, detectors=None, whole_reason=None, remedy=None,
+-               unmatched=None, state='evaluated'):
+-    desc = {
+-        'schemaFamily': 'opensip.product.comparison', 'schemaMajor': 2,
+-        'baselineId': bl['baselineId'], 'currentRunId': cur['runId'],
+-        'currentSnapshotId': cur['snapshotId'],
+-        'auditProfile': AUDIT_PROFILES[profile],
+-        'projectCorrespondence': 'same-project',
+-        'comparisonPerformed': performed,
+-        'baselineContext': baseline_ctx or bl['descriptor']['context'],
+-        'currentContext': current_ctx or bl['descriptor']['context'],
+-        'contextDelta': delta or {'codeChanged': False, 'detectorChanged': False,
+-                                  'policyChanged': False, 'scopeChanged': False,
+-                                  'waiversChanged': False,
+-                                  'evidenceAvailabilityChanged': False},
+-        'pivotsAvailable': pivots or {'E0': 'not-needed', 'E1': 'not-needed',
+-                                      'E2': 'not-needed', 'E3': 'not-needed'},
+-        'detectors': detectors if detectors is not None else [
+-            {'detectorId': 'detector.ts-hygiene',
+-             'baselineClosureId': cur['detector'][0],
+-             'currentClosureId': cur['detector'][0],
+-             'baselineSemanticsMajor': 2, 'currentSemanticsMajor': 2,
+-             'method': 'identical-closure'}],
+-        'ruleDeficiencies': rule_def or [],
+-        'entries': entries if entries is not None else [],
+-        'counts': counts or dict(ZERO_COUNTS),
+-        'verdict': verdict,
+-        'unmatchedOccurrences': unmatched or [],
+-        'correspondenceCoverage': corr if corr is not None else [],
+-        'currentEvaluationState': state,
+-        'currentExecutionDeficiencies': [],
+-    }
+-    if not performed:
+-        desc['wholeIndeterminateReason'] = whole_reason
+-        desc['remedy'] = remedy
+-    return {'comparisonResultId': K.ID('workflow.comparison', desc), 'descriptor': desc}
+-
+-
+ def admit(doc, selector, inst, label, *, identity_field=None, identity_domain=None):
+     ok, err = True, None
+     try:
+@@ -257,235 +111,26 @@
+ def main():
+     cur = current_side()
+     rows = []
+-    out = {'consumerId': 'consumer-b.v22',
++    out = {'consumerId': 'consumer-b.v23',
+            'standing': ('the CURRENT side is the real sealed TypeScript Run of this origin; '
+                         'the baseline is an independently constructed artifact over the same '
+                         'Run. No product executed any comparison: these are record '
+                         'reconstructions plus the identity and admission laws.')}
+ 
+-    # ------------------------------------------------------- R-BASELINE-AUDIT
+-    bl = baseline(cur)
+-    r = admit(BASE_DOC, '#', bl, 'baseline-artifact', identity_field='baselineId',
+-              identity_domain='workflow.baseline')
+-    r['requirement'] = 'R-BASELINE-AUDIT'
+-    r['entryCount'] = len(bl['descriptor']['entries'])
+-    r['custodyIsNotIdentity'] = (
+-        'exportedAtUtc and exportedByHostRelease live in the custody envelope, OUTSIDE the '
+-        'descriptor, so they never enter baselineId. Recomputing H over the descriptor alone '
+-        'is what proves it.')
+-    rows.append(r)
+-    unchanged = [
+-        {'fingerprint': e['fingerprint'], 'ruleId': e['ruleId'],
+-         'detectorId': e['detectorId'],
+-         'presence': {'B': True, 'E0': None, 'E1': None, 'E2': None, 'E3': None,
+-                      'E4': True, 'waivedB': False, 'waivedC': False},
+-         'classification': 'UNCHANGED', 'subsequentDeltas': [], 'liveInCurrent': True,
+-         'gates': False}
+-        for e in bl['descriptor']['entries']]
+-    counts = dict(ZERO_COUNTS, UNCHANGED=len(unchanged))
+-    corr = sorted([
+-        {'ruleId': rc['ruleId'], 'gating': rc['gating'],
+-         'matchedCount': sum(1 for e in unchanged if e['ruleId'] == rc['ruleId']),
+-         'unmatchedCount': 0, 'populationUnknown': False,
+-         'zeroFindings': not any(e['ruleId'] == rc['ruleId'] for e in unchanged)}
+-        for rc in bl['descriptor']['ruleCoverage']], key=lambda r: r['ruleId'].encode())
+-    cmp_ok = comparison(cur, bl, entries=unchanged, counts=counts, corr=corr)
+-    r = admit(CMP_DOC, '#', cmp_ok, 'comparison-unchanged',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-BASELINE-AUDIT'
+-    r['classification'] = 'valid'
+-    r['gateSemantics'] = AUDIT_PROFILES['code-regression']
+-    rows.append(r)
+-
+-    # ------------------------------------------------------- R-CMP-MISSING
+-    miss = comparison(
+-        cur, bl, performed=False, verdict='indeterminate',
+-        whole_reason='baseline-context-document-missing',
+-        remedy={'code': 'evidence.missing',
+-                'remedy': 're-export the baseline with its context documents; a comparison '
+-                          'is NOT performed against a baseline whose context cannot be read'},
+-        rule_def=[{'ruleId': 'rule.declares-advisory', 'gating': False,
+-                   'cause': 'required-coverage-unknown'}])
+-    r = admit(CMP_DOC, '#', miss, 'comparison-missing-evidence',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-CMP-MISSING'
+-    r['classification'] = 'valid'
+-    r['notPerformedIsNotEmpty'] = (
+-        'comparisonPerformed=false FORCES verdict=indeterminate, zero entries, zero '
+-        'unmatched occurrences, zero correspondence coverage AND a whole-reason plus remedy. '
+-        'An empty PERFORMED comparison carries none of those, which is how the two are '
+-        'distinguished by the schema rather than by a label.')
+-    rows.append(r)
+-
+-    # ------------------------------------------------------- R-CMP-EVIDENCE-CHANGED
+-    changed = evidence_availability(cur, change_payload=True)
+-    # every non-UNCHANGED classification REQUIRES a direction: the axis alone does not say
+-    # whether the finding appeared or vanished, and the schema refuses to let it be implied
+-    ev_entries = [dict(e, classification='EVIDENCE-DELTA',
+-                       subsequentDeltas=['evidence'], direction='appeared')
+-                  for e in unchanged[:1]]
+-    ev = comparison(
+-        cur, bl, entries=ev_entries,
+-        counts=dict(ZERO_COUNTS, **{'EVIDENCE-DELTA': len(ev_entries)}),
+-        current_ctx=context(cur, avail=changed),
+-        delta={'codeChanged': False, 'detectorChanged': False, 'policyChanged': False,
+-               'scopeChanged': False, 'waiversChanged': False,
+-               'evidenceAvailabilityChanged': True},
+-        corr=corr, verdict='pass')
+-    r = admit(CMP_DOC, '#', ev, 'comparison-evidence-changed',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-CMP-EVIDENCE-CHANGED'
+-    r['classification'] = 'valid'
+-    r['axisComparesIdentitiesNotKindPresence'] = {
+-        'baselineImportIds': [i['importId'] for i in
+-                              bl['descriptor']['context']['evidenceAvailability']['imports']],
+-        'currentImportIds': [i['importId'] for i in changed['imports']],
+-        'sameImportKinds': (bl['descriptor']['context']['evidenceAvailability']
+-                            ['importKinds'] == changed['importKinds']),
+-        'payloadDigestsDiffer': True,
+-        'law': ('"imports lists the exact import2 identities ... so that the evidence axis '
+-                'compares identities, not kind presence: the same kind with different '
+-                'payload/correspondence/scope/window is a changed axis."')}
+-    rows.append(r)
+-
+-    # ------------------------------------------------------- R-CMP-EMPTY-RESULT
+-    empty_corr = sorted([
+-        {'ruleId': rc['ruleId'], 'gating': rc['gating'], 'matchedCount': 0,
+-         'unmatchedCount': 0, 'populationUnknown': False, 'zeroFindings': True}
+-        for rc in bl['descriptor']['ruleCoverage']], key=lambda r: r['ruleId'].encode())
+-    empty_bl = baseline(cur, entries=[])
+-    emp = comparison(cur, empty_bl, entries=[], counts=dict(ZERO_COUNTS),
+-                     corr=empty_corr, verdict='pass')
+-    r = admit(CMP_DOC, '#', emp, 'comparison-empty-result',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-CMP-EMPTY-RESULT'
+-    r['classification'] = 'valid'
+-    r['emptyIsPerformedAndComplete'] = {
+-        'comparisonPerformed': True, 'entries': 0, 'verdict': 'pass',
+-        'zeroFindingRulesAccountedFor': len(empty_corr),
+-        'why': ('every rule appears in correspondenceCoverage with zeroFindings=true and '
+-                'populationUnknown=false, so the empty result is a MEASURED empty rather '
+-                'than an unknown population presented as empty')}
+-    rows.append(r)
+-
+-    # ------------------------------------------------------- R-SCOPE-POLICY-ONLY-COMPARISON
+-    new_scope_digest = K.raw_sha256(b'{"schemaVersion":1,"include":["src/**/*"],'
+-                                   b'"exclude":["src/legacy.js"]}')
+-    sc_entries = [dict(e, classification='SCOPE-DELTA', subsequentDeltas=['scope'],
+-                       direction='vanished', liveInCurrent=False, gates=False)
+-                  for e in unchanged[:1]]
+-    sc = comparison(
+-        cur, bl, profile='policy-change', entries=sc_entries,
+-        counts=dict(ZERO_COUNTS, **{'SCOPE-DELTA': len(sc_entries)}),
+-        current_ctx=context(cur, scope_digest=new_scope_digest),
+-        delta={'codeChanged': False, 'detectorChanged': False, 'policyChanged': False,
+-               'scopeChanged': True, 'waiversChanged': False,
+-               'evidenceAvailabilityChanged': False},
+-        corr=corr, verdict='pass')
+-    r = admit(CMP_DOC, '#', sc, 'comparison-scope-policy-only',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-SCOPE-POLICY-ONLY-COMPARISON'
+-    r['classification'] = 'valid'
+-    r['onlyTheBoundScopeDocumentChanged'] = {
+-        'baselineScopeDigest': bl['descriptor']['context']['scopeDigest'],
+-        'currentScopeDigest': new_scope_digest,
+-        'snapshotIdUnchanged': True,
+-        'policyDigestUnchanged': True,
+-        'distinctFromSourceOrDiscoveryScope': (
+-            'EvaluationContext.scopeDigest is the WORKFLOW glob ScopeDocumentV1 bound as an '
+-            'analysis-spec parameter. It is explicitly NOT plan.scopeDigest, which is the '
+-            'foundation scope-descriptor that decides which SOURCE was discovered. Changing '
+-            'the policy scope re-selects subjects within the SAME snapshot, so the axis is '
+-            'SCOPE-DELTA and the code axis is untouched.'),
+-        'plannedScopeDescriptorDigest': cur['plan'].get('scopeDigest')}
+-    rows.append(r)
+-
+-    # ------------------------------------------------------- R-E0-VS-E1-E3
+-    e0e3 = {
+-        'requirement': 'R-E0-VS-E1-E3', 'classification': 'explanatory+measured',
+-        'law': (S.doc_path(CMP_DOC) + '#/$defs/PivotPresence + pivotsAvailable + '
+-                'DetectorDisposition.method'),
+-        'pivots': {
+-            'B': {'what': 'the BASELINE side as adopted: the fingerprints the baseline '
+-                          'artifact actually retains',
+-                  'isAnExecution': 'no -- it is a retained artifact'},
+-            'E0': {'what': 'a PRIOR DETECTOR EXECUTION: the baseline detector closure run '
+-                           'again, which needs that closure to be retained, spawnable and '
+-                           'deterministic',
+-                   'isAnExecution': 'YES',
+-                   'unavailableWhen': ['pivot-detector-unavailable', 'pivot-closure-revoked',
+-                                       'pivot-closure-incompatible',
+-                                       'pivot-run-not-committed',
+-                                       'pivot-detector-nondeterministic'],
+-                   'method': 'three-way-pivot'},
+-            'E1': {'what': 'RE-EVALUATION of the CURRENT retained evidence under the '
+-                           'baseline policy', 'isAnExecution': 'no -- no detector runs'},
+-            'E2': {'what': 'RE-EVALUATION of the current retained evidence under the '
+-                           'baseline scope', 'isAnExecution': 'no'},
+-            'E3': {'what': 'RE-EVALUATION of the current retained evidence under the '
+-                           'baseline waivers', 'isAnExecution': 'no'},
+-            'E4': {'what': 'the CURRENT side as evaluated', 'isAnExecution': 'no'},
+-        },
+-        'whyTheDistinctionMatters': (
+-            'E0 can be UNAVAILABLE for custody or determinism reasons that have nothing to '
+-            'do with the evidence, and its unavailability is a pivot reason, not a finding. '
+-            'E1-E3 need no closure at all: they re-evaluate bytes this origin already '
+-            'retains, so they are available whenever the current Run is. Treating E0 as '
+-            'just another re-evaluation would let a missing detector closure be reported as '
+-            'a code difference.'),
+-        'measuredOnThisReconstruction': {
+-            'detectorMethodWhenClosuresAreIdentical': 'identical-closure -- no pivot needed, '
+-                                                      'so every pivot is `not-needed`',
+-            'pivotsAvailableInTheUnchangedComparison':
+-                cmp_ok['descriptor']['pivotsAvailable'],
+-            'presenceShapeIsNullableForE0toE3':
+-                'null means the pivot was not available; false means it was available and '
+-                'the fingerprint was absent. Collapsing null into false would invent a '
+-                'CODE-FIXED.',
+-        },
+-    }
+-
+-    # ------------------------------------------------------- R-PIVOT-ONLY-FINGERPRINTS
+-    pivot_only_fp = 'finding-key2:' + K.raw_sha256(b'a fingerprint only E0 produced')
+-    po_entry = {
+-        'fingerprint': pivot_only_fp, 'ruleId': 'rule.no-duplicate-body',
+-        'detectorId': 'detector.ts-hygiene',
+-        'presence': {'B': False, 'E0': True, 'E1': False, 'E2': False, 'E3': False,
+-                     'E4': False, 'waivedB': False, 'waivedC': False},
+-        'classification': 'DETECTION-DELTA', 'direction': 'vanished',
+-        'subsequentDeltas': ['detection'],
+-        'liveInCurrent': False, 'gates': False}
+-    po = comparison(
+-        cur, bl, entries=sorted(unchanged + [po_entry],
+-                                key=lambda e: e['fingerprint'].encode()),
+-        counts=dict(ZERO_COUNTS, UNCHANGED=len(unchanged),
+-                    **{'DETECTION-DELTA': 1}),
+-        pivots={'E0': 'available', 'E1': 'not-needed', 'E2': 'not-needed',
+-                'E3': 'not-needed'},
+-        detectors=[{'detectorId': 'detector.ts-hygiene',
+-                    'baselineClosureId': cur['detector'][0],
+-                    'currentClosureId': cur['detector'][0],
+-                    'baselineSemanticsMajor': 1, 'currentSemanticsMajor': 2,
+-                    'method': 'three-way-pivot', 'pivotRunId': cur['runId']}],
+-        delta={'codeChanged': False, 'detectorChanged': True, 'policyChanged': False,
+-               'scopeChanged': False, 'waiversChanged': False,
+-               'evidenceAvailabilityChanged': False},
+-        corr=corr, verdict='pass')
+-    r = admit(CMP_DOC, '#', po, 'comparison-pivot-only-fingerprint',
+-              identity_field='comparisonResultId', identity_domain='workflow.comparison')
+-    r['requirement'] = 'R-PIVOT-ONLY-FINGERPRINTS'
+-    r['classification'] = 'valid'
+-    r['pivotOnlyFingerprintRetained'] = {
+-        'fingerprint': pivot_only_fp,
+-        'presence': po_entry['presence'],
+-        'inBaseline': False, 'inCurrent': False, 'atE0': True,
+-        'classification': 'DETECTION-DELTA',
+-        'why': ('a fingerprint that exists ONLY at a pivot is retained as a pivot presence '
+-                'and classified on the DETECTION axis. It is neither CODE-NET-NEW (it is not '
+-                'live in current) nor CODE-FIXED (it was never in the baseline); dropping it '
+-                'would hide the detector change that produced it.'),
+-        'liveInCurrent': False, 'gates': False}
+-    rows.append(r)
++    # ---------- R-BASELINE-AUDIT, R-CMP-*, R-SCOPE-POLICY-ONLY, R-PIVOT-ONLY, R-E0-VS-E1-E3
++    # V23-D6: every comparison and baseline record is DERIVED from explicit premises by
++    # comparison_law.py. The premises are retained in vectors/comparison-premises.json and are
++    # re-derived by indep_comparison_law.py, which does not import comparison_law.
++    cs = comparison_scenarios(cur)
++    bl = cs['baseline-audit-unchanged']['baseline']
++    cmp_ok = cs['baseline-audit-unchanged']['record']
++    miss = cs['missing-context-document']['record']
++    ev = cs['evidence-changed']['record']
++    emp = cs['empty-result']['record']
++    sc = cs['scope-policy-only']['record']
++    po = cs['pivot-only-fingerprint']['record']
++    rows += cs['admissionRows']
++    e0e3 = cs['e0VsE1E3']
+ 
+     # ------------------------------------------------- R-HOST-CAPTURED-VS-CANDIDATE
+     hc = {
+@@ -562,6 +207,8 @@
+     EV.write('vectors/comparison-empty-result.json', emp)
+     EV.write('vectors/comparison-scope-policy-only.json', sc)
+     EV.write('vectors/baseline-e0-e3.json', e0e3)
++    EV.write('vectors/comparison-premises.json', cs['premisesDoc'])
++    EV.write('vectors/comparison-baselines.json', cs['baselinesDoc'])
+     EV.write('vectors/comparison-pivot-only-fingerprints.json', po)
+     EV.write('vectors/host-captured-vs-candidate.json', hc)
+     EV.write('vectors/empty-partial-unavailable-missing.json', four)
+@@ -588,6 +235,303 @@
+     if bad:
+         print(json.dumps(bad, indent=1, default=str)[:3000])
+     assert not bad, [b[0] for b in bad]
++
++
++PIVOT_CLOSURE_KINDS = ('detector', 'evaluator', 'provider', 'toolchain', 'stdlib', 'schema-set')
++
++
++def synthetic_id(domain, what):
++    """a schema-valid identity for a record this reconstruction does NOT hold; always labelled
++    syntheticHelperOnly in the premises that use it"""
++    return K.ID(domain, {'syntheticHelperOnly': what})
++
++
++def ts_side(cur):
++    """The REAL TypeScript side of a comparison, read from the retained Run: its documents, the
++    detector and pivot closures, the bound import, matched findings with the fingerprint subject
++    path, the waived set, rule results and execution deficiencies."""
++    st, proof, policy = cur['store'], cur['proof'], cur['policy']
++    emit = json.loads(st.get_blob(st.labels['emission-plan']).decode())
++    det_tid, det = cur['detector']
++    manifest = json.loads(st.get_blob(det['manifestDigest']).decode())
++    sev = {r['ruleId']: r['severity'] for r in policy['rules']}
++    det_name = {}
++    for t, r in st.objects.items():
++        if t.startswith('closure2:') and r.get('kind') == 'detector':
++            det_name[t] = json.loads(st.get_blob(r['manifestDigest']).decode())['name']
++    findings = []
++    for fid in proof['findingIds']:
++        f = st.objects[fid]
++        key = st.objects[f['fingerprint']]
++        findings.append({'findingId': fid, 'fingerprint': f['fingerprint'], 'ruleId': f['ruleId'],
++                         'detectorId': det_name[f['ruleClosure']], 'subjectId': f['subjectId'],
++                         'subjectPath': key['subjectKey']['logicalPath'],
++                         'severity': sev[f['ruleId']], 'waived': fid in proof['waivedFindingIds'],
++                         'matched': f['correspondence']['state'] == 'matched'})
++    imports = []
++    for t, w in sorted(st.objects.items()):
++        if t.startswith('import2:'):
++            assert K.ID('import', w) == t, t
++            imports.append({'kind': w['kind'], 'importId': t, 'payloadDigest': w['payloadDigest'],
++                            'sourceCorrespondenceDigest': w['sourceCorrespondenceDigest'],
++                            'scopeDigest': w['scopeDigest'],
++                            'observationDigest': w['observationDigest']})
++    side = {
++        'projectId': cur['projectId'], 'snapshotId': cur['snapshotId'], 'runId': cur['runId'],
++        'planId': cur['planId'],
++        'documents': {'policy': policy, 'scope': cur['scope'], 'waivers': cur['waivers']},
++        'detectors': [{'detectorId': manifest['name'], 'closureId': det_tid,
++                       'semanticsMajor': int(det['semanticVersion'].split('.')[0]),
++                       'semanticVersion': det['semanticVersion'],
++                       'contributionId': sorted({r['contributionId'] for r in emit['rules']
++                                                 if r['detectorClosure'] == det_tid})[0],
++                       'manifestDigest': det['manifestDigest']}],
++        'pivotClosure': [{'closureId': t, 'kind': r['kind'], 'manifestDigest': r['manifestDigest'],
++                          'protocolMajor': r['protocolMajor'], 'platform': r['platform']}
++                         for t, r in sorted(st.objects.items())
++                         if t.startswith('closure2:') and r.get('kind') in PIVOT_CLOSURE_KINDS],
++        'boundImports': imports, 'findings': findings,
++        'ruleResults': {rr['ruleId']: {'outcome': rr['outcome'],
++                                       'enumerationState': rr['enumeration']['state'],
++                                       'unresolvedSubjects':
++                                           len(rr['enumeration']['unresolvedSubjectIds'])}
++                        for rr in proof['ruleResults']},
++        'stabilityClassByRule': {r['ruleId']: r['stabilityClass'] for r in emit['rules']},
++        'evaluationState': proof['evaluationState'],
++        'executionDeficiencies': proof['executionDeficiencies']}
++    for label, doc in (('policy', policy), ('scope-document', cur['scope']),
++                       ('waivers', cur['waivers'])):
++        assert CMPL.doc_digest(doc) == st.labels[label], label
++    return side
++
++
++def scope_selects(scope_doc, path):
++    return (any(E.glob_match(g, path) for g in scope_doc['include'])
++            and not any(E.glob_match(g, path) for g in scope_doc['exclude']))
++
++
++def comparison_scenarios(cur):
++    """The six comparison/baseline scenarios, each derived from explicit premises."""
++    import copy
++    ev_rel = json.load(open(KIT + '/' + S.doc_path(B.IMPORTED_DOC)))[
++        'x-opensip-evidence-relation-registry']['relations']
++    st = cur['store']
++    real = ts_side(cur)
++    out, prem_rows, baselines, adm = {}, [], {}, []
++
++    def build(name, reqs, record_file, base_side, cur_side, profile, real_sides, synthetic=(),
++              pivots=None, override=None, notes=None, remedy=None, extra=None):
++        bl_ = CMPL.baseline_artifact(base_side, ev_rel, override)
++        prem = {'scenario': name, 'requirements': reqs, 'profile': profile,
++                'auditProfileRecord': CMPL.AUDIT_PROFILES[profile],
++                'baselineSide': base_side, 'currentSide': cur_side, 'pivots': pivots or {},
++                'overrideDocuments': override, 'declaredCompatible': [],
++                'realSides': real_sides, 'syntheticHelperOnly': list(synthetic),
++                'derivationNotes': notes or {}, 'remedyText': remedy}
++        prem.update(extra or {})
++        rec = CMPL.derive(prem, bl_, ev_rel)
++        if record_file == 'vectors/baseline-audit.json':
++            prem['recordRef'] = {'file': record_file, 'pointer': '/comparisonUnchanged'}
++            prem['baselineRef'] = {'file': record_file, 'pointer': '/baselineArtifact'}
++        else:
++            prem['recordRef'] = {'file': record_file, 'pointer': ''}
++            prem['baselineRef'] = {'file': 'vectors/comparison-baselines.json',
++                                   'pointer': '/' + name}
++            baselines[name] = bl_
++        for label, doc_, inst, idf, dom in (
++                ('baseline:' + name, BASE_DOC, bl_, 'baselineId', 'workflow.baseline'),
++                ('comparison:' + name, CMP_DOC, rec, 'comparisonResultId',
++                 'workflow.comparison')):
++            r_ = admit(doc_, '#', inst, label, identity_field=idf, identity_domain=dom)
++            r_['requirement'] = reqs[0]
++            r_['classification'] = 'valid'
++            adm.append(r_)
++        prem_rows.append(prem)
++        out[name] = {'baseline': bl_, 'record': rec, 'premises': prem}
++        return bl_, rec
++
++    # S0: the TypeScript Run adopted as its own baseline and compared with itself
++    build('baseline-audit-unchanged', ['R-BASELINE-AUDIT'], 'vectors/baseline-audit.json',
++          real, real, 'code-regression', {'baselineSide': True, 'currentSide': True},
++          notes={'baselineSide': 'the real TypeScript Run adopted as the baseline',
++                 'verdict': ('the current Run carries a required execution deficiency, which '
++                             'section 3 says still affects the comparison verdict')})
++    # S1: the baseline's embedded scope document is NOT the document its context digest names
++    wrong_scope = copy.deepcopy(real['documents']['scope'])
++    wrong_scope['exclude'] = sorted(set(wrong_scope['exclude']) | {'src/util.ts'})
++    build('missing-context-document', ['R-CMP-MISSING'], 'vectors/comparison-missing.json',
++          real, real, 'code-regression', {'baselineSide': True, 'currentSide': True},
++          override={'scope': wrong_scope},
++          notes={'baselineSide': ('the real TypeScript Run adopted as the baseline, exported with '
++                                  'an embedded scope document that is not the one '
++                                  'context.scopeDigest names: the named context document is '
++                                  'missing from the artifact')},
++          remedy=('re-export the baseline with the exact scope document its context digest names; '
++                  'no comparison is performed against a baseline whose context cannot be read'))
++    # S2: the baseline was adopted from a Run bound to a DIFFERENT runtime import of the same kind
++    wrapper = next(w for t, w in st.objects.items() if t.startswith('import2:'))
++    payload = json.loads(st.get_blob(wrapper['payloadDigest']).decode())
++    alt_payload = copy.deepcopy(payload)
++    for row in alt_payload['subjects']:
++        if row['path'] == 'src/util.ts':
++            row.clear()
++            row.update({'path': 'src/util.ts', 'observability': 'unobservable',
++                        'mappingGap': 'helper-only: the prior capture emitted no source map for it'})
++    alt_payload['mappingGaps'] = sorted(set(alt_payload['mappingGaps']) | {'src/util.ts'})
++    alt_adm = S.admit(B.IMPORTED_DOC, '#/$defs/RuntimePayloadV1', alt_payload, 'alt-runtime-payload')
++    alt_wrapper = dict(wrapper, payloadDigest=K.raw_sha256(K.C(alt_payload)))
++    alt_wrapper_adm = S.admit(B.IDENTITY_DOC, '#/$defs/import', alt_wrapper, 'alt-import-wrapper')
++    alt_id = K.ID('import', alt_wrapper)
++    ev_base = copy.deepcopy(real)
++    ev_base.update(runId=synthetic_id('run', 'the prior TypeScript Run bound to the alternative '
++                                              'runtime import'),
++                   planId=synthetic_id('plan', 'the Plan of that prior Run'),
++                   boundImports=[{'kind': alt_wrapper['kind'], 'importId': alt_id,
++                                  'payloadDigest': alt_wrapper['payloadDigest'],
++                                  'sourceCorrespondenceDigest':
++                                      alt_wrapper['sourceCorrespondenceDigest'],
++                                  'scopeDigest': alt_wrapper['scopeDigest'],
++                                  'observationDigest': alt_wrapper['observationDigest']}],
++                   findings=[f for f in real['findings']
++                             if not (f['ruleId'] == 'rule.e-runtime-mapped-observation'
++                                     and f['subjectPath'] == 'src/util.ts')])
++    build('evidence-changed', ['R-CMP-EVIDENCE-CHANGED'], 'vectors/comparison-evidence-changed.json',
++          ev_base, real, 'code-regression', {'baselineSide': False, 'currentSide': True},
++          synthetic=['baselineSide', 'baselineSide.runId', 'baselineSide.planId',
++                     'baselineSide.boundImports (alternative payload constructed and '
++                     'schema-admitted, never captured)',
++                     'baselineSide.findings (derived by the atom law from that payload, not '
++                     'evaluated by a product)'],
++          notes={'baselineSide.findings': (
++              'under the alternative payload src/util.ts is `unobservable`, which never enters '
++              'the polarity set, so rule.e (unfiltered exists) is indeterminate there and emits '
++              'no finding; rule.c (observability=observed-hit) is false for src/util.ts under '
++              'either payload; every other finding is unchanged')},
++          extra={'alternativeImport': {'payload': alt_payload, 'payloadAdmitted': alt_adm['admitted'],
++                                       'wrapper': alt_wrapper,
++                                       'wrapperAdmitted': alt_wrapper_adm['admitted'],
++                                       'importId': alt_id}})
++    # S3: an empty fingerprint population -- both sides synthetic, because every retained Run of
++    # this origin emits at least one fingerprinted finding
++    empty = copy.deepcopy(real)
++    empty.update(runId=synthetic_id('run', 'a TypeScript Run whose rules emit no finding'),
++                 planId=synthetic_id('plan', 'its Plan'),
++                 snapshotId=synthetic_id('snapshot', 'its snapshot'), findings=[],
++                 ruleResults={r['ruleId']: {'outcome': 'pass' if r['enabled'] else 'disabled',
++                                            'enumerationState': ('complete' if r['enabled']
++                                                                 else 'disabled'),
++                                            'unresolvedSubjects': 0}
++                              for r in real['documents']['policy']['rules']},
++                 executionDeficiencies=[])
++    empty_base = copy.deepcopy(empty)
++    empty_base.update(runId=synthetic_id('run', 'the baseline Run of the same empty snapshot'),
++                      planId=synthetic_id('plan', 'the baseline Plan of the same empty snapshot'))
++    build('empty-result', ['R-CMP-EMPTY-RESULT'], 'vectors/comparison-empty-result.json',
++          empty_base, empty, 'code-regression', {'baselineSide': False, 'currentSide': False},
++          synthetic=['baselineSide', 'currentSide',
++                     'why: every retained Run of this origin emits at least one fingerprinted '
++                     'finding, so no retained current side has an empty population'])
++    # S4: only the bound ScopeDocumentV1 changed
++    base_scope = copy.deepcopy(real['documents']['scope'])
++    base_scope['exclude'] = sorted(set(base_scope['exclude']) | {'src/util.ts'})
++    sc_base = copy.deepcopy(real)
++    sc_base['documents']['scope'] = base_scope
++    sc_base.update(runId=synthetic_id('run', 'the prior TypeScript Run under the narrower scope '
++                                              'document'),
++                   planId=synthetic_id('plan', 'its Plan (the scope document is an analysis-spec '
++                                               'parameter)'),
++                   findings=[f for f in real['findings'] if scope_selects(base_scope,
++                                                                          f['subjectPath'])])
++    e2 = [{k: f[k] for k in ('fingerprint', 'ruleId', 'detectorId', 'subjectPath')}
++          for f in real['findings'] if f['matched'] and scope_selects(base_scope, f['subjectPath'])]
++    build('scope-policy-only', ['R-SCOPE-POLICY-ONLY-COMPARISON'],
++          'vectors/comparison-scope-policy-only.json', sc_base, real, 'policy-change',
++          {'baselineSide': False, 'currentSide': True},
++          synthetic=['baselineSide', 'baselineSide.runId', 'baselineSide.planId',
++                     'baselineSide.findings (the current findings the baseline scope selects)'],
++          pivots={'E2': {'fingerprints': e2, 'reconstructedReEvaluation': True,
++                         'derivation': ('E2 = current detector, current policy, BASELINE scope: the '
++                                        'retained current findings whose subject the embedded '
++                                        'baseline ScopeDocumentV1 selects; the scope document '
++                                        'selects subjects, it changes no fact or Coverage')}},
++          notes={'discoveryScope': ('plan.scopeDigest (the foundation scope-descriptor that decided '
++                                    'which SOURCE was discovered) is the same on both sides: %s'
++                                    % cur['plan'].get('scopeDigest'))})
++    # S5: a fingerprint present ONLY at a pivot
++    prior_closure = synthetic_id('closure', 'the prior ts-hygiene detector closure, semantics '
++                                            'major 1')
++    pv_base = copy.deepcopy(real)
++    pv_base['detectors'] = [dict(real['detectors'][0], closureId=prior_closure,
++                                 semanticsMajor=1, semanticVersion='1.0.0',
++                                 manifestDigest=K.raw_sha256(b'helper-only prior detector manifest'))]
++    pv_base['pivotClosure'] = [dict(c, closureId=prior_closure,
++                                    manifestDigest=pv_base['detectors'][0]['manifestDigest'])
++                               if c['kind'] == 'detector' else c for c in real['pivotClosure']]
++    for r in pv_base['documents']['policy']['rules']:
++        if r['ruleId'] == 'rule.d-disabled-probe':
++            r['enabled'] = True
++    pv_base['ruleResults']['rule.d-disabled-probe'] = {'outcome': 'pass',
++                                                      'enumerationState': 'complete',
++                                                      'unresolvedSubjects': 0}
++    pv_base.update(runId=synthetic_id('run', 'the baseline Run of the prior detector'),
++                   planId=synthetic_id('plan', 'its Plan'))
++    x_row = {'fingerprint': 'finding-key2:' + K.raw_sha256(
++        b'helper-only: the rule.d finding the current detector emits under the baseline policy'),
++        'ruleId': 'rule.d-disabled-probe', 'detectorId': real['detectors'][0]['detectorId'],
++        'subjectPath': 'package.json'}
++    matched = [{k: f[k] for k in ('fingerprint', 'ruleId', 'detectorId', 'subjectPath')}
++               for f in real['findings'] if f['matched']]
++    build('pivot-only-fingerprint', ['R-PIVOT-ONLY-FINGERPRINTS', 'R-E0-VS-E1-E3'],
++          'vectors/comparison-pivot-only-fingerprints.json', pv_base, real, 'code-regression',
++          {'baselineSide': False, 'currentSide': True},
++          synthetic=['baselineSide', 'baselineSide.detectors (prior closure)', 'pivots.E0',
++                     'pivots.E1'],
++          pivots={'E0': {'pivotRunId': synthetic_id('run', 'the committed three-way pivot Run of '
++                                                           'the prior detector over the current '
++                                                           'snapshot'),
++                         'fingerprints': matched, 'syntheticHelperOnly': True,
++                         'derivation': ('the prior detector over the same snapshot reproduces the '
++                                        'baseline set; it does not implement rule.d')},
++                  'E1': {'fingerprints': sorted(matched + [x_row],
++                                                key=lambda r: r['fingerprint'].encode()),
++                         'syntheticHelperOnly': True,
++                         'derivation': ('the current detector re-evaluated under the BASELINE '
++                                        'policy, where rule.d is enabled, emits one more '
++                                        'fingerprint on package.json')}},
++          notes={'currentPolicy': 'rule.d is disabled in the current policy, so E2..E4 lack it'})
++    by = {k: v['record']['descriptor'] for k, v in out.items()}
++    pv = by['pivot-only-fingerprint']
++    e0e3 = {
++        'requirement': 'R-E0-VS-E1-E3', 'classification': 'measured',
++        'law': ('workflows-and-surfaces section 3 pivot table + comparison-result '
++                '#/$defs/PivotPresence, pivotsAvailable and DetectorDisposition.method'),
++        'pivots': {
++            'B': 'the baseline artifact entries (a retained artifact, not an execution)',
++            'E0': 'the PRIOR detector closure executed over current source (an execution that '
++                  'needs the closure retained, trusted and runnable; a committed pivot Run)',
++            'E1': 'the current detector re-evaluated under the baseline POLICY (no execution)',
++            'E2': 'the current detector and policy re-evaluated under the baseline SCOPE',
++            'E3': 'the current detector, policy and scope re-evaluated under the baseline WAIVERS',
++            'E4': 'the current Run'},
++        'measuredFromTheDerivedRecords': {
++            'pivotOnlyScenario': {
++                'detectors': pv['detectors'], 'pivotsAvailable': pv['pivotsAvailable'],
++                'e0IsAPriorDetectorExecution': any(d['method'] == 'three-way-pivot'
++                                                   and 'pivotRunId' in d for d in pv['detectors']),
++                'e1IsAReEvaluationWithNoRun': (pv['pivotsAvailable']['E1'] == 'available'),
++                'standing': 'the E0 pivot Run and the prior closure are synthetic helper-only'},
++            'scopeOnlyScenario': {'pivotsAvailable': by['scope-policy-only']['pivotsAvailable'],
++                                  'e2Derivation': out['scope-policy-only']['premises']['pivots'][
++                                      'E2']['derivation']},
++            'unchangedScenario': {'pivotsAvailable': by['baseline-audit-unchanged'][
++                'pivotsAvailable']}},
++        'presenceNullMeans': ('null means the pivot was not bound (not-needed or unavailable); '
++                              'false means it was bound and the fingerprint was absent'),
++    }
++    out.update(admissionRows=adm, e0VsE1E3=e0e3,
++               premisesDoc={'standing': CMPL.__doc__, 'scenarios': prem_rows},
++               baselinesDoc=baselines)
++    return out
+ 
+ 
+ def four_states():

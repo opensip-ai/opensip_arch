@@ -1,0 +1,9 @@
+# Comparison view01 — staged browser implementation
+
+comparison-view.ts uses the generated current comparison panel. It displays recorded verdict, exact comparison/baseline/Run/snapshot IDs, audit profile, classification and gate counts, context changes, detector/evidence contexts, pivot availability/presence, deficiencies and provenance. Null pivot presence displays Unknown, separately from No. Missing/indeterminate comparison does not imply no regressions. Host assertions remain distinct from in-document checks.
+
+Search, classification/gate filters and25-row paging only affect embedded presentation. They preserve recorded totals and verdicts. Diagnostics retain every nested field and have separate bounded paging. All repository/source values use literal text; no link or remote lookup is created. The mounted panel is a defensive snapshot and disposal removes listeners/help.
+
+Strict TS6.0.3 compilation passes.18 private Chrome checks pass over32 current reports plus explicitly presentation-only61-entry and61-diagnostic fixtures: all nine classifications, recorded gating, unknown presence, empty/unavailable states, search/page controls, nested references, caller mutation, stale-control cleanup, hostile text, help and narrow layout. Desktop/narrow/entry screenshots inspected. Page network blocked and private Chrome closed. Raw diagnostic JSON is display only, not an export or authoritative serializer. Existing32 fixtures mostly exercise indeterminate comparisons; dense positive controls are not claimed as admitted host comparison evidence.
+
+This adds only the already inventoried comparison-view.ts and scoped CSS to history01 staged sources. It is not yet independently reviewed, mounted into the complete app or bound to final assets/host delivery. No product/source promotion or milestone completion.

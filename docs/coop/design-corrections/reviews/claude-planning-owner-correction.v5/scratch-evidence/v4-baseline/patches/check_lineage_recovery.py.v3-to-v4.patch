@@ -1,0 +1,695 @@
+--- v3/controls/check_lineage_recovery.py
++++ v4/controls/check_lineage_recovery.py
+@@ -1,18 +1,29 @@
+ #!/usr/bin/env python3
+-"""Composed PS-01 control: actual frozen owner functions x all operation cases
+-x all six journal states.
++"""Composed PS-01 control, revision 4.
+ 
+ Calls the frozen security_lifecycle_model_v1 admit_transition_intent,
+ transition_intent_digest, transition_journal_record and
+-recover_transition_journal directly. Every owner result printed here is that
+-model's own return value, not a stand-in. The companion's corrected
+-publication/recovery law is applied strictly after the owner's decision.
+-
+-Reproduces root's two v2 counterexamples as regressions.
+-
+-Design evidence only: no product code, no carrier behaviour, no qualification.
+-
+-Usage: check_lineage_recovery.py <candidate25-root> [--json]
++recover_transition_journal directly. Every owner result reported here is that
++model's own return value. The companion law is applied strictly afterwards.
++
++Sections:
++  A  root v2 counterexample regressions (invalid rollback fixtures)
++  B  the owner pair law, read off the owner
++  C  seven owner-admitted operation cases x six journal states
++  D  root v3 counterexample regressions (repeated generation, missing predecessor)
++  E  composed migrate -> rollback -> second forward selection with a retained branch
++  F  damaged predecessor, duplicate full key, unreadable markers
++  G  owner actions that decide nothing
++
++Shape admission (admit_transition_intent, an eleven-member record check) is kept
++distinct from current-state and footprint admission (recover_transition_journal
++with a namespace registry, held fence, re-acquired leases and, for a PREPARED
++store operation, the durable migrating-root footprint).
++
++Design evidence only: no product code, no carrier behaviour, no native lifecycle
++qualification.
++
++Usage: check_lineage_recovery.py <candidate25-root>
+ """
+ import importlib.util
+ import json
+@@ -24,6 +35,12 @@
+ 
+ SEC = "docs/coop/design-corrections/security"
+ FAILURES = []
++
++REGISTRY = ["ns-b", "ns-a", "ns-c"]
++MARK_A = "a" * 32          # the store selected before a transition
++MARK_B = "b" * 32          # an earlier retained store
++MARK_NEW = "e" * 32        # a newly materialised store
++MARK_F = "f" * 32          # a second newly materialised store
+ 
+ 
+ def check(condition, message):
+@@ -40,18 +57,20 @@
+     return module
+ 
+ 
+-REGISTRY = ["ns-b", "ns-a", "ns-c"]
+-MARK_A = "a" * 32          # the store selected before the transition
+-MARK_B = "b" * 32          # the ancestor at an earlier generation
+-MARK_NEW = "e" * 32        # a newly materialized store
++def rctx(journal, footprint=None):
++    """Current-state and footprint admission context, distinct from shape admission."""
++    return {"namespaceRegistry": REGISTRY, "fenceHeld": True,
++            "leasesReacquired": journal["leaseSet"], "storeFootprint": footprint}
++
++
++FENCED_PREPARED = {"old": {"present": True, "unbootstrappedReason": "RESTORED"},
++                   "new": {"dir": "migrating", "state": "PREPARED"}}
++UNFENCED_PREPARED = {"old": {"present": True, "unbootstrappedReason": None},
++                     "new": {"dir": "migrating", "state": "PREPARED"}}
+ 
+ 
+ def owner_intents(fixtures):
+-    """Six owner-admitted intents: five from the frozen fixtures, one composed.
+-
+-    The frozen fixture set has no schema-retreating core-rollback, so one is
+-    composed and then ADMITTED BY THE OWNER before use.
+-    """
++    """Seven owner-admitted intents: six frozen fixtures plus one composed."""
+     retreat = dict(fixtures["intentCoreRollback"])
+     retreat.update({"fromStateSchema": 2, "toStateSchema": 1,
+                     "fromStoreGeneration": 4, "toStoreGeneration": 3})
+@@ -71,243 +90,411 @@
+     ]
+ 
+ 
+-def lineage_for(intent):
+-    """A lawful starting lineage whose current node matches the intent's `from`.
+-
+-    Root asked for different lawful starting states per case; the state schema
+-    enum is {1, 2}, so an ancestor at the retreat target is materialised when the
+-    intent's `to` pair names one.
+-    """
+-    root = L.node(MARK_B, intent["toStoreGeneration"], intent["toStateSchema"],
+-                  None, None)
+-    current = L.node(MARK_A, intent["fromStoreGeneration"], intent["fromStateSchema"],
+-                     L.node_triple(root), "1" * 64)
+-    if (intent["fromStoreGeneration"], intent["fromStateSchema"]) == \
+-            (intent["toStoreGeneration"], intent["toStateSchema"]):
+-        # same-store: the current node IS the selected node, and it is a root here
+-        return [L.node(MARK_A, intent["fromStoreGeneration"], intent["fromStateSchema"],
+-                       None, None)]
+-    ancestor_named = (intent["toStoreGeneration"], intent["toStateSchema"])
+-    if ancestor_named[0] < intent["fromStoreGeneration"]:
+-        return [root, current]                       # the `to` pair is a real ancestor
+-    return [L.node(MARK_A, intent["fromStoreGeneration"], intent["fromStateSchema"],
+-                   None, None)]                      # forward: nothing beyond the current
+-
+-
+-def main():
+-    c25 = Path(sys.argv[1])
+-    M = load_owner(c25)
+-    fixtures = json.loads((c25 / SEC / "transition-journal-cases.v1.json").read_text())["records"]
+-
+-    # --- regression of root's two v2 counterexamples -------------------------
+-    regressions = []
++def lineage_and_markers(intent):
++    """A lawful starting lineage plus the markers the selected stores would carry."""
++    case = L.selection_case(intent)
++    frm = (intent["fromStoreGeneration"], intent["fromStateSchema"])
++    to = (intent["toStoreGeneration"], intent["toStateSchema"])
++    if case is L.SAME_STORE:
++        current = L.node(MARK_A, frm[0], frm[1], None, None)
++        return [current], L.node_triple(current), \
++            {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_A}
++    if case is L.ANCESTOR_RESELECT:
++        ancestor = L.node(MARK_B, to[0], to[1], None, None)
++        current = L.node(MARK_A, frm[0], frm[1], L.node_triple(ancestor), "1" * 64)
++        return [ancestor, current], L.node_triple(current), \
++            {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_B}
++    current = L.node(MARK_A, frm[0], frm[1], None, None)
++    return [current], L.node_triple(current), \
++        {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
++
++
++def section_a(M, fixtures):
++    rows = []
+     for label, base in (("core-rollback", "intentCoreRollback"),
+                         ("store-rollback", "intentStoreRollback")):
+         bad = dict(fixtures[base])
+         bad.update({"fromStoreGeneration": 5, "fromStateSchema": 1,
+                     "toStoreGeneration": 4, "toStateSchema": 1})
+-        refusals = M.admit_transition_intent(bad)
+-        regressions.append({"v2Label": label + " (5,1)->(4,1) mislabelled schema retreat",
+-                            "ownerRefusals": refusals})
+-        check(bool(refusals),
+-              "root counterexample no longer refuses for " + label)
+-    check(regressions[0]["ownerRefusals"] == ["TRANSITION.SAME_SCHEMA_KEEPS_STORE"],
+-          "core-rollback counterexample refusal changed")
+-    check(regressions[1]["ownerRefusals"] == ["TRANSITION.STORE_ROLLBACK_REQUIRES_SCHEMA_RETREAT"],
+-          "store-rollback counterexample refusal changed")
+-
+-    # --- the owner's pair law, read off the owner itself ---------------------
+-    pair_law = []
++        rows.append({"v2Label": label + " (5,1)->(4,1) mislabelled schema retreat",
++                     "ownerShapeRefusals": M.admit_transition_intent(bad)})
++    check(rows[0]["ownerShapeRefusals"] == ["TRANSITION.SAME_SCHEMA_KEEPS_STORE"],
++          "core-rollback v2 counterexample refusal changed")
++    check(rows[1]["ownerShapeRefusals"] ==
++          ["TRANSITION.STORE_ROLLBACK_REQUIRES_SCHEMA_RETREAT"],
++          "store-rollback v2 counterexample refusal changed")
++    return rows
++
++
++def section_b(M, fixtures):
++    rows = []
+     for op in ("core-update", "core-rollback"):
+         base = fixtures["intentUpdateSameSchema" if op == "core-update"
+                         else "intentCoreRollback"]
+-        mismatch_a = dict(base)
+-        mismatch_a.update({"fromStateSchema": 2, "toStateSchema": 2,
+-                           "fromStoreGeneration": 4, "toStoreGeneration": 5})
+-        mismatch_b = dict(base)
+-        mismatch_b.update({"fromStateSchema": 1, "toStateSchema": 2,
+-                           "fromStoreGeneration": 4, "toStoreGeneration": 4})
+-        a = M.admit_transition_intent(mismatch_a)
+-        b = M.admit_transition_intent(mismatch_b)
+-        pair_law.append({"operation": op,
+-                         "sameSchemaDifferentStore": a,
+-                         "schemaChangeSameStore": b})
+-        check("TRANSITION.SAME_SCHEMA_KEEPS_STORE" in a,
++        a = dict(base, fromStateSchema=2, toStateSchema=2,
++                 fromStoreGeneration=4, toStoreGeneration=5)
++        b = dict(base, fromStateSchema=1, toStateSchema=2,
++                 fromStoreGeneration=4, toStoreGeneration=4)
++        ra, rb = M.admit_transition_intent(a), M.admit_transition_intent(b)
++        rows.append({"operation": op, "sameSchemaDifferentStore": ra,
++                     "schemaChangeSameStore": rb})
++        check("TRANSITION.SAME_SCHEMA_KEEPS_STORE" in ra,
+               op + ": same schema must keep the store")
+-        check("TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE" in b,
++        check("TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE" in rb,
+               op + ": a schema change must select a new store")
+-
+-    # --- all operation cases x all six journal states ------------------------
++    return rows
++
++
++def section_c(M, fixtures):
+     matrix = []
+     for label, intent, expected_case in owner_intents(fixtures):
+-        refusals = M.admit_transition_intent(intent)
+-        check(refusals == [], label + ": owner refused a supposedly admitted intent: "
+-              + str(refusals))
+-        if refusals:
++        shape = M.admit_transition_intent(intent)
++        check(shape == [], label + ": owner shape-refused an admitted intent: " + str(shape))
++        if shape:
+             continue
+         digest = M.transition_intent_digest(intent)
+         journal = M.transition_journal_record(intent, REGISTRY)
+-        nodes = lineage_for(intent)
+-        current = L.node_triple(
+-            next(n for n in nodes
+-                 if (n["storeGeneration"], n["stateSchema"])
+-                 == (intent["fromStoreGeneration"], intent["fromStateSchema"])))
+-        markers = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
+-
++        nodes, current, markers = lineage_and_markers(intent)
+         case = L.selection_case(intent)
+         check(case == expected_case,
+-              label + ": expected case " + expected_case + ", got " + case)
+-
+-        pub_case, published = L.publish(intent, digest, nodes, current, markers)
+-        writes = published is not None
+-        check(writes == (case is L.FORWARD_SELECTION),
++              label + ": expected " + expected_case + ", got " + case)
++
++        pub_case, pub_refusal, pub_nodes, published = L.publish(
++            intent, digest, nodes, current, markers)
++        check(pub_refusal is None, label + ": publication refused: " + str(pub_refusal))
++        check((published is not None) == (case is L.FORWARD_SELECTION),
+               label + ": only a forward selection may publish a node")
+-        if published is not None:
+-            check(published["predecessor"] != L.node_triple(published),
+-                  label + ": published node names itself as predecessor")
++        check(not L.invariants(pub_nodes), label + ": publication broke invariants")
+ 
+         per_state = []
+         for state in M.TRANSITION_STATES:
+-            j = dict(journal, state=state)
+-            rctx = {"namespaceRegistry": REGISTRY, "fenceHeld": True,
+-                    "leasesReacquired": journal["leaseSet"],
+-                    "storeFootprint": ({"old": {"present": True,
+-                                                "unbootstrappedReason": "RESTORED"},
+-                                        "new": {"dir": "migrating", "state": "PREPARED"}}
+-                                       if state == "PREPARED" else None)}
+-            owner_result = M.recover_transition_journal(j, rctx)
+-            after_nodes = list(nodes)
+-            if owner_result["action"] in ("RESUME-COMMIT", "RELEASE-ONLY") and \
+-                    owner_result["journalStateAfter"] == "DONE" and \
+-                    case is L.FORWARD_SELECTION:
+-                pass                                  # recovery must reconstruct
+-            rec = L.recover_nodes(owner_result, intent, digest, after_nodes,
+-                                  current, markers)
++            footprint = FENCED_PREPARED if state == "PREPARED" else None
++            owner = M.recover_transition_journal(dict(journal, state=state),
++                                                 rctx(journal, footprint))
++            rec = L.recover_nodes(owner, intent, digest, nodes, current, markers)
+             problems = L.invariants(rec["nodes"])
+-            check(not any("self-predecessor" in p for p in problems),
+-                  label + "/" + state + ": self-predecessor node produced")
+-            check(not any("cyclic" in p for p in problems),
+-                  label + "/" + state + ": cyclic ancestry produced")
+-
+-            # Origins must be stable for the non-forward cases.
++            check(not problems, label + "/" + state + ": invariants broken " + str(problems))
++            check(rec["refusal"] is None,
++                  label + "/" + state + ": unexpected refusal " + str(rec["refusal"]))
+             if case is not L.FORWARD_SELECTION and rec.get("node") is not None:
+-                original = next(n for n in nodes
+-                                if L.node_triple(n) == L.node_triple(rec["node"]))
++                original, _d = L.find_at_triple(nodes, L.node_triple(rec["node"]))
+                 check(rec["node"]["predecessor"] == original["predecessor"]
+                       and rec["node"]["selectedByIntentDigest"]
+                       == original["selectedByIntentDigest"],
+                       label + "/" + state + ": recovery rewrote an existing origin")
+                 check(rec["nodeAction"] == "validated-existing",
+-                      label + "/" + state + ": non-forward case must only validate")
+-            if case is not L.FORWARD_SELECTION:
+-                check(rec["nodeAction"] != "reconstructed-and-written",
+-                      label + "/" + state + ": a non-forward case must never reconstruct")
+-
+-            per_state.append({"journalState": state,
+-                              "ownerAction": owner_result["action"],
+-                              "ownerJournalStateAfter": owner_result["journalStateAfter"],
+-                              "ownerRefusal": owner_result["refusal"],
++                      label + "/" + state + ": non-forward must only validate")
++            check(not (case is not L.FORWARD_SELECTION
++                       and rec["nodeAction"] == "reconstructed-and-written"),
++                  label + "/" + state + ": a non-forward case reconstructed")
++            per_state.append({"journalState": state, "ownerAction": owner["action"],
++                              "ownerJournalStateAfter": owner["journalStateAfter"],
+                               "companionNodeAction": rec["nodeAction"],
+                               "companionRefusal": rec["refusal"],
+-                              "nodeCountAfter": len(rec["nodes"]),
+-                              "invariantProblems": problems})
+-
+-        # Missing ancestry for a non-forward case must quarantine, never fabricate.
+-        missing_note = None
++                              "nodeCountAfter": len(rec["nodes"])})
++
++        # Missing selected node in a non-forward case must quarantine, not fabricate.
++        missing = None
+         if case is not L.FORWARD_SELECTION:
+             stripped = [n for n in nodes
+-                        if (n["storeGeneration"], n["stateSchema"])
+-                        != (intent["toStoreGeneration"], intent["toStateSchema"])]
+-            owner_done = M.recover_transition_journal(dict(journal, state="COMMITTED"),
+-                                                      {"namespaceRegistry": REGISTRY,
+-                                                       "fenceHeld": True,
+-                                                       "leasesReacquired": journal["leaseSet"],
+-                                                       "storeFootprint": None})
+-            rec = L.recover_nodes(owner_done, intent, digest, stripped, current, markers)
++                        if L._key(L.node_triple(n)) != L._key(
++                            L.selected_triple(intent, markers))]
++            owner = M.recover_transition_journal(dict(journal, state="COMMITTED"),
++                                                 rctx(journal))
++            rec = L.recover_nodes(owner, intent, digest, stripped, current, markers)
+             check(rec["refusal"] == L.QUARANTINE,
+-                  label + ": missing selected node must quarantine, not fabricate")
+-            check(rec.get("nodeAction") != "reconstructed-and-written",
++                  label + ": missing selected node must quarantine")
++            check(rec["nodeAction"] != "reconstructed-and-written",
+                   label + ": missing selected node must not be reconstructed")
+-            missing_note = {"refusal": rec["refusal"], "rationale": rec["rationale"]}
++            missing = {"refusal": rec["refusal"], "rationale": rec["rationale"]}
+ 
+         matrix.append({"case": label, "operation": intent["operation"],
+                        "from": [intent["fromStoreGeneration"], intent["fromStateSchema"]],
+                        "to": [intent["toStoreGeneration"], intent["toStateSchema"]],
+-                       "ownerAdmitted": refusals == [], "selectionCase": case,
+-                       "publishesNode": writes, "states": per_state,
+-                       "missingSelectedNode": missing_note})
+-
+-    # --- root's exact same-store scenario, now correct ------------------------
+-    repair = fixtures["intentRepair"]
+-    digest = M.transition_intent_digest(repair)
+-    nodes = lineage_for(repair)
++                       "ownerShapeAdmitted": True, "selectionCase": case,
++                       "publishesNode": published is not None,
++                       "states": per_state, "missingSelectedNode": missing})
++    return matrix
++
++
++def section_d(M, fixtures):
++    """Root's v3 counterexamples, now expected to behave."""
++    intent = fixtures["intentStoreMigrate"]
++    check(M.admit_transition_intent(intent) == [], "intentStoreMigrate must be admitted")
++    digest = M.transition_intent_digest(intent)
++    journal = M.transition_journal_record(intent, REGISTRY)
++    root = L.node(MARK_A, 3, 1, None, None)
++    retained = L.node(MARK_B, 4, 2, L.node_triple(root), "1" * 64)
++    nodes = [root, retained]
++    check(not L.invariants(nodes), "the retained-branch lineage must start clean")
++    markers = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
++
++    repeated = []
++    for state in ("LEASED", "COMMITTED"):
++        owner = M.recover_transition_journal(dict(journal, state=state), rctx(journal))
++        rec = L.recover_nodes(owner, intent, digest, nodes, L.node_triple(root), markers)
++        repeated.append({"state": state, "ownerAction": owner["action"],
++                         "ownerJournalStateAfter": owner["journalStateAfter"],
++                         "companionNodeAction": rec["nodeAction"],
++                         "companionRefusal": rec["refusal"],
++                         "nodeCountAfter": len(rec["nodes"]),
++                         "rationale": rec["rationale"],
++                         "invariantProblems": L.invariants(rec["nodes"])})
++        check(rec["refusal"] is None,
++              "retained branch at the same numeric pair must not refuse at " + state)
++        check(not L.invariants(rec["nodes"]),
++              "retained branch handling broke invariants at " + state)
++    check(repeated[0]["nodeCountAfter"] == 2, "ABORT must write no node")
++    check(repeated[1]["nodeCountAfter"] == 3,
++          "a settled forward selection must write its own node beside the retained branch")
++
++    owner = M.recover_transition_journal(dict(journal, state="COMMITTED"), rctx(journal))
++    missing = L.recover_nodes(owner, intent, digest, [], L.node_triple(root), markers)
++    check(missing["refusal"] == L.QUARANTINE,
++          "a forward reconstruction with an absent predecessor must refuse")
++    check(len(missing["nodes"]) == 0, "a refused reconstruction must write nothing")
++    check(not any("broken" in p for p in L.invariants(missing["nodes"]) if p.startswith("broken")),
++          "a refused reconstruction must not leave broken ancestry")
++    return {"retainedBranchRepeatedGeneration": repeated,
++            "absentPredecessor": {"refusal": missing["refusal"],
++                                  "rationale": missing["rationale"],
++                                  "nodesWritten": len(missing["nodes"])}}
++
++
++def section_e(M, fixtures):
++    """Composed migrate -> rollback -> second forward selection, retained branch kept."""
++    steps = []
++    migrate = fixtures["intentStoreMigrate"]                       # (3,1) -> (4,2)
++    rollback = dict(fixtures["intentStoreRollback"],
++                    fromStoreGeneration=4, toStoreGeneration=3,
++                    fromStateSchema=2, toStateSchema=1)            # (4,2) -> (3,1)
++    second = dict(fixtures["intentStoreMigrate"],
++                  fromStoreGeneration=3, toStoreGeneration=5,
++                  preconditionGeneration=9)                        # (3,1) -> (5,2)
++    for name, intent in (("migrate", migrate), ("rollback", rollback),
++                         ("second-migrate", second)):
++        check(M.admit_transition_intent(intent) == [],
++              name + " must be owner shape-admitted: "
++              + str(M.admit_transition_intent(intent)))
++
++    nodes = [L.node(MARK_A, 3, 1, None, None)]
+     current = L.node_triple(nodes[0])
+-    journal = M.transition_journal_record(repair, REGISTRY)
+-    owner_done = M.recover_transition_journal(
+-        dict(journal, state="COMMITTED"),
+-        {"namespaceRegistry": REGISTRY, "fenceHeld": True,
+-         "leasesReacquired": journal["leaseSet"], "storeFootprint": None})
+-    rec = L.recover_nodes(owner_done, repair, digest, nodes,
+-                          current, {"predecessorStoreRoot": MARK_A,
+-                                    "selectedStoreRoot": MARK_A})
+-    check(rec["nodeAction"] == "validated-existing",
+-          "same-store repair must validate the existing node")
+-    check(len(rec["nodes"]) == len(nodes), "same-store repair must write no node")
+-    check(not L.invariants(rec["nodes"]), "same-store repair must leave invariants clean")
+-    root_case = {"ownerAdmitted": M.admit_transition_intent(repair) == [],
+-                 "ownerAction": owner_done["action"],
++
++    # 1. migrate (3,1) -> (4,2), new store MARK_NEW
++    d1 = M.transition_intent_digest(migrate)
++    j1 = M.transition_journal_record(migrate, REGISTRY)
++    m1 = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
++    own1 = M.recover_transition_journal(dict(j1, state="COMMITTED"), rctx(j1))
++    r1 = L.recover_nodes(own1, migrate, d1, nodes, current, m1)
++    check(r1["refusal"] is None and r1["nodeAction"] == "reconstructed-and-written",
++          "step 1 migrate must write its node")
++    nodes = r1["nodes"]
++    current = L.selected_triple(migrate, m1)
++    steps.append({"step": "migrate (3,1)->(4,2)", "ownerAction": own1["action"],
++                  "companion": r1["nodeAction"], "nodes": len(nodes),
++                  "current": current})
++
++    # 2. store-rollback (4,2) -> (3,1), re-selecting the retained root
++    d2 = M.transition_intent_digest(rollback)
++    j2 = M.transition_journal_record(rollback, REGISTRY)
++    m2 = {"predecessorStoreRoot": MARK_NEW, "selectedStoreRoot": MARK_A}
++    own2 = M.recover_transition_journal(dict(j2, state="COMMITTED"), rctx(j2))
++    r2 = L.recover_nodes(own2, rollback, d2, nodes, current, m2)
++    check(r2["refusal"] is None and r2["nodeAction"] == "validated-existing",
++          "step 2 rollback must validate the retained root, not write: " + str(r2["refusal"]))
++    check(r2["originPreserved"] == {"predecessor": None, "selectedByIntentDigest": None},
++          "step 2 must preserve the retained root's origin")
++    check(len(r2["nodes"]) == len(nodes), "step 2 must write no node")
++    current = L.selected_triple(rollback, m2)
++    steps.append({"step": "store-rollback (4,2)->(3,1)", "ownerAction": own2["action"],
++                  "companion": r2["nodeAction"], "nodes": len(r2["nodes"]),
++                  "originPreserved": r2["originPreserved"], "current": current})
++
++    # 3. second forward selection (3,1) -> (5,2) while (4,2) is a retained branch
++    d3 = M.transition_intent_digest(second)
++    j3 = M.transition_journal_record(second, REGISTRY)
++    m3 = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_F}
++    own3 = M.recover_transition_journal(dict(j3, state="COMMITTED"), rctx(j3))
++    r3 = L.recover_nodes(own3, second, d3, r2["nodes"], current, m3)
++    check(r3["refusal"] is None and r3["nodeAction"] == "reconstructed-and-written",
++          "step 3 must write a second forward node: " + str(r3["refusal"]))
++    check(len(r3["nodes"]) == 3, "step 3 must leave three nodes")
++    problems = L.invariants(r3["nodes"])
++    check(not problems, "the branched lineage must stay clean: " + str(problems))
++    retained = [n for n in r3["nodes"] if n["storeInstanceId"] == MARK_NEW]
++    check(retained and retained[0]["selectedByIntentDigest"] == d1,
++          "the retained branch must keep its original origin digest")
++    steps.append({"step": "second migrate (3,1)->(5,2)", "ownerAction": own3["action"],
++                  "companion": r3["nodeAction"], "nodes": len(r3["nodes"]),
++                  "retainedBranchOriginUnchanged": bool(retained)
++                  and retained[0]["selectedByIntentDigest"] == d1,
++                  "invariantProblems": problems})
++    return {"steps": steps, "finalLineage": r3["nodes"]}
++
++
++def section_f(M, fixtures):
++    """Damaged predecessor, duplicate full key, unreadable markers."""
++    intent = fixtures["intentStoreMigrate"]
++    digest = M.transition_intent_digest(intent)
++    journal = M.transition_journal_record(intent, REGISTRY)
++    owner = M.recover_transition_journal(dict(journal, state="COMMITTED"), rctx(journal))
++    root = L.node(MARK_A, 3, 1, None, None)
++    good = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
++    rows = []
++
++    def case(name, nodes, markers, expect_refusal, expect_written):
++        rec = L.recover_nodes(owner, intent, digest, nodes, L.node_triple(root), markers)
++        ok = ((rec["refusal"] == L.QUARANTINE) == expect_refusal) and \
++             ((rec["nodeAction"] == "reconstructed-and-written") == expect_written)
++        rows.append({"case": name, "refusal": rec["refusal"],
++                     "nodeAction": rec["nodeAction"],
++                     "nodesWritten": len(rec["nodes"]) - len(nodes),
++                     "rationale": rec.get("rationale"), "ok": ok})
++        check(ok, "section F case " + name + ": refusal=" + str(rec["refusal"])
++              + " action=" + str(rec["nodeAction"]))
++        if expect_refusal:
++            check(len(rec["nodes"]) == len(nodes),
++                  "section F case " + name + " must write nothing on refusal")
++
++    case("absent predecessor", [], good, True, False)
++    damaged = L.node(MARK_A, 3, 1, L.triple(MARK_B, 2, 1), "9" * 64)
++    case("predecessor names a node that does not exist", [damaged], good, True, False)
++    # Duplicates are exercised where the decision path actually dereferences a
++    # key: the predecessor lookup and the target lookup.
++    dup_pred_same = [L.node(MARK_A, 3, 1, None, None), L.node(MARK_A, 3, 1, None, None)]
++    case("duplicate predecessor key, identical contents", dup_pred_same, good,
++         True, False)
++    dup_pred_diff = [L.node(MARK_A, 3, 1, None, None),
++                     L.node(MARK_A, 3, 1, L.triple(MARK_B, 2, 1), "7" * 64)]
++    case("duplicate predecessor key, disagreeing contents", dup_pred_diff, good,
++         True, False)
++    target = L.node(MARK_NEW, 4, 2, L.triple(MARK_A, 3, 1), "8" * 64)
++    dup_target_diff = [root, target, dict(target, selectedByIntentDigest="9" * 64)]
++    case("duplicate target key, disagreeing contents", dup_target_diff, good,
++         True, False)
++    benign = L.node(MARK_B, 9, 2, L.triple(MARK_A, 3, 1), "5" * 64)
++    case("duplicate key on an unrelated branch, identical contents",
++         [root, benign, dict(benign)], good, False, True)
++    existing_target = L.node(MARK_NEW, 4, 2, L.triple(MARK_A, 3, 1), "8" * 64)
++    case("target key exists with a different origin", [root, existing_target],
++         good, True, False)
++    case("selected marker missing", [root],
++         {"predecessorStoreRoot": MARK_A}, True, False)
++    case("selected marker malformed", [root],
++         {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": "zz"}, True, False)
++    case("forward markers name the same store", [root],
++         {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_A}, True, False)
++
++    # An ancestor re-selection must not accept a same-numeric store off the chain.
++    rollback = fixtures["intentStoreRollback"]                      # (4,2) -> (3,1)
++    rdigest = M.transition_intent_digest(rollback)
++    rjournal = M.transition_journal_record(rollback, REGISTRY)
++    rowner = M.recover_transition_journal(dict(rjournal, state="COMMITTED"),
++                                          rctx(rjournal))
++    chain_root = L.node(MARK_B, 3, 1, None, None)
++    cur = L.node(MARK_A, 4, 2, L.node_triple(chain_root), "1" * 64)
++    off_chain = L.node(MARK_F, 3, 1, L.node_triple(cur), "2" * 64)
++    rec = L.recover_nodes(rowner, rollback, rdigest, [chain_root, cur, off_chain],
++                          L.node_triple(cur),
++                          {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_F})
++    rows.append({"case": "ancestor reselect naming an off-chain store at the same pair",
++                 "refusal": rec["refusal"], "nodeAction": rec["nodeAction"],
++                 "rationale": rec.get("rationale"),
++                 "ok": rec["refusal"] == L.QUARANTINE})
++    check(rec["refusal"] == L.QUARANTINE,
++          "an off-chain store at the same numeric pair must not qualify as an ancestor")
++
++    rec_ok = L.recover_nodes(rowner, rollback, rdigest, [chain_root, cur],
++                             L.node_triple(cur),
++                             {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_B})
++    rows.append({"case": "ancestor reselect naming the verified chain member",
++                 "refusal": rec_ok["refusal"], "nodeAction": rec_ok["nodeAction"],
++                 "ok": rec_ok["refusal"] is None
++                 and rec_ok["nodeAction"] == "validated-existing"})
++    check(rec_ok["refusal"] is None and rec_ok["nodeAction"] == "validated-existing",
++          "an on-chain ancestor must validate")
++    return rows
++
++
++def section_g(M, fixtures):
++    """Owner actions that decide nothing must leave the companion silent."""
++    intent = fixtures["intentStoreMigrate"]
++    digest = M.transition_intent_digest(intent)
++    journal = M.transition_journal_record(intent, REGISTRY)
++    root = L.node(MARK_A, 3, 1, None, None)
++    conflicting = L.node(MARK_NEW, 4, 2, L.node_triple(root), "8" * 64)
++    nodes = [root, conflicting]
++    markers = {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": MARK_NEW}
++    rows = []
++    contexts = [
++        ("fence not held", {"namespaceRegistry": REGISTRY, "fenceHeld": False,
++                            "leasesReacquired": journal["leaseSet"],
++                            "storeFootprint": None}),
++        ("lease set not re-acquired", {"namespaceRegistry": REGISTRY, "fenceHeld": True,
++                                       "leasesReacquired": ["ns-a"],
++                                       "storeFootprint": None}),
++        ("registry differs", {"namespaceRegistry": ["ns-a"], "fenceHeld": True,
++                              "leasesReacquired": journal["leaseSet"],
++                              "storeFootprint": None}),
++        ("PREPARED store operation without a footprint",
++         {"namespaceRegistry": REGISTRY, "fenceHeld": True,
++          "leasesReacquired": journal["leaseSet"], "storeFootprint": None}),
++    ]
++    for name, ctx in contexts:
++        state = "PREPARED" if name.startswith("PREPARED") else "COMMITTED"
++        owner = M.recover_transition_journal(dict(journal, state=state), ctx)
++        rec = L.recover_nodes(owner, intent, digest, nodes, L.node_triple(root), markers)
++        ok = (rec["nodeAction"] == "no-decision" and rec["refusal"] is None
++              and rec["case"] is None and len(rec["nodes"]) == len(nodes))
++        rows.append({"context": name, "ownerAction": owner["action"],
++                     "ownerRefusal": owner["refusal"],
++                     "companionNodeAction": rec["nodeAction"],
++                     "companionRefusal": rec["refusal"],
++                     "companionInspectedNodes": rec["case"] is not None, "ok": ok})
++        check(ok, "section G " + name + ": companion must make no decision, got "
++              + str(rec["nodeAction"]) + "/" + str(rec["refusal"]))
++
++    # Unfenced PREPARED store operation is an owner ABORT, not a no-decision.
++    owner = M.recover_transition_journal(dict(journal, state="PREPARED"),
++                                         rctx(journal, UNFENCED_PREPARED))
++    rec = L.recover_nodes(owner, intent, digest, [root], L.node_triple(root), markers)
++    rows.append({"context": "PREPARED store operation, old store not fenced",
++                 "ownerAction": owner["action"],
+                  "companionNodeAction": rec["nodeAction"],
+-                 "selfPredecessorProduced": any(
+-                     n["predecessor"] == L.node_triple(n) for n in rec["nodes"]),
+-                 "originPreserved": rec.get("originPreserved"),
+-                 "v2Defect": "unconditional reconstruction produced predecessor == self"}
+-    check(root_case["selfPredecessorProduced"] is False,
+-          "the v2 self-predecessor defect must not reproduce")
+-
+-    # --- retry after abort, and replay after commit --------------------------
+-    migrate = fixtures["intentStoreMigrate"]
+-    mdigest = M.transition_intent_digest(migrate)
+-    mnodes = lineage_for(migrate)
+-    mcurrent = L.node_triple(mnodes[0])
+-    mjournal = M.transition_journal_record(migrate, REGISTRY)
+-    aborted = M.recover_transition_journal(
+-        dict(mjournal, state="PREPARED"),
+-        {"namespaceRegistry": REGISTRY, "fenceHeld": True,
+-         "leasesReacquired": mjournal["leaseSet"],
+-         "storeFootprint": {"old": {"present": True, "unbootstrappedReason": None},
+-                            "new": {"dir": "migrating", "state": "PREPARED"}}})
+-    rec_abort = L.recover_nodes(aborted, migrate, mdigest, mnodes, mcurrent,
+-                                {"predecessorStoreRoot": MARK_A,
+-                                 "selectedStoreRoot": MARK_NEW})
+-    check(aborted["action"] == "ABORT", "unfenced PREPARED store op must abort")
+-    check(len(rec_abort["nodes"]) == len(mnodes), "an aborted attempt must write no node")
+-    _case, retried = L.publish(migrate, mdigest, mnodes, mcurrent,
+-                               {"predecessorStoreRoot": MARK_A, "selectedStoreRoot": "f" * 32})
+-    after_retry = mnodes + [retried]
+-    check(not L.invariants(after_retry), "a lawful retry must keep invariants clean")
+-    retry = {"ownerAbortAction": aborted["action"],
+-             "nodesAfterAbort": len(rec_abort["nodes"]),
+-             "retryNodeKey": [retried["storeInstanceId"], retried["storeGeneration"],
+-                              retried["stateSchema"]],
+-             "retryPredecessorIsSelf": retried["predecessor"] == L.node_triple(retried),
+-             "invariantsAfterRetry": L.invariants(after_retry)}
+-
+-    result = {"control": "check_lineage_recovery",
+-              "ownerModel": {"path": SEC + "/security_lifecycle_model_v1.py",
+-                             "functionsCalled": ["admit_transition_intent",
+-                                                 "transition_intent_digest",
+-                                                 "transition_journal_record",
+-                                                 "recover_transition_journal"]},
+-              "rootCounterexampleRegressions": regressions,
+-              "ownerPairLaw": pair_law,
+-              "sameStoreRepairFixed": root_case,
+-              "operationStateMatrix": matrix,
+-              "retryTrace": retry,
+-              "failures": FAILURES,
+-              "status": "PASS" if not FAILURES else "FAIL",
+-              "limits": ("Owner results are the frozen model's own returns. The companion "
+-                         "law is a design reference: no product code, no carrier behaviour, "
+-                         "no qualification.")}
++                 "companionRefusal": rec["refusal"],
++                 "ok": owner["action"] == "ABORT" and rec["refusal"] is None})
++    check(owner["action"] == "ABORT" and rec["refusal"] is None,
++          "an unfenced PREPARED store operation must abort with no companion refusal")
++    return rows
++
++
++def main():
++    c25 = Path(sys.argv[1])
++    M = load_owner(c25)
++    fixtures = json.loads(
++        (c25 / SEC / "transition-journal-cases.v1.json").read_text())["records"]
++    result = {
++        "control": "check_lineage_recovery",
++        "ownerModel": {
++            "path": SEC + "/security_lifecycle_model_v1.py",
++            "shapeAdmission": "admit_transition_intent over the eleven-member record",
++            "stateAndFootprintAdmission":
++                "recover_transition_journal over namespaceRegistry, fenceHeld, "
++                "leasesReacquired and the durable storeFootprint",
++            "otherFunctions": ["transition_intent_digest", "transition_journal_record"]},
++        "A_rootV2Regressions": section_a(M, fixtures),
++        "B_ownerPairLaw": section_b(M, fixtures),
++        "C_operationStateMatrix": section_c(M, fixtures),
++        "D_rootV3Regressions": section_d(M, fixtures),
++        "E_migrateRollbackSecondForward": section_e(M, fixtures),
++        "F_damagedAndDuplicate": section_f(M, fixtures),
++        "G_ownerActionsThatDecideNothing": section_g(M, fixtures),
++        "failures": FAILURES,
++    }
++    result["status"] = "PASS" if not FAILURES else "FAIL"
++    result["limits"] = ("Owner results are the frozen model's own returns. The companion "
++                        "law is a design reference: no product code, no carrier behaviour, "
++                        "no native lifecycle qualification.")
+     print(json.dumps(result, indent=1))
+     return 0 if not FAILURES else 1
+ 

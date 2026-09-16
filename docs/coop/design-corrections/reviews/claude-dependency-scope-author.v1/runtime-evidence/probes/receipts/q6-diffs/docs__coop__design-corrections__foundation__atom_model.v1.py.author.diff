@@ -1,0 +1,43 @@
+--- frozen35/docs/coop/design-corrections/foundation/atom_model.v1.py
++++ successor/docs/coop/design-corrections/foundation/atom_model.v1.py
+@@ -1091,6 +1091,16 @@
+     containing those native ids. Different native kind: whole-source search of (S, T) (all
+     partitions). Never take covs[0]. Unrelated source-subject partitions are not AND-composed
+     into the current view. current_subjects is None for whole-source attestation (all S owed).
++
++    Same kind, the ONLY scopes that can pair are those `_scopes_exact` selects at the exact
++    (dependency relation, dependency rung, S), paired by mapping or commitment exactly as outgoing
++    pairs; there is no mapped-scope fallback (contract section 4). An earlier revision, when no exact
++    scope existed, followed `coverageScopes` to whatever scope record it named and checked only
++    subject membership, so a scope with an absent, null or different sourceUniverse, relation or
++    resolution supplied the dependency and closed `all-covered`. Every scope at the exact coordinates
++    is already in `_scopes_exact`, so that fallback could only pair a scope outside the published
++    selection. Such a scope is now ignored as absent, not refused; a SELECTED scope still refuses on
++    its carrier when paired.
+     """
+     covs = _coverages_exact(inputs, drel, drung, source_u, want_t)
+     if not covs:
+@@ -1099,21 +1109,11 @@
+     if current_subjects is None or (current_kind and dep_kind != current_kind):
+         return covs
+     paired = []
+-    dep_scopes = _scopes_exact(inputs, drel, drung, source_u)
+-    for sid, sc in dep_scopes:
++    for sid, sc in _scopes_exact(inputs, drel, drung, source_u):
+         if not any(_scope_contains(sc, nid) for nid in current_subjects):
+             continue
+         paired.extend(_pair_scope_coverages(sid, sc, covs, inputs))
+-    if dep_scopes:
+-        return _unique_pairs(paired)
+-    mapping = inputs.get("coverageScopes") or {}
+-    mapped = []
+-    for cid, cov in covs:
+-        sid = mapping.get(cid)
+-        sc = (inputs.get("scopes") or {}).get(sid) if sid else None
+-        if sc is not None and any(_scope_contains(sc, nid) for nid in current_subjects):
+-            mapped.append((cid, cov))
+-    return _unique_pairs(mapped)
++    return _unique_pairs(paired)
+ 
+ 
+ def _build_sufficiency_view(rel: str, min_rung: str, source_u: str, target_u: str | None,

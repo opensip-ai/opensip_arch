@@ -1,0 +1,3798 @@
+--- a/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ b/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -269,7 +269,7 @@
+ `derive-inventory-view` stage declares `outputDomains: ["view"]`. Do not add
+ target-attribution to a view-only stage. Do not add a new protocol3 frame name.
+ Occupancy is a negotiated FactBatchV3 payload (token `target-attribution-v2`).
+-Historical FactBatchV2/FactCandidateV1 stay closed when the token is absent.
++The historical per-language FactBatch (typescript-semantic `delivery.v2` `FactBatchV1`, rust-semantic `FactBatchV2`) and `FactCandidateV1` stay closed when the token is absent.
+ 
+ | Step | Actor | Contract |
+ |---|---|---|
+@@ -287,7 +287,7 @@
+ # optional operationalCapture is not Run identity
+ ```
+ 
+-Architecture is incorporated intended design. Target-attribution is **not** a remaining stage-`outputDomains` extension. View-only stages stay `outputDomains: ["view"]`. FactBatch remains the ANALYZING frame; occupancy is a negotiated payload version, not a silent FactBatchV2 field.
++Architecture is incorporated intended design. Target-attribution is **not** a remaining stage-`outputDomains` extension. View-only stages stay `outputDomains: ["view"]`. FactBatch remains the ANALYZING frame; occupancy is a negotiated payload version, not a silent field of either historical FactBatch payload.
+ 
+ ## 8. Synthetic host-capture helper
+ 
+--- a/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
++++ b/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
+@@ -106,7 +106,8 @@
+     "after fact2 mint into hostCapture.hostDerivedRefs domain=target-attribution; "
+     "FactBatch.stageId remains C-2 text correlated via DispatchBindingV1; "
+     "incoming-search remains host-derived selectedRefs via hostDerivedRefs; "
+-    "FactCandidateV1/FactBatchV2 stay closed when token target-attribution-v2 is absent",
++    "FactCandidateV1 and the historical per-language FactBatch (typescript-semantic delivery.v2 FactBatchV1, "
++    "rust-semantic FactBatchV2) stay closed when token target-attribution-v2 is absent",
+     "execution_input_account: STOP iterating hostCapture.retainedObjectKeys/retainedBlobDigests "
+     "(removed from the semantic record). Pass store_pointers=promised_pointers(...)['store_pointers'] "
+     "derived from selectedRefs plus owner references; do not hash or require the ambient store census",
+--- a/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json
++++ b/docs/coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json
+@@ -135,7 +135,7 @@
+       "sharedTable": "One intended mapping for every language mode that can emit resolved binary-id facts. Portable occupancy identity (file LogicalPath / packageName+packageManifestPath / symbol SubjectIdV1) stays distinct from opaque payload SubjectIdV1.",
+       "modes": {
+         "ts-tsconfig / js-allowjs / js-synthesized": {
+-          "worker": "typescript-semantic protocol major 2. Unchanged frames.",
++          "worker": "typescript-semantic protocol major 2 (native-evidence 9.4: TypeScriptHelloV2/TypeScriptHelloAckV2). Frame names unchanged; FactBatch payload is FactBatchV3 when target-attribution-v2 is negotiated, otherwise historical delivery.v2 FactBatchV1.",
+           "wrapper": "In-worker wrapper emits OccupancyCompanionV1 while encoding the corresponding opaque candidate payload, before FactBatch emission. Omit candidates the compiler cannot attribute, or report unknown occupancy.",
+           "fileFirstParty": "compiler resolved a first-party program file whose inventory nativeSubjectId is LogicalPath P: occupancy=first-party, kind=file, evaluationNativeId=P, logicalPath=null. evaluationNativeId is the inventory spelling, NOT the opaque payload string (except the accidental C15 case where inventory N already equals SubjectIdV1 and therefore P equals targetNativeId).",
+           "fileExternal": "compiler resolved outside first-party inventory: occupancy=external, kind=file, evaluationNativeId=null, logicalPath MAY be a non-authoritative hint",
+@@ -146,7 +146,7 @@
+           "syntacticRungs": "omit. imports@syntactic-specifier, references@syntactic-name-match, calls@syntactic-callee-name have no occupancy mapping"
+         },
+         "rust-cargo / rust-cargo-prepared": {
+-          "worker": "rust-semantic protocol major 3. Unchanged frames including FactBatch and CoverageV3.",
++          "worker": "rust-semantic protocol major 3 (native-evidence 9.1: HelloV3/HelloAckV3). Frame names unchanged including FactBatch and CoverageV3; FactBatch payload is FactBatchV3 when target-attribution-v2 is negotiated, otherwise historical rust-provider-protocol.v2 FactBatchV2.",
+           "wrapper": "In-worker Rust wrapper emits the same occupancy companion while encoding the rustc/cargo-resolved candidate payload.",
+           "fileFirstParty": "first-party crate source file in inventory: occupancy=first-party, kind=file, evaluationNativeId=inventory LogicalPath",
+           "packageFirstParty": "first-party workspace package: occupancy=first-party, kind=package, evaluationNativeId=packageName, packageManifestPath=row.path",
+--- a/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py
++++ b/docs/coop/design-corrections/foundation/provider_attribution_return_model.v2.py
+@@ -315,6 +315,13 @@
+ 
+ 
+ def _token_gate(batch, negotiated_tokens: list):
++    """Occupancy-capture gate only.
++
++    Token absent: nothing is captured, and a FactBatchV3-shaped batch refuses. This is NOT
++    admission of the historical payload (typescript-semantic delivery.v2 FactBatchV1 or
++    rust-semantic FactBatchV2); that wire law is native/provider_wire_model.v1.py
++    admit_fact_batch, and a batch this gate omits has not been validated by it.
++    """
+     tokens = list(negotiated_tokens or [])
+     if TOKEN not in tokens:
+         if batch is not None and isinstance(batch, dict) and batch.get("schemaVersion") == 3:
+@@ -324,7 +331,7 @@
+             "records": [],
+             "hostDerivedRefs": [],
+             "blobs": {},
+-            "delivery": "unnegotiated-fact-batch-v2",
++            "delivery": "unnegotiated-historical-fact-batch",
+         }
+     if batch is None:
+         return {
+--- a/docs/coop/design-corrections/native/README.md
++++ b/docs/coop/design-corrections/native/README.md
+@@ -38,6 +38,8 @@
+ |---|---|
+ | `native_evidence_model.v2.py` | reference model; imports `../foundation/canonical.py` (exact parse/canonical/H), `../foundation/identity-model.py` (`import2` identifier) and `../discovery-defaults.py` (the ONE shared discovery rule, including the boundary prefix rule); `discover_units`/`assign_membership`/`unit_scope_descriptor` consume the security instrument's `AdmittedBoundaryInventoryV1` (U-8); validates workflow payloads/wrapper records against the pinned workflow schema documents through a `referencing` closure (no network) |
+ | `native-evidence.schemas.v2.json` | 100 closed Draft 2020-12 records (native payloads, units v2, the TypeScript native context family `TypeScriptNativeContextV2`/`TypeScriptToolchainIdentityV1`/`TypeScriptToolClosureV1`/`TypeScriptConfigProjectionV2`, `SubjectScopeCommitmentV1`, `CoverageAdmissionV1`, `NativeContextAdmissionV1`, `UnitDiscoveryV1`/`PrunedTreeV1`/`UnitBoundariesV1`/`AdmittedBoundaryInventoryV1`, generated-file rows, import registry rows, context, coverage, protocol, matrix, stage authority) |
++| `provider-handshake.schemas.v1.json` | closed field-level provider handshake records: `TypeScriptHelloV2`/`TypeScriptHelloAckV2`/`TypeScriptProtocolLimitsV1` (typescript-semantic major 2), `HelloV3`/`HelloAckV3`/`ExpectedRustIdentityV3`/`ProtocolLimitsV3` (rust-semantic major 3, superseding the same-named definitions of the registered bundle), historical `TypeScriptFactBatchV1Vector`/`RustFactBatchV2Vector`, and the `x-opensip-wire-law` binding rules |
++| `provider_wire_model.v1.py` | wire reference loaded by the model: executes the handshake and FactBatch joins a schema cannot express (descriptor digests and fields, identity/token/identityVersions echoes, contract digest, limit CBOR equality, candidate CBOR projection, TypeScript batch commitment); frames nothing and qualifies no worker |
+ | `native-cases.v2.json` | 132 hand-authored cases (46 positive, 86 negative/adversarial) with the F1–F12, R1–R7, PR-*, PR2-* and CB-* map |
+ | `check_native_evidence.v2.py` | pin verification, exact typed admission + schema validation, case runner, matrix validation, report writer |
+ | `native-capability-matrix.v2.json` | 60 cells: 10 capabilities × 6 language modes over the four machine platform ids (`linux-x86_64-gnu`, `linux-aarch64-gnu`, `macos-aarch64`, `macos-x86_64`, the security S8 vocabulary); platform-invariant design, no cell qualified |
+@@ -70,6 +72,12 @@
+ | `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.wireSchema.definitions.CoverageResultV1.completenessRule` | superseded (`CoverageResultV3`, five-state resolution completeness) | §4.3 |
+ | `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.repositoryExecution.preparedOwner`, `$.repositoryExecution.forbidden` | relabeled (design invariant, not confinement; worker executes nothing) | §5.3, §5.5 |
+ | `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.wireSchema.definitions.RepositoryResolutionV2`, `...CoverageResultV2`, `$.wireSchema.payloadSchemas.UnavailableV2.fields.reason`, `$.limits`, `$.orderingAndStateMachine.stateRecord.phaseValues` | superseded (protocol major 3, identity negotiation) | §9 |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.major`, `...wireSchema.frameEnvelope.fields.protocolMajor`, `...wireSchema.payloadSchemas.HelloV1`, `...HelloAckV1` | superseded (typescript-semantic major 2: `TypeScriptHelloV2`/`TypeScriptHelloAckV2`, every inherited member kept) | §9.4 |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.payloadSchemas.FactBatchV1`, `...frameSchemas.FactBatch.payloadType`, `...commitments.domains.factBatch` | retained without `target-attribution-v2`; `FactBatchV3` with it | §9.1, §9.6 |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases`, `...closedWorkerToHostFrames`, `...wireSchema.frameSchemas` | extended (`NativeContextVerified` before Analyze) | §9.4 |
++| `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.protocolIdentity.protocolMajor`, `$.wireSchema.envelope.fields.protocolMajor`, `$.wireSchema.payloadSchemas.HelloV2`, `...HelloAckV2`, `$.wireSchema.definitions.ExpectedRustIdentityV2` | superseded (rust-semantic major 3: `HelloV3`/`HelloAckV3`, identity and contract digest kept) | §9.1 |
++| `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.wireSchema.payloadSchemas.FactBatchV2`, `$.wireSchema.frameSchemas.FactBatch.payloadType` | retained without `target-attribution-v2`; `FactBatchV3` with it | §9.1, §9.6 |
++| `docs/coop/design-corrections/native/native-evidence.schemas.v2.json` (registered bytes kept) | `#/$defs/HelloV3`, `#/$defs/HelloAckV3`, `#/$defs/ProtocolLimitsV3` | superseded by `provider-handshake.schemas.v1.json` | §0, §9 |
+ | `docs/coop/artifacts/resolved-inputs.v2.json` | `$.planIdContract.semanticUniverseSchemas.rust-v1.resolvedInputs`, `...typescript-v1.resolvedInputs` | superseded (`rust-v2`, `typescript-v2`) | §2 |
+ | `docs/coop/artifacts/resolved-inputs.v2.json` | `$.projectModel.semanticUniverse.perProvider.{rust,typescript}.ifIncomplete` | superseded (`input-closure-incomplete`) | §10 |
+ | `docs/coop/artifacts/fact-plane.v1.json` | `$.sufficiency.rule`, `$.sufficiency.completenessRule`, `$.deficiencyVocabulary.values`, `$.requirementSchema.fields.completeness`, `$.knownLimitations[5]` | superseded (requirement v2, view entry v3, sufficiency v2) | §4 |
+--- a/docs/coop/design-corrections/native/check_native_evidence.v2.py
++++ b/docs/coop/design-corrections/native/check_native_evidence.v2.py
+@@ -14,6 +14,7 @@
+ import hashlib
+ import importlib.util
+ import json
++import re
+ import sys
+ from pathlib import Path
+ 
+@@ -59,6 +60,10 @@
+     ("docs/coop/design-corrections/native/native-cases.v2.json", "owned: hand-authored cases"),
+     ("docs/coop/design-corrections/native/native-capability-matrix.v2.json", "owned: matrix validated here"),
+     ("docs/v2/contracts/product-v1/native-evidence.md", "owned: contract these checks evidence"),
++    ("docs/coop/design-corrections/native/provider-handshake.schemas.v1.json", "owned: provider handshake, limit and historical FactBatch records (section 9)"),
++    ("docs/coop/design-corrections/native/provider_wire_model.v1.py", "owned: provider wire joins loaded by the model (section 9)"),
++    ("docs/coop/design-corrections/native/fact-batch.schema.v3.json", "negotiated FactBatchV3 and the candidate vector item used by the wire model"),
++    ("docs/coop/design-corrections/native/occupancy-companion.schema.v1.json", "FactBatchV3 companion items resolved by the wire model registry"),
+ ]
+ PRIMARY_REFERENCES = [
+     {"url": "https://doc.rust-lang.org/cargo/reference/config.html", "readOn": "2026-09-06", "claim": "Cargo reads .cargo/config.toml (and legacy .cargo/config) in all ancestors of CWD and in CARGO_HOME; arrays merge; executable/linker/runner/credential knobs and environment overrides exist"},
+@@ -220,6 +225,10 @@
+                 result = hashlib.sha256((REPO / args["path"]).read_bytes()).hexdigest()
+             elif fn == "rawSha256Canonical":
+                 result = hashlib.sha256(model.C.canonical(args["value"])).hexdigest()
++            elif fn == "domainSha256Hex":
++                # hashlib oracle over an independently authored deterministic-CBOR preimage under a
++                # delivery.v2 commitment domain: sha256:hex(SHA-256(UTF8(domain) || 0x00 || bytes)).
++                result = "sha256:" + hashlib.sha256(args["domain"].encode("utf-8") + b"\0" + bytes.fromhex(args["hex"])).hexdigest()
+             else:
+                 result = getattr(model, fn)(**args)
+             if expect_error:
+@@ -423,6 +432,98 @@
+                           "undeclaredRetentionSites": undeclared_retention,
+                           "undeclaredRepresentationSites": undeclared_representation}
+ 
++    # ---- provider handshake publication (section 9). The successor records are held to the PUBLISHED
++    # inherited inputs, not to themselves: TypeScript limits are re-derived from delivery.v2 AND from the
++    # section 9.4 prose; ProtocolLimitsV3 from rust-provider-protocol.v2 plus the section 9.3 prose; every
++    # inherited Hello/HelloAck member must survive in its successor; every TypeScript HelloAck member must be
++    # bound to a descriptor or an echo; the Rust identity has a retained Plan-row source; the contract
++    # digest names real bytes.
++    wire_doc = json.loads((HERE / "provider-handshake.schemas.v1.json").read_text(encoding="utf-8"))
++    Draft202012Validator.check_schema(wire_doc)
++    wire_faults: list[str] = []
++    wire_open: list[str] = []
++    def walk_wire(x, p):
++        if isinstance(x, dict):
++            if x.get("type") == "object" and "additionalProperties" not in x:
++                wire_open.append(p)
++            for k, v in x.items():
++                walk_wire(v, p + "/" + k)
++        elif isinstance(x, list):
++            for i, v in enumerate(x):
++                walk_wire(v, p + "/" + str(i))
++    walk_wire(wire_doc, "")
++    wdefs = wire_doc["$defs"]
++    def const_map(name):
++        d = wdefs[name]
++        if d.get("additionalProperties") is not False or sorted(d["required"]) != sorted(d["properties"]):
++            wire_faults.append(name + ": not a closed map whose required members are exactly its properties")
++        return {k: v.get("const") for k, v in d["properties"].items()}
++    delivery_doc = json.loads((REPO / "docs/coop/artifacts/delivery.v2.json").read_text(encoding="utf-8"))
++    rust_v2 = json.loads((REPO / "docs/coop/artifacts/rust-provider-protocol.v2.json").read_text(encoding="utf-8"))
++    ts_protocol = delivery_doc["typescriptSemanticSubstrate"]["providerProtocol"]
++    ts_identity = delivery_doc["typescriptSemanticSubstrate"]["identity"]
++    ts_inherited = {k: v for k, v in ts_protocol["wireSchema"]["limits"].items() if k != "limitRule"}
++    contract_text = (REPO / "docs/v2/contracts/product-v1/native-evidence.md").read_text(encoding="utf-8")
++    def section_limits(start, end):
++        body = contract_text.split(start, 1)[1].split(end, 1)[0]
++        return {m.group(1): int(m.group(2)) for m in re.finditer(r"`(max\w+) (\d+)`", body)}
++    ts_prose = section_limits("### 9.4 TypeScript major 2", "### 9.5")
++    rust_prose = section_limits("### 9.3 Limits", "### 9.4")
++    ts_published = const_map("TypeScriptProtocolLimitsV1")
++    if not (same(ts_published, ts_inherited) and same(ts_prose, ts_inherited)):
++        wire_faults.append(f"TypeScriptProtocolLimitsV1 {ts_published} / section 9.4 {ts_prose} != delivery.v2 numeric limits {ts_inherited}")
++    rust_expected = dict(rust_v2["limits"])
++    rust_expected.update(rust_prose)
++    rust_published = const_map("ProtocolLimitsV3")
++    if (len(rust_prose) != 8 or set(rust_prose) & set(rust_v2["limits"]) or len(rust_published) != 32
++            or not same(rust_published, rust_expected)):
++        wire_faults.append(f"ProtocolLimitsV3 ({len(rust_published)}) != 24 rust-provider-protocol.v2 limits + 8 section 9.3 members {rust_prose}")
++    ps_ts = ts_protocol["wireSchema"]["payloadSchemas"]
++    ps_rust = rust_v2["wireSchema"]["payloadSchemas"]
++    for name, inherited_required in [
++            ("TypeScriptHelloV2", ps_ts["HelloV1"]["required"]),
++            ("TypeScriptHelloAckV2", ps_ts["HelloAckV1"]["required"]),
++            ("TypeScriptHelloAckV2", ts_identity["handshakeRequired"]),
++            ("HelloV3", ps_rust["HelloV2"]["required"]),
++            ("HelloAckV3", ps_rust["HelloAckV2"]["required"]),
++            ("ExpectedRustIdentityV3", rust_v2["wireSchema"]["definitions"]["ExpectedRustIdentityV2"]["required"]),
++            ("HelloV3", model.SCHEMAS["$defs"]["HelloV3"]["required"]),
++            ("HelloAckV3", model.SCHEMAS["$defs"]["HelloAckV3"]["required"])]:
++        lost = sorted(set(inherited_required) - set(wdefs[name]["required"]))
++        if lost:
++            wire_faults.append(f"{name} drops inherited members {lost}")
++    wire_law = wire_doc["x-opensip-wire-law"]
++    ts_binding = wire_law["typescriptDescriptorBinding"]
++    unbound = sorted(set(wdefs["TypeScriptHelloAckV2"]["required"]) - set(ts_binding["providerDescriptorFields"])
++                     - set(ts_binding["runtimeDescriptorFields"])
++                     - {"providerDescriptorSha256", "runtimeDescriptorSha256", "capabilities", "identityVersions"})
++    if unbound:
++        wire_faults.append(f"TypeScriptHelloAckV2 members bound to no descriptor or echo {unbound}")
++    for kind, fields in (("provider", ts_binding["providerDescriptorFields"]), ("runtime", ts_binding["runtimeDescriptorFields"])):
++        for fld in fields:
++            if fld not in ts_identity[kind + "Descriptor"]["closedRequired"]:
++                wire_faults.append(f"{kind} descriptor has no member {fld}")
++    rust_row = json.loads((REPO / "docs/coop/artifacts/resolved-inputs.v2.json").read_text(encoding="utf-8"))[
++        "planIdContract"]["semanticUniverseSchemas"]["rust-v1"]["required"]
++    unsourced = sorted(set(wire_law["rustIdentityBinding"]["identityFields"]) - set(rust_row))
++    if unsourced:
++        wire_faults.append(f"rust-v1 Plan row carries no source for expectedIdentity members {unsourced}")
++    if sha256_file(REPO / wire_law["expectedProtocolContractSha256"]["artifact"]) != wire_law["expectedProtocolContractSha256"]["sha256"]:
++        wire_faults.append("expectedProtocolContractSha256 artifact bytes differ from the published digest")
++    if (set(wdefs["TypeScriptCapabilityToken"]["enum"]) != set(model.TS2_TOKENS_ATTRIBUTION)
++            or set(wdefs["RustCapabilityToken"]["enum"]) != set(model.RUST3_TOKENS_ATTRIBUTION)
++            or list(model.WIRE.IDENTITY_TOKENS) != list(model.IDENTITY_TOKENS)):
++        wire_faults.append("per-language token vocabularies differ from the section 9.1 token sets")
++    if not (set(wdefs["TypeScriptCapabilityToken"]["enum"]) | set(wdefs["RustCapabilityToken"]["enum"])) <= set(model.SCHEMAS["$defs"]["CapabilityToken"]["enum"]):
++        wire_faults.append("a per-language token is outside CapabilityToken")
++    registered_versions = {k: v["const"] for k, v in model.SCHEMAS["$defs"]["HelloV3"]["properties"]["identityVersions"]["properties"].items()}
++    if not same(const_map("IdentityVersionsV1"), registered_versions):
++        wire_faults.append("identityVersions differ from the registered section 9.1 values")
++    report["providerWire"] = {"document": "native/provider-handshake.schemas.v1.json", "defs": len(wdefs),
++                              "openObjects": wire_open, "typescriptLimits": len(ts_published),
++                              "rustLimits": len(rust_published), "section93Members": len(rust_prose),
++                              "section94Members": len(ts_prose), "faults": wire_faults}
++
+     matrix = model.C.parse(MATRIX_PATH.read_bytes())
+     model.validate_native("NativeCapabilityMatrixV2", matrix)
+     cells = matrix["cells"]
+@@ -464,7 +565,8 @@
+     ok = (passed == len(results) and not missing_cells and not extra_cells and not duplicate_cells
+           and cell_count_is_the_product and not vocabulary_drift and not open_objects
+           and not report["cases"]["uncoveredFeedback"] and not ladder_faults
+-          and not undeclared_retention and not undeclared_representation)
++          and not undeclared_retention and not undeclared_representation
++          and not wire_faults and not wire_open)
+     report["result"] = "PASS" if ok else "FAIL"
+     report["limitations"] = [
+         "Observation inputs (edges, tokens, vendored file digests, stage terminals) are fixture-asserted, not measured from a compiler or Cargo.",
+@@ -472,6 +574,7 @@
+         "Cargo config discovery and rustc flag semantics are pinned to primary documentation read on 2026-09-06; the ancestor-carrier verification is a design rule, not a demonstrated switch.",
+         "The tsjs-erasure-v1 projection operates on token kinds supplied by fixtures; a real tokenizer is qualification work.",
+         "No cell is QUALIFIED; the four platform families are asserted design-invariant only.",
++        "Provider handshake and FactBatch records are JSON vectors: frame length/digest/sequence bytes, process lifetime and compiler output are not exercised, and descriptor digests hash canonical.py bytes, which equal RFC 8785 only for the fixture value domain.",
+     ]
+     REPORT_PATH.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+     for r in results:
+@@ -481,6 +584,8 @@
+         print("FAIL ladder-drift:", fault)
+     for path in undeclared_retention + undeclared_representation:
+         print("FAIL digest-law vocabulary:", path)
++    for fault in wire_faults + ["open object " + p for p in wire_open]:
++        print("FAIL provider-wire:", fault)
+     print(f"{report['result']}: {passed}/{len(results)} cases; matrix cells {len(cells)}; open objects {len(open_objects)}; uncovered feedback {report['cases']['uncoveredFeedback']}")
+     return 0 if ok else 1
+ 
+--- a/docs/coop/design-corrections/native/fact-batch.schema.v3.json
++++ b/docs/coop/design-corrections/native/fact-batch.schema.v3.json
+@@ -2,7 +2,7 @@
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "opensip.product.fact-batch.3",
+   "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
+-  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves historical FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates. Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is TEXT: the worker echo of the current requested C-2 stageId (StageRequestV1.stageId; StageRequestV2.planStage.stageId). It is NOT Analyze stageOrdinal and NOT execution-plan.stages[].ordinal. Provider Analyze may be a subset of Plan stages; host DispatchBindingV1 carries retainedStageOrdinal separately. When the token is absent, historical FactBatchV2 remains. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
++  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves the historical rust-semantic FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates (the typescript-semantic historical FactBatchV1 names its array facts and carries batchCommitment). Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is TEXT: the worker echo of the current requested C-2 stageId (StageRequestV1.stageId; StageRequestV2.planStage.stageId). It is NOT Analyze stageOrdinal and NOT execution-plan.stages[].ordinal. Provider Analyze may be a subset of Plan stages; host DispatchBindingV1 carries retainedStageOrdinal separately. When the token is absent the historical per-language payload remains: typescript-semantic delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment}; rust-semantic rust-provider-protocol.v2 FactBatchV2 {analysisOrdinal, stageId, batchIndex, candidates}. A V3 payload without the token, or that language's historical payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -116,8 +116,10 @@
+     },
+     "stageCorrelation": "Host derives DispatchBindingV1 from the actual Plan stage selected into this Analyze. Worker FactBatch.stageId echoes the requested C-2 stageId text. Host requires batch.stageId == dispatch.expectedStageId, batch.analysisOrdinal == dispatch.expectedAnalysisOrdinal, batch.batchIndex == dispatch.expectedBatchIndex, and looks up execution-plan.stages[] by dispatch.retainedStageOrdinal. analyzeRequestOrdinal (contiguous in THIS Analyze) MUST NOT be equated with retainedStageOrdinal. Provider Analyze may omit Plan stages.",
+     "whenPresent": "FactBatch payload MUST admit as this schema",
+-    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions).",
+-    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and len(candidates).",
++    "whenAbsent": "FactBatch payload MUST admit as the negotiating language's historical payload, neither of which carries schemaVersion or occupancyCompanions: typescript-semantic delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment} (native/provider-handshake.schemas.v1.json#/$defs/TypeScriptFactBatchV1Vector); rust-semantic rust-provider-protocol.v2 FactBatchV2 {analysisOrdinal, stageId, batchIndex, candidates} (#/$defs/RustFactBatchV2Vector).",
++    "helloLimits": "No new limit member in either language. candidates and occupancyCompanions are bounded by the language's existing candidate cap (rust-semantic maxFactBatchCandidates 4096; typescript-semantic maxFactBatchFacts 4096) and occupancyCompanions by len(candidates).",
++    "commitments": "FactBatchV3 carries no per-batch commitment. typescript-semantic delivery.v2 commitments.domains.factBatch applies only to historical FactBatchV1.batchCommitment; the stageFacts and factStream commitments of both languages remain over the ordered FactCandidateV1 stream.",
++    "wireProjection": "On the wire each candidate is FactCandidateV1 with canonicalRelationPayload = the CBOR byte string whose lowercase hex is canonicalRelationPayloadHex; decodedRelationPayload is not a wire member. Admission requires canonicalRelationPayloadHex == hex(deterministic-CBOR(decodedRelationPayload)).",
+     "protocolMajorUnchanged": true,
+     "newFrame": false
+   }
+--- a/docs/coop/design-corrections/native/native-cases.v2.json
++++ b/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -5910,6 +5910,896 @@
+      "extendsResolved": []
+     }
+    ]
++  },
++  "wireTsProviderDescriptor": {
++   "schemaVersion": 1,
++   "providerBuildId": "ts-provider-2026.09.1",
++   "protocolMajor": 2,
++   "entrypointRelativePath": "dist/worker.js",
++   "entrypointSha256": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
++   "typescriptVersion": "5.6.3",
++   "typescriptCompilerSha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
++   "typescriptStdlibMerkleRoot": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
++   "defaultWorkBudgetProfileId": "typescript-provider-default-work-budget-v1",
++   "defaultWorkBudgetProfileSha256": "bf7305a12d26a1938b615c861f995d66eac494915e6140c4942a2ea6f0846da6",
++   "licenseNoticeSha256": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
++  },
++  "wireTsRuntimeDescriptor": {
++   "schemaVersion": 1,
++   "nodeVersion": "22.9.0",
++   "v8Version": "12.4.254.21-node.19",
++   "modulesAbi": "127",
++   "platformId": "macos-aarch64",
++   "executableRelativePath": "bin/node",
++   "executableSha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
++   "runtimePayloadSha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6",
++   "licenseNoticeSha256": "0707070707070707070707070707070707070707070707070707070707070707"
++  },
++  "wireTsProtocolLimits": {
++   "maxFramePayloadBytes": 67108864,
++   "maxSnapshotChunkBytes": 1048576,
++   "maxSnapshotEntries": 200000,
++   "maxAnalyzeStages": 1024,
++   "maxRelationsPerStage": 64,
++   "maxRequestedCoverageKeysPerStage": 128,
++   "maxFactBatchFacts": 4096,
++   "maxFactCandidatePayloadBytes": 1048576,
++   "maxCoverageEntriesPerFrame": 4096,
++   "maxStderrBytes": 262144
++  },
++  "wireRustProtocolLimitsV3": {
++   "maxFramePayloadBytes": 67108864,
++   "maxSnapshotChunkBytes": 1048576,
++   "maxSnapshotEntries": 200000,
++   "maxSnapshotTotalFileBytes": 8589934592,
++   "maxPreparedOutputChunkBytes": 1048576,
++   "maxPreparedOutputEntries": 256,
++   "maxPreparedOutputTotalBlobBytes": 1073741824,
++   "maxAnalyzeStages": 256,
++   "maxRelationsPerStage": 64,
++   "maxSubjectsPerStage": 256,
++   "maxRequestedCoverageKeysPerStage": 256,
++   "maxFactBatchCandidates": 4096,
++   "maxFactCandidatesTotal": 1000000,
++   "maxCanonicalRelationPayloadBytes": 1048576,
++   "maxCoverageEntriesPerFrame": 4096,
++   "maxCandidateSpoolBytes": 1073741824,
++   "maxRequestPayloadBytesTotal": 9663676416,
++   "maxResponsePayloadBytesTotal": 1073741824,
++   "maxRequestFrames": 1000000,
++   "maxResponseFrames": 1000000,
++   "maxStderrBytes": 262144,
++   "maxScratchBytes": 2147483648,
++   "cancellationGraceMilliseconds": 5000,
++   "normalExitGraceMilliseconds": 5000,
++   "maxDependencySourcePackages": 4096,
++   "maxDependencySourceEntries": 1000000,
++   "maxDependencySourceTotalBytes": 8589934592,
++   "maxDependencySourceChunkBytes": 1048576,
++   "maxUnresolvedEdgesPerStage": 1000000,
++   "maxCfgSets": 4,
++   "maxExpansionRows": 1000000,
++   "maxGeneratedFileRows": 1000000
++  },
++  "wireTsHello": {
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProviderDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "expectedRuntimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxAnalyzeStages": 1024,
++    "maxRelationsPerStage": 64,
++    "maxRequestedCoverageKeysPerStage": 128,
++    "maxFactBatchFacts": 4096,
++    "maxFactCandidatePayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096,
++    "maxStderrBytes": 262144
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireTsHelloAck": {
++   "protocolMajor": 2,
++   "providerBuildId": "ts-provider-2026.09.1",
++   "providerDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "runtimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "nodeVersion": "22.9.0",
++   "v8Version": "12.4.254.21-node.19",
++   "modulesAbi": "127",
++   "typescriptVersion": "5.6.3",
++   "typescriptCompilerSha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
++   "typescriptStdlibMerkleRoot": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
++   "defaultWorkBudgetProfileId": "typescript-provider-default-work-budget-v1",
++   "defaultWorkBudgetProfileSha256": "bf7305a12d26a1938b615c861f995d66eac494915e6140c4942a2ea6f0846da6",
++   "platformId": "macos-aarch64",
++   "capabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireTsHelloAttribution": {
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProviderDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "expectedRuntimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxAnalyzeStages": 1024,
++    "maxRelationsPerStage": 64,
++    "maxRequestedCoverageKeysPerStage": 128,
++    "maxFactBatchFacts": 4096,
++    "maxFactCandidatePayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096,
++    "maxStderrBytes": 262144
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "target-attribution-v2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireTsHelloAckAttribution": {
++   "protocolMajor": 2,
++   "providerBuildId": "ts-provider-2026.09.1",
++   "providerDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "runtimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "nodeVersion": "22.9.0",
++   "v8Version": "12.4.254.21-node.19",
++   "modulesAbi": "127",
++   "typescriptVersion": "5.6.3",
++   "typescriptCompilerSha256": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
++   "typescriptStdlibMerkleRoot": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
++   "defaultWorkBudgetProfileId": "typescript-provider-default-work-budget-v1",
++   "defaultWorkBudgetProfileSha256": "bf7305a12d26a1938b615c861f995d66eac494915e6140c4942a2ea6f0846da6",
++   "platformId": "macos-aarch64",
++   "capabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "target-attribution-v2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireTsHelloAsSupersededRustShape": {
++   "protocolMajor": 2,
++   "expectedCapabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireTsHelloMissingLegacyLimit": {
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProviderDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "expectedRuntimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxAnalyzeStages": 1024,
++    "maxRelationsPerStage": 64,
++    "maxRequestedCoverageKeysPerStage": 128,
++    "maxFactBatchFacts": 4096,
++    "maxFactCandidatePayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireTsHelloAckMissingCompilerDigest": {
++   "protocolMajor": 2,
++   "providerBuildId": "ts-provider-2026.09.1",
++   "providerDescriptorSha256": "a9969fa7038d8c631a24c68d1650e5e9164e1930c2c8463dc98138b48e583e0f",
++   "runtimeDescriptorSha256": "ce43fb60b2b3b0dd816d3ade41040705ab2ce8858429465757f52b509c8e2766",
++   "nodeVersion": "22.9.0",
++   "v8Version": "12.4.254.21-node.19",
++   "modulesAbi": "127",
++   "typescriptVersion": "5.6.3",
++   "typescriptStdlibMerkleRoot": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
++   "defaultWorkBudgetProfileId": "typescript-provider-default-work-budget-v1",
++   "defaultWorkBudgetProfileSha256": "bf7305a12d26a1938b615c861f995d66eac494915e6140c4942a2ea6f0846da6",
++   "platformId": "macos-aarch64",
++   "capabilities": [
++    "coverage-v3",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   }
++  },
++  "wireRustIdentity": {
++   "protocolMajor": 3,
++   "providerBuildId": "rust-provider-2026.09.1",
++   "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++   "hostTriple": "aarch64-apple-darwin",
++   "targetTriple": "aarch64-apple-darwin",
++   "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++  },
++  "wireRustHello": {
++   "protocolMajor": 3,
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProtocolContractSha256": "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b",
++   "expectedIdentity": {
++    "protocolMajor": 3,
++    "providerBuildId": "rust-provider-2026.09.1",
++    "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++    "hostTriple": "aarch64-apple-darwin",
++    "targetTriple": "aarch64-apple-darwin",
++    "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxSnapshotTotalFileBytes": 8589934592,
++    "maxPreparedOutputChunkBytes": 1048576,
++    "maxPreparedOutputEntries": 256,
++    "maxPreparedOutputTotalBlobBytes": 1073741824,
++    "maxAnalyzeStages": 256,
++    "maxRelationsPerStage": 64,
++    "maxSubjectsPerStage": 256,
++    "maxRequestedCoverageKeysPerStage": 256,
++    "maxFactBatchCandidates": 4096,
++    "maxFactCandidatesTotal": 1000000,
++    "maxCanonicalRelationPayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096,
++    "maxCandidateSpoolBytes": 1073741824,
++    "maxRequestPayloadBytesTotal": 9663676416,
++    "maxResponsePayloadBytesTotal": 1073741824,
++    "maxRequestFrames": 1000000,
++    "maxResponseFrames": 1000000,
++    "maxStderrBytes": 262144,
++    "maxScratchBytes": 2147483648,
++    "cancellationGraceMilliseconds": 5000,
++    "normalExitGraceMilliseconds": 5000,
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireRustHelloAck": {
++   "protocolMajor": 3,
++   "capabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "providerBuildId": "rust-provider-2026.09.1",
++   "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++   "hostTriple": "aarch64-apple-darwin",
++   "targetTriple": "aarch64-apple-darwin",
++   "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++  },
++  "wireRustHelloAttribution": {
++   "protocolMajor": 3,
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProtocolContractSha256": "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b",
++   "expectedIdentity": {
++    "protocolMajor": 3,
++    "providerBuildId": "rust-provider-2026.09.1",
++    "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++    "hostTriple": "aarch64-apple-darwin",
++    "targetTriple": "aarch64-apple-darwin",
++    "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "target-attribution-v2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxSnapshotTotalFileBytes": 8589934592,
++    "maxPreparedOutputChunkBytes": 1048576,
++    "maxPreparedOutputEntries": 256,
++    "maxPreparedOutputTotalBlobBytes": 1073741824,
++    "maxAnalyzeStages": 256,
++    "maxRelationsPerStage": 64,
++    "maxSubjectsPerStage": 256,
++    "maxRequestedCoverageKeysPerStage": 256,
++    "maxFactBatchCandidates": 4096,
++    "maxFactCandidatesTotal": 1000000,
++    "maxCanonicalRelationPayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096,
++    "maxCandidateSpoolBytes": 1073741824,
++    "maxRequestPayloadBytesTotal": 9663676416,
++    "maxResponsePayloadBytesTotal": 1073741824,
++    "maxRequestFrames": 1000000,
++    "maxResponseFrames": 1000000,
++    "maxStderrBytes": 262144,
++    "maxScratchBytes": 2147483648,
++    "cancellationGraceMilliseconds": 5000,
++    "normalExitGraceMilliseconds": 5000,
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireRustHelloAckAttribution": {
++   "protocolMajor": 3,
++   "capabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "target-attribution-v2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "providerBuildId": "rust-provider-2026.09.1",
++   "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++   "hostTriple": "aarch64-apple-darwin",
++   "targetTriple": "aarch64-apple-darwin",
++   "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++  },
++  "wireRustHelloSupersededShape": {
++   "protocolMajor": 3,
++   "expectedCapabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireRustHelloEightLimits": {
++   "protocolMajor": 3,
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProtocolContractSha256": "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b",
++   "expectedIdentity": {
++    "protocolMajor": 3,
++    "providerBuildId": "rust-provider-2026.09.1",
++    "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++    "hostTriple": "aarch64-apple-darwin",
++    "targetTriple": "aarch64-apple-darwin",
++    "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "rust-semantic-facts-v1",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireRustHelloTypeScriptToken": {
++   "protocolMajor": 3,
++   "hostBuildId": "opensip-host-2026.09.1",
++   "expectedProtocolContractSha256": "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b",
++   "expectedIdentity": {
++    "protocolMajor": 3,
++    "providerBuildId": "rust-provider-2026.09.1",
++    "rustCommitHash": "9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a9a",
++    "hostTriple": "aarch64-apple-darwin",
++    "targetTriple": "aarch64-apple-darwin",
++    "sysrootDigest": "8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b"
++   },
++   "expectedCapabilities": [
++    "coverage-v3",
++    "dependency-source-v1",
++    "fact-identity-fact2",
++    "multi-stage-analyze-v1",
++    "native-context-v2",
++    "plan-identity-plan2",
++    "prepared-output-v3",
++    "resolution-completeness-v2",
++    "sealed-vfs-v1",
++    "source-identity-snapshot2",
++    "typescript-semantic-facts-v1",
++    "unresolved-edge-v1"
++   ],
++   "identityVersions": {
++    "snapshot": 2,
++    "plan": 2,
++    "fact": 2,
++    "coverage": 3
++   },
++   "limits": {
++    "maxFramePayloadBytes": 67108864,
++    "maxSnapshotChunkBytes": 1048576,
++    "maxSnapshotEntries": 200000,
++    "maxSnapshotTotalFileBytes": 8589934592,
++    "maxPreparedOutputChunkBytes": 1048576,
++    "maxPreparedOutputEntries": 256,
++    "maxPreparedOutputTotalBlobBytes": 1073741824,
++    "maxAnalyzeStages": 256,
++    "maxRelationsPerStage": 64,
++    "maxSubjectsPerStage": 256,
++    "maxRequestedCoverageKeysPerStage": 256,
++    "maxFactBatchCandidates": 4096,
++    "maxFactCandidatesTotal": 1000000,
++    "maxCanonicalRelationPayloadBytes": 1048576,
++    "maxCoverageEntriesPerFrame": 4096,
++    "maxCandidateSpoolBytes": 1073741824,
++    "maxRequestPayloadBytesTotal": 9663676416,
++    "maxResponsePayloadBytesTotal": 1073741824,
++    "maxRequestFrames": 1000000,
++    "maxResponseFrames": 1000000,
++    "maxStderrBytes": 262144,
++    "maxScratchBytes": 2147483648,
++    "cancellationGraceMilliseconds": 5000,
++    "normalExitGraceMilliseconds": 5000,
++    "maxDependencySourcePackages": 4096,
++    "maxDependencySourceEntries": 1000000,
++    "maxDependencySourceTotalBytes": 8589934592,
++    "maxDependencySourceChunkBytes": 1048576,
++    "maxUnresolvedEdgesPerStage": 1000000,
++    "maxCfgSets": 4,
++    "maxExpansionRows": 1000000,
++    "maxGeneratedFileRows": 1000000
++   }
++  },
++  "wireTsFactBatchV1": {
++   "analysisOrdinal": 0,
++   "stageId": "s-imports",
++   "batchIndex": 0,
++   "facts": [
++    {
++     "candidateOrdinal": 0,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "typescript-semantic",
++     "producerVersion": "ts-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "typescript",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f622e74736e7265736f6c766564546172676574687372632f622e7473",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/b.ts",
++      "specifier": "./b.ts"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    },
++    {
++     "candidateOrdinal": 1,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "typescript-semantic",
++     "producerVersion": "ts-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "typescript",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f632e74736e7265736f6c766564546172676574687372632f632e7473",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/c.ts",
++      "specifier": "./c.ts"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    }
++   ],
++   "batchCommitment": "sha256:1b9da93455535e82a657461a1ec6627b775644ee2e5ba026b5aeb7a4fc00e8fa"
++  },
++  "wireTsFactsWireCborHex": "82ae656c617965726873656d616e74696367616e63686f727381a36470617468657372632f6167656e64427974650a6973746172744279746500686c616e67756167656a747970657363726970746870726f647563657273747970657363726970742d73656d616e7469636872656c6174696f6e67696d706f7274736a7265736f6c7574696f6e6f7265736f6c7665642d7461726765746d736368656d6156657273696f6e016f70726f647563657256657273696f6e7574732d70726f76696465722d323032362e30392e317063616e6469646174654f7264696e616c007072656c6174696f6e536368656d614964781b6f70656e7369702e72656c6174696f6e2e696d706f7274732e763170736f75726365556e697665727365496465752d73726370746172676574556e697665727365496465752d73726374636f6e666964656e63654d696c6c696f6e7468731a000f4240781863616e6f6e6963616c52656c6174696f6e5061796c6f6164582aa269737065636966696572662e2f622e74736e7265736f6c766564546172676574687372632f622e7473ae656c617965726873656d616e74696367616e63686f727381a36470617468657372632f6167656e64427974650a6973746172744279746500686c616e67756167656a747970657363726970746870726f647563657273747970657363726970742d73656d616e7469636872656c6174696f6e67696d706f7274736a7265736f6c7574696f6e6f7265736f6c7665642d7461726765746d736368656d6156657273696f6e016f70726f647563657256657273696f6e7574732d70726f76696465722d323032362e30392e317063616e6469646174654f7264696e616c017072656c6174696f6e536368656d614964781b6f70656e7369702e72656c6174696f6e2e696d706f7274732e763170736f75726365556e697665727365496465752d73726370746172676574556e697665727365496465752d73726374636f6e666964656e63654d696c6c696f6e7468731a000f4240781863616e6f6e6963616c52656c6174696f6e5061796c6f6164582aa269737065636966696572662e2f632e74736e7265736f6c766564546172676574687372632f632e7473",
++  "wireRustFactBatchV2": {
++   "analysisOrdinal": 0,
++   "stageId": "s-imports",
++   "batchIndex": 0,
++   "candidates": [
++    {
++     "candidateOrdinal": 0,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "rust-semantic",
++     "producerVersion": "rust-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "rust",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f622e72736e7265736f6c766564546172676574687372632f622e7273",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/b.rs",
++      "specifier": "./b.rs"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    },
++    {
++     "candidateOrdinal": 1,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "rust-semantic",
++     "producerVersion": "rust-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "rust",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f632e72736e7265736f6c766564546172676574687372632f632e7273",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/c.rs",
++      "specifier": "./c.rs"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    }
++   ]
++  },
++  "wireTsFactBatchV3": {
++   "schemaVersion": 3,
++   "analysisOrdinal": 0,
++   "stageId": "s-imports",
++   "batchIndex": 0,
++   "candidates": [
++    {
++     "candidateOrdinal": 0,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "typescript-semantic",
++     "producerVersion": "ts-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "typescript",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f622e74736e7265736f6c766564546172676574687372632f622e7473",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/b.ts",
++      "specifier": "./b.ts"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    },
++    {
++     "candidateOrdinal": 1,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "typescript-semantic",
++     "producerVersion": "ts-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "typescript",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f632e74736e7265736f6c766564546172676574687372632f632e7473",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/c.ts",
++      "specifier": "./c.ts"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    }
++   ],
++   "occupancyCompanions": []
++  },
++  "wireRustFactBatchV3": {
++   "schemaVersion": 3,
++   "analysisOrdinal": 0,
++   "stageId": "s-imports",
++   "batchIndex": 0,
++   "candidates": [
++    {
++     "candidateOrdinal": 0,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "rust-semantic",
++     "producerVersion": "rust-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "rust",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f622e72736e7265736f6c766564546172676574687372632f622e7273",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/b.rs",
++      "specifier": "./b.rs"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    },
++    {
++     "candidateOrdinal": 1,
++     "relation": "imports",
++     "resolution": "resolved-target",
++     "layer": "semantic",
++     "producer": "rust-semantic",
++     "producerVersion": "rust-provider-2026.09.1",
++     "schemaVersion": 1,
++     "language": "rust",
++     "sourceUniverseId": "u-src",
++     "targetUniverseId": "u-src",
++     "confidenceMillionths": 1000000,
++     "relationSchemaId": "opensip.relation.imports.v1",
++     "canonicalRelationPayloadHex": "a269737065636966696572662e2f632e72736e7265736f6c766564546172676574687372632f632e7273",
++     "decodedRelationPayload": {
++      "resolvedTarget": "src/c.rs",
++      "specifier": "./c.rs"
++     },
++     "anchors": [
++      {
++       "path": "src/a",
++       "startByte": 0,
++       "endByte": 10
++      }
++     ]
++    }
++   ],
++   "occupancyCompanions": []
+   }
+  },
+  "cases": [
+@@ -22160,6 +23050,1225 @@
+     "$u.units.0.languageMode": "ts-tsconfig",
+     "$u.units.0.unitKind": "ts-program"
+    }
++  },
++  {
++   "id": "provider-wire-ts2-hello-admits-inherited-descriptor-digests-and-ten-legacy-limits",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.outcome": "hello-admitted",
++    "$r.protocolMajor": 2,
++    "$r.sourceBytesSent": false,
++    "$r.targetAttributionOffered": false
++   }
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-echoes-descriptors-tokens-and-identity-versions",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": "$fixtures.wireTsHelloAck",
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.outcome": "accepted",
++    "$r.identityNegotiated": true,
++    "$r.targetAttributionNegotiated": false,
++    "$r.sourceBytesSent": false,
++    "$r.next": "OpenUniverse"
++   }
++  },
++  {
++   "id": "provider-wire-rust3-hello-admits-identity-contract-digest-and-32-limits",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.outcome": "hello-admitted",
++    "$r.protocolMajor": 3,
++    "$r.sourceBytesSent": false
++   }
++  },
++  {
++   "id": "provider-wire-rust3-hello-ack-echoes-expected-identity",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "ack": "$fixtures.wireRustHelloAck",
++      "envelope_protocol_major": 3,
++      "expected": {}
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.outcome": "accepted",
++    "$r.identityNegotiated": true,
++    "$r.targetAttributionNegotiated": false
++   }
++  },
++  {
++   "id": "provider-wire-target-attribution-negotiated-in-both-languages",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHelloAttribution",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2Attribution",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "th"
++    },
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHelloAttribution",
++      "ack": "$fixtures.wireTsHelloAckAttribution",
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "ta"
++    },
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHelloAttribution",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3Attribution",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "rh"
++    },
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHelloAttribution",
++      "ack": "$fixtures.wireRustHelloAckAttribution",
++      "envelope_protocol_major": 3,
++      "expected": {}
++     },
++     "bind": "ra"
++    }
++   ],
++   "expect": {
++    "$th.targetAttributionOffered": true,
++    "$ta.targetAttributionNegotiated": true,
++    "$rh.targetAttributionOffered": true,
++    "$ra.targetAttributionNegotiated": true
++   }
++  },
++  {
++   "id": "provider-wire-per-language-limit-maps-equal-the-published-inherited-values",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "provider_wire_limits",
++     "args": {
++      "language": "typescript-semantic"
++     },
++     "bind": "t"
++    },
++    {
++     "fn": "provider_wire_limits",
++     "args": {
++      "language": "rust-semantic"
++     },
++     "bind": "u"
++    }
++   ],
++   "expect": {
++    "$t": "$fixtures.wireTsProtocolLimits",
++    "$u": "$fixtures.wireRustProtocolLimitsV3",
++    "$t.maxFactBatchFacts": 4096,
++    "$u.maxFactBatchCandidates": 4096
++   }
++  },
++  {
++   "id": "provider-wire-ts-unnegotiated-fact-batch-v1-admits-with-hashlib-cbor2-commitment-oracle",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "domainSha256Hex",
++     "args": {
++      "domain": "opensip.ts-provider.fact-batch.v1",
++      "hex": "$fixtures.wireTsFactsWireCborHex"
++     },
++     "bind": "o"
++    },
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": "$fixtures.wireTsFactBatchV1",
++      "negotiated_tokens": "$fixtures.ts2",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.payload": "FactBatchV1",
++    "$r.candidateArray": "facts",
++    "$r.batchCommitment": "$o",
++    "$r.batchCommitmentVerified": true,
++    "$r.perBatchCommitmentCarried": true,
++    "$r.wireCandidatesCborHex": "$fixtures.wireTsFactsWireCborHex",
++    "$r.candidateOrdinals": [
++     0,
++     1
++    ]
++   }
++  },
++  {
++   "id": "provider-wire-rust-unnegotiated-fact-batch-v2-admits-without-per-batch-commitment",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "rust-semantic",
++      "batch": "$fixtures.wireRustFactBatchV2",
++      "negotiated_tokens": "$fixtures.rust3",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r"
++    }
++   ],
++   "expect": {
++    "$r.payload": "FactBatchV2",
++    "$r.candidateArray": "candidates",
++    "$r.batchCommitment": null,
++    "$r.perBatchCommitmentCarried": false
++   }
++  },
++  {
++   "id": "provider-wire-negotiated-fact-batch-v3-admits-in-both-languages-without-batch-commitment",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": "$fixtures.wireTsFactBatchV3",
++      "negotiated_tokens": "$fixtures.ts2Attribution",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "t"
++    },
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "rust-semantic",
++      "batch": "$fixtures.wireRustFactBatchV3",
++      "negotiated_tokens": "$fixtures.rust3Attribution",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "u"
++    }
++   ],
++   "expect": {
++    "$t.payload": "FactBatchV3",
++    "$t.batchCommitment": null,
++    "$t.perBatchCommitmentCarried": false,
++    "$u.payload": "FactBatchV3",
++    "$u.negotiated": true
++   }
++  },
++  {
++   "id": "provider-wire-ts2-hello-in-the-superseded-major-3-shape-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHelloAsSupersededRustShape",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:TypeScriptHelloV2"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-omitting-a-legacy-limit-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHelloMissingLegacyLimit",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "'maxStderrBytes' is a required property"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-carrying-limit-rule-as-a-member-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": {
++       "$merge": "$fixtures.wireTsHello",
++       "$with": {
++        "limits.limitRule": "policy text"
++       }
++      },
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "Additional properties are not allowed"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-changed-limit-value-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": {
++       "$merge": "$fixtures.wireTsHello",
++       "$with": {
++        "limits.maxAnalyzeStages": 256
++       }
++      },
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:TypeScriptHelloV2:/limits/maxAnalyzeStages"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-token-array-out-of-utf8-order-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": {
++       "$merge": "$fixtures.wireTsHello",
++       "$with": {
++        "expectedCapabilities": [
++         "unresolved-edge-v1",
++         "typescript-semantic-facts-v1",
++         "source-identity-snapshot2",
++         "sealed-vfs-v1",
++         "resolution-completeness-v2",
++         "plan-identity-plan2",
++         "native-context-v2",
++         "multi-stage-analyze-v1",
++         "fact-identity-fact2",
++         "coverage-v3"
++        ]
++       }
++      },
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "array order utf8"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-under-envelope-major-1-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "envelope_protocol_major": 1,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "PROTOCOL_MAJOR"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-descriptor-digest-not-the-verified-descriptor-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": {
++        "$merge": "$fixtures.wireTsProviderDescriptor",
++        "$with": {
++         "typescriptVersion": "5.6.4"
++        }
++       },
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "DESCRIPTOR_DIGEST:provider"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-tokens-not-the-signed-row-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.ts2Attribution",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "CAPABILITIES"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-changed-runtime-descriptor-echo-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": {
++       "$merge": "$fixtures.wireTsHelloAck",
++       "$with": {
++        "nodeVersion": "22.9.1"
++       }
++      },
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "DESCRIPTOR_FIELD:nodeVersion"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-changed-provider-build-echo-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": {
++       "$merge": "$fixtures.wireTsHelloAck",
++       "$with": {
++        "providerBuildId": "ts-provider-other"
++       }
++      },
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "DESCRIPTOR_FIELD:providerBuildId"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-dropping-a-descriptor-member-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": "$fixtures.wireTsHelloAckMissingCompilerDigest",
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "'typescriptCompilerSha256' is a required property"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-major-1-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": {
++       "$merge": "$fixtures.wireTsHelloAck",
++       "$with": {
++        "protocolMajor": 1
++       }
++      },
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:TypeScriptHelloAckV2:/protocolMajor"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-token-echo-mismatch-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": "$fixtures.wireTsHelloAckAttribution",
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "CAPABILITY_ECHO"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-extra-member-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": {
++       "$merge": "$fixtures.wireTsHelloAck",
++       "$with": {
++        "hostBuildId": "opensip-host-2026.09.1"
++       }
++      },
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "Additional properties are not allowed"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts2-hello-ack-runtime-descriptor-digest-echo-mismatch-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "typescript-semantic",
++      "hello": "$fixtures.wireTsHello",
++      "ack": {
++       "$merge": "$fixtures.wireTsHelloAck",
++       "$with": {
++        "runtimeDescriptorSha256": "0000000000000000000000000000000000000000000000000000000000000000"
++       }
++      },
++      "envelope_protocol_major": 2,
++      "expected": {
++       "providerDescriptor": "$fixtures.wireTsProviderDescriptor",
++       "runtimeDescriptor": "$fixtures.wireTsRuntimeDescriptor"
++      }
++     },
++     "bind": "r",
++     "expectError": "DESCRIPTOR_DIGEST_ECHO:runtime"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-in-the-superseded-four-member-shape-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHelloSupersededShape",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:HelloV3"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-with-only-the-eight-successor-limits-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHelloEightLimits",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:HelloV3:/limits"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-with-a-typescript-token-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHelloTypeScriptToken",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:HelloV3:/expectedCapabilities"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-contract-digest-not-the-selected-artifact-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": {
++       "$merge": "$fixtures.wireRustHello",
++       "$with": {
++        "expectedProtocolContractSha256": "0000000000000000000000000000000000000000000000000000000000000000"
++       }
++      },
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r",
++     "expectError": "CONTRACT_DIGEST"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-identity-not-the-plan-row-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "envelope_protocol_major": 3,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": {
++        "$merge": "$fixtures.wireRustIdentity",
++        "$with": {
++         "sysrootDigest": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c"
++        }
++       }
++      }
++     },
++     "bind": "r",
++     "expectError": "EXPECTED_IDENTITY:sysrootDigest"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-under-envelope-major-2-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "envelope_protocol_major": 2,
++      "signed_row": "$fixtures.rust3",
++      "expected": {
++       "hostBuildId": "opensip-host-2026.09.1",
++       "identity": "$fixtures.wireRustIdentity"
++      }
++     },
++     "bind": "r",
++     "expectError": "PROTOCOL_MAJOR"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-ack-changed-identity-echo-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "ack": {
++       "$merge": "$fixtures.wireRustHelloAck",
++       "$with": {
++        "rustCommitHash": "6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d6d"
++       }
++      },
++      "envelope_protocol_major": 3,
++      "expected": {}
++     },
++     "bind": "r",
++     "expectError": "IDENTITY_ECHO:rustCommitHash"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-ack-major-2-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "ack": {
++       "$merge": "$fixtures.wireRustHelloAck",
++       "$with": {
++        "protocolMajor": 2
++       }
++      },
++      "envelope_protocol_major": 3,
++      "expected": {}
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:HelloAckV3:/protocolMajor"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust3-hello-ack-identity-versions-changed-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_hello_ack",
++     "args": {
++      "language": "rust-semantic",
++      "hello": "$fixtures.wireRustHello",
++      "ack": {
++       "$merge": "$fixtures.wireRustHelloAck",
++       "$with": {
++        "identityVersions.coverage": 2
++       }
++      },
++      "envelope_protocol_major": 3,
++      "expected": {}
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:HelloAckV3:/identityVersions/coverage"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts-fact-batch-v1-wrong-batch-commitment-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": {
++       "$merge": "$fixtures.wireTsFactBatchV1",
++       "$with": {
++        "batchCommitment": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
++       }
++      },
++      "negotiated_tokens": "$fixtures.ts2",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r",
++     "expectError": "BATCH_COMMITMENT"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts-unnegotiated-rust-v2-shape-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": "$fixtures.wireRustFactBatchV2",
++      "negotiated_tokens": "$fixtures.ts2",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:TypeScriptFactBatchV1Vector"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-rust-unnegotiated-ts-v1-shape-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "rust-semantic",
++      "batch": "$fixtures.wireTsFactBatchV1",
++      "negotiated_tokens": "$fixtures.rust3",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r",
++     "expectError": "SCHEMA:RustFactBatchV2Vector"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-fact-batch-v3-without-token-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": "$fixtures.wireTsFactBatchV3",
++      "negotiated_tokens": "$fixtures.ts2",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r",
++     "expectError": "UNNEGOTIATED_V3"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-historical-fact-batch-with-token-refused-in-both-languages",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": "$fixtures.wireTsFactBatchV1",
++      "negotiated_tokens": "$fixtures.ts2Attribution",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "t",
++     "expectError": "HISTORICAL_WITH_TOKEN:FactBatchV1"
++    },
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "rust-semantic",
++      "batch": "$fixtures.wireRustFactBatchV2",
++      "negotiated_tokens": "$fixtures.rust3Attribution",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "u",
++     "expectError": "HISTORICAL_WITH_TOKEN:FactBatchV2"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-candidate-payload-hex-not-cbor-of-decoded-payload-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": {
++       "$merge": "$fixtures.wireTsFactBatchV1",
++       "$with": {
++        "facts.0.canonicalRelationPayloadHex": "a0"
++       }
++      },
++      "negotiated_tokens": "$fixtures.ts2",
++      "expected": {
++       "stageId": "s-imports",
++       "analysisOrdinal": 0,
++       "batchIndex": 0,
++       "firstCandidateOrdinal": 0
++      }
++     },
++     "bind": "r",
++     "expectError": "CANDIDATE_PAYLOAD_CBOR:0"
++    }
++   ],
++   "expect": {}
++  },
++  {
++   "id": "provider-wire-ts-fact-batch-v3-nonzero-analysis-ordinal-refused",
++   "feedback": [
++    "F1"
++   ],
++   "kind": "negative",
++   "steps": [
++    {
++     "fn": "admit_provider_fact_batch",
++     "args": {
++      "language": "typescript-semantic",
++      "batch": {
++       "$merge": "$fixtures.wireTsFactBatchV3",
++       "$with": {
++        "analysisOrdinal": 1
++       }
++      },
++      "negotiated_tokens": "$fixtures.ts2Attribution",
++      "expected": null
++     },
++     "bind": "r",
++     "expectError": "ANALYSIS_ORDINAL"
++    }
++   ],
++   "expect": {}
+   }
+  ],
+  "revision": "Blind-consumer corrections: M-1 subjectScopeCommitment producing recipe and admitted producer boundary; M-2 closed TypeScript native context."
+--- a/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -573,6 +573,18 @@
+                 "d9": {"class": "operational-failed", "exitCode": 4, "code": "PROVIDER.PROTOCOL_VIOLATION"}}
+     return {"stage": "hello-ack", "spawned": True, "sourceBytesSent": False, "outcome": "accepted",
+             "identityNegotiated": all(t in hello_ack for t in IDENTITY_TOKENS), "next": "OpenUniverse"}
++
++
++# Provider handshake and FactBatch WIRE records (native-evidence 9.1, 9.3, 9.4, 9.6). `negotiate` above decides
++# token sets only. The field-level Hello/HelloAck records, the per-language limit maps, the historical-versus-
++# negotiated FactBatch payloads and their cross-record joins are published in provider-handshake.schemas.v1.json
++# and executed by provider_wire_model.v1.py, which carries the bytes-bearing wire CBOR this file does not.
++WIRE = _load("provider_wire_model_v1", HERE / "provider_wire_model.v1.py")
++admit_provider_hello = WIRE.admit_hello
++admit_provider_hello_ack = WIRE.admit_hello_ack
++admit_provider_fact_batch = WIRE.admit_fact_batch
++validate_provider_wire = WIRE.validate_wire
++provider_wire_limits = WIRE.published_limits
+ 
+ 
+ # The Rust major-3 transition system, READ from its published artifact rather than restated here.
+--- a/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json
++++ b/docs/coop/design-corrections/native/occupancy-companion.schema.v1.json
+@@ -324,9 +324,10 @@
+     "carrier": "FactBatchV3.occupancyCompanions",
+     "capabilityToken": "target-attribution-v2",
+     "historicalFactCandidateV1": "unchanged; additionalProperties false; no occupancy field",
+-    "historicalFactBatchV2": "unchanged closed payload when the token is not negotiated",
++    "historicalFactBatchV2": "rust-semantic: unchanged closed rust-provider-protocol.v2 FactBatchV2 when the token is not negotiated",
++    "historicalFactBatchV1": "typescript-semantic: unchanged closed delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment} when the token is not negotiated",
+     "notAFrame": "OccupancyCompanionV1 is not itself a protocol3 frame. FactBatch remains the ANALYZING worker-to-host frame.",
+-    "protocolMajor": "rust-semantic remains 3; typescript-semantic remains 2; payload version of FactBatch is capability-gated, not a silent field add under FactBatchV2",
++    "protocolMajor": "rust-semantic remains 3; typescript-semantic remains 2; payload version of FactBatch is capability-gated, not a silent field add under either historical payload",
+     "stageId": "FactBatchV3.stageId is C-2 TEXT of the current requested stage, not this companion's field"
+   }
+ }
+--- /dev/null
++++ b/docs/coop/design-corrections/native/provider-handshake.schemas.v1.json
+@@ -0,0 +1,755 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.provider-handshake.1",
++  "title": "Provider handshake successors: typescript-semantic major 2 and rust-semantic major 3 Hello/HelloAck, limits and historical FactBatch vectors",
++  "description": "NORMATIVE field-level publication for native-evidence sections 9.1, 9.3, 9.4 and 9.6. HelloV3, HelloAckV3 and ProtocolLimitsV3 here SUPERSEDE the same-named $defs of native/native-evidence.schemas.v2.json, whose registered bytes are kept unchanged because that document's raw SHA-256 is a registered payloadSchemaDigest (native-evidence section 10); a byte change there would be a schema-document successor with re-registration. TypeScriptProtocolLimitsV1, TypeScriptHelloV2 and TypeScriptHelloAckV2 publish the typescript-semantic major-2 handshake. Every record is the JSON-vector form of a closed deterministic-CBOR map; handshake payloads carry no byte strings. Cross-record joins that a stock schema cannot express (descriptor digests and fields, identity and token echoes, contract digest, limit CBOR byte equality, candidate CBOR projection, TypeScript batch commitment) are executed by native/provider_wire_model.v1.py within that module's stated scope.",
++  "x-opensip-wire-law": {
++    "supersedes": [
++      "native/native-evidence.schemas.v2.json#/$defs/HelloV3",
++      "native/native-evidence.schemas.v2.json#/$defs/HelloAckV3",
++      "native/native-evidence.schemas.v2.json#/$defs/ProtocolLimitsV3"
++    ],
++    "frameAndMajor": {
++      "typescript-semantic": "Frame names Hello and HelloAck are unchanged. delivery.v2 typescriptSemanticSubstrate.providerProtocol.major is 2 and wireSchema.frameEnvelope.fields.protocolMajor is exactly 2. TypeScriptHelloV2 carries no payload protocolMajor, as HelloV1 did not. TypeScriptHelloAckV2.protocolMajor is exactly 2 and equals the verified provider descriptor protocolMajor.",
++      "rust-semantic": "Frame names Hello and HelloAck are unchanged. rust-provider-protocol.v2 protocolIdentity.protocolMajor is 3 and wireSchema.envelope.fields.protocolMajor is exactly 3. HelloV3.protocolMajor (kept from the superseded HelloV3 definition), HelloV3.expectedIdentity.protocolMajor (kept from ExpectedRustIdentityV2) and HelloAckV3.protocolMajor (kept from HelloAckV2) are each exactly 3."
++    },
++    "capabilityArrays": "HelloV3.expectedCapabilities, HelloAckV3.capabilities, TypeScriptHelloV2.expectedCapabilities and TypeScriptHelloAckV2.capabilities are strictly unique arrays in ascending UTF-8 byte order (x-opensip-order utf8), drawn only from that language's tokens and containing the four identity tokens. Hello carries exactly the selected signed capability row's tokens for that worker; HelloAck echoes the Hello array exactly (same members in the same order). typescript-semantic inherits the rule from HelloAckV1 'exact sorted array'; for rust-semantic it replaces the unordered 'sequence' annotation of the superseded HelloV3 definition, so exact recursive equality and token-set equality coincide.",
++    "identityVersions": "Hello carries {snapshot:2, plan:2, fact:2, coverage:3}; HelloAck echoes it exactly.",
++    "limits": {
++      "typescript-semantic": "TypeScriptHelloV2.limits is TypeScriptProtocolLimitsV1: the closed map of exactly the ten numeric members of delivery.v2 typescriptSemanticSubstrate.providerProtocol.wireSchema.limits with identical values. limitRule is policy text, never a member. No ProtocolLimitsV3 member applies.",
++      "rust-semantic": "HelloV3.limits is ProtocolLimitsV3: the closed map of the 24 rust-provider-protocol.v2 limits members with identical values plus the eight native-evidence section 9.3 members, 32 in all. rust-provider-protocol.v2 limitsHandshake (exact semantic and deterministic-CBOR byte equality) and limitPolicy apply unchanged to this value.",
++      "refusal": "A missing, extra, renamed, retyped or changed member refuses Hello before HelloAck (PROVIDER.PROTOCOL_VIOLATION)."
++    },
++    "typescriptDescriptorBinding": {
++      "digests": "expectedProviderDescriptorSha256 and expectedRuntimeDescriptorSha256 are the raw SHA-256 of the RFC 8785 bytes of the verified signed typescript-provider/identity.json and typescript-runtime/identity.json descriptors (delivery.v2 typescriptSemanticSubstrate.identity; resolved-inputs.v2 typescript-v1 deliveryJoin). HelloAck providerDescriptorSha256 and runtimeDescriptorSha256 equal those Hello values.",
++      "providerDescriptorFields": [
++        "providerBuildId",
++        "protocolMajor",
++        "typescriptVersion",
++        "typescriptCompilerSha256",
++        "typescriptStdlibMerkleRoot",
++        "defaultWorkBudgetProfileId",
++        "defaultWorkBudgetProfileSha256"
++      ],
++      "runtimeDescriptorFields": [
++        "nodeVersion",
++        "v8Version",
++        "modulesAbi",
++        "platformId"
++      ],
++      "rule": "Each providerDescriptorFields member of HelloAck equals the same-named member of the verified provider descriptor and each runtimeDescriptorFields member equals the verified runtime descriptor (delivery.v2 identity.hostValidation). Any mismatch is PROVIDER.PROTOCOL_VIOLATION before a source byte. The verified providerBuildId remains the source of FactCandidateV1.producerVersion."
++    },
++    "rustIdentityBinding": {
++      "identityFields": [
++        "protocolMajor",
++        "providerBuildId",
++        "rustCommitHash",
++        "hostTriple",
++        "targetTriple",
++        "sysrootDigest"
++      ],
++      "echoFields": [
++        "providerBuildId",
++        "rustCommitHash",
++        "hostTriple",
++        "targetTriple",
++        "sysrootDigest"
++      ],
++      "source": "HelloV3.expectedIdentity members are the selected Plan semantic-universe row's same-named members of resolved-inputs.v2 planIdContract.semanticUniverseSchemas.rust-v1 (retained; only rust-v1.resolvedInputs is superseded, by rust-v2), whose deliveryJoin binds them to the verified signed release (rust-provider-protocol.v2 requestProjection.identity). HelloV3.hostBuildId is the host build identity, unchanged from HelloV2.",
++      "rule": "HelloAckV3 echoFields equal Hello expectedIdentity exactly and HelloAckV3.protocolMajor equals expectedIdentity.protocolMajor (HelloAckV2 'exact Hello expectedIdentity value'). Any mismatch is PROVIDER.PROTOCOL_VIOLATION before a source byte."
++    },
++    "expectedProtocolContractSha256": {
++      "artifact": "docs/coop/artifacts/rust-provider-protocol.v2.json",
++      "sha256": "6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b",
++      "rule": "Raw SHA-256 (DigestHex) of the exact bytes of the selected inherited contract that HelloV2 names ('exact selected v2 artifact bytes'), pinned in native/source-pins.v2.json. It authenticates the retained inherited base only. The major-3 successor law is identified on the wire by protocolMajor 3, the identity token set, identityVersions and the exact ProtocolLimitsV3 map; no digest of the successor documents is a Hello member, because selecting one would be a new digest input rather than an inherited one."
++    },
++    "factBatch": {
++      "negotiated": "FactBatchV3 (native/fact-batch.schema.v3.json) for either language iff target-attribution-v2 is in both the Hello and the HelloAck token arrays.",
++      "typescript-semantic": "Not negotiated: delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment}, unchanged (JSON vector: TypeScriptFactBatchV1Vector).",
++      "rust-semantic": "Not negotiated: rust-provider-protocol.v2 FactBatchV2 {analysisOrdinal, stageId, batchIndex, candidates}, unchanged (JSON vector: RustFactBatchV2Vector).",
++      "violation": "A FactBatchV3 payload without the token, or that language's historical payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
++      "candidateCap": "typescript-semantic maxFactBatchFacts 4096; rust-semantic maxFactBatchCandidates 4096. occupancyCompanions length is at most len(candidates) under either name."
++    },
++    "commitments": {
++      "typescript-semantic": "FactBatchV1.batchCommitment = sha256:hex(SHA-256(UTF8(opensip.ts-provider.fact-batch.v1) || 0x00 || deterministic-CBOR(facts))) under delivery.v2 wireSchema.commitments.domainRule, over the wire FactCandidateV1 array. Negotiated FactBatchV3 carries no batchCommitment: commitments.domains.factBatch applies to FactBatchV1 only. StageResultV1.factCommitment (stageFacts) and CompleteV1.factStreamCommitment (factStream) remain over the ordered FactCandidateV1 stream whichever payload carried it.",
++      "rust-semantic": "Neither FactBatchV2 nor FactBatchV3 carries a per-batch commitment; rust-provider-protocol.v2 commitments.stageFacts and factStream remain over the ordered candidates."
++    },
++    "candidateCborProjection": "In every FactBatch JSON vector a candidate's canonicalRelationPayloadHex is the lowercase hex of the wire FactCandidateV1.canonicalRelationPayload CBOR byte string and decodedRelationPayload is a verified observation, not a wire member. The wire candidate is the vector candidate with decodedRelationPayload removed and canonicalRelationPayloadHex replaced by canonicalRelationPayload = bytes(hex); admission requires hex == deterministic-CBOR(decodedRelationPayload). Wire maps are deterministic CBOR (delivery.v2 wireSchema.canonicalCbor; rust-provider-protocol.v2 canonicalCbor); with text keys only, the two inherited map-order rules select the same order."
++  },
++  "$defs": {
++    "Uint64": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 18446744073709551615
++    },
++    "DigestHex": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "Sha256Text": {
++      "type": "string",
++      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "NfcText": {
++      "type": "string",
++      "minLength": 1,
++      "description": "delivery.v2 'non-empty NFC text' / 'verified descriptor text'. NFC is checked by admission."
++    },
++    "IdentityText": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^[^\\u0000-\\u001f\\u0080-\\u009f]+(?![\\s\\S])",
++      "description": "rust-provider-protocol.v2 IdentityText: NFC, 1..4096 UTF-8 bytes, no C0/C1 control. NFC and the UTF-8 byte bound are checked by admission."
++    },
++    "StageIdText": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 255,
++      "description": "C-2 stageId text, the historical FactBatchV1/V2 stageId type preserved on FactBatchV3."
++    },
++    "IdentityVersionsV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "snapshot",
++        "plan",
++        "fact",
++        "coverage"
++      ],
++      "properties": {
++        "snapshot": {
++          "const": 2
++        },
++        "plan": {
++          "const": 2
++        },
++        "fact": {
++          "const": 2
++        },
++        "coverage": {
++          "const": 3
++        }
++      },
++      "description": "native-evidence section 9.1 identity versions; HelloAck echoes the Hello value exactly."
++    },
++    "TypeScriptCapabilityToken": {
++      "type": "string",
++      "enum": [
++        "coverage-v3",
++        "fact-identity-fact2",
++        "multi-stage-analyze-v1",
++        "native-context-v2",
++        "plan-identity-plan2",
++        "resolution-completeness-v2",
++        "sealed-vfs-v1",
++        "source-identity-snapshot2",
++        "target-attribution-v2",
++        "typescript-semantic-facts-v1",
++        "unresolved-edge-v1"
++      ],
++      "description": "The typescript-semantic members of native-evidence.schemas.v2.json#/$defs/CapabilityToken (section 9.1); the Rust-only dependency-source-v1, prepared-output-v3 and rust-semantic-facts-v1 are excluded (section 9.4)."
++    },
++    "RustCapabilityToken": {
++      "type": "string",
++      "enum": [
++        "coverage-v3",
++        "dependency-source-v1",
++        "fact-identity-fact2",
++        "multi-stage-analyze-v1",
++        "native-context-v2",
++        "plan-identity-plan2",
++        "prepared-output-v3",
++        "resolution-completeness-v2",
++        "rust-semantic-facts-v1",
++        "sealed-vfs-v1",
++        "source-identity-snapshot2",
++        "target-attribution-v2",
++        "unresolved-edge-v1"
++      ],
++      "description": "The rust-semantic members of native-evidence.schemas.v2.json#/$defs/CapabilityToken (section 9.1); typescript-semantic-facts-v1 is excluded."
++    },
++    "TypeScriptCapabilitiesV2": {
++      "type": "array",
++      "minItems": 4,
++      "maxItems": 11,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/TypeScriptCapabilityToken"
++      },
++      "x-opensip-order": "utf8",
++      "allOf": [
++        {
++          "contains": {
++            "const": "source-identity-snapshot2"
++          }
++        },
++        {
++          "contains": {
++            "const": "plan-identity-plan2"
++          }
++        },
++        {
++          "contains": {
++            "const": "fact-identity-fact2"
++          }
++        },
++        {
++          "contains": {
++            "const": "coverage-v3"
++          }
++        }
++      ],
++      "description": "typescript-semantic token array: strictly unique ascending UTF-8 order, the four identity tokens present."
++    },
++    "RustCapabilitiesV3": {
++      "type": "array",
++      "minItems": 4,
++      "maxItems": 13,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/RustCapabilityToken"
++      },
++      "x-opensip-order": "utf8",
++      "allOf": [
++        {
++          "contains": {
++            "const": "source-identity-snapshot2"
++          }
++        },
++        {
++          "contains": {
++            "const": "plan-identity-plan2"
++          }
++        },
++        {
++          "contains": {
++            "const": "fact-identity-fact2"
++          }
++        },
++        {
++          "contains": {
++            "const": "coverage-v3"
++          }
++        }
++      ],
++      "description": "rust-semantic token array: strictly unique ascending UTF-8 order, the four identity tokens present."
++    },
++    "TypeScriptProtocolLimitsV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "maxFramePayloadBytes",
++        "maxSnapshotChunkBytes",
++        "maxSnapshotEntries",
++        "maxAnalyzeStages",
++        "maxRelationsPerStage",
++        "maxRequestedCoverageKeysPerStage",
++        "maxFactBatchFacts",
++        "maxFactCandidatePayloadBytes",
++        "maxCoverageEntriesPerFrame",
++        "maxStderrBytes"
++      ],
++      "properties": {
++        "maxFramePayloadBytes": {
++          "const": 67108864
++        },
++        "maxSnapshotChunkBytes": {
++          "const": 1048576
++        },
++        "maxSnapshotEntries": {
++          "const": 200000
++        },
++        "maxAnalyzeStages": {
++          "const": 1024
++        },
++        "maxRelationsPerStage": {
++          "const": 64
++        },
++        "maxRequestedCoverageKeysPerStage": {
++          "const": 128
++        },
++        "maxFactBatchFacts": {
++          "const": 4096
++        },
++        "maxFactCandidatePayloadBytes": {
++          "const": 1048576
++        },
++        "maxCoverageEntriesPerFrame": {
++          "const": 4096
++        },
++        "maxStderrBytes": {
++          "const": 262144
++        }
++      },
++      "description": "Exactly the ten numeric members of delivery.v2 typescriptSemanticSubstrate.providerProtocol.wireSchema.limits with identical values; limitRule is policy text and never a member."
++    },
++    "ProtocolLimitsV3": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "maxFramePayloadBytes",
++        "maxSnapshotChunkBytes",
++        "maxSnapshotEntries",
++        "maxSnapshotTotalFileBytes",
++        "maxPreparedOutputChunkBytes",
++        "maxPreparedOutputEntries",
++        "maxPreparedOutputTotalBlobBytes",
++        "maxAnalyzeStages",
++        "maxRelationsPerStage",
++        "maxSubjectsPerStage",
++        "maxRequestedCoverageKeysPerStage",
++        "maxFactBatchCandidates",
++        "maxFactCandidatesTotal",
++        "maxCanonicalRelationPayloadBytes",
++        "maxCoverageEntriesPerFrame",
++        "maxCandidateSpoolBytes",
++        "maxRequestPayloadBytesTotal",
++        "maxResponsePayloadBytesTotal",
++        "maxRequestFrames",
++        "maxResponseFrames",
++        "maxStderrBytes",
++        "maxScratchBytes",
++        "cancellationGraceMilliseconds",
++        "normalExitGraceMilliseconds",
++        "maxDependencySourcePackages",
++        "maxDependencySourceEntries",
++        "maxDependencySourceTotalBytes",
++        "maxDependencySourceChunkBytes",
++        "maxUnresolvedEdgesPerStage",
++        "maxCfgSets",
++        "maxExpansionRows",
++        "maxGeneratedFileRows"
++      ],
++      "properties": {
++        "maxFramePayloadBytes": {
++          "const": 67108864
++        },
++        "maxSnapshotChunkBytes": {
++          "const": 1048576
++        },
++        "maxSnapshotEntries": {
++          "const": 200000
++        },
++        "maxSnapshotTotalFileBytes": {
++          "const": 8589934592
++        },
++        "maxPreparedOutputChunkBytes": {
++          "const": 1048576
++        },
++        "maxPreparedOutputEntries": {
++          "const": 256
++        },
++        "maxPreparedOutputTotalBlobBytes": {
++          "const": 1073741824
++        },
++        "maxAnalyzeStages": {
++          "const": 256
++        },
++        "maxRelationsPerStage": {
++          "const": 64
++        },
++        "maxSubjectsPerStage": {
++          "const": 256
++        },
++        "maxRequestedCoverageKeysPerStage": {
++          "const": 256
++        },
++        "maxFactBatchCandidates": {
++          "const": 4096
++        },
++        "maxFactCandidatesTotal": {
++          "const": 1000000
++        },
++        "maxCanonicalRelationPayloadBytes": {
++          "const": 1048576
++        },
++        "maxCoverageEntriesPerFrame": {
++          "const": 4096
++        },
++        "maxCandidateSpoolBytes": {
++          "const": 1073741824
++        },
++        "maxRequestPayloadBytesTotal": {
++          "const": 9663676416
++        },
++        "maxResponsePayloadBytesTotal": {
++          "const": 1073741824
++        },
++        "maxRequestFrames": {
++          "const": 1000000
++        },
++        "maxResponseFrames": {
++          "const": 1000000
++        },
++        "maxStderrBytes": {
++          "const": 262144
++        },
++        "maxScratchBytes": {
++          "const": 2147483648
++        },
++        "cancellationGraceMilliseconds": {
++          "const": 5000
++        },
++        "normalExitGraceMilliseconds": {
++          "const": 5000
++        },
++        "maxDependencySourcePackages": {
++          "const": 4096
++        },
++        "maxDependencySourceEntries": {
++          "const": 1000000
++        },
++        "maxDependencySourceTotalBytes": {
++          "const": 8589934592
++        },
++        "maxDependencySourceChunkBytes": {
++          "const": 1048576
++        },
++        "maxUnresolvedEdgesPerStage": {
++          "const": 1000000
++        },
++        "maxCfgSets": {
++          "const": 4
++        },
++        "maxExpansionRows": {
++          "const": 1000000
++        },
++        "maxGeneratedFileRows": {
++          "const": 1000000
++        }
++      },
++      "description": "rust-semantic HelloV3.limits: the 24 rust-provider-protocol.v2 limits members with identical values plus the eight native-evidence section 9.3 members (32). limitsHandshake semantic and deterministic-CBOR byte equality and limitPolicy apply unchanged."
++    },
++    "TypeScriptHelloV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "hostBuildId",
++        "expectedProviderDescriptorSha256",
++        "expectedRuntimeDescriptorSha256",
++        "limits",
++        "expectedCapabilities",
++        "identityVersions"
++      ],
++      "properties": {
++        "hostBuildId": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloV1 hostBuildId, unchanged."
++        },
++        "expectedProviderDescriptorSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloV1, unchanged: raw SHA-256 of the RFC 8785 bytes of the verified signed typescript-provider/identity.json."
++        },
++        "expectedRuntimeDescriptorSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloV1, unchanged: raw SHA-256 of the RFC 8785 bytes of the verified signed typescript-runtime/identity.json."
++        },
++        "limits": {
++          "$ref": "#/$defs/TypeScriptProtocolLimitsV1",
++          "description": "HelloV1 'closed map equal to wireSchema.limits numeric fields', unchanged."
++        },
++        "expectedCapabilities": {
++          "$ref": "#/$defs/TypeScriptCapabilitiesV2",
++          "description": "Added: the selected signed capability row's tokens (section 9.1)."
++        },
++        "identityVersions": {
++          "$ref": "#/$defs/IdentityVersionsV1",
++          "description": "Added (section 9.1)."
++        }
++      },
++      "description": "typescript-semantic major-2 Hello. Every HelloV1 member unchanged plus expectedCapabilities and identityVersions. No payload protocolMajor; the envelope protocolMajor is exactly 2."
++    },
++    "TypeScriptHelloAckV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "protocolMajor",
++        "providerBuildId",
++        "providerDescriptorSha256",
++        "runtimeDescriptorSha256",
++        "nodeVersion",
++        "v8Version",
++        "modulesAbi",
++        "typescriptVersion",
++        "typescriptCompilerSha256",
++        "typescriptStdlibMerkleRoot",
++        "defaultWorkBudgetProfileId",
++        "defaultWorkBudgetProfileSha256",
++        "platformId",
++        "capabilities",
++        "identityVersions"
++      ],
++      "properties": {
++        "protocolMajor": {
++          "const": 2,
++          "description": "HelloAckV1 'uint64 exactly 1' replaced by exactly 2; equals the verified provider descriptor protocolMajor."
++        },
++        "providerBuildId": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: verified provider descriptor value."
++        },
++        "providerDescriptorSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV1, unchanged: equals Hello expectedProviderDescriptorSha256."
++        },
++        "runtimeDescriptorSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV1, unchanged: equals Hello expectedRuntimeDescriptorSha256."
++        },
++        "nodeVersion": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: verified runtime descriptor value."
++        },
++        "v8Version": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: verified runtime descriptor value."
++        },
++        "modulesAbi": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: verified runtime descriptor value."
++        },
++        "typescriptVersion": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: verified provider descriptor value."
++        },
++        "typescriptCompilerSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV1, unchanged: verified provider descriptor value."
++        },
++        "typescriptStdlibMerkleRoot": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV1, unchanged: verified provider descriptor value."
++        },
++        "defaultWorkBudgetProfileId": {
++          "const": "typescript-provider-default-work-budget-v1",
++          "description": "HelloAckV1, unchanged."
++        },
++        "defaultWorkBudgetProfileSha256": {
++          "const": "bf7305a12d26a1938b615c861f995d66eac494915e6140c4942a2ea6f0846da6",
++          "description": "HelloAckV1, unchanged."
++        },
++        "platformId": {
++          "$ref": "#/$defs/NfcText",
++          "description": "HelloAckV1, unchanged: selected release platformId, equal to the verified runtime descriptor value."
++        },
++        "capabilities": {
++          "$ref": "#/$defs/TypeScriptCapabilitiesV2",
++          "description": "HelloAckV1 fixed three-token array replaced by the exact echo of Hello expectedCapabilities."
++        },
++        "identityVersions": {
++          "$ref": "#/$defs/IdentityVersionsV1",
++          "description": "Added: exact echo of Hello identityVersions."
++        }
++      },
++      "description": "typescript-semantic major-2 HelloAck. Every HelloAckV1 member kept, including all provider/runtime descriptor verification; protocolMajor 1 -> 2 and the fixed capability array -> the negotiated echo; identityVersions added."
++    },
++    "ExpectedRustIdentityV3": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "protocolMajor",
++        "providerBuildId",
++        "rustCommitHash",
++        "hostTriple",
++        "targetTriple",
++        "sysrootDigest"
++      ],
++      "properties": {
++        "protocolMajor": {
++          "const": 3,
++          "description": "ExpectedRustIdentityV2 'uint64 exactly 2' replaced by exactly 3."
++        },
++        "providerBuildId": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "Selected Plan rust-v1 row providerBuildId (verified signed release)."
++        },
++        "rustCommitHash": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "Selected Plan rust-v1 row rustCommitHash (resolved-inputs.v2 rust-v1 digestFields representation)."
++        },
++        "hostTriple": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "Selected Plan rust-v1 row hostTriple."
++        },
++        "targetTriple": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "Selected Plan rust-v1 row targetTriple."
++        },
++        "sysrootDigest": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "Selected Plan rust-v1 row sysrootDigest."
++        }
++      },
++      "description": "ExpectedRustIdentityV2 members unchanged except protocolMajor 3."
++    },
++    "HelloV3": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "protocolMajor",
++        "hostBuildId",
++        "expectedProtocolContractSha256",
++        "expectedIdentity",
++        "expectedCapabilities",
++        "identityVersions",
++        "limits"
++      ],
++      "properties": {
++        "protocolMajor": {
++          "const": 3,
++          "description": "Kept from the superseded HelloV3 definition."
++        },
++        "hostBuildId": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "HelloV2, unchanged."
++        },
++        "expectedProtocolContractSha256": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloV2, unchanged: raw SHA-256 of the exact bytes of docs/coop/artifacts/rust-provider-protocol.v2.json (x-opensip-wire-law expectedProtocolContractSha256)."
++        },
++        "expectedIdentity": {
++          "$ref": "#/$defs/ExpectedRustIdentityV3",
++          "description": "HelloV2 expectedIdentity, protocolMajor 3."
++        },
++        "expectedCapabilities": {
++          "$ref": "#/$defs/RustCapabilitiesV3",
++          "description": "Replaces HelloV2 RustProviderCapabilityV2 with the section 9.1 token array (kept from the superseded HelloV3 definition)."
++        },
++        "identityVersions": {
++          "$ref": "#/$defs/IdentityVersionsV1",
++          "description": "Kept from the superseded HelloV3 definition."
++        },
++        "limits": {
++          "$ref": "#/$defs/ProtocolLimitsV3",
++          "description": "32-member closed map (section 9.3)."
++        }
++      },
++      "description": "rust-semantic major-3 Hello. Every HelloV2 member kept, capability record replaced by the token array, identityVersions added, limits ProtocolLimitsV3."
++    },
++    "HelloAckV3": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "protocolMajor",
++        "providerBuildId",
++        "rustCommitHash",
++        "hostTriple",
++        "targetTriple",
++        "sysrootDigest",
++        "capabilities",
++        "identityVersions"
++      ],
++      "properties": {
++        "protocolMajor": {
++          "const": 3,
++          "description": "HelloAckV2 'uint64 exactly 2' replaced by exactly 3; equals Hello expectedIdentity.protocolMajor."
++        },
++        "providerBuildId": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "HelloAckV2, unchanged: exact Hello expectedIdentity value."
++        },
++        "rustCommitHash": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV2, unchanged: exact Hello expectedIdentity value."
++        },
++        "hostTriple": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "HelloAckV2, unchanged: exact Hello expectedIdentity value."
++        },
++        "targetTriple": {
++          "$ref": "#/$defs/IdentityText",
++          "description": "HelloAckV2, unchanged: exact Hello expectedIdentity value."
++        },
++        "sysrootDigest": {
++          "$ref": "#/$defs/DigestHex",
++          "description": "HelloAckV2, unchanged: exact Hello expectedIdentity value."
++        },
++        "capabilities": {
++          "$ref": "#/$defs/RustCapabilitiesV3",
++          "description": "Exact echo of Hello expectedCapabilities."
++        },
++        "identityVersions": {
++          "$ref": "#/$defs/IdentityVersionsV1",
++          "description": "Exact echo of Hello identityVersions."
++        }
++      },
++      "description": "rust-semantic major-3 HelloAck. Every HelloAckV2 identity echo kept; protocolMajor 3; token array and identityVersions echoes."
++    },
++    "TypeScriptFactBatchV1Vector": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "analysisOrdinal",
++        "stageId",
++        "batchIndex",
++        "facts",
++        "batchCommitment"
++      ],
++      "properties": {
++        "analysisOrdinal": {
++          "const": 0,
++          "description": "delivery.v2 FactBatchV1 'uint64 exactly 0'."
++        },
++        "stageId": {
++          "$ref": "#/$defs/StageIdText",
++          "description": "Current requested stage (StageRequestV1.stageId)."
++        },
++        "batchIndex": {
++          "$ref": "#/$defs/Uint64",
++          "description": "Contiguous from 0 for the stage."
++        },
++        "facts": {
++          "type": "array",
++          "minItems": 1,
++          "maxItems": 4096,
++          "items": {
++            "$ref": "opensip.product.fact-batch.3#/properties/candidates/items"
++          },
++          "x-opensip-order": "candidateOrdinal",
++          "description": "Non-empty ordered FactCandidateV1 JSON vectors, length <= maxFactBatchFacts."
++        },
++        "batchCommitment": {
++          "$ref": "#/$defs/Sha256Text",
++          "description": "sha256 under domain opensip.ts-provider.fact-batch.v1 over deterministic-CBOR of the wire facts array."
++        }
++      },
++      "description": "JSON vector of the unchanged typescript-semantic historical payload delivery.v2 FactBatchV1, admitted when target-attribution-v2 is not negotiated."
++    },
++    "RustFactBatchV2Vector": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "analysisOrdinal",
++        "stageId",
++        "batchIndex",
++        "candidates"
++      ],
++      "properties": {
++        "analysisOrdinal": {
++          "$ref": "#/$defs/Uint64",
++          "description": "Exact Analyze analysisOrdinal echo."
++        },
++        "stageId": {
++          "$ref": "#/$defs/StageIdText",
++          "description": "StageRequestV2.planStage.stageId."
++        },
++        "batchIndex": {
++          "$ref": "#/$defs/Uint64",
++          "description": "Contiguous from 0 for the stage."
++        },
++        "candidates": {
++          "type": "array",
++          "minItems": 1,
++          "maxItems": 4096,
++          "items": {
++            "$ref": "opensip.product.fact-batch.3#/properties/candidates/items"
++          },
++          "x-opensip-order": "candidateOrdinal",
++          "description": "Non-empty FactCandidateV1 JSON vectors with contiguous candidateOrdinal, length <= maxFactBatchCandidates."
++        }
++      },
++      "description": "JSON vector of the unchanged rust-semantic historical payload rust-provider-protocol.v2 FactBatchV2, admitted when target-attribution-v2 is not negotiated."
++    }
++  }
++}
+--- /dev/null
++++ b/docs/coop/design-corrections/native/provider_wire_model.v1.py
+@@ -0,0 +1,350 @@
++"""Provider handshake and FactBatch wire reference v1 (design evidence only).
++
++Standing: PROPOSED reference for native-evidence sections 9.1, 9.3, 9.4 and 9.6. It validates the
++JSON-vector form of typescript-semantic major-2 and rust-semantic major-3 Hello / HelloAck and of
++historical-versus-negotiated FactBatch payloads against native/provider-handshake.schemas.v1.json and
++native/fact-batch.schema.v3.json, and it executes the cross-record joins a stock schema cannot
++express: provider/runtime descriptor digests and descriptor-field echoes, Rust expected-identity
++echoes, the selected inherited contract digest, token-array and identityVersions echoes, per-language
++limit maps with deterministic-CBOR byte equality, the candidate CBOR projection and the TypeScript
++per-batch commitment.
++
++Scope limits. It frames nothing (no length prefix, frame digest or sequence number), runs no worker,
++host process or compiler, validates no relation payload grammar or anchor (fact-plane admission owns
++those) and qualifies nothing. Descriptor digests hash foundation canonical.py bytes, which equal
++RFC 8785 for the integer/string value domain the fixtures use. This module carries a bytes-bearing
++CBOR encoder for wire maps only because the fact-plane relation-payload encoder it reuses has no byte
++string case; heads are the fact-plane `_cbor_head`. The occupancy entries of
++foundation/provider_attribution_return_model.v2.py decide occupancy capture only; they are not
++historical-payload validation and this module does not replace them.
++"""
++from __future__ import annotations
++
++import hashlib
++import importlib.util
++import json
++import unicodedata
++from pathlib import Path
++
++from referencing import Registry, Resource
++from referencing.jsonschema import DRAFT202012
++
++HERE = Path(__file__).resolve().parent
++CORRECTIONS = HERE.parent
++REPO = HERE.parents[3]
++ARTIFACTS = REPO / "docs" / "coop" / "artifacts"
++
++
++def _load(name: str, path: Path):
++    spec = importlib.util.spec_from_file_location(name, path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++C = _load("wire_canonical", CORRECTIONS / "foundation" / "canonical.py")
++FP = _load("wire_fact_plane", ARTIFACTS / "check-fact-plane.py")
++
++HANDSHAKE = json.loads((HERE / "provider-handshake.schemas.v1.json").read_text(encoding="utf-8"))
++FACT_BATCH_V3 = json.loads((HERE / "fact-batch.schema.v3.json").read_text(encoding="utf-8"))
++COMPANION = json.loads((HERE / "occupancy-companion.schema.v1.json").read_text(encoding="utf-8"))
++REGISTRY = Registry().with_resources(
++    [(doc["$id"], Resource(contents=doc, specification=DRAFT202012)) for doc in (HANDSHAKE, FACT_BATCH_V3, COMPANION)])
++LAW = HANDSHAKE["x-opensip-wire-law"]
++
++DELIVERY_V2 = json.loads((ARTIFACTS / "delivery.v2.json").read_text(encoding="utf-8"))
++TS_IDENTITY = DELIVERY_V2["typescriptSemanticSubstrate"]["identity"]
++TS_WIRE = DELIVERY_V2["typescriptSemanticSubstrate"]["providerProtocol"]["wireSchema"]
++RUST_PROTOCOL_V2_PATH = REPO / LAW["expectedProtocolContractSha256"]["artifact"]
++RUST_PROTOCOL_V2 = json.loads(RUST_PROTOCOL_V2_PATH.read_text(encoding="utf-8"))
++
++IDENTITY_TOKENS = ("source-identity-snapshot2", "plan-identity-plan2", "fact-identity-fact2", "coverage-v3")
++TARGET_ATTRIBUTION = "target-attribution-v2"
++LANGUAGES = {
++    "typescript-semantic": {
++        "hello": "TypeScriptHelloV2", "helloAck": "TypeScriptHelloAckV2", "limits": "TypeScriptProtocolLimitsV1",
++        "historical": "TypeScriptFactBatchV1Vector", "historicalPayload": "FactBatchV1", "candidateArray": "facts",
++        "batchCap": "maxFactBatchFacts", "payloadBound": "maxFactCandidatePayloadBytes",
++    },
++    "rust-semantic": {
++        "hello": "HelloV3", "helloAck": "HelloAckV3", "limits": "ProtocolLimitsV3",
++        "historical": "RustFactBatchV2Vector", "historicalPayload": "FactBatchV2", "candidateArray": "candidates",
++        "batchCap": "maxFactBatchCandidates", "payloadBound": "maxCanonicalRelationPayloadBytes",
++    },
++}
++
++
++class ProviderWireRefusal(C.AdmissionError):
++    """A provider wire record the host must refuse: PROVIDER.PROTOCOL_VIOLATION.
++
++    At Hello/HelloAck the refusal precedes every source byte; at FactBatch it precedes candidate
++    admission. `key` is an internal reference key, never a public D9 code."""
++
++    def __init__(self, key: str, detail: str = ""):
++        self.key = key
++        self.detail = detail
++        super().__init__("PROVIDER.PROTOCOL_VIOLATION:" + key + (":" + detail if detail else ""))
++
++
++def _language(language: str) -> dict:
++    if language not in LANGUAGES:
++        raise ProviderWireRefusal("LANGUAGE", repr(language))
++    return LANGUAGES[language]
++
++
++def _refuse_schema(label: str, exc: Exception):
++    path = "/".join(str(p) for p in (getattr(exc, "absolute_path", None) or []))
++    message = getattr(exc, "message", None) or str(exc).splitlines()[0]
++    raise ProviderWireRefusal("SCHEMA", f"{label}:/{path}:{message}") from exc
++
++
++def validate_wire(def_name: str, value):
++    """Exact typed admission of one provider-handshake.schemas.v1.json definition (no mutation)."""
++    if def_name not in HANDSHAKE["$defs"]:
++        raise ProviderWireRefusal("SCHEMA", "unknown definition " + def_name)
++    try:
++        return C.validate({"$ref": HANDSHAKE["$id"] + "#/$defs/" + def_name}, value, registry=REGISTRY)
++    except Exception as exc:  # noqa: BLE001 - every schema refusal is one typed protocol violation
++        _refuse_schema(def_name, exc)
++
++
++def published_major(language: str) -> int:
++    return HANDSHAKE["$defs"][_language(language)["helloAck"]]["properties"]["protocolMajor"]["const"]
++
++
++def published_limits(language: str) -> dict:
++    """The exact per-language Hello limit map, read from the published closed definition."""
++    props = HANDSHAKE["$defs"][_language(language)["limits"]]["properties"]
++    return {name: prop["const"] for name, prop in props.items()}
++
++
++def wire_cbor(value) -> bytes:
++    """Deterministic CBOR of a wire value with text-keyed maps (RFC 8949 core deterministic order)."""
++    if value is None:
++        return b"\xf6"
++    if value is False:
++        return b"\xf4"
++    if value is True:
++        return b"\xf5"
++    if type(value) is int:
++        if value < 0:
++            raise ProviderWireRefusal("WIRE_CBOR", "negative integer")
++        return FP._cbor_head(0, value)
++    if type(value) is bytes:
++        return FP._cbor_head(2, len(value)) + value
++    if type(value) is str:
++        if unicodedata.normalize("NFC", value) != value:
++            raise ProviderWireRefusal("WIRE_CBOR", "non-NFC text")
++        data = value.encode("utf-8")
++        return FP._cbor_head(3, len(data)) + data
++    if type(value) is list:
++        return FP._cbor_head(4, len(value)) + b"".join(wire_cbor(item) for item in value)
++    if type(value) is dict:
++        if any(type(key) is not str for key in value):
++            raise ProviderWireRefusal("WIRE_CBOR", "non-text map key")
++        pairs = sorted((wire_cbor(k), wire_cbor(v)) for k, v in value.items())
++        return FP._cbor_head(5, len(pairs)) + b"".join(k + v for k, v in pairs)
++    raise ProviderWireRefusal("WIRE_CBOR", "unsupported type " + type(value).__name__)
++
++
++def _admit_text(def_name: str, value: dict, where: str) -> None:
++    for key, prop in HANDSHAKE["$defs"][def_name]["properties"].items():
++        target = prop.get("$ref", "").rsplit("/", 1)[-1]
++        if target in ("NfcText", "IdentityText"):
++            text = value[key]
++            if unicodedata.normalize("NFC", text) != text:
++                raise ProviderWireRefusal("TEXT_NOT_NFC", where + key)
++            if target == "IdentityText" and len(text.encode("utf-8")) > 4096:
++                raise ProviderWireRefusal("TEXT_BYTE_BOUND", where + key)
++        elif target == "ExpectedRustIdentityV3":
++            _admit_text(target, value[key], where + key + ".")
++
++
++def _utf8_sorted(tokens) -> list:
++    return sorted(tokens, key=lambda token: token.encode("utf-8"))
++
++
++def _admit_descriptor(which: str, descriptor, major: int) -> dict:
++    """A verified TypeScript identity descriptor, held to its delivery.v2 closed member list."""
++    required = TS_IDENTITY[which + "Descriptor"]["closedRequired"]
++    if not isinstance(descriptor, dict) or sorted(descriptor) != sorted(required):
++        raise ProviderWireRefusal("DESCRIPTOR_SHAPE", which)
++    if which == "provider":
++        if not C.equal_typed(descriptor["protocolMajor"], major):
++            raise ProviderWireRefusal("DESCRIPTOR_PROTOCOL_MAJOR", repr(descriptor["protocolMajor"]))
++        budget = TS_IDENTITY["defaultWorkBudgetProfile"]
++        if (descriptor["defaultWorkBudgetProfileId"] != budget["profile"]["profileId"]
++                or descriptor["defaultWorkBudgetProfileSha256"] != budget["sha256"]):
++            raise ProviderWireRefusal("DESCRIPTOR_WORK_BUDGET", "")
++    return descriptor
++
++
++def _descriptor_digest(descriptor: dict) -> str:
++    return hashlib.sha256(C.canonical(descriptor)).hexdigest()
++
++
++def _envelope(language: str, envelope_protocol_major) -> int:
++    major = published_major(language)
++    if type(envelope_protocol_major) is not int or envelope_protocol_major != major:
++        raise ProviderWireRefusal("PROTOCOL_MAJOR", f"envelope {envelope_protocol_major!r} != {major}")
++    return major
++
++
++def admit_hello(language: str, hello, envelope_protocol_major, signed_row, expected: dict) -> dict:
++    """Host-side Hello construction/admission. `signed_row` is the selected signed capability row's
++    token list and `expected` the trusted verified inputs: TypeScript {hostBuildId, providerDescriptor,
++    runtimeDescriptor}; Rust {hostBuildId, identity} where identity is the selected Plan rust-v1 row's
++    protocolMajor/providerBuildId/rustCommitHash/hostTriple/targetTriple/sysrootDigest."""
++    spec = _language(language)
++    major = _envelope(language, envelope_protocol_major)
++    validate_wire(spec["hello"], hello)
++    _admit_text(spec["hello"], hello, "hello.")
++    limits = published_limits(language)
++    if not C.equal_typed(hello["limits"], limits) or wire_cbor(hello["limits"]) != wire_cbor(limits):
++        raise ProviderWireRefusal("LIMITS", spec["limits"])
++    row = list(signed_row)
++    if len(set(row)) != len(row):
++        raise ProviderWireRefusal("SIGNED_ROW", "duplicate token")
++    missing = [token for token in IDENTITY_TOKENS if token not in row]
++    if missing:
++        raise ProviderWireRefusal("SIGNED_ROW", "identity tokens missing " + ",".join(missing))
++    if hello["expectedCapabilities"] != _utf8_sorted(row):
++        raise ProviderWireRefusal("CAPABILITIES", "Hello tokens differ from the selected signed row")
++    if hello["hostBuildId"] != expected["hostBuildId"]:
++        raise ProviderWireRefusal("HOST_BUILD_ID", "")
++    if language == "typescript-semantic":
++        for which, member in (("provider", "expectedProviderDescriptorSha256"),
++                              ("runtime", "expectedRuntimeDescriptorSha256")):
++            descriptor = _admit_descriptor(which, expected[which + "Descriptor"], major)
++            if hello[member] != _descriptor_digest(descriptor):
++                raise ProviderWireRefusal("DESCRIPTOR_DIGEST", which)
++    else:
++        contract = hashlib.sha256(RUST_PROTOCOL_V2_PATH.read_bytes()).hexdigest()
++        if contract != LAW["expectedProtocolContractSha256"]["sha256"]:
++            raise ProviderWireRefusal("CONTRACT_PIN", contract)
++        if hello["expectedProtocolContractSha256"] != contract:
++            raise ProviderWireRefusal("CONTRACT_DIGEST", hello["expectedProtocolContractSha256"])
++        identity = expected["identity"]
++        for member in LAW["rustIdentityBinding"]["identityFields"]:
++            if member not in identity or not C.equal_typed(hello["expectedIdentity"][member], identity[member]):
++                raise ProviderWireRefusal("EXPECTED_IDENTITY", member)
++    return {"outcome": "hello-admitted", "language": language, "protocolMajor": major,
++            "expectedCapabilities": list(hello["expectedCapabilities"]),
++            "targetAttributionOffered": TARGET_ATTRIBUTION in hello["expectedCapabilities"],
++            "sourceBytesSent": False}
++
++
++def admit_hello_ack(language: str, hello, ack, envelope_protocol_major, expected: dict) -> dict:
++    """Host-side HelloAck admission against the admitted Hello. `expected` carries the verified
++    TypeScript descriptors {providerDescriptor, runtimeDescriptor}; Rust echoes Hello only."""
++    spec = _language(language)
++    major = _envelope(language, envelope_protocol_major)
++    validate_wire(spec["hello"], hello)
++    validate_wire(spec["helloAck"], ack)
++    _admit_text(spec["helloAck"], ack, "helloAck.")
++    if ack["capabilities"] != hello["expectedCapabilities"]:
++        raise ProviderWireRefusal("CAPABILITY_ECHO", "")
++    if not C.equal_typed(ack["identityVersions"], hello["identityVersions"]):
++        raise ProviderWireRefusal("IDENTITY_VERSIONS_ECHO", "")
++    if language == "typescript-semantic":
++        binding = LAW["typescriptDescriptorBinding"]
++        for which, hello_member, ack_member, fields in (
++                ("provider", "expectedProviderDescriptorSha256", "providerDescriptorSha256",
++                 binding["providerDescriptorFields"]),
++                ("runtime", "expectedRuntimeDescriptorSha256", "runtimeDescriptorSha256",
++                 binding["runtimeDescriptorFields"])):
++            descriptor = _admit_descriptor(which, expected[which + "Descriptor"], major)
++            if hello[hello_member] != _descriptor_digest(descriptor):
++                raise ProviderWireRefusal("DESCRIPTOR_DIGEST", which)
++            if ack[ack_member] != hello[hello_member]:
++                raise ProviderWireRefusal("DESCRIPTOR_DIGEST_ECHO", which)
++            for field in fields:
++                if not C.equal_typed(ack[field], descriptor[field]):
++                    raise ProviderWireRefusal("DESCRIPTOR_FIELD", field)
++    else:
++        identity = hello["expectedIdentity"]
++        if not C.equal_typed(ack["protocolMajor"], identity["protocolMajor"]):
++            raise ProviderWireRefusal("IDENTITY_ECHO", "protocolMajor")
++        for field in LAW["rustIdentityBinding"]["echoFields"]:
++            if not C.equal_typed(ack[field], identity[field]):
++                raise ProviderWireRefusal("IDENTITY_ECHO", field)
++    tokens = list(ack["capabilities"])
++    return {"outcome": "accepted", "language": language, "protocolMajor": major,
++            "identityNegotiated": all(token in tokens for token in IDENTITY_TOKENS),
++            "targetAttributionNegotiated": TARGET_ATTRIBUTION in tokens,
++            "negotiatedTokens": tokens, "sourceBytesSent": False, "next": "OpenUniverse"}
++
++
++def admit_fact_batch(language: str, batch, negotiated_tokens, expected: dict | None = None) -> dict:
++    """Wire admission of one FactBatch payload. Negotiated target-attribution-v2 selects FactBatchV3;
++    otherwise the language's historical payload (TypeScript FactBatchV1 with batchCommitment, Rust
++    FactBatchV2). `expected` optionally carries the DispatchBindingV1 correlation values
++    {stageId, analysisOrdinal, batchIndex, firstCandidateOrdinal}."""
++    spec = _language(language)
++    if not isinstance(batch, dict):
++        raise ProviderWireRefusal("FACT_BATCH_SHAPE", "not a map")
++    negotiated = TARGET_ATTRIBUTION in list(negotiated_tokens)
++    if negotiated:
++        if "schemaVersion" not in batch:
++            raise ProviderWireRefusal("HISTORICAL_WITH_TOKEN", spec["historicalPayload"])
++        try:
++            C.validate(FACT_BATCH_V3, batch, registry=REGISTRY)
++        except Exception as exc:  # noqa: BLE001
++            _refuse_schema("FactBatchV3", exc)
++        payload, array = "FactBatchV3", "candidates"
++        if language == "typescript-semantic" and batch["analysisOrdinal"] != 0:
++            raise ProviderWireRefusal("ANALYSIS_ORDINAL", "typescript-semantic AnalyzeV1.analysisOrdinal is exactly 0")
++    else:
++        if batch.get("schemaVersion") == 3 or "occupancyCompanions" in batch:
++            raise ProviderWireRefusal("UNNEGOTIATED_V3", TARGET_ATTRIBUTION)
++        validate_wire(spec["historical"], batch)
++        payload, array = spec["historicalPayload"], spec["candidateArray"]
++    limits = published_limits(language)
++    candidates = batch[array]
++    if len(candidates) > limits[spec["batchCap"]]:
++        raise ProviderWireRefusal("BATCH_CANDIDATE_CAP", spec["batchCap"])
++    wire_candidates = []
++    for candidate in candidates:
++        ordinal = candidate["candidateOrdinal"]
++        try:
++            decoded_hex = FP._deterministic_cbor(candidate["decodedRelationPayload"]).hex()
++        except ValueError as exc:
++            raise ProviderWireRefusal("CANDIDATE_PAYLOAD_CBOR", f"{ordinal}:{exc}") from exc
++        if decoded_hex != candidate["canonicalRelationPayloadHex"]:
++            raise ProviderWireRefusal("CANDIDATE_PAYLOAD_CBOR", str(ordinal))
++        raw = bytes.fromhex(candidate["canonicalRelationPayloadHex"])
++        if len(raw) > limits[spec["payloadBound"]]:
++            raise ProviderWireRefusal("CANDIDATE_PAYLOAD_BOUND", spec["payloadBound"])
++        wire = {k: v for k, v in candidate.items() if k not in ("canonicalRelationPayloadHex", "decodedRelationPayload")}
++        wire["canonicalRelationPayload"] = raw
++        wire_candidates.append(wire)
++    ordinals = [candidate["candidateOrdinal"] for candidate in candidates]
++    if payload == "FactBatchV3":
++        known = set(ordinals)
++        companions = batch["occupancyCompanions"]
++        if len(companions) > len(candidates) or any(c["candidateOrdinal"] not in known for c in companions):
++            raise ProviderWireRefusal("COMPANION_CANDIDATE", "")
++    if expected is not None:
++        for member in ("stageId", "analysisOrdinal", "batchIndex"):
++            if member in expected and not C.equal_typed(batch[member], expected[member]):
++                raise ProviderWireRefusal("CORRELATION", member)
++        if "firstCandidateOrdinal" in expected:
++            first = expected["firstCandidateOrdinal"]
++            if ordinals != list(range(first, first + len(ordinals))):
++                raise ProviderWireRefusal("CANDIDATE_ORDINAL_CONTIGUITY", "")
++    candidates_cbor = wire_cbor(wire_candidates)
++    commitment, verified = None, None
++    if payload == "FactBatchV1":
++        domain = TS_WIRE["commitments"]["domains"]["factBatch"]
++        commitment = "sha256:" + hashlib.sha256(domain.encode("utf-8") + b"\x00" + candidates_cbor).hexdigest()
++        if batch["batchCommitment"] != commitment:
++            raise ProviderWireRefusal("BATCH_COMMITMENT", batch["batchCommitment"])
++        verified = True
++    wire_batch = dict(batch)
++    wire_batch[array] = wire_candidates
++    return {"payload": payload, "language": language, "negotiated": negotiated, "candidateArray": array,
++            "candidateCount": len(candidates), "candidateOrdinals": ordinals,
++            "wireCandidatesCborHex": candidates_cbor.hex(),
++            "wireBatchCborSha256": hashlib.sha256(wire_cbor(wire_batch)).hexdigest(),
++            "perBatchCommitmentCarried": payload == "FactBatchV1",
++            "batchCommitment": commitment, "batchCommitmentVerified": verified}
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -78,8 +78,8 @@
+ fact2 exists. The host `bind_worker_occupancy` projects `TargetAttributionV2`
+ after mint. Payload
+ grammar is unchanged (`ImportsPayloadV1.resolvedTarget` remains opaque
+-`SubjectIdV1`). Protocol3 frame names stay; FactBatch payload version is
+-capability-gated. The host captures projected V2 bytes into
++`SubjectIdV1`). Provider frame names stay; FactBatch payload version is
++capability-gated per language (§9.1). The host captures projected V2 bytes into
+ `hostCapture.hostDerivedRefs` (`domain=target-attribution`); host capture is
+ not authority to parse provider namespaces or to invent `evaluationNativeId`.
+ Every language mode that can emit resolved binary-id facts uses this shared
+@@ -116,6 +116,12 @@
+ | `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.wireSchema.definitions.CoverageResultV1.completenessRule` | **Superseded** by `CoverageResultV3` (§4.3): the exhaustive examined partition remains; a five-state `resolutionCompleteness` record is mandatory. |
+ | `docs/coop/artifacts/rust-provider-protocol.v2.json` (same selectors retained verbatim in the v3/v4 candidates) | `$.repositoryExecution.preparedOwner` ("network-disabled"), `$.repositoryExecution.forbidden` | **Relabeled**: "no network fetch" is a first-party design invariant verified by conformance, not an enforced confinement (§5.5). The semantic worker executes no repository code in any mode (§5.3). |
+ | `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.wireSchema.definitions.RepositoryResolutionV2`, `$.wireSchema.definitions.CoverageResultV2`, `$.wireSchema.payloadSchemas.UnavailableV2.fields.reason`, `$.limits`, `$.orderingAndStateMachine.stateRecord.phaseValues` | **Superseded** by protocol major 3 frames, identity negotiation, limits and phases (§9). |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.major`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.frameEnvelope.fields.protocolMajor`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.payloadSchemas.HelloV1`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.payloadSchemas.HelloAckV1` | **Superseded** by typescript-semantic protocol major 2 (§9.4): `major` and the envelope `protocolMajor` are 2; `TypeScriptHelloV2` / `TypeScriptHelloAckV2` (`native/provider-handshake.schemas.v1.json`) keep every inherited member, including all provider/runtime descriptor verification, replace only the protocol major value and the fixed three-token `capabilities` array, and add the token array and `identityVersions`. `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.limits` (its ten numeric members), `$.typescriptSemanticSubstrate.identity` (descriptors, `handshakeRequired`, `hostValidation`) and `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.commitments` are **retained**; `limitRule` is policy text, never a Hello member. |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.payloadSchemas.FactBatchV1`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.frameSchemas.FactBatch.payloadType`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.commitments.domains.factBatch` | **Retained** when `target-attribution-v2` is not negotiated; **replaced** by `FactBatchV3` (§9.6) when it is. `factBatch` commits `FactBatchV1.batchCommitment` only; `stageFacts` and `factStream` are retained whichever payload carried the candidates (§9.6). |
++| `docs/coop/artifacts/delivery.v2.json` | `$.typescriptSemanticSubstrate.providerProtocol.ordering.normalPhases`, `$.typescriptSemanticSubstrate.providerProtocol.closedWorkerToHostFrames`, `$.typescriptSemanticSubstrate.providerProtocol.wireSchema.frameSchemas` | **Extended** by §9.4: worker→host frame `NativeContextVerified` (payload of §9.2) between `SnapshotAccepted` and `Analyze`. |
++| `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.protocolIdentity.protocolMajor`, `$.wireSchema.envelope.fields.protocolMajor`, `$.wireSchema.payloadSchemas.HelloV2`, `$.wireSchema.payloadSchemas.HelloAckV2`, `$.wireSchema.definitions.ExpectedRustIdentityV2` | **Superseded** by rust-semantic protocol major 3 (§9.1): `HelloV3` / `HelloAckV3` / `ExpectedRustIdentityV3` (`native/provider-handshake.schemas.v1.json`) keep `hostBuildId`, `expectedProtocolContractSha256`, `expectedIdentity` and every identity echo, replace the major value 2 with 3 and the `RustProviderCapabilityV2` record with the token array, and add `identityVersions`. `$.limitsHandshake`, `$.limitPolicy` and `$.requestProjection.identity` are **retained** and apply to `ProtocolLimitsV3` and `HelloV3`. |
++| `docs/coop/artifacts/rust-provider-protocol.v2.json` | `$.wireSchema.payloadSchemas.FactBatchV2`, `$.wireSchema.frameSchemas.FactBatch.payloadType` | **Retained** when `target-attribution-v2` is not negotiated; **replaced** by `FactBatchV3` (§9.6) when it is. |
++| `docs/coop/design-corrections/native/native-evidence.schemas.v2.json` (registered bytes kept) | `#/$defs/HelloV3`, `#/$defs/HelloAckV3`, `#/$defs/ProtocolLimitsV3` | **Superseded** by the same-named definitions of `native/provider-handshake.schemas.v1.json`. The registered document is not edited: its raw SHA-256 is a registered `payloadSchemaDigest` (§10), so a byte change there would be a schema-document successor with its own re-registration. |
+ | `docs/coop/artifacts/resolved-inputs.v2.json` | `$.planIdContract.semanticUniverseSchemas.rust-v1.resolvedInputs`, `...typescript-v1.resolvedInputs` | **Superseded** by `rust-v2` and `typescript-v2` universes (§2). |
+ | `docs/coop/artifacts/resolved-inputs.v2.json` | `$.projectModel.semanticUniverse.perProvider.rust.ifIncomplete`, `...typescript.ifIncomplete` ("provider-unavailable") | **Superseded**: an incomplete *input closure* with an installed provider is `input-closure-incomplete` (§10), never `provider-unavailable`. |
+ | `docs/coop/artifacts/fact-plane.v1.json` | `$.sufficiency.rule`, `$.sufficiency.completenessRule`, `$.deficiencyVocabulary.values`, `$.requirementSchema.fields.completeness`, `$.knownLimitations[5]` (R1-FP-03) | **Superseded** by §4 (requirement v2, view entry v3, sufficiency v2, four new deficiencies). |
+@@ -2778,20 +2784,59 @@
+ `<lang>-semantic-facts-v1`, `resolution-completeness-v2`, `unresolved-edge-v1`,
+ `dependency-source-v1` (Rust), `prepared-output-v3` (Rust), `native-context-v2`,
+ and optional negotiated `target-attribution-v2`.
+-`HelloV3` also carries `identityVersions: {snapshot:2, plan:2, fact:2, coverage:3}`
+-and `HelloAckV3` must echo the token array and identity versions exactly.
++Hello also carries `identityVersions: {snapshot:2, plan:2, fact:2, coverage:3}`
++and HelloAck must echo the token array and identity versions exactly, in both
++languages: `HelloV3`/`HelloAckV3` for `rust-semantic` (below) and
++`TypeScriptHelloV2`/`TypeScriptHelloAckV2` for `typescript-semantic` (§9.4), each
++published field by field in `native/provider-handshake.schemas.v1.json`.
+ The four identity tokens remain `source-identity-snapshot2`,
+ `plan-identity-plan2`, `fact-identity-fact2`, and `coverage-v3`.
+ `target-attribution-v2` is an **additional optional capability**: it is not
+ an identity token, is not required to spawn, and does not enlarge the
+ identity token set. When present on both Hello and HelloAck, FactBatch
+-payload is FactBatchV3. When absent, historical FactBatchV2 remains and
+-occupancy is unknown except exact-id ephemeral. A FactBatchV3 payload
+-without the token, or a FactBatchV2 payload with the token, is
+-`PROVIDER.PROTOCOL_VIOLATION`.
+-Protocol major stays 3 / TypeScript major 2. No new ProtocolLimitsV3 member;
+-companions are bounded by existing `maxFactBatchCandidates` (4096) and
+-`len(candidates)`.
++payload is FactBatchV3 in either language. When absent, the historical
++per-language payload remains and occupancy is unknown except exact-id
++ephemeral: `typescript-semantic` keeps `delivery.v2` `FactBatchV1`
++`{analysisOrdinal, stageId, batchIndex, facts, batchCommitment}` unchanged,
++including its `commitments.domains.factBatch` commitment, and `rust-semantic`
++keeps `rust-provider-protocol.v2` `FactBatchV2`
++`{analysisOrdinal, stageId, batchIndex, candidates}` unchanged. A FactBatchV3
++payload without the token, or that language's historical payload with the
++token, is `PROVIDER.PROTOCOL_VIOLATION`.
++Protocol major stays 3 / TypeScript major 2. The token adds no limit member in
++either language; companions are bounded by the existing per-language candidate
++cap — `maxFactBatchCandidates` 4096 (`rust-semantic`), `maxFactBatchFacts` 4096
++(`typescript-semantic`) — and `len(candidates)`.
++
++**Rust major-3 Hello/HelloAck (field level).** `HelloV3` =
++`{protocolMajor:3, hostBuildId, expectedProtocolContractSha256, expectedIdentity,
++expectedCapabilities, identityVersions, limits}` keeps every `HelloV2` member.
++`hostBuildId` is unchanged. `expectedProtocolContractSha256` stays the raw SHA-256
++of the exact bytes of the selected inherited contract `HelloV2` names,
++`docs/coop/artifacts/rust-provider-protocol.v2.json` (pinned
++`6308a98c1183d75d671655b2a351334b62f4f2c00316983731ceabb86e90793b`); it
++authenticates the retained inherited base only, and no digest of the successor
++documents is a Hello member. `expectedIdentity` (`ExpectedRustIdentityV3`) =
++`{protocolMajor:3, providerBuildId, rustCommitHash, hostTriple, targetTriple,
++sysrootDigest}`, copied from the selected Plan semantic-universe row's retained
++`resolved-inputs.v2` `rust-v1` members of those names, which that row's
++`deliveryJoin` binds to the verified signed release. `expectedCapabilities`, the
++token array, replaces `RustProviderCapabilityV2`; `limits` is `ProtocolLimitsV3`
++(§9.3). `HelloAckV3` = `{protocolMajor:3, providerBuildId, rustCommitHash,
++hostTriple, targetTriple, sysrootDigest, capabilities, identityVersions}`: the five
++identity members equal `Hello.expectedIdentity` exactly, `protocolMajor` equals
++`expectedIdentity.protocolMajor`, and `capabilities` and `identityVersions` echo
++Hello exactly. The major-3 successor law is identified on the wire by
++`protocolMajor` 3, the token set, `identityVersions` and the exact limits map.
++
++**Token-array order (both languages).** Token arrays are strictly unique in
++ascending UTF-8 byte order and contain only that language's tokens, the four
++identity tokens included. Hello carries exactly the selected signed row's tokens;
++HelloAck echoes the Hello array exactly. `typescript-semantic` inherits this from
++`HelloAckV1` ("exact sorted array"); for `rust-semantic` it replaces the unordered
++`sequence` annotation of the superseded definition, so exact recursive equality
++and token-set equality coincide. Any handshake mismatch is `FAULT` /
++`PROVIDER.PROTOCOL_VIOLATION` before a source byte (step 2 below).
+ 
+ Reject-before-disclosure ordering:
+ 
+@@ -2825,7 +2870,7 @@
+ | `DependencySourceAccepted` | worker→host | exact seal echo after digest/VFS validation | no |
+ | `PreparedOutputManifest/Chunk/Seal/Accepted` | as above for inert rows only | row kinds restricted to the three inert kinds (§3.6 PO-0); generated-file rows are mounted read-only under the virtual `OUT_DIR` | no |
+ | `NativeContextVerified` | worker→host | `{nativeContextId, recomputedNativeContextId, equal:true}` — a mismatch is sent as `Unavailable(native-context-mismatch)` | no |
+-| `FactBatch` | worker→host | Historical `FactBatchV2` when `target-attribution-v2` is absent; `FactBatchV3` (`native/fact-batch.schema.v3.json`) when the token is negotiated. Candidates remain closed `FactCandidateV1`. Occupancy is a parallel `occupancyCompanions` array, not a FactCandidate field. | no |
++| `FactBatch` | worker→host | Historical `rust-provider-protocol.v2` `FactBatchV2` when `target-attribution-v2` is absent (the `typescript-semantic` historical payload is `delivery.v2` `FactBatchV1`, §9.1); `FactBatchV3` (`native/fact-batch.schema.v3.json`) when the token is negotiated. Candidates remain closed `FactCandidateV1`. Occupancy is a parallel `occupancyCompanions` array, not a FactCandidate field. | no |
+ | `CoverageV3` | worker→host | `CoverageResultV3` entries, exact bijection with the requested domain | no |
+ 
+ `RepositoryResolutionV3` = `{dependencySourceSetId, preparedOutputSetId|null,
+@@ -2876,6 +2921,14 @@
+ `maxUnresolvedEdgesPerStage 1000000`, `maxCfgSets 4`, `maxExpansionRows 1000000`,
+ `maxGeneratedFileRows 1000000`. All 24 v2 limits are retained with identical values.
+ 
++`ProtocolLimitsV3` (`native/provider-handshake.schemas.v1.json`) is therefore the
++closed map of exactly 32 members — the 24 `rust-provider-protocol.v2` `limits`
++members with identical values plus the eight above — and it is the `rust-semantic`
++`HelloV3.limits` value. `limitsHandshake` semantic and deterministic-CBOR byte
++equality and `limitPolicy` apply to it unchanged; a missing, extra, renamed,
++retyped or changed member refuses Hello before HelloAck. `ProtocolLimitsV3` does not
++apply to `typescript-semantic`, whose limits are stated in §9.4.
++
+ ### 9.4 TypeScript major 2
+ 
+ Adds identity negotiation, `nativeContext` (`typescript-v2`, the
+@@ -2886,6 +2939,49 @@
+ recomputes `TypeScriptNativeContextV2` after custody and refuses before Analyze on any
+ differing byte. `Unavailable.reason` adds `capability-missing`,
+ `identity-version-mismatch`, `node-modules-outside-read-set`.
++
++**TypeScript major-2 Hello/HelloAck (field level).** Frame names `Hello` and
++`HelloAck` are unchanged; `providerProtocol.major` and the envelope `protocolMajor`
++are exactly 2. `TypeScriptHelloV2` keeps the `HelloV1` members unchanged —
++`hostBuildId` (non-empty NFC text), `expectedProviderDescriptorSha256`,
++`expectedRuntimeDescriptorSha256`, `limits` — and adds `expectedCapabilities` and
++`identityVersions`; like `HelloV1` it carries no payload `protocolMajor`. `limits`
++is `TypeScriptProtocolLimitsV1`, exactly the ten numeric members of `delivery.v2`
++`wireSchema.limits` with identical values: `maxFramePayloadBytes 67108864`,
++`maxSnapshotChunkBytes 1048576`, `maxSnapshotEntries 200000`,
++`maxAnalyzeStages 1024`, `maxRelationsPerStage 64`,
++`maxRequestedCoverageKeysPerStage 128`, `maxFactBatchFacts 4096`,
++`maxFactCandidatePayloadBytes 1048576`, `maxCoverageEntriesPerFrame 4096`,
++`maxStderrBytes 262144`. `limitRule` is policy text and never a member, and no
++`ProtocolLimitsV3` member applies. `TypeScriptHelloAckV2` keeps all 14 `HelloAckV1`
++members with `protocolMajor` exactly 2 and `capabilities` the exact echo of Hello
++`expectedCapabilities` (replacing the fixed three-token array), and adds the
++`identityVersions` echo.
++
++The two expected descriptor digests are the raw SHA-256 of the RFC 8785 bytes of
++the verified signed `typescript-provider/identity.json` and
++`typescript-runtime/identity.json` (`delivery.v2` `identity`; `resolved-inputs.v2`
++`typescript-v1.deliveryJoin`). HelloAck `providerDescriptorSha256` and
++`runtimeDescriptorSha256` equal them; `providerBuildId`, `protocolMajor`,
++`typescriptVersion`, `typescriptCompilerSha256`, `typescriptStdlibMerkleRoot`,
++`defaultWorkBudgetProfileId` and `defaultWorkBudgetProfileSha256` equal the
++provider descriptor, and `nodeVersion`, `v8Version`, `modulesAbi` and `platformId`
++equal the runtime descriptor (`identity.hostValidation`). Any such mismatch, and any
++token-array or `identityVersions` echo mismatch under the order rule of §9.1, is
++`FAULT` / `PROVIDER.PROTOCOL_VIOLATION` before a source byte. The verified
++`providerBuildId` remains the source of `FactCandidateV1.producerVersion`.
++
++**FactBatch.** Negotiated: `FactBatchV3` (§9.6). Not negotiated: `delivery.v2`
++`FactBatchV1` `{analysisOrdinal, stageId, batchIndex, facts, batchCommitment}`
++unchanged, `facts` capped by `maxFactBatchFacts` and
++`batchCommitment = sha256:hex(SHA-256(UTF8("opensip.ts-provider.fact-batch.v1") ||
++0x00 || deterministic-CBOR(facts)))` over the wire `FactCandidateV1` array.
++
++**Order to Analyze.** The major-2 normal order is Hello/HelloAck,
++OpenUniverse/UniverseAccepted, SnapshotManifest/SnapshotFileChunk*/SnapshotSeal/
++SnapshotAccepted, `NativeContextVerified`, Analyze, per-stage FactBatch*/Coverage,
++Complete, zero-exit/EOF; `NativeContextVerified` is a worker→host frame with the
++§9.2 payload (§0).
+ 
+ ### 9.5 Independent derivation
+ 
+@@ -2914,7 +3010,7 @@
+ is contiguous 0..n-1 in **this Analyze** order. Rust `AnalyzeV2`
+ `StageRequestV2` carries `stageOrdinal` plus nested `planStage` (exact C-2
+ bytes, including original `stageId` text). Provider Analyze **may be a subset**
+-of Plan stages. `FactBatch.stageId` (historical V2 name, preserved on V3 as
++of Plan stages. `FactBatch.stageId` (historical FactBatchV1/V2 name, preserved on V3 as
+ **text**) echoes the current requested C-2 `stageId`. It does **not** echo
+ `stageOrdinal` and is **not** `execution-plan.stages[].ordinal`.
+ 
+@@ -2949,10 +3045,28 @@
+ Capability token `target-attribution-v2`. Frame name remains `FactBatch`
+ (P3-23). Payload is `FactBatchV3` iff the token was echoed at HelloAck.
+ `FactCandidateV1` is unchanged (`additionalProperties: false`; no occupancy
+-member). Protocol majors unchanged. Historical FactBatchV2 remains the payload
+-when the token is absent. V3 `stageId` remains C-2 text (historical type);
++member). Protocol majors unchanged. When the token is absent the historical
++per-language payload remains: `delivery.v2` `FactBatchV1` for `typescript-semantic`,
++`rust-provider-protocol.v2` `FactBatchV2` for `rust-semantic` (§9.1). V3 `stageId`
++remains C-2 text (historical type);
+ corresponding request: worker echoes `StageRequestV1.stageId` /
+ `StageRequestV2.planStage.stageId`.
++
++**Commitments and CBOR projection.** `FactBatchV3` carries no per-batch
++commitment. `typescript-semantic` `commitments.domains.factBatch` applies only to
++`FactBatchV1.batchCommitment`; `typescript-semantic` `StageResultV1.factCommitment` /
++`CompleteV1.factStreamCommitment` and `rust-semantic` `commitments.stageFacts` /
++`factStream` remain over the ordered `FactCandidateV1` stream whichever payload
++carried it. In the JSON-vector form `canonicalRelationPayloadHex` is the lowercase
++hex of the wire `canonicalRelationPayload` CBOR byte string and
++`decodedRelationPayload` is a verified observation that is not on the wire: the
++wire candidate drops `decodedRelationPayload` and carries
++`canonicalRelationPayload = bytes(canonicalRelationPayloadHex)`, and admission
++requires `canonicalRelationPayloadHex = hex(deterministic-CBOR(decodedRelationPayload))`.
++`native/provider_wire_model.v1.py` `admit_fact_batch` executes these wire joins for
++both historical payloads and `FactBatchV3`. The occupancy entries below decide
++occupancy capture only; a token-absent omission there is not validation of the
++historical payload.
+ 
+ `OccupancyCompanionV1` (`native/occupancy-companion.schema.v1.json`) required:
+ `schemaVersion=1`, `candidateOrdinal`, `targetUniverseId` (byte-equal to the
+@@ -3000,7 +3114,7 @@
+ |---|---|---|
+ | `ts-tsconfig`, `js-allowjs`, `js-synthesized` | typescript-semantic major 2 | In-worker, same encoding pass as SubjectIdV1. One companion per resolved-target / resolved-binding / resolved-callee / `to` / `reachable` candidate the compiler table can attribute, or omit (unknown). File first-party: `evaluationNativeId` = inventory LogicalPath. Package first-party: packageName + `packageManifestPath`=row.path. External as occupancy=external. Symbols MAY omit or identity-map. Syntactic import/reference/call rungs MUST omit. |
+ | `rust-cargo`, `rust-cargo-prepared` | rust-semantic protocol major 3 | Same. rustc/cargo resolved path vs package fills the companion while encoding the payload. |
+-| `syntax-only` | omit token | FactBatchV2. MUST NOT invent file/package occupancy from specifier text. |
++| `syntax-only` | omit token | Historical FactBatch payload of its protocol (§9.1), no companion. MUST NOT invent file/package occupancy from specifier text. |
+ | clone/candidate | omit token | Omit. Member IDs are never evaluation-subject identity. |
+ 
+ Empty `occupancyCompanions` is lawful. Extra/unknown `candidateOrdinal` refuses.
+@@ -3787,14 +3901,22 @@
+ 
+ ## 12. Reference evidence
+ 
+-`native/native-cases.v2.json` (375 cases) carries hand-authored expected outcomes; every
++`native/native-cases.v2.json` (428 cases) carries hand-authored expected outcomes; every
+ observation a provider, adapter or OS would make is marked as a trusted observation input.
+ `native/check_native_evidence.v2.py` verifies every consumed source pin in
+ `native/source-pins.v2.json` (including the foundation serializer and schemas and the three
+ workflow schema documents), validates fixtures under exact typed admission (native records
+-against the closed bundle, 100 definitions; workflow payloads and wrapper records against
++against the closed bundle, 115 definitions; workflow payloads and wrapper records against
+ the pinned workflow documents through a registry closure, no network), runs the model,
+ validates the matrix, and writes `native/native-evidence-report.v2.json`.
++Provider handshake and FactBatch wire records validate against
++`native/provider-handshake.schemas.v1.json`, whose limit maps, inherited Hello/HelloAck
++members, descriptor bindings, token vocabularies and contract digest the checker re-derives
++from `delivery.v2`, `rust-provider-protocol.v2`, `resolved-inputs.v2` and §9.3/§9.4 of this
++contract; `native/provider_wire_model.v1.py` executes the cross-record joins (descriptor
++digests and echoes, Rust identity echoes, token and `identityVersions` echoes, limit CBOR
++equality, candidate CBOR projection and the TypeScript batch commitment, checked against
++`hashlib`/`cbor2`-authored vectors). It frames no bytes and runs no worker.
+ The identity vectors pin a hand-spelled canonical preimage and use `hashlib` as
+ the independent oracle; `foundationIdentityVector` does the same for a foundation-domain
+ identity, so the `subjectScopeCommitment` recipe (§4.1a) is checked against `hashlib`

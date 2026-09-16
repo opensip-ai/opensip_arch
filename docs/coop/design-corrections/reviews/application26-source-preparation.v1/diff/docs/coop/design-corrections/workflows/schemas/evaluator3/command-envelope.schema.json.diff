@@ -1,0 +1,291 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
+new file mode 100644
+index 00000000..4ca69246
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
+@@ -0,0 +1,285 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3",
++  "title": "CommandEnvelope schemaMajor 3 — evaluator3 run3/finding3 surfaces",
++  "description": "Evaluator3 envelope. schemaMajor 3 because AnalysisResult.runId is run3 and the intermediate findings projection is FindingSurface (finding3, nullable fingerprint; not a SARIF result). SARIF 2.1.0 output is urn:opensip:product-v1:workflows:evaluator3:sarif-adapter:2. Consumers pin this major; major 2 envelopes are REQUEST.SCHEMA_MAJOR_UNSUPPORTED, never reshaped. Output serialization overflow uses OUTPUT.SERIALIZATION_FAILED / faultCause output-serialization.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaFamily",
++    "schemaMajor",
++    "kind",
++    "requestId",
++    "termination",
++    "exitCode"
++  ],
++  "properties": {
++    "schemaFamily": {
++      "const": "opensip.product.envelope"
++    },
++    "schemaMajor": {
++      "const": 3
++    },
++    "kind": {
++      "type": "string",
++      "enum": [
++        "run",
++        "query",
++        "mutation",
++        "failure",
++        "invocation",
++        "doctor"
++      ]
++    },
++    "requestId": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RequestId"
++    },
++    "clientCorrelationId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 128
++    },
++    "projectId": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
++    },
++    "projectRoot": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
++    },
++    "termination": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
++    },
++    "exitCode": {
++      "type": "integer",
++      "enum": [
++        0,
++        1,
++        2,
++        3,
++        4,
++        130
++      ],
++      "description": "derived from termination.class by the fixed table; the checker refuses any other pairing"
++    },
++    "run": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/AnalysisResult"
++    },
++    "query": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/QueryResult"
++    },
++    "mutation": {
++      "$ref": "#/$defs/MutationReceiptProjection"
++    },
++    "errors": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 64,
++      "items": {
++        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
++      },
++      "x-opensip-order": "sequence"
++    },
++    "availability": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CapabilityAvailabilityV1",
++      "description": "Optional. The bounded capability-availability collection of THIS invocation: every capability the selected product required that this release did not declare available, with its full ownership tuple. Present on the invocation that selected them - it is not deferred to a separate doctor report, which is a different invocation and cannot deliver these absences. Advisory only."
++    },
++    "invocation": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3"
++    },
++    "doctor": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/DoctorResult"
++    },
++    "retentionDisclosure": {
++      "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/RetentionDisclosure"
++    },
++    "diagnostics": {
++      "type": "array",
++      "maxItems": 256,
++      "items": {
++        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
++      },
++      "x-opensip-order": "sequence"
++    },
++    "agentHints": {
++      "type": "array",
++      "maxItems": 64,
++      "items": {
++        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
++      },
++      "description": "present only in the agent rendering; advisory text that never changes any parity field",
++      "x-opensip-order": "sequence"
++    },
++    "findings": {
++      "type": "array",
++      "maxItems": 100000,
++      "items": {
++        "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/FindingSurface"
++      },
++      "uniqueItems": true,
++      "x-opensip-order": {
++        "by": [
++          "findingId"
++        ]
++      },
++      "description": "Optional direct findings projection for analysis envelopes. One row per finding3. Not keyed by fingerprint."
++    }
++  },
++  "allOf": [
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "run"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "run",
++          "projectId"
++        ]
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "query"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "query",
++          "projectId"
++        ]
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "mutation"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "mutation",
++          "projectId"
++        ]
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "failure"
++          }
++        },
++        "required": [
++          "kind"
++        ]
++      },
++      "then": {
++        "required": [
++          "errors"
++        ],
++        "not": {
++          "required": [
++            "run"
++          ]
++        },
++        "description": "kind=failure prohibits the run field. A schema-valid AnalysisResult on a failure envelope is refused; failure is not an invalid-run carrier."
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "invocation"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "invocation"
++        ]
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "doctor"
++          }
++        }
++      },
++      "then": {
++        "required": [
++          "doctor"
++        ],
++        "properties": {
++          "termination": {
++            "properties": {
++              "class": {
++                "enum": [
++                  "success",
++                  "operational-failed",
++                  "interrupted"
++                ]
++              }
++            }
++          }
++        }
++      }
++    }
++  ],
++  "$defs": {
++    "MutationReceiptProjection": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation",
++        "receiptId",
++        "effectOutcome",
++        "commitClass",
++        "replayed"
++      ],
++      "properties": {
++        "operation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/MutationOperation"
++        },
++        "receiptId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
++        },
++        "effectOutcome": {
++          "type": "string",
++          "enum": [
++            "COMPLETED",
++            "FAILED",
++            "INDETERMINATE"
++          ]
++        },
++        "commitClass": {
++          "type": "string",
++          "enum": [
++            "REVERSIBLE",
++            "IRREVERSIBLE"
++          ]
++        },
++        "replayed": {
++          "type": "boolean"
++        },
++        "before": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
++        },
++        "after": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
++        },
++        "verificationRunId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
++        }
++      }
++    }
++  }
++}

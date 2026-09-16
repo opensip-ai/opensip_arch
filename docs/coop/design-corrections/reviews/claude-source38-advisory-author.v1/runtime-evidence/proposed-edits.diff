@@ -1,0 +1,1032 @@
+--- source38/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ edited/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -423,6 +423,107 @@
+         else:
+             raise AssertionError("semantic mutant accepted:" + name)
+     return rows
++
++
++def run_termination_composition(g, doc, T, Q, built, atoms, validate_shape, schema_valid):
++    """Section 7 host composition controls over actually closed Runs (run-termination-contract.v1.md).
++
++    Each case composes one candidate StepTermination against an admitted Run (a golden Run, a fixture Run, or none
++    for operational and ephemeral candidates) and a host attempt observation built from existing records: the
++    invocation-record Attempt and a commit receipt whose inventoryDigest is the retained commit inventory. For an
++    analysis candidate the pure check_projection standing is recorded beside the composition outcome, so a
++    composition refusal is never mistaken for a projection refusal.
++    """
++    faults, out = [], []
++    ids = {tag: "exec1_" + ch * 32 for tag, ch in g["executionIdHex"].items()}
++    other_run = "run3:" + "1" * 64
++    attempt_ref = "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/Attempt"
++    receipt_schema = copy.deepcopy(M.SCHEMA)
++    receipt_schema["$ref"] = "#/$defs/commit-receipt"
++
++    def validate_attempt(attempt):
++        Q.validate_schema(attempt_ref, attempt)
++
++    def validate_receipt(receipt):
++        C.validate(receipt_schema, receipt)
++
++    def placeholders(value):
++        text = json.dumps(value)
++        for tag, eid in ids.items():
++            text = text.replace("$" + tag.upper(), eid)
++        return json.loads(text.replace("$OTHER_RUN", other_run))
++
++    for case in g["cases"]:
++        try:
++            run = objects = blobs = derived = None
++            if "of" in case:
++                run, objects, blobs = built[case["of"]]
++            elif "build" in case:
++                fixture = doc["fixtures"][case["build"]["fixture"]]
++                params = dict(fixture["params"], **case["build"]["params"], atom=atoms[fixture["atom"]])
++                run, objects, blobs, _ = close_positive(S.build_ts_semantic_graph(**params))
++            if run is not None:
++                derived = T.finalize(run, objects, blobs)["termination"]
++            candidate = dict(case["termination"]) if "termination" in case else dict(derived)
++            for key in case.get("remove", []):
++                candidate.pop(key, None)
++            candidate.update(case.get("set", {}))
++            candidate = placeholders(candidate)
++            observation = None
++            spec = case.get("observation")
++            if spec is not None:
++                own_plan = run["planId"] if run is not None else "plan2:" + "2" * 64
++                plan = "plan2:" + "0" * 64 if spec.get("plan") == "other" else own_plan
++                attempts = []
++                for tag in spec["attempts"]:
++                    if tag == "busy":
++                        attempts.append({"executionId": ids["busy"], "outcome": "failed", "faultCause": "ledger-busy",
++                                         "retried": True})
++                    elif tag == "done":
++                        attempts.append({"executionId": ids["done"], "outcome": "completed",
++                                         "derivation": {"planId": plan, "executionPlanId": "exec-plan2:" + "e" * 64,
++                                                        "stageCount": 1, "stagesCompleted": 1}})
++                    else:
++                        attempts.append({"executionId": ids["done"], "outcome": "failed", "faultCause": "host-io"})
++                receipt = None
++                if spec.get("receipt") is not None:
++                    who, which = spec["receipt"]
++                    _, inventory_digest = M.commit_inventory(derived["runId"], objects, blobs)
++                    receipt = {"schemaVersion": 2, "runId": derived["runId"] if which == "run" else other_run,
++                               "executionId": ids[who], "namespaceId": "reference-private-namespace",
++                               "commitSequence": 1, "inventoryDigest": inventory_digest,
++                               "sealedAssurance": "replayable", "signerKeyId": "reference-host-signer"}
++                observation = {"stepId": 0, "durability": spec.get("durability", "authoritative"),
++                               "attempts": attempts, "commitReceipt": receipt,
++                               "requiredClosureNotInstalled": spec.get("closureNotInstalled", False)}
++            validity = schema_valid(candidate)
++            try:
++                got = T.admit_analysis_step_termination(candidate, run, objects, blobs, observation, validate_shape,
++                                                        validate_attempt, validate_receipt)
++                outcome = {"composed-analysis-termination-admitted": "ADMIT:" + str(got.get("domainDetailCode") or "none"),
++                           "outside-analysis-projection": "OUTSIDE",
++                           "ephemeral-attribution-admitted": "EPHEMERAL"}[got["standing"]]
++            except T.RunTerminationError as exc:
++                outcome = str(exc).split(":", 1)[0]
++            pure = None
++            if derived is not None:
++                try:
++                    pure = (T.check_projection(candidate, derived, validate_shape)["delegatedStanding"]
++                            or "admitted-without-delegated-member")
++                except T.RunTerminationError as exc:
++                    pure = str(exc).split(":", 1)[0]
++            if outcome != case["expect"]:
++                faults.append(f"{case['label']}: composition {outcome}, expected {case['expect']}")
++            if case.get("schemaValid", True) and validity is not True:
++                faults.append(f"{case['label']}: candidate is not a schema-valid StepTermination, so it proves nothing: {validity}")
++            if "pureProjection" in case and pure != case["pureProjection"]:
++                faults.append(f"{case['label']}: pure projection {pure}, expected {case['pureProjection']}")
++            out.append({"label": case["label"], "composition": outcome, "pureProjection": pure, "schemaValid": validity})
++        except Exception as exc:
++            faults.append(f"{case['label']}: error {type(exc).__name__}: {str(exc)[:200]}")
++            out.append({"label": case["label"], "error": type(exc).__name__ + ": " + str(exc)[:300],
++                        "traceback": traceback.format_exc()[-1500:]})
++    return {"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "composition": out, "faults": faults}
+ 
+ 
+ def run_termination_goldens(exports):
+@@ -495,6 +596,9 @@
+                         refused.append({"label": case["label"], "refusal": code})
+                 rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT",
+                              "admittedProjectionWithDelegatedMembers": admitted, "refused": refused, "faults": faults})
++                continue
++            if g["kind"] == "composition":
++                rows.append(run_termination_composition(g, doc, T, Q, built, atoms, validate_shape, schema_valid))
+                 continue
+             spec = g["build"]
+             if "export" in spec:
+--- source38/docs/coop/design-corrections/foundation/run-termination-contract.v1.md
++++ edited/docs/coop/design-corrections/foundation/run-termination-contract.v1.md
+@@ -2,7 +2,8 @@
+ 
+ This is the **one** owner of how the host finalizer turns a settled, admitted evaluator3 analysis Run into the
+ **analysis projection** of the Run's termination: its class, `runId`, the ordered `reasonCodes`, the D9
+-`(deficiency, secondaryDeficiencies)` pair, and `coverageId`. It is incorporated by `workflows-and-surfaces.md`
++`(deficiency, secondaryDeficiencies)` pair, and `coverageId`. §7 publishes the host composition law that admits
++the delegated members of the whole step termination. It is incorporated by `workflows-and-surfaces.md`
+ §9 and is the reduction order `native-evidence.md` §10 defers to. It adds no class, exit, code, detail, cause,
+ schema field or identity, and it changes no retained bytes. Reference derivation: `run_termination_model.v1.py`.
+ Retained goldens: `run-termination-goldens.v1.json`, checked by `check-semantic-replay.v3.py` over actually closed
+@@ -19,16 +20,17 @@
+ - **The sealed verdict decides the remaining class.** `pass` → `success` with `runId`; `fail` →
+   `policy-failed` with `runId`; `indeterminate` → the derivation below. A native stage never reclassifies the
+   Run: a stage selection is one contribution to the condition population, never the class.
+-- **Projection, not the whole step termination.** A `StepTermination` has members this contract does not
+-  derive. Its optional delegated members are:
+-
+-  | Member | Owner | Why it is not derived here |
++- **Projection, not the whole step termination.** A `StepTermination` has members the analysis projection does
++  not derive. Its optional delegated members are:
++
++  | Member | Owner | Why the projection does not derive it |
+   |---|---|---|
+   | `executionId` | workflows-and-surfaces §1 (a fresh `ExecutionId` for each admitted attempt); identity-and-evidence §2 (host-CSPRNG draw) | an attempt identity, not a function of retained Run content |
+-  | `domainDetail` | workflows-and-surfaces §8 and §9 (explanatory detail beside an existing code, never a termination code); the public detail registry; composition §8 for `EVALUATION.WORK_BUDGET_EXHAUSTED` | host-attached explanation of an observation |
+-  | `authority` | workflows-and-surfaces §9 and the `StepTermination` branch contract (`authority=ephemeral` only without a `runId`) | host standing of the step |
+-
+-  This contract neither requires nor licenses them, and it does not decide whether a given value is lawful.
++  | `domainDetail` | workflows-and-surfaces §8 and §9 (explanatory detail beside an existing code, never a termination code); the public detail registry; composition §8 for `EVALUATION.WORK_BUDGET_EXHAUSTED`; native §10 for a native entry deficiency | an explanation attributed to a retained record or a host observation |
++  | `authority` | workflows-and-surfaces §1 and §9 and the `StepTermination` branch contract (`authority=ephemeral` only without a `runId`) | host standing of the step |
++
++  The projection (§2–§6) neither requires nor licenses them. §7 is their admission law at the host composition
++  boundary: it applies these owners' rules to the admitted attempt and Run, with a closed detail allowlist.
+   `errorCode`, `faultCause` and `signal` are **not** delegated: the classes derived here never carry them, so
+   their presence contradicts the projection.
+ - Other `indeterminate` producers keep their owners: comparison and baseline steps
+@@ -51,9 +53,9 @@
+ 
+ Those remain inputs to the class decisions of §1, to the delegated members, and to diagnostics. Consequently
+ two conforming hosts that admit byte-identical Run evidence derive **the same analysis projection**, and a
+-verifier holding only the retained Run re-derives it. Their complete step terminations need not be
+-byte-identical: two attempts carry different `executionId` values by design, and a delegated `domainDetail` is
+-whatever its owner attaches.
++verifier holding only the retained Run re-derives it. Their composed step terminations (§7) also carry the same
++`authority` and `domainDetail` code, given the same installation observation. They differ only in `executionId`,
++which names each attempt, and in `remedy` presentation text.
+ 
+ The retained proof keeps deficiency arrays as canonical sets (composition §9.3–§9.6). That is sufficient: every
+ input below is a set, and §4 orders by content, never by array position.
+@@ -120,7 +122,7 @@
+ where it is the only cause (a deterministic budget exhausts mid-evaluation; `reasonCodes`
+ `["COVERAGE.BUDGET_EXHAUSTED"]`, no `coverageId`). `EVALUATION.WORK_BUDGET_EXHAUSTED` remains the explanatory
+ DomainDetail naming the evaluator work budget rather than a native cell budget (composition §8). It is never a
+-reason code; attaching it is the delegated `domainDetail` owner's decision (§1).
++reason code; whether a composed termination carries it is fixed by §7.5.
+ 
+ **Total order.** For each distinct D9 deficiency, take the least rank over the conditions that map to it. Each
+ rank maps to exactly one D9 deficiency, so distinct deficiencies have distinct least ranks and the order is
+@@ -174,9 +176,10 @@
+    the `StepTermination` schema refuses the candidate (`RUN_TERMINATION_DELEGATED_SHAPE`).
+ 
+ Otherwise the projection is admitted, and any delegated members are returned with standing
+-`owner-validation-required`. Schema validity is not lawfulness in either direction:
++`owner-validation-required`. That standing is scoped to this pure projection check and is never a host
++admission; §7 is the admission. Schema validity is not lawfulness in either direction:
+ - a schema-valid wrong projection is refused;
+-- a shape-valid delegated value is **not** thereby a lawful attribution or remedy. Only its owner can admit it.
++- a shape-valid delegated value is **not** thereby a lawful attribution or remedy. Only §7 admits it.
+ 
+ `run-termination-goldens.v1.json` pins, for Runs built by the semantic fixture and admitted by `close_run`:
+ 
+@@ -193,11 +196,124 @@
+ | `work-budget-secondary-under-provider-unavailable-stage` | stage `unavailable` outranks the work budget: `COVERAGE.PROVIDER_UNAVAILABLE`, `COVERAGE.BUDGET_EXHAUSTED`, `VERDICT.INDETERMINATE`, with the stage carrier |
+ | `combined-discovery-orders` | all 720 orders of that Run's six conditions derive one termination; the verbatim D9 reducer gives six sequences and three primaries |
+ | `analysis-projection-boundary` | shape-valid `executionId`, `domainDetail` and `authority` leave the projection admitted with `owner-validation-required`; wrong order, omitted carrier, wrong `runId` or class, `faultCause`, an unregistered member, malformed or contradictory shapes, and an unvalidated delegated member all refuse |
++| `host-composition-boundary` | the §7 composition over closed Runs. Admitted: each allowlisted detail with its prerequisite, a lawful omission, a retried terminating attempt, and an ephemeral `authority`; operational carriers are returned to their owners without reading a Run. Refused: unrelated registered details (`HOST.INVARIANT_VIOLATED`, `QUERY.PARAMS_MALFORMED`, `DOCTOR.DEFECTS_FOUND`); a detail without its prerequisite or on a verdict; an omitted selected detail; an earlier or foreign `executionId`; a receipt or plan of another attempt or Run; `authority` beside a committed `runId`; a detail `subject`; a blessing member; and an ephemeral detail or `runId`. For the same unrelated details the pure projection check still reports `owner-validation-required` |
+ 
+ Every refused alternative in the `termination` goldens is also a schema-valid `StepTermination`, so those
+-controls refuse by derivation, not by shape.
+-
+-## 7. Limits
++controls refuse by derivation, not by shape. In `host-composition-boundary`, every candidate except the blessing
++member is schema-valid, so those refusals are composition refusals, not shape refusals.
++
++## 7. Host composition of the whole analysis `StepTermination`
++
++The host finalizer composes the whole termination, and this section is the admission law it applies at that
++boundary (`admit_analysis_step_termination`). It applies the delegated owners' rules named in §1. It adds no
++class, exit, code, detail, cause, schema field or identity. No member of a candidate can bless itself: a `valid`,
++`lawful` or similar member is outside the closed `StepTermination` and refuses (`RUN_TERMINATION_UNKNOWN_FIELD`).
++
++### 7.1 What is composed here, and what is not
++
++- **Composed here:** a `success`, `policy-failed` or `indeterminate` termination of an analysis step whose class
++  §1 leaves to the sealed verdict.
++- **Not composed here, and never passed through verdict derivation:** `operational-failed`, `request-rejected` and
++  `interrupted`. A fault, a rejection and an interruption before settle are decided first by their owners (§1).
++  Their terminations stay with D9 v1.14 `causeModel`, workflows-and-surfaces §1 and §9, security S12 and the
++  native §10 route registry. That includes any `runId` a committed Run lends them and any detail they carry, for
++  example `HOST.INVARIANT_VIOLATED` on the `host-invariant` route, `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` or
++  `WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY`. The composition returns their owner without reading the Run.
++
++### 7.2 Two kinds of input
++
++| Input | Kind | What it supplies |
++|---|---|---|
++| the admitted Run (`close_run`) | retained semantic content | the analysis projection (§2–§5), the retained population and the `coverage2` record named by `coverageId` |
++| the step's `StepResult.attempts` (`invocation-record.schema.json#/$defs/Attempt`) | host-supplied operational identity | the terminating attempt: the last attempt, with `outcome=completed` and its `derivation` binding. No earlier attempt is `completed`, and no `ExecutionId` repeats |
++| the step's `AnalysisParams.durability` | host-supplied operational standing | a committed Run (`authoritative`) or an ephemeral attempt |
++| the attempt's commit receipt (`identity-schemas.v3.json#/$defs/commit-receipt`) | host-supplied operational record: required for a committed Run, absent for an ephemeral attempt | the `executionId` that committed `runId` |
++| whether a required provider closure of the attempt is not installed | host installation observation | the §7.5 row 2 prerequisite, and nothing else |
++
++Operational inputs never enter the projection. Retained inputs never supply an attempt identity. Neither kind is
++caller input.
++
++### 7.3 `executionId` binds the actual admitted attempt, step and Run
++
++For a committed Run, these joins hold before any candidate member is judged:
++- the receipt's `runId` is the derived `runId` (`RUN_TERMINATION_RECEIPT_RUN_MISMATCH`);
++- the receipt's `executionId` is the terminating attempt's (`RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH`). The
++  reference commit path issues one receipt per committing attempt (`identity-model.v3` `EvidenceStore.commit`);
++- the terminating attempt's `derivation.planId` is the Run's `planId` (`RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH`).
++
++`executionId` stays optional. When present it must be the terminating attempt's `ExecutionId`
++(`RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT`). An earlier retried attempt of the same step, another step's attempt
++and a well-formed unknown value all refuse. Omitting it changes no meaning, because `StepResult.attempts` carries
++every attempt identity.
++
++### 7.4 `authority`
++
++- **Committed Run.** `runId` is the derived one, and `authority` is **omitted**
++  (`RUN_TERMINATION_AUTHORITY_NOT_COMPOSED`). The Run's authority is carried by its `runId`. Every retained
++  analysis golden and workflow case spells a committed termination without `authority`, and a single spelling
++  keeps two conforming hosts equal. The branch contract already refuses `authority=ephemeral` beside a `runId`.
++- **Ephemeral attempt** (workflows-and-surfaces §1; identity-and-evidence §5). It has no receipt and no Run, so it
++  never carries `runId` (`RUN_TERMINATION_EPHEMERAL_NOT_COMMITTED_RUN`). Every verdict class carries
++  `authority=ephemeral` (`RUN_TERMINATION_EPHEMERAL_AUTHORITY_REQUIRED`); the branch contract already requires it
++  for `policy-failed`. `executionId` follows §7.3. §1 derives the analysis projection only for a committed Run, so
++  the reasons of an ephemeral `indeterminate` are **not** admitted here. No §7.5 detail is admitted for an
++  ephemeral attempt either (`RUN_TERMINATION_DETAIL_NOT_ADMITTED`), because every allowlisted prerequisite is an
++  attribution to a committed Run.
++
++### 7.5 The closed analysis `domainDetail` allowlist
++
++A composed committed analysis termination carries **exactly** the detail selected below, and none when no row
++applies. Selection is a function of the admitted Run and the one installation observation, so the choice is
++deterministic. It has to be, because the detail carries meaning: a `kind=failure` envelope's `errors` is exactly
++the termination's detail (workflows-and-surfaces §8), and the aggregate keeps the first termination that carries
++a detail (workflows-and-surfaces §1). The first row whose prerequisites hold is selected.
++
++| Order | Code | Retained prerequisite | Host prerequisite | Owners that authorize the condition and its attribution |
++|---|---|---|---|---|
++| 1 | `EVALUATION.WORK_BUDGET_EXHAUSTED` | the population holds a `work-budget-exhausted` record, and the primary D9 deficiency is `budget-exhausted`, so the work budget sits at the primary rank | none | `evaluator-composition-contract.v3.md` §8 and §9.6; `workflow-projection-contract.v3.md` Appendix row; §4 above; `public-detail-registry.v1.json` (owner `workflows`) |
++| 2 | `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` | `reasonCodes[0]` is `COVERAGE.PROVIDER_UNAVAILABLE` | the host observed that a required provider closure of this attempt is not installed | workflows-and-surfaces §9 golden "required provider closure not installed"; `command-inventory.v3.json` golden `default-missing-required-closure`; `workflow-cases.v1.json` case `indeterminate-provider-unavailable`; registry (owner `workflows`) |
++| 3 | the named record's own `entry.deficiency`, when it is `budget-exhausted`, `derivation-policy-unmet`, `external-consumers-unknown`, `input-closure-incomplete` or `resolution-incomplete` | `coverageId` is present and names that `coverage2` record | none | `native-evidence.md` §10, "Retained and public routes are different, and both are named": the deficiency projects outward as its own closed `DomainDetailCode`, and the cause stays in the record the termination names by `coverageId`. These five are the registered native entry-deficiency members (registry owner `native`) |
++
++- `success` and `policy-failed` carry no detail, because no owner attaches one to a verdict
++  (`RUN_TERMINATION_DETAIL_NOT_ADMITTED`).
++- Row 3 can name a deficiency other than the primary. That is the §5 stage/entry reading: the remedy comes from
++  `reasonCodes[0]` and the typed detail from the named record.
++- **Excluded from a semantic analysis termination:** every other registered code. That includes:
++  - `QUERY.*` (query steps) and `DOCTOR.*` (doctor reports);
++  - `HOST.INVARIANT_VIOLATED` and the `native.*` refusal codes (operational and admission routes, §7.1);
++  - `COMPARISON.*` and `BASELINE.*` (comparison steps);
++  - `PROJECT.BUSY`, `MIGRATION.CORRUPT`, `RECOVERY.REFUSED` and `evidence.*` (recovery and availability routes).
++
++  A schema-valid registered code other than the selected one refuses (`RUN_TERMINATION_DETAIL_NOT_ADMITTED`),
++  and so does the absence of the selected one (`RUN_TERMINATION_DETAIL_REQUIRED`).
++- The detail is `{code, remedy}`. No allowlisted owner attributes a `subject` or any other member
++  (`RUN_TERMINATION_DETAIL_MEMBER_NOT_ADMITTED`). `remedy` states that owner's remedy: raise or narrow the admitted
++  analysis work budget; install the required provider closure; or resolve the named record's declared deficiency.
++  It is presentation text that no derivation reads, and the check does not compare it.
++- Omission is lawful exactly when no row applies.
++
++### 7.6 Check order
++
++`admit_analysis_step_termination` applies these steps in order:
++
++1. A non-object refuses. A class from §7.1 returns its owner.
++2. The observation is admitted: `RUN_TERMINATION_OBSERVATION_SHAPE`, `_ATTEMPT_ID_REUSED`,
++   `_ATTEMPT_NOT_TERMINATING`.
++3. An ephemeral attempt takes the §7.4 branch.
++4. For a committed Run: `close_run` and the derivation, then the §7.3 joins, `check_projection` (§6),
++   `authority`, `executionId`, and finally `domainDetail` (§7.5).
++
++A candidate that the projection refuses is never rescued by its delegated members, and a valid projection never
++admits them.
++
++### 7.7 Trust boundary
++
++The attempts, receipt, durability and installation observation come from the trusted host finalizer. Their shapes
++and joins are checked here; their origin is **not authenticated**. A host that fabricates an attempt or a receipt
++is outside this contract's threat model, as it is for every trusted host observation behind D9
++`invariant-one-mapper`. Nothing here qualifies authentication, containment, durability or a product host.
++
++## 8. Limits
+ 
+ - The fixture Runs are synthetic native-admitted graphs, not compiler or provider qualification.
+ - **Mixed-owner coverage is partial.** The retained goldens combine two kinds of condition:
+@@ -211,9 +327,16 @@
+   - enumeration or required-import obligations.
+ 
+   The order for those Runs rests on the §4 table and the route-drift check, not on a closed-Run golden.
+-- The delegated-member controls use shape fixtures (a synthetic `ExecutionId`, a registered detail code with an
+-  illustrative remedy). They show the projection boundary and the refusals; they do not show that any such
+-  value is a lawful host attribution or remedy.
++- The `analysis-projection-boundary` delegated-member controls are shape fixtures of the pure projection check.
++  The `host-composition-boundary` controls compose over actually closed Runs. They use synthetic attempt records,
++  receipts built from the retained commit inventory and a boolean installation observation. They show the
++  composition law and its refusals, not a product host, a real installation probe or an authenticated ledger.
++- §7.5 row 2 rests on a host installation observation that no retained record carries; its retained half is only
++  `reasonCodes[0]`.
++- §7.5 row 3 is exercised with `resolution-incomplete` only. `external-consumers-unknown`,
++  `derivation-policy-unmet`, `input-closure-incomplete` and a declared native `budget-exhausted` carrier take the
++  same code path without a retained golden.
++- The reasons and details of an ephemeral analysis are not derived or admitted by this contract (§7.4).
+ - The derivation and the goldens share one author. A blind reconstruction of this contract from the text alone
+   has not been performed.
+ - `StepTermination.coverageId` and `D9Deficiency` descriptions in the root-owned common schema are unchanged and
+--- source38/docs/coop/design-corrections/foundation/run-termination-goldens.v1.json
++++ edited/docs/coop/design-corrections/foundation/run-termination-goldens.v1.json
+@@ -260,6 +260,152 @@
+         {"label": "delegated-member-without-shape-validator", "set": {"executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+          "noShapeValidator": true, "expect": "RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED"}
+       ]
++    },
++    {
++      "id": "host-composition-boundary",
++      "kind": "composition",
++      "why": "Section 7: the host composition admits executionId, authority and domainDetail by closed laws over the admitted Run and the trusted attempt observation. Allowlisted details need their prerequisites; unrelated registered details, wrong attempts and wrong Runs refuse although every candidate except the blessing member is a schema-valid StepTermination, and the pure projection check keeps reporting owner-validation-required for the same unrelated details. Operational carriers return to their owners without a Run. Attempts, receipts and the installation observation are synthetic host inputs, not a product host.",
++      "executionIdHex": {"done": "d", "busy": "b", "foreign": "f"},
++      "cases": [
++        {"label": "work-budget-detail-beside-stage-carrier", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"executionId": "$DONE", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "ADMIT:EVALUATION.WORK_BUDGET_EXHAUSTED", "pureProjection": "owner-validation-required"},
++        {"label": "work-budget-detail-on-d9-golden-run", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "ADMIT:EVALUATION.WORK_BUDGET_EXHAUSTED"},
++        {"label": "retried-terminating-attempt", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["busy", "done"], "receipt": ["done", "run"]},
++         "set": {"executionId": "$DONE", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "ADMIT:EVALUATION.WORK_BUDGET_EXHAUSTED"},
++        {"label": "native-entry-detail-of-declared-carrier", "of": "same-run-two-coverage-carriers",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "resolution-incomplete", "remedy": "resolve the declared deficiency of the named Coverage record"}},
++         "expect": "ADMIT:resolution-incomplete"},
++        {"label": "native-entry-detail-of-stage-carrier", "of": "stage-entry-disagreement",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "resolution-incomplete", "remedy": "resolve the declared deficiency of the named Coverage record"}},
++         "expect": "ADMIT:resolution-incomplete"},
++        {"label": "closure-not-installed-detail", "of": "stage-unavailable-implies-provider-unavailable",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "closureNotInstalled": true},
++         "set": {"domainDetail": {"code": "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED", "remedy": "opensip install provider-typescript"}},
++         "expect": "ADMIT:COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED"},
++        {"label": "provider-unavailable-without-installation-observation", "of": "stage-unavailable-implies-provider-unavailable",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "resolution-incomplete", "remedy": "resolve the declared deficiency of the named Coverage record"}},
++         "expect": "ADMIT:resolution-incomplete"},
++        {"label": "no-permitted-observation-omits-detail", "of": "evaluator-only-cause",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]}, "set": {"executionId": "$DONE"},
++         "expect": "ADMIT:none", "pureProjection": "owner-validation-required"},
++        {"label": "verdict-run-carries-no-detail", "build": {"fixture": "declares", "params": {}},
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]}, "expect": "ADMIT:none",
++         "pureProjection": "admitted-without-delegated-member"},
++        {"label": "unrelated-host-invariant-detail", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "HOST.INVARIANT_VIOLATED", "remedy": "unrelated"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED", "pureProjection": "owner-validation-required"},
++        {"label": "unrelated-query-detail", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "QUERY.PARAMS_MALFORMED", "remedy": "unrelated"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED", "pureProjection": "owner-validation-required"},
++        {"label": "unrelated-doctor-detail", "of": "evaluator-only-cause",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "DOCTOR.DEFECTS_FOUND", "remedy": "unrelated"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED", "pureProjection": "owner-validation-required"},
++        {"label": "work-budget-detail-without-retained-work-budget", "of": "evaluator-only-cause",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "work-budget-detail-when-work-budget-is-secondary", "of": "work-budget-secondary-under-provider-unavailable-stage",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "selected-detail-omitted", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]}, "expect": "RUN_TERMINATION_DETAIL_REQUIRED"},
++        {"label": "closure-detail-without-installation-observation", "of": "stage-unavailable-implies-provider-unavailable",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED", "remedy": "opensip install provider-typescript"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "closure-detail-over-budget-primary", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "closureNotInstalled": true},
++         "set": {"domainDetail": {"code": "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED", "remedy": "opensip install provider-typescript"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "detail-on-verdict-run", "build": {"fixture": "declares", "params": {}},
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "detail-subject-not-attributed", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget", "subject": "analysis.budget"}},
++         "expect": "RUN_TERMINATION_DETAIL_MEMBER_NOT_ADMITTED"},
++        {"label": "earlier-retried-attempt-attribution", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["busy", "done"], "receipt": ["done", "run"]},
++         "set": {"executionId": "$BUSY", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT"},
++        {"label": "foreign-attempt-attribution", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"executionId": "$FOREIGN", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT"},
++        {"label": "run-committed-by-another-attempt", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["busy", "done"], "receipt": ["busy", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH"},
++        {"label": "receipt-for-another-run", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "other"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_RECEIPT_RUN_MISMATCH"},
++        {"label": "attempt-bound-to-another-plan", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "plan": "other"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH"},
++        {"label": "terminating-attempt-not-completed", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["failed"], "receipt": ["done", "run"]},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_NOT_TERMINATING"},
++        {"label": "committed-run-without-receipt", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": null},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_OBSERVATION_SHAPE"},
++        {"label": "authoritative-authority-beside-run", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"authority": "authoritative", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_AUTHORITY_NOT_COMPOSED", "pureProjection": "owner-validation-required"},
++        {"label": "caller-blessing-member", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"valid": true, "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_UNKNOWN_FIELD", "schemaValid": false},
++        {"label": "allowlisted-detail-does-not-rescue-a-wrong-projection", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
++         "set": {"reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"], "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "ephemeral-policy-failed", "termination": {"class": "policy-failed", "authority": "ephemeral", "executionId": "$DONE"},
++         "observation": {"durability": "ephemeral", "attempts": ["done"], "receipt": null}, "expect": "EPHEMERAL"},
++        {"label": "ephemeral-success-without-authority", "termination": {"class": "success"},
++         "observation": {"durability": "ephemeral", "attempts": ["done"], "receipt": null},
++         "expect": "RUN_TERMINATION_EPHEMERAL_AUTHORITY_REQUIRED"},
++        {"label": "ephemeral-with-run-id", "termination": {"class": "policy-failed", "runId": "$OTHER_RUN"},
++         "observation": {"durability": "ephemeral", "attempts": ["done"], "receipt": null},
++         "expect": "RUN_TERMINATION_EPHEMERAL_NOT_COMMITTED_RUN"},
++        {"label": "ephemeral-work-budget-detail",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED"], "authority": "ephemeral",
++                         "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "observation": {"durability": "ephemeral", "attempts": ["done"], "receipt": null},
++         "expect": "RUN_TERMINATION_DETAIL_NOT_ADMITTED"},
++        {"label": "operational-required-delivery-after-commit",
++         "termination": {"class": "operational-failed", "errorCode": "DELIVERY.REQUIRED_FAILED", "faultCause": "delivery-required", "runId": "$OTHER_RUN",
++                         "domainDetail": {"code": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT", "remedy": "rerender the committed Run"}},
++         "expect": "OUTSIDE"},
++        {"label": "operational-host-invariant",
++         "termination": {"class": "operational-failed", "errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE", "faultCause": "host-invariant",
++                         "domainDetail": {"code": "HOST.INVARIANT_VIOLATED", "remedy": "report the host invariant violation"}},
++         "expect": "OUTSIDE"},
++        {"label": "interrupted-before-settle", "termination": {"class": "interrupted", "signal": "SIGINT"}, "expect": "OUTSIDE"},
++        {"label": "request-rejected-ephemeral-authority",
++         "termination": {"class": "request-rejected", "errorCode": "REQUEST.UNSATISFIABLE",
++                         "domainDetail": {"code": "WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY", "remedy": "run without --ephemeral"}},
++         "expect": "OUTSIDE"}
++      ]
+     }
+   ]
+ }
+--- source38/docs/coop/design-corrections/foundation/run_termination_model.v1.py
++++ edited/docs/coop/design-corrections/foundation/run_termination_model.v1.py
+@@ -26,6 +26,7 @@
+ PROJECTION of the step termination (class, runId, reasonCodes, coverageId, and the absence of errorCode, faultCause
+ and signal). A host StepTermination may also carry executionId, domainDetail or authority; those members are
+ delegated to their own owners, and `check_projection` reports them as owner-validation-required, never as lawful.
++`admit_analysis_step_termination` is their admission law at the host composition boundary (contract section 7).
+ Reference evidence only.
+ """
+ from __future__ import annotations
+@@ -205,33 +206,39 @@
+             "coverageId": carrier, "carrierKind": "declared" if declared else ("stage-terminal" if staged else None)}
+ 
+ 
+-def finalize(run, objects, blobs):
+-    """Settled analysis Run with no fault, rejection or pre-settle interruption: its StepTermination."""
++def derive(run, objects, blobs):
++    """The analysis projection and its reduction, plus the retained population the host composition reads (section 7)."""
+     run_id, verdict, population, ctx = retained_population(run, objects, blobs)
+     if verdict == "pass":
+-        return {"termination": {"class": "success", "runId": run_id}, "reduction": None}
++        return {"termination": {"class": "success", "runId": run_id}, "reduction": None, "population": population}
+     if verdict == "fail":
+-        return {"termination": {"class": "policy-failed", "runId": run_id}, "reduction": None}
++        return {"termination": {"class": "policy-failed", "runId": run_id}, "reduction": None, "population": population}
+     reduction = reduce(conditions(population, objects, blobs, ctx["xi"]))
+     term = {"class": "indeterminate", "reasonCodes": reduction["reasonCodes"], "runId": run_id}
+     if reduction["coverageId"] is not None:
+         term["coverageId"] = reduction["coverageId"]
+-    return {"termination": term, "reduction": reduction}
++    return {"termination": term, "reduction": reduction, "population": population}
++
++
++def finalize(run, objects, blobs):
++    """Settled analysis Run with no fault, rejection or pre-settle interruption: its analysis projection."""
++    derived = derive(run, objects, blobs)
++    return {"termination": derived["termination"], "reduction": derived["reduction"]}
+ 
+ 
+ # The ANALYSIS PROJECTION: the StepTermination members this owner derives from the admitted Run. errorCode,
+ # faultCause and signal belong to it because the derived classes (success, policy-failed, indeterminate) never
+ # carry them, so their presence contradicts the derived class.
+ PROJECTION_FIELDS = ("class", "runId", "reasonCodes", "coverageId", "errorCode", "faultCause", "signal")
+-# Optional StepTermination members this owner neither derives nor licenses. Their owners alone decide whether a
+-# value is lawful; this owner checks only that the whole candidate is shape-valid.
++# Optional StepTermination members the analysis projection neither derives nor licenses. check_projection checks
++# only their shape; admit_analysis_step_termination (section 7) is their admission law.
+ DELEGATED_FIELDS = {
+     "executionId": "attempt identity: workflows-and-surfaces section 1 (a fresh ExecutionId per admitted attempt) "
+-                   "and identity-and-evidence section 2 (host-CSPRNG draw); not a function of retained Run content",
++                   "and identity-and-evidence section 2 (host-CSPRNG draw); admitted by section 7.3",
+     "domainDetail": "explanatory DomainDetail beside the existing code: workflows-and-surfaces sections 8 and 9, the "
+-                    "public detail registry, and composition section 8 for EVALUATION.WORK_BUDGET_EXHAUSTED",
+-    "authority": "workflows-and-surfaces section 9 and the StepTermination branch contract (authority=ephemeral "
+-                 "only without a runId)",
++                    "public detail registry, composition section 8 and native section 10; admitted by section 7.5",
++    "authority": "workflows-and-surfaces sections 1 and 9 and the StepTermination branch contract "
++                 "(authority=ephemeral only without a runId); admitted by section 7.4",
+ }
+ 
+ 
+@@ -244,6 +251,7 @@
+     a delegated member with no shape validator (RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED) or whose candidate the
+     validator refuses (RUN_TERMINATION_DELEGATED_SHAPE). Otherwise it returns the projection, the delegated members
+     and their owners with standing `owner-validation-required`: a shape-valid delegated value is not thereby lawful.
++    This is the pure projection check; that standing is scoped to it and is never a host admission (section 7).
+     """
+     if type(candidate) is not dict:
+         raise RunTerminationError("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
+@@ -271,6 +279,166 @@
+     return check_projection(candidate, finalize(run, objects, blobs)["termination"], validate_shape)
+ 
+ 
++# ---------------------------------------------------------------------------------------------------------------
++# Host composition of the whole analysis StepTermination (run-termination-contract.v1.md section 7). The analysis
++# projection above stays pure. The composition admits the delegated members by closed laws over two separate inputs:
++# the admitted Run (retained semantic content, re-derived here) and the host's trusted operational observation of
++# the admitted attempt (its StepResult attempts, durability, commit receipt and installation observation). Neither is
++# caller input, and no candidate member blesses itself.
++
++ANALYSIS_CLASSES = ("success", "policy-failed", "indeterminate")
++# Classes the sealed verdict never decides. Their owners compose them; the composition returns the owner WITHOUT
++# reading the Run, so an operational carrier is never passed through verdict derivation (section 7.1).
++OUTSIDE_ANALYSIS_PROJECTION = {
++    "operational-failed": "fault precedence: d9-exit-contract.v1.14 causeModel; workflows-and-surfaces sections 1 and 9; "
++                          "security S12; native section 10 route registry",
++    "request-rejected": "rejection precedence: d9-exit-contract.v1.14 causeModel and the refusing admission owner",
++    "interrupted": "interruption before settle: d9-exit-contract.v1.14 and workflows-and-surfaces section 1",
++}
++WORK_BUDGET_DETAIL = "EVALUATION.WORK_BUDGET_EXHAUSTED"
++CLOSURE_DETAIL = "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED"
++# Registered native DomainDetailCode members that are DeficiencyV2 entry deficiencies (public-detail-registry owner
++# native; native-evidence.md section 10, "Retained and public routes are different, and both are named").
++NATIVE_ENTRY_DETAILS = ("budget-exhausted", "derivation-policy-unmet", "external-consumers-unknown",
++                        "input-closure-incomplete", "resolution-incomplete")
++# The closed analysis domainDetail allowlist, in selection order (section 7.5).
++ANALYSIS_DETAIL_ALLOWLIST = (WORK_BUDGET_DETAIL, CLOSURE_DETAIL) + NATIVE_ENTRY_DETAILS
++OBSERVATION_FIELDS = frozenset({"stepId", "durability", "attempts", "commitReceipt", "requiredClosureNotInstalled"})
++
++
++def _refuse(key, detail=None):
++    raise RunTerminationError(key if detail is None else key + ":" + detail)
++
++
++def analysis_detail_code(derived, objects, blobs, required_closure_not_installed):
++    """The one domainDetail code a composed committed analysis termination carries, or None (section 7.5).
++
++    1. EVALUATION.WORK_BUDGET_EXHAUSTED: the retained population holds a work-budget-exhausted record and the primary
++       D9 deficiency is budget-exhausted, so the work budget sits at the primary rank;
++    2. else COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED: reasonCodes[0] is COVERAGE.PROVIDER_UNAVAILABLE and the host
++       observed that a required provider closure of the attempt is not installed;
++    3. else the coverageId record's own entry.deficiency, when it is a native entry detail;
++    4. else None. success and policy-failed carry none.
++    """
++    reduction = derived["reduction"]
++    if reduction is None:
++        return None
++    if reduction["deficiency"] == "budget-exhausted" and any(r["cause"] == WORK_BUDGET for r in derived["population"]):
++        return WORK_BUDGET_DETAIL
++    if reduction["reasonCodes"][0] == CODE_MAP["provider-unavailable"] and required_closure_not_installed is True:
++        return CLOSURE_DETAIL
++    if reduction["coverageId"] is not None:
++        entry = C.parse(blobs[objects[reduction["coverageId"]][1]["payloadDigest"]])["entry"]
++        if entry["deficiency"] in NATIVE_ENTRY_DETAILS:
++            return entry["deficiency"]
++    return None
++
++
++def admit_attempt_observation(observation, validate_attempt, validate_receipt):
++    """Admit the host's operational observation of the step and return its terminating attempt (sections 7.2, 7.3).
++
++    Shapes are the existing records (invocation-record Attempt, identity commit-receipt). Joins are checked; the host
++    that supplies them is trusted, not authenticated (section 7.7).
++    """
++    if type(observation) is not dict or set(observation) != OBSERVATION_FIELDS:
++        _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "fields")
++    step_id, durability, attempts = observation["stepId"], observation["durability"], observation["attempts"]
++    if (type(step_id) is not int or not 0 <= step_id <= 63 or durability not in ("authoritative", "ephemeral")
++            or type(observation["requiredClosureNotInstalled"]) is not bool
++            or type(attempts) is not list or not 1 <= len(attempts) <= 3):
++        _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "members")
++    for attempt in attempts:
++        try:
++            validate_attempt(attempt)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "attempt " + str(exc).split("\n")[0][:120])
++    ids = [a["executionId"] for a in attempts]
++    if len(set(ids)) != len(ids):
++        _refuse("RUN_TERMINATION_ATTEMPT_ID_REUSED")
++    terminating = attempts[-1]
++    if (terminating["outcome"] != "completed" or "derivation" not in terminating
++            or any(a["outcome"] == "completed" for a in attempts[:-1])):
++        _refuse("RUN_TERMINATION_ATTEMPT_NOT_TERMINATING")
++    receipt = observation["commitReceipt"]
++    if durability == "ephemeral":
++        if receipt is not None:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "an ephemeral attempt has no commit receipt")
++    else:
++        try:
++            validate_receipt(receipt)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_OBSERVATION_SHAPE", "receipt " + str(exc).split("\n")[0][:120])
++    return terminating
++
++
++def admit_analysis_step_termination(candidate, run, objects, blobs, observation, validate_shape, validate_attempt,
++                                    validate_receipt):
++    """Admit a whole StepTermination at the host composition boundary (section 7.6). Fixed order:
++
++    0. a non-object refuses; a class the verdict never decides returns its owner without reading the Run;
++    1. the attempt observation (OBSERVATION_SHAPE, ATTEMPT_ID_REUSED, ATTEMPT_NOT_TERMINATING);
++    2. an ephemeral attempt: no runId, authority=ephemeral, executionId of the attempt, no domainDetail; its
++       projection is not derived here;
++    3. a committed Run: close_run and the derivation, then the attempt/Run joins (RECEIPT_RUN_MISMATCH,
++       RECEIPT_ATTEMPT_MISMATCH, ATTEMPT_PLAN_MISMATCH), check_projection, authority omitted
++       (AUTHORITY_NOT_COMPOSED), executionId of the terminating attempt (EXECUTION_ID_NOT_ATTEMPT), and exactly the
++       selected detail (DETAIL_NOT_ADMITTED, DETAIL_REQUIRED, DETAIL_MEMBER_NOT_ADMITTED). The remedy text is
++       presentation and is not compared.
++    """
++    if type(candidate) is not dict:
++        _refuse("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
++    if candidate.get("class") in OUTSIDE_ANALYSIS_PROJECTION:
++        return {"standing": "outside-analysis-projection", "owner": OUTSIDE_ANALYSIS_PROJECTION[candidate["class"]]}
++    if validate_shape is None or validate_attempt is None or validate_receipt is None:
++        _refuse("RUN_TERMINATION_COMPOSITION_UNCHECKED")
++    terminating = admit_attempt_observation(observation, validate_attempt, validate_receipt)
++    execution_id = candidate.get("executionId")
++    detail = candidate.get("domainDetail")
++    if observation["durability"] == "ephemeral":
++        unknown = sorted(set(candidate) - set(PROJECTION_FIELDS) - set(DELEGATED_FIELDS))
++        if unknown:
++            _refuse("RUN_TERMINATION_UNKNOWN_FIELD", ",".join(unknown))
++        try:
++            validate_shape(candidate)
++        except Exception as exc:
++            _refuse("RUN_TERMINATION_DELEGATED_SHAPE", str(exc).split("\n")[0][:200])
++        if candidate.get("class") not in ANALYSIS_CLASSES or "runId" in candidate:
++            _refuse("RUN_TERMINATION_EPHEMERAL_NOT_COMMITTED_RUN")
++        if candidate.get("authority") != "ephemeral":
++            _refuse("RUN_TERMINATION_EPHEMERAL_AUTHORITY_REQUIRED")
++        if execution_id is not None and execution_id != terminating["executionId"]:
++            _refuse("RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT")
++        if detail is not None:
++            _refuse("RUN_TERMINATION_DETAIL_NOT_ADMITTED", "ephemeral")
++        return {"standing": "ephemeral-attribution-admitted", "executionId": terminating["executionId"],
++                "projectionStanding": "not derived: section 1 derives the analysis projection only for a committed Run"}
++    derived = derive(run, objects, blobs)
++    receipt = observation["commitReceipt"]
++    if receipt["runId"] != derived["termination"]["runId"]:
++        _refuse("RUN_TERMINATION_RECEIPT_RUN_MISMATCH")
++    if receipt["executionId"] != terminating["executionId"]:
++        _refuse("RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH")
++    if terminating["derivation"]["planId"] != run["planId"]:
++        _refuse("RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH")
++    checked = check_projection(candidate, derived["termination"], validate_shape)
++    if "authority" in candidate:
++        _refuse("RUN_TERMINATION_AUTHORITY_NOT_COMPOSED", str(candidate["authority"]))
++    if execution_id is not None and execution_id != terminating["executionId"]:
++        _refuse("RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT")
++    want = analysis_detail_code(derived, objects, blobs, observation["requiredClosureNotInstalled"])
++    if detail is None:
++        if want is not None:
++            _refuse("RUN_TERMINATION_DETAIL_REQUIRED", want)
++    else:
++        if detail["code"] != want:
++            _refuse("RUN_TERMINATION_DETAIL_NOT_ADMITTED", detail["code"])
++        if set(detail) != {"code", "remedy"}:
++            _refuse("RUN_TERMINATION_DETAIL_MEMBER_NOT_ADMITTED", ",".join(sorted(set(detail) - {"code", "remedy"})))
++    return {"standing": "composed-analysis-termination-admitted", "projection": checked["projection"],
++            "executionId": terminating["executionId"], "domainDetailCode": want,
++            "trustedHostInputs": ["attempts", "durability", "commitReceipt", "requiredClosureNotInstalled"]}
++
++
+ def d9_concurrent_reducer(deficiencies):
+     """d9-exit-contract concurrentConditionReducer deficiency branch, verbatim: primary = deficiencies[0]."""
+     primary, rest = deficiencies[0], []
+--- source38/docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ edited/docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -259,7 +259,7 @@
+     ],
+     "readerLaws": [
+       "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+-      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed; its route is publicProjectionByPhase.readOnlyRecovery.",
++      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed. That includes an association naming the admitted carrier when the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2). Its route is publicProjectionByPhase.readOnlyRecovery through readOnlyStandingOfDispatchResult; carrierFormat3 continues to the SEAL join. The reader migrates, publishes and writes nothing.",
+       "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+       "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+       "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+@@ -530,11 +530,12 @@
+     "noNewObject": "The law lives in the existing trigger and table definitions; the seven object names are unchanged."
+   },
+   "publicProjectionByPhase": {
+-    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1.",
++    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1. Source38 advisory ADV38-02 adds the read-only map entries for a carrier observed unmigrated (carrierFormat1, carrierFormat2) and the read-only precedence phase law.",
+     "phaseLaws": [
+       "The phase decides only which existing route applies. A writer or maintenance open refuses: it appends nothing, publishes nothing and writes no quarantine marker, because carrier_quarantine.reason is the unchanged inherited enum. Every open re-detects from the bytes it reads; a cached verdict, first_generation, projectKeyDigest or earlier successful open is never reused.",
+       "Read-only recovery writes nothing, never uses MIGRATION.CORRUPT, and reports the quarantine-condition row only with the Step 4 stable observations of commit-recovery-readonly.v3.md; otherwise it reports unavailable-busy.",
+-      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority."
++      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority.",
++      "Read-only precedence (source38 ADV38-02), inside one journal snapshot and before the SEAL join: an association naming another binding is binding-unusable before any carrier read. With any carrierFormat 3 object present, the footprint, project binding, F51 and row-boundary conditions (the quarantine-condition row with the Step 4 stable observations, otherwise unavailable-busy) and an unpublished lawful prefix (unavailable-busy) are decided before an association generation below first_generation (unknown-carrier-incompatible). With no carrierFormat 3 object and an inherited grant_journal, the carrier is observed unmigrated and the result is unknown-carrier-incompatible whatever generation the association or a surviving witness names; it is decided from the object names alone, needs no witness comparison, and the witness and anchor rows of commit-recovery-readonly.v3.md Step 3 are not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the reader migrates, publishes and writes nothing."
+     ],
+     "writerOrMaintenanceOpen": {
+       "migration-footprint-corrupt": {
+@@ -647,7 +648,8 @@
+         "securityRefusal": null,
+         "s12Row": "read-only recovery: the association names a carrierFormat 1 or 2 generation",
+         "observations": [
+-          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)"
++          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)",
++          "with the association naming the admitted carrier, the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2; F46)"
+         ]
+       },
+       "unavailable-busy": {
+@@ -670,7 +672,9 @@
+       "migration-footprint-corrupt": "unknown-quarantine-condition",
+       "split-brain-custody-condition": "unknown-quarantine-condition",
+       "unknown-carrier-incompatible": "unknown-carrier-incompatible",
+-      "incomplete-footprint": "unavailable-busy"
++      "incomplete-footprint": "unavailable-busy",
++      "carrierFormat1": "unknown-carrier-incompatible",
++      "carrierFormat2": "unknown-carrier-incompatible"
+     }
+   }
+ }
+--- source38/docs/coop/design-corrections/security/carrier-format.v3.md
++++ edited/docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -372,7 +372,7 @@
+ | maintenance act C (fresh or `{A, B}` resume) | a `grant_journal_v3` row, a partial set or invalid definition; or a witness naming another project | as the rows above | as above; **nothing is published** | as above |
+ | read-only recovery | the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest` differs from the admitted binding | `binding-unusable` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` / — | `RECOVERY.REFUSED`, typed subject |
+ | read-only recovery | association names the admitted carrier, but the carrier's own row or witness names another project; an unlawful footprint; or F51 | `unknown-quarantine-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
+-| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot, or the carrier read in that snapshot is observed unmigrated (no carrierFormat 3 object and an inherited `grant_journal`; dispatch `carrierFormat1` or `carrierFormat2`) | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
+ | read-only recovery | lawful `{A}` or `{A, B}` prefix (`carrier-migration.v1.md` §4), or an unstable observation | `unavailable-busy` | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` / `ledger-busy` | `PROJECT.BUSY` |
+ 
+ **Why a digest mismatch is not migration corruption.** A partial object set, an invalid definition, a
+@@ -389,6 +389,19 @@
+ `unknown-custody` family (`HOST.IO_FAILURE`, `host-io`): not a caller defect (request-rejected), not a
+ stably observed quarantine (`LEDGER.CORRUPT`) and not contention. It never becomes not-committed or a
+ confirmation.
++
++**An association naming a carrier observed unmigrated (source38 advisory ADV38-02).** When the carrier read in
++the recovery snapshot has none of the seven carrierFormat 3 objects and has the inherited `grant_journal`, every
++generation it holds is a carrierFormat 1 or 2 generation, so no schema-3 `SEAL` can exist for the association.
++The association points to a lost migration, a rollback or a swapped carrier, and the result is F46
++`unknown-carrier-incompatible` whatever generation it names. Read-only precedence, in one journal snapshot and
++before the SEAL join: `binding-unusable` first; then, only when a carrierFormat 3 object exists, the footprint,
++project binding, F51 and row-boundary rows and then the below-`first_generation` row; with no carrierFormat 3
++object, this row. It is decided from the object names alone and needs no witness comparison, so the witness and
++anchor rows of `commit-recovery-readonly.v3.md` Step 3, including a surviving witness naming another project, are
++not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the
++reader migrates, publishes and writes nothing. Machine-readable: `readOnlyStandingOfDispatchResult` maps
++`carrierFormat1` and `carrierFormat2`; exact precedence: `commit-recovery-readonly.v3.md` §1.
+ 
+ **Interrupted state and stale custody.** Each phase re-evaluates every predicate from the bytes it
+ reads at that open or in that journal snapshot: a cached verdict, `first_generation`,
+@@ -416,8 +429,9 @@
+   **never** presented as an S8 machine id, never rewritten, and never joined to
+   `RepoExecutionGrantV2.platformId` or a truth-table key.
+ - A historical generation can never satisfy a schema-3 `SEAL` join, because no `SEAL` row can
+-  exist there. A recovery request whose association names such a generation returns
+-  `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its public route is §8.1.
++  exist there. A recovery request whose association names such a generation, including any generation of a
++  carrier observed unmigrated, returns `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its
++  public route is §8.1.
+ - Historical bytes are read under recordSchema-1 semantics. They are not relabelled as schema 3
+   and are not re-admitted through the schema-3 gate. This preserves the existing
+   `JournalRecordV2` law, which exists "only to identify historical bytes so they are refused as
+--- source38/docs/coop/design-corrections/security/check-carrier-v3.py
++++ edited/docs/coop/design-corrections/security/check-carrier-v3.py
+@@ -848,6 +848,8 @@
+     ('readOnlyRecovery', 'migration-footprint-corrupt'): _S37_LC + (None,),
+     ('readOnlyRecovery', 'split-brain-custody-condition'): _S37_LC + (None,),
+     ('readOnlyRecovery', 'unknown-carrier-incompatible'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'carrierFormat1'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'carrierFormat2'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
+     ('readOnlyRecovery', 'incomplete-footprint'): ('operational-failed', 4, 'LEDGER.BUSY_TIMEOUT', 'ledger-busy', 'PROJECT.BUSY'),
+ }
+ _S37_SEEN = set()
+@@ -855,7 +857,8 @@
+ 
+ def _s37_public(phase, standing):
+     if phase == 'readOnlyRecovery':
+-        return _S37_PROJ['readOnlyRecovery'][_S37_RO_MAP[standing]]
++        # A dispatch result with no read-only standing is a failed check below, not a crash of the whole checker.
++        return _S37_PROJ['readOnlyRecovery'].get(_S37_RO_MAP.get(standing))
+     return _S37_PROJ[phase][standing]
+ 
+ 
+@@ -865,7 +868,8 @@
+     detail = got
+     if ok and (phase, got) in _S37_EXPECT:
+         p = _s37_public(phase, got)
+-        detail = (p['class'], p['exit'], p['errorCode'], p['faultCause'], p['domainDetail'])
++        detail = ((p['class'], p['exit'], p['errorCode'], p['faultCause'], p['domainDetail']) if p is not None
++                  else 'no read-only standing for dispatch result ' + got)
+         ok = detail == _S37_EXPECT[(phase, got)]
+     ck('source37 scenario: ' + label, ok, detail)
+ 
+@@ -966,6 +970,47 @@
+             _s37_open(c, 'writerOrMaintenanceOpen'), 'carrierFormat2')
+ _s37_expect('no journal table at all is the fresh-install path', 'writerOrMaintenanceOpen',
+             _s37_open(sqlite3.connect(':memory:'), 'writerOrMaintenanceOpen'), 'fresh-install')
++
++# ---- source38 advisory ADV38-02: read-only recovery of an association naming a carrier observed unmigrated. The open
++# dispatch stays a pure function of the carrier bytes; read-only maps carrierFormat1/carrierFormat2 to the F46 route.
++for _fmt, _ddl in (('carrierFormat1', ddl1), ('carrierFormat2', ddl2)):
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    c.executescript(_ddl)
++    c.execute(_S37_GJ2, (1, 1, 'REV', _OP, _H, _H))
++    _before = _s37_state(c)
++    ck('source38 ADV38-02 scenario: the inherited %s DDL opens as %s at a writer open' % (_fmt, _fmt),
++       _s37_open(c, 'writerOrMaintenanceOpen') == _fmt, _s37_open(c, 'writerOrMaintenanceOpen'))
++    for _gen in (1, 2, 7):
++        _s37_expect('ADV38-02: an association (grantGeneration %d) naming the admitted carrier over an unmigrated %s is '
++                    'unknown-carrier-incompatible' % (_gen, _fmt), 'readOnlyRecovery',
++                    _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': _gen}), _fmt)
++    _s37_expect('ADV38-02: over an unmigrated %s an association naming another carrier is binding-unusable first' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}),
++                'binding-unusable')
++    _s37_expect('ADV38-02: over an unmigrated %s a surviving witness naming another project does not displace F46' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_OTHER), _fmt)
++    ck('source38 ADV38-02 scenario: read-only dispatch over an unmigrated %s migrates, publishes and writes nothing' % _fmt,
++       _s37_state(c) == _before
++       and not ({'carrier_format', 'grant_journal_v3'} & {r[0] for r in c.execute('SELECT name FROM sqlite_master')}))
++    c.execute('CREATE TABLE carrier_format (singleton INTEGER)')
++    _s37_expect('ADV38-02: one carrierFormat 3 object over an unmigrated %s is footprint corruption (quarantine row), not F46' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'migration-footprint-corrupt')
++c = _s37_carrier('migrated')
++_s37_publish(c)
++_s37_expect('ADV38-02: the migrated below-first_generation association is still F46 through the carrierFormat 3 branch',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
++            'unknown-carrier-incompatible')
++_s37_inject(c, 1)
++_s37_expect('ADV38-02: a grant_journal_v3 row below first_generation is decided before the below-first_generation association',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
++            'migration-footprint-corrupt')
++ck('source38 ADV38-02 map: carrierFormat1 and carrierFormat2 map to F46; carrierFormat3 and fresh-install have no read-only standing',
++   _S37_RO_MAP.get('carrierFormat1') == 'unknown-carrier-incompatible' and _S37_RO_MAP.get('carrierFormat2') == 'unknown-carrier-incompatible'
++   and 'carrierFormat3' not in _S37_RO_MAP and 'fresh-install' not in _S37_RO_MAP, _S37_RO_MAP)
++ck('source38 ADV38-02 law: the F46 observations, reader law and read-only precedence phase law name a carrier observed unmigrated',
++   any('observed unmigrated' in o for o in _S37_PROJ['readOnlyRecovery']['unknown-carrier-incompatible']['observations'])
++   and any('observed unmigrated' in l for l in disp['readDispatch']['readerLaws'])
++   and any(l.startswith('Read-only precedence') and 'observed unmigrated' in l for l in _S37_PROJ['phaseLaws']))
+ 
+ _s37_need = ({(ph, st) for ph in ('writerOrMaintenanceOpen', 'maintenanceActCPublication') for st in _S37_PROJ[ph]}
+              | {('readOnlyRecovery', st) for st in _S37_RO_MAP})
+@@ -1049,6 +1094,15 @@
+            and _cells[3].strip('`') == (_p['faultCause'] or '—')
+            and (('omitted' in _cells[4]) if _p['domainDetail'] is None else (('`%s`' % _p['domainDetail']) in _cells[4])))
+     ck('source37 route: readOnlyRecovery/%s matches the commit-recovery-readonly.v3 section 1 row' % _standing, _ok, _cells)
++_S37_CF = open(os.path.join(SEC, 'carrier-format.v3.md'), encoding='utf-8').read()
++_S37_F46_S12 = [l for l in _S37_S12 if 'unknown-carrier-incompatible' in l]
++ck('source38 ADV38-02 prose: the S12 F46 row, carrier-format section 8.1 and read-only section 1 name a carrier observed unmigrated',
++   len(_S37_F46_S12) == 1 and 'observed unmigrated' in _S37_F46_S12[0] and 'observed unmigrated' in _S37_CF
++   and 'observed unmigrated' in _S37_READONLY and 'Precedence of the read-only carrier observations' in _S37_READONLY)
++ck('source38 ADV38-03 prose: read-only section 1 states the current F00-F53 plan and the writer/maintenance MIGRATION.CORRUPT scope',
++   'F00–F53' in _S37_READONLY and 'all 54 cases remain not executed' in _S37_READONLY
++   and re.search(r'writer or maintenance carrier open only,\s+to a carrierFormat 3 migration footprint', _S37_READONLY) is not None
++   and re.search(r"it is the store\s+transition's detail", _S37_READONLY) is None)
+ 
+ rep = {'control': 'c4-check-carrier-v3',
+        'passed': sum(1 for c in checks if c['pass']),
+--- source38/docs/v2/architecture/commit-recovery-readonly.v3.md
++++ edited/docs/v2/architecture/commit-recovery-readonly.v3.md
+@@ -4,7 +4,7 @@
+ implementation authorization. Private design/reference work, not OS qualification. Authored against
+ frozen Source25 `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
+ 
+-**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1) and the source38 advisory corrections ADV38-02 (a carrier observed unmigrated) and ADV38-03 (current scope wording). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Stable normative path:** `docs/v2/architecture/commit-recovery-readonly.v3.md`. This is the
+ current owner and it is **self-contained**: every operative rule is stated here, and no rule may be
+@@ -36,8 +36,9 @@
+ cannot be mistaken for one. This matters because the word `indeterminate` collides with the public
+ D9 class `indeterminate` at exit 3: no standing below is spelled that way, and every one projects
+ onto an existing class, `errorCode` and `faultCause`. Root owns the final generator and the
+-clarification of the older internal `indeterminate` spelling in F00–F37; that is not treated as a
+-blocker here.
++clarification of the older internal `indeterminate` spelling in the failure-case plan. That plan was
++F00–F37 when this document was authored; the current `commit-recovery-plan.v1.json` holds F00–F53, and
++all 54 cases remain not executed. The clarification is not treated as a blocker here.
+ 
+ The public shape is **`workflows/schemas/evaluator3/common.schema.json#/$defs/StepTermination`**.
+ That owner is **explicitly selected**, not inferred from a pattern: `workflows-and-surfaces.md`
+@@ -70,9 +71,12 @@
+ 
+ **The carrier-quarantine decision is settled, not deferred.** `LEDGER.CORRUPT` with
+ `faultCause: "ledger-corrupt"` and an omitted `domainDetail` is schema-valid, so no new
+-`DomainDetailCode` is minted for aesthetics. `MIGRATION.CORRUPT` is **not** reused: it is the store
+-transition's detail, and borrowing it for ordinary journal corruption would put two remedies behind
+-one code, which the D9 contract names a defect. The typed reason (`uncertainTailLoss`,
++`DomainDetailCode` is minted for aesthetics. `MIGRATION.CORRUPT` is **not** reused on any read-only path.
++Security S12 scopes it to a store transition footprint and, at a writer or maintenance carrier open only,
++to a carrierFormat 3 migration footprint that is not a lawful durable prefix or violates the published
++generation boundary (including F51). Borrowing it for ordinary journal corruption, a carrier project
++binding mismatch or any read-only carrier observation would put two remedies behind one code, which the
++D9 contract names a defect. The typed reason (`uncertainTailLoss`,
+ `witnesslessRestore`, `witnessMalformed`) travels in the operational record and the owner
+ diagnosis, not in a public detail code.
+ 
+@@ -85,8 +89,30 @@
+ report and otherwise `unavailable-busy`. An association naming a generation below the published
+ `first_generation` is `unknown-carrier-incompatible` (F46): an association is written only with a
+ committed carrierFormat 3 `SEAL`, so this contradicts two retained owners and joins the `unknown-custody`
+-family. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`. `MIGRATION.CORRUPT` is used on none of
+-these read-only paths, and none confirms, negates or settles an attempt. Exact phase table:
++family. So is an association naming the admitted carrier when the carrier read in that journal snapshot is
++**observed unmigrated**: none of the seven carrierFormat 3 objects exists and the inherited `grant_journal`
++does (open dispatch results `carrierFormat1` and `carrierFormat2`). Every generation of such a carrier is a
++carrierFormat 1 or 2 generation, so no schema-3 `SEAL` can exist; the association points to a lost
++migration, a rollback or a swapped carrier. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`.
++
++**Precedence of the read-only carrier observations** (source38 advisory ADV38-02), all inside one journal
++snapshot and before the SEAL join:
++
++1. an association naming another binding → `binding-unusable`, before any carrier read;
++2. with any carrierFormat 3 object present: a partial set, an invalid definition, a `grant_journal_v3` row
++   before publication, a published row or surviving witness naming another project, F51, or a
++   `grant_journal_v3` row below `first_generation` → `unknown-quarantine-condition` with the Step 4 stable
++   observations, otherwise `unavailable-busy`; an unpublished lawful prefix → `unavailable-busy`; then an
++   association generation below `first_generation` → `unknown-carrier-incompatible`;
++3. with no carrierFormat 3 object and an inherited `grant_journal` → `unknown-carrier-incompatible`,
++   whatever generation the association or a surviving witness names.
++
++Row 3 is decided from the object names alone and needs no witness comparison, so the witness and anchor rows
++of Step 3 (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`, a witness naming another carrier and
++the anchor table) are not reported for that request. `unknown-carrier-incompatible` is not a quarantine or
++corruption report, so Step 4 does not gate it. The reader performs no migration, publishes no format row and
++writes nothing on any of these paths. `MIGRATION.CORRUPT` is used on none of these read-only paths, and none
++confirms, negates or settles an attempt. Exact phase table:
+ `design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+ A registered detail is used only where one already fits the event exactly: `PROJECT.BUSY` for busy,
+@@ -233,8 +259,8 @@
+ reader applies the carrier open dispatch to the bytes of that snapshot only, never to a cached
+ result: the object names and definitions, the format row, `project_key_digest` against the admitted
+ `projectKeyDigest`, the published generation boundary, and `A.grantGeneration` against
+-`first_generation`. Their conclusions are the carrier rows of §1; a quarantine-class conclusion also
+-requires Step 4.
++`first_generation`. Their conclusions, including a carrier observed unmigrated, are the carrier rows and
++precedence of §1; a quarantine-class conclusion also requires Step 4.
+ 
+ **The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+ `record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the
+--- source38/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ edited/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -1304,7 +1304,7 @@
+ | read-only recovery: a valid joined receipt is present while the attempt row is still `admitted`, or is absent entirely | **not** a busy or custody condition. The receipt establishes historical commitment, so the termination is the ordinary successful observation; pending or unknown settlement is disclosed operationally |
+ | read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`; and, with the association naming the admitted carrier, a carrier whose own published row or witness names another project, a migration footprint that is not a lawful durable prefix, or the F51 split-brain condition) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
+ | read-only recovery: unreadable ledger or carrier, unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io` |
+-| read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
++| read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`, or of a carrier observed unmigrated, with no carrierFormat 3 object, in the same journal snapshot), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46; decided before the SEAL join, after the binding row and any carrierFormat 3 footprint row) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
+ | read-only recovery: the requested binding (the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest`) names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
+ 
+ A journal-carrier quarantine deliberately publishes **no** `domainDetail`. `StepTermination` requires only `class`, and `domainDetail` is optional, so the projection is schema-valid with `class`, `errorCode` and a non-none `faultCause` alone. No new `DomainDetailCode` is registered for it, and `MIGRATION.CORRUPT` is **not** reused: that code is the detail of a store transition footprint and of a carrierFormat 3 migration footprint at a writer or maintenance open, and borrowing it for ordinary journal corruption, a carrier project binding mismatch or any read-only carrier observation would put two remedies behind one code. The typed reason travels in the owner diagnosis and the operational record, not in a public detail code.
+--- source38/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ edited/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -1180,10 +1180,14 @@
+ `docs/coop/design-corrections/foundation/run-termination-contract.v1.md`, the
+ single owner of the condition population, the evaluator/native/import/requirement
+ cause bridge, the total pre-reduction order and the `coverageId` choice. Discovery
+-order and other host observations are not inputs. That owner fixes the analysis
+-projection only (class, `runId`, `reasonCodes`, `coverageId`); a step
+-termination's optional `executionId`, `domainDetail` and `authority` stay with
+-their existing owners. No code, class, exit or field is added.
++order and other host observations are not inputs. That owner derives the analysis
++projection (class, `runId`, `reasonCodes`, `coverageId`). Its §7 is the host
++composition law for a step termination's optional `executionId`, `domainDetail`
++and `authority`: the attempt and Run binding, the committed-Run versus ephemeral
++authority rule and the closed analysis detail allowlist, applying the existing
++owners' rules. Fault, rejection and interruption terminations stay with their
++owners and are not passed through that derivation. No code, class, exit or field
++is added.
+ 
+ ---
+ 

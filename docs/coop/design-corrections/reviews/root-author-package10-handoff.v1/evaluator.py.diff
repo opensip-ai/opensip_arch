@@ -1,0 +1,46 @@
+--- v9/author-helpers/evaluator.py
++++ v10/author-helpers/evaluator.py
+@@ -465,9 +465,28 @@
+         "resolution-incomplete",
+         "work-budget-exhausted",
+     }
+-    # Author fixture correction: §9.6 keeps each returned Coverage carrier separate.
++    # §9.6 keeps each returned Coverage carrier separate.
++    #
++    # SOURCE33 NO-INVENTION LAW. Each retained Coverage record contributes its OWN EXACT pair.
++    # `execution-inputs-contract.v1.md` §4/§5 and `evaluator-composition-contract.v3.md` §9.6:
++    #   * a record whose pair is (null, null) KEEPS null/null and reaches
++    #     `required-cell-unsatisfied` through the registry branch below. It never borrows a
++    #     sibling record's deficiency, which would also unzip that sibling's pair by leaving this
++    #     record's own (null) nativeCause attached to it;
++    #   * no `provider-unavailable` is manufactured for pure missing work, because that token
++    #     would assert a provider observation occurring on no source record.
++    # The two lines this replaced did both: `records[0]`'s deficiency was used as a fallback for
++    # any record carrying none, defaulting to `provider-unavailable` when even that was absent.
++    #
++    # DETERMINISTIC CARRIER ORDER. Records are walked in this account's `coverageIds` order, which
++    # is `x-opensip-order: canonical-set`; accounts are walked in the retained
++    # `nativeCoverageAccounts` order. The emitted list is a `cset`, so the proof bytes do not
++    # depend on either walk; the owner re-derives its own owed order independently (§4
++    # cross-source order) and the two agree on the canonical set.
++    #
+     # This partial helper still does not establish census completeness or inventory/
+-    # binding/candidate deficiencies; complete frozen owner replay remains required.
++    # binding/candidate deficiencies, and it emits only for required `supported-available`
++    # accounts; complete frozen owner replay remains required.
+     exec_defs = []
+     by_cov = {h.suffix(cid): rec for cid, rec in zip(cov_ids, coverages)}
+     outcomes_by_pair = {(o["cellOrdinal"],o["programOrdinal"]):o for o in ei["cellOutcomes"]}
+@@ -478,10 +497,9 @@
+         records = [(hx, by_cov[hx]["_payload"]["entry"]) for hx in acc["coverageIds"]]
+         if records and all(e["coverage"] == "complete" and e["resolutionCompleteness"]["examinedExhaustive"] for _,e in records):
+             continue
+-        fallback = (records[0][1]["deficiency"] if records else None) or "provider-unavailable"
+-        carriers = [(hx, e["deficiency"] or fallback, e["nativeCause"]) for hx,e in records]
++        carriers = [(hx, e["deficiency"], e["nativeCause"]) for hx,e in records]
+         if not carriers:
+-            carriers = [(None, fallback, None)]
++            carriers = [(None, None, None)]
+         for hx, cause, native_cause in carriers:
+             if cause not in exec_causes:
+                 if cause not in (None, "source-syntax-invalid"):

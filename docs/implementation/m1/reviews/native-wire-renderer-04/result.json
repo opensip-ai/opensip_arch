@@ -1,0 +1,60 @@
+{
+  "session_id": "2dc36f69-f9e3-4ac8-af59-fd2351b40007",
+  "total_cost_usd": 1.2298675,
+  "usage": {
+    "input_tokens": 130,
+    "cache_creation_input_tokens": 22946,
+    "cache_read_input_tokens": 1171115,
+    "output_tokens": 16568,
+    "output_tokens_details": {
+      "thinking_tokens": 4630
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 22946,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1030,
+        "cache_read_input_tokens": 248086,
+        "cache_creation_input_tokens": 233,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 233
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 130,
+      "outputTokens": 16568,
+      "cacheReadInputTokens": 1171115,
+      "cacheCreationInputTokens": 22946,
+      "webSearchRequests": 0,
+      "costUSD": 1.2298675,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 4630,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 8,
+  "subtype": "success",
+  "result": "# Review 04 verdict: changes required (1 finding, 4 advisories), subject `606639b2\u20261671b5`\n\nReview03's selection-shape finding is fixed, but one representation problem remains. It has been there since subject-01, and I missed it in all three earlier reviews. `review.json` (it parses) and `review.md` are in `m1-native-wire-renderer-review-04/`.\n\n**Integrity and reproduction:**\n- Before and after my work, the 24 files matched their hashes and all 11 input pins equalled their origins.\n- Only `render.py`, `test_render.py` and `UNIT.md` changed; everything else is byte-identical to subject-03.\n- A fresh render gives identical `wire.rs`, `wire.ts` and `render-result.json`, and the 13 Python tests pass.\n- I did not rebuild Rust or TS, since no compiled file changed; that evidence comes from review03.\n\n**Review03 finding (fixed):** all 18 malformed payloads I tried are refused with `ValueError`. They include empty, one or three alternatives, a missing or unknown `select`, extra keys, the `selector` typo, and nested or mixed shapes. The mutations for exact keys, the empty-alternatives regression, the mechanism check, type-object alternatives and mixed type/selection are all caught.\n\n## Required finding\n- **RF-1: which selector a variant belongs to depends on JSON key order.** Selection variants are named `FactBatch0`/`FactBatch1` and `Unavailable0`/`Unavailable1` by their position in the alternatives object. No generated file records which selector value each one belongs to.\n  - If an equivalent input lists `true` before `false`, it still renders, but `FactBatch0` now holds the V3 payload.\n  - Two alternatives of the same type also render, and then position is the only thing telling them apart.\n  - Today the two types differ, so the compiler would catch a mismatch in a hand-written decoder. But `UNIT.md` says M3 decodes by frame tag plus admitted host selector, so the mapping needs to be fixed rather than order-derived.\n  - **Fix:** name variants from the selector key, or iterate in a fixed order per mechanism and record the key for each variant. Refuse or disclose same-type alternatives, and add a test that reordering the alternatives doesn't change output. The fixed-order option keeps today's output byte-identical.\n\n## Advisories\n- **A1:** removing the non-dict payload check or the alternatives-must-be-a-map check still passes every test. Those inputs then fail with `TypeError` instead of `ValueError`.\n- **A2:** the positive test's TS check also matches Rust3 rows. Dropping only the Ts2 selection rows passes the Python tests; only comparing generated output catches it.\n- **A3:** a selection object placed anywhere other than a frame payload fails with `KeyError` rather than `ValueError`.\n- **A4:** review03's advisories carry over. `UNIT.md` now assigns closed-profile, name and injection validation to final integration.",
+  "type": "result",
+  "duration_ms": 193325
+}

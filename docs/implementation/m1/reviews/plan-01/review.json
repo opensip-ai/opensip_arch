@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "reviewer": "actual Claude (claude-opus-5)",
+  "reviewDate": "2026-09-14",
+  "reviewKind": "implementation-plan/tool-selection review; not code acceptance, not trial acceptance, not an architecture re-review",
+  "subject": "OpenSIP M1 startup proposal, items 1-6, as supplied in the review request",
+  "governingRecords": [
+    "docs/coop/design-corrections/reviews/root-application46-delivery.v1/README.md",
+    "docs/coop/design-corrections/reviews/root-application46-delivery.v1/completion.json"
+  ],
+  "verdict": "CHANGES-REQUIRED",
+  "verdictScope": "Only the proposal text as supplied. The sound elements are consistent with the accepted owners; five bounded binding gaps must be corrected before the affected M1 work. No implemented code or executed trial is accepted.",
+  "soundElements": [
+    "Root virtual workspace excluding providers/rust, explicit package metadata, no Node/provider invocation from host builds (build plan L617-643; ch14 L218-231)",
+    "Checked-in generated bindings, closed registry, eight declared outputs, no remote lookup, handwritten exact admission, no numeric-to-string changes (L654-662, L722-765, L1067)",
+    "Trial-first tool selection with fail-closed custom adapter justification (L1065-1066, L1073, L1077-1079)",
+    "Graph pass not treated as purity proof; transitive/build effects inspected (L847-853, L1068)",
+    "Installed stable Rust separated from future isolated rustc_driver closure (L701-717)",
+    "No invented release IDs; development fixtures labelled (L840-842; bootstrap.rs inventory row)",
+    "M2-M6 dependency order retained; 32 gates and 54 recovery cases unperformed; no 198 placeholder files"
+  ],
+  "requiredFindings": [
+    {
+      "id": "RF-01",
+      "title": "Help/version JSON parity fields have no typed CommandEnvelope-3 carrier; the release descriptor has no contract shape",
+      "proposalItems": [5],
+      "evidence": [
+        "docs/v2/architecture/implementation-coverage.v1.json L1160-1218: help/version require human and CommandEnvelope-major-3 JSON from shared pure metadata/envelope projection",
+        "docs/coop/design-corrections/workflows/command-inventory.v3.json L1193-1238: help parityFields [command-names]; version parityFields [host-release, closure-ids]; no parityPaths on either",
+        "command-inventory.v3.json L1708: json parity pointers are defined through queryDispatch.parityPaths",
+        "docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json L7 additionalProperties false; L23-33 kind enum run|query|mutation|failure|invocation|doctor; L17-159 and $defs L531-911 carry no command-names/host-release/closure-ids",
+        "evaluator3/invocation-record.schema.json: only RenderParams (L742-783) and core transition closures (L1930-1934)",
+        "'build-embedded signed release descriptor' occurs only in planning records (build plan, ch14, inventory, coverage)"
+      ],
+      "requiredCorrection": "Before implementing JSON help/version or treating host-release/closure-ids values as bound: either cite an exact accepted carrier and pointer selector, or obtain a reviewed successor in opensip_arch defining the typed meta payload, parity pointers, the release-descriptor record (fields, M1 verification standing, development disclosure). Do not use diagnostics[], agentHints[], invocation stuffing or invented fields. Parsing, human help/completion, pure outcomes and identity work may proceed.",
+      "closureEvidence": "Cited selector or accepted successor pinned in design-lock.json; startup tests reading parity values at declared pointers."
+    },
+    {
+      "id": "RF-02",
+      "title": "TypeScript exact integer representation unspecified for u64/i64 schema domains",
+      "proposalItems": [3, 4],
+      "evidence": [
+        "docs/v2/contracts/product-v1/identity-and-evidence.md L111-120: range [-2^63, 2^64-1]; lexical admission before deserialization",
+        "docs/coop/design-corrections/foundation/identity-schemas.v3.json L24-27 U64 max 18446744073709551615; used for bytes, generation, commitSequence, startByte/endByte, ordinal; L2845-2848 signed min -9223372036854775808; L592-595 deliberate 9007199254740991 caps",
+        "implementation-boundaries-and-build-plan.md L1067: native JSON Number parsing cannot serve as exact admission",
+        "Affected TS outputs: providers/typescript/src/generated/protocol.ts and apps/report/src/generated/report.ts"
+      ],
+      "requiredCorrection": "Declare the TS integer policy: fields whose schema bounds exceed +/-(2^53-1) use one named lossless integer type (e.g. bigint) generated from bounds; number only where proven safe; lossless lexer (also refusing duplicate keys, exponent/float, -0) before shape validation; serialization emits bare integer lexemes; generator or checked post-pass fails the drift trial if such a field is emitted as number.",
+      "closureEvidence": "Trial receipts of generated types; round-trip vectors at 2^53-1, 2^53, 2^53+1, 2^64-1, -2^63; negative controls for over-range, exponent and quoted-number inputs."
+    },
+    {
+      "id": "RF-03",
+      "title": "M1 generation trial omits report shape-validator role, offline URN $ref resolution and generator-closure digest definition",
+      "proposalItems": [4],
+      "evidence": [
+        "Build plan L762-765: generator selection and pins at M1 with a drift trial exercising all eight target files",
+        "Build plan L749-750 and ch14 L556: apps/report/src/generated/report.ts has carrier and shape-validator roles; json-schema-to-typescript produces declarations only",
+        "Build plan L734-737, L748: one generatorClosureSha256 per recipe; initial recipe covers all eight outputs (Rust + TS toolchains)",
+        "command-envelope.schema.json L35, L64, L85, L130 and baseline-artifact.schema.json L119-138: cross-document absolute URN $refs (common:3, invocation:3, graph-query:3, native evidence-schemas:v2, baseline:2, comparison:2, policy-document)",
+        "implementation-planning-sources.v1.json L341-350: layer13 lists only graph-query and policy-test evaluator3 schemas; envelope/common/invocation are pinned in application-subject.v46.json files[] L782-820"
+      ],
+      "requiredCorrection": "(1) Name and trial an M1 shape-validator candidate for report.ts (Ajv standalone or registry-specific generator): no coercion/default insertion/additional removal, declared generated-runtime dependencies, runs after the RF-02 lossless parse. (2) Define generatorClosureSha256 over an explicit reproducible closure listing (tool packages/crates with lock digests, both toolchains, composing script, options). (3) Resolve refs only through a registry $id map covering the complete transitive schema closure; unknown URN, file-path or network resolution fails the trial with a negative control.",
+      "closureEvidence": "Trial record with inputs, versions, options, closure listing and recomputed digest; all eight outputs regenerated in a clean tree and byte-compared; negative controls for unregistered URN and validator coercion."
+    },
+    {
+      "id": "RF-04",
+      "title": "Design files frozen without a reviewed successor route for implementation-driven layout/tool changes",
+      "proposalItems": [1, 3],
+      "evidence": [
+        "ch14 L316 and repository-file-inventory.v1.json L1388-1391: root package.json declares TypeScript workspace membership; proposal selects no root pnpm workspace and a dependency-free coordinator",
+        "Proposal adds unlisted per-lane pnpm lockfiles/config, design-lock.json and a verification tool",
+        "ch14 L150-153: inventory updated whenever a reviewed split/merge/rename changes responsibilities; L157-158 tool-specific configuration left to owning decisions"
+      ],
+      "requiredCorrection": "Before creating those files, define a reviewed inventory/plan successor record in opensip_arch (original bytes preserved) recording the tool decisions, changed root package.json responsibility and added paths; rebind design-lock.json to it; run implementation inventory checks against the successor. Implementation status notes are not an informal second inventory.",
+      "closureEvidence": "Accepted successor record and its digest in design-lock.json; inventory checker run against it."
+    },
+    {
+      "id": "RF-05",
+      "title": "Authoritative dependency-source mode of providers/rust/Cargo.lock is ambiguous",
+      "proposalItems": [2],
+      "evidence": [
+        "Build plan L634-643: each workspace lockfile authoritative; isolated provider build proves resolution without host workspace; immutable exported source packages permitted",
+        "ch14 L231: path dependency must not inherit incompatible root workspace settings",
+        "Proposal uses exported packages only 'during offline isolation tests', implying a different ordinary mode; Cargo records path and packaged/vendored sources differently in Cargo.lock",
+        "M1 main files include root/provider manifests; inventory rows providers/rust/Cargo.toml, Cargo.lock, rust-toolchain.toml"
+      ],
+      "requiredCorrection": "Select one authoritative source mode for the checked-in provider lock; run the isolation proof in exactly that mode with --locked --offline and the host workspace absent; any development convenience mode never writes the checked-in lock, and a check refuses a lock whose sources differ from the declared mode.",
+      "closureEvidence": "Isolation receipt using the checked-in lock digest; negative control with a mismatched source mode."
+    }
+  ],
+  "advisories": [
+    {
+      "id": "A-01",
+      "title": "Design-lock binding details",
+      "detail": "Pin application-subject.v46.json files[] rows, not beforeImages[] (different digests for repository-file-inventory.v1.json L1154 vs L1543 and implementation-coverage.v1.json L1052 vs L1523). Verify activation -> manifest -> review -> Codex assent -> completion. Applied state is uncommitted, so no git commit replaces per-file hashes. Record the user's separate implementation authorization in the implementation status record; frozen implementationAuthorized:false remains history."
+    },
+    {
+      "id": "A-02",
+      "title": "Registry versus design-lock ownership",
+      "detail": "design-lock owns architecture provenance (arch path -> digest); schemas/registry.json owns generation (product path -> digest); schemas/README.md is not a third list. Verifier checks each registry sourceSha256 equals a pinned digest with byte-identical migrated copy. Record schemaId/declaredMajor/profile by explicit reviewed mapping where $id lacks a major (urn:opensip:product-v1:workflows:policy-document) or uses a :v3 form (L727-730)."
+    },
+    {
+      "id": "A-03",
+      "title": "Rust generator trial hazards",
+      "detail": "Patterns use ECMAScript lookahead (?![\\s\\S]) (common.schema.json L30, L98); Rust regex crate lacks lookaround, so patterns must be enforced correctly or refused, never dropped. allOf/if/then, oneOf, const and x-opensip-order must not degrade to serde_json::Value. Generated-code external dependencies need pure-library review for crates/contracts (ch14 L199)."
+    },
+    {
+      "id": "A-04",
+      "title": "TypeScript lane isolation details",
+      "detail": "Keep whatever settings file pnpm 11.10.0 reads inside each lane root; no root pnpm-workspace.yaml, lockfile or node_modules; exact packageManager pin; negative controls seeding a root workspace file and sibling lane lock/script. Development Node 24.16.0 is not the sealed provider runtime/compiler closure; compilerVersion joins the admitted toolchain closure (L711-716)."
+    },
+    {
+      "id": "A-05",
+      "title": "Rust workspace hazards",
+      "detail": "Explicit edition and rust-version in every shared package (resolver 3 uses rust-version); provider manifest declares its own [workspace] and resolver. Cargo discovers .cargo/config.toml hierarchically from the working directory, so a root config would silently affect provider builds inside the checkout; avoid it or prove the provider lane runs from an isolated copy."
+    },
+    {
+      "id": "A-06",
+      "title": "Identity vector oracle and negative coverage",
+      "detail": "Record oracle provenance (pinned architecture reference vectors and digests, not outputs of the code under test). Include duplicate keys, exponent/float, -0, malformed UTF-8, non-scalar Unicode, depth 32 with root=1, 4 MiB, escape laws, admitted-order arrays and x-opensip-order refusals (identity-and-evidence L113-139)."
+    },
+    {
+      "id": "A-07",
+      "title": "Meta command precision",
+      "detail": "completion is human-only (coverage L1225-1250); JSON completion takes the registered not-applicable refusal. startup_tests.rs should run with unavailable project/store/provider resources and record process/module traces, preparing DR-G03's evidence method without claiming qualification."
+    },
+    {
+      "id": "A-08",
+      "title": "M1-routed gate preparation",
+      "detail": "DR-G03/G15/G16/G31 route implementation owners to M1 (coverage L4478, L4790, L4815, L5214). Prepare owners/harness specifications and reuse lane-isolation receipts as G16 skipped-lane proof inputs; qualification remains M6."
+    },
+    {
+      "id": "A-09",
+      "title": "Dependency-checker selection and seeded controls",
+      "detail": "Add TS aliases (tsconfig paths), generated inputs and scripts to item 6 (L1069); record dependency-cruiser versus compiler-API trial; seed one forbidden edge per kind (normal/build/dev/target/feature, provider-compiler leakage, type-only, dynamic, export, script); unsupported resolution fails rather than counting as no edge."
+    },
+    {
+      "id": "A-10",
+      "title": "Code-review completion standard",
+      "detail": "Frozen implementation manifest (paths + SHA-256); validation receipts with argv, cwd, environment allowlist, toolchain and lock digests, exit status, stdout/stderr digests; required findings close only by rereview of exact successor bytes; tests judged on behaviour including negative boundaries; drift check proves byte equality only; trials remain candidates until receipts exist."
+    },
+    {
+      "id": "A-11",
+      "title": "Development version labelling",
+      "detail": "A SemanticVersion prerelease/build suffix alone is not a sufficient development label; never fabricate closure2:-shaped IDs for fixtures; settle disclosure within the RF-01 successor, mirroring HostAssetPinV1.buildChannel (L814-815)."
+    }
+  ],
+  "reviewedSources": [
+    { "path": "docs/coop/design-corrections/reviews/root-application46-delivery.v1/README.md", "sha256": null, "readScope": "full" },
+    { "path": "docs/coop/design-corrections/reviews/root-application46-delivery.v1/completion.json", "sha256": null, "readScope": "full" },
+    { "path": "docs/coop/design-corrections/application-activation.v1.json", "sha256": "faf900477c5888ec6ea1d6973111318eadd4dd38a200c9c297fd92e8e3d8c4a8", "sha256Basis": "recorded by completion.json; not recomputed", "readScope": "full" },
+    { "path": "docs/coop/design-corrections/reviews/application-subject.v46.json", "sha256": "dab6e00fc3ccf82f015941bc767a10b18be9e6ca5f1c8598fa1fe9a4d05743f7", "sha256Basis": "recorded by completion.json; not recomputed", "readScope": "targeted greps: top-level keys, selected file rows, beforeImages rows, candidate-subject.v45 binding" },
+    { "path": "docs/v2/architecture/08-decision-and-readiness-register.md", "sha256": null, "readScope": "D-372 unified readiness section L376-480" },
+    { "path": "docs/v2/architecture/implementation-boundaries-and-build-plan.md", "sha256": null, "readScope": "L1-24, L615-1133 (build/generation/assets/enforcement/milestones/coverage/tooling)" },
+    { "path": "docs/v2/architecture/14-repository-and-module-layout.md", "sha256": null, "readScope": "full (L1-732)" },
+    { "path": "docs/v2/architecture/repository-file-inventory.v1.json", "sha256": "47909b561a7ea0e5960bda3e5eadd768fe733712e051255fade4ed40c9c4dad8", "sha256Basis": "application46 files[] row; not recomputed", "readScope": "targeted grep of lockfile/manifest/generated/registry rows" },
+    { "path": "docs/v2/architecture/implementation-coverage.v1.json", "sha256": "753f220e1b6f8269a5a1f260107b2c2132d41f7d90281d62e8da3736aaceae7e", "sha256Basis": "application46 files[] row; not recomputed", "readScope": "help/version/completion and DR-G03/G15/G16/G31 rows" },
+    { "path": "docs/v2/architecture/implementation-planning-sources.v1.json", "sha256": null, "readScope": "L1-1073 (prototype pins, current layer13 architecture file list, source25 and prior layers partially)" },
+    { "path": "docs/v2/architecture/implementation-normative-inputs.v13.json", "sha256": "af228325492828b0ea5d6779601725a981bb467d0195e976a4247350c972c153", "sha256Basis": "recorded by planning sources and application46; file not opened directly", "readScope": "via planning-sources file list only" },
+    { "path": "docs/v2/contracts/product-v1/identity-and-evidence.md", "sha256": "c82404f3a0cf56fa6cc02e99cc3ebbd5356fedc3b36aeb38f9ef284077fbd31f", "sha256Basis": "layer13 record; not recomputed", "readScope": "L100-139" },
+    { "path": "docs/v2/contracts/product-v1/workflows-and-surfaces.md", "sha256": "1ee203e3ce626d88a53d0247881cd3ffb0d52b421821ac798b9f0b57346ff6ed", "sha256Basis": "layer13 record; not recomputed", "readScope": "L1096-1123 and targeted greps" },
+    { "path": "docs/v2/contracts/product-v1/admission-and-qualification.md", "sha256": "69cd6ba3cb41ed191e0a4e5cc20b191f4b8761625843b585426157873dbee6b3", "sha256Basis": "layer13 record; not recomputed", "readScope": "L88-111" },
+    { "path": "docs/v2/contracts/product-v1/native-evidence.md", "sha256": "83b99783893bec4bcca76bc043310e1d33305fc41ef85e012fbcb19e5b222ca0", "sha256Basis": "layer13 record; not recomputed", "readScope": "L1172-1189 and targeted greps" },
+    { "path": "docs/coop/design-corrections/foundation/identity-schemas.v3.json", "sha256": "a76c9e2f07e8f8e52ee611f157548f6a09061866308652e3a0f7e3c24893db21", "sha256Basis": "layer13 and application46 records; not recomputed", "readScope": "targeted grep of integer bounds and $id/$ref" },
+    { "path": "docs/coop/design-corrections/workflows/command-inventory.v3.json", "sha256": "d303cc640154ff2b4473452c52f6578b5ffa3f20d6ed03c3976e0ddd397a4e66", "sha256Basis": "layer13 record; not recomputed", "readScope": "help/version/completion entries, renderer rows L1694-1723, parityPaths count" },
+    { "path": "docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json", "sha256": "09292fc108f223c9bb375106f39b29150109be02b2ccccccb9a94e57ee318830", "sha256Basis": "application46 files[] row; not recomputed", "readScope": "L1-339, L630-699, $defs index" },
+    { "path": "docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json", "sha256": "ce45b9ff712fa0ea4302fbdaf04cb84dfd8a3cf734f4f9677c4547672af30a8b", "sha256Basis": "application46 files[] row; not recomputed", "readScope": "targeted grep ClosureId/SemanticVersion" },
+    { "path": "docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json", "sha256": "65980226dc5f879c3a324a288276861676a37b47de7ac70ff21ec1836247ddc8", "sha256Basis": "application46 files[] row; not recomputed", "readScope": "L88-127, L740-790, L1915-1944 and targeted greps" },
+    { "path": "docs/coop/design-corrections/workflows/schemas/evaluator3/baseline-artifact.schema.json", "sha256": null, "readScope": "targeted grep of $id/$ref" },
+    { "path": "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json", "sha256": "f66d2c617084825e3cdb9a855a151c10aa66625968b40ef91fc6bb3be39423f4", "sha256Basis": "layer13 record; not recomputed", "readScope": "targeted grep for release/descriptor records (no match)" },
+    { "path": "/Users/sb/code/opensip-ai/opensip", "sha256": null, "readScope": "directory listing: only .git scaffolding; no product files" }
+  ],
+  "scopeLimits": [
+    "No commands executed and no hashes recomputed (no shell tool available); cited digests are as recorded by pinning manifests.",
+    "Installed pnpm 11.10.0, Node 24.16.0 and Rust 1.95.0 not verified; no tool trial executed or observed.",
+    "RF-01 carrier search bounded to evaluator3 command-envelope/invocation-record/common schemas, command-inventory.v3.json, security-lifecycle schemas, product-v1 contracts and design-corrections workflows/security/foundation/top-level records; an owner elsewhere closes RF-01 by exact citation.",
+    "Historical evidence archive, earlier review queues, full native-evidence schemas and the full 12920-file accepted set not read.",
+    "No product code exists in the opensip repository; nothing implemented is reviewed or accepted.",
+    "Codex independently checks design bindings; this review does not substitute for that check.",
+    "Settled D-372 architecture decisions were not reopened; findings concern this plan's ability to bind to accepted owners."
+  ]
+}

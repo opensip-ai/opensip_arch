@@ -1,0 +1,1 @@
+Preparation stopped before report-asset write: asserted two B11/B12 citations but actual source has three (including correctionOf.reason). Four preceding source edits retained. Resume updates all three actual signed-inventory citations; no finding acceptance inferred.

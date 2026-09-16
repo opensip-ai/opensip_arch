@@ -1,0 +1,69 @@
+{
+  "session_id": "823bf66b-e92a-4789-ab81-63a1a9dc371d",
+  "total_cost_usd": 6.640290000000001,
+  "usage": {
+    "input_tokens": 674,
+    "cache_creation_input_tokens": 278114,
+    "cache_read_input_tokens": 4087460,
+    "output_tokens": 72482,
+    "output_tokens_details": {
+      "thinking_tokens": 27439
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 278114,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1855,
+        "cache_read_input_tokens": 282837,
+        "cache_creation_input_tokens": 772,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 772
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 674,
+      "outputTokens": 72482,
+      "cacheReadInputTokens": 4087460,
+      "cacheCreationInputTokens": 278114,
+      "webSearchRequests": 0,
+      "costUSD": 6.640290000000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 27439,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01CfPtXrTHQVcgHNBTSgrnL7",
+      "tool_input": {
+        "command": "/tmp/opensip-architecture-review-env/bin/python -I -B build_review.py; echo \"builder-exit=$?\"; /tmp/opensip-architecture-review-env/bin/python -I -B -c \"\nimport json,hashlib;r=json.load(open('review.json'));print(r['disposition'],len(r['provenFacts']),[f['holds'] for f in r['provenFacts']]);print('review.md sha',hashlib.sha256(open('review.md','rb').read()).hexdigest());print('probe out',r['custody']['probeOutput'])\"",
+        "description": "Build review.json and summarize"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 77,
+  "subtype": "success",
+  "result": "**Disposition: REAL-GAP.** The current `opensip policy test SUITE` route cannot test a lawful PolicyDocumentV2 policy. It only admits V1 candidates and resolves and evaluates them with the old workflow1 code. The contract says the current policy is V2. I found no published conversion or dispatch bridge. This is a read-only coauthor assessment of the fixed capture, not acceptance or the final independent review.\n\nI checked all 1360 source files against root's `capture.json`: they match, and each probe run re-checked them before and after with no change. There were three probe runs. The first failed on a bug in my probe; I kept its receipt. The other two passed.\n\n**Proven by probes on the actual code:**\n- **The command runs the old code.** `run_admitted_policy_test` calls the v1 `run_policy_test` object. That function uses the v1 resolver and evaluator, not the v3 overrides; v3 defines no evaluator, and the v1 one never reads `endpoint`.\n- **Admission is V1.** The suite schema requires a `PolicyDocumentV1` candidate, and the grammar check reads the V1 policy schema.\n- **Lawful current policies are refused.** Three V2 policies pass the V2 schema, the v3 resolver and the `policy show` record, yet all three are refused before evaluation. Two get `CONFIG.INVALID`; the one using `endpoint: target` gets `POLICY.IMPERATIVE_KEY_REFUSED`.\n- **`schemaMajor` alone decides it.** The checker's own V2 policy is admitted once only `schemaMajor` is set to 1. I ran that as a diagnostic only, not as a lawful conversion.\n- **V1 still works.** The owner's V1 suite is admitted, and its result fits the current result record.\n- **`policy show` and `policy test` never overlap.** `policy show` accepts the V2 policies and rejects the owner's V1 fixture policy.\n- **The old resolver disagrees with current rules.**\n  - The command accepts the owner fixture policy, which the v3 resolver refuses (`ATOM_FILTER_FIELD_FORBIDDEN: history-change.confidenceMillionths`).\n  - It accepts a target endpoint on `file`, which v3 refuses.\n  - It refuses a V2 `test-execution` rule that v3 admits.\n- **Different meaning, not just a different schema.** Called directly (a diagnostic, not the product route), the old evaluator gives the same finding with or without `endpoint: target`. It lands on `src/b.ts`, and the expectation on `src/a.ts` fails.\n\n**Inferred, not executed:**\n- **Not intentional.** The dispatch sentence \"test records keep their selected owners\" doesn't mean V1 candidates. The same paragraph, \u00a75 and \u00a710 all put the policy on V2, and \"test\" most plausibly means `test-execution`.\n- **A passing V1 candidate is useless here.** It can't be enforced in this profile: Plan admission, `policy show` and every evaluator3 projection require V2, and relabelling is forbidden.\n- **Target semantics.** Under the V2 atom rules, a target-endpoint rule would be decided for `src/a.ts`. I read this from the atom owner and registry but didn't run it on suite fixtures.\n- **Test filters.** The facts fixture can't express V2 test-result filters.\n\n**Not counted:** the known string-expression grammar failure (`oc2-owner-string-expression-case-is-policy-imperative-key-refused`) and the repair join defects. The `endpoint` misclassification above is a different route that comes from the V1 grammar choice; you may want to de-duplicate it if the separate grammar fix also retargets the schema.\n\n**Suggested fix for your review (nothing applied):**\n1. Add a `PolicyTestSuiteV2` whose candidate is `PolicyDocumentV2`. Keep `PolicyTestSuiteV1` for the old workflow1 profile.\n2. Keep `PolicyTestResultV1` and its identity. \u00a710 already defines its digests over V2 bytes, so no major bump; only description text changes.\n3. In v3, refuse V1 candidates with a typed refusal (no coercion) and point the grammar check at the V2 schema.\n4. Define a v3 authoring-test function that uses the v3 resolver and V2 atom rules, including `endpoint`. It must not call the imported v1 function, whose globals bind the old code. Decide how test filters behave in a facts fixture.\n5. Fix the contract \u00a75 and dispatch-paragraph wording and add a golden for a refused V1 candidate.\n6. Add checks for V2 positives, V1 refusal, endpoint discrimination and a policy only the old resolver accepts.\n\n**Limits:**\n- I didn't rerun the full projection checker or review the whole source.\n- The bridge search was a bounded text search of this capture.\n- Sources-kind cases, host execution and grades are out of scope.\n\nNo subprocesses are still running.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-policy-test-profile-assessment.v1`:\n- `review.md`\n- `review.json` \u2014 rebuilt from the probe output, and the build refuses if any proven fact fails\n- `probes/output/policy-test-profile-probe.json`\n- `custody/`\n- `receipts/`",
+  "type": "result",
+  "duration_ms": 833949
+}

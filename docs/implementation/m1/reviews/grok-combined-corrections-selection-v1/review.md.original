@@ -1,0 +1,68 @@
+# Combined corrections selection v1 — scoped integration review
+
+**Verdict: `ACCEPT-DESIGN-UNIT`**
+
+Not pristine-blind. Not a Claude-agreement claim. Frozen/live/history untouched. This is packaging of already-reviewed code so a strict verifier can accept it. It is not whole-M1 completion and does not activate the live lock.
+
+Subject `docs/implementation/m1/combined-corrections-selection-v1-subject.json` SHA-256 `a50d38e45e3f7dd402f64f3962d2dd6ee948efb5d295b612fd12479135e13688` (18873 bytes, 82 files). Implementation subject SHA-256 `535ebf5a20c7e2111aedc848ae5dea9c71433c8af1f74ff772dac5f0a1b75c82` (189 files). Archive SHA-256 `91277e3626aa309a5431298b7822e5a4b0597416767af4ffddb6cef304d3ddf3` matches `evidence/archive-pin.json`.
+
+## Why this unit exists
+
+Root activation appended the five scoped successors onto the current lock. `tools/verify_design.py` requires contract parent **paths sorted and unique**. All five historical records list inventory v10 after an m1/m2 successor (`m2/...` then `m1/repository...`, or `rust-provider...` then `repository...`). That is unsorted. Independent check: each of the five `successor.json` parent arrays fails `paths == sorted(set(paths))`. Their pins, reviews, and assents still match `evidence/prior-unit-evidence.json` and **must not be selected**.
+
+The failed five-unit lock (15 contract successors) was run through the **unmodified** verifier against this product: `Design verification failed: contract parents paths must be sorted and unique`. The current product lock still has **8 inventory + 10 contract** successors and **does** verify (`passed: true`, `productQualification: false`). No verifier weakening. No manufactured assent.
+
+## Machine record
+
+Combined `successor.json` parents (sorted unique):
+
+1. `docs/implementation/m1/repository-file-inventory.v10.json`
+2. `docs/implementation/m1/rust-provider-workspace-selection-v1/successor.json`
+3. `docs/implementation/m2/foundation-primitives-selection-v2/successor.json`
+
+All three are already in the accepted 8/10 set. Candidates: 81 paths, sorted unique, exactly subject files minus the successor record. `passageOverrides: []`.
+
+Live insertion after assent must place this record in **sorted** `contractSuccessors` (not append). That is an activation step, not this review.
+
+## Twelve owned inputs — no new behavior
+
+Materialization map and `owned-inputs.json` name the same 12 paths. Each combined/product/live byte equals the **final scoped unit** candidate:
+
+| Path | Scoped origin |
+|---|---|
+| `apps/cli/src/bootstrap.rs`, `terminal.rs` | required-delivery |
+| `crates/host/src/delivery.rs`, `lib.rs` | required-delivery |
+| `crates/identity/src/descriptors.rs`, `lib.rs` | **array-order final** |
+| `crates/reporting/src/assets.rs`, `tests/projection_tests.rs` | asset-channel |
+| `tools/README.md`, `check-boundary.mjs`, `staging-map.json`, `cli-invocations.mjs` | checker-mode |
+
+Versus the 185-file tree: 3 files added (`delivery.rs`, `descriptors.rs`, `projection_tests.rs`), 8 content-changed, `check-boundary.mjs` **bytes unchanged** and **mode 0755** (185 was 0644). Archive member mode `0755`. Map `requiredModeOctal: "0755"`. Generated contracts, schemas, registry, Cargo locks, design-lock bytes are unchanged from 185.
+
+Assertion “no product code changes since scoped reviews” holds for these 12.
+
+## Identity: logical path retained inside array-order finals
+
+Logical-path unit files (4878 / 847 bytes) are **not** the combined files. Array-order finals (17536 / 876) **are** the combined files. Combined `lib.rs` exports `LogicalPath`, `LogicalPathError`, `ArrayOrder`, `ArrayOrderError`. `descriptors.rs` still implements `LogicalPath::parse` (empty, scalar/component length, `.`/`..`, Unicode spellings, final LF) and `ArrayOrder` (`utf8`, `canonical-set`, tuples, integer/ordinal). That matches array-order assent: LogicalPath kept, order helper added. Combined identity tests: 4 LogicalPath + 6 order + 15 canonical = 25 in-crate.
+
+Logical/order helpers are not schema admission or replay.
+
+## Integration compatibility
+
+CLI bootstrap now calls `opensip_host::deliver_required` after `terminal::stdout()`; host `lib.rs` exports `deliver_required`. Metadata still uses compiled development channel via `assets.rs` (`BUILD_SELECTION` is `None` in production). Checker entry is executable. Provider remains fail-closed.
+
+## Reproduction (private copy)
+
+- `verify_design.py --implementation` current 8/10 lock: pass
+- same verifier + failed-five lock: refuse unsorted parents
+- `cargo test --locked --offline --workspace --all-targets`: **46** pass (6 CLI + 6 host including delivery + 25 identity + 3 platform + 4 reporting unit + 2 projection)
+- Provider build + smoke: empty stdout, stderr unimplemented, exit 1
+- `opensip version --format=json`: envelope7 meta, `development`, empty `closureIds`
+- Host rust-source set counted at **38** files (matches isolated-host receipt). Provider crate 4 files + 14 shared identity/contracts sources = 18. Did **not** re-run the vendor-unpack isolation scripts (hardcoded other `/tmp` paths); workspace tests cover the same rust sources.
+
+## requiredFindings / shouldFix
+
+None.
+
+## Scope and limits
+
+Accept this **packaging successor** so activation can select one sorted record instead of five unsorted ones. Full activation still needs this review, root assent, and a correctly sorted lock edit. M4 assembly/load/HTML and M6 release stay mandatory. No M2–M6 completion.

@@ -1,0 +1,42 @@
+--- docs/coop/design-corrections/discovery-defaults.py
++++ docs/coop/design-corrections/discovery-defaults.py
+@@ -228,6 +228,9 @@
+ # ---------------------------------------------------------------------------------------------------
+ # Admitted boundary inventory (P3): security's authority boundaries, converted once for the native instrument
+ # ---------------------------------------------------------------------------------------------------
++CURRENT_PROVENANCE_VERSION = 2
++SUPPORTED_PROVENANCE_VERSIONS = (1, 2)
++SUPPORTED_BOUNDARY_INVENTORY_VERSIONS = (1, 2)
+ BOUNDARY_INVENTORY_VERSION = 2   # row-2 pruned trees (XA-02 / CR-25); version 1 stays a historical record
+ BOUNDARY_INVENTORY_SOURCE = 'security.discovery'
+ BOUNDARY_REASONS = ('nested-repository', 'nested-project', 'custody-excluded')
+@@ -266,12 +269,28 @@
+      markerCount, markerCountBasis}]}. Lists are sorted by UTF-8 bytes. VERSION 2 (XA-02 / CR-25): the pruned rows
+     carry an explicit basis and may name an anchor with no observed descendant marker. The count and the basis
+     travel as PROVENANCE and are never comparison keys; the native instrument compares `(path, reason)` only.
+-    A version-1 provenance record is a historical record and is not converted here. `custodyExcludedUnits` carries the security `excludedUnits`
++    TWO LANES, made explicit after root probe 1 (this converter previously read no version at all and
++    relabelled ANY input as version 2). READING a historical record is not the same act as CONVERTING one for
++    a current operation. Schema validation and read APIs still admit both versions
++    (SUPPORTED_PROVENANCE_VERSIONS); this converter is a CURRENT-OPERATION boundary and admits only
++    CURRENT_PROVENANCE_VERSION. A version-1 record is refused explicitly as
++    PROVENANCE_VERSION_UNSUPPORTED:1, never silently relabelled and never upgraded by inventing a
++    markerCountBasis or an observed-inventory count for rows that carry neither. A version this kit does not
++    define at all is PROVENANCE_VERSION_UNKNOWN, and a non-integer version (a bool included) is
++    PROVENANCE_VERSION_SHAPE. The security wrapper maps all three onto its existing BOUNDARY_INVENTORY
++    Reject detail; no new public code is minted. `custodyExcludedUnits` carries the security `excludedUnits`
+     rows whose reason is a custody/depth exclusion (`DIRECTORY_CUSTODY:*`, `MARKER_CUSTODY:*`, `DEPTH`); rows already
+     explained by a nested boundary (`INSIDE_NESTED_*`) are not repeated. The result is TRUSTED OUTPUT of the security
+     instrument, never a caller-authored ignore list; a host passes it unchanged to the native `discover_units`."""
+     if not isinstance(provenance, dict):
+         raise BoundaryError('PROVENANCE_SHAPE')
++    version = provenance.get('schemaVersion')
++    if type(version) is not int:
++        raise BoundaryError('PROVENANCE_VERSION_SHAPE')
++    if version not in SUPPORTED_PROVENANCE_VERSIONS:
++        raise BoundaryError('PROVENANCE_VERSION_UNKNOWN:%d' % version)
++    if version != CURRENT_PROVENANCE_VERSION:
++        raise BoundaryError('PROVENANCE_VERSION_UNSUPPORTED:%d' % version)
+     root = provenance.get('selectedRoot')
+     if not isinstance(root, str) or not root:
+         raise BoundaryError('NO_SELECTED_ROOT')

@@ -1,0 +1,52 @@
+--- claude2/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
++++ root/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
+@@ -621,6 +621,9 @@
+     false`), so the binding declares no carrier; the candidate item therefore has no source pair
+     of any kind and must derive (null, null). `required=True` is expected to refuse
+     `EXECUTION_INPUTS_CANDIDATE_REQUIRED` before that matters.
++
++    Bounded ExecutionInputs join fixture only: the changed Plan/analysis-spec is not reminted
++    through structural closure here. This function is not a full-Run reachability control.
+     """
+     kw = copy.deepcopy(owner)
+     prov = next(k for k, v in kw["closures"].items() if v.get("kind") == "provider")
+@@ -726,13 +729,17 @@
+     internally through `evaluator_input_model.execution_input_account`, re-run here only because
+     `R.derive` does not return it. They are NOT a relabelling of proof success: an execution cell
+     that is `partial` is reported as `partial`, and `requiredCellDeficiencies` are the real rows.
+-    `bridgedCausesEqualProof` checks the re-run admission really is the Run's, by bridging those
+-    rows with §9.6 step 3 and comparing to the proof's own causes.
++    The separately rebuilt reference fixture must produce the exact ExecutionInputs digest
++    named by the closed proof. This byte binding identifies the admission columns with that
++    Run; bridging their causes with §9.6 adds a separate projection check. Both builders reuse
++    the reference model and this remains reference self-consistency, not a blind reconstruction.
+     """
+     try:
+         graph = F.build_file_inputs(atom_override=NONE_ATOM, **kwargs)
+         result, proof = full_run(graph)
+-        admission = admit(manifest_from_owner(F.build_file_inputs(atom_override=NONE_ATOM, **kwargs)))
++        admission_inputs = manifest_from_owner(F.build_file_inputs(atom_override=NONE_ATOM, **kwargs))
++        admission = admit(admission_inputs)
++        admission_digest = M.raw_digest(admission_inputs["execution_inputs"])
+     except Exception as exc:  # noqa: BLE001
+         return {"controlStanding": "closed-run", "result": "REFUSE",
+                 "refusals": [type(exc).__name__ + ":" + str(exc)]}
+@@ -741,6 +748,9 @@
+     bridged = sorted(bridge_cause(d.get("deficiency"))
+                      for d in admission.get("requiredCellDeficiencies") or [])
+     bad = []
++    if admission_digest != proof["executionInputsDigest"]:
++        bad.append({"executionInputsDigestMismatch": {"admission": admission_digest,
++                    "proof": proof["executionInputsDigest"]}})
+     if result["verdict"] != want_verdict:
+         bad.append({"verdict": result["verdict"], "want": want_verdict})
+     if causes != sorted(want_causes):
+@@ -768,6 +778,8 @@
+                 for d in proof["executionDeficiencies"]
+             ],
+             "sameGraphAdmissionResult": admission.get("result"),
++            "sameGraphExecutionInputsDigest": admission_digest,
++            "proofExecutionInputsDigest": proof["executionInputsDigest"],
+             "sameGraphCellStates": [d.get("state") for d in admission.get("derivedOutcomes") or []],
+             "bridgedCausesFromAdmission": bridged,
+             "admissionColumnProvenance":

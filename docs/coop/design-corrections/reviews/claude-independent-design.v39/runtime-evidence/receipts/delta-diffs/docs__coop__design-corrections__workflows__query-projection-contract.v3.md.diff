@@ -1,0 +1,19 @@
+--- a38/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b39/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -153,7 +153,7 @@
+ 
+ ## 7. Faults (CommandEnvelope kind=failure)
+ 
+-`QueryRefusal.termination()` is a StepTermination. The public failure carrier is CommandEnvelope major 3, `kind=failure`, nonempty `errors` of registered DomainDetail, and **no** `run` field. A query does not mint a Run. Reading an old Run does not commit a new Run. `runId` appears on termination only for indeterminate completeness of an already admitted Run.
++`QueryRefusal.termination()` is a StepTermination. The public failure carrier is CommandEnvelope major 3, `kind=failure`, nonempty `errors` of registered DomainDetail, and **no** `run` field. The public success carrier is CommandEnvelope major 3 `kind=query` with `querySurface=graph-query-response` and the complete response in `queryResponse` (workflows-and-surfaces §8). The other query-class CLI commands have their own closed surfaces there; the host-only query-step operations those commands dispatch are not members of this contract's public operation set. Refusal messages are diagnostic; the table below selects every public route. A query does not mint a Run. Reading an old Run does not commit a new Run. `runId` appears on termination only for indeterminate completeness of an already admitted Run.
+ 
+ Failure `requestId` is an already reserved host observation (`host.requestId`, `req1_` + 32 hex). It is never hashed from request bytes and this reference model does not implement CSPRNG. Missing or malformed host RequestId is a **reference-call precondition** (`ReferenceCallPrecondition`), distinct from public request refusal. Optional envelope `projectId` is included only when the request projectId is schema-admitted; malformed projectId is omitted.
+ 
+@@ -176,6 +176,7 @@
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+ | malformed or incomplete graph params / extra properties / LogicalPath endpoint / `package` endpoint without a non-empty `packageManifestPath` | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
++| request `projectId` differs from the admitted Run's project | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
+ | unsupported relation or non-projectable request rung | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.RELATION_UNSUPPORTED` |
+ | well-formed complete endpoint tuple resolving to more than one admitted vertex | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
+ | well-formed endpoint outside the vertex domain | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_UNKNOWN` |

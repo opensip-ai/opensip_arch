@@ -1,0 +1,9 @@
+Actual independent Grok delta review requested; Codex remains lead. Read README.md in adjacent subject and verify every member against subject-manifest.json before/after. Work only under adjacent review/ with private mutable copy. No repository/frozen edits, agents, installs, commits or pushes.
+
+This corrects S1 from your native-integration02 review. The new closed_idl.py admits frame-payload markers only as the direct payload field of their own declared envelope. Else it refuses IDL_PROTOCOL at the IDL layer, before rendering. Four controls cover the original non-envelope cycle, hidden-nullable marker, marker in a frame alternative, and marker in a wrong envelope field. The actual protocol loop already expands each envelope payload into alternatives; an unconditional origin-to-envelope edge would spuriously self-cycle every valid envelope. Assess this alternative fix on its behavior, not literal adherence to the suggested edge implementation.
+
+Run seven guard groups, reproduce your original S1 counterexample against standalone IDL.admit, and try independent bypasses. Valid current owner must still admit; true reference recursion must still refuse. Reproduce checked rendering/assembly with unused labels and confirm all eight current files equal native02 eight-e/f. Renderer, assembly algorithms, Rust/TS outputs and report codec are unchanged; previous substantive integration acceptance applies only to those exact bytes. No need to repeat Cargo or71 unchanged reader checks without a new concern. Preserve failures and distinguish invalid fixture assumptions.
+
+Return substantive ACCEPT WITHIN STATED DELTA SCOPE or CHANGES REQUIRED in review.md and review.json with exact manifest, independent probes, S1 disposition and unchanged-byte evidence. Source bridge, bootstrap, full product/native codec/admission and milestone acceptance remain separate.
+
+Manifest SHA-256: b323785fcf3bdee525fb4b84e47d10250a6bf93f57176f10ab92023c7e95069a

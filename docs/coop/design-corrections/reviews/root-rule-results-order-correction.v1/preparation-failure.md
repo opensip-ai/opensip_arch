@@ -1,0 +1,1 @@
+Initial preparation stopped because insertion anchor appeared more than once. Only fixture option changed; checker remained old. Any first before.stdout execution is old-checker baseline, not the distinguishing regression. No owner change occurred.

@@ -1,0 +1,456 @@
+{
+  "artifact": "opensip.security.carrier-dispatch",
+  "version": 3,
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "standing": "Machine-readable open/read/migration dispatch for the grant-journal physical carrier. Design/reference only: no acceptance, readiness, application or implementation authorization. Normative prose owner is carrier-format.v3.md in this directory.",
+  "sourceBinding": {
+    "candidateManifestSha256": "fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d",
+    "membersVerified": 12869,
+    "selectedSourceMembers": [
+      "docs/coop/completion/security-schemas.v2/grant-journal.sql",
+      "docs/coop/completion/security-schemas.v2/journal-record.schema.json",
+      "docs/coop/completion/security-schemas.v8/journal-record.schema.json",
+      "docs/coop/completion/security_unit_lib_v8.py",
+      "docs/coop/completion/security-completion.v1.md",
+      "docs/coop/completion/security-completion.v8.md",
+      "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
+      "docs/v2/contracts/product-v1/security-and-lifecycle.md"
+    ]
+  },
+  "axes": {
+    "carrierFormat": {
+      "values": [
+        1,
+        2,
+        3
+      ],
+      "owner": "security",
+      "meaning": "physical table and trigger shape of the project SQLite carrier"
+    },
+    "recordSchema": {
+      "values": [
+        1,
+        2,
+        3
+      ],
+      "owner": "security",
+      "meaning": "logical journal record body format"
+    },
+    "stateSchema": {
+      "values": [
+        1,
+        2
+      ],
+      "owner": "security (S9)",
+      "meaning": "logical store state format carried by the private StoreGenerationBindingV1",
+      "note": "Never selects a record parser and never selects a table."
+    }
+  },
+  "carrierFormats": {
+    "1": {
+      "source": "docs/coop/completion/security-completion.v1.md section 5.4 embedded DDL",
+      "immutable": true,
+      "recordTypeSet": [
+        "GRANT",
+        "NARROW",
+        "EXPIRY",
+        "RA",
+        "RCI",
+        "RCO",
+        "ICI",
+        "ICO",
+        "REV",
+        "CLN",
+        "AUD",
+        "CHECKPOINT",
+        "MIGRATION",
+        "TERMINAL"
+      ],
+      "platformSet": [
+        "macos-arm64",
+        "macos-x86_64",
+        "linux-x86_64",
+        "linux-arm64"
+      ],
+      "platformVocabulary": "S8 display aliases, not machine ids",
+      "hasSeqRangeCheck": false,
+      "hasContiguityTrigger": false,
+      "hasTerminalClosureTrigger": false,
+      "hasReservedSlotTrigger": false,
+      "admitsSeal": false
+    },
+    "2": {
+      "source": "docs/coop/completion/security-schemas.v2/grant-journal.sql",
+      "immutable": true,
+      "inheritedBy": "security-completion.v8.md section 5.4 states encoding, DDL, sequence rule, uint53 cap with reserved terminal slot and hash chain are as v2",
+      "recordTypeSet": [
+        "GRANT",
+        "NARROW",
+        "EXPIRY",
+        "RA",
+        "RCI",
+        "RCO",
+        "ICI",
+        "ICO",
+        "REV",
+        "CLN",
+        "AUD",
+        "CHECKPOINT",
+        "MIGRATION",
+        "TERMINAL"
+      ],
+      "platformSet": [
+        "macos-arm64",
+        "macos-x86_64",
+        "linux-x86_64",
+        "linux-arm64"
+      ],
+      "platformVocabulary": "S8 display aliases, not machine ids",
+      "hasSeqRangeCheck": true,
+      "hasContiguityTrigger": true,
+      "hasTerminalClosureTrigger": true,
+      "hasReservedSlotTrigger": true,
+      "admitsSeal": false
+    },
+    "3": {
+      "source": "grant-journal.carrier.v3.sql",
+      "immutable": false,
+      "operationalRecordTypes": [
+        "GRANT",
+        "RA",
+        "ICI",
+        "RCI",
+        "ICO",
+        "RCO",
+        "REV",
+        "CLN",
+        "SEAL"
+      ],
+      "capacityRecordTypes": [
+        "TERMINAL"
+      ],
+      "operationalRecordSchema": 3,
+      "capacityRecordSchema": 1,
+      "capacityBodySource": "docs/coop/completion/security-schemas.v2/journal-record.schema.json TERMINAL variant, frozen and reused verbatim",
+      "platformSet": [
+        "macos-aarch64",
+        "macos-x86_64",
+        "linux-x86_64-gnu",
+        "linux-aarch64-gnu"
+      ],
+      "platformVocabulary": "S8 MUST-2 machine ids",
+      "admitsSeal": true,
+      "terminalIsPublicJournalRecord": false
+    }
+  },
+  "defectsResolved": {
+    "CR-04": {
+      "statement": "The inherited physical platform CHECK enumerates the four S8 display aliases, which S8 MUST-2 refuses as a grant platform.",
+      "executedEvidence": "scratch/out/c1.json platformVocabulary: machineIds_not_admitted_by_physical_DDL = macos-aarch64, linux-x86_64-gnu, linux-aarch64-gnu; lawfully_shared_values = macos-x86_64",
+      "resolution": "carrierFormat 3 platform CHECK uses the four machine ids and refuses alias-only values. Inherited rows keep their alias spellings verbatim and are surfaced as platformHistoricalAlias, never as a machine id."
+    },
+    "CR-07": {
+      "statement": "No physical DDL in Source25 admits schema-3 SEAL, and the physical carrier requires TERMINAL at the reserved slot while schema 3 excludes TERMINAL.",
+      "executedEvidence": "scratch/out/c1.json recordTypeAlgebra: schema3_types_not_admitted_by_physical_DDL = SEAL; physical_types_absent_from_schema3 includes TERMINAL; ddlProbes.L1_SEAL_append_schema3_recordType refused",
+      "resolution": "carrierFormat 3 admits the nine schema-3 operational types plus TERMINAL, segregated by one CHECK so TERMINAL is always the frozen recordSchema-1 body and never a schema-3 JournalRecord."
+    },
+    "COV-03": {
+      "statement": "An explicitly versioned product carrier migration is required that admits current schema-3 SEAL and current platform records while preserving historical row interpretation, append-only hash chains, reserved capacity, witness and high-water checks and the S9 reader bridge.",
+      "resolution": "This dispatch plus grant-journal.carrier.v3.sql plus carrier-format.v3.md."
+    }
+  },
+  "openDispatch": {
+    "detectionIsByIntrospectionOnly": true,
+    "reason": "carrierFormat 1 has no version row, so a version record cannot be the discriminator. Detection is nevertheless keyed on the PUBLISHED FORMAT ROW, which is reached only after the object set is proven complete and valid.",
+    "order": [
+      {
+        "step": 1,
+        "observe": "the set of carrierFormat 3 object NAMES present in sqlite_master",
+        "read": "names only; no table contents are read"
+      },
+      {
+        "step": 2,
+        "if": "none of the seven names is present",
+        "then": "fall through to step 6 without reading any carrierFormat 3 table"
+      },
+      {
+        "step": 3,
+        "if": "some but not all seven names are present",
+        "then": "MIGRATION.CORRUPT",
+        "why": "the selected act B is one explicit transaction, so it never produces a partial object set"
+      },
+      {
+        "step": 4,
+        "if": "all seven names are present but any stored definition differs from what the selected creation path produces",
+        "then": "MIGRATION.CORRUPT",
+        "why": "a malformed stub can carry all seven NAMES with wrong definitions, so name presence alone is never sufficient"
+      },
+      {
+        "step": 5,
+        "if": "all seven names present AND all definitions valid",
+        "then": "read the carrier_format row with singleton = 1. Row present -> carrierFormat 3. Row absent -> INCOMPLETE FOOTPRINT: the carrier still reads as its inherited format and a fresh admitted maintenance attempt resumes at act C"
+      },
+      {
+        "step": 6,
+        "if": "table grant_journal exists AND trigger gj_seq_contiguous exists",
+        "then": 2
+      },
+      {
+        "step": 7,
+        "if": "table grant_journal exists",
+        "then": 1
+      },
+      {
+        "step": 8,
+        "if": "no journal table exists at all",
+        "then": "FRESH INSTALL: create carrierFormat 3 directly. No inherited table is read, no TERMINAL is appended, migrated_from is null and first_generation is 1"
+      }
+    ],
+    "executedEvidence": "scratch/out/c18.json exercises this SELECTED algorithm on the fresh-install path, every lawful durable prefix, a partial object set and an all-names malformed-complete shape. The five-case evidence formerly cited from c2.json tested an EARLIER table-existence predicate and is retained only as historical evidence, not as evidence for this algorithm.",
+    "postDetectionChecks": [
+      "The stored SQL text of carrier_quarantine and carrier_capacity_pause must byte-equal the frozen definition. This closes the CREATE TABLE IF NOT EXISTS hole. Verified equal in C2.",
+      "carrier_format.project_key_digest must equal the projectKeyDigest derived from the admitted project key, else MIGRATION.CORRUPT.",
+      "max(grantGeneration) in grant_journal must be strictly less than carrier_format.first_generation, else MIGRATION.CORRUPT.",
+      "Witness reconciliation runs exactly as security_unit_lib_v8.reconcile_witness specifies; all 14 rows of the v8 section 5.4 table were reproduced in C1 with no deviation.",
+      "The SC-TRUST high-water comparison is a separate step: the frozen reconcile_witness is pure and does not consult the high-water (verified in C1)."
+    ],
+    "algorithmIsAuthoritative": "carrier-migration.v1.md section 3. This JSON restates the SAME algorithm; where an earlier revision of this file used table existence it was wrong and is replaced.",
+    "sevenCarrierFormat3Objects": [
+      "carrier_format",
+      "cf_no_update",
+      "cf_no_delete",
+      "grant_journal_v3",
+      "gj3_no_update",
+      "gj3_no_delete",
+      "gj3_append_laws"
+    ],
+    "rowIsReadLastAndOnlyAfterValidation": true,
+    "freshInstallPath": {
+      "condition": "no grant_journal and no carrierFormat 3 object",
+      "acts": "act B then act C only; act A does not apply because there is no inherited generation to close",
+      "carrierFormatRow": "migrated_from null, migration_op_ref null, first_generation 1, chain_law 1",
+      "readsAbsentTables": true
+    }
+  },
+  "readDispatch": {
+    "generationOwnership": "Every generation lives entirely in exactly one table; generations are totally ordered per project, so the union is unambiguous.",
+    "rules": [
+      {
+        "location": "grant_journal, grantGeneration < carrier_format.first_generation",
+        "carrierFormat": "1 or 2",
+        "recordSchemaAdmitted": [
+          1
+        ],
+        "sealRepresentable": false,
+        "platformSurfacedAs": "platformHistoricalAlias"
+      },
+      {
+        "location": "grant_journal_v3, grantGeneration >= carrier_format.first_generation",
+        "carrierFormat": 3,
+        "recordSchemaAdmitted": [
+          3,
+          1
+        ],
+        "sealRepresentable": true,
+        "platformSurfacedAs": "machineId"
+      }
+    ],
+    "readerLaws": [
+      "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed.",
+      "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+      "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+      "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+    ]
+  },
+  "migration": {
+    "direction": "1 or 2 to 3",
+    "expressibleWithinFrozenRules": true,
+    "disablesNoConstraintOrTrigger": true,
+    "rewritesNoInheritedRow": true,
+    "steps": [
+      "Under the S7 install fence with EXCLUSIVE on the affected namespace, append TERMINAL with cause grantGenerationClosure to the existing grant_journal at tail+1, carrying the migration operation own op- token.",
+      "Execute grant-journal.carrier.v3.sql.",
+      "Insert the single carrier_format row with carrier_format 3, the carrier projectKeyDigest, first_generation = max inherited generation + 1, chain_law 1, migrated_from 1 or 2 and the migration op ref.",
+      "New operational appends go to grant_journal_v3 in first_generation onward."
+    ],
+    "executedEvidence": {
+      "report": "scratch/out/c2.json migration",
+      "legacyRowsUnchanged": "m7_legacy_rows_unchanged_excluding_new_TERMINAL = true",
+      "legacySchemaObjectsUnchanged": "m9_legacy_schema_objects_unchanged = true",
+      "legacyAliasRetainedVerbatim": "m12 = macos-arm64",
+      "secondMigrationAborts": "m11 refused: table carrier_format already exists",
+      "generationBelowFirstRefused": "m6 refused: grant generation precedes the carrierFormat 3 first generation"
+    },
+    "normativeAdditionRequiringPropagation": "WA-13 states grantGeneration advances only on whole-generation REV and the uint53 rollover. Carrier-format migration is a third cause of generation closure. It reuses the existing typed cause grantGenerationClosure and changes no schema, enum or wire major, but it is a normative addition to WA-13 and to the S9 footprint table.",
+    "protocolOwner": "carrier-migration.v1.md in this directory",
+    "notAnInstallationTransition": {
+      "statement": "A carrier-only transition cannot reuse the closed logical store-migrate intent, and no carrier-migrate operation exists.",
+      "frozenOwnerRefusals": {
+        "reusingStoreMigrate": [
+          "TRANSITION.MIGRATE_REQUIRES_SCHEMA_ADVANCE",
+          "TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE"
+        ],
+        "inventedOperation": [
+          "TRANSITION.OPERATION:carrier-migrate"
+        ]
+      },
+      "shapes": "InstallationTransitionIntentV1 is a closed 11-member record and InstallationTransitionJournalV1 a closed 20-member JOURNAL, not an intent; neither has a carrier field.",
+      "withdrawn": "The earlier claim that this used an InstallationTransitionJournalV1-shaped intent is withdrawn: it conflated an intent with a journal and neither can carry carrier fields.",
+      "evidence": "scratch/out/c13.json"
+    },
+    "authorization": {
+      "command": "store-gc",
+      "owner": "security",
+      "authorizationClass": "exclusive-lease",
+      "writesTrackedIntent": false,
+      "locks": "S7 install fence, then non-blocking EXCLUSIVE on the affected project namespace; a busy namespace is skipped and retained exactly as GC already behaves",
+      "reporting": "store-status parity field migration-state",
+      "newSurfaces": "none"
+    },
+    "durableActs": [
+      "A TERMINAL append closing the inherited generation, carrying the migration operation own op- token",
+      "B object creation in one DDL transaction",
+      "C the single carrier_format row, which is the commit point"
+    ],
+    "detectionIsKeyedOnTheFormatRow": true,
+    "intentIsNotPersisted": "CarrierMigrationIntentV1 is private, host-projected and validated before any act. It is deliberately not durable: the three acts are atomic and self-describing, so no durable intent disambiguates anything, and the frozen TERMINAL body operationRef is the only durable marker recovery needs.",
+    "recoveryByPrefix": {
+      "empty": "start at A (or, on a fresh install with no inherited table, start at B)",
+      "A": "resume at B, recomputing the closed generation",
+      "AB": "validate the existing object definitions against the selected creation path, then resume at C, else MIGRATION.CORRUPT",
+      "ABC": "complete",
+      "partialObjects": "MIGRATION.CORRUPT, refused and never resumed",
+      "allNamesInvalidDefinitions": "MIGRATION.CORRUPT, refused and never resumed"
+    },
+    "splitBrainLimit": "A format-unaware core cannot be made to refuse a migrated carrier. Prevention is impossible within the inherited format; detection is exact, because any generation at or above first_generation in the inherited table is a custody condition and never valid history. The mitigation is the existing ordered-release pattern.",
+    "detectionOrder": "object names, then partial refusal, then definition validation, then the row. The row is read LAST.",
+    "uncertaintyStopsTheAttempt": "A commit- or barrier-uncertain maintenance attempt STOPS: cleanup only, release EXCLUSIVE then the fence, write nothing further. Progress requires a separately admitted fresh maintenance attempt with its own migrationOpRef, re-acquiring fence and EXCLUSIVE, which resumes from the observed durable prefix. The same operation never retries or proceeds."
+  },
+  "digestAndChain": {
+    "body": "opensip-metadata-canonical.1 bytes in domain opensip.metadata.journal.1",
+    "bodySha256": "SHA256(opensip.metadata.journal.1 || 0x00 || C(body)) - the DOMAIN-FRAMED digest, not SHA256(body)",
+    "bodySha256ExecutedEvidence": "scratch/out/c1.json digestSemantics: body_sha256_is_domain_framed = true, body_sha256_is_raw_sha256_of_body = false",
+    "prevSha256Seq1": "SHA256(opensip.journal.genesis.1 || 0x00 || projectKey_utf8 || 0x00 || ascii(grantGeneration)), i.e. security_unit_lib_v8.genesis_prev",
+    "prevSha256SeqK": {
+      "onlyFrozenSpecification": "carrierFormat 1 DDL comment: chain: sha256 of previous record's body_sha256||seq",
+      "referenceImplementationExists": false,
+      "genesisPrevCallSitesInFrozenLib": 0,
+      "retainedFixtureWithConcreteValue": false,
+      "byteEncodingPinnedByFrozenArtifact": false,
+      "chainLaw1Pinning": "SHA256(ascii_hex(body_sha256[k-1]) then ascii_decimal(k-1)). A PROSPECTIVE choice, not a derivation: seq is an INTEGER column, so no reading is forced by the column types.",
+      "compatibilityLimit": "Prospective pinning recorded in carrier_format.chain_law. It cannot be claimed byte-compatible with carrierFormat 1 or 2 instances because no such instance and no fixture exists in the reviewed corpus. A historical generation whose chain does not recompute reports chain-unverifiable, which is a diagnostic, never tamper and never invalidation. No old row is rewritten to make a chain verify.",
+      "chainLaw2IsRefusedByTheDDL": "The carrier_format CHECK is chain_law = 1. Value 2 is not selected and not implemented, so the column refuses it."
+    }
+  },
+  "anchorBound": {
+    "question": "Can protected custody plus a surviving witness and floor confirm the requested prefix?",
+    "answer": "It can confirm presence of the requested SEAL row now with its joined digest, operationRef and runId; sequence contiguity; that the tail is the one the retained anchor names; and non-rollback below the last OBSERVED operation boundary. It cannot authenticate the interior prefix.",
+    "executedMatrix": "scratch/out/c2.json anchorFieldDiscrimination",
+    "findings": [
+      "The v8 closed witness shape carries bodySha256, the tail body digest. Substituting any interior body leaves it unchanged, so the witness detects NO interior substitution under either chain law.",
+      "carrierFormat 1 section 5.4 states the chain head is in the witness. It is not: witness_carries_chain_head = false. Two frozen historical documents disagree; the v8 closed shape governs.",
+      "chain_law 1 binds only the immediately previous body digest and index, so even a chain-head-carrying witness would detect a substitution at seq t-1 and miss every earlier one."
+    ],
+    "conclusionClass": "confirmed-under-retained-custody",
+    "neverClaim": "cryptographically proven",
+    "insufficiencyDisposition": "unknown, explicitly not invalidated"
+  },
+  "strongerAuthenticationOptions": {
+    "adopted": "none; root is not requesting stronger authentication",
+    "note": "Option A alone is insufficient: the executed matrix shows the witness field is the binding constraint, not the chain law.",
+    "options": [
+      {
+        "id": "A",
+        "change": "chain_law 2 recursive chain",
+        "cost": "one extra hash input per append; new carrier_format.chain_law value; no public schema change; cannot apply to existing generations without rewriting rows, which is forbidden",
+        "sufficientAlone": false
+      },
+      {
+        "id": "B",
+        "change": "witnessSchema 2 carrying a chainHead member",
+        "cost": "the v8 witness shape is a frozen closed shape with no other member, so this needs a new witness schema version, a dual reader for witness 1 and 2, and reconciliation-table review; no public wire major change but it touches a frozen security boundary",
+        "sufficientAlone": false
+      },
+      {
+        "id": "A+B",
+        "change": "both",
+        "cost": "the only combination that authenticates an arbitrary interior prefix against a witnessed anchor; still does not defeat a coherent whole-carrier rewrite with witness and floor rewritten consistently",
+        "sufficientAlone": true,
+        "recommendedIfStrongerPropertyWanted": true
+      },
+      {
+        "id": "C",
+        "change": "signed tail attestation per append",
+        "cost": "requires a signing key available at every append, which is a key-custody and per-append cost question. It does NOT inherently require networking and does not by itself violate offline operation; the earlier claim that it did is withdrawn as unsupported.",
+        "sufficientAlone": true
+      }
+    ]
+  },
+  "associationJoins": {
+    "record": "CommitRecoveryAssociationV1 (13 fields), owned by storage, inserted in the same evidence ledger transaction as the receipt",
+    "carrierSideValuesOwnedBySecurity": [
+      "journalCarrierDigest",
+      "grantGeneration",
+      "journalSeq",
+      "journalBodySha256",
+      "operationRef"
+    ],
+    "storageSideValuesOwnedByStorage": [
+      "recordSchema",
+      "storeGenerationDigest",
+      "namespaceId",
+      "executionId",
+      "inventoryDigest",
+      "commitSequence",
+      "receiptBytesSha256"
+    ],
+    "runIdIsCrossOwner": "runId must be byte-equal across the evaluator-minted ReplayedRun, the carrier SEAL row and the receipt",
+    "carrierJoinNotes": [
+      "journalCarrierDigest is the carrier projectKeyDigest from the security-owned carrier binding, and equals CarrierHighWaterV1.projectKeyDigest and the witness projectKeyDigest.",
+      "journalBodySha256 is the DOMAIN-FRAMED body_sha256 of the SEAL row, not a raw SHA-256 of the body text. An implementer reading 'body hash' naively will compute the wrong value.",
+      "journalSeq maximum 9007199254740990 already excludes the reserved terminal slot, matching the physical carrier and narrowing the logical schema-3 I64Positive seq. The narrowing is a carrier refusal (F32), not a schema change.",
+      "operationRef keeps security's op- plus 32 lowercase hex grammar and is mapped explicitly to executionId without changing either grammar. executionId never enters the journal.",
+      "The unique key (journalCarrierDigest, grantGeneration, journalSeq) is implied by the carrierFormat 3 primary key (grantGeneration, seq) within one carrier."
+    ]
+  },
+  "unchanged": {
+    "publicWireMajors": "preserved",
+    "untouched": [
+      "JournalRecord schema 3",
+      "JournalRecordV2",
+      "recordSchema-1 bodies",
+      "LinearizationV1",
+      "the commit receipt",
+      "D9 classes and codes",
+      "the four identity representations",
+      "run3",
+      "exec1_",
+      "witnessSchema 1"
+    ],
+    "newPrivateRecords": [
+      "CarrierHighWaterV1"
+    ],
+    "newPhysicalArtifacts": [
+      "grant_journal_v3",
+      "carrier_format"
+    ]
+  },
+  "stableNormativePath": "docs/coop/design-corrections/security/carrier-dispatch.v3.json",
+  "selectedCompanions": {
+    "carrierFormatProse": "docs/coop/design-corrections/security/carrier-format.v3.md",
+    "migrationProtocol": "docs/coop/design-corrections/security/carrier-migration.v1.md",
+    "physicalDDL": "docs/coop/design-corrections/security/grant-journal.carrier.v3.sql",
+    "carrierHighWater": "docs/coop/design-corrections/security/carrier-highwater.schema.v1.json",
+    "readOnlyRecovery": "docs/v2/architecture/commit-recovery-readonly.v3.md",
+    "attemptCustody": "docs/v2/architecture/attempt-custody.schema.v1.json",
+    "association": "docs/v2/architecture/commit-recovery-plan.v1.json",
+    "storeInstanceLineage": "docs/v2/architecture/store-instance-lineage.v1.json",
+    "reportAssetBinding": "docs/v2/architecture/report-asset-binding.v1.json"
+  },
+  "normativeSelfContainment": "This file states its own algorithm. No operative rule requires a scratch/ path, a superseded draft or a reference model. scratch/ citations are clearly labelled executed evidence only.",
+  "separatelyOwnedConsumedUnchanged": {
+    "PS-01": "docs/v2/architecture/store-instance-lineage.v1.json owns store-instance identity and lineage; root integrated it and the binding tuple and digest shape are consumed unchanged. Nothing is redefined here.",
+    "PS-04": "docs/v2/architecture/report-asset-binding.v1.json owns the report asset binding. Untouched."
+  }
+}

@@ -1,0 +1,8 @@
+Root read all107 individual disposition rows and final corrections/advisories/TCB/limits. Design verdict ACCEPT from actual Claude; root final assent withheld only pending accurate review record and separate blind/application prerequisites. These are review-record defects, no new normative source defect demonstrated.
+RR32-01: DR-007 currentOwnerFiles and unchanged list cite nonexistent evaluator-fault-contract.v1.md; actual owner is evaluator-fault-contract.v3.md. Read actual owner and correct whole-row evidence/reading/hash account.
+RR32-02: F-04.limits still says enumeration join precedes structural custody, contradicting corrected RR31-05 and actual trace. Correct remaining inverse wording throughout.
+RR32-03: RES-EP13-13 claims changed27to28 checker read in that session, not v31. Your lineage reviewed27 then31. Correct evidence-backed reading history; do not invent a28review session. Freshly read current check-replay.v3.py if needed and label actual current read, not retrospective execution.
+RR32-04: DR-011-R02/R04/R05/R08 ownerPathsResolveInFrozen32=false despite actual listed paths existing and prose claiming resolved. Derive all16 booleans from actual frozen membership and verify all107 row owner paths.
+p05 pseudo file remedy pair tests string coordinate distinctness only, not two lawful admitted native records.
+p12c generic ExactValidator ordering probe plus static normative annotation supports bounded inference; actual EnumPlan lookup failed KeyError properties, no actual enum plan admission from it.
+v1 mechanical audit misread currentOwnerSelectors and emitted30 false missing-owner findings; v2 corrected field access. Draft JSON changed before capture: original draft audit hash alone retained, no claim original draft JSON captured.

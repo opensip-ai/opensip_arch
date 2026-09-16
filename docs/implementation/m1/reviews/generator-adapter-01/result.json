@@ -1,0 +1,74 @@
+{
+  "session_id": "ebd810f5-4c95-400d-ad01-5c33b2286133",
+  "total_cost_usd": 3.5744260000000003,
+  "usage": {
+    "input_tokens": 514,
+    "cache_creation_input_tokens": 131268,
+    "cache_read_input_tokens": 1339660,
+    "output_tokens": 63503,
+    "output_tokens_details": {
+      "thinking_tokens": 27495
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 131268,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1714,
+        "cache_read_input_tokens": 135872,
+        "cache_creation_input_tokens": 891,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 891
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1661,
+      "outputTokens": 22,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001771,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 514,
+      "outputTokens": 63503,
+      "cacheReadInputTokens": 1339660,
+      "cacheCreationInputTokens": 131268,
+      "webSearchRequests": 0,
+      "costUSD": 3.572655,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 27495,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 51,
+  "subtype": "success",
+  "result": "Verdict: **changes-required**. The adapter mostly holds up under the development-trusted-host profile, but four small fixes are needed. It is not hermetic and shouldn't be described that way.\n\n**Pins:** the manifest SHA matches, and all 76 subject files match with no extra files. The candidate generator, TypeScript 6 package (142 files), node, rustfmt, python and the four Homebrew libraries all match the closure. All 28 schema sources are byte-identical to the architecture sources. Afterwards I re-checked the originals and they are unchanged.\n\n**What held up** (53 adapter probes and 15 dependency-guard probes, all on my own copies):\n- **Baseline:** the drift check is clean across all 8 outputs, and `test_generation.py` passes 12 of 12.\n- **No package managers:** generation runs no Cargo or npm. A trace shows Node loads only the snapshot scripts, the snapshot `typescript` and builtins.\n- **Unrebound changes:** changing source, options or pinned tool files without updating the registry is refused.\n- **Consistent substitutions:** rebound source, owner and type-name swaps are caught as drift.\n- **Undeclared outputs:** extra files, extra or missing output rows, and symlinked outputs are refused before anything is written.\n- **`--write`:** it replaces only drifted files.\n- **Tampering:** a changed generator, node or TS package is refused. A pipeline failure with a pending write changes nothing. An interrupted multi-file write is caught by the next drift check.\n\n**Required fixes:**\n1. **Unregistered remote refs are accepted.** A rebound source with a remote `$ref` under `prefixItems`, `dependentSchemas` or `unevaluatedProperties`, or a `$dynamicRef`, generated successfully with `--write`. The URLs ended up in `report.ts`, and the Rust carriers silently ignored them. `prepare.py` should refuse any keyword outside the list `runtime/schema.ts` already uses.\n2. **Output roles aren't enforced.** Swapping the roles so `mod.rs` claims carrier+shape-validator and `report.ts` claims module-index was accepted. Require the exact role for each output path.\n3. **Python isolation isn't enforced.** Run without `-I`, an injected `sitecustomize` executed inside the verifier and generation still succeeded. Under `-O`, an `assert` in `prepare.rust` disappears and an unexpected pattern map is silently widened. Refuse unless isolated and not optimized, and turn the asserts into `ValueError`.\n4. **The dependency guard ignores dev-dependencies.** An undeclared `[dev-dependencies]` entry passes, but the build plan requires dev-only exceptions to be recorded. Add an empty allow-list to the policy and refuse anything else.\n\n**Why it isn't hermetic** (advisories):\n- rustfmt and its four libraries are hashed and then loaded later from host paths. The library pins use `/opt/homebrew/opt` alias paths, while the loader resolves the Cellar path.\n- The library list is self-declared: dropping the libz3 pin and rebinding was accepted.\n- Only Python's 52 KB launcher is pinned, not the interpreter library or stdlib.\n- `generate_contracts.py` verifies itself: an edited copy that skipped its pin checks accepted a tampered `render-types.cjs`.\n- Nothing ties the generator binary to its pinned source; it is a debug build, and dep-info sitting next to the sources isn't provenance.\n- Nothing restricts filesystem or network access for the pinned executables.\n\nFormatting inside the generator with prettyplease would remove rustfmt and its native libraries entirely, but the checked-in outputs would need regenerating.\n\n**Smaller advisories:**\n- A superseded HelloV3 definition was accepted after removing it from `deniedRefs`.\n- `source-map.json` is read by no tool or test.\n- A semantic owner of `../../outside/owner` and a source outside `schemas/sources/` were both accepted.\n- The dependency guard checks one target per run, so a Windows-only dependency is invisible on darwin.\n- Child process output is mixed into the JSON summary.\n- The tests don't exercise the `generate()` refusal paths.\n- The candidate's `node_modules/.pnpm` contains packages not in the lockfile. They aren't used, but the install path is unproven.\n\n**Remaining before a hermetic selected recipe or product integration:** the four fixes with tests; snapshotting or removing the native tool closure; build provenance for the generator binary; a trusted entrypoint and interpreter outside the closure; effect confinement; an offline install from the locks; mechanically checking the registry, options, source map and superseded set against each other; and the open protocol obligations, inventory successor and design-lock decisions.\n\nFiles are in `/tmp/opensip-implementation/m1-generator-adapter-review-01`:\n- review.json\n- review.md\n- logs/ (probe results and Node trace)\n- work/ (probe scripts)",
+  "type": "result",
+  "duration_ms": 933779
+}

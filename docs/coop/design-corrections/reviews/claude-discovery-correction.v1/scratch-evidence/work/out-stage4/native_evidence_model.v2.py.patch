@@ -1,0 +1,124 @@
+--- docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -69,6 +69,38 @@
+     schema = copy.deepcopy(SCHEMAS)
+     schema["$ref"] = "#/$defs/" + def_name
+     return C.validate(schema, value)
++
++
++BOUNDARY_INVENTORY_RECORDS = {1: "AdmittedBoundaryInventoryV1", 2: "AdmittedBoundaryInventoryV2"}
++
++
++def validate_boundary_inventory(boundaries: dict) -> dict:
++    """Explicit version dispatch for the admitted boundary inventory (XA-02 / CR-25).
++
++    Version 1 is the historical record: marker-derived anchors only and a non-null `markerCount`.
++    Version 2 carries the four-member pruned row and may name an anchor the marker inventory alone cannot
++    derive. A CHANGED record is never validated under the version-1 name: `schemaVersion` selects the
++    definition and an unknown version refuses rather than falling back to the nearest neighbour."""
++    if not isinstance(boundaries, dict) or type(boundaries.get("schemaVersion")) is not int:
++        raise NativeRefusal("native.boundary-inventory-shape")
++    name = BOUNDARY_INVENTORY_RECORDS.get(boundaries["schemaVersion"])
++    if name is None:
++        raise NativeRefusal("native.boundary-inventory-version-unknown:%d" % boundaries["schemaVersion"])
++    return validate_native(name, boundaries)
++
++
++def require_admitted_boundaries(boundaries: dict | None) -> dict:
++    """The AUTHORITATIVE host composition must supply the admitted inventory (XA-02 follow-up).
++
++    `boundaries=None` remains legal on the STANDALONE/ALGORITHM lane below - the reference cases that
++    exercise the shared rule in isolation, and callers that own no security discovery result. It is NOT a
++    lawful authoritative composition: without the inventory the native instrument sees neither the nested
++    authority boundaries nor the custody/depth exclusions, and its selected-directory count can differ from
++    the security instrument for the same repository. The host model calls this so the requirement is
++    structural at the one boundary that matters, without breaking the pure reference lane."""
++    if boundaries is None:
++        raise NativeRefusal("native.admitted-boundaries-required")
++    return validate_boundary_inventory(boundaries)
+ 
+ 
+ _FOUNDATION_SCHEMAS = json.loads((FOUNDATION / "identity-schemas.v2.json").read_text(encoding="utf-8"))
+@@ -3587,16 +3619,38 @@
+     explicitly keeps its member packages folded (`memberPackageRoots`) so their `target` output stays pruned; naming a
+     member package alone selects that package as its own `cargo-package` unit."""
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
++        validate_boundary_inventory(boundaries)
+     enum = DD.enumerate_units(markers, enforce_limit=False)
+-    pruned_trees = enum["prunedTrees"]
++    derived_trees = enum["prunedTrees"]
++    pruned_trees = derived_trees
+ 
+     def refused(detail: str, roots: list[str], **extra) -> dict:
+         return {"units": [], "prunedTrees": pruned_trees, "boundaries": _boundaries_out(boundaries, []),
+                 "refused": {"detail": detail, "roots": roots, **extra, "d9": d9_map(detail)}}
+ 
+-    if boundaries is not None and boundaries["prunedTrees"] != pruned_trees:
+-        return refused("native.boundary-inventory-mismatch", [], expectedPrunedTrees=pruned_trees, inventoryPrunedTrees=boundaries["prunedTrees"])
++    if boundaries is not None:
++        # XA-02 / CR-25. The admitted inventory is the TRUSTED SUPERSET, not a value this instrument must
++        # reproduce. The native side sees only marker paths, so it can derive an anchor only where a marker
++        # happens to sit inside a pruned tree; security additionally observed the directory entries. Whole-row
++        # equality therefore had to fail as soon as security reported a known anchor with no observed marker.
++        #
++        # The rule is a SUBSET check over `(path, reason)`:
++        #   * every marker-derived anchor must appear in the admitted inventory with the SAME reason - a
++        #     missing anchor, or the same path under a different reason, still refuses exactly as before;
++        #   * an ADDITIONAL admitted anchor is accepted and carried through, because it is a boundary the
++        #     authority instrument observed and this instrument cannot see.
++        # `markerCount` and `markerCountBasis` are NOT comparison keys: they are provenance, and a count that
++        # differed would say something about a tree neither instrument enumerated.
++        admitted = {(t["path"], t["reason"]) for t in boundaries["prunedTrees"]}
++        derived = {(t["path"], t["reason"]) for t in derived_trees}
++        missing = sorted(derived - admitted, key=lambda kv: (kv[0].encode("utf-8"), kv[1]))
++        if missing:
++            return refused("native.boundary-inventory-mismatch", [],
++                           missingAnchors=[{"path": p, "reason": r} for p, r in missing],
++                           expectedPrunedTrees=derived_trees, inventoryPrunedTrees=boundaries["prunedTrees"])
++        # The admitted rows travel onward: the host projects the ADMITTED anchor set, never a narrower one
++        # re-derived from markers. Only `path` reaches the scope descriptor.
++        pruned_trees = [dict(t) for t in boundaries["prunedTrees"]]
+     cargo_roots = DD.cargo_roots_from_markers(markers)
+     by_dir: dict[str, dict[str, dict]] = {}
+     excluded_units: list[dict] = []
+@@ -3678,7 +3732,7 @@
+     if len({u["rootPath"] for u in units}) > MAX_WORKSPACE_UNITS:   # defensive guard after selected-directory admission
+         return refused("native.too-many-units", [])
+     out = {"units": units, "prunedTrees": pruned_trees, "boundaries": _boundaries_out(boundaries, excluded_units), "refused": None}
+-    validate_native("UnitDiscoveryV1", out)
++    validate_native("UnitDiscoveryV2", out)
+     return out
+ 
+ 
+@@ -3713,7 +3767,7 @@
+     of any unit of this project; the boundary test precedes the pruned-tree test.
+     Every inventory file appears in exactly one row; erasedFiles is always empty (checked by schema maxItems 0)."""
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
++        validate_boundary_inventory(boundaries)
+     rows: list[dict] = []; unsupported: list[str] = []; outside: list[str] = []
+     cargo_roots = _cargo_roots_of_units(units)
+     for f in sorted(files, key=lambda x: x.encode("utf-8")):
+@@ -3874,9 +3928,19 @@
+     every unit root; `target` under every Cargo root only) and, under an admitted boundary inventory (P3), every nested
+     repository, nested project and directory-custody exclusion anchor (`DD.boundary_excluded_prefixes`). The segment
+     rule itself applies in addition to these prefixes; the prefixes make the observed exclusions Plan-visible. The
+-    foundation record is closed, so the boundary provenance travels beside it (`boundaries`), not inside it."""
++    foundation record is closed, so the boundary provenance travels beside it (`boundaries`), not inside it.
++
++    XA-02 / CR-25 IDENTITY TRACE. Only `t["path"]` of a pruned row reaches `excludedPathPrefixes`, so
++    `markerCount` and `markerCountBasis` cannot move `scopeDigest`, `plan2` or any Run identity: a
++    count-only or basis-only change leaves the descriptor bit-identical. Reporting a previously invisible
++    ANCHOR is a different matter and does add its path here. That is the correction working: the segment
++    rule already pruned that tree, so the analysed byte set does not change, but the Plan now discloses the
++    exclusion instead of omitting it. For a repository holding such an anchor outside the conventional set
++    (`.git` and `node_modules` under a unit root, `target` under a Cargo root) the descriptor, and therefore
++    the Run identity, differs from the pre-correction value. Historical Runs keep their bytes; this is a
++    disclosed discovery correction of the same class as XA-01, not a silent identity drift."""
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
++        validate_boundary_inventory(boundaries)
+     roots = sorted({u["rootPath"] for u in units}, key=lambda x: x.encode("utf-8"))
+     spelled = [DD.spell_root(r) for r in roots]  # the project root is spelled "." in the foundation record (Text minLength 1)
+     conventional = DD.conventional_excluded_prefixes(roots, _cargo_roots_of_units(units))

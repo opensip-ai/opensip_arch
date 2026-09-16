@@ -1,0 +1,350 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/incoming-search.schema.v1.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/incoming-search.schema.v1.json
+new file mode 100644
+index 00000000..5db0bda7
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/incoming-search.schema.v1.json
+@@ -0,0 +1,344 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.incoming-search.1",
++  "title": "IncomingSearchV1 — typed INPUT that source universe S searched target universe U at relation@rung (DRAFT)",
++  "description": "Canonical-record INPUT. Not inferred from producer facts. Not an empty Cartesian Coverage key (S,U). Used only when no CoverageResultV3 exists with key (relation, minResolution, sourceUniverse=S, targetUniverse=U). Cannot override a represented Coverage S->U that is partial/unknown. Identity is raw SHA-256 of C(this record). Uniqueness: (planId, providerClosure, sourceUniverse, targetUniverse, relation, minResolution). Standing: isolated successor draft. Root registers the payload-registry / ProofInputRef row. Globally admitted by OWN registered relation/rung; an atom consumes only attestations of its relation@minResolution. ResolutionCompletenessV2 and ClosedWorldV2 are copied exact native owner types (native-evidence.schemas.v2.json); no invented open objects and no default resolved-complete.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "planId",
++    "providerClosure",
++    "sourceUniverse",
++    "targetUniverse",
++    "relation",
++    "minResolution",
++    "scopeRefs",
++    "expectedInventoryRefs",
++    "completeSearch",
++    "examinedExhaustive",
++    "coverage",
++    "resolutionCompleteness",
++    "closedWorld"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 1
++    },
++    "planId": {
++      "type": "string",
++      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "providerClosure": {
++      "type": "string",
++      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "Plan-selected closure kind=provider that examined S. Not evaluator. Must equal each named scope's enumeratorClosure."
++    },
++    "sourceUniverse": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "targetUniverse": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "relation": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 64
++    },
++    "minResolution": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 64
++    },
++    "scopeRefs": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 100000,
++      "uniqueItems": true,
++      "items": {
++        "type": "string",
++        "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++      },
++      "x-opensip-order": "canonical-set",
++      "description": "Exact union of THIS providerClosure's owned scopes of the attestation relation at EXACT minResolution whose sourceUniverse is S (enumeratorClosure=providerClosure). Two selected providers on the same U have disjoint owned-scope sets; each attests its own. Not a per-target-subject Cartesian. Program identity remains U."
++    },
++    "expectedInventoryRefs": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 4096,
++      "uniqueItems": true,
++      "items": {
++        "type": "string",
++        "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
++      },
++      "x-opensip-order": "canonical-set",
++      "description": "Exact union of raw SHA-256 of C(SubjectInventoryV1) locators of THIS provider on S at the source kind. Not a caller-added inventoryDigest field. When inventories carry enumerator locators, refs are that provider's locators only. Partial/unavailable inventories are valid refs; they make population unknown rather than listing fake IDs. Empty expected set is a misjoin, never a skipped check."
++    },
++    "completeSearch": {
++      "type": "boolean",
++      "description": "true: this source's examination considered target U (whole-source-to-target-universe search, not per-subject Cartesian). false: search of U not established. true is refused unless examinedExhaustive is true."
++    },
++    "examinedExhaustive": {
++      "type": "boolean",
++      "description": "false must never prove complete search. coverage=complete and completeSearch=true both require this true (native RC-6 analogue)."
++    },
++    "coverage": {
++      "type": "string",
++      "enum": [
++        "complete",
++        "unknown"
++      ]
++    },
++    "resolutionCompleteness": {
++      "$ref": "#/$defs/ResolutionCompletenessV2"
++    },
++    "closedWorld": {
++      "$ref": "#/$defs/ClosedWorldV2"
++    }
++  },
++  "allOf": [
++    {
++      "if": {
++        "properties": {
++          "coverage": {
++            "const": "complete"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "examinedExhaustive": {
++            "const": true
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "completeSearch": {
++            "const": true
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "examinedExhaustive": {
++            "const": true
++          }
++        }
++      }
++    }
++  ],
++  "$defs": {
++    "ResolutionCompletenessState": {
++      "type": "string",
++      "enum": [
++        "complete",
++        "incomplete",
++        "partial",
++        "not-attempted",
++        "not-applicable"
++      ]
++    },
++    "StageTerminal": {
++      "type": "string",
++      "enum": [
++        "complete",
++        "unavailable",
++        "budget-exhausted",
++        "provider-fault",
++        "cancelled",
++        "crash"
++      ]
++    },
++    "UnresolvedEdgeKindV1": {
++      "type": "string",
++      "enum": [
++        "computed-member-access",
++        "dynamic-import-nonliteral",
++        "require-nonliteral",
++        "indirect-eval",
++        "reflective-access",
++        "untyped-any-call",
++        "unresolved-module-specifier",
++        "external-module-boundary",
++        "structural-dispatch",
++        "trait-object-dynamic-dispatch",
++        "generic-bound-dispatch",
++        "macro-expansion-unavailable",
++        "build-script-generated-unavailable",
++        "cfg-excluded-region",
++        "ffi-extern",
++        "entry-point-unrecognized"
++      ]
++    },
++    "ResolutionCompletenessV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "attempted",
++        "examinedExhaustive",
++        "stageTerminal",
++        "state",
++        "unresolvedEdgeClasses",
++        "unresolvedEdgeCount"
++      ],
++      "properties": {
++        "state": {
++          "$ref": "#/$defs/ResolutionCompletenessState"
++        },
++        "attempted": {
++          "type": "boolean"
++        },
++        "examinedExhaustive": {
++          "type": "boolean"
++        },
++        "stageTerminal": {
++          "oneOf": [
++            {
++              "$ref": "#/$defs/StageTerminal"
++            },
++            {
++              "type": "null"
++            }
++          ]
++        },
++        "unresolvedEdgeCount": {
++          "type": "integer",
++          "minimum": 0,
++          "maximum": 18446744073709551615
++        },
++        "unresolvedEdgeClasses": {
++          "type": "array",
++          "items": {
++            "$ref": "#/$defs/UnresolvedEdgeKindV1"
++          },
++          "maxItems": 16,
++          "minItems": 0,
++          "uniqueItems": true,
++          "x-opensip-order": "utf8"
++        }
++      }
++    },
++    "ClosedWorldV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "deadCodeRepairEligible",
++        "dynamicDispatch",
++        "entryPointsRecognized",
++        "exportsClosed",
++        "externalConsumers",
++        "nonliteralLoading",
++        "reasons"
++      ],
++      "properties": {
++        "exportsClosed": {
++          "type": "string",
++          "enum": [
++            "closed",
++            "open",
++            "unknown"
++          ]
++        },
++        "entryPointsRecognized": {
++          "type": "string",
++          "enum": [
++            "all",
++            "partial",
++            "none"
++          ]
++        },
++        "nonliteralLoading": {
++          "type": "string",
++          "enum": [
++            "none",
++            "present"
++          ]
++        },
++        "externalConsumers": {
++          "type": "string",
++          "enum": [
++            "none-declared",
++            "possible",
++            "unknown"
++          ]
++        },
++        "dynamicDispatch": {
++          "type": "string",
++          "enum": [
++            "resolved",
++            "present",
++            "not-applicable"
++          ]
++        },
++        "reasons": {
++          "type": "array",
++          "items": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 256
++          },
++          "maxItems": 64,
++          "minItems": 0,
++          "uniqueItems": true,
++          "x-opensip-order": "sequence"
++        },
++        "deadCodeRepairEligible": {
++          "type": "boolean"
++        }
++      }
++    }
++  },
++  "x-opensip-identity": {
++    "digest": "raw SHA-256 of C(IncomingSearchV1)",
++    "representation": "canonical-record",
++    "retention": "preimage",
++    "uniqueness": [
++      "planId",
++      "providerClosure",
++      "sourceUniverse",
++      "targetUniverse",
++      "relation",
++      "minResolution"
++    ],
++    "proofInputRef": {
++      "standing": "NEW, pending root registry integration",
++      "proposedDomain": "incoming-search"
++    }
++  },
++  "x-opensip-law": {
++    "cartesian": "FORBIDDEN. This record attests that source program S searched target universe U as a whole at relation@rung. It does not mint per-target-subject Coverage keys.",
++    "coverageFirst": "If a CoverageResultV3 exists with exact (relation, minResolution, S, U) on THIS provider's owned scopes, that Coverage is the search law for those partitions. Partial/unknown Coverage of THIS provider cannot be overridden by that provider's completeSearch=true. Another provider's partial S->U does not make this attestation structurally invalid; incoming evaluation remains unknown until every owed provider is complete.",
++    "whenUsed": "Only when no such Coverage exists. Then this admitted record may stand in for the missing S->U search. completeSearch=false, coverage=unknown, or examinedExhaustive=false leaves incoming absence unknown. Dependency sufficiency uses actual DEPENDS_ON Coverage of S, never a fictional complete dependency entry.",
++    "otherPartitions": "Coverage/scopes S->V (V≠U) still count toward source-population union and must be sufficiency-accounted per scope. They do not prove search of U. Each source partition needs S->U Coverage or a valid provider-owned whole-source attestation. Provider groups are seeded from selected program contributors, not only emitted scopes.",
++    "globalAdmit": "Admit every attestation against its OWN registered relation and ladder rung, then consume only those matching the current atom. Mixed-atom policies are ordinary.",
++    "inventoryDigest": "expectedInventoryRefs are raw SHA-256 of C(SubjectInventoryV1) computed from the inventory record (schema fields only). Caller-added inventoryDigest is not an authority. Exact set equality with THIS provider's locators of (sourceUniverse, source kind) when enumerator locators exist; otherwise the U union. Missing inventories are a misjoin, never a skipped check.",
++    "multiProvider": "Native enumeration-plan does not forbid two selected provider enumerators on the same U across workspace cells. Uniqueness remains (planId, providerClosure, S, T, relation, minResolution). Each attestation owns that provider's scopes and inventory locators. Program identity U is still one.",
++    "joins": [
++      "planId equals inputs.planId",
++      "providerClosure is Plan-selected, closures[id].kind=provider, and is an enumerator of an available EnumerationPlan binding whose universe=S for capabilityForRelation[att.relation] (one of possibly several on S)",
++      "sourceUniverse is that binding's U",
++      "targetUniverse is an admitted selected native universe (portable domain in universeDomains and/or a selected program binding universe); an unattached digest is refused even if unused",
++      "relation is registered; minResolution is a member of THAT relation's ladder (not the current atom's relation)",
++      "scopeRefs is the exact union of this providerClosure's owned scopes (enumeratorClosure=providerClosure) at relation/resolution/sourceUniverse=S; untagged scopes fall back to all S scopes",
++      "expectedInventoryRefs is the exact union of raw C digests of this provider's SubjectInventoryV1 locators of universe S at the source kind",
++      "resolutionCompleteness/closedWorld validate as native ResolutionCompletenessV2 / ClosedWorldV2 using the native owner AdmissionError class; RC-1 applies (non-resolved rung is not-applicable; resolved rung is never not-applicable); no default resolved-complete"
++    ]
++  },
++  "x-opensip-new-internal-faults": {
++    "standing": "NEW/internal pending root route-registry integration",
++    "keys": [
++      "INCOMING_SEARCH_SCHEMA",
++      "INCOMING_SEARCH_DUPLICATE",
++      "INCOMING_SEARCH_JOIN",
++      "INCOMING_SEARCH_CANNOT_OVERRIDE_PARTIAL",
++      "INCOMING_SEARCH_UNSELECTED_PROVIDER",
++      "INCOMING_SEARCH_SCOPE_MISJOIN",
++      "INCOMING_SEARCH_INVENTORY_MISJOIN"
++    ]
++  }
++}

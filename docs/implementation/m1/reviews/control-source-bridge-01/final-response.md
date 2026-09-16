@@ -1,0 +1,41 @@
+**Verdict: ACCEPT-DESIGN-UNIT.** There are no required findings and 8 non-blocking advisories. The review is in `m1-control-source-bridge-review-01/review.json` and `review.md`.
+
+- **`subjectManifestSha256`:** `6d42ebf3734499c6432ee02269fde65ef6a2340c6d622db87b01c164a80e70b9`. This is the two-file selection subject: the staged `successor.json` and the unchanged schema3 (`2929de62…`).
+- **`reviewClosureManifestSha256`:** `cb17f5cc72ec511f42442e88292b4d335a07142ba768f5fda1bf49f8450567c1`. The 10-file closure matched its manifest exactly before and after the review.
+
+## Authority chain
+- **Base selection:** source45 has exactly one row for the application at `15b3932a…`, and app46 doesn't override it. The record's parent and `baseApproval` match the live lock.
+- **Actual approval, not just the pin:** the application's status (`WORKING-INTEGRATION-NOT-FROZEN-OR-ADOPTED`) is a label from before it was adopted.
+  - **D-369** adopted this exact SHA on 2026-09-05, after whole-review v5 and v6 both returned ACCEPT with 0/0 findings. The decision is in `COORDINATOR-DECISIONS.md`, which app46 selects.
+  - D-372 keeps it binding through source45. The live register keeps the common-control design (DR-102, DR-125).
+  - `control-protocol-contract.v2` owns framing and schema3 supplies the closed bodies, so the two don't compete. Nothing supersedes schema3.
+- **Selectors:** `/units/control` and `/evidenceTargets/C.BODIES/sources/1` link to review5, freeze5 and all 8 frozen files, and every pin matches.
+- **Substance of the evidence:** review5 only covered the repair diff. Schema3's bytes haven't changed since freeze v2. Its full review was v3, and every v3/v4 finding (CCR-1, CCR-S1, CCR4-1) was in the checker, never the schema.
+
+## What I ran
+- **Checker:** passed against the live repo. The real preflight refuses with the exact message, and 28 sources verify once the control row is removed.
+- **Tests:** all 15 pass.
+- **Input discovery:** found exactly the 140 declared pins.
+- **Hidden reads:** an audit hook on every file open saw 140 architecture opens, none undeclared or unused, and no subprocesses.
+- **Staged runs on a mirror holding only the declared inputs:**
+  - Real mode refuses synthetic fixtures.
+  - The staged run selects exactly `[schema3]` and all 29 sources verify.
+  - A review naming the 10-file SHA is refused.
+  - Appending the binding twice, and byte drift in the staged record, are both refused.
+  - No accepted path or bytes are reused.
+
+## Advisories for your assent and lock change
+1. **A1:** `successor.json` says "no … lock … change". Read that as no change to the existing lock content.
+2. **A2:** cite D-369 and DR-102/DR-125 as the basis, not source45 membership alone.
+3. **A3:** record that review v3 is the schema's real review; the checker only checks review5.
+4. **A4:** the lock verifier doesn't check the record's evidence fields. My probe changed review5 after binding and only the checker caught it, so keep this review and the checker with the assent.
+5. **A5:** the synthetic-fixture refusal is a safeguard, not authentication: an unmarked fixture passes. Bind only the real review and assent.
+6. **A6:** source45/app46, the generation unit, the binding4 integration record and the route note are untracked in git.
+7. **A7:** the verifier doesn't enforce order, so append after metadata-v2 exactly as staged.
+8. **A8:** nothing is qualified. CA2–CA5, candidate02, `control_protocol.rs` and the security/journal links all stay open.
+
+## Limits
+- Pins were checked by hash in a checkout with uncommitted changes, not against git history.
+- I didn't rerun review5's 484-case replay or reread the whole application or source45.
+
+**Disclosure:** one read-only grep ran past the timeout and was moved to the background automatically. I stopped it without using its output. Nothing was committed or pushed, no agents were used, and I wrote nothing outside the review directory.

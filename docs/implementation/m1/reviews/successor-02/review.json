@@ -1,0 +1,47 @@
+{
+  "verdict": "ACCEPT-UNIT",
+  "verdictScope": "m1-successor-subject-02 only: the developer design-lock v2 unit (design-lock.json schemaVersion 2, tools/verify_design.py, tools/tests/test_design_binding.py). Not full M1, product qualification or release approval. The concurrent metadata-v1 architecture work is not reviewed.",
+  "reviewKind": "nonblind correction review of SUCC-R1-01 (continuation of m1-successor-review-01)",
+  "subjectManifestSha256": "3aeddcf6c1a42def68ae74106e10c66ad5cb09ab29f628546a70738bbd7cb368",
+  "predecessorSubjectManifestSha256": "3fabfe4759fb6555813a05d54e9f99e5f2e8d3a7ed54a5806a5dd9f1c0ea4caa",
+  "requiredFindings": [],
+  "closedFindings": [
+    {
+      "id": "SUCC-R1-01",
+      "status": "closed",
+      "evidence": "The only subject change is additive: rebound(), refuse_with() and four isolated tests in InventorySuccessorTests (tools/tests/test_design_binding.py:225-276); the eight existing successor tests are unchanged. rebound() now copies full pins, adding bytes to review.successorRecord and assent.actualClaudeReview, which the verifier ignores as extra fields. The parent-selection fixture restores the original base inputs, so only the selected-input guard can refuse. 21 tests pass. The unchanged 26-mutant probe kills 25 on the live tests; the sole survivor is M02, shown equivalent in review-01 (the pin digest and zero-addition checks cover it). Before the correction, 14 mutants survived. The protection is redundant: with rebinding removed, or with regex assertions downgraded to a generic DesignError, the kill set is the same. With both removed, 17 of 35 survive (probes/mutants-no-rebind-no-regex.log), which shows the probe is sensitive."
+    }
+  ],
+  "carriedForwardAdvisories": {
+    "source": "/tmp/opensip-implementation/m1-successor-review-01/review.json",
+    "ids": ["SUCC-A1-01", "SUCC-A1-02", "SUCC-A1-03", "SUCC-A1-04", "SUCC-A1-05", "SUCC-A1-06"],
+    "status": "unchanged, nonblocking, not claimed fixed. The verifier bytes are identical to subject01, so the SUCC-A1-01 Python-equality behaviour still applies; the reviewed real rows are strictly JSON-equal."
+  },
+  "newAdvisories": [
+    {
+      "id": "SUCC-A2-01",
+      "title": "Finer strictness of successor guards is not pinned by tests",
+      "severity": "nonblocking",
+      "evidence": "Nine new mutants (N27-N35) were added. Six survive the 21 tests: N28/N29 (review and record parent joins ignore bytes), N30 (truthy rootSubstantiveAssent), N31 (missing or falsy review requiredFindings tolerated), N32 (truthy record preservation flag) and N34 (parent selected by path only). N34 is equivalent: a parent pin sharing an input path but with a different sha or bytes is refused by pin digest/length checks on the real lock (probes/n34_equivalence.log). N28/N29 leave content still bound by SHA-256, so they could only admit inconsistent size metadata. N30-N32 are real strictness regressions the tests would miss. The identical verifier refuses these inputs today (review-01 adversarial probes: rootSubstantiveAssent 1, parentArtifactBytesUnchanged \"true\" and missing requiredFindings are all refused). Optional: add three one-line isolated cases."
+    }
+  ],
+  "executedChecks": [
+    {"executor": "Claude", "check": "shasum of subject02 manifest, before and after", "result": "3aeddcf6...368 both times"},
+    {"executor": "Claude", "check": "All 13 manifest rows sha256+bytes and extra-file walk, before and after", "result": "13/13 OK, no extras, both times; no __pycache__ in subject01/02"},
+    {"executor": "Claude", "check": "diff -rq subject01 vs subject02; cmp verifier and lock", "result": "only tools/tests/test_design_binding.py differs, additions only; verify_design.py and design-lock.json byte-identical; subject01 manifest still verifies"},
+    {"executor": "Claude", "check": "Read the correction diff and check fixture semantics (full-pin rebinding, base_inputs restore, regex patterns)", "result": "correct; each isolated case can refuse only via its intended guard"},
+    {"executor": "Claude", "check": "python3 -I -B -m unittest discover -s tools/tests -t tools/tests -v", "result": "21 tests OK (9 base + 12 successor)"},
+    {"executor": "Claude", "check": "python3 -I -B tools/verify_design.py --architecture /Users/sb/code/opensip-ai/opensip_arch, before and after; lock1 compat", "result": "passed, 46 inputs, v3 63027fb6... selected, addedFiles 4, productQualification false, both times; canonical-04 lock1 passes"},
+    {"executor": "Claude", "check": "Mutation: original 26 plus 9 new mutants vs live tests", "result": "28 killed, 7 survived; all 26 originals killed except M02 (equivalent). New survivors: N28-N32, N34 (SUCC-A2-01)"},
+    {"executor": "Claude", "check": "Mutation sensitivity: test variants without rebinding, without regex, and without both", "result": "28/28/18 killed; each mechanism alone keeps the full kill set, and removing both regresses to 17 survivors"},
+    {"executor": "Claude", "check": "probes/n34_equivalence.py on the real lock", "result": "a same-path parent pin with a different sha, bytes or both is refused with a digest/length mismatch"},
+    {"executor": "not rerun", "check": "Rust/crypto checks; the 59 adversarial verifier probes from review-01", "result": "Rust bytes unchanged. The verifier and lock are byte-identical to subject01, so the review-01 probe results apply"}
+  ],
+  "limitations": [
+    "This is unit approval only: not full M1, product qualification or release approval.",
+    "The review is nonblind: it corrects my own review-01 finding, and the correction adapts my probe tests.",
+    "The architecture checkout contains concurrent metadata-v1 author work. I make no claim that any architecture directory is unchanged; only the pinned design, approval and successor evidence was verified, by the real verification command passing before and after.",
+    "Checks ran only on macOS with Python 3.14.6; the mutation set was chosen by the reviewer and is not exhaustive.",
+    "I did not read the pre-existing launcher and event files in the review directory."
+  ]
+}

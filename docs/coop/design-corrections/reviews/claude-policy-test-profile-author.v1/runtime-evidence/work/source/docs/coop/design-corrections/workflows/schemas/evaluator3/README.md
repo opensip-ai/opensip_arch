@@ -1,0 +1,24 @@
+# Isolated evaluator3 workflow schemas
+
+Closed self-contained version-dispatch copies. Unique `$id` namespace
+`urn:opensip:product-v1:workflows:evaluator3:*`. Internal refs rewritten to that
+namespace. Foreign unchanged owners remain:
+
+- `urn:opensip:product-v1:workflows:policy-document` — ScopeDocumentV1, WaiverSetV1, EvidenceUse, Rung
+- `urn:opensip:product-v1:policy-document:2` — PolicyDocumentV2 embed in baseline
+- `urn:opensip:product-v1:workflows:imported-evidence` — import kinds/payloads
+- `urn:opensip:product-v1:workflows:policy-test` — PolicyTestResultV1 (the `policytest2` carrier), Case and Override, reused by `policy-test.schema.json` (`...evaluator3:policy-test:2`, PolicyTestSuiteV2 with candidate PolicyDocumentV2)
+
+Output prefixes are exact `run3` / `evidence3` / `finding3`. Fingerprint remains
+`finding-key2`. Mixed output-major patterns are refused. Historical baseline/comparison
+schemaMajor 1 is not admitted by empty-array coercion.
+
+v1 identity-bearing majors that moved (verified against source schema consts, not description-only):
+baseline 1→2, comparison 1→2, graph-query 1→2→3, repair-plan 1→2, policy-test suite 1→2,
+envelope 2→3, invocation 1→3, command-inventory 1→3. Retention pins are `run3|closure2`.
+
+SARIF 2.1.0 adapter: `sarif-adapter.schema.json` (`...evaluator3:sarif-adapter:2`).
+FindingSurface is the intermediate host row, not a SARIF result.
+DetectorManifestV1: `detector-manifest.schema.json` (`...evaluator3:detector-manifest:1`) is the unsigned listing at reserved closure.tree path `.opensip/detector-compatibility.json`. It is not `closure.manifestDigest` (that digest is the DR-103 component-manifest body). Parse exact retained listing bytes against the tree Blob sha256/bytes; do not rehash a reserialized body. Path absent is no declaration; empty compatibleClosures is a complete listing; a present malformed/unrecognized listing refuses. Joined only under host current-trust trio origin; caller maps are refused.
+
+Standing: isolated successor. Not frozen/live/product. Root retains workflow1 checks.

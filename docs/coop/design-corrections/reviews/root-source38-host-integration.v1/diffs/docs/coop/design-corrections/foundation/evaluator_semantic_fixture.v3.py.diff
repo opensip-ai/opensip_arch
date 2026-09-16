@@ -1,0 +1,74 @@
+--- before/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
++++ after/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
+@@ -276,11 +276,19 @@
+     partition_b_target="u1",
+     complete_required_inventory=True,
+     imports_occupancy="mapped-file",
++    budget_limit=1000000,
++    references_stage_terminals=None,
+ ):
+     """TypeScript native-admitted graph: declares and/or references@resolved-binding, or package.
+ 
+     Coverage is minted through N.admit_coverage_result_v3. Sidecars are canonical-record blobs
+     named from proof evaluationInputRefs (registered ProofInputRef domains).
++
++    `budget_limit` is the committed Plan/config work budget (composition section 3 preflight).
++    `references_stage_terminals` maps "foo"/"bar" to the StageTerminal an UNRESOLVED
++    references@resolved-binding partition retained (e.g. "budget-exhausted"): the entry keeps the
++    producer's declared `resolution-incomplete` and records an attempted stage that ended there
++    (RC-2 `partial`). Both are admitted by the actual native owner and Run closure, never asserted.
+     """
+     H = helpers()
+     N = H.N
+@@ -348,7 +356,7 @@
+     cap_digest = blob(cap_bytes)
+     cap_id = hashlib.sha256(b"opensip.capability-manifest.v1\0" + cap_bytes).hexdigest()
+     config = blob({"analysis": {"profileId": "default", "capabilities": ["references"],
+-                                "budget": {"unit": "work-units", "limit": 1000000}},
++                                "budget": {"unit": "work-units", "limit": budget_limit}},
+                    "components": {}, "discovery": {}, "policy": {}, "evidence": {}})
+     scope_desc = {"schemaVersion": 2, "workspaceRoots": ["."], "pathPrefixes": ["."], "excludedPathPrefixes": []}
+     scope = blob(scope_desc)
+@@ -440,7 +448,7 @@
+         semanticClosures=sorted([evaluator, provider, detector]), analysisSpecDigest=blob(spec_record),
+         resolvedConfigDigest=config, nativeContextDigests=[native["contextDigest"]],
+         importIds=[], policyDigest=policy_digest, waiverDigest=blob(waivers), scopeDigest=scope,
+-        budget={"unit": "work-units", "limit": 1000000}, semanticGrantDigest=grant))
++        budget={"unit": "work-units", "limit": budget_limit}, semanticGrantDigest=grant))
+     plan_id = add("plan", **plan_fields)
+     plan = objects[plan_id][1]
+ 
+@@ -520,9 +528,14 @@
+     coverage_payloads = {}
+     drop_package = set(drop_package_paths)
+ 
+-    def mint_coverage(scope_id, resolved, unresolved=()):
++    def mint_coverage(scope_id, resolved, unresolved=(), stage_terminal=None):
+         desc = objects[scope_id][1]
+         payload = H.coverage_result(desc, desc["sourceUniverse"], resolved, blobs, paths, list(unresolved))
++        if stage_terminal is not None and not resolved:
++            rc = payload["entry"]["resolutionCompleteness"]
++            payload["entry"]["resolutionCompleteness"] = N.completeness_from_stage(
++                desc["relation"], desc["resolution"], desc["subjects"], list(unresolved),
++                stage_terminal, True, rc["examinedExhaustive"])
+         admitted = N.admit_coverage_result_v3(payload, desc, list(unresolved), coverage_schema)
+         if admitted["result"] != "ADMIT":
+             raise C.AdmissionError("SEMANTIC_FIXTURE_COVERAGE:" + str(admitted.get("refusals")) + str(admitted.get("faults")))
+@@ -573,14 +586,15 @@
+                       anchors=[anchor], confidenceMillionths=1000000)
+             facts_foo.append(fid)
+             ref_payloads.append((fid, payload, u1))
+-        cid_foo, cov_foo = mint_coverage(s_foo, references_resolved)
++        stage_terminals = references_stage_terminals or {}
++        cid_foo, cov_foo = mint_coverage(s_foo, references_resolved, stage_terminal=stage_terminals.get("foo"))
+         mint_view(s_foo, facts_foo, cid_foo)
+         if second_partition:
+             bar_tgt = u2 if partition_b_target == "u2" and u2 is not None else u1
+             s_bar = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=bar_tgt,
+                         relation="references", resolution="resolved-binding", enumeratorClosure=provider,
+                         subjects=E.cset([bar]))
+-            cid_bar, cov_bar = mint_coverage(s_bar, references_resolved)
++            cid_bar, cov_bar = mint_coverage(s_bar, references_resolved, stage_terminal=stage_terminals.get("bar"))
+             mint_view(s_bar, [], cid_bar)
+         else:
+             cov_bar = cov_foo

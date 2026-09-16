@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-eight-output-review-01",
+  "reviewer": "actual Claude independent review (claude-opus-5)",
+  "subject": "/tmp/opensip-implementation/m1-eight-output-subject-01",
+  "subjectManifest": {
+    "path": "/tmp/opensip-implementation/m1-eight-output-subject-01.json",
+    "sha256": "15e9f02b414f541fd5c543c51f44625b53c5f22f29d76bcf573d4745cbd87629",
+    "files": 37
+  },
+  "verdict": "CHANGES-REQUIRED",
+  "scope": "Bounded generator-algorithm trial of eight outputs; not architecture, product integration, generator/dependency selection, hermetic lane, owner decisions or M1 completion",
+  "notApproved": [
+    "M1 completion",
+    "production generator, registry, hermetic tool or dependency selection",
+    "protocol, control or report owner decisions (generation-owner-audit-01 remains open guidance)",
+    "current protocol root selection or supersession exclusions",
+    "semantic validation or native protocol conformance"
+  ],
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "contains-only allOf branches produce uninhabited Rust carriers for the selected TypeScript provider handshake",
+      "evidence": [
+        "rust-projection.json keeps allOf[{contains:{const}}] x4 on Handshake1TypeScriptCapabilitiesV2 and Handshake1RustCapabilitiesV3",
+        "output-b protocol.rs:1883 `pub enum Handshake1TypeScriptCapabilitiesV2 {}` and protocol.rs:1663 `pub enum Handshake1RustCapabilitiesV3 {}`",
+        "Transitively uninhabited targets (required fields): Handshake1TypeScriptHelloV2, Handshake1TypeScriptHelloAckV2, Handshake1HelloV3, Handshake1HelloAckV3, plus the two capability arrays: 6 of 589 targets",
+        "None of the 6 refs is among the 110 refs with harvested witnesses, so the 64,091-row roundtrip could not detect this"
+      ],
+      "smallCases": [
+        {"id": "caps-utf8-sorted", "ref": "opensip.product.provider-handshake.1#/$defs/TypeScriptCapabilitiesV2", "raw": "[\"coverage-v3\",\"fact-identity-fact2\",\"plan-identity-plan2\",\"source-identity-snapshot2\"]", "tsRuntimeOriginalSchema": "shape-valid", "rustCarrier": "refused: expected value at line 1 column 1"},
+        {"id": "ts-hello-v2-minimal", "ref": "opensip.product.provider-handshake.1#/$defs/TypeScriptHelloV2", "tsRuntimeOriginalSchema": "shape-valid", "rustCarrier": "refused: expected value at line 1 column 565"}
+      ],
+      "contractViolated": "An inert carrier must represent every admitted value; these carriers represent no value.",
+      "requiredCorrection": "Treat contains like pattern/if/then/else in the Rust inert projection (handwritten admission enforces it), add a generator refusal for any empty enum or uninhabited selected target, and add at least one runtime-shape-valid synthetic witness roundtrip for every selected entrypoint lacking harvested witnesses.",
+      "reviewerExperiment": "Removing the 8 contains-only allOf branches from a work copy of rust-projection.json and regenerating yields 0 empty enums (work/experiment-no-contains)."
+    },
+    {
+      "id": "RF-2",
+      "title": "Integer carriers are narrower than the declared schema range and the exact codec range",
+      "evidence": [
+        "Identity3FindingParameters parameters value: oneOf integer minimum -9223372036854775808 maximum 18446744073709551615 -> identity.rs:2947 `Integer(i64)`",
+        "Sarif2Result message.properties additionalProperties type [string, integer, boolean], unbounded; exact codec admits [-2^63, 2^64-1] -> output.rs:9564 `Integer(i64)`",
+        "All other projected integer schema nodes are bounded, or const/enum values within [0, 9663676416]"
+      ],
+      "smallCases": [
+        {"id": "fp-i64-max-plus-1", "raw": "{\"schemaVersion\":2,\"messageCode\":\"m\",\"parameters\":{\"a\":9223372036854775808}}", "tsRuntimeOriginalSchema": "shape-valid", "rustCarrier": "refused: data did not match any variant of untagged enum"},
+        {"id": "fp-u64-max", "raw": "{\"schemaVersion\":2,\"messageCode\":\"m\",\"parameters\":{\"a\":18446744073709551615}}", "tsRuntimeOriginalSchema": "shape-valid", "rustCarrier": "refused"}
+      ],
+      "contractViolated": "Exact integer carriers must carry every integer the admission codec and schema accept; refusal is not silent loss, but digest-bearing admitted records cannot be carried.",
+      "requiredCorrection": "Map ranges that fit neither i64 nor u64, and unbounded integers, to an exact carrier that covers [-2^63, 2^64-1] (for example a checked i128 newtype or explicit signed/unsigned representation). Add boundary witnesses at -2^63, 2^63-1, 2^63, 2^64-1 and codec refusal at 2^64."
+    },
+    {
+      "id": "RF-3",
+      "title": "TypeScript outputs do not use the explicit stable name table",
+      "evidence": [
+        "json-schema-to-typescript derives names from schema title and appends numeric deduplication suffixes",
+        "report.ts lacks 28 of 589 table names: 24 namespace roots (e.g. Dispatch1Root, FactBatch3Root, Metadata1Root, Policy1Root absent; Envelope3Root, Envelope4Root and Occupancy1Root survive only as aliases of title names) plus Identity3RegenerationKey, Invocation3TestExecutionParams, Invocation3TestExecutionResult, Imported1TestPayloadV1; it exports title names such as CommandInventorySchemaMajor4TypedHelpVersionParity",
+        "provider protocol.ts does not export selected entrypoint FactBatch3Root; TrialSelectedProviderPayload references FactBatchV3NegotiatedFactBatchPayloadWhenCapabilityTokenTargetAttributionV2IsPresent and Handshake1TypeScriptProtocolLimitsV11, while an identical Handshake1TypeScriptProtocolLimitsV1 is exported separately",
+        "numeric-dedupe names: 16 in report.ts, 5 in protocol.ts (e.g. Handshake1TypeScriptCapabilitiesV21/V22/V23, indistinguishable from version numbers)",
+        "work/ts-type-probe: @ts-expect-error on P.FactBatch3Root and R.FactBatch3Root compiles; title name and ...V11 resolve"
+      ],
+      "contractViolated": "README: every target has a stable name from the explicit schemaId-to-namespace mapping; true for Rust, false for both TS outputs. Title or description edits and reference-site shapes would rename consumer-visible TS types.",
+      "requiredCorrection": "Control TS naming explicitly (drop titles from the TS projection and emit or alias each selected target under its table name), and fail generation unless every selected target name is exported and no other exported names exist except declared helpers (Json, root unions).",
+      "reviewerExperiment": "Stripping definition titles restores 23 names but leaves 5 missing and 17 numeric-dedupe names (work/experiment-no-title); title removal alone is insufficient."
+    }
+  ],
+  "advisories": [
+    {"id": "ADV-1", "text": "Rust projection turns not:{pattern} into not:{} on Common1/Common3/Identity3/Occupancy1 LogicalPath, which is unsatisfiable as schema. typify 0.8.0 ignores not (path-ok and path-dotdot both accepted by Rust; TS runtime rejects a/../b), so there is no current loss, but it would be uninhabited under a tool that honours not. Drop a not whose body becomes empty and guard it."},
+    {"id": "ADV-2", "text": "The Rust carrier collapses duplicate map keys last-wins (fp-duplicate-map-key accepted as {a:2}); duplicate struct fields refuse. The TS exact codec refuses both. Rust carriers must only receive bytes after exact admission. Roundtrip evidence is serde_json Value equality without preserve_order or arbitrary_precision: key-order-insensitive, not byte-level."},
+    {"id": "ADV-3", "text": "Over-acceptance by inert Rust carriers is confirmed and expected: pattern, propertyNames pattern, if/then, x-opensip-order and not are not enforced, and FieldPresence<Option<T>> on non-nullable optional members admits a present null (preserved on output). The TS runtime on original schemas rejects all of these. Typed carriers must remain post-admission only."},
+    {"id": "ADV-4", "text": "The requested command `rustfmt --edition2024` fails on rustfmt 1.9.0 (Unrecognized option: 'edition2024'); `rustfmt --edition 2024` reproduces output-b. The drift recipe must record the exact command and formatter version."},
+    {"id": "ADV-5", "text": "This environment sets CARGO_TARGET_DIR to the review root. A compile-rust copy with identical package and bin names but a different #[path] output reused a stale binary (the FieldPresence mutant falsely passed in 1.20s); an isolated target dir reproduced the expected failure. Integration drift and mutation checks must isolate target dirs or package identities."},
+    {"id": "ADV-6", "text": "prepare.py schema_map traverses a fixed keyword set and silently passes others. The input inventory has no untraversed applicators, but the adapter should refuse keywords outside an allowlist matching the runtime known/annotation sets (schema.ts:16-17)."},
+    {"id": "ADV-7", "text": "generate-ts.cjs, compile-rust/src/main.rs and carrier_probe input selection hardcode absolute arch, node_modules and runtime-subject paths. This is consistent with the README's no-hermetic claim, but it is not integration-ready."},
+    {"id": "ADV-8", "text": "Provider subset: 13 entrypoints; no Rust, HelloV3, HelloAckV3 or ProtocolLimitsV3 declarations are emitted (only descriptive mentions). The closure pulls Native2* and Occupancy1 types. Current-root selection and supersession exclusions remain open and are not approved here."},
+    {"id": "ADV-9", "text": "Report runtime integration did not change the accepted algorithm. The runtime block equals subject02 exact-json.ts + patterns.ts + schema.ts minus import lines. generate-ts verifies the metadata-v2 sources.json pins, and the 28 embedded schema $ids equal owners.json. Report owner selection and minimal closure remain open."}
+  ],
+  "executedChecks": [
+    {"check": "Frozen pins before", "result": "subject manifest sha matches; 37/37 files match; no extra files; ts-runtime-subject-02 37/37; 44 external input pins recorded (work/pins-before.json)"},
+    {"check": "Copy before execute", "result": "subject copied to work/subject; source-map.json and flattened-trial.json copied to work/m1-full-generator-trial-01"},
+    {"check": "prepare.py regeneration (script unmodified; copied beside work/m1-full-generator-trial-01 so BASE resolves to copied inputs)", "result": "targets.json, named-schemas.json, rust-projection.json, ts-projection.json byte-identical"},
+    {"check": "cargo run --locked --offline compile-rust opensip-named-contracts-trial", "result": "12 shape-valid metadata carrier roundtrips, exit 0, no warnings"},
+    {"check": "cargo run --locked --offline compile-rust carrier_probe", "result": "rows=64091 failures=0; carrier-differential.json byte-identical to frozen"},
+    {"check": "tsc -p provider.tsconfig.json and report.tsconfig.json (TypeScript from m1-generator-trial-01)", "result": "both exit 0, empty output"},
+    {"check": "generator + generate-ts.cjs + rustfmt --edition 2024 into fresh output", "result": "all 8 files byte-identical to output-b and drift.json hashes (first attempt with --edition2024 failed; see ADV-4)"},
+    {"check": "FieldPresence mutation control (adapter call disabled, isolated CARGO_TARGET_DIR)", "result": "metadata roundtrip panics on parser-refusal-no-invented-detail with errors:[] dropped, matching carrier-roundtrip-01.log"},
+    {"check": "Static scans of output-b Rust", "result": "no struct without deny_unknown_fields (no silent unknown-member drop); no f64/f32, BTreeSet/HashSet, chrono/uuid/std::net; no defaults module; 287 FieldPresence fields; 98 required-nullable fields keep deserialize_with Option::deserialize; 2 empty enums (RF-1)"},
+    {"check": "Report runtime admission on original schemas (compiled report.js)", "result": "43/43 metadata fixtures agree with subject02 schema-differential-02 expected shape; controls: pattern, propertyNames, if/then, x-opensip-order, not, float lexeme, integer range and duplicate keys all rejected or refused as expected"},
+    {"check": "Rust control matrix (raw bytes -> carrier -> bytes)", "result": "work/logs/control-matrix.json: over-acceptance confirmed (ADV-3); errors:[] and missing errors both preserved; present null preserved; i64 boundary ok; >i64 refused (RF-2); capabilities/HelloV2 refused (RF-1)"},
+    {"check": "TS type-level probe", "result": "number not assignable to bigint literal limits; stable-name absences confirmed (RF-3)"},
+    {"check": "Correction experiments", "result": "no-contains projection -> 0 empty enums; no-title projection -> 5 missing names and 17 dedupe names remain"},
+    {"check": "Frozen pins after", "result": "subject manifest sha 15e9f02b...87629 and 37/37 files unchanged, no extras; runtime02 37/37; 44 external pins unchanged"}
+  ],
+  "limitations": [
+    "No witness synthesis for the 479 refs lacking harvested witnesses beyond the listed controls; the uninhabited scan is regex-based over generated source and may miss other unrepresentable shapes.",
+    "Carrier-cases selection (Python shape-valid rows) was not re-validated; flattened-trial.json fidelity to original schema bytes was taken as the retained accepted trial input.",
+    "TS runtime algorithm (closed R1/R2) not re-reviewed; only its verbatim integration was checked.",
+    "generation-owner-audit-01 read only as open guidance; no owner decisions evaluated or approved.",
+    "Toolchain: rustc/cargo 1.95.0, rustfmt 1.9.0, node v24.16.0, python 3.14.6 from the ambient environment; no hermetic or no-network claim.",
+    "No semantic validation, native protocol conformance or M1 completion is inferred."
+  ],
+  "reviewWork": "/tmp/opensip-implementation/m1-eight-output-review-01/work"
+}

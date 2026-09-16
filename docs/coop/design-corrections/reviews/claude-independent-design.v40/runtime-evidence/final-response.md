@@ -1,0 +1,48 @@
+**Verdict: CHANGES_REQUIRED.** Source40 has one SHOULD issue (S40-01), no MUST issue and no blocker. The manifest verified before I set `verifiedManifest=true`: it hashes to `3be45284…`, and all 12,911 files and 737,700,535 bytes check out, as does the archive `e9980bc4…`. Parent39 is unchanged, and the delta against it is 22 changed, 2 added, 0 removed. I wrote only `review.json` and `review.md` in the v40 runtime; the build reported no gaps.
+
+**S40-01: nothing published says which returned views belong to which cell row.**
+- **Where:** execution-inputs contract §1/§3/§5 and schema line 621. The schema says `viewDigests` must equal the views "attributed to this cell/program/U/producer", but nothing defines "attributed". The reference implementation (`execution_inputs_model.v1.py`) and the fixture decide it with a rule written nowhere in the text: the view's relation must be one of the cell capability's matrix relations.
+- **Demonstration:** I added two views from the right producer and universe to the maintained owner graph, one with an inventory relation and one with a `declares` relation.
+  - The reference attributes the `declares` view to no row, omits it, and admits the result.
+  - Following the schema sentence literally is refused with `EXECUTION_INPUTS_VIEW_TOTALITY`.
+  - Recording that view as a stage return with no row, as §1 describes, is also admitted, and its digest is different.
+- **Consequence:** the same stage returns have two admissible `ExecutionInputsV1` encodings, so two conforming hosts get different RunIds. The contract already fixed this kind of problem once, for `targetUniverse` (lines 152-158). Ordinary plans hit it, because a program gets one cell per requested capability, all on the same provider and universe. No maintained control has more than one capability cell per program, which is why every suite still passes.
+- **History:** the owner files are unchanged 39→40, so the gap predates source40. My own source39 review read that contract in full and missed it.
+- **Required change:** publish the attribution rule, covering the relation criterion, views shared by several rows, returned views that match no cell, and capabilities with no matrix relations. Builder and admission should then enforce that one rule, with a control that has two capability cells on one program.
+
+**ADV40-01 (editorial):** the added `implementation-normative-inputs.v8.json` points at native-evidence bytes that are in neither frozen subject, and its standing text is the same as the current v9.
+
+**Your other questions:**
+- **S39-01 and S39-02:** closed. Each was tested against the old bytes and the new ones in separate processes, and a view from a foreign universe no longer creates a hit.
+- **ADV39-01:** closed; every statement in the new paragraph checks out.
+- **ADV38-01/02/03:** stay closed.
+- **Unit kinds (U-4b):** a reminted kind, a Rust unit carrying `js-program`, and a TS/JS unit carrying `cargo-package` are each refused when a full Run closes; all three closed on source39 bytes.
+- **U-1 allowJs:** consistent with §1.2, and a jsconfig `allowJs:false` project's membershipDigest now differs 39→40.
+- **Nested Cargo:** consistent with the new text, and its checker controls ran; source39 bytes raised `StopIteration` on two layouts.
+- **Run-termination clarifications:** confirmed against the unchanged model. I also recomputed the commit-inventory digest over a closed Run.
+- **Composition §7:** no gap.
+- **policy-derivation3:** consistent. It is a derived projection keyed by Plan and proof, not a Run back-reference.
+- **`policy show` accepting an unregistered token:** an observation, not a violation.
+- **Planning population:** measured at 322, the same as source39. My v39 review wrongly said it was "preserved" from source38 (320); the review records that correction.
+- **Trusted-host limit (observation):** a remint of both mode and kind that stays consistent still closes. I measured this only on the syntax fixture, which has no TS/JS program cell.
+
+**What ran:**
+- All six pinned groups passed, as did all 17 evaluator3 children, and the planning and inventory checks.
+- My outputs match the codex final-reference v40 run except for path-only fields in two children. I did not use root's preliminary v1 reference.
+- Package v17 verified as author evidence, content-equal to root's verification and rebuild. The 4 normalization-map refusals are recorded exactly, and its limitations are carried as-is.
+- The six source39 probes I ported pass on source40.
+
+**Deliverable checks:**
+- There are 107 disposition rows, each with its own text, and both flags are false on every row. 71 rows rest on new source40 work and 36 on unchanged bytes plus my source39 assessment.
+- TCB-SCOPE-01 is one object with 13 dependents. Adjudication belongs to the final application review, which a new, different Claude origin must perform.
+- Retained: 30 residuals and author grades pending, 28 condition-2 obligations, 32 gates and 54 recovery cases not performed. Condition 5 is not met, and the D9 successor stays carried.
+
+**Read coverage:** 11 files fresh-read in full, 9 by range, and all 22 changed files as complete diffs. 40 unchanged files are counted from my source39 reads, not re-read, and the review lists search-only sightings separately.
+
+**Two failed probe attempts, both preserved and not counted:**
+- **Run-termination attempt 1** failed on my probe bug: `commit_inventory` returns a (record, digest) pair.
+- **View-attribution attempt 1** refused only because my harness hadn't recomputed store pointers. My attempt to copy its probe receipt aside was denied, so attempt 2 overwrote that file. Attempt 1's full rows survive in `receipts/runs/viewdigests-v40c.stdout` and its run receipt.
+
+Files are in `/tmp/opensip-design-corrections/claude-independent-design.v40`:
+- review.json
+- review.md

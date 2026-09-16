@@ -1,0 +1,19 @@
+--- docs/coop/design-corrections/foundation/check-evaluator-faults.v3.py
++++ docs/coop/design-corrections/foundation/check-evaluator-faults.v3.py
+@@ -38,7 +38,15 @@
+     bad=obs('selection-limit-exceeded','host-pre-plan');bad['limit']['observed']=64
+     refuses('within-bound-is-not-fault',lambda:M.route(bad,raw),'EVALUATOR_FAULT_NOT_OVER_LIMIT')
+     o=obs('required-output-pointer-omitted','provider-return');r=M.route(o,raw);e=M.failure_envelope(o,raw,'req1_'+'2'*32)
+-    for name,mutate in [('exit',lambda x:x.update(exitCode=2)),('public-detail',lambda x:x['errors'][0].update(code='evidence.missing')),('termination-origin',lambda x:x['termination'].update(errorCode='HOST.IO_FAILURE'))]:
++    # R1/R2 closes faultCause/errorCode pairs at schema admission. Preserve that refusal,
++    # then use a structurally legal but wrong pair to reach the distinct owner-parity check.
++    bad=copy.deepcopy(e);bad['termination']['errorCode']='HOST.IO_FAILURE'
++    try:M.validate_envelope(bad,r)
++    except M.C.ValidationError as exc:
++        assert exc.validator == 'anyOf' and list(exc.absolute_path) == ['termination']
++        rows.append({'case':'envelope-illegal-fault-pair','result':'REFUSE','reason':'StepTermination faultCause/errorCode schema pair'})
++    else:raise AssertionError('illegal fault pair admitted')
++    for name,mutate in [('exit',lambda x:x.update(exitCode=2)),('public-detail',lambda x:x['errors'][0].update(code='evidence.missing')),('termination-origin',lambda x:x['termination'].update(errorCode='HOST.IO_FAILURE',faultCause='host-io'))]:
+         bad=copy.deepcopy(e);mutate(bad)
+         refuses('envelope-'+name,lambda:M.validate_envelope(bad,r),'EVALUATOR_FAULT_ENVELOPE_PARITY')
+     # Existing owner carriers agree on their public routes; diagnosis remains

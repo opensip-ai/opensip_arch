@@ -1,0 +1,22 @@
+--- support/root-application45-review-shape-correction.v1/before/assemble-records.successor.v1.py
++++ support/root-application45-review-shape-correction.v1/assemble-records.successor.v1.py
+@@ -81,4 +81,10 @@
+ assert design_ref['sha256'] == bound['independentDesignReview']['sha256']
+ design = load(design_ref['path'])
++design_original = design
++design = dict(design_original)
++disposition_pointers = {}
++for collection in ('arDispositions', 'fwDispositions', 'inheritedResidualDispositions',
++                   'scopedReviewOwnerDispositions', 'evaluationResidualDispositions'):
++    design[collection], disposition_pointers[collection] = E.disposition_rows(design_original, collection)
+ assert design.get('verdict', design.get('overallVerdict')) == 'ACCEPT'
+ E.require_findings_none(design, 'independent design')
+@@ -193,4 +199,8 @@
+ 
+ def evidence(selector):
++    # Resolve ids to actual original array indices when the reviewer used arrays.
++    parts = selector.split('/')
++    if len(parts) == 3 and parts[1] in disposition_pointers:
++        selector = disposition_pointers[parts[1]][parts[2]]
+     return dict(design_ref, selector=selector)
+ 

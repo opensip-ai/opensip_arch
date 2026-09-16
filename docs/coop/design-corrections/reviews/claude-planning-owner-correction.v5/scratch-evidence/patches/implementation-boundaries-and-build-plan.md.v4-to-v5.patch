@@ -1,0 +1,55 @@
+--- v4/work/docs/v2/architecture/implementation-boundaries-and-build-plan.md
++++ v5/work/docs/v2/architecture/implementation-boundaries-and-build-plan.md
+@@ -299,19 +299,36 @@
+ re-selection, the unchanged store for a same-store operation. A numeric
+ generation pair never identifies a node, because a retained branch may lawfully
+ present the same pair as a fresh target; no global generation uniqueness is
+-asserted beyond the owner's own rules. Markers are validated before any
+-dereference, and `intentDigest` is evidence checked *on* the selected node rather
+-than a search key, since the record's own schema says it may repeat. One
+-admission law governs both publication and recovery: six members, paired nulls,
++asserted beyond the owner's own rules. `intentDigest` is evidence checked *on* the
++selected node rather than a search key, since the record's own schema says it may
++repeat.
++
++Reading a store root yields exactly one of three outcomes — **readable**,
++**absent** (no root present) or **unreadable** (a root observed whose marker is
++malformed) — and an unreadable marker is never read as absence. The requirement is
++**phase-bound**: the store a transition comes from always exists, so its marker is
++always required, but the *selected* store's marker is required only where the
++owner settles the transition as committed. At `LEASED` and `PREPARING` a forward
++target has not been materialized, and after an abort an unpublished target may
++already have been reclaimed by the GC census, so an absent target there is expected
++and must never be turned into corruption.
++
++One admission law governs both publication and recovery: shape admitted by the
++private record's **own closed schema**, paired nulls,
+ no self-reference, a predecessor that already exists at its exact triple, no
+-disagreeing duplicate primary key, and one acyclic lineage root afterwards. A
++disagreeing duplicate primary key, and an acyclic chain reaching exactly one
++lineage root — scoped to that chain, because an authorized restore or adoption
++starts its own lineage and several may coexist. An exact byte-identical match at
++the target key is idempotent but **not** a short circuit: it is validated the same
++way and simply writes nothing. A
+ refusal writes nothing.
+ 
+ Recovery applies that **same** case and that same admission law, and only after
+ the owner's own `recover_transition_journal` decision settles the transition as
+ committed — a core operation at `PREPARED` still aborts, a store operation still
+ follows the S9 footprint, and where the owner refuses, reports the project busy
+-or quarantines, the companion makes **no decision and inspects nothing**. No
++or quarantines, the companion makes **no decision, inspects nothing and reads no
++marker**. No
+ atomicity is claimed between the journal record and a node. Only a
+ forward selection created a node, so only a forward selection is reconstructible,
+ from the journal's own from/to members plus the two store-root markers; because
+@@ -323,7 +340,8 @@
+ unrelated act whose origin the current intent does not carry, so a missing one
+ cannot be repaired from it and is a custody quarantine. Before the owner settles a
+ transition, pre-existing ancestry is expected and untouched — including a
+-retained branch at the same numeric generation; what must not exist
++retained branch at the same numeric generation — and an absent target is expected
++as above. Where a target *is* observable, what must not exist
+ is a *new* node for that transition **at its own full triple**.
+ 
+ A rollback that re-selects the **same retained physical old store** keeps that

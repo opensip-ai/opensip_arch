@@ -1,0 +1,9 @@
+# Retained clone body identity — proposed runtime v5
+
+This proposed unit composes frozen body trial15 on the current live13inventory/17contract base. The materialization map owns exactly the new evaluator body owner and closed metadata, public export, host regression/fixture, identity local snapshot/schema helpers and updated local source-policy pin. No implementation is installed by this draft.
+
+The body result is local diagnostic evidence: interpreter-owned normalization map, language/dialect projection, framed body identity and L0 source span or L1-L3 token custody. It does not prove normalizer quality, full anchor/range or capability/coverage/Plan/Run/replay admission. The generic identity body cut remains Unsupported. Reference body checks occur during the graph walk before later native Plan gates; the corrected actual Grok advisory is preserved separately from its original report.
+
+Only one local identity source pin changes. External dependencies, features, archives and unsafe TCB remain those already accepted in runtimev3/v4. No new package edge or schema source. The integer Rust edition bug found by the initial reference comparison is fixed in the frozen candidate; failed-attempt evidence is preserved.965 body cases and383Plan/304retention/161source results match;100workspace tests and strict Clippy pass. These are bounded development checks, not M2 or release qualification.
+
+Actual Grok source review completed with no required findings; its exact completed report is pinned here. Source-only host/provider builds and six current-base checks passed. Formal unit review, root assent and private/live activation remain required. The preflight receipt retains a stale v4 label; its commands and candidate paths are v5. The provider package-edge check uses inventory12, whose provider package/edge rows are unchanged in inventory15; the composed host check uses inventory15.

@@ -1,0 +1,10 @@
+const fs=require('node:fs');const W=process.env.W;
+const ts=require(W+'/subject/tools/contracts/node_modules/typescript');
+const raw=fs.readFileSync('/tmp/opensip-implementation/m1-control-generation-subject-01/apps/report/src/generated/report.ts','utf8');
+const r=ts.transpileModule(raw,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS},reportDiagnostics:true});
+if(r.diagnostics.some(d=>d.category===1))throw new Error('diag');fs.writeFileSync('report.cjs',r.outputText);
+const p=fs.readFileSync('/tmp/opensip-implementation/m1-control-generation-subject-01/providers/typescript/src/generated/protocol.ts','utf8');
+const q=ts.transpileModule(p,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS},reportDiagnostics:true});fs.writeFileSync('protocol.cjs',q.outputText);
+console.log('built', require('node:crypto').createHash('sha256').update(fs.readFileSync('report.cjs')).digest('hex'), require('node:crypto').createHash('sha256').update(fs.readFileSync('/tmp/opensip-implementation/m1-control-generation-validation-01/report.cjs')).digest('hex'));
+const R=require('./report.cjs');console.log(Object.keys(R).join(','));
+const Pm=require('./protocol.cjs');console.log('provider exports',Object.keys(Pm).join(','));

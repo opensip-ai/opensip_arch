@@ -1,0 +1,72 @@
+--- a39/docs/v2/contracts/product-v1/native-evidence.md
++++ b40/docs/v2/contracts/product-v1/native-evidence.md
+@@ -653,7 +653,10 @@
+   `Cargo.toml` yields a `rust` unit; a directory holding `tsconfig.json`,
+   `jsconfig.json` or `package.json` yields exactly one `tsjs` unit whose mode is
+   chosen by precedence `tsconfig.json` (→ `ts-tsconfig`/`js-allowjs`) >
+-  `jsconfig.json` (→ `js-allowjs`) > `package.json` (→ `js-synthesized`). The
++  `jsconfig.json` (→ `ts-tsconfig`/`js-allowjs`) > `package.json` (→ `js-synthesized`).
++  Both configuration markers use the effective `allowJs` value from §1.2: false selects
++  `ts-tsconfig`, true selects `js-allowjs`; an omitted value defaults to false for a
++  `tsconfig.json` entry and true for a `jsconfig.json` entry. The
+   precedence selects the mode **within** `tsjs`; it never removes the co-located
+   `rust` unit. A root with both markers has two units with the same `rootPath`
+   (`units-colocated-cargo-and-package-json-root-keeps-both-languages`).
+@@ -739,11 +742,23 @@
+      (`unitKind` `cargo-workspace` when that manifest declares a workspace,
+      otherwise `cargo-package`; `recognizerId` equal to `unitKind`; `markerPath`
+      that `Cargo.toml`), except that a `Cargo.toml` directory strictly below the
+-     root of a `cargo-workspace` unit is folded into the DEEPEST such workspace (the
+-     longest enclosing `rootPath`) and listed in its `memberPackageRoots`. Each
++     root of a `cargo-workspace` unit is folded into the DEEPEST such workspace unit
++     (the longest enclosing `rootPath`) and listed in its `memberPackageRoots`.
++     Directories left after item 1 and explicit selection (U-2) are decided
++     shallowest first, so the fold target is always a surviving unit, never a
++     workspace manifest that was itself folded: a nested workspace manifest below a
++     `cargo-workspace` unit is a member, receives no members, and every `Cargo.toml`
++     directory below it folds into that same enclosing unit. The shallowest
++     enclosing workspace manifest of a folded directory is always a unit, so a fold
++     target always exists
++     (`units-nested-cargo-workspace-folds-into-the-deepest-surviving-workspace-unit`). Each
+      remaining directory holding a TS/JS marker is exactly one `tsjs` unit whose
+      marker is the first present of `tsconfig.json`, `jsconfig.json`,
+-     `package.json`, whose mode is U-1's, and whose `recognizerId` is
++     `package.json`, whose mode is U-1's, whose `unitKind` is `ts-program`
++     exactly when that mode is `ts-tsconfig` and `js-program` when it is `js-allowjs` or
++     `js-synthesized` (so a `tsconfig.json` marker with effective `allowJs=true` is a
++     `js-program` unit; the kind follows the mode, never the marker file name), and whose
++     `recognizerId` is
+      `typescript-config` for a `tsconfig.json`/`jsconfig.json` marker and
+      `node-package` for `package.json`. `recognizerVersion` is `1`. `provenance` is
+      `EXPLICIT` when explicit roots were supplied, otherwise `DISCOVERED`; the U-9
+@@ -778,8 +793,10 @@
+      (U-9) never matches (d)/(e) and claims no row.
+   5. *Enforcement.* Run closure re-derives this from the retained record at every
+      enumeration admission, not only when a derivation witness is supplied:
+-     out-of-order, duplicated or mis-numbered units or rows and mismatched
+-     projections refuse `ENUMERATION_MEMBERSHIP_ORDER`, and a row whose family,
++     out-of-order, duplicated or mis-numbered units or rows, mismatched
++     projections, a `tsjs` unit whose `unitKind` is not the projection of its mode in 2
++     above, and a `ts-program`/`js-program` kind on a unit of another family refuse
++     `ENUMERATION_MEMBERSHIP_ORDER`, and a row whose family,
+      ordinal, membership or reason differs from (b)-(e) over the retained units
+      refuses `ENUMERATION_MEMBERSHIP_ROW_DERIVATION` (internal keys; no public
+      detail code). An `outside-project-boundary` row is judged on its family and
+@@ -3095,6 +3112,17 @@
+ which every `coverage2` minted against it is identified (§4.1a), so editing the annotation is a schema-document
+ successor with its own re-registration, not a text correction.
+ 
++**Prerelease document revision and historical standing.** The unchanged bytes above are the named
++`publicD9Termination` annotation. A separate prerelease revision changed
++`#/$defs/ResolvedNodeModulesLayoutV1/description` in the same schema document. Its registered raw digest
++changed from `3e37c7b7a6a620dcadc0aaed862eed242065ebd0ce9910da16faa25464f8b0b0`
++(source38) to `2d37b810bd9ffed741d74241fc8a11051606862d8af2f152eed16b92bdc66043`
++(source39); the source39 registry and rebuilt reference exports use the latter. This is an explicit
++document revision and re-registration despite the unchanged filename and record majors. The older digest
++is not an alias for the newer bytes and is not registered by the source39 reference profile. Historical
++source38 artifacts remain evidence for their own frozen source and registry; this revision grants no
++cross-profile replay or migration acceptance. The retained historical bytes and identities are not rewritten.
++
+ **Native stage selection, and where it stops.** Within one native stage, the precedence above selects that
+ stage's **native primary deficiency** over the deficiencies its admitted Coverage entries declare and the one a
+ clean typed stage terminal implies (`BudgetExhausted` → `budget-exhausted`, `Unavailable` →

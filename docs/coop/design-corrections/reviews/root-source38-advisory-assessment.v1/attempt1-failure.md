@@ -1,0 +1,1 @@
+Initial root probe exited1 before measuring any candidates: it incorrectly looked for executionPlanId on the Run rather than its evaluation seal. The receipt schema callback was also corrected to the actual canonical.validate(schema,value) signature before retry. Original script retained. No product finding follows from this failed harness attempt.

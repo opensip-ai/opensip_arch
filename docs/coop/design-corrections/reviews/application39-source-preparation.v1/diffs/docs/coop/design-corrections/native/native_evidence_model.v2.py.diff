@@ -1,0 +1,540 @@
+--- docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -55,6 +55,106 @@
+ CAPABILITY_MATRIX = json.loads((HERE / "native-capability-matrix.v2.json").read_text(encoding="utf-8"))
+ AdmissionError = C.AdmissionError
+ 
++# The INTERNAL unit-root representation, READ from the published schema selectors rather than
++# restated here, so the model and the schema document cannot drift apart: InternalUnitRootV1 is
++# the empty string (project root) or a CanonicalRelativeDirV1, and the EXTERNAL sentinel "." is
++# never a retained value of WorkspaceUnitV2.rootPath.
++UNIT_ROOT_SELECTOR = "#/$defs/InternalUnitRootV1"
++MEMBER_ROOT_SELECTOR = "#/$defs/CanonicalRelativeDirV1"
++UNIT_ROOT_FAULT = "NATIVE_UNIT_ROOT_REPRESENTATION"
++_UNIT_ROOT_RE = re.compile(SCHEMAS["$defs"]["InternalUnitRootV1"]["pattern"])
++_MEMBER_ROOT_RE = re.compile(SCHEMAS["$defs"]["CanonicalRelativeDirV1"]["pattern"])
++# EVERY bound of the two selectors is read, not only the pattern, so this early guard and the
++# schema decide the SAME value set for the representation being claimed. A pattern alone does
++# not: neither selector's regex bounds length, so a 4097-character root would satisfy the
++# grammar here and then be refused later by the declarative maxLength.
++_UNIT_ROOT_BOUNDS = (SCHEMAS["$defs"]["InternalUnitRootV1"].get("minLength", 0),
++                     SCHEMAS["$defs"]["InternalUnitRootV1"]["maxLength"])
++_MEMBER_ROOT_BOUNDS = (SCHEMAS["$defs"]["CanonicalRelativeDirV1"].get("minLength", 0),
++                       SCHEMAS["$defs"]["CanonicalRelativeDirV1"]["maxLength"])
++
++
++def _admit_root_scalar(value, regex, bounds, selector, where):
++    """One selector decision for one scalar: type, then declared length bounds, then grammar.
++
++    The three are reported apart because they are different defects: a non-string is a shape
++    error, a length violation is a bound error that the grammar cannot see, and a grammar
++    violation names the offending spelling.
++    """
++    if not isinstance(value, str):
++        raise AdmissionError("%s:%s:%s:%s" % (UNIT_ROOT_FAULT, where, selector,
++                                              "explicit-null" if value is None else "not-a-string"))
++    low, high = bounds
++    if len(value) < low or len(value) > high:
++        raise AdmissionError("%s:%s:%s:length=%d:bounds=%d..%d"
++                             % (UNIT_ROOT_FAULT, where, selector, len(value), low, high))
++    if regex.match(value) is None:
++        raise AdmissionError("%s:%s:%s:%r" % (UNIT_ROOT_FAULT, where, selector, value))
++
++
++def admit_unit_roots(units: list[dict]) -> list[dict]:
++    """Decide the INTERNAL root representation of every unit BEFORE membership, path slicing or
++    enumeration binding reads it. Returns `units` unchanged so a caller may wrap its argument.
++
++    ORDERING IS THE POINT. `_under_unit`, `_rel` and the deepest-unit `len(rootPath)` ranking all
++    consume this field as an exact string prefix, and not one of them fails loudly on a
++    non-internal spelling. With "." every `_under_unit` test is false, so the unit silently owns
++    no file and the run is an empty but schema-valid analysis; `_rel` slices `len(root) + 1`
++    characters and returns corrupted relative paths; `unit_scope_descriptor` spells "." back out
++    through `DD.spell_root`, where it is indistinguishable from a correct project root; and
++    enumeration binding reaches `_unit_for_cell` -> None and reports
++    ENUMERATION_BINDING_PROGRAM_ENTRY, which blames a different field. Deciding the representation
++    first replaces all four outcomes with one refusal that names the offending root.
++
++    BOUNDARY. `units` is HOST-GENERATED at this point: it is `discover_units` output, which already
++    emits the internal form and schema-validates each unit. A violation here is therefore a broken
++    host invariant about this caller's input and is raised as an AdmissionError, exactly like the
++    membership totality invariant at the end of `assign_membership`. It is deliberately NOT a
++    `ReferenceEnvironmentError`, which is reserved for a host that cannot produce a conforming
++    answer at all, and it is deliberately NOT a new public D9 route: the EXTERNAL spelling boundary
++    already exists and is untouched here, because Config2 `discovery.workspaceRoots` and CLI
++    `--workspace-root` are normalized inward by `DD.normalize_explicit_root` and a malformed one is
++    the typed public refusal `native.explicit-root-grammar` (CONFIG.INVALID). The classification is
++    decided by WHICH BOUNDARY the value crossed, never by a spelling, a file name or a message
++    prefix.
++
++    SCOPE. This decides the ROOT REPRESENTATION and nothing else: `rootPath` against
++    InternalUnitRootV1 and each present `memberPackageRoots[]` entry against
++    CanonicalRelativeDirV1, each on all three of type, declared length bounds and segment
++    grammar, so the guard and the schema claim the same value set. It is deliberately NOT
++    full-unit admission -- it does not look at `unitKind`, `markerSha256`, `provenance`,
++    ordinals or any other field, and callers that legitimately carry a partial unit record
++    keep working as long as their root representation is internal.
++    """
++    if not isinstance(units, list):
++        raise AdmissionError(UNIT_ROOT_FAULT + ":units:not-a-list")
++    for i, u in enumerate(units):
++        if not isinstance(u, dict):
++            raise AdmissionError(UNIT_ROOT_FAULT + ":units[%d]:not-an-object" % i)
++        if "rootPath" not in u:
++            raise AdmissionError("%s:units[%d].rootPath:%s:absent"
++                                 % (UNIT_ROOT_FAULT, i, UNIT_ROOT_SELECTOR))
++        _admit_root_scalar(u["rootPath"], _UNIT_ROOT_RE, _UNIT_ROOT_BOUNDS,
++                           UNIT_ROOT_SELECTOR, "units[%d].rootPath" % i)
++        # An ABSENT `memberPackageRoots` is permitted here and an explicitly null one is not.
++        # This guard decides the root REPRESENTATION only; it is not full-unit admission, and
++        # the model's own readers already tolerate the key being absent
++        # (`_cargo_roots_of_units` uses `u.get("memberPackageRoots", [])`), so a minimal caller
++        # that names no member roots is a lawful caller. A key that IS present states a value,
++        # and null is not a list of roots, so it is refused with the list-shape detail rather
++        # than silently treated as "none named".
++        if "memberPackageRoots" not in u:
++            continue
++        members = u["memberPackageRoots"]
++        if not isinstance(members, list):
++            raise AdmissionError("%s:units[%d].memberPackageRoots:%s"
++                                 % (UNIT_ROOT_FAULT, i,
++                                    "explicit-null" if members is None else "not-a-list"))
++        for j, m in enumerate(members):
++            _admit_root_scalar(m, _MEMBER_ROOT_RE, _MEMBER_ROOT_BOUNDS, MEMBER_ROOT_SELECTOR,
++                               "units[%d].memberPackageRoots[%d]" % (i, j))
++    return units
++
+ 
+ # ---------------------------------------------------------------------------
+ # Identity helpers (all product hashing delegated to foundation/canonical.py)
+@@ -69,6 +169,78 @@
+     schema = copy.deepcopy(SCHEMAS)
+     schema["$ref"] = "#/$defs/" + def_name
+     return C.validate(schema, value)
++
++
++class NativeRefusal(AdmissionError):
++    """An admitted-input violation raised before any unit selection (XA-02 / CR-25).
++
++    Used where the caller handed this instrument a record it may not interpret at all - an unknown boundary
++    inventory version, or no inventory on the authoritative lane. It is not one of the typed
++    `discover_units` refusals, which describe a repository; it describes a composition error.
++
++    It subclasses the shared AdmissionError (foundation canonical.AdmissionError) so every existing
++    admitted-input handler catches it. Version 1 of this class subclassed ValueError and therefore sat
++    outside every admitted-input except site in the kit, notably enumeration_model.admit_enumeration,
++    which would have turned a labelled composition refusal into an uncaught exception instead of its
++    ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION fault. It mints no public D9 code."""
++
++
++BOUNDARY_INVENTORY_RECORDS = {1: "AdmittedBoundaryInventoryV1", 2: "AdmittedBoundaryInventoryV2"}
++
++
++def validate_boundary_inventory(boundaries: dict) -> dict:
++    """Explicit version dispatch for the admitted boundary inventory (XA-02 / CR-25).
++
++    Version 1 is the historical record: marker-derived anchors only and a non-null `markerCount`.
++    Version 2 carries the four-member pruned row and may name an anchor the marker inventory alone cannot
++    derive. A CHANGED record is never validated under the version-1 name: `schemaVersion` selects the
++    definition and an unknown version refuses rather than falling back to the nearest neighbour.
++
++    THIS IS THE READ LANE and admits every version this kit defines. Current authoritative discovery uses
++    admit_current_boundary_inventory below, which additionally requires the current version. Keeping the
++    two separate is what lets a historical record stay readable while a current operation refuses it."""
++    if not isinstance(boundaries, dict) or type(boundaries.get("schemaVersion")) is not int:
++        raise NativeRefusal("native.boundary-inventory-shape")
++    name = BOUNDARY_INVENTORY_RECORDS.get(boundaries["schemaVersion"])
++    if name is None:
++        raise NativeRefusal("native.boundary-inventory-version-unknown:%d" % boundaries["schemaVersion"])
++    return validate_native(name, boundaries)
++
++
++CURRENT_BOUNDARY_INVENTORY_VERSION = 2
++
++
++def admit_current_boundary_inventory(boundaries: dict) -> dict:
++    """CURRENT-OPERATION admission of an admitted boundary inventory (root probe 2).
++
++    validate_boundary_inventory above is a READ API: it admits every version this kit defines, so a
++    historical record stays readable and schema-validatable. That is not the same act as ADMITTING a record
++    into a current authoritative discovery. A version-1 inventory carries version-1 pruned rows, which have
++    no markerCountBasis; version 1 of this correction let such a record through the read dispatch and then
++    failed late while validating the UnitDiscoveryV2 output, reporting a raw missing-property schema error
++    about an OUTPUT instead of a labelled refusal about the INPUT the host supplied.
++
++    Current discovery therefore requires CURRENT_BOUNDARY_INVENTORY_VERSION and refuses anything else here,
++    at the boundary that received it. Old rows are never upgraded: this kit will not invent a basis or an
++    observed-inventory count for rows that carry neither."""
++    validate_boundary_inventory(boundaries)
++    if boundaries["schemaVersion"] != CURRENT_BOUNDARY_INVENTORY_VERSION:
++        raise NativeRefusal("native.boundary-inventory-version-unsupported:%d" % boundaries["schemaVersion"])
++    return boundaries
++
++
++def require_admitted_boundaries(boundaries: dict | None) -> dict:
++    """The AUTHORITATIVE host composition must supply the admitted inventory (XA-02 follow-up).
++
++    `boundaries=None` remains legal on the STANDALONE/ALGORITHM lane below - the reference cases that
++    exercise the shared rule in isolation, and callers that own no security discovery result. It is NOT a
++    lawful authoritative composition: without the inventory the native instrument sees neither the nested
++    authority boundaries nor the custody/depth exclusions, and its selected-directory count can differ from
++    the security instrument for the same repository. The host model calls this so the requirement is
++    structural at the one boundary that matters, without breaking the pure reference lane."""
++    if boundaries is None:
++        raise NativeRefusal("native.admitted-boundaries-required")
++    return admit_current_boundary_inventory(boundaries)
+ 
+ 
+ _FOUNDATION_SCHEMAS = json.loads((FOUNDATION / "identity-schemas.v2.json").read_text(encoding="utf-8"))
+@@ -378,6 +550,9 @@
+                                   "prepared-output-v3", "native-context-v2"]
+ TS2_TOKENS = IDENTITY_TOKENS + ["sealed-vfs-v1", "multi-stage-analyze-v1", "typescript-semantic-facts-v1",
+                                 "resolution-completeness-v2", "unresolved-edge-v1", "native-context-v2"]
++ATTRIBUTION_TOKEN = "target-attribution-v2"
++RUST3_TOKENS_ATTRIBUTION = RUST3_TOKENS + [ATTRIBUTION_TOKEN]
++TS2_TOKENS_ATTRIBUTION = TS2_TOKENS + [ATTRIBUTION_TOKEN]
+ 
+ 
+ def negotiate(plan_required: list[str], signed_row: list[str], hello_ack: list[str] | None) -> dict:
+@@ -787,8 +962,11 @@
+     refusal is only ever reached when a BODY FACT is being derived. A clones subject-scope over, say,
+     `package.json` under a TypeScript universe produces no body at all, so nothing fired and the
+     scope could claim `coverage: complete` with no deficiency: a determinate "no clones here" the
+-    universe never had the capability to establish. That ambiguity reached coverage2 -> view2 ->
+-    evidence2 -> seal2 -> run2.
++    universe never had the capability to establish. That ambiguity reaches coverage2 -> view2 and
++    the current evaluator output chain evidence3 -> seal3 -> run3 (native owner admission is
++    identity-model.v3.open_run_closure over retained Coverage; complete replay is
++    identity-model.v3.close_run). Under the historical evaluator2 graph the same join reached
++    evidence2 -> seal2 -> run2; that is the historical counterexample, not a current qualified claim.
+ 
+     WHY THIS CLASSIFICATION AND NOT THE OTHER READING. The alternative was to treat the unlisted
+     suffix like Rust's BODY_LANGUAGE_OWNER_NOT_COMPILED and leave `complete` lawful. That is sound
+@@ -823,8 +1001,11 @@
+         return None
+     table = (dialect or {}).get("table")
+     if not isinstance(table, dict) or not table:
+-        # No closed suffix table on this universe's body axis, so this law does not own it. Rust's
+-        # ownership form and any future form keep their own selection law untouched.
++        # No suffix table was supplied. Identity Run closure always supplies one: the universe row's
++        # body-eligibility table (identity-model.v3 `body_eligibility_table`; this module's `IM` is the
++        # historical identity-model and does not carry it), which for Rust is its closed `.rs` set,
++        # so every published universe is judged (bodyEligibilityLaw). A caller passing nothing gets
++        # no producer-boundary decision here and the closure backstop still decides.
+         return None
+     readable = [source_variant_of_path(p, table) is not None for p in paths]
+     if require_all:
+@@ -2035,7 +2216,11 @@
+         cfg = tsconfig if tsconfig is not None else jsconfig
+         origin = "tsconfig" if tsconfig is not None else "jsconfig"
+         opts = dict(cfg.get("compilerOptions", {}))
+-        allow_js = bool(opts.get("allowJs", origin == "jsconfig")); check_js = bool(opts.get("checkJs", False))
++        # Config-origin defaults are applied before the compiler's computed option.
++        # An explicit allowJs (including false) wins; jsconfig defaults to true;
++        # an absent tsconfig allowJs inherits checkJs. Flags are not completeness.
++        check_js = bool(opts.get("checkJs", False))
++        allow_js = bool(opts.get("allowJs", True if origin == "jsconfig" else check_js))
+         mode = "js-allowjs" if allow_js else "ts-tsconfig"; synthesized = None; synth_version = None
+         program_roots = roots_all if allow_js else [p for p in roots_all if p.endswith(TS_EXT)]
+         js_roots = js_roots if allow_js else []
+@@ -3424,6 +3609,64 @@
+                      "PROVIDER.PROTOCOL_VIOLATION", "REQUEST.PRECONDITION_FAILED", "REQUEST.UNSATISFIABLE", "CONFIG.INVALID"}
+ CLASS_TO_EXIT = {"success": 0, "policy-failed": 1, "request-rejected": 2, "indeterminate": 3, "operational-failed": 4, "interrupted": 130}
+ 
++# Whole-Run termination route of a native DeficiencyV2 (native-evidence.md section 10, "Which surface the class
++# and code columns govern"). D9_MAP above is keyed by public DETAIL code; this route is keyed by DEFICIENCY and is
++# a different table. The D9 exit contract owns deficiency -> reason code (codeMaps.deficiencyToReasonCode over its
++# D9Deficiency vocabulary); native owns only the bridge into that vocabulary: the five DeficiencyV2 members that are
++# D9Deficiency members map to themselves, the four without one map to `verdict-indeterminate`. d9_route_drift holds
++# both tables to their owners at check time.
++DEFICIENCY_TO_D9_DEFICIENCY: dict[str, str] = {
++    "language-tier-unsupported": "language-tier-unsupported",
++    "provider-unavailable": "provider-unavailable",
++    "input-closure-incomplete": "verdict-indeterminate",
++    "budget-exhausted": "budget-exhausted",
++    "confidence-floor-unmet": "confidence-floor-unmet",
++    "derivation-policy-unmet": "verdict-indeterminate",
++    "resolution-incomplete": "verdict-indeterminate",
++    "external-consumers-unknown": "verdict-indeterminate",
++    "required-relation-missing": "required-relation-missing",
++}
++D9_DEFICIENCY_TO_REASON_CODE: dict[str, str] = {
++    "language-tier-unsupported": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
++    "provider-unavailable": "COVERAGE.PROVIDER_UNAVAILABLE",
++    "budget-exhausted": "COVERAGE.BUDGET_EXHAUSTED",
++    "confidence-floor-unmet": "COVERAGE.CONFIDENCE_FLOOR_UNMET",
++    "required-relation-missing": "COVERAGE.REQUIRED_RELATION_MISSING",
++    "verdict-indeterminate": "VERDICT.INDETERMINATE",
++}
++# The deficiency a clean typed stage terminal itself implies; faulted/cancelled stages imply none.
++STAGE_TERMINAL_DEFICIENCY = {"budget-exhausted": "budget-exhausted", "unavailable": "provider-unavailable"}
++D9_CONTRACT_PATH = HERE.parents[1] / "artifacts" / "d9-exit-contract.v1.14.json"
++
++
++def native_deficiency_d9(deficiency: str) -> dict:
++    """Whole-Run D9 route of ONE DeficiencyV2 member: total over the nine members, refuses anything else."""
++    d9_deficiency = DEFICIENCY_TO_D9_DEFICIENCY.get(deficiency)
++    if d9_deficiency is None:
++        raise AdmissionError(f"no whole-Run D9 route for {deficiency}; silent exit 0 is forbidden")
++    code = D9_DEFICIENCY_TO_REASON_CODE[d9_deficiency]
++    if code not in EXISTING_D9_CODES:
++        raise AdmissionError("code must be an existing D9 code")
++    return {"deficiency": deficiency, "d9Deficiency": d9_deficiency, "class": "indeterminate", "exitCode": 3, "code": code}
++
++
++def d9_route_drift() -> list[str]:
++    """Faults between the whole-Run route and its owners: DeficiencyV2 here, codeMaps.deficiencyToReasonCode in D9."""
++    faults: list[str] = []
++    members = SCHEMAS["$defs"]["DeficiencyV2"]["enum"]
++    if list(DEFICIENCY_TO_D9_DEFICIENCY) != members:
++        faults.append("route keys are not exactly DeficiencyV2 in its declared order")
++    owner = json.loads(D9_CONTRACT_PATH.read_text(encoding="utf-8"))["codeMaps"]["deficiencyToReasonCode"]
++    for native, d9_deficiency in DEFICIENCY_TO_D9_DEFICIENCY.items():
++        if owner.get(d9_deficiency) != D9_DEFICIENCY_TO_REASON_CODE.get(d9_deficiency):
++            faults.append(f"{native}: {d9_deficiency} -> {D9_DEFICIENCY_TO_REASON_CODE.get(d9_deficiency)} "
++                          f"but the D9 owner maps {owner.get(d9_deficiency)}")
++        if native in owner and d9_deficiency != native:
++            faults.append(f"{native} is itself a D9Deficiency member but routes through {d9_deficiency}")
++        if native not in owner and d9_deficiency != "verdict-indeterminate":
++            faults.append(f"{native} has no D9Deficiency member and must route through verdict-indeterminate")
++    return faults
++
+ 
+ def d9_map(detail: str) -> dict:
+     row = D9_MAP.get(detail)
+@@ -3480,18 +3723,34 @@
+ 
+ 
+ def run_termination(stage: dict, coverage_entries: list[dict]) -> dict:
+-    """Combine stage authority with typed Coverage: any admitted entry carrying a deficiency makes an authoritative
+-    Run terminate indeterminate 3 (deficiency carried in the coverage2 record), never a fault and never exit 0."""
++    """Combine stage authority with typed Coverage (native-evidence.md section 10: fault law and whole-Run route).
++
++    A faulted or cancelled stage keeps its own D9 termination and mints nothing. Otherwise the STAGE's native primary
++    deficiency is the most specific, by section 10 precedence, among the entries' declared deficiencies and the one a
++    clean typed stage terminal implies (BudgetExhausted -> budget-exhausted, Unavailable -> provider-unavailable),
++    and the stage's native termination is `native_deficiency_d9` of it: indeterminate 3 under an existing D9 code,
++    never a fault and never exit 0. NATIVE CONTRIBUTION ONLY: the Run's HostTermination is the host finalizer's D9
++    reduction over every concurrent condition (native stages, requirement sufficiency, execution and import
++    obligations, verdict), which this helper does not see. typedDetail names the most specific deficiency an entry actually carries (the coverage2 record)
++    and every nativeCause those entries carry, whatever the stage kind. SCOPE: ONE primary code is returned; the D9
++    ordered reasonCodes with secondaryDeficiencies (d9-exit-contract causeModel.codeDerivation) are composed by the
++    host termination and are not produced here.
++    """
+     if stage["authority"] == "none":
+         return {"authority": "none", "runSealed": False, "factsMinted": 0, "d9": stage["d9"], "typedDetail": None}
+     deficient = [e for e in coverage_entries if e.get("deficiency")]
+-    if stage["d9"]["class"] == "success" and deficient:
+-        worst = min((e["deficiency"] for e in deficient), key=PRECEDENCE_V2.index)
+-        d9 = {"class": "indeterminate", "exitCode": 3, "code": "COVERAGE.PROVIDER_UNAVAILABLE" if worst == "provider-unavailable" else "VERDICT.INDETERMINATE"}
+-        return {"authority": "authoritative", "runSealed": True, "factsMinted": len(coverage_entries), "d9": d9,
+-                "typedDetail": {"carrier": _TYPED_DETAIL, "deficiency": worst, "nativeCauses": sorted({e.get("nativeCause") for e in deficient if e.get("nativeCause")})}}
+-    return {"authority": "authoritative", "runSealed": True, "factsMinted": len(coverage_entries), "d9": stage["d9"],
+-            "typedDetail": None if not deficient else {"carrier": _TYPED_DETAIL, "deficiency": min((e["deficiency"] for e in deficient), key=PRECEDENCE_V2.index), "nativeCauses": []}}
++    candidates = [e["deficiency"] for e in deficient]
++    if stage.get("terminalKind") in STAGE_TERMINAL_DEFICIENCY:
++        candidates.append(STAGE_TERMINAL_DEFICIENCY[stage["terminalKind"]])
++    d9 = stage["d9"]
++    if candidates:
++        route = native_deficiency_d9(min(candidates, key=PRECEDENCE_V2.index))
++        d9 = {"class": route["class"], "exitCode": route["exitCode"], "code": route["code"]}
++    typed = None
++    if deficient:
++        typed = {"carrier": _TYPED_DETAIL, "deficiency": min((e["deficiency"] for e in deficient), key=PRECEDENCE_V2.index),
++                 "nativeCauses": sorted({e.get("nativeCause") for e in deficient if e.get("nativeCause")})}
++    return {"authority": "authoritative", "runSealed": True, "factsMinted": len(coverage_entries), "d9": d9, "typedDetail": typed}
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -3500,6 +3759,12 @@
+ 
+ RUST_EXT = (".rs",)
+ FAMILY_MARKERS = {"rust": ["Cargo.toml"], "tsjs": ["tsconfig.json", "jsconfig.json", "package.json"]}
++# Section 1.4 U-9 (consumer24 S3): the ONE unit zero-config discovery emits when it finds no rust or tsjs unit. It is
++# not a marker directory and claims no program membership; it gives the syntax-only mode a root to be requested at.
++SYNTAX_ONLY_FALLBACK_UNIT = {"rootPath": "", "languageFamily": "none", "languageMode": "syntax-only",
++                             "unitKind": "syntax-only", "markerPath": "", "markerSha256": None,
++                             "recognizerId": "syntax-only-fallback", "recognizerVersion": 1,
++                             "provenance": "DEFAULTED", "memberPackageRoots": []}
+ # Host ignore conventions are the shared discovery rule's pruned trees (../discovery-defaults.py): dependency trees
+ # (node_modules), VCS trees (.git/.hg/.svn/.jj) and Cargo build output (`target` directly under a Cargo.toml directory),
+ # matched by exact path segment. `packages/target/index.ts` and `src/target/x.ts` are ordinary program members.
+@@ -3579,20 +3844,44 @@
+     with no language marker is CONFIG.INVALID (native.explicit-root-without-marker), never silently dropped.
+     Explicit roots are UNIT SELECTION, never loss of Cargo workspace semantics (P22): naming a Cargo workspace root
+     explicitly keeps its member packages folded (`memberPackageRoots`) so their `target` output stays pruned; naming a
+-    member package alone selects that package as its own `cargo-package` unit."""
++    member package alone selects that package as its own `cargo-package` unit.
++    ZERO-CONFIG SYNTAX-ONLY FALLBACK (section 1.4 U-9, consumer24 S3): with no explicit roots, when no rust or tsjs
++    unit survives pruning and boundary exclusion and the project root is not itself at or below a boundary, exactly
++    one `SYNTAX_ONLY_FALLBACK_UNIT` is emitted (provenance DEFAULTED). It claims no file: membership rows are decided
++    exactly as without it. Explicit roots never get it. Ordering and ordinals are U-4b."""
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
+-    enum = DD.enumerate_units(markers)
+-    pruned_trees = enum["prunedTrees"]
++        admit_current_boundary_inventory(boundaries)
++    enum = DD.enumerate_units(markers, enforce_limit=False)
++    derived_trees = enum["prunedTrees"]
++    pruned_trees = derived_trees
+ 
+     def refused(detail: str, roots: list[str], **extra) -> dict:
+         return {"units": [], "prunedTrees": pruned_trees, "boundaries": _boundaries_out(boundaries, []),
+                 "refused": {"detail": detail, "roots": roots, **extra, "d9": d9_map(detail)}}
+ 
+-    if boundaries is not None and boundaries["prunedTrees"] != pruned_trees:
+-        return refused("native.boundary-inventory-mismatch", [], expectedPrunedTrees=pruned_trees, inventoryPrunedTrees=boundaries["prunedTrees"])
+-    if enum["refusal"] is not None:
+-        return refused("native.too-many-units", [], unitCount=enum["refusal"]["unitCount"], limit=enum["refusal"]["limit"])
++    if boundaries is not None:
++        # XA-02 / CR-25. The admitted inventory is the TRUSTED SUPERSET, not a value this instrument must
++        # reproduce. The native side sees only marker paths, so it can derive an anchor only where a marker
++        # happens to sit inside a pruned tree; security additionally observed the directory entries. Whole-row
++        # equality therefore had to fail as soon as security reported a known anchor with no observed marker.
++        #
++        # The rule is a SUBSET check over `(path, reason)`:
++        #   * every marker-derived anchor must appear in the admitted inventory with the SAME reason - a
++        #     missing anchor, or the same path under a different reason, still refuses exactly as before;
++        #   * an ADDITIONAL admitted anchor is accepted and carried through, because it is a boundary the
++        #     authority instrument observed and this instrument cannot see.
++        # `markerCount` and `markerCountBasis` are NOT comparison keys: they are provenance, and a count that
++        # differed would say something about a tree neither instrument enumerated.
++        admitted = {(t["path"], t["reason"]) for t in boundaries["prunedTrees"]}
++        derived = {(t["path"], t["reason"]) for t in derived_trees}
++        missing = sorted(derived - admitted, key=lambda kv: (kv[0].encode("utf-8"), kv[1]))
++        if missing:
++            return refused("native.boundary-inventory-mismatch", [],
++                           missingAnchors=[{"path": p, "reason": r} for p, r in missing],
++                           expectedPrunedTrees=derived_trees, inventoryPrunedTrees=boundaries["prunedTrees"])
++        # The admitted rows travel onward: the host projects the ADMITTED anchor set, never a narrower one
++        # re-derived from markers. Only `path` reaches the scope descriptor.
++        pruned_trees = [dict(t) for t in boundaries["prunedTrees"]]
+     cargo_roots = DD.cargo_roots_from_markers(markers)
+     by_dir: dict[str, dict[str, dict]] = {}
+     excluded_units: list[dict] = []
+@@ -3629,6 +3918,9 @@
+             elif "Cargo.toml" in m and any(w != d and _under_unit(d, w) for w in selected_workspaces):
+                 kept[d] = {"Cargo.toml": m["Cargo.toml"]}   # semantic member of a selected workspace: folded, never dropped (P22)
+         by_dir = kept
++    # Apply the directory cap only after boundary and explicit-root selection.
++    if len(by_dir) > MAX_WORKSPACE_UNITS:
++        return refused("native.too-many-units", [], unitCount=len(by_dir), limit=MAX_WORKSPACE_UNITS)
+     provenance = "EXPLICIT" if explicit_workspace_roots is not None else "DISCOVERED"
+     cargo_ws_roots = sorted(d for d, m in by_dir.items() if "Cargo.toml" in m and m["Cargo.toml"].get("isCargoWorkspace"))
+     units: list[dict] = []
+@@ -3664,14 +3956,19 @@
+             if enclosing:
+                 ws = next(u for u in units if u["languageFamily"] == "rust" and u["rootPath"] == enclosing[-1])
+                 ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+-    units.sort(key=lambda u: (u["rootPath"].encode("utf-8"), u["languageFamily"]))
++    if not units and explicit_workspace_roots is None and _boundary_hit("", boundaries) is None:
++        # U-9: a marker-free project is still analysable. Without this unit the default selection requested
++        # nothing and the Run was an empty successful analysis of a repository full of readable code.
++        units.append(dict(SYNTAX_ONLY_FALLBACK_UNIT))
++    # U-4b: strictly ascending by (UTF-8 bytes of rootPath, UTF-8 bytes of languageFamily); ordinal = index.
++    units.sort(key=lambda u: (u["rootPath"].encode("utf-8"), u["languageFamily"].encode("utf-8")))
+     for i, u in enumerate(units):
+         u["unitOrdinal"] = i
+         validate_native("WorkspaceUnitV2", u)
+-    if len({u["rootPath"] for u in units}) > MAX_WORKSPACE_UNITS:   # unreachable after enumerate_units; kept as the stated bound
++    if len({u["rootPath"] for u in units}) > MAX_WORKSPACE_UNITS:   # defensive guard after selected-directory admission
+         return refused("native.too-many-units", [])
+     out = {"units": units, "prunedTrees": pruned_trees, "boundaries": _boundaries_out(boundaries, excluded_units), "refused": None}
+-    validate_native("UnitDiscoveryV1", out)
++    validate_native("UnitDiscoveryV2", out)
+     return out
+ 
+ 
+@@ -3705,8 +4002,9 @@
+     `outsideBoundaryFiles`: it is another project's source or uncustodied source, never scanned here and never a member
+     of any unit of this project; the boundary test precedes the pruned-tree test.
+     Every inventory file appears in exactly one row; erasedFiles is always empty (checked by schema maxItems 0)."""
++    admit_unit_roots(units)   # internal root representation decided BEFORE any prefix test or slice
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
++        admit_current_boundary_inventory(boundaries)
+     rows: list[dict] = []; unsupported: list[str] = []; outside: list[str] = []
+     cargo_roots = _cargo_roots_of_units(units)
+     for f in sorted(files, key=lambda x: x.encode("utf-8")):
+@@ -3867,9 +4165,20 @@
+     every unit root; `target` under every Cargo root only) and, under an admitted boundary inventory (P3), every nested
+     repository, nested project and directory-custody exclusion anchor (`DD.boundary_excluded_prefixes`). The segment
+     rule itself applies in addition to these prefixes; the prefixes make the observed exclusions Plan-visible. The
+-    foundation record is closed, so the boundary provenance travels beside it (`boundaries`), not inside it."""
++    foundation record is closed, so the boundary provenance travels beside it (`boundaries`), not inside it.
++
++    XA-02 / CR-25 IDENTITY TRACE. Only `t["path"]` of a pruned row reaches `excludedPathPrefixes`, so
++    `markerCount` and `markerCountBasis` cannot move `scopeDigest`, `plan2` or any Run identity: a
++    count-only or basis-only change leaves the descriptor bit-identical. Reporting a previously invisible
++    ANCHOR is a different matter and does add its path here. That is the correction working: the segment
++    rule already pruned that tree, so the analysed byte set does not change, but the Plan now discloses the
++    exclusion instead of omitting it. For a repository holding such an anchor outside the conventional set
++    (`.git` and `node_modules` under a unit root, `target` under a Cargo root) the descriptor, and therefore
++    the Run identity, differs from the pre-correction value. Historical Runs keep their bytes; this is a
++    disclosed discovery correction of the same class as XA-01, not a silent identity drift."""
++    admit_unit_roots(units)   # decided BEFORE DD.spell_root makes a wrong root indistinguishable
+     if boundaries is not None:
+-        validate_native("AdmittedBoundaryInventoryV1", boundaries)
++        admit_current_boundary_inventory(boundaries)
+     roots = sorted({u["rootPath"] for u in units}, key=lambda x: x.encode("utf-8"))
+     spelled = [DD.spell_root(r) for r in roots]  # the project root is spelled "." in the foundation record (Text minLength 1)
+     conventional = DD.conventional_excluded_prefixes(roots, _cargo_roots_of_units(units))
+@@ -4008,7 +4317,7 @@
+     never arrives. Nothing about retained Run closure changes here.
+ 
+     WHAT THIS BOUNDARY IS NOT. It is pre-Plan for THIS analysis step, and that is all it scopes: refusing here
+-    mints no `plan2` and no `run2` FOR THE REFUSED STEP. It does not erase the invocation - the request and
++    mints no `plan2` and no `run3` FOR THE REFUSED STEP. It does not erase the invocation - the request and
+     invocation keep their ordinary operational attribution under workflow law, and any earlier step that already
+     committed an outcome keeps it. Nothing about retained-payload validation, corruption classification or any
+     other admission is changed."""
+@@ -4125,16 +4434,24 @@
+ 
+ 
+ def default_capability_selection(units: list[dict], registry: list[dict]) -> dict:
+-    """Native default discovery (review v2 item 6): the FULL registered TS/JS/Rust capability set is selected
+-    for every discovered unit. There is no preview-typescript constant and no TypeScript-only default. Output
+-    validates against the foundation analysis-spec record.
++    """Native default discovery (review v2 item 6): the FULL registered TS/JS/Rust capability REQUEST
++    is selected for every discovered unit. There is no preview-typescript constant and no TypeScript-only
++    default. Output validates against the foundation analysis-spec record.
++
++    THIS HELPER INTENTIONALLY EMITS A PARAMETER-EMPTY CAPABILITY SPEC. It runs before Plan
++    construction, so it cannot mint EnumerationPlanV1 or EvaluatorEmissionPlanV1 (those need
++    snapshotId/scopeDigest/membershipDigest and the later host Plan stage). `parameters: []` is
++    the pre-Plan capability request, not a complete evaluator3 spec.
++    `defaultIsCompleteCapabilitySelection` means the capability REQUEST is the complete
++    non-NOT-SELECTED matrix product. It does not mean the analysis-spec is a complete evaluator3
++    Plan. Plan construction is a later host stage; this helper does not implement it.
+ 
+     WHAT THE REGISTRY IS, AND WHAT IT IS NOT. The authenticated release declaration registry (TRUSTED INPUT rows
+     {capabilityId, languageModes[]}) is an AVAILABILITY statement over a fixed obligation - which capabilities
+     this build ships - and never a redefinition of the obligation itself. An earlier revision drove the default
+     FROM the registry, so a staged build shipping three rows silently requested three capabilities and looked
+     conformant: the D-371 selected product quietly shrank with nothing disclosed anywhere. admission 1.1 and
+-    native 1.4 both say the default is the complete intended product, so the default is now derived from the
++    native 1.4 both say the default capability REQUEST is the complete intended product, so the default is now derived from the
+     matrix and the registry only decides what is AVAILABLE.
+ 
+     A required capability the release does not declare is DISCLOSED, not dropped: it is still requested, and the
+@@ -4148,6 +4465,11 @@
+     Explicit user configuration overrides the REQUEST, not this obligation, and an override is a recorded choice
+     with its own provenance rather than a silent narrowing."""
+     admit_release_capability_registry(registry)
++    if not units:
++        # Section 1.4 U-9 (consumer24 S3): zero-config discovery always yields a unit or a typed refusal, so an empty
++        # unit list here is a host composition defect. It refuses as an INTERNAL host invariant (no public detail
++        # code) rather than emitting an empty, successful capability request.
++        raise AdmissionError("NATIVE_DEFAULT_SELECTION_WITHOUT_UNIT")
+     available = {(r["capabilityId"], mode) for r in registry for mode in r["languageModes"]}
+     requested, undeclared = [], []
+     for u in units:
+@@ -4209,7 +4531,7 @@
+             # not a Coverage result and does not decide one; see UNDECLARED_CAPABILITY_ACCOUNT. Empty when the
+             # release declares everything the selected product requires for the discovered modes.
+             "undeclaredCapabilities": sorted(undeclared, key=C.canonical),
+-            "defaultIsCompleteSelectedProduct": True}
++            "defaultIsCompleteCapabilitySelection": True}
+ 
+ 
+ def join_unit_coverage(per_unit: list[dict]) -> dict:

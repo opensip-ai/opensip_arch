@@ -1,0 +1,1501 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:common",
+  "title": "Shared closed primitives for the product-v1 workflows and surfaces unit (PROPOSED, revised after Codex feedback v1)",
+  "description": "Every identity text form is either the existing host form (ProjectId PROJECT-ID-V1, RequestId, ExecutionId EXECUTION-ID-V1 from c2-plan-stage-schema.v4) or a product major-two successor named in foundation/identity-schemas.v2.json (snapshot2, plan2, closure2, import2, fact2, coverage2, view2, exec-plan2, finding-key2, evidence2, run2). Workflow-owned identities are H(domain, descriptor) under the foundation canonical recipe with the domains listed in the contract; this unit never defines a second canonicalizer. No float-typed field exists anywhere in this unit; loaders refuse float lexemes, -0, duplicate keys and lone surrogates before schema validation.",
+  "$defs": {
+    "RequestId": {
+      "type": "string",
+      "pattern": "^req1_[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "ProjectId": {
+      "type": "string",
+      "pattern": "^prj1-[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ExecutionId": {
+      "type": "string",
+      "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])",
+      "description": "EXECUTION-ID-V1: exact selector docs/coop/artifacts/c2-plan-stage-schema.v4.json $.planIntent.wireTypes.executionId (grammar only; that artifact records under ownershipHonesty/RES-C2V4-01 that no producing recipe is declared anywhere in the corpus). Production values are host-minted 128-bit operational identifiers of the same shape as REQUEST-ID-V1; they are never derived from content. The reference model's values are SYNTHETIC fixture labels (see workflows_model.synthetic_execution_id) and are not a recipe. The historical R-1 fixture grammar 'execution:<text>' is not admitted by this unit."
+    },
+    "SnapshotId": {
+      "type": "string",
+      "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "PlanId": {
+      "type": "string",
+      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ClosureId": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ImportId": {
+      "type": "string",
+      "pattern": "^import2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "EvidenceId": {
+      "type": "string",
+      "pattern": "^evidence2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ExecutionPlanId": {
+      "type": "string",
+      "pattern": "^exec-plan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "CoverageId": {
+      "type": "string",
+      "pattern": "^coverage2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "RunId": {
+      "type": "string",
+      "pattern": "^run2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "Fingerprint": {
+      "type": "string",
+      "pattern": "^finding-key2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "RepairPlanId": {
+      "type": "string",
+      "pattern": "^repairplan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ReceiptId": {
+      "type": "string",
+      "pattern": "^receipt2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "BaselineId": {
+      "type": "string",
+      "pattern": "^baseline2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ComparisonResultId": {
+      "type": "string",
+      "pattern": "^comparison2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "PolicyTestResultId": {
+      "type": "string",
+      "pattern": "^policytest2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "CandidateId": {
+      "type": "string",
+      "pattern": "^candidate2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "Sha256Hex": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ContributionId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*(?![\\s\\S])"
+    },
+    "CanonicalIdentifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9]*(?:[._:-][a-z0-9]+)*(?![\\s\\S])"
+    },
+    "SemanticVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?(?![\\s\\S])",
+      "maxLength": 128
+    },
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
+      "not": {
+        "pattern": "(^|/)\\.\\.?(/|$)"
+      },
+      "description": "Strict sealed logical path: relative, slash-separated, no empty/dot/dot-dot/NUL/backslash segments, each segment at most 255 bytes-as-characters. Used for snapshot inventories, edits, archive members, cwd and every identity-bearing path. Never a user-typed OS path."
+    },
+    "UserInputPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "A user-named OS path (baseline file, import artifact, output file). Opened only through the security unit's nofollow/ACL custody; never enters any content identity; recorded in operational records only."
+    },
+    "GlobPattern": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^[^\\\\\\u0000]+(?![\\s\\S])",
+      "description": "Portable glob matching is normative in docs/coop/design-corrections/foundation/glob-pattern-contract.v1.md: full-string, case-sensitive matching; '*' and '?' stay within a segment; whole-segment '**' matches zero or more segments including a final filename. Braces and brackets are literal; no escape syntax. Candidate admission remains owned by its field."
+    },
+    "UtcTimestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z(?![\\s\\S])"
+    },
+    "UtcDate": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}(?![\\s\\S])"
+    },
+    "BoundedText": {
+      "type": "string",
+      "maxLength": 1024
+    },
+    "Uint": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "Uint53": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "StepId": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 63
+    },
+    "StageOrdinal": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1023
+    },
+    "D9Class": {
+      "type": "string",
+      "enum": [
+        "success",
+        "policy-failed",
+        "request-rejected",
+        "indeterminate",
+        "operational-failed",
+        "interrupted"
+      ]
+    },
+    "D9ReasonCode": {
+      "type": "string",
+      "enum": [
+        "COVERAGE.PROVIDER_UNAVAILABLE",
+        "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
+        "COVERAGE.REQUIRED_RELATION_MISSING",
+        "COVERAGE.BUDGET_EXHAUSTED",
+        "SNAPSHOT.CONVERGENCE_EXHAUSTED",
+        "BASELINE.RECIPE_UNSUPPORTED",
+        "VERDICT.INDETERMINATE",
+        "QUERY.COMPLETENESS_UNMET",
+        "COVERAGE.CONFIDENCE_FLOOR_UNMET"
+      ]
+    },
+    "D9ErrorCode": {
+      "type": "string",
+      "enum": [
+        "CAS.LINK_FAILED",
+        "CONFIG.INVALID",
+        "DELIVERY.REQUIRED_FAILED",
+        "DURABILITY.COMMIT_FAILED",
+        "EXTENSION.ADMISSION_REJECTED",
+        "EXTENSION.INSTALL_IO_FAILED",
+        "HOST.IO_FAILURE",
+        "IDENTITY.EXPIRED",
+        "IDENTITY.UNKNOWN",
+        "LEDGER.BUSY_TIMEOUT",
+        "LEDGER.CORRUPT",
+        "OUTPUT.SERIALIZATION_FAILED",
+        "PROVIDER.PROTOCOL_VIOLATION",
+        "REQUEST.PRECONDITION_FAILED",
+        "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
+        "REQUEST.UNKNOWN_OPTION",
+        "REQUEST.UNSATISFIABLE",
+        "SERVE.PROTOCOL_FAULT",
+        "SYSTEM.OUTCOME.ILLEGAL_STATE"
+      ]
+    },
+    "D9FaultCause": {
+      "type": "string",
+      "enum": [
+        "none",
+        "host-io",
+        "ledger-busy",
+        "ledger-corrupt",
+        "cas-link",
+        "provider-protocol",
+        "durability-commit",
+        "delivery-required",
+        "output-serialization",
+        "extension-install-io",
+        "serve-protocol",
+        "host-invariant"
+      ],
+      "description": "Which operational fault applies. `host-invariant` is the successor member and its scope is narrow: the closed D9ErrorCode vocabulary already published SYSTEM.OUTCOME.ILLEGAL_STATE with no cause mapping to it, so the host-INVARIANT subtype specifically had no representable operational-failed termination, because that class requires BOTH an errorCode and a non-none faultCause. Other host-fault causes - host-io, ledger-corrupt, provider-protocol and the rest - already existed and were always representable. PRECISION: codeMaps.rule's `total and injective` is a property of the DECLARED CAUSE DOMAIN, so an errorCode without a preimage was never a violation of totality, and this member does not `make the maps total`. It adds no error code, class, exit code or reason code, but it IS a vocabulary extension: faultCause grows by one. The inherited docs/coop/artifacts/d9-exit-contract.v1.14.json is HISTORICAL and unchanged, so its own enum still omits the member; the selected composition is native-evidence.schemas.v2.json#/x-opensip-public-route-registry/hostInvariantSuccessor and publishing the successor D9 artifact belongs to that unit. Borrowing host-io for a host invariant violation is refused by contract: an I/O failure and an invariant violation are different remedies."
+    },
+    "D9Deficiency": {
+      "type": "string",
+      "enum": [
+        "none",
+        "required-relation-missing",
+        "provider-unavailable",
+        "language-tier-unsupported",
+        "budget-exhausted",
+        "confidence-floor-unmet",
+        "convergence-exhausted",
+        "baseline-recipe-unsupported",
+        "verdict-indeterminate",
+        "query-completeness-unmet"
+      ],
+      "description": "The HOST TERMINATION deficiency vocabulary of the D9 exit contract, carried by a whole Run, analysis result or comparison step: AnalysisResult.deficiency / .secondaryDeficiencies, ComparisonStepResult.d9Deficiency and comparison-result. It is NOT the per-requirement native sufficiency vocabulary, and the two are deliberately different sets. Three members (convergence-exhausted, baseline-recipe-unsupported, query-completeness-unmet) belong to evaluation, baseline and query outcomes that no per-requirement sufficiency evaluation can produce; `none` is the whole-Run `nothing was deficient` state, which a per-requirement record expresses by satisfied=true and the absence of the field. Four native sufficiency outcomes (derivation-policy-unmet, external-consumers-unknown, input-closure-incomplete, resolution-incomplete) have NO member here at all: they project outward as their own DomainDetailCode members and as the D9 class `indeterminate` (3) with the existing error code, per native-evidence.md section 10. Widening this enum to carry them was refused: it would put per-requirement causes into a whole-Run vocabulary and would change the D9 exit contract. Use #/$defs/NativeSufficiencyDeficiency wherever the value is one requirement's own outcome. PROVENANCE: this ENUM is unchanged from the inherited D9 exit contract and no member was added, removed or reordered by any correction in this series. The DEFINITION BYTES of this $defs entry did change, because this description was added; an earlier handoff said the definition was byte-unchanged, which was true only of the enum."
+    },
+    "ImportedRequirementDeficiency": {
+      "type": "string",
+      "enum": [
+        "evidence-kind-unavailable",
+        "import-unmapped-only",
+        "subject-not-observable",
+        "history-outside-collection-scope",
+        "observation-window-insufficient",
+        "history-range-insufficient",
+        "import-absent-for-requirement"
+      ],
+      "description": "The IMPORTED-EVIDENCE per-requirement outcome vocabulary, owned by imported-evidence.schema.json#/x-opensip-imported-requirement-law. It applies to a repair EvidenceRequirement whose relation is `runtime-observation` or `history-change` - relations that mint no fact2, carry no sourceUniverse/targetUniverse and have no Coverage entry, so native section 4.6 `sufficiency_v2` cannot produce an outcome for them and is not asked to. Every member is bound to the payload field that grounds it, and EACH KIND REPORTS ONLY ITS OWN: a runtime requirement is projected through observability, observationWindow and observedPopulation; a history requirement through revisionRange and collectionScope, which are its BOUNDS fields - HistoryPayloadV1 has others, notably its subjects, but it carries no observationWindow, observedPopulation or observability at all. A satisfied imported requirement means the condition was met over the BOUND window or range - not that the evidence is positive: `observed-hit` is positive execution evidence and `observable-unhit` is bounded NEGATIVE evidence, and the disclosure records which satisfied it. No imported observation establishes a universal negative, and imported evidence can never BY ITSELF establish the native closed world or authorize an unsafe delete or replace - though it may be an additional required condition alongside an already-established native basis.",
+      "x-opensip-vocabulary": {
+        "authority": "workflows/schemas/imported-evidence.schema.json#/x-opensip-imported-requirement-law/outcomes",
+        "producer": "workflows_model.imported_requirement_outcome, per requirement",
+        "admittedBy": "workflows_model.admit_evidence_requirement, which decides the plane from the relation registry before reading the value",
+        "note": "GENERATED/DRIFT-CHECKED from the law's outcome keys in its declared precedence order. It is a DIFFERENT vocabulary from NativeSufficiencyDeficiency and the two never mix: a native requirement carrying an imported outcome, or the reverse, is refused."
+      }
+    },
+    "NativeSufficiencyDeficiency": {
+      "type": "string",
+      "enum": [
+        "language-tier-unsupported",
+        "provider-unavailable",
+        "input-closure-incomplete",
+        "budget-exhausted",
+        "confidence-floor-unmet",
+        "derivation-policy-unmet",
+        "resolution-incomplete",
+        "external-consumers-unknown",
+        "required-relation-missing"
+      ],
+      "description": "The NATIVE PER-REQUIREMENT sufficiency outcome vocabulary: the exact nine members of DeficiencyV2, whose only defined producer is native-evidence.md section 4.6 `sufficiency_v2`, evaluated once per requirement. A record carrying one requirement's own outcome carries THIS vocabulary and never D9Deficiency, because four of these nine members have no D9Deficiency preimage and the D9-mapped value for all four is the same `verdict-indeterminate`, which would collapse exactly the distinction native-evidence.md section 10 preserves per row - including `resolution-incomplete`, the outcome section 4.6 step 6 mandates for a universal negative under unresolvedEdgePolicy=forbid over an affected target, and the outcome a destructive unused-code repair recipe turns on. This record-level vocabulary is orthogonal to two other things and replaces neither: the PUBLIC D9 TERMINATION of the Run that carries the requirement (still #/$defs/D9Deficiency and the section 10 class/code columns), and the retained CAUSE CARRIER of the Coverage entry the outcome was read from (still entry.nativeCause or the named structured carrier, per the native deficiency-cause registry). `none` is deliberately absent: a satisfied requirement is satisfied=true with the field omitted, which is what sufficiency_v2 returns.",
+      "x-opensip-vocabulary": {
+        "authority": "native/native-evidence.schemas.v2.json#/$defs/DeficiencyV2",
+        "law": "native/native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry/perRequirementConsumerBoundary",
+        "producer": "native-evidence.md section 4.6 sufficiency_v2, per requirement",
+        "admittedBy": "workflows_model.admit_evidence_requirement at the repair-preview producer/consumer boundary; enum parity re-checked cross-unit by check-integration.py",
+        "note": "GENERATED/DRIFT-CHECKED: this enum is exactly DeficiencyV2 in DeficiencyV2's own declared member order, mirrored here because the workflows schema bundle resolves only urn:opensip:product-v1:workflows:* references and takes no cross-bundle $ref. It is the same closed vocabulary, not a workflows-owned successor: a member added or removed on either side is a drift failure, never a widening of this one."
+      }
+    },
+    "D9Signal": {
+      "type": "string",
+      "enum": [
+        "SIGINT",
+        "SIGTERM",
+        "SIGHUP"
+      ]
+    },
+    "Verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "advisory",
+        "fail",
+        "indeterminate"
+      ]
+    },
+    "RequiredCoverage": {
+      "type": "string",
+      "enum": [
+        "satisfied",
+        "unsatisfied",
+        "unknown"
+      ]
+    },
+    "Durability": {
+      "type": "string",
+      "enum": [
+        "committed",
+        "not-required",
+        "failed"
+      ]
+    },
+    "DomainDetailCode": {
+      "type": "string",
+      "description": "Generated/drift-checked from docs/coop/design-corrections/public-detail-registry.v1.json. Every owner joins the same closed registry; unknown names refuse. These details do not create D9 codes.",
+      "enum": [
+        "AUTHZ.BASE_SNAPSHOT_MISMATCH",
+        "AUTHZ.CI_FLAG_MISMATCH",
+        "AUTHZ.CI_REQUIRES_POLICY_RECORD",
+        "AUTHZ.CONSENT_MODE",
+        "AUTHZ.CONSENT_SHAPE",
+        "AUTHZ.CUSTODY_NOT_ADMITTED",
+        "AUTHZ.EXPIRED",
+        "AUTHZ.EXPIRY",
+        "AUTHZ.JOURNAL_CONTEXT",
+        "AUTHZ.JOURNAL_MISMATCH",
+        "AUTHZ.JOURNAL_NOT_OF_THIS_PLAN",
+        "AUTHZ.JOURNAL_STATE_MISMATCH",
+        "AUTHZ.JOURNAL_STATE_MOVED",
+        "AUTHZ.JOURNAL_STATE_UNKNOWN",
+        "AUTHZ.LEASE_MODE",
+        "AUTHZ.LIFETIME_BOUND",
+        "AUTHZ.MUTATION_BOUNDARY",
+        "AUTHZ.NEW_EDITS_NOT_GRANTABLE_HERE",
+        "AUTHZ.NOT_YET_VALID",
+        "AUTHZ.NO_ADMITTED_TIME_CONTEXT",
+        "AUTHZ.ORIGINAL_REQUEST_MISMATCH",
+        "AUTHZ.POLICY_DOES_NOT_ADMIT_REPAIR",
+        "AUTHZ.POLICY_RECORD_ID",
+        "AUTHZ.PROJECT_ID_MISMATCH",
+        "AUTHZ.RECIPE_CLOSURE_MISMATCH",
+        "AUTHZ.RECIPE_CLOSURE_NOT_ADMITTED",
+        "AUTHZ.RECIPE_CLOSURE_REVOKED",
+        "AUTHZ.RECIPE_CLOSURE_SHAPE",
+        "AUTHZ.RECOVERY_ACTION_MISMATCH",
+        "AUTHZ.RECOVERY_ACTION_UNKNOWN",
+        "AUTHZ.RECOVERY_EXECUTION_NOT_FRESH",
+        "AUTHZ.RECOVERY_NOT_MUTATING",
+        "AUTHZ.RECOVERY_REQUEST_MISMATCH",
+        "AUTHZ.RECOVERY_REQUEST_NOT_FRESH",
+        "AUTHZ.REPAIR_PLAN_MISMATCH",
+        "AUTHZ.REPOSITORY_EXECUTION_NOT_GRANTABLE_HERE",
+        "AUTHZ.REQUEST_ID_SHAPE",
+        "AUTHZ.SHAPE",
+        "AUTHZ.SOURCE_MOVED",
+        "AUTHZ.TIME_GRAMMAR",
+        "BASELINE.CONTEXT_DOCUMENT_MISSING",
+        "BASELINE.ENTRY_PROJECTION_CONFLICT",
+        "BASELINE.PIVOT_CLOSURE_INCOMPATIBLE",
+        "BASELINE.PIVOT_CLOSURE_REVOKED",
+        "BASELINE.PIVOT_DETECTOR_UNAVAILABLE",
+        "BASELINE.PROJECT_UNMAPPED",
+        "BASELINE.SCHEMA_MAJOR_UNSUPPORTED",
+        "BASELINE.SCOPE_NOT_A_SELECTED_PARAMETER",
+        "BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH",
+        "BASELINE.SOURCE_EPHEMERAL",
+        "CLOCK-EXCURSION-FORWARD",
+        "COMPARISON.CORRESPONDENCE_INCOMPLETE",
+        "COMPARISON.PIVOT_REEVALUATION_UNAVAILABLE",
+        "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
+        "COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE",
+        "COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED",
+        "CONFIG.CUSTODY_REFUSED",
+        "CONFIG.INVALID",
+        "CONTINUE-CORE-NOT-TRUSTED",
+        "DELIVERY.CLOSURE_BYTES_CORRUPT",
+        "DELIVERY.CLOSURE_BYTES_MISSING",
+        "DELIVERY.CLOSURE_UNSPAWNABLE",
+        "DELIVERY.RENDERER_FAILED_AFTER_COMMIT",
+        "DELIVERY.REQUIRED_PROJECTION_FAILED",
+        "DOCTOR.DEFECTS_FOUND",
+        "DOCTOR.REPORT_NOT_PRODUCIBLE",
+        "ENVELOPE.BODY_DIGEST",
+        "ENVELOPE.KIND",
+        "ENVELOPE.SHAPE",
+        "EVALUATION.FINDING_JOIN_REFUSED",
+        "EVALUATION.INPUT_REFUSED",
+        "EVALUATION.MIXED_OUTPUT_MAJOR",
+        "EVALUATION.OUTPUT_BOUND_EXCEEDED",
+        "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
+        "EVALUATION.PROOF_VERDICT_INCONSISTENT",
+        "EVALUATION.REQUIRED_OUTPUT_OMITTED",
+        "EVALUATION.SELECTION_LIMIT",
+        "EVALUATION.WORK_BUDGET_EXHAUSTED",
+        "GRANT.ARGV_MISMATCH",
+        "GRANT.AUTHORIZATION_MODE",
+        "GRANT.AUTHORIZATION_SHAPE",
+        "GRANT.CI_FLAG_MISMATCH",
+        "GRANT.CI_REQUIRES_POLICY_RECORD",
+        "GRANT.DEPENDENCY_SET_MISMATCH",
+        "GRANT.DEPENDENCY_SET_SHAPE",
+        "GRANT.EFFECTS_SHAPE",
+        "GRANT.ENFORCEMENT_CLAIM_NOT_IN_TRUTH_TABLE",
+        "GRANT.ENFORCEMENT_VOCABULARY",
+        "GRANT.EXECUTION_CLASS",
+        "GRANT.EXPIRY",
+        "GRANT.INHERITED",
+        "GRANT.OWNERS_SHAPE",
+        "GRANT.OWNER_DUPLICATE",
+        "GRANT.OWNER_MANIFEST_MISMATCH",
+        "GRANT.OWNER_NOT_IN_SEALED_SET",
+        "GRANT.OWNER_SOURCE_DIGEST_MISMATCH",
+        "GRANT.PLATFORM_DISPLAY_ALIAS_NOT_MACHINE_ID",
+        "GRANT.PLATFORM_NOT_IN_TRUTH_TABLE",
+        "GRANT.POLICY_DOES_NOT_ADMIT_PRINCIPAL",
+        "GRANT.POLICY_RECORD_ID",
+        "GRANT.PRINCIPAL_NOT_REPOSITORY_CODE",
+        "GRANT.PROJECT_ID_MISMATCH",
+        "GRANT.REFUSED",
+        "GRANT.RUNNER_MUST_BE_TOOL_CLOSURE",
+        "GRANT.RUNNER_NOT_IN_TOOL_CLOSURE",
+        "GRANT.RUNNER_NOT_SEALED_MEMBER",
+        "GRANT.RUNNER_SHAPE",
+        "GRANT.SCHEMA",
+        "GRANT.SEMANTIC_PRINCIPAL_KIND",
+        "GRANT.SHAPE",
+        "GRANT.SNAPSHOT_MISMATCH",
+        "GRANT.TOOL_CLOSURE_MISMATCH",
+        "HOST.INVARIANT_VIOLATED",
+        "HOST.IO_FAILURE",
+        "IMPORT.ABSENT_FOR_PREDICATE",
+        "IMPORT.ARTIFACT_CORRUPT",
+        "IMPORT.KIND_PAYLOAD_MISMATCH",
+        "IMPORT.MAPPING_REQUIRED",
+        "IMPORT.PAYLOAD_SCHEMA_UNREGISTERED",
+        "IMPORT.SOURCE_MAPPING_REQUIRED",
+        "IMPORT.STALE_FOR_PLAN",
+        "IMPORT.UNMAPPED_SUBJECTS",
+        "IMPORT.WRONG_BUILD",
+        "MIGRATION.CORRUPT",
+        "NT-TCB-BOOT",
+        "NT-TCB-IDENTITY",
+        "NT-TCB-PROFILE-UNQUALIFIED",
+        "OBSERVER.FAIL_STOP",
+        "OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED",
+        "OUTPUT.FORMAT_NOT_APPLICABLE",
+        "OUTPUT.RENDERER_QUOTA_EXCEEDED",
+        "PAYLOAD-NOT-ADMISSIBLE",
+        "PLAN.CONSUMED_GRANT_SHAPE",
+        "PLAN.EXECUTION_PRINCIPAL_NOT_PROJECTED",
+        "PLAN.EXECUTION_PROJECTION_REFUSED",
+        "PLAN.GRANT_CONSUMED_WITHOUT_HOST_PREPARED",
+        "PLAN.HOST_PREPARED_WITHOUT_GRANT",
+        "PLAN.PREPARED_RESOLUTION_UNKNOWN",
+        "PLAN.PROJECTED_PRINCIPAL_WITHOUT_GRANT",
+        "PLAN.TEST_RUNNER_HAS_NO_PLAN",
+        "POLICY.DUPLICATE_WAIVER",
+        "POLICY.IMPERATIVE_KEY_REFUSED",
+        "POLICY.UNKNOWN_RULE",
+        "POLICY.WAIVER_EXPIRED",
+        "PROFILE_SET.CANON",
+        "PROFILE_SET.CORE_PIN_MISMATCH",
+        "PROFILE_SET.NO_TR_PROFILE_ROLE",
+        "PROFILE_SET.SCHEMA",
+        "PROFILE_SET.SCHEMA_SHAPE",
+        "PROFILE_SET.SIGNATURE_THRESHOLD",
+        "PROJECT.BUSY",
+        "PROJECT.DISCOVERY_INVENTORY_MISMATCH",
+        "PROJECT.EXPLICIT_PATH_INVALID",
+        "PROJECT.ROOT_CUSTODY_REFUSED",
+        "PROJECT.SCOPE_LIMIT",
+        "PROJECT.WORKSPACE_UNIT_LIMIT",
+        "PROVIDER.NOT_SELECTED",
+        "PROVIDER.UNAVAILABLE.DECLARED_OTHER",
+        "PROVIDER.UNAVAILABLE.SEMANTIC_UNIVERSE_INCOMPLETE",
+        "PROVIDER.UNAVAILABLE.SNAPSHOT_RESOLUTION_INPUT_MISSING",
+        "PROVIDER.UNAVAILABLE.UNSUPPORTED_COMPILER_MODE",
+        "QUERY.CURSOR_MISMATCH",
+        "QUERY.ENDPOINT_AMBIGUOUS",
+        "QUERY.ENDPOINT_UNKNOWN",
+        "QUERY.FACT_VIEW_UNAVAILABLE",
+        "QUERY.PARAMS_MALFORMED",
+        "QUERY.RELATION_UNSUPPORTED",
+        "QUERY.SCHEMA_MAJOR_UNSUPPORTED",
+        "QUERY.VIEW_AMBIGUOUS",
+        "QUERY.VIEW_UNKNOWN",
+        "RECOVERY.REFUSED",
+        "REPAIR.CLOSED_WORLD_NOT_ESTABLISHED",
+        "REPAIR.CONSENT_NOT_BOUND",
+        "REPAIR.EDIT_OUTSIDE_PERMITTED_SCOPE",
+        "REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE",
+        "REPAIR.EVIDENCE_RUN_UNAVAILABLE",
+        "REPAIR.PREIMAGE_CORRUPT",
+        "REPAIR.RECIPE_TRUST_NOT_ADMITTED",
+        "REPAIR.RECIPE_TRUST_REVOKED",
+        "REPAIR.RECOVERY_BLOCKED",
+        "REPAIR.RECOVERY_NOT_AUTHORIZED",
+        "REPAIR.RECOVERY_REQUIRES_BROKER",
+        "REPAIR.SOURCE_MOVED",
+        "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE",
+        "REPAIR.TARGET_METADATA_AMBIGUOUS",
+        "REPAIR.TARGET_PREIMAGE_MISMATCH",
+        "REVIEW.ADVISORY_ONLY",
+        "REVIEW.CANDIDATE_SUPPRESSED",
+        "ROOT.CHAIN_BACKDATED",
+        "ROOT.CHAIN_GAP",
+        "ROOT.CHAIN_NEW_THRESHOLD",
+        "ROOT.CHAIN_OLD_THRESHOLD",
+        "ROOT.CHAIN_ORIGIN_INCONSISTENT",
+        "ROOT.EXPIRED_NO_CHAIN",
+        "ROOT.EXPIRY_NOT_AFTER_ISSUE",
+        "ROOT.FINAL_EXPIRED",
+        "ROOT.FINAL_FUTURE",
+        "ROOT.FLOOR_ABOVE_CORE",
+        "ROOT.ISSUE_NOT_BEFORE_EXPIRY",
+        "ROOT.KERNEL_ATTESTATION_KEYS",
+        "ROOT.KERNEL_ATTESTATION_KEYS_NOT_EMPTY",
+        "ROOT.KERNEL_ATTESTATION_KEYS_POLICY",
+        "ROOT.KEYS_SHAPE",
+        "ROOT.KEY_ID",
+        "ROOT.KEY_REUSE",
+        "ROOT.KEY_REUSED_ACROSS_ROLES",
+        "ROOT.PREVIOUS_VERSION",
+        "ROOT.RECOVERY_AUTHORITY",
+        "ROOT.ROLE_SET",
+        "ROOT.ROLE_SHAPE",
+        "ROOT.ROLE_THRESHOLD",
+        "ROOT.ROLE_THRESHOLD_POLICY",
+        "ROOT.ROOT_KEYS",
+        "ROOT.ROOT_THRESHOLD_POLICY",
+        "ROOT.SCHEMA_CONSTANT_TYPE",
+        "ROOT.SCHEMA_SHAPE",
+        "ROOT.SCHEMA_UNSUPPORTED",
+        "ROOT.SHAPE",
+        "ROOT.STATE_INCONSISTENT",
+        "ROOT.TIMESTAMP_GRAMMAR",
+        "ROOT.TR_PROFILE_THRESHOLD_POLICY",
+        "ROOT.TR_REPAIR_ACTIVE_UNDER_SCHEMA_1",
+        "ROOT.TR_REPAIR_MUST_BE_TYPED_ABSENCE",
+        "ROOT.TR_REPAIR_STANDING",
+        "ROOT.TR_REPAIR_THRESHOLD_POLICY",
+        "ROOT.UNKNOWN_KEY",
+        "ROOT.VERSION_RANGE",
+        "ROOT.VERSION_TYPE",
+        "STATE.SCHEMA_UNSUPPORTED",
+        "TEST.ARGV_NOT_IN_CLOSURE",
+        "TEST.CONFINEMENT_CLAIM_REFUSED",
+        "TEST.ENV_NOT_ALLOWLISTED",
+        "TEST.INTERACTIVE_CONSENT_IN_CI",
+        "TEST.PRINCIPAL_NOT_ADMITTED",
+        "TEST.SOURCE_MOVED",
+        "TRANSITION.CLOSURE_SHAPE",
+        "TRANSITION.CONTEXT_INTENT",
+        "TRANSITION.CURRENT_SCHEMA_MISMATCH",
+        "TRANSITION.CURRENT_STORE_MISMATCH",
+        "TRANSITION.DEADLINE_ONLY_FOR_ROLLBACK",
+        "TRANSITION.FENCE_NOT_HELD",
+        "TRANSITION.GENERATION_SHAPE",
+        "TRANSITION.INITIAL_STATE",
+        "TRANSITION.INTENT_DIGEST_MISMATCH",
+        "TRANSITION.INTENT_FIELD_MISMATCH",
+        "TRANSITION.INTENT_SCHEMA",
+        "TRANSITION.INTENT_SHAPE",
+        "TRANSITION.JOURNAL_LAW_CONSTANTS",
+        "TRANSITION.JOURNAL_SHAPE",
+        "TRANSITION.LEASE_SET_NOT_HELD",
+        "TRANSITION.MIGRATE_REQUIRES_SCHEMA_ADVANCE",
+        "TRANSITION.NO_ADMITTED_TIME_CONTEXT",
+        "TRANSITION.OPERATION",
+        "TRANSITION.PRECONDITION_GENERATION_MISMATCH",
+        "TRANSITION.PROFILE_DIGEST_SHAPE",
+        "TRANSITION.REFUSED",
+        "TRANSITION.REGISTRY_DIGEST_MISMATCH",
+        "TRANSITION.REGISTRY_MISMATCH",
+        "TRANSITION.REPAIR_MUST_KEEP_CLOSURE",
+        "TRANSITION.REPAIR_MUST_KEEP_SCHEMA",
+        "TRANSITION.REPAIR_MUST_KEEP_STORE",
+        "TRANSITION.ROLLBACK_CANNOT_RAISE_SCHEMA",
+        "TRANSITION.ROLLBACK_DEADLINE_SHAPE",
+        "TRANSITION.ROLLBACK_MUST_CHANGE_CLOSURE",
+        "TRANSITION.ROLLBACK_REQUIRES_DEADLINE",
+        "TRANSITION.ROLLBACK_WINDOW_EXPIRED",
+        "TRANSITION.SAME_SCHEMA_KEEPS_STORE",
+        "TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE",
+        "TRANSITION.SCOPE_MISMATCH",
+        "TRANSITION.STATE_SCHEMA",
+        "TRANSITION.STORE_OPERATION_KEEPS_CORE",
+        "TRANSITION.STORE_ROLLBACK_REQUIRES_SCHEMA_RETREAT",
+        "TRANSITION.UPDATE_CANNOT_LOWER_SCHEMA",
+        "TRANSITION.UPDATE_MUST_CHANGE_CLOSURE",
+        "TRUST.COMPONENT_REVOKED_DURING_OPERATION",
+        "TRUST.FLOOR_AHEAD_OF_WALL",
+        "TRUST.NO_ADMITTED_TIME_CONTEXT",
+        "WORKFLOW.DEPENDENCY_CYCLE",
+        "WORKFLOW.DEPENDENCY_INVALID",
+        "WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY",
+        "WORKFLOW.GATE_NOT_APPLICABLE",
+        "WORKFLOW.MUTATION_REPLAYED",
+        "WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL",
+        "WORKFLOW.RETRY_BUDGET_EXHAUSTED",
+        "WORKFLOW.STEP_BOUND_EXCEEDED",
+        "WORKFLOW.VERDICT_GATE_UNBOUND",
+        "budget-exhausted",
+        "derivation-policy-unmet",
+        "evidence.corrupt",
+        "evidence.expired",
+        "evidence.missing",
+        "evidence.pinned",
+        "evidence.purged",
+        "evidence.regeneration-mismatch",
+        "external-consumers-unknown",
+        "input-closure-incomplete",
+        "native.ambient-cargo-config",
+        "native.capability-mismatch-hello-ack",
+        "native.capability-spec-invalid",
+        "native.capability-unavailable",
+        "native.coverage-bijection-mismatch",
+        "native.coverage-cause-unsupported",
+        "native.execution-not-authorized",
+        "native.explicit-root-without-marker",
+        "native.framework-unrecognized",
+        "native.identity-not-negotiated",
+        "native.prepare-bound-exceeded",
+        "native.prepared-output-not-inert",
+        "native.release-declaration-invalid",
+        "native.stale-import",
+        "native.stale-prepared-output",
+        "native.worker-fault",
+        "resolution-incomplete",
+        "storage.backup-choice-required"
+      ]
+    },
+    "DomainDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "remedy"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/DomainDetailCode"
+        },
+        "remedy": {
+          "$ref": "#/$defs/BoundedText"
+        },
+        "subject": {
+          "$ref": "#/$defs/BoundedText"
+        },
+        "purgeDisclosure": {
+          "$ref": "#/$defs/PinnedPurgeDisclosure"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "evidence.pinned"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "subject",
+              "purgeDisclosure"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "purgeDisclosure"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "CapabilityAvailabilityNoticeV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "capabilityId",
+        "languageMode",
+        "workspaceRoot",
+        "remedy"
+      ],
+      "properties": {
+        "code": {
+          "const": "native.capability-unavailable",
+          "description": "This typed record declares exactly one condition - a capability the selected product requires that this release did not declare available - so its code is that condition, not any DomainDetailCode. An earlier revision referenced the whole enum and admitted CONFIG.INVALID on a release-absence notice."
+        },
+        "capabilityId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])"
+        },
+        "languageMode": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "workspaceRoot": {
+          "$ref": "#/$defs/UserInputPath"
+        },
+        "remedy": {
+          "$ref": "#/$defs/BoundedText"
+        }
+      },
+      "description": "One capability the selected product requires that this release did not declare available, for ONE requested unit. The ownership tuple is carried in TYPED FIELDS - capabilityId, languageMode and the unit's own workspaceRoot - and is never concatenated into `subject`: workspaceRoot is a UserInputPath bounded at 4096 while BoundedText is 1024, so a concatenated subject could silently truncate a path and collapse two distinct requested units into one indistinguishable notice. Advisory: it terminates nothing, mints no Coverage, grants no Control verdict or repair authority, and is never a clone Candidate."
+    },
+    "CapabilityAvailabilityV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepCount",
+        "totalNoticeCount",
+        "steps"
+      ],
+      "properties": {
+        "stepCount": {
+          "$ref": "#/$defs/Uint53"
+        },
+        "totalNoticeCount": {
+          "$ref": "#/$defs/Uint53"
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/CapabilityAvailabilityStepV1"
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "description": "The invocation's availability account, composed PER STEP. An earlier revision used one flat array bounded at 1024 and argued it could not truncate because that is the analysis-spec bound - but 1024 is per analysis-spec, not per invocation, and a named multi-step invocation carries up to 64 steps: two admitted selections of 1023 requests each compose 2046 notices and the flat array refused. Composing per step preserves every valid admitted invocation: each step keeps its own bounded collection, `steps` is bounded by the invocation step bound (StepId 0..63), and no notice is ever discarded to fit. `totalNoticeCount` is the sum of the step counts and is authoritative for a caller counting absences across the invocation. A step that made no selection - a skipped step, or a non-analysis step - contributes NO entry; a step that selected and found nothing absent contributes an entry with an empty array, which is the positive statement that it checked. A retried step keeps ONE entry, for the attempt whose selection the invocation retained."
+    },
+    "StepTermination": {
+      "type": "object",
+      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate. Required-delivery detail law: DELIVERY.RENDERER_FAILED_AFTER_COMMIT names a failure after this invocation committed a Run and requires that runId; DELIVERY.REQUIRED_PROJECTION_FAILED names a required projection or renderer failure when no Run was committed and forbids runId. Both are operational-failed / DELIVERY.REQUIRED_FAILED; every other operational-failed termination keeps its existing optional runId.",
+      "additionalProperties": false,
+      "required": [
+        "class"
+      ],
+      "properties": {
+        "class": {
+          "$ref": "#/$defs/D9Class"
+        },
+        "authority": {
+          "type": "string",
+          "enum": [
+            "authoritative",
+            "ephemeral"
+          ]
+        },
+        "errorCode": {
+          "$ref": "#/$defs/D9ErrorCode"
+        },
+        "faultCause": {
+          "$ref": "#/$defs/D9FaultCause"
+        },
+        "reasonCodes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 9,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/D9ReasonCode"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "executionId": {
+          "$ref": "#/$defs/ExecutionId"
+        },
+        "coverageId": {
+          "$ref": "#/$defs/CoverageId"
+        },
+        "signal": {
+          "$ref": "#/$defs/D9Signal"
+        },
+        "domainDetail": {
+          "$ref": "#/$defs/DomainDetail"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "success"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "errorCode"
+                  ]
+                },
+                {
+                  "required": [
+                    "reasonCodes"
+                  ]
+                },
+                {
+                  "required": [
+                    "signal"
+                  ]
+                },
+                {
+                  "required": [
+                    "faultCause"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "policy-failed"
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "runId"
+                ]
+              },
+              {
+                "required": [
+                  "authority"
+                ],
+                "properties": {
+                  "authority": {
+                    "const": "ephemeral"
+                  }
+                },
+                "not": {
+                  "required": [
+                    "runId"
+                  ]
+                }
+              }
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "errorCode"
+                  ]
+                },
+                {
+                  "required": [
+                    "signal"
+                  ]
+                },
+                {
+                  "required": [
+                    "reasonCodes"
+                  ]
+                },
+                {
+                  "required": [
+                    "faultCause"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "authority"
+            ],
+            "properties": {
+              "authority": {
+                "const": "ephemeral"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "runId"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "request-rejected"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "errorCode"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "signal"
+                  ]
+                },
+                {
+                  "required": [
+                    "reasonCodes"
+                  ]
+                },
+                {
+                  "required": [
+                    "faultCause"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "operational-failed"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "errorCode",
+              "faultCause"
+            ],
+            "properties": {
+              "faultCause": {
+                "not": {
+                  "const": "none"
+                }
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "host-io"
+                  },
+                  "errorCode": {
+                    "const": "HOST.IO_FAILURE"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "ledger-busy"
+                  },
+                  "errorCode": {
+                    "const": "LEDGER.BUSY_TIMEOUT"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "ledger-corrupt"
+                  },
+                  "errorCode": {
+                    "const": "LEDGER.CORRUPT"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "cas-link"
+                  },
+                  "errorCode": {
+                    "const": "CAS.LINK_FAILED"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "provider-protocol"
+                  },
+                  "errorCode": {
+                    "const": "PROVIDER.PROTOCOL_VIOLATION"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "durability-commit"
+                  },
+                  "errorCode": {
+                    "const": "DURABILITY.COMMIT_FAILED"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "delivery-required"
+                  },
+                  "errorCode": {
+                    "const": "DELIVERY.REQUIRED_FAILED"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "output-serialization"
+                  },
+                  "errorCode": {
+                    "const": "OUTPUT.SERIALIZATION_FAILED"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "extension-install-io"
+                  },
+                  "errorCode": {
+                    "const": "EXTENSION.INSTALL_IO_FAILED"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "serve-protocol"
+                  },
+                  "errorCode": {
+                    "const": "SERVE.PROTOCOL_FAULT"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "faultCause": {
+                    "const": "host-invariant"
+                  },
+                  "errorCode": {
+                    "const": "SYSTEM.OUTCOME.ILLEGAL_STATE"
+                  }
+                }
+              }
+            ],
+            "not": {
+              "required": [
+                "reasonCodes"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "indeterminate"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "reasonCodes"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "errorCode"
+                  ]
+                },
+                {
+                  "required": [
+                    "signal"
+                  ]
+                },
+                {
+                  "required": [
+                    "faultCause"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "interrupted"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "signal"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "errorCode"
+                  ]
+                },
+                {
+                  "required": [
+                    "reasonCodes"
+                  ]
+                },
+                {
+                  "required": [
+                    "faultCause"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "domainDetail"
+            ],
+            "properties": {
+              "domainDetail": {
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "evidence.pinned"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "errorCode"
+            ],
+            "properties": {
+              "class": {
+                "const": "request-rejected"
+              },
+              "errorCode": {
+                "const": "REQUEST.PRECONDITION_FAILED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "domainDetail"
+            ],
+            "properties": {
+              "domainDetail": {
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "DELIVERY.RENDERER_FAILED_AFTER_COMMIT"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "errorCode",
+              "runId"
+            ],
+            "properties": {
+              "class": {
+                "const": "operational-failed"
+              },
+              "errorCode": {
+                "const": "DELIVERY.REQUIRED_FAILED"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "domainDetail"
+            ],
+            "properties": {
+              "domainDetail": {
+                "required": [
+                  "code"
+                ],
+                "properties": {
+                  "code": {
+                    "const": "DELIVERY.REQUIRED_PROJECTION_FAILED"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "errorCode"
+            ],
+            "not": {
+              "required": [
+                "runId"
+              ]
+            },
+            "properties": {
+              "class": {
+                "const": "operational-failed"
+              },
+              "errorCode": {
+                "const": "DELIVERY.REQUIRED_FAILED"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "VcsRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "commit",
+        "dirty"
+      ],
+      "properties": {
+        "system": {
+          "type": "string",
+          "enum": [
+            "git"
+          ]
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{40}|[0-9a-f]{64})(?![\\s\\S])"
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "SourceCorrespondence": {
+      "type": "object",
+      "description": "Mandatory correspondence of external evidence to analyzed source. exact-snapshot binds a snapshot2 and is the only correspondence that is mapped by itself. vcs-revision binds a commit plus dirty flag and optional build identity; a commit string (even clean) or a declared build identity is a STATEMENT and cannot prove which generated/runtime bytes correspond to which snapshot bytes, so vcs-revision evidence is consumable only when an admitted SourceMappingV1 (imported-evidence schema) joins every consumed generated path to a snapshot2 inventory entry by digest; otherwise it is unmapped-only. The wrapper's sourceCorrespondenceDigest is the raw SHA-256 of this record's canonical bytes, retained as a blob.",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "exact-snapshot",
+            "vcs-revision"
+          ]
+        },
+        "snapshotId": {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        "vcsRevision": {
+          "$ref": "#/$defs/VcsRevision"
+        },
+        "buildIdentity": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sourceMappingDigest": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Sha256Hex"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "raw SHA-256 of the canonical SourceMappingV1 bytes admitted with this evidence, or null when none was supplied (then vcs-revision evidence is unmapped-only)"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "exact-snapshot"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "snapshotId"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "vcsRevision"
+                  ]
+                },
+                {
+                  "required": [
+                    "buildIdentity"
+                  ]
+                },
+                {
+                  "required": [
+                    "sourceMappingDigest"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "vcs-revision"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "vcsRevision",
+              "buildIdentity",
+              "sourceMappingDigest"
+            ],
+            "not": {
+              "required": [
+                "snapshotId"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Blob": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "bytes"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/LogicalPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Sha256Hex"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 268435456
+        }
+      }
+    },
+    "RepairAuthorizationRef": {
+      "type": "string",
+      "pattern": "^security\\.repair-apply-authorization\\.v1:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Exact product H(security.repair-apply-authorization.v1, admitted RepairApplyAuthorizationV1) with the security.repair-apply-authorization.v1 prefix; current host admission is mandatory."
+    },
+    "RepairRecoveryAuthorizationRef": {
+      "type": "string",
+      "pattern": "^security\\.repair-recovery-authorization\\.v1:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "RepairJournalRef": {
+      "type": "string",
+      "pattern": "^security\\.repair-apply-journal-identity\\.v1:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "InstallationTransitionJournalRef": {
+      "type": "string",
+      "pattern": "^security\\.installation-transition-journal\\.v1:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "PinnedPurgeDisclosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runId",
+        "activePins",
+        "consequences"
+      ],
+      "description": "Complete current pin inventory observed under the purge writer lease. Operational pinId is a host-ledger name scoped to this Run, not a content identity or authority token. Never truncate this disclosure or infer destructive consent from it.",
+      "properties": {
+        "runId": {
+          "$ref": "#/$defs/RunId"
+        },
+        "activePins": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "x-opensip-order": {
+            "by": [
+              "pinId"
+            ]
+          },
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "pinId",
+              "kind"
+            ],
+            "properties": {
+              "pinId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "baseline",
+                  "repair-prerequisite",
+                  "backup-export",
+                  "other-authorized"
+                ]
+              }
+            }
+          }
+        },
+        "consequences": {
+          "type": "array",
+          "const": [
+            "named-pins-revoked",
+            "dependent-evidence-replay-unavailable",
+            "sealed-history-retained"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "CapabilityAvailabilityStepV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stepId",
+        "noticeCount",
+        "notices"
+      ],
+      "properties": {
+        "stepId": {
+          "$ref": "#/$defs/StepId"
+        },
+        "noticeCount": {
+          "$ref": "#/$defs/Uint53"
+        },
+        "notices": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1024,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/CapabilityAvailabilityNoticeV1"
+          },
+          "x-opensip-order": "sequence"
+        }
+      },
+      "description": "The availability account of ONE analysis step's own selection, associated with that step by stepId. `notices` is bounded at 1024 because that is the analysis-spec requestedCapabilities bound and one selection produces at most one absence per requested row, so a STEP's collection can never truncate and its noticeCount always equals its array length. The same ownership tuple may recur in different steps - two steps may select the same unit - so uniqueness is within a step, never across the invocation."
+    }
+  }
+}

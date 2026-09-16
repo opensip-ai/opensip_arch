@@ -1,0 +1,1066 @@
+--- /dev/null
++++ b/docs/coop/design-corrections/foundation/run-termination-contract.v1.md
+@@ -0,0 +1,220 @@
++# Whole-Run indeterminate termination of an evaluator3 analysis Run — host finalizer contract v1
++
++This is the **one** owner of how the host finalizer turns a settled, admitted evaluator3 analysis Run into the
++**analysis projection** of the Run's termination: its class, `runId`, the ordered `reasonCodes`, the D9
++`(deficiency, secondaryDeficiencies)` pair, and `coverageId`. It is incorporated by `workflows-and-surfaces.md`
++§9 and is the reduction order `native-evidence.md` §10 defers to. It adds no class, exit, code, detail, cause,
++schema field or identity, and it changes no retained bytes. Reference derivation: `run_termination_model.v1.py`.
++Retained goldens: `run-termination-goldens.v1.json`, checked by `check-semantic-replay.v3.py` over actually closed
++Runs.
++
++## 1. Scope and what stays with other owners
++
++- **Only the host finalizer constructs a termination** (`d9-exit-contract.v1.14.json` `invariant-one-mapper`).
++  No producer, native stage helper or projection chooses these fields.
++- **Class precedence is unchanged.** Fault, then rejection, then deficiency (`causeModel.precedence`);
++  interruption before settle and the durability, delivery and required-postcondition rules of D9 and
++  workflows-and-surfaces §1 are decided first by their owners, from trusted host observations. This contract
++  applies only when none of them terminates the step and the Run is committed.
++- **The sealed verdict decides the remaining class.** `pass` → `success` with `runId`; `fail` →
++  `policy-failed` with `runId`; `indeterminate` → the derivation below. A native stage never reclassifies the
++  Run: a stage selection is one contribution to the condition population, never the class.
++- **Projection, not the whole step termination.** A `StepTermination` has members this contract does not
++  derive. Its optional delegated members are:
++
++  | Member | Owner | Why it is not derived here |
++  |---|---|---|
++  | `executionId` | workflows-and-surfaces §1 (a fresh `ExecutionId` for each admitted attempt); identity-and-evidence §2 (host-CSPRNG draw) | an attempt identity, not a function of retained Run content |
++  | `domainDetail` | workflows-and-surfaces §8 and §9 (explanatory detail beside an existing code, never a termination code); the public detail registry; composition §8 for `EVALUATION.WORK_BUDGET_EXHAUSTED` | host-attached explanation of an observation |
++  | `authority` | workflows-and-surfaces §9 and the `StepTermination` branch contract (`authority=ephemeral` only without a `runId`) | host standing of the step |
++
++  This contract neither requires nor licenses them, and it does not decide whether a given value is lawful.
++  `errorCode`, `faultCause` and `signal` are **not** delegated: the classes derived here never carry them, so
++  their presence contradicts the projection.
++- Other `indeterminate` producers keep their owners: comparison and baseline steps
++  (`workflow-projection-contract.v3.md`), query completeness, convergence. Per-requirement outcomes stay
++  `DeficiencyV2` / imported-requirement members and `REPAIR.EVIDENCE_RUN_UNAVAILABLE` (workflows-and-surfaces
++  §6); this contract does not project them.
++
++## 2. Inputs: sealed facts, not host observations
++
++The derivation reads **only** retained content that `identity-model.v3.close_run` has admitted by complete
++replay (`evaluator-composition-contract.v3.md` §7): the proof bundle and its predicate witnesses, the admitted
++Plan's policy bytes, and the `coverage2` records those proof records originate from. A Run that `close_run`
++refuses has no termination under this contract.
++
++It reads **no** trusted host observation of the invocation. That excludes:
++- the order in which conditions were discovered;
++- stage scheduling and worker frame order;
++- a stage terminal the host saw but no retained record carries;
++- provider timing.
++
++Those remain inputs to the class decisions of §1, to the delegated members, and to diagnostics. Consequently
++two conforming hosts that admit byte-identical Run evidence derive **the same analysis projection**, and a
++verifier holding only the retained Run re-derives it. Their complete step terminations need not be
++byte-identical: two attempts carry different `executionId` values by design, and a delegated `domainDetail` is
++whatever its owner attaches.
++
++The retained proof keeps deficiency arrays as canonical sets (composition §9.3–§9.6). That is sufficient: every
++input below is a set, and §4 orders by content, never by array position.
++
++## 3. Condition population
++
++Let `XI` be the proof's unique `execution-inputs` reference. The **population** is the union of:
++
++1. every `proof.executionDeficiencies` record (required execution and work-budget obligations; composition §5,
++   §9.6);
++2. for each `ruleResults[]` member whose sealed `outcome` is `indeterminate` (only a gating rule can have it,
++   composition §5):
++   - its rule-level records: `source=enumeration`; `source=import` with null `subjectId` and `predicateId`
++     (a required `evidenceUse` kind that no selected wrapper supplies); `source=execution`,
++     `cause=work-budget-exhausted`;
++   - for each `enumeration.selectedSubjectIds` member whose root `p` value is `indeterminate`, the
++     **verdict-blocking** deficiencies of that root, recomputed from the retained witness tree exactly as
++     composition §3 and §5 define them:
++     - an indeterminate atomic node contributes its witness `deficiencies`;
++     - an indeterminate boolean node contributes the union over its indeterminate children;
++     - a record blocks unless its cause is a registry `nonBlockingDisclosures` member;
++     - an `import` record blocks only when its `evidenceKind` is a `required` `evidenceUse` kind of that rule;
++     - `correspondence` records never block the current verdict.
++
++Deficiencies retained only as dominated provenance (a determinate root, a non-gating or passing rule) are not in
++the population. An `indeterminate` gating rule, or an `indeterminate` Run, with an empty population is a host
++invariant violation (`RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_*`), not a silent `VERDICT.INDETERMINATE`.
++
++## 4. Conditions, bridge and total order
++
++**Originating Coverage.** A record's originating `coverage2` records are:
++- for `source=execution`, its `inputRefs` minus `XI`, restricted to `domain=coverage` (composition §9.6 step 7);
++- for `source=native`, its single `inputRefs` member when that record carries exactly one `coverage` reference
++  (composition §9.5 item 3).
++
++Records whose `inputRefs` are the whole selection (atom items 1–2) originate from no single record.
++
++**Conditions.** Each population record contributes:
++
++- a **record condition** for its own `cause`; its **declared carriers** are its originating `coverage2` records
++  whose `entry.deficiency` equals that cause;
++- for each originating `coverage2` record whose `entry.resolutionCompleteness.stageTerminal` is a clean typed
++  terminal, a **stage-terminal condition**: `budget-exhausted` → `budget-exhausted`, `unavailable` →
++  `provider-unavailable` (native §10 stage selection). Its **stage carrier** is that record. The terminals
++  `complete`, `provider-fault`, `cancelled`, `crash` and `null` add no stage-terminal condition; the record's own
++  declared cause still contributes its record condition, and whether a faulted or cancelled stage terminates the
++  step is decided under §1, not here.
++
++**Cause bridge (total over the evaluator deficiency registry).**
++
++| Cause | Rank | D9 deficiency |
++|---|---|---|
++| a `DeficiencyV2` member, from any source (`native`, `execution`) or a stage terminal | its index in native §10 precedence (`language-tier-unsupported` 0 … `required-relation-missing` 8) | native §10 route: itself for the five `D9Deficiency` members, `verdict-indeterminate` for the four others |
++| `work-budget-exhausted` (execution) | 3, the rank of `budget-exhausted` | `budget-exhausted` |
++| every other registered cause: `required-cell-unsatisfied`; enumeration (`incomplete-inventory`, `unknown-export-membership`, `no-covering-program`, `source-syntax-invalid`); import (`evidence-kind-unavailable` and the other import-plane causes); native evaluator diagnostics that are not `DeficiencyV2` members (`coverage-unknown`, `uncovered-expected-source-subject`, `missing-relation-coverage`, …) | 9, after all nine | `verdict-indeterminate` |
++
++A cause outside the registry refuses (`RUN_TERMINATION_CAUSE_UNREGISTERED`). No evaluator-only cause is
++promoted to a `COVERAGE.*` code by name resemblance: `missing-relation-coverage` is not
++`required-relation-missing`, and `required-cell-unsatisfied` is not either.
++
++**`work-budget-exhausted` MUST contribute D9 deficiency `budget-exhausted`**, never be folded into
++`verdict-indeterminate`. Its position among the reasons follows the §4 order like any other condition: it is the
++primary unless a higher-precedence cause is present. The D9 golden `analysis-budget-exhausted` is exactly the Run
++where it is the only cause (a deterministic budget exhausts mid-evaluation; `reasonCodes`
++`["COVERAGE.BUDGET_EXHAUSTED"]`, no `coverageId`). `EVALUATION.WORK_BUDGET_EXHAUSTED` remains the explanatory
++DomainDetail naming the evaluator work budget rather than a native cell budget (composition §8). It is never a
++reason code; attaching it is the delegated `domainDetail` owner's decision (§1).
++
++**Total order.** For each distinct D9 deficiency, take the least rank over the conditions that map to it. Each
++rank maps to exactly one D9 deficiency, so distinct deficiencies have distinct least ranks and the order is
++total. The **primary** is the least; `secondaryDeficiencies` are the rest in rank order; `reasonCodes` =
++`codeMaps.deficiencyToReasonCode` of that sequence (`causeModel.codeDerivation`). Fed this sequence as its
++`deficiencies` input, D9's `concurrentConditionReducer` ("primary = deficiencies[0]") returns the same codes
++whatever order the host discovered the conditions in. The order agrees with native §10 wherever both apply: a
++native stage selection's primary is never overtaken by a lower-precedence cause. `VERDICT.INDETERMINATE` takes
++the position of its best-ranked cause. It is first when a bridged member such as `input-closure-incomplete`
++outranks every `D9Deficiency`-member cause, and last when only lower-ranked bridged members or evaluator-only
++causes carry it.
++
++## 5. `coverageId`
++
++Let the **primary cause** be the §10 precedence member at the primary rank (none at rank 9). Among **all**
++conditions at the primary rank, whichever source contributed them:
++
++1. if any has a declared carrier, `coverageId` is the least declared carrier by UTF-8 bytes of the full
++   `coverage2:` identifier;
++2. otherwise, if any has a stage carrier, the least stage carrier;
++3. otherwise `coverageId` is **omitted**.
++
++Some conditions never supply a carrier themselves: every evaluator-only cause, `work-budget-exhausted`, and the
++requirement-relative `required-relation-missing` and `confidence-floor-unmet` (native §10: no entry carrier).
++They do not suppress another condition's carrier at the same rank. When the evaluator work budget and a
++retained native stage terminal `budget-exhausted` are both present, both sit at rank 3, and the stage carrier is
++`coverageId`. `coverageId` is omitted only when **no** condition at the primary rank has a declared or stage
++carrier. It is then omitted even when the Run retains deficient `coverage2` records carrying other ranks:
++`coverageId` names a carrier of `reasonCodes[0]`, not "some deficient Coverage".
++
++**Stage/entry disagreement.** A stage carrier's own `entry.deficiency` can differ from the primary. For example,
++an attempted `references@resolved-binding` partition whose stage ended `budget-exhausted` may declare
++`resolution-incomplete` (RC-2 `partial`; the declared member is the sufficiency evaluation's selection, native
++§10). Then `reasonCodes[0]` is `COVERAGE.BUDGET_EXHAUSTED`, `coverageId` names that record, and its
++`entry.deficiency` stays `resolution-incomplete`. Nothing is rewritten. A reader takes the remedy from
++`reasonCodes[0]` and the typed detail from the named record: `stageTerminal` carries the primary, and
++`entry.deficiency` / `nativeCause` carry the entry's own declaration. The native reference `run_termination`
++helper sees one stage. Over the same entries it returns the same primary code, and a typed-detail deficiency of
++`resolution-incomplete`. It is a stage contribution, not the Run reducer, and its output is not a termination.
++
++## 6. Checking a candidate, retained goldens and controls
++
++**Candidate check** (`check_projection`). A candidate `StepTermination` is compared with the derived projection,
++and refusals are applied in this fixed order:
++
++1. anything but an object;
++2. a member outside the projection and delegated members (`RUN_TERMINATION_UNKNOWN_FIELD`);
++3. a projection that is not exactly the derived one (`RUN_TERMINATION_NOT_DERIVED`): a wrong class, `runId`,
++   reason set or order, `coverageId` presence or value, or any `errorCode`, `faultCause` or `signal`;
++4. a delegated member when no shape validator is supplied (`RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED`), or when
++   the `StepTermination` schema refuses the candidate (`RUN_TERMINATION_DELEGATED_SHAPE`).
++
++Otherwise the projection is admitted, and any delegated members are returned with standing
++`owner-validation-required`. Schema validity is not lawfulness in either direction:
++- a schema-valid wrong projection is refused;
++- a shape-valid delegated value is **not** thereby a lawful attribution or remedy. Only its owner can admit it.
++
++`run-termination-goldens.v1.json` pins, for Runs built by the semantic fixture and admitted by `close_run`:
++
++| Golden | What it holds |
++|---|---|
++| `same-run-two-coverage-carriers` | two deficient `coverage2` records carry the primary; exactly the least is `coverageId`; the other and omission refuse |
++| `stage-entry-disagreement` | stage-implied `budget-exhausted` over an entry declaring `resolution-incomplete`; `coverageId` is the stage carrier, not the least deficient record |
++| `stage-unavailable-implies-provider-unavailable` | the `unavailable` terminal row of the same law |
++| `permuted-condition-discovery` | every tested discovery order derives one termination, while the verbatim D9 reducer fed in discovery order gives more than one primary |
++| `evaluator-only-cause` | `required-cell-unsatisfied` alone: `VERDICT.INDETERMINATE`, no `coverageId` |
++| `no-coverage-primary-over-deficient-coverage` | work budget over retained deficient Coverage with no rank-3 carrier: `COVERAGE.BUDGET_EXHAUSTED` first, no `coverageId` |
++| `work-budget-is-d9-budget-exhausted` | equals the D9 `analysis-budget-exhausted` expected termination |
++| `work-budget-with-native-stage-budget-carrier` | work budget and a native stage terminal `budget-exhausted` share rank 3; the stage carrier is `coverageId`, and omitting it refuses |
++| `work-budget-secondary-under-provider-unavailable-stage` | stage `unavailable` outranks the work budget: `COVERAGE.PROVIDER_UNAVAILABLE`, `COVERAGE.BUDGET_EXHAUSTED`, `VERDICT.INDETERMINATE`, with the stage carrier |
++| `combined-discovery-orders` | all 720 orders of that Run's six conditions derive one termination; the verbatim D9 reducer gives six sequences and three primaries |
++| `analysis-projection-boundary` | shape-valid `executionId`, `domainDetail` and `authority` leave the projection admitted with `owner-validation-required`; wrong order, omitted carrier, wrong `runId` or class, `faultCause`, an unregistered member, malformed or contradictory shapes, and an unvalidated delegated member all refuse |
++
++Every refused alternative in the `termination` goldens is also a schema-valid `StepTermination`, so those
++controls refuse by derivation, not by shape.
++
++## 7. Limits
++
++- The fixture Runs are synthetic native-admitted graphs, not compiler or provider qualification.
++- **Mixed-owner coverage is partial.** The retained goldens combine two kinds of condition:
++  - the evaluator work-budget obligation with required-execution native accounts whose Coverage retains a stage
++    terminal (`work-budget-with-native-stage-budget-carrier`, `work-budget-secondary-under-provider-unavailable-stage`);
++  - native atom/witness causes with stage terminals and evaluator diagnostics (`stage-entry-disagreement`).
++
++  No retained golden combines these with:
++  - requirement-relative sufficiency (`required-relation-missing`, `confidence-floor-unmet`);
++  - `language-tier-unsupported` or `input-closure-incomplete`;
++  - enumeration or required-import obligations.
++
++  The order for those Runs rests on the §4 table and the route-drift check, not on a closed-Run golden.
++- The delegated-member controls use shape fixtures (a synthetic `ExecutionId`, a registered detail code with an
++  illustrative remedy). They show the projection boundary and the refusals; they do not show that any such
++  value is a lawful host attribution or remedy.
++- The derivation and the goldens share one author. A blind reconstruction of this contract from the text alone
++  has not been performed.
++- `StepTermination.coverageId` and `D9Deficiency` descriptions in the root-owned common schema are unchanged and
++  do not restate this law; the D9 v1.14 artifact is historical and unchanged.
+--- /dev/null
++++ b/docs/coop/design-corrections/foundation/run_termination_model.v1.py
+@@ -0,0 +1,304 @@
++"""Reference derivation of an evaluator3 analysis Run's whole-Run termination (run-termination-contract.v1.md).
++
++The host finalizer is the only constructor of a Run's termination (d9-exit-contract invariant-one-mapper). For
++the branch this owner governs - no fault, no rejection, no interruption before settle, durability committed -
++the class follows the SEALED verdict, and for `indeterminate` the ordered reasonCodes, the D9
++(deficiency, secondaryDeficiencies) pair and `coverageId` are a pure function of retained admitted Run content:
++
++  1. admit: identity-model.v3 close_run (complete replay) must admit the Run; nothing below reads a claim
++     that replay did not recompute.
++  2. population: every proof.executionDeficiencies record, plus, for each ruleResult whose sealed outcome is
++     `indeterminate`, its rule-level records (enumeration, required import, work budget) and the verdict-
++     blocking witness deficiencies of each selected subject whose root value is `indeterminate`
++     (composition section 5, recomputed over the retained witness tree).
++  3. conditions: each record contributes its own cause; a record's ORIGINATING Coverage (composition 9.5 item
++     3 / 9.6 step 7) contributes a declared carrier when its entry.deficiency equals that cause, and a
++     stage-implied condition when its entry.resolutionCompleteness.stageTerminal is a clean typed terminal
++     (budget-exhausted -> budget-exhausted, unavailable -> provider-unavailable; native section 10).
++  4. order: rank = native section 10 precedence index of a DeficiencyV2 cause (work-budget-exhausted ranks as
++     budget-exhausted); every other registered cause ranks after all nine. reasonCodes are the distinct D9
++     deficiencies by least rank, mapped through d9-exit-contract codeMaps.deficiencyToReasonCode.
++  5. coverageId: the canonically least declared carrier of the primary cause, else the least stage-implied
++     carrier, else omitted.
++
++Discovery order, proof array order, host scheduling and trusted host observations of the invocation are not
++inputs, so any permutation of the population yields the same termination. What is derived is the ANALYSIS
++PROJECTION of the step termination (class, runId, reasonCodes, coverageId, and the absence of errorCode, faultCause
++and signal). A host StepTermination may also carry executionId, domainDetail or authority; those members are
++delegated to their own owners, and `check_projection` reports them as owner-validation-required, never as lawful.
++Reference evidence only.
++"""
++from __future__ import annotations
++
++import importlib.util
++import itertools
++import json
++import sys
++from pathlib import Path
++
++HERE = Path(__file__).resolve().parent
++DC = HERE.parent
++D9_CONTRACT_PATH = HERE.parents[1] / "artifacts" / "d9-exit-contract.v1.14.json"
++
++
++def _load(name, path):
++    if name in sys.modules:
++        return sys.modules[name]
++    spec = importlib.util.spec_from_file_location(name, path)
++    mod = importlib.util.module_from_spec(spec)
++    sys.modules[name] = mod
++    spec.loader.exec_module(mod)
++    return mod
++
++
++R = _load("run_termination_replay3", HERE / "evaluator_replay_model.v3.py")
++M = R.M
++C = M.C
++N = _load("run_termination_native2", DC / "native" / "native_evidence_model.v2.py")
++D9 = json.loads(D9_CONTRACT_PATH.read_text(encoding="utf-8"))
++REGISTRY = M.SCHEMA["x-opensip-evaluator-deficiency-registry"]
++
++PRECEDENCE = list(N.PRECEDENCE_V2)
++EVALUATOR_ONLY_RANK = len(PRECEDENCE)
++STAGE_TERMINAL_DEFICIENCY = dict(N.STAGE_TERMINAL_DEFICIENCY)
++WORK_BUDGET = "work-budget-exhausted"
++CODE_MAP = D9["codeMaps"]["deficiencyToReasonCode"]
++
++
++class RunTerminationError(C.AdmissionError):
++    """A candidate termination that is not the derived one, or a Run this owner cannot explain."""
++
++
++def cause_route(cause: str) -> dict:
++    """(rank, D9 deficiency) of ONE registered evaluator cause. Total over the registry; refuses anything else."""
++    registered = {c for members in REGISTRY["sources"].values() for c in members}
++    if cause not in registered:
++        raise RunTerminationError("RUN_TERMINATION_CAUSE_UNREGISTERED:" + cause)
++    if cause in PRECEDENCE:
++        return {"rank": PRECEDENCE.index(cause), "d9Deficiency": N.native_deficiency_d9(cause)["d9Deficiency"]}
++    if cause == WORK_BUDGET:
++        return {"rank": PRECEDENCE.index("budget-exhausted"), "d9Deficiency": "budget-exhausted"}
++    return {"rank": EVALUATOR_ONLY_RANK, "d9Deficiency": "verdict-indeterminate"}
++
++
++def route_drift() -> list[str]:
++    """Faults between this owner's tables and their owners (native route, D9 codeMaps, evaluator registry)."""
++    faults = list(N.d9_route_drift())
++    if PRECEDENCE != N.SCHEMAS["$defs"]["DeficiencyV2"]["enum"]:
++        faults.append("section 10 precedence is not DeficiencyV2 in declared order")
++    for source, members in REGISTRY["sources"].items():
++        for cause in members:
++            d9 = cause_route(cause)["d9Deficiency"]
++            if d9 not in CODE_MAP:
++                faults.append(f"{source}/{cause} routes to {d9}, which the D9 owner does not map")
++    for d9 in {cause_route(c)["d9Deficiency"] for m in REGISTRY["sources"].values() for c in m}:
++        if not CODE_MAP[d9].startswith(("COVERAGE.", "VERDICT.")):
++            faults.append(f"{d9} maps to {CODE_MAP[d9]}, outside the evaluator whole-Run vocabulary")
++    return faults
++
++
++def _xi(proof):
++    refs = [r for r in proof["evaluationInputRefs"] if r["domain"] == "execution-inputs"]
++    if len(refs) != 1:
++        raise RunTerminationError("RUN_TERMINATION_EXECUTION_INPUTS_REF")
++    return refs[0]
++
++
++def _originating_coverage(record, xi):
++    """Composition 9.6 step 7 (execution: inputRefs minus XI) and 9.5 item 3 (native: exactly one Coverage ref).
++    Whole-selection refs (atom items 1-2, inputRefs = EI) name no originating record."""
++    if record["source"] == "execution":
++        refs = [r for r in record["inputRefs"] if r != xi]
++    elif record["source"] == "native" and len(record["inputRefs"]) == 1:
++        refs = list(record["inputRefs"])
++    else:
++        refs = []
++    return sorted("coverage2:" + r["digest"] for r in refs if r["domain"] == "coverage")
++
++
++def retained_population(run, objects, blobs):
++    """Admit the Run (complete replay) and return (runId, verdict, the verdict-relevant deficiency records)."""
++    run_id = M.close_run(run, objects, blobs)
++    seal = objects[run["evaluationSealId"]][1]
++    proof = objects[seal["proofBundleId"]][1]
++    plan = objects[run["planId"]][1]
++    policy = C.parse(blobs[plan["policyDigest"]])
++    rules = {r["ruleId"]: r for r in policy["rules"]}
++    by_address = {(p["ruleId"], p["subjectId"], p["predicateId"]): p for p in proof["predicateProofs"]}
++    witness = {}
++
++    def blocks(rule, record):
++        if record["cause"] in REGISTRY["nonBlockingDisclosures"]:
++            return False
++        if record["source"] != "import":
++            return record["source"] in ("native", "enumeration", "execution")
++        return record["evidenceKind"] in {v["kind"] for v in rule["evidenceUse"] if v["requirement"] == "required"}
++
++    def blocking(rule_id, subject_id, predicate_id):
++        node = by_address[(rule_id, subject_id, predicate_id)]
++        if node["value"] != "indeterminate":
++            return []
++        w = witness.setdefault(node["witnessDigest"], C.parse(blobs[node["witnessDigest"]]))
++        if w["kind"] != "boolean":
++            return list(w["deficiencies"])
++        return [d for child in w["childPredicateIds"] for d in blocking(rule_id, subject_id, child)]
++
++    population = list(proof["executionDeficiencies"])
++    for result in proof["ruleResults"]:
++        if result["outcome"] != "indeterminate":
++            continue
++        rule = rules[result["ruleId"]]
++        rule_level = [d for d in result["deficiencies"]
++                      if d["source"] == "enumeration"
++                      or (d["source"] == "import" and d["subjectId"] is None and d["predicateId"] is None)
++                      or (d["source"] == "execution" and d["cause"] == WORK_BUDGET)]
++        root_level = [d for sid in result["enumeration"]["selectedSubjectIds"] if (result["ruleId"], sid, "p") in by_address
++                      for d in blocking(result["ruleId"], sid, "p") if blocks(rule, d)]
++        explained = rule_level + root_level
++        if not explained:
++            raise RunTerminationError("RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_RULE:" + result["ruleId"])
++        population.extend(explained)
++    if proof["verdict"] == "indeterminate" and not population:
++        raise RunTerminationError("RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_RUN")
++    return run_id, proof["verdict"], population, {"proof": proof, "xi": _xi(proof)}
++
++
++def conditions(population, objects, blobs, xi):
++    """Every condition the population exhibits: its own cause, and stage terminals its originating Coverage retains."""
++    out = []
++    for record in population:
++        route = cause_route(record["cause"])
++        declared, implied = [], []
++        for cid in _originating_coverage(record, xi):
++            entry = C.parse(blobs[objects[cid][1]["payloadDigest"]])["entry"]
++            if entry["deficiency"] == record["cause"]:
++                declared.append(cid)
++            terminal = entry["resolutionCompleteness"]["stageTerminal"]
++            if terminal in STAGE_TERMINAL_DEFICIENCY:
++                stage_cause = STAGE_TERMINAL_DEFICIENCY[terminal]
++                out.append({"cause": stage_cause, "origin": "stage-terminal", "source": record["source"],
++                            **cause_route(stage_cause), "declaredCarriers": [], "stageCarriers": [cid],
++                            "entryDeficiency": entry["deficiency"]})
++        out.append({"cause": record["cause"], "origin": "record", "source": record["source"], **route,
++                    "declaredCarriers": declared, "stageCarriers": []})
++    return out
++
++
++def reduce(conds):
++    """Total pre-reduction order, then the D9 codeDerivation. Independent of the order of `conds`."""
++    if not conds:
++        raise RunTerminationError("RUN_TERMINATION_EMPTY_DEFICIENCY_SET")
++    least = {}
++    for c in conds:
++        least[c["d9Deficiency"]] = min(least.get(c["d9Deficiency"], c["rank"]), c["rank"])
++    ordered = sorted(least, key=lambda d9: least[d9])
++    if len(set(least.values())) != len(least):
++        raise RunTerminationError("RUN_TERMINATION_RANK_COLLISION")
++    primary_rank = least[ordered[0]]
++    at_primary = [c for c in conds if c["rank"] == primary_rank]
++    declared = sorted({cid for c in at_primary for cid in c["declaredCarriers"]}, key=str.encode)
++    staged = sorted({cid for c in at_primary for cid in c["stageCarriers"]}, key=str.encode)
++    carrier = (declared or staged or [None])[0]
++    return {"deficiency": ordered[0], "secondaryDeficiencies": ordered[1:],
++            "reasonCodes": [CODE_MAP[d9] for d9 in ordered],
++            "primaryCause": PRECEDENCE[primary_rank] if primary_rank < EVALUATOR_ONLY_RANK else None,
++            "coverageId": carrier, "carrierKind": "declared" if declared else ("stage-terminal" if staged else None)}
++
++
++def finalize(run, objects, blobs):
++    """Settled analysis Run with no fault, rejection or pre-settle interruption: its StepTermination."""
++    run_id, verdict, population, ctx = retained_population(run, objects, blobs)
++    if verdict == "pass":
++        return {"termination": {"class": "success", "runId": run_id}, "reduction": None}
++    if verdict == "fail":
++        return {"termination": {"class": "policy-failed", "runId": run_id}, "reduction": None}
++    reduction = reduce(conditions(population, objects, blobs, ctx["xi"]))
++    term = {"class": "indeterminate", "reasonCodes": reduction["reasonCodes"], "runId": run_id}
++    if reduction["coverageId"] is not None:
++        term["coverageId"] = reduction["coverageId"]
++    return {"termination": term, "reduction": reduction}
++
++
++# The ANALYSIS PROJECTION: the StepTermination members this owner derives from the admitted Run. errorCode,
++# faultCause and signal belong to it because the derived classes (success, policy-failed, indeterminate) never
++# carry them, so their presence contradicts the derived class.
++PROJECTION_FIELDS = ("class", "runId", "reasonCodes", "coverageId", "errorCode", "faultCause", "signal")
++# Optional StepTermination members this owner neither derives nor licenses. Their owners alone decide whether a
++# value is lawful; this owner checks only that the whole candidate is shape-valid.
++DELEGATED_FIELDS = {
++    "executionId": "attempt identity: workflows-and-surfaces section 1 (a fresh ExecutionId per admitted attempt) "
++                   "and identity-and-evidence section 2 (host-CSPRNG draw); not a function of retained Run content",
++    "domainDetail": "explanatory DomainDetail beside the existing code: workflows-and-surfaces sections 8 and 9, the "
++                    "public detail registry, and composition section 8 for EVALUATION.WORK_BUDGET_EXHAUSTED",
++    "authority": "workflows-and-surfaces section 9 and the StepTermination branch contract (authority=ephemeral "
++                 "only without a runId)",
++}
++
++
++def check_projection(candidate, derived, validate_shape=None):
++    """Admit a candidate StepTermination's analysis projection; never report its delegated members as lawful.
++
++    Refusal order is fixed: a non-object; a member outside PROJECTION_FIELDS and DELEGATED_FIELDS
++    (RUN_TERMINATION_UNKNOWN_FIELD); a projection that is not exactly the derived one - class, runId, reasonCodes
++    and their order, coverageId presence and value, or any errorCode/faultCause/signal (RUN_TERMINATION_NOT_DERIVED);
++    a delegated member with no shape validator (RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED) or whose candidate the
++    validator refuses (RUN_TERMINATION_DELEGATED_SHAPE). Otherwise it returns the projection, the delegated members
++    and their owners with standing `owner-validation-required`: a shape-valid delegated value is not thereby lawful.
++    """
++    if type(candidate) is not dict:
++        raise RunTerminationError("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
++    unknown = sorted(set(candidate) - set(PROJECTION_FIELDS) - set(DELEGATED_FIELDS))
++    if unknown:
++        raise RunTerminationError("RUN_TERMINATION_UNKNOWN_FIELD:" + ",".join(unknown))
++    projection = {k: candidate[k] for k in PROJECTION_FIELDS if k in candidate}
++    if projection != derived:
++        raise RunTerminationError("RUN_TERMINATION_NOT_DERIVED:" + json.dumps({"derived": derived}, sort_keys=True))
++    delegated = {k: candidate[k] for k in DELEGATED_FIELDS if k in candidate}
++    if delegated:
++        if validate_shape is None:
++            raise RunTerminationError("RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED:" + ",".join(sorted(delegated)))
++        try:
++            validate_shape(candidate)
++        except Exception as exc:
++            raise RunTerminationError("RUN_TERMINATION_DELEGATED_SHAPE:" + str(exc).split("\n")[0][:200]) from exc
++    return {"projection": projection, "delegated": delegated,
++            "delegatedOwners": {k: DELEGATED_FIELDS[k] for k in sorted(delegated)},
++            "delegatedStanding": "owner-validation-required" if delegated else None}
++
++
++def admit_projection(candidate, run, objects, blobs, validate_shape=None):
++    """Derive the analysis projection from the admitted Run, then check_projection."""
++    return check_projection(candidate, finalize(run, objects, blobs)["termination"], validate_shape)
++
++
++def d9_concurrent_reducer(deficiencies):
++    """d9-exit-contract concurrentConditionReducer deficiency branch, verbatim: primary = deficiencies[0]."""
++    primary, rest = deficiencies[0], []
++    for d in deficiencies[1:]:
++        if d != primary and d not in rest:
++            rest.append(d)
++    return [CODE_MAP[primary]] + [CODE_MAP[d] for d in rest]
++
++
++def discovery_orders(items):
++    """Every order when there are at most six items; otherwise every rotation of the list and of its reverse.
++    Each rotation puts a different record first, which is what decides a first-discovered primary."""
++    items = list(items)
++    if len(items) <= 6:
++        return [list(p) for p in itertools.permutations(items)]
++    orders = []
++    for base in (items, items[::-1]):
++        orders.extend(base[k:] + base[:k] for k in range(len(base)))
++    return orders
++
++
++def permutation_invariance(conds):
++    """Derived reductions versus the raw D9 reducer fed in host discovery order, over discovery_orders."""
++    derived, raw = set(), set()
++    orders = discovery_orders(conds)
++    for perm in orders:
++        r = reduce(perm)
++        derived.add(json.dumps({k: r[k] for k in ("reasonCodes", "coverageId")}, sort_keys=True))
++        raw.add(tuple(d9_concurrent_reducer([c["d9Deficiency"] for c in perm])))
++    return {"orders": len(orders), "distinctDerived": len(derived),
++            "distinctRawReducerSequences": len(raw), "rawPrimaryCodes": sorted({s[0] for s in raw})}
+--- /dev/null
++++ b/docs/coop/design-corrections/foundation/run-termination-goldens.v1.json
+@@ -0,0 +1,265 @@
++{
++  "schemaVersion": 1,
++  "owner": "docs/coop/design-corrections/foundation/run-termination-contract.v1.md",
++  "model": "docs/coop/design-corrections/foundation/run_termination_model.v1.py",
++  "checker": "docs/coop/design-corrections/foundation/check-semantic-replay.v3.py (run-termination goldens)",
++  "standing": "Retained reference goldens over synthetic native-admitted Runs closed by identity-model.v3.close_run with complete replay. Same author as the derivation; not blind reconstruction, not compiler or provider qualification.",
++  "routeDrift": [],
++  "fixtures": {
++    "incoming-incomplete": {
++      "atom": "REFS_NONE_TGT",
++      "params": {"has_declares": false, "has_references_fact": true, "second_partition": true, "references_resolved": false,
++                 "incoming_search": true, "incoming_complete": false, "target_sidecar": true}
++    },
++    "declares": {
++      "atom": "DECLARES",
++      "params": {"has_declares": true}
++    }
++  },
++  "goldens": [
++    {
++      "id": "same-run-two-coverage-carriers",
++      "kind": "termination",
++      "build": {"export": "references-incoming-incomplete-unknown"},
++      "why": "Two retained coverage2 records declare resolution-incomplete, the primary cause; both are carriers.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                        "runId": "run3:f9b48563b2a7a96f9ee8637eb2db5c277ac2b466c424d2f9010825dad94d801b",
++                        "coverageId": "coverage2:11659545b83aa88264655889cfcffe8badfe6d39ea22da212709fce0aab5fb91"},
++        "deficiency": "verdict-indeterminate", "secondaryDeficiencies": [],
++        "primaryCause": "resolution-incomplete", "carrierKind": "declared"
++      },
++      "refuse": [
++        {"label": "other-declared-carrier",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:f9b48563b2a7a96f9ee8637eb2db5c277ac2b466c424d2f9010825dad94d801b",
++                         "coverageId": "coverage2:1687670734fc1cb24c8fc76c0903d3d1de635433b4ca0c5f71cf7c432c48a045"}},
++        {"label": "carrier-omitted",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:f9b48563b2a7a96f9ee8637eb2db5c277ac2b466c424d2f9010825dad94d801b"}}
++      ]
++    },
++    {
++      "id": "stage-entry-disagreement",
++      "kind": "termination",
++      "build": {"fixture": "incoming-incomplete", "params": {"references_stage_terminals": {"foo": "budget-exhausted"}}},
++      "why": "The foo partition's stage ended budget-exhausted (RC-2 partial) while its entry declares resolution-incomplete; the stage-implied budget-exhausted outranks it.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                        "runId": "run3:06240a78b2844181f44ba51a3304627f5b2ba7ef7f3d24d69bb114c2eeb85676",
++                        "coverageId": "coverage2:1691d70035b01e61875adf3f970b382af3b6a114e09e983439fb30f620e53ce0"},
++        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
++        "primaryCause": "budget-exhausted", "carrierKind": "stage-terminal",
++        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "budget-exhausted", "state": "partial"}
++      },
++      "refuse": [
++        {"label": "least-deficient-coverage-instead-of-stage-carrier",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:06240a78b2844181f44ba51a3304627f5b2ba7ef7f3d24d69bb114c2eeb85676",
++                         "coverageId": "coverage2:11659545b83aa88264655889cfcffe8badfe6d39ea22da212709fce0aab5fb91"}},
++        {"label": "entry-deficiency-only-reading",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:06240a78b2844181f44ba51a3304627f5b2ba7ef7f3d24d69bb114c2eeb85676",
++                         "coverageId": "coverage2:1691d70035b01e61875adf3f970b382af3b6a114e09e983439fb30f620e53ce0"}},
++        {"label": "generic-reason-first",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
++                         "runId": "run3:06240a78b2844181f44ba51a3304627f5b2ba7ef7f3d24d69bb114c2eeb85676",
++                         "coverageId": "coverage2:1691d70035b01e61875adf3f970b382af3b6a114e09e983439fb30f620e53ce0"}},
++        {"label": "carrier-omitted",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:06240a78b2844181f44ba51a3304627f5b2ba7ef7f3d24d69bb114c2eeb85676"}}
++      ]
++    },
++    {
++      "id": "stage-unavailable-implies-provider-unavailable",
++      "kind": "termination",
++      "build": {"fixture": "incoming-incomplete", "params": {"references_stage_terminals": {"foo": "unavailable"}}},
++      "why": "The unavailable clean typed terminal row of the same law: provider-unavailable from the retained stageTerminal, not from a manufactured nativeCause.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
++                        "runId": "run3:d8637790f4584444d4b7d241e9c169e5b556f1d9636fa604087fdad0abac49df",
++                        "coverageId": "coverage2:fa6bea5f0bc434ecd21225e436843bcc0b0edd5a7220a03e1d8be490d726fcd7"},
++        "deficiency": "provider-unavailable", "secondaryDeficiencies": ["verdict-indeterminate"],
++        "primaryCause": "provider-unavailable", "carrierKind": "stage-terminal",
++        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "unavailable", "state": "partial"}
++      },
++      "refuse": [
++        {"label": "least-deficient-coverage-instead-of-stage-carrier",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:d8637790f4584444d4b7d241e9c169e5b556f1d9636fa604087fdad0abac49df",
++                         "coverageId": "coverage2:11659545b83aa88264655889cfcffe8badfe6d39ea22da212709fce0aab5fb91"}},
++        {"label": "entry-deficiency-only-reading",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:d8637790f4584444d4b7d241e9c169e5b556f1d9636fa604087fdad0abac49df",
++                         "coverageId": "coverage2:fa6bea5f0bc434ecd21225e436843bcc0b0edd5a7220a03e1d8be490d726fcd7"}}
++      ]
++    },
++    {
++      "id": "permuted-condition-discovery",
++      "kind": "permutation",
++      "of": "stage-entry-disagreement",
++      "why": "Host discovery order is not an input: every tested order derives one termination, while the verbatim D9 reducer (primary = deficiencies[0]) fed in discovery order yields more than one primary.",
++      "expect": {"orders": 16, "distinctDerived": 1, "distinctRawReducerSequences": 2,
++                 "rawPrimaryCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"]}
++    },
++    {
++      "id": "evaluator-only-cause",
++      "kind": "termination",
++      "build": {"export": "missing-required-inventory-execution"},
++      "why": "required-cell-unsatisfied is an evaluator-only cause: verdict-indeterminate at rank 9, no Coverage carrier.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                        "runId": "run3:a3185cc797b2a01511a5c42573e795bb426b47e10a298504325440a52f791064"},
++        "deficiency": "verdict-indeterminate", "secondaryDeficiencies": [],
++        "primaryCause": null, "carrierKind": null
++      },
++      "refuse": [
++        {"label": "name-resemblance-promotion",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.REQUIRED_RELATION_MISSING"],
++                         "runId": "run3:a3185cc797b2a01511a5c42573e795bb426b47e10a298504325440a52f791064"}}
++      ]
++    },
++    {
++      "id": "no-coverage-primary-over-deficient-coverage",
++      "kind": "termination",
++      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1}},
++      "why": "The work budget preflight exhausts; required-execution resolution-incomplete rows still cite deficient coverage2 records, but the primary budget-exhausted has no Coverage carrier.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                        "runId": "run3:5b43ced1ccfdf979da0d0a1b82d3bac2d7a1524f6b642d19af9914206da7264d"},
++        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
++        "primaryCause": "budget-exhausted", "carrierKind": null
++      },
++      "refuse": [
++        {"label": "some-deficient-coverage-named",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:5b43ced1ccfdf979da0d0a1b82d3bac2d7a1524f6b642d19af9914206da7264d",
++                         "coverageId": "coverage2:0bbf6c87b60ac12f119abea421d35996d6617e4246c0b7d0ba7cb7d4c0eb2132"}},
++        {"label": "work-budget-not-reused",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:5b43ced1ccfdf979da0d0a1b82d3bac2d7a1524f6b642d19af9914206da7264d"}},
++        {"label": "generic-reason-first",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
++                         "runId": "run3:5b43ced1ccfdf979da0d0a1b82d3bac2d7a1524f6b642d19af9914206da7264d"}}
++      ]
++    },
++    {
++      "id": "work-budget-is-d9-budget-exhausted",
++      "kind": "termination",
++      "build": {"fixture": "declares", "params": {"budget_limit": 1}},
++      "why": "The D9 golden analysis-budget-exhausted is this Run: a deterministic budget exhausts mid-evaluation.",
++      "d9Golden": "analysis-budget-exhausted",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED"],
++                        "runId": "run3:a57d4ddc34f5e1ff036b41fc8b07c8cace6b6affed306dc189c657ac8724f8e6"},
++        "deficiency": "budget-exhausted", "secondaryDeficiencies": [],
++        "primaryCause": "budget-exhausted", "carrierKind": null
++      },
++      "refuse": [
++        {"label": "work-budget-not-reused",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
++                         "runId": "run3:a57d4ddc34f5e1ff036b41fc8b07c8cace6b6affed306dc189c657ac8724f8e6"}}
++      ]
++    },
++    {
++      "id": "work-budget-with-native-stage-budget-carrier",
++      "kind": "termination",
++      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1, "references_stage_terminals": {"foo": "budget-exhausted"}}},
++      "why": "Two owners' conditions share the primary rank: the evaluator work budget (no carrier) and a required native account whose Coverage retained stageTerminal budget-exhausted. The stage carrier is named; omission applies only when no condition at the primary rank has a carrier.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                        "runId": "run3:00efec09db03c72142e66fb06b6074e62e45b17c556b33e93e5862d4c5be788a",
++                        "coverageId": "coverage2:b6919b2c4a8714afcea6c4843bc07e042e9295f4a792b0f431e30295f8dfa284"},
++        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
++        "primaryCause": "budget-exhausted", "carrierKind": "stage-terminal",
++        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "budget-exhausted", "state": "partial"}
++      },
++      "refuse": [
++        {"label": "carrier-omitted-because-work-budget",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:00efec09db03c72142e66fb06b6074e62e45b17c556b33e93e5862d4c5be788a"}},
++        {"label": "unstaged-deficient-record-named",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:00efec09db03c72142e66fb06b6074e62e45b17c556b33e93e5862d4c5be788a",
++                         "coverageId": "coverage2:dcd5d3d0b8c0a63f2a04374756148a8f6d2c54aba54c3517f30b034ec85eee74"}},
++        {"label": "generic-reason-first",
++         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
++                         "runId": "run3:00efec09db03c72142e66fb06b6074e62e45b17c556b33e93e5862d4c5be788a",
++                         "coverageId": "coverage2:b6919b2c4a8714afcea6c4843bc07e042e9295f4a792b0f431e30295f8dfa284"}}
++      ]
++    },
++    {
++      "id": "work-budget-secondary-under-provider-unavailable-stage",
++      "kind": "termination",
++      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1, "references_stage_terminals": {"foo": "unavailable"}}},
++      "why": "A native stage terminal unavailable outranks the evaluator work budget: provider-unavailable is primary with its stage carrier, and the work budget still contributes COVERAGE.BUDGET_EXHAUSTED as a secondary ahead of the generic reason.",
++      "expect": {
++        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                        "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b",
++                        "coverageId": "coverage2:91c5b40f6f033adc18f3859d0e997d708bb97438955a0a15616da2401d69db73"},
++        "deficiency": "provider-unavailable", "secondaryDeficiencies": ["budget-exhausted", "verdict-indeterminate"],
++        "primaryCause": "provider-unavailable", "carrierKind": "stage-terminal",
++        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "unavailable", "state": "partial"}
++      },
++      "refuse": [
++        {"label": "work-budget-first",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b",
++                         "coverageId": "coverage2:91c5b40f6f033adc18f3859d0e997d708bb97438955a0a15616da2401d69db73"}},
++        {"label": "secondary-order-swapped",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
++                         "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b",
++                         "coverageId": "coverage2:91c5b40f6f033adc18f3859d0e997d708bb97438955a0a15616da2401d69db73"}},
++        {"label": "work-budget-dropped",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b",
++                         "coverageId": "coverage2:91c5b40f6f033adc18f3859d0e997d708bb97438955a0a15616da2401d69db73"}},
++        {"label": "carrier-omitted",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b"}},
++        {"label": "unstaged-deficient-record-named",
++         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
++                         "runId": "run3:2525a2997b8e0ec4b9d00cbb2ccf1eea7889b5b9fb9369583303d464c003615b",
++                         "coverageId": "coverage2:dcd5d3d0b8c0a63f2a04374756148a8f6d2c54aba54c3517f30b034ec85eee74"}}
++      ]
++    },
++    {
++      "id": "combined-discovery-orders",
++      "kind": "permutation",
++      "of": "work-budget-secondary-under-provider-unavailable-stage",
++      "why": "Three distinct D9 deficiencies from two owners: every order of the six retained conditions derives one termination, while the verbatim D9 reducer fed in discovery order yields six code sequences and three primaries.",
++      "expect": {"orders": 720, "distinctDerived": 1, "distinctRawReducerSequences": 6,
++                 "rawPrimaryCodes": ["COVERAGE.BUDGET_EXHAUSTED", "COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"]}
++    },
++    {
++      "id": "analysis-projection-boundary",
++      "kind": "projection",
++      "of": "work-budget-with-native-stage-budget-carrier",
++      "why": "This owner derives the analysis projection (class, runId, reasonCodes and their order, coverageId, and the absence of errorCode/faultCause/signal). executionId, domainDetail and authority are delegated: a shape-valid value leaves the projection admitted but is reported owner-validation-required, never lawful. The values below are shape fixtures, not host observations.",
++      "admitDelegated": [
++        {"label": "execution-attribution-shape", "add": {"executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "delegated": ["executionId"]},
++        {"label": "work-budget-detail-shape", "add": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}}, "delegated": ["domainDetail"]},
++        {"label": "authority-shape", "add": {"authority": "authoritative"}, "delegated": ["authority"]}
++      ],
++      "refuse": [
++        {"label": "delegated-member-over-reordered-reasons",
++         "set": {"reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"], "executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
++         "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "work-budget-detail-over-omitted-carrier", "remove": ["coverageId"],
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "delegated-member-over-wrong-run",
++         "set": {"runId": "run3:0000000000000000000000000000000000000000000000000000000000000000", "authority": "authoritative"},
++         "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "fault-cause-on-indeterminate", "set": {"faultCause": "host-io"}, "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "wrong-class-with-attribution", "remove": ["reasonCodes", "coverageId"],
++         "set": {"class": "success", "executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "unregistered-member", "set": {"remedy": "raise the budget"}, "expect": "RUN_TERMINATION_UNKNOWN_FIELD"},
++        {"label": "malformed-execution-id", "set": {"executionId": "exec1_NOT-HEX"}, "expect": "RUN_TERMINATION_DELEGATED_SHAPE"},
++        {"label": "ephemeral-authority-beside-run", "set": {"authority": "ephemeral"}, "expect": "RUN_TERMINATION_DELEGATED_SHAPE"},
++        {"label": "delegated-member-without-shape-validator", "set": {"executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
++         "noShapeValidator": true, "expect": "RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED"}
++      ]
++    }
++  ]
++}
+--- a/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ b/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -422,6 +422,126 @@
+                          "replay": "REFUSE", "reason": str(exc)})
+         else:
+             raise AssertionError("semantic mutant accepted:" + name)
++    return rows
++
++
++def run_termination_goldens(exports):
++    """Whole-Run indeterminate termination goldens (run-termination-contract.v1.md) over actually closed Runs.
++
++    Each golden Run is either an exported positive above or a fixture graph closed by close_positive. The
++    derived termination must equal the retained golden; every retained alternative must be a schema-valid
++    StepTermination AND be refused by derivation (schema validity grants nothing).
++    """
++    T = load("run_termination1", "run_termination_model.v1.py")
++    Q = load("run_termination_step_schema3", "../workflows/query_projection_model.v3.py")
++    doc = json.loads((HERE / "run-termination-goldens.v1.json").read_text())
++    atoms = {"REFS_NONE_TGT": REFS_NONE_TGT, "DECLARES": DECLARES}
++    d9 = json.loads((HERE.parents[1] / "artifacts" / "d9-exit-contract.v1.14.json").read_text())
++    d9_goldens = {g["id"]: g for g in d9["goldenCases"]}
++    rows, built = [], {}
++
++    def validate_shape(term):
++        Q.validate_schema(Q.COMMON_ID + "#/$defs/StepTermination", term)
++
++    def schema_valid(term):
++        try:
++            validate_shape(term)
++            return True
++        except Exception as exc:  # recorded, never read as refusal of the law
++            return "INVALID:" + str(exc).split("\n")[0][:160]
++
++    derived_by = {}
++
++    drift = T.route_drift()
++    rows.append({"case": "run-termination:route-drift", "ownerAdmission": "ADMIT", "drift": drift,
++                 "faults": [] if drift == doc["routeDrift"] else ["route drift " + json.dumps(drift)]})
++    for g in doc["goldens"]:
++        faults = []
++        try:
++            if g["kind"] == "permutation":
++                run, objects, blobs = built[g["of"]]
++                _, _, population, ctx = T.retained_population(run, objects, blobs)
++                got = T.permutation_invariance(T.conditions(population, objects, blobs, ctx["xi"]))
++                if got != g["expect"]:
++                    faults.append("permutation " + json.dumps(got, sort_keys=True))
++                rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "permutation": got,
++                             "faults": faults})
++                continue
++            if g["kind"] == "projection":
++                derived = derived_by[g["of"]]
++                admitted, refused = [], []
++                for case in g["admitDelegated"]:
++                    candidate = dict(derived, **case["add"])
++                    try:
++                        got = T.check_projection(candidate, derived, validate_shape)
++                    except T.RunTerminationError as exc:
++                        faults.append("delegated member refused: " + case["label"] + " " + str(exc)[:200])
++                        continue
++                    if (got["projection"] != derived or sorted(got["delegated"]) != case["delegated"]
++                            or got["delegatedStanding"] != "owner-validation-required"):
++                        faults.append("delegated projection " + case["label"] + " " + json.dumps(got, sort_keys=True))
++                    admitted.append({"label": case["label"], "delegated": sorted(got["delegated"]),
++                                     "standing": got["delegatedStanding"]})
++                for case in g["refuse"]:
++                    candidate = {k: v for k, v in derived.items() if k not in case.get("remove", [])}
++                    candidate.update(case.get("set", {}))
++                    try:
++                        T.check_projection(candidate, derived, None if case.get("noShapeValidator") else validate_shape)
++                        faults.append("candidate admitted: " + case["label"])
++                    except T.RunTerminationError as exc:
++                        code = str(exc).split(":", 1)[0]
++                        if code != case["expect"]:
++                            faults.append(f"{case['label']} refused as {code}, expected {case['expect']}")
++                        refused.append({"label": case["label"], "refusal": code})
++                rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT",
++                             "admittedProjectionWithDelegatedMembers": admitted, "refused": refused, "faults": faults})
++                continue
++            spec = g["build"]
++            if "export" in spec:
++                run, objects, blobs = exports[spec["export"]]
++            else:
++                fixture = doc["fixtures"][spec["fixture"]]
++                params = dict(fixture["params"], **spec["params"], atom=atoms[fixture["atom"]])
++                run, objects, blobs, _ = close_positive(S.build_ts_semantic_graph(**params))
++            built[g["id"]] = (run, objects, blobs)
++            fin = T.finalize(run, objects, blobs)
++            derived, reduction = fin["termination"], fin["reduction"]
++            derived_by[g["id"]] = derived
++            want = g["expect"]
++            if derived != want["termination"]:
++                faults.append("termination " + json.dumps(derived, sort_keys=True))
++            for key in ("deficiency", "secondaryDeficiencies", "primaryCause", "carrierKind"):
++                if reduction[key] != want[key]:
++                    faults.append(f"{key} {reduction[key]!r} != {want[key]!r}")
++            if schema_valid(derived) is not True:
++                faults.append("derived termination not a StepTermination")
++            if "carrierEntry" in want:
++                entry = C.parse(blobs[objects[derived["coverageId"]][1]["payloadDigest"]])["entry"]
++                got_entry = {"deficiency": entry["deficiency"],
++                             "stageTerminal": entry["resolutionCompleteness"]["stageTerminal"],
++                             "state": entry["resolutionCompleteness"]["state"]}
++                if got_entry != want["carrierEntry"]:
++                    faults.append("carrierEntry " + json.dumps(got_entry, sort_keys=True))
++            if "d9Golden" in g:
++                expected = dict(d9_goldens[g["d9Golden"]]["expectedTermination"], runId=derived["runId"])
++                if expected != derived:
++                    faults.append("D9 golden " + g["d9Golden"] + " expects " + json.dumps(expected, sort_keys=True))
++            refused = []
++            for alt in g["refuse"]:
++                validity = schema_valid(alt["termination"])
++                if validity is not True:
++                    faults.append("alternative " + alt["label"] + " is not schema-valid, so it proves nothing: " + str(validity))
++                try:
++                    T.check_projection(alt["termination"], derived, validate_shape)
++                    faults.append("alternative admitted: " + alt["label"])
++                except T.RunTerminationError:
++                    refused.append(alt["label"])
++            rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "ADMIT", "close_run": "ADMIT",
++                         "termination": derived, "refusedSchemaValidAlternatives": refused, "faults": faults})
++        except Exception as exc:
++            rows.append({"case": "run-termination:" + g["id"], "ownerAdmission": "BLOCKED",
++                         "error": type(exc).__name__ + ": " + str(exc), "traceback": traceback.format_exc(),
++                         "faults": ["error"]})
+     return rows
+ 
+ 
+@@ -460,6 +580,15 @@
+             rows.append({"case": "finding-mutants", "ownerAdmission": "BLOCKED",
+                          "error": type(exc).__name__ + ": " + str(exc),
+                          "traceback": traceback.format_exc()})
++    try:
++        termination_rows = run_termination_goldens(exports)
++        rows.extend(termination_rows)
++        failures.extend(r["case"] for r in termination_rows if r["faults"])
++    except Exception as exc:
++        failures.append("run-termination-goldens")
++        rows.append({"case": "run-termination-goldens", "ownerAdmission": "BLOCKED",
++                     "error": type(exc).__name__ + ": " + str(exc),
++                     "traceback": traceback.format_exc()})
+     passed = all(r.get("ownerAdmission") == "ADMIT" and r.get("close_run", "ADMIT") == "ADMIT"
+                  for r in rows if "error" not in r) and not failures
+     report = {
+--- a/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
++++ b/docs/coop/design-corrections/foundation/evaluator_semantic_fixture.v3.py
+@@ -276,11 +276,19 @@
+     partition_b_target="u1",
+     complete_required_inventory=True,
+     imports_occupancy="mapped-file",
++    budget_limit=1000000,
++    references_stage_terminals=None,
+ ):
+     """TypeScript native-admitted graph: declares and/or references@resolved-binding, or package.
+ 
+     Coverage is minted through N.admit_coverage_result_v3. Sidecars are canonical-record blobs
+     named from proof evaluationInputRefs (registered ProofInputRef domains).
++
++    `budget_limit` is the committed Plan/config work budget (composition section 3 preflight).
++    `references_stage_terminals` maps "foo"/"bar" to the StageTerminal an UNRESOLVED
++    references@resolved-binding partition retained (e.g. "budget-exhausted"): the entry keeps the
++    producer's declared `resolution-incomplete` and records an attempted stage that ended there
++    (RC-2 `partial`). Both are admitted by the actual native owner and Run closure, never asserted.
+     """
+     H = helpers()
+     N = H.N
+@@ -348,7 +356,7 @@
+     cap_digest = blob(cap_bytes)
+     cap_id = hashlib.sha256(b"opensip.capability-manifest.v1\0" + cap_bytes).hexdigest()
+     config = blob({"analysis": {"profileId": "default", "capabilities": ["references"],
+-                                "budget": {"unit": "work-units", "limit": 1000000}},
++                                "budget": {"unit": "work-units", "limit": budget_limit}},
+                    "components": {}, "discovery": {}, "policy": {}, "evidence": {}})
+     scope_desc = {"schemaVersion": 2, "workspaceRoots": ["."], "pathPrefixes": ["."], "excludedPathPrefixes": []}
+     scope = blob(scope_desc)
+@@ -440,7 +448,7 @@
+         semanticClosures=sorted([evaluator, provider, detector]), analysisSpecDigest=blob(spec_record),
+         resolvedConfigDigest=config, nativeContextDigests=[native["contextDigest"]],
+         importIds=[], policyDigest=policy_digest, waiverDigest=blob(waivers), scopeDigest=scope,
+-        budget={"unit": "work-units", "limit": 1000000}, semanticGrantDigest=grant))
++        budget={"unit": "work-units", "limit": budget_limit}, semanticGrantDigest=grant))
+     plan_id = add("plan", **plan_fields)
+     plan = objects[plan_id][1]
+ 
+@@ -520,9 +528,14 @@
+     coverage_payloads = {}
+     drop_package = set(drop_package_paths)
+ 
+-    def mint_coverage(scope_id, resolved, unresolved=()):
++    def mint_coverage(scope_id, resolved, unresolved=(), stage_terminal=None):
+         desc = objects[scope_id][1]
+         payload = H.coverage_result(desc, desc["sourceUniverse"], resolved, blobs, paths, list(unresolved))
++        if stage_terminal is not None and not resolved:
++            rc = payload["entry"]["resolutionCompleteness"]
++            payload["entry"]["resolutionCompleteness"] = N.completeness_from_stage(
++                desc["relation"], desc["resolution"], desc["subjects"], list(unresolved),
++                stage_terminal, True, rc["examinedExhaustive"])
+         admitted = N.admit_coverage_result_v3(payload, desc, list(unresolved), coverage_schema)
+         if admitted["result"] != "ADMIT":
+             raise C.AdmissionError("SEMANTIC_FIXTURE_COVERAGE:" + str(admitted.get("refusals")) + str(admitted.get("faults")))
+@@ -573,14 +586,15 @@
+                       anchors=[anchor], confidenceMillionths=1000000)
+             facts_foo.append(fid)
+             ref_payloads.append((fid, payload, u1))
+-        cid_foo, cov_foo = mint_coverage(s_foo, references_resolved)
++        stage_terminals = references_stage_terminals or {}
++        cid_foo, cov_foo = mint_coverage(s_foo, references_resolved, stage_terminal=stage_terminals.get("foo"))
+         mint_view(s_foo, facts_foo, cid_foo)
+         if second_partition:
+             bar_tgt = u2 if partition_b_target == "u2" and u2 is not None else u1
+             s_bar = add("subject-scope", snapshotId=snapshot, sourceUniverse=u1, targetUniverse=bar_tgt,
+                         relation="references", resolution="resolved-binding", enumeratorClosure=provider,
+                         subjects=E.cset([bar]))
+-            cid_bar, cov_bar = mint_coverage(s_bar, references_resolved)
++            cid_bar, cov_bar = mint_coverage(s_bar, references_resolved, stage_terminal=stage_terminals.get("bar"))
+             mint_view(s_bar, [], cid_bar)
+         else:
+             cov_bar = cov_foo
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -2959,8 +2959,11 @@
+ `required-relation-missing` and `confidence-floor-unmet` have no entry carrier and are requirement-relative),
+ required execution and imported-evidence obligations, and verdict composition
+ (`evaluator-composition-contract.v3.md` §5). Whatever `DeficiencyV2` member that reduction names takes its class
+-and code from the total route above. This section does not define how requirement, proof-cause, import or
+-verdict outcomes are ordered in that reduction.
++and code from the total route above. This section does not order requirement, proof-cause, import or verdict
++outcomes in that reduction. The Run's condition population, the total order across all of these sources, the
++evaluator-only cause bridge and the `coverageId` choice have one owner:
++`docs/coop/design-corrections/foundation/run-termination-contract.v1.md`. That includes a stage-implied primary
++whose carrier entry declares a different member, which that contract names without rewriting the entry.
+ 
+ These columns are **not** a per-requirement code. One requirement's outcome stays
+ its `DeficiencyV2` member (§4.6), and a repair emits the existing
+--- a/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ b/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -1169,6 +1169,19 @@
+ closed schemas. Disclosure-only success details do not imply a clean doctor
+ report or grant authority. No new D9 family is introduced.
+ 
++**Whole-Run indeterminate reasons of an evaluator3 analysis Run.** When no fault,
++rejection or pre-settle interruption terminates the step and the committed Run's
++sealed verdict is `indeterminate`, the host finalizer derives `reasonCodes`
++(primary, then `secondaryDeficiencies`) and `coverageId` from the admitted Run
++alone. The derivation is owned by
++`docs/coop/design-corrections/foundation/run-termination-contract.v1.md`, the
++single owner of the condition population, the evaluator/native/import/requirement
++cause bridge, the total pre-reduction order and the `coverageId` choice. Discovery
++order and other host observations are not inputs. That owner fixes the analysis
++projection only (class, `runId`, `reasonCodes`, `coverageId`); a step
++termination's optional `executionId`, `domainDetail` and `authority` stay with
++their existing owners. No code, class, exit or field is added.
++
+ ---
+ 
+ ## 10. Identity recipes and evidence limits
+--- a/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
+@@ -135,7 +135,7 @@
+ | `COMPARISON.CORRESPONDENCE_INCOMPLETE` | (comparison indeterminate; existing `VERDICT.INDETERMINATE` reason when that is the sole signal) | indeterminate | none | unmatched or populationUnknown on a gating rule, no matched fail |
+ | `REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE` | `REQUEST.PRECONDITION_FAILED` | request-rejected | none | fingerprint-targeted action on unmatched / missing matched fp |
+ | `REPAIR.TARGET_METADATA_AMBIGUOUS` | `REQUEST.PRECONDITION_FAILED` | request-rejected | none | multi-config same fp, incompatible path/kind/rule metadata |
+-| `EVALUATION.WORK_BUDGET_EXHAUSTED` | (sealed Run may reuse D9 deficiency `budget-exhausted`) | indeterminate | none | evaluator work-unit preflight; remedy is raise analysis.budget — not native provider install |
++| `EVALUATION.WORK_BUDGET_EXHAUSTED` | (reason `COVERAGE.BUDGET_EXHAUSTED`: the sealed Run's termination MUST carry D9 deficiency `budget-exhausted`, positioned by `foundation/run-termination-contract.v1.md` §4, and never folds it into `VERDICT.INDETERMINATE`) | indeterminate | none | evaluator work-unit preflight; remedy is raise analysis.budget — not native provider install |
+ | `EVALUATION.OUTPUT_BOUND_EXCEEDED` | `OUTPUT.SERIALIZATION_FAILED` | operational-failed | `output-serialization` | array/C-byte bound; never HOST.IO_FAILURE |
+ | `EVALUATION.FINDING_JOIN_REFUSED` | `CONFIG.INVALID` | request-rejected | none | duplicate findingId, parameter/preimage/subject join |
+ | `EVALUATION.MIXED_OUTPUT_MAJOR` | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | request-rejected | none | run2/finding2/subject2 or mixed output prefix |

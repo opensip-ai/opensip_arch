@@ -1,0 +1,110 @@
+{
+  "artifact": "opensip.security-lifecycle.author-response",
+  "version": 3,
+  "author": "Claude (security unit)",
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "supersedes": "version 2 (the v1 handoff); version 3 answers Codex's CHANGES_REQUIRED review of the final chapter (reviews/security-fix-handoff.v2.md)",
+  "scope": "AR-03, AR-04, AR-05, AR-06, AR-14 and the offline/doctor guidance of AR-16; all nine items of reviews/security-author-feedback.v1.md; Codex final-review items S3, S4.5, S9/S4/S8, S10, S7, D9",
+  "ownedFiles": [
+    "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+    "docs/coop/design-corrections/security/README.md",
+    "docs/coop/design-corrections/security/security_lifecycle_model_v1.py",
+    "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
+    "docs/coop/design-corrections/security/check-security-lifecycle.v1.py",
+    "docs/coop/design-corrections/security/source-pins.v1.json",
+    "docs/coop/design-corrections/security/security-lifecycle-report.v1.json",
+    "docs/coop/design-corrections/security/discovery-cases.v1.json",
+    "docs/coop/design-corrections/security/trust-clock-cases.v1.json",
+    "docs/coop/design-corrections/security/trust-recovery-cases.v1.json",
+    "docs/coop/design-corrections/security/root-chain-cases.v1.json",
+    "docs/coop/design-corrections/security/revocation-live-cases.v1.json",
+    "docs/coop/design-corrections/security/lease-cases.v1.json",
+    "docs/coop/design-corrections/security/platform-admission-cases.v1.json",
+    "docs/coop/design-corrections/security/migration-cases.v1.json",
+    "docs/coop/design-corrections/security/execution-principal-cases.v1.json",
+    "docs/coop/design-corrections/security/offline-guidance-cases.v1.json",
+    "docs/coop/design-corrections/security/initial-author-response.json",
+    "docs/coop/design-corrections/security/repair-authorization-cases.v1.json",
+    "docs/coop/design-corrections/security/root-schema-cases.v1.json",
+    "docs/coop/design-corrections/security/storage-write-cases.v1.json"
+  ],
+  "feedbackDispositions": {
+    "1-clock-clamp": "Replaced. clock_decision refuses a wall beyond admittedTime + 90 d (and an in-session deviation over 24 h not proven by a witness) BEFORE evaluation and before any write; a plausible wall evaluates at tEval = max(floor, wall, admitted) and writes exactly tEval. Sweep clock-floor-monotone-no-clamp-report-only-writes-nothing checks 264 grid points (each also evaluated in report-only mode).",
+    "2-fresh-install": "Replaced. Without admitted time evidence the first evaluation refuses TRUST.NO_ADMITTED_TIME_CONTEXT; with the bootstrap payload it evaluates expiry from the presented documents (never hard-coded false) and refuses a far-future wall without initialising a floor. Report-only returns writes: [] and null write fields. Cases fresh-install-*.",
+    "3-poisoned-floor-recovery": "Added S4.5: challenge/epoch protocol. Challenge binds a CSPRNG nonce and a digest of the six floor fields; the epoch is signed by the accepted root's recoveryAuthority at its threshold (v3; revoked keys excluded; root keys never count; root expiry not consulted for this one document), must echo the pending single-boot challenge inside its 24 h monotonic window, advance the epoch serial, carry counters EQUAL to the record's, be issued >= lastAccepted and within +/-24 h of the wall. Success sets floor = lastAccepted = issuedAt, leaves counters/entries/roles/journals/namespaces untouched. Artifacts: trust-recovery-challenge.v1.json (export) and trust-recovery-epoch.v1.json (publisher recovery service or air-gap ceremony). 26 cases plus sweep recovery-epoch-applies-once-replay-and-downgrade-refuse.",
+    "4-rollback-and-children": "Added. Commit records carry postimageSha256; at REV(trust-revoked) rollback happens only when current bytes equal the postimage; otherwise rollbackBlocked (never overwritten) or indeterminate. CHILD steps model unconfined repository code: cancelled within the bound, disclosed, not linearized. Sweep brokered-linearization-and-no-overwrite-of-user-edits.",
+    "5-polling-bounds": "Restated as implementation qualification obligations under OS scheduling assumptions; observer_tick pins CLOCK_BOOTTIME / mach_continuous_time, the authority checkpoint at every effect request, and fail-stop REV(observer-fail-stop) on stall or unreadable counter. observerCases.",
+    "6-canonical-profiles": "S2: signed security metadata stays under opensip-metadata-canonical.1 (model.canon); product data uses foundation/canonical.py (checker admits and validates with it). S9 names state-decoder.v1 (read-only source), state-decoder.v2 (writer), root readers {1} vs {1,2}, and the ordered signed core bridge. Sweep metadata-nfc-profile-and-product-profile-never-mixed.",
+    "7-completeness-and-tcb-labels": "Contract, closed schemas, 234 cases, checker, report and source pins delivered. Every model output that consumes asserted signers or OS reads carries tcbAssumptions; the report lists them; the contract states they are assumptions, not measurements.",
+    "8-group-write-and-acl": "Group-writable directories and files refuse (boundary at an ancestor, refusal at cwd/explicit/config) unless the gid is authorized by an explicit --trust-group argument; ACL write grants to other principals and unreadable ACLs refuse. 8 new discovery cases.",
+    "9-vcs-root-default": "A VCS boundary without config selects the repository root (mode vcs-default); nested repositories are recorded and not entered; explicit joins are custody-checked and root-bounded; .git indirection is data and never followed. 7 new discovery cases."
+  },
+  "auditDispositions": {
+    "AR-03": "S3 + discovery-cases (46 cases)",
+    "AR-04": "S4, S4.5 + trust-clock-cases (33) + trust-recovery-cases (18) + two sweeps",
+    "AR-05": "S5, S6 + root-chain-cases (16) + revocation-live-cases (observe 7, observer 5, linearize 18) + sweep",
+    "AR-06": "S8 + platform-admission-cases (32) over four platforms and four lanes",
+    "AR-14": "S7, S9 + lease-cases (15) + migration-cases (recover 8, floors 2, rollback 4) + sweep",
+    "AR-16 (offline/doctor)": "S11 + offline-guidance-cases (9)",
+    "S10 execution principal": "execution-principal-cases (21); joined to native AuthorizedExecutionV1 and workflow securityGrantRef"
+  },
+  "checks": {
+    "command": "/tmp/opensip-architecture-review-env/bin/python -I -B check-security-lifecycle.v1.py --report security-lifecycle-report.v1.json",
+    "interpreter": "Python 3.12.13, jsonschema 4.25.1",
+    "result": "security-lifecycle-report.v1.json: passed, 312/312 cases, 6/6 sweeps, 25 source pins valid at run time (2026-09-05)"
+  },
+  "designSelectionsUnderD367": [
+    "plausibility horizon = 90 d beyond admitted time evidence (equal to the revocation freshness window)",
+    "recovery epoch authority = accepted root quorum, single-use, challenge-bound; no other quorum",
+    "three lease modes with readers never blocking the append writer; fence wait bound 5 s",
+    "support population: macOS 15/26 on arm64 and x86_64; Ubuntu 24.04 LTS on x86_64 and arm64; lanes macos-15, macos-15-intel, ubuntu-24.04, ubuntu-24.04-arm",
+    "platform truth table for repository-code: DISCLOSURE-ONLY for subprocess/filesystemWrite/network, ENFORCED-BY-CONSTRUCTION for environment, all four platforms",
+    "observer poll 5 s, stall bound 10 s, cancellation total 10 s, migration rollback window 30 d",
+    "recovery epoch authority = accepted root's recoveryAuthority at its threshold (existing schema-1 field), never root keys",
+    "recovery challenge TTL 24 h monotonic, single boot; epoch issue skew +/-24 h; counters exact equality",
+    "root schema 2 = schema 1 + required TR-PROFILE role + active TR-REPAIR/TR-PROFILE policy + 0..8 kernel attestation keys; nothing else",
+    "automatic workspace units from four manifest markers, capped at 256, overridden by explicit joins or Config2 workspaceRoots"
+  ],
+  "crossOwnerJoins": [
+    {
+      "owner": "native (Claude native)",
+      "join": "AuthorizedExecutionV2.effects copies the S10 truth table values; principalClass repository-code = semantic kind trusted-repository-code; owners[] = RepoExecutionGrantV2.owners (snapshot or sealed dependency closure); runner = sealed tool closure member; authorization references securityGrantRef",
+      "status": "joined to native-evidence.md section 5.2 (V2) at pin time; native is being revised independently and must confirm owners[]/toolClosure field names"
+    },
+    {
+      "owner": "workflows (Claude workflow)",
+      "join": "securityGrantRef/authorizationRef = H('security.repo-execution-grant.v2', RepoExecutionGrantV2); consentSource pre-existing-policy|interactive-consent maps to policy-record|interactive-explicit; argv0Source maps to runner; RepairApplyParams.authorizationRef = H('security.repair-apply-authorization.v1', RepairApplyAuthorizationV1)",
+      "status": "needs confirmation by the workflow owner"
+    },
+    {
+      "owner": "identity/foundation (Codex)",
+      "join": "identity-and-evidence section 5 references 'the security contract's lock order' = S7; discovery provenance is product data under foundation/canonical.py; ProjectId/RequestId grammars reused unchanged",
+      "status": "S7 now states the refinement with exact selectors and a command->lease map; S3.1 joins the backup-custody choice; Config2 discovery.workspaceRoots is admitted by S3 with custody checks"
+    },
+    {
+      "owner": "host D9 (Codex)",
+      "join": "no new class/code/exit; OBSERVER.FAIL_STOP maps to HOST.IO_FAILURE/4 and GRANT.REFUSED to REQUEST.PRECONDITION_FAILED/2 (matching native's execution-not-authorized detail)",
+      "status": "consistent with d9 v1.14"
+    },
+    {
+      "owner": "publisher/release",
+      "join": "signed document kinds trust-recovery-epoch (recoveryAuthority) and platform-profile-set (schema-2 TR-PROFILE, or core-embedded under schema 1); root schema 2 recipe (S9.1). Design closed here; signing-ceremony qualification is release-side",
+      "status": "release-side obligations, not designed further here"
+    }
+  ],
+  "knownLimits": [
+    "expectations are same-author; no independent oracle",
+    "signatures, CSPRNG nonces and OS observations are asserted model inputs",
+    "identity-and-evidence.md and native-evidence.md changed during authoring; pins were refreshed to the final bytes before the last run",
+    "RootV2 is a design schema in this bundle; the release-side successor of security-schemas.v8/root.schema.json must be byte-derived from it during release qualification",
+    "identity-and-evidence.md, native-evidence.md and foundation canonical.py changed during authoring (foundation frozen under independent review); pins were refreshed to the bytes present at this handoff"
+  ],
+  "finalReviewDispositions": {
+    "S3-monorepo-units": "Automatic language workspace units (Cargo.toml/package.json/tsconfig.json/jsconfig.json, data only) inside the admitted authority root; CLI joins and admitted Config2 discovery.workspaceRoots override with identical custody checks; nested repositories are other custody roots (joins into them refuse). 7 new discovery cases.",
+    "S4.5-counters-freshness": "Counters must equal the challenged record exactly (higher refuses typed COUNTER_MISMATCH, remedy: import the payload then re-challenge); pending challenge is single-boot with a 24 h sleep-inclusive monotonic window; issuedAt within +/-24 h of wall and >= lastAccepted; strict epoch/pending shapes before any comparison; authority = recoveryAuthority (schema-1 field) not root keys. 11 new cases + rewritten sweep.",
+    "S9-S4-S8-root-schema2-profile-set": "Closed RootV1 (v8 preserved) and RootV2 extension recipe; TR-PROFILE role; envelope kinds/preimages table; profile-set standalone vs core-embedded compatibility. admit_root_document + admit_profile_set_envelope; 24 cases + reader-set sweep.",
+    "S10-grant-join": "RepoExecutionGrantV2: P-TRUSTED-REPO/repository-code -> trusted-repository-code; semanticGrantDigest vs securityGrantRef separated; owners from sealed snapshot or sealed DependencySourceSetV1; runner from sealed tool closure (no system fallback); exact owner manifest binding. 36 cases. S10.1 RepairApplyAuthorizationV1 for repair apply (brokered mutation, repositoryExecution const false). 13 cases.",
+    "S7-one-writer-backup": "S7 states the identity-contract refinement with exact selectors and a command->lease map (trust recovery: fence only). S3.1 storage_write_admission for --allow-backup-custody / admitted policy record; no root identity change. 8 cases.",
+    "D9-doctor": "No new class/code/exit; new typed details only. Doctor stays report-only with writes: [] (unchanged)."
+  }
+}

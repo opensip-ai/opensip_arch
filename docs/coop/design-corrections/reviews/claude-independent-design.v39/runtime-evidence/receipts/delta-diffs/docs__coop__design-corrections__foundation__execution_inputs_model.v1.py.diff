@@ -1,0 +1,49 @@
+--- a38/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
++++ b39/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
+@@ -753,6 +753,24 @@
+     }
+ 
+ 
++def body_eligible_census(rel: str, cell: dict, subjects: set) -> set:
++    """identity bodyEligibilityLaw census restriction for a relation that joins a body identity.
++
++    The file inventory stays broad; what a `clones` account is OWED is only the body-eligible paths
++    under the universe domain of this cell's languageMode. Eligibility reads the path suffix and the
++    domain row alone, never ownership, program membership, grammar selection or resolution, so an
++    eligible path whose owner is incomplete stays owed. An unmapped mode keeps the full census."""
++    if "bodyIdentityJoin" not in (RELATIONS.get(rel) or {}):
++        return subjects
++    language = IM.DIGESTS["languageModes"]["map"].get(cell.get("languageMode"))
++    rows = [row for row in IM.DIGESTS["domainSets"]["native-semantic-universe"].values()
++            if row.get("language") == language]
++    if len(rows) != 1:
++        return subjects
++    table = IM.body_eligibility_table(rows[0])
++    return {s for s in subjects if isinstance(s, str) and any(s.endswith(suffix) for suffix in table)}
++
++
+ def expected_source_census(rel: str, cell: dict, binding: dict, inventories: dict, row_inv_digests: list[str]) -> set:
+     """Independent expected subjects for this pair from inventory/extent, not returned scopes."""
+     if rel == "vcs-change":
+@@ -762,8 +780,9 @@
+     if kind == "source-path":
+         file_inv = next((i for i in invs if i.get("kind") == "file"), None)
+         if file_inv is not None:
+-            return {r.get("nativeSubjectId") or r.get("path") for r in (file_inv.get("rows") or []) if isinstance(r, dict)}
+-        return set(_binding_extent(binding, "file"))
++            return body_eligible_census(rel, cell, {r.get("nativeSubjectId") or r.get("path")
++                                                    for r in (file_inv.get("rows") or []) if isinstance(r, dict)})
++        return body_eligible_census(rel, cell, set(_binding_extent(binding, "file")))
+     if kind == "package-name":
+         pkg_inv = next((i for i in invs if i.get("kind") == "package"), None)
+         if pkg_inv is not None:
+@@ -1276,7 +1295,8 @@
+         # names. A null binding universe stays null. This is an EXTERNAL join to
+         # EnumerationPlanV1.cells[ci].programBindings[po].universe that JSON Schema cannot
+         # express; it is published in contract §5 and annotated on the schema, and enforced
+-        # here. targetUniverse is deliberately NOT constrained by this join.
++        # here. targetUniverse is not a join: the schema types it null (contract §5), because the
++        # account aggregates every matching partition of this binding across target universes.
+         want_u = uni
+         if acc.get("sourceUniverse") != want_u:
+             _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")

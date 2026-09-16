@@ -1,0 +1,452 @@
+--- a/docs/coop/design-corrections/foundation/check-enumeration.v1.py
++++ b/docs/coop/design-corrections/foundation/check-enumeration.v1.py
+@@ -605,6 +605,37 @@
+         "mode": "operational",
+         "boundaries": {"schemaVersion": 1.5},
+     }))
++
++    # native section 1.4 U-4b.2: a nested Cargo workspace below a workspace unit is a folded member, never a fold
++    # target. The derivation witness re-runs discover_units inside the typed admission handler, so looking the
++    # folded manifest up as a unit (StopIteration) escaped admission instead of being decided.
++    nested_markers = {"Cargo.toml": {"sha256": "1" * 64, "isCargoWorkspace": True},
++                      "nested/Cargo.toml": {"sha256": "2" * 64, "isCargoWorkspace": True},
++                      "nested/pkg/Cargo.toml": {"sha256": "3" * 64, "isCargoWorkspace": False},
++                      "tsconfig.json": {"sha256": "1" * 64}}
++    rec("nested-cargo-workspace-derivation-differs-refused", admit(ep, [
++        inv("file", "complete", files, file_ext),
++        inv("package", "complete", pkgs, pkg_ext),
++    ], memb, sc, universes, retained, source, membership_derivation={
++        "markers": nested_markers, "files": list(SNAPSHOT), "mode": "standalone-fixture"}))
++    nested_paths = list(SNAPSHOT) + ["nested/Cargo.toml", "nested/pkg/Cargo.toml", "nested/pkg/src/lib.rs"]
++    nested_units = M.NV.discover_units(nested_markers)["units"]
++    nested_rust_units = [[u["rootPath"], u["unitKind"], u["memberPackageRoots"]] for u in nested_units if u["languageFamily"] == "rust"]
++    nested_memb = M.NV.assign_membership(nested_units, nested_paths)
++    nested_file_ext = M.host_file_extent(nested_memb, nested_paths, sc, ".", [])
++    nested_source = blobs(cargo=b'[workspace]\nmembers=["nested/pkg"]\n', extra={
++        "nested/Cargo.toml": b'[workspace]\nmembers=["pkg"]\n', "nested/pkg/Cargo.toml": b'[package]\nname="nested-pkg"\n'})
++    nested_pkg_proj = M.project_named_packages(nested_paths, sc, ".", nested_memb, nested_source, [])
++    nested_ep = copy.deepcopy(ep)
++    nested_ep["membershipDigest"] = M.raw_digest(nested_memb)
++    nested_ep["cells"][0]["programBindings"] = [binding(0, U1, None, [
++        {"kind": "file", "paths": nested_file_ext}, {"kind": "package", "paths": nested_pkg_proj["namedPaths"]}])]
++    rec("nested-cargo-workspace-derivation-folds-into-surviving-unit", admit(nested_ep, [
++        inv("file", "complete", sort_files([file_row(p) for p in nested_file_ext]), nested_file_ext),
++        inv("package", "complete", sort_pkgs([pkg_row(n["path"], n["packageName"]) for n in nested_pkg_proj["named"]]),
++            nested_pkg_proj["namedPaths"]),
++    ], nested_memb, sc, universes, retained, nested_source, snapshot_paths=nested_paths, membership_derivation={
++        "markers": nested_markers, "files": nested_paths, "mode": "standalone-fixture"}))
+ 
+     rec("native-admission-error-class-distinct", {
+         "result": "ADMIT" if M.AdmissionError is not M.NV.AdmissionError else "REFUSE",
+@@ -728,6 +759,8 @@
+         "clones-near-two-programs-disjoint-extents": "ADMIT",
+         "clones-near-source-paths-outside-snapshot": "REFUSE",
+         "inventory-cell-rejects-candidate-source-paths": "REFUSE",
++        "nested-cargo-workspace-derivation-differs-refused": "REFUSE",
++        "nested-cargo-workspace-derivation-folds-into-surviving-unit": "ADMIT",
+     }
+     mismatches = []
+     for c in cases:
+@@ -736,6 +769,10 @@
+             mismatches.append({"case": c["case"], "got": c["result"], "want": exp, "refusals": c.get("refusals")})
+     mismatches.extend({"case": "internal-root-" + row["case"], "observed": row}
+                       for row in unit_root_cases if not row["passed"])
++    nested_refusals = next(c["refusals"] for c in cases if c["case"] == "nested-cargo-workspace-derivation-differs-refused")
++    if (nested_refusals != ["ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION"]
++            or nested_rust_units != [["", "cargo-workspace", ["nested", "nested/pkg"]]]):
++        mismatches.append({"case": "nested-cargo-workspace-derivation", "refusals": nested_refusals, "rustUnits": nested_rust_units})
+     historical = [c["case"] for c in cases if c["case"] in HISTORICAL_BOUNDED]
+     hashes = owned_hashes()
+     report = {
+--- a/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
++++ b/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
+@@ -518,6 +518,26 @@
+         graph, got = run_with(mutate_after(fn, units))
+         row("M3", "real-run-refuses-" + name, got is not None and token in got, got)
+ 
++    # U-4b.2 over a nested Cargo workspace: the fold target is the surviving outer workspace UNIT, never the folded
++    # nested workspace manifest (looking that up as a unit raised StopIteration), and the law sees the fold through
++    # the member roots that decide `target` pruning.
++    cargo = lambda digit, ws: {"sha256": digit * 64, "isCargoWorkspace": ws}
++    nested = NV.discover_units({"Cargo.toml": cargo("1", True), "nested/Cargo.toml": cargo("2", True),
++                                "nested/pkg/Cargo.toml": cargo("3", False), "nested-x/Cargo.toml": cargo("4", False)})
++    row("M3", "nested-cargo-workspace-folds-into-the-surviving-outer-unit",
++        [(u["rootPath"], u["unitKind"], u["memberPackageRoots"]) for u in nested["units"]]
++        == [("", "cargo-workspace", ["nested", "nested-x", "nested/pkg"])], nested["units"])
++    nested_base = NV.assign_membership(nested["units"], ["nested-x/src/lib.rs", "nested/pkg/src/lib.rs",
++                                                        "nested/pkg/target/debug/x.rs", "nested/target/debug/y.rs"])
++    row("M3", "nested-cargo-workspace-membership-passes-the-law", law(nested_base) == [], law(nested_base))
++    for name, roots, expected in (
++            ("nested-member-roots-in-segment-not-utf8-order", ["nested", "nested/pkg", "nested-x"], [ORDER]),
++            ("folded-nested-member-dropped-unprunes-its-target", ["nested", "nested-x"], [DERIVED])):
++        m = copy.deepcopy(nested_base)
++        m["units"][0]["memberPackageRoots"] = roots
++        got = law(m)
++        row("M3", "law-" + name, got == expected, got)
++
+ 
+ # ------------------------------------------------------------------------------------------------ S3
+ def s3():
+--- a/docs/coop/design-corrections/native/native-cases.v2.json
++++ b/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -1239,6 +1239,28 @@
+     "isCargoWorkspace": false
+    }
+   },
++  "markersCargoNestedWorkspace": {
++   "Cargo.toml": {
++    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
++    "isCargoWorkspace": true
++   },
++   "nested-x/Cargo.toml": {
++    "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
++    "isCargoWorkspace": false
++   },
++   "nested/Cargo.toml": {
++    "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
++    "isCargoWorkspace": true
++   },
++   "nested/pkg/Cargo.toml": {
++    "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
++    "isCargoWorkspace": false
++   },
++   "nested/pkg/target/debug/build/x/Cargo.toml": {
++    "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
++    "isCargoWorkspace": false
++   }
++  },
+   "markersScope1025": {
+    "pkg0000/package.json": {
+     "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+@@ -12386,6 +12408,262 @@
+    "note": "P22: naming the Cargo workspace root explicitly yields exactly the automatic result (members folded, member target output pruned, `crates/a/src/target` stays source). Naming a member package alone selects that package: files of the unselected member and the unselected root are honest no-program-unit rows, not silently claimed and not over-ignored."
+   },
+   {
++   "id": "units-nested-cargo-workspace-folds-into-the-deepest-surviving-workspace-unit",
++   "feedback": [
++    "R1",
++    "R6",
++    "PR2-P22"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace"
++     },
++     "bind": "auto"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "."
++      ]
++     },
++     "bind": "expl"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       ".",
++       "nested"
++      ]
++     },
++     "bind": "both"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "nested"
++      ]
++     },
++     "bind": "inner"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "nested/pkg"
++      ]
++     },
++     "bind": "leaf"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "boundaries": {
++       "schemaVersion": 2,
++       "source": "security.discovery",
++       "selectedRoot": "/home/alice/repo",
++       "nestedRepositories": [],
++       "nestedProjects": [
++        "nested-x"
++       ],
++       "custodyExcludedUnits": [],
++       "prunedTrees": [
++        {
++         "path": "nested/pkg/target",
++         "reason": "cargo-build-output",
++         "markerCount": 1,
++         "markerCountBasis": "observed-inventory"
++        }
++       ]
++      }
++     },
++     "bind": "bnd"
++    },
++    {
++     "fn": "assign_membership",
++     "args": {
++      "units": "$auto.units",
++      "files": [
++       "nested-x/src/lib.rs",
++       "nested/pkg/src/lib.rs",
++       "nested/pkg/target/debug/x.rs",
++       "nested/src/target/mod.rs",
++       "nested/target/debug/y.rs",
++       "src/main.rs"
++      ]
++     },
++     "bind": "ma"
++    },
++    {
++     "fn": "unit_scope_descriptor",
++     "args": {
++      "units": "$auto.units",
++      "ignore_paths": []
++     },
++     "bind": "s"
++    }
++   ],
++   "expect": {
++    "$auto.refused": null,
++    "$auto.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "Cargo.toml",
++      "markerSha256": "1111111111111111111111111111111111111111111111111111111111111111",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "DISCOVERED",
++      "memberPackageRoots": [
++       "nested",
++       "nested-x",
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$auto.prunedTrees": [
++     {
++      "path": "nested/pkg/target",
++      "reason": "cargo-build-output",
++      "markerCount": 1,
++      "markerCountBasis": "observed-inventory"
++     }
++    ],
++    "$expl.refused": null,
++    "$expl.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "Cargo.toml",
++      "markerSha256": "1111111111111111111111111111111111111111111111111111111111111111",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": [
++       "nested",
++       "nested-x",
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$both.units": "$expl.units",
++    "$inner.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "nested",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "nested/Cargo.toml",
++      "markerSha256": "2222222222222222222222222222222222222222222222222222222222222222",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": [
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$leaf.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "nested/pkg",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-package",
++      "markerPath": "nested/pkg/Cargo.toml",
++      "markerSha256": "3333333333333333333333333333333333333333333333333333333333333333",
++      "recognizerId": "cargo-package",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": []
++     }
++    ],
++    "$bnd.refused": null,
++    "$bnd.units.0.memberPackageRoots": [
++     "nested",
++     "nested/pkg"
++    ],
++    "$bnd.boundaries.excludedUnits": [
++     {
++      "path": "nested-x",
++      "marker": "Cargo.toml",
++      "reason": "nested-project",
++      "anchor": "nested-x"
++     }
++    ],
++    "$ma.rows": [
++     {
++      "path": "nested-x/src/lib.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/pkg/src/lib.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/pkg/target/debug/x.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": null,
++      "membership": "syntax-only",
++      "reason": "host-ignore-convention"
++     },
++     {
++      "path": "nested/src/target/mod.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/target/debug/y.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": null,
++      "membership": "syntax-only",
++      "reason": "host-ignore-convention"
++     },
++     {
++      "path": "src/main.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     }
++    ],
++    "$s.scopeDescriptor.excludedPathPrefixes": [
++     ".git",
++     "nested-x/target",
++     "nested/pkg/target",
++     "nested/target",
++     "node_modules",
++     "target"
++    ]
++   },
++   "note": "U-4b.2: the fold target is the deepest enclosing SURVIVING cargo-workspace unit. `nested` declares a workspace but lies below the root workspace unit, so it is a folded member and `nested/pkg` folds into the root unit too (looking `nested` up as a unit raised StopIteration). Member roots are strict UTF-8 order (`nested-x` before `nested/pkg`); every folded root keeps its `target` pruned while `nested/src/target` stays source. P22: `.` and `.`+`nested` equal the automatic unit, `nested` alone is its own workspace unit with `nested/pkg`, `nested/pkg` alone is a cargo-package unit. U-8: a nested project at `nested-x` is excluded and never folded. Trusted marker observations only; no Cargo layout validity is asserted."
++  },
++  {
+    "id": "scope-1025-first-party-roots-refuses-typed-without-truncation",
+    "feedback": [
+     "R6",
+--- a/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -3833,7 +3833,9 @@
+     co-located units (rust + tsjs) with the same rootPath. Within tsjs, marker precedence tsconfig > jsconfig >
+     package.json selects the mode of the ONE tsjs unit at that directory; it never removes the rust unit.
+     A Cargo.toml package inside a Cargo workspace root's tree is folded into the workspace unit as a member
+-    package (Cargo resolves the workspace as one program).
++    package (Cargo resolves the workspace as one program). The fold target is the deepest enclosing SURVIVING
++    `cargo-workspace` unit (U-4b.2): a nested workspace manifest below a workspace unit is itself a folded member,
++    and its subtree folds into that same unit.
+     Shared discovery rule (../discovery-defaults.py, MUST-3): markers inside dependency trees (node_modules), VCS trees
+     and Cargo build output (`target` directly under a Cargo.toml directory) are pruned by exact path segment and
+     reported once per tree in `prunedTrees`; they are never units and never count toward the cap. More than 4096
+@@ -3922,14 +3924,18 @@
+     if len(by_dir) > MAX_WORKSPACE_UNITS:
+         return refused("native.too-many-units", [], unitCount=len(by_dir), limit=MAX_WORKSPACE_UNITS)
+     provenance = "EXPLICIT" if explicit_workspace_roots is not None else "DISCOVERED"
+-    cargo_ws_roots = sorted(d for d, m in by_dir.items() if "Cargo.toml" in m and m["Cargo.toml"].get("isCargoWorkspace"))
+     units: list[dict] = []
+     for d in sorted(by_dir, key=lambda x: (x.count("/") if x else -1, x)):
+         m = by_dir[d]
+         if "Cargo.toml" in m:
+-            enclosing = [w for w in cargo_ws_roots if w != d and _under_unit(d, w)]
++            # U-4b.2: fold into the deepest enclosing cargo-workspace UNIT. Shallower directories are decided first, so a
++            # nested workspace manifest below a workspace unit was already folded and is never a target; the
++            # shallowest enclosing workspace manifest has no enclosing workspace, so it is always a unit.
++            enclosing = [u for u in units if u["languageFamily"] == "rust" and u["unitKind"] == "cargo-workspace"
++                         and u["rootPath"] != d and _under_unit(d, u["rootPath"])]
+             if enclosing:
+-                pass  # folded into the enclosing workspace unit below
++                ws = max(enclosing, key=lambda u: len(u["rootPath"]))
++                ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+             else:
+                 units.append({"rootPath": d, "languageFamily": "rust", "languageMode": "rust-cargo",
+                               "unitKind": "cargo-workspace" if m["Cargo.toml"].get("isCargoWorkspace") else "cargo-package",
+@@ -3950,12 +3956,6 @@
+                               "recognizerId": "typescript-config" if marker != "package.json" else "node-package", "recognizerVersion": 1,
+                               "provenance": provenance, "memberPackageRoots": []})
+                 break
+-    for d, m in by_dir.items():
+-        if "Cargo.toml" in m:
+-            enclosing = sorted((w for w in cargo_ws_roots if w != d and _under_unit(d, w)), key=len)
+-            if enclosing:
+-                ws = next(u for u in units if u["languageFamily"] == "rust" and u["rootPath"] == enclosing[-1])
+-                ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+     if not units and explicit_workspace_roots is None and _boundary_hit("", boundaries) is None:
+         # U-9: a marker-free project is still analysable. Without this unit the default selection requested
+         # nothing and the Run was an empty successful analysis of a repository full of readable code.
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -739,8 +739,16 @@
+      (`unitKind` `cargo-workspace` when that manifest declares a workspace,
+      otherwise `cargo-package`; `recognizerId` equal to `unitKind`; `markerPath`
+      that `Cargo.toml`), except that a `Cargo.toml` directory strictly below the
+-     root of a `cargo-workspace` unit is folded into the DEEPEST such workspace (the
+-     longest enclosing `rootPath`) and listed in its `memberPackageRoots`. Each
++     root of a `cargo-workspace` unit is folded into the DEEPEST such workspace unit
++     (the longest enclosing `rootPath`) and listed in its `memberPackageRoots`.
++     Directories left after item 1 and explicit selection (U-2) are decided
++     shallowest first, so the fold target is always a surviving unit, never a
++     workspace manifest that was itself folded: a nested workspace manifest below a
++     `cargo-workspace` unit is a member, receives no members, and every `Cargo.toml`
++     directory below it folds into that same enclosing unit. The shallowest
++     enclosing workspace manifest of a folded directory is always a unit, so a fold
++     target always exists
++     (`units-nested-cargo-workspace-folds-into-the-deepest-surviving-workspace-unit`). Each
+      remaining directory holding a TS/JS marker is exactly one `tsjs` unit whose
+      marker is the first present of `tsconfig.json`, `jsconfig.json`,
+      `package.json`, whose mode is U-1's, and whose `recognizerId` is

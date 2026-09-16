@@ -1,0 +1,54 @@
+# OpenSIP implementation
+
+Product code belongs in the sibling `opensip` repository. Approved design,
+reference contracts, review evidence and implementation acceptance records stay
+in `opensip_arch`. The user authorized the entire implementation with actual
+Claude verifying the work, and asked us to continue until complete. No new
+implementation commit, push or publication is authorized in this session.
+
+The [accepted design](../coop/design-corrections/reviews/root-application46-delivery.v1/README.md)
+remains the historical baseline. The [build plan](../v2/architecture/implementation-boundaries-and-build-plan.md)
+owns the milestones; frozen candidate source45/application46 and old evidence
+are preserved. Scoped implementation corrections do not rewrite those approvals.
+
+| Milestone | Status |
+|---|---|
+| M0 design baseline | Accepted; implementation-discovered contract refinements are reviewed separately |
+| M1 isolated builds/contracts | In progress: accepted foundation and CLI unit; generator and protocol/report source closure remain staged |
+| M2 admission/publication | Not started |
+| M3 TS/JS/Rust analysis | Not started |
+| M4 report/historical queries | Not started |
+| M5 workflows/lifecycle | Not started |
+| M6 release qualification | Not started; all 32 gates and 54 recovery cases remain unperformed |
+
+## Accepted units
+
+- [Canonical identity](m1/canonical-unit.v1.json): exact JSON and SHA-256, with independent canonical/hash vectors. Integrated in `opensip/crates/identity`.
+- [Design binding](m1/design-binding-unit.v1.json) and [contract binding](m1/contract-binding-unit.v1.json): inventory v3 and metadata-v2 are selected by the [live design-lock4 verifier](m1/design-binding4-integration.v1.json). All 13 live product files match its integration receipt; 38 tests and 46 selected input checks pass. Frozen candidate02 `e8043832dc9193e049726ceb1140467752a7fc7898516dc26b7e0d688a1cc59a` adds multi-hop regression checks, refuses JSON line/pointer aliases and verifies generation sources against accepted architecture bytes. Its 56 tests and 28-source preflight pass; actual Claude review02 is running.
+- [Metadata design](m1/metadata-unit.v1.json): envelope4, metadata1, command inventory4, exact parity rules and compiled build metadata. Accepted reference/design unit, distinct from product qualification.
+- [TS runtime trial](m1/ts-runtime-unit.v1.json): exact integers, original-schema shape checks and pinned pattern compatibility. Accepted algorithm trial; broader report profile and integration remain separate.
+- [Eight-output algorithms](m1/eight-output-unit.v1.json): accepted on 589 explicitly named schema targets, with 1,343 independent witnesses, 1,781 reviewer mutants and 64,091 earlier positive roundtrips. No general semantic or universal representability claim.
+- [CLI metadata implementation](m1/cli-metadata-unit.v1.json): actual Claude accepted frozen subject02 `9180e2a8a3abd5dd14934b5b735eb74646dea017960c8d11030049a07c0e4c44`. Implements help, version, completion and refusals, process-custody RequestIds, compiled development metadata and required-delivery failures. Six startup, two authority, one metadata and ten identity test groups pass; Claude independently checked 31 envelopes, shell completions and startup isolation. Not integrated yet. HostAssetPin agreement and host/platform build policy remain separate. Closed stdout becomes `/dev/null` during Rust startup; read-only stdout and EPIPE produce typed exit4 failures.
+
+## Current generator work
+
+Staged candidate: `/tmp/opensip-implementation/m1-generator-integration-candidate-03`.
+No generated files have been installed in the product repository.
+
+Actual [adapter review02](m1/reviews/generator-adapter-02/review.md) closed the prior four findings and found two more: superseded schema subpaths and inactive forwarding Cargo features. Candidate03 now refuses both. Twenty-two source/options tests and eleven dependency tests cover these, including a real Cargo metadata negative control.
+
+Candidate03 replaces external rustfmt with prettyplease 0.2.37 inside the Rust generator. A recorded offline release build uses 25 checksum-verified dependency archives, a private vendor tree and minimal environment. The build receipt joins exact generator sources, builder, dependency archives, compiler/version/settings and executable; it is an observed trusted-host build, not reproducible-build or release proof. Six Rust outputs regenerate identically. For the current 586-ref selection, 1,338 independent witnesses roundtrip in Rust and pass the generated TS runtime. TS compilation passes; twelve direct/nested superseded report-ref probes refuse.
+
+The [actual Claude confinement trial](m1/reviews/generator-confinement-01/profile.md) resolved the macOS loader's required root-directory access, ran all three generator steps, and demonstrated outside read/write/network/exec denials. It also exposed parent collection following child-created symlinks. Candidate03 now opens output directories/files with `O_NOFOLLOW`, refuses linked/nonregular/undeclared outputs and enforces a bounded collection size. Nine full adapter/collector test groups cover refusal and publication behavior, using explicit test-only child stubs; those tests are not sandbox evidence. Four build/archive test groups cover source receipts and malicious archive members. The real Node/Rust steps now run in the candidate under the pinned macOS runtime profile with minimal environment, piped descriptors and a timeout. The [actual Claude Python trial](m1/reviews/generator-python-confinement-01/profile.md) completed three successful confined preparation runs, with an exact 28-file Python runtime profile and isolated no-site startup. All four steps now use confined children. Its syslog exception probe led to an exact syslog denial: a generic network denial was insufficient. The failed and corrected probes are retained separately.
+
+Frozen candidate03 has 87 files, manifest SHA256 `ff8c39858d4ff2cc52449c897a99c7b58dd281415f2f17d14b0ca033eef1f4ef`; [actual Claude adapter review03](m1/reviews/generator-adapter-03/review.md) found one required output-root replacement vulnerability. Candidate04 excludes root literals from child write grants and checks their original directory identities before/after each step. A real sandbox replacement control passes, owners.json is checked against parent options, and 78 tests pass. All 8 output bodies are unchanged and fresh drift is clean. Frozen 87-file subject04 `d25b7713ca29296df964497a75c6bef205edf5f08ac13f6b533dc99fd02d3f2f` is ready for narrow Claude delta review; the frozen03 record remains unchanged. Verified TypeScript provisioning uses direct pnpm11.10.0, the already reviewed lock, explicit offline trust-lockfile mode,140 matching package files and network denial. Earlier Corepack and registry-metadata attempts are retained as failed offline qualifications. Remaining integration work: external bootstrap/source binding, independent acceptance, inventory/lock successors and complete protocol/report source closure. The macOS profile trusts its declared system runtime and is not Linux or release qualification. The current formatter/dependency changes have not received final independent integration acceptance.
+
+## Protocol and report source closure
+
+The [TS2 field inventory](m1/reviews/typescript-wire-translation-01/translation.md) covers 182 inherited and 18 new members. The [resolution proposal](m1/reviews/protocol-gap-resolution-01/resolutions.md) identifies exact native clarifications for per-key scope commitments, fact-ref refusal under fact2, and the TS manifest digest recipe. These remain proposals to verify and bind. The [common-control accepted-source route](m1/control-source-route.v1.json) is verified against source45/application46 and its original eight-file review/freeze. The [Rust3 inventory](m1/reviews/rust-wire-translation-01/translation.md) covers 231 inherited members, 59 external expansions, 76 new members and six new frames, with 199 type cross-checks. Actual Claude is resolving the identified native scope, byte-carrier, anchor, commitment and transition owner gaps in `/tmp/opensip-implementation/m1-native-wire-owner-author-01`.
+
+The [first report author candidate](m1/reviews/report-projection-author-01/contract.md) is unaccepted. Its [fresh independent review](m1/reviews/report-projection-01/review.md) requires eight corrections: complete fit parity, envelope joins, the governed endpoint-to-subject3 index, visible states for required missing data, panel provenance joins, byte-level/per-owner codec limits, honest worst-case budgets and accurate standing. Author02 now supplies envelope5/inventory5 fit parity, exact subject3 joins, owner codec checks, visible unavailable states and deterministic byte prefixes. Root checks pass 48 pins, 126 report cases, 15 envelope cases and all 43 unchanged metadata cases. Frozen nine-file subject02 `4ebe027990867dcafc8a0f3439aa60c3bf84953e5221ce5b1d0d968243aa4551` is under fresh independent Claude review02. [Review02](m1/reviews/report-projection-02/review.md) requires six more corrections: deterministic fit pagination/ephemeral parity/failures, truthful graph page counts, the existing invocation ledger carrier and deterministic selection policies, provenance checks, full executable pin/freeze closure, and complete passage scope. Root omitted builder scripts from the nine-file freeze; that failure is preserved and the next freeze must be executable from its declared closure. Author03 is correcting these with the root decision to preserve fit --ephemeral and expose the default sealed-Run first 100-candidate page and pagination in every renderer. Author completion is not acceptance. Neither reference tests nor proposed budgets count as executed report/product qualification.
+
+The [Rust workspace isolation trial](m1/trials/rust-workspace-isolation-01/result.json) builds unchanged contracts/identity source exports through a separate provider lock, with no host manifest/apps, Node or generator in the export. All 14 shared package versions/features match the host and the 11-dependency contracts check passes. The executable is a disposable build probe; Rust compiler/provider behavior is unimplemented. A staged package-boundary checker passes 12 test groups, including real Cargo inactive-feature, platform, build and dev-edge refusals; it also joins raw manifest declarations to metadata. No source-purity claim follows.
+
+M1 also still needs complete root/provider/report build lanes, the Rust provider export/lock route, package-edge/tool policy checks, and real report asset binding. No later milestone is inferred complete. The [earlier checkpoint](m1/progress-checkpoint-before-generator03.md) and scoped review records preserve prior evidence and limitations.

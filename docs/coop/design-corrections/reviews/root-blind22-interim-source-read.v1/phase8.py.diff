@@ -1,0 +1,262 @@
+--- historical20/phase8.py
++++ ACTIVE22/phase8.py
+@@ -33,7 +33,7 @@
+ import opensip_closure as CL
+ import envelopes as EV
+ 
+-OUT = '/tmp/opensip-design-corrections/consumer-b.v20/output'
++OUT = '/tmp/opensip-design-corrections/consumer-b.v22/output'
+ KIT = S.KIT
+ BASE_DOC = 'workflows/schemas/evaluator3/baseline-artifact.schema.json'
+ CMP_DOC = 'workflows/schemas/evaluator3/comparison-result.schema.json'
+@@ -257,7 +257,7 @@
+ def main():
+     cur = current_side()
+     rows = []
+-    out = {'consumerId': 'consumer-b.v20',
++    out = {'consumerId': 'consumer-b.v22',
+            'standing': ('the CURRENT side is the real sealed TypeScript Run of this origin; '
+                         'the baseline is an independently constructed artifact over the same '
+                         'Run. No product executed any comparison: these are record '
+@@ -675,6 +675,25 @@
+     det_tid, det = cur['detector']
+     tree = det.get('tree') or []
+     reserved = [r for r in tree if 'compat' in r.get('path', '').lower()]
++    # V22-D10: generation 20 reported the CLOSURE DESCRIPTOR's keys under the name
++    # componentManifestBodyKeys. The component manifest body is the retained blob the descriptor's
++    # manifestDigest names; both are reported now, under their own names.
++    manifest_keys = []
++    mb = cur['store'].get_blob((det.get('manifestDigest') or '').split(':')[-1])
++    if mb is not None:
++        try:
++            def keys_of(n):
++                if isinstance(n, dict):
++                    for k, v in n.items():
++                        manifest_keys.append(k)
++                        keys_of(v)
++                elif isinstance(n, list):
++                    for v in n:
++                        keys_of(v)
++            keys_of(json.loads(mb.decode()))
++            manifest_keys = sorted(set(manifest_keys))
++        except (ValueError, UnicodeDecodeError):
++            manifest_keys = ['<the retained manifest bytes are not JSON>']
+     return {
+         'requirement': 'R-DETECTOR-COMPAT-FILE', 'classification': 'measured',
+         'law': {'detectorManifest': S.doc_path(
+@@ -684,8 +703,12 @@
+                                  if 'compat' in k.lower()][:6]},
+         'measured': [
+             {'check': 'THE_LISTING_IS_A_FILE_IN_THE_SIGNED_TREE_NOT_A_MANIFEST_FIELD',
+-             'componentManifestBodyKeys': sorted(det),
+-             'listingAmongThoseKeys': any('compat' in k.lower() for k in det),
++             'detectorClosureId': det_tid,
++             'closureDescriptorKeys': sorted(det),
++             'componentManifestDigest': det.get('manifestDigest'),
++             'componentManifestBodyKeys': manifest_keys,
++             'listingAmongThoseKeys': any('compat' in k.lower()
++                                          for k in list(det) + manifest_keys),
+              'reservedTreeRows': reserved,
+              'result': ('the component manifest body of this origin\'s detector closure '
+                         'carries NO compatibility listing field, which is the shape the law '
+@@ -712,46 +735,162 @@
+     }
+ 
+ 
++SECURITY_DOC = 'security/security-lifecycle.schemas.v1.json'
++INVOC_DOC = 'workflows/schemas/evaluator3/invocation-record.schema.json'
++
++
++def security_admit(selector, inst):
++    """security-lifecycle.schemas.v1.json carries no $id, so it is not a member of the pinned
++    registry. Its records live under the document's `schemas` member and reference its `$defs`
++    by local pointer, so the SAME reference Draft 2020-12 validator is applied to a root holding
++    exactly those two members plus a root $ref to the selector; nothing is reimplemented."""
++    import jsonschema
++    doc = json.load(open(KIT + '/' + S.doc_path(SECURITY_DOC)))
++    root = {'$defs': doc['$defs'], 'schemas': doc['schemas'], '$ref': selector}
++    errs = sorted(jsonschema.Draft202012Validator(root).iter_errors(inst),
++                  key=lambda e: list(e.absolute_path))
++    return not errs, [{'path': '/'.join(str(p) for p in e.absolute_path),
++                       'message': e.message[:240]} for e in errs[:3]]
++
++
+ def test_prep_repair_auth(cur):
+-    """R-TEST-PREP-REPAIR-AUTH: authorization RECORDS, not host execution."""
++    """R-TEST-PREP-REPAIR-AUTH: authorization RECORDS, not host execution.
++
++    V22-D10: generation 20 published this requirement as an explanatory table (the params
++    definition NAMES and refusal code strings), which no process could re-check. The records
++    below are CONSTRUCTED and ADMITTED against their owning schemas, bound to this origin's
++    admitted repair descriptor and TypeScript Run where the kit gives a join, and each field that
++    names a record this reconstruction does not construct is labelled helper-only.
++    """
++    rep = json.load(open(OUT + '/vectors/repair-descriptor.json'))
++    pos = [c for c in rep['controls'] if c['classification'] == 'valid'][0]
++    desc = pos['descriptor']
++    auth = {'authorizationSchema': 1, 'kind': 'repair-apply', 'projectId': cur['projectId'],
++            'repairPlanId': pos['repairPlanId'], 'baseSnapshotId': desc['snapshotId'],
++            'recipeClosureId': desc['recipe']['closureId'],
++            'consent': {'mode': 'policy-record',
++                        'policyRecordId': K.raw_sha256(b'helper-only CI repair policy record'),
++                        'ci': True},
++            'expiry': 'operation-end', 'leaseMode': 'EXCLUSIVE', 'repositoryExecution': False}
++    auth_ref = ('security.repair-apply-authorization.v1:'
++                + K.H('security.repair-apply-authorization.v1', auth))
++    repair_params = {'kind': 'repair-apply', 'planStep': 1, 'repairPlanId': pos['repairPlanId'],
++                     'consentSource': 'policy', 'authorizationRef': auth_ref}
++    test_params = {
++        'kind': 'test-execution', 'argv': ['node_modules/.bin/vitest', 'run'],
++        'argv0Source': {'kind': 'snapshot-member', 'path': 'node_modules/.bin/vitest'},
++        'cwdIsRoot': True, 'principal': 'P-TRUSTED-REPO', 'executionClass': 'test-runner',
++        'platformId': 'linux-x86_64-gnu',
++        'authorizationRef': ('security.repo-execution-grant.v2:'
++                             + K.raw_sha256(b'helper-only repo execution grant')),
++        'consentSource': 'pre-existing-policy', 'afterStep': 1, 'timeoutMilliseconds': 600000,
++        'maxOutputBytes': 1048576, 'environmentAllowlist': ['CI', 'HOME'],
++        'effects': {'network': 'DISCLOSURE-ONLY', 'subprocess': 'DISCLOSURE-ONLY',
++                    'filesystemWrite': 'ENFORCED-AT-HOST-BROKER',
++                    'environment': 'ENFORCED-BY-CONSTRUCTION'}}
++    prep_params = {'kind': 'native-preparation',
++                   'authorizationDescriptorDigest': K.raw_sha256(b'helper-only AuthorizedExecutionV2'),
++                   'securityGrantSetRef': ('security.repo-execution-grants.v2:'
++                                           + K.raw_sha256(b'helper-only grant set'))}
++
++    def inv(selector, inst):
++        r = S.admit(INVOC_DOC, selector, inst, 'auth:' + selector)
++        return r['admitted'], (r['stockSchemaErrors'][:2] + r['publishedKeywordRefusals'][:2])
++
++    def submitted(role, doc, selector, inst):
++        ok, err = (security_admit(selector, inst) if doc == SECURITY_DOC else inv(selector, inst))
++        return {'role': role, 'document': doc, 'selector': selector, 'instance': inst,
++                'admitted': ok, 'errors': err}
++
++    records = [
++        {'step': 'repair-apply', 'paramsDef': 'invocation-record #/$defs/RepairApplyParams',
++         'submitted': [submitted('params', INVOC_DOC, '#/$defs/RepairApplyParams', repair_params),
++                       submitted('authorization', SECURITY_DOC,
++                                 '#/schemas/RepairApplyAuthorizationV1', auth)],
++         'identityJoins': {
++             'authorizationRefIsProductHOfTheAdmittedAuthorization': repair_params['authorizationRef'] == auth_ref,
++             'repairPlanIdIsTheAdmittedPositiveDescriptor': repair_params['repairPlanId'] == pos['repairPlanId'] == auth['repairPlanId'],
++             'baseSnapshotIsTheEvidenceRunSnapshot': auth['baseSnapshotId'] == cur['snapshotId']},
++         'syntheticHelperOnly': ['authorization.consent.policyRecordId (the policy record is not '
++                                 'constructed)'],
++         'authorizationClass': 'a security authorization bound to the EXACT repairPlanId and baseSnapshotId',
++         'refusals': ['AUTHZ.BASE_SNAPSHOT_MISMATCH', 'AUTHZ.POLICY_DOES_NOT_ADMIT_REPAIR',
++                      'REPAIR.TARGET_PREIMAGE_MISMATCH', 'REPAIR.SOURCE_MOVED'],
++         'd9': 'request-rejected 2 / REQUEST.PRECONDITION_FAILED', 'sealsARun': False,
++         'receipt': ('a MutationReceiptV1 keyed by the content-derived repair-apply key; VERIFY '
++                     'afterwards admits a FRESH snapshot and seals a NEW Run'),
++         'measuredKey': 'vectors/mutation-keys.json repairApply.key'},
++        {'step': 'test-execution', 'paramsDef': 'invocation-record #/$defs/TestExecutionParams',
++         'submitted': [submitted('params', INVOC_DOC, '#/$defs/TestExecutionParams', test_params)],
++         'syntheticHelperOnly': ['authorizationRef (the RepoExecutionGrantV2 grant is not '
++                                 'constructed)', 'argv0Source.path (no test runner is inventoried '
++                                 'by this origin\'s Runs)'],
++         'authorizationClass': 'explicit consent, and in CI a policy record',
++         'refusals': ['TEST.INTERACTIVE_CONSENT_IN_CI', 'TEST.CONFINEMENT_CLAIM_REFUSED'],
++         'd9': 'request-rejected 2 / REQUEST.PRECONDITION_FAILED', 'sealsARun': False,
++         'receipt': 'a test import is admitted; the step mints no run3'},
++        {'step': 'native-preparation',
++         'paramsDef': 'invocation-record #/$defs/NativePreparationParams',
++         'submitted': [submitted('params', INVOC_DOC, '#/$defs/NativePreparationParams', prep_params)],
++         'syntheticHelperOnly': ['authorizationDescriptorDigest (AuthorizedExecutionV2 is not '
++                                 'constructed)', 'securityGrantSetRef'],
++         'authorizationClass': ('per-owner native preparation authorization (workflows section 12 '
++                                'delegating to native section 14 and security S15)'),
++         'refusals': ['native.execution-not-authorized', 'native.prepare-bound-exceeded',
++                      'native.prepared-output-not-inert'],
++         'd9': 'request-rejected 2 for authorization, operational-failed 4 for a fault',
++         'sealsARun': False,
++         'receipt': 'an execution receipt plus ONE admitted prepared import, never a Run',
++         'retryPolicy': 'none by schema -- there is no automatic retry'},
++    ]
++    for r in records:
++        assert all(s['admitted'] for s in r['submitted']), (r['step'], r['submitted'])
++
++    hexx = K.raw_sha256(b'another')
++    controls = []
++
++    def control(case, step, doc, selector, inst, law_refusal=None, masks=None):
++        ok, err = (security_admit(selector, inst) if doc == SECURITY_DOC else inv(selector, inst))
++        refused = (not ok) or bool(law_refusal)
++        first = ({'boundary': 'owning-schema', 'errors': err} if not ok
++                 else ({'boundary': 'prose-law', 'code': law_refusal} if law_refusal else None))
++        controls.append({'case': case, 'step': step, 'classification': 'invalid',
++                         'document': doc, 'selector': selector, 'instance': inst,
++                         'schemaAdmitted': ok, 'lawRefusal': law_refusal, 'refused': refused,
++                         'firstRefusal': first,
++                         'masksLater': masks or ('the owning schema refuses first, so no prose law '
++                                                 'is reached' if not ok else
++                                                 'schema admits; the prose law is the first refusal')})
++    control('repair-apply-authorization-ref-names-another-domain', 'repair-apply', INVOC_DOC,
++            '#/$defs/RepairApplyParams',
++            dict(repair_params, authorizationRef='security.repo-execution-grant.v2:' + hexx))
++    control('repair-apply-authorization-grants-repository-execution', 'repair-apply',
++            SECURITY_DOC, '#/schemas/RepairApplyAuthorizationV1', dict(auth, repositoryExecution=True))
++    other_base = dict(auth, baseSnapshotId='snapshot2:' + '0' * 64)
++    control('repair-apply-authorization-bound-to-another-base-snapshot', 'repair-apply',
++            SECURITY_DOC, '#/schemas/RepairApplyAuthorizationV1', other_base,
++            law_refusal=('AUTHZ.BASE_SNAPSHOT_MISMATCH'
++                         if other_base['baseSnapshotId'] != cur['snapshotId'] else None))
++    control('test-execution-cwd-not-root-without-cwd', 'test-execution', INVOC_DOC,
++            '#/$defs/TestExecutionParams', dict(test_params, cwdIsRoot=False))
++    control('test-execution-platform-enforcement-claim', 'test-execution', INVOC_DOC,
++            '#/$defs/TestExecutionParams',
++            dict(test_params, effects=dict(test_params['effects'], network='ENFORCED-PLATFORM:seatbelt')))
++    ci = dict(test_params, consentSource='interactive-consent')
++    control('test-execution-interactive-consent-in-ci', 'test-execution', INVOC_DOC,
++            '#/$defs/TestExecutionParams', ci,
++            law_refusal='TEST.INTERACTIVE_CONSENT_IN_CI' if ci['consentSource'] == 'interactive-consent' else None)
++    control('native-preparation-grant-set-ref-wrong-prefix', 'native-preparation', INVOC_DOC,
++            '#/$defs/NativePreparationParams',
++            dict(prep_params, securityGrantSetRef='security.repo-execution-grant.v2:' + hexx))
++    assert all(c['refused'] for c in controls), [c['case'] for c in controls if not c['refused']]
+     return {
+-        'requirement': 'R-TEST-PREP-REPAIR-AUTH', 'classification': 'explanatory+measured',
+-        'standing': ('these are authorization records and their admission rules. NOTHING was '
+-                     'executed: no test ran, no preparation ran, no repair was applied.'),
+-        'records': [
+-            {'step': 'test-execution',
+-             'paramsDef': 'invocation-record #/$defs/TestExecutionParams',
+-             'authorizationClass': 'explicit consent, and in CI a policy record',
+-             'refusals': ['TEST.INTERACTIVE_CONSENT_IN_CI',
+-                          'TEST.CONFINEMENT_CLAIM_REFUSED'],
+-             'd9': 'request-rejected 2 / REQUEST.PRECONDITION_FAILED',
+-             'sealsARun': False,
+-             'receipt': 'a test import is admitted; the step mints no run3'},
+-            {'step': 'native-preparation',
+-             'paramsDef': 'invocation-record #/$defs/NativePreparationParams',
+-             'authorizationClass': 'per-owner native preparation authorization '
+-                                   '(workflows section 12 delegating to native section 14 '
+-                                   'and security S15)',
+-             'refusals': ['native.execution-not-authorized',
+-                          'native.prepare-bound-exceeded',
+-                          'native.prepared-output-not-inert'],
+-             'd9': 'request-rejected 2 for authorization, operational-failed 4 for a fault',
+-             'sealsARun': False,
+-             'receipt': 'an execution receipt plus ONE admitted prepared import, never a Run',
+-             'retryPolicy': 'none by schema -- there is no automatic retry'},
+-            {'step': 'repair-apply',
+-             'paramsDef': 'invocation-record #/$defs/RepairApplyParams',
+-             'authorizationClass': 'a security authorization bound to the EXACT repairPlanId '
+-                                   'and baseSnapshotId',
+-             'refusals': ['AUTHZ.BASE_SNAPSHOT_MISMATCH',
+-                          'AUTHZ.POLICY_DOES_NOT_ADMIT_REPAIR',
+-                          'REPAIR.TARGET_PREIMAGE_MISMATCH', 'REPAIR.SOURCE_MOVED'],
+-             'd9': 'request-rejected 2 / REQUEST.PRECONDITION_FAILED',
+-             'sealsARun': False,
+-             'receipt': 'a MutationReceiptV1 keyed by the content-derived repair-apply key; '
+-                        'VERIFY afterwards admits a FRESH snapshot and seals a NEW Run',
+-             'measuredKey': 'vectors/mutation-keys.json repairApply.key'},
+-        ],
++        'requirement': 'R-TEST-PREP-REPAIR-AUTH', 'classification': 'valid + invalid controls',
++        'standing': ('authorization RECORDS constructed and admitted against their owning schemas. '
++                     'NOTHING was executed: no test ran, no preparation ran, no repair was applied. '
++                     'Every field listed under syntheticHelperOnly names a record this '
++                     'reconstruction does not construct and is not evidence-bound.'),
++        'records': records, 'controls': controls,
+         'threeSeparatelyAuthorizedSteps': (
+             'preview, apply and verify are three separately authorized steps: a preview '
+             'authorization is not an apply authorization, and an apply authorization does '

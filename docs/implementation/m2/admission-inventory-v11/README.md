@@ -1,0 +1,5 @@
+# Admission runtime file ownership
+
+Add15filesunderexisting20packages. Identityowns4private schema modules; hostowns explicitraw source provider. Eightadditional foundation schema sources plusadmissionregistry/map are sharedassets, separatefrom40generationinputs. CurrentlogicalaliasesmustbindfullsourceSHA; noURI/majorfallback. Descriptorcandidatefits existingdescriptors.rs, RustAPIexistinglib.rs; sourcebindingguards/tests modifyexistingtools/verify_design.py andtools/tests/test_design_binding.py. No unnecessarynewpackage orfactoryfamily. Contractsremainleaf; host→identity alreadyallowed.
+
+333parentrows andall20package/policyfields unchanged. Threeinheriteddescriptionoverridesmustbeprojectedbyfilepathintonew348rowinventory atactivation, notoldrowindices. Thisdoesnotaccept runtimecode/replay/report/native/release. Actualindependentlayoutreviewrequestedbeforeselection.

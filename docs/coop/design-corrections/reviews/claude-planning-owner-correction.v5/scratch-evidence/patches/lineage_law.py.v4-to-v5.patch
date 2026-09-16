@@ -1,0 +1,510 @@
+--- v4/controls/lineage_law.py
++++ v5/controls/lineage_law.py
+@@ -1,24 +1,33 @@
+-"""PS-01 lineage publication and recovery law, revision 4.
+-
+-One module so publication and recovery cannot drift. Revision 4 corrects the
+-identity-selection boundary root demonstrated against revision 3:
+-
+-  * A node is identified by its FULL TRIPLE, and the instance component comes
+-    from the store-root MARKER of the store the transition actually selects.
+-    Revision 3 searched by the numeric (storeGeneration, stateSchema) pair, so a
+-    retained old branch at (b,4,2) blocked a fresh target at (e,4,2) and produced
+-    two wrong quarantines against owner ABORT and RESUME-COMMIT.
+-  * intentDigest is never a global search key. The record's own schema says it
+-    may repeat, so it is validated ON the selected node, never scanned for.
+-  * One admission law, admit_node(), is applied by BOTH publish and recover.
+-    Revision 3 reconstructed a forward node without checking that its predecessor
+-    existed, writing broken ancestry with no refusal; the whole-set invariants()
+-    helper caught it but was never on the decision path.
+-  * Markers are validated before any dereference.
+-  * BUSY, REFUSE and QUARANTINE mean no companion decision at all: the node set
+-    is not inspected, matching the prose.
+-
+-Design reference only. Not product code, not a carrier implementation.
++"""PS-01 lineage publication and recovery law, revision 5.
++
++One module so publication and recovery cannot drift. Revision 5 corrects the two
++final-boundary defects root demonstrated against revision 4:
++
++  * PHASE-SENSITIVE MARKERS. A forward selection's target store does not exist at
++    LEASED or PREPARING, and an unpublished target may already be reclaimed at
++    ABORTED. Revision 4 required selectedStoreRoot in every branch, turning the
++    owner's lawful early ABORT into a quarantine. The requirement is now bound to
++    the owner's own decision: only a settled transition needs the target marker.
++    Before materialisation an absent target is expected and the owner's abort
++    stands; an observed-but-unreadable target still refuses.
++  * IDEMPOTENT PATH VALIDATION. admit_node returned "idempotent" on an exact key
++    match BEFORE checking ancestry, so an existing target whose chain was broken
++    validated with no refusal. Ancestry and uniqueness are now checked on the
++    idempotent path too, still writing nothing and never rewriting an origin.
++
++Two scoping corrections follow directly:
++
++  * The single-lineage-root rule is a COMPONENT invariant, not a global one. An
++    authorized restore or adoption starts a separate lineage with its own root, so
++    several roots may coexist across unrelated stores. What must hold is that the
++    chain from the node under consideration terminates cleanly at exactly one root.
++  * Node shape is admitted through a REAL schema validator supplied by the caller,
++    not by ad hoc member and type guesses here. A caller that supplies none must
++    say so explicitly with ASSUME_SCHEMA_ADMITTED, which controls record as a
++    labelled input assumption; otherwise the law refuses rather than assuming.
++
++Design reference only. Not product code, not a carrier implementation, and not a
++product parser.
+ """
+ 
+ SAME_STORE = "same-store"
+@@ -28,12 +37,17 @@
+ 
+ QUARANTINE = "QUARANTINE/MIGRATION.CORRUPT"
+ 
+-NODE_MEMBERS = {"schemaVersion", "storeInstanceId", "storeGeneration",
+-                "stateSchema", "predecessor", "selectedByIntentDigest"}
++# A caller that has already schema-admitted its nodes says so explicitly.
++ASSUME_SCHEMA_ADMITTED = "assume-schema-admitted"
+ 
+ # Owner actions that settle a transition as committed, and those that decide nothing.
+ SETTLING = (("RESUME-COMMIT", "DONE"), ("RELEASE-ONLY", "DONE"))
+ NO_DECISION_ACTIONS = ("BUSY", "REFUSE", "QUARANTINE")
++
++# Target-store observation outcomes, distinct on purpose.
++TARGET_ABSENT = None            # store root not materialised yet, or already reclaimed
++
++HEX32 = "0123456789abcdef"
+ 
+ 
+ def triple(instance_id, generation, state_schema):
+@@ -70,7 +84,12 @@
+ 
+ 
+ def ancestry(nodes, start):
+-    """Walk predecessor links from a full triple. Returns (chain, clean)."""
++    """Walk predecessor links from a full triple. Returns (chain, clean).
++
++    clean means every hop was found at its exact triple, no cycle was met, and the
++    walk terminated at a lineage root. It is the component-scoped form of the
++    one-root rule: this chain reaches exactly one root.
++    """
+     chain, seen, cursor = [], set(), start
+     while cursor is not None:
+         if _key(cursor) in seen:
+@@ -81,17 +100,11 @@
+             return chain, False
+         chain.append(found)
+         cursor = found["predecessor"]
+-    return chain, True
++    return chain, bool(chain)
+ 
+ 
+ def selection_case(intent):
+-    """A pure function of the ADMITTED intent. It never reads the node set.
+-
+-    The owner's admit_transition_intent fixes the schema/store pair, so over the
+-    admitted space: same store and same schema is SAME_STORE, an advancing schema
+-    is FORWARD_SELECTION, a retreating schema is ANCESTOR_RESELECT, and no
+-    admitted intent changes the store with an unchanged schema.
+-    """
++    """A pure function of the ADMITTED intent. It never reads the node set."""
+     same_store = intent["fromStoreGeneration"] == intent["toStoreGeneration"]
+     same_schema = intent["fromStateSchema"] == intent["toStateSchema"]
+     if same_store and same_schema:
+@@ -105,34 +118,67 @@
+ 
+ # --- markers ----------------------------------------------------------------
+ 
+-HEX32 = "0123456789abcdef"
+-
+-
+-def _marker_ok(value):
++def _marker_readable(value):
+     return (isinstance(value, str) and len(value) == 32
+             and all(c in HEX32 for c in value))
+ 
+ 
+-def markers_refusal(markers, case):
+-    """Validate markers BEFORE any dereference. Returns a refusal or None.
+-
+-    selectedStoreRoot is the storeInstanceId read from the root of the store this
+-    transition selects: the new store for a forward selection, the retained
+-    ancestor for a re-selection, the unchanged store for a same-store operation.
+-    predecessorStoreRoot is the root of the store it comes from.
++def target_observation(markers):
++    """Classify the selected-store marker. Three outcomes, deliberately distinct.
++
++      "readable"   a 32-lowercase-hex identity was read from the target store root
++      "absent"     selectedStoreRoot is explicitly None: no target store root is
++                   present. Before materialisation, and after an unpublished
++                   target is reclaimed, this is the expected observation.
++      "unreadable" a target was observed but its marker is missing or malformed.
++                   This is NOT absence and never becomes one.
++      "not-observed" the caller supplied no observation at all.
++    """
++    if "selectedStoreRoot" not in markers:
++        return "not-observed"
++    value = markers["selectedStoreRoot"]
++    if value is TARGET_ABSENT:
++        return "absent"
++    if _marker_readable(value):
++        return "readable"
++    return "unreadable"
++
++
++def markers_refusal(markers, case, settled):
++    """Validate markers BEFORE any dereference, bound to the owner's phase.
++
++    settled is True only when the owner's own action settled the transition as
++    committed. A settled transition's selected store exists by construction, so
++    its marker is required. An unsettled transition may precede materialisation.
+     """
+     if not isinstance(markers, dict):
+-        return QUARANTINE
+-    needed = ["selectedStoreRoot", "predecessorStoreRoot"]
+-    for name in needed:
+-        if name not in markers or not _marker_ok(markers.get(name)):
+-            return QUARANTINE
+-    if case is SAME_STORE and markers["selectedStoreRoot"] != markers["predecessorStoreRoot"]:
+-        return QUARANTINE
+-    if case is FORWARD_SELECTION and \
+-            markers["selectedStoreRoot"] == markers["predecessorStoreRoot"]:
+-        return QUARANTINE
+-    return None
++        return QUARANTINE, "markers were not supplied"
++    if not _marker_readable(markers.get("predecessorStoreRoot")):
++        return QUARANTINE, ("the predecessor store root marker is missing or "
++                            "unreadable; the store a transition comes from always exists")
++    observation = target_observation(markers)
++    if observation == "unreadable":
++        return QUARANTINE, ("a target store root was observed but its marker is "
++                            "unreadable; an unreadable target is never treated as absent")
++    if settled:
++        if observation != "readable":
++            return QUARANTINE, ("a settled transition's selected store must have a "
++                                "readable marker; observation was " + observation)
++        if case is SAME_STORE and \
++                markers["selectedStoreRoot"] != markers["predecessorStoreRoot"]:
++            return QUARANTINE, "a same-store selection must name one store"
++        if case is FORWARD_SELECTION and \
++                markers["selectedStoreRoot"] == markers["predecessorStoreRoot"]:
++            return QUARANTINE, "a forward selection must name a different store"
++        return None, None
++    # Unsettled: the target may lawfully not exist yet or have been reclaimed.
++    if observation == "not-observed":
++        return QUARANTINE, ("no target observation was supplied; absence must be "
++                            "stated explicitly, never inferred from a missing key")
++    if observation == "readable" and case is SAME_STORE and \
++            markers["selectedStoreRoot"] != markers["predecessorStoreRoot"]:
++        return QUARANTINE, "a same-store selection must name one store"
++    return None, None
+ 
+ 
+ def selected_triple(intent, markers):
+@@ -145,27 +191,39 @@
+                   intent["fromStateSchema"])
+ 
+ 
++# --- schema admission boundary ----------------------------------------------
++
++def schema_admission(candidate, node_admission):
++    """Admit a node's shape through a REAL validator, or an explicit assumption.
++
++    node_admission is either a callable returning a refusal string or None, or the
++    ASSUME_SCHEMA_ADMITTED sentinel by which a caller states that its inputs were
++    already admitted elsewhere. Anything else refuses: this law does not guess
++    member sets, integer-versus-boolean types or version constants for itself.
++    """
++    if node_admission is ASSUME_SCHEMA_ADMITTED:
++        return None
++    if not callable(node_admission):
++        return QUARANTINE
++    return node_admission(candidate)
++
++
+ # --- the one admission law --------------------------------------------------
+ 
+-def admit_node(candidate, nodes):
++def admit_node(candidate, nodes, node_admission):
+     """The single node admission law. Publication and recovery both call it.
+ 
+     Returns (refusal|None, resulting_nodes, disposition).
+     """
+-    if not isinstance(candidate, dict) or set(candidate) != NODE_MEMBERS:
+-        return QUARANTINE, list(nodes), "shape"
+-    if candidate["schemaVersion"] != 1:
+-        return QUARANTINE, list(nodes), "schema-version"
++    refusal = schema_admission(candidate, node_admission)
++    if refusal is not None:
++        return QUARANTINE, list(nodes), "schema-admission"
+     pred, digest = candidate["predecessor"], candidate["selectedByIntentDigest"]
+     if (pred is None) != (digest is None):
+         return QUARANTINE, list(nodes), "unpaired-nulls"
+     if pred is not None:
+-        if not isinstance(pred, dict) or set(pred) != {"storeInstanceId",
+-                                                       "storeGeneration", "stateSchema"}:
+-            return QUARANTINE, list(nodes), "predecessor-shape"
+         if _key(pred) == _key(node_triple(candidate)):
+             return QUARANTINE, list(nodes), "self-predecessor"
+-        # Predecessor presence is checked HERE, on the decision path.
+         found, dup = find_at_triple(nodes, pred)
+         if dup is not None:
+             return QUARANTINE, list(nodes), "duplicate-predecessor-key"
+@@ -175,47 +233,71 @@
+     existing, dup = find_at_triple(nodes, node_triple(candidate))
+     if dup is not None:
+         return QUARANTINE, list(nodes), "duplicate-primary-key-disagrees"
++
+     if existing is not None:
+         if existing != candidate:
+             return QUARANTINE, list(nodes), "primary-key-contents-disagree"
++        # Revision 5: the idempotent path validates the SAME chain and uniqueness
++        # rules as a write. It still writes nothing.
++        refusal, why = _chain_and_uniqueness(nodes, node_triple(candidate),
++                                             node_admission)
++        if refusal is not None:
++            return refusal, list(nodes), why
+         return None, list(nodes), "idempotent"
+ 
+     result = list(nodes) + [candidate]
+-    _chain, clean = ancestry(result, node_triple(candidate))
++    refusal, why = _chain_and_uniqueness(result, node_triple(candidate),
++                                         node_admission)
++    if refusal is not None:
++        return refusal, list(nodes), why
++    return None, result, "written"
++
++
++def _chain_and_uniqueness(nodes, start, node_admission):
++    """Component-scoped chain and key checks over the set that will stand."""
++    keys = [_key(node_triple(n)) for n in nodes]
++    for k in set(keys):
++        same = [n for n in nodes if _key(node_triple(n)) == k]
++        if any(n != same[0] for n in same[1:]):
++            return QUARANTINE, "duplicate-primary-key-disagrees"
++    chain, clean = ancestry(nodes, start)
+     if not clean:
+-        return QUARANTINE, list(nodes), "broken-or-cyclic-ancestry"
+-    roots = [n for n in result if n["predecessor"] is None]
++        return QUARANTINE, "broken-or-cyclic-ancestry"
++    for member in chain:
++        refusal = schema_admission(member, node_admission)
++        if refusal is not None:
++            return QUARANTINE, "chain-member-schema-admission"
++    roots = [n for n in chain if n["predecessor"] is None]
+     if len(roots) != 1:
+-        return QUARANTINE, list(nodes), "expected-exactly-one-lineage-root"
+-    return None, result, "written"
++        return QUARANTINE, "chain-does-not-reach-exactly-one-lineage-root"
++    return None, None
+ 
+ 
+ # --- publication ------------------------------------------------------------
+ 
+-def publish(intent, intent_digest, nodes, current_triple, markers):
++def publish(intent, intent_digest, nodes, current_triple, markers, node_admission):
+     """Publication after the journal record is durably COMMITTED.
+ 
+-    Returns (case, refusal|None, resulting_nodes, node|None).
+-    Only a forward selection writes, and it writes through admit_node.
++    Returns (case, refusal|None, resulting_nodes, node|None, rationale|None).
+     """
+     case = selection_case(intent)
+-    refusal = markers_refusal(markers, case)
+-    if refusal is not None:
+-        return case, refusal, list(nodes), None
++    refusal, why = markers_refusal(markers, case, settled=True)
++    if refusal is not None:
++        return case, refusal, list(nodes), None, why
+     if case is not FORWARD_SELECTION:
+-        return case, None, list(nodes), None
++        return case, None, list(nodes), None, None
+     candidate = node(markers["selectedStoreRoot"], intent["toStoreGeneration"],
+                      intent["toStateSchema"], outgoing_triple(intent, markers),
+                      intent_digest)
+-    refusal, result, _disposition = admit_node(candidate, nodes)
+-    if refusal is not None:
+-        return case, refusal, list(nodes), None
+-    return case, None, result, candidate
++    refusal, result, disposition = admit_node(candidate, nodes, node_admission)
++    if refusal is not None:
++        return case, refusal, list(nodes), None, disposition
++    return case, None, result, candidate, disposition
+ 
+ 
+ # --- recovery ---------------------------------------------------------------
+ 
+-def _classify(owner_result):
++def classify_owner(owner_result):
+     action = owner_result.get("action")
+     after = owner_result.get("journalStateAfter")
+     if action in NO_DECISION_ACTIONS:
+@@ -227,16 +309,17 @@
+     return "no-decision"
+ 
+ 
+-def recover_nodes(owner_result, intent, intent_digest, nodes, current_triple, markers):
++def recover_nodes(owner_result, intent, intent_digest, nodes, current_triple,
++                  markers, node_admission):
+     """Companion recovery, applied strictly after the owner's own decision."""
+     action = owner_result.get("action")
+     after = owner_result.get("journalStateAfter")
+     out = {"ownerAction": action, "ownerJournalStateAfter": after,
+-           "case": None, "nodeAction": None, "refusal": None, "nodes": list(nodes)}
+-    disposition = _classify(owner_result)
++           "case": None, "nodeAction": None, "refusal": None, "nodes": list(nodes),
++           "targetObservation": None}
++    disposition = classify_owner(owner_result)
+ 
+     if disposition == "no-decision":
+-        # BUSY, REFUSE, QUARANTINE: the node set is not inspected at all.
+         out["nodeAction"] = "no-decision"
+         out["rationale"] = ("owner action " + str(action) + " makes no transition "
+                             "decision; the companion inspects nothing and changes nothing")
+@@ -244,22 +327,28 @@
+ 
+     case = selection_case(intent)
+     out["case"] = case
+-    refusal = markers_refusal(markers, case)
++    settled = disposition == "settled"
++    refusal, why = markers_refusal(markers, case, settled)
++    out["targetObservation"] = target_observation(markers) \
++        if isinstance(markers, dict) else "not-observed"
+     if refusal is not None:
+         out["nodeAction"] = "none"
+         out["refusal"] = refusal
+-        out["rationale"] = ("a store-root marker is missing or unreadable; nothing is "
+-                            "read, dereferenced or written")
+-        return out
+-
+-    selected = selected_triple(intent, markers)
+-
+-    if disposition == "not-settled":
++        out["rationale"] = why
++        return out
++
++    if not settled:
+         # ABORT, or RELEASE-ONLY reaching ABORTED. Pre-existing ancestry is
+-        # expected and untouched. What must not exist is a NEW node for THIS
+-        # attempt, identified by ITS OWN FULL TRIPLE, never by a numeric pair and
+-        # never by scanning for an intentDigest that may lawfully repeat.
++        # expected and untouched. Only a NEW node for THIS attempt, at ITS OWN
++        # FULL TRIPLE, is a contradiction. No numeric pair or digest is scanned.
+         out["nodeAction"] = "none"
++        if out["targetObservation"] == "absent":
++            out["rationale"] = ("owner action " + str(action) + " before the target "
++                                "store exists, or after an unpublished target was "
++                                "reclaimed; no target triple can be formed, so no "
++                                "premature node is possible and the abort stands")
++            return out
++        selected = selected_triple(intent, markers)
+         existing, dup = find_at_triple(nodes, selected)
+         if dup is not None:
+             out["refusal"] = QUARANTINE
+@@ -275,17 +364,17 @@
+             out["rationale"] = ("a node at the selected triple already claims this "
+                                 "unsettled transition as its origin")
+             return out
+-        out["rationale"] = ("owner action " + str(action) + "; a retained branch at the "
+-                            "same numeric generation is a different store and is neither "
+-                            "read as this attempt's node nor disturbed")
+-        return out
+-
+-    # settled: RESUME-COMMIT or RELEASE-ONLY reaching DONE.
++        out["rationale"] = ("owner action " + str(action) + "; the observed target "
++                            "carries no node for this attempt, and a retained branch at "
++                            "the same numeric generation is a different store that is "
++                            "neither read as this attempt's node nor disturbed")
++        return out
++
+     if case is FORWARD_SELECTION:
+         candidate = node(markers["selectedStoreRoot"], intent["toStoreGeneration"],
+                          intent["toStateSchema"], outgoing_triple(intent, markers),
+                          intent_digest)
+-        refusal, result, dispo = admit_node(candidate, nodes)
++        refusal, result, dispo = admit_node(candidate, nodes, node_admission)
+         if refusal is not None:
+             out["refusal"] = refusal
+             out["rationale"] = "node admission refused: " + dispo
+@@ -294,14 +383,15 @@
+         out["node"] = candidate
+         out["nodeAction"] = ("validated" if dispo == "idempotent"
+                              else "reconstructed-and-written")
+-        out["rationale"] = ("this transition created the node at its own full triple, so "
+-                            "its origin is derivable from this committed intent plus the "
+-                            "markers; the same admission law as publication applied")
++        out["rationale"] = ("this transition created the node at its own full triple; "
++                            "the same admission law as publication applied, including "
++                            "chain and uniqueness validation on the idempotent path")
+         return out
+ 
+     # SAME_STORE and ANCESTOR_RESELECT: the selected node was created by an
+     # EARLIER, unrelated act. This intent cannot reconstruct an origin it never
+     # created, so absence is a quarantine and presence is validated, never rewritten.
++    selected = selected_triple(intent, markers)
+     if case is SAME_STORE and _key(selected) != _key(current_triple):
+         out["refusal"] = QUARANTINE
+         out["rationale"] = ("same-store case whose selected marker and to pair are not "
+@@ -324,6 +414,11 @@
+         out["rationale"] = "an existing node claims this transition as its origin"
+         return out
+ 
++    refusal, why = _chain_and_uniqueness(nodes, selected, node_admission)
++    if refusal is not None:
++        out["refusal"] = refusal
++        out["rationale"] = "the selected node fails chain or uniqueness validation: " + why
++        return out
+     chain, clean = ancestry(nodes, current_triple)
+     if not clean:
+         out["refusal"] = QUARANTINE
+@@ -342,27 +437,42 @@
+     out["originPreserved"] = {"predecessor": found["predecessor"],
+                               "selectedByIntentDigest": found["selectedByIntentDigest"]}
+     out["rationale"] = ("the retained node keeps its original predecessor and origin "
+-                        "digest; recovery validates at the full triple and never rewrites")
++                        "digest; recovery validates at the full triple, checks its chain "
++                        "and uniqueness, and never rewrites")
+     return out
+ 
+ 
+-def invariants(nodes):
+-    """Whole-set auditor for controls. admit_node is the decision boundary."""
++def invariants(nodes, node_admission=ASSUME_SCHEMA_ADMITTED, expected_components=None):
++    """Whole-set auditor for controls. admit_node is the decision boundary.
++
++    Roots are COMPONENT-scoped: several lineages may coexist, for example after an
++    authorized restore or adoption starts its own lineage. Each node's chain must
++    terminate cleanly at exactly one root. expected_components, when given, asserts
++    how many distinct lineages the caller believes it supplied.
++    """
+     problems = []
+     for n in nodes:
+-        if set(n) != NODE_MEMBERS:
+-            problems.append("member set: " + str(n.get("storeInstanceId")))
++        refusal = schema_admission(n, node_admission)
++        if refusal is not None:
++            problems.append("schema admission: " + str(n.get("storeInstanceId")))
++            continue
+         if n["predecessor"] is not None and _key(n["predecessor"]) == _key(node_triple(n)):
+             problems.append("self-predecessor: " + n["storeInstanceId"])
+         if (n["predecessor"] is None) != (n["selectedByIntentDigest"] is None):
+             problems.append("unpaired nulls: " + n["storeInstanceId"])
+-        _chain, clean = ancestry(nodes, node_triple(n))
++        chain, clean = ancestry(nodes, node_triple(n))
+         if not clean:
+             problems.append("broken or cyclic ancestry from: " + n["storeInstanceId"])
++        elif len([m for m in chain if m["predecessor"] is None]) != 1:
++            problems.append("chain does not reach exactly one root from: "
++                            + n["storeInstanceId"])
+     roots = [n for n in nodes if n["predecessor"] is None]
+-    if len(roots) != 1:
+-        problems.append("expected exactly one lineage root, found " + str(len(roots)))
++    if expected_components is not None and len(roots) != expected_components:
++        problems.append("expected " + str(expected_components) + " lineage components, "
++                        "found " + str(len(roots)))
+     keys = [_key(node_triple(n)) for n in nodes]
+-    if len(set(keys)) != len(keys):
+-        problems.append("duplicate primary key")
++    for k in set(keys):
++        same = [n for n in nodes if _key(node_triple(n)) == k]
++        if any(n != same[0] for n in same[1:]):
++            problems.append("duplicate primary key with disagreeing contents")
+     return problems

@@ -1,0 +1,60 @@
+{
+  "session_id": "0b25126b-49da-4a62-ab1c-d5f18b15cebf",
+  "total_cost_usd": 6.140817,
+  "usage": {
+    "input_tokens": 322,
+    "cache_creation_input_tokens": 329578,
+    "cache_read_input_tokens": 2745004,
+    "output_tokens": 58837,
+    "output_tokens_details": {
+      "thinking_tokens": 25424
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 329578,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1660,
+        "cache_read_input_tokens": 334715,
+        "cache_creation_input_tokens": 358,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 358
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 322,
+      "outputTokens": 58837,
+      "cacheReadInputTokens": 2745004,
+      "cacheCreationInputTokens": 329578,
+      "webSearchRequests": 0,
+      "costUSD": 6.140817,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 25424,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 57,
+  "subtype": "success",
+  "result": "**Unit verdict: ACCEPT-UNIT for subject03, with no required findings. The inventory candidate is CHANGES-REQUIRED for two small corrections.** The unit acceptance covers only the lexical, canonical and hash code, the design verifier and the root workspace; M1, performance and release are not included. Bash worked this time, so everything below marked as run is my own execution unless I say Codex.\n\n**Subject check (run by me)**\n- The manifest hash matches `f28bcd79\u2026`, all 13 files match their hashes and sizes, and there are no extra files.\n- `canonical.rs` is unchanged since subject01.\n- The only change from subject02 to 03 is the `Vec` import. Subject02's test and clippy failures are still preserved.\n- On subject03, `cargo test` passed 10, clippy `-D warnings` and `fmt --check` exited 0, Python unittest passed 9, and the design verifier passed 46 inputs.\n- `cargo tree --target all` shows only `opensip-identity \u2192 sha2-const-stable`, with no normal, build or target-specific dependencies.\n\n**Challenging the sha2-const-stable choice**\n- **Provenance:** I give the package metadata no weight. Its repository field names a different upstream than its authors, and I couldn't verify its VCS commit offline. So acceptance rests only on the exact bytes.\n- **Bytes and source:**\n  - The cached `.crate` matches the Cargo.lock checksum, and all 35 files in it equal the extracted source. There is no `build.rs`.\n  - The source hashes match root's source review.\n  - The source has no `unsafe`, FFI, `std` or `cfg`.\n  - The SHA-256 padding and compression match FIPS 180-4 on reading.\n  - I recomputed the round constants and initial values from primes; they match.\n- **Differential against hashlib (0 mismatches):**\n  - 1,535 inputs, including all 129 NIST CAVP SHA-256 message vectors and blobs up to 8 MiB + 1.\n  - All 18 subject boundary vectors, recomputed independently.\n  - H for all 4,490 accepted corpus values.\n- **Tradeoff:** one run on this host measured 34 MiB/s in debug and 269 MiB/s in release. Performance qualification is still future.\n\n**Behaviour through the new public API**\n- **Rust probes:** I adapted my review-01 probes, changing only API names and targets, and added SHA/H tests. All 18 Rust probe groups passed.\n- **Reference differential:** the corpus is byte-identical to the one Codex used. 14,000 inputs gave 0 disagreements and 0 panics against the pinned `canonical.py`.\n- **Verifier probes:** 39 passed. The four review-01 \"permissive\" observations are now refusals, as the successor claims.\n- **Codex receipts:** the subject01 probe runs and validation-03 were inspected and rehashed, but they are not my execution.\n\n**Advisories (non-blocking)**\n- **Verifier:** a nested non-object reference still raises `AttributeError` outside `main`'s catch set. It exits non-zero with a traceback, so it fails closed but not cleanly.\n- **Tests:** no in-repository test uses the public re-exports.\n- **Forward scope:** `hash_canonical_value` still hashes any lexical value under any valid-looking domain. Future descriptor code needs to take admitted typed values.\n- **Carried forward:** memory is now measured at 10\u201316\u00d7 input (\u226471 MiB peak for 4 MiB).\n\n**Inventory candidate `repository-file-inventory.v2.json` (`f4352ab3\u2026`): CHANGES-REQUIRED**\n\nThe 198 original rows and 20 packages are unchanged in value, and exactly 4 rows are added. Three of the new rows are fine. Two things need fixing:\n- **INV-01:** `tests/conformance/test_design_binding.py` is assigned to `verification`, which declares no dependencies. The test loads `tools/verify_design.py`, which belongs to `tooling`. That's an undeclared cross-package import, although the successor record says no package edge changed. It is really the tool's own test. Fix: move it under `tooling`, or add a separately reviewed edge.\n- **INV-02:** `originalBytesPreserved: true` isn't accurate. v2 re-sorts all rows, so 40+ original rows change position; only the row values are preserved. Fix: keep v1's order and insert the new rows, or reword the claim.\n\nIf only those two points change, I expect to accept the corrected candidate by its new digest. This assessment does not accept the startup refinements, generation recipe or metadata proposal.\n\nEverything is in `/private/tmp/opensip-implementation/m1-canonical-review-02`; I wrote nowhere else.\n- review.md\n- review.json\n- probes/\n- results/, including the full probe adaptation diff",
+  "type": "result",
+  "duration_ms": 698665
+}

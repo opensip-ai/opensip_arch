@@ -1,0 +1,24 @@
+--- a43/docs/coop/design-corrections/native/fact-batch.schema.v3.json
++++ b44/docs/coop/design-corrections/native/fact-batch.schema.v3.json
+@@ -2,7 +2,7 @@
+   "$schema": "https://json-schema.org/draft/2020-12/schema",
+   "$id": "opensip.product.fact-batch.3",
+   "title": "FactBatchV3 — negotiated FactBatch payload when capability token target-attribution-v2 is present",
+-  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves historical FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates. Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is TEXT: the worker echo of the current requested C-2 stageId (StageRequestV1.stageId; StageRequestV2.planStage.stageId). It is NOT Analyze stageOrdinal and NOT execution-plan.stages[].ordinal. Provider Analyze may be a subset of Plan stages; host DispatchBindingV1 carries retainedStageOrdinal separately. When the token is absent, historical FactBatchV2 remains. A V3 payload without the token, or a V2 payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
++  "description": "CURRENT selected FactBatch payload iff Hello/HelloAck negotiated target-attribution-v2. Preserves the historical rust-semantic FactBatchV2 field names analysisOrdinal, stageId, batchIndex, candidates (the typescript-semantic historical FactBatchV1 names its array facts and carries batchCommitment). Occupancy is a PARALLEL occupancyCompanions array, not a FactCandidateV1 field. stageId is TEXT: the worker echo of the current requested C-2 stageId (StageRequestV1.stageId; StageRequestV2.planStage.stageId). It is NOT Analyze stageOrdinal and NOT execution-plan.stages[].ordinal. Provider Analyze may be a subset of Plan stages; host DispatchBindingV1 carries retainedStageOrdinal separately. When the token is absent the historical per-language payload remains: typescript-semantic delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment}; rust-semantic rust-provider-protocol.v2 FactBatchV2 {analysisOrdinal, stageId, batchIndex, candidates}. A V3 payload without the token, or that language's historical payload with the token, is PROVIDER.PROTOCOL_VIOLATION.",
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+@@ -116,8 +116,10 @@
+     },
+     "stageCorrelation": "Host derives DispatchBindingV1 from the actual Plan stage selected into this Analyze. Worker FactBatch.stageId echoes the requested C-2 stageId text. Host requires batch.stageId == dispatch.expectedStageId, batch.analysisOrdinal == dispatch.expectedAnalysisOrdinal, batch.batchIndex == dispatch.expectedBatchIndex, and looks up execution-plan.stages[] by dispatch.retainedStageOrdinal. analyzeRequestOrdinal (contiguous in THIS Analyze) MUST NOT be equated with retainedStageOrdinal. Provider Analyze may omit Plan stages.",
+     "whenPresent": "FactBatch payload MUST admit as this schema",
+-    "whenAbsent": "FactBatch payload MUST admit as historical FactBatchV2 (no schemaVersion, no occupancyCompanions).",
+-    "helloLimits": "No new ProtocolLimitsV3 member. occupancyCompanions bounded by existing maxFactBatchCandidates 4096 and len(candidates).",
++    "whenAbsent": "FactBatch payload MUST admit as the negotiating language's historical payload, neither of which carries schemaVersion or occupancyCompanions: typescript-semantic delivery.v2 FactBatchV1 {analysisOrdinal, stageId, batchIndex, facts, batchCommitment} (native/provider-handshake.schemas.v1.json#/$defs/TypeScriptFactBatchV1Vector); rust-semantic rust-provider-protocol.v2 FactBatchV2 {analysisOrdinal, stageId, batchIndex, candidates} (#/$defs/RustFactBatchV2Vector).",
++    "helloLimits": "No new limit member in either language. candidates and occupancyCompanions are bounded by the language's existing candidate cap (rust-semantic maxFactBatchCandidates 4096; typescript-semantic maxFactBatchFacts 4096) and occupancyCompanions by len(candidates).",
++    "commitments": "FactBatchV3 carries no per-batch commitment. typescript-semantic delivery.v2 commitments.domains.factBatch applies only to historical FactBatchV1.batchCommitment; the stageFacts and factStream commitments of both languages remain over the ordered FactCandidateV1 stream.",
++    "wireProjection": "On the wire each candidate is FactCandidateV1 with canonicalRelationPayload = the CBOR byte string whose lowercase hex is canonicalRelationPayloadHex; decodedRelationPayload is not a wire member. Admission requires canonicalRelationPayloadHex == hex(deterministic-CBOR(decodedRelationPayload)).",
+     "protocolMajorUnchanged": true,
+     "newFrame": false
+   }

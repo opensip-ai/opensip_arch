@@ -1,0 +1,638 @@
+--- v1/docs/v2/architecture/store-instance-lineage.v1.json
++++ v2/docs/v2/architecture/store-instance-lineage.v1.json
+@@ -1,11 +1,23 @@
+ {
+   "schemaVersion": 1,
+-  "standing": "Author correction for review finding PS-01. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "standing": "Author correction for review finding PS-01, revision 2. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "revision": {
++    "supersedes": "claude-planning-owner-correction.v1 store-instance-lineage.v1.json (sha256 4dd6291fbf526010...)",
++    "changes": [
++      "Record redesigned from a per-transition attempt row to a per-binding-triple LINEAGE NODE, keyed by the triple, written only after the journal record is durably COMMITTED. This removes the intentDigest primary-key contradiction on lawful retry (issue 7), removes the S9.3-5/S9.3-8 rewrite-versus-discard contradiction (issue 5), and makes the rollback and schema-preserving cases fall out of the data instead of the operation name (issue 6).",
++      "Node-writing is derived from the admitted intent's own from/to values, because S9.2 does not publish a store-generation rule for core-rollback (issue 6).",
++      "Recovery is now total over all six InstallationTransitionJournalV1 states and never replaces an owner ABORT with a quarantine (issue 5).",
++      "Cross-file atomicity is no longer claimed. The node is derivable from durable owner state, so a one-sided crash footprint reconciles by reconstruction (issue 7).",
++      "canonicalDigestRecipe corrected: the one frozen canonicalizer sorts object members, so input key order does not change the digest (issue 3). The executed control now imports the frozen canonicalizer instead of a stand-in.",
++      "Floor and authority behaviour split three ways so an authorized migration's floor carry-forward is not invalidated by the restore rule (issue 4)."
++    ]
++  },
++
+   "correctionOf": {
+     "finding": "PS-01",
+     "withdrawnClaim": "S9 validates the exact old/new (storeInstanceId, storeGeneration, stateSchema) tuple against the transition intent and current registry state.",
+     "reason": "Verified false against frozen candidate25. The substring storeInstance does not occur anywhere in docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json. InstallationTransitionIntentV1 is additionalProperties:false with exactly 11 properties and InstallationTransitionJournalV1 with exactly 20; neither carries a store instance identity. The S9.2 registry member is $defs/NamespaceList, an array of namespace strings, not a store-instance registry.",
+-    "remedy": "An explicit, named, minimal S9 owner successor (ownerSuccessorDelta below) that adds a private companion record joined to the existing public journal by intentDigest, adding no member to any closed public or signed record."
++    "remedy": "The explicit normative S9.3 insertion in patches/security-and-lifecycle.md.S9.3.patch, selecting this private companion. One hunk, pure insertion after S9.2, no member added to any closed public or signed record."
+   },
+ 
+   "frozenSourceAnchors": [
+@@ -19,31 +31,32 @@
+       "id": "A2",
+       "path": "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
+       "selector": "$.schemas.InstallationTransitionJournalV1",
+-      "fact": "Closed, exactly 20 required properties including intentDigest, registry, registryDigest, affects, leaseSet, state, fenceHeld, writtenAfterAllLeasesHeld. No store instance identity. intentDigest is Hex64, described as the raw SHA-256 of the canonical admitted intent and equal to the S15 mutation step inputDescriptorDigest."
++      "fact": "Closed, exactly 20 required properties including intentDigest, registry, registryDigest, affects, leaseSet, state, fenceHeld, writtenAfterAllLeasesHeld. No store instance identity. intentDigest is Hex64, described as the raw SHA-256 of the canonical admitted intent and equal to the S15 mutation step inputDescriptorDigest. state is the inline enum LEASED, PREPARING, PREPARED, COMMITTED, DONE, ABORTED."
+     },
+     {
+       "id": "A3",
+       "path": "docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
+       "selector": "$.$defs.NamespaceList",
+-      "fact": "Array of strings, minLength 1, maxLength 4096, uniqueItems, maxItems 65536, utf8 order. It is a namespace list and carries no per-namespace object."
++      "fact": "Array of strings, minLength 1, maxLength 4096, uniqueItems, maxItems 65536, utf8 order. It carries no per-namespace object."
+     },
+     {
+       "id": "A4",
+       "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+       "selector": "S9.2 operation semantics, lines 739-745",
+-      "fact": "Total over the five operations: core-repair keeps closure, schema and store; core-update changes the closure, never lowers the schema, and selects a new store generation exactly when the schema changes; core-rollback changes the closure, never raises the schema, needs the deadline; store-migrate keeps the core closure, advances the schema and selects a new store generation; store-rollback keeps the core closure, retreats the schema, re-selects the retained generation, needs the deadline."
++      "fact": "Total over the five operations: core-repair keeps closure, schema and store; core-update changes the closure, never lowers the schema, and selects a new store generation exactly when the schema changes; core-rollback changes the closure, never raises the schema, needs the deadline; store-migrate keeps the core closure, advances the schema and selects a new store generation; store-rollback keeps the core closure, retreats the schema, re-selects the retained generation, needs the deadline.",
++      "notPublished": "No store-generation rule is stated for core-rollback. This companion therefore reads the admitted intent's own from/to values and never infers a store rule from the operation name."
+     },
+     {
+       "id": "A5",
+       "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+-      "selector": "S9 migration footprint, lines 644-657",
+-      "fact": "Migration writes a migrating root: PREPARING then PREPARED then (old store fenced RESTORED) then COMMITTED then final rename. Floors copy forward into the new store. Rollback inside the 30 d window re-selects the retained old store with floors set to the maximum of both stores. A schema migration therefore materializes a new physical store and fences the old one; a rollback re-opens the retained old physical store."
++      "selector": "S9 migration footprint and floors, lines 644-657",
++      "fact": "Migration writes a migrating root: PREPARING, PREPARED, old store fenced RESTORED, COMMITTED, final rename. Floors (rootVersion, indexSnapshotVersion, revocationVersion, evalHighWater, lastAccepted, recoveryEpochSerial) COPY FORWARD into the new store; the boot anchor and any pending challenge do not. Rollback inside the 30 d window re-selects the retained old store with floors set to the MAXIMUM of both stores. A poisoned floor is not lowered by migration or rollback; only S4.5 lowers it."
+     },
+     {
+       "id": "A6",
+       "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+       "selector": "S9.2 journal and recovery, lines 755-789",
+-      "fact": "The journal is written under the held fence, only after every lease of the affected set is held, in state LEASED; leaseSet must equal core_transition_affected_namespaces over the registry frozen under the fence. States LEASED, PREPARING, PREPARED, COMMITTED, DONE, or ABORTED. recover_transition_journal is the first act under the next fence, before any project admission, and fails closed with QUARANTINE / MIGRATION.CORRUPT on a differing registry."
++      "fact": "Written under the held fence, only after every lease of the affected set is held, in state LEASED; leaseSet must equal core_transition_affected_namespaces over the registry frozen under the fence. recover_transition_journal is the first act under the next fence, before any project admission, from the durable footprint only. By state: LEASED/PREPARING to ABORT; PREPARED follows the S9 footprint table for a store operation (RESUME-COMMIT from step 3 only when the old store is fenced RESTORED, otherwise ABORT; no footprint to QUARANTINE) while A CORE OPERATION ABORTS because the published generation was never selected and the GC census reclaims it; COMMITTED to RESUME-COMMIT, never reversed; DONE and ABORTED release only. Refusals include CURRENT_SCHEMA_MISMATCH, CURRENT_STORE_MISMATCH and PRECONDITION_GENERATION_MISMATCH."
+     },
+     {
+       "id": "A7",
+@@ -53,28 +66,35 @@
+     },
+     {
+       "id": "A8",
+-      "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+-      "selector": "S1 unchanged inherited constants, line 87-88",
+-      "fact": "No D9 class, code or exit is minted; every refusal maps to an existing D9 v1.14 code. This successor mints none."
++      "path": "docs/coop/design-corrections/foundation/canonical.py",
++      "selector": "canonical(), parse(), identity()",
++      "fact": "canonical(value) is json.dumps with ensure_ascii=False, SORT_KEYS=TRUE, separators (',',':'), allow_nan=False, encoded UTF-8, bounded at 4 MiB with depth 32. parse() refuses duplicate keys, floats, non-finite values, negative zero and integers outside -(2**63)..2**64-1. identity(domain, value) is the framed H(domain, descriptor): sha256 over b'opensip.product.v1\\0' + domain + b'\\0' + 8-byte big-endian length + canonical bytes. A bare sha256 over canonical bytes is therefore demonstrably NOT that framed identity."
+     },
+     {
+       "id": "A9",
+       "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+-      "selector": "S5 detection bound, lines 306-313",
+-      "fact": "Stated and not detected: a coherent rollback of the entire install root with the marker suppressed. Whole-install-root substitution is already outside local detection, which bounds what any store-instance marker can promise."
++      "selector": "S1 constants, lines 87-88, and S5 detection bound, lines 306-313",
++      "fact": "No D9 class, code or exit is minted; every refusal maps to an existing D9 v1.14 code. Stated and not detected: a coherent rollback of the entire install root with the marker suppressed."
+     },
+     {
+       "id": "A10",
+       "path": "docs/coop/completion/security-completion.v8.md",
+       "selector": "5.6 durability primitives, lines 315-333",
+-      "fact": "Named durability boundaries include lifecycle publication. After visibility, FSYNC_FAILED / COMMIT_FAILED leave durability UNDETERMINED; the writer refuses every further effect, reopens and reconciles the exact state, and never assumes either the old or the new state."
++      "fact": "Named durability boundaries include lifecycle publication. Before visibility there is no partial state. After visibility, FSYNC_FAILED and COMMIT_FAILED leave durability UNDETERMINED: the writer refuses every further effect of the operation, reopens the carrier, reconciles the exact state, and only then decides; it never assumes either the old or the new state."
++    },
++    {
++      "id": "A11",
++      "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
++      "selector": "S1 prospective replacement table, line 78",
++      "fact": "security v8 5.5 restore keeps floors and provides no floor recovery; retained, with S4 adding the only lawful floor-lowering act. A restore therefore does not lower a floor either."
+     }
+   ],
+ 
+   "ownerSuccessorDelta": {
+-    "owner": "docs/v2/contracts/product-v1/security-and-lifecycle.md (S9) and docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json",
++    "owner": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
++    "normativePatch": "patches/security-and-lifecycle.md.S9.3.patch",
++    "patchShape": "One hunk, pure insertion of 62 lines between the end of S9.2 and the S10 heading. No line is removed or altered, so it three-way merges cleanly with a separate author's S1/S6/S9/WA13 edits.",
+     "proposedSectionId": "S9.3",
+-    "proposedSectionTitle": "Private store-instance lineage (proposed successor; not accepted)",
+     "closedPublicRecordsUnchanged": [
+       "InstallationTransitionIntentV1",
+       "InstallationTransitionJournalV1",
+@@ -86,55 +106,18 @@
+       "CoreProfileBindingV2",
+       "every opensip-signature-envelope.2 body and the opensip-catalog.1 body"
+     ],
+-    "noImpliedWidening": "This successor adds no member to any record named above, introduces no new signature-envelope kind, no new signed document, no new public major and no new H-domain. NamespaceList remains an array of strings. The private companion references the public journal by value (intentDigest); the public journal never references the companion.",
+-    "d9Impact": "None. Refusals reuse the existing S9.2 TRANSITION.* family under D9 REQUEST.PRECONDITION_FAILED, and the existing MIGRATION.CORRUPT quarantine. Lineage mismatch subtypes are internal diagnostics beside those codes, never new public codes or details.",
+-    "obligations": [
+-      {
+-        "id": "S9.3-1",
+-        "title": "Allocation",
+-        "text": "Exactly one storeInstanceId per physical store instance: 32 lowercase hexadecimal characters from 128 bits of OS CSPRNG, allocated once at authorized store creation, persisted to the store root before that store is first published, and never rewritten thereafter. It is an opaque identity with no ordering, no arithmetic, no authority and no semantic meaning. It never enters the pure evaluator, a Plan, a Run hash or any wire record."
+-      },
+-      {
+-        "id": "S9.3-2",
+-        "title": "Read path",
+-        "text": "The active binding is read only through an admitted store handle held by the live security guard, never from request fields, caller-supplied paths or environment. Reading it grants nothing."
+-      },
+-      {
+-        "id": "S9.3-3",
+-        "title": "Transition binding under the existing fence/lease order",
+-        "text": "Under the held global lifecycle fence, after every lease of the exact leaseSet is held, and inside the same journal step that moves the public transition journal from LEASED to PREPARING, the transition writes exactly one private StoreInstanceLineageV1 row joined by intentDigest. Its fromStoreGeneration, toStoreGeneration, fromStateSchema and toStateSchema must be byte-equal to the admitted intent's corresponding members, and fromStoreGeneration and fromStateSchema must equal the S9.2 admission context observations currentStoreGeneration and currentStateSchema. A mismatch refuses with the existing TRANSITION.CURRENT_STORE_MISMATCH or TRANSITION.CURRENT_SCHEMA_MISMATCH before any store is selected."
+-      },
+-      {
+-        "id": "S9.3-4",
+-        "title": "Namespace binding without widening NamespaceList",
+-        "text": "The lineage row is installation-scoped and carries no namespace list. The namespaces it covers are exactly the journal's leaseSet for that intentDigest, which S9.2 already requires to equal core_transition_affected_namespaces over the registry frozen under the fence, with registryDigest binding those exact bytes. A per-namespace StoreGenerationBindingV1 is formed by combining a registered namespaceId with the installation-scoped (storeInstanceId, storeGeneration, stateSchema) selected by the lineage. No namespace object, per-namespace instance identity or second registry is created."
+-      },
+-      {
+-        "id": "S9.3-5",
+-        "title": "Uniqueness and contradiction",
+-        "text": "intentDigest is the primary key of the private lineage table. A second, differing row for an existing intentDigest is a contradiction, not an update: it refuses and the installation quarantines through the existing MIGRATION.CORRUPT path. No row is ever rewritten, superseded in place or deleted while any association that depends on its digests is retained."
+-      },
+-      {
+-        "id": "S9.3-6",
+-        "title": "Durability and ordering",
+-        "text": "The lineage row is written in the same durable lifecycle-publication step and under the same barriers as the journal record it joins (security v8 5.6 boundary lifecycle publication). It is never written under the level-4 grant-journal append lock and never acquires a new level-3 journal transaction. An UNDETERMINED lifecycle-publication barrier leaves the transition undetermined and reconciles under S9.3-8; it never assumes either state."
+-      },
+-      {
+-        "id": "S9.3-7",
+-        "title": "No authority import on restore",
+-        "text": "Creating a new store instance, and restoring or adopting evidence into a newly materialized store, allocates a fresh storeInstanceId and records an explicit origin. A restore never copies a predecessor's storeInstanceId, never revives its floors and never imports local authority; that remains the existing S5/S9 restore law and the existing storage backup rule."
+-      },
+-      {
+-        "id": "S9.3-8",
+-        "title": "Crash reconciliation, inside the existing first-act order",
+-        "text": "recover_transition_journal remains the first act under the next fence, before any project admission, and keeps its existing decisions. The successor adds one ordered check after the public state is decided and before any store is selected: for LEASED or PREPARING, an absent lineage row is ABORT (nothing was selected) and any present row for that intentDigest is discarded with the transition; for PREPARED or COMMITTED, the lineage row must be present and consistent with the journaled intent members, otherwise QUARANTINE / MIGRATION.CORRUPT; a lineage row whose intentDigest has no journal record is QUARANTINE / MIGRATION.CORRUPT. No new state, code or recovery action is introduced."
+-      }
+-    ]
++    "noImpliedWidening": "No member is added to any record named above, no signature-envelope kind, no signed document, no public major and no new H-domain. NamespaceList remains an array of strings.",
++    "d9Impact": "None. Refusals reuse the existing S9.2 TRANSITION.* family under D9 REQUEST.PRECONDITION_FAILED and the existing MIGRATION.CORRUPT quarantine."
+   },
+ 
+   "privateCompanionSchema": {
+-    "recordName": "StoreInstanceLineageV1",
+-    "standing": "Private local lifecycle record. Never a request, response, wire record, authority token or signed document. No public major is affected.",
++    "recordName": "StoreLineageNodeV1",
++    "standing": "Private local lifecycle record. Never a request, response, wire record, authority token or signed document.",
++    "keyModel": {
++      "primaryKey": ["storeInstanceId", "storeGeneration", "stateSchema"],
++      "whyNotIntentDigest": "intentDigest is the raw SHA-256 of an 11-member semantic intent. It is not an attempt identifier. Two lawful situations repeat it: (a) an attempt that aborts before COMMITTED may be retried with a byte-identical intent when preconditionGeneration is unchanged, and (b) a schema-preserving core-repair may be requested twice. A primary key on intentDigest with immutable from/to members would turn a lawful retry into a contradiction. Keying on the admitted binding triple removes the problem without any new public field: a retry that materializes a new store produces a different triple, and a retry that changes nothing produces no node at all.",
++      "noAttemptDisambiguatorNeeded": "No private attempt counter, sequence or occurrence join is introduced. The attempt history that does exist is the owner's own single-slot transition journal footprint (A6), which this companion does not duplicate."
++    },
+     "owningModules": {
+       "stateMachine": "crates/lifecycle/src/transitions.rs",
+       "durableRetention": "crates/lifecycle/src/journal_store.rs",
+@@ -146,101 +129,77 @@
+       "readOnlyHistoricalJoin": "crates/storage/src/recovery.rs"
+     },
+     "location": {
+-      "activeMarker": "store root, private lifecycle state directory, one regular file per store instance; written before first publication, never rewritten",
+-      "lineageTable": "the lifecycle transition store owned by crates/lifecycle/src/journal_store.rs, beside the public transition journal, joined by intentDigest",
+-      "notInInventory": "Both live inside modules already present in repository-file-inventory.v1.json. This correction adds no inventory row and no generated-section change."
++      "instanceMarker": "each store's own root, one private regular file, written before that store is first published and never rewritten",
++      "lineageNodes": "the lifecycle transition store owned by crates/lifecycle/src/journal_store.rs, beside the public transition journal",
++      "notInInventory": "Both live inside modules already present in repository-file-inventory.v1.json. This correction adds no inventory row and no generated-section change. The two companion JSON documents are planned architecture sources, not product inventory files."
+     },
+     "schema": {
+       "$schema": "https://json-schema.org/draft/2020-12/schema",
+-      "$id": "urn:opensip:design:private-store-instance-lineage:1",
+-      "title": "Private StoreInstanceLineageV1, author design only",
++      "$id": "urn:opensip:design:private-store-lineage-node:1",
++      "title": "Private StoreLineageNodeV1, author design only",
+       "type": "object",
+       "additionalProperties": false,
+       "required": [
+         "schemaVersion",
+-        "intentDigest",
+-        "operation",
+-        "fromStoreInstanceId",
+-        "toStoreInstanceId",
+-        "fromStoreGeneration",
+-        "toStoreGeneration",
+-        "fromStateSchema",
+-        "toStateSchema",
+-        "instanceDisposition",
+-        "predecessorIntentDigest"
++        "storeInstanceId",
++        "storeGeneration",
++        "stateSchema",
++        "predecessor",
++        "selectedByIntentDigest"
+       ],
+       "properties": {
+         "schemaVersion": {
+           "type": "integer",
+           "const": 1
+         },
+-        "intentDigest": {
+-          "type": "string",
+-          "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+-          "minLength": 64,
+-          "maxLength": 64,
+-          "description": "Byte-equal to the public InstallationTransitionJournalV1 intentDigest for this transition. Join key only; it adds no member to that record."
+-        },
+-        "operation": {
+-          "type": "string",
+-          "enum": [
+-            "core-update",
+-            "core-repair",
+-            "core-rollback",
+-            "store-migrate",
+-            "store-rollback"
+-          ],
+-          "description": "Held equal to the owner $defs/TransitionOperation enum. It widens only when that owner widens."
+-        },
+-        "fromStoreInstanceId": {
++        "storeInstanceId": {
+           "type": "string",
+           "pattern": "^[0-9a-f]{32}(?![\\s\\S])",
+           "minLength": 32,
+           "maxLength": 32
+         },
+-        "toStoreInstanceId": {
+-          "type": "string",
+-          "pattern": "^[0-9a-f]{32}(?![\\s\\S])",
+-          "minLength": 32,
+-          "maxLength": 32
+-        },
+-        "fromStoreGeneration": {
++        "storeGeneration": {
+           "type": "integer",
+           "minimum": 0,
+           "maximum": 9223372036854775807,
+-          "description": "Byte-equal to the admitted intent fromStoreGeneration and to the S9.2 admission context currentStoreGeneration. Held equal to the owner $defs/I64NonNegative."
++          "description": "Held equal to the owner $defs/I64NonNegative. Not monotonic across the lineage: A4 lets a rollback re-select a retained earlier generation."
+         },
+-        "toStoreGeneration": {
++        "stateSchema": {
+           "type": "integer",
+-          "minimum": 0,
+-          "maximum": 9223372036854775807,
+-          "description": "Byte-equal to the admitted intent toStoreGeneration. Held equal to the owner $defs/I64NonNegative. Not monotonic: S9.2 store-rollback and core-rollback re-select a retained earlier generation."
+-        },
+-        "fromStateSchema": {
+-          "type": "integer",
+-          "enum": [
+-            1,
+-            2
+-          ],
++          "enum": [1, 2],
+           "description": "Held equal to the owner $defs/StateSchema enum. The added type keyword narrows, never widens."
+         },
+-        "toStateSchema": {
+-          "type": "integer",
+-          "enum": [
+-            1,
+-            2
+-          ]
++        "predecessor": {
++          "oneOf": [
++            {
++              "type": "object",
++              "additionalProperties": false,
++              "required": ["storeInstanceId", "storeGeneration", "stateSchema"],
++              "properties": {
++                "storeInstanceId": {
++                  "type": "string",
++                  "pattern": "^[0-9a-f]{32}(?![\\s\\S])",
++                  "minLength": 32,
++                  "maxLength": 32
++                },
++                "storeGeneration": {
++                  "type": "integer",
++                  "minimum": 0,
++                  "maximum": 9223372036854775807
++                },
++                "stateSchema": {
++                  "type": "integer",
++                  "enum": [1, 2]
++                }
++              }
++            },
++            {
++              "type": "null"
++            }
++          ],
++          "description": "The triple this node was selected from, or null for the store created at installation. Always present; an absent member is not a null, mirroring the inherited witness-shape rule in security v8 5.4."
+         },
+-        "instanceDisposition": {
+-          "type": "string",
+-          "enum": [
+-            "same-instance-retained",
+-            "new-instance-created",
+-            "retained-predecessor-reselected"
+-          ],
+-          "description": "Which of the three physical outcomes this transition produced. Determined by the operation rules, never chosen by a caller."
+-        },
+-        "predecessorIntentDigest": {
++        "selectedByIntentDigest": {
+           "oneOf": [
+             {
+               "type": "string",
+@@ -252,99 +211,195 @@
+               "type": "null"
+             }
+           ],
+-          "description": "For retained-predecessor-reselected, the intentDigest of the exact forward transition being rolled back; otherwise null. The member is always present; an absent member is not a null, mirroring the inherited witness-shape rule in security v8 5.4."
++          "description": "The intentDigest of the COMMITTED transition that selected this node, or null at installation. Evidence, never a key: it may repeat across nodes and across retries."
+         }
+       }
+     },
+     "extraAdmissionRules": [
+       "No unknown member, duplicate JSON key, implicit default or lossy numeric parse. JSON booleans are not integers.",
+-      "predecessorIntentDigest is the only admitted null and must be present as an explicit null when not applicable.",
+-      "predecessorIntentDigest is non-null exactly when instanceDisposition is retained-predecessor-reselected, and must name an existing lineage row whose toStoreInstanceId, toStoreGeneration and toStateSchema equal this row's fromStoreInstanceId, fromStoreGeneration and fromStateSchema, and whose fromStoreInstanceId, fromStoreGeneration and fromStateSchema equal this row's toStoreInstanceId, toStoreGeneration and toStateSchema.",
+-      "instanceDisposition must equal the value the operationRules table derives from operation, the schema change and the generation change. A row whose disposition disagrees with its own members is a contradiction and quarantines.",
+-      "A schema-valid lineage row grants nothing. It is evidence of an admitted transition, never an effect grant, never a custody proof and never a substitute for the S9.2 fence, lease and registry checks."
++      "predecessor and selectedByIntentDigest are null together and non-null together. Exactly one node in a store's lineage has them null: the installation node.",
++      "A node's predecessor triple must already exist as a node. The chain is acyclic and a node never names itself.",
++      "Nodes are append-only. A second node with an existing primary key and any differing member is a contradiction and quarantines; a byte-identical re-assertion is idempotent.",
++      "A schema-valid node grants nothing. It records which physical store was selected, never that the store is trusted, readable or authorized."
+     ]
++  },
++
++  "nodeWritingRule": {
++    "principle": "Derived from the admitted intent's own from/to values, never from the operation name, because A4 does not publish a store-generation rule for core-rollback.",
++    "cases": [
++      {
++        "id": "unchanged",
++        "condition": "toStoreGeneration equals fromStoreGeneration and toStateSchema equals fromStateSchema",
++        "physicalStore": "the same store stays selected",
++        "instanceIdentity": "unchanged; never re-minted",
++        "nodeWritten": false,
++        "coversOperations": [
++          "core-repair (A4: keeps closure, schema and store)",
++          "core-update whose schema does not change (A4: selects a new store generation exactly when the schema changes)",
++          "core-rollback whose schema does not change (A4 publishes no store rule; the intent's equal from/to values decide)"
++        ],
++        "associationEffect": "storeGenerationDigest is unchanged, so every existing association keeps joining by binary equality."
++      },
++      {
++        "id": "ancestor-reselect",
++        "condition": "the (toStoreGeneration, toStateSchema) pair names a triple that is already an ancestor of the current node",
++        "physicalStore": "that retained predecessor store is re-opened",
++        "instanceIdentity": "the retained store keeps its ORIGINAL storeInstanceId, read from its unchanged marker; no fresh identity is minted",
++        "nodeWritten": false,
++        "coversOperations": [
++          "store-rollback (A4: re-selects the retained generation)",
++          "core-rollback whose schema retreats (A4: never raises the schema)"
++        ],
++        "associationEffect": "The active triple becomes byte-identical to the pre-migration triple, so storeGenerationDigest is byte-identical and every association written before the forward transition joins the active binding by plain binary equality, with no lineage walk and no row rewrite. Associations written in the abandoned forward store keep their own digest, are never rewritten, and are reached only through the lineage chain or reported unavailable: F35 applied in the reverse direction."
++      },
++      {
++        "id": "forward-selection",
++        "condition": "the (toStoreGeneration, toStateSchema) pair names neither the current triple nor an ancestor",
++        "physicalStore": "a new store is materialized and the predecessor is fenced RESTORED per A5",
++        "instanceIdentity": "freshly allocated for the new store instance",
++        "nodeWritten": true,
++        "coversOperations": [
++          "store-migrate (A4: advances the schema and selects a new store generation)",
++          "core-update whose schema is raised (A4: selects a new store generation exactly when the schema changes)"
++        ],
++        "associationEffect": "Associations already written under the predecessor keep their original digest and are never rewritten. Lookups for them follow the chain or report unavailability."
++      },
++      {
++        "id": "refuse",
++        "condition": "the to pair names a triple that is neither the current one, an ancestor, nor a newly materialized store",
++        "refusal": "the existing TRANSITION.CURRENT_STORE_MISMATCH under D9 REQUEST.PRECONDITION_FAILED",
++        "nodeWritten": false
++      }
++    ]
++  },
++
++  "abortedAttempts": {
++    "rule": "An attempt that does not reach COMMITTED writes no lineage node, so no node can ever be misread as successful lineage.",
++    "retainedEvidence": "The retained evidence of a failed attempt is the owner's own transition journal footprint in state ABORTED (A6), which this companion does not duplicate, rewrite or reinterpret.",
++    "orphanStore": "A store materialized by an aborted attempt is never selected and has no node. A6 already states that the published generation was never selected and the GC census reclaims it.",
++    "noContradiction": "Because nodes are keyed by the admitted triple and written only at COMMITTED, an aborted attempt leaves nothing that a later lawful attempt could contradict."
++  },
++
++  "durabilityAndReconciliation": {
++    "noAtomicityClaimed": "This companion does NOT claim that the public journal record and the private node commit atomically. They are separate durable writes and may be observed one-sided.",
++    "writeOrder": "The journal record reaches COMMITTED durably FIRST; the node is written after. A node present for a transition that is neither COMMITTED nor DONE is therefore impossible under the rule and is treated as corruption.",
++    "derivability": "The node is derivable from durable owner state: its storeGeneration and stateSchema are the journal record's own toStoreGeneration and toStateSchema, its predecessor generation and schema are the record's from members, and both storeInstanceIds are read from the store-root markers of the fenced predecessor and the selected store. A missing node after a COMMITTED journal is therefore reconstructed, not quarantined.",
++    "undeterminedBarrier": "If the node write itself returns an UNDETERMINED barrier (A10), the writer refuses every further effect of the operation, reopens under the next fence and reconciles: absent means write the reconstructed node, byte-identical means done, any difference means quarantine. It never assumes either the old or the new state.",
++    "boundary": "The node is written at the existing lifecycle-publication durability boundary named in A10, under the held fence and the exact leaseSet, and never inside a level-4 grant-journal append lock."
++  },
++
++  "recoveryTotality": [
++    {
++      "journalState": "LEASED",
++      "ownerDecision": "ABORT (A6); nothing was selected",
++      "expectedNode": "absent",
++      "companionAction": "none; the owner decision stands unchanged",
++      "ifNodePresent": "QUARANTINE / MIGRATION.CORRUPT"
++    },
++    {
++      "journalState": "PREPARING",
++      "ownerDecision": "ABORT (A6)",
++      "expectedNode": "absent",
++      "companionAction": "none; the owner decision stands unchanged",
++      "ifNodePresent": "QUARANTINE / MIGRATION.CORRUPT"
++    },
++    {
++      "journalState": "PREPARED",
++      "ownerDecision": "A store operation follows the S9 footprint table; A CORE OPERATION ABORTS (A6)",
++      "expectedNode": "absent",
++      "companionAction": "none. A missing node here is expected, not a defect, and must never replace the owner's ABORT with a quarantine.",
++      "ifNodePresent": "QUARANTINE / MIGRATION.CORRUPT"
++    },
++    {
++      "journalState": "COMMITTED",
++      "ownerDecision": "RESUME-COMMIT; a committed transition is finished, never reversed (A6)",
++      "expectedNode": "present, or reconstructible",
++      "companionAction": "If absent, reconstruct from the journal members plus the two store-root markers and write it, then continue RESUME-COMMIT. If present, require byte equality with the reconstruction.",
++      "ifContradictory": "QUARANTINE / MIGRATION.CORRUPT; an unreadable marker is also QUARANTINE"
++    },
++    {
++      "journalState": "DONE",
++      "ownerDecision": "release only (A6)",
++      "expectedNode": "present, or reconstructible",
++      "companionAction": "Same as COMMITTED: reconstruct if absent, require byte equality if present, then release.",
++      "ifContradictory": "QUARANTINE / MIGRATION.CORRUPT"
++    },
++    {
++      "journalState": "ABORTED",
++      "ownerDecision": "release only (A6)",
++      "expectedNode": "absent",
++      "companionAction": "none; release. An aborted transition never becomes lineage.",
++      "ifNodePresent": "QUARANTINE / MIGRATION.CORRUPT"
++    }
++  ],
++
++  "retryTrace": {
++    "purpose": "Shows that a lawful retry of a byte-identical intent produces no contradiction, and that a retry after a committed transition is refused by the owner's own checks.",
++    "steps": [
++      "T0. Current triple (X, 5, 1). Node for (X,5,1) exists with predecessor null.",
++      "T1. store-migrate intent I admitted: from (5,1) to (6,2). preconditionGeneration is the observed core generation.",
++      "T2. Journal LEASED, PREPARING, PREPARED. A new store instance Y is materialized at (6,2). Crash.",
++      "T3. recover_transition_journal at PREPARED: the S9 footprint decides ABORT because the old store is not fenced RESTORED. No node exists for (Y,6,2) because nodes follow COMMITTED. Store Y is unselected; the GC census reclaims it (A6).",
++      "T4. Retry. The core generation did not change, so the same 11 intent members reproduce byte-identical intentDigest I. Admission observes currentStoreGeneration 5 and currentStateSchema 1, which still equal the intent's from members, so CURRENT_STORE_MISMATCH and CURRENT_SCHEMA_MISMATCH do not fire and the retry is lawful.",
++      "T5. The retry materializes a NEW instance Z at (6,2) and reaches COMMITTED. One node is written: (Z,6,2) with predecessor (X,5,1) and selectedByIntentDigest I.",
++      "T6. No contradiction. The node key is the triple, so (Y,6,2) never existed and (Z,6,2) is new. intentDigest I appears once, as evidence, and is not a key.",
++      "T7. A second attempt at the same intent I after T5 is refused by the owner, not by this companion: currentStoreGeneration is now 6 and currentStateSchema is 2, so the intent's fromStoreGeneration 5 and fromStateSchema 1 fail TRANSITION.CURRENT_STORE_MISMATCH and TRANSITION.CURRENT_SCHEMA_MISMATCH (A6)."
++    ],
++    "executedBy": "controls/check_store_instance_lineage.py, retryTrace section"
+   },
+ 
+   "canonicalDigestRecipe": {
+     "subject": "StoreGenerationBindingV1 as already selected in commit-recovery-plan.v1.json#/storeGenerationBindingSchema; this correction does not change its members.",
+-    "profileSelection": "Product profile. Security S2 assigns everything carrying a schemaVersion to the foundation canonicalizer of identity-and-evidence section 3: no normalization, integers to 2^64-1. The record therefore never enters opensip-metadata-canonical.1 and no decoder admits both.",
+-    "recipe": "storeGenerationDigest = raw SHA-256 over the exact canonical bytes produced by that one foundation canonicalizer for the five-member object {schemaVersion, namespaceId, storeInstanceId, storeGeneration, stateSchema}.",
+-    "representation": "raw-artifact, the same representation class the frozen sources already use for SyntaxGrammarBundleV1.bundleDigest and for the plan's receiptBytesSha256 and journalBodySha256.",
+-    "notAnIdentity": "This is not H(domain, descriptor). It mints no H-domain, no typed identity prefix, no semantic identity and no trust claim. It is a local correlation key only.",
+-    "noSecondSerializer": "Member order, string encoding and integer encoding come solely from the one foundation canonicalizer. No module may hand-assemble the preimage.",
++    "profileSelection": "Product profile. Security S2 (A7) assigns everything carrying a schemaVersion to the foundation canonicalizer of identity section 3. The record therefore never enters opensip-metadata-canonical.1.",
++    "canonicalizer": "docs/coop/design-corrections/foundation/canonical.py canonical(): json.dumps with ensure_ascii=False, sort_keys=True, separators (',',':'), allow_nan=False, UTF-8 encoded.",
++    "recipe": "storeGenerationDigest = raw SHA-256 over canonical(binding) for the five-member object {schemaVersion, namespaceId, storeInstanceId, storeGeneration, stateSchema}.",
++    "representation": "raw-artifact, the representation class identity-model.v3.py digest_field() treats as retained bytes and nothing more.",
++    "notAnIdentity": "It is not identity(domain, value). That recipe frames the preimage as b'opensip.product.v1\\0' + domain + b'\\0' + 8-byte length + canonical bytes (A8), so a bare sha256 over canonical bytes cannot collide with it and mints no H-domain, typed prefix or semantic identity.",
++    "whatChangesTheDigest": [
++      "Adding a member changes it.",
++      "Removing a member changes it.",
++      "Renaming a member changes it.",
++      "Changing any value, including an integer's value or a string's bytes, changes it."
++    ],
++    "whatDoesNotChangeTheDigest": [
++      "The order of object members in the input JSON. canonical() sorts keys, so input key order is not observable in the preimage. The v1 wording that said reordering a member changes every digest was wrong and is withdrawn.",
++      "Insignificant input whitespace, because the canonicalizer re-emits with fixed separators.",
++      "Whether the input arrived as bytes or as an already-parsed value, provided parse() admitted it."
++    ],
++    "noSecondSerializer": "Member order, string encoding and integer encoding come solely from that one canonicalizer. No module may hand-assemble the preimage.",
+     "comparison": "namespaceId is compared by binary equality under the no-normalization product profile; no path resolution, case folding or NFC transform is applied at comparison or at digest time.",
+-    "frozenAtVersion1": "Adding, removing or reordering a member changes every historical storeGenerationDigest and therefore breaks every retained association join. The record is frozen at version 1. A new member requires StoreGenerationBindingV2 plus an explicitly reviewed retained bridge that preserves the original digests of existing rows; it is never a silent in-place edit."
+-  },
+-
+-  "operationRules": [
+-    {
+-      "operation": "core-repair",
+-      "ownerRule": "A4: keeps closure, schema and store.",
+-      "storeGenerationChange": "none",
+-      "stateSchemaChange": "none",
+-      "physicalStore": "same retained physical store",
+-      "instanceDisposition": "same-instance-retained",
+-      "storeInstanceId": "unchanged",
+-      "newBindingPublished": false,
+-      "lineageRow": "written with from equal to to, so the crash path is uniform across all five operations",
+-      "associationEffect": "storeGenerationDigest is unchanged; every existing association keeps joining by binary equality."
+-    },
+-    {
+-      "operation": "core-update, schema unchanged",
+-      "ownerRule": "A4: changes the closure, never lowers the schema, selects a new store generation exactly when the schema changes; here it does not.",
+-      "storeGenerationChange": "none",
+-      "stateSchemaChange": "none",
+-      "physicalStore": "same retained physical store",
+-      "instanceDisposition": "same-instance-retained",
+-      "storeInstanceId": "unchanged",
+-      "newBindingPublished": false,
+-      "lineageRow": "written with from equal to to",
+-      "associationEffect": "storeGenerationDigest is unchanged; every existing association keeps joining by binary equality. This is the case the plan already describes as surviving a same-store core update."
+-    },
+-    {
+-      "operation": "core-update, schema raised",
+-      "ownerRule": "A4 plus A5: the schema changes, so a new store generation is selected and the S9 footprint materializes a new store and fences the old one RESTORED.",
+-      "storeGenerationChange": "new generation selected by the owner",
+-      "stateSchemaChange": "raised, never lowered",
+-      "physicalStore": "new physical store materialized; predecessor retained and fenced",
+-      "instanceDisposition": "new-instance-created",
+-      "storeInstanceId": "freshly allocated for the new store instance",
+-      "newBindingPublished": true,
+-      "lineageRow": "from names the retained predecessor, to names the new instance",
+-      "associationEffect": "Associations already written under the predecessor keep their original digest and are never rewritten. Lookups for them follow the lineage row or report unavailability."
+-    },
+-    {
+-      "operation": "store-migrate",
+-      "ownerRule": "A4 plus A5: keeps the core closure, advances the schema and selects a new store generation.",
+-      "storeGenerationChange": "new generation selected by the owner",
+-      "stateSchemaChange": "advanced",
+-      "physicalStore": "new physical store materialized; predecessor retained and fenced RESTORED",
+-      "instanceDisposition": "new-instance-created",
+-      "storeInstanceId": "freshly allocated for the new store instance",
+-      "newBindingPublished": true,
+-      "lineageRow": "from names the retained predecessor, to names the new instance",
+-      "associationEffect": "Same as core-update with a raised schema."
+-    },
+-    {
+-      "operation": "store-rollback and core-rollback inside the owner's window",
+-      "ownerRule": "A4 plus A5: store-rollback keeps the core closure, retreats the schema and re-selects the retained generation; core-rollback changes the closure and never raises the schema; rollback inside the 30 d window re-selects the retained old store with floors set to the maximum of both stores.",
+-      "storeGenerationChange": "re-selects the retained earlier generation; the numeric generation is not monotonic and the owner's own rules decide it",
+-      "stateSchemaChange": "retreats or is unchanged, never raised",
+-      "physicalStore": "the SAME retained physical old store is re-opened",
+-      "instanceDisposition": "retained-predecessor-reselected",
+-      "storeInstanceId": "the retained old store keeps its ORIGINAL storeInstanceId; it is read from the unchanged marker, never re-minted",
+-      "newBindingPublished": "no new instance identity; the previously published predecessor binding becomes active again, unchanged",
+-      "lineageRow": "written with predecessorIntentDigest naming the exact forward transition, and with to equal to that forward row's from",
+-      "associationEffect": "Because the active (namespaceId, storeInstanceId, storeGeneration, stateSchema) tuple is byte-identical to the pre-migration tuple, storeGenerationDigest is byte-identical, so every association written before the forward transition joins the active binding by plain binary equality with no lineage lookup and no row rewrite. Associations written in the abandoned forward store keep their own digest, are never rewritten, and are reached only through the lineage row or reported unavailable; that is the existing F35 disposition applied in the reverse direction."
++    "frozenAtVersion1": "Adding or removing a member changes every historical storeGenerationDigest and breaks every retained association join. The record is frozen at version 1. A new member requires StoreGenerationBindingV2 plus an explicitly reviewed retained bridge that preserves the original digests of existing rows."
++  },
++
++  "floorsAndAuthority": {
++    "note": "Three distinct acts. The v1 prose collapsed them and wrongly implied that a new store instance never inherits floors, which would have contradicted A5's authorized migration carry-forward. Corrected here.",
++    "authorizedTransition": {
++      "what": "An S9 core-update, core-repair, core-rollback, store-migrate or store-rollback under the fence.",
++      "floors": "Unchanged by this companion and governed entirely by A5: a migration COPIES THE FLOORS FORWARD into the new store; a rollback inside the window sets them to the MAXIMUM of both stores; the boot anchor and any pending challenge do not carry; a poisoned floor is never lowered by migration or rollback, and only S4.5 lowers one.",
++      "instanceIdentity": "A forward selection allocates a fresh identity for the newly materialized store; an ancestor reselect keeps the retained store's original identity.",
++      "authority": "Commit authority is not carried by the instance identity in either direction. It is the existing lifecycle and storage law."
++    },
++    "freshInstallation": {
++      "what": "A store created at installation.",
++      "floors": "There is no predecessor, so there is nothing to carry forward. Floors start at their installation values.",
++      "instanceIdentity": "Freshly allocated; the lineage node has null predecessor and null selectedByIntentDigest.",
++      "authority": "None inherited."
++    },
++    "evidenceRestoreOrPortableAdoption": {
++      "what": "An evidence-bundle restore or portable adoption through crates/storage/src/backup.rs, which the inventory already describes as restoring bounded evidence bundles WITHOUT restoring trust floors or granting local authority.",
++      "floors": "This act restores no trust floor. It also cannot lower one: A11 records that a restore keeps floors and provides no floor recovery, and only S4.5 lowers a floor.",
++      "instanceIdentity": "A newly materialized store receives its own fresh identity.",
++      "authority": "No local commit authority is imported. Imported evidence is revalidated before local adoption and adoption is a fresh locally authorized attempt.",
++      "doesNotInvalidate": "This rule constrains restore and adoption only. It does not touch, weaken or override A5's authorized migration floor carry-forward."
+     }
+-  ],
++  },
+ 
+   "associationJoinRules": {
+-    "sameInstanceJoin": "An association row joins the active binding when its storeGenerationDigest equals the digest recomputed from the currently admitted binding for that namespace. This is plain binary equality and is the only join used on the ordinary path.",
+-    "acrossLineage": "When the digests differ, a historical lookup may follow lineage rows from the active instance backwards through predecessor links. Each hop must be an admitted lineage row; a missing or contradictory hop ends the walk and the lookup reports unavailability.",
+-    "neverRewrite": "No association row's storeGenerationDigest, receipt, ExecutionId or commitSequence is ever rewritten by a transition, migration, rollback, restore or adoption. A historical receipt stays historically true; what a transition changes is current selection and availability, never past commitment.",
+-    "neverImportAuthority": "Following a lineage hop reports history. It never revives grants, floors or local authority, never makes an abandoned store's row a current commitment, and never substitutes for the receipt, inventory, carrier and operation joins the recovery record already requires.",
+-    "existingCaseCoverage": "F27 already refuses a substituted binding target, F35 already routes migration and restore lookups through admitted lineage without rewriting old ids, and F25 already separates retained assurance from current availability. This correction names the lineage record those cases refer to; it proposes no new failure case and no change to the generated F00-F37 matrix."
++    "sameTripleJoin": "An association row joins the active binding when its storeGenerationDigest equals the digest recomputed from the currently admitted binding for that namespace. Plain binary equality; the only join used on the ordinary path.",
++    "acrossLineage": "When the digests differ, a historical lookup may walk predecessor links from the active node. Each hop must be an admitted node; a missing or contradictory hop ends the walk and the lookup reports unavailability.",
++    "neverRewrite": "No association row's storeGenerationDigest, receipt, ExecutionId or commitSequence is ever rewritten by a transition, migration, rollback, restore or adoption. A historical receipt stays historically true; a transition changes current selection and availability, never past commitment.",
++    "neverImportAuthority": "Following a hop reports history. It never revives grants, floors or local authority, never makes an abandoned store's row a current commitment, and never substitutes for the receipt, inventory, carrier and operation joins the recovery record already requires.",
++    "existingCaseCoverage": "F27 already refuses a substituted binding target, F35 already routes migration and restore lookups through admitted lineage without rewriting old ids, and F25 already separates retained assurance from current availability. This correction names the lineage those cases refer to; it proposes no new failure case and no change to the generated F00-F37 matrix."
+   },
+ 
+   "axisSeparation": {
+@@ -355,8 +410,8 @@
+       "inBinding": true
+     },
+     "physicalCarrierFormat": {
+-      "what": "The on-disk format of the grant journal and evidence carriers: DDL version, admitted record types, platform labels, rollover and read-only recovery behavior.",
+-      "owner": "the separate carrier coauthor's versioned physical carrier work (COV-03 and the separately active CR-04/07/08/23 task)",
++      "what": "The on-disk format of the grant journal and evidence carriers: DDL version, admitted record types, platform labels, rollover and read-only recovery behaviour.",
++      "owner": "the separate versioned physical carrier work (COV-03 and the separately active carrier task)",
+       "changesBy": "that owner's versioned migration",
+       "inBinding": false,
+       "why": "A carrier format version in the binding would change every historical storeGenerationDigest on every carrier migration and break every retained association join."
+@@ -366,23 +421,23 @@
+       "owner": "this private lifecycle companion",
+       "changesBy": "creation of a new physical store instance only",
+       "inBinding": true,
+-      "why": "It disambiguates separately created or restored stores whose numeric generations coincide, because S9.2 generations are not monotonic across rollback."
++      "why": "It disambiguates separately created or restored stores whose numeric generations coincide, because A4 generations are not monotonic across rollback."
+     }
+   },
+ 
+   "carrierCoauthorJoin": {
+     "requiredJoin": "If the versioned physical carrier work introduces a durable carrier-format identifier, it belongs to that owner's own record and joins this companion by the pair (storeInstanceId, storeGeneration). It must not be added to StoreGenerationBindingV1.",
+-    "reason": "See canonicalDigestRecipe.frozenAtVersion1: any added member changes every historical digest.",
++    "reason": "See canonicalDigestRecipe.frozenAtVersion1: adding or removing a member changes every historical digest.",
+     "alsoRequired": "The carrier work owns whether a given (storeInstanceId, storeGeneration) can still be read after its carrier migrates, and owns read-only recovery over migrated carriers. This companion states only which store instance and generation is selected, never whether its bytes are currently readable.",
+     "notClosedHere": "COV-03 and the separately active versioned carrier, migration, read-only anchor and additional race cases remain open and are not closed by this correction."
+   },
+ 
+   "limits": [
+-    "Whole-install-root substitution is not detected. A byte copy of an entire store root, including its instance marker, is indistinguishable locally. This is the same stated, undetected class as the coherent install-root rollback in security v8 5.5 (anchor A9); the instance marker narrows coincident-generation confusion, it does not add tamper detection.",
+-    "The creation and restore obligations in S9.3-1 and S9.3-7 are enforced on the authorized lifecycle paths. An out-of-band copy that bypasses those paths is in the same undetected class.",
++    "Whole-install-root substitution is not detected. A byte copy of an entire store root, including its instance marker, is indistinguishable locally. This is the same stated, undetected class as the coherent install-root rollback in A9; the marker narrows coincident-generation confusion and adds no tamper detection.",
++    "The allocation and restore obligations are enforced on the authorized lifecycle paths. An out-of-band copy that bypasses those paths is in the same undetected class.",
++    "S9.2 does not publish a store-generation rule for core-rollback. This companion reads the admitted intent's values rather than asserting one; if the owner later publishes such a rule, the derived cases above must be rechecked against it.",
+     "This is a proposed owner successor delta. It is not accepted, not frozen, and confers no readiness. Freezing and an independent substantive review on the new bytes remain required.",
+     "No executable product code is authored here. Owning modules are named for implementation planning only; none exists.",
+-    "The S9.2 numeric generation rules are quoted, not changed. Whether a particular transition may lower a generation remains entirely the owner's decision.",
+     "This correction does not touch the closed CommitRecoveryAssociationV1 schema, the F00-F37 case inventory or either generated section of the implementation plan."
+   ]
+ }

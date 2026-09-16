@@ -1,0 +1,7 @@
+# Coverage producer ownership
+
+Add evaluator/coverage.rs and coverage-registry.json, using agreed snake_case Rust and kebab-case closed metadata naming. The owner implements the selected native producer boundary for one CoverageResultV3: host-recomputed subject scope commitment and count, key/entry joins, resolution-completeness bijection and deficiency/cause carrier checks, the optional source-path variant slice and registered schema identity. Unresolved observations and optional universe dialect are explicit host context; a local result does not prove their completeness or graph/Plan authority.
+
+This differs from capability_support.rs, whose three local ownership/syntax/source-variant prerequisites occur after producer admission in full Run validation. View partitioning, inventory totality, complete graph/replay and host presentation remain separate obligations. Keep producer refusals and bijection faults distinct. Public DomainDetail routing is a host obligation; internal rejection strings are not public codes.
+
+No new crate, edge, external dependency or reverse identity dependency. Existing host owner tests and fixtures can verify the producer. All377inherited file rows and20packages remain unchanged. Live14inventory/18contracts selects inventory16/runtimev5; capability support code is private and under validation. Layout acceptance does not accept that or future Coverage code. Activation projects all inherited description overrides by filepath.

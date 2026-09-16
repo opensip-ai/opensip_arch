@@ -1,0 +1,255 @@
+--- a43/docs/coop/design-corrections/native/check_native_evidence.v2.py
++++ b44/docs/coop/design-corrections/native/check_native_evidence.v2.py
+@@ -14,6 +14,7 @@
+ import hashlib
+ import importlib.util
+ import json
++import re
+ import sys
+ from pathlib import Path
+ 
+@@ -59,6 +60,13 @@
+     ("docs/coop/design-corrections/native/native-cases.v2.json", "owned: hand-authored cases"),
+     ("docs/coop/design-corrections/native/native-capability-matrix.v2.json", "owned: matrix validated here"),
+     ("docs/v2/contracts/product-v1/native-evidence.md", "owned: contract these checks evidence"),
++    ("docs/coop/design-corrections/native/provider-handshake.schemas.v1.json", "owned: provider handshake, limit and historical FactBatch records (section 9)"),
++    ("docs/coop/design-corrections/native/provider_wire_model.v1.py", "owned: provider wire joins loaded by the model (section 9)"),
++    ("docs/coop/design-corrections/native/fact-batch.schema.v3.json", "negotiated FactBatchV3 and the candidate vector item used by the wire model"),
++    ("docs/coop/design-corrections/native/occupancy-companion.schema.v1.json", "FactBatchV3 companion items resolved by the wire model registry"),
++    ("docs/coop/design-corrections/native/provider-startup.schemas.v1.json", "owned: startup, pre-Analyze Unavailable and Coverage wrapper records (section 9.7)"),
++    ("docs/coop/design-corrections/native/typescript-protocol2-order.v1.json", "owned: typescript-semantic major-2 abstract event machine (section 9.7)"),
++    ("docs/coop/design-corrections/native/provider_startup_model.v1.py", "owned: startup admissions and TypeScript order interpreter loaded by the model (section 9.7)"),
+ ]
+ PRIMARY_REFERENCES = [
+     {"url": "https://doc.rust-lang.org/cargo/reference/config.html", "readOn": "2026-09-06", "claim": "Cargo reads .cargo/config.toml (and legacy .cargo/config) in all ancestors of CWD and in CARGO_HOME; arrays merge; executable/linker/runner/credential knobs and environment overrides exist"},
+@@ -220,6 +228,10 @@
+                 result = hashlib.sha256((REPO / args["path"]).read_bytes()).hexdigest()
+             elif fn == "rawSha256Canonical":
+                 result = hashlib.sha256(model.C.canonical(args["value"])).hexdigest()
++            elif fn == "domainSha256Hex":
++                # hashlib oracle over an independently authored deterministic-CBOR preimage under a
++                # delivery.v2 commitment domain: sha256:hex(SHA-256(UTF8(domain) || 0x00 || bytes)).
++                result = "sha256:" + hashlib.sha256(args["domain"].encode("utf-8") + b"\0" + bytes.fromhex(args["hex"])).hexdigest()
+             else:
+                 result = getattr(model, fn)(**args)
+             if expect_error:
+@@ -423,6 +435,188 @@
+                           "undeclaredRetentionSites": undeclared_retention,
+                           "undeclaredRepresentationSites": undeclared_representation}
+ 
++    # ---- provider handshake publication (section 9). The successor records are held to the PUBLISHED
++    # inherited inputs, not to themselves: TypeScript limits are re-derived from delivery.v2 AND from the
++    # section 9.4 prose; ProtocolLimitsV3 from rust-provider-protocol.v2 plus the section 9.3 prose; every
++    # inherited Hello/HelloAck member must survive in its successor; every TypeScript HelloAck member must be
++    # bound to a descriptor or an echo; the Rust identity has a retained Plan-row source; the contract
++    # digest names real bytes.
++    wire_doc = json.loads((HERE / "provider-handshake.schemas.v1.json").read_text(encoding="utf-8"))
++    Draft202012Validator.check_schema(wire_doc)
++    wire_faults: list[str] = []
++    wire_open: list[str] = []
++    def walk_wire(x, p):
++        if isinstance(x, dict):
++            if x.get("type") == "object" and "additionalProperties" not in x:
++                wire_open.append(p)
++            for k, v in x.items():
++                walk_wire(v, p + "/" + k)
++        elif isinstance(x, list):
++            for i, v in enumerate(x):
++                walk_wire(v, p + "/" + str(i))
++    walk_wire(wire_doc, "")
++    wdefs = wire_doc["$defs"]
++    def const_map(name):
++        d = wdefs[name]
++        if d.get("additionalProperties") is not False or sorted(d["required"]) != sorted(d["properties"]):
++            wire_faults.append(name + ": not a closed map whose required members are exactly its properties")
++        return {k: v.get("const") for k, v in d["properties"].items()}
++    delivery_doc = json.loads((REPO / "docs/coop/artifacts/delivery.v2.json").read_text(encoding="utf-8"))
++    rust_v2 = json.loads((REPO / "docs/coop/artifacts/rust-provider-protocol.v2.json").read_text(encoding="utf-8"))
++    ts_protocol = delivery_doc["typescriptSemanticSubstrate"]["providerProtocol"]
++    ts_identity = delivery_doc["typescriptSemanticSubstrate"]["identity"]
++    ts_inherited = {k: v for k, v in ts_protocol["wireSchema"]["limits"].items() if k != "limitRule"}
++    contract_text = (REPO / "docs/v2/contracts/product-v1/native-evidence.md").read_text(encoding="utf-8")
++    def section_limits(start, end):
++        body = contract_text.split(start, 1)[1].split(end, 1)[0]
++        return {m.group(1): int(m.group(2)) for m in re.finditer(r"`(max\w+) (\d+)`", body)}
++    ts_prose = section_limits("### 9.4 TypeScript major 2", "### 9.5")
++    rust_prose = section_limits("### 9.3 Limits", "### 9.4")
++    ts_published = const_map("TypeScriptProtocolLimitsV1")
++    if not (same(ts_published, ts_inherited) and same(ts_prose, ts_inherited)):
++        wire_faults.append(f"TypeScriptProtocolLimitsV1 {ts_published} / section 9.4 {ts_prose} != delivery.v2 numeric limits {ts_inherited}")
++    rust_expected = dict(rust_v2["limits"])
++    rust_expected.update(rust_prose)
++    rust_published = const_map("ProtocolLimitsV3")
++    if (len(rust_prose) != 8 or set(rust_prose) & set(rust_v2["limits"]) or len(rust_published) != 32
++            or not same(rust_published, rust_expected)):
++        wire_faults.append(f"ProtocolLimitsV3 ({len(rust_published)}) != 24 rust-provider-protocol.v2 limits + 8 section 9.3 members {rust_prose}")
++    ps_ts = ts_protocol["wireSchema"]["payloadSchemas"]
++    ps_rust = rust_v2["wireSchema"]["payloadSchemas"]
++    for name, inherited_required in [
++            ("TypeScriptHelloV2", ps_ts["HelloV1"]["required"]),
++            ("TypeScriptHelloAckV2", ps_ts["HelloAckV1"]["required"]),
++            ("TypeScriptHelloAckV2", ts_identity["handshakeRequired"]),
++            ("HelloV3", ps_rust["HelloV2"]["required"]),
++            ("HelloAckV3", ps_rust["HelloAckV2"]["required"]),
++            ("ExpectedRustIdentityV3", rust_v2["wireSchema"]["definitions"]["ExpectedRustIdentityV2"]["required"]),
++            ("HelloV3", model.SCHEMAS["$defs"]["HelloV3"]["required"]),
++            ("HelloAckV3", model.SCHEMAS["$defs"]["HelloAckV3"]["required"])]:
++        lost = sorted(set(inherited_required) - set(wdefs[name]["required"]))
++        if lost:
++            wire_faults.append(f"{name} drops inherited members {lost}")
++    wire_law = wire_doc["x-opensip-wire-law"]
++    ts_binding = wire_law["typescriptDescriptorBinding"]
++    unbound = sorted(set(wdefs["TypeScriptHelloAckV2"]["required"]) - set(ts_binding["providerDescriptorFields"])
++                     - set(ts_binding["runtimeDescriptorFields"])
++                     - {"providerDescriptorSha256", "runtimeDescriptorSha256", "capabilities", "identityVersions"})
++    if unbound:
++        wire_faults.append(f"TypeScriptHelloAckV2 members bound to no descriptor or echo {unbound}")
++    for kind, fields in (("provider", ts_binding["providerDescriptorFields"]), ("runtime", ts_binding["runtimeDescriptorFields"])):
++        for fld in fields:
++            if fld not in ts_identity[kind + "Descriptor"]["closedRequired"]:
++                wire_faults.append(f"{kind} descriptor has no member {fld}")
++    rust_row = json.loads((REPO / "docs/coop/artifacts/resolved-inputs.v2.json").read_text(encoding="utf-8"))[
++        "planIdContract"]["semanticUniverseSchemas"]["rust-v1"]["required"]
++    unsourced = sorted(set(wire_law["rustIdentityBinding"]["identityFields"]) - set(rust_row))
++    if unsourced:
++        wire_faults.append(f"rust-v1 Plan row carries no source for expectedIdentity members {unsourced}")
++    if sha256_file(REPO / wire_law["expectedProtocolContractSha256"]["artifact"]) != wire_law["expectedProtocolContractSha256"]["sha256"]:
++        wire_faults.append("expectedProtocolContractSha256 artifact bytes differ from the published digest")
++    if (set(wdefs["TypeScriptCapabilityToken"]["enum"]) != set(model.TS2_TOKENS_ATTRIBUTION)
++            or set(wdefs["RustCapabilityToken"]["enum"]) != set(model.RUST3_TOKENS_ATTRIBUTION)
++            or list(model.WIRE.IDENTITY_TOKENS) != list(model.IDENTITY_TOKENS)):
++        wire_faults.append("per-language token vocabularies differ from the section 9.1 token sets")
++    if not (set(wdefs["TypeScriptCapabilityToken"]["enum"]) | set(wdefs["RustCapabilityToken"]["enum"])) <= set(model.SCHEMAS["$defs"]["CapabilityToken"]["enum"]):
++        wire_faults.append("a per-language token is outside CapabilityToken")
++    registered_versions = {k: v["const"] for k, v in model.SCHEMAS["$defs"]["HelloV3"]["properties"]["identityVersions"]["properties"].items()}
++    if not same(const_map("IdentityVersionsV1"), registered_versions):
++        wire_faults.append("identityVersions differ from the registered section 9.1 values")
++    report["providerWire"] = {"document": "native/provider-handshake.schemas.v1.json", "defs": len(wdefs),
++                              "openObjects": wire_open, "typescriptLimits": len(ts_published),
++                              "rustLimits": len(rust_published), "section93Members": len(rust_prose),
++                              "section94Members": len(ts_prose), "faults": wire_faults}
++
++    # ---- provider startup publication (section 9.7): the successor records are held to the INHERITED member lists,
++    # the registered bundle, the section 9.2/9.4 reason prose and both published event machines, not to themselves.
++    startup_doc = json.loads((HERE / "provider-startup.schemas.v1.json").read_text(encoding="utf-8"))
++    ts_order = json.loads((HERE / "typescript-protocol2-order.v1.json").read_text(encoding="utf-8"))
++    p3_doc = json.loads((HERE / "protocol3-transitions.v1.json").read_text(encoding="utf-8"))
++    Draft202012Validator.check_schema(startup_doc)
++    startup_faults: list[str] = []
++    startup_open: list[str] = []
++    def walk_startup(x, p):
++        if isinstance(x, dict):
++            if x.get("type") == "object" and "additionalProperties" not in x:
++                startup_open.append(p)
++            for k, v in x.items():
++                walk_startup(v, p + "/" + k)
++        elif isinstance(x, list):
++            for i, v in enumerate(x):
++                walk_startup(v, p + "/" + str(i))
++    walk_startup(startup_doc, "")
++    sdefs = startup_doc["$defs"]
++    universe_rows = json.loads((REPO / "docs/coop/artifacts/resolved-inputs.v2.json").read_text(encoding="utf-8"))[
++        "planIdContract"]["semanticUniverseSchemas"]
++    for name, inherited_required in [
++            ("TypeScriptOpenUniverseV2", ps_ts["OpenUniverseV1"]["required"]),
++            ("TypeScriptUniverseAcceptedV2", ps_ts["UniverseAcceptedV1"]["required"]),
++            ("TypeScriptCoverageV2", ps_ts["CoverageV1"]["required"]),
++            ("TypeScriptUnavailableV2", ps_ts["UnavailableV1"]["required"]),
++            ("TypeScriptBudgetExhaustedV2", ps_ts["BudgetExhaustedV1"]["required"]),
++            ("OpenUniverseV3", ps_rust["OpenUniverseV2"]["required"]),
++            ("UniverseAcceptedV3", ps_rust["UniverseAcceptedV2"]["required"]),
++            ("CoverageV3", ps_rust["CoverageV2"]["required"]),
++            ("UnavailableV3", ps_rust["UnavailableV2"]["required"]),
++            ("BudgetExhaustedV3", ps_rust["BudgetExhaustedV2"]["required"]),
++            ("TypeScriptSemanticUniverseV2", universe_rows["typescript-v1"]["required"]),
++            ("RustSemanticUniverseV2", universe_rows["rust-v1"]["required"])]:
++        d = sdefs[name]
++        if list(d["required"]) != list(inherited_required) or d.get("additionalProperties") is not False:
++            startup_faults.append(f"{name} members {d['required']} != inherited {inherited_required}")
++    entry_ref = {"$ref": model.SCHEMAS["$id"] + "#/$defs/CoverageResultV3"}
++    for name, member in (("TypeScriptCoverageV2", "entries"), ("CoverageV3", "entries"), ("TypeScriptUnavailableV2", "coverage"),
++                         ("UnavailableV3", "coverage"), ("TypeScriptBudgetExhaustedV2", "coverage"), ("BudgetExhaustedV3", "coverage")):
++        if sdefs[name]["properties"][member]["items"] != entry_ref:
++            startup_faults.append(f"{name}.{member} items are not the registered CoverageResultV3")
++    if (sdefs["PreAnalyzeUnavailableV1"]["properties"]["reason"] != {"const": "native-context-mismatch"}
++            or "native-context-mismatch" not in model.SCHEMAS["$defs"]["UnavailableReasonV3"]["enum"]):
++        startup_faults.append("PreAnalyzeUnavailableV1 reason is not exactly the registered native-context-mismatch")
++    startup_law = startup_doc["x-opensip-startup-law"]
++    added92 = re.search(r"`UnavailableReasonV3` adds (.*?)\.\n", contract_text, re.S)
++    added94 = re.search(r"`Unavailable\.reason` adds (.*?)\.\n", contract_text, re.S)
++    rust_added = re.findall(r"`([a-z-]+)`", added92.group(1)) if added92 else []
++    ts_added = re.findall(r"`([a-z-]+)`", added94.group(1)) if added94 else []
++    want_ts = sorted(set(ps_ts["UnavailableV1"]["fields"]["reason"].removeprefix("enum ").split("|")) | set(ts_added))
++    want_rust = sorted((set(ps_rust["UnavailableV2"]["fields"]["reason"].split("|")) | set(rust_added)) - {"native-context-mismatch"})
++    if (not ts_added or sorted(sdefs["TypeScriptUnavailableV2"]["properties"]["reason"]["enum"]) != want_ts
++            or startup_law["postAnalyzeReasons"]["typescript-semantic"] != want_ts):
++        startup_faults.append(f"typescript post-Analyze reasons != delivery.v2 reasons + section 9.4 additions {want_ts}")
++    if (not rust_added or sorted(sdefs["UnavailableV3"]["properties"]["reason"]["enum"]) != want_rust
++            or startup_law["postAnalyzeReasons"]["rust-semantic"] != want_rust):
++        startup_faults.append(f"rust post-Analyze reasons != rust-provider-protocol.v2 reasons + section 9.2 additions {want_rust}")
++    p3_rows = {r["id"]: r for r in p3_doc["rules"]}
++    if (p3_rows["P3-24"]["frame"] != "CoverageV3" or p3_rows["P3-21"]["frame"] != "Unavailable"
++            or p3_rows["P3-21"]["phase"] != "WAIT_NATIVE_CONTEXT_VERIFIED"):
++        startup_faults.append("protocol3 rows no longer carry the CoverageV3 frame or the pre-Analyze Unavailable phase")
++    if set(p3_doc.get("rowPayloads", {})) - set(p3_rows) - {"standing"}:
++        startup_faults.append("protocol3 rowPayloads names a row that does not exist")
++    if set(p3_doc.get("derivedObservations", {})) != {"standing", "dependencyMode", "preparedMode"}:
++        startup_faults.append("protocol3 derivedObservations must name exactly dependencyMode and preparedMode")
++    ts_rows = {r["id"]: r for r in ts_order["rules"]}
++    if (ts_order["ruleCount"] != len(ts_order["rules"]) or len(ts_rows) != len(ts_order["rules"])
++            or ts_rows["T2-08"]["next"] != "WAIT_NATIVE_CONTEXT_VERIFIED"
++            or ts_rows["T2-10"].get("guard") != {"unavailablePayload": "pre-analyze"} or ts_rows["T2-13"]["frame"] != "Coverage"):
++        startup_faults.append("typescript order table does not carry the section 9.7 insertions exactly")
++    allowed_ts_frames = set(ts_protocol["wireSchema"]["frameSchemas"]) | {"NativeContextVerified", "zero-exit", "eof", "*PROCESS_FAULT", "*"}
++    added_ts_frames = sorted({r["frame"] for r in ts_order["rules"]} - allowed_ts_frames)
++    if added_ts_frames:
++        startup_faults.append(f"typescript order table adds frames {added_ts_frames}")
++    pre_terminal = set(ts_order["wildcards"]["*PRE_TERMINAL"]["phases"])
++    def ts_phases(row):
++        return set() if row["phase"] == "*ANY" else (pre_terminal if row["phase"] == "*PRE_TERMINAL" else {row["phase"]})
++    def ts_overlap(a, b):
++        if a["frame"] != b["frame"] or not (ts_phases(a) & ts_phases(b)):
++            return False
++        ga, gb = a.get("guard", {}), b.get("guard", {})
++        return not any(k in gb and gb[k] != v for k, v in ga.items())
++    overlapping = [(a["id"], b["id"]) for i, a in enumerate(ts_order["rules"]) for b in ts_order["rules"][i + 1:] if ts_overlap(a, b)]
++    if overlapping:
++        startup_faults.append(f"typescript order rows overlap {overlapping}")
++    report["providerStartup"] = {"document": "native/provider-startup.schemas.v1.json", "defs": len(sdefs),
++                                 "openObjects": startup_open, "typescriptOrderRules": len(ts_order["rules"]),
++                                 "faults": startup_faults}
++
+     matrix = model.C.parse(MATRIX_PATH.read_bytes())
+     model.validate_native("NativeCapabilityMatrixV2", matrix)
+     cells = matrix["cells"]
+@@ -464,7 +658,9 @@
+     ok = (passed == len(results) and not missing_cells and not extra_cells and not duplicate_cells
+           and cell_count_is_the_product and not vocabulary_drift and not open_objects
+           and not report["cases"]["uncoveredFeedback"] and not ladder_faults
+-          and not undeclared_retention and not undeclared_representation)
++          and not undeclared_retention and not undeclared_representation
++          and not wire_faults and not wire_open
++          and not startup_faults and not startup_open)
+     report["result"] = "PASS" if ok else "FAIL"
+     report["limitations"] = [
+         "Observation inputs (edges, tokens, vendored file digests, stage terminals) are fixture-asserted, not measured from a compiler or Cargo.",
+@@ -472,6 +668,8 @@
+         "Cargo config discovery and rustc flag semantics are pinned to primary documentation read on 2026-09-06; the ancestor-carrier verification is a design rule, not a demonstrated switch.",
+         "The tsjs-erasure-v1 projection operates on token kinds supplied by fixtures; a real tokenizer is qualification work.",
+         "No cell is QUALIFIED; the four platform families are asserted design-invariant only.",
++        "Provider handshake and FactBatch records are JSON vectors: frame length/digest/sequence bytes, process lifetime and compiler output are not exercised, and descriptor digests hash canonical.py bytes, which equal RFC 8785 only for the fixture value domain.",
++        "Provider startup exchanges exercise selected startup schema/join checks. Coverage checks wrapper shape and requested-key correspondence, not commitments or complete entry/request-ordinal admission. Cancelled checks only the inserted TypeScript observedPhase interval, not full inherited record/correlation, Rust phase or host cancellation reduction. Other inherited owner checks remain prerequisites; snapshot, dependency-source, prepared, Analyze and FactBatch are abstract events. Fixture host inputs and placeholder commitments do not establish a verified Plan, complete Run or framed process.",
+     ]
+     REPORT_PATH.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+     for r in results:
+@@ -481,6 +679,10 @@
+         print("FAIL ladder-drift:", fault)
+     for path in undeclared_retention + undeclared_representation:
+         print("FAIL digest-law vocabulary:", path)
++    for fault in wire_faults + ["open object " + p for p in wire_open]:
++        print("FAIL provider-wire:", fault)
++    for fault in startup_faults + ["open object " + p for p in startup_open]:
++        print("FAIL provider-startup:", fault)
+     print(f"{report['result']}: {passed}/{len(results)} cases; matrix cells {len(cells)}; open objects {len(open_objects)}; uncovered feedback {report['cases']['uncoveredFeedback']}")
+     return 0 if ok else 1
+ 

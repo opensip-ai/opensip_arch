@@ -1,0 +1,1 @@
+Prepared root tools only; not executed. No candidate33 exists yet, no acceptance. Author package9 will preserve exact source30 constructions and require actual fresh source33 replay before any usability claim. Full planning input comparison currently detects native-evidence.md changed among 29 inputs, requiring a new layer4 after source handoff.

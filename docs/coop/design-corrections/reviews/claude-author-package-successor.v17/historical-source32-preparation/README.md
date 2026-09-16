@@ -1,0 +1,7 @@
+# Source32 author reference package — review pending
+
+The seven synthetic positives, three reminted semantic negatives and three binding controls retain their exact source30 construction bytes. source-rebuild.v1.json is the historical construction receipt; source-binding.v32.json is the separate current binding. Earlier preparation and assessments are preserved unchanged under their historical paths. Current source verification remains required.
+
+Run the reference interpreter with `-I -B verify-package.py --source <frozen-source32> --out <new-external-output>`. It verifies exact source/package hashes, executes structural and full semantic closure on all thirteen cases, then reproduces and asserts seven query checks. Property and mixed-universe probes remain separate: check-author-properties.py and probe-mixed-universe-view.py take --source/--package/--out. Prior execution does not imply current execution.
+
+Evidence limits remain: only the TypeScript checkpoint compares a consumer helper with the owner; six other positives are owner-derived/replayed self-consistency. The helper exercises exists/none; and/or/not are unexercised and count-at-most/all-covered are unimplemented. The two-binding construction is incomplete and retains a single explicit binding. Synthetic records qualify no compiler/provider/OS/process-isolation boundary. This package contains author-assisted reference evidence, never blind acceptance or final application approval. All thirty independent residual grades remain PENDING.

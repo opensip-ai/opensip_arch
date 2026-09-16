@@ -1,0 +1,562 @@
+{
+ "cleanupLaws": {
+  "capacity_route": "security typed CarrierCapacityExhausted -> storage -> host/finalization.rs -> lifecycle rollover under the fence AFTER lease release; storage never calls lifecycle",
+  "drop_not_guaranteed_on": [
+   "mem::forget",
+   "process abort",
+   "stalled syscall"
+  ],
+  "no_fence_while_holding_lease": true,
+  "no_level3_under_level4": true
+ },
+ "cleanupOrder": [
+  "release level-4 append mutex",
+  "abort/release the open evidence level-3 transaction and the journal level-3 transaction",
+  "with the stopped operation lease still held, fresh lawful level-3 journal transaction then level-4 to append REV/CLN",
+  "release the operation lease",
+  "ordinary S7 end handoff: fence, non-blocking re-lease, SC-TRUST high-water copy, release"
+ ],
+ "control": "c3-recovery-and-gate",
+ "gateAllPass": true,
+ "gateCases": [
+  {
+   "case": "F38 latch wins while preparing",
+   "commitResult": "confirmed",
+   "d9": null,
+   "events": [
+    "seal-durable",
+    "sql-staged-after-seal-witness",
+    "latch-won-preparing",
+    "gate-refused-latch-won"
+   ],
+   "expected": "uncommitted",
+   "got": "uncommitted",
+   "note": "no evidence commit issued; SEAL stays an uncommitted attempt (F36)",
+   "orphanSeal": true,
+   "pass": true,
+   "runIdObservable": false,
+   "schedule": [
+    "seal",
+    "stage",
+    "latch",
+    "gate",
+    "commit"
+   ],
+   "state": "latched"
+  },
+  {
+   "case": "F39 latch after admission, commit confirmed",
+   "commitResult": "confirmed",
+   "d9": null,
+   "events": [
+    "seal-durable",
+    "sql-staged-after-seal-witness",
+    "commit-admitted",
+    "latch-post-admission-blocks-subsequent-effects-only",
+    "commit-issued:confirmed"
+   ],
+   "expected": "committed",
+   "got": "committed",
+   "note": "latch can only refuse subsequent effects",
+   "orphanSeal": false,
+   "pass": true,
+   "runIdObservable": true,
+   "schedule": [
+    "seal",
+    "stage",
+    "gate",
+    "latch",
+    "commit"
+   ],
+   "state": "commit-admitted"
+  },
+  {
+   "case": "F39b latch after admission, delivery fails",
+   "commitResult": "delivery-failed",
+   "d9": "DELIVERY.REQUIRED_FAILED/operational-failed/4",
+   "events": [
+    "seal-durable",
+    "sql-staged-after-seal-witness",
+    "commit-admitted",
+    "latch-post-admission-blocks-subsequent-effects-only",
+    "commit-issued:delivery-failed"
+   ],
+   "expected": "committed-delivery-failed",
+   "got": "committed-delivery-failed",
+   "note": "commit durable; required delivery failed after it",
+   "orphanSeal": false,
+   "pass": true,
+   "runIdObservable": true,
+   "schedule": [
+    "seal",
+    "stage",
+    "gate",
+    "latch",
+    "commit"
+   ],
+   "state": "commit-admitted"
+  },
+  {
+   "case": "F40 latch during commit syscall, error",
+   "commitResult": "error",
+   "d9": "DURABILITY.COMMIT_FAILED/operational-failed/4",
+   "events": [
+    "seal-durable",
+    "sql-staged-after-seal-witness",
+    "commit-admitted",
+    "commit-issued:error",
+    "latch-post-admission-blocks-subsequent-effects-only"
+   ],
+   "expected": "durability-undetermined",
+   "got": "durability-undetermined",
+   "note": "ExecutionId retained and terminal; runId omitted; no automatic write retry",
+   "orphanSeal": false,
+   "pass": true,
+   "runIdObservable": false,
+   "schedule": [
+    "seal",
+    "stage",
+    "gate",
+    "commit",
+    "latch"
+   ],
+   "state": "commit-admitted"
+  },
+  {
+   "case": "F40b barrier unconfirmed",
+   "commitResult": "barrier-unconfirmed",
+   "d9": "DURABILITY.COMMIT_FAILED/operational-failed/4",
+   "events": [
+    "seal-durable",
+    "sql-staged-after-seal-witness",
+    "commit-admitted",
+    "commit-issued:barrier-unconfirmed",
+    "latch-post-admission-blocks-subsequent-effects-only"
+   ],
+   "expected": "durability-undetermined",
+   "got": "durability-undetermined",
+   "note": "ExecutionId retained and terminal; runId omitted; no automatic write retry",
+   "orphanSeal": false,
+   "pass": true,
+   "runIdObservable": false,
+   "schedule": [
+    "seal",
+    "stage",
+    "gate",
+    "commit",
+    "latch"
+   ],
+   "state": "commit-admitted"
+  },
+  {
+   "case": "F18 latch before SEAL",
+   "commitResult": "confirmed",
+   "d9": null,
+   "events": [
+    "latch-won-preparing",
+    "seal-durable",
+    "gate-refused-latch-won"
+   ],
+   "expected": "uncommitted",
+   "got": "uncommitted",
+   "note": "no evidence commit issued; SEAL stays an uncommitted attempt (F36)",
+   "orphanSeal": true,
+   "pass": true,
+   "runIdObservable": false,
+   "schedule": [
+    "latch",
+    "seal",
+    "stage",
+    "gate",
+    "commit"
+   ],
+   "state": "latched"
+  },
+  {
+   "case": "F19 latch after SEAL before staging",
+   "commitResult": "confirmed",
+   "d9": null,
+   "events": [
+    "seal-durable",
+    "latch-won-preparing",
+    "gate-refused-latch-won"
+   ],
+   "expected": "uncommitted",
+   "got": "uncommitted",
+   "note": "no evidence commit issued; SEAL stays an uncommitted attempt (F36)",
+   "orphanSeal": true,
+   "pass": true,
+   "runIdObservable": false,
+   "schedule": [
+    "seal",
+    "latch",
+    "stage",
+    "gate",
+    "commit"
+   ],
+   "state": "latched"
+  }
+ ],
+ "gateExhaustive": {
+  "interleavings": 15,
+  "singleWinner": true,
+  "violations": []
+ },
+ "recoveryAllPass": true,
+ "recoveryCases": [
+  {
+   "case": "A1 COMMITTED at tail, k<=t",
+   "diagnosis": [
+    "confirmed-under-retained-custody",
+    "interior-bodies-not-authenticated"
+   ],
+   "expected": "committed-historically",
+   "expectedAnchor": "witness-committed-tail",
+   "got": "committed-historically",
+   "gotAnchor": "witness-committed-tail",
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "A2 PENDING at tail same hash",
+   "diagnosis": [
+    "witnessWouldAdvance",
+    "confirmed-under-retained-custody",
+    "interior-bodies-not-authenticated"
+   ],
+   "expected": "committed-historically",
+   "expectedAnchor": "witness-pending-at-tail",
+   "got": "committed-historically",
+   "gotAnchor": "witness-pending-at-tail",
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "A3 PENDING next slot, k<=floor",
+   "diagnosis": [
+    "witnessWouldRevert",
+    "no-live-witnessed-anchor-for-durable-prefix",
+    "confirmed-under-retained-custody",
+    "interior-bodies-not-authenticated"
+   ],
+   "expected": "committed-historically",
+   "expectedAnchor": "sc-trust-floor",
+   "got": "committed-historically",
+   "gotAnchor": "sc-trust-floor",
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "A4 PENDING next slot, k>floor",
+   "diagnosis": [
+    "witnessWouldRevert",
+    "no-live-witnessed-anchor-for-durable-prefix",
+    "above-floor-under-pending-next-slot",
+    "F44"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A5 PENDING next slot, floor hash mismatch",
+   "diagnosis": [
+    "witnessWouldRevert",
+    "no-live-witnessed-anchor-for-durable-prefix",
+    "floor-hash-contradicts-tail",
+    "F22"
+   ],
+   "expected": "unknown-quarantine-condition",
+   "expectedAnchor": null,
+   "got": "unknown-quarantine-condition",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A6 tail below observed floor",
+   "diagnosis": [
+    "tail-below-observed-floor",
+    "F22"
+   ],
+   "expected": "unknown-quarantine-condition",
+   "expectedAnchor": null,
+   "got": "unknown-quarantine-condition",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A7 COMMITTED beyond tail",
+   "diagnosis": [
+    "witness-state-unreconciled",
+    "F20"
+   ],
+   "expected": "unknown-quarantine-condition",
+   "expectedAnchor": null,
+   "got": "unknown-quarantine-condition",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A8 witnessless restore",
+   "diagnosis": [
+    "witnesslessRestore",
+    "F21"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A9 witness malformed (PENDING 0)",
+   "diagnosis": [
+    "witnessMalformed",
+    "F20"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "A10 witness foreign carrier",
+   "diagnosis": [
+    "witness-names-another-carrier",
+    "F20"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "B1 ordering hazard, single reopen reconciles",
+   "diagnosis": [
+    "journal-view-behind-ledger-snapshot",
+    "reconciled-after-single-reopen",
+    "confirmed-under-retained-custody",
+    "interior-bodies-not-authenticated"
+   ],
+   "expected": "committed-historically",
+   "expectedAnchor": "witness-committed-tail",
+   "got": "committed-historically",
+   "gotAnchor": "witness-committed-tail",
+   "journalOpens": 2,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "B2 hazard unreconciled, floor at/above k",
+   "diagnosis": [
+    "journal-view-behind-ledger-snapshot",
+    "uncertainTailLoss",
+    "F22"
+   ],
+   "expected": "unknown-quarantine-condition",
+   "expectedAnchor": null,
+   "got": "unknown-quarantine-condition",
+   "gotAnchor": null,
+   "journalOpens": 2,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "B3 hazard unreconciled, floor below k",
+   "diagnosis": [
+    "journal-view-behind-ledger-snapshot",
+    "reopen-did-not-reconcile",
+    "owner=security-carrier",
+    "F43"
+   ],
+   "expected": "unavailable-busy",
+   "expectedAnchor": null,
+   "got": "unavailable-busy",
+   "gotAnchor": null,
+   "journalOpens": 2,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "C1 ledger unreadable",
+   "diagnosis": [
+    "ledger-unreadable",
+    "F24"
+   ],
+   "expected": "unavailable",
+   "expectedAnchor": null,
+   "got": "unavailable",
+   "gotAnchor": null,
+   "journalOpens": 0,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "C2 verified absent receipt and association",
+   "diagnosis": [
+    "verified-empty-exact-lookup",
+    "F36"
+   ],
+   "expected": "not-committed-verified-absent",
+   "expectedAnchor": null,
+   "got": "not-committed-verified-absent",
+   "gotAnchor": null,
+   "journalOpens": 0,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "C3 receipt present, association absent",
+   "diagnosis": [
+    "receipt-association-contradiction",
+    "F23"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 0,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "C4 requested attempt actively running",
+   "diagnosis": [
+    "active-attempt",
+    "F29"
+   ],
+   "expected": "in-progress",
+   "expectedAnchor": null,
+   "got": "in-progress",
+   "gotAnchor": null,
+   "journalOpens": 0,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "D1 carrierFormat 2 generation",
+   "diagnosis": [
+    "no-SEAL-representable",
+    "F31",
+    "F46"
+   ],
+   "expected": "unknown-carrier-incompatible",
+   "expectedAnchor": null,
+   "got": "unknown-carrier-incompatible",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "D2 committed but availability purged",
+   "diagnosis": [
+    "availability=purged",
+    "F25",
+    "confirmed-under-retained-custody",
+    "interior-bodies-not-authenticated"
+   ],
+   "expected": "committed-availability-degraded",
+   "expectedAnchor": "witness-committed-tail",
+   "got": "committed-availability-degraded",
+   "gotAnchor": "witness-committed-tail",
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  },
+  {
+   "case": "D3 join differs at journalSeq",
+   "diagnosis": [
+    "join-differs",
+    "F33"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 1,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": true,
+   "pass": true
+  },
+  {
+   "case": "D4 binding swap",
+   "diagnosis": [
+    "binding-swap",
+    "F27"
+   ],
+   "expected": "unknown-custody",
+   "expectedAnchor": null,
+   "got": "unknown-custody",
+   "gotAnchor": null,
+   "journalOpens": 0,
+   "ledgerOpens": 1,
+   "mutations": [],
+   "notInvalidated": false,
+   "pass": true
+  }
+ ],
+ "recoveryJournalOpensAtMostTwo": true,
+ "recoveryLedgerOpensAlwaysOne": true,
+ "recoveryNoMutations": true
+}

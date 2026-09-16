@@ -1,0 +1,200 @@
+{
+ "schemaVersion": 1,
+ "review": "reviewer-01 fresh independent review of the four-feature report evidence owner proposal (RP-DO-03, RP-DO-05, RP-DO-09, RP-DO-10)",
+ "standing": "Independent review, not author continuation and not root acceptance. Design/reference evidence only. It does not claim production, runtime, provider, browser, generator, performance or Run replay qualification. Catalogue, timing and configuration proposals are separate and unaccepted; this review does not assess or claim them.",
+ "decision": "changes-required",
+ "decisionBasis": "Four High findings (F1-F4) are independently reproduced. Each either makes a claimed identity/retention behaviour impossible under the pinned owner model, or lets the report emit a blocker-free absence-style state that the counterexample refutes. None is a wording issue.",
+ "subject": {
+  "path": "/tmp/opensip-implementation/m1-report-evidence-design-subject-01",
+  "outerManifest": "/tmp/opensip-implementation/m1-report-evidence-design-subject-01.json",
+  "outerManifestSha256": "0af84231305e54ec218a5efeff4f0489b02f9dc69ade0c6101c632c96ffaaa11",
+  "innerManifestSha256": "d80838c2c9e129f7f3125f4afb198e1d6fb451690ddd58b6b6b57647dc696bce",
+  "rootValidation": "/tmp/opensip-implementation/m1-report-evidence-design-root-validation-01 (CHECK OK; no passed field is claimed)"
+ },
+ "custody": {
+  "before": {"subjectFiles": 13, "outerAndInnerManifestsAgree": true, "externalPinsVerified": "47/47", "directoryListings": 0, "pycacheInSubject": false, "errors": [], "evidence": "evidence/custody-before.json"},
+  "after": {"subjectFiles": 13, "outerAndInnerManifestsAgree": true, "externalPinsVerified": "47/47", "directoryListings": 0, "pycacheInSubject": false, "errors": [], "outerManifestSha256Recomputed": "0af84231305e54ec218a5efeff4f0489b02f9dc69ade0c6101c632c96ffaaa11", "evidence": "evidence/custody-after.json"},
+  "bytecode": "Every run used metadata-reference-env python -I -B (dont_write_bytecode=1, isolated=1). The reviewer harness compiles modules from source bytes, refuses sourceless modules, and has an audit hook that raises on any .pyc open or any write outside this review directory. A scan found no .pyc newer than the review start under the subject, the architecture docs or this directory.",
+  "writes": "Only this review directory (copy/, scratch/, evidence/, review.json, review.md). The pre-existing launch files here (prompt.md, process.json, public-events.jsonl, launch-public.py) were not modified."
+ },
+ "reproduction": {
+  "copyRun": "copy/subject: check.py --subject-strict --out evidence/copy-check-result.json, exit 0, CHECK OK",
+  "resultByteIdenticalToRootValidation": true,
+  "resultSha256": "5c7ea5c68df213d447a1a142dcca9fa7567de75ca700bd5e0c8f3e7e3fa723c1"
+ },
+ "findings": [
+  {
+   "id": "F1",
+   "severity": "high",
+   "area": "S2 identity / historical retention / unknown states (RP-DO-05, RP-DO-10)",
+   "title": "The proposed required parameter row makes every retained evaluator3 Run without it inadmissible, so 'historical Runs stay admitted and show not-plan-bound' cannot happen under the owner model",
+   "claim": "contract.md section 7 and owner/identity-parameter-registry-patch.v1.json#/identityEffects/historicalRuns say predecessor Runs stay admitted under their own profile with entryRecognition.state=not-plan-bound. They also say no closed vocabulary is widened: the row uses the existing requiredForEvaluatorMajors:[3].",
+   "ownerLaw": [
+    "docs/coop/design-corrections/foundation/identity-model.v3.py:147-187 admit_parameter_selection: 'Pure over the parameters array ... the pre-Plan boundary and retained Run closure can both call exactly this'. It refuses EVALUATOR_REQUIRED_PARAMETER_MISSING for EVERY registry row whose requiredForEvaluatorMajors contains 3 (lines 183-186). There is no profile or generation dispatch.",
+    "docs/coop/design-corrections/foundation/identity-schemas.v3.json x-opensip-payload-registry/classes/parameter: the required-row vocabulary is keyed only by evaluator major."
+   ],
+   "reproduced": "evidence/probe-owner.json P1. The pinned identity-model.v3 admits the current required selection (enumeration-plan + evaluator-emission-plan). With the S2 row applied in memory only, the SAME selection is 'REFUSED EVALUATOR_REQUIRED_PARAMETER_MISSING:foundation/framework-recognition-plan.schema.v1.json'. A selection that includes the parameter is admitted. The model has one required-row dispatch site and no profile-version dispatch.",
+   "consequence": "recognition_custody 'not-plan-bound' (reference_model.py:722-726) can only come from the synthetic World flag recognition.planBound (build_fixtures.py:137). Real retained evaluator3 Runs would fail closure instead of degrading to unknown. RP-EV-INT-IDENTITY's 'under the successor profile' names a dispatch that does not exist. Adding it is a vocabulary/semantics change the patch says it does not make.",
+   "fix": "Choose and state one owner mechanism: (a) a profile/generation-qualified requirement (e.g. requiredFromProfile) with an identity owner successor and a predecessor-profile admission test; (b) keep the row optional (no requiredForEvaluatorMajors) and define absence as not-plan-bound at the report; or (c) a new evaluator major. Execute the choice against identity-model.v3 admit_parameter_selection and close_run with a retained predecessor Run fixture. Correct identityEffects.closedVocabularies."
+  },
+  {
+   "id": "F2",
+   "severity": "high",
+   "area": "RP-DO-10 test origin incompleteness / absence claims / cross-universe calls",
+   "title": "Test reach ignores origins in other universes, so no-static-path-within-bound is emitted with no blockers while a recognized test calls the subject",
+   "candidateCode": [
+    "reference_model.py:1053 hits keep only reach endpoints with endpoint.universe == target.universe",
+    "reference_model.py:1017-1025 test_blockers looks only at countBasis, limitations and the TARGET universe's origin set",
+    "reference_model.py:1037-1039 an origin set is derived only for the subject's universe"
+   ],
+   "ownerLaw": [
+    "query-projection-contract.v3.md section 3 table: calls@resolved-callee universe rule admitted-target, so callers can be in another universe",
+    "prototype-report-inventory.md:67 (R07) 'Bind metrics and test reachability to the exact universe/identity and show unknown values'"
+   ],
+   "reproduced": "evidence/probe-candidate.json C1. The integration world, with the test file moved to its own tsjs unit/program 'tests' (vitest-jest recognized, schema-valid records). The call fact goes tests universe -> src/helper.ts#helper. The reach walk returns the test symbol at depth 1. That universe's origin set is declared and contains the symbol. Yet the helper row is 'no-static-path-within-bound' with no blockers. It is accepted by the patched schema and by admit_symbol_evidence. The unmodified baseline gives static-path-from-test-origin.",
+   "mutationEvidence": "M4 (remove the universe filter) survives check.py with CHECK OK: no fixture reaches a cross-universe caller.",
+   "fix": "Derive origin sets for every universe that occurs among the reach items (bounded by the walk), and match origins per universe. If any reached endpoint's universe has no declared set, add a blocker (e.g. test-origin-set-partial or a new foreign-universe-origin-set-not-declared). Embed the per-universe sets used. Add the C1 counterexample as a fixture so M4 is killed."
+  },
+  {
+   "id": "F3",
+   "severity": "high",
+   "area": "RP-DO-10 test origin completeness / S1 native recognition",
+   "title": "'declared' TS/JS origin sets rest on vitest-jest default globs that ignore the jest configuration, which gives unsound no-static-path-within-bound",
+   "ownerLaw": [
+    "docs/coop/design-corrections/native/native_evidence_model.v2.py:3544-3548 recognize_frameworks: when package.json has a 'jest' key (and no config file) it emits assurance declared, testGlobs ['**/*.test.*','**/*.spec.*','**/__tests__/**'] and unresolvedChoices []. It never reads jest.testMatch/testRegex/roots/projects.",
+    "native-evidence.md:2762-2774 FR-1..FR-5 give no completeness meaning to testGlobs"
+   ],
+   "candidateCode": "reference_model.py:1003 completeness 'declared' whenever no limitation; test_blockers (1017-1025) then allows no-static-path-within-bound",
+   "reproduced": [
+    "evidence/probe-owner.json P2 jestPackageJsonWithCustomTestMatch: the pinned native model, given package.json {jest:{testMatch:['**/tests/**/*.it.ts'],roots:['<rootDir>/tests']}}, returns the default globs as declared with no unresolved choice. None of them matches tests/parse.it.ts (defaultGlobsMatchCustomJestPath all false).",
+    "evidence/probe-candidate.json C2: the integration world with the jest-configured test src/helper.it.ts calling helper. The origin set is declared with 0 origins; helper and index are both 'no-static-path-within-bound' with no blockers. Schema and host admission accept."
+   ],
+   "fix": "Do not treat recognizer default globs as a declared origin set. Either make recognized-test-globs always partial with a limitation such as recognizer-default-globs-not-configuration (so no-static-path-within-bound needs an explicit origin declaration), or add to S1 a native successor that reads testMatch/testRegex/roots/projects as data and emits unresolvedChoices when they are present or not literal. Add C2 as a fixture."
+  },
+  {
+   "id": "F4",
+   "severity": "high",
+   "area": "RP-DO-05 entry recognition granularity / S1 FR-7 / Rust unit-package ownership / absence claims",
+   "title": "One recognition per cargo-workspace unit drops member-package entry points but reports state 'all', so no-entry-origin has no blockers when the origin is a member binary",
+   "ownerLaw": [
+    "native_evidence_model.v2.py:3832ff discover_units folds member Cargo packages into the one cargo-workspace unit (probe: one unit, memberPackageRoots [crates/app, crates/core])",
+    "native_evidence_model.v2.py:3560-3563 cargo-package reads only the unit-root Cargo.toml and src/main.rs|src/lib.rs",
+    "native-evidence.md:4024-4030 'WorkspaceUnitV2 and UnitMembershipV1 cannot supply this binding' (workspace granularity)",
+    "prototype-report-inventory.md:97 (R12) 'A missing path is unavailable, incomplete or absent within a stated scope'"
+   ],
+   "candidateText": "evidence-design-successor.v1.json#/ownerSuccessors/S1 FR-7 'One FrameworkRecognitionV1 is produced per WorkspaceUnitV2 with languageFamily rust or tsjs'; reference_model.py:826 adds entry-recognition-not-all only when the unit summary is not 'all'",
+   "reproduced": [
+    "evidence/probe-owner.json P2: root Cargo.toml with [workspace]+[package] and member crates/app with src/main.rs gives entryPoints {all, recognized} with only src/main.rs. A virtual workspace gives none.",
+    "evidence/probe-candidate.json C3 and the candidate's own expectation check.py:523: rs:core::shared_fmt has one reachability origin, rs:app::main in crates/app/src/main.rs. That path is owned by the SELECTED bin target 'app'. The trace is no-entry-origin with originsOutsideEntrySet 1 and blockers []."
+   ],
+   "fix": "Either recognize per member package root (memberPackageRoots / SourceUnitOwnershipV1 selected bin, test, example and bench target roots) and commit that granularity in FR-7 and the parameter, or make the unit summary partial (or add a blocker such as member-packages-not-recognized) whenever a cargo-workspace unit has members. Change the check.py:523 expectation accordingly."
+  },
+  {
+   "id": "F5",
+   "severity": "medium",
+   "area": "S4 patch composition with other report obligations",
+   "title": "Exact before/after remove-rows ops do not compose with another obligation's exact ops on the same shared selectors; the check proves only set semantics",
+   "candidateText": "owner/report-projection-successor-patch.v1.json#/compositionWithOtherObligations claims the ops commute with other successors; check.py:378-388 tests a remove() helper that ignores before/after",
+   "reproduced": "evidence/probe-candidate.json C4. An RP-DO-11 (step-duration) patch built with the same exact-before/after discipline on the 8 shared selectors. Applying this patch then RP-DO-11 with check.py's own apply_patch gives 'REFUSED patch before mismatch /$defs/FeatureId/enum'. The reverse order is refused the same way.",
+   "fix": "Specify remove-rows as match-based, with preconditions 'every match present' and 'no other member changed', and verify before/after only against the pinned parent as a separate record. Alternatively publish a rebase law. Test both orders with a real second obligation's ops through the same applier."
+  },
+  {
+   "id": "F6",
+   "severity": "medium",
+   "area": "Report size budget (RP-EV-INT-BUDGET) / RP-DO-03 carrier",
+   "title": "CouplingPanelV1 has no byte projection for owners, cells or targetBuckets; a dense 120-package workspace exceeds both the exploration cap and the foundation canonical byte limit",
+   "candidateText": "evidence-design-successor.v1.json#/integrationDuties/RP-EV-INT-BUDGET says byte-budget omission uses ItemProjectionV1 for metricsProjection and drilldownProjection only; schema cells maxItems 1,000,000, owners 65,536, targetBuckets 1,000,000; check.py:752-757 measures only the 39,085 B integration panels",
+   "ownerLaw": [
+    "subject-05 fixtures bases/audit-full budgetProfile explorationMaxCanonicalBytes 4,194,304; report_model.py PROJECTION_PRIORITY excludes the new panels",
+    "foundation/canonical.py:7,72-73 MAX_BYTES 4 MiB, BYTE_LIMIT"
+   ],
+   "reproduced": [
+    "Failed first attempt, preserved: evidence/probe-candidate.json C7. foundation canonical.canonical raised BYTE_LIMIT while canonicalising the whole n=120 coupling panel.",
+    "Corrected check: evidence/probe-c7-sizes.json. Element-wise canonical sizes for n=40/80/120 dense packages: 1,224,223 / 3,000,064 / 5,959,928 B, with cells at 5,283,601 B for n=120. admit_coupling accepts all three. The only projection member is drilldownProjection."
+   ],
+   "fix": "Add a cellsProjection/ownersProjection (byte-budget prefix under a declared priority, e.g. facts descending, with rejectedByteDelta) or a whole-panel omitted/exploration-budget-exceeded state. Place coupling and symbolEvidence in the projection priority with a test at schema maxima. Keep every panel under the codec MAX_BYTES."
+  },
+  {
+   "id": "F7",
+   "severity": "medium",
+   "area": "Evidence adequacy of check.py for bounded traversals and absence",
+   "title": "Three behaviour mutants survive, and the featureMap reference check is vacuous",
+   "reproduced": [
+    "M4 test-reach universe filter removed: CHECK OK (see F2)",
+    "M7 whole_view_projection countBasis forced exact (reference_model.py:382): CHECK OK. No coupling fixture exceeds maxItemsPerOperation, so projection-lower-bound is never exercised for coupling.",
+    "M8 metric zeroSupportsAbsence ignores limitations (reference_model.py:611): CHECK OK. Admission recomputes with the same function, and no fixture has an exact zero with limitations.",
+    "Killed: M1 (test-origin-set-partial ignored), M2 (Rust selection ignored), M3 (J-COUPLING-ABSENCE removed), M5 (entry-recognition-not-all dropped), M6 (repository-relative glob matching)",
+    "check.py:770 asserts pointer_parent(patched, ref)[0] is not None. That holds for a nonexistent final member (C5: '/$defs/GraphPanelV1/properties/reviewerBogusMember' passes the predicate but does not resolve). The 10 actual refs do resolve (C5)."
+   ],
+   "fix": "Add fixtures: whole-view >100,000 imports (or a lowered test bound as query section 5 allows), an exact-zero metric under a resolution limitation, and a cross-universe test caller. Resolve featureMap refs fully."
+  },
+  {
+   "id": "F8",
+   "severity": "low",
+   "area": "RP-DO-03 duplicate provenance across universes",
+   "title": "One source import observed by two programs counts twice in facts, edges and importerSymbols, with no universe-independent count",
+   "reproduced": "evidence/probe-candidate.json C6. Adding the same packages/shared/src/format.ts import observed in the shared universe (it is already observed in the web universe) moves the shared->web cell from facts/edges/importerSymbols 1/1/1 to 2/2/2 with two importerUniverses. Schema and host accept.",
+   "fix": "Either add a distinct count keyed by (importer attributed path, target owner key) or state a const countUnit (per-universe fact2) that browsers must render beside the numbers."
+  },
+  {
+   "id": "F9",
+   "severity": "low",
+   "area": "RP-DO-03 importer attribution source (not reproduced; design question)",
+   "title": "Importer path is taken from the importer symbol's inventory row rather than the imports fact anchor path that the native ownership selection law keys on",
+   "ownerLaw": [
+    "native-evidence.md:4041-4044 ownership rows are those whose path equals the enclosing fact's anchor path",
+    "foundation/relation-payload-schemas.v2.json relations.imports anchorLaw source-text, minimum 1"
+   ],
+   "candidateCode": "reference_model.py:453 (symbol_attribution through SubjectInventoryV1 symbol rows); causes symbol-not-inventoried and symbol-attribution-conflict",
+   "limitation": "No provider output was available to show whether importer SubjectIds are inventoried declaration rows. This is recorded as an unverified assumption, not a reproduced defect.",
+   "fix": "Justify against the native imports producer, or have S3 expose the fact anchor paths and attribute by anchor path under the section 2.1 law."
+  }
+ ],
+ "verifiedWithoutFinding": [
+  "Custody before/after, 13 files, inner/outer manifests, 47 pins; the copied check reproduces CHECK OK with a result byte-identical to root validation",
+  "Identity recipe compatibility: candidate native_h equals the pinned native_identity for FrameworkRecognitionV1 and source_unit_id for UnitIdentityV1 (probe-owner P2 identityRecipe.agree=true)",
+  "Rust ownership decision order in path_owner_keys matches native-evidence.md:4038-4050 (partial before rows, equal path, selection restriction, no fallback); mutant M2 is killed",
+  "TS/JS unit-root-relative glob slicing is enforced (mutant M6 killed by J-TR-ORIGIN)",
+  "Rust origin set is const partial with in-target-unit-tests-not-identified (schema rejects declared)",
+  "Metrics cap: SymbolEvidencePanelV1.metrics maxItems 320 = budgetProfile.maxPlannedSubjects 64 x 5 catalog metrics (probe-candidate C8)",
+  "Trace origin page: a continuation cursor yields unknown/origin-page-set-not-embedded (candidate variant; mutant M5 killed for the blocker path)",
+  "Imported TestPayloadV1 testId is never an origin (schema refusal case reproduced in the copied check)"
+ ],
+ "observations": [
+  {
+   "id": "O1",
+   "text": "With any explicit discovery.entryPoints, every rust/tsjs unit summary becomes {all, explicit}, including units with no explicit entry inside them. no-entry-origin then carries no entry-recognition-not-all blocker (probe-candidate C9: web-legacy unit and ts:web/api trace). native-evidence.md FR-2 (2765-2767) and section 4.5 item 2 (2219-2220) arguably support this, so it is not raised as a finding. The report should still disclose that the explicit set is project-wide."
+  },
+  {
+   "id": "O2",
+   "text": "S3 is plausible from existing query internals (query_projection_model.v3.py select_views:692, collect_projected_edges:938, relevant_resolution_limitations:987), but it was not executed against that model by the candidate or by this review. The produced-item law for a non-operation projection with no cursor is unstated (see M7)."
+  }
+ ],
+ "limitations": [
+  "Worlds, graph owner and recognition parameters are synthetic constructions; source data and synthetic admitted dictionaries are not runtime custody.",
+  "No product engine, provider, store, generator (RP-EV-INT-GENERATOR), browser (RP-EV-INT-BROWSER) or measurement (RP-EV-INT-MEASURE) was run.",
+  "query_projection_model.v3 was not executed; the native and identity owner models were executed only for the functions cited, in memory, with no owner bytes changed.",
+  "Architecture files read outside the 47 pins (identity-model.v3.py, native_evidence_model.v2.py and their transitive loads) are recorded with sha256 in evidence/probe-owner.json and evidence/probe-candidate.json compiledSources/openedGovernedFiles; they are not pinned by the subject.",
+  "Catalogue/timing/config proposals are out of scope and not claimed."
+ ],
+ "evidence": {
+  "evidence/custody-before.json": "15f9a16a4b571eac8d3213e715152a86eba516bd0836166a9de934d196ba48a4",
+  "evidence/custody-after.json": "25312c36051bda0bca061f1171ca0319ff53a446b7431cc1d7886383cad8b9e9",
+  "evidence/copy-check-result.json": "5c7ea5c68df213d447a1a142dcca9fa7567de75ca700bd5e0c8f3e7e3fa723c1",
+  "evidence/copy-check-stdout.txt": "059414b99c541b18af2c2e77b49da359386f0296737d6132551273906cd25020",
+  "evidence/probe-owner.json": "6c9412887270ff4fbf8b90d7464c03031c47705ae54f7325c284bd1b9dcb1144",
+  "evidence/probe-candidate.json": "735393df7de06c9cb680c3c0ae9b3a7e85fdae733e4b2ef2dbe7d1620e26cd86",
+  "evidence/probe-c7-sizes.json": "5b09b3c4c73576d894cf87f5341bfaaf1dbe7e29c5c4915ea9dcac08b3372545",
+  "evidence/mutants.json": "93e0be8200f19358089bf9b51a7c394e5c806be8bd792e6fa0984dafedd4e12c",
+  "evidence/mutants/*.std{out,err}.txt": "per-mutant check.py output; M4/M7/M8 stdout sha256 ab30fad1b2788e66450631ed2b52d49575ce49037cd82d537e232f0f1ce0875a (CHECK OK)",
+  "scratch/verify_subject.py": "4674a3cb4d1b3cb6114adb0b296f13901191071aa6044616b2095be0b1a78c7c",
+  "scratch/harness.py": "c0e5f7c322b7387b0c30da99571959a4961dab4995fc008b08d2280b5ed23b5c",
+  "scratch/probe_owner.py": "72adb4111ec7acc191a17d7b9b05d1f5f7e84e2cb7e408f7404ced78ec48f99d",
+  "scratch/probe_candidate.py": "e3b2ac1d25ea045a22de3d1bda5bb19e4ec238f092ac266bc747e0c9687a5242",
+  "scratch/probe_c7_sizes.py": "40829a7e180c3e09b8c247b1181468867e7d74e419ba6ee2512a1bd05a3c678c",
+  "scratch/mutate_prepare.py": "3186cbb28b9e018521c973a932cfaa023d48b61de6ec5457c4980d9172643711"
+ },
+ "failedProbes": [
+  {"probe": "probe-candidate.json C7 (whole coupling panel canonicalisation, n=120)", "result": "foundation canonical AdmissionError BYTE_LIMIT", "disposition": "kept as evidence for F6; the corrected element-wise measurement is probe-c7-sizes.json"}
+ ]
+}

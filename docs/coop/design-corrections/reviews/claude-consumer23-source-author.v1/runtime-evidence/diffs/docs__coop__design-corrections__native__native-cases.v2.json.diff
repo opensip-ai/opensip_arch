@@ -1,0 +1,91 @@
+--- frozen36/docs/coop/design-corrections/native/native-cases.v2.json
++++ assembly/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -11162,6 +11162,88 @@
+    }
+   },
+   {
++   "id": "native-deficiency-whole-run-route-is-total-and-d9-owned",
++   "feedback": [
++    "R7"
++   ],
++   "kind": "positive",
++   "note": "Section 10 class/code columns are the whole-Run route of a DeficiencyV2 member: the D9 exit contract's codeMaps.deficiencyToReasonCode, reached through the native bridge into D9Deficiency (five members map to themselves, four to verdict-indeterminate). Direct helper evidence only: no Coverage admission, no Run.",
++   "steps": [
++    {"fn": "d9_route_drift", "args": {}, "bind": "drift"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "language-tier-unsupported"}, "bind": "lt"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "provider-unavailable"}, "bind": "pu"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "input-closure-incomplete"}, "bind": "ic"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "budget-exhausted"}, "bind": "be"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "confidence-floor-unmet"}, "bind": "cf"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "derivation-policy-unmet"}, "bind": "dp"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "resolution-incomplete"}, "bind": "ri"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "external-consumers-unknown"}, "bind": "ec"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "required-relation-missing"}, "bind": "rr"},
++    {"fn": "native_deficiency_d9", "args": {"deficiency": "native.something-new"}, "expectError": "no whole-Run D9 route", "bind": "unknown"}
++   ],
++   "expect": {
++    "$drift": [],
++    "$lt.code": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
++    "$lt.d9Deficiency": "language-tier-unsupported",
++    "$pu.code": "COVERAGE.PROVIDER_UNAVAILABLE",
++    "$ic.code": "VERDICT.INDETERMINATE",
++    "$ic.d9Deficiency": "verdict-indeterminate",
++    "$be.code": "COVERAGE.BUDGET_EXHAUSTED",
++    "$cf.code": "COVERAGE.CONFIDENCE_FLOOR_UNMET",
++    "$dp.code": "VERDICT.INDETERMINATE",
++    "$ri.code": "VERDICT.INDETERMINATE",
++    "$ec.code": "VERDICT.INDETERMINATE",
++    "$rr.code": "COVERAGE.REQUIRED_RELATION_MISSING",
++    "$rr.class": "indeterminate",
++    "$rr.exitCode": 3
++   }
++  },
++  {
++   "id": "run-termination-code-is-the-primary-deficiency-route",
++   "feedback": [
++    "R7"
++   ],
++   "kind": "positive",
++   "note": "A successful stage with deficient entries, and a clean typed BudgetExhausted/Unavailable stage, terminate under the whole-Run route of the primary deficiency: section 10 precedence over the entries and the stage terminal. The typed detail keeps the most specific ENTRY deficiency and every carried nativeCause for either stage kind. Direct helper evidence only: no Coverage admission, no Run, and only the primary code (D9 secondaryDeficiencies are composed by the host).",
++   "steps": [
++    {"fn": "stage_authority", "args": {"terminal_kind": "complete"}, "bind": "st"},
++    {"fn": "stage_authority", "args": {"terminal_kind": "budget-exhausted"}, "bind": "sb"},
++    {"fn": "stage_authority", "args": {"terminal_kind": "unavailable"}, "bind": "su"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "references", "deficiency": "budget-exhausted", "nativeCause": null}]}, "bind": "budget"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "declares", "deficiency": "language-tier-unsupported", "nativeCause": "capability-missing"}]}, "bind": "tier"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "clones", "deficiency": "confidence-floor-unmet", "nativeCause": null}]}, "bind": "floor"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "references", "deficiency": "required-relation-missing", "nativeCause": null}]}, "bind": "missing"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "references", "deficiency": "provider-unavailable", "nativeCause": "capability-missing"}]}, "bind": "provider"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "references", "deficiency": "resolution-incomplete", "nativeCause": null}, {"relation": "types", "deficiency": "budget-exhausted", "nativeCause": null}]}, "bind": "precedence"},
++    {"fn": "run_termination", "args": {"stage": "$sb", "coverage_entries": [{"relation": "references", "deficiency": null, "nativeCause": null}]}, "bind": "stageBudget"},
++    {"fn": "run_termination", "args": {"stage": "$sb", "coverage_entries": [{"relation": "declares", "deficiency": "language-tier-unsupported", "nativeCause": "capability-missing"}]}, "bind": "stageBudgetTier"},
++    {"fn": "run_termination", "args": {"stage": "$su", "coverage_entries": [{"relation": "references", "deficiency": "input-closure-incomplete", "nativeCause": "lockfile-missing"}]}, "bind": "stageUnavailableClosure"},
++    {"fn": "run_termination", "args": {"stage": "$st", "coverage_entries": [{"relation": "references", "deficiency": null, "nativeCause": null}]}, "bind": "clean"}
++   ],
++   "expect": {
++    "$budget.d9.code": "COVERAGE.BUDGET_EXHAUSTED",
++    "$budget.d9.exitCode": 3,
++    "$budget.typedDetail.deficiency": "budget-exhausted",
++    "$tier.d9.code": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
++    "$tier.typedDetail.nativeCauses": ["capability-missing"],
++    "$floor.d9.code": "COVERAGE.CONFIDENCE_FLOOR_UNMET",
++    "$missing.d9.code": "COVERAGE.REQUIRED_RELATION_MISSING",
++    "$provider.d9.code": "COVERAGE.PROVIDER_UNAVAILABLE",
++    "$precedence.d9.code": "COVERAGE.BUDGET_EXHAUSTED",
++    "$precedence.typedDetail.deficiency": "budget-exhausted",
++    "$stageBudget.d9.code": "COVERAGE.BUDGET_EXHAUSTED",
++    "$stageBudget.typedDetail": null,
++    "$stageBudgetTier.d9.code": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
++    "$stageBudgetTier.typedDetail.deficiency": "language-tier-unsupported",
++    "$stageUnavailableClosure.d9.code": "COVERAGE.PROVIDER_UNAVAILABLE",
++    "$stageUnavailableClosure.typedDetail.deficiency": "input-closure-incomplete",
++    "$stageUnavailableClosure.typedDetail.nativeCauses": ["lockfile-missing"],
++    "$clean.d9.class": "success",
++    "$clean.d9.exitCode": 0,
++    "$clean.typedDetail": null
++   }
++  },
++  {
+    "id": "admitted-incomplete-inputs-yield-authoritative-indeterminate-3",
+    "feedback": [
+     "R7"

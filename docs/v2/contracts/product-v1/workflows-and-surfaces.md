@@ -1,13 +1,13 @@
 # Workflows and surfaces — invocations, baselines, comparison, imports, policy, review, repair, outputs
 
-**Standing:** Authored by actual Claude, then corrected by Codex under D-367 delegated
+**Standing:** Authored and corrected by actual Claude, Codex and actual Grok under D-367 delegated
 design authority for the D-371 intended product. Review and application standing
 is governed by the [correction record](../../../coop/design-corrections/README.md)
 and central readiness register; mixed-author changes require independent review
 and a prospective act naming replacement selectors. Nothing here edits a frozen source, awards a grade,
 authorizes implementation or claims platform qualification. Reference evidence is in
 [`docs/coop/design-corrections/workflows/`](../../../coop/design-corrections/workflows/README.md):
-thirteen closed schemas, a reference model, hand-authored cases and a checker. Those
+closed schemas, reference models, hand-authored cases and checkers. Those
 are design evidence over synthetic trusted inputs, not product measurement.
 
 **Addresses, subject to independent acceptance:** AR-08 (one operational lifecycle for invocation, attempt, step, Run,
@@ -20,15 +20,29 @@ delivery behaviour). Owner rows: DR-131/117/133/107 (lifecycle), DR-111/006/130
 
 **Joint interfaces honoured.** Identities are `H(domain, descriptor)` under the
 foundation recipe; this unit names domains (§10) and never defines a second
-serializer. Product identities are the major-two successors: `snapshot2`, `plan2`,
+serializer. Unchanged native and input identities retain their major-two recipes: `snapshot2`, `plan2`,
 `closure2`, `import2`, `fact2`, `coverage2`, `view2`, `exec-plan2`, `finding-key2`,
-`evidence2`, `run2`. Operational identities are the existing `RequestId`
+with evaluator output `finding3`, `subject3`, `proof3`, `evidence3`, `seal3` and `run3`. Operational identities are the existing `RequestId`
 (`req1_`+32 hex) and `ExecutionId` (`exec1_`+32 hex), admitted by the
 end-anchored current common schema and identity §2. EXECUTION-ID-V1/C-2 is the
 historical grammar provenance; its bare end anchor is explicitly succeeded.
 The historical R-1 `execution:<text>` fixture grammar is not admitted. D9 classes, codes and exit numbers are host-owned and unchanged.
 
-Every array in the thirteen current workflow schemas declares
+The current output dispatch is the incorporated
+[evaluator3 workflow projection contract](../../../coop/design-corrections/workflows/workflow-projection-contract.v3.md).
+Its closed schemas live under `workflows/schemas/evaluator3/`: envelope,
+invocation, command inventory and graph query major3; baseline and comparison
+major2; review and repair schema profile2. Embedded policy uses
+`policy-document.v2.schema.json` (PolicyDocumentV2); the `policy test` input is
+`PolicyTestSuiteV2` (`schemas/evaluator3/policy-test.schema.json`), whose candidate policy is
+PolicyDocumentV2. Unchanged scope, waiver and import records, the retained
+`test-execution.schema.json` test-execution documents and operational records keep
+their explicitly selected owners.
+Historical output schemas remain retained evidence and are not an alternative
+parser for this profile. An absent unmatched-population field in an old
+baseline is never interpreted as an empty population in a new baseline.
+
+Every array in the selected workflow schemas declares
 `x-opensip-order` under identity §3. Baseline entries use unique fingerprint
 order; pivot closures use unique closure-ID order; source-mapping entries use
 unique generated-path order; import blob and repair edit rows use unique path
@@ -44,15 +58,15 @@ the declared order; the shared encoder does not infer sets or reorder inputs.
 
 | Source | Selector | Disposition |
 |---|---|---|
-| `docs/coop/artifacts/versioning-policy.v8.json` | `$.comparisonSchema.ComparisonResult` (five classifications, `pivotDetectorVersion`) | **Superseded** by `ComparisonResultV1` (§3): nine classifications, explicit pivot chain, audit profiles, typed indeterminacy. |
+| `docs/coop/artifacts/versioning-policy.v8.json` | `$.comparisonSchema.ComparisonResult` (five classifications, `pivotDetectorVersion`) | **Superseded** by the major2 comparison result (§3): nine classifications, explicit pivot chain, audit profiles, typed indeterminacy. |
 | `docs/coop/artifacts/versioning-policy.v8.json` | `$.detectorSemanticDelta.theFix.requires` and "B-CSG-04 / CS-04" (dual emission justifies the pivot) | **Corrected**: fact/fingerprint dual emission migrates identity only; the pivot needs the retained or bundled executable closure (§3.3). |
-| `docs/coop/architecture/07-outcomes-and-failure.md` | CANDIDATE `CommandEnvelope` major-1 union | **Succeeded** by envelope major 2 (§8): adds `invocation` and `doctor` kinds, mandatory `requestId` and `exitCode`. Major-1 consumers are refused with `REQUEST.SCHEMA_MAJOR_UNSUPPORTED`, never reshaped. |
+| `docs/coop/architecture/07-outcomes-and-failure.md` | CANDIDATE `CommandEnvelope` major-1 union | **Succeeded** by envelope major 3 (§8): adds `invocation` and `doctor` kinds, mandatory `requestId` and `exitCode`. Major-1 consumers are refused with `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` and detail `OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED`, never reshaped. |
 | `docs/coop/architecture/08-surfaces-and-topology.md`, `docs/MAP-VS-CONTROL.md` | Historical command surface and Map/Control grammar | **Superseded** by the single command inventory (§8) and the advisory boundary (§5). |
 | `docs/coop/completion/reference-architecture.v2.md` | Preview analyze/doctor/help command set | Historical D-369 scope; no restriction on §8. |
 | `docs/v2/architecture/13-evidence-workflows-and-product-contracts.md` §§5–7, 9 | Workflow, baseline, import and repair prose | **Replaced** by §§1–7 here. |
 | `docs/coop/artifacts/c2-plan-stage-schema.v4.json` | `$.planIntent.wireTypes.executionId` | **Provenance retained; admission succeeded** by identity §2 and current `common.schema.json#/$defs/ExecutionId`, with the portable absolute end assertion. The historical bare `$` is not an alternative admission boundary. |
 | `docs/coop/artifacts/d9-exit-contract.v1.14.json` | class/code/exit table | **Retained**; §9 adds typed domain detail beside existing codes and maps every detail to one lawful class. |
-| `docs/coop/artifacts/d9-exit-contract.v1.14.json` | `$.hostTerminationUnion` field closure and nullability | **Succeeded for product envelope major2** by `common.schema.json#/$defs/StepTermination`: its closed fields include `authority`, `domainDetail` and `faultCause`; no undeclared D9 field is admitted. Optional termination fields remain absent rather than explicitly null. §8's renderer parity record is a separate closed projection: its `run-id` may be null for a non-authoritative result; this is never `termination.runId` and creates no Run authority. Class/code/exit legality remains retained. |
+| `docs/coop/artifacts/d9-exit-contract.v1.14.json` | `$.hostTerminationUnion` field closure and nullability | **Succeeded for product envelope major3** by `common.schema.json#/$defs/StepTermination`: its closed fields include `authority`, `domainDetail` and `faultCause`; no undeclared D9 field is admitted. Optional termination fields remain absent rather than explicitly null. §8's renderer parity record is a separate closed projection: its `run-id` may be null for a non-authoritative result; this is never `termination.runId` and creates no Run authority. Class/code/exit legality remains retained. |
 
 Not touched: root discovery (security/foundation), native cells and import payload
 grammars (native §7), identity recipes and retention (identity contract).
@@ -66,9 +80,9 @@ before admission and retained for refusal as well as success. The invocation is 
 ordered acyclic list of at most **64 steps**; `StepId` is the zero-based position.
 Each admitted attempt of a step receives a fresh `ExecutionId`; a step has at most
 **3 attempts**. Only `analysis` and `verify` steps seal or link a content-derived
-`run2`. `comparison`, `query`, `render`, `import`, `repair-preview`, `repair-apply`,
+`run3`. `comparison`, `query`, `render`, `import`, `repair-preview`, `repair-apply`,
 `test-execution`, `native-preparation`, `mutation`, `export-delivery` and `doctor` are operational steps
-that never mint a Run. Schema: `invocation-record.schema.json`.
+that never mint a Run. Schema: `workflows/schemas/evaluator3/invocation-record.schema.json`.
 
 **Step DAG versus derivation DAG.** The step list is the operational workflow. Each
 analysis/verify *attempt* owns exactly one derivation DAG (`exec-plan2`, at most
@@ -242,18 +256,35 @@ No policy file is written implicitly.
 
 ## 2. Portable baseline and runnable prior detector (AR-10)
 
-`BaselineArtifactV1` lives in the repository as tracked intent
+The major2 baseline artifact lives in the repository as tracked intent
 (`opensip.baseline.json`). `baselineId = H('workflow.baseline', descriptor)`. The
-descriptor pins: origin ProjectId, source `snapshot2`, the **authoritative** `run2`
+descriptor pins: origin ProjectId, source `snapshot2`, the **authoritative** `run3`
 and `plan2` (an ephemeral result is refused: `BASELINE.SOURCE_EPHEMERAL`), the
 fingerprint recipe (`finding-fingerprint`, major ≥ 2), every contributing detector's
 `closure2` with semantics major, the complete **pivot closure** (detector executable,
-evaluator, toolchain/stdlib, schema set; each a `closure2` with manifest digest,
+evaluator, provider, toolchain/stdlib, schema set; each a `closure2` with manifest digest,
 protocol major and platform), the evaluation context digests, the **embedded**
 policy/scope/waiver documents whose digests equal those context digests, rule
-coverage, and sorted unique entries. Custody (outside identity) carries host release,
+coverage (including each rule's recorded absence knowledge, §3), sorted unique matched entries and explicit unmatched occurrences.
+Matched occurrences group only after equal fingerprint preimages and agreement
+on every BaselineEntry field. Messages, parameters and citations remain on each
+original finding. Unmatched findings retain their finding and subject identities;
+they cannot be silently discarded or assigned a guessed stable fingerprint.
+Custody (outside identity) carries host release,
 export time, `retentionPins` (the Run and every pivot closure) and an optional signed
 `closureBundle` reference.
+
+**Detector identity.** A detector is identified by its evaluator emission contribution.
+`detectorClosure` has exactly one row per distinct `contributionId` of the origin Plan's
+`EvaluatorEmissionPlanV1` rule rows, disabled rules included: `detectorId` equals that
+`contributionId`, and `closureId` and `semanticsMajor` are that row's `detectorClosure` and
+`semanticsMajor`, which equal the policy rule's `ruleProgramRef` major. Two rows for one
+contribution with a different closure or major refuse (`CONFIG.INVALID` /
+`EVALUATION.FINDING_JOIN_REFUSED`). `BaselineEntry.detectorId` is the `contributionId` of the
+entry rule's emission binding and is a member of `detectorClosure`; comparison `detectorId`
+values use the same identity. Baseline admission checks these joins after recomputing
+`baselineId`, so a self-consistently reminted rename of a detector identity is refused rather
+than accepted as a different baseline.
 
 **Fresh CI.** Comparison never reads the origin machine's store. A fresh host admits
 the artifact by recomputing `baselineId`, checking schema major, recipe major,
@@ -268,8 +299,19 @@ executed, whatever bytes are present.
 
 **Detector semantics.** Semantics can change within a major, so two-way comparison
 is lawful only when the closures are identical (`identical-closure`) or the current
-detector's signed manifest lists the baseline `closure2` as exactly semantically
-compatible at the same major (`declared-compatible`). Otherwise the baseline detector
+detector's authenticated compatibility listing names the baseline `closure2` as
+exactly semantically compatible at the same major (`declared-compatible`).
+Security S1 binds this optional listing to the unique regular-file path
+`.opensip/detector-compatibility.json` in the already admitted same `closure2`
+tree. The listing uses `schemas/evaluator3/detector-manifest.schema.json`;
+its exact retained byte length and SHA256 must match the signed tree file.
+`closure.manifestDigest` continues to identify the component manifest body.
+An absent reserved path means no declaration; a valid empty listing declares
+no compatible peers; a present invalid, non-file or unavailable listing refuses
+(`REQUEST.PRECONDITION_FAILED` / `EVALUATION.PROJECTION_INPUT_INCOMPLETE`; the refusal
+message is diagnostic only) and cannot silently become absence. The host admission origin is one of the
+three current-trust paths above. Caller-provided compatibility or trust claims
+do not supply that admission. Otherwise the baseline detector
 must run over current source (`three-way-pivot`, an authoritative pivot analysis step
 planned before the primary one) or the detector's entries are `INDETERMINATE`.
 Fingerprint dual emission (`legacyFingerprint`) migrates identity only and never
@@ -278,11 +320,17 @@ retention roots; loss of a pin is disclosed as partial availability and yields t
 indeterminacy, never a silent two-way fallback. `baseline-upgrade` re-adopts under the
 current detector explicitly and is a mutation with its own receipt.
 
+**Baseline show.** `opensip baseline show [PATH]` admits the tracked artifact as above and reports,
+for each descriptor pivot closure in order, its current-trust state: `missing` (no admitted record
+or bytes), `revoked` (trust not admitted), `incompatible` (unsupported protocol major, or a platform
+that is neither the host's nor `any`), or `available` with its trust origin (retained generation,
+installed signed release or signed closure bundle). These states are data, not a failure.
+
 ---
 
 ## 3. Multi-axis comparison (AR-11)
 
-`ComparisonResultV1` (`comparison2:` = `H('workflow.comparison', descriptor)`)
+The major2 comparison result (`comparison2:` = `H('workflow.comparison', descriptor)`)
 attributes every fingerprint to the **first** axis at which it changes along a fixed
 counterfactual chain evaluated over *current* source:
 
@@ -308,6 +356,80 @@ when the pivot ran, `unavailable` otherwise. Classifications are `UNCHANGED`,
 again). Deleting a waiver while adding a bug therefore yields one `WAIVER-DELTA` and
 one `CODE-NET-NEW`; a bug introduced and simultaneously hidden by disabling the rule
 is `CODE-NET-NEW` with `subsequentDeltas=[policy]`.
+
+**Evidence for presence.** The fingerprint population is the union of B and
+all admitted E0–E4 results, including fingerprints present only in a pivot.
+A known matched finding establishes presence even when waived; waiver status
+is a separate axis. Absence of a particular fingerprint requires complete
+subject enumeration, determinate `emitWhen` proof roots for every selected
+subject, and that fingerprint absent from the exact admitted emission set.
+A known finding on another subject does not invalidate this negative knowledge.
+All-false roots establish the stronger claim that the rule emitted no findings.
+Required execution deficiencies still affect the overall Run and comparison
+verdict; they do not retract a determinate per-rule fingerprint result.
+An advisory `pass` alone does not establish absence. A false root may retain
+unknown child witnesses under the published three-valued composition law;
+those witnesses do not turn a determinate false root into unknown. Unknown
+roots, incomplete enumeration, disabled evaluation and exhausted budgets do
+not establish a negative result. Known hits remain usable in a partial result.
+
+**One presence-knowledge law on every side.** B, E0–E3 and E4 are each `true` (a known
+matched occurrence), `false` or `null` (not known). `false` is either non-selection or
+evaluated absence. Non-selection holds when that side's own policy does not enable the rule or
+its ScopeDocument does not select the path: the side cannot emit the fingerprint, so the change
+is attributed to the policy or scope axis that removed the selection. It is not an evaluated
+negative result, and because B, E0 and E1 share the baseline selection it never becomes
+`CODE-FIXED`. Evaluated absence is proved under the law above for that side's rule, including
+the attested path extent and correspondence knowledge: an unmatched occurrence of the same rule
+that might be the fingerprint leaves that side's presence `null`, because complete enumeration
+with such an occurrence is not proof the fingerprint was fixed or never present. Such an
+occurrence is related unless the paths differ or its retained subject kind, language and
+qualified name provably differ from the fingerprint's subject key; where no stronger relation is
+retained, the same-rule/same-path barrier applies. No fingerprint is ever minted for an unmatched
+occurrence, and a known matched hit stays `true`. The absence of a matched current hit is not by itself a known
+`false`: for an enabled rule selecting the path, incomplete or unknown enumeration, unknown
+roots and an exhausted budget leave E4 `null`. B is evaluated-absent for a non-entry only when
+the baseline's `RuleCoverage.absenceKnowledge` for that rule is `complete-hit-set`, recorded at
+adoption by the same law and no retained baseline `unmatchedOccurrences` row has the same rule
+and path (those rows carry no subject identity); B non-selection is read from the embedded
+baseline policy and ScopeDocument. The baseline artifact records per-rule knowledge, not a per-path extent. An entry whose first attributable change along B→E4 would rest on a `null`
+value is `INDETERMINATE` with `current-absence-unknown` (unknown E4) or
+`baseline-absence-unknown` (unknown B), never `CODE-FIXED`, `UNCHANGED` or `CODE-NET-NEW` by
+default. A change already established between known values before the unknown value keeps its
+classification, so a known `CODE-NET-NEW` still fails. Rule coverage, evidence and execution
+deficiencies remain independent of this knowledge.
+
+**Indeterminate reason selection (closed).** An entry publishes exactly one
+`indeterminateReason`, the first applicable in this order: (1) `pivot-reevaluation-unavailable`
+when a changed axis's pivot presence is `null` (E0 for a changed detector map, E1 policy, E2
+scope, E3 waivers), whether that pivot was not bound or was bound without presence knowledge,
+including a correspondence barrier on that pivot; (2) the evidence axis, evaluated per declared
+`evidenceUse` in declaration order: `required-evidence-unavailable`, then for a gating rule
+`evidence-availability-changed` or `evidence-content-changed`; (3) the detector disposition's
+own reason when its method is `indeterminate`; (4) `baseline-absence-unknown` when the first
+attributable change rests on a `null` B; (5) `current-absence-unknown` when it rests on a `null`
+E4. Whole-comparison reasons perform no comparison and emit no entries.
+
+**An unmatched baseline occurrence is not proven absence.** A baseline that retains an unmatched
+occurrence of a rule on a path (for example a symbol whose detector projection was unavailable)
+does not prove that a fingerprint of that rule on that path was absent. A fingerprint present
+only on a pivot stays in the comparison universe, the baseline's gating unmatched obligation
+remains a `correspondence-incomplete` deficiency, and the entry is `INDETERMINATE`
+(`baseline-absence-unknown`), not `CODE-NET-NEW`. A genuinely complete baseline that selects the
+path, records complete absence knowledge and retains no such unmatched occurrence proves
+`B=false`: a fingerprint present on a bound E1 pivot and hidden by disabling the rule in current is
+`CODE-NET-NEW` with `subsequentDeltas=[policy]` and still gates (`code-net-new-policy-hidden`).
+
+E1–E3 preserve current non-substituted inputs: selected source, configuration,
+provider/toolchain contexts, imports, native facts and Coverage, subject
+inventories, attribution/search records and candidate-producer evidence.
+Plan-bound envelopes are compared by their retained semantic contents after
+removing only the explicitly substituted parent locators. A policy, scope or
+waiver remint cannot authorize replacement of native evidence. E0 uses the
+prior detector and its admitted dependencies over current source and can
+therefore have different native contexts and evidence. Snapshot membership
+alone is not proof that native extraction examined a path; a counterfactual
+requiring evidence outside the attested extraction extent is unavailable.
 
 **Detector union.** Comparison covers the union of baseline and current detectors.
 Added detectors set E0 false. Removed detectors require the actual current-trusted
@@ -335,9 +457,10 @@ non-gating delta.
 | `full-current` | yes | yes | yes | yes | current only |
 | `report-only` | no | no | no | yes | current only |
 
-A `CODE-NET-NEW` entry that is not live in current (hidden by a later policy/scope
-change or by a waiver added in the same change) still gates under
-`baseline-or-current` with `gateReason=code-net-new-policy-hidden`. Verdict is `fail`
+A `CODE-NET-NEW` entry that is not live in current (hidden by a later detector, policy or scope
+change, or by a waiver added in the same change; `subsequentDeltas` names the later axes) still gates under
+`baseline-or-current` with `gateReason=code-net-new-policy-hidden`; that existing reason covers every
+later hiding axis. Verdict is `fail`
 if any entry gates, else `indeterminate` if any `INDETERMINATE` entry belongs to a
 gating rule or a current gating rule has unsatisfied/unknown required Coverage or
 evidence, else `pass`. Rule deficiencies are enumerated independently of findings;
@@ -441,7 +564,9 @@ evidence and `observable-unhit` is *bounded negative* evidence, both can satisfy
 and the disclosure records which did. **No imported observation establishes a
 universal negative** — one window is not universal non-use — and imported evidence
 can never *by itself* establish the native closed world or authorize an unsafe
-`delete`/`replace`: that gate stays the evidence Run's own `ClosedWorldV2` (§6).
+`delete`/`replace`, and it can never **improve** that gate either: the gate reads
+only the **native** `ClosedWorldV2` records the §6 relevance rule selects from the
+evidence Run, and no imported observation is one of them.
 It may still be an **additional required condition** alongside an
 already-established native basis, so it is wrong to say it never affects
 applicability; an unsatisfied imported requirement makes an otherwise-eligible
@@ -465,7 +590,7 @@ falsy value is read as optional.
 
 ## 5. Declarative policy DSL, authoring test, candidate → inspect → review
 
-**DSL.** `PolicyDocumentV1` is closed data: rules with a `ruleProgramRef`
+**DSL.** `PolicyDocumentV2` is closed data: rules with a `ruleProgramRef`
 (contribution, stable id, semantics major, program digest), `enabled`, `severity`
 (`note|warning|error`), `gate`, a `subjectEnumeration` (universe, subject kind,
 include/exclude globs over `LogicalPath` with only `*`, `?` and whole-segment `**`),
@@ -483,8 +608,15 @@ makes the rule indeterminate, optional evidence absent is disclosed as
 expression, hook, script, include or exec key; any such key is a schema violation
 (`POLICY.IMPERATIVE_KEY_REFUSED`). Policy, ScopeDocumentV1 and resolved WaiverSetV1
 digests are raw SHA-256 of their canonical closed documents, retained as blobs.
-The compiled RuleProgramV1 separately hashes its policy digest and ordered rule
+
+Glob matching follows the single [portable glob contract](../../../coop/design-corrections/foundation/glob-pattern-contract.v1.md): full-string, case-sensitive matching; terminal whole-segment `**` includes a filename, so `src/**` matches `src/index.ts`. The same predicate applies to policy field filters and host path scopes. Each containing contract continues to own its defaults and include/exclude combination law.
+The compiled RuleProgramV2 separately hashes its policy digest and ordered rule
 programs to proof.ruleProgramDigest; these are auxiliary hashes, not H identities.
+The exact endpoint, native field projection and imported test-filter grammars
+are in that policy schema and the incorporated atom contract. Identity §4 and
+the composition contract own independent subject enumeration, complete tree
+replay, full finding emission, waiver membership and budget semantics. Declared
+required evidence remains distinct from retained nonblocking branch diagnostics.
 
 **Waivers.** A waiver targets a fingerprint or `(ruleId, subjectPath)` with a reason
 and `expires` (date or null). Expiry and duplicates are resolved at **Plan
@@ -492,25 +624,69 @@ construction** against the admitted trust clock: expired waivers leave the effec
 set and are disclosed (`POLICY.WAIVER_EXPIRED`), two waivers on one target refuse
 (`POLICY.DUPLICATE_WAIVER`, `CONFIG.INVALID`), and the Plan's `waiverDigest` is that of
 the *resolved* effective set, keeping evaluation pure. `opensip waive` is the explicit
-tracked-intent write; nothing writes a waiver implicitly.
+tracked-intent write; nothing writes a waiver implicitly. `opensip policy show` resolves the tracked
+policy and waiver documents at the admitted trust-clock date and reports the policy, its digest,
+the effective waiver set, its digest and the resolution disclosure.
 
-**Authoring test.** `opensip policy test SUITE` is Query class. A suite supplies the
-candidate policy, waivers, an `asOfDate`, optional test-only overrides and cases with
-typed fact fixtures (subjects, facts, declared Coverage, available evidence kinds) or
-a bounded source fixture. Facts cases are evaluated by the deterministic fixture
+**Authoring test.** `opensip policy test SUITE` is Query class. Its input is `PolicyTestSuiteV2`
+(`schemaMajor` 2, [`schemas/evaluator3/policy-test.schema.json`](../../../coop/design-corrections/workflows/schemas/evaluator3/policy-test.schema.json)):
+a candidate `PolicyDocumentV2`, unchanged `WaiverSetV1` waivers, an `asOfDate`, optional test-only
+overrides of candidate rules and cases with typed fact fixtures (subjects, facts, declared Coverage,
+available evidence kinds) or a bounded source fixture. The retained `PolicyTestSuiteV1` (candidate
+`PolicyDocumentV1`) is the historical workflow1 input only. This is a breaking input change for
+`policy test`, not a relabel: a retained major-1 suite and its result stay historical evidence and are
+not re-evaluated under this profile. Facts cases are evaluated by the deterministic fixture
 verifier (the finite declarative fixture evaluator; this is reference evidence, not
-qualification of the production evaluator or native providers); sources cases run only under an ephemeral non-authoritative Plan with
+qualification of the production evaluator or native providers) under the current policy resolver and
+atom law, including endpoint, kind applicability and the registered filter projections. The facts
+fixture has an explicit representation law in that schema: a filter field or imported observation it
+cannot carry (the endpoint universe domain, `testResult`, `exitStatus`, test-execution and test-case
+observations) is unknown, and the absence of an imported row never proves absence. An unknown result
+for an enumerated subject lists the rule in `indeterminateRules` and leaves an affected finding or
+no-finding expectation `indeterminate` unless a known finding decides it; known findings, strong
+Kleene and gating are unchanged. Sources cases run only under an ephemeral non-authoritative Plan with
 bundled providers and otherwise report `not-executable`. Expectations are
 `finding{ruleId,minCount,maxCount,subjects}`, `no-finding`, `verdict`, `indeterminate`.
-The result (`policytest2:`) records candidate and effective digests, resolver
+The result stays `PolicyTestResultV1` (`policytest2:`) and records candidate and effective digests, resolver
 acceptance and refusals, applied overrides, waiver resolution and
 `enforcementUnchanged=true`; the same suite always yields the same result identity.
+Admission precedes evaluation, in this order. A suite or candidate policy of another major is
+`request-rejected` (exit 2) `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with `EVALUATION.MIXED_OUTPUT_MAJOR`, the
+current policy major refusal; it is never relabelled, coerced or grammar-classified. Every other refusal
+is `request-rejected` (exit 2) with `errorCode`
+`CONFIG.INVALID`, the D9 rejection cause `config-invalid`; the `DomainDetail` is a separate
+registered code. A candidate policy carrying a member that no closed `PolicyDocumentV2` alternative
+declares at that position, or a string where every closed alternative at that position is
+an object (a string expression), is `POLICY.IMPERATIVE_KEY_REFUSED`. Any other `PolicyTestSuiteV2`
+admission failure, a fixture fact whose resolution is not a rung of its registered relation or whose
+universe is not a registered policy universe token, or an override of a non-candidate rule or with the
+wrong value type carries the
+shared registered `CONFIG.INVALID` detail; the public detail registry row is registered by
+security, and the native route registry reuses the same detail for external configuration. An
+admitted suite whose candidate policy or waivers the current resolver refuses terminates the same way
+with the resolver's detail (`POLICY.DUPLICATE_WAIVER`, `POLICY.UNKNOWN_RULE`,
+`IMPORT.ABSENT_FOR_PREDICATE`); its `resolverAccepted=false` result records the refusal but is
+not a query carrier. A candidate rule whose `subjectEnumeration.universe` is not a token of the closed
+evaluator profile policy universe map (composition contract §2: `typescript`, `rust`, `syntax`) is such a
+`POLICY.UNKNOWN_RULE` refusal. Declared required evidence absent from a case never suppresses a known
+finding: the rule keeps its required-evidence deficiency in `indeterminateRules`, and a live unwaived gating
+finding still makes the verdict `fail` (composition contract §5 and §9.5).
 
 **Candidate → inspect → review (Map side).** `opensip candidates` lists
 `Candidate` records derived from one sealed Run: findings plus advisory kinds
 (`clone-candidate`, `low-confidence-unused`, `runtime-unhit`, `history-stale`) with an
 evidence level. Only a finding on a gating rule is `controlBearing`. `opensip inspect`
-returns a bounded `InspectionBundle` (≤ 4096 facts, Coverage, imports, limitations).
+returns a bounded `InspectionBundle` (≤ 4096 facts, Coverage, imports, limitations). Its `facts`,
+`coverageIds` and `importIds` are the fact2, coverage2 and import2 evidence references of the
+candidate's findings, unique and ordered by UTF-8 bytes; `limitations` name each unmatched
+correspondence reason, an incomplete enumeration of the candidate's rule, and any bound
+truncation (facts 4096; references and limitations 64). A candidate id that is not a candidate of
+the admitted Run refuses `IDENTITY.UNKNOWN` / `REVIEW.CANDIDATE_UNKNOWN`. `candidates` lists
+suppressed candidates only with `--include-suppressed`; `suppressedCount` always counts the Run's
+suppressed candidates and `evidenceLevels` counts listed candidates per level. The non-graph
+context of these Run-backed surfaces reports `coverage=complete` exactly when the admitted proof
+was evaluated with no execution deficiency and every enabled rule's enumeration is complete,
+otherwise `partial`, with `availability=retained`.
 `opensip review join` records a `ReviewDisposition` (`accept|reject|defer`, reviewer
 principal human/model/policy-rule, note, `suppressUntil` ≤ 365 days) as a mutation
 with a receipt. The disposition schema admits no verdict, Run, baseline or
@@ -533,24 +709,128 @@ and whose sealed assurance is replayable (else the plan is not applicable with
 (`REPAIR.RECIPE_TRUST_REVOKED`; an absent admission is also refused), targets present in that Run, and a live tree equal to
 the Run's snapshot (`REPAIR.SOURCE_MOVED`). It emits `RepairPlanV1`
 (`repairplan2:` = `H('workflow.repair-plan', descriptor)`) bound to `snapshot2`,
-`run2`, `plan2`, exact per-file edits (`replace|delete|create`, preimage digest from
+`run3`, `plan2`, exact per-file edits (`replace|delete|create`, preimage digest from
 the snapshot inventory, postimage digest and bytes; ≤ 4096 files, ≤ 16 MiB each,
 ≤ 64 MiB total), evidence requirements, the recipe's permitted edit scope (an edit
 outside it is `REPAIR.EDIT_OUTSIDE_PERMITTED_SCOPE`), `applicable`, unmet
 preconditions and limitations. Destructive unused-code recipes additionally require
 native closed-world resolution evidence; an advisory similarity or runtime-cold
-signal alone never authorizes deletion. Preview never writes.
+signal alone never authorizes deletion. Preview never writes. In the evaluator3 profile the plan is
+`repair:2` (`evidenceRunId` `run3`): the evaluator3 workflow owner joins the targets to matched
+`finding-key2` fingerprints of the retained evidence Run (workflow projection contract §5), builds
+the descriptor at that major and admits the plan before returning it. The historical major-1 plan
+keeps its own constructor and schema, and neither is relabelled into the other.
 
-**The closed-world gate reads the evidence Run; the descriptor carries a
-projection.** The guard covers **every `delete` and every `replace` edit** in the
-plan — the unsafe-action set is those two actions, without qualification, and this
-paragraph narrows it in no way. If the plan contains one, the prerequisite is
-decided against the evidence Run's own native `ClosedWorldV2` (native §4.5) —
-the record that contract closes at seven members — **before** any descriptor is
-built: `deadCodeRepairEligible=false` reports
-`REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` with that record's own `reasons` in the
-remedy, and an `imported-prepared-declared` evidence origin reports the same code,
-because a DECLARED prepared expansion is not authority for an unsafe repair.
+**The closed-world gate reads selected native records; the descriptor carries a
+display summary.** The guard covers **every `delete` and every `replace` edit** in
+the plan — the unsafe-action set is those two actions, without qualification, and
+this paragraph narrows it in no way. If the plan contains one, the prerequisite is
+decided **before** any descriptor is built, and an `imported-prepared-declared`
+evidence origin reports `REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` for the separate
+reason that a DECLARED prepared expansion is not authority for an unsafe repair.
+
+**A Run holds one `ClosedWorldV2` per Coverage entry, not one per Run, so the gate
+states which entries it reads.** `ClosedWorldV2` is a required member of
+`ViewEntryV3` (native §4.3), keyed by `CoverageKeyV2`
+(`relation`, `resolution`, `sourceUniverse`, `targetUniverse`,
+`subjectScopeCommitment`), and identity §3 makes several differing entries lawful
+in one Run: "a differing tuple is a different claim, not an overlap, which is why
+the same subject may lawfully appear under two relations, two rungs or two
+universes." An earlier revision of this section said the prerequisite was decided
+against "the evidence Run's own native `ClosedWorldV2`", as though a Run held one.
+It does not, and with several retained records that phrase did not denote. The
+selection law is the following, and it is decided over **retained** records only.
+
+1. **Relevant universes.** The relevant set is the union of two published joins,
+   and a universe in neither is **truly unrelated and does not veto**.
+   * Every universe reached by **all matching occurrences of every target
+     fingerprint**: `finding3.subjectId` → `subject3.universe`. All occurrences,
+     not a representative — a `finding-key2` frame carries no universe, and the
+     projection law that groups occurrences compares `ruleId`, subject path,
+     kind, qualified name and detector closure but **not** universe, so one
+     fingerprint may lawfully be matched in two universes.
+   * Every universe that **owns an unsafe edited path**, read from the
+     **retained selected-program census** of this Run's `EnumerationPlanV1`. That
+     parameter is **required** for evaluator3 — absent, the evaluator refuses
+     `EVALUATOR_REQUIRED_PARAMETER_MISSING`, and full replay re-admits it — so this
+     is a guaranteed retained join, not a caller-selected or optional unsigned map
+     and not filename parsing. For each binding whose `enumerator.status` is
+     `selected`, its **applicable path census** is its own `extents[]` plus, on a
+     candidate-only cell, its `candidateSourcePaths` — "the Plan-selected
+     source-path census for *that* program".
+     - A binding with a **non-null universe** whose census contains the path
+       contributes that universe.
+     - A **selected but unavailable** binding (`universe=null`, whose `extents`
+       remain "populated from host membership so expected file/package paths are
+       not lost") contributes **typed unresolved ownership**: it holds a real
+       retained expected-ownership claim with no universe to make eligible and no
+       Coverage to establish a closed world, so it reports
+       `REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` and **does not vanish because some
+       other owner of the same path is closed**.
+     - An **unselected** binding is not a selected program and is never inferred.
+     Each extent kind is read as itself: `file` and `package` are host membership
+     extents, `symbol` is the selected program's **code** scope. All snapshot files
+     are therefore **not** treated as every compiler's `programRootFiles`, and a
+     selected program whose own census does not contain the edit **stays
+     unrelated**. Legitimate **multiple ownership is preserved** — one path
+     analysed under two Rust targets or editions is two selected bindings with two
+     universes, and both must be eligible.
+   * Retained **`source-path`** subject scopes (`file`, `clones`, `vcs-change`,
+     all `universeRule: same-only`) are unioned in as an **additional retained
+     witness**. They are **not** the owner census and cannot certify its
+     completeness: their `subjectKindLaw` proves those scopes *name* paths, not
+     that they *enumerate* every selected program owning one. A selected program
+     with no such scope in this Run owns its extent just the same — which is
+     exactly the case the census covers, and which is reachable: a universe bound
+     only to a symbol-kind cell, owning a path through its retained symbol extent
+     with no file inventory and no lawful `file@enumerated` scope, is admitted.
+     Ownership is never inferred from a path prefix, a display string, an optional
+     sidecar or an unreferenced host observation, and never by reconstructing a
+     path from an opaque native symbol ID — that reconstruction is separately
+     forbidden, and the census makes it unnecessary, because the program's path
+     extent is published directly.
+   * Targets and edits are **separate descriptor arrays with no published
+     correspondence**, and none is invented: each is read on its own terms and
+     the two universe sets are unioned. No edit names a target.
+   * If an unsafe edited path is claimed by **no** selected binding's census and
+     **no** source-path scope, its analysing universe cannot be reconstructed, and
+     that is reported as `REPAIR.CLOSED_WORLD_NOT_ESTABLISHED` rather than guessed
+     or treated as vacuously satisfied.
+2. **Selected records.** For every relevant universe, **every** retained native
+   `coverage2` of that Run whose scope's **`sourceUniverse`** is that universe.
+   `ClosedWorldV2` characterises the universe whose subjects were examined —
+   `coverageTotality.matchLaw` calls totality "a claim about what THIS universe
+   examined" — and that extent is the scope's source side, so relevance is decided
+   on `sourceUniverse` **alone**. An entry made in an unrelated universe *about* a
+   relevant one describes the unrelated universe and is not joined. Selection is
+   **independent of the plan's `evidenceRequirements`**: a recipe can neither
+   narrow it to a favourable relation or rung nor remove a conflicting record from
+   it. Records are deduplicated by retained `coverage2` **identity**, never by
+   relation, and **ordered on UTF-8 encoded bytes** by
+   `relation`, `resolution`, `sourceUniverse`, `targetUniverse`,
+   `subjectScopeCommitment`, then the `coverage2` identity — that sixth member
+   makes the order total even between two records agreeing on all five
+   coordinates, so remedies are reproducible whatever order the caller enumerated
+   in.
+3. **The gate.** Eligibility is the **conjunction** of `deadCodeRepairEligible`
+   over every selected record. It is **non-vacuous**: a relevant universe that
+   retains no native Coverage record establishes no closed world, and an empty
+   evidence subset is not truth — it reports
+   `REPAIR.CLOSED_WORLD_NOT_ESTABLISHED`. Each dissenting record contributes its
+   own remedy naming **all six ordering members unabbreviated** — including the
+   exact retained `coverage2` identity — plus that record's own `reasons`. Naming
+   only relation, rung and source universe would not do: two lawfully distinct
+   retained records can differ **only** in `targetUniverse`, only in
+   `subjectScopeCommitment`, or only in the identity itself, and a remedy that
+   cannot tell them apart does not name the record the reader must go and look at.
+   So two causes remain two remedies, and two records remain two records. The
+   conservatism is deliberate: a destructive edit is a universal negative, so one
+   dissenting relevant record defeats it, and the scoping in step 1 is what stops
+   an unrelated closed finding from justifying the deletion of a path analysed in
+   an open universe.
+
+No new public detail code is minted: every outcome above reports the existing
+`REPAIR.CLOSED_WORLD_NOT_ESTABLISHED`, and the closed registry is unchanged.
 
 `dynamicDispatch` is **not** a global veto and must not be read as one. Native
 §4.5 makes dynamic-edge effects **target-relative**: `affected_targets` marks the
@@ -558,6 +838,11 @@ subjects a dynamic edge could reach, and §4.6 turns that into
 `resolution-incomplete` for a universal negative **about an affected subject**.
 So a present dynamic edge disqualifies the claims that depend on the subjects it
 reaches; it does not by itself disqualify an unrelated target in the same Run.
+The selection law above does not read `dynamicDispatch` at all: a selected record
+whose `dynamicDispatch` is `present` neither defeats the boolean gate nor changes
+the display summary, and the member stays with the native record for the
+target-relative and per-requirement judgements that own it. Those judgements are
+**separate** from this gate and are not merged into it.
 The roles here are distinct and are not merged: preview **admits** each evidence
 requirement's `relation`/`minResolution` against the registered vocabulary and its
 relation's own ladder (`admit_atom`, which is vocabulary admission, not an
@@ -649,21 +934,78 @@ with an empty `unmetPreconditions` is **not** a conforming projection — the sc
 alone admits that shape, and the emission is decided at admission, the same
 division of labour already stated for the deficiency vocabulary.
 
-`RepairPlanDescriptor.closedWorld` is then the **five-field projection** of the
-evidence record — `deadCodeRepairEligible`, `exportsClosed`,
-`entryPointsRecognized`, `nonliteralLoading`, `externalConsumers`, with
-`dynamicDispatch` and `reasons` dropped — and `repair.schema.json` closes it at
-exactly those five, so a literal copy of `ClosedWorldV2` is refused there. **The
-projection grants no evidence authority of its own.** It is a descriptor: no edit
-to it can make a plan applicable, since the whole descriptor is the preimage of
-`repairPlanId` (`H('workflow.repair-plan', descriptor)`) and apply requires a
-security authorization bound to that exact `repairPlanId`, base snapshot and
-project. The authority stays the sealed Run named by `evidenceRunId`: the
-prerequisite above is decided against **that** Run's own full record, including
-the two members the descriptor does not carry. No claim is made here that a later
-step re-reads it — `repair verify` seals a **new** Run over the freshly
-re-snapshotted tree (`appliedSnapshotId` → `verifiedSnapshotId`) and compares
-remaining and net-new findings; it does not re-open the original evidence Run.
+`RepairPlanDescriptor.closedWorld` is a deterministic **five-field display
+summary** of the selected records — `deadCodeRepairEligible`, `exportsClosed`,
+`entryPointsRecognized`, `nonliteralLoading`, `externalConsumers` — and
+`repair.schema.json` closes it at exactly those five, so a literal copy of
+`ClosedWorldV2`, which carries seven, is refused there. It is **not** a native
+producer record and does not claim to be one: a fieldwise reduction over several
+entries may combine members that no single producer emitted together. That is
+acceptable only because the record carries **no authority**. The reduction is
+total and fixed:
+
+* `deadCodeRepairEligible` is the conjunction over the selected records, and
+  `false` when none were selected.
+* each remaining member takes the **least-closed** value present, ordering
+  `closed ≺ open ≺ unknown`, `all ≺ partial ≺ none`, `none ≺ present`,
+  `none-declared ≺ possible ≺ unknown`.
+* **absence is folded in, not hidden.** When any relevant universe retains no
+  native Coverage, or any selected binding's ownership of an unsafe path is
+  unresolved, the reduction additionally folds in the sentinel below, so the
+  summary cannot read as closed while eligibility is refused for that absence.
+
+With nothing selected the same rule yields the **five-field least-closed display
+sentinel**, which is exactly
+`{deadCodeRepairEligible: false, exportsClosed: unknown, entryPointsRecognized:
+none, nonliteralLoading: present, externalConsumers: unknown}`. It is **not an
+"all-unknown" record** and must not be described as one: only two members are
+`unknown`; the other three are a false boolean and the least-closed pole of each
+of the two enums that cannot spell absence. `ClosedWorldV2` has no `unknown`
+member for `entryPointsRecognized` (`all|partial|none`) or `nonliteralLoading`
+(`none|present`), so their poles stand in. That is this display rule applied
+uniformly — **not** an observation that entry points went unrecognised or that
+nonliteral loading was seen — and widening the native enum is not this section's
+to do.
+
+**The summary grants no evidence authority of its own.** **No member of it is
+authoritative, the boolean included**; the authority is the full native selection
+above. It is never an input to
+the gate, which reads the full selected records including the two members the
+summary does not carry. No edit to it can make a plan applicable, since the whole
+descriptor is the preimage of `repairPlanId`
+(`H('workflow.repair-plan', descriptor)`) and apply requires a security
+authorization bound to that exact `repairPlanId`, base snapshot and project.
+Preview is a Query-class step and is **not** authorization: `applicable=true` is
+a disclosure that the preconditions held, and trust, consent, current-snapshot
+equality and that bound authorization are all still required at apply.
+
+**Create-only plans still carry a summary.** A plan with no `delete` and no
+`replace` activates no gate, and an ineligible closed world alone adds **no**
+unmet precondition to it. It still **reads** the selection and still **builds**
+the five-field member — the member is `required` in the descriptor and the whole
+descriptor is the `repairPlanId` preimage, so a create-only plan does not escape
+the question, it only escapes the veto. It is summarised by the same reduction,
+falling back to the **five-field least-closed sentinel above** — not an
+all-unknown record — when the Run retains no relevant native Coverage at all, so
+the descriptor, and therefore `repairPlanId`, is deterministic for a create-only
+plan exactly as for any other.
+
+**What this changes, stated precisely.** The identity *recipe* and the descriptor
+*shape* are unchanged: the same five member names, the same `additionalProperties:
+false`, the same schema majors, and `repairPlanId` is still
+`H('workflow.repair-plan', descriptor)` over the whole descriptor. What moves is
+the *value* this member takes, so an implementation that previously used a
+caller-selected record may now mint a different `repairPlanId` for the same
+request. **No equality of `repairPlanId` is claimed across different Runs**:
+`evidenceRunId` is part of the preimage, so a different Run is a different plan
+identity however similar its evidence. Equality holds only where every descriptor
+input, that Run included, is identical.
+
+The authority stays the sealed Run named by `evidenceRunId`. No claim is made here
+that a later step re-reads it — `repair verify` seals a **new** Run over the
+freshly re-snapshotted tree (`appliedSnapshotId` → `verifiedSnapshotId`) and
+compares remaining and net-new findings; it does not re-open the original evidence
+Run.
 
 **Apply** (`repair-apply`, mutation) is bound to the exact `repairPlanId`, base
 snapshot and project by a security-unit authorization (`REPAIR.CONSENT_NOT_BOUND`);
@@ -716,10 +1058,25 @@ is never copied (`TEST.ENV_NOT_ALLOWLISTED`) and is set to the toolchain closure
 the live tree still equals the `afterStep` snapshot. There is no shell string and no
 interpolation anywhere in the schema.
 
+**Argv digest.** `argvDigest` is the lowercase hexadecimal raw SHA-256 of `C(argv)`, where
+`C` is product canonical JSON (identity-and-evidence §3) and `argv` is the exact ordered array
+of argument strings actually selected for the spawn. Every element stays a separate array
+member, preserving order, repeated elements and any empty string an owning schema admits; no
+shell-joined, quoted, normalized or PATH-resolved surrogate is digested. The recipe is the same
+wherever the digest binds, `RepoExecutionGrantV2.argvDigest` (security S10) and
+`TestPayloadV1.argvDigest`: host test execution digests `TestExecutionStepParams.argv`, native
+preparation digests the host-selected preparation argv of its grant, and an independently
+prepared test payload digests the argument array its adapter recorded.
+
 The step **discloses** and does not confine: `effects.network/subprocess/
 filesystemWrite` are `DISCLOSURE-ONLY` unless the security unit's platform truth
 table measures a primitive; a claimed enforcement without a measured primitive is
-refused (`TEST.CONFINEMENT_CLAIM_REFUSED`). The mandatory sentence before spawn is
+refused (`TEST.CONFINEMENT_CLAIM_REFUSED`). Every effect value must equal the selected
+truth-table profile row (security S10). The selected `permission-truth-tables.v9` profile has
+no measured platform-primitive row, so `ENFORCED-PLATFORM:<primitiveId>` cannot be claimed in
+this profile and is not a member of `TestExecutionStepParams` `EnforcementValue`; security
+`EnforcementV1` keeps that vocabulary for a future measured primitive, which requires a
+successor truth-table profile and test-execution schema. The mandatory sentence before spawn is
 "Repository test command will run with your user authority. OpenSIP does not prevent
 network access or other effects on this platform." Output is bounded and truncation
 is recorded. The outcome is a `TestPayloadV1` wrapped as an `import2` of kind `test`
@@ -731,8 +1088,8 @@ are the supported alternative.
 
 ## 8. Command inventory, outputs and parity (AR-13 surfaces, AR-16)
 
-`workflows/command-inventory.v1.json` is the candidate single inventory,
-validated by `command-inventory.schema.json`; the checker refuses a command name
+`workflows/command-inventory.v3.json` is the single intended inventory,
+validated by `workflows/schemas/evaluator3/command-inventory.schema.json`; the checker refuses a command name
 outside the closed enum and requires every golden to be reachable by the model.
 
 | Group | Commands |
@@ -748,7 +1105,7 @@ Advisory projections never offer SARIF or manufacture a Control verdict. `fit`
 may run an authoritative analysis by default and then return an advisory report;
 its underlying sealed Run retains its own verdict.
 
-**Renderers.** `human` v1, `json` v2 (the `CommandEnvelope` major 2 is the parity
+**Renderers.** `human` v1, `json` v3 (the `CommandEnvelope` major 3 is the parity
 reference), `sarif` v1 (analysis class only; results equal envelope findings
 one-to-one, verdict/deficiency in run properties), `html` v1 (analysis and query;
 static single file, no script-fetched data, shows resolution completeness and
@@ -775,7 +1132,9 @@ or projection exception is a required-delivery operational fault, not an empty
 result or a successful partial rendering: `operational-failed`, exit 4,
 `faultCause=delivery-required`, `DELIVERY.REQUIRED_FAILED`. If a Run was already
 committed, the termination retains its RunId and the after-commit detail below;
-otherwise no RunId is invented. This classification also covers a pure reference
+otherwise no RunId is invented and the detail is `DELIVERY.REQUIRED_PROJECTION_FAILED`. The
+termination schema enforces both directions: the after-commit detail requires a `runId`, the
+no-Run detail forbids one. This classification also covers a pure reference
 projection helper raising `KeyError`; that exception alone is not a public
 termination. Actual host exception handling and renderer conformance remain
 DR-G17/DR-G20 implementation qualification obligations.
@@ -785,17 +1144,156 @@ required renderer **after** a committed Run is `DELIVERY.REQUIRED_FAILED` (4) wi
 detail `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`, the `runId` in the termination, and
 no rewrite of the Run; failure of an optional export sink leaves `success`.
 
-**Query.** Twenty closed operations over one sealed view (`run2`, `snapshot2` or the
-`latest` resolver, whose empty domain is `IDENTITY.UNKNOWN`), bounded page/items/depth/
-visited nodes; `completeness=required` at a bound is `QUERY.COMPLETENESS_UNMET` (3),
-best-effort is visible truncation with a cursor. Response context always carries
-resolved view, Coverage, availability and `advisory` (true exactly for
-`comparison.diff`, `candidate.list`, `inspection.show`, `review.brief`).
+**Query.** The twenty closed operations remain read-only. The current schema is
+`workflows/schemas/evaluator3/graph-query.schema.json` major 3. The incorporated
+[query projection contract](../../../coop/design-corrections/workflows/query-projection-contract.v3.md)
+owns the complete selection, endpoint, result, ordering, traversal, continuation
+and evidence-disclosure laws for `graph.neighbors`, `graph.path` and `graph.reach`.
+It does not replace the artifact-specific owners of the other seventeen operations.
+
+Graph requests may select `run3`, `snapshot2` or `latest`; before traversal they
+resolve to one concrete retained Run and an exact fact-view selection. An empty
+resolver domain is `IDENTITY.UNKNOWN`; ambiguity is a typed refusal. A graph
+response never echoes an unresolved `latest` alias as its resolved view. Endpoint
+identity includes the selected universe and native identity, so equal paths in
+different analysis universes cannot silently collapse. Results retain their fact
+provenance. Database row IDs and backend iteration order are not public identity
+or ordering rules.
+
+The bounded graph contract distinguishes a page boundary from exhaustion of the
+logical operation. Page size is at most 1,000; produced items at most 100,000;
+semantic depth at most 64; visited nodes at most 1,000,000. `maxDepth` defines the
+requested search distance, not an implicit promise of unbounded reachability.
+`completeness=required` refuses genuinely unfinished work at an operation bound
+with `QUERY.COMPLETENESS_UNMET` (3); exactly reaching a limit with no owed work is
+not incompleteness. Best-effort reports any truncation explicitly. A continuation
+can page only the bounded result and never reset the work budget; its last page
+can remain truncated with no cursor. Total-count disclosure distinguishes an
+exact total from a lower bound.
+
+A continuation binds the project, concrete retained Run and fact views,
+operation, effective parameters, ordering and position. Publication of a newer
+Run cannot change that selection. Index loss permits rebuilding from the same
+available closure; unavailable retained evidence or incompatible continuation
+inputs cause the contract's typed refusal, never a switch to a newer Run.
+
+For the graph operations, traversal completion and retained evidence sufficiency
+are separate typed disclosures, including relevant Coverage, scope, deficiency
+and resolution limitations. Exhausting stored edges, returning no rows, or
+ending pagination cannot itself prove that no callers exist. Any such finding
+must retain the existing native/evaluator authority and citations. All query
+responses carry their owned view, evidence disclosure, availability and `advisory`;
+the other seventeen operations retain their existing Coverage field. `advisory` is
+true exactly for `comparison.diff`, `candidate.list`, `inspection.show` and
+`review.brief`. The three graph operations are not advisory and do not seal a Run.
+
+The query command's required parity fields are `resolved-view`, `availability`,
+`truncated`, `total-items`, `termination-class` and `query-response`. The last is
+the **complete owner-admitted GraphQueryResponseV1**, including the full context,
+items and any optional termination; human, JSON and agent renderers preserve its
+typed content. For non-graph operations the existing Coverage field stays inside
+that response. Graph evidence is not reduced to a synthetic Coverage scalar.
+The first four scalar fields are exact projections of the response context;
+`termination-class` comes from the enclosing command's actual StepTermination.
+If the response carries termination, its entire object must equal the enclosing
+termination. The envelope and response must identify the same project. Missing
+required query disclosure follows the existing required-delivery fault law.
+
+**Public query carriers.** Every `kind=query` envelope names `querySurface`, one closed value per
+query-class command, equal to that command's inventory `queryDispatch.surface`.
+`graph-query-response` carries `queryResponse`, the complete owner-admitted `GraphQueryResponseV1`;
+every other surface carries `queryRecord` of exactly its closed record type, whose members reuse
+the owning schemas, and never `queryResponse`. Non-query envelope kinds carry none of these
+members. No untyped payload member exists. The JSON rendering is that envelope, the agent
+rendering is the same envelope plus `agentHints`, and the human rendering prints every parity
+field; parity is read from the envelope at the inventory `queryDispatch.parityPaths` JSON pointers
+and recovered identically from each rendering. The closed record or response, its cross-record
+joins and the compact `QueryResult` join are admitted before any rendering. A query never commits
+a Run, so a rendering that cannot deliver its carrier is `DELIVERY.REQUIRED_FAILED` with
+`DELIVERY.REQUIRED_PROJECTION_FAILED` and no `runId`.
+
+| Command | Step / operation / request | `querySurface` / carrier record | Joins beyond schema | Compact `QueryResult` |
+|---|---|---|---|---|
+| `query` | `query`; caller-selected member of the 20 public graph-query:3 operations; `GraphQueryRequestV1` | `graph-query-response` / `queryResponse` = `GraphQueryResponseV1` | project, termination and graph summary joins above | graph law above; the other 17 keep their owners |
+| `candidates` | `query`; public `candidate.list`; `GraphQueryRequestV1` (`view`, `params.includeSuppressed`) | `candidate-list` / `CandidateListRecordV1`: `context` (`GraphQueryResponseContext`), `includeSuppressed`, `candidates` (review:2 `Candidate[]`), `evidenceLevels`, `suppressedCount` | context project equals envelope project; `advisory` true; concrete Run; every candidate names that Run; `evidenceLevels` counts listed candidates per `EvidenceLevel`; without `includeSuppressed` no listed candidate is suppressed, with it `suppressedCount` equals listed suppressed; an untruncated `totalItems` equals the listed count | `items` listed, `truncated` context, `completenessMet` coverage `complete`, `advisory` true |
+| `inspect` | `query`; public `inspection.show`; `GraphQueryRequestV1` (`params.candidateId`) | `candidate-inspection` / `CandidateInspectionRecordV1`: `context`, `inspection` (review:2 `InspectionBundle`) | project; `advisory` true; concrete Run equals the bundle Run; facts unique and byte-ordered; `totalItems` equals the fact count | `items` facts, `truncated` context, `completenessMet` coverage `complete`, `advisory` true |
+| `review-brief` | `query`; host `review.produce-brief`; `ReviewBriefProduceRequestV1` (`view`, `producer`) | `review-brief` / `ReviewBriefRecordV1`: `context`, `brief` (review:2 `ReviewBrief`) | project; `advisory` true; concrete Run equals the brief Run; `brief.truncated` equals context `truncated` equals (`totalItems` greater than listed) | `items` listed, `truncated` brief, `completenessMet` not truncated, `advisory` true |
+| `recommend` | `query`; host `discovery.recommend`; `DiscoveryRecommendRequestV1` | `discovery-recommendation` / `DiscoveryRecommendationRecordV1`: `advisory`, `discovery` (native `UnitDiscoveryV2`), `recommendations` (`DomainDetail[]`, zero rows in this profile), `config2Proposals` (at most one) | every proposed root normalizes under the native explicit-root law to a discovered unit root, and `unitOrdinals` are exactly those units | `items` recommendations, `truncated` false, `completenessMet` true, `advisory` true |
+| `baseline-show` | `query`; host `baseline.inspect`; `BaselineInspectRequestV1` (`path`) | `baseline-inspection` / `BaselineInspectionRecordV1`: `baseline` (baseline:2 artifact), `pivotClosureAvailability` | baseline admission (§2, including detector identity); one availability row per descriptor pivot closure, in order | `items` rows, `truncated` false, `completenessMet` every row `available`, `advisory` false |
+| `policy-show` | `query`; host `policy.show`; `PolicyShowRequestV1` | `effective-policy` / `EffectivePolicyRecordV1`: `policyDigest`, `policy` (`PolicyDocumentV2`), `waiverSetDigest`, `effectiveWaivers` (`WaiverSetV1`), `waiverResolution` (`WaiverResolutionV1`) | both digests are the document digests; `effectiveCount` equals the effective waivers; no expired or rejected waiver is effective | `items` rules, `truncated` false, `completenessMet` true, `advisory` false |
+| `policy-test` | `query`; host `policy.test`; `PolicyTestRequestV1` (`suitePath` of a `PolicyTestSuiteV2`) | `policy-test-result` / `PolicyTestResultRecordV1`: `result` (`PolicyTestResultV1`, `resolverAccepted=true` only) | `policyTestResultId` recomputes; `summary` counts case outcomes | `items` cases, `truncated` false, `completenessMet` resolver accepted with no indeterminate or not-executable case, `advisory` false |
+| `repair-preview` | its own `repair-preview` step; `RepairPreviewParams` | `repair-preview` / `RepairPreviewRecordV1`: `preview` (invocation:3 `RepairPreviewResult`), `plan` (repair:2 `RepairPlanV1`) | `repairPlanId` recomputes from the descriptor; preview plan id, snapshot, `applicable` and `unmetPreconditions` equal the descriptor; descriptor project equals envelope project | `items` edits, `truncated` false, `completenessMet` `applicable`, `advisory` false |
+
+Parity pointers (`queryDispatch.parityPaths`); `termination-class` is `/termination/class` for all nine:
+`query` resolved-view `/queryResponse/context/resolvedView`, availability
+`/queryResponse/context/availability`, truncated `/queryResponse/context/truncated`, total-items
+`/queryResponse/context/totalItems`, query-response `/queryResponse`; `recommend` recommendations
+`/queryRecord/recommendations`, discovery-units `/queryRecord/discovery/units`, config2-proposals
+`/queryRecord/config2Proposals`; `baseline-show` baseline-id `/queryRecord/baseline/baselineId`,
+pivot-closure-availability `/queryRecord/pivotClosureAvailability`; `policy-show` policy-digest
+`/queryRecord/policyDigest`, waiver-resolution `/queryRecord/waiverResolution`; `policy-test`
+policy-test-result-id `/queryRecord/result/policyTestResultId`, summary `/queryRecord/result/summary`,
+resolver-accepted `/queryRecord/result/resolverAccepted`, overrides-applied
+`/queryRecord/result/overridesApplied`; `candidates` candidates `/queryRecord/candidates`,
+evidence-levels `/queryRecord/evidenceLevels`, suppressed-count `/queryRecord/suppressedCount`;
+`inspect` candidate-id `/queryRecord/inspection/candidateId`, facts `/queryRecord/inspection/facts`,
+limitations `/queryRecord/inspection/limitations`; `review-brief` candidates
+`/queryRecord/brief/candidates`, producer `/queryRecord/brief/producer`, truncated
+`/queryRecord/brief/truncated`; `repair-preview` repair-plan-id `/queryRecord/preview/repairPlanId`,
+snapshot-id `/queryRecord/preview/snapshotId`, applicable `/queryRecord/preview/applicable`,
+unmet-preconditions `/queryRecord/preview/unmetPreconditions`.
+
+**Query-step operations.** A `query` step's params are closed: `PublicQueryParams` for the twenty
+public graph-query:3 operations, carrying the complete `GraphQueryRequestV1` whose operation,
+completeness and page equal the step's; or `HostQueryParams` for the closed host-only extension
+`baseline.inspect`, `discovery.recommend`, `policy.show`, `policy.test` and
+`review.produce-brief`, each with its own closed request record. Host-only operations are not
+public query operations and never widen graph-query:3 `Operation` or `Params`; the public
+`baseline.show`, `policy.effective` and `review.brief` operations remain the API over retained
+records. Dispatch owners: `candidate.list` and `inspection.show` read the review projection of the
+admitted Run (§5 candidate and inspection laws); `review.produce-brief` runs the review brief
+producer (`--producer model` is a model principal with its admitted `modelClosureId`,
+`--producer heuristic` is `{kind: policy-rule, id: opensip.review.heuristic}`); `discovery.recommend`
+joins the security discovery boundary inventory with native unit discovery; `baseline.inspect`
+admits the artifact (§2) and resolves pivot closures under current trust; `policy.show` resolves the
+tracked policy and waivers at the admitted trust-clock date (§5); `policy.test` admits a
+`PolicyTestSuiteV2` and runs the authoring test (§5). `repair-preview` keeps its own step and `RepairPreviewParams`. Every query step still
+yields the compact `QueryResult`.
+
+**Query-class failures.** A refusal is a `kind=failure` envelope with its owner's detail and no
+carrier: `query` per the query projection contract §7; `candidates`, `inspect` and `review-brief`
+view resolution per that table, and an unknown candidate `IDENTITY.UNKNOWN` /
+`REVIEW.CANDIDATE_UNKNOWN`; `recommend` the native discovery refusal and its registered detail (a
+refused `UnitDiscoveryV2` is never carried); `baseline-show` the baseline admission refusals (§2);
+`policy-show` the policy and waiver resolution refusals (`POLICY.UNKNOWN_RULE`,
+`POLICY.DUPLICATE_WAIVER`); `policy-test` the suite admission and resolver refusals of §5 (`REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with
+`EVALUATION.MIXED_OUTPUT_MAJOR` for a suite or candidate policy of another major; `CONFIG.INVALID` with
+`POLICY.IMPERATIVE_KEY_REFUSED`, the shared `CONFIG.INVALID` detail, or the resolver's `POLICY.*` /
+`IMPORT.ABSENT_FOR_PREDICATE` detail; only a `resolverAccepted=true` result is carried); `repair-preview` its `REPAIR.*` refusals (unmet preconditions
+are plan data). A missing, revoked or incompatible pivot closure is availability data
+(`BASELINE.PIVOT_DETECTOR_UNAVAILABLE`, `BASELINE.PIVOT_CLOSURE_REVOKED`,
+`BASELINE.PIVOT_CLOSURE_INCOMPATIBLE`), not a baseline-show failure. `recommend` is advisory: its only next-step suggestion in this profile is
+the explicit `discovery.workspaceRoots` config2 proposal (zero or one), whose roots are discovered
+unit roots. `recommendations` carries zero rows because no recommendation detail is registered; a
+recommendation vocabulary requires registered details and a successor of this record. config2
+publishes no other proposal grammar.
+
+The envelope's compact `QueryResult` remains a separate record. For graph.*,
+`items` is the number of rows on the current page, `truncated` equals the context
+flag, `advisory` is false, and `nextCursor` is present exactly when the context
+has the identical token. `completenessMet` is true exactly when `countBasis=exact`:
+the declared stored-edge operation has completed, even if further pages remain
+to be delivered. This is neither native closed-world evidence nor a claim that
+all pages were delivered. A lower-bound result therefore has
+`completenessMet=false`, including an intermediate page whose `truncated` flag
+is false. The other seventeen operations retain their owned summary semantics.
+The reference `workflows/query_surface_projection.v3.py` checks these joins and
+projects the complete response; it does not admit a Run or prove traversal.
 
 **Doctor.** `opensip doctor` produces a typed report over closures, trust, store,
 platform, project marker and the offline window. A produced report is `success` (0)
 even when defects are found (detail `DOCTOR.DEFECTS_FOUND`); CI must inspect
-`doctor.defectsFound`. Only an unproducible report is `HOST.IO_FAILURE` (4).
+`doctor.defectsFound`. Only an unproducible report is `HOST.IO_FAILURE` (4), with detail `DOCTOR.REPORT_NOT_PRODUCIBLE`.
 
 A `doctor` report is a **different invocation** and therefore cannot deliver the
 absences of an analysis invocation; `DoctorResult.defects[]` remains the
@@ -844,7 +1342,11 @@ nonempty `errors` array of `DomainDetail`; where a step termination's optional
 `domainDetail` is absent, the composition in native §10 supplies the array from
 the route's own detail code, and where it is present `errors` is exactly that
 detail so the two surfaces never disagree. Before a Plan or Run exists no run
-envelope is fabricated.
+envelope is fabricated. A failure golden (request-rejected or operational-failed) carries its
+actual `domainDetail`; only a golden whose `detailSuppliedBy` names that composition may omit
+it. An unsupported envelope major is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with
+`OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED`; an empty latest resolver is `IDENTITY.UNKNOWN` with the
+query owner's `QUERY.VIEW_UNKNOWN`.
 
 ---
 
@@ -859,7 +1361,10 @@ host-io, ledger-busy, ledger-corrupt, cas-link, provider-protocol, durability-co
 delivery-required, output-serialization, extension-install-io, serve-protocol,
 host-invariant);
 indeterminate carries `reasonCodes`; interrupted carries `signal` and a `runId` only
-when a Run was committed before the interrupt. `DomainDetailCode` is explanatory
+when a Run was committed before the interrupt. The same schema enforces the retained
+D9 cause/code exclusivity: `faultCause` appears only on operational-failed and pairs
+with its `errorCode` by the fault map, and `reasonCodes` appear only on indeterminate.
+`DomainDetailCode` is explanatory
 detail beside an existing code, never a termination code. Selected goldens (the complete retained set
 is in the inventory and exercised by the model):
 
@@ -869,21 +1374,44 @@ is in the inventory and exercised by the model):
 | required provider closure not installed | indeterminate 3 | `COVERAGE.PROVIDER_UNAVAILABLE` | `COMPONENT.REQUIRED_CLOSURE_NOT_INSTALLED` → `opensip install provider-typescript` |
 | installed closure bytes corrupt / unspawnable | operational-failed 4 | `HOST.IO_FAILURE` | `DELIVERY.CLOSURE_BYTES_CORRUPT` / `DELIVERY.CLOSURE_UNSPAWNABLE` → `opensip doctor` |
 | selected renderer fails after commit | operational-failed 4 | `DELIVERY.REQUIRED_FAILED` | `DELIVERY.RENDERER_FAILED_AFTER_COMMIT`; runId retained |
+| required projection or renderer fails with no committed Run | operational-failed 4 | `DELIVERY.REQUIRED_FAILED` | `DELIVERY.REQUIRED_PROJECTION_FAILED`; no runId |
 | optional export sink fails | success 0 | — | egress never changes a verdict |
 | `--ephemeral` with baseline/repair prerequisite | request-rejected 2 | `REQUEST.UNSATISFIABLE` | `WORKFLOW.EPHEMERAL_CANNOT_SUPPLY_AUTHORITY` |
 | pivot closure missing / revoked / unmapped project | indeterminate 3 | `BASELINE.RECIPE_UNSUPPORTED` | `BASELINE.PIVOT_DETECTOR_UNAVAILABLE` / `..._CLOSURE_REVOKED` / `BASELINE.PROJECT_UNMAPPED` |
 | required evidence lost in audit | indeterminate 3 | `VERDICT.INDETERMINATE` | `COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE` → re-import |
 | unmapped / corrupt import artifact | request-rejected 2 | `CONFIG.INVALID` | `IMPORT.MAPPING_REQUIRED` / `IMPORT.ARTIFACT_CORRUPT` |
 | duplicate waiver / imperative policy key | request-rejected 2 | `CONFIG.INVALID` | `POLICY.DUPLICATE_WAIVER` / `POLICY.IMPERATIVE_KEY_REFUSED` |
+| policy test suite or candidate policy of another major | request-rejected 2 | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `EVALUATION.MIXED_OUTPUT_MAJOR`; never relabelled |
+| policy test suite otherwise inadmissible | request-rejected 2 | `CONFIG.INVALID` | `CONFIG.INVALID` (shared registered detail) |
 | repair preimage mismatch / source moved | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `REPAIR.TARGET_PREIMAGE_MISMATCH` / `REPAIR.SOURCE_MOVED` |
 | recovery blocked | operational-failed 4 | `HOST.IO_FAILURE` | `REPAIR.RECOVERY_BLOCKED`; journal retained |
 | CI interactive test consent / confinement claim | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `TEST.INTERACTIVE_CONSENT_IN_CI` / `TEST.CONFINEMENT_CLAIM_REFUSED` |
 | doctor report with defects | success 0 | — | `DOCTOR.DEFECTS_FOUND`; inspect typed outcome |
+| doctor report not producible | operational-failed 4 | `HOST.IO_FAILURE` | `DOCTOR.REPORT_NOT_PRODUCIBLE` |
+| latest resolver on an empty domain | request-rejected 2 | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |
+| envelope major other than 3 requested | request-rejected 2 | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `OUTPUT.ENVELOPE_MAJOR_UNSUPPORTED` |
 | SIGINT before / after settle | interrupted 130 / settled class | — | after-settle is never reclassified |
 
 The exact class/detail pairing is determined by the golden observation and
 closed schemas. Disclosure-only success details do not imply a clean doctor
 report or grant authority. No new D9 family is introduced.
+
+**Whole-Run indeterminate reasons of an evaluator3 analysis Run.** When no fault,
+rejection or pre-settle interruption terminates the step and the committed Run's
+sealed verdict is `indeterminate`, the host finalizer derives `reasonCodes`
+(primary, then `secondaryDeficiencies`) and `coverageId` from the admitted Run
+alone. The derivation is owned by
+`docs/coop/design-corrections/foundation/run-termination-contract.v1.md`, the
+single owner of the condition population, the evaluator/native/import/requirement
+cause bridge, the total pre-reduction order and the `coverageId` choice. Discovery
+order and other host observations are not inputs. That owner derives the analysis
+projection (class, `runId`, `reasonCodes`, `coverageId`). Its §7 is the host
+composition law for a step termination's optional `executionId`, `domainDetail`
+and `authority`: the attempt and Run binding, the committed-Run versus ephemeral
+authority rule and the closed analysis detail allowlist, applying the existing
+owners' rules. Fault, rejection and interruption terminations stay with their
+owners and are not passed through that derivation. No code, class, exit or field
+is added.
 
 ---
 
@@ -898,16 +1426,18 @@ MutationReplayScopeV1 (§1), returning its bare 64-hex H value. Import wrappers 
 resolved waiver, rule program, payload, correspondence, build, observation and
 schema-document digests use raw SHA-256 of the exact preimage described above.
 `PolicyTestResultV1.suiteDigest` is the bare 64-hex result of
-`H("workflow.policy-test-suite", PolicyTestSuiteV1)`, over the entire closed
-admitted suite before override application; the suite is retained with the result.
+`H("workflow.policy-test-suite", PolicyTestSuiteV2)`, over the entire closed
+admitted suite, including its `schemaMajor` 2 and candidate `PolicyDocumentV2`, before override
+application; the suite is retained with the result. A retained historical result names its
+`PolicyTestSuiteV1` preimage and is not recomputed under this profile.
 This is an H identity, distinct from raw SHA-256 of the suite's canonical bytes.
 Candidate/effective policy digests remain raw SHA-256 of their respective closed
-PolicyDocumentV1 canonical bytes. Exact typed admission precedes schema validation;
+PolicyDocumentV2 canonical bytes. Exact typed admission precedes schema validation;
 one foundation canonicalizer is used.
 
 ## 11. Reference evidence and remaining integration work
 
-The checker compiles thirteen schemas and exercises invocation, comparison, imports,
+The retained workflow-surface checker compiles fourteen schemas and exercises invocation, comparison, imports,
 policy, repair, test admission and surface projections. The retained report gives
 exact case/check counts and source hashes. Pivot presence, OS custody observations,
 trust, native resolution and effect measurements are trusted synthetic inputs;
@@ -966,7 +1496,7 @@ independent acceptance or qualification of actual native producers.
 **The import mirror is authoritative, not descriptive (CB3-SHOULD-1/2).** One
 import has one `importId` over one wrapper, and that wrapper is admitted through
 **two** documents: the foundation record
-`identity-schemas.v2.json#/$defs/import`, which is the authority, and its
+`identity-schemas.v3.json#/$defs/import`, which is the authority, and its
 declared exact mirror `imported-evidence.schema.json#/$defs/ImportWrapperV2`.
 `ImportScopeDescriptor` mirrors the foundation `scope-descriptor` the same way.
 Both mirrors carried the words "exact mirror" while disagreeing about what they
@@ -1035,8 +1565,8 @@ documents being permissive.
 The step kind must equal its parameter kind before dispatch. A query-labelled step
 cannot carry execution parameters. Review reject/defer always requires an explicit
 finite expiry; an indefinite suppression is refused. The host also validates the
-retained RuleProgramV1 against the admitted PolicyDocumentV1, resolves the exact
-waiver preimage and constructs policy-derivation2 from the same Plan/proof/verdict.
+retained RuleProgramV2 against the admitted PolicyDocumentV2, resolves the exact
+waiver preimage and constructs policy-derivation3 from the same Plan/proof/verdict.
 The integration fixture exercises those joins through foundation replay and
 reference commit for a finite no-match policy case; full native/DSL qualification
 remains separate.

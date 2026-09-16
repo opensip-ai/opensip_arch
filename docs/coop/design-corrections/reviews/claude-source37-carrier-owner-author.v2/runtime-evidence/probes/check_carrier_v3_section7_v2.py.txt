@@ -1,0 +1,232 @@
+# ---- 7. source37 owner correction: exact storage class and whole-value grammar (A37-01, revised v2) -------
+# SQLite types values dynamically: TEXT affinity keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and
+# length() and GLOB stop at an embedded NUL. Every column of the carrierFormat 3 DDL and of the private
+# attempt_custody DDL is exercised: canonical lawful values must be admitted and stored in their exact storage
+# class, and hostile values (embedded NUL, ASCII-hex BLOB, invalid UTF-8, multibyte, REAL, wrong prefix or length)
+# must never be stored outside the column law. Read-back uses typeof() and CAST(... AS BLOB), so no admitted value
+# can crash the observation.
+_S37_CF = 'INSERT INTO carrier_format VALUES (?,?,?,?,?,?,?)'
+_S37_FRESH = (1, 3, 'e' * 64, 1, 1, None, None)
+_S37_MIG = (1, 3, 'e' * 64, 2, 1, 2, 'op-' + 'f' * 32)
+_S37_RUN3 = 'run3:' + 'c' * 64
+
+
+def _s37_run(script, steps):
+    c = sqlite3.connect(':memory:', isolation_level=None)
+    c.executescript(script)
+    out = []
+    for sql, args in steps:
+        try:
+            c.execute(sql, args)
+            out.append(True)
+        except sqlite3.Error:
+            out.append(False)
+    c.close()
+    return out
+
+
+def _s37_try(c, sql, args):
+    try:
+        c.execute(sql, args)
+        return True
+    except sqlite3.Error:
+        return False
+
+
+def _s37_v3(gen=1, seq=1, rt='REV', op=_OP, rid=None, md_=None, pf=None, tk=None, ig=None, bs=_H, ps=_H):
+    return (gen, seq, 3, rt, op, None, tk, ig, md_, pf, rid, '{}', bs, ps)
+
+
+_S37_AC = sload(os.path.join(ROOT, 'scratch', 'proposal', 'docs/v2/architecture/attempt-custody.schema.v1.json'))['proposedPrivateDDL']
+_S37_A64, _S37_B64, _S37_C64, _S37_E64 = 'a' * 64, 'b' * 64, 'c' * 64, 'e' * 64
+_S37_EXEC = 'exec1_' + 'a' * 32
+
+
+def _s37_hexlaw(prefix, n, nullable):
+    pat = re.compile(re.escape(prefix).encode() + b'[0-9a-f]{%d}' % n)
+    return lambda t, b: (t == 'null' and nullable) or (t == 'text' and pat.fullmatch(b) is not None)
+
+
+def _s37_intlaw(pred, nullable=False):
+    return lambda t, b: (t == 'null' and nullable) or (t == 'integer' and pred(int(b)))
+
+
+def _s37_enumlaw(values, nullable=False):
+    enc = {v.encode() for v in values}
+    return lambda t, b: (t == 'null' and nullable) or (t == 'text' and b in enc)
+
+
+def _s37_textlaw(nullable):
+    return lambda t, b: (t == 'null' and nullable) or t == 'text'
+
+
+_S37_BASE = {'fresh': {'singleton': 1, 'carrier_format': 3, 'project_key_digest': _S37_E64, 'first_generation': 1,
+                       'chain_law': 1, 'migrated_from': None, 'migration_op_ref': None}}
+_S37_BASE['migrated'] = dict(_S37_BASE['fresh'], first_generation=2, migrated_from=2, migration_op_ref='op-' + 'f' * 32)
+_S37_BASE['seal'] = {'grantGeneration': 1, 'seq': 1, 'record_schema': 3, 'record_type': 'SEAL', 'operation_ref': _OP,
+                     'request_ref': None, 'token': None, 'install_generation_id': None, 'manifest_digest': None,
+                     'platform': None, 'run_id': _S37_RUN3, 'body': '{}', 'body_sha256': _S37_B64, 'prev_sha256': _S37_B64}
+_S37_BASE['rev'] = dict(_S37_BASE['seal'], record_type='REV', run_id=None)
+_S37_BASE['grant'] = dict(_S37_BASE['seal'], record_type='GRANT', run_id=None, token='PT', install_generation_id='ig1',
+                          manifest_digest=_S37_C64, platform='macos-x86_64')
+_S37_BASE['admitted'] = {'store_generation_digest': _S37_A64, 'namespace_id': 'ns', 'execution_id': _S37_EXEC,
+                         'operation_ref': _OP, 'record_schema': 1, 'phase': 'admitted', 'settled_outcome': None}
+_S37_BASE['settled'] = dict(_S37_BASE['admitted'], phase='settled', settled_outcome='refused')
+
+
+def _s37_hex_hostile(prefix, v):
+    n, mid, p = len(v), len(v) // 2, len(prefix)
+    rows = [('uppercase-last', '?', v[:-1] + 'A'), ('nonhex-last', '?', v[:-1] + 'g'),
+            ('nonhex-tail', '?', v[:p + 1] + 'Z' * (n - p - 1)), ('nul-suffix-Z', '?', v + '\x00Z'),
+            ('nul-suffix', '?', v + '\x00'), ('nul-middle', '?', v[:mid] + '\x00' + v[mid + 1:]),
+            ('ascii-hex-blob', '?', v.encode()), ('blob-nul-suffix', '?', v.encode() + b'\x00Z'),
+            ('nonhex-blob', '?', b'Z' * n), ('invalid-utf8-text', 'CAST(? AS TEXT)', v[:-1].encode() + b'\xc0'),
+            ('invalid-utf8-text-nul', 'CAST(? AS TEXT)', v.encode() + b'\x00\xff'),
+            ('multibyte', '?', v[:-1] + 'é'), ('trailing-newline', '?', v + '\n'), ('short', '?', v[:-1]),
+            ('long', '?', v + 'a'), ('integer', '?', 12345), ('real', '?', 1.5)]
+    if prefix:
+        rows += [('uppercase-prefix', '?', prefix.upper() + v[p:]), ('wrong-prefix', '?', 'x' * p + v[p:]),
+                 ('nul-after-prefix', '?', prefix + '\x00' + v[p + 1:])]
+    return rows
+
+
+def _s37_int_hostile(v):
+    return [('text-integral', '?', str(v)), ('real-integral', '?', float(v)), ('real-fraction', '?', v + 0.5),
+            ('text-fraction', '?', str(v) + '.5'), ('blob', '?', bytes([v])), ('text-nul', '?', str(v) + '\x00')]
+
+
+def _s37_enum_hostile(v):
+    return [('blob', '?', v.encode()), ('nul-suffix', '?', v + '\x00'), ('nul-suffix-Z', '?', v + '\x00Z'),
+            ('uppercase', '?', v.upper()), ('integer', '?', 7)]
+
+
+def _s37_text_hostile(v):
+    return [('blob', '?', v.encode()), ('integer', '?', 7), ('real', '?', 2.5), ('with-nul', '?', v + '\x00x')]
+
+
+_S37_OPF = 'op-' + 'f' * 32
+_S37_SPEC = [
+    ('carrier_format', 'singleton', _s37_intlaw(lambda v: v == 1), [('fresh', 1)], 'fresh', _s37_int_hostile(1)),
+    ('carrier_format', 'carrier_format', _s37_intlaw(lambda v: v == 3), [('fresh', 3)], 'fresh', _s37_int_hostile(3)),
+    ('carrier_format', 'project_key_digest', _s37_hexlaw('', 64, False), [('fresh', _S37_E64)], 'fresh',
+     _s37_hex_hostile('', _S37_E64) + [('null', '?', None)]),
+    ('carrier_format', 'first_generation', _s37_intlaw(lambda v: v >= 1), [('fresh', 1), ('migrated', 2), ('migrated', 9)],
+     'migrated', _s37_int_hostile(2)),
+    ('carrier_format', 'chain_law', _s37_intlaw(lambda v: v == 1), [('fresh', 1)], 'fresh', _s37_int_hostile(1)),
+    ('carrier_format', 'migrated_from', _s37_intlaw(lambda v: v in (1, 2), True), [('fresh', None), ('migrated', 2), ('migrated', 1)],
+     'migrated', _s37_int_hostile(2)),
+    ('carrier_format', 'migration_op_ref', _s37_hexlaw('op-', 32, True), [('fresh', None), ('migrated', _S37_OPF)], 'migrated',
+     _s37_hex_hostile('op-', _S37_OPF)),
+    ('grant_journal_v3', 'grantGeneration', _s37_intlaw(lambda v: v >= 1), [('seal', 1)], 'seal', _s37_int_hostile(1)),
+    ('grant_journal_v3', 'seq', _s37_intlaw(lambda v: v >= 1), [('seal', 1)], 'seal', _s37_int_hostile(1)),
+    ('grant_journal_v3', 'record_schema', _s37_intlaw(lambda v: v in (1, 3)), [('seal', 3)], 'seal', _s37_int_hostile(3)),
+    ('grant_journal_v3', 'record_type', _s37_enumlaw({'GRANT', 'RA', 'ICI', 'RCI', 'ICO', 'RCO', 'REV', 'CLN', 'SEAL', 'TERMINAL'}),
+     [('seal', 'SEAL'), ('rev', 'REV')], 'seal', _s37_enum_hostile('SEAL')),
+    ('grant_journal_v3', 'operation_ref', _s37_hexlaw('op-', 32, False), [('seal', _OP)], 'seal',
+     _s37_hex_hostile('op-', _OP) + [('null', '?', None)]),
+    ('grant_journal_v3', 'request_ref', _s37_textlaw(True), [('seal', None), ('seal', 'req')], 'seal', _s37_text_hostile('req')),
+    ('grant_journal_v3', 'token', _s37_textlaw(True), [('seal', None), ('grant', 'PT')], 'grant', _s37_text_hostile('PT')),
+    ('grant_journal_v3', 'install_generation_id', _s37_textlaw(True), [('seal', None), ('grant', 'ig1')], 'grant',
+     _s37_text_hostile('ig1')),
+    ('grant_journal_v3', 'manifest_digest', _s37_hexlaw('', 64, True), [('seal', None), ('grant', _S37_C64)], 'grant',
+     _s37_hex_hostile('', _S37_C64)),
+    ('grant_journal_v3', 'platform', _s37_enumlaw({'macos-aarch64', 'macos-x86_64', 'linux-x86_64-gnu', 'linux-aarch64-gnu'}, True),
+     [('seal', None), ('grant', 'macos-x86_64')], 'grant', _s37_enum_hostile('macos-x86_64') + [('alias', '?', 'macos-arm64')]),
+    ('grant_journal_v3', 'run_id', _s37_hexlaw('run3:', 64, True), [('seal', _S37_RUN3), ('rev', None)], 'seal',
+     _s37_hex_hostile('run3:', _S37_RUN3)),
+    ('grant_journal_v3', 'body', _s37_textlaw(False), [('seal', '{}')], 'seal', _s37_text_hostile('{}') + [('null', '?', None)]),
+    ('grant_journal_v3', 'body_sha256', _s37_hexlaw('', 64, False), [('seal', _S37_B64)], 'seal',
+     _s37_hex_hostile('', _S37_B64) + [('null', '?', None)]),
+    ('grant_journal_v3', 'prev_sha256', _s37_hexlaw('', 64, False), [('seal', _S37_B64)], 'seal',
+     _s37_hex_hostile('', _S37_B64) + [('null', '?', None)]),
+    ('attempt_custody', 'store_generation_digest', _s37_hexlaw('', 64, False), [('admitted', _S37_A64)], 'admitted',
+     _s37_hex_hostile('', _S37_A64) + [('null', '?', None)]),
+    ('attempt_custody', 'namespace_id', _s37_textlaw(False), [('admitted', 'ns')], 'admitted',
+     _s37_text_hostile('ns') + [('null', '?', None)]),
+    ('attempt_custody', 'execution_id', _s37_hexlaw('exec1_', 32, False), [('admitted', _S37_EXEC)], 'admitted',
+     _s37_hex_hostile('exec1_', _S37_EXEC) + [('null', '?', None)]),
+    ('attempt_custody', 'operation_ref', _s37_hexlaw('op-', 32, False), [('admitted', _OP)], 'admitted',
+     _s37_hex_hostile('op-', _OP) + [('null', '?', None)]),
+    ('attempt_custody', 'record_schema', _s37_intlaw(lambda v: v == 1), [('admitted', 1)], 'admitted', _s37_int_hostile(1)),
+    ('attempt_custody', 'phase', _s37_enumlaw({'admitted', 'settled'}), [('admitted', 'admitted'), ('settled', 'settled')],
+     'admitted', _s37_enum_hostile('admitted')),
+    ('attempt_custody', 'settled_outcome', _s37_enumlaw({'committed', 'refused'}, True), [('admitted', None), ('settled', 'refused')],
+     'settled', _s37_enum_hostile('refused')),
+]
+
+
+def _s37_insert(table, base, column, expr, value, encoding=None):
+    """Insert one row with `column` supplied through `expr`; return (typeof, bytes) as stored, or None if refused."""
+    c = sqlite3.connect(':memory:', isolation_level=None)
+    try:
+        if encoding:
+            c.execute("PRAGMA encoding = '%s'" % encoding)
+        c.executescript(_S37_AC if table == 'attempt_custody' else ddl3)
+        if table == 'grant_journal_v3':
+            c.execute(_S37_CF, _S37_FRESH)
+        cols = list(_S37_BASE[base])
+        c.execute('INSERT INTO %s (%s) VALUES (%s)' % (table, ','.join(cols), ','.join(expr if k == column else '?' for k in cols)),
+                  [value if k == column else _S37_BASE[base][k] for k in cols])
+        return c.execute('SELECT typeof(%s), CAST(%s AS BLOB) FROM %s' % (column, column, table)).fetchone()
+    except sqlite3.Error:
+        return None
+    finally:
+        c.close()
+
+
+for _table, _col, _law, _canon, _hbase, _hostile in _S37_SPEC:
+    _key = _table + '.' + _col
+    _bad = []
+    for _i, (_b, _v) in enumerate(_canon):
+        _g = _s37_insert(_table, _b, _col, '?', _v)
+        if _g is None or not _law(*_g):
+            _bad.append(_i)
+    ck('source37 storage: %s admits every canonical lawful value in its exact storage class' % _key, not _bad, _bad)
+    _holes = []
+    for _label, _expr, _v in _hostile:
+        _g = _s37_insert(_table, _hbase, _col, _expr, _v)
+        if _g is not None and not _law(*_g):
+            _holes.append('%s -> %s %r' % (_label, _g[0], (_g[1] or b'')[:24]))
+    ck('source37 storage: %s never stores a hostile value outside its law (NUL, BLOB, REAL, invalid UTF-8, multibyte, prefix, length)'
+       % _key, not _holes, _holes)
+
+ck('source37 storage: root counterexamples (embedded-NUL suffix; ASCII-hex BLOB64) are refused',
+   all(_s37_insert(t, b, col, '?', v) is None for t, b, col, v in (
+       ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64 + '\x00Z'),
+       ('grant_journal_v3', 'seal', 'operation_ref', _OP + '\x00Z'),
+       ('grant_journal_v3', 'seal', 'run_id', _S37_RUN3 + '\x00Z'),
+       ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64.encode()),
+       ('carrier_format', 'fresh', 'project_key_digest', _S37_E64.encode()))))
+for _script, _name, _hexcols, _intcols, _textcols in (
+        (ddl3, 'carrierFormat 3', {'project_key_digest': 64, 'migration_op_ref': 35, 'operation_ref': 35, 'run_id': 69,
+                                   'manifest_digest': 64, 'body_sha256': 64, 'prev_sha256': 64},
+         ['singleton', 'carrier_format', 'first_generation', 'chain_law', 'migrated_from', 'grantGeneration', 'seq', 'record_schema'],
+         ['request_ref', 'token', 'install_generation_id', 'body']),
+        (_S37_AC, 'attempt_custody', {'store_generation_digest': 64, 'execution_id': 38, 'operation_ref': 35},
+         ['record_schema'], ['namespace_id'])):
+    _missing = [c_ for c_, n_ in _hexcols.items()
+                if ("typeof(%s) = 'text'" % c_) not in _script or ('length(%s) = %d' % (c_, n_)) not in _script
+                or ('length(CAST(%s AS BLOB)) = %d' % (c_, n_)) not in _script]
+    _missing += [c_ for c_ in _intcols if ("typeof(%s) = 'integer'" % c_) not in _script]
+    _missing += [c_ for c_ in _textcols if ("typeof(%s) = 'text'" % c_) not in _script]
+    ck('source37 storage: every %s column states its storage class and every hex column its character and byte length' % _name,
+       not _missing, _missing)
+ck('source37 storage: a lawful carrier_format and attempt_custody row are admitted under the UTF-8 database encoding',
+   _s37_insert('carrier_format', 'fresh', 'project_key_digest', '?', _S37_E64) is not None
+   and _s37_insert('attempt_custody', 'admitted', 'execution_id', '?', _S37_EXEC) is not None)
+ck('source37 storage: under a UTF-16 database encoding hex-bearing rows fail closed (lawful, NUL and BLOB values all refused)',
+   all(_s37_insert('carrier_format', 'fresh', 'project_key_digest', '?', v, encoding='UTF-16le') is None
+       for v in (_S37_E64, _S37_E64 + '\x00Z', _S37_E64.encode()))
+   and all(_s37_insert('attempt_custody', 'admitted', 'execution_id', '?', v, encoding='UTF-16le') is None
+           for v in (_S37_EXEC, _S37_EXEC + '\x00Z', _S37_EXEC.encode())))
+ck('source37 storage: the dispatch states the storage-class law, encoding assumption, rejected alternatives and historical scope',
+   all(k in disp.get('ddlGrammar', {}) for k in ('storageClassLaw', 'encodingAssumption', 'alternativesRejected', 'historicalScope')))
+ck('source37: no carrierFormat 3 or attempt_custody CHECK keeps a first-character-only hex GLOB',
+   "[0-9a-f]*'" not in ddl3 and "[0-9a-f]*'" not in _S37_AC,
+   [l.strip() for l in (ddl3 + '\n' + _S37_AC).splitlines() if "[0-9a-f]*'" in l])
+_s37_hist = [_s37_run(ddl2, [("INSERT INTO grant_journal (grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256)"
+                              " VALUES (1,1,'REV',?,'{}',?,?)", (op, _H, _H))]) == [True]
+             for op in ('op-a' + 'Z' * 31, _OP + '\x00Z', _OP.encode())]
+ck('source37: frozen carrierFormat 2 bytes are unchanged and still admit first-character-only, embedded-NUL and BLOB operation_ref values (disclosed historical scope)',
+   "operation_ref GLOB 'op-[0-9a-f]*' AND length(operation_ref) = 35" in ddl2 and all(_s37_hist), _s37_hist)
+

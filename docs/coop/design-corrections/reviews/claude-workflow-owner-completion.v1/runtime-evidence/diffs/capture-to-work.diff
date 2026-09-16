@@ -1,0 +1,509 @@
+--- capture/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ work/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -2584,9 +2584,9 @@
+ # graph fixture, admitted at the native producer boundary (admit_coverage_result_v3, inside the
+ # fixture), then closed by identity-model.v3.close_run, which runs the complete evaluator3
+ # semantic replay. A schema fragment or a pre-selected adapter input would not establish that
+-# native selection join. The _cw_preview helper separately uses the historical synthetic
+-# host adapter and major-1 descriptor constructor; it does not establish an admitted current
+-# descriptor or a joined real-Run snapshot/trust/requirements projection. Controls marked UNIT
++# native selection join. The _cw_preview helper uses a synthetic host adapter (tree, project,
++# snapshot, trust, requirements) with the CURRENT evaluator3 owner constructor, which returns an
++# owner-admitted repair:2 plan; it does not establish a joined real-Run snapshot/trust/requirements projection. Controls marked UNIT
+ # exercise one published rule on a
+ # constructed view or plan and are NOT full-Run controls; they are labelled so in their ids.
+ #
+@@ -2676,8 +2676,8 @@
+     """Synthetic host projection using the current selection hook over real retained evidence.
+ 
+     The tree/project/snapshot/trust/requirements adapter is historical fixture data, not derived
+-    from the Run. The inherited constructor emits a major-1 descriptor; this helper therefore
+-    demonstrates gate integration only, not current descriptor admission or snapshot joins.
++    from the Run. The evaluator3 owner constructor joins the targets to the retained Run and returns
++    an admitted repair:2 plan; snapshot equality is still judged against the synthetic adapter.
+     """
+     view = SEL.RetainedRunView(run, objects, blobs)
+     adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable",
+@@ -3168,7 +3168,7 @@
+         "repair-cw-evaluator3-refuses-a-caller-selected-record",
+         "repair-cw-witnesses-are-redundant-in-a-symmetric-run",
+     ],
+-    "projectionScope": "The listed controls read native evidence from fully admitted Runs. _cw_preview uses a separate synthetic host adapter and inherited major-1 descriptor constructor; its outputs are not admitted current RepairPlanDescriptors. Pure derive(..., targets=[], ...) calls isolate path ownership only and are not lawful repair requests.",
++    "projectionScope": "The listed controls read native evidence from fully admitted Runs. _cw_preview uses a separate synthetic host adapter with the evaluator3 owner constructor; its outputs are owner-admitted repair:2 RepairPlanV1 whose snapshot join is against that adapter. Pure derive(..., targets=[], ...) calls isolate path ownership only and are not lawful repair requests.",
+     "unitControls": [
+         "repair-cw-unit-relevant-universe-without-coverage-refuses-non-vacuously",
+         "repair-cw-unit-unrelated-dissenting-universe-does-not-join",
+@@ -3190,7 +3190,7 @@
+     },
+     "notClaimed": [
+         "a lawful old-preview bypass from the asymmetric empty-target control; its valid target already reaches the dissenting symbol universe",
+-        "current RepairPlanDescriptor admission, real-Run snapshot/project/preimage joins, or sufficiency derivation from the synthetic host projection",
++        "real-Run snapshot/project/preimage joins, or sufficiency derivation from the synthetic host projection",
+         "native producer qualification: every ClosedWorldV2 here is a synthetic producer observation minted by the native owner's own closed_world_v2 helper",
+         "a full product repair, an apply, or any authorization: preview is a Query-class step",
+         "real extraction, compiler, provider or repository observation",
+@@ -3637,6 +3637,92 @@
+ 
+ _r2_policy_result, _r2_policy_refusal = P.W.run_policy_test(_r2_sub(_R2_RAW)["policySuite"])
+ check("r2-policy-test-owner-result-produced", _r2_policy_refusal is None and _r2_policy_result["resolverAccepted"] is True)
++
++# ------------------------------------------------ owner completion 2: policy-test suite admission route
++_oc2_suite = _r2_sub(_R2_RAW)["policySuite"]
++_oc2_result, _oc2_refusal = WF3.run_admitted_policy_test(copy.deepcopy(_oc2_suite))
++check("oc2-admitted-suite-runs-the-same-authoring-test",
++      _oc2_refusal is None and WF3.admit_policy_test_suite(_oc2_suite) is _oc2_suite
++      and _oc2_result["policyTestResultId"] == _r2_policy_result["policyTestResultId"])
++_OC2_REGISTRY = {r["code"]: r for r in json.loads((HERE.parent / "public-detail-registry.v1.json").read_text())["records"]}
++
++
++def _oc2_termination(suite):
++    try:
++        WF3.admit_policy_test_suite(suite)
++        return None
++    except WF3.Refusal as exc:
++        return exc
++
++
++def _oc2_route(cid, suite, detail):
++    exc = _oc2_termination(suite)
++    if exc is None:
++        return check(cid, False, "admitted")
++    term = exc.termination()
++    env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "e" * 32,
++           "termination": term, "exitCode": WF3.exit_code(term), "errors": [term["domainDetail"]]}
++    ok_env, why = valid(U + "command-envelope:3", env)
++    return check(cid, exc.error_code == "CONFIG.INVALID" and exc.detail == detail and term["class"] == "request-rejected"
++                 and term["errorCode"] == "CONFIG.INVALID" and term["domainDetail"]["code"] == detail and env["exitCode"] == 2 and ok_env,
++                 f"{exc.error_code}/{exc.detail} {why}")
++
++
++_oc2_no_cases = {k: v for k, v in copy.deepcopy(_oc2_suite).items() if k != "cases"}
++_oc2_route("oc2-suite-missing-cases-is-config-invalid-with-the-shared-config-invalid-detail", _oc2_no_cases, "CONFIG.INVALID")
++_oc2_severity = copy.deepcopy(_oc2_suite)
++_oc2_severity["candidatePolicy"]["rules"][0]["severity"] = "fatal"
++_oc2_route("oc2-policy-enum-violation-is-not-a-grammar-violation", _oc2_severity, "CONFIG.INVALID")
++_oc2_waiver_extra = copy.deepcopy(_oc2_suite)
++_oc2_waiver_extra["waivers"]["hook"] = "node scripts/waive.js"
++_oc2_route("oc2-waiver-set-member-is-not-a-policy-grammar-refusal", _oc2_waiver_extra, "CONFIG.INVALID")
++_oc2_cases = {c["id"]: c for c in _R2_RAW["policyRefusals"]}
++_oc2_hook = copy.deepcopy(_oc2_suite)
++_oc2_hook["candidatePolicy"].update(_oc2_cases["imperative-key-schema-violation"]["policyExtra"])
++_oc2_route("oc2-owner-imperative-key-case-is-policy-imperative-key-refused", _oc2_hook, "POLICY.IMPERATIVE_KEY_REFUSED")
++_oc2_expr = copy.deepcopy(_oc2_suite)
++_oc2_expr["candidatePolicy"]["rules"][0]["emitWhen"] = _oc2_cases["string-expression-schema-violation"]["policyEmitWhen"]
++_oc2_route("oc2-owner-string-expression-case-is-policy-imperative-key-refused", _oc2_expr, "POLICY.IMPERATIVE_KEY_REFUSED")
++_oc2_include = copy.deepcopy(_oc2_suite)
++_oc2_include["candidatePolicy"]["rules"][0]["include"] = "other-policy.json"
++check("oc2-include-is-a-declared-member-elsewhere-in-the-policy-grammar",
++      '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:workflows:policy-document"]["$defs"]["Rule"])
++      or '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:workflows:policy-document"]["$defs"]))
++_oc2_route("oc2-grammar-law-is-positional-for-a-member-declared-elsewhere", _oc2_include, "POLICY.IMPERATIVE_KEY_REFUSED")
++check("oc2-grammar-law-does-not-flag-the-admitted-candidate-policy", not WF3.policy_grammar_violation(_oc2_suite["candidatePolicy"]))
++_oc2_dup = copy.deepcopy(_oc2_suite)
++_oc2_dup["waivers"]["waivers"] = _r2_sub(_oc2_cases["duplicate-waiver"]["waivers"])
++_oc2_dup_result, _oc2_dup_refusal = WF3.run_admitted_policy_test(_oc2_dup)
++_oc2_dup_term = _oc2_dup_refusal.termination() if _oc2_dup_refusal is not None else {}
++_oc2_goldens = {g["id"]: g for g in _R2_INV["goldens"]}
++_oc2_gdup = _oc2_goldens["policy-test-duplicate-waiver"]
++check("oc2-resolver-refusal-of-an-admitted-suite-is-the-request-rejection-its-golden-names",
++      _oc2_dup_refusal is not None and _oc2_dup_result["resolverAccepted"] is False
++      and _oc2_dup_term.get("class") == _oc2_gdup["class"] and WF3.exit_code(_oc2_dup_term) == _oc2_gdup["exitCode"]
++      and _oc2_dup_term.get("errorCode") == _oc2_gdup["errorCode"]
++      and _oc2_dup_term.get("domainDetail", {}).get("code") == _oc2_gdup["domainDetail"], _oc2_dup_term)
++must_valid("oc2-resolver-refused-result-is-still-a-valid-policy-test-result",
++           "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1", _oc2_dup_result)
++must_invalid("oc2-resolver-refused-result-is-never-a-policy-test-carrier", U + "command-envelope:3#/$defs/PolicyTestResultRecordV1",
++             {"surface": "policy-test-result", "result": _oc2_dup_result})
++must_valid("oc2-resolver-accepted-result-is-a-policy-test-carrier", U + "command-envelope:3#/$defs/PolicyTestResultRecordV1",
++           {"surface": "policy-test-result", "result": _r2_policy_result})
++_oc2_residual = _oc2_goldens.get("policy-test-suite-inadmissible", {})
++_oc2_residual_term = _oc2_termination(_oc2_no_cases).termination()
++check("oc2-residual-route-golden-is-the-owner-termination",
++      _oc2_residual.get("command") == "policy-test" and _oc2_residual.get("class") == _oc2_residual_term["class"]
++      and _oc2_residual.get("exitCode") == WF3.exit_code(_oc2_residual_term)
++      and _oc2_residual.get("errorCode") == _oc2_residual_term["errorCode"]
++      and _oc2_residual.get("domainDetail") == _oc2_residual_term["domainDetail"]["code"])
++check("oc2-imperative-key-golden-is-the-owner-termination",
++      _oc2_goldens["policy-test-imperative-key"]["domainDetail"] == _oc2_termination(_oc2_hook).termination()["domainDetail"]["code"]
++      and _oc2_goldens["policy-test-imperative-key"]["errorCode"] == _oc2_termination(_oc2_hook).termination()["errorCode"])
++check("oc2-config-invalid-is-a-d9-error-code-and-a-separately-registered-shared-detail",
++      "CONFIG.INVALID" in SCHEMAS[U + "common:3"]["$defs"]["D9ErrorCode"]["enum"]
++      and "CONFIG.INVALID" in SCHEMAS[U + "common:3"]["$defs"]["DomainDetailCode"]["enum"]
++      and "CONFIG.INVALID" in SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"]
++      and _OC2_REGISTRY["CONFIG.INVALID"]["owner"] == "security"
++      and _OC2_REGISTRY["POLICY.IMPERATIVE_KEY_REFUSED"]["owner"] == "workflows")
+ _R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
+ _R2_COMMAND_OF["policy-test"] = "policy-test"
+ # baseline show through adoption, admission and current-trust pivot resolution.
+@@ -3713,17 +3799,79 @@
+       [QS.DD.normalize_explicit_root(r) for r in _R2_ENVS["recommend"]["queryRecord"]["config2Proposals"][0]["workspaceRoots"]]
+       == sorted({u["rootPath"] for u in _r2_discovery["units"]}, key=lambda s: QS.DD.spell_root(s))
+       and _R2_ENVS["recommend"]["query"]["items"] == 0)
+-# repair preview from the admitted closed-world preview; the reference constructor still emits a major-1 descriptor.
+-_r2_desc = copy.deepcopy(cw_pos_plan["descriptor"])
+-check("r2-repair-preview-reference-constructor-emits-historical-major-1", _r2_desc["schemaMajor"] == 1)
+-_r2_desc["schemaMajor"] = 2
+-_r2_plan = {"repairPlanId": P.W.wid("repairplan2", "workflow.repair-plan", _r2_desc), "descriptor": _r2_desc}
++# repair preview carries the evaluator3 owner-produced plan exactly as returned (no relabel, no remint).
++_r2_plan = copy.deepcopy(cw_pos_plan)
++_r2_desc = _r2_plan["descriptor"]
+ must_valid("r2-repair-preview-plan-admitted-as-repair-2", U + "repair:2#/$defs/RepairPlanV1", _r2_plan)
+ _r2_preview = {"kind": "repair-preview", "repairPlanId": _r2_plan["repairPlanId"], "snapshotId": _r2_desc["snapshotId"], "applicable": _r2_desc["applicable"],
+                "unmetPreconditions": copy.deepcopy(_r2_desc["unmetPreconditions"])}
+ must_valid("r2-repair-preview-result-owner-schema", U + "invocation:3#/$defs/RepairPreviewResult", _r2_preview)
+ _R2_ENVS["repair-preview"] = _r2_envelope("repair-preview", {"surface": "repair-preview", "preview": _r2_preview, "plan": _r2_plan}, _r2_desc["projectId"])
+ _R2_COMMAND_OF["repair-preview"] = "repair-preview"
++
++# ------------------------------------------------ owner completion 1: the evaluator3 repair:2 constructor
++check("oc1-current-constructor-plan-is-repair-2-and-owner-admitted",
++      cw_pos_plan["descriptor"]["schemaMajor"] == 2 and WF3.admit_repair_plan_v2(copy.deepcopy(cw_pos_plan)) == cw_pos_plan
++      and cw_pos_plan["repairPlanId"] == P.W.wid("repairplan2", "workflow.repair-plan", cw_pos_plan["descriptor"])
++      and cw_pos_plan["descriptor"]["evidenceRunId"] == cw_pos_id)
++check("oc1-every-current-preview-control-plan-is-repair-2",
++      all(p["descriptor"]["schemaMajor"] == 2 for p in (cw_pos_plan, cw_neg_plan, cw_neg_alt, cw_create, cw_dyn_plan)))
++check("oc1-current-and-historical-profiles-are-separate-module-instances",
++      WF3.repair_preview is not WF3._base.repair_preview and P.W.CLOSED_WORLD_SELECTOR is None
++      and WF3._base.CLOSED_WORLD_SELECTOR is WF3.evaluator3_closed_world)
++import inspect as _oc1_inspect  # noqa: E402
++_oc1_param = _oc1_inspect.signature(P.W.repair_preview).parameters["descriptor_major"]
++check("oc1-historical-constructor-keeps-a-keyword-only-major-1-default",
++      _oc1_param.default == 1 and _oc1_param.kind is _oc1_inspect.Parameter.KEYWORD_ONLY)
++_oc1_hist_adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable",
++                     "runId": cw_neg_id, "planId": cw_neg_run["planId"], "snapshotId": P.W.tree_snapshot_id(CW_PROJECT, CW_TREE),
++                     "findings": CW_FPS[:1], "closedWorld": copy.deepcopy(CW_CLOSED), "evidenceOrigin": "native-analysis"}
++_oc1_hist = P.W.repair_preview(CW_PROJECT, CW_TREE, _oc1_hist_adapter, CW_RECIPE, CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST)
++check("oc1-historical-profile-still-emits-major-1-from-a-caller-selected-record",
++      _oc1_hist["descriptor"]["schemaMajor"] == 1
++      and _oc1_hist["repairPlanId"] == P.W.wid("repairplan2", "workflow.repair-plan", _oc1_hist["descriptor"]))
++
++
++def _oc1_refusal(cid, fn, error, detail):
++    try:
++        fn()
++        return check(cid, False, "not refused")
++    except WF3.Refusal as exc:
++        return check(cid, exc.error_code == error and exc.detail == detail, f"{exc.error_code}/{exc.detail}")
++
++
++_oc1_refusal("oc1-current-admission-refuses-a-historical-major-1-plan", lambda: WF3.admit_repair_plan_v2(copy.deepcopy(_oc1_hist)),
++             "REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR")
++_oc1_relabel = copy.deepcopy(_oc1_hist)
++_oc1_relabel["descriptor"]["schemaMajor"] = 2
++must_valid("oc1-unreminted-relabel-is-schema-valid", U + "repair:2#/$defs/RepairPlanV1", _oc1_relabel)
++_oc1_refusal("oc1-current-admission-refuses-an-unreminted-relabel", lambda: WF3.admit_repair_plan_v2(_oc1_relabel),
++             "CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT")
++_oc1_absent = hid("finding-key2", "not-a-finding-of-this-run")
++check("oc1-historical-profile-trusts-a-caller-listed-target",
++      P.W.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_hist_adapter, findings=[_oc1_absent]), CW_RECIPE, [_oc1_absent],
++                         CW_DELETE, CW_REQS, ["**"], CW_TRUST)["descriptor"]["targets"] == [_oc1_absent])
++_oc1_refusal("oc1-current-constructor-refuses-a-target-not-matched-in-the-retained-run",
++             lambda: _cw_preview(cw_pos_id, cw_pos_run, cw_pos_obj, cw_pos_blob, [_oc1_absent], CW_DELETE),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE")
++_oc1_adapter = {"authority": "authoritative", "availability": "retained", "sealedAssurance": "replayable", "runId": cw_pos_id,
++                "planId": cw_pos_run["planId"], "snapshotId": WF3.tree_snapshot_id(CW_PROJECT, CW_TREE), "findings": CW_FPS[:1],
++                "retained": SEL.RetainedRunView(cw_pos_run, cw_pos_obj, cw_pos_blob), "evidenceOrigin": "native-analysis"}
++_oc1_refusal("oc1-current-constructor-refuses-a-retained-closure-of-another-run",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, planId=hid("plan2", "another")), CW_RECIPE,
++                                        CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_UNAVAILABLE")
++_oc1_refusal("oc1-current-constructor-refuses-a-historical-run2-evidence-run",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, runId=hid("run2", "historical")), CW_RECIPE,
++                                        CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST),
++             "REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR")
++_oc1_refusal("oc1-current-constructor-keeps-authority-first",
++             lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, retained=None), CW_RECIPE, CW_FPS[:1], CW_DELETE,
++                                        CW_REQS, ["**"], CW_TRUST, ephemeral=True),
++             "REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE")
++check("oc1-repair-preview-command-surface-admits-the-owner-plan-without-relabel",
++      QS.project_command_surface(_R2_ENVS["repair-preview"], _R2_CMD["repair-preview"])["parity"]["repair-plan-id"] == cw_pos_plan["repairPlanId"]
++      and _R2_ENVS["repair-preview"]["queryRecord"]["plan"] == cw_pos_plan)
+ 
+ 
+ def _r2_bump(path, delta=1):
+--- capture/docs/coop/design-corrections/workflows/command-inventory.v3.json
++++ work/docs/coop/design-corrections/workflows/command-inventory.v3.json
+@@ -1916,6 +1916,16 @@
+       "remedy": "the policy DSL is declarative data only"
+     },
+     {
++      "id": "policy-test-suite-inadmissible",
++      "command": "policy-test",
++      "situation": "the suite fails PolicyTestSuiteV1 admission and the candidate policy has no grammar violation",
++      "class": "request-rejected",
++      "exitCode": 2,
++      "errorCode": "CONFIG.INVALID",
++      "domainDetail": "CONFIG.INVALID",
++      "remedy": "correct the suite so it satisfies PolicyTestSuiteV1"
++    },
++    {
+       "id": "repair-apply-source-moved",
+       "command": "repair-apply",
+       "situation": "live file digest differs from the plan's preimage at staging",
+--- capture/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
++++ work/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
+@@ -785,7 +785,23 @@
+           "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1"
+         }
+       },
+-      "description": "policy test: the complete PolicyTestResultV1."
++      "description": "policy test: the complete PolicyTestResultV1 of a resolver-accepted suite. A suite admission or resolver refusal terminates request-rejected CONFIG.INVALID with its detail (workflows-and-surfaces section 5; goldens policy-test-duplicate-waiver, policy-test-imperative-key, policy-test-suite-inadmissible) and is never carried here.",
++      "allOf": [
++        {
++          "properties": {
++            "result": {
++              "required": [
++                "resolverAccepted"
++              ],
++              "properties": {
++                "resolverAccepted": {
++                  "const": true
++                }
++              }
++            }
++          }
++        }
++      ]
+     },
+     "EvidenceLevelCountsV1": {
+       "type": "object",
+--- capture/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
++++ work/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
+@@ -109,6 +109,7 @@
+ 
+ - Repair targets remain finding-key2. Unmatched → `REQUEST.PRECONDITION_FAILED` / `REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE`.
+ - Several configurations, one fingerprint: compatible metadata (ruleId, subjectPath, kind, qualifiedName, ruleClosure) or `REPAIR.TARGET_METADATA_AMBIGUOUS`. Do not collapse `parameterDigest`.
++- Preview constructor: `workflows_model.v3.repair_preview` is the evaluator3 owner entry. Before any descriptor it refuses non-authoritative evidence (`REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE`), a missing retained closure or a retained closure of another Run (`REPAIR.EVIDENCE_RUN_UNAVAILABLE`), a non-run3 evidence Run (`REQUEST.SCHEMA_MAJOR_UNSUPPORTED` / `EVALUATION.MIXED_OUTPUT_MAJOR`) and the two target refusals above over the retained matched findings. It builds the descriptor at major 2 through the shared builder and returns only a plan that `admit_repair_plan_v2` admits: repair:2 schema and a recomputed `repairPlanId`. A major-1 plan refuses `EVALUATION.MIXED_OUTPUT_MAJOR`, and an unreminted relabel refuses `CONFIG.INVALID` / `IMPORT.ARTIFACT_CORRUPT`. `workflows_model.v1.repair_preview` remains the historical major-1 constructor (`descriptor_major` defaults to 1).
+ - Candidates: matched group-by-fingerprint **after** BaselineEntry-field agreement, one logical `candidateId` carrying **all** `findingIds` and per-occurrence parameters; unmatched stay one candidate per findingId. No representative findingId may drop other configuration evidence. Reviewed-clone suppression is keyed by that logical `candidateId`; fingerprint suppression does not hide unmatched findingId candidates.
+ - Query `findingId` locates any occurrence; `fingerprint` locates matched configurations only.
+ - Graph query (`graph-query:3`, `query-projection-contract.v3.md`): `graph.neighbors|path|reach` use native endpoints, closed per-op params, admitted-Run snapshot join, vertex-domain endpoint admission, single visited-endpoint budget, and mandatory retained Coverage/deficiency disclosure. Other 17 operations keep their existing owners. This unit does not implement a parallel absence evaluator.
+--- capture/docs/coop/design-corrections/workflows/workflows_model.v1.py
++++ work/docs/coop/design-corrections/workflows/workflows_model.v1.py
+@@ -1589,8 +1589,12 @@
+ # alter the historical profile.
+ CLOSED_WORLD_SELECTOR = None
+ 
+-def repair_preview(project_id, snapshot_tree, run, recipe, targets, edits, evidence_requirements, permitted_scope, trust, ephemeral=False):
++def repair_preview(project_id, snapshot_tree, run, recipe, targets, edits, evidence_requirements, permitted_scope, trust, ephemeral=False, *, descriptor_major=1):
+     """trust: the security unit's current admitted closure set {closureId: 'admitted'|'revoked'}; ABSENCE is not admission.
++
++    descriptor_major: 1 (the default) is the HISTORICAL major-1 plan, and every existing caller keeps it byte-identically.
++    Only the evaluator3 owner (workflows_model.v3.repair_preview) passes 2, after its own retained-Run joins, so the
++    descriptor is BUILT at its major before the repairPlanId preimage exists; no plan is relabelled or reminted.
+ 
+     CLOSED-WORLD INPUT, two profiles. HISTORICAL major-1 (CLOSED_WORLD_SELECTOR is None):
+     `run['closedWorld']` is ONE already-selected seven-member ClosedWorldV2 that the CALLER
+@@ -1613,6 +1617,8 @@
+     dynamicDispatch is NOT a global veto: native section 4.5 affected_targets makes
+     dynamic-edge effects target-relative, and each evidence requirement is judged on its own
+     relation and rung below."""
++    if descriptor_major not in (1, 2):
++        raise ValueError('repair plan descriptor major is 1 (historical) or 2 (evaluator3)')
+     unmet = []
+     if ephemeral or run.get('authority') != 'authoritative':
+         raise Refusal('REQUEST.PRECONDITION_FAILED', 'REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE', 'run an authoritative analysis first')
+@@ -1675,7 +1681,7 @@
+             unmet.append({'code': 'REPAIR.EVIDENCE_RUN_UNAVAILABLE',
+                           'remedy': 'evidence requirement unsatisfied: ' + req['relation'] + '@'
+                                     + req['minResolution'] + ' (' + plane + ': ' + deficiency + ')'})
+-    desc = {'schemaFamily': 'opensip.product.repair-plan', 'schemaMajor': 1, 'projectId': project_id, 'snapshotId': snap, 'evidenceRunId': run['runId'], 'planId': run['planId'], 'recipe': recipe,
++    desc = {'schemaFamily': 'opensip.product.repair-plan', 'schemaMajor': descriptor_major, 'projectId': project_id, 'snapshotId': snap, 'evidenceRunId': run['runId'], 'planId': run['planId'], 'recipe': recipe,
+             'recipeTrust': recipe_trust, 'evidenceOrigin': origin,
+             # The five-field record. HISTORICAL profile: a projection of the caller's one
+             # pre-selected seven-member record. CURRENT evaluator3: the deterministic DISPLAY
+--- capture/docs/coop/design-corrections/workflows/workflows_model.v3.py
++++ work/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -93,3 +93,131 @@
+ 
+ _base.CLOSED_WORLD_SELECTOR=evaluator3_closed_world
+ CLOSED_WORLD_SELECTOR=evaluator3_closed_world
++
++# ---------------------------------------------------------- evaluator3 repair:2 plan constructor
++# The CURRENT preview owner. workflows_model.v1.repair_preview stays the historical major-1 constructor for every
++# historical caller (check_workflows.v1, the integration host adapter). This profile builds the descriptor at major 2
++# (evidenceRunId run3) and admits the plan before returning it; nothing is relabelled or reminted after identity.
++from jsonschema import ValidationError
++REPAIR_PLAN_MAJOR=2
++REPAIR_PLAN_REF='urn:opensip:product-v1:workflows:evaluator3:repair:2#/$defs/RepairPlanV1'
++_PROJECTION=None
++def projection_owner():
++    """The evaluator3 projection owner: the repair target law (project_repair_targets) and the evaluator3 schema registry."""
++    global _PROJECTION
++    if _PROJECTION is None:
++        spec=importlib.util.spec_from_file_location('workflow_projection_owner3',PROFILE_ROOT/'workflow_projection_model.v3.py')
++        _PROJECTION=importlib.util.module_from_spec(spec);spec.loader.exec_module(_PROJECTION)
++    return _PROJECTION
++
++def admit_repair_plan_v2(plan):
++    """Current preview admission of one RepairPlanV1: repair:2 only, the closed schema, and a repairPlanId that recomputes.
++    A historical major-1 plan refuses typed and is never coerced; a relabelled plan whose id was not re-derived is corrupt."""
++    desc=plan.get('descriptor') if isinstance(plan,dict) else None
++    if isinstance(desc,dict) and desc.get('schemaMajor')!=REPAIR_PLAN_MAJOR:
++        raise Refusal('REQUEST.SCHEMA_MAJOR_UNSUPPORTED','EVALUATION.MIXED_OUTPUT_MAJOR','evaluator3 repair admits repair:2 RepairPlanV1 only; a historical major-1 plan is not coerced',str(desc.get('schemaMajor')))
++    try:projection_owner().validate_profile(REPAIR_PLAN_REF,plan)
++    except (ValidationError,canonical.AdmissionError) as exc:
++        raise Refusal('CONFIG.INVALID','IMPORT.ARTIFACT_CORRUPT','the plan does not satisfy repair:2 RepairPlanV1') from exc
++    if plan['repairPlanId']!=wid('repairplan2','workflow.repair-plan',desc):
++        raise Refusal('CONFIG.INVALID','IMPORT.ARTIFACT_CORRUPT','repairPlanId does not recompute from the descriptor',plan['repairPlanId'])
++    return plan
++
++def repair_preview(project_id,snapshot_tree,run,recipe,targets,edits,evidence_requirements,permitted_scope,trust,ephemeral=False):
++    """Evaluator3 repair preview: the owner-produced, admitted repair:2 RepairPlanV1.
++
++    Before any descriptor exists: authority (exactly as the historical profile), the retained closure of the evidence
++    Run, a run3 evidence Run whose planId is the retained Run's, and every target a matched finding-key2 of THAT
++    retained Run with compatible metadata (workflow-projection-contract section 5). The closed-world gate, edits, trust
++    and requirements then run through the shared builder with this profile's retained-record selector installed, at
++    descriptor major 2, and the plan is admitted before it is returned."""
++    if ephemeral or run.get('authority')!='authoritative':
++        raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE','run an authoritative analysis first')
++    retained=run.get('retained')
++    if retained is None:
++        raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE',
++                      'evaluator3 repair preview requires the retained closure of the evidence Run; a caller-selected closed-world record is not admitted here')
++    if not str(run.get('runId','')).startswith('run3:'):
++        raise Refusal('REQUEST.SCHEMA_MAJOR_UNSUPPORTED','EVALUATION.MIXED_OUTPUT_MAJOR','a repair:2 plan names an authoritative run3 evidence Run',str(run.get('runId')))
++    if run.get('planId')!=retained.run.get('planId'):
++        raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE','the retained closure is not the evidence Run this request names',str(run.get('planId')))
++    P=projection_owner()
++    try:matched=[{'findingId':fid,'finding':f} for fid,f in retained.matched_findings()]
++    except Exception as exc:
++        if type(exc).__name__!='RetainedEvidenceUnavailable':raise
++        raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE','a retained finding the target join must read is unavailable: '+str(exc)) from exc
++    try:P.project_repair_targets(sorted(set(targets)),matched)
++    except P.Refusal as exc:raise Refusal(exc.error_code,exc.detail,exc.remedy,exc.subject) from exc
++    return admit_repair_plan_v2(_base.repair_preview(project_id,snapshot_tree,run,recipe,targets,edits,evidence_requirements,permitted_scope,trust,ephemeral,descriptor_major=REPAIR_PLAN_MAJOR))
++
++# ---------------------------------------------------------- policy.test suite admission
++# errorCode is CONFIG.INVALID (D9 rejection cause config-invalid) for every suite refusal. The DomainDetail is a separate
++# registered code: POLICY.IMPERATIVE_KEY_REFUSED for a candidate-policy grammar violation (workflows-and-surfaces section 5),
++# otherwise the shared registered CONFIG.INVALID detail. Resolver refusals of an admitted suite keep their own details.
++POLICY_TEST_SUITE_REF='urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestSuiteV1'
++_POLICY_GRAMMAR=None
++def _policy_grammar():
++    global _POLICY_GRAMMAR
++    if _POLICY_GRAMMAR is None:_POLICY_GRAMMAR=json.loads((PROFILE_ROOT/'schemas'/'policy-document.schema.json').read_text())
++    return _POLICY_GRAMMAR
++
++def _grammar_alternatives(nodes,doc):
++    """Leaf alternatives admitted at one position: local $refs resolved and oneOf/anyOf branches flattened. An allOf member
++    constrains the SAME instance, so only a structural member ($ref, type, members, items or its own branches) is followed and
++    a conditional if/then member is never an alternative. A non-local $ref is opaque."""
++    out,stack=[],list(nodes)
++    while stack:
++        n=stack.pop()
++        if not isinstance(n,dict):continue
++        ref=n.get('$ref')
++        if isinstance(ref,str):
++            stack.append(doc['$defs'][ref.split('/')[-1]]) if ref.startswith('#/$defs/') else out.append({'opaque':True})
++            continue
++        branches=[c for k in ('oneOf','anyOf') for c in n.get(k,[])]
++        structural=[c for c in n.get('allOf',[]) if isinstance(c,dict) and any(k in c for k in ('$ref','type','properties','items','oneOf','anyOf'))]
++        stack.extend(branches+structural)
++        if not (branches or structural) or any(k in n for k in ('type','properties','items','const','enum')):out.append(n)
++    return out
++
++def _admits_scalar(a):
++    if a.get('opaque'):return True
++    if 'properties' in a or 'items' in a:return False
++    t=a.get('type')
++    return t is None or t=='string' or (isinstance(t,list) and 'string' in t)
++
++def policy_grammar_violation(value,nodes=None,doc=None):
++    """True exactly when the closed policy grammar admits the value under NO alternative at its position for one of the two
++    reasons section 5 names: an object member that no closed alternative at that position declares (a hook, script,
++    include or exec key), or a string where every alternative is an object (a string expression). Every other schema
++    failure (a wrong enum value, a missing member, a bound) is not a grammar violation."""
++    doc=doc or _policy_grammar()
++    alts=_grammar_alternatives(nodes if nodes is not None else [doc['$defs']['PolicyDocumentV1']],doc)
++    objects=[a for a in alts if a.get('type')=='object' or 'properties' in a]
++    if isinstance(value,str):
++        return bool(objects) and not any(_admits_scalar(a) for a in alts)
++    if isinstance(value,dict):
++        if not objects:return False
++        declared=set().union(*(set(a.get('properties',{})) for a in objects))
++        if all(a.get('additionalProperties') is False for a in objects) and set(value)-declared:return True
++        return any(policy_grammar_violation(v,[a['properties'][k] for a in objects if k in a.get('properties',{})],doc) for k,v in value.items())
++    if isinstance(value,list):
++        items=[a['items'] for a in alts if isinstance(a.get('items'),dict)]
++        return bool(items) and any(policy_grammar_violation(v,items,doc) for v in value)
++    return False
++
++def admit_policy_test_suite(suite):
++    """policy.test admission, before any evaluation (workflows-and-surfaces section 5)."""
++    try:
++        projection_owner().validate_profile(POLICY_TEST_SUITE_REF,suite)
++        return suite
++    except (ValidationError,canonical.AdmissionError) as exc:
++        policy=suite.get('candidatePolicy') if isinstance(suite,dict) else None
++        if policy is not None and policy_grammar_violation(policy):
++            raise Refusal('CONFIG.INVALID','POLICY.IMPERATIVE_KEY_REFUSED','the policy DSL is declarative data only') from exc
++        raise Refusal('CONFIG.INVALID','CONFIG.INVALID','correct the suite so it satisfies PolicyTestSuiteV1') from exc
++
++def run_admitted_policy_test(suite):
++    """policy.test: admit the suite, then run the authoring test. A resolver refusal returns (result, refusal) and terminates
++    request-rejected with its own detail (goldens policy-test-duplicate-waiver, policy-test-imperative-key); only a
++    resolver-accepted result is a policy-test-result carrier."""
++    return run_policy_test(admit_policy_test_suite(suite))
+--- capture/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ work/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -636,6 +636,17 @@
+ The result (`policytest2:`) records candidate and effective digests, resolver
+ acceptance and refusals, applied overrides, waiver resolution and
+ `enforcementUnchanged=true`; the same suite always yields the same result identity.
++Admission precedes evaluation. Every refusal is `request-rejected` (exit 2) with `errorCode`
++`CONFIG.INVALID`, the D9 rejection cause `config-invalid`; the `DomainDetail` is a separate
++registered code. A candidate policy carrying a member that no closed alternative of the policy
++grammar declares at that position, or a string where every closed alternative at that position is
++an object (a string expression), is `POLICY.IMPERATIVE_KEY_REFUSED`. Any other `PolicyTestSuiteV1` admission failure carries the
++shared registered `CONFIG.INVALID` detail; the public detail registry row is registered by
++security, and the native route registry reuses the same detail for external configuration. An
++admitted suite whose candidate policy or waivers the resolver refuses terminates the same way
++with the resolver's detail (`POLICY.DUPLICATE_WAIVER`, `POLICY.UNKNOWN_RULE`,
++`IMPORT.ABSENT_FOR_PREDICATE`); its `resolverAccepted=false` result records the refusal but is
++not a query carrier.
+ 
+ **Candidate → inspect → review (Map side).** `opensip candidates` lists
+ `Candidate` records derived from one sealed Run: findings plus advisory kinds
+@@ -680,7 +691,11 @@
+ outside it is `REPAIR.EDIT_OUTSIDE_PERMITTED_SCOPE`), `applicable`, unmet
+ preconditions and limitations. Destructive unused-code recipes additionally require
+ native closed-world resolution evidence; an advisory similarity or runtime-cold
+-signal alone never authorizes deletion. Preview never writes.
++signal alone never authorizes deletion. Preview never writes. In the evaluator3 profile the plan is
++`repair:2` (`evidenceRunId` `run3`): the evaluator3 workflow owner joins the targets to matched
++`finding-key2` fingerprints of the retained evidence Run (workflow projection contract §5), builds
++the descriptor at that major and admits the plan before returning it. The historical major-1 plan
++keeps its own constructor and schema, and neither is relabelled into the other.
+ 
+ **The closed-world gate reads selected native records; the descriptor carries a
+ display summary.** The guard covers **every `delete` and every `replace` edit** in
+@@ -1182,7 +1197,7 @@
+ | `recommend` | `query`; host `discovery.recommend`; `DiscoveryRecommendRequestV1` | `discovery-recommendation` / `DiscoveryRecommendationRecordV1`: `advisory`, `discovery` (native `UnitDiscoveryV2`), `recommendations` (`DomainDetail[]`, zero rows in this profile), `config2Proposals` (at most one) | every proposed root normalizes under the native explicit-root law to a discovered unit root, and `unitOrdinals` are exactly those units | `items` recommendations, `truncated` false, `completenessMet` true, `advisory` true |
+ | `baseline-show` | `query`; host `baseline.inspect`; `BaselineInspectRequestV1` (`path`) | `baseline-inspection` / `BaselineInspectionRecordV1`: `baseline` (baseline:2 artifact), `pivotClosureAvailability` | baseline admission (§2, including detector identity); one availability row per descriptor pivot closure, in order | `items` rows, `truncated` false, `completenessMet` every row `available`, `advisory` false |
+ | `policy-show` | `query`; host `policy.show`; `PolicyShowRequestV1` | `effective-policy` / `EffectivePolicyRecordV1`: `policyDigest`, `policy` (`PolicyDocumentV2`), `waiverSetDigest`, `effectiveWaivers` (`WaiverSetV1`), `waiverResolution` (`WaiverResolutionV1`) | both digests are the document digests; `effectiveCount` equals the effective waivers; no expired or rejected waiver is effective | `items` rules, `truncated` false, `completenessMet` true, `advisory` false |
+-| `policy-test` | `query`; host `policy.test`; `PolicyTestRequestV1` (`suitePath`) | `policy-test-result` / `PolicyTestResultRecordV1`: `result` (`PolicyTestResultV1`) | `policyTestResultId` recomputes; `summary` counts case outcomes | `items` cases, `truncated` false, `completenessMet` resolver accepted with no indeterminate or not-executable case, `advisory` false |
++| `policy-test` | `query`; host `policy.test`; `PolicyTestRequestV1` (`suitePath`) | `policy-test-result` / `PolicyTestResultRecordV1`: `result` (`PolicyTestResultV1`, `resolverAccepted=true` only) | `policyTestResultId` recomputes; `summary` counts case outcomes | `items` cases, `truncated` false, `completenessMet` resolver accepted with no indeterminate or not-executable case, `advisory` false |
+ | `repair-preview` | its own `repair-preview` step; `RepairPreviewParams` | `repair-preview` / `RepairPreviewRecordV1`: `preview` (invocation:3 `RepairPreviewResult`), `plan` (repair:2 `RepairPlanV1`) | `repairPlanId` recomputes from the descriptor; preview plan id, snapshot, `applicable` and `unmetPreconditions` equal the descriptor; descriptor project equals envelope project | `items` edits, `truncated` false, `completenessMet` `applicable`, `advisory` false |
+ 
+ Parity pointers (`queryDispatch.parityPaths`); `termination-class` is `/termination/class` for all nine:
+@@ -1227,9 +1242,9 @@
+ `REVIEW.CANDIDATE_UNKNOWN`; `recommend` the native discovery refusal and its registered detail (a
+ refused `UnitDiscoveryV2` is never carried); `baseline-show` the baseline admission refusals (§2);
+ `policy-show` the policy and waiver resolution refusals (`POLICY.UNKNOWN_RULE`,
+-`POLICY.DUPLICATE_WAIVER`); `policy-test` a suite that fails `PolicyTestSuiteV1` admission `CONFIG.INVALID` with the registered
+-`CONFIG.INVALID` detail (candidate-policy and waiver resolver refusals are result data with
+-`resolverAccepted=false`); `repair-preview` its `REPAIR.*` refusals (unmet preconditions
++`POLICY.DUPLICATE_WAIVER`); `policy-test` the suite admission and resolver refusals of §5 (`CONFIG.INVALID` with
++`POLICY.IMPERATIVE_KEY_REFUSED`, the shared `CONFIG.INVALID` detail, or the resolver's `POLICY.*` /
++`IMPORT.ABSENT_FOR_PREDICATE` detail; only a `resolverAccepted=true` result is carried); `repair-preview` its `REPAIR.*` refusals (unmet preconditions
+ are plan data). A missing, revoked or incompatible pivot closure is availability data
+ (`BASELINE.PIVOT_DETECTOR_UNAVAILABLE`, `BASELINE.PIVOT_CLOSURE_REVOKED`,
+ `BASELINE.PIVOT_CLOSURE_INCOMPATIBLE`), not a baseline-show failure. `recommend` is advisory: its only next-step suggestion in this profile is
+@@ -1341,6 +1356,7 @@
+ | required evidence lost in audit | indeterminate 3 | `VERDICT.INDETERMINATE` | `COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE` → re-import |
+ | unmapped / corrupt import artifact | request-rejected 2 | `CONFIG.INVALID` | `IMPORT.MAPPING_REQUIRED` / `IMPORT.ARTIFACT_CORRUPT` |
+ | duplicate waiver / imperative policy key | request-rejected 2 | `CONFIG.INVALID` | `POLICY.DUPLICATE_WAIVER` / `POLICY.IMPERATIVE_KEY_REFUSED` |
++| policy test suite otherwise inadmissible | request-rejected 2 | `CONFIG.INVALID` | `CONFIG.INVALID` (shared registered detail) |
+ | repair preimage mismatch / source moved | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `REPAIR.TARGET_PREIMAGE_MISMATCH` / `REPAIR.SOURCE_MOVED` |
+ | recovery blocked | operational-failed 4 | `HOST.IO_FAILURE` | `REPAIR.RECOVERY_BLOCKED`; journal retained |
+ | CI interactive test consent / confinement claim | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `TEST.INTERACTIVE_CONSENT_IN_CI` / `TEST.CONFINEMENT_CLAIM_REFUSED` |

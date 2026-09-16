@@ -1,0 +1,113 @@
+--- a/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -752,6 +752,17 @@
+ `admit_transition_intent`. The retained `nine-field-legacy-intent-*` case keeps its meaning: a
+ nine-field intent is refused, which is now a regression against a schema that no longer produces one.
+ 
++**The schema/store pair, stated here so no reader needs the reference model.**
++For `core-update` and `core-rollback` alike, an unchanged state schema keeps the
++store generation (`TRANSITION.SAME_SCHEMA_KEEPS_STORE`) and a changed state
++schema selects a different one (`TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE`).
++`core-repair` keeps closure, schema and store together. `store-migrate` requires
++an advanced schema **and** a different generation; `store-rollback` requires a
++retreated schema **and** a different generation. No admitted intent changes the
++store generation with an unchanged schema, and the S9 footprint above already
++owns the re-selection of a retained store. This restates exactly what
++`admit_transition_intent` enforces; it adds no rule and changes no refusal.
++
+ **Journal (`InstallationTransitionJournalV1`; identity
+ `H("security.installation-transition-journal.v1", record)`).** Written under the
+ held fence, only after every lease of the affected set is held (`fenceHeld` and
+@@ -787,6 +798,92 @@
+ `RESUME-COMMIT` (a committed transition is finished, never reversed, even after
+ the rollback window); `DONE`/`ABORTED` → release only. Cases `crash-at-*`,
+ `registry-changed-*`, `journaled-lease-set-not-exactly-reacquired-*`.
++
++### S9.3 Private store-instance lineage (successor; proposed, not accepted)
++
++A numeric store generation is not unique over time: `store-rollback` re-selects a
++retained generation and `core-rollback` never raises the schema, so two physically
++distinct stores can present the same `(storeGeneration, stateSchema)` pair. A
++private **store instance identity** disambiguates them for local operational
++records. It adds no member to `InstallationTransitionIntentV1`,
++`InstallationTransitionJournalV1`, the namespace registry or any signed document,
++introduces no envelope kind and no public major, and mints no D9 class, code or
++exit; its refusals are the existing `TRANSITION.*` set and the existing
++`MIGRATION.CORRUPT` quarantine. It is never a wire field, an authority token or a
++semantic input, and it never enters the pure evaluator or a Run hash.
++
++**Instance identity.** Each physical store instance carries one `storeInstanceId`:
++32 lowercase hexadecimal characters from 128 bits of OS CSPRNG, allocated once
++when that store is created, persisted in that store's own root before the store is
++first published, and never rewritten. It has no ordering and no arithmetic, and
++reading it grants nothing.
++
++**Lineage nodes, identified by the full triple.** A private append-only table
++holds one node per admitted binding triple
++`(storeInstanceId, storeGeneration, stateSchema)`, carrying its predecessor triple
++and the `intentDigest` of the transition that created it; both are `null` exactly
++at a **lineage root**. Every lookup uses the whole triple, whose instance component
++is read from the store-root **marker** of the store concerned: a numeric pair alone
++never identifies a node, because a retained branch may lawfully present the same
++pair as a fresh target. Markers are validated for presence and shape before any
++dereference. `intentDigest` is evidence validated *on* the selected node and is
++never a search key, since it may lawfully repeat. This section asserts no global
++uniqueness of a store generation beyond what the rules above already impose.
++
++**One admission law.** A node is admitted only if it has exactly its six members,
++its predecessor and origin digest are null together or present together, it does
++not name its own triple, its non-null predecessor already exists as a node at that
++exact triple, no existing node shares its primary key with disagreeing contents,
++and the set still has one lineage root and no cycle. Publication and recovery
++apply this same law, so a reconstruction can never write broken ancestry. A refusal
++writes nothing.
++
++**Selection case, derived from the admitted intent alone.** By the pair law in
++S9.2 the case is decidable without reading any stored node: equal `to`/`from`
++generation and schema is a **same-store** selection; an advanced schema is a
++**forward selection**; a retreated schema is an **ancestor re-selection**. Only a
++forward selection materialises a new store, allocates a fresh `storeInstanceId`
++and writes one node, after the journal record is durably `COMMITTED` and never
++inside a level-4 grant-journal append lock. A same-store or ancestor re-selection
++writes no node: the store it selects already has one, created by an earlier act.
++
++**Recovery applies the same case, and only after the owner decides.**
++`recover_transition_journal` keeps every decision it already makes; this adds no
++state, code or recovery action, and in particular a core operation at `PREPARED`
++still aborts and a store operation still follows the S9 footprint. Where that
++function refuses, reports the project busy or quarantines, the companion makes **no
++decision at all** and inspects nothing. Where its action settles the transition as
++committed — `RESUME-COMMIT` or `RELEASE-ONLY` reaching `DONE` — then: a **forward
++selection** node must be present at its own full triple, or else reconstructed from
++the journal record's own from/to generation and schema members together with the
++predecessor and selected store-root markers, and admitted by the law above. A
++**same-store or ancestor** re-selection validates the retained node at its own full
++triple and **never rewrites its predecessor or origin digest**; an ancestor must
++additionally lie on the verified chain from the current node, so a store at a merely
++equal numeric pair off that chain never qualifies. That node was created by an
++earlier, unrelated act whose origin the current intent does not carry, so a missing
++one cannot be repaired from it and is `QUARANTINE` / `MIGRATION.CORRUPT`. No
++atomicity is claimed between the journal record and a node.
++
++**Before the owner settles a transition**, pre-existing ancestry is expected and
++untouched, including a retained branch at the same numeric generation. What must
++not exist is a *new* node for that transition at **its own full triple**: a node
++there, or a node there already claiming that transition as its origin, is a
++premature-node contradiction and quarantines.
++
++**Lineage roots.** A root is created by an authorized local act that materialises a
++new physical store outside any transition: installation, or an authorized evidence
++restore or portable adoption. Such an act allocates a fresh `storeInstanceId`,
++**replaces** any marker present in copied bytes before first publication so a
++restored store never impersonates its source, imports no node from the source, and
++imports no floor, grant or local commit authority. No transition is invented to
++give it an `intentDigest`.
++
++**Floors and authority are unchanged by this section.** An authorized transition
++keeps the S9 floor rules exactly: migration copies the floors forward into the new
++store, rollback inside the window sets them to the maximum of both stores, and a
++poisoned floor is lowered only by S4.5. An instance identity records which physical
++store is selected; it never lowers a floor and never confers local commit authority.
+ 
+ ## S10. Execution principal `repository-code`
+ 

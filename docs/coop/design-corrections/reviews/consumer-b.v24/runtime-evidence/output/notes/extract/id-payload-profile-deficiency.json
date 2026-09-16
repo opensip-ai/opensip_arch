@@ -1,0 +1,262 @@
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/x-opensip-payload-registry
+{
+ "standing": "Normative closed registry for every registered PAYLOAD in this graph. It resolves the question a payload schema digest alone cannot: which document bytes are hashed and which selector validates. It is the single mapping identity-and-evidence section 3 names; nothing in this graph admits a payload under a caller-chosen or guessed schema.",
+ "law": {
+  "payloadSchemaDigest": "raw SHA-256 of the EXACT FULL schema DOCUMENT file bytes named by the row",
+  "validation": "by the row SELECTOR against that document, resolved through the pinned local registry closure with no network retrieval. A payload is NEVER validated against a whole multi-record bundle, and a bundle is never required to carry a root type: the row, not the document shape, decides admission.",
+  "codec": "C (section 3 canonical JSON) for every class below",
+  "unregistered": "a key with no row refuses; there is no default row and no caller-selected schema",
+  "keyedBy": "a key name prefixed `payload.` is read from the parsed payload; every other name is read from the naming record. The key is never caller-selected free text."
+ },
+ "classes": {
+  "relation": {
+   "keyedBy": [
+    "fact.relation"
+   ],
+   "document": "foundation/relation-payload-schemas.v2.json",
+   "registry": "x-opensip-relation-registry.relations",
+   "note": "The 13 rows live in the document itself so relation, selector, universe rule and rung ladder cannot drift from the schemas they describe. fact.resolution must be a rung of the row ladder, the rung required/forbidden field rules apply, and universeRule same-only requires fact.sourceUniverse == fact.targetUniverse."
+  },
+  "coverage": {
+   "keyedBy": [
+    "payload.schemaVersion"
+   ],
+   "rows": {
+    "3": {
+     "document": "native/native-evidence.schemas.v2.json",
+     "selector": "#/$defs/CoverageResultV3",
+     "owner": "native-evidence section 4"
+    }
+   }
+  },
+  "import": {
+   "keyedBy": [
+    "kind",
+    "payload.payloadDomain"
+   ],
+   "mirrors": "workflows_model.PayloadRegistryV1 / native-evidence section 7.1",
+   "rows": {
+    "runtime|workflow.import-payload.runtime.v1": {
+     "document": "workflows/schemas/imported-evidence.schema.json",
+     "selector": "#/$defs/RuntimePayloadV1",
+     "owner": "workflow"
+    },
+    "test|workflow.import-payload.test.v1": {
+     "document": "workflows/schemas/test-execution.schema.json",
+     "selector": "#/$defs/TestPayloadV1",
+     "owner": "workflow"
+    },
+    "history|workflow.import-payload.history.v1": {
+     "document": "workflows/schemas/imported-evidence.schema.json",
+     "selector": "#/$defs/HistoryPayloadV1",
+     "owner": "workflow"
+    },
+    "dependency|native.import-payload.dependency-source.v1": {
+     "document": "native/native-evidence.schemas.v2.json",
+     "selector": "#/$defs/DependencySourcePayloadV1",
+     "owner": "native"
+    },
+    "prepared|native.import-payload.prepared-output.v1": {
+     "document": "native/native-evidence.schemas.v2.json",
+     "selector": "#/$defs/PreparedOutputPayloadV1",
+     "owner": "native"
+    }
+   },
+   "note": "The Run closure re-derives these rows from the workflow registry and refuses if they differ, so one registry cannot drift from the other."
+  },
+  "parameter": {
+   "keyedBy": [
+    "analysis-spec/stage-spec parameter schemaDigest"
+   ],
+   "rows": {
+    "foundation/import-source-context.schema.json": {
+     "document": "foundation/import-source-context.schema.json",
+     "selector": "#",
+     "owner": "foundation"
+    },
+    "workflows/schemas/policy-document.schema.json#/$defs/ScopeDocumentV1": {
+     "document": "workflows/schemas/policy-document.schema.json",
+     "selector": "#/$defs/ScopeDocumentV1",
+     "owner": "workflows",
+     "note": "The workflow glob scope-policy document that comparison-result EvaluationContext.scopeDigest names and that the comparison contract requires to be bound as an analysis-spec parameter. With the class closed to one document that binding refused at Plan admission, so the comparison scope axis could not be populated at all. This row is deliberately a DIFFERENT record from the foundation scope-descriptor that plan.scopeDigest names: scope-descriptor is the repository extent actually walked (workspace roots and path prefixes), ScopeDocumentV1 is the policy's include/exclude glob selection over that extent. Both may appear in one Plan; neither substitutes for the other."
+    },
+    "foundation/enumeration-plan.schema.v1.json": {
+     "document": "foundation/enumeration-plan.schema.v1.json",
+     "selector": "#",
+     "owner": "foundation",
+     "note": "Exactly one required enumeration-plan parameter for the version3 evaluator. Independent pre-Plan selection; no parent PlanId or analysisSpecDigest self-reference.",
+     "requiredForEvaluatorMajors": [
+      3
+     ]
+    },
+    "foundation/evaluator-emission-plan.schema.v1.json": {
+     "document": "foundation/evaluator-emission-plan.schema.v1.json",
+     "selector": "#",
+     "owner": "foundation",
+     "note": "Exactly one for evaluator3; explicit per-rule selected detector binding.",
+     "requiredForEvaluatorMajors": [
+      3
+     ]
+    }
+   },
+   "note": "An analysis-spec or stage-spec parameter may only cite a document on this closed list. That replaces the withdrawn \"a payload schema document must constrain the payload directly\" rule, which contradicted the native and workflow bundle registries. A cited schema with no row refuses: there is no default row, no caller-selected schema and no permissive fallback for an unregistered parameter.",
+   "selectionCardinality": {
+    "law": "ONE Plan selects AT MOST ONE parameter per registered row. Zero is legal for a row this analysis does not need; two or more entries of analysis-spec.parameters (or stage-spec.parameters) whose schemaDigest resolves to the SAME row are REFUSED, whatever their payloadDigests are. This is a SELECTION rule about how many entries a SPEC may carry and is a different question from keyIsTheDocumentNotThePair, which is about how many REGISTRY ROWS one document digest may resolve to; PAYLOAD_PARAMETER_AMBIGUOUS_ROW answers the second and never constrained the first.",
+    "why": "A parameter row is a Plan INPUT: the payload it cites is the value the analysis is run with. Two entries under one row put two different values in one input slot and nothing decides which is the Plan's. Both enter analysisSpecDigest and therefore PlanId, so two conforming hosts could bind different documents from ONE admitted Plan and the resulting comparison axis would attribute differently for the same PlanId. Refusing is the registry declining an arbitrary selection, exactly as it does for an ambiguous row. There is deliberately NO default, NO first-listed or last-listed winner, and NO merge.",
+    "atMostOnePerSpec": true,
+    "zeroIsLegal": "An ordinary analysis that does not need a scope-policy input selects no ScopeDocumentV1 parameter and closes. A caller that DOES need it - baseline adoption and comparison - still gets the explicit missing-selection refusal from the workflow binding verifier; absence is never silently substituted, and the foundation scope-descriptor named by plan.scopeDigest is a DIFFERENT record that never stands in for ScopeDocumentV1.",
+    "exactDuplicatesAreADifferentRefusal": "Two BYTE-IDENTICAL parameter entries are a malformed record, not an ambiguous selection: analysis-spec.parameters is uniqueItems with x-opensip-order canonical-set, so a whole-item duplicate refuses on the schema and on the collection order law (ORDER_OR_DUPLICATE) before any selection question is asked. This rule owns only the case those cannot see: DISTINCT entries citing one row.",
+    "enforcedAt": [
+     "the PRE-PLAN analysis-spec admission boundary (native_evidence_model.admit_analysis_spec, after schema and vocabulary admission)",
+     "retained Run closure over the retained analysis-spec (identity-model close_run, ANALYSIS_SPEC_PARAMETER_SELECTION_AMBIGUOUS)",
+     "independently in the bounded workflow scope binding verifier when it is called directly (workflows_model.verify_scope_parameter_binding)"
+    ],
+    "precedence": "MOST SPECIFIC FIRST. The import-source-context row keeps its own named guard IMPORT_SOURCE_CONTEXT_MULTIPLE where that guard runs - inside the Run-closure import derivation, which is the boundary that consumes the row - and this generic selection guard is the TOTAL backstop that runs for every row and every Plan, including one with no selected import. Nothing about the import row's zero/one/multiple rule changes: zero means an empty declared-build set, one is the selection, more than one is refused.",
+    "notAStageSpecDuplicate": "A stage-spec carries a SUBSET of the Plan analysis-spec parameters (STAGE_SPEC_HIDDEN_PARAMETER), so a Plan admitted under this rule cannot contain a stage that selects a row twice; the stage-spec case is implied rather than separately guarded, and stating that is not a claim that a second guard exists."
+   },
+   "keyIsTheDocumentNotThePair": "Normative accounting of a bounded limitation, retained deliberately (CB4-ADV-4). The key is the cited schemaDigest, which is the SHA-256 of the whole DOCUMENT's bytes, not a (document, selector) pair. Both rows are distinguishable today - import-source-context.schema.json and policy-document.schema.json are different documents with different digests - so there is no ambiguity in this release. The limitation is structural and is stated rather than left to be rediscovered: a SECOND parameter row selecting another $def out of a document an existing row already cites would be indistinguishable by this key, and the first listed would otherwise silently win. That case is FORBIDDEN and refuses (PAYLOAD_PARAMETER_AMBIGUOUS_ROW), which is the registry law declining to make an arbitrary selection rather than a defect. Note that the same policy-document.schema.json bytes are also named by plan.policyDigest and plan.waiverDigest, but under the `canonical-record` representation and a different payload CLASS, so those are not in this key space and raise no collision.",
+   "whyNotRekeyByDocumentAndSelector": "Re-keying the class by (document, selector) would lift the restriction and would change no identity today, and it is deliberately NOT done here. No existing requirement needs a second $def out of one document as a parameter; adding flexibility no requirement asks for would widen the closed key space and the admission surface for a case that does not exist, and would retire an explicit refusal in exchange for a rule that has never been exercised. If such a requirement ever arises it is an explicit versioned design correction with its own controls - not a silent widening, and not something an implementer may assume."
+  }
+ }
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/x-opensip-evaluator-profile
+{
+ "schemaVersion": 3,
+ "standing": "Selected evaluator3 contract; source acceptance and product qualification are recorded separately.",
+ "parentFrozenManifestSha256": "360c2758c0409ebc307966c7a385c385c2d7f580b4623dd760b7ba0e26bf18c1",
+ "changedIdentifierMajors": {
+  "finding": "finding3",
+  "proof-bundle": "proof3",
+  "semantic-evidence": "evidence3",
+  "evaluation-seal": "seal3",
+  "run": "run3",
+  "policy-derivation": "policy-derivation3"
+ },
+ "newIdentifierDomains": {
+  "evaluation-subject": "subject3"
+ },
+ "unchangedIdentityShapes": [
+  "snapshot",
+  "closure",
+  "import",
+  "plan",
+  "subject-scope",
+  "fact",
+  "coverage",
+  "view",
+  "execution-plan",
+  "finding-fingerprint",
+  "cache-key",
+  "regeneration-key"
+ ],
+ "majorLaw": "Changed output domains dispatch explicitly to version3 records and prefixes. Frozen version2 bytes remain historical; no coercion or permissive mixed-version parse. Unchanged ancestors referenced by digest retain their existing identifier majors; their values change if committed input/schema bytes change.",
+ "inputOwnerDocuments": [
+  "foundation/enumeration-plan.schema.v1.json",
+  "foundation/subject-inventory.schema.v1.json",
+  "foundation/evaluator-emission-plan.schema.v1.json",
+  "foundation/target-attribution.schema.v2.json",
+  "foundation/incoming-search.schema.v1.json",
+  "foundation/execution-inputs.schema.v1.json"
+ ],
+ "integrationStatus": "Public identity-model.v3.close_run performs owner/native/schema admission and complete evaluator replay, including retained execution-input totality. Workflow and security adapters consume this boundary. Synthetic reference graphs do not qualify a compiler, host, platform or release.",
+ "newInputDocuments": [
+  "foundation/enumeration-plan.schema.v1.json",
+  "foundation/subject-inventory.schema.v1.json",
+  "foundation/evaluator-emission-plan.schema.v1.json",
+  "foundation/target-attribution.schema.v2.json",
+  "foundation/incoming-search.schema.v1.json",
+  "foundation/execution-inputs.schema.v1.json"
+ ],
+ "changedCanonicalRecords": {
+  "predicate-witness": 3,
+  "policy-document": 2,
+  "rule-program": 2
+ },
+ "policyUniverseMap": {
+  "typescript": "native.semantic-universe.typescript.v2",
+  "rust": "native.semantic-universe.rust.v2",
+  "syntax": "native.semantic-universe.syntax.v2"
+ }
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/x-opensip-evaluator-deficiency-registry
+{
+ "sources": {
+  "enumeration": [
+   "incomplete-inventory",
+   "unknown-export-membership",
+   "no-covering-program",
+   "source-syntax-invalid"
+  ],
+  "native": [
+   "budget-exhausted",
+   "confidence-floor-unmet",
+   "coverage-unknown",
+   "cross-family-edge-not-owed",
+   "derivation-policy-unmet",
+   "enumeration-unknown",
+   "external-consumers-unknown",
+   "input-closure-incomplete",
+   "language-tier-unsupported",
+   "missing-relation-coverage",
+   "population-unknown",
+   "provider-unavailable",
+   "required-relation-missing",
+   "resolution-incomplete",
+   "scope-without-coverage",
+   "selector-unbound",
+   "source-target-search-unattested",
+   "target-export-unknown",
+   "target-kind-unknown",
+   "target-metadata-unknown",
+   "unavailable-program-binding",
+   "uncovered-expected-source-subject",
+   "unresolved-edge-target-unattributed"
+  ],
+  "import": [
+   "evidence-kind-unavailable",
+   "history-outside-collection-scope",
+   "history-truncated",
+   "import-unmapped-only",
+   "incomplete-observation",
+   "no-consumable-row",
+   "null-exit-status",
+   "observation-window-insufficient",
+   "overload-ambiguous",
+   "target-metadata-unknown",
+   "test-completeness-not-established",
+   "unmapped-subject",
+   "unobservable-subject",
+   "wrapper-partial",
+   "zero-owed-wrappers"
+  ],
+  "execution": [
+   "budget-exhausted",
+   "confidence-floor-unmet",
+   "derivation-policy-unmet",
+   "external-consumers-unknown",
+   "input-closure-incomplete",
+   "language-tier-unsupported",
+   "provider-unavailable",
+   "required-cell-unsatisfied",
+   "required-relation-missing",
+   "resolution-incomplete",
+   "work-budget-exhausted"
+  ],
+  "correspondence": [
+   "projection-unavailable",
+   "signature-ambiguous",
+   "anonymous-subject",
+   "population-incomplete"
+  ]
+ },
+ "causeLaw": "Source-specific closed membership; evidenceKind is required for import and null otherwise, nativeCause is an owner NativeCause carrier or null. Gating derives from policy evidenceUse / required execution cells. Unknown record shape is refused, never coerced to a cause.",
+ "nativeCauseOwner": "native/native-evidence.schemas.v2.json#/$defs/NativeCause",
+ "importKindLaw": "Exact atom evidence kind or independently assessed evidenceUse declaration; absence has no importId but still has an evidenceKind.",
+ "nonBlockingDisclosures": [
+  "cross-family-edge-not-owed"
+ ],
+ "structuralNotSemantic": [
+  "omitted-selected-wrapper",
+  "missing-expected-inventory"
+ ]
+}

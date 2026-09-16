@@ -1,0 +1,52 @@
+--- author1/execution-inputs-contract.v1.md
++++ activeauthor2/execution-inputs-contract.v1.md
+@@ -65,9 +65,48 @@
+ | any inventory `partial`, or any supported-available account not complete | `partial` |
+ | all inventories complete, every account complete/inapplicable/unsupported, candidate complete if owed | `complete` |
+ 
+-Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** — the **first retained source that actually carries a typed pair**, in the deterministic order of §5 — and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. When **no** retained source carries a pair (pure missing work), the derived pair is explicitly `(null, null)`; the row stays `partial` and nothing is manufactured (§5). Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. `requiredCellDeficiencies` and `derivedAccounts` are internal admission-result records, not schema `evaluation-deficiency`; they may use internal tokens `native-work-incomplete` / `unsupported-typed` that are not proof `cause` values. The proof bridge (composition §9.6) reads `row.deficiency` (a `DeficiencyV2`, `null`, or `source-syntax-invalid`), maps `null`/`source-syntax-invalid` to proof cause `required-cell-unsatisfied`, keeps `source=execution` as the required-execution assessment layer, and sets proof `inputRefs` to the canonical set of the ExecutionInputsV1 ref plus each originating `row.inputRefs`. Inventory failure originating refs are `subject-inventory` digests. Native-account failure originating refs are Coverage digests from `coverageRecords` (or named `coverageIds` when no records exist). Candidate failure originating refs are `candidate-producer-result` digests. The ExecutionInputsV1 ref is committed execution context, not a replacement for those originating refs. Empty `kinds` is not complete-empty work.
++Partial inventory is legitimate known rows: the row is `partial`, not a structural refuse of the graph. `complete` + partial inventory is `EXECUTION_INPUTS_OUTCOME_DERIVE`. The row's deficiency/nativeCause **equals the derived primary pair** — the **first retained source that actually carries a typed pair**, in the cross-source order published immediately below — and that pair must actually occur on a source record — not an unzipped first-deficiency plus a later unrelated nativeCause, and not a rewrite of inventory `budget-exhausted` as generic `provider-unavailable`. When **no** retained source carries a pair (pure missing work), the derived pair is explicitly `(null, null)`; the row stays `partial` and nothing is manufactured (§5). Required partial inventory with otherwise complete native accounts still emits `required-cell-unsatisfied` with the inventory digest as `inputRef`. All originating causes and inputRefs are retained on `derivedOutcomes`. `requiredCellDeficiencies` and `derivedAccounts` are internal admission-result records, not schema `evaluation-deficiency`; they may use internal tokens `native-work-incomplete` / `unsupported-typed` that are not proof `cause` values. The proof bridge (composition §9.6) reads `row.deficiency` (a `DeficiencyV2`, `null`, or `source-syntax-invalid`), maps `null`/`source-syntax-invalid` to proof cause `required-cell-unsatisfied`, keeps `source=execution` as the required-execution assessment layer, and sets proof `inputRefs` to the canonical set of the ExecutionInputsV1 ref plus each originating `row.inputRefs`. Inventory failure originating refs are `subject-inventory` digests. Native-account failure originating refs are Coverage digests from `coverageRecords` (or named `coverageIds` when no records exist). Candidate failure originating refs are `candidate-producer-result` digests. The ExecutionInputsV1 ref is committed execution context, not a replacement for those originating refs. Empty `kinds` is not complete-empty work.
++
++**Cross-source order for one cell row (normative).** §5 governs partition order *inside* one
++account; this is the order *across* sources, and it is what "first retained source" above means.
++It is deterministic and **fully owner-derived**: no host array order and no lexical guess is read
++anywhere in it.
++
++| # | Source | Order within the group | Authority for that order |
++|---|---|---|---|
++| 1 | `enumerator` / `binding` carrier | single item | Present only when the row is `unavailable` because the enumerator is unselected or the binding universe is null. It is placed **before** the same cell's inventories, and those two branches contribute nothing else. |
++| 2 | `inventory` | one item per **non-complete** inventory, in this row's `inventoryDigests` order | `CellProgramOutcomeV1.inventoryDigests` is `x-opensip-order: canonical-set` |
++| 3 | `candidate` | at most one | one candidate envelope may bind to one `(cellOrdinal, programOrdinal)` (§6) |
++| 4 | `coverage` / `account` | one group per owed matrix pair, in the **`relations` array order authored in `native-capability-matrix.v2.json#/capabilities[id]/relations`**; inside one account, the §5 partition order | the matrix array as authored — **not** lexical. `syntax` is authored `declares`, `literal`, `control-flow`, which is not sorted, so nothing may re-sort it. |
++
++Row 4 reads `derivedAccounts`, which admission rebuilds in exactly that owed order
++(`programBindings` ordinal × matrix `relations`), so the row's carrier does **not** depend on how a
++host ordered `nativeCoverageAccounts` — that array's declared order is `sequence`, under which the
++canonical validator enforces nothing, and admission re-derives rather than trusting it.
++
++An earlier source that carries **no** typed pair does not mask a later one that does: the carrier
++is the first source *actually carrying* a pair in this order, and `(null, null)` only when none
++does. Every source stays on `derivedOutcomes[].sources` with its own pair and its own refs
++regardless of which one supplies the row carrier, so nothing is dropped by the choice.
+ 
+ `derive_outcome` threads the binding carrier explicitly (`UnavailableProgramBindingV1.deficiency` / `nativeCause`). Unselected or `universe=null` **does not discard** same-cell inventory items. A selected unavailable binding may be `budget-exhausted` or `input-closure-incomplete` rather than generic `provider-unavailable`; the original typed pair is kept with inventory coordinates. Host join requires the outcome pair to be a member of those source pairs, not equal only to a first unzipped cause.
++
++**The candidate carrier is not manufactured either.** A candidate item's pair is the retained
++`CandidateProducerResultV1`'s own `(deficiency, nativeCause)`; failing that, the binding's own
++**declared** pair; failing that, explicitly `(null, null)`. The candidate branch runs only with a
++selected enumerator at a non-null universe, i.e. an `AvailableProgramBindingV1`, whose schema
++declares no `deficiency`/`nativeCause` property at all, so any binding default there would be
++manufactured on every path. An **optional** candidate cell with no retained envelope admits, so
++this was reachable, not theoretical; a **required** one still refuses
++`EXECUTION_INPUTS_CANDIDATE_REQUIRED` first. The row state is unchanged — an absent or unavailable
++envelope still makes the row `unavailable` — and the candidate source item and its
++`candidate-producer-result` ref are still retained. Only the invented carrier is gone.
++
++This does not disturb the binding carrier itself. `_binding_carrier` keeps its default for the
++unselected / null-universe branches because the enumeration owner already guarantees a real typed
++pair there: it refuses an unselected enumerator on an available binding or a required cell, and
++refuses a null-universe binding whose `deficiency` is null (`ENUMERATION_BINDING_CAUSE`). On a
++lawful plan that default is unreachable and the real binding pair is what survives.
+ 
+ ## 5. Native Coverage accounts (derived)
+ 

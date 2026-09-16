@@ -1,0 +1,37 @@
+--- before/assemble-records.successor.v1.py
++++ after/assemble-records.successor.v1.py
+@@ -612,6 +612,34 @@
+     'd9CarriedImplementationUnitObligation': True,
+     'productGatesUnperformed': True,
+ }
++# One shared trust assumption, not thirteen independent closures. The final application
++# reviewer owns its substantive adjudication; the source review expressly did not grade it.
++tcb = assent.get('sharedAssumption')
++source_tcb = design.get('sharedAssumptionTCBSCOPE01')
++if tcb is not None or source_tcb is not None:
++    assert isinstance(tcb, dict) and isinstance(source_tcb, dict)
++    for key in ('id', 'assumption', 'consequence', 'dependentRows', 'dependentRowCount'):
++        assert tcb[key] == source_tcb[key], 'Root/source trusted-code assumption differs: ' + key
++    assert tcb['id'] == 'TCB-SCOPE-01'
++    assert tcb['assessedOnceAsOneAssumption'] is True
++    assert source_tcb['assessedOnceAsOneAssumption'] is True
++    assert len(tcb['dependentRows']) == len(set(tcb['dependentRows'])) == tcb['dependentRowCount'] == 13
++    app['sharedTrustedCodeAssumption'] = {
++        'id': tcb['id'],
++        'acceptedDesignAccount': source_tcb,
++        'rootDesignAccount': tcb,
++        'acceptedDesignAccountSource': dict(design_ref, selector='sharedAssumptionTCBSCOPE01'),
++        'rootDesignAccountSource': dict(assent_ref, selector='sharedAssumption'),
++        'requiredApplicationAdjudication': (
++            'Final application review must explicitly assess TCB-SCOPE-01 once, with all13 '
++            'named dependents and joint reopening if the assumption is rejected or changed. '
++            'It is not13 independent successes, repaired historical attacks, or host containment proof.'
++        ),
++        'outcomeAuthority': app['finalIndependentApplicationReview'],
++        'effectiveWhen': effective,
++        'activation': activation,
++        'qualificationClaimed': False,
++    }
+ summary_rel = dc + 'validation-summary.v1.json'
+ counts_rel = dc + f'reviews/codex-post-reset.v1/identity-check-counts.{dv}.json'
+ summary = load(summary_rel)

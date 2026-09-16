@@ -1,0 +1,41 @@
+--- a42/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b43/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -430,6 +430,17 @@
+     cyc = [edge("ab1", a, b), edge("ba1", b, a)]
+     cyc_path = Q.traverse_projected_graph("graph.path", path_ab, cyc, project_id=prj, run_id=rid)
+     check("path-cycle-simple-one-hop", cyc_path["items"][0]["hopCount"] == 1, cyc_path["items"])
++    # Contract section 4: a path edge is the directed hop the walk took from nodes[i] to nodes[i+1]; under incoming
++    # or both it may reverse the stored fact, which factId still names.
++    for label in ("incoming", "both"):
++        hop = Q.traverse_projected_graph("graph.path", dict(path_ab, direction=label, start=b, target=a), [e_direct],
++                                         project_id=prj, run_id=rid)
++        item = hop["items"][0] if hop["items"] else None
++        check("path-%s-edges-are-traversed-hops" % label,
++              item is not None and item["edges"][0]["factId"] == e_direct["factId"]
++              and item["edges"][0]["source"] == b and item["edges"][0]["target"] == a
++              and all(item["edges"][i]["source"] == item["nodes"][i] and item["edges"][i]["target"] == item["nodes"][i + 1]
++                      for i in range(len(item["edges"]))), item)
+ 
+     refuse("relation-unsupported-types", lambda: Q.traverse_projected_graph("graph.neighbors", {
+         "direction": "outgoing", "endpoint": a, "minResolution": "checked", "relation": "types",
+@@ -738,6 +749,20 @@
+                lambda raw=raw: Q.observe_retained_availability(raw, run_key), "HOST.IO_FAILURE", "evidence.corrupt", envelope=False)
+     partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
+     check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
++    # identity-and-evidence: current availability is a separate record and "A query reports both". A successful
++    # response discloses the observed partial state; it is never upgraded to retained.
++    retained_ok = ex(out_req, host_obs(latestRunId=run_key, availability="retained"))
++    omitted_ok = ex(out_req, host_obs(latestRunId=run_key))
++    check("host-availability-partial-reported-in-response", partial_ok["context"]["availability"] == "partial",
++          partial_ok["context"]["availability"])
++    check("host-availability-partial-changes-only-availability",
++          partial_ok["items"] == retained_ok["items"]
++          and {k: v for k, v in partial_ok["context"].items() if k != "availability"}
++          == {k: v for k, v in retained_ok["context"].items() if k != "availability"},
++          "partial response differs from retained beyond context.availability")
++    check("host-availability-retained-and-omitted-report-retained",
++          retained_ok["context"]["availability"] == "retained" and omitted_ok["context"]["availability"] == "retained",
++          (retained_ok["context"]["availability"], omitted_ok["context"]["availability"]))
+     if victim is not None:
+         refuse("host-availability-partial-cannot-admit-missing-bytes", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="partial"), run, c_objects, c_blobs), "HOST.IO_FAILURE", "evidence.missing")
+ 

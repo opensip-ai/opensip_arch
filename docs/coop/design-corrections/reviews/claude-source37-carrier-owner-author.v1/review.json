@@ -1,0 +1,146 @@
+{
+  "standing": "Bounded actual Claude coauthor owner correction for source37 review advisories A37-01..A37-04 (plus owned A37-07 wording). Not acceptance, not independent review, not implementation or durability qualification. New runtime only; frozen and live historical bytes were only read. No source-pins ledger, generated planning output, freeze, activation, commit, push or product code was edited or performed.",
+  "runtime": "/tmp/opensip-design-corrections/claude-source37-carrier-owner-author.v1",
+  "source": {
+    "frozen": "/tmp/opensip-design-corrections/candidate-subject.v37",
+    "manifest": "docs/coop/design-corrections/reviews/candidate-subject.v37.json",
+    "manifestSha256": "245ef613243aafeaac2dcdca7f0b398d5a770ec338abbf712039fdfd91676680",
+    "verification": "p00: manifest SHA matches; 29 read/edited/run files agree with their exact manifest pins; disposable baseline and edited copies byte-equal before edits. p04: frozen and baseline key files unchanged after all work."
+  },
+  "reviewInput": {
+    "review": "/tmp/opensip-design-corrections/claude-independent-design.v37/review.md (A37-01..A37-08 read)",
+    "carrierProbe": "probes/probe_carrier_ddl.py and receipts/probe-carrier-ddl.json (v3Sha256 23902324163196cfb8203a2a016072fd16a3b7a53c82e518e26c0c4fff0e863b), replayed here as p01/p01b"
+  },
+  "ownerLawVerifiedBeforeRouting": [
+    "S12 rows (security-and-lifecycle.md:1300-1308): MIGRATION.CORRUPT -> operational-failed/4/LEDGER.CORRUPT; read-only stable quarantine -> LEDGER.CORRUPT/ledger-corrupt, domainDetail omitted; read-only unreadable/unobserved/anchor unreachable -> HOST.IO_FAILURE/host-io; read-only foreign carrier or swapped store/namespace -> request-rejected/2/EXTENSION.ADMISSION_REJECTED, RECOVERY.REFUSED; MIGRATION.CORRUPT is not reused for ordinary journal corruption (one code, one remedy).",
+    "security_lifecycle_model_v1.py D9 map: MIGRATION.CORRUPT ('operational-failed', 4, 'LEDGER.CORRUPT'); RECOVERY.REFUSED ('request-rejected', 2, 'EXTENSION.ADMISSION_REJECTED').",
+    "frozen security_unit_lib_v8.reconcile_witness:325-326: a witness whose projectKeyDigest differs from the admitted project key is QUARANTINE 'witness names another carrier'.",
+    "commit-recovery-readonly.v3.md section 1 standings and section 3 anchor table ('foreign' witness -> unknown-quarantine-condition); Step 4 stable-observation requirement.",
+    "D9 v1.14 codeMaps: faultCauseToErrorCode host-io->HOST.IO_FAILURE, ledger-busy->LEDGER.BUSY_TIMEOUT, ledger-corrupt->LEDGER.CORRUPT; rejectionCauseToErrorCode extension-admission-rejected->EXTENSION.ADMISSION_REJECTED; nonAnalysisDerivation rule 5 (host/datastore failures are operational-failed).",
+    "carrier-migration.v1.md section 3 prefix table and section 4 (a lawful {A} or {A,B} prefix is busy/unavailable on read-only, never corruption); carrier-format.v3.md section 8 post-detection checks."
+  ],
+  "dispositions": [
+    {
+      "id": "A37-01",
+      "disposition": "CORRECTED-IN-OWNER-DDL",
+      "change": "Every hex-bearing carrierFormat 3 column (carrier_format.project_key_digest, migration_op_ref; grant_journal_v3.operation_ref, run_id, manifest_digest, body_sha256, prev_sha256) and the planned private attempt_custody columns (store_generation_digest, execution_id, operation_ref) now check lowercase hex over the whole hex part: prefix GLOB, exact length, substr(column, prefix+1) NOT GLOB '*[^0-9a-f]*'.",
+      "historicalScope": "carrierFormat 1 and 2 bytes stay frozen and still check only the first character after a prefix (p01b historicalV2 ADMIT). Disclosed, not repaired: historical rows are read as history, never re-admitted through the schema-3 gate, and can never satisfy a schema-3 SEAL join (F46). The earlier PROPOSED v3 and attempt_custody bytes were never instantiated and are superseded in place; the open dispatch binds only the corrected definitions.",
+      "authority": "Host record admission still owns the closed record bodies; the DDL is defence in depth that now matches the grammar exactly.",
+      "evidence": ["p01b baseline vs edited", "p03 edited source37 grammar checks", "p06 hybrid-ddl"]
+    },
+    {
+      "id": "A37-02",
+      "disposition": "CORRECTED-IN-OWNER-DDL-AND-PROTOCOL",
+      "change": "gj3_append_laws refuses every append while no carrier_format row exists; a carrier_format CHECK couples first_generation to migrated_from (exactly 1 fresh, >= 2 migrated); act C (fresh or {A,B} resume) verifies definitions, an empty grant_journal_v3 and a surviving witness naming the admitted projectKeyDigest in the publishing transaction and publishes nothing otherwise; published carriers get a row-level check that no grant_journal_v3 row is below first_generation (3a). The seven object names are unchanged.",
+      "whyBothReviewOptions": "The DDL law prevents the append on a lawful footprint; the publication and row checks cover footprints whose rows did not come through that law. Neither alone verifies rows and prevents the append.",
+      "evidence": ["p01b edited append_without_format_row REFUSE", "p03 source37 publication and scenario checks", "p06 hybrid-ddl"]
+    },
+    {
+      "id": "A37-03",
+      "disposition": "CORRECTED-PHASE-SPECIFIC-ROUTES",
+      "decision": "A published project_key_digest (or surviving witness) naming another project is a CARRIER PROJECT BINDING MISMATCH, not migration corruption. Writer or maintenance open and act C publication: operational-failed / 4 / LEDGER.CORRUPT / ledger-corrupt, domainDetail omitted, nothing appended or published. Read-only recovery: an association whose journalCarrierDigest, storeGenerationDigest or namespaceId differs from the admitted binding is binding-unusable (existing S12 request-rejected / 2 / EXTENSION.ADMISSION_REJECTED, RECOVERY.REFUSED); with the association naming the admitted carrier, the carrier's own row or witness naming another project is unknown-quarantine-condition (LEDGER.CORRUPT, ledger-corrupt, omitted) under Step 4, otherwise unavailable-busy. MIGRATION.CORRUPT remains only for the migration footprint itself (partial object set, invalid definitions, v3 rows before publication, violated published boundary incl. F51) at a writer or maintenance open, and is used on no read-only path.",
+      "grounding": "frozen v8 witness law treats the same fact as a carrier quarantine; S12 keeps journal-carrier quarantine free of MIGRATION.CORRUPT; readonly section 3 already routes a foreign witness to unknown-quarantine-condition; S12:1306 already refuses a foreign requested binding.",
+      "evidence": ["p03 source37 binding scenarios and route checks", "p05 both schemas", "p06 hybrid-routes"]
+    },
+    {
+      "id": "A37-04",
+      "disposition": "CORRECTED-ROUTES-ASSIGNED",
+      "F46": "unknown-carrier-incompatible -> operational-failed / 4 / HOST.IO_FAILURE / host-io, domainDetail omitted; never not-committed, never a confirmation. Rationale: an association is written only with a committed carrierFormat 3 SEAL, so one naming a historical generation contradicts two retained owners (unknown-custody family); not a caller defect (request-rejected) and not a stably observed quarantine (LEDGER.CORRUPT). The comparison uses first_generation read in the same journal snapshot.",
+      "F51": "split-brain-custody-condition -> writer or maintenance open: MIGRATION.CORRUPT (operational-failed / 4 / LEDGER.CORRUPT / ledger-corrupt, detail MIGRATION.CORRUPT), which is the existing post-detection generation-boundary check; read-only recovery: unknown-quarantine-condition (LEDGER.CORRUPT / ledger-corrupt, omitted) with Step 4 stability, otherwise unavailable-busy. Detection writes nothing and is re-evaluated at every open; split-brain rows are never merged.",
+      "whereRecorded": "S12 rows, commit-recovery-readonly.v3.md section 1 row and paragraph, carrier-format.v3.md section 8.1, carrier-dispatch.v3.json#/publicProjectionByPhase. commit-recovery-plan.v1.json and carrier-fault-cases.v1.json case records are unchanged (standings unchanged), so the generated build-plan failure matrix is unaffected.",
+      "evidence": ["p03 F46 and F51 scenarios", "p05", "p06 hybrid-routes"]
+    },
+    {
+      "id": "A37-05",
+      "disposition": "NOT-OWNED-NO-EDIT",
+      "owner": "root (query owner)"
+    },
+    {
+      "id": "A37-06",
+      "disposition": "NOT-OWNED-NO-EDIT",
+      "owner": "root (query owner)"
+    },
+    {
+      "id": "A37-07",
+      "disposition": "OWNED-WORDING-CORRECTED; BUILD-PLAN-LINES-ROUTED-TO-ROOT",
+      "change": "Current-standing notes added without relabelling history: carrier-format.v3.md (line 4 context), commit-recovery-readonly.v3.md (line 5 context), carrier-migration.v1.md (same Source25 wording), store-instance-lineage.v1.json (associationJoinRules.currentStandingNote and one limits entry: current plan holds F00-F53).",
+      "notEdited": "implementation-boundaries-and-build-plan.md lines 10, 19, 1041, 1045, 1085 (root owns build-plan standing and generated sections)."
+    },
+    {
+      "id": "A37-08",
+      "disposition": "NOT-OWNED-NO-EDIT",
+      "owner": "native schema successor (review: accepted as designed)"
+    }
+  ],
+  "outOfScopeNoEdit": [
+    "S37-01 whole-Run cause order (workflow section 9 host cause derivation, other author)",
+    "S37-02 report hooks and S37-03 query advisory (root)",
+    "Termination R1/R2: not extended. Carrier routes validated against both the current and the R1/R2 StepTermination (p05). The request-rejected code check in the new controls applies only to the carrier binding-unusable route and asserts no global rejection-code partition; the finding.show HOST.IO_FAILURE exit-2 route is untouched."
+  ],
+  "proposedEdits": {
+    "path": "proposed-edits.diff",
+    "sha256": "806c785e04c61fa2fcc8b47939319d25109d9e648f25ce65a176d67090af6758",
+    "lines": 1097,
+    "files": [
+      {"path": "docs/coop/design-corrections/security/grant-journal.carrier.v3.sql", "before": "23902324163196cfb8203a2a016072fd16a3b7a53c82e518e26c0c4fff0e863b", "after": "f0a22382f8a5a5bc356334cfde16f7ca1fa6caa37e537cc7924cd46ffd81e3ba"},
+      {"path": "docs/coop/design-corrections/security/carrier-format.v3.md", "before": "04e6271d5700f976732607e4521fdb4cf1b53ec2f599da0408e087b5b1064a99", "after": "0095e61ad8e6b90980a32d258dad192897b9a977e365195209c203c9c5a5d5fc"},
+      {"path": "docs/coop/design-corrections/security/carrier-migration.v1.md", "before": "0295d5e03d2017fa165d3b258503436f04fb042a9b5bce7b687cd6016d1a26b2", "after": "446c73dc9c95ae293c97660ac8dac41d1d969f518ddb0deb80c08e4e628e5da6"},
+      {"path": "docs/coop/design-corrections/security/carrier-dispatch.v3.json", "before": "0603be7f2316dda23138b430e2b8d9d8555fa4c1208ddc217770133c5d13593f", "after": "55d5597d1e7296633a3186f3d82a3c365e0fc3abc7e890452cb8dd5da3242b04"},
+      {"path": "docs/coop/design-corrections/security/check-carrier-v3.py", "before": "137f5cb77eaf9859fcaa778d04ae2f5e5200475ca1115b31a7ad56eca4bb93a4", "after": "37f370b01e4835bf3d94741b66e0b4071ef008bbcdb394f116ebf254d9cb8a80"},
+      {"path": "docs/v2/architecture/attempt-custody.schema.v1.json", "before": "37f1445c573a31be3ef4bc06360bf19e89d04bf7110a4822e70de0970d160990", "after": "eb1e87554623a0606a705b8a9283ca3ee8dc591672fb3e87cb2d3613aef26132"},
+      {"path": "docs/v2/architecture/commit-recovery-readonly.v3.md", "before": "a60b048c82db55e69c5939d96905605fb53fda8d0c043835ca225b9489c71153", "after": "3b32d24a3c6e71954bee620dc0add29f72aa35cfb643cac86a7d7d719238e85a"},
+      {"path": "docs/v2/architecture/store-instance-lineage.v1.json", "before": "2ff48b40760ac5accd093120bca4533421e07145078501f83a1204a4d1f67c83", "after": "919d1717b53f202b2e53a4f580b7f3df13f908b3575d4a97ad22e7bc6f185210"},
+      {"path": "docs/v2/contracts/product-v1/security-and-lifecycle.md", "before": "42bafae698cf624f70b1789fb1395c92afd7a2b0b0c7b36d93d23070db01ead1", "after": "9ca85de10f4f364b7dceb015799189796f12094fe506e1f172aa809c746ece32"}
+    ]
+  },
+  "rootCoordinationReport": {
+    "changedFiles": 9,
+    "bindingsThatDriftUntilRootRebinds": [
+      "candidate37 manifest pins: all 9 files",
+      "implementation-normative-inputs.v5.json: 8 files (all except check-carrier-v3.py)",
+      "implementation-coverage.v1.json sources: 8 (security-and-lifecycle plus seven incorporated carrier/recovery/lineage sources)",
+      "planning contractSections: security-and-lifecycle:12 value and selector drift; :13-:16 selector drift only (line shift)",
+      "source-pins ledgers (foundation/evaluator3-source-pins.v1, foundation/source-pins.v1, native/source-pins.v2, security/source-pins.v1, workflows/source-pins.v1): all 9 files in each"
+    ],
+    "unchanged": "commit-recovery-plan.v1.json, carrier-fault-cases.v1.json, implementation-boundaries-and-build-plan.md, implementation-coverage.v1.json, implementation-normative-inputs.v5.json, security-schemas.v2 grant-journal.sql, every source-pins ledger, current-source-map.proposed.md",
+    "expectedCheckerConsequence": "Computed, not executed: pin verification in the reference groups, check_implementation_planning (planning source and section drift) and package verification report drift until root regenerates or rebinds. The generated commit-recovery section cannot change because its input is unchanged."
+  },
+  "receipts": [
+    {"file": "receipts/p00_copy_verify.receipt.json", "sha256": "815fd8cb39e32b3a667bb0588b15045a6fa12010e3c9dada0a85917e44a4038b", "exit": 0},
+    {"file": "receipts/p00-copy-verify.json", "sha256": "19ceb7edbf5c7341bdd9ed7354caf2a2b58f91f600ea62e44a0bbc9ecca27408"},
+    {"file": "receipts/p01_review_carrier_probe.receipt.json (baseline)", "sha256": "684478f0d54a24a8f88c1b2b6ed560950b52610a94949cd6c65454ea196ed6c1", "exit": 0},
+    {"file": "receipts/p01-review-carrier-probe.baseline.json", "sha256": "97fd858188e13f698225f78958df8bf2ca7024ed4ea1cbf405f403978f5aad69"},
+    {"file": "receipts/p01_review_carrier_probe.r2.receipt.json (edited)", "sha256": "a784c51ccb71a43ba13e1a6f3810de4616fe8bc676fd996d69936e460f52ccd8", "exit": 1, "preservedFailure": "the review's exact format row is refused by the corrected CHECK and p01 did not catch a refused format row; replaced by p01b"},
+    {"file": "receipts/p01b_review_carrier_probe.receipt.json (baseline)", "sha256": "2055842bd158c9ad57c853a0568c5aa73a47163619d7f00156c0baead0dae8f0", "exit": 0},
+    {"file": "receipts/p01b-review-carrier-probe.baseline.json", "sha256": "3623f89a3f2962f7ea97b15eb4dd364c6fdab8a9f1aebc31fcd725f1fc30bccb"},
+    {"file": "receipts/p01b_review_carrier_probe.r2.receipt.json (edited)", "sha256": "bb9c57cc78a81d1c035d5c2fdadb6a9b79d0a9b47c829b6b2dd29c81b6d1962c", "exit": 0},
+    {"file": "receipts/p01b-review-carrier-probe.edited.json", "sha256": "f182cb3608b6b4cd84ebe280ed762d02d53feed44217d9575a8980bba5d639f1"},
+    {"file": "receipts/p02_apply_edits.receipt.json", "sha256": "a7edb98db182f7cf5030d91436e3ee9179fdeab09e84f38b495b490a6b725674", "exit": 0},
+    {"file": "receipts/p02-apply-edits.json", "sha256": "a2e2183371e04eba2c58328242e7324e468c0a3b9a51e54e14c806da88189433"},
+    {"file": "receipts/p03_integrated_carrier.receipt.json (baseline, 87 passed / 0 failed)", "sha256": "23e873467dc7b089ae4f61e97228462861bdf0c63393e4576b45411045472cd2", "exit": 0},
+    {"file": "receipts/p03-integrated-carrier.baseline.json", "sha256": "5025d97f4126a9ef860dda495051a97cf14d6b113b8e4e81dd41ab98e6e9d86c"},
+    {"file": "receipts/p03_integrated_carrier.r2.receipt.json (edited, 201 passed / 0 failed; 114 new source37 checks)", "sha256": "669b40d996432f9a6b65865b870f4bbe514afb24d447b0ce0d390e560bf0ab8c", "exit": 0},
+    {"file": "receipts/p03-integrated-carrier.edited.json", "sha256": "04b9f40e9a07c37ad1d2bfa371dc4daac73d0ee6fe160c6be7cf9824dbc38634"},
+    {"file": "receipts/p04_binding_drift.receipt.json", "sha256": "ee2a0beee06def124acd598276ae9c6045e3c5cebe662bd5895d1aa7b1177343", "exit": 0},
+    {"file": "receipts/p04-binding-drift.json", "sha256": "89f5d8132709ecf6b3c57c711dae94ac4e79caf0f9eac6768631ef263a26fafd"},
+    {"file": "receipts/p05_route_schema_compat.receipt.json", "sha256": "0a9cc8bf838ae9e680434f8c4b8030d4c9e46ecff72dd4f328c996656d0169e1", "exit": 0},
+    {"file": "receipts/p05-route-schema-compat.json", "sha256": "5b838050fd05811acad90bb0dc222a46c152a219543939b753787aacc745557a"},
+    {"file": "receipts/p06_control_discrimination.receipt.json (hybrid-ddl 25 source37 failures; hybrid-routes 5)", "exit": 0},
+    {"file": "receipts/p06-control-discrimination.json"}
+  ],
+  "limits": [
+    "Reference and planned checks only: in-memory SQLite constraint and trigger behaviour plus an executable reference open dispatch. No OS durability, fsync, crash, real lock, real process or on-disk carrier behaviour. All 54 product recovery cases F00-F53 remain not-executed; nothing here qualifies them.",
+    "The reference dispatch supplies the witness project digest as a parameter and asserts the Step 4 stability requirement as data law; it does not simulate witness/floor bracket timing.",
+    "Act B atomicity was not re-exercised (scenarios create objects by script execution). The pre-publication and below-first rows were created with a disclosed harness that lifts and reinstalls the append trigger with byte-identical text.",
+    "The historical C1-C18 measurements are not rerun; their runtime evidence is not in the repository.",
+    "Reference groups, check-security-lifecycle pin verification, check_implementation_planning and package verification were not run; their expected drift is computed by p04.",
+    "hybrid-routes discriminates the new S12 rows (binding mismatch, F46), the rewritten binding-unusable row and the new read-only F46 row; it does not discriminate the widened text inside the two pre-existing S12 rows (MIGRATION.CORRUPT, read-only quarantine), whose class, exit and code are unchanged.",
+    "Several hybrid-ddl scenario failures cascade from the pre-publication append the old DDL admits; they are genuine but not independent observations.",
+    "A whole-carrier swap that also carries a consistent foreign witness and floor is not distinguished locally; this is the same undetected whole-root substitution class already disclosed (store-instance-lineage A9 limit).",
+    "No durable quarantine marker is added: carrier_quarantine.reason keeps its inherited enum, so writer and maintenance refusals are re-detected at every open.",
+    "identity-and-evidence.md read-only recovery selectors were not edited; they carry no route rows and do not contradict these routes.",
+    "F46 -> HOST.IO_FAILURE is a selection among existing rows with stated rationale; root owns acceptance of that selection.",
+    "Not independent acceptance; an independent substantive review of the corrected bytes remains required."
+  ],
+  "subprocesses": "All probes ran in the foreground and completed; no background process was started."
+}

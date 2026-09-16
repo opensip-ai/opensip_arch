@@ -1,0 +1,102 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-execution-replay.v3.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-execution-replay.v3.py
+new file mode 100644
+index 00000000..02c28a68
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-execution-replay.v3.py
+@@ -0,0 +1,96 @@
++"""Full retained-Run execution-input boundary controls; synthetic owner evidence.
++
++No extracted compiler/host qualification. Every semantic negative first admits the
++schema/identity/native closure so refusal cannot be attributed to unminted outputs.
++"""
++import copy, hashlib, importlib.util, json
++from pathlib import Path
++HERE=Path(__file__).resolve().parent
++
++def load(name,file):
++    spec=importlib.util.spec_from_file_location(name,HERE/file)
++    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
++F=load('exec_replay_fixture3','evaluator_graph_fixture.v3.py')
++R=load('exec_replay_reference3','evaluator_replay_model.v3.py')
++S=load('exec_replay_seal3','evaluator_semantic_fixture.v3.py')
++X=load('exec_replay_capture3','execution_inputs_fixture.v3.py')
++M=R.M;C=M.C;E=R.E
++rows=[]
++
++def derive(g):
++    seed,objects,blobs,_=F.seal_fixture(g)
++    _,owner=M.open_run_closure(seed,objects,blobs)
++    i=g['inputs']
++    out=R.derive(i['planId'],i['executionPlanId'],i['evaluatorClosure'],i['evaluationInputRefs'],objects,blobs,owner)
++    run,objects,blobs=S.seal_derived(g,out,objects,blobs)
++    result=R.replay(run,objects,blobs)
++    assert M.close_run(run,objects,blobs)==result['runId']
++    return (run,objects,blobs),result,out['proof']
++
++def fresh(**options):
++    return F.build_file_inputs(atom_override={'op':'none','relation':'file','minResolution':'enumerated','filters':[]},**options)
++
++def rewrite_manifest(g,change):
++    X.attach_host_capture(g)
++    manifest=copy.deepcopy(g['executionInputs']);change(manifest)
++    raw=C.canonical(manifest);digest=hashlib.sha256(raw).hexdigest()
++    g['blobs'][digest]=raw;g['executionInputs']=manifest;g['executionInputsDigest']=digest
++    g['inputs']['executionInputsDigest']=digest
++    g['inputs']['evaluationInputRefs']=E.cset(manifest['selectedRefs']+[{'domain':'execution-inputs','digest':digest}])
++
++def semantic_refusal(name,g,key):
++    seed,objects,blobs,_=F.seal_fixture(g)
++    M.open_run_closure(seed,objects,blobs)
++    try:M.close_run(seed,objects,blobs)
++    except Exception as exc:
++        assert key in str(exc),(name,type(exc).__name__,str(exc))
++        rows.append({'case':name,'ownerAdmission':'ADMIT','semanticAdmission':'REFUSE','reason':str(exc)})
++    else:raise AssertionError(name+' accepted')
++
++base=fresh();packed,result,proof=derive(base)
++assert result['verdict']=='pass' and result['findingCount']==0 and not proof['executionDeficiencies']
++rows.append({'case':'complete-empty-analysis','runId':result['runId'],'verdict':'pass'})
++assert proof['executionInputsDigest']==base['executionInputsDigest']
++rows.append({'case':'proof-binds-exact-stored-manifest','digest':proof['executionInputsDigest']})
++
++ambient=fresh();raw=b'unrelated cached bytes';ambient['blobs'][hashlib.sha256(raw).hexdigest()]=raw
++closure={'schemaVersion':2,'kind':'provider','manifestDigest':hashlib.sha256(raw).hexdigest(),'tree':[],'semanticVersion':'9.0.0','protocolMajor':3,'platform':'any'}
++key=M.identifier('closure',closure);ambient['objects'][key]=('closure',closure)
++_,ambient_result,ambient_proof=derive(ambient)
++assert ambient['executionInputsDigest']==base['executionInputsDigest']
++assert ambient_result['runId']==result['runId']
++rows.append({'case':'unselected-blob-and-object-preserve-manifest-and-run','runId':result['runId']})
++
++partial=fresh(complete_required_native=False);_,pr,pp=derive(partial)
++assert pr['verdict']=='indeterminate' and not pp['findingIds'] and pp['executionDeficiencies']
++rows.append({'case':'omitted-required-package-work-is-indeterminate','verdict':pr['verdict'],'causes':pp['executionDeficiencies']})
++
++liar=fresh(complete_required_native=False)
++def claim_complete(manifest):
++    for row in manifest['cellOutcomes']:
++        row.update(state='complete',deficiency=None,nativeCause=None)
++rewrite_manifest(liar,claim_complete)
++semantic_refusal('fully-minted-lying-completion',liar,'EXECUTION_INPUTS_OUTCOME_DERIVE')
++
++omit=fresh()
++def omit_coverage(manifest):
++    manifest['selectedRefs']=[r for r in manifest['selectedRefs'] if r['domain']!='coverage']
++rewrite_manifest(omit,omit_coverage)
++semantic_refusal('selected-coverage-omission',omit,'EVALUATOR_EXECUTION_INPUTS_JOIN')
++
++run,objects,blobs=packed
++lost=copy.deepcopy(blobs);del lost[proof['executionInputsDigest']]
++try:M.close_run(run,objects,lost)
++except Exception as exc:
++    assert type(exc).__name__=='EvidenceUnavailable' and str(exc).startswith('EVIDENCE_UNAVAILABLE:'),(type(exc).__name__,str(exc))
++    rows.append({'case':'promised-manifest-lost','admission':'EVIDENCE_UNAVAILABLE','reason':str(exc)})
++else:raise AssertionError('missing manifest accepted')
++
++bad=copy.deepcopy(blobs);bad[proof['executionInputsDigest']]=b'{}'
++try:M.close_run(run,objects,bad)
++except Exception as exc:
++    assert type(exc).__name__!='EvidenceUnavailable' and str(exc)=='BLOB_DIGEST',(type(exc).__name__,str(exc))
++    rows.append({'case':'manifest-invalid-bytes','admission':'REFUSE','reason':str(exc)})
++else:raise AssertionError('invalid manifest accepted')
++
++print(json.dumps({'standing':'synthetic full replay controls, not host/compiler qualification','passed':True,'count':len(rows),'checks':rows},indent=2))

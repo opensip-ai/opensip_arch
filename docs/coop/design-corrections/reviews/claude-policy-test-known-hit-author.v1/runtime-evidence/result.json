@@ -1,0 +1,60 @@
+{
+  "session_id": "823bf66b-e92a-4789-ab81-63a1a9dc371d",
+  "total_cost_usd": 12.336580999999999,
+  "usage": {
+    "input_tokens": 612,
+    "cache_creation_input_tokens": 208536,
+    "cache_read_input_tokens": 15011872,
+    "output_tokens": 109689,
+    "output_tokens_details": {
+      "thinking_tokens": 50248
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 208536,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2016,
+        "cache_read_input_tokens": 807397,
+        "cache_creation_input_tokens": 992,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 992
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 612,
+      "outputTokens": 109689,
+      "cacheReadInputTokens": 15011872,
+      "cacheCreationInputTokens": 208536,
+      "webSearchRequests": 0,
+      "costUSD": 12.336580999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 50248,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 80,
+  "subtype": "success",
+  "result": "I fixed both assigned problems in my own verified copy of frozen39. Afterwards the retained independent probe passes 50/50, and all 22 fixture-vs-composition comparisons agree. This is author correction work, not the active review's verdict; frozen39 and root's evidence are unaltered, which I re-verified at the end.\n\n**Custody.** The frozen39 manifest sha matches (`f71a5992\u2026569009`). All 12909 members were verified before and after copying into `work/source39`, with no faults and no unlisted files. The patch touches exactly 6 files, all modified, none added; the historical V1 files and the composition, identity and atom owners are byte-identical.\n\n**P1: known hit under missing required evidence (confirmed).**\n- **Cause:** `policy_test_model.v3.py` skipped the rule before evaluating any predicate whenever a required evidence kind was absent (frozen39 lines 214\u2013218). Known findings were suppressed and could no longer make the verdict fail.\n- **Law:** composition \u00a75/\u00a79.5 and `evaluator_composition_model.v3.compose` evaluate every subject. The missing evidence is a rule-level deficiency whatever the root value, but a live unwaived gating finding still makes it fail.\n- **Reproduction:** a path-only rerun of the original probe on my copy failed exactly the P1 row, as root found. My comparison probe showed the fixture wrong for gating, waived, non-gating, below-threshold, two-subject and partial-Coverage cases.\n- **Fix:** every subject is now evaluated.\n  - Known findings (waived or live) and fail dominance are kept.\n  - The rule is still listed in `indeterminateRules`, and subjects without a known finding stay unknown, so a known false result is not treated as an authoritative no-match.\n  - Zero-subject cases, the optional-absent distinction and non-gating behaviour are unchanged.\n- **Second defect in the same code:** the optional-absent disclosure also required complete Coverage. With partial Coverage but every native atom known, the fixture said indeterminate where composition says pass. I isolated this before correcting it and removed that condition.\n\n**P2: universe tokens (real inconsistency).**\n- **Law:** composition contract \u00a72 closes the token map to `typescript`, `rust` and `syntax`. It refuses unknown tokens and says `typescript-v2` is not an alias. `evaluator_input_model.v3` enforces this for every rule.\n- **Problem:** the policy-test route never applied it. My authored suites used `typescript-v2`, and arbitrary tokens were accepted. A typo in a fact's token silently became a no-match.\n- **Fix, using existing refusal routes only:**\n  - an unregistered rule token (enabled or disabled) is refused as `CONFIG.INVALID` / `POLICY.UNKNOWN_RULE`, remedy `EVALUATOR_POLICY_UNIVERSE_UNREGISTERED: <token>`;\n  - an unregistered fact token is `CONFIG.INVALID`;\n  - the authored fixtures now use `typescript`;\n  - controls cover each registered token, facts from a different registered universe, and unknown rule, disabled-rule and fact tokens.\n\n**Other owner changes**\n- The schema's admission-precedence and representation-law text, including `ruleLaw`, which previously contradicted composition.\n- Two sentences in contract \u00a75.\n- A new authored `requiredEvidenceSuite` in the fixture.\n- 14 new `pt2` checks in the workflow checker.\n\nOne authored expected value changed: in case `partial-coverage-is-indeterminate-not-finding`, `runtime-hit` is no longer listed as indeterminate. Its only unknown cause is absent optional evidence, which composition \u00a75 keeps at pass. That case's outcome, verdict and expectation outcomes are unchanged.\n\n**Results (receipts in `receipts/`)**\n\n| check | before | after |\n|---|---|---|\n| original probe (path-only rerun) | P1 failed | 50/50 |\n| my comparison probe | 16 law failures (37 rows) | 37/37 |\n| `check-workflow-projection.v3.py` | 838/838 | 852/852; 14 added, none removed or flipped |\n| `check-composition.v3.py` | 30/30 | 30/30 |\n| `check-query-projection.v3.py` | 204/204 | 204/204 |\n| historical `check_workflows.v1.py` | 1816/1816 | 1816/1816; stdout byte-identical |\n| `check-array-orders.py` | \u2014 | 123/123 |\n\nThree failed attempts are kept:\n- My first comparison-probe run had a harness bug: it counted a disabled rule as unknown.\n- My first post-correction workflow-checker run failed only on the authored value above.\n- The original probe writes to a fixed path, so its pre-correction row file was overwritten by the rerun. Its receipt stdout and root's reproduction still show the failure.\n\n**Left unchanged:**\n- `resolve_policy`, which `policy.show` also uses, still accepts any token; Run admission enforces the law. You may want `policy.show` to refuse earlier.\n- An available-but-unrepresentable optional evidence atom stays blocking in the fixture; that is a representation limit, not a mismatch with production.\n\n**Limits**\n- The fixture is a bounded path-only fact view. The composition side uses check-composition-style synthesized inputs, with no full Run, native admission or provider execution; no claim depends on a full Run.\n- The result record still can't say why a rule is indeterminate.\n- Expected outcomes are mine; independent review is the oracle.\n- The full launcher and other children were not run.\n\nNo background processes are running.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-policy-test-known-hit-author.v1`:\n- review.md\n- review.json\n- output/correction.patch\n- custody/delta-manifest.json",
+  "type": "result",
+  "duration_ms": 1679194
+}

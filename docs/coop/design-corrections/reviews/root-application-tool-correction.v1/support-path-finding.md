@@ -1,0 +1,1 @@
+Root found the exact assembler generator source path absent: application-assembly.v1/files/docs/operations/generate-current-design-catalog.py. The retained successor files/ copy exists. Select that local support copy with exact byte pins; finalizer successor files/ equals original selected finalizer. No assembly was run. This refines reviewer F6 portability standing.

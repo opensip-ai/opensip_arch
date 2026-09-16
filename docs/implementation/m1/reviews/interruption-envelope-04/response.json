@@ -1,0 +1,60 @@
+{
+  "session_id": "2cb6cf33-7a75-4cee-85c8-4c510e2b7520",
+  "total_cost_usd": 3.278107,
+  "usage": {
+    "input_tokens": 386,
+    "cache_creation_input_tokens": 86614,
+    "cache_read_input_tokens": 2741324,
+    "output_tokens": 41575,
+    "output_tokens_details": {
+      "thinking_tokens": 9275
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 86614,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2341,
+        "cache_read_input_tokens": 243020,
+        "cache_creation_input_tokens": 11232,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 11232
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 386,
+      "outputTokens": 41575,
+      "cacheReadInputTokens": 2741324,
+      "cacheCreationInputTokens": 86614,
+      "webSearchRequests": 0,
+      "costUSD": 3.278107,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 9275,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 31,
+  "subtype": "success",
+  "result": "# RESUMED INDEPENDENT DELTA REVIEW: interruption correction04\n\n**Verdict: changes are required before selection. The owner decision to preserve optional Runs is conditionally accepted.** Correction04 fixes F-A properly and narrowly, and closes most of F-B and F-D. But it introduces a blocking defect that rejects every verify step (V1). It also still accepts two different error outputs for the same ledger (V2). Parent envelope5 is still the unchanged, unaccepted report05 bytes. Nothing here is a promotion, product claim or report-readiness claim. The review is in `review.json` and `review.md` in the review-04 directory.\n\n## Custody\n- **Subject:** the manifest SHA matches. The 48 files match exactly on the original and on my copy, before and after.\n- **Pins:** all 37 match both their external sources and the copied bytes, before and after. They are the same pins as subject02.\n- **Parent:** the pinned `envelope5.json` has the same bytes as report-projection subject-05's envelope5. The pin's source path still names subject-04.\n- **Execution:** everything ran from my copy with `python -I -B`, an empty private pycache prefix and my own TMPDIR. There are no pyc files or `__pycache__` in either subject tree. I wrote only inside the review directory.\n- **Root checker:** exits 0 and its output equals `root-result.json` (42 shape, 52 ledger, 72 model with 6 changed, 43 metadata, 2 prose spans).\n\n## My own tests\n`work/probes.py` has 49 rows and all behave as designed. I extracted the workflow model myself and applied `model-successor.json` myself, checking the hash, the line and that the replaced text is unique.\n\n- **Optional Runs:**\n  - The parent and patched models differ only in the interrupted termination's `runId`.\n  - All 79 ledgers the patched model generates are valid, and the join admits all 130 of their correct outputs.\n  - Erasing an optional Run is refused, both in the envelope alone and in record plus envelope.\n  - Naming the earlier required Run instead of the later optional one is refused.\n  - An ephemeral optional analysis correctly commits nothing.\n- **Verify steps:** real `[verify, render]` ledgers are refused before settle, after settle and with no signal at all. The reverse mistake, a verify step carrying `kind=analysis`, is accepted.\n- **Errors:**\n  - A changed remedy, unrelated code, duplicate, reordering or omission is refused.\n  - For the same ledger, both `[]` and the exact recorded detail are accepted.\n  - If a real rejection's detail was never saved, the empty form is chosen silently.\n  - A `kind=run` or `kind=invocation` output is accepted with or without the errors.\n- **Payloads:** a failure with no committed Run is still accepted when it carries `findings`.\n- **Phase, signal and correlation:** all mismatches are refused.\n- **Pre-planning:** the pre-planning check is closed and typed. Reusing its context after an invocation exists can't be detected, which makes that a host custody duty.\n- **After settle:** the settled class is kept and reclassification is refused.\n\n## Previous findings\n| | Status |\n|---|---|\n| **F-A** | **Resolved.** The owner text never limited \"a Run committed by an earlier step\" to required steps. Being optional controls gating, not whether a Run was committed. The change is confined to the cancellation branch and correctly presented as a successor. |\n| **F-B** | Signal, cancelled-suffix, query-result and typed-input checks are **resolved**. The result-kind check is **wrong for verify** (V1). |\n| **F-C** | **Mostly resolved**; V3 remains. |\n| **F-D** | **Resolved as a design.** Keeping pre-planning out after an invocation exists is a custody duty. |\n| F3 | Stays withdrawn. Query commands commit nothing. |\n| F5 | Maintained. |\n\n## Findings\n- **V1 (high, blocking).** `ledger_join.py:53` requires verify steps to carry `kind=analysis`. The owner uses `kind=verify` (schema enum `[analysis, verify]`, and `workflows_model.v1.py:1913`). So repair-apply and repair-verify can never pass the mandatory check, and root's 72 scenarios include no verify step. Fix: require the result kind to match the step kind, and add verify ledgers to the checker.\n- **V2 (medium, blocking): the error rule has to be single-valued.**\n  - The owner text at :1340\u20131344 says errors equal the recorded detail exactly.\n  - Report goldens need the same output across all renderers.\n  - author06 (unreviewed, checked only for consistency) always sets errors equal to the recorded details.\n\n  Neither proposal projects the whole ledger: both include optional-step failures and skip steps with no saved detail. **My recommendation:** for an interruption before settle, errors are exactly the recorded details in step order. The empty form is simply the case where there are none. On run and invocation outputs, errors are either always absent or always that same list; pick one. The host must save every composed detail when it records the step, because the join can't see a missing one. The rule must say whether optional-step details count. Apply it to the join, the prose and author06 together.\n- **V3 (low-medium).** When no Run was committed, refuse `findings` (and `advisoryReport` as a precaution).\n- **V4 (low).** An interrupted result now names an optional Run that the normal settled result never names. The prose should say so, with a golden.\n\n**Real source obligations versus inherited checks:**\n- **Must be implemented:** V1\u2013V3.\n- **Applied together:** the model successor and both prose overrides. Records produced under the old rule are refused by the new join.\n- **Named host duties:**\n  - Save error details when each step is recorded.\n  - Custody that keeps pre-planning from being used after an invocation exists.\n- **Root may rely on earlier checks for:** invocation, step and DAG admission, Run admission, record custody, and settled exit/output pairing. The only missing precondition I found is V1.\n\n## Remaining integration work\n- Fix V1\u2013V3, then get the delta re-reviewed.\n- Pick an accepted envelope parent. Apply envelope6, both prose overrides and the model successor together.\n- Rebase the report aggregate and goldens, and align author06 with the single V2 rule.\n- Bind metadata/CLI, generated sources, inventory/registry/closure and every renderer to the selected major.\n- Implement the real host behaviour: RequestContext custody, signal observation, final ledger admission, cancellation recording and D9 delivery.\n- The 11 report feature blockers, AUDIT-G10 and the milestones remain open.\n\nI'm not claiming anything about live signals, host delivery, browser, source integration or milestone qualification.",
+  "type": "result",
+  "duration_ms": 582235
+}

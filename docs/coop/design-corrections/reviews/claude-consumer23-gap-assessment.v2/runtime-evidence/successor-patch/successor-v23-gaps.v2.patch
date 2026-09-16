@@ -1,0 +1,382 @@
+--- a/docs/coop/design-corrections/native/native-cases.v2.json
++++ b/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -21470,6 +21470,132 @@
+      }
+     ]
+    }
++  },
++  {
++   "id": "run-termination-derives-the-d9-exit-contract-reason-code-for-each-deficiency",
++   "feedback": [
++    "R7"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "stage_authority",
++     "args": {
++      "terminal_kind": "complete"
++     },
++     "bind": "st"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "references",
++        "deficiency": "required-relation-missing",
++        "nativeCause": null
++       }
++      ]
++     },
++     "bind": "rrm"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "clones",
++        "deficiency": "language-tier-unsupported",
++        "nativeCause": "capability-missing"
++       }
++      ]
++     },
++     "bind": "lts"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "references",
++        "deficiency": "confidence-floor-unmet",
++        "nativeCause": null
++       }
++      ]
++     },
++     "bind": "cfu"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "references",
++        "deficiency": "budget-exhausted",
++        "nativeCause": null
++       }
++      ]
++     },
++     "bind": "be"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "references",
++        "deficiency": "provider-unavailable",
++        "nativeCause": "capability-missing"
++       }
++      ]
++     },
++     "bind": "pu"
++    },
++    {
++     "fn": "run_termination",
++     "args": {
++      "stage": "$st",
++      "coverage_entries": [
++       {
++        "relation": "references",
++        "deficiency": "resolution-incomplete",
++        "nativeCause": null
++       }
++      ]
++     },
++     "bind": "ri"
++    }
++   ],
++   "expect": {
++    "$rrm.d9.class": "indeterminate",
++    "$rrm.d9.exitCode": 3,
++    "$rrm.typedDetail.deficiency": "required-relation-missing",
++    "$lts.d9.class": "indeterminate",
++    "$lts.d9.exitCode": 3,
++    "$lts.typedDetail.deficiency": "language-tier-unsupported",
++    "$cfu.d9.class": "indeterminate",
++    "$cfu.d9.exitCode": 3,
++    "$cfu.typedDetail.deficiency": "confidence-floor-unmet",
++    "$be.d9.class": "indeterminate",
++    "$be.d9.exitCode": 3,
++    "$be.typedDetail.deficiency": "budget-exhausted",
++    "$pu.d9.class": "indeterminate",
++    "$pu.d9.exitCode": 3,
++    "$pu.typedDetail.deficiency": "provider-unavailable",
++    "$ri.d9.class": "indeterminate",
++    "$ri.d9.exitCode": 3,
++    "$ri.typedDetail.deficiency": "resolution-incomplete",
++    "$rrm.d9.code": "COVERAGE.REQUIRED_RELATION_MISSING",
++    "$lts.d9.code": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED",
++    "$cfu.d9.code": "COVERAGE.CONFIDENCE_FLOOR_UNMET",
++    "$be.d9.code": "COVERAGE.BUDGET_EXHAUSTED",
++    "$pu.d9.code": "COVERAGE.PROVIDER_UNAVAILABLE",
++    "$ri.d9.code": "VERDICT.INDETERMINATE"
++   }
+   }
+  ],
+  "revision": "Blind-consumer corrections: M-1 subjectScopeCommitment producing recipe and admitted producer boundary; M-2 closed TypeScript native context."
+--- a/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -3601,6 +3601,11 @@
+                      "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE", "COVERAGE.CONFIDENCE_FLOOR_UNMET", "HOST.IO_FAILURE",
+                      "PROVIDER.PROTOCOL_VIOLATION", "REQUEST.PRECONDITION_FAILED", "REQUEST.UNSATISFIABLE", "CONFIG.INVALID"}
+ CLASS_TO_EXIT = {"success": 0, "policy-failed": 1, "request-rejected": 2, "indeterminate": 3, "operational-failed": 4, "interrupted": 130}
++# d9-exit-contract.v1.14.json#/codeMaps/deficiencyToReasonCode for the native DeficiencyV2 values that are also D9Deficiency
++# members (section 10 Existing code column). The four native-only outcomes take verdict-indeterminate -> VERDICT.INDETERMINATE.
++D9_DEFICIENCY_REASON_CODE = {"required-relation-missing": "COVERAGE.REQUIRED_RELATION_MISSING", "provider-unavailable": "COVERAGE.PROVIDER_UNAVAILABLE",
++                             "language-tier-unsupported": "COVERAGE.LANGUAGE_TIER_UNSUPPORTED", "budget-exhausted": "COVERAGE.BUDGET_EXHAUSTED",
++                             "confidence-floor-unmet": "COVERAGE.CONFIDENCE_FLOOR_UNMET"}
+ 
+ 
+ def d9_map(detail: str) -> dict:
+@@ -3665,7 +3670,7 @@
+     deficient = [e for e in coverage_entries if e.get("deficiency")]
+     if stage["d9"]["class"] == "success" and deficient:
+         worst = min((e["deficiency"] for e in deficient), key=PRECEDENCE_V2.index)
+-        d9 = {"class": "indeterminate", "exitCode": 3, "code": "COVERAGE.PROVIDER_UNAVAILABLE" if worst == "provider-unavailable" else "VERDICT.INDETERMINATE"}
++        d9 = {"class": "indeterminate", "exitCode": 3, "code": D9_DEFICIENCY_REASON_CODE.get(worst, "VERDICT.INDETERMINATE")}
+         return {"authority": "authoritative", "runSealed": True, "factsMinted": len(coverage_entries), "d9": d9,
+                 "typedDetail": {"carrier": _TYPED_DETAIL, "deficiency": worst, "nativeCauses": sorted({e.get("nativeCause") for e in deficient if e.get("nativeCause")})}}
+     return {"authority": "authoritative", "runSealed": True, "factsMinted": len(coverage_entries), "d9": stage["d9"],
+--- a/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -499,6 +499,19 @@
+     refuse("malformed-request-no-retained-run", lambda: Q.execute_graph_query({"schemaMajor": 3, "bad": True}, host=host_obs()), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
+     refuse("non-object-request", lambda: Q.execute_graph_query("not-an-object", host=host_obs()), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
+ 
++    def pkg_request(endpoint):
++        return request("graph.neighbors", project, {"runId": run_key}, {
++            "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing", "endpoint": endpoint,
++        })
++
++    no_coordinate = pkg_request({"universe": g["u1"], "kind": "package", "nativeSubjectId": "app"})
++    ok_req, why_req = valid(GQ + "#/$defs/GraphQueryRequestV1", no_coordinate)
++    check("closed-request-admission-leaves-absent-package-coordinate-to-section-2", ok_req, why_req)
++    check("response-graph-endpoint-still-requires-package-coordinate", not valid(GQ + "#/$defs/GraphEndpoint", no_coordinate["params"]["endpoint"])[0])
++    refuse("package-endpoint-without-coordinate-is-endpoint-ambiguous", lambda: ex(no_coordinate), "REQUEST.PRECONDITION_FAILED", "QUERY.ENDPOINT_AMBIGUOUS")
++    refuse("empty-package-coordinate-is-params-malformed", lambda: ex(pkg_request({"universe": g["u1"], "kind": "package", "nativeSubjectId": "app", "packageManifestPath": ""})), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    refuse("package-coordinate-on-file-endpoint-is-params-malformed", lambda: ex(pkg_request({"universe": g["u1"], "kind": "file", "nativeSubjectId": "a.ts", "packageManifestPath": "package.json"})), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++
+     poisoned = {"cache": {("x",): {"edges": []}}, "latestRunId": run_key}
+     poisoned_result = ex(out_req, poisoned)
+     check("cache-omission-does-not-drop-edge", len(poisoned_result["items"]) == 1 and poisoned_result["context"]["totalItems"] == neigh["context"]["totalItems"], poisoned_result["context"])
+@@ -603,6 +616,10 @@
+ 
+     refuse("host-availability-purged-refuses", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="purged")), "HOST.IO_FAILURE", "evidence.purged")
+     refuse("host-availability-expired-refuses", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="expired")), "HOST.IO_FAILURE", "evidence.expired")
++    refuse("host-availability-unavailable-refuses-evidence-missing", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="unavailable")), "HOST.IO_FAILURE", "evidence.missing")
++    refuse("host-availability-corrupt-refuses-evidence-corrupt", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="corrupt")), "HOST.IO_FAILURE", "evidence.corrupt")
++    partial_anyway = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
++    check("host-availability-partial-does-not-refuse-by-itself", len(partial_anyway["items"]) == 1, partial_anyway["termination"])
+     retained_anyway = ex(out_req, host_obs(latestRunId=run_key, availability="retained"))
+     check("host-availability-retained-does-not-skip-close-run", len(retained_anyway["items"]) == 1)
+ 
+--- a/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -42,10 +42,12 @@
+ 
+ **Fault precedence** for a requested endpoint:
+ 
+-1. Malformed syntax (not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package) → `QUERY.PARAMS_MALFORMED`.
+-2. Package identity without `packageManifestPath`, or a well-formed tuple that matches more than one admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`.
++1. Malformed syntax (not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package, or a present `packageManifestPath` that is not a LogicalPath) → `QUERY.PARAMS_MALFORMED`.
++2. Package identity whose `packageManifestPath` is absent, or a well-formed tuple that matches more than one admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`.
+ 3. Well-formed complete tuple that matches zero vertices → `QUERY.ENDPOINT_UNKNOWN`. Same native id in other universes does not convert a fully specified unknown tuple into ambiguity.
+ 4. Otherwise the endpoint is admitted. A known isolated inventory vertex with no incident projected facts is lawful (empty neighbors, or a zero-hop path when start equals target).
++
++Closed-schema admission deliberately leaves step 2's absent package coordinate to this precedence: request params use `graph-query.schema.json#/$defs/GraphRequestEndpoint`, which admits it, while response rows keep `GraphEndpoint`, which requires it. Every step-1 shape is refused by closed-schema admission itself, with the same detail.
+ 
+ Unknown universe or absent native identity must not become a fabricated zero-hop member.
+ 
+@@ -157,14 +159,14 @@
+ 
+ Failure `requestId` is an already reserved host observation (`host.requestId`, `req1_` + 32 hex). It is never hashed from request bytes and this reference model does not implement CSPRNG. Missing or malformed host RequestId is a **reference-call precondition** (`ReferenceCallPrecondition`), distinct from public request refusal. Optional envelope `projectId` is included only when the request projectId is schema-admitted; malformed projectId is omitted.
+ 
+-Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. `purged` / `expired` / `unavailable` / `corrupt` **refuse** access (`HOST.IO_FAILURE` / `evidence.*`). The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
++Identity **availability** (foundation `EvidenceStore` / availability record) is a trusted current host observation. `purged`, `expired`, `corrupt` and `unavailable` **refuse** access with `HOST.IO_FAILURE` (`faultCause=host-io`) and, respectively, `evidence.purged`, `evidence.expired`, `evidence.corrupt` and `evidence.missing`. There is no `evidence.unavailable` member: `evidence.missing` is the identity owner's detail for required retained evidence that cannot be supplied. `retained` and `partial` do not refuse by themselves; Run closure and retained-byte reads still decide, and missing or corrupt required bytes then refuse by the rows below. The observation cannot grant retained authority: `close_run` remains the positive admission. Omitted availability is not a grant and not a purge. This is the explicit identity §5 availability selector for `graph.neighbors`, `graph.path` and `graph.reach`: operational-failed / exit 4 applies even when the trusted observation precedes full Run replay. It does not change the other seventeen operations. In particular, workflow-owned `finding.show` and its `query-evidence-purged` golden retain request-rejected / REQUEST.PRECONDITION_FAILED / evidence.purged / exit 2. Select by the admitted operation and owning contract, never by a filename, exception prefix or caller-supplied fault origin.
+ 
+ | Condition | class | errorCode / reason | domainDetail |
+ |---|---|---|---|
+ | schemaMajor ≠ 3 | request-rejected | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `QUERY.SCHEMA_MAJOR_UNSUPPORTED` |
+ | malformed graph params / extra properties / LogicalPath endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |
+ | unsupported relation or non-projectable request rung | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.RELATION_UNSUPPORTED` |
+-| malformed-complete but ambiguous endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
++| package endpoint without its coordinate, or well-formed but ambiguous endpoint | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_AMBIGUOUS` |
+ | well-formed endpoint outside the vertex domain | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.ENDPOINT_UNKNOWN` |
+ | two Runs named for one snapshot | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.VIEW_AMBIGUOUS` |
+ | empty, missing, stale, or mismatched latest/snapshot/run selector | request-rejected | `IDENTITY.UNKNOWN` | `QUERY.VIEW_UNKNOWN` |
+@@ -172,13 +174,17 @@
+ | view2 not admitted on this Run | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.FACT_VIEW_UNAVAILABLE` |
+ | missing retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | corrupt retained bytes | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
++| trusted availability `purged` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.purged` |
++| trusted availability `expired` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.expired` |
++| trusted availability `corrupt` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.corrupt` |
++| trusted availability `unavailable` | operational-failed | `HOST.IO_FAILURE` (`faultCause=host-io`) | `evidence.missing` |
+ | work bound under completeness=required with owed work | indeterminate | reason `QUERY.COMPLETENESS_UNMET` | (reasonCodes; success/truncated body still a query result, not kind=failure) |
+ 
+ ## 8. Strong wrapper versus internal traversal
+ 
+ `execute_graph_query(request, run, objects, blobs, host)`:
+ 
+-1. Admit request (schema major 3, closed params).
++1. Admit request (schema major 3, closed params). An absent package coordinate passes this admission and is refused `QUERY.ENDPOINT_AMBIGUOUS` by endpoint syntax (section 2 step 2) before any vertex lookup.
+ 2. Require retained `run`/`objects`/`blobs` and call `close_run`.
+ 3. Join request view to the admitted Run (`runId` / `snapshotId` / trusted `latestRunId`).
+ 4. Project from admitted views, retained payloads, selected subject-inventories, and retained TargetAttributionV2 records named by the Run’s `evaluationInputRefs`. Occupancy identity follows the same normative reconciliation and exact-id derivation in atom evaluation §2 and the selected TargetAttributionV2 join law. The reference helper is an implementation of those laws, not an additional normative input. Historical V1 sidecars are not selected. Ignore `host.cache`, `host.standing`, `host.targetAttributions`, and `host.evaluationDeficiencies`. Do not read ambient unselected store blobs.
+--- a/docs/coop/design-corrections/workflows/query_projection_model.v3.py
++++ b/docs/coop/design-corrections/workflows/query_projection_model.v3.py
+@@ -403,11 +403,18 @@
+         )
+     if kind == "package":
+         path = ep.get("packageManifestPath")
+-        if type(path) is not str or not path:
++        if "packageManifestPath" not in ep:
+             raise QueryRefusal(
+                 "REQUEST.PRECONDITION_FAILED",
+                 "QUERY.ENDPOINT_AMBIGUOUS",
+                 "package endpoints require packageManifestPath to distinguish same-name manifests",
++                label,
++            )
++        if type(path) is not str or not path:
++            raise QueryRefusal(
++                "REQUEST.PRECONDITION_FAILED",
++                "QUERY.PARAMS_MALFORMED",
++                "endpoint.packageManifestPath must be a LogicalPath",
+                 label,
+             )
+     elif ep.get("packageManifestPath"):
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json
+@@ -124,6 +124,52 @@
+           "then": {
+             "required": [
+               "packageManifestPath"
++            ]
++          },
++          "else": {
++            "not": {
++              "required": [
++                "packageManifestPath"
++              ]
++            }
++          }
++        }
++      ]
++    },
++    "GraphRequestEndpoint": {
++      "description": "Request-side graph endpoint (query-projection-contract.v3.md section 2). The closed GraphEndpoint shape, except that a kind=package endpoint may omit packageManifestPath at closed-schema admission so that section 2 step 2 refuses it QUERY.ENDPOINT_AMBIGUOUS; packageManifestPath on a non-package, or present but not a LogicalPath, stays malformed. Response rows keep GraphEndpoint, which requires the coordinate.",
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "universe",
++        "kind",
++        "nativeSubjectId"
++      ],
++      "properties": {
++        "universe": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex",
++          "description": "H-identity of the native semantic universe (fact sourceUniverse/targetUniverse). Required so two program universes with the same path cannot silently union."
++        },
++        "kind": {
++          "$ref": "#/$defs/StoredKind"
++        },
++        "nativeSubjectId": {
++          "$ref": "#/$defs/NativeSubjectId"
++        },
++        "packageManifestPath": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "package"
++              }
++            },
++            "required": [
++              "kind"
+             ]
+           },
+           "else": {
+@@ -175,7 +221,7 @@
+           "$ref": "#/$defs/GraphDirection"
+         },
+         "endpoint": {
+-          "$ref": "#/$defs/GraphEndpoint"
++          "$ref": "#/$defs/GraphRequestEndpoint"
+         },
+         "factViewDigests": {
+           "$ref": "#/$defs/FactViewDigests"
+@@ -204,10 +250,10 @@
+           "$ref": "#/$defs/GraphDirection"
+         },
+         "start": {
+-          "$ref": "#/$defs/GraphEndpoint"
++          "$ref": "#/$defs/GraphRequestEndpoint"
+         },
+         "target": {
+-          "$ref": "#/$defs/GraphEndpoint"
++          "$ref": "#/$defs/GraphRequestEndpoint"
+         },
+         "maxDepth": {
+           "type": "integer",
+@@ -241,7 +287,7 @@
+           "$ref": "#/$defs/GraphDirection"
+         },
+         "start": {
+-          "$ref": "#/$defs/GraphEndpoint"
++          "$ref": "#/$defs/GraphRequestEndpoint"
+         },
+         "maxDepth": {
+           "type": "integer",
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -2904,13 +2904,24 @@
+ | `external-consumers-unknown` | `entry.closedWorld.exportsClosed` ∈ {`open`, `unknown`} — the values the old cell spelled `exports-open`, `exports-unknown` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+ | `derivation-policy-unmet` | relation **must be `types`** (§4.7 / `sufficiency_v2` give no other relation a derivation policy) **and** `entry.derivationKinds` must contain `compiler-inferred` | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+ | `provider-unavailable` | `entry.nativeCause` — `capability-missing` or `linker-unavailable` where one applies; the row is otherwise self-describing (incl. missing identity tokens) | optional | `indeterminate` (3) | `COVERAGE.PROVIDER_UNAVAILABLE` | coverage2 record |
+-| `language-tier-unsupported` | `entry.nativeCause` = `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law); **no other cause is lawful here** | **required** | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `language-tier-unsupported` | `entry.nativeCause` = `capability-missing` — the admitted universe's selected grammars do not bear the requested `relation@rung` (§1.2 syntax-only capability law); **no other cause is lawful here** | **required** | `indeterminate` (3) | `COVERAGE.LANGUAGE_TIER_UNSUPPORTED` | coverage2 record |
+ | `budget-exhausted` | `entry.resolutionCompleteness.stageTerminal` = `budget-exhausted` — the stage terminal the old cell referred to parenthetically | `null` | `indeterminate` (3) | `COVERAGE.BUDGET_EXHAUSTED` | coverage2 record |
+-| `confidence-floor-unmet` | **none in the entry** — the floor is `RequirementV2.minConfidenceMillionths` and the entry carries only its own `confidenceMillionths`, so the comparison is the sufficiency evaluation's. Stated as a limit rather than given an invented entry-level predicate | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
+-| `required-relation-missing` | **none in the entry** — a sufficiency verdict about a relation the view carries *no* entry for, so an entry can never be its own evidence | `null` | `indeterminate` (3) | `VERDICT.INDETERMINATE` | coverage2 record |
++| `confidence-floor-unmet` | **none in the entry** — the floor is `RequirementV2.minConfidenceMillionths` and the entry carries only its own `confidenceMillionths`, so the comparison is the sufficiency evaluation's. Stated as a limit rather than given an invented entry-level predicate | `null` | `indeterminate` (3) | `COVERAGE.CONFIDENCE_FLOOR_UNMET` | coverage2 record |
++| `required-relation-missing` | **none in the entry** — a sufficiency verdict about a relation the view carries *no* entry for, so an entry can never be its own evidence | `null` | `indeterminate` (3) | `COVERAGE.REQUIRED_RELATION_MISSING` | coverage2 record |
+ 
+ A `null` deficiency requires a `null` cause: a cause without a deficiency names
+ why nothing went wrong.
++
++**The Existing code column is the D9 exit contract's own map, and there is one mapping.** For a native deficiency that is
++also a `D9Deficiency` member (`required-relation-missing`, `provider-unavailable`, `language-tier-unsupported`,
++`budget-exhausted`, `confidence-floor-unmet`) the code is `d9-exit-contract.v1.14.json#/codeMaps/deficiencyToReasonCode`,
++unchanged. The four native-only outcomes have no `D9Deficiency` member and take `verdict-indeterminate`, whose code is
++`VERDICT.INDETERMINATE`. A per-requirement outcome carries its `DeficiencyV2` value and no D9 code (§4.6); the Run or
++step that carries it terminates with this column, which is the whole-Run code the D9 goldens derive. The
++`publicD9Termination` annotation in `native-evidence.schemas.v2.json` still spells this column with its older
++three-code parenthetical; that enumeration is incomplete and this table governs. Its bytes are deliberately left
++unchanged: retained Runs commit the digest of that registered schema document, so correcting the annotation belongs
++to a schema-document successor with its own registration, not to this text alignment.
+ 
+ **Some rows are scoped by relation, because their owning law is.** `§4.7` and
+ `sufficiency_v2` apply `derivationPolicy` only where the relation is `types` and

@@ -1,0 +1,220 @@
+{
+  "standing": "Bounded application-TOOLING review only. Not application acceptance, not design or implementation readiness, not a product grade. No application, binding, or activation was performed.",
+  "reviewOrigin": "36063855-9467-40d0-a2fd-7afba09a957f",
+  "reviewerIndependence": {
+    "excludedClaudeAuthorOrigins": [
+      "eaa8276c-dc65-4d26-8ca2-703b345698f9",
+      "36a89be8-3442-4edb-90d8-a6fd959a437c",
+      "0aa529b3-0da1-44b1-b2b9-dbcd9f1bd206",
+      "329a5132-ee66-4303-97a9-b9ebd1b7ffc0"
+    ],
+    "resumedAnyAuthorOrigin": false,
+    "priorContext": "none"
+  },
+  "inputManifestSha256": "e25995b7b649f2376e28caae4d5b06cbf8cdbae8e9ddaa6e7b26b7bbf5ecf32a",
+  "inputManifestVerified": true,
+  "inputFilesVerified": {
+    "count": 19,
+    "allSha256AndByteLengthsMatch": true,
+    "extraFilesInInputsDir": [],
+    "missingFiles": []
+  },
+  "filesReadCompletely": [
+    "application_pins.py",
+    "application_rows.py",
+    "assemble-records.successor.v1.py",
+    "bind-review-receipts.v1.py",
+    "check-finalizer.py",
+    "check-retain-public.v2.report.json",
+    "check-review-envelope.v2.py",
+    "coverage_contract.py",
+    "finalize-application.v1.py",
+    "freeze-application.py",
+    "input-review-receipt.schema.v1.json",
+    "launch-application-review.successor.v1.py",
+    "prepare-validation.py",
+    "retain-application-review.successor.v1.py",
+    "retain_public.py",
+    "review_envelope.py",
+    "run-application-reference-suites.py",
+    "run-applied-reference-checks.py",
+    "verify-applied.py"
+  ],
+  "verdict": "CHANGES_REQUIRED",
+  "verdictScope": "Applies to the application tooling under review only. It is not an application ACCEPT and does not grant or withhold design acceptance.",
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "MAJOR",
+      "title": "Final application review does not exclude the four Claude author origins",
+      "selector": "inputs/retain-application-review.successor.v1.py:87",
+      "code": "assert session not in C.KNOWN_GROK_COAUTHOR_SESSIONS",
+      "detail": "Retention of the FINAL independent application review checks only the three Grok coauthor sessions plus, for vendor=claude, the single HISTORICAL_CLAUDE_EXCLUDED_SESSION (line 89). coverage_contract.KNOWN_COAUTHOR_SESSIONS (the Grok+Claude union, coverage_contract.py:54) is not used. bind-review-receipts.v1.py:86 and assemble-records.successor.v1.py:102-103 both use the union, so the design and blind reviews are correctly protected while the application review is not. finalize-application.v1.py performs no reviewer-origin check at all, so line 87 is the only origin-independence guard on the review that authorizes activation.",
+      "reproducer": "scratch/p02_retain.py -> cases retain-claude-author-origin-1..4: run_retain() RETAINED a review whose decoded session_id was each of the four excluded Claude author origins.",
+      "minimalRemedy": "Replace C.KNOWN_GROK_COAUTHOR_SESSIONS with C.KNOWN_COAUTHOR_SESSIONS at line 87 (line 89 then becomes a redundant but harmless extra guard)."
+    },
+    {
+      "id": "F2",
+      "severity": "MAJOR",
+      "title": "Coauthor-standing and --resume refusal are skipped on the Claude retain branch",
+      "selector": "inputs/retain-application-review.successor.v1.py:59-75 (guards at 60-61 inside `if vendor == 'grok'`)",
+      "detail": "E.refuse_coauthor_process(process,'independent-application') and P.require_fresh_grok_process(process) are invoked only on the grok branch. The claude branch (lines 71-75) performs no process-standing or --resume check, so a Claude application review whose process.json declares coauthor standing, or whose command resumes a known author origin, is retained. review_envelope.refuse_coauthor_process already handles role='independent-application' correctly (role.startswith('independent-')), so the helper is fit for purpose and simply is not called.",
+      "reproducer": "scratch/p02_retain.py -> retain-coauthor-process-standing and retain-process-resuming-claude-author-origin: both RETAINED. The same two inputs are correctly REFUSED by bind (scratch/p01_bind.py, cases 19-20).",
+      "minimalRemedy": "Hoist `E.refuse_coauthor_process(process, 'independent-application')` above the vendor branch so it runs for both vendors; keep require_fresh_grok_process grok-specific."
+    },
+    {
+      "id": "F3",
+      "severity": "MINOR",
+      "title": "Claude CLI envelope is retained verbatim; the public-view sanitizer is never applied",
+      "selector": "inputs/retain-application-review.successor.v1.py:133 and :152-165; inputs/review_envelope.py:40-48",
+      "detail": "P.grok_source_is_private (line 133) and E.public_view(envelope,'grok') (line 153) are both gated on vendor=='grok'. review_envelope.public_view has an explicit claude branch that pops 'thinking', and it is never called. On the claude path the raw stdout envelope named by launch.stdoutName is copied into the retained review directory unfiltered by the rglob loop at lines 129-151.",
+      "reproducer": "scratch/p02_retain.py -> retain-claude-envelope-with-private-key: a synthetic invented marker placed under a 'thinking' key in response.json was found verbatim in dest/response.json. Positive control in the same probe: a synthetic 'thinking' block in the Claude session JSONL was correctly excluded from tool-calls.json by claude_selected_tool_blocks.",
+      "limitation": "Latent rather than demonstrated: this probe used a synthetic envelope. Whether a real `claude -p --output-format json` envelope ever carries a private key was not and cannot be verified in this runtime.",
+      "minimalRemedy": "Apply E.public_view(envelope, vendor) and write the sanitized envelope for both vendors, excluding the raw stdout file from the copy loop regardless of vendor (mirror lines 152-165)."
+    },
+    {
+      "id": "F4",
+      "severity": "MAJOR",
+      "title": "verify-applied.py reimplements the parent-subject digest selector and diverges from the shared adapter",
+      "selector": "inputs/verify-applied.py:6-11 (local review_subject_digest), used at :37 vs inputs/review_envelope.py:152-170",
+      "detail": "The post-activation verifier carries its own copy of the selector. It diverged from review_envelope.review_subject_digest in 4 of 8 probed record shapes. The consequential direction: a design review declaring only inputKit.parentSubjectSha256 (the b11 layout that review_envelope explicitly admits and that check-review-envelope.v2.py tests as 'alternate-parent-inputKit-parentSubject-admits') binds and assembles successfully, then fails verify-applied.py:37 with 'Absent or conflicting review subject digests' AFTER documentation has been applied and activation written. The other three divergences are weakenings: the local copy admits uppercase, wrong-length, and non-object-inputKit forms that the shared adapter fail-closes.",
+      "reproducer": "scratch/p03_whitelist_digest.py -> P04 selector-agrees:* -> divergences: inputKit-parentSubject-only, uppercase-digest, wrong-length-digest, nonobject-inputKit.",
+      "minimalRemedy": "Delete verify-applied.py:6-11 and import review_envelope.review_subject_digest, matching how bind and assemble resolve the same field."
+    },
+    {
+      "id": "F5",
+      "severity": "MAJOR",
+      "title": "Assembler consumes the Codex root design assent by path without re-verifying its bound digest",
+      "selector": "inputs/assemble-records.successor.v1.py:472 and :563",
+      "detail": "bound['codexDesignAssent']['sha256'] is never referenced anywhere in the assembler. Line 472 loads the assent from the live root and lines 478/568 propagate assent['advisoryApplicationAccount'] into accepted-review-advisories.v1.json and assent['contracts'] into application.v1.json acceptedContracts; line 563 records a freshly computed digest of whatever bytes are present. bind-review-receipts.v1.py:142-143 does verify the assent, so the receipt carries a correct digest that the assembler then ignores, leaving a bind-to-assemble window in which the assent may change on disk. This is the only one of the five bound artefacts not re-verified: designSubject, independentDesignReview, freshBlindConsumerReview and codexBlindAssessment are all compared (lines 78, 81, 88, 106).",
+      "reproducer": "scratch/p06_static.py -> a_assembleBoundDigestCustody (AST enumeration of bound[...]['sha256'] subscripts and comparisons) and a_assembleAssentConsumption. Static only; see limitations.",
+      "minimalRemedy": "Add the same two-line pattern used for the other four artefacts: `assent_ref = ref(bound['codexDesignAssent']['path']); assert assent_ref['sha256'] == bound['codexDesignAssent']['sha256']`, and reuse assent_ref at line 563."
+    },
+    {
+      "id": "F6",
+      "severity": "MINOR",
+      "title": "Finalizer and catalog generator are staged from an unpinned absolute /tmp path",
+      "selector": "inputs/assemble-records.successor.v1.py:163-166",
+      "code": "shutil.copyfile(Path('/tmp/opensip-design-corrections/application-assembly.v1/files') / rel, q)",
+      "detail": "finalize-application.v1.py (the code that performs the application and writes activation) and docs/operations/generate-current-design-catalog.py are copied into the staged package from a hardcoded, mutable absolute path that lies outside root, outside the accepted design snapshot, and outside --draft, with no digest assertion. Every other staged byte arrives either from draft_base/files (rebase-checked against beforeSha256 at lines 143-146) or from source_path() with manifest digest checks. Classification: orchestration-scoped, not incorrectly bound authority, because compensating controls exist downstream: prepare-validation.py:79-85 re-executes check-finalizer.py against the staged bytes, freeze-application.py:43 binds selftest['sourceSha256'] to the staged finalizer, the manifest pins it, and the launch prompt directs the reviewer to assess the finalizer code. The residual defect is that the finalizer's provenance is outside the verified closure at the moment of copy.",
+      "reproducer": "scratch/p06_static.py -> b_unpinnedAbsoluteStagedCopies (sole absolute-path copyfile in the assembler); scratch/p00_env.py confirms the path currently exists in this runtime, so this is a provenance/portability concern rather than an absent-path failure here.",
+      "minimalRemedy": "Add a required --assembly-source argument defaulting to the current literal, and assert an expected sha256 per copied file before staging."
+    },
+    {
+      "id": "F7",
+      "severity": "MINOR",
+      "title": "Launch metadata records a Grok-only exclusion list for both vendors",
+      "selector": "inputs/launch-application-review.successor.v1.py:138",
+      "code": "'knownCoauthorSessionsExcluded': list(C.KNOWN_GROK_COAUTHOR_SESSIONS)",
+      "detail": "process.json is written for both vendors but always records only the three Grok sessions, understating the exclusion set for a Claude application review and misdescribing what was actually enforced. Provenance-record accuracy defect; it is also the file that downstream coauthor-process checks read.",
+      "reproducer": "scratch/p06_static.py -> c_coauthorExclusionPoints.",
+      "minimalRemedy": "Use list(C.KNOWN_COAUTHOR_SESSIONS)."
+    },
+    {
+      "id": "F8",
+      "severity": "MINOR",
+      "title": "Retain/envelope evidence reports are copied forward without re-execution or source-digest binding",
+      "selector": "inputs/prepare-validation.py:34-35 and :39-40; inputs/freeze-application.py:41-43",
+      "detail": "check-review-envelope.v2.report.json and check-retain-public.v2.report.json are copied into support/ as static artefacts. Neither carries a sourceSha256, and neither is re-executed at assembly time, so they cannot detect drift in review_envelope.py or retain_public.py. freeze-application.py binds only the finalizer selftest, asserting selftest['sourceSha256'] == sha(staged finalizer). The envelope and retain suites get no equivalent binding, which is precisely why their counts are historical evidence rather than an oracle.",
+      "reproducer": "scratch/p06_static.py -> d_shippedEvidenceReports (hasSourceSha256 false) and d_freezeSourceBindingLines (only the finalizer is source-bound).",
+      "minimalRemedy": "Give both suites a --report argument and a sourceSha256 field, re-execute them in prepare-validation.py, and add the matching freeze assertions alongside the existing finalizer one."
+    },
+    {
+      "id": "F9",
+      "severity": "INFO",
+      "title": "Envelope test suite writes its report into its own source directory",
+      "selector": "inputs/check-review-envelope.v2.py:331",
+      "code": "(HERE / 'check-review-envelope.v2.report.json').write_text(...)",
+      "detail": "Executing the suite mutates the directory holding the pinned sources, unlike check-finalizer.py which takes --report. This review ran it from a scratch copy specifically to avoid writing into the frozen inputs.",
+      "reproducer": "scratch/p05_finalizer.py -> checkReviewEnvelope.reportWrittenBesideSource == true.",
+      "minimalRemedy": "Add a --report argument defaulting to the current location, as check-finalizer.py already does."
+    },
+    {
+      "id": "F10",
+      "severity": "INFO",
+      "title": "Private-directory classification applies only at the first path component",
+      "selector": "inputs/retain_public.py:125-134",
+      "detail": "grok_source_is_private tests rel.parts[0] against GROK_PRIVATE_TOP_DIRS, so a private-looking directory nested below another component (for example work/compaction/...) is not classified private unless its basename is in GROK_PRIVATE_BASENAMES. Practical reach is low: Grok session state lands under ~/.grok/sessions, not under the review --cwd.",
+      "reproducer": "scratch/p03_whitelist_digest.py -> P03a private(work/compaction/summary-note.txt)==False (all 12 matrix rows matched expectation; this row documents the gap).",
+      "minimalRemedy": "Test `set(rel.parts[:-1]) & GROK_PRIVATE_TOP_DIRS` instead of parts[0] only."
+    },
+    {
+      "id": "F11",
+      "severity": "INFO",
+      "title": "DR-011-R10 disposition text is generated boilerplate attributed to the design reviewer label",
+      "selector": "inputs/assemble-records.successor.v1.py:417-423",
+      "detail": "The assembler replaces the proposed dispositionText with fixed prose asserting that blind consumer B 'reconstructed the accepted current design with independently authored vectors', and appends reviewer_label, which is the DESIGN reviewer's public label, to a row about the BLIND consumer (a different, separately asserted session). No author result is substituted: reviewEvidence correctly points at the blind review's own /verdict (blind_ref), and the scope requirement that blind reconstruction not be replaced by author results is met. The imprecision is that the completeness claim and the attribution are static text rather than derived from the blind review's own scope statement.",
+      "reproducer": "Static read of lines 417-423 against lines 49/87-91; not separately executed.",
+      "minimalRemedy": "Attribute the row to the blind session (bound['freshBlindConsumerReview']['sessionId']) and derive the reconstruction-scope sentence from a selector into the blind review rather than asserting it in the builder."
+    }
+  ],
+  "confirmedStrengths": [
+    {
+      "area": "receipt binding / author-origin exclusion at bind",
+      "evidence": "scratch/p01_bind.py: 24/24 cases behaved as expected, including refusal of all four Claude author origins in BOTH the design and blind roles, all three Grok coauthor sessions, the historical excluded Claude session, blind reusing the design session, SHAPE-ONLY receipts, receipts preclaiming readyForAssembly, coauthor process standing, and --resume of an author origin."
+    },
+    {
+      "area": "cross-subject and missing-assent refusal",
+      "evidence": "scratch/p01_bind.py: refused a blind input kit naming another parent, an assent naming another subject, an assent naming another reviewer session, a missing root design assent, and a process session not matching the public envelope."
+    },
+    {
+      "area": "beforeimage / activation guard",
+      "evidence": "scratch/p05_finalizer.py: shipped check-finalizer.py re-executed against the frozen finalize-application.v1.py bytes -> 20 passed, 0 failed, sourceSha256 matches the manifest digest d3f8d4ce...; plus 7 additional cases all refused with zero writes and no activation: live file appearing where beforeSha256 was null, live file deleted, symlinked live target, tampered retained manifest custody, missing staged after-image, manifest claiming implementationAuthorized. Activation is written strictly last, check-only leaves none, and an existing activation is never replaced."
+    },
+    {
+      "area": "public-only transcript retention (Grok path)",
+      "evidence": "scratch/p03_whitelist_digest.py: 12/12 whitelist matrix rows and 8/8 updates-selector behaviours as expected. Synthetic invented thought chunks, thought deltas, rawOutput and compaction summaries were all excluded while public narration and public tool output were retained; foreign-session, extra-user-message, undelivered-tool-call and malformed-line inputs were all refused."
+    },
+    {
+      "area": "source pin adaptation, no semantic drift",
+      "evidence": "scratch/p07_pins.py: 8/8 as expected. One opening applicability paragraph naming D-372 is admitted with the inherited body byte-preserved; inherited-body edits, two added paragraphs, title changes, appended tails, and an addition omitting D-372 are all refused, as is an unexpected extra changed pinned path."
+    },
+    {
+      "area": "staged grades conditioned on actual independent application review",
+      "evidence": "Static: application_rows.py:32-33 refuses any draft asserting productQualified or a non-PENDING independentGrade; assemble-records.successor.v1.py attaches effectiveWhen, independentApplicationGradeBinding=activation and explicit gradeAuthority text to every row, AR/FW, inherited, evaluation and owner record; line 469 asserts all 32 gates keep qualified/demonstrated/implementationHarnessAuthored false; condition 5 is written NOT MET (line 556) and re-asserted by verify-applied.py:35."
+    },
+    {
+      "area": "preserved historical evidence",
+      "evidence": "Static: assemble-records.successor.v1.py:358-360 asserts the inherited d9-exit-contract.v1.14.json enum still lacks the twelfth cause (inheritance evidence preserved); lines 658-671 preserve live operational-guide variants without overwrite; verify-applied.py:96-109 runs the unchanged D369 checker, asserts checkerSha256 equality with the before-image and requires exact documented provenance for every new failure rather than relabelling it PASS."
+    }
+  ],
+  "probes": [
+    {"id": "P00", "file": "scratch/p00_env.py", "what": "Runtime facts and existence-only check of every hardcoded absolute support path.", "result": "Reference interpreter 3.12.13 with jsonschema 4.25.1; host python3 3.14.6. All seven hardcoded paths exist in this runtime, so no absent-path failure is reported; contents of none were read."},
+    {"id": "P01", "file": "scratch/p01_bind.py", "what": "End-to-end bind-review-receipts.v1.py refusals on a synthetic root: author-origin exclusion, cross-subject, missing/mismatched assent, coauthor process, receipt hygiene.", "result": "24 cases, 24 as expected."},
+    {"id": "P02", "file": "scratch/p02_retain.py", "what": "retain-application-review.successor.v1.py run_retain() on synthetic claude fixtures: author-origin exclusion, distinct-origin, coauthor process, subject custody, public-only retention.", "result": "16 cases, 10 as expected; 6 divergences -> F1 (4 cases) and F2 (2 cases); 1 synthetic sentinel leak -> F3."},
+    {"id": "P03", "file": "scratch/p03_whitelist_digest.py", "what": "Grok retention whitelist matrix and updates.jsonl public-selector refusals.", "result": "20 checks, 20 as expected; one row documents F10."},
+    {"id": "P04", "file": "scratch/p03_whitelist_digest.py", "what": "Differential of review_envelope.review_subject_digest against the inline copy extracted from verify-applied.py by AST, over 8 record shapes.", "result": "4 of 8 shapes diverge -> F4."},
+    {"id": "P05", "file": "scratch/p05_finalizer.py", "what": "Re-execution of the two shipped disposable suites against the frozen inputs (envelope suite from a scratch copy), plus 7 extra before-image/activation cases.", "result": "check-finalizer 20 passed / 0 failed; check-review-envelope 35 passed / 0 failed, existing20 20/20; 7/7 extra cases refused with no writes; activation ordering confirmed."},
+    {"id": "P06", "file": "scratch/p06_static.py", "what": "AST-level custody selectors: bound-receipt digest comparisons, unpinned absolute staged copies, coauthor-exclusion constant per enforcement point, evidence-report source binding.", "result": "Substantiates F5, F6, F7, F8."},
+    {"id": "P07", "file": "scratch/p07_pins.py", "what": "application_pins.prepare admitted/refused source-pin adaptations.", "result": "8 cases, 8 as expected."}
+  ],
+  "limitations": [
+    "This is a tooling review. It is not an application ACCEPT, not design acceptance, and confers no product readiness.",
+    "No application, receipt binding, freeze, launch, retention, or activation was performed against any real subject. Every fixture was synthetic and disposable; all writes stayed under scratch/ and per-case temporary directories that were removed.",
+    "Six inputs were NOT executed end-to-end because they require the full application-successor root (accepted design snapshot, draft, and dozens of sibling support files) that is not among the 19 inputs: assemble-records.successor.v1.py, prepare-validation.py, freeze-application.py, verify-applied.py, run-application-reference-suites.py, run-applied-reference-checks.py. Findings F4 (selector extracted by AST and differentially executed), F5, F6, F7 and F8 on those files are static/AST-level and are labelled as such. No end-to-end reproducer is claimed for F5.",
+    "check-retain-public.v2.report.json was read completely and treated strictly as historical test evidence, never as an oracle. Its 69/40 counts were not relied on; equivalent Grok whitelist and updates-selector coverage was re-derived independently in P03. Note that its check list contains no case for Claude-vendor coauthor-session exclusion, Claude-vendor process refusal, or Claude envelope sanitization, which is consistent with F1, F2 and F3 being untested rather than regressions.",
+    "The Grok vendor path was exercised only at the library level (retain_public helpers). No Grok CLI was run, no ~/.grok session directory was read, and grok_application_launch_spec was not executed against a real binary.",
+    "F3 is latent: the probe injected a synthetic invented 'thinking' key. Whether a real Claude CLI JSON envelope ever carries private content was not verified and is out of scope here.",
+    "No .claude transcript, private reasoning, or real private CLI content was read at any point. Every sanitizer sentinel was an invented synthetic string.",
+    "In-process module probes ran under host python3 3.14.6; subprocess suites ran under the reference interpreter 3.12.13 -I -B. No version-dependent behaviour was observed in these assert-based paths, but the two were not exhaustively cross-run.",
+    "P07's accepted-pin-drift case was refused by the earlier inherited-body assertion rather than by the 'Accepted pin drift' check at application_pins.py:37; that specific guard is therefore reviewed statically, not independently triggered.",
+    "All 32 product qualification gates remain unperformed and condition 5 remains NOT MET. Nothing in this review changes that, and design acceptance is a separate and distinct question that this review does not reach."
+  ],
+  "notFinalApplicationAccept": true,
+  "applicationPerformed": false,
+  "bindingPerformed": false,
+  "activationPerformed": false,
+  "reviewedInputFilesModified": false,
+  "liveRepoModified": false,
+  "reviewSideEffectsDisclosed": [
+    {
+      "what": "inputs/__pycache__ containing 6 .pyc files was created as a side effect of this review's in-process imports of application_pins, coverage_contract, retain_public, review_envelope, finalize-application.v1 and retain-application-review.successor.v1, which ran under host python3 without -B.",
+      "impact": "No manifest-listed input file was read-modified or written. All 19 remained byte-identical throughout, re-verified before and after cleanup.",
+      "resolution": "Removed in scratch/p97_cleanup.py; inputs/ now contains exactly the 19 manifest-listed files and nothing else.",
+      "note": "The reviewed tooling already anticipates this hazard: retain-application-review.successor.v1.py:130 skips __pycache__ when copying review outputs. Invoking the reference interpreter with -I -B, as the subprocess suites did, avoids it entirely."
+    }
+  ],
+  "inputsDirectoryRestoredExactly": true,
+  "productGatesUnperformed": 32,
+  "condition5": "NOT MET"
+}

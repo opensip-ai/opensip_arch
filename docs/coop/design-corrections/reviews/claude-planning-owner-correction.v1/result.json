@@ -1,0 +1,69 @@
+{
+  "session_id": "329a5132-ee66-4303-97a9-b9ebd1b7ffc0",
+  "total_cost_usd": 14.148668,
+  "usage": {
+    "input_tokens": 120,
+    "cache_creation_input_tokens": 116515,
+    "cache_read_input_tokens": 21939186,
+    "output_tokens": 80533,
+    "output_tokens_details": {
+      "thinking_tokens": 24325
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 116515,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 3365,
+        "cache_read_input_tokens": 415694,
+        "cache_creation_input_tokens": 1131,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1131
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 120,
+      "outputTokens": 80533,
+      "cacheReadInputTokens": 21939186,
+      "cacheCreationInputTokens": 116515,
+      "webSearchRequests": 0,
+      "costUSD": 14.148668,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 24325,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01HjDrUPufU1gNcf1sSi3kPh",
+      "tool_input": {
+        "command": "python3 -c \"\nimport pathlib, re, json, hashlib\nfrozen=pathlib.Path('/tmp/opensip-design-corrections/claude-planning-successor-review.v1/inputs/docs/v2/architecture/implementation-boundaries-and-build-plan.md')\nwork=pathlib.Path('/private/tmp/opensip-design-corrections/claude-planning-owner-correction.v1/scratch/work/docs/v2/architecture/implementation-boundaries-and-build-plan.md')\nA,B=frozen.read_text(),work.read_text()\ndef block(t,name):\n    a=t.index('<!-- BEGIN GENERATED '+name+' -->'); b=t.index('<!-- END GENERATED '+name+' -->')\n    return t[a:b]\nfor name in ['COMMIT RECOVERY','IMPLEMENTATION COVERAGE']:\n    same = hashlib.sha256(block(A,name).encode()).hexdigest()==hashlib.sha256(block(B,name).encode()).hexdigest()\n    print('generated block', name, 'identical:', same)\nprint()\n# changed line ranges\nimport difflib\nsm=difflib.SequenceMatcher(None, A.splitlines(), B.splitlines())\nfor tag,i1,i2,j1,j2 in sm.get_opcodes():\n    if tag!='equal': print(tag,'frozen lines',i1+1,'-',i2,'-> new lines',j1+1,'-',j2)\n\"",
+        "description": "Verify generated blocks untouched and locate edits"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 60,
+  "subtype": "success",
+  "result": "# Authored correction for PS-01 and PS-04\n\nCustody first: the nine frozen planning inputs are **unmodified** (all hashes re-verified), frozen25 is intact (12869 members, 0 mismatches), and my prior `findings.json` is preserved untouched. All work is in `scratch/`.\n\n---\n\n## Change surface\n\n| File | Status | Before | After |\n|---|---|---|---|\n| `implementation-boundaries-and-build-plan.md` | changed | 78397 B / `af16dcc6\u2026` | 82985 B / `3bd626a7a0f2efd3\u2026` |\n| `store-instance-lineage.v1.json` | **new** | \u2014 | 30224 B / `4dd6291fbf526010\u2026` |\n| `report-asset-binding.v1.json` | **new** | \u2014 | 22929 B / `7752aeeba5e310e3\u2026` |\n\nThe other **eight inputs are byte-identical**. Plan edits are confined to frozen lines **239\u2013261** (PS-01) and **591\u2013619** (PS-04). Both generated blocks are byte-identical to frozen input, so root's CR-19 F32 regeneration does not collide; I touched nothing in PS-02/03/05/06/07/08 territory.\n\n---\n\n## PS-01 \u2014 minimal S9 owner successor + private lineage companion\n\n**Withdrawn.** The plan now says outright that current S9 *cannot* express the validation, and names why: the two records are closed with 11 and 20 members, and `registry` is a `NamespaceList` of strings.\n\n**Successor shape (S9.3, proposed).** A private `StoreInstanceLineageV1` row joined to the existing public journal by its `intentDigest` \u2014 a member that record already has. The public journal never references the companion. No member is added to `InstallationTransitionIntentV1`, `InstallationTransitionJournalV1`, `NamespaceList`, `RootV1/V2`, `JournalRecord`, any envelope body or the catalog. `NamespaceList` stays an array of strings: the row is **installation-scoped and carries no namespace list**, because S9.2 already binds the covered namespaces as `leaseSet` under `registryDigest`. No D9 code is minted \u2014 refusals reuse `TRANSITION.CURRENT_STORE_MISMATCH` / `CURRENT_SCHEMA_MISMATCH` and the existing `MIGRATION.CORRUPT` quarantine.\n\n**I inspected S9.2 before asserting anything about the counter.** The numeric generation is **not monotonic** \u2014 `store-rollback` and `core-rollback` re-select a retained earlier generation \u2014 and the plan now says so. The generation and state-schema transitions stay entirely the owner's; the companion only records which instance was selected.\n\n**The rollback rule root specified, and how associations join.** S9 line 654 says rollback \"re-selects the retained old store\", so that store keeps its **original** `storeInstanceId`. The active `(namespaceId, storeInstanceId, storeGeneration, stateSchema)` tuple is then byte-identical to the pre-migration tuple, so `storeGenerationDigest` is byte-identical and **every pre-migration association joins by plain binary equality \u2014 no lineage walk, no row rewrite**. Associations in the abandoned forward store keep their own digest and are reached only through the lineage row or reported unavailable: F35 in the reverse direction. A newly created or restored physical store gets a fresh identity and imports no authority, floors or grants.\n\nExecuted property (`check_store_instance_lineage.py`):\n\n```\nbeforeMigration        1131162e4447...\nafterMigration         cc4df6c9d8ff...\nafterRollback          1131162e4447...   rollbackRestoresDigest: true\nafterRestoreNewInstance f34c0f1b1097... restoreDoesNotImpersonate: true\n```\n\n**Specified for implementation:** exact closed schema (11 members, one admitted null with the frozen witness \"present-as-null\" discipline); owning modules \u2014 all **existing** inventory rows, so no inventory row and no generated-section change; location (store-root marker + lifecycle transition store); canonical digest recipe; eight ordered successor obligations; and crash association folded into `recover_transition_journal`'s existing first-act order with no new state or action.\n\n**Canonical digest recipe \u2014 one real correction beyond the brief.** Security S2 assigns \"everything with a `schemaVersion`\" to the foundation product-profile canonicalizer, so the record can never enter `opensip-metadata-canonical.1`. `storeGenerationDigest` is a **raw-artifact** SHA-256 over those canonical bytes, never `H(domain, descriptor)` \u2014 which is what keeps root's \"no new H-domain\" true rather than merely asserted. I also added the guard that **adding any member changes every historical digest**, so the record is frozen at V1 and a new member needs a V2 plus a digest-preserving bridge.\n\n**Three axes separated**, as asked: logical `stateSchema` {1,2} (owner), physical carrier format (the separate carrier coauthor \u2014 explicitly *not* in the binding, for the digest reason above, joined by `(storeInstanceId, storeGeneration)`), and the random instance identity.\n\n---\n\n## PS-04 \u2014 smallest sufficient anchor\n\n**Withdrawn**, with the reason in the prose: the only published per-member listing is the DR-103 *component* manifest (`kind` vocabulary `component`), the catalog row commits only `{platform, archiveProfileId, archiveDigest, sha256}`, and S9.1 calls the core release manifest schema 2 **prospective**.\n\n**Selected: a build-embedded `HostAssetPinV1` constant in the host binary** holding the exact length and raw SHA-256 of the private asset manifest. I established compatibility from sources rather than accepting it:\n\n- identity \u00a71 lines 18\u201321 already place the authenticated host in the **TCB** \u2014 so trust reduces to bytes already trusted, and per-file signing cannot be stronger than the binary that checks it;\n- S9.1 lines 701\u2013702 already prefer \"the copy **embedded in the signed core release** (TR-CORE namespace)\" over a standalone document for exactly this class of metadata \u2014 the pattern is precedent, not invention;\n- G3 requires signed offline assets with no ambient download, and the pin needs no catalog at render time;\n- S5 lines 306\u2013313 already state that whole-install-root substitution is undetected, so adding signing metadata *inside* that root does not move the boundary.\n\n**TR-CORE cited, not the component path.** I verified TR-CORE is a required root role in both closed root schemas. Install-time provenance stays there; **load-time** integrity is the pin. The core-release-manifest dependency is named honestly as *not published in candidate25* and *not required* for asset integrity \u2014 a future core manifest binding would be additive audit convenience only. Four alternatives (ninth `closure2.kind`, component TreeCommitment reuse, a new signed asset manifest, render-time catalog lookup) are recorded with their rejection reasons.\n\n**Concrete behavior:** closed `HostAssetPinV1` and `ReportAssetManifestV1`; canonical-path rules with regular-files-only and no symlink traversal; a seven-step ordered load path (length-bounded read \u2192 digest equality \u2192 parse \u2192 projection compatibility \u2192 per-member digest); and validation performed **only when an asset-consuming renderer is selected**, so absent assets never affect human/JSON/agent/SARIF. Failure uses only members of the **closed** D9 v1.14 vocabulary: `operational-failed` / 4 / `faultCause=delivery-required` / `DELIVERY.REQUIRED_FAILED`, with `DELIVERY.RENDERER_FAILED_AFTER_COMMIT` and RunId retention after commit, otherwise no RunId invented. No package manager, no network, no producer kind, and no silent downgrade of a required HTML request.\n\n---\n\n## Executed controls\n\n| Control | Result |\n|---|---|\n| `check_repository_file_inventory --check` | PASS \u2014 198 paths, chapter matches (unchanged) |\n| `check_implementation_planning --check` | PASS \u2014 320 mappings, 38 cases (unchanged) |\n| `check_store_instance_lineage` | **PASS** \u2014 0 structural failures, **11/11 negative controls detected**, digest-continuity property holds |\n| `check_report_asset_binding` | **PASS** \u2014 0 structural failures, **17/17 admission vectors** |\n\nThe negative controls detect enum widening, opening the record, unbounding the generation, dropping the join key, duplicating the binding, unknown owning modules, a dropped operation rule, minting a D9 code, widening the public intent, and turning `NamespaceList` into objects. I did not rerun unrelated suites for a prose-and-schema change.\n\n---\n\n## Limitations\n\nBoth companions are **proposed** successor deltas \u2014 unaccepted, unfrozen, no readiness. No product code exists; every named owning module is an existing inventory row, which is why no inventory or generated-section change was needed. The lineage control models digest continuity with a **stand-in canonicalizer** (the real one is identity \u00a73's); the asset control models admission and the pin check only and establishes nothing about browser behavior, release builds or signing. Whole-install-root substitution stays undetected in both corrections \u2014 frozen25's existing stated bound, not a new weakness. COV-03 and the separately active carrier/migration/read-only-anchor work remain open; both companions name their required joins rather than assuming that work.\n\nOne optional follow-up for root's own regeneration pass, deliberately not done here to stay patchable: `crates/reporting/src/assets.rs`'s inventory description still reads \"bound by the signed host release artifact\", which is not false but is now less precise than the pin. Changing it would force a chapter-14 generated-block regeneration alongside root's PS-07 edit.\n\nOriginal blind123/8/3 and application review remain pending. This is authored work and needs another substantive review on newly frozen bytes \u2014 not my own sign-off.",
+  "type": "result",
+  "duration_ms": 1056875
+}

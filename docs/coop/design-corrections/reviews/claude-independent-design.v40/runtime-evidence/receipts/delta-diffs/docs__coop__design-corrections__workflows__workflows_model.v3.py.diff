@@ -1,0 +1,23 @@
+--- a39/docs/coop/design-corrections/workflows/workflows_model.v3.py
++++ b40/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -275,8 +275,9 @@
+ def run_policy_test(suite,scope=None):
+     """The evaluator3 authoring test over an ADMITTED PolicyTestSuiteV2. In this profile it replaces the imported historical
+     workflows_model.v1.run_policy_test (still _base.run_policy_test), whose globals bind the historical resolver and
+-    evaluator. The current resolver and atom owner resolve the candidate, the unchanged WaiverSetV1 owner resolves waivers,
+-    and policy_test_model.v3 evaluates each case. The result stays PolicyTestResultV1 (policytest2): suiteDigest is H over the
++    evaluator. The current resolver and atom owner resolve the candidate, every rule universe must be a token of the closed
++    evaluator profile policyUniverseMap (composition contract section 2; an unknown token is a POLICY.UNKNOWN_RULE resolver
++    refusal), the unchanged WaiverSetV1 owner resolves waivers, and policy_test_model.v3 evaluates each case. The result stays PolicyTestResultV1 (policytest2): suiteDigest is H over the
+     admitted PolicyTestSuiteV2 and the candidate and effective digests are over PolicyDocumentV2 bytes."""
+     T=policy_test_model()
+     scope=scope or {'schemaFamily':'opensip.product.scope','schemaMajor':1,'include':['**'],'exclude':[]}
+@@ -284,6 +285,8 @@
+          'candidatePolicyDigest':doc_digest(suite['candidatePolicy']),'overridesApplied':list(suite.get('overrides',[])),'enforcementUnchanged':True,'resolverRefusals':[]}
+     try:
+         policy=resolve_policy(copy.deepcopy(suite['candidatePolicy']))
++        unregistered=T.unregistered_universes(policy)
++        if unregistered:raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','EVALUATOR_POLICY_UNIVERSE_UNREGISTERED: '+unregistered[0][1],unregistered[0][0])
+         effective_waivers,waiver_resolution=resolve_waivers(suite['waivers'],suite.get('asOfDate'))
+         res['resolverAccepted']=True
+     except Refusal as refusal:

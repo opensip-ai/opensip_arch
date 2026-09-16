@@ -1,0 +1,5 @@
+# Corrected native runtime selection
+
+Supersedes uninstalled native-runtime-selection-v2 solely to correct its accepted-parent list. The immutable v2 35-input materialization map, all product bytes, implementation254-member export,110-member unit review, dependency TCB and source-isolation evidence are reused unchanged. Candidate custody paths remain v2; none are selected in the live10/15 lock yet.
+
+The v2 private activation refused before any live source or lock write: inventory successor *records* are not contract accepted parents; only their candidate inventories are. This record retains accepted repository-file-inventory.v12.json and removes the extraneous native-owners-inventory-v12/successor.json parent. No verifier bypass, runtime fix, frozen-byte edit, acceptance waiver or new source claim. Failed activation/root-assent evidence remains historical. V3 needs actual review and root assent; activation uses the exact existing v2 materialization map and frozen runtime02 export. All runtime02 bounds and remaining M2–M6 work remain unchanged.

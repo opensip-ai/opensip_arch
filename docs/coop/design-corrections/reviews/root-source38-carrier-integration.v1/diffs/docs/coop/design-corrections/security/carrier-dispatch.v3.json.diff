@@ -1,0 +1,280 @@
+--- docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -188,7 +188,7 @@
+       {
+         "step": 5,
+         "if": "all seven names present AND all definitions valid",
+-        "then": "Read the carrier_format row with singleton = 1. Row present -> carrierFormat 3. Row absent -> INCOMPLETE FOOTPRINT: historical reads use the inherited format if grant_journal exists; otherwise no carrier format is published yet. A fresh admitted maintenance attempt resumes at C, using the fresh-install row values when no inherited table exists."
++        "then": "Read the carrier_format row with singleton = 1. Row present -> carrierFormat 3. Row absent -> INCOMPLETE FOOTPRINT: historical reads use the inherited format if grant_journal exists; otherwise no carrier format is published yet. A fresh admitted maintenance attempt resumes at C, using the fresh-install row values when no inherited table exists. Before any resume the incomplete footprint must hold no grant_journal_v3 row: a row there is not a lawful durable prefix and is MIGRATION.CORRUPT. The corrected DDL refuses every append before publication."
+       },
+       {
+         "step": 6,
+@@ -209,8 +209,9 @@
+     "executedEvidence": "scratch/out/c18.json exercises this SELECTED algorithm on the fresh-install path, every lawful durable prefix, a partial object set and an all-names malformed-complete shape. The five-case evidence formerly cited from c2.json tested an EARLIER table-existence predicate and is retained only as historical evidence, not as evidence for this algorithm.",
+     "postDetectionChecks": [
+       "The stored SQL text of carrier_quarantine and carrier_capacity_pause must byte-equal the frozen definition. This closes the CREATE TABLE IF NOT EXISTS hole. Verified equal in C2.",
+-      "For a published carrierFormat 3 row, carrier_format.project_key_digest must equal the admitted projectKeyDigest, else MIGRATION.CORRUPT. Before publication do not read absent row fields.",
+-      "If an inherited grant_journal table exists and carrierFormat 3 is published, max(grantGeneration) in it must be strictly less than carrier_format.first_generation, else MIGRATION.CORRUPT. An absent inherited table is the lawful fresh-install path and is never queried.",
++      "For a published carrierFormat 3 row, carrier_format.project_key_digest must equal the admitted projectKeyDigest. A mismatch is a CARRIER PROJECT BINDING MISMATCH, not migration corruption: the carrier's own binding names another project, the same condition the frozen reconcile_witness reports as witness names another carrier. It never borrows MIGRATION.CORRUPT; its route is publicProjectionByPhase. Before publication do not read absent row fields.",
++      "If an inherited grant_journal table exists and carrierFormat 3 is published, max(grantGeneration) in it must be strictly less than carrier_format.first_generation and no inherited row may follow a TERMINAL in its generation; otherwise the published generation boundary is violated (the F51 split-brain custody condition), MIGRATION.CORRUPT at a writer or maintenance open. An absent inherited table is the lawful fresh-install path and is never queried.",
++      "For a published carrierFormat 3 row, min(grantGeneration) in grant_journal_v3, when any row exists, must be at least carrier_format.first_generation; otherwise MIGRATION.CORRUPT. The corrected DDL already refuses such a row; this check verifies rows, not only definitions.",
+       "Witness reconciliation runs exactly as security_unit_lib_v8.reconcile_witness specifies; all 14 rows of the v8 section 5.4 table were reproduced in C1 with no deviation.",
+       "The SC-TRUST high-water comparison is a separate step: the frozen reconcile_witness is pure and does not consult the high-water (verified in C1)."
+     ],
+@@ -258,7 +259,7 @@
+     ],
+     "readerLaws": [
+       "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+-      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed.",
++      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed; its route is publicProjectionByPhase.readOnlyRecovery.",
+       "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+       "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+       "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+@@ -272,7 +273,7 @@
+     "steps": [
+       "Under the S7 install fence with EXCLUSIVE on the affected namespace, append TERMINAL with cause grantGenerationClosure to the existing grant_journal at tail+1, carrying the migration operation own op- token.",
+       "Execute grant-journal.carrier.v3.sql.",
+-      "Insert the single carrier_format row with carrier_format 3, the carrier projectKeyDigest, first_generation = max inherited generation + 1, chain_law 1, migrated_from 1 or 2 and the migration op ref.",
++      "Insert the single carrier_format row with carrier_format 3, the carrier projectKeyDigest, first_generation = max inherited generation + 1, chain_law 1, migrated_from 1 or 2 and the migration op ref. Publication runs in one transaction that first verifies the seven definitions, that grant_journal_v3 holds no row and that a surviving witness names the admitted projectKeyDigest; the DDL couples first_generation to migrated_from.",
+       "New operational appends go to grant_journal_v3 in first_generation onward."
+     ],
+     "executedEvidence": {
+@@ -319,12 +320,12 @@
+     "recoveryByPrefix": {
+       "empty": "start at A (or, on a fresh install with no inherited table, start at B)",
+       "A": "resume at B, recomputing the closed generation",
+-      "AB": "validate the existing object definitions against the selected creation path, then resume at C, else MIGRATION.CORRUPT",
++      "AB": "validate the existing object definitions against the selected creation path, require grant_journal_v3 to hold no row and a surviving witness to name the admitted projectKeyDigest, then resume at C by publishing in one transaction that re-verifies emptiness; invalid definitions or any grant_journal_v3 row is MIGRATION.CORRUPT, a witness naming another project is a carrier project binding mismatch, and nothing is published in either case",
+       "ABC": "complete",
+       "partialObjects": "MIGRATION.CORRUPT, refused and never resumed",
+       "allNamesInvalidDefinitions": "MIGRATION.CORRUPT, refused and never resumed"
+     },
+-    "splitBrainLimit": "A format-unaware core cannot be made to refuse a migrated carrier. Prevention is impossible within the inherited format; detection is exact, because any generation at or above first_generation in the inherited table is a custody condition and never valid history. The mitigation is the existing ordered-release pattern.",
++    "splitBrainLimit": "A format-unaware core cannot be made to refuse a migrated carrier. Prevention is impossible within the inherited format; detection is exact, because any generation at or above first_generation in the inherited table is a custody condition and never valid history. The mitigation is the existing ordered-release pattern. Its route is MIGRATION.CORRUPT at a writer or maintenance open and the quarantine-condition row at read-only recovery (publicProjectionByPhase).",
+     "detectionOrder": "object names, then partial refusal, then definition validation, then the row. The row is read LAST.",
+     "uncertaintyStopsTheAttempt": "A commit- or barrier-uncertain maintenance attempt STOPS: cleanup only, release EXCLUSIVE then the fence, write nothing further. Progress requires a separately admitted fresh maintenance attempt with its own migrationOpRef, re-acquiring fence and EXCLUSIVE, which resumes from the observed durable prefix. The same operation never retries or proceeds."
+   },
+@@ -454,5 +455,222 @@
+     "PS-01": "docs/v2/architecture/store-instance-lineage.v1.json owns store-instance identity and lineage; root integrated it and the binding tuple and digest shape are consumed unchanged. Nothing is redefined here.",
+     "PS-04": "docs/v2/architecture/report-asset-binding.v1.json owns the report asset binding. Untouched."
+   },
+-  "rootIntegrationClarification": "Scope inherited-table post-checks and incomplete-row recovery to distinguish interrupted fresh installation from interrupted migration. No public field or format axis changes."
++  "rootIntegrationClarification": "Scope inherited-table post-checks and incomplete-row recovery to distinguish interrupted fresh installation from interrupted migration. No public field or format axis changes.",
++  "ddlGrammar": {
++    "standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 DDL (sha256 f0a22382f8a5a5bc356334cfde16f7ca1fa6caa37e537cc7924cd46ffd81e3ba). Those are DDL admission counterexamples, not a demonstrated product exploit; host record admission remains separate. Revised in v3: root showed that the v2 predicate length(CAST(column AS BLOB)) = N refused lawful rows in UTF-16le and UTF-16be databases; it is replaced by instr(column, char(0)) = 0 and no database text encoding is required.",
++    "law": "Every hex-bearing column of the carrierFormat 3 DDL and of the private attempt_custody DDL is an exact whole TEXT value: typeof(column) = 'text', length(column) = N (characters before any NUL), instr(column, char(0)) = 0 (no NUL anywhere), a prefix GLOB where a prefix exists, then substr(column, prefix + 1) NOT GLOB '*[^0-9a-f]*'. With no NUL, length() and GLOB see the whole value; the case-sensitive hex class admits only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. Removing any one conjunct admits a hostile value.",
++    "carrierFormat3Columns": [
++      "carrier_format.project_key_digest",
++      "carrier_format.migration_op_ref",
++      "grant_journal_v3.operation_ref",
++      "grant_journal_v3.run_id",
++      "grant_journal_v3.manifest_digest",
++      "grant_journal_v3.body_sha256",
++      "grant_journal_v3.prev_sha256"
++    ],
++    "attemptCustodyColumns": [
++      "store_generation_digest",
++      "execution_id",
++      "operation_ref"
++    ],
++    "grammarSources": [
++      "operation_ref: op- plus 32 lowercase hex (carrier-format.v3.md section 5)",
++      "run_id: security-lifecycle.schemas.v1.json JournalRecord runId ^run3:[0-9a-f]{64}",
++      "manifest_digest: security-schemas.v2 journal-record.schema.json manifestDigest ^[0-9a-f]{64}$",
++      "project_key_digest: security_unit_lib_v8 witness projectKeyDigest [0-9a-f]{64}",
++      "body_sha256 and prev_sha256: lowercase-hex SHA-256 text; security_unit_lib_v8 journal tail digest [0-9a-f]{64}",
++      "attempt_custody: attempt-custody.schema.v1.json storeGenerationDigest, executionId and operationRef patterns"
++    ],
++    "authority": "Host record admission still validates the closed record bodies. The DDL is defence in depth.",
++    "historicalScope": "carrierFormat 1 and 2 bytes are frozen and unchanged: their GLOB checks inspect only the first character after a prefix, and they also admit embedded-NUL and BLOB values. That is a disclosed historical limit, not repaired: historical rows are read as history under recordSchema-1 semantics, are never re-admitted through the schema-3 gate and can never satisfy a schema-3 SEAL join (F46), so a malformed historical value confers no commitment. No product implementation or deployed carrier or ledger table was created from the earlier PROPOSED carrierFormat 3 or attempt_custody bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created from them by earlier design checks and review probes and remain historical evidence; the open dispatch validates definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT rather than read as this definition.",
++    "storageClassLaw": "Every carrierFormat 3 and attempt_custody column's storage class is enforced by one of two mechanisms. An explicit typeof() guard: 'integer' for the INTEGER columns (the v1 range checks admitted a non-integral REAL in first_generation and grantGeneration), 'text' for the free TEXT columns request_ref, token, install_generation_id, body and namespace_id (a BLOB was admitted) and for every hex-bearing column. Exact enumeration: record_type, platform, phase and settled_outcome have IN lists of TEXT literals only, and a whole-value comparison never equals a BLOB, a number or a NUL-suffixed text. CHECK constraints see values after column affinity, so an integer supplied as text '5' is stored and checked as integer 5.",
++    "carrierFormat3IntegerColumns": [
++      "carrier_format.singleton",
++      "carrier_format.carrier_format",
++      "carrier_format.first_generation",
++      "carrier_format.chain_law",
++      "carrier_format.migrated_from",
++      "grant_journal_v3.grantGeneration",
++      "grant_journal_v3.seq",
++      "grant_journal_v3.record_schema"
++    ],
++    "carrierFormat3TextColumns": [
++      "grant_journal_v3.request_ref",
++      "grant_journal_v3.token",
++      "grant_journal_v3.install_generation_id",
++      "grant_journal_v3.body"
++    ],
++    "carrierFormat3EnumeratedColumns": [
++      "grant_journal_v3.record_type",
++      "grant_journal_v3.platform"
++    ],
++    "attemptCustodyIntegerColumns": [
++      "record_schema"
++    ],
++    "attemptCustodyTextColumns": [
++      "namespace_id"
++    ],
++    "attemptCustodyEnumeratedColumns": [
++      "phase",
++      "settled_outcome"
++    ],
++    "alternativesRejected": [
++      "STRICT tables: they refuse a BLOB in a TEXT column and a REAL in an INTEGER column, but do not refuse an embedded NUL, and SQLite documents that a database containing a STRICT table cannot be read by SQLite libraries older than 3.37.0, which would contradict the selected staging in which a format-unaware core still reads historical generations.",
++      "length(CAST(column AS BLOB)) = N (source37 v2): the byte count of a TEXT value depends on the database text encoding, so it refused every lawful hex-bearing row in UTF-16le and UTF-16be databases; withdrawn.",
++      "instr(CAST(column AS BLOB), x'00') = 0: the BLOB view of a UTF-16 value contains zero bytes, so it also refuses lawful UTF-16 rows; the selected guard is the TEXT instr(column, char(0)) = 0.",
++      "instr(column, char(0)) = 0 without the character length, prefix and hex guards: admits uppercase, non-hex, short and long values; each retained conjunct is necessary."
++    ],
++    "encodingIndependence": "The grammar evaluates TEXT values by character and does not depend on the database text encoding. The reference matrix and the owner checker admit every canonical lawful row and refuse the NUL, BLOB, REAL, malformed UTF-8 or UTF-16, multibyte, non-ASCII digit, prefix and length variants under UTF-8, UTF-16le and UTF-16be, and a UTF-16 carrierFormat 2 carrier migrates, publishes and seals. No carrier or ledger is required to use a particular encoding."
++  },
++  "publicationLaw": {
++    "standing": "Source37 owner correction (review advisory A37-02).",
++    "ddl": "gj3_append_laws refuses every append while no carrier_format row exists, so an {A, B} footprint cannot acquire a row that a later publication would contradict. A carrier_format CHECK couples first_generation to migrated_from: exactly 1 on the fresh path and at least 2 when migrated.",
++    "actC": "Publication, on the fresh path or resuming {A, B}, runs under the held fence and EXCLUSIVE lease in one transaction that first verifies the seven definitions, that grant_journal_v3 holds no row and that a surviving witness names the admitted projectKeyDigest, then recomputes first_generation and inserts the row. A failed precondition publishes nothing: a definition or row failure is MIGRATION.CORRUPT and a witness naming another project is a carrier project binding mismatch.",
++    "published": "After publication the row-level post-detection checks verify rows, not only definitions: no inherited generation at or above first_generation, no inherited row after a TERMINAL and no grant_journal_v3 row below first_generation.",
++    "noNewObject": "The law lives in the existing trigger and table definitions; the seven object names are unchanged."
++  },
++  "publicProjectionByPhase": {
++    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1.",
++    "phaseLaws": [
++      "The phase decides only which existing route applies. A writer or maintenance open refuses: it appends nothing, publishes nothing and writes no quarantine marker, because carrier_quarantine.reason is the unchanged inherited enum. Every open re-detects from the bytes it reads; a cached verdict, first_generation, projectKeyDigest or earlier successful open is never reused.",
++      "Read-only recovery writes nothing, never uses MIGRATION.CORRUPT, and reports the quarantine-condition row only with the Step 4 stable observations of commit-recovery-readonly.v3.md; otherwise it reports unavailable-busy.",
++      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority."
++    ],
++    "writerOrMaintenanceOpen": {
++      "migration-footprint-corrupt": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "observations": [
++          "some but not all seven carrierFormat 3 object names",
++          "all seven names with an invalid definition",
++          "a grant_journal_v3 row while no format row is published",
++          "a published grant_journal_v3 row below first_generation"
++        ]
++      },
++      "split-brain-custody-condition": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "observations": [
++          "an inherited grant_journal generation at or above the published first_generation (F51)",
++          "an inherited row after a TERMINAL in its generation"
++        ]
++      },
++      "carrier-project-binding-mismatch": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "writer or maintenance carrier open, or maintenance format publication",
++        "observations": [
++          "published carrier_format.project_key_digest differs from the admitted projectKeyDigest",
++          "a surviving witness names another project (frozen reconcile_witness: witness names another carrier)"
++        ]
++      }
++    },
++    "maintenanceActCPublication": {
++      "migration-footprint-corrupt": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "publishes": false,
++        "observations": [
++          "a grant_journal_v3 row before publication",
++          "a partial object set or an invalid definition"
++        ]
++      },
++      "carrier-project-binding-mismatch": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "writer or maintenance carrier open, or maintenance format publication",
++        "publishes": false,
++        "observations": [
++          "a surviving witness names another project"
++        ]
++      }
++    },
++    "readOnlyRecovery": {
++      "binding-unusable": {
++        "class": "request-rejected",
++        "exit": 2,
++        "errorCode": "EXTENSION.ADMISSION_REJECTED",
++        "faultCause": null,
++        "domainDetail": "RECOVERY.REFUSED",
++        "securityRefusal": "RECOVERY.REFUSED",
++        "s12Row": "read-only recovery: the requested binding",
++        "observations": [
++          "the association storeGenerationDigest, namespaceId or journalCarrierDigest differs from the admitted binding"
++        ]
++      },
++      "unknown-quarantine-condition": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: stably observed carrier quarantine condition",
++        "requiresStableObservations": true,
++        "otherwise": "unavailable-busy",
++        "observations": [
++          "with the association naming the admitted carrier, the carrier's own published row or witness names another project",
++          "a migration footprint that is not a lawful durable prefix",
++          "the F51 split-brain condition",
++          "the inherited quarantine conditions uncertainTailLoss, witnesslessRestore and witnessMalformed"
++        ]
++      },
++      "unknown-carrier-incompatible": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "host-io",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: the association names a carrierFormat 1 or 2 generation",
++        "observations": [
++          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)"
++        ]
++      },
++      "unavailable-busy": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.BUSY_TIMEOUT",
++        "faultCause": "ledger-busy",
++        "domainDetail": "PROJECT.BUSY",
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: requested attempt still `admitted` **with no receipt**",
++        "observations": [
++          "a lawful {A} or {A, B} migration prefix (carrier-migration.v1.md section 4)",
++          "an unstable observation where a quarantine condition would otherwise be reported"
++        ]
++      }
++    },
++    "readOnlyStandingOfDispatchResult": {
++      "binding-unusable": "binding-unusable",
++      "carrier-project-binding-mismatch": "unknown-quarantine-condition",
++      "migration-footprint-corrupt": "unknown-quarantine-condition",
++      "split-brain-custody-condition": "unknown-quarantine-condition",
++      "unknown-carrier-incompatible": "unknown-carrier-incompatible",
++      "incomplete-footprint": "unavailable-busy"
++    }
++  }
+ }

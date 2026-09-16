@@ -1,0 +1,7 @@
+# Rust provider workspace01 — M1 bootstrap only
+
+Candidate four files in existing planned owners: independent providers/rust Cargo.toml/Cargo.lock/rust-toolchain.toml/src/main.rs. The previously reviewed source-export probe was not the checked-in workspace required by RF05. This candidate establishes that workspace with path dependencies on the one contracts/identity owner, its own unchanged separately resolved lock, and explicit1.95.0 minimal development toolchain.
+
+The entry point intentionally refuses all requests before reading stdin and produces no protocol frame, capability acknowledgement or synthetic analysis. It is a development bootstrap, not an implemented Rust semantic provider. It is not registered in a host catalog, signed provider closure or release. M3 must implement compiler/protocol/sealed-VFS/session behavior and deliberately select/qualify the required compiler integration toolchain. A nonzero exit here is a refusal smoke test, never analysis success.
+
+Root host already excludes providers/rust. The source export preserves relative paths and exact shared owner bytes, excludes host root/apps/tools and consumes the provider lock unchanged with locked offline Cargo. Changing shared libraries later requires revalidation. Neither the dependency graph nor success compiling an intentionally unavailable development entry point establishes native-analysis quality or complete provider functionality.

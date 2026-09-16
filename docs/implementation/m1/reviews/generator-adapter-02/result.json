@@ -1,0 +1,60 @@
+{
+  "session_id": "ebd810f5-4c95-400d-ad01-5c33b2286133",
+  "total_cost_usd": 2.7063555,
+  "usage": {
+    "input_tokens": 322,
+    "cache_creation_input_tokens": 71405,
+    "cache_read_input_tokens": 1877741,
+    "output_tokens": 42073,
+    "output_tokens_details": {
+      "thinking_tokens": 16970
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 71405,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1475,
+        "cache_read_input_tokens": 207843,
+        "cache_creation_input_tokens": 325,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 325
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 322,
+      "outputTokens": 42073,
+      "cacheReadInputTokens": 1877741,
+      "cacheCreationInputTokens": 71405,
+      "webSearchRequests": 0,
+      "costUSD": 2.7063555,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 16970,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 30,
+  "subtype": "success",
+  "result": "Verdict: **changes-required**. Your fixes for R1\u2013R4 hold up against my own probes, but I found two new small gaps in the checks you added. This is still a development-trusted-host adapter: not hermetic, not product integration, not M1 acceptance.\n\n**Pins:** the manifest SHA matches before and after all probing, with all 79 files matching and none extra. Candidate-02's generator, node, rustfmt, python, the four libraries and the 140-file TypeScript tree all match the closure. All 28 source-map pins match the architecture checkout.\n\n**What I ran:**\n- **Baseline:** 586 schema refs checked, no drift across the 8 outputs. `test_generation` passes 18 tests and `test_dependencies` passes 9.\n- **Test fixture:** it matches real `cargo metadata` output.\n- **Round-01 battery:** all 46 adapter probes ported, plus 12 new adapter probes, 21 dependency-guard probes and a consumer-workspace feature probe.\n\n**Inherited findings:**\n- **R1 resolved:** unknown keywords and remote refs are refused, including nested ones. A nested `$id` is caught by the runtime check before the generator runs.\n- **R2 resolved:** wrong output roles are refused.\n- **R3 resolved as a guard against accidental misuse:** no `-I` or `-O` both refuse, and no asserts remain. Injected startup code can still overwrite `sys.flags` and get past it; I've put that under A1, since the entrypoint can't vouch for its own interpreter.\n- **R4 resolved:** dev, inactive target, optional and `cfg(any())` declarations and root feature changes are all refused.\n- **A5 and A9 resolved.** A4 is resolved as far as internal consistency goes. A3, A6 and A8 are partly resolved.\n- **A1 still open:** the native library list and the entrypoint still verify themselves.\n- **A2 still open, with new evidence:** the candidate-01 and candidate-02 generators were built from identical sources and lock. Their hashes differ but their outputs are identical, so the build isn't reproducible and an executable pin alone can't show which sources it came from.\n\n**New required findings:**\n- **NR1:** the superseded-handshake check matches exact refs only. Adding `\u2026#/$defs/HelloV3/properties/protocolMajor` as an entry point is accepted with `--write`, and the type ends up in `report.ts` and `evidence.rs`. **Fix:** treat each denied ref as a subtree, refusing anything that equals it or starts with it plus `/`, in both `validate_options` and `flatten`.\n- **NR2:** the dependency guard doesn't check the root crate's declared `[features]` table. An inactive feature `reviewer-rc = [\"serde/rc\"]` passes, and a consumer that enables it gets serde with `rc`. **Fix:** add `subjectDeclaredFeatures: {}` to the policy and require the root's feature table to match it exactly.\n\n**Advisories:**\n- **NA1:** the Python side strips a nested `$id` without comparing it to the owner. Only the runtime check catches it today.\n- **NA2:** `report.ts`'s registry validates any ref you pass it, including unselected and superseded ones. That belongs with the TS runtime owner.\n- **NA3:** a consistent edit across registry, options and source map is still caught only by review. An `--architecture` check of the source-map pins would close that.\n- **NA4:** a test should confirm every allowed keyword that can contain subschemas is walked by both checkers.\n- **NA5:** the runtime check writes its transpiled file into the generator's input directory.\n- **NA6:** the source map is pinned as part of the tool closure, mixing tool identity with data ownership.\n\nBefore a hermetic recipe or product integration, the remaining work is:\n- NR1 and NR2\n- A1 (the native formatter closure, entrypoint trust and effect confinement) and A2 (build provenance)\n- an explicit, verified offline provisioning lane\n- full-run refusal tests using stub executables, and clean machine-readable output\n- the protocol obligations and the separately pending inventory-successor and design-lock decisions\n\nFiles are in `/tmp/opensip-implementation/m1-generator-adapter-review-02`:\n- review.json\n- review.md\n- logs/\n- work/",
+  "type": "result",
+  "duration_ms": 650113
+}

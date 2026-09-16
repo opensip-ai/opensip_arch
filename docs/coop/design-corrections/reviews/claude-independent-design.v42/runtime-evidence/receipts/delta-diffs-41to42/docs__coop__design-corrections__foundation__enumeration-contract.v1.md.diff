@@ -1,0 +1,38 @@
+--- a41/docs/coop/design-corrections/foundation/enumeration-contract.v1.md
++++ b42/docs/coop/design-corrections/foundation/enumeration-contract.v1.md
+@@ -18,10 +18,33 @@
+ 
+ **Program bindings.** `programBindings` `minItems` 1, `maxItems` **128** (this bound is **not** `nativeContextDigests` 128). Overflow: **NEW/internal** `ENUMERATION_PLAN_PROGRAM_BINDINGS_OVERFLOW`. `x-opensip-order: "ordinal"` (contiguous `ordinal` 0..n-1).
+ 
+-- **`provenance=default-unit`:** at most one per cell, `ordinal=0`. This is the U-1 default: one `tsjs`/`rust`/`syntax-only` unit per directory by marker precedence. U-1 **does not** discover `tsconfig.build.json` or other alternate entries.
++- **`provenance=default-unit`:** at most one per cell, `ordinal=0`. This is the U-1 default: the `tsjs` or `rust` unit U-1 yields by marker precedence (native-evidence.md §1.4 U-1). A `syntax-only` cell has no marker: its default binding is backed by the U-9 zero-config fallback unit (`markerPath: ""`) or by no unit at all when the cell is requested at an explicit root (U-9 "Mixed repositories get no fallback"). U-1 **does not** discover `tsconfig.build.json` or other alternate entries.
+ - **`provenance=explicit-plan-selection`:** extra programs the Plan actually selected. Discovery/configuration provenance is this binding (`programEntry` plus admitted universe/context). It is **not** manufactured after execution.
+ 
+-**Available binding** (pre-Plan bind succeeded): `enumerator.status=selected`, non-null `nativeContextDigest`, non-null `universe` H, `programEntry` path or `null` (U-1 default / synthesized), `extents[]`. Universe **must** be the native owner admission of **this** selected context + this `programEntry` + this extent (`bind_typescript_universe` / `bind_rust_universe` / `bind_syntax_universe`). Sharing a context is not identity; multiple bindings per cell are allowed.
++**Available binding** (pre-Plan bind succeeded): `enumerator.status=selected`, non-null `nativeContextDigest`, non-null `universe` H, `programEntry` path or `null` (see the construction rule below), `extents[]`. Universe **must** be the native owner admission of **this** selected context + this `programEntry` + this extent (`bind_typescript_universe` / `bind_rust_universe` / `bind_syntax_universe`). Sharing a context is not identity; multiple bindings per cell are allowed.
++
++**`programEntry` is the binding discriminator, not the compiler entry (construction rule).** It says *which* program of the cell this binding is. The entry the native universe was actually opened with is retained on the **native** side, and admission derives and compares it: for TS/JS it is `TypeScriptConfigGraphV1.entryConfigPath` (native-evidence.md §2.2), and for Rust and `syntax-only` it is the admitted universe H itself. A producer builds three records consistently for one available binding: this binding, the retained native input records, and the universe/context. For an available `default-unit` binding, it never copies the U-1 marker (`WorkspaceUnitV2.markerPath`) into `programEntry`. This restates `AvailableProgramBindingV1.programEntry` ("U-1 default uses null; admission derives the actual U-1 marker/synthesized entry") and §9; it adds no rule.
++
++| Available binding | `programEntry` | Retained entry the universe commits to |
++|---|---|---|
++| TS/JS `default-unit`, marker `tsconfig.json` / `jsconfig.json` (`ts-tsconfig`, `js-allowjs`) | `null` | `entryConfigPath` = that unit's `markerPath` (**non-null**) |
++| TS/JS `default-unit`, marker `package.json` (`js-synthesized`) | `null` | `entryConfigPath` = `null`, `nodes` = `[]` |
++| TS/JS `explicit-plan-selection` | the selected inventoried config path | `entryConfigPath` = that same path |
++| Rust `default-unit` (`rust-cargo`, `rust-cargo-prepared`) | `null` (`Cargo.toml` is not copied) | the universe H: crate roots, cfg/features and dependency set, with no config-graph entry |
++| Rust `explicit-plan-selection` | not a complete program key (§9); the distinct universe H distinguishes the program | the universe H |
++| `syntax-only` `default-unit` | `null` (there is no marker) | the syntax universe H: context plus the selected grammar set |
++
++A non-null `programEntry` on a `default-unit` available binding is not a U-1 default. Reference admission refuses it (`ENUMERATION_BINDING_PROGRAM_ENTRY`) rather than normalising it. Unavailable bindings keep the schema's path-or-`null` shape; this table adds no rule for them.
++
++Example: a `ts-tsconfig` cell at `packages/web`, where U-1 found `packages/web/tsconfig.json` and the Plan also selects `packages/web/tsconfig.build.json`:
++
++```
++programBindings[0] = {ordinal: 0, provenance: "default-unit",            programEntry: null, ...}
++    retained TypeScriptConfigGraphV1.entryConfigPath = "packages/web/tsconfig.json"
++programBindings[1] = {ordinal: 1, provenance: "explicit-plan-selection", programEntry: "packages/web/tsconfig.build.json", ...}
++    retained TypeScriptConfigGraphV1.entryConfigPath = "packages/web/tsconfig.build.json"   (kind "other"; configOrigin tsconfig)
++WRONG: {ordinal: 0, provenance: "default-unit", programEntry: "packages/web/tsconfig.json"}   -> ENUMERATION_BINDING_PROGRAM_ENTRY
++```
+ 
+ **Candidate-only cells** (`clones-near`, `clones-cross-tsjs`) store `kinds=[]` and therefore `extents=[]`. That is **not** complete-empty candidate work. Each available binding on those cells **must** name `candidateSourcePaths`: the Plan-selected source-path census for **that** program, a subset of first-party scoped snapshot members under the cell workspace. Two programs may have disjoint sets; the Plan does not silently expand either to the whole monorepo. Explicit `[]` is a selected zero-path census. Omitting the field refuses `ENUMERATION_CANDIDATE_SOURCE_PATHS`. Inventory cells must omit the field.
+ 

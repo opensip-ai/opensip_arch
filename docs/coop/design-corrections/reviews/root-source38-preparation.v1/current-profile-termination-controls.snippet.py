@@ -1,0 +1,21 @@
+# Exercise the shared termination vectors at the CURRENT output profile too.
+# These are typed-carrier controls, not retained-Run admission: $RUN1 is the
+# fixture's symbolic identifier, bound here to this checker's Run3-shaped RUN.
+_termination_vectors = json.loads((HERE / "workflow-cases.v1.json").read_text())["terminationVectors"]
+for _standing in ("accept", "reject"):
+    for _index, _raw_termination in enumerate(_termination_vectors[_standing]):
+        _termination = copy.deepcopy(_raw_termination)
+        if _termination.get("runId") == "$RUN1":
+            _termination["runId"] = RUN
+        assert not any(isinstance(_value, str) and _value.startswith("$")
+                       for _value in _termination.values()), "Unresolved termination fixture symbol"
+        _assertion = must_valid if _standing == "accept" else must_invalid
+        _assertion(f"current-termination-{_standing}-{_index}",
+                   U + "common:3#/$defs/StepTermination", _termination)
+_current_operational = next(
+    branch["then"] for branch in SCHEMAS[U + "common:3"]["$defs"]["StepTermination"]["allOf"]
+    if branch["if"].get("properties", {}).get("class", {}).get("const") == "operational-failed"
+)
+check("current-termination-fault-pairs-equal-host-map",
+      {branch["properties"]["faultCause"]["const"]: branch["properties"]["errorCode"]["const"]
+       for branch in _current_operational.get("anyOf", [])} == P.W.FAULT_TO_ERROR)

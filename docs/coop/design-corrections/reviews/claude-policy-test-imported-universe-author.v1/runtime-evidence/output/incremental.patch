@@ -1,0 +1,528 @@
+--- a/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -3907,6 +3907,41 @@
+           and not valid(U + "command-envelope:3#/$defs/PolicyTestResultRecordV1", {"surface": "policy-test-result", "result": _pt2_ur})[0],
+           (_pt2_uf.error_code, _pt2_uf.detail, _pt2_uf.remedy) if _pt2_uf else "accepted")
+ _oc2_route("pt2-fixture-fact-universe-token-unregistered-is-config-invalid", _pt2_tokens("typescript", "typescript-v2"), "CONFIG.INVALID")
++# ------------------------------------------------ PolicyTestSuiteV2: imported fixture rows join the evaluated subject universe (factUniverse)
++_pt2_imp_suite = _PT2["importedUniverseSuite"]
++_pt2_imp_expect = _PT2["importedUniverseSuiteExpect"]
++must_valid("pt2-imported-universe-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_imp_suite)
++_pt2_imp_res, _pt2_imp_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_imp_suite))
++_pt2_imp = _pt2_cases(_pt2_imp_res) if _pt2_imp_ref is None else {}
++check("pt2-imported-universe-suite-reaches-the-authored-outcomes",
++      _pt2_imp_ref is None and _pt2_imp_res["summary"] == _pt2_imp_expect["summary"] and _pt2_imp == _pt2_imp_expect["cases"],
++      _pt2_imp if _pt2_imp_ref is None else (_pt2_imp_ref.detail, _pt2_imp_ref.remedy))
++_pt2_imp_keys = ("observedVerdict", "findings", "indeterminateRules")
++_pt2_imp_same = _pt2_imp.get("same-universe-runtime-and-history-hits", {})
++_pt2_imp_foreign = _pt2_imp.get("foreign-universe-imported-rows-do-not-occupy", {})
++_pt2_imp_absent = _pt2_imp.get("same-universe-imported-absence-is-unknown", {})
++_pt2_imp_mixed = _pt2_imp.get("foreign-rows-beside-same-universe-hit", {})
++check("pt2-same-universe-runtime-and-history-rows-are-known-matches",
++      _pt2_imp_same.get("observedVerdict") == "fail" and ["runtime-hit-exists", "src/h.ts", False] in _pt2_imp_same.get("findings", [])
++      and ["history-change-exists", "src/h.ts", False] in _pt2_imp_same.get("findings", []) and _pt2_imp_same.get("indeterminateRules") == [], _pt2_imp_same)
++check("pt2-foreign-universe-runtime-and-history-rows-establish-no-known-match",
++      _pt2_imp_foreign.get("observedVerdict") == "indeterminate" and _pt2_imp_foreign.get("findings") == []
++      and {"history-change-exists", "runtime-hit-exists", "runtime-hit-none"} <= set(_pt2_imp_foreign.get("indeterminateRules", [])), _pt2_imp_foreign)
++check("pt2-foreign-universe-imported-rows-behave-exactly-like-imported-absence",
++      bool(_pt2_imp_foreign) and {k: _pt2_imp_foreign.get(k) for k in _pt2_imp_keys} == {k: _pt2_imp_absent.get(k) for k in _pt2_imp_keys},
++      (_pt2_imp_foreign, _pt2_imp_absent))
++check("pt2-foreign-uncertain-row-neither-occupies-nor-weakens-a-same-universe-hit",
++      _pt2_imp_mixed.get("observedVerdict") == "fail" and ["runtime-hit-exists", "src/h.ts", False] in _pt2_imp_mixed.get("findings", [])
++      and _pt2_imp_mixed.get("indeterminateRules") == ["history-change-exists"], _pt2_imp_mixed)
++check("pt2-imported-optional-evidence-absent-stays-disclosed",
++      {k: _pt2_imp.get("imported-evidence-absent-is-disclosed", {}).get(k) for k in _pt2_imp_keys} == {"observedVerdict": "pass", "findings": [], "indeterminateRules": []})
++_pt2_occupancy = getattr(WF3.policy_test_model(), "_imported_occupancy", None)
++_pt2_row = copy.deepcopy(_pt2_imp_suite["cases"][0]["subject"]["facts"][0])
++check("pt2-imported-occupancy-requires-the-evaluated-subject-and-universe",
++      _pt2_occupancy is not None and _pt2_occupancy(_pt2_row, "src/h.ts", "typescript") is True
++      and _pt2_occupancy(dict(_pt2_row, universe="rust"), "src/h.ts", "typescript") is False
++      and _pt2_occupancy(dict(_pt2_row, universe="syntax"), "src/h.ts", "typescript") is False
++      and _pt2_occupancy(_pt2_row, "src/other.ts", "typescript") is False)
+ _R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
+ _R2_COMMAND_OF["policy-test"] = "policy-test"
+ # baseline show through adoption, admission and current-trust pivot resolution.
+--- a/docs/coop/design-corrections/workflows/policy-test-cases.v3.json
++++ b/docs/coop/design-corrections/workflows/policy-test-cases.v3.json
+@@ -983,6 +983,457 @@
+       }
+     }
+   },
++  "importedUniverseSuite": {
++    "schemaFamily": "opensip.product.policy-test",
++    "schemaMajor": 2,
++    "candidatePolicy": {
++      "schemaFamily": "opensip.product.policy",
++      "schemaMajor": 2,
++      "gateSeverityAtLeast": "warning",
++      "rules": [
++        {
++          "ruleId": "file-exists",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "file-exists",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "note",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "exists",
++            "relation": "file",
++            "minResolution": "enumerated",
++            "filters": []
++          },
++          "evidenceUse": []
++        },
++        {
++          "ruleId": "history-change-exists",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "history-change-exists",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "exists",
++            "relation": "history-change",
++            "minResolution": "observed",
++            "filters": [],
++            "evidence": "history"
++          },
++          "evidenceUse": [
++            {
++              "kind": "history",
++              "requirement": "optional"
++            }
++          ]
++        },
++        {
++          "ruleId": "runtime-hit-exists",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "runtime-hit-exists",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "exists",
++            "relation": "runtime-observation",
++            "minResolution": "observed",
++            "filters": [
++              {
++                "field": "observability",
++                "cmp": "eq",
++                "value": "observed-hit"
++              }
++            ],
++            "evidence": "runtime"
++          },
++          "evidenceUse": [
++            {
++              "kind": "runtime",
++              "requirement": "optional"
++            }
++          ]
++        },
++        {
++          "ruleId": "runtime-hit-none",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "runtime-hit-none",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "note",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "none",
++            "relation": "runtime-observation",
++            "minResolution": "observed",
++            "filters": [
++              {
++                "field": "observability",
++                "cmp": "eq",
++                "value": "observed-hit"
++              }
++            ],
++            "evidence": "runtime"
++          },
++          "evidenceUse": [
++            {
++              "kind": "runtime",
++              "requirement": "optional"
++            }
++          ]
++        }
++      ]
++    },
++    "waivers": {
++      "schemaFamily": "opensip.product.waivers",
++      "schemaMajor": 1,
++      "waivers": []
++    },
++    "asOfDate": "2026-09-05",
++    "cases": [
++      {
++        "id": "same-universe-runtime-and-history-hits",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000,
++              "observability": "observed-hit"
++            },
++            {
++              "relation": "history-change",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            },
++            {
++              "relation": "file",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime",
++            "history"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "runtime-hit-exists",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/h.ts"
++            ]
++          },
++          {
++            "kind": "finding",
++            "ruleId": "history-change-exists",
++            "minCount": 1
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "runtime-hit-none"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "foreign-universe-imported-rows-do-not-occupy",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "rust",
++              "confidenceMillionths": 1000000,
++              "observability": "observed-hit"
++            },
++            {
++              "relation": "history-change",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "rust",
++              "confidenceMillionths": 1000000
++            },
++            {
++              "relation": "file",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "enumerated",
++              "universe": "rust",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime",
++            "history"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "no-finding",
++            "ruleId": "runtime-hit-exists"
++          },
++          {
++            "kind": "indeterminate",
++            "ruleId": "runtime-hit-exists"
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "file-exists"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "indeterminate"
++          }
++        ]
++      },
++      {
++        "id": "foreign-rows-beside-same-universe-hit",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000,
++              "observability": "observed-hit"
++            },
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "rust",
++              "confidenceMillionths": 1000000,
++              "observability": "unobservable"
++            },
++            {
++              "relation": "history-change",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "rust",
++              "confidenceMillionths": 1000000
++            },
++            {
++              "relation": "file",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime",
++            "history"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "runtime-hit-exists",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/h.ts"
++            ]
++          },
++          {
++            "kind": "indeterminate",
++            "ruleId": "history-change-exists"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "imported-evidence-absent-is-disclosed",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000,
++              "observability": "observed-hit"
++            },
++            {
++              "relation": "history-change",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "no-finding",
++            "ruleId": "runtime-hit-exists"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "pass"
++          }
++        ]
++      },
++      {
++        "id": "same-universe-imported-absence-is-unknown",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime",
++            "history"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "indeterminate",
++            "ruleId": "runtime-hit-exists"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "indeterminate"
++          }
++        ]
++      }
++    ]
++  },
++  "importedUniverseSuiteExpect": {
++    "summary": {
++      "passed": 4,
++      "failed": 0,
++      "indeterminate": 1,
++      "notExecutable": 0
++    },
++    "cases": {
++      "same-universe-runtime-and-history-hits": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["file-exists", "src/h.ts", false],
++          ["history-change-exists", "src/h.ts", false],
++          ["runtime-hit-exists", "src/h.ts", false]
++        ],
++        "indeterminateRules": [],
++        "expectationOutcomes": ["met", "met", "met", "met"]
++      },
++      "foreign-universe-imported-rows-do-not-occupy": {
++        "outcome": "indeterminate",
++        "observedVerdict": "indeterminate",
++        "findings": [],
++        "indeterminateRules": ["history-change-exists", "runtime-hit-exists", "runtime-hit-none"],
++        "expectationOutcomes": ["indeterminate", "met", "met", "met"]
++      },
++      "foreign-rows-beside-same-universe-hit": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["file-exists", "src/h.ts", false],
++          ["runtime-hit-exists", "src/h.ts", false]
++        ],
++        "indeterminateRules": ["history-change-exists"],
++        "expectationOutcomes": ["met", "met", "met"]
++      },
++      "imported-evidence-absent-is-disclosed": {
++        "outcome": "passed",
++        "observedVerdict": "pass",
++        "findings": [],
++        "indeterminateRules": [],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "same-universe-imported-absence-is-unknown": {
++        "outcome": "passed",
++        "observedVerdict": "indeterminate",
++        "findings": [],
++        "indeterminateRules": ["history-change-exists", "runtime-hit-exists", "runtime-hit-none"],
++        "expectationOutcomes": ["met", "met"]
++      }
++    }
++  },
+   "controls": {
+     "legacyResolverOnlyRule": {
+       "ruleId": "stale-file-advisory",
+--- a/docs/coop/design-corrections/workflows/policy_test_model.v3.py
++++ b/docs/coop/design-corrections/workflows/policy_test_model.v3.py
+@@ -127,6 +127,12 @@
+     if target_kind is None:
+         return A.FUNK
+     return A.MATCH if _kind(target_kind) == kind else A.NOMATCH  # another first-party kind or external
++
++
++def _imported_occupancy(fact, subject, universe):
++    """A representable imported fixture row occupies the evaluated subject only in that subject's universe (factUniverse): a row
++    of another registered universe is neither a known nor an uncertain observation of this subject."""
++    return fact["subject"] == subject and fact["universe"] == universe
+ 
+ 
+ def _atom(atom, subject, kind, universe, fixture):
+@@ -164,7 +170,7 @@
+     if SELECTORS[spec["observationAddressSelector"]] != "representable":
+         return None, {("unrepresentable", spec["observationAddressSelector"])}
+     for fact in facts:
+-        if fact["subject"] != subject:
++        if not _imported_occupancy(fact, subject, universe):
+             continue
+         key = json.dumps(fact, sort_keys=True)
+         if spec["observationAddressSelector"] == "runtime-subject" and fact.get("observability") not in ("observed-hit", "observable-unhit"):

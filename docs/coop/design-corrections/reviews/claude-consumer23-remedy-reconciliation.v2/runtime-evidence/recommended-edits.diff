@@ -1,0 +1,89 @@
+--- author/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ recommended/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -3719,9 +3719,11 @@
+     """Combine stage authority with typed Coverage (native-evidence.md section 10: fault law and whole-Run route).
+ 
+-    A faulted or cancelled stage keeps its own D9 termination and mints nothing. Otherwise the Run's PRIMARY
++    A faulted or cancelled stage keeps its own D9 termination and mints nothing. Otherwise the STAGE's native primary
+     deficiency is the most specific, by section 10 precedence, among the entries' declared deficiencies and the one a
+     clean typed stage terminal implies (BudgetExhausted -> budget-exhausted, Unavailable -> provider-unavailable),
+-    and its termination is `native_deficiency_d9` of it: indeterminate 3 under an existing D9 code, never a fault and
+-    never exit 0. typedDetail names the most specific deficiency an entry actually carries (the coverage2 record)
++    and the stage's native termination is `native_deficiency_d9` of it: indeterminate 3 under an existing D9 code,
++    never a fault and never exit 0. NATIVE CONTRIBUTION ONLY: the Run's HostTermination is the host finalizer's D9
++    reduction over every concurrent condition (native stages, requirement sufficiency, execution and import
++    obligations, verdict), which this helper does not see. typedDetail names the most specific deficiency an entry actually carries (the coverage2 record)
+     and every nativeCause those entries carry, whatever the stage kind. SCOPE: ONE primary code is returned; the D9
+     ordered reasonCodes with secondaryDeficiencies (d9-exit-contract causeModel.codeDerivation) are composed by the
+--- author/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
++++ recommended/docs/coop/design-corrections/workflows/query-projection-contract.v3.md
+@@ -44,5 +44,5 @@
+ 
+ 1. Malformed or incomplete syntax → `QUERY.PARAMS_MALFORMED`: not an object, extra properties, universe not 64-hex, kind outside `{file,symbol,package}`, empty native id, `packageManifestPath` on a non-package, **or a `package` endpoint without a non-empty `packageManifestPath`**. A missing package coordinate is an incomplete request, not an ambiguous one; its remedy is to supply the coordinate, as for every other malformed field. No placeholder coordinate is substituted to re-admit the request, and no schema refusal is reclassified by which field failed.
+-2. A well-formed **complete** tuple that resolves to more than one distinct admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`. This is the only route to that detail. The reference vertex domain is keyed by the complete tuple, so one retained Run cannot yield two distinct vertices for one tuple and this step is not reachable through `execute_graph_query`; the detail remains the lawful answer for a vertex domain that could.
++2. A well-formed **complete** tuple that resolves to more than one distinct admitted vertex → `QUERY.ENDPOINT_AMBIGUOUS`. This is the only route to that detail. Because this section defines an endpoint, and so a vertex, by its complete tuple, a complete tuple names at most one vertex of an admitted domain: this step is not reachable through `execute_graph_query` and is kept only as a closed refusal. An implementation that nevertheless observes two distinct vertex records for one complete tuple must refuse with `QUERY.ENDPOINT_AMBIGUOUS` and must never choose one.
+ 3. Well-formed complete tuple that matches zero vertices → `QUERY.ENDPOINT_UNKNOWN`. Same native id in other universes does not convert a fully specified unknown tuple into ambiguity.
+ 4. Otherwise the endpoint is admitted. A known isolated inventory vertex with no incident projected facts is lawful (empty neighbors, or a zero-hop path when start equals target).
+--- author/docs/v2/contracts/product-v1/native-evidence.md
++++ recommended/docs/v2/contracts/product-v1/native-evidence.md
+@@ -2931,14 +2931,35 @@
+ agrees with it. No D9 class, code, exit or vocabulary changes.
+ 
+-The **primary** deficiency is chosen by the precedence above over every deficiency
+-the Run's admitted Coverage entries declare and the one a clean typed stage
+-terminal implies (`BudgetExhausted` → `budget-exhausted`, `Unavailable` →
+-`provider-unavailable`). A faulted or cancelled stage mints nothing and keeps its
+-own operational-failed or interrupted termination, so no deficiency accompanies
+-it. The typed detail still names the most specific deficiency an entry actually
+-carries and every `nativeCause` those entries carry. The reference
+-`run_termination` returns the one primary code; the ordered `reasonCodes` list with
+-`secondaryDeficiencies` (`causeModel.codeDerivation` of the D9 contract) is
+-composed by the host termination and is **not** produced by that helper.
++**Superseded schema annotation (registered bytes kept).** The annotation
++`native-evidence.schemas.v2.json#/x-opensip-deficiency-cause-registry/perRequirementConsumerBoundary/threeDistinctThingsNotToConflate/publicD9Termination`
++still reads "the class/exit/errorCode of the Run or step that carries the requirement - unchanged, still the
++section 10 table columns (indeterminate (3) with VERDICT.INDETERMINATE, COVERAGE.PROVIDER_UNAVAILABLE or
++COVERAGE.BUDGET_EXHAUSTED)". Its reference to the section 10 class and code columns stands. Its parenthetical
++three-code list and its word `errorCode` are superseded by this section: an `indeterminate` termination carries
++`reasonCodes`, and the codes are the complete route in the table above, including
++`COVERAGE.LANGUAGE_TIER_UNSUPPORTED`, `COVERAGE.CONFIDENCE_FLOOR_UNMET` and `COVERAGE.REQUIRED_RELATION_MISSING`.
++Where the annotation and this section differ, this section governs. The annotation's bytes are deliberately
++unchanged: that document is a registered payload schema whose raw SHA-256 is the `payloadSchemaDigest` from
++which every `coverage2` minted against it is identified (§4.1a), so editing the annotation is a schema-document
++successor with its own re-registration, not a text correction.
++
++**Native stage selection, and where it stops.** Within one native stage, the precedence above selects that
++stage's **native primary deficiency** over the deficiencies its admitted Coverage entries declare and the one a
++clean typed stage terminal implies (`BudgetExhausted` → `budget-exhausted`, `Unavailable` →
++`provider-unavailable`). A faulted or cancelled stage mints nothing and keeps its own operational-failed or
++interrupted termination, so no deficiency accompanies it. The typed detail names the most specific deficiency an
++entry actually carries and every `nativeCause` those entries carry; it can differ from a stage-implied primary.
++The reference `run_termination` implements exactly this stage selection and returns its one code.
++
++That selection is the native contribution, not the Run's termination. Only the host finalizer constructs the
++Run's termination (`d9-exit-contract.v1.14.json` `invariant-one-mapper`). It reduces every concurrent condition
++the Run exhibits under `causeModel`: a fault cause, else a rejection cause, else deficiencies, whose primary and
++ordered `secondaryDeficiencies` come from that reduction (`concurrentConditionReducer`, `codeDerivation`). Besides
++native stage selections, those conditions include requirement sufficiency over `RequirementV2` (§4.6;
++`required-relation-missing` and `confidence-floor-unmet` have no entry carrier and are requirement-relative),
++required execution and imported-evidence obligations, and verdict composition
++(`evaluator-composition-contract.v3.md` §5). Whatever `DeficiencyV2` member that reduction names takes its class
++and code from the total route above. This section does not define how requirement, proof-cause, import or
++verdict outcomes are ordered in that reduction.
+ 
+ These columns are **not** a per-requirement code. One requirement's outcome stays
+@@ -3350,9 +3371,9 @@
+ `BudgetExhausted` and `Unavailable` are clean typed terminals: facts before the
+ terminal are admitted and the Run is authoritative with the stage `partial`.
+-The termination code is the whole-Run route of the Run's primary deficiency (the
+-class and code columns above): `VERDICT.INDETERMINATE` for the incomplete-input
+-deficiencies named here, and `COVERAGE.BUDGET_EXHAUSTED` /
+-`COVERAGE.PROVIDER_UNAVAILABLE` for those two terminals unless an entry declares a
+-more specific deficiency (`run-termination-code-is-the-primary-deficiency-route`).
++The stage's native termination code is the route above applied to its native primary
++deficiency: `VERDICT.INDETERMINATE` for the incomplete-input deficiencies named here, and
++`COVERAGE.BUDGET_EXHAUSTED` / `COVERAGE.PROVIDER_UNAVAILABLE` for those two terminals unless an entry
++declares a more specific deficiency (`run-termination-code-is-the-primary-deficiency-route`). The Run's
++termination is the host's D9 reduction over all its conditions (section 10, native stage selection).
+ 
+ ---

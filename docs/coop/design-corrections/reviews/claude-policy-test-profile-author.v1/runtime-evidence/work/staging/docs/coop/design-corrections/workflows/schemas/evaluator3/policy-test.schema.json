@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:policy-test:2",
+  "title": "PolicyTestSuiteV2 — evaluator3 policy authoring test suite",
+  "description": "The current evaluator3 `opensip policy test SUITE` input. A suite tests a candidate PolicyDocumentV2 before enforcement. schemaMajor 2 because the admitted candidate policy is PolicyDocumentV2 and the whole admitted suite, including this major and the candidate's own major, is the H(\"workflow.policy-test-suite\", PolicyTestSuiteV2) preimage of PolicyTestResultV1.suiteDigest. Waivers (WaiverSetV1), cases (Case) and test-only overrides (Override) keep their retained owner definitions. The deterministic result stays urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1 with prefix policytest2; its candidate and effective policy digests are raw SHA-256 of PolicyDocumentV2 canonical bytes. The retained PolicyTestSuiteV1 (candidate PolicyDocumentV1) is the historical workflow1 input and is not an alternative parser here: a suite or candidate policy of another major is refused before schema validation (REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR) and is never relabelled or coerced. Bounds are those of the retained definitions: at most 1024 cases, at most 64 overrides.",
+  "$defs": {
+    "PolicyTestSuiteV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaFamily",
+        "schemaMajor",
+        "candidatePolicy",
+        "waivers",
+        "cases"
+      ],
+      "properties": {
+        "schemaFamily": {
+          "const": "opensip.product.policy-test"
+        },
+        "schemaMajor": {
+          "const": 2
+        },
+        "candidatePolicy": {
+          "$ref": "urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2"
+        },
+        "waivers": {
+          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
+        },
+        "asOfDate": {
+          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate",
+          "description": "date used for waiver expiry resolution in the fixture; defaults to no expiry resolution (all non-expired) when absent"
+        },
+        "overrides": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/Override"
+          },
+          "description": "Test-only overrides of the effective policy, disclosed in the result and never written. Each names a candidate rule and carries the value type of its field (boolean for enabled and gate, Severity for severity).",
+          "x-opensip-order": "sequence"
+        },
+        "cases": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1024,
+          "items": {
+            "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/Case"
+          },
+          "description": "Facts cases are evaluated under x-opensip-fixture-representation. Sources cases are not-executable in this reference.",
+          "x-opensip-order": "sequence"
+        }
+      }
+    }
+  },
+  "x-opensip-admission-precedence": [
+    "1. suite major: a policy-test suite object whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR",
+    "2. candidate major: a policy document candidatePolicy whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR, before any grammar classification",
+    "3. closed PolicyTestSuiteV2 schema: a candidate-policy member no closed PolicyDocumentV2 alternative declares at its position, or a string where every alternative is an object, refuses CONFIG.INVALID / POLICY.IMPERATIVE_KEY_REFUSED; any other schema failure refuses CONFIG.INVALID / CONFIG.INVALID",
+    "4. fixture facts: every facts-case fact names a registered relation and a rung of that relation's ladder, and every override names a candidate rule with its field's value type; otherwise CONFIG.INVALID / CONFIG.INVALID",
+    "5. resolver (admitted suite): the current policy resolver and atom owner, then waiver resolution; a refusal keeps its own detail (POLICY.UNKNOWN_RULE, IMPORT.ABSENT_FOR_PREDICATE, POLICY.DUPLICATE_WAIVER) and its resolverAccepted=false result is never carried"
+  ],
+  "x-opensip-fixture-representation": {
+    "standing": "Bounded deterministic standalone authoring-test semantics over a finite facts fixture, evaluated with the current atom admission and registry (foundation/atom_model.v1.py, foundation/evaluator-projection-registry.v1.json). Not production evaluator, provider, full Run or native qualification.",
+    "subject": "A facts-case subject is a LogicalPath of subjects[]. Its evaluated kind is the rule subjectEnumeration.subjectKind (export evaluates as symbol) and its universe is the rule subjectEnumeration.universe.",
+    "factUniverse": "FactRecordCandidate.universe is the one universe of both endpoints of the supplied fact; occupancy requires it to equal the evaluated subject universe.",
+    "endpoint": "endpoint source matches FactRecordCandidate.subject to the evaluated subject. endpoint target matches FactRecordCandidate.target to the evaluated subject; the target's first-party kind is known only from FactRecordCandidate.targetKind: equal to the evaluated kind matches, another kind or external does not match, absent is unknown.",
+    "fields": {
+      "subject": "subject",
+      "target": "target",
+      "resolution": "resolution",
+      "confidenceMillionths": "confidenceMillionths",
+      "subjectKind": "subjectKind",
+      "targetKind": "targetKind",
+      "observability": "observability",
+      "universe": null,
+      "testResult": null,
+      "exitStatus": null
+    },
+    "fieldsLaw": "A registered filter field mapped to a FactRecordCandidate member reads that member; an absent optional member is unknown. A field mapped to null is not representable by the facts fixture and evaluates unknown: universe compares the registered endpoint-universe domain, which the fixture does not carry; testResult and exitStatus read test-execution process and test-case payloads. Imported rows project subjectKind from the evaluated subject and resolution as observed, as the atom owner does.",
+    "importedObservationSelectors": {
+      "runtime-subject": "representable",
+      "history-subject": "representable",
+      "test-execution": "unrepresentable",
+      "test-case": "unrepresentable"
+    },
+    "importedLaw": "Keyed by the registry relations[].observationAddressSelector. A representable imported row can establish a known match: exists true, none false, count-at-most false above N. The fixture cannot represent wrapper completeness, observation window or population, selection completeness or staleness, so absence of a matching row never proves absence: exists is never false and none, count-at-most and all-covered are never true. An atom of an unrepresentable selector is unknown. Unobservable, unmapped or observability-absent runtime rows are unknown, never unhit.",
+    "nativeLaw": "Native relations follow the atom owner's strong Kleene quantifiers over the supplied facts with the case's declared Coverage: complete Coverage lets absence decide; partial or unknown Coverage, or any unknown match, leaves exists false, none true, count-at-most true and all-covered true unknown.",
+    "ruleLaw": "Required evidence absent from evidenceAvailable makes the rule unknown for every enumerated subject. Optional evidence absent with complete Coverage is the disclosed non-gating IMPORT.ABSENT_FOR_PREDICATE case when it is the only unknown cause. Every other unknown rule result for an enumerated subject lists the rule in CaseResult.indeterminateRules; an enabled gating rule at the policy threshold makes the observed verdict indeterminate unless a live unwaived gating finding makes it fail.",
+    "expectationLaw": "finding: known matching findings above maxCount is unmet; at least minCount is met unless maxCount is present and an enumerated subject (within subjects when given) is unknown for the rule, which is indeterminate; below minCount is indeterminate when such an unknown subject exists, otherwise unmet. no-finding: a known finding is unmet; otherwise an unknown subject is indeterminate; otherwise met. verdict: met exactly when the observed verdict equals it. indeterminate: met exactly when the rule is in indeterminateRules. A case is failed with any unmet, else indeterminate with any indeterminate, else passed.",
+    "resultLimit": "PolicyTestResultV1 and CaseResult are unchanged: indeterminateRules and expectationOutcomes name the affected rules and expectations but carry no per-rule unknown cause (Coverage, missing evidence or fixture representation)."
+  }
+}

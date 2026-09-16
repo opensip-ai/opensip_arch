@@ -1,0 +1,22 @@
+phase8_envelopes.py attempt 1 (preserved before helper correction HC-8)
+command: python3 tools/runref.py tools/phase8_envelopes.py
+result: EXIT 1 before any vector was written
+
+Traceback (most recent call last):
+  File ".../jsonschema/validators.py", line 463, in _validate_reference
+    resolved = self._resolver.lookup(ref)
+  File ".../referencing/_core.py", line 684, in lookup
+    raise exceptions.Unresolvable(ref=ref) from None
+referencing.exceptions.Unresolvable: kit:///coop/design-corrections/security/security-lifecycle.schemas.v1.json#/schemas/RepoExecutionGrantV2
+  ...
+  File "tools/phase8_envelopes.py", line 218, in authorization
+    first = admit_test_step(params, grant, ctx)
+  File "tools/phase8_envelopes.py", line 89, in admit_test_step
+    gok, gerrs = P7.admit(grant, SEC, "#/schemas/RepoExecutionGrantV2")
+  File "ref/schemas.py", line 98, in stock_errors
+jsonschema.exceptions._WrappedReferencingError: Unresolvable: kit:///coop/design-corrections/security/security-lifecycle.schemas.v1.json#/schemas/RepoExecutionGrantV2
+
+Diagnosis (reference interpreter): the document is loaded and registry.resolver(base_uri=kit URI).lookup("#/schemas/RepoExecutionGrantV2")
+resolves; the absolute ref fails because referencing defragments it with urlunparse, spelling the empty-netloc URI "kit:/coop/...",
+which was not a registered key. Only documents without $id are affected (security-lifecycle.schemas.v1.json is the first one used by
+selector). Correction HC-8 in ref/schemas.py registers the urlunparse spelling as an additional URI; no admission law changed.

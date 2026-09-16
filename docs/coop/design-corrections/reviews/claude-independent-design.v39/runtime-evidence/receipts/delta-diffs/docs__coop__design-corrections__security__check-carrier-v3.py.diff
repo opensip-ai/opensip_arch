@@ -1,0 +1,168 @@
+--- a38/docs/coop/design-corrections/security/check-carrier-v3.py
++++ b39/docs/coop/design-corrections/security/check-carrier-v3.py
+@@ -848,6 +848,9 @@
+     ('readOnlyRecovery', 'migration-footprint-corrupt'): _S37_LC + (None,),
+     ('readOnlyRecovery', 'split-brain-custody-condition'): _S37_LC + (None,),
+     ('readOnlyRecovery', 'unknown-carrier-incompatible'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'carrierFormat1'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'carrierFormat2'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'fresh-install'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
+     ('readOnlyRecovery', 'incomplete-footprint'): ('operational-failed', 4, 'LEDGER.BUSY_TIMEOUT', 'ledger-busy', 'PROJECT.BUSY'),
+ }
+ _S37_SEEN = set()
+@@ -855,7 +858,8 @@
+ 
+ def _s37_public(phase, standing):
+     if phase == 'readOnlyRecovery':
+-        return _S37_PROJ['readOnlyRecovery'][_S37_RO_MAP[standing]]
++        # A dispatch result with no read-only standing is a failed check below, not a crash of the whole checker.
++        return _S37_PROJ['readOnlyRecovery'].get(_S37_RO_MAP.get(standing))
+     return _S37_PROJ[phase][standing]
+ 
+ 
+@@ -865,7 +869,8 @@
+     detail = got
+     if ok and (phase, got) in _S37_EXPECT:
+         p = _s37_public(phase, got)
+-        detail = (p['class'], p['exit'], p['errorCode'], p['faultCause'], p['domainDetail'])
++        detail = ((p['class'], p['exit'], p['errorCode'], p['faultCause'], p['domainDetail']) if p is not None
++                  else 'no read-only standing for dispatch result ' + got)
+         ok = detail == _S37_EXPECT[(phase, got)]
+     ck('source37 scenario: ' + label, ok, detail)
+ 
+@@ -966,6 +971,115 @@
+             _s37_open(c, 'writerOrMaintenanceOpen'), 'carrierFormat2')
+ _s37_expect('no journal table at all is the fresh-install path', 'writerOrMaintenanceOpen',
+             _s37_open(sqlite3.connect(':memory:'), 'writerOrMaintenanceOpen'), 'fresh-install')
++
++# ---- source38 advisory ADV38-02: read-only recovery of an association naming a carrier observed unmigrated. The open
++# dispatch stays a pure function of the carrier bytes; read-only maps carrierFormat1/carrierFormat2 to the F46 route.
++for _fmt, _ddl in (('carrierFormat1', ddl1), ('carrierFormat2', ddl2)):
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    c.executescript(_ddl)
++    c.execute(_S37_GJ2, (1, 1, 'REV', _OP, _H, _H))
++    _before = _s37_state(c)
++    ck('source38 ADV38-02 scenario: the inherited %s DDL opens as %s at a writer open' % (_fmt, _fmt),
++       _s37_open(c, 'writerOrMaintenanceOpen') == _fmt, _s37_open(c, 'writerOrMaintenanceOpen'))
++    for _gen in (1, 2, 7):
++        _s37_expect('ADV38-02: an association (grantGeneration %d) naming the admitted carrier over an unmigrated %s is '
++                    'unknown-carrier-incompatible' % (_gen, _fmt), 'readOnlyRecovery',
++                    _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': _gen}), _fmt)
++    _s37_expect('ADV38-02: over an unmigrated %s an association naming another carrier is binding-unusable first' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}),
++                'binding-unusable')
++    _s37_expect('ADV38-02: over an unmigrated %s a surviving witness naming another project does not displace F46' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_OTHER), _fmt)
++    ck('source38 ADV38-02 scenario: read-only dispatch over an unmigrated %s migrates, publishes and writes nothing' % _fmt,
++       _s37_state(c) == _before
++       and not ({'carrier_format', 'grant_journal_v3'} & {r[0] for r in c.execute('SELECT name FROM sqlite_master')}))
++    c.execute('CREATE TABLE carrier_format (singleton INTEGER)')
++    _s37_expect('ADV38-02: one carrierFormat 3 object over an unmigrated %s is footprint corruption (quarantine row), not F46' % _fmt,
++                'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'migration-footprint-corrupt')
++c = _s37_carrier('migrated')
++_s37_publish(c)
++_s37_expect('ADV38-02: the migrated below-first_generation association is still F46 through the carrierFormat 3 branch',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
++            'unknown-carrier-incompatible')
++_s37_inject(c, 1)
++_s37_expect('ADV38-02: a grant_journal_v3 row below first_generation is decided before the below-first_generation association',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
++            'migration-footprint-corrupt')
++ck('source38 ADV38-02 map: carrierFormat1 and carrierFormat2 map to F46; carrierFormat3 has no read-only standing',
++   _S37_RO_MAP.get('carrierFormat1') == 'unknown-carrier-incompatible' and _S37_RO_MAP.get('carrierFormat2') == 'unknown-carrier-incompatible'
++   and 'carrierFormat3' not in _S37_RO_MAP, _S37_RO_MAP)
++ck('source38 ADV38-02 law: the F46 observations, reader law and read-only precedence phase law name a carrier observed unmigrated',
++   any('observed unmigrated' in o for o in _S37_PROJ['readOnlyRecovery']['unknown-carrier-incompatible']['observations'])
++   and any('observed unmigrated' in l for l in disp['readDispatch']['readerLaws'])
++   and any(l.startswith('Read-only precedence') and 'observed unmigrated' in l for l in _S37_PROJ['phaseLaws']))
++
++# ---- source38 follow-up: an association naming a bound carrier observed absent (no grant_journal, no carrierFormat 3
++# object). Real SQLite databases; the dispatch function above is unchanged; read-only maps fresh-install to unknown-custody.
++import ast as _s37_ast
++import tempfile as _s37_tempfile
++c = sqlite3.connect(':memory:', isolation_level=None)
++_before = _s37_state(c)
++_s37_expect('absent carrier: an empty SQLite carrier is still the fresh-install path at a writer open (separate owner)',
++            'writerOrMaintenanceOpen', _s37_open(c, 'writerOrMaintenanceOpen'), 'fresh-install')
++for _gen in (1, 2, 7):
++    _s37_expect('absent carrier: an association (grantGeneration %d) naming the admitted carrier over an empty SQLite carrier '
++                'is unknown-custody' % _gen, 'readOnlyRecovery',
++                _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': _gen}), 'fresh-install')
++_s37_expect('absent carrier: a surviving witness naming another project does not displace unknown-custody', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_OTHER), 'fresh-install')
++_s37_expect('absent carrier: a surviving witness naming the admitted project does not make the absent carrier absence',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_ADMITTED), 'fresh-install')
++_s37_expect('absent carrier: an association naming another carrier is binding-unusable first', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}), 'binding-unusable')
++ck('source38 absent-carrier scenario: read-only dispatch over an empty SQLite carrier creates, initializes and writes nothing',
++   _s37_state(c) == _before and not c.execute('SELECT name FROM sqlite_master').fetchall())
++c = sqlite3.connect(':memory:', isolation_level=None)
++c.execute('CREATE TABLE unrelated_fallback (x INTEGER)')
++_s37_expect('absent carrier: a fallback database holding only an unrelated table is unknown-custody, never absence',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'fresh-install')
++_s37_dir = _s37_tempfile.mkdtemp(prefix='opensip-absent-carrier-')
++_s37_path = os.path.join(_s37_dir, 'grant-journal.sqlite')
++try:
++    sqlite3.connect('file:%s?mode=ro' % _s37_path, uri=True).execute('SELECT name FROM sqlite_master').fetchall()
++    _s37_ro = 'opened'
++except sqlite3.Error:
++    _s37_ro = 'refused'
++ck('source38 absent-carrier scenario: a read-only open of a missing carrier file refuses and creates no file (S12 unreadable carrier)',
++   _s37_ro == 'refused' and not os.path.exists(_s37_path), _s37_ro)
++_s37_path2 = os.path.join(_s37_dir, 'empty-carrier.sqlite')
++sqlite3.connect(_s37_path2).close()
++_s37_bytes = open(_s37_path2, 'rb').read()
++c = sqlite3.connect('file:%s?mode=ro' % _s37_path2, uri=True)
++_s37_expect('absent carrier: an existing empty carrier file opened read-only is unknown-custody', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'fresh-install')
++c.close()
++ck('source38 absent-carrier scenario: the empty carrier file bytes are unchanged after the read-only dispatch',
++   open(_s37_path2, 'rb').read() == _s37_bytes)
++c = _s37_carrier('fresh')
++_s37_expect('absent carrier: an interrupted fresh install {B} with an association keeps its carrierFormat 3 precedence (busy prefix)',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'incomplete-footprint')
++_s37_fn = next(n for n in _s37_ast.parse(open(os.path.abspath(__file__), encoding='utf-8').read()).body
++              if isinstance(n, _s37_ast.FunctionDef) and n.name == '_s37_open')
++
++
++def _s37_returned(node):
++    """Result positions only: a returned string constant, or both arms of a returned conditional expression."""
++    if isinstance(node, _s37_ast.Constant) and isinstance(node.value, str):
++        return {node.value}
++    if isinstance(node, _s37_ast.IfExp):
++        return _s37_returned(node.body) | _s37_returned(node.orelse)
++    return set()
++
++
++_s37_results = set().union(*(_s37_returned(r.value) for r in _s37_ast.walk(_s37_fn) if isinstance(r, _s37_ast.Return)))
++ck('source38 absent-carrier totality: every _s37_open result except carrierFormat3 has exactly one published read-only standing',
++   'fresh-install' in _s37_results and set(_S37_RO_MAP) == _s37_results - {'carrierFormat3'}
++   and all(_S37_RO_MAP[r] in _S37_PROJ['readOnlyRecovery'] for r in _S37_RO_MAP), sorted(_s37_results))
++ck('source38 absent-carrier law: the unknown-custody route, reader law and totality phase law name the absent carrier',
++   _S37_RO_MAP.get('fresh-install') == 'unknown-custody'
++   and any('fresh-install' in o for o in _S37_PROJ['readOnlyRecovery'].get('unknown-custody', {}).get('observations', []))
++   and any('fresh-install' in l and 'unknown-custody' in l for l in disp['readDispatch']['readerLaws'])
++   and any(l.startswith('The read-only carrier stage is total') for l in _S37_PROJ['phaseLaws']))
+ 
+ _s37_need = ({(ph, st) for ph in ('writerOrMaintenanceOpen', 'maintenanceActCPublication') for st in _S37_PROJ[ph]}
+              | {('readOnlyRecovery', st) for st in _S37_RO_MAP})
+@@ -1049,6 +1163,19 @@
+            and _cells[3].strip('`') == (_p['faultCause'] or '—')
+            and (('omitted' in _cells[4]) if _p['domainDetail'] is None else (('`%s`' % _p['domainDetail']) in _cells[4])))
+     ck('source37 route: readOnlyRecovery/%s matches the commit-recovery-readonly.v3 section 1 row' % _standing, _ok, _cells)
++_S37_CF = open(os.path.join(SEC, 'carrier-format.v3.md'), encoding='utf-8').read()
++_S37_F46_S12 = [l for l in _S37_S12 if 'unknown-carrier-incompatible' in l]
++ck('source38 ADV38-02 prose: the S12 F46 row, carrier-format section 8.1 and read-only section 1 name a carrier observed unmigrated',
++   len(_S37_F46_S12) == 1 and 'observed unmigrated' in _S37_F46_S12[0] and 'observed unmigrated' in _S37_CF
++   and 'observed unmigrated' in _S37_READONLY and 'Precedence of the read-only carrier observations' in _S37_READONLY)
++ck('source38 ADV38-03 prose: read-only section 1 states the current F00-F53 plan and the writer/maintenance MIGRATION.CORRUPT scope',
++   'F00–F53' in _S37_READONLY and 'all 54 cases remain not executed' in _S37_READONLY
++   and re.search(r'writer or maintenance carrier open only,\s+to a carrierFormat 3 migration footprint', _S37_READONLY) is not None
++   and re.search(r"it is the store\s+transition's detail", _S37_READONLY) is None)
++ck('source38 absent-carrier prose: the S12 unreadable-carrier row, carrier-format section 8.1 and read-only section 1 name the absent carrier',
++   len([l for l in _S37_S12 if 'observed absent' in l]) == 1 and 'observed absent' in _S37_CF
++   and '4. with no carrierFormat 3 object and no inherited `grant_journal`' in _S37_READONLY
++   and 'The carrier stage is total' in _S37_READONLY)
+ 
+ rep = {'control': 'c4-check-carrier-v3',
+        'passed': sum(1 for c in checks if c['pass']),

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "standing": "author-06 conditional correction proposal to the query owner; parents are not edited; applies with acceptance of this report successor",
+  "ownerReading": "query_projection_model.v3.py finish_operation (called by execute_graph_query and by traverse_projected_graph) computes every logical unit, applies the produced cap, then slices pages: producedItems is the produced prefix length computed before paging, totalItems equals it, a cursor names position+items inside it, and lower-bound arises only from a reached visited or produced cap (eager canonical law, selected). No lazy algorithm is added.",
+  "corrections": [
+    {
+      "path": "docs/coop/design-corrections/workflows/query_surface_projection.v3.py",
+      "lines": [
+        621,
+        627
+      ],
+      "before": [
+        "    ctx_lb = graph_ctx(",
+        "        totalItems=2,",
+        "        producedItems=2,",
+        "        countBasis=\"lower-bound\",",
+        "        traversalCoverage=\"truncated-page\",",
+        "        truncated=False,",
+        "    )"
+      ],
+      "after": [
+        "    ctx_lb = graph_ctx(",
+        "        totalItems=100000,",
+        "        producedItems=100000,",
+        "        countBasis=\"lower-bound\",",
+        "        traversalCoverage=\"truncated-page\",",
+        "        truncated=False,",
+        "    )"
+      ],
+      "reason": "the isolated renderer fixture 'graph-lower-bound-prefix-intermediate-page' (2/2 lower-bound, visitedNodes 4, no cap) is unreachable by the owner paging law; the owner-reachable intermediate lower-bound page is a full page of a capped 100000-unit prefix with a cursor"
+    },
+    {
+      "path": "docs/coop/design-corrections/workflows/query_surface_projection.v3.py",
+      "lines": [
+        513,
+        513
+      ],
+      "before": [
+        "            \"producedItems\": 5,"
+      ],
+      "after": [
+        "            \"producedItems\": 2,"
+      ],
+      "reason": "graph_ctx default (totalItems 2, producedItems 5, exact) contradicts totalItems == producedItems under the owner law; defaults are used only by the missing-evidence negative"
+    },
+    {
+      "path": "docs/coop/design-corrections/workflows/query-projection-contract.v3.md",
+      "lines": [
+        136,
+        136
+      ],
+      "before": [
+        "**Produced-item law.** `maxItemsPerOperation` counts result units of the logical operation, not per page, and does not reset on continuation. Take the canonical prefix. Remaining units after the prefix are owed work (`countBasis=lower-bound`)."
+      ],
+      "after": [
+        "**Produced-item law.** `maxItemsPerOperation` counts result units of the logical operation, not per page, and does not reset on continuation. Take the canonical prefix. Remaining units after the prefix are owed work (`countBasis=lower-bound`). `producedItems` is the length of that produced prefix, computed over the whole logical operation before any page is sliced; `totalItems` equals `producedItems` under both count bases, and a page is the slice `[position, position+items)` of that prefix."
+      ]
+    },
+    {
+      "path": "docs/coop/design-corrections/workflows/query-projection-contract.v3.md",
+      "lines": [
+        140,
+        140
+      ],
+      "before": [
+        "**Page fullness** is `truncated-page`, `truncated=false`. It is not operation truncation. Empty `nextCursor` is not native closed-world. Completeness is `traversalCoverage=complete` and `countBasis=exact`. Exactly-at-cap with an empty owed frontier is complete, not incomplete. A cursor cannot continue past the caps."
+      ],
+      "after": [
+        "**Page fullness** is `truncated-page`, `truncated=false`. It is not operation truncation. Empty `nextCursor` is not native closed-world. Completeness is `traversalCoverage=complete` and `countBasis=exact`. Exactly-at-cap with an empty owed frontier is complete, not incomplete. A cursor cannot continue past the caps. A `nextCursor` is issued only while produced-prefix rows remain after the page and names exactly `position+items`; `countBasis=lower-bound` arises only when a visited or produced cap was reached, so an intermediate lower-bound page is a full page of a capped prefix."
+      ]
+    }
+  ]
+}

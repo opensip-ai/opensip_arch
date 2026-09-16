@@ -1,0 +1,24 @@
+--- before/docs/coop/design-corrections/foundation/check-array-orders.py
++++ staged/docs/coop/design-corrections/foundation/check-array-orders.py
+@@ -19,3 +19,9 @@
+ 
+-files=[*sorted(p for p in HERE.glob('*.json') if 'schema' in p.name),DC/'native/native-evidence.schemas.v2.json',DC/'security/security-lifecycle.schemas.v1.json',*sorted((DC/'workflows/schemas').glob('*.json'))]
++files=list(dict.fromkeys([
++    *sorted(p for p in HERE.glob('*.json') if 'schema' in p.name),
++    *sorted(p for p in (DC/'native').glob('*.json') if 'schema' in p.name),
++    DC/'security/security-lifecycle.schemas.v1.json',
++    *sorted((DC/'workflows/schemas').glob('*.json')),
++    *sorted((DC/'workflows/schemas/evaluator3').glob('*.json')),
++]))
+ coverage=[]
+@@ -48,2 +54,10 @@
+ check('ordered-repeated-tokens-retained',admitted(seq,tokens) and C.canonical(tokens)!=C.canonical(list(reversed(tokens))))
++candord={'type':'array','x-opensip-order':'candidateOrdinal'}
++check('candidateOrdinal-order-admits-unique-increasing',admitted(candord,[{'candidateOrdinal':0},{'candidateOrdinal':1}]))
++check('candidateOrdinal-order-admits-unique-increasing-with-gap',admitted(candord,[{'candidateOrdinal':0},{'candidateOrdinal':2}]))
++check('candidateOrdinal-order-refuses-reverse',not admitted(candord,[{'candidateOrdinal':1},{'candidateOrdinal':0}]))
++check('candidateOrdinal-order-refuses-duplicate',not admitted(candord,[{'candidateOrdinal':1},{'candidateOrdinal':1}]))
++check('candidateOrdinal-order-refuses-non-int',not admitted(candord,[{'candidateOrdinal':'0'}]))
++# Contiguous 0..n-1 is NOT this annotation (that is FactBatch candidate-stream law).
++check('candidateOrdinal-order-is-not-contiguous-ordinal',admitted(candord,[{'candidateOrdinal':4},{'candidateOrdinal':7}]))
+ 

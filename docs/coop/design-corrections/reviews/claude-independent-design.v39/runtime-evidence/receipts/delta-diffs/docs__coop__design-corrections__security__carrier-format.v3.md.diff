@@ -1,0 +1,53 @@
+--- a38/docs/coop/design-corrections/security/carrier-format.v3.md
++++ b39/docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -372,7 +372,8 @@
+ | maintenance act C (fresh or `{A, B}` resume) | a `grant_journal_v3` row, a partial set or invalid definition; or a witness naming another project | as the rows above | as above; **nothing is published** | as above |
+ | read-only recovery | the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest` differs from the admitted binding | `binding-unusable` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` / — | `RECOVERY.REFUSED`, typed subject |
+ | read-only recovery | association names the admitted carrier, but the carrier's own row or witness names another project; an unlawful footprint; or F51 | `unknown-quarantine-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
+-| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot, or the carrier read in that snapshot is observed unmigrated (no carrierFormat 3 object and an inherited `grant_journal`; dispatch `carrierFormat1` or `carrierFormat2`) | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | association names the admitted carrier, but the journal snapshot holds no `grant_journal` and no carrierFormat 3 object (dispatch `fresh-install`: the bound carrier is observed absent) | `unknown-custody` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
+ | read-only recovery | lawful `{A}` or `{A, B}` prefix (`carrier-migration.v1.md` §4), or an unstable observation | `unavailable-busy` | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` / `ledger-busy` | `PROJECT.BUSY` |
+ 
+ **Why a digest mismatch is not migration corruption.** A partial object set, an invalid definition, a
+@@ -389,6 +390,28 @@
+ `unknown-custody` family (`HOST.IO_FAILURE`, `host-io`): not a caller defect (request-rejected), not a
+ stably observed quarantine (`LEDGER.CORRUPT`) and not contention. It never becomes not-committed or a
+ confirmation.
++
++**An association naming a carrier observed unmigrated (source38 advisory ADV38-02).** When the carrier read in
++the recovery snapshot has none of the seven carrierFormat 3 objects and has the inherited `grant_journal`, every
++generation it holds is a carrierFormat 1 or 2 generation, so no schema-3 `SEAL` can exist for the association.
++The association points to a lost migration, a rollback or a swapped carrier, and the result is F46
++`unknown-carrier-incompatible` whatever generation it names. Read-only precedence, in one journal snapshot and
++before the SEAL join: `binding-unusable` first; then, only when a carrierFormat 3 object exists, the footprint,
++project binding, F51 and row-boundary rows and then the below-`first_generation` row; with no carrierFormat 3
++object, this row. It is decided from the object names alone and needs no witness comparison, so the witness and
++anchor rows of `commit-recovery-readonly.v3.md` Step 3, including a surviving witness naming another project, are
++not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the
++reader migrates, publishes and writes nothing. Machine-readable: `readOnlyStandingOfDispatchResult` maps
++`carrierFormat1` and `carrierFormat2`; exact precedence: `commit-recovery-readonly.v3.md` §1.
++
++**An association naming a carrier observed absent (source38 follow-up).** When the recovery snapshot holds neither
++the inherited `grant_journal` nor any carrierFormat 3 object, the open dispatch result is `fresh-install`. At a
++writer or maintenance open that is the fresh-install path. On read-only recovery an association already names this
++carrier, so it is lost, emptied or replaced by a fallback: the result is `unknown-custody` (`HOST.IO_FAILURE`,
++`host-io`), after `binding-unusable` and whatever generation the association or a surviving witness names. It is
++never absence, never not-committed and never success, and the reader never creates, initializes or migrates a
++carrier. This makes the read-only carrier stage total: every dispatch result except `carrierFormat3`, which
++continues to the SEAL join, has one standing in `readOnlyStandingOfDispatchResult`.
+ 
+ **Interrupted state and stale custody.** Each phase re-evaluates every predicate from the bytes it
+ reads at that open or in that journal snapshot: a cached verdict, `first_generation`,
+@@ -416,8 +439,9 @@
+   **never** presented as an S8 machine id, never rewritten, and never joined to
+   `RepoExecutionGrantV2.platformId` or a truth-table key.
+ - A historical generation can never satisfy a schema-3 `SEAL` join, because no `SEAL` row can
+-  exist there. A recovery request whose association names such a generation returns
+-  `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its public route is §8.1.
++  exist there. A recovery request whose association names such a generation, including any generation of a
++  carrier observed unmigrated, returns `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its
++  public route is §8.1.
+ - Historical bytes are read under recordSchema-1 semantics. They are not relabelled as schema 3
+   and are not re-admitted through the schema-3 gate. This preserves the existing
+   `JournalRecordV2` law, which exists "only to identify historical bytes so they are refused as

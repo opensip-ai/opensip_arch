@@ -1,0 +1,265 @@
+{
+  "schemaVersion": 1,
+  "owner": "docs/coop/design-corrections/foundation/run-termination-contract.v1.md",
+  "model": "docs/coop/design-corrections/foundation/run_termination_model.v1.py",
+  "checker": "docs/coop/design-corrections/foundation/check-semantic-replay.v3.py (run-termination goldens)",
+  "standing": "Retained reference goldens over synthetic native-admitted Runs closed by identity-model.v3.close_run with complete replay. Same author as the derivation; not blind reconstruction, not compiler or provider qualification.",
+  "routeDrift": [],
+  "fixtures": {
+    "incoming-incomplete": {
+      "atom": "REFS_NONE_TGT",
+      "params": {"has_declares": false, "has_references_fact": true, "second_partition": true, "references_resolved": false,
+                 "incoming_search": true, "incoming_complete": false, "target_sidecar": true}
+    },
+    "declares": {
+      "atom": "DECLARES",
+      "params": {"has_declares": true}
+    }
+  },
+  "goldens": [
+    {
+      "id": "same-run-two-coverage-carriers",
+      "kind": "termination",
+      "build": {"export": "references-incoming-incomplete-unknown"},
+      "why": "Two retained coverage2 records declare resolution-incomplete, the primary cause; both are carriers.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                        "runId": "run3:b785d4f9f020709da1c8e77613ad10057134eb9a4fd43169387337718cbb7ea3",
+                        "coverageId": "coverage2:16fea72bdf7443659898959a0ffd5171f2fb1d72228cf52d2a12be4ed31029ad"},
+        "deficiency": "verdict-indeterminate", "secondaryDeficiencies": [],
+        "primaryCause": "resolution-incomplete", "carrierKind": "declared"
+      },
+      "refuse": [
+        {"label": "other-declared-carrier",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:b785d4f9f020709da1c8e77613ad10057134eb9a4fd43169387337718cbb7ea3",
+                         "coverageId": "coverage2:e29cb5e3eb78f80be68a9b5c43fa245fcc8c7cc47281a0ca5b6426c70583dc53"}},
+        {"label": "carrier-omitted",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:b785d4f9f020709da1c8e77613ad10057134eb9a4fd43169387337718cbb7ea3"}}
+      ]
+    },
+    {
+      "id": "stage-entry-disagreement",
+      "kind": "termination",
+      "build": {"fixture": "incoming-incomplete", "params": {"references_stage_terminals": {"foo": "budget-exhausted"}}},
+      "why": "The foo partition's stage ended budget-exhausted (RC-2 partial) while its entry declares resolution-incomplete; the stage-implied budget-exhausted outranks it.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                        "runId": "run3:fa4e102b2861b1b695df3b595c772611ba1d3c6955c25863354004c42a7c0620",
+                        "coverageId": "coverage2:ba72963990931be8719a0524dec9effbbb1ac3a2d2977badb4b059605ad616ff"},
+        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
+        "primaryCause": "budget-exhausted", "carrierKind": "stage-terminal",
+        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "budget-exhausted", "state": "partial"}
+      },
+      "refuse": [
+        {"label": "least-deficient-coverage-instead-of-stage-carrier",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:fa4e102b2861b1b695df3b595c772611ba1d3c6955c25863354004c42a7c0620",
+                         "coverageId": "coverage2:16fea72bdf7443659898959a0ffd5171f2fb1d72228cf52d2a12be4ed31029ad"}},
+        {"label": "entry-deficiency-only-reading",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:fa4e102b2861b1b695df3b595c772611ba1d3c6955c25863354004c42a7c0620",
+                         "coverageId": "coverage2:ba72963990931be8719a0524dec9effbbb1ac3a2d2977badb4b059605ad616ff"}},
+        {"label": "generic-reason-first",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
+                         "runId": "run3:fa4e102b2861b1b695df3b595c772611ba1d3c6955c25863354004c42a7c0620",
+                         "coverageId": "coverage2:ba72963990931be8719a0524dec9effbbb1ac3a2d2977badb4b059605ad616ff"}},
+        {"label": "carrier-omitted",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:fa4e102b2861b1b695df3b595c772611ba1d3c6955c25863354004c42a7c0620"}}
+      ]
+    },
+    {
+      "id": "stage-unavailable-implies-provider-unavailable",
+      "kind": "termination",
+      "build": {"fixture": "incoming-incomplete", "params": {"references_stage_terminals": {"foo": "unavailable"}}},
+      "why": "The unavailable clean typed terminal row of the same law: provider-unavailable from the retained stageTerminal, not from a manufactured nativeCause.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
+                        "runId": "run3:02e17d52250f4bae8446e8cb14688acecee0509e4609e9390a66d3a23acd6e6d",
+                        "coverageId": "coverage2:44ce9dd9d9037fe18195686f719992bfae230b455e53d83e689e1c589a98d934"},
+        "deficiency": "provider-unavailable", "secondaryDeficiencies": ["verdict-indeterminate"],
+        "primaryCause": "provider-unavailable", "carrierKind": "stage-terminal",
+        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "unavailable", "state": "partial"}
+      },
+      "refuse": [
+        {"label": "least-deficient-coverage-instead-of-stage-carrier",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:02e17d52250f4bae8446e8cb14688acecee0509e4609e9390a66d3a23acd6e6d",
+                         "coverageId": "coverage2:16fea72bdf7443659898959a0ffd5171f2fb1d72228cf52d2a12be4ed31029ad"}},
+        {"label": "entry-deficiency-only-reading",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:02e17d52250f4bae8446e8cb14688acecee0509e4609e9390a66d3a23acd6e6d",
+                         "coverageId": "coverage2:44ce9dd9d9037fe18195686f719992bfae230b455e53d83e689e1c589a98d934"}}
+      ]
+    },
+    {
+      "id": "permuted-condition-discovery",
+      "kind": "permutation",
+      "of": "stage-entry-disagreement",
+      "why": "Host discovery order is not an input: every tested order derives one termination, while the verbatim D9 reducer (primary = deficiencies[0]) fed in discovery order yields more than one primary.",
+      "expect": {"orders": 16, "distinctDerived": 1, "distinctRawReducerSequences": 2,
+                 "rawPrimaryCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"]}
+    },
+    {
+      "id": "evaluator-only-cause",
+      "kind": "termination",
+      "build": {"export": "missing-required-inventory-execution"},
+      "why": "required-cell-unsatisfied is an evaluator-only cause: verdict-indeterminate at rank 9, no Coverage carrier.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                        "runId": "run3:68a412d6cc30ec959c4574f4fafbe5c6fbcf77a65cdaa88a062f0bf01e7d7ed7"},
+        "deficiency": "verdict-indeterminate", "secondaryDeficiencies": [],
+        "primaryCause": null, "carrierKind": null
+      },
+      "refuse": [
+        {"label": "name-resemblance-promotion",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.REQUIRED_RELATION_MISSING"],
+                         "runId": "run3:68a412d6cc30ec959c4574f4fafbe5c6fbcf77a65cdaa88a062f0bf01e7d7ed7"}}
+      ]
+    },
+    {
+      "id": "no-coverage-primary-over-deficient-coverage",
+      "kind": "termination",
+      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1}},
+      "why": "The work budget preflight exhausts; required-execution resolution-incomplete rows still cite deficient coverage2 records, but the primary budget-exhausted has no Coverage carrier.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                        "runId": "run3:3a975d68202bb220950632eb28fdc19d67c344f7799e978faa5bb863d7d57c3c"},
+        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
+        "primaryCause": "budget-exhausted", "carrierKind": null
+      },
+      "refuse": [
+        {"label": "some-deficient-coverage-named",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:3a975d68202bb220950632eb28fdc19d67c344f7799e978faa5bb863d7d57c3c",
+                         "coverageId": "coverage2:55856c8289f13ae8cbb8df813c68abb866a83795c59e301e9d5a623342e15523"}},
+        {"label": "work-budget-not-reused",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:3a975d68202bb220950632eb28fdc19d67c344f7799e978faa5bb863d7d57c3c"}},
+        {"label": "generic-reason-first",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
+                         "runId": "run3:3a975d68202bb220950632eb28fdc19d67c344f7799e978faa5bb863d7d57c3c"}}
+      ]
+    },
+    {
+      "id": "work-budget-is-d9-budget-exhausted",
+      "kind": "termination",
+      "build": {"fixture": "declares", "params": {"budget_limit": 1}},
+      "why": "The D9 golden analysis-budget-exhausted is this Run: a deterministic budget exhausts mid-evaluation.",
+      "d9Golden": "analysis-budget-exhausted",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED"],
+                        "runId": "run3:a66a601519a763e9379fbba09c00d988184df6f420781a063e6caa97b11a9222"},
+        "deficiency": "budget-exhausted", "secondaryDeficiencies": [],
+        "primaryCause": "budget-exhausted", "carrierKind": null
+      },
+      "refuse": [
+        {"label": "work-budget-not-reused",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE"],
+                         "runId": "run3:a66a601519a763e9379fbba09c00d988184df6f420781a063e6caa97b11a9222"}}
+      ]
+    },
+    {
+      "id": "work-budget-with-native-stage-budget-carrier",
+      "kind": "termination",
+      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1, "references_stage_terminals": {"foo": "budget-exhausted"}}},
+      "why": "Two owners' conditions share the primary rank: the evaluator work budget (no carrier) and a required native account whose Coverage retained stageTerminal budget-exhausted. The stage carrier is named; omission applies only when no condition at the primary rank has a carrier.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                        "runId": "run3:38658cff62223c99223160bf490b56a8a6f8bb61ac9e74d68ce2433119dbce79",
+                        "coverageId": "coverage2:04811b78c83964fb7c68647b7e28d796aa40d1a4fdb373c21b20ddd7afe832d6"},
+        "deficiency": "budget-exhausted", "secondaryDeficiencies": ["verdict-indeterminate"],
+        "primaryCause": "budget-exhausted", "carrierKind": "stage-terminal",
+        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "budget-exhausted", "state": "partial"}
+      },
+      "refuse": [
+        {"label": "carrier-omitted-because-work-budget",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:38658cff62223c99223160bf490b56a8a6f8bb61ac9e74d68ce2433119dbce79"}},
+        {"label": "unstaged-deficient-record-named",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:38658cff62223c99223160bf490b56a8a6f8bb61ac9e74d68ce2433119dbce79",
+                         "coverageId": "coverage2:461b81985ddf2268df93533e82ddf8648d36db971081f9375b140e32a763637c"}},
+        {"label": "generic-reason-first",
+         "termination": {"class": "indeterminate", "reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
+                         "runId": "run3:38658cff62223c99223160bf490b56a8a6f8bb61ac9e74d68ce2433119dbce79",
+                         "coverageId": "coverage2:04811b78c83964fb7c68647b7e28d796aa40d1a4fdb373c21b20ddd7afe832d6"}}
+      ]
+    },
+    {
+      "id": "work-budget-secondary-under-provider-unavailable-stage",
+      "kind": "termination",
+      "build": {"fixture": "incoming-incomplete", "params": {"budget_limit": 1, "references_stage_terminals": {"foo": "unavailable"}}},
+      "why": "A native stage terminal unavailable outranks the evaluator work budget: provider-unavailable is primary with its stage carrier, and the work budget still contributes COVERAGE.BUDGET_EXHAUSTED as a secondary ahead of the generic reason.",
+      "expect": {
+        "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                        "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361",
+                        "coverageId": "coverage2:98467e5eeb019afba1ccfe04250f6d1644d7fbbe9c0e62eae33a4561b155ab5c"},
+        "deficiency": "provider-unavailable", "secondaryDeficiencies": ["budget-exhausted", "verdict-indeterminate"],
+        "primaryCause": "provider-unavailable", "carrierKind": "stage-terminal",
+        "carrierEntry": {"deficiency": "resolution-incomplete", "stageTerminal": "unavailable", "state": "partial"}
+      },
+      "refuse": [
+        {"label": "work-budget-first",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.BUDGET_EXHAUSTED", "COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361",
+                         "coverageId": "coverage2:98467e5eeb019afba1ccfe04250f6d1644d7fbbe9c0e62eae33a4561b155ab5c"}},
+        {"label": "secondary-order-swapped",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"],
+                         "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361",
+                         "coverageId": "coverage2:98467e5eeb019afba1ccfe04250f6d1644d7fbbe9c0e62eae33a4561b155ab5c"}},
+        {"label": "work-budget-dropped",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361",
+                         "coverageId": "coverage2:98467e5eeb019afba1ccfe04250f6d1644d7fbbe9c0e62eae33a4561b155ab5c"}},
+        {"label": "carrier-omitted",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361"}},
+        {"label": "unstaged-deficient-record-named",
+         "termination": {"class": "indeterminate", "reasonCodes": ["COVERAGE.PROVIDER_UNAVAILABLE", "COVERAGE.BUDGET_EXHAUSTED", "VERDICT.INDETERMINATE"],
+                         "runId": "run3:bf50db2c8f2fafd389d18ef9caa74d10d096bc8ee4cffaba9281be81dbbaf361",
+                         "coverageId": "coverage2:461b81985ddf2268df93533e82ddf8648d36db971081f9375b140e32a763637c"}}
+      ]
+    },
+    {
+      "id": "combined-discovery-orders",
+      "kind": "permutation",
+      "of": "work-budget-secondary-under-provider-unavailable-stage",
+      "why": "Three distinct D9 deficiencies from two owners: every order of the six retained conditions derives one termination, while the verbatim D9 reducer fed in discovery order yields six code sequences and three primaries.",
+      "expect": {"orders": 720, "distinctDerived": 1, "distinctRawReducerSequences": 6,
+                 "rawPrimaryCodes": ["COVERAGE.BUDGET_EXHAUSTED", "COVERAGE.PROVIDER_UNAVAILABLE", "VERDICT.INDETERMINATE"]}
+    },
+    {
+      "id": "analysis-projection-boundary",
+      "kind": "projection",
+      "of": "work-budget-with-native-stage-budget-carrier",
+      "why": "This owner derives the analysis projection (class, runId, reasonCodes and their order, coverageId, and the absence of errorCode/faultCause/signal). executionId, domainDetail and authority are delegated: a shape-valid value leaves the projection admitted but is reported owner-validation-required, never lawful. The values below are shape fixtures, not host observations.",
+      "admitDelegated": [
+        {"label": "execution-attribution-shape", "add": {"executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "delegated": ["executionId"]},
+        {"label": "work-budget-detail-shape", "add": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}}, "delegated": ["domainDetail"]},
+        {"label": "authority-shape", "add": {"authority": "authoritative"}, "delegated": ["authority"]}
+      ],
+      "refuse": [
+        {"label": "delegated-member-over-reordered-reasons",
+         "set": {"reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"], "executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+         "expect": "RUN_TERMINATION_NOT_DERIVED"},
+        {"label": "work-budget-detail-over-omitted-carrier", "remove": ["coverageId"],
+         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
+         "expect": "RUN_TERMINATION_NOT_DERIVED"},
+        {"label": "delegated-member-over-wrong-run",
+         "set": {"runId": "run3:0000000000000000000000000000000000000000000000000000000000000000", "authority": "authoritative"},
+         "expect": "RUN_TERMINATION_NOT_DERIVED"},
+        {"label": "fault-cause-on-indeterminate", "set": {"faultCause": "host-io"}, "expect": "RUN_TERMINATION_NOT_DERIVED"},
+        {"label": "wrong-class-with-attribution", "remove": ["reasonCodes", "coverageId"],
+         "set": {"class": "success", "executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}, "expect": "RUN_TERMINATION_NOT_DERIVED"},
+        {"label": "unregistered-member", "set": {"remedy": "raise the budget"}, "expect": "RUN_TERMINATION_UNKNOWN_FIELD"},
+        {"label": "malformed-execution-id", "set": {"executionId": "exec1_NOT-HEX"}, "expect": "RUN_TERMINATION_DELEGATED_SHAPE"},
+        {"label": "ephemeral-authority-beside-run", "set": {"authority": "ephemeral"}, "expect": "RUN_TERMINATION_DELEGATED_SHAPE"},
+        {"label": "delegated-member-without-shape-validator", "set": {"executionId": "exec1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+         "noShapeValidator": true, "expect": "RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "session_id": "573be1a9-7b3f-483f-a6d8-0aa555c866a9",
+  "total_cost_usd": 1.283367,
+  "usage": {
+    "input_tokens": 162,
+    "cache_creation_input_tokens": 26781,
+    "cache_read_input_tokens": 1217644,
+    "output_tokens": 16237,
+    "output_tokens_details": {
+      "thinking_tokens": 2108
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 26781,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1307,
+        "cache_read_input_tokens": 213249,
+        "cache_creation_input_tokens": 7741,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 7741
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 162,
+      "outputTokens": 16237,
+      "cacheReadInputTokens": 1217644,
+      "cacheCreationInputTokens": 26781,
+      "webSearchRequests": 0,
+      "costUSD": 1.283367,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 2108,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 12,
+  "subtype": "success",
+  "result": "**Verdict: ACCEPT-UNIT.** Both review01 findings are fixed in subject-02, and my own checks back that up. This accepts only the CLI metadata unit. The generator/adapter, integration, the HostAssetPin channel check, build and release qualification, and M1 stay excluded. The generator is still partial, and the 45-command goal is unchanged. Subject-02's pins match before and after: manifest `9180e2a8\u2026`, 96 of 96 files, nothing extra or missing.\n\n## Earlier findings\n- **RF-1, closed:** the 16-byte entropy function is unchanged and now sits in `crates/platform/src/lib.rs`, which is already in the inventory. `entropy.rs` is gone, and the lock and manifests didn't change.\n- **RF-2, closed:**\n  - Human failure output now prints `Termination`, `Error`, `Detail`/`Remedy` and `Request` lines before the diagnostic.\n  - The two delivery failures I tested (read-only stdout for `help` and `completion fish`) print the same lines on stderr with exit 4.\n  - Successful help and version end with `Termination: success`, and completions end with a shell comment.\n  - The earlier owner question about success and completion output (A-10) no longer arises.\n- **Earlier advisories:**\n  - A-01 (closed stdout) is now documented in CLI-UNIT.\n  - A-03 and A-06 stay open as separate asset/build qualification work.\n  - A-08 (the path-bound reference checker) is superseded; the checker was removed, and I re-ran the schema validation myself.\n  - The other earlier advisories are still open and non-blocking. Dispositions are in `review.json`.\n\n## What I checked on the new bytes\n- **Build and tests:** in my own copy with a separate target directory, `cargo build`, `test` and `clippy -D warnings` (all `--locked --offline`) pass, and `cargo fmt --check` exits 0. Tests: 6 startup, 2 authority, 1 metadata, 10 identity.\n- **JSON unchanged:** 27 JSON cases (the 17 original reference cases plus 10 adversarial ones) and 3 delivery-failure cases give the same output as the review01 binary, apart from the request IDs.\n- **Schema:** those 30 plus a broken-pipe case, 31 in all, pass the original envelope4 schema check.\n- **Human lines:** none of them echo caller input. Escape sequences I put in the help topic and correlation IDs never appear in the output.\n- **Completions:**\n  - The bash script passes `bash -n` and registers the completion when sourced.\n  - The zsh script passes `zsh -n`, and `compinit` loads it as `_opensip`.\n  - `#compdef` is still the first line.\n- **Existing tests:** the five earlier startup tests, including the refusal test and the JSON delivery test, are byte-unchanged and pass.\n- **No side effects:** with network, writes, and project and home reads blocked, output matches the unsandboxed run.\n\n## New advisories (non-blocking)\n- **B-01:** the new test only checks error codes, not the labels or remedy text. I broke the renderer five ways; four were caught, but replacing the `Detail:`/`Remedy:` format with bare values still passed all 6 tests.\n- **B-02:** fish isn't installed here, so the fish script is checked by inspection only.\n- **B-03:** the entropy code in the public-API `lib.rs` is fine at this size.\n- **B-04:** the human reason sentence now comes after the Request line. That's just a presentation note.\n\nEverything ran on macOS arm64 in a debug build. I couldn't trigger a CSPRNG failure in the binary. Nothing was committed or pushed, and I only wrote inside `m1-cli-metadata-review-02` (`review.json`, `review.md` and `work/`).",
+  "type": "result",
+  "duration_ms": 253530
+}

@@ -1,0 +1,1 @@
+All four runs are still going: the edited and hybrid batteries, the root probe against the edited tree, and semantic replay on the edited tree. Nothing else can start before they finish. The comparison, `review.md`/`review.json` and the final summary all read their receipts, so I'm pausing until they finish and will pick up from there.

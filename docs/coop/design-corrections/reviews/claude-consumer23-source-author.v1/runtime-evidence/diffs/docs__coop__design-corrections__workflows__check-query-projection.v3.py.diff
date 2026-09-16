@@ -1,0 +1,52 @@
+--- frozen36/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ assembly/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -605,6 +605,49 @@
+     refuse("host-availability-expired-refuses", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="expired")), "HOST.IO_FAILURE", "evidence.expired")
+     retained_anyway = ex(out_req, host_obs(latestRunId=run_key, availability="retained"))
+     check("host-availability-retained-does-not-skip-close-run", len(retained_anyway["items"]) == 1)
++
++    # Contract section 7: every identity availability refusal state has one registered detail, and each is
++    # operational-failed / HOST.IO_FAILURE / exit 4 at the public wrapper. `unavailable` reuses evidence.missing.
++    refuse("host-availability-corrupt-refuses", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="corrupt")), "HOST.IO_FAILURE", "evidence.corrupt")
++    refuse("host-availability-unavailable-refuses-evidence-missing", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="unavailable")), "HOST.IO_FAILURE", "evidence.missing")
++    for state, detail in (("purged", "evidence.purged"), ("expired", "evidence.expired"),
++                          ("corrupt", "evidence.corrupt"), ("unavailable", "evidence.missing")):
++        cid = "host-availability-%s-envelope-operational-failed-exit-4" % state
++        try:
++            ex(out_req, host_obs(latestRunId=run_key, availability=state))
++            check(cid, False, "expected QueryRefusal")
++        except Q.QueryRefusal as exc:
++            env = exc.envelope()
++            check(cid, env["exitCode"] == 4 and env["termination"]["class"] == "operational-failed"
++                  and [e["code"] for e in env["errors"]] == [detail], env)
++    partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
++    check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
++    if victim is not None:
++        refuse("host-availability-partial-cannot-admit-missing-bytes", lambda: ex(out_req, host_obs(latestRunId=run_key, availability="partial"), run, c_objects, c_blobs), "HOST.IO_FAILURE", "evidence.missing")
++
++    # Contract section 2, schema-first: a package endpoint without its coordinate is malformed at the public
++    # wrapper and at the endpoint helper alike, and still precedes Run/view joins; ENDPOINT_AMBIGUOUS is reserved
++    # for a complete tuple resolving to several admitted vertices.
++    pkg_no_path = ep(g["u1"], "package", "demo-package")
++    for label, endpoint in (("missing", pkg_no_path), ("empty", dict(pkg_no_path, packageManifestPath=""))):
++        refuse("package-endpoint-%s-manifest-path-is-malformed" % label, lambda e=endpoint: ex(request("graph.neighbors", project, {"runId": run_key}, {
++            "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing", "endpoint": e,
++        })), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    refuse("package-path-target-without-manifest-path-is-malformed", lambda: ex(request("graph.path", project, {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++        "start": foo_ep, "target": pkg_no_path, "maxDepth": 2,
++    })), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    refuse("package-without-manifest-path-malformed-before-run-and-view", lambda: Q.execute_graph_query(request("graph.neighbors", project, {"runId": run_id("other")}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing", "endpoint": pkg_no_path,
++    }), host=host_obs(availability="purged")), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    refuse("endpoint-helper-agrees-package-without-manifest-path-is-malformed", lambda: Q.parse_endpoint_syntax(pkg_no_path, "endpoint"), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED", envelope=False)
++    refuse("well-formed-package-tuple-outside-domain-is-unknown", lambda: ex(request("graph.neighbors", project, {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++        "endpoint": ep(g["u1"], "package", "demo-package", "package.json"),
++    })), "REQUEST.PRECONDITION_FAILED", "QUERY.ENDPOINT_UNKNOWN")
++    refuse("endpoint-ambiguous-only-for-a-complete-tuple-marked-ambiguous-helper-unit", lambda: Q.admit_vertices(
++        [("endpoint", foo_ep)], {Q.endpoint_tuple(foo_ep): foo_ep}, {Q.endpoint_tuple(foo_ep)}),
++        "REQUEST.PRECONDITION_FAILED", "QUERY.ENDPOINT_AMBIGUOUS", envelope=False)
+ 
+     try:
+         Q.execute_graph_query(dict(out_req, page={"size": 1.25}), run, objects, blobs, host=host_obs())

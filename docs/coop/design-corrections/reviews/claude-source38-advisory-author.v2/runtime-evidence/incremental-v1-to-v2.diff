@@ -1,0 +1,534 @@
+--- v1/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
++++ v2/docs/coop/design-corrections/foundation/check-semantic-replay.v3.py
+@@ -430,7 +430,8 @@
+ 
+     Each case composes one candidate StepTermination against an admitted Run (a golden Run, a fixture Run, or none
+     for operational and ephemeral candidates) and a host attempt observation built from existing records: the
+-    invocation-record Attempt and a commit receipt whose inventoryDigest is the retained commit inventory. For an
++    invocation-record Attempt, whose derivation binding names the Run's actual execution plan and stage count, and a
++    commit receipt minted by the reference commit path (identity-model.v3 EvidenceStore). For an
+     analysis candidate the pure check_projection standing is recorded beside the composition outcome, so a
+     composition refusal is never mistaken for a projection refusal.
+     """
+@@ -452,6 +453,26 @@
+         for tag, eid in ids.items():
+             text = text.replace("$" + tag.upper(), eid)
+         return json.loads(text.replace("$OTHER_RUN", other_run))
++
++    minted = {}
++
++    def committed_receipt(run, objects, blobs, execution_id):
++        """A receipt minted by the reference commit path, identity-model.v3 EvidenceStore.prepare then commit, whose
++        trusted replay adapter re-derives the proof with evaluator_replay_model.v3.derive over the admitted Run."""
++        key = (id(run), execution_id)
++        if key not in minted:
++            seal = objects[run["evaluationSealId"]][1]
++            _, owner = M.open_run_closure(run, objects, blobs)
++
++            def replay(plan, objs, bl, refs):
++                return R.derive(run["planId"], seal["executionPlanId"], seal["evaluatorClosure"], refs, objs, bl, owner)["proof"]
++
++            store = M.EvidenceStore()
++            store.prepare(run, objects, blobs, execution_id, replay)
++            if store.commit(execution_id) != "committed":
++                raise AssertionError("reference commit path did not commit")
++            minted[key] = store.receipts[0]
++        return dict(minted[key])
+ 
+     for case in g["cases"]:
+         try:
+@@ -472,27 +493,40 @@
+             observation = None
+             spec = case.get("observation")
+             if spec is not None:
+-                own_plan = run["planId"] if run is not None else "plan2:" + "2" * 64
++                if run is not None:
++                    execution_plan = objects[run["evaluationSealId"]][1]["executionPlanId"]
++                    stage_count = len(objects[execution_plan][1]["stages"])
++                    own_plan = run["planId"]
++                else:  # ephemeral cases compose no Run, so no plan join applies
++                    execution_plan, stage_count, own_plan = "exec-plan2:" + "2" * 64, 1, "plan2:" + "2" * 64
+                 plan = "plan2:" + "0" * 64 if spec.get("plan") == "other" else own_plan
++                binding = {"planId": plan,
++                           "executionPlanId": "exec-plan2:" + "0" * 64 if spec.get("executionPlan") == "other" else execution_plan,
++                           "stageCount": stage_count + spec.get("stageCountDelta", 0),
++                           # a host observation, never derived from the plan: "all" is the fixture's assumption
++                           "stagesCompleted": {"all": stage_count, "partial": stage_count - 1,
++                                               "over": stage_count + 1}[spec.get("stagesCompleted", "all")]}
++                if "firstFailedStage" in spec:
++                    binding["firstFailedStage"] = spec["firstFailedStage"]
+                 attempts = []
+                 for tag in spec["attempts"]:
+                     if tag == "busy":
+                         attempts.append({"executionId": ids["busy"], "outcome": "failed", "faultCause": "ledger-busy",
+                                          "retried": True})
+                     elif tag == "done":
+-                        attempts.append({"executionId": ids["done"], "outcome": "completed",
+-                                         "derivation": {"planId": plan, "executionPlanId": "exec-plan2:" + "e" * 64,
+-                                                        "stageCount": 1, "stagesCompleted": 1}})
++                        attempts.append({"executionId": ids["done"], "outcome": "completed", "derivation": dict(binding)})
+                     else:
+                         attempts.append({"executionId": ids["done"], "outcome": "failed", "faultCause": "host-io"})
+                 receipt = None
+                 if spec.get("receipt") is not None:
+                     who, which = spec["receipt"]
+-                    _, inventory_digest = M.commit_inventory(derived["runId"], objects, blobs)
+-                    receipt = {"schemaVersion": 2, "runId": derived["runId"] if which == "run" else other_run,
+-                               "executionId": ids[who], "namespaceId": "reference-private-namespace",
+-                               "commitSequence": 1, "inventoryDigest": inventory_digest,
+-                               "sealedAssurance": "replayable", "signerKeyId": "reference-host-signer"}
++                    receipt = committed_receipt(run, objects, blobs, ids[who])
++                    if which != "run":
++                        receipt["runId"] = other_run
++                    if spec.get("inventory") == "other":
++                        receipt["inventoryDigest"] = "f" * 64
++                    elif spec.get("inventory") == "missing-object":
++                        receipt["inventoryDigest"] = M.commit_inventory(derived["runId"], dict(list(objects.items())[1:]), blobs)[1]
+                 observation = {"stepId": 0, "durability": spec.get("durability", "authoritative"),
+                                "attempts": attempts, "commitReceipt": receipt,
+                                "requiredClosureNotInstalled": spec.get("closureNotInstalled", False)}
+--- v1/docs/coop/design-corrections/foundation/run-termination-contract.v1.md
++++ v2/docs/coop/design-corrections/foundation/run-termination-contract.v1.md
+@@ -196,7 +196,7 @@
+ | `work-budget-secondary-under-provider-unavailable-stage` | stage `unavailable` outranks the work budget: `COVERAGE.PROVIDER_UNAVAILABLE`, `COVERAGE.BUDGET_EXHAUSTED`, `VERDICT.INDETERMINATE`, with the stage carrier |
+ | `combined-discovery-orders` | all 720 orders of that Run's six conditions derive one termination; the verbatim D9 reducer gives six sequences and three primaries |
+ | `analysis-projection-boundary` | shape-valid `executionId`, `domainDetail` and `authority` leave the projection admitted with `owner-validation-required`; wrong order, omitted carrier, wrong `runId` or class, `faultCause`, an unregistered member, malformed or contradictory shapes, and an unvalidated delegated member all refuse |
+-| `host-composition-boundary` | the §7 composition over closed Runs. Admitted: each allowlisted detail with its prerequisite, a lawful omission, a retried terminating attempt, and an ephemeral `authority`; operational carriers are returned to their owners without reading a Run. Refused: unrelated registered details (`HOST.INVARIANT_VIOLATED`, `QUERY.PARAMS_MALFORMED`, `DOCTOR.DEFECTS_FOUND`); a detail without its prerequisite or on a verdict; an omitted selected detail; an earlier or foreign `executionId`; a receipt or plan of another attempt or Run; `authority` beside a committed `runId`; a detail `subject`; a blessing member; and an ephemeral detail or `runId`. For the same unrelated details the pure projection check still reports `owner-validation-required` |
++| `host-composition-boundary` | the §7 composition over closed Runs. Admitted: each allowlisted detail with its prerequisite, a lawful omission, a retried terminating attempt, a receipt minted by the reference commit path, partial stage progress, and an ephemeral `authority`; operational carriers are returned to their owners without reading a Run. Refused: unrelated registered details (`HOST.INVARIANT_VIOLATED`, `QUERY.PARAMS_MALFORMED`, `DOCTOR.DEFECTS_FOUND`); a detail without its prerequisite or on a verdict; an omitted selected detail; an earlier or foreign `executionId`; a receipt or plan of another attempt or Run; an attempt bound to another execution plan or stage count, or reporting stage progress outside that plan; a receipt whose inventory is not the Run's published inventory; `authority` beside a committed `runId`; a detail `subject`; a blessing member; and an ephemeral detail or `runId`. For the same unrelated details the pure projection check still reports `owner-validation-required` |
+ 
+ Every refused alternative in the `termination` goldens is also a schema-valid `StepTermination`, so those
+ controls refuse by derivation, not by shape. In `host-composition-boundary`, every candidate except the blessing
+@@ -225,21 +225,45 @@
+ | Input | Kind | What it supplies |
+ |---|---|---|
+ | the admitted Run (`close_run`) | retained semantic content | the analysis projection (§2–§5), the retained population and the `coverage2` record named by `coverageId` |
+-| the step's `StepResult.attempts` (`invocation-record.schema.json#/$defs/Attempt`) | host-supplied operational identity | the terminating attempt: the last attempt, with `outcome=completed` and its `derivation` binding. No earlier attempt is `completed`, and no `ExecutionId` repeats |
++| the step's `StepResult.attempts` (`invocation-record.schema.json#/$defs/Attempt`) | host-supplied operational identity and progress | the terminating attempt: the last attempt, with `outcome=completed` and its `derivation` binding (`planId`, `executionPlanId`, `stageCount`, `stagesCompleted`, optional `firstFailedStage`). No earlier attempt is `completed`, and no `ExecutionId` repeats |
+ | the step's `AnalysisParams.durability` | host-supplied operational standing | a committed Run (`authoritative`) or an ephemeral attempt |
+-| the attempt's commit receipt (`identity-schemas.v3.json#/$defs/commit-receipt`) | host-supplied operational record: required for a committed Run, absent for an ephemeral attempt | the `executionId` that committed `runId` |
++| the attempt's commit receipt (`identity-schemas.v3.json#/$defs/commit-receipt`) | host-supplied operational record: required for a committed Run, absent for an ephemeral attempt | the `executionId` that committed `runId`, and the `inventoryDigest` of what that commit published |
+ | whether a required provider closure of the attempt is not installed | host installation observation | the §7.5 row 2 prerequisite, and nothing else |
+ 
+ Operational inputs never enter the projection. Retained inputs never supply an attempt identity. Neither kind is
+ caller input.
+ 
+-### 7.3 `executionId` binds the actual admitted attempt, step and Run
+-
+-For a committed Run, these joins hold before any candidate member is judged:
++### 7.3 `executionId`, the attempt's derivation binding and the receipt bind the actual admitted attempt, step and Run
++
++For a committed Run, these joins hold before any candidate member is judged, in this order:
+ - the receipt's `runId` is the derived `runId` (`RUN_TERMINATION_RECEIPT_RUN_MISMATCH`);
+ - the receipt's `executionId` is the terminating attempt's (`RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH`). The
+   reference commit path issues one receipt per committing attempt (`identity-model.v3` `EvidenceStore.commit`);
+-- the terminating attempt's `derivation.planId` is the Run's `planId` (`RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH`).
++- the receipt's `inventoryDigest` is `commit_inventory(runId, objects, blobs)` (`identity-model.v3`), re-derived
++  over the Run content composed here: identity-and-evidence's `commit-inventory`, "the exact set of typed object
++  identities and retained raw blob digests the commit published for that Run"
++  (`RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH`). The `objects` and `blobs` composed are therefore the Run's
++  published retained content, as the reference commit path inventories them, not a wider shared store.
++  Receipt schema admission does not establish this join, and no owner invoked on this path discharges it: the
++  commit path mints the digest, and read-only recovery joins it only between the receipt and the association
++  (`attempt-custody.schema.v1.json` `joins.toReceipt`);
++- the terminating attempt's `derivation.planId` is the Run's `planId` (`RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH`);
++- its `derivation.executionPlanId` is the Run's admitted execution plan, `objects[run.evaluationSealId].executionPlanId`
++  (`RUN_TERMINATION_ATTEMPT_EXECUTION_PLAN_MISMATCH`). The Run record carries no execution plan of its own;
++  `close_run` joins the seal's plan to the proof bundle and to the Run's `planId`, and the `DerivationBinding` owner
++  states that one attempt owns exactly one execution plan;
++- its `derivation.stageCount` is the number of `stages` of that plan (`RUN_TERMINATION_ATTEMPT_STAGE_COUNT_MISMATCH`):
++  workflows-and-surfaces §1 records the attempt's derivation DAG and its size in that binding;
++- its stage progress stays inside that plan: `stagesCompleted` is at most `stageCount`, and a present
++  `firstFailedStage` is the `ordinal` of one of its stages (`RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH`).
++  `stagesCompleted` and `firstFailedStage` are runtime progress of the host attempt (the native protocol counts a
++  stage when its Coverage arrives, `protocol3-transitions.v1.json` P3-24), and no retained record re-derives them.
++  A scheduled stage is not a completed one, so the composition does **not** require `stagesCompleted` to equal
++  `stageCount` and does not decide whether a completed attempt may carry `firstFailedStage`; both stay with the
++  host attempt owner (workflows-and-surfaces §1).
++
++`namespaceId`, `commitSequence`, `sealedAssurance` and `signerKeyId` stay with the receipt's own admission and
++its signer and custody checks; nothing here authenticates them.
+ 
+ `executionId` stays optional. When present it must be the terminating attempt's `ExecutionId`
+ (`RUN_TERMINATION_EXECUTION_ID_NOT_ATTEMPT`). An earlier retried attempt of the same step, another step's attempt
+@@ -300,8 +324,9 @@
+ 2. The observation is admitted: `RUN_TERMINATION_OBSERVATION_SHAPE`, `_ATTEMPT_ID_REUSED`,
+    `_ATTEMPT_NOT_TERMINATING`.
+ 3. An ephemeral attempt takes the §7.4 branch.
+-4. For a committed Run: `close_run` and the derivation, then the §7.3 joins, `check_projection` (§6),
+-   `authority`, `executionId`, and finally `domainDetail` (§7.5).
++4. For a committed Run: `close_run` and the derivation; the §7.3 receipt joins (`runId`, `executionId`,
++   `inventoryDigest`) and derivation-binding joins (`planId`, `executionPlanId`, `stageCount`, stage progress);
++   `check_projection` (§6); `authority`; `executionId`; and finally `domainDetail` (§7.5).
+ 
+ A candidate that the projection refuses is never rescued by its delegated members, and a valid projection never
+ admits them.
+@@ -311,7 +336,9 @@
+ The attempts, receipt, durability and installation observation come from the trusted host finalizer. Their shapes
+ and joins are checked here; their origin is **not authenticated**. A host that fabricates an attempt or a receipt
+ is outside this contract's threat model, as it is for every trusted host observation behind D9
+-`invariant-one-mapper`. Nothing here qualifies authentication, containment, durability or a product host.
++`invariant-one-mapper`. The §7.3 joins catch accidental disagreement between the host's attempt, its receipt and
++the admitted Run; they do not authenticate the receipt. Nothing here qualifies authentication, containment,
++durability or a product host.
+ 
+ ## 8. Limits
+ 
+@@ -328,8 +355,10 @@
+ 
+   The order for those Runs rests on the §4 table and the route-drift check, not on a closed-Run golden.
+ - The `analysis-projection-boundary` delegated-member controls are shape fixtures of the pure projection check.
+-  The `host-composition-boundary` controls compose over actually closed Runs. They use synthetic attempt records,
+-  receipts built from the retained commit inventory and a boolean installation observation. They show the
++  The `host-composition-boundary` controls compose over actually closed Runs. They use synthetic attempt records
++  bound to each Run's actual execution plan and stage count, receipts minted by the reference commit path
++  (`EvidenceStore.prepare` and `commit`) and a boolean installation observation. Fixture execution plans have one
++  stage (ordinal 0), and the fixture assumes full stage progress as a host observation. They show the
+   composition law and its refusals, not a product host, a real installation probe or an authenticated ledger.
+ - §7.5 row 2 rests on a host installation observation that no retained record carries; its retained half is only
+   `reasonCodes[0]`.
+--- v1/docs/coop/design-corrections/foundation/run-termination-goldens.v1.json
++++ v2/docs/coop/design-corrections/foundation/run-termination-goldens.v1.json
+@@ -264,7 +264,7 @@
+     {
+       "id": "host-composition-boundary",
+       "kind": "composition",
+-      "why": "Section 7: the host composition admits executionId, authority and domainDetail by closed laws over the admitted Run and the trusted attempt observation. Allowlisted details need their prerequisites; unrelated registered details, wrong attempts and wrong Runs refuse although every candidate except the blessing member is a schema-valid StepTermination, and the pure projection check keeps reporting owner-validation-required for the same unrelated details. Operational carriers return to their owners without a Run. Attempts, receipts and the installation observation are synthetic host inputs, not a product host.",
++      "why": "Section 7: the host composition admits executionId, authority and domainDetail by closed laws over the admitted Run and the trusted attempt observation. Allowlisted details need their prerequisites; unrelated registered details, wrong attempts and wrong Runs refuse although every candidate except the blessing member is a schema-valid StepTermination, and the pure projection check keeps reporting owner-validation-required for the same unrelated details. Operational carriers return to their owners without a Run. Attempt derivation bindings name each Run's actual admitted execution plan and stage count, and receipts are minted by the reference commit path (identity-model.v3 EvidenceStore.prepare and commit); a wrong execution plan, stage count, stage progress beyond the plan, or a receipt inventory that is not the Run's refuses while the same candidate is otherwise admitted. Stage progress is a host observation the fixture assumes complete; one control shows partial progress is neither derived nor refused. Attempts, receipts and the installation observation are synthetic host inputs, not a product host.",
+       "executionIdHex": {"done": "d", "busy": "b", "foreign": "f"},
+       "cases": [
+         {"label": "work-budget-detail-beside-stage-carrier", "of": "work-budget-with-native-stage-budget-carrier",
+@@ -379,6 +379,38 @@
+          "observation": {"attempts": ["done"], "receipt": ["done", "run"]},
+          "set": {"reasonCodes": ["VERDICT.INDETERMINATE", "COVERAGE.BUDGET_EXHAUSTED"], "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
+          "expect": "RUN_TERMINATION_NOT_DERIVED"},
++        {"label": "receipt-minted-by-reference-commit-path", "of": "work-budget-with-native-stage-budget-carrier",
++         "observation": {"attempts": ["busy", "done"], "receipt": ["done", "run"]},
++         "set": {"executionId": "$DONE", "domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "ADMIT:EVALUATION.WORK_BUDGET_EXHAUSTED", "pureProjection": "owner-validation-required"},
++        {"label": "wrong-inventory-otherwise-admitted", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "inventory": "other"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH"},
++        {"label": "receipt-inventory-missing-a-published-object", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "inventory": "missing-object"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH"},
++        {"label": "wrong-execution-plan-otherwise-admitted", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "executionPlan": "other"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_EXECUTION_PLAN_MISMATCH"},
++        {"label": "stage-count-not-the-execution-plans", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "stageCountDelta": 1},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_STAGE_COUNT_MISMATCH"},
++        {"label": "stages-completed-beyond-stage-count", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "stagesCompleted": "over"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH"},
++        {"label": "first-failed-stage-outside-the-execution-plan", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "firstFailedStage": 1023},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH"},
++        {"label": "partial-stage-progress-is-not-invented-or-refused", "of": "work-budget-is-d9-budget-exhausted",
++         "observation": {"attempts": ["done"], "receipt": ["done", "run"], "stagesCompleted": "partial"},
++         "set": {"domainDetail": {"code": "EVALUATION.WORK_BUDGET_EXHAUSTED", "remedy": "raise or narrow the admitted analysis work budget"}},
++         "expect": "ADMIT:EVALUATION.WORK_BUDGET_EXHAUSTED"},
+         {"label": "ephemeral-policy-failed", "termination": {"class": "policy-failed", "authority": "ephemeral", "executionId": "$DONE"},
+          "observation": {"durability": "ephemeral", "attempts": ["done"], "receipt": null}, "expect": "EPHEMERAL"},
+         {"label": "ephemeral-success-without-authority", "termination": {"class": "success"},
+--- v1/docs/coop/design-corrections/foundation/run_termination_model.v1.py
++++ v2/docs/coop/design-corrections/foundation/run_termination_model.v1.py
+@@ -379,11 +379,13 @@
+     1. the attempt observation (OBSERVATION_SHAPE, ATTEMPT_ID_REUSED, ATTEMPT_NOT_TERMINATING);
+     2. an ephemeral attempt: no runId, authority=ephemeral, executionId of the attempt, no domainDetail; its
+        projection is not derived here;
+-    3. a committed Run: close_run and the derivation, then the attempt/Run joins (RECEIPT_RUN_MISMATCH,
+-       RECEIPT_ATTEMPT_MISMATCH, ATTEMPT_PLAN_MISMATCH), check_projection, authority omitted
+-       (AUTHORITY_NOT_COMPOSED), executionId of the terminating attempt (EXECUTION_ID_NOT_ATTEMPT), and exactly the
+-       selected detail (DETAIL_NOT_ADMITTED, DETAIL_REQUIRED, DETAIL_MEMBER_NOT_ADMITTED). The remedy text is
+-       presentation and is not compared.
++    3. a committed Run: close_run and the derivation, then the receipt joins (RECEIPT_RUN_MISMATCH,
++       RECEIPT_ATTEMPT_MISMATCH, RECEIPT_INVENTORY_MISMATCH against commit_inventory over the composed Run content) and
++       the derivation-binding joins to the Run's admitted execution plan (ATTEMPT_PLAN_MISMATCH,
++       ATTEMPT_EXECUTION_PLAN_MISMATCH, ATTEMPT_STAGE_COUNT_MISMATCH, ATTEMPT_STAGE_PROGRESS_MISMATCH), check_projection,
++       authority omitted (AUTHORITY_NOT_COMPOSED), executionId of the terminating attempt (EXECUTION_ID_NOT_ATTEMPT),
++       and exactly the selected detail (DETAIL_NOT_ADMITTED, DETAIL_REQUIRED, DETAIL_MEMBER_NOT_ADMITTED). The remedy
++       text is presentation and is not compared. Stage progress is bounded by the plan, never re-derived.
+     """
+     if type(candidate) is not dict:
+         _refuse("RUN_TERMINATION_CANDIDATE_NOT_OBJECT")
+@@ -413,13 +415,32 @@
+         return {"standing": "ephemeral-attribution-admitted", "executionId": terminating["executionId"],
+                 "projectionStanding": "not derived: section 1 derives the analysis projection only for a committed Run"}
+     derived = derive(run, objects, blobs)
++    run_id = derived["termination"]["runId"]
+     receipt = observation["commitReceipt"]
+-    if receipt["runId"] != derived["termination"]["runId"]:
++    if receipt["runId"] != run_id:
+         _refuse("RUN_TERMINATION_RECEIPT_RUN_MISMATCH")
+     if receipt["executionId"] != terminating["executionId"]:
+         _refuse("RUN_TERMINATION_RECEIPT_ATTEMPT_MISMATCH")
+-    if terminating["derivation"]["planId"] != run["planId"]:
++    # The receipt names the exact published commit-inventory of this Run (identity-and-evidence commit-inventory);
++    # receipt schema admission does not establish it, so re-derive it over the Run content composed here.
++    if receipt["inventoryDigest"] != M.commit_inventory(run_id, objects, blobs)[1]:
++        _refuse("RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH")
++    binding = terminating["derivation"]
++    if binding["planId"] != run["planId"]:
+         _refuse("RUN_TERMINATION_ATTEMPT_PLAN_MISMATCH")
++    # One attempt owns exactly one execution plan (invocation-record DerivationBinding): the Run's admitted plan is
++    # its evaluation seal's executionPlanId, which close_run has joined to the proof and to the Run's planId.
++    execution_plan_id = objects[run["evaluationSealId"]][1]["executionPlanId"]
++    if binding["executionPlanId"] != execution_plan_id:
++        _refuse("RUN_TERMINATION_ATTEMPT_EXECUTION_PLAN_MISMATCH")
++    stages = objects[execution_plan_id][1]["stages"]
++    if binding["stageCount"] != len(stages):
++        _refuse("RUN_TERMINATION_ATTEMPT_STAGE_COUNT_MISMATCH")
++    # stagesCompleted and firstFailedStage are runtime progress no retained record re-derives: bound them by the
++    # plan, never infer completion from scheduled stages.
++    if binding["stagesCompleted"] > binding["stageCount"] or (
++            "firstFailedStage" in binding and binding["firstFailedStage"] not in {s["ordinal"] for s in stages}):
++        _refuse("RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH")
+     checked = check_projection(candidate, derived["termination"], validate_shape)
+     if "authority" in candidate:
+         _refuse("RUN_TERMINATION_AUTHORITY_NOT_COMPOSED", str(candidate["authority"]))
+--- v1/docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ v2/docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -260,6 +260,7 @@
+     "readerLaws": [
+       "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+       "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed. That includes an association naming the admitted carrier when the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2). Its route is publicProjectionByPhase.readOnlyRecovery through readOnlyStandingOfDispatchResult; carrierFormat3 continues to the SEAL join. The reader migrates, publishes and writes nothing.",
++      "A recovery request whose association names the admitted carrier where the journal snapshot holds no grant_journal and no carrierFormat 3 object (open dispatch result fresh-install) returns unknown-custody (HOST.IO_FAILURE, host-io), never absence, not-committed or success; the reader never creates, initializes or migrates a carrier.",
+       "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+       "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+       "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+@@ -530,12 +531,13 @@
+     "noNewObject": "The law lives in the existing trigger and table definitions; the seven object names are unchanged."
+   },
+   "publicProjectionByPhase": {
+-    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1. Source38 advisory ADV38-02 adds the read-only map entries for a carrier observed unmigrated (carrierFormat1, carrierFormat2) and the read-only precedence phase law.",
++    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1. Source38 advisory ADV38-02 adds the read-only map entries for a carrier observed unmigrated (carrierFormat1, carrierFormat2) and the read-only precedence phase law. A source38 follow-up adds the unknown-custody read-only route for a bound carrier observed absent (dispatch fresh-install) and the carrier-stage totality phase law.",
+     "phaseLaws": [
+       "The phase decides only which existing route applies. A writer or maintenance open refuses: it appends nothing, publishes nothing and writes no quarantine marker, because carrier_quarantine.reason is the unchanged inherited enum. Every open re-detects from the bytes it reads; a cached verdict, first_generation, projectKeyDigest or earlier successful open is never reused.",
+       "Read-only recovery writes nothing, never uses MIGRATION.CORRUPT, and reports the quarantine-condition row only with the Step 4 stable observations of commit-recovery-readonly.v3.md; otherwise it reports unavailable-busy.",
+       "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority.",
+-      "Read-only precedence (source38 ADV38-02), inside one journal snapshot and before the SEAL join: an association naming another binding is binding-unusable before any carrier read. With any carrierFormat 3 object present, the footprint, project binding, F51 and row-boundary conditions (the quarantine-condition row with the Step 4 stable observations, otherwise unavailable-busy) and an unpublished lawful prefix (unavailable-busy) are decided before an association generation below first_generation (unknown-carrier-incompatible). With no carrierFormat 3 object and an inherited grant_journal, the carrier is observed unmigrated and the result is unknown-carrier-incompatible whatever generation the association or a surviving witness names; it is decided from the object names alone, needs no witness comparison, and the witness and anchor rows of commit-recovery-readonly.v3.md Step 3 are not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the reader migrates, publishes and writes nothing."
++      "Read-only precedence (source38 ADV38-02), inside one journal snapshot and before the SEAL join: an association naming another binding is binding-unusable before any carrier read. With any carrierFormat 3 object present, the footprint, project binding, F51 and row-boundary conditions (the quarantine-condition row with the Step 4 stable observations, otherwise unavailable-busy) and an unpublished lawful prefix (unavailable-busy) are decided before an association generation below first_generation (unknown-carrier-incompatible). With no carrierFormat 3 object and an inherited grant_journal, the carrier is observed unmigrated and the result is unknown-carrier-incompatible whatever generation the association or a surviving witness names; it is decided from the object names alone, needs no witness comparison, and the witness and anchor rows of commit-recovery-readonly.v3.md Step 3 are not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the reader migrates, publishes and writes nothing.",
++      "The read-only carrier stage is total (source38 follow-up): every open dispatch result except carrierFormat3 has exactly one standing in readOnlyStandingOfDispatchResult, and carrierFormat3 alone continues to the SEAL join. With no carrierFormat 3 object and no inherited grant_journal (dispatch fresh-install), an association naming the admitted carrier is unknown-custody, after binding-unusable and whatever generation the association or a surviving witness names; it is decided from the object names alone. A missing, empty or fallback carrier is never absence, never not-committed and never success, and the reader never creates, initializes or migrates it. The fresh-install path of a writer or maintenance open (openDispatch.freshInstallPath) remains a separate owner that read-only recovery never takes."
+     ],
+     "writerOrMaintenanceOpen": {
+       "migration-footprint-corrupt": {
+@@ -652,6 +654,19 @@
+           "with the association naming the admitted carrier, the carrier read in the same journal snapshot is observed unmigrated: none of the seven carrierFormat 3 objects and an inherited grant_journal (open dispatch result carrierFormat1 or carrierFormat2; F46)"
+         ]
+       },
++      "unknown-custody": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "host-io",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: unreadable ledger or carrier",
++        "observations": [
++          "with the association naming the admitted carrier, the journal snapshot holds neither an inherited grant_journal nor any carrierFormat 3 object (open dispatch result fresh-install): the bound carrier is lost, emptied or a fallback, which is never absence of the attempt, never not-committed and never success",
++          "a read-only open of the bound carrier location that refuses because no database exists there; the reader never creates, initializes or migrates a carrier"
++        ]
++      },
+       "unavailable-busy": {
+         "class": "operational-failed",
+         "exit": 4,
+@@ -674,7 +689,8 @@
+       "unknown-carrier-incompatible": "unknown-carrier-incompatible",
+       "incomplete-footprint": "unavailable-busy",
+       "carrierFormat1": "unknown-carrier-incompatible",
+-      "carrierFormat2": "unknown-carrier-incompatible"
++      "carrierFormat2": "unknown-carrier-incompatible",
++      "fresh-install": "unknown-custody"
+     }
+   }
+ }
+--- v1/docs/coop/design-corrections/security/carrier-format.v3.md
++++ v2/docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -373,6 +373,7 @@
+ | read-only recovery | the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest` differs from the admitted binding | `binding-unusable` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` / — | `RECOVERY.REFUSED`, typed subject |
+ | read-only recovery | association names the admitted carrier, but the carrier's own row or witness names another project; an unlawful footprint; or F51 | `unknown-quarantine-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
+ | read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot, or the carrier read in that snapshot is observed unmigrated (no carrierFormat 3 object and an inherited `grant_journal`; dispatch `carrierFormat1` or `carrierFormat2`) | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | association names the admitted carrier, but the journal snapshot holds no `grant_journal` and no carrierFormat 3 object (dispatch `fresh-install`: the bound carrier is observed absent) | `unknown-custody` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
+ | read-only recovery | lawful `{A}` or `{A, B}` prefix (`carrier-migration.v1.md` §4), or an unstable observation | `unavailable-busy` | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` / `ledger-busy` | `PROJECT.BUSY` |
+ 
+ **Why a digest mismatch is not migration corruption.** A partial object set, an invalid definition, a
+@@ -402,6 +403,15 @@
+ not reported for that request. It is not a quarantine or corruption report, so Step 4 does not gate it, and the
+ reader migrates, publishes and writes nothing. Machine-readable: `readOnlyStandingOfDispatchResult` maps
+ `carrierFormat1` and `carrierFormat2`; exact precedence: `commit-recovery-readonly.v3.md` §1.
++
++**An association naming a carrier observed absent (source38 follow-up).** When the recovery snapshot holds neither
++the inherited `grant_journal` nor any carrierFormat 3 object, the open dispatch result is `fresh-install`. At a
++writer or maintenance open that is the fresh-install path. On read-only recovery an association already names this
++carrier, so it is lost, emptied or replaced by a fallback: the result is `unknown-custody` (`HOST.IO_FAILURE`,
++`host-io`), after `binding-unusable` and whatever generation the association or a surviving witness names. It is
++never absence, never not-committed and never success, and the reader never creates, initializes or migrates a
++carrier. This makes the read-only carrier stage total: every dispatch result except `carrierFormat3`, which
++continues to the SEAL join, has one standing in `readOnlyStandingOfDispatchResult`.
+ 
+ **Interrupted state and stale custody.** Each phase re-evaluates every predicate from the bytes it
+ reads at that open or in that journal snapshot: a cached verdict, `first_generation`,
+--- v1/docs/coop/design-corrections/security/check-carrier-v3.py
++++ v2/docs/coop/design-corrections/security/check-carrier-v3.py
+@@ -850,6 +850,7 @@
+     ('readOnlyRecovery', 'unknown-carrier-incompatible'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
+     ('readOnlyRecovery', 'carrierFormat1'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
+     ('readOnlyRecovery', 'carrierFormat2'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'fresh-install'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
+     ('readOnlyRecovery', 'incomplete-footprint'): ('operational-failed', 4, 'LEDGER.BUSY_TIMEOUT', 'ledger-busy', 'PROJECT.BUSY'),
+ }
+ _S37_SEEN = set()
+@@ -1004,13 +1005,81 @@
+ _s37_expect('ADV38-02: a grant_journal_v3 row below first_generation is decided before the below-first_generation association',
+             'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
+             'migration-footprint-corrupt')
+-ck('source38 ADV38-02 map: carrierFormat1 and carrierFormat2 map to F46; carrierFormat3 and fresh-install have no read-only standing',
++ck('source38 ADV38-02 map: carrierFormat1 and carrierFormat2 map to F46; carrierFormat3 has no read-only standing',
+    _S37_RO_MAP.get('carrierFormat1') == 'unknown-carrier-incompatible' and _S37_RO_MAP.get('carrierFormat2') == 'unknown-carrier-incompatible'
+-   and 'carrierFormat3' not in _S37_RO_MAP and 'fresh-install' not in _S37_RO_MAP, _S37_RO_MAP)
++   and 'carrierFormat3' not in _S37_RO_MAP, _S37_RO_MAP)
+ ck('source38 ADV38-02 law: the F46 observations, reader law and read-only precedence phase law name a carrier observed unmigrated',
+    any('observed unmigrated' in o for o in _S37_PROJ['readOnlyRecovery']['unknown-carrier-incompatible']['observations'])
+    and any('observed unmigrated' in l for l in disp['readDispatch']['readerLaws'])
+    and any(l.startswith('Read-only precedence') and 'observed unmigrated' in l for l in _S37_PROJ['phaseLaws']))
++
++# ---- source38 follow-up: an association naming a bound carrier observed absent (no grant_journal, no carrierFormat 3
++# object). Real SQLite databases; the dispatch function above is unchanged; read-only maps fresh-install to unknown-custody.
++import ast as _s37_ast
++import tempfile as _s37_tempfile
++c = sqlite3.connect(':memory:', isolation_level=None)
++_before = _s37_state(c)
++_s37_expect('absent carrier: an empty SQLite carrier is still the fresh-install path at a writer open (separate owner)',
++            'writerOrMaintenanceOpen', _s37_open(c, 'writerOrMaintenanceOpen'), 'fresh-install')
++for _gen in (1, 2, 7):
++    _s37_expect('absent carrier: an association (grantGeneration %d) naming the admitted carrier over an empty SQLite carrier '
++                'is unknown-custody' % _gen, 'readOnlyRecovery',
++                _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': _gen}), 'fresh-install')
++_s37_expect('absent carrier: a surviving witness naming another project does not displace unknown-custody', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_OTHER), 'fresh-install')
++_s37_expect('absent carrier: a surviving witness naming the admitted project does not make the absent carrier absence',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK, witness=_S37_ADMITTED), 'fresh-install')
++_s37_expect('absent carrier: an association naming another carrier is binding-unusable first', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}), 'binding-unusable')
++ck('source38 absent-carrier scenario: read-only dispatch over an empty SQLite carrier creates, initializes and writes nothing',
++   _s37_state(c) == _before and not c.execute('SELECT name FROM sqlite_master').fetchall())
++c = sqlite3.connect(':memory:', isolation_level=None)
++c.execute('CREATE TABLE unrelated_fallback (x INTEGER)')
++_s37_expect('absent carrier: a fallback database holding only an unrelated table is unknown-custody, never absence',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'fresh-install')
++_s37_dir = _s37_tempfile.mkdtemp(prefix='opensip-absent-carrier-')
++_s37_path = os.path.join(_s37_dir, 'grant-journal.sqlite')
++try:
++    sqlite3.connect('file:%s?mode=ro' % _s37_path, uri=True).execute('SELECT name FROM sqlite_master').fetchall()
++    _s37_ro = 'opened'
++except sqlite3.Error:
++    _s37_ro = 'refused'
++ck('source38 absent-carrier scenario: a read-only open of a missing carrier file refuses and creates no file (S12 unreadable carrier)',
++   _s37_ro == 'refused' and not os.path.exists(_s37_path), _s37_ro)
++_s37_path2 = os.path.join(_s37_dir, 'empty-carrier.sqlite')
++sqlite3.connect(_s37_path2).close()
++_s37_bytes = open(_s37_path2, 'rb').read()
++c = sqlite3.connect('file:%s?mode=ro' % _s37_path2, uri=True)
++_s37_expect('absent carrier: an existing empty carrier file opened read-only is unknown-custody', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'fresh-install')
++c.close()
++ck('source38 absent-carrier scenario: the empty carrier file bytes are unchanged after the read-only dispatch',
++   open(_s37_path2, 'rb').read() == _s37_bytes)
++c = _s37_carrier('fresh')
++_s37_expect('absent carrier: an interrupted fresh install {B} with an association keeps its carrierFormat 3 precedence (busy prefix)',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'incomplete-footprint')
++_s37_fn = next(n for n in _s37_ast.parse(open(os.path.abspath(__file__), encoding='utf-8').read()).body
++              if isinstance(n, _s37_ast.FunctionDef) and n.name == '_s37_open')
++
++
++def _s37_returned(node):
++    """Result positions only: a returned string constant, or both arms of a returned conditional expression."""
++    if isinstance(node, _s37_ast.Constant) and isinstance(node.value, str):
++        return {node.value}
++    if isinstance(node, _s37_ast.IfExp):
++        return _s37_returned(node.body) | _s37_returned(node.orelse)
++    return set()
++
++
++_s37_results = set().union(*(_s37_returned(r.value) for r in _s37_ast.walk(_s37_fn) if isinstance(r, _s37_ast.Return)))
++ck('source38 absent-carrier totality: every _s37_open result except carrierFormat3 has exactly one published read-only standing',
++   'fresh-install' in _s37_results and set(_S37_RO_MAP) == _s37_results - {'carrierFormat3'}
++   and all(_S37_RO_MAP[r] in _S37_PROJ['readOnlyRecovery'] for r in _S37_RO_MAP), sorted(_s37_results))
++ck('source38 absent-carrier law: the unknown-custody route, reader law and totality phase law name the absent carrier',
++   _S37_RO_MAP.get('fresh-install') == 'unknown-custody'
++   and any('fresh-install' in o for o in _S37_PROJ['readOnlyRecovery'].get('unknown-custody', {}).get('observations', []))
++   and any('fresh-install' in l and 'unknown-custody' in l for l in disp['readDispatch']['readerLaws'])
++   and any(l.startswith('The read-only carrier stage is total') for l in _S37_PROJ['phaseLaws']))
+ 
+ _s37_need = ({(ph, st) for ph in ('writerOrMaintenanceOpen', 'maintenanceActCPublication') for st in _S37_PROJ[ph]}
+              | {('readOnlyRecovery', st) for st in _S37_RO_MAP})
+@@ -1103,6 +1172,10 @@
+    'F00–F53' in _S37_READONLY and 'all 54 cases remain not executed' in _S37_READONLY
+    and re.search(r'writer or maintenance carrier open only,\s+to a carrierFormat 3 migration footprint', _S37_READONLY) is not None
+    and re.search(r"it is the store\s+transition's detail", _S37_READONLY) is None)
++ck('source38 absent-carrier prose: the S12 unreadable-carrier row, carrier-format section 8.1 and read-only section 1 name the absent carrier',
++   len([l for l in _S37_S12 if 'observed absent' in l]) == 1 and 'observed absent' in _S37_CF
++   and '4. with no carrierFormat 3 object and no inherited `grant_journal`' in _S37_READONLY
++   and 'The carrier stage is total' in _S37_READONLY)
+ 
+ rep = {'control': 'c4-check-carrier-v3',
+        'passed': sum(1 for c in checks if c['pass']),
+--- v1/docs/v2/architecture/commit-recovery-readonly.v3.md
++++ v2/docs/v2/architecture/commit-recovery-readonly.v3.md
+@@ -105,13 +105,20 @@
+    observations, otherwise `unavailable-busy`; an unpublished lawful prefix → `unavailable-busy`; then an
+    association generation below `first_generation` → `unknown-carrier-incompatible`;
+ 3. with no carrierFormat 3 object and an inherited `grant_journal` → `unknown-carrier-incompatible`,
+-   whatever generation the association or a surviving witness names.
+-
+-Row 3 is decided from the object names alone and needs no witness comparison, so the witness and anchor rows
+-of Step 3 (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`, a witness naming another carrier and
+-the anchor table) are not reported for that request. `unknown-carrier-incompatible` is not a quarantine or
+-corruption report, so Step 4 does not gate it. The reader performs no migration, publishes no format row and
+-writes nothing on any of these paths. `MIGRATION.CORRUPT` is used on none of these read-only paths, and none
++   whatever generation the association or a surviving witness names;
++4. with no carrierFormat 3 object and no inherited `grant_journal` (open dispatch result `fresh-install`) →
++   `unknown-custody`, whatever generation the association or a surviving witness names.
++
++Rows 3 and 4 are decided from the object names alone and need no witness comparison, so the witness and anchor
++rows of Step 3 (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`, a witness naming another carrier and
++the anchor table) are not reported for that request. Row 4 is a lost, emptied or fallback carrier: an association
++already names it, so the absent carrier is custody the reader cannot observe, exactly as Step 1 treats an empty
++fallback ledger. It is never absence, never `terminal-not-committed` and never success, and the fresh-install path
++of a writer or maintenance open is a separate owner that read-only recovery never takes. Neither
++`unknown-carrier-incompatible` nor `unknown-custody` is a quarantine or corruption report, so Step 4 does not gate
++them. **The carrier stage is total:** every open dispatch result except `carrierFormat3`, which continues to the
++SEAL join, has exactly one §1 standing. The reader performs no migration, publishes no format row, creates or
++initializes no carrier and writes nothing on any of these paths. `MIGRATION.CORRUPT` is used on none of these read-only paths, and none
+ confirms, negates or settles an attempt. Exact phase table:
+ `design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+@@ -259,8 +266,9 @@
+ reader applies the carrier open dispatch to the bytes of that snapshot only, never to a cached
+ result: the object names and definitions, the format row, `project_key_digest` against the admitted
+ `projectKeyDigest`, the published generation boundary, and `A.grantGeneration` against
+-`first_generation`. Their conclusions, including a carrier observed unmigrated, are the carrier rows and
+-precedence of §1; a quarantine-class conclusion also requires Step 4.
++`first_generation`. Their conclusions, including a carrier observed unmigrated or absent, are the carrier rows
++and precedence of §1; a quarantine-class conclusion also requires Step 4. As in Step 1, a missing, empty or
++fallback carrier is never absence: it is `unknown-custody`.
+ 
+ **The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+ `record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the
+--- v1/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ v2/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -1303,7 +1303,7 @@
+ | read-only recovery: requested attempt still `admitted` **with no receipt**, or observations temporally skewed beyond the single permitted retry | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT`, `faultCause` `ledger-busy` (detail `PROJECT.BUSY`) |
+ | read-only recovery: a valid joined receipt is present while the attempt row is still `admitted`, or is absent entirely | **not** a busy or custody condition. The receipt establishes historical commitment, so the termination is the ordinary successful observation; pending or unknown settlement is disclosed operationally |
+ | read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`; and, with the association naming the admitted carrier, a carrier whose own published row or witness names another project, a migration footprint that is not a lawful durable prefix, or the F51 split-brain condition) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
+-| read-only recovery: unreadable ledger or carrier, unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io` |
++| read-only recovery: unreadable ledger or carrier, a bound carrier observed absent (an association names it, but the journal snapshot holds no `grant_journal` and no carrierFormat 3 object; never absence, not-committed or success, and never initialized), unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted |
+ | read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`, or of a carrier observed unmigrated, with no carrierFormat 3 object, in the same journal snapshot), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46; decided before the SEAL join, after the binding row and any carrierFormat 3 footprint row) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
+ | read-only recovery: the requested binding (the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest`) names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
+ 

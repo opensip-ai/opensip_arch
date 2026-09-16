@@ -1,0 +1,108 @@
+--- v1/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
++++ v2/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
+@@ -676,14 +676,14 @@
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 4096,
+-   "pattern": "^(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\/]+(/[^\\u0000\\\\/]+)*(?![\\s\\S])",
+-   "description": "INTERNAL relative DIRECTORY form: one or more slash-joined non-empty segments, no leading or trailing slash, no empty segment, no . or .. segment, no NUL and no backslash. This restates CanonicalPath dot-segment and character custody for a DIRECTORY and additionally closes two spellings CanonicalPath accepts that are not canonical for a directory used as a membership prefix: a trailing slash and an interior empty segment. The project root is NOT spelled here; see InternalUnitRootV1."
++   "pattern": "^(?!\\.\\.?(?:/|(?![\\s\\S])))[^\\u0000\\\\/]+(/(?!\\.\\.?(?:/|(?![\\s\\S])))[^\\u0000\\\\/]+)*(?![\\s\\S])",
++   "description": "INTERNAL relative DIRECTORY form: one or more slash-joined non-empty segments, no leading or trailing slash, no empty segment, no \".\" or \"..\" segment, no NUL and no backslash. Segments are decided by SPLITTING ON \"/\" and testing EXACT equality, which is the decision procedure the house already implements identically in two independent places: foundation/identity-model.v3.py `ordered()` (rejects a leading \"/\", a backslash, a NUL and any segment in [\"\", \".\", \"..\"] for every `path`/`logicalPath` string) and discovery-defaults.py `normalize_explicit_root()` (same four tests over `spec.split(\"/\")`). The negative test is therefore attached PER SEGMENT and ends with a strict end-of-input assertion rather than \"$\": \"$\" also matches before a trailing newline, and a \".*\"-prefixed lookahead does not cross a newline at all, so a single whole-string lookahead both accepts \"a\\n/../b\" (an exact \"..\" segment) and rejects \"a/.\\n\" (whose final segment is \".\\n\", not \".\"). No character beyond \"/\", backslash and NUL is excluded, because the owning grammar excludes none: a literal newline or other non-dot character inside a segment stays admissible. The declarative at-most-255-characters-per-segment bound of #/$defs/LogicalPath is deliberately NOT imported here; identity-schemas.v3 records it as a different, explicitly non-equivalent enforcement that reaches only two Blob path fields, and neither `ordered()` nor `normalize_explicit_root` imposes it. CanonicalPath is deliberately NOT this grammar: it admits a trailing slash and an interior empty segment (\"a//b\"), neither of which is canonical for a directory used as a membership prefix. The project root is NOT spelled here; see InternalUnitRootV1."
+   },
+   "InternalUnitRootV1": {
+    "type": "string",
+    "maxLength": 4096,
+-   "pattern": "^(?:|(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\/]+(/[^\\u0000\\\\/]+)*)(?![\\s\\S])",
+-   "description": "INTERNAL unit root: the EMPTY STRING for the project root, otherwise a CanonicalRelativeDirV1. The external sentinel . is NEVER a value of this field. . is the EXTERNAL spelling only: Config2 discovery.workspaceRoots and CLI --workspace-root (normalized inward by discovery-defaults.normalize_explicit_root) and the outward workspaceRoot of enumeration cells (spelled by discovery-defaults.spell_root). A retained WorkspaceUnitV2 carries the internal form and is never silently normalized after retention: _under_unit, _rel and the deepest-unit length ranking all read this field as an exact prefix."
++   "pattern": "^(?:|(?!\\.\\.?(?:/|(?![\\s\\S])))[^\\u0000\\\\/]+(/(?!\\.\\.?(?:/|(?![\\s\\S])))[^\\u0000\\\\/]+)*)(?![\\s\\S])",
++   "description": "INTERNAL unit root: the EMPTY STRING for the project root, otherwise a CanonicalRelativeDirV1. The external sentinel \".\" is NEVER a value of this field. \".\" is the EXTERNAL spelling only: Config2 discovery.workspaceRoots and CLI --workspace-root inbound (discovery-defaults.normalize_explicit_root, \".\" -> \"\"), and the outward workspaceRoot of the shared scope record and of enumeration cells (discovery-defaults.spell_root, \"\" -> \".\"), whose type is WorkspaceRootText and which states that it MAY be \".\" and is NOT LogicalPath. A retained WorkspaceUnitV2 carries the internal form and is never silently normalized after retention: _under_unit, _rel and the deepest-unit length ranking all read this field as an exact prefix. Segments are decided by SPLITTING ON \"/\" and testing EXACT equality, which is the decision procedure the house already implements identically in two independent places: foundation/identity-model.v3.py `ordered()` (rejects a leading \"/\", a backslash, a NUL and any segment in [\"\", \".\", \"..\"] for every `path`/`logicalPath` string) and discovery-defaults.py `normalize_explicit_root()` (same four tests over `spec.split(\"/\")`). The negative test is therefore attached PER SEGMENT and ends with a strict end-of-input assertion rather than \"$\": \"$\" also matches before a trailing newline, and a \".*\"-prefixed lookahead does not cross a newline at all, so a single whole-string lookahead both accepts \"a\\n/../b\" (an exact \"..\" segment) and rejects \"a/.\\n\" (whose final segment is \".\\n\", not \".\"). No character beyond \"/\", backslash and NUL is excluded, because the owning grammar excludes none: a literal newline or other non-dot character inside a segment stays admissible. The declarative at-most-255-characters-per-segment bound of #/$defs/LogicalPath is deliberately NOT imported here; identity-schemas.v3 records it as a different, explicitly non-equivalent enforcement that reaches only two Blob path fields, and neither `ordered()` nor `normalize_explicit_root` imposes it."
+   },
+   "Uint64": {
+    "type": "integer",
+--- v1/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ v2/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -64,6 +64,32 @@
+ UNIT_ROOT_FAULT = "NATIVE_UNIT_ROOT_REPRESENTATION"
+ _UNIT_ROOT_RE = re.compile(SCHEMAS["$defs"]["InternalUnitRootV1"]["pattern"])
+ _MEMBER_ROOT_RE = re.compile(SCHEMAS["$defs"]["CanonicalRelativeDirV1"]["pattern"])
++# EVERY bound of the two selectors is read, not only the pattern, so this early guard and the
++# schema decide the SAME value set for the representation being claimed. A pattern alone does
++# not: neither selector's regex bounds length, so a 4097-character root would satisfy the
++# grammar here and then be refused later by the declarative maxLength.
++_UNIT_ROOT_BOUNDS = (SCHEMAS["$defs"]["InternalUnitRootV1"].get("minLength", 0),
++                     SCHEMAS["$defs"]["InternalUnitRootV1"]["maxLength"])
++_MEMBER_ROOT_BOUNDS = (SCHEMAS["$defs"]["CanonicalRelativeDirV1"].get("minLength", 0),
++                       SCHEMAS["$defs"]["CanonicalRelativeDirV1"]["maxLength"])
++
++
++def _admit_root_scalar(value, regex, bounds, selector, where):
++    """One selector decision for one scalar: type, then declared length bounds, then grammar.
++
++    The three are reported apart because they are different defects: a non-string is a shape
++    error, a length violation is a bound error that the grammar cannot see, and a grammar
++    violation names the offending spelling.
++    """
++    if not isinstance(value, str):
++        raise AdmissionError("%s:%s:%s:%s" % (UNIT_ROOT_FAULT, where, selector,
++                                              "explicit-null" if value is None else "not-a-string"))
++    low, high = bounds
++    if len(value) < low or len(value) > high:
++        raise AdmissionError("%s:%s:%s:length=%d:bounds=%d..%d"
++                             % (UNIT_ROOT_FAULT, where, selector, len(value), low, high))
++    if regex.match(value) is None:
++        raise AdmissionError("%s:%s:%s:%r" % (UNIT_ROOT_FAULT, where, selector, value))
+ 
+ 
+ def admit_unit_roots(units: list[dict]) -> list[dict]:
+@@ -91,24 +117,42 @@
+     the typed public refusal `native.explicit-root-grammar` (CONFIG.INVALID). The classification is
+     decided by WHICH BOUNDARY the value crossed, never by a spelling, a file name or a message
+     prefix.
++
++    SCOPE. This decides the ROOT REPRESENTATION and nothing else: `rootPath` against
++    InternalUnitRootV1 and each present `memberPackageRoots[]` entry against
++    CanonicalRelativeDirV1, each on all three of type, declared length bounds and segment
++    grammar, so the guard and the schema claim the same value set. It is deliberately NOT
++    full-unit admission -- it does not look at `unitKind`, `markerSha256`, `provenance`,
++    ordinals or any other field, and callers that legitimately carry a partial unit record
++    keep working as long as their root representation is internal.
+     """
+     if not isinstance(units, list):
+         raise AdmissionError(UNIT_ROOT_FAULT + ":units:not-a-list")
+     for i, u in enumerate(units):
+         if not isinstance(u, dict):
+             raise AdmissionError(UNIT_ROOT_FAULT + ":units[%d]:not-an-object" % i)
+-        root = u.get("rootPath")
+-        if not isinstance(root, str) or _UNIT_ROOT_RE.match(root) is None:
+-            raise AdmissionError("%s:units[%d].rootPath:%s:%r" % (UNIT_ROOT_FAULT, i, UNIT_ROOT_SELECTOR, root))
+-        members = u.get("memberPackageRoots")
+-        if members is None:
++        if "rootPath" not in u:
++            raise AdmissionError("%s:units[%d].rootPath:%s:absent"
++                                 % (UNIT_ROOT_FAULT, i, UNIT_ROOT_SELECTOR))
++        _admit_root_scalar(u["rootPath"], _UNIT_ROOT_RE, _UNIT_ROOT_BOUNDS,
++                           UNIT_ROOT_SELECTOR, "units[%d].rootPath" % i)
++        # An ABSENT `memberPackageRoots` is permitted here and an explicitly null one is not.
++        # This guard decides the root REPRESENTATION only; it is not full-unit admission, and
++        # the model's own readers already tolerate the key being absent
++        # (`_cargo_roots_of_units` uses `u.get("memberPackageRoots", [])`), so a minimal caller
++        # that names no member roots is a lawful caller. A key that IS present states a value,
++        # and null is not a list of roots, so it is refused with the list-shape detail rather
++        # than silently treated as "none named".
++        if "memberPackageRoots" not in u:
+             continue
++        members = u["memberPackageRoots"]
+         if not isinstance(members, list):
+-            raise AdmissionError(UNIT_ROOT_FAULT + ":units[%d].memberPackageRoots:not-a-list" % i)
++            raise AdmissionError("%s:units[%d].memberPackageRoots:%s"
++                                 % (UNIT_ROOT_FAULT, i,
++                                    "explicit-null" if members is None else "not-a-list"))
+         for j, m in enumerate(members):
+-            if not isinstance(m, str) or _MEMBER_ROOT_RE.match(m) is None:
+-                raise AdmissionError("%s:units[%d].memberPackageRoots[%d]:%s:%r"
+-                                     % (UNIT_ROOT_FAULT, i, j, MEMBER_ROOT_SELECTOR, m))
++            _admit_root_scalar(m, _MEMBER_ROOT_RE, _MEMBER_ROOT_BOUNDS, MEMBER_ROOT_SELECTOR,
++                               "units[%d].memberPackageRoots[%d]" % (i, j))
+     return units
+ 
+ 

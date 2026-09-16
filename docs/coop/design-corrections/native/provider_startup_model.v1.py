@@ -1,0 +1,276 @@
+"""Provider startup wire reference v1 (design evidence only).
+
+Standing: PROPOSED reference for native-evidence section 9.7. It admits the JSON-vector form of
+typescript-semantic major-2 and rust-semantic major-3 OpenUniverse, UniverseAccepted, NativeContextVerified,
+pre-Analyze and post-Analyze Unavailable, and Coverage payloads against
+native/provider-startup.schemas.v1.json, executes the cross-record joins a schema cannot express (identity
+correlation, universe identity recomputation, Plan-bound native context, handshake joins, repository
+resolution joins, recursive echoes, phase-scoped Unavailable classes, Coverage wrapper-to-request key
+correspondence, the Cancelled observedPhase interval) and interprets the published
+native/typescript-protocol2-order.v1.json abstract event machine.
+
+Scope limits. It frames nothing and runs no worker, host process or compiler. Snapshot, dependency-source,
+prepared, Analyze and FactBatch frames reach the event machines as abstract events here; their payload laws
+are owned elsewhere. Host coverage conversion lives in native_evidence_model.v2 because it composes the
+existing native coverage owners. Rust dependencyMode/preparedMode are derived observations of an admitted
+OpenUniverseV3, never wire members.
+"""
+from __future__ import annotations
+
+import importlib.util
+import json
+import unicodedata
+from pathlib import Path
+
+from referencing import Registry, Resource
+from referencing.jsonschema import DRAFT202012
+
+HERE = Path(__file__).resolve().parent
+CORRECTIONS = HERE.parent
+
+
+def _load(name: str, path: Path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+C = _load("startup_canonical", CORRECTIONS / "foundation" / "canonical.py")
+
+STARTUP = json.loads((HERE / "provider-startup.schemas.v1.json").read_text(encoding="utf-8"))
+BUNDLE = json.loads((HERE / "native-evidence.schemas.v2.json").read_text(encoding="utf-8"))
+TS_ORDER = json.loads((HERE / "typescript-protocol2-order.v1.json").read_text(encoding="utf-8"))
+REGISTRY = Registry().with_resources(
+    [(doc["$id"], Resource(contents=doc, specification=DRAFT202012)) for doc in (STARTUP, BUNDLE)])
+LAW = STARTUP["x-opensip-startup-law"]
+
+TS, RS = "typescript-semantic", "rust-semantic"
+IDENTITY_TOKENS = ("source-identity-snapshot2", "plan-identity-plan2", "fact-identity-fact2", "coverage-v3")
+UNIVERSE_DOMAINS = {TS: "native.semantic-universe.typescript.v2", RS: "native.semantic-universe.rust.v2"}
+DEFS = {
+    TS: {"openUniverse": "TypeScriptOpenUniverseV2", "universeAccepted": "TypeScriptUniverseAcceptedV2",
+         "coverage": "TypeScriptCoverageV2", "coverageFrame": "Coverage", "postAnalyzeUnavailable": "TypeScriptUnavailableV2"},
+    RS: {"openUniverse": "OpenUniverseV3", "universeAccepted": "UniverseAcceptedV3",
+         "coverage": "CoverageV3", "coverageFrame": "CoverageV3", "postAnalyzeUnavailable": "UnavailableV3"},
+}
+PRE_ANALYZE_PHASE = "WAIT_NATIVE_CONTEXT_VERIFIED"
+POST_ANALYZE_PHASE = "ANALYZING"
+
+
+class ProviderStartupRefusal(C.AdmissionError):
+    """A provider startup/coverage wire record the host must refuse: PROVIDER.PROTOCOL_VIOLATION."""
+
+    def __init__(self, key: str, detail: str = ""):
+        self.key = key
+        self.detail = detail
+        super().__init__("PROVIDER.PROTOCOL_VIOLATION:" + key + (":" + detail if detail else ""))
+
+
+def _language(language: str) -> dict:
+    if language not in DEFS:
+        raise ProviderStartupRefusal("LANGUAGE", repr(language))
+    return DEFS[language]
+
+
+def validate_startup(def_name: str, value):
+    """Exact typed admission of one provider-startup.schemas.v1.json definition (no mutation)."""
+    if def_name not in STARTUP["$defs"]:
+        raise ProviderStartupRefusal("SCHEMA", "unknown definition " + def_name)
+    try:
+        return C.validate({"$ref": STARTUP["$id"] + "#/$defs/" + def_name}, value, registry=REGISTRY)
+    except Exception as exc:  # noqa: BLE001 - every schema refusal is one typed protocol violation
+        path = "/".join(str(p) for p in (getattr(exc, "absolute_path", None) or []))
+        message = getattr(exc, "message", None) or str(exc).splitlines()[0]
+        raise ProviderStartupRefusal("SCHEMA", f"{def_name}:/{path}:{message}") from exc
+
+
+def universe_identity(language: str, universe: dict) -> str:
+    """sha256:hex(H(native.semantic-universe.<language>.v2, universe.resolvedInputs))."""
+    return "sha256:" + C.identity(UNIVERSE_DOMAINS[language], universe["resolvedInputs"])
+
+
+def _nfc(value: str, where: str, identity_text: bool = False) -> None:
+    if unicodedata.normalize("NFC", value) != value:
+        raise ProviderStartupRefusal("TEXT_NOT_NFC", where)
+    if identity_text and (len(value.encode("utf-8")) > 4096 or any(ord(ch) < 0x20 or 0x80 <= ord(ch) <= 0x9f for ch in value)):
+        raise ProviderStartupRefusal("TEXT_IDENTITY", where)
+
+
+def admit_open_universe(language: str, payload, hello: dict, hello_ack: dict, expected: dict) -> dict:
+    """Host admission of the OpenUniverse it constructs. `expected` carries the host's own verified values:
+    executionId, snapshotId, planId, planIntentCommitment, planNativeContextDigests and, for rust-semantic,
+    preparedAuthorization {authorizationId, effects} of the selected prepared set (null members when none).
+    Returns the admitted payload and the derived event observation for the language's event machine."""
+    spec = _language(language)
+    validate_startup(spec["openUniverse"], payload)
+    _nfc(payload["executionId"], "executionId", identity_text=language == RS)
+    for member in ("executionId", "snapshotId", "planId", "planIntentCommitment"):
+        if payload[member] != expected[member]:
+            raise ProviderStartupRefusal("OPEN_UNIVERSE_CORRELATION", member)
+    universe = payload["universe"]
+    context_id = universe["resolvedInputs"]["nativeContextId"]
+    if context_id.removeprefix("sha256:") not in expected["planNativeContextDigests"]:
+        raise ProviderStartupRefusal("NATIVE_CONTEXT_NOT_PLAN_BOUND", context_id)
+    rule = LAW["typescriptOpenUniverse" if language == TS else "rustOpenUniverse"]
+    source = hello_ack if language == TS else hello["expectedIdentity"]
+    for member in rule["handshakeJoin"]:
+        if not C.equal_typed(universe[member], source[member]):
+            raise ProviderStartupRefusal("UNIVERSE_HANDSHAKE_JOIN", member)
+    event = {"frame": "OpenUniverse"}
+    if language == TS:
+        if payload["universeKey"] != universe_identity(language, universe):
+            raise ProviderStartupRefusal("UNIVERSE_KEY", payload["universeKey"])
+    else:
+        resolution, inputs = payload["repositoryResolution"], universe["resolvedInputs"]
+        for member in ("dependencySourceSetId", "preparedOutputSetId"):
+            if not C.equal_typed(resolution[member], inputs[member]):
+                raise ProviderStartupRefusal("REPOSITORY_RESOLUTION_JOIN", member)
+        authorization = expected.get("preparedAuthorization") or {"authorizationId": None, "effects": None}
+        if inputs["preparedOutputSetId"] is None:
+            authorization = {"authorizationId": None, "effects": None}
+        for member in ("authorizationId", "effects"):
+            if not C.equal_typed(resolution[member], authorization[member]):
+                raise ProviderStartupRefusal("REPOSITORY_RESOLUTION_JOIN", member)
+        if (resolution["authorizationId"] is None) != (resolution["effects"] is None):
+            raise ProviderStartupRefusal("REPOSITORY_RESOLUTION_JOIN", "authorizationId-effects-pairing")
+        # Derived observations of the admitted payload (x-opensip-startup-law rustOpenUniverse.derivedModes).
+        event.update({"dependencyMode": True, "preparedMode": inputs["preparedOutputSetId"] is not None})
+    return {"payload": payload, "event": event, "universeIdentity": universe_identity(language, universe),
+            "derivedObservations": sorted(k for k in event if k != "frame")}
+
+
+def admit_universe_accepted(language: str, payload, open_universe: dict) -> dict:
+    spec = _language(language)
+    validate_startup(spec["universeAccepted"], payload)
+    for member in STARTUP["$defs"][spec["universeAccepted"]]["required"]:
+        if not C.equal_typed(payload[member], open_universe[member]):
+            raise ProviderStartupRefusal("UNIVERSE_ACCEPTED_ECHO", member)
+    return {"event": {"frame": "UniverseAccepted"}}
+
+
+def admit_native_context_verified(payload, open_universe: dict) -> dict:
+    validate_startup("NativeContextVerifiedV1", payload)
+    want = open_universe["universe"]["resolvedInputs"]["nativeContextId"]
+    for member in ("nativeContextId", "recomputedNativeContextId"):
+        if payload[member] != want:
+            raise ProviderStartupRefusal("NATIVE_CONTEXT_VERIFIED_JOIN", member)
+    return {"event": {"frame": "NativeContextVerified"}}
+
+
+def admit_unavailable(language: str, payload, phase: str, open_universe: dict | None) -> dict:
+    """Phase-scoped Unavailable admission. In the NativeContextVerified interval only PreAnalyzeUnavailableV1 is
+    lawful; immediately after Analyze only the language's post-Analyze payload. Any other phase is left to the
+    event machine, which has no row for it."""
+    spec = _language(language)
+    if phase == PRE_ANALYZE_PHASE:
+        if not isinstance(payload, dict) or "affectedStageIds" in payload or "coverage" in payload:
+            raise ProviderStartupRefusal("UNAVAILABLE_PHASE_PAYLOAD", "post-Analyze payload before Analyze")
+        validate_startup("PreAnalyzeUnavailableV1", payload)
+        for member in ("executionId", "snapshotId", "planId"):
+            if payload[member] != open_universe[member]:
+                raise ProviderStartupRefusal("PRE_ANALYZE_UNAVAILABLE_CORRELATION", member)
+        if payload["nativeContextId"] != open_universe["universe"]["resolvedInputs"]["nativeContextId"]:
+            raise ProviderStartupRefusal("PRE_ANALYZE_UNAVAILABLE_CORRELATION", "nativeContextId")
+        if payload["recomputedNativeContextId"] == payload["nativeContextId"]:
+            raise ProviderStartupRefusal("PRE_ANALYZE_UNAVAILABLE_NOT_A_MISMATCH", "")
+        return {"payloadClass": "pre-analyze", "event": {"frame": "Unavailable", "unavailablePayload": "pre-analyze"}}
+    if phase == POST_ANALYZE_PHASE:
+        if isinstance(payload, dict) and ("recomputedNativeContextId" in payload or payload.get("reason") == "native-context-mismatch"):
+            raise ProviderStartupRefusal("UNAVAILABLE_PHASE_PAYLOAD", "pre-Analyze payload or reason after Analyze")
+        validate_startup(spec["postAnalyzeUnavailable"], payload)
+        return {"payloadClass": "post-analyze", "event": {"frame": "Unavailable", "unavailablePayload": "post-analyze"}}
+    return {"payloadClass": None, "event": {"frame": "Unavailable"}}
+
+
+def admit_coverage_frame(language: str, payload, stage_id: str, requested_keys: list[dict]) -> dict:
+    """Wrapper admission of one Coverage frame: CoverageResultV3 entries answer the stage's requested keys by
+    position; the entry's own scope/bijection/cause admission is native admit_coverage_result_v3."""
+    spec = _language(language)
+    validate_startup(spec["coverage"], payload)
+    if payload["stageId"] != stage_id:
+        raise ProviderStartupRefusal("COVERAGE_STAGE", payload["stageId"])
+    entries = payload["entries"]
+    if len(entries) != len(requested_keys):
+        raise ProviderStartupRefusal("COVERAGE_BIJECTION", f"{len(entries)} entries for {len(requested_keys)} keys")
+    for index, (result, requested) in enumerate(zip(entries, requested_keys)):
+        key = result["key"]
+        pairs = (("relation", requested["relation"]), ("resolution", requested["resolution"]),
+                 ("subjectScopeCommitment", requested["subjectScopeCommitment"]),
+                 ("sourceUniverse", requested["sourceUniverseId"].removeprefix("sha256:")),
+                 ("targetUniverse", requested["targetUniverseId"].removeprefix("sha256:")))
+        for member, want in pairs:
+            if key[member] != want:
+                raise ProviderStartupRefusal("COVERAGE_KEY_CORRESPONDENCE", f"{index}:{member}")
+    return {"entries": len(entries), "event": {"frame": spec["coverageFrame"]}}
+
+
+def cancelled_observed_phase(language: str, cancel_phase: str | None, payload) -> dict:
+    """TypeScript CancelledV1.observedPhase over the inserted NativeContextVerified interval."""
+    if language != TS:
+        return {"event": {"frame": "Cancelled"}, "checked": False}
+    rule = LAW["cancellation"]
+    observed = payload.get("observedPhase") if isinstance(payload, dict) else None
+    if observed not in ("handshake", "universe", "snapshot", "analysis"):
+        raise ProviderStartupRefusal("CANCELLED_OBSERVED_PHASE", repr(observed))
+    if cancel_phase in rule["hostPhasesAtCancel"] and observed != rule["observedPhase"]:
+        raise ProviderStartupRefusal("CANCELLED_OBSERVED_PHASE", f"{cancel_phase}->{observed}")
+    return {"event": {"frame": "Cancelled"}, "checked": cancel_phase in rule["hostPhasesAtCancel"]}
+
+
+_TS_PRE_TERMINAL = set(TS_ORDER["wildcards"]["*PRE_TERMINAL"]["phases"])
+_TS_PROCESS_FAULTS = set(TS_ORDER["wildcards"]["*PROCESS_FAULT"]["frames"])
+_TS_OBSERVATIONS = set(TS_ORDER["eventObservations"])
+_TS_SOURCE_FRAMES = {frame for update in TS_ORDER["stateUpdates"] if "sourceBytesSent" in update["sets"]
+                     for frame in update.get("onFrames", [update.get("onFrame")])}
+
+
+def typescript_protocol2_run(events: list[dict], stage_count: int = 1, rules: list[dict] | None = None) -> dict:
+    """Interpret the published typescript-semantic major-2 order table over abstract events. `rules` is a
+    reference control input only; the published table is the production shape."""
+    state = dict(TS_ORDER["initialState"])
+    trace: list[str] = []
+    for ev in events:
+        phase, frame = state["phase"], ev["frame"]
+        if phase == "FAULT":
+            trace.append("FAULT-absorb"); continue
+        if phase in ("WAIT_ZERO_EXIT", "WAIT_EOF", "DONE") and frame not in ("zero-exit", "eof") and frame not in _TS_PROCESS_FAULTS:
+            state["phase"] = "FAULT"; trace.append("post-terminal-frame"); continue
+        if frame in _TS_PROCESS_FAULTS:
+            state["phase"] = "FAULT"; trace.append("T2-22"); continue
+        view = dict(state)
+        view.update({k: ev[k] for k in _TS_OBSERVATIONS if k in ev})
+        matched = None
+        for row in (TS_ORDER["rules"] if rules is None else rules):
+            if row["phase"] == "*ANY":
+                continue
+            if row["phase"] == "*PRE_TERMINAL":
+                if phase not in _TS_PRE_TERMINAL:
+                    continue
+            elif row["phase"] != phase:
+                continue
+            if row["frame"] != frame or any(view.get(k) != v for k, v in row.get("guard", {}).items()):
+                continue
+            matched = row; break
+        if matched is None:
+            state["phase"] = "FAULT"; trace.append("T2-23"); continue
+        if frame == "HelloAck":
+            state["identityNegotiated"] = all(t in ev.get("capabilities", []) for t in IDENTITY_TOKENS)
+        if frame == "Analyze":
+            state["stageCount"] = stage_count; state["stageIndex"] = 0; state["outputSeen"] = False
+        if frame in ("FactBatch", "Coverage"):
+            state["outputSeen"] = True
+        if frame == "Cancel":
+            state["cancelPhase"] = phase
+        if frame in _TS_SOURCE_FRAMES:
+            state["sourceBytesSent"] = True
+        nxt = matched["next"]
+        if nxt == "ANALYZING_OR_READY_COMPLETE":
+            state["stageIndex"] += 1; state["stagesCompleted"] += 1
+            nxt = "READY_COMPLETE" if state["stageIndex"] == state["stageCount"] else "ANALYZING"
+        if "terminal" in matched:
+            state["terminalKind"] = matched["terminal"]
+        state["phase"] = nxt; trace.append(matched["id"])
+    return {"finalPhase": state["phase"], "terminalKind": state["terminalKind"], "sourceBytesSent": state["sourceBytesSent"],
+            "stagesCompleted": state["stagesCompleted"], "identityNegotiated": state["identityNegotiated"],
+            "cancelPhase": state["cancelPhase"], "trace": trace}

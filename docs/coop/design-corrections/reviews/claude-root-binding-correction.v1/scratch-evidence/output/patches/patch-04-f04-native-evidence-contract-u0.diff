@@ -1,0 +1,35 @@
+--- a/docs/v2/contracts/product-v1/native-evidence.md
++++ b/docs/v2/contracts/product-v1/native-evidence.md
+@@ -581,6 +581,32 @@
+ markerPath, markerSha256, recognizerId, recognizerVersion, provenance:
+ EXPLICIT|DISCOVERED|DEFAULTED, memberPackageRoots[]}`.
+ 
++- **U-0 (internal root representation, normative)** `rootPath` and every
++  `memberPackageRoots[]` entry are the **internal** relative directory form and nothing
++  else. `rootPath` is the empty string `` for the project root, or a canonical relative
++  directory (`#/$defs/InternalUnitRootV1`); a member package root is always a NON-EMPTY
++  canonical relative directory (`#/$defs/CanonicalRelativeDirV1`), because a member is
++  always strictly inside its workspace root. A canonical relative directory is one or more
++  `/`-joined non-empty segments with no leading or trailing `/`, no empty segment, no `.`
++  or `..` segment, no NUL and no backslash. `CanonicalPath` is deliberately NOT this
++  grammar: it admits a trailing `/` and an interior empty segment (`a//b`), neither of
++  which is canonical for a directory used as a membership prefix.
++  `.` is the **external** sentinel only, on both edges: Config2 `discovery.workspaceRoots`
++  and CLI `--workspace-root` inbound (`normalize_explicit_root`, `.` -> ``), and the
++  outward `workspaceRoot` of the shared scope record and of enumeration cells
++  (`spell_root`, `` -> `.`). A retained `WorkspaceUnitV2` is **never** normalized after
++  retention, because `rootPath` is consumed as an exact string prefix by U-3 membership, by
++  relative-path slicing and by the deepest-unit `len(rootPath)` ranking.
++  A unit whose root is not in internal form is refused **before** membership, slicing or
++  enumeration binding reads it (`admit_unit_roots`; internal decision key
++  `NATIVE_UNIT_ROOT_REPRESENTATION`, and `ENUMERATION_MEMBERSHIP_UNIT_ROOT` when the same
++  decision is reached through enumeration admission). This is an INTERNAL host-invariant
++  decision and adds no public detail code; a malformed EXTERNAL root keeps its existing
++  typed public refusal `native.explicit-root-grammar` (CONFIG.INVALID). Deciding it first
++  is the whole point: `.` makes every U-3 prefix test false, so the unit would silently own
++  no file and the result would be an empty but schema-valid analysis, and the enumeration
++  join would otherwise surface the same wrong root as `ENUMERATION_BINDING_PROGRAM_ENTRY`,
++  attributing it to a different field.
+ - **U-1 (one unit per directory and language family)** A directory holding
+   `Cargo.toml` yields a `rust` unit; a directory holding `tsconfig.json`,
+   `jsconfig.json` or `package.json` yields exactly one `tsjs` unit whose mode is

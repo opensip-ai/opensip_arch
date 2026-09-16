@@ -1,0 +1,64 @@
+--- frozen34/docs/coop/design-corrections/foundation/atom_model.v1.py
++++ author-successor/docs/coop/design-corrections/foundation/atom_model.v1.py
+@@ -875,22 +875,19 @@
+     return sorted(out, key=lambda pair: pair[0])
+ 
+ 
+-def _scope_descriptor(sc: dict) -> dict | None:
+-    if not all(k in sc for k in SUBJECT_SCOPE_FIELDS):
+-        return None
+-    subjects = sc["subjects"]
+-    if type(subjects) is not list:
+-        return None
+-    return {
+-        "schemaVersion": sc["schemaVersion"],
+-        "snapshotId": sc["snapshotId"],
+-        "sourceUniverse": sc["sourceUniverse"],
+-        "targetUniverse": sc["targetUniverse"],
+-        "relation": sc["relation"],
+-        "resolution": sc["resolution"],
+-        "enumeratorClosure": sc["enumeratorClosure"],
+-        "subjects": sorted(subjects, key=C.canonical),
+-    }
++def _scope_descriptor(sc: dict) -> dict:
++    """The subject-scope carrier fields of a retained scope, passed through exactly as present.
++
++    A missing or ill-typed field is NOT defaulted and does NOT skip validation: the native carrier
++    (identity-schemas.v3 `subject-scope`, all eight fields required) decides admission. An earlier
++    revision returned None here for a scope lacking a field, so a scope with no `enumeratorClosure`
++    key silently escaped the carrier and reached the untagged-scope fallbacks, while the same scope
++    with an explicit null was refused. Both now refuse `ATOM_NATIVE_CARRIER` (contract section 4).
++    """
++    desc = {k: sc[k] for k in SUBJECT_SCOPE_FIELDS if k in sc}
++    if type(desc.get("subjects")) is list:
++        desc["subjects"] = sorted(desc["subjects"], key=C.canonical)
++    return desc
+ 
+ 
+ def _is_owner_admission(exc: BaseException) -> bool:
+@@ -900,10 +897,8 @@
+     return type(exc).__name__ == "AdmissionError"
+ 
+ 
+-def _derive_scope_commitment(sc: dict) -> str | None:
++def _derive_scope_commitment(sc: dict) -> str:
+     desc = _scope_descriptor(sc)
+-    if desc is None:
+-        return None
+     try:
+         return N.subject_scope_commitment(desc)["subjectScopeCommitment"]
+     except ValidationError as exc:
+@@ -1523,6 +1518,13 @@
+                 "causes": causes, "coverageIds": cov_ids, "scopeIds": scope_ids, "nativeDeficiencies": defs}
+ 
+     ok_all, unknown = True, False
++    # Contract section 4, incoming step I1. The subject's own program U is always an owed source of
++    # incoming edges (U -> U). When no available owed binding has universe U, U's referrers were
++    # never searched, so a negative cannot be established: disclose it with the same record outgoing
++    # step 1 uses and keep accounting every other owed program. Accumulate, never return.
++    if not any(b.get("universe") == u for b in available):
++        causes.append(_cause("selector-unbound"))
++        ok_all, unknown = False, True
+     by_u: dict[str, list] = {}
+     for b in available:
+         by_u.setdefault(b["universe"], []).append(b)

@@ -1,0 +1,7 @@
+# Joint12 — reproducible policy/source provenance
+
+Extends joint11's explicit L02 choice into the generated source map and clean staging. Regeneration now runs the policy-obligation producer and source-map builder after all29schema/model/owner outputs. The four policy/producer files and actual external Grok joint10 review pin are explicit provenance inputs. The obligation record now records the actual combined review rather than stale false, while original-unit selection and product delivery remain open.
+
+All29schema/model/owner outputs regenerate byte-identically. Source-only clean staging starts with no generated schemas, models or fixtures and completes all5verification phases, including the19reference checks and205predecessor/replacement executions. Initial clean attempt correctly exposed an omitted new-plan-contract.md input; corrected staging adds that exact contract. Both failures and successful phase logs are preserved. No runtime algorithm or generated schema changed. Generated policy records are not fake owner/source approval.
+
+L02 prior stronger criterion remains superseded, not met. Final D9/source successor and original owner duties still need acceptance. Joint10 substantive combined-reference acceptance and joint11 root decision are preserved; joint12 is not source promotion, product implementation or milestone completion. See root12-source-closure.md and inherited documents for scope/history.

@@ -1,0 +1,16 @@
+--- /tmp/opensip-design-corrections/root-source36-preparation.v1/capture-prefreeze-delta.py
++++ capture-prefreeze-delta.py
+@@ -1,11 +1,11 @@
+ from pathlib import Path
+ import hashlib,json,argparse
+ p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);p.add_argument('--out',type=Path,required=True);a=p.parse_args()
+-mf=Path('/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews/candidate-subject.v35.json');sha=lambda b:hashlib.sha256(b).hexdigest();assert sha(mf.read_bytes())=='eb45c22b88a428887672d729be6645abf7d4d175474313d0909c8307d7966c85';m=json.loads(mf.read_bytes());old={r['path']:r for r in m['files']};actual={}
++mf=Path('/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews/candidate-subject.v36.json');sha=lambda b:hashlib.sha256(b).hexdigest();assert sha(mf.read_bytes())=='a729406b9de0d865294884f7575ea943c0935437091389e2acebe8e5aedb4235';m=json.loads(mf.read_bytes());old={r['path']:r for r in m['files']};actual={}
+ assert not a.out.exists();a.out.mkdir()
+ for p in a.source.rglob('*'):
+  if p.is_file():
+   assert not p.is_symlink();b=p.read_bytes();actual[p.relative_to(a.source).as_posix()]={'sha256':sha(b),'bytes':len(b)}
+ added=sorted(set(actual)-set(old));removed=sorted(set(old)-set(actual));changed=[dict(path=k,beforeSha256=old[k]['sha256'],afterSha256=v['sha256'],beforeBytes=old[k]['bytes'],afterBytes=v['bytes']) for k,v in sorted(actual.items()) if k in old and v['sha256']!=old[k]['sha256']]
+ record=dict(standing='Complete measured prefreeze delta; no acceptance',parentManifestSha256=sha(mf.read_bytes()),source=str(a.source),fileCount=len(actual),totalBytes=sum(v['bytes'] for v in actual.values()),added=added,removed=removed,changed=changed)
+-(a.out/'delta.json').write_text(json.dumps(record,indent=2)+'\n');print(json.dumps(record,indent=2));assert not added and not removed
++(a.out/'delta.json').write_text(json.dumps(record,indent=2)+'\n');print(json.dumps(record,indent=2));assert added == ['docs/v2/architecture/implementation-normative-inputs.v5.json'] and not removed, 'Only the explicitly required planning5 layer may be added'

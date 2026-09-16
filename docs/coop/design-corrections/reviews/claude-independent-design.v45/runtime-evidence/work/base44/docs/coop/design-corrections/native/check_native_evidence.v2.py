@@ -1,0 +1,691 @@
+"""Native evidence reference checker v2.
+
+Design evidence only: validates fixtures against the closed v2 schema bundle after exact typed
+admission, verifies every consumed source pin, runs hand-authored cases against
+native_evidence_model.v2.py and writes native-evidence-report.v2.json. It executes no compiler,
+provider, Cargo, or repository code and qualifies no platform.
+
+  python -I -B check_native_evidence.v2.py                 # verify pins, run cases, write report
+  python -I -B check_native_evidence.v2.py --regenerate-pins   # rewrite source-pins.v2.json from current bytes
+"""
+from __future__ import annotations
+
+import copy
+import hashlib
+import importlib.util
+import json
+import re
+import sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+REPO = HERE.parents[3]
+PINS_PATH = HERE / "source-pins.v2.json"
+CASES_PATH = HERE / "native-cases.v2.json"
+REPORT_PATH = HERE / "native-evidence-report.v2.json"
+FOUNDATION_DIR = HERE.parent / "foundation"
+MATRIX_PATH = HERE / "native-capability-matrix.v2.json"
+
+CONSUMED_SOURCES = [
+    # (repo-relative path, why it is consumed)
+    ("docs/coop/design-corrections/foundation/canonical.py", "imported: exact parse/canonical/identity/validate"),
+    ("docs/coop/design-corrections/foundation/identity-model.py", "imported: import2 identifier and ordered-array admission"),
+    ("docs/coop/design-corrections/foundation/identity-schemas.v2.json", "import2 wrapper, fact2, coverage2, snapshot2, plan2 closed schemas"),
+    ("docs/coop/design-corrections/foundation/relation-payload-schemas.v2.json", "the single relation ladder authority: LADDERS is read from it and every mirror is drift-checked against it in order"),
+    ("docs/coop/design-corrections/JOINT-INTERFACES.md", "shared choices; ownership; identity join"),
+    ("docs/v2/contracts/product-v1/identity-and-evidence.md", "canonical encoding, domain table, predicate semantics"),
+    ("docs/coop/design-corrections/reviews/native-author-feedback.v1.md", "the twelve corrections this unit answers"),
+    ("docs/coop/design-corrections/workflows/schemas/imported-evidence.schema.json", "workflow canonical RuntimePayloadV1/HistoryPayloadV1 schema document and ImportWrapperV2 digest recipes; payloadSchemaDigest = raw SHA-256 of these bytes (§7)"),
+    ("docs/coop/design-corrections/workflows/schemas/common.schema.json", "workflow shared SourceCorrespondence and primitives; validated directly by the model (§7)"),
+    ("docs/coop/design-corrections/workflows/schemas/test-execution.schema.json", "workflow canonical TestPayloadV1 schema document; payloadSchemaDigest = raw SHA-256 of these bytes (§7)"),
+    ("docs/coop/design-corrections/foundation/product-configuration.schema.v2.json", "Config2 discovery section consumed by unit discovery (§1.4)"),
+    ("docs/v2/contracts/product-v1/workflows-and-surfaces.md", "workflow §4 import registry and §7 P-TRUSTED-REPO spelling joined in §5/§7"),
+    ("docs/v2/contracts/product-v1/security-and-lifecycle.md", "S10 principal class repository-code and RepoExecutionGrantV1 joined in §5.1"),
+    ("docs/coop/design-corrections/security/security_lifecycle_model_v1.py", "repository-code principal, revocation/cancellation boundaries (H-2)"),
+    ("docs/coop/artifacts/rust-provider-protocol.v2.json", "superseded selectors: repositoryExecution, RepositoryResolutionV2, CoverageResultV2, UnavailableV2, limits, phases"),
+    ("docs/coop/artifacts/resolved-inputs.v2.json", "superseded selectors: rust-v1/typescript-v1 resolvedInputs, ifIncomplete"),
+    ("docs/coop/artifacts/delivery.v2.json", "superseded selectors: repositoryExecution.withGrant, offlineAssets, CoverageResultV1.completenessRule; platform inventory"),
+    ("docs/coop/artifacts/fact-plane.v1.json", "superseded selectors: sufficiency, deficiencyVocabulary, requirementSchema; relation registry extended"),
+    ("docs/coop/artifacts/check-fact-plane.py", "v1 sufficiency mirrored as the AR-12 counterexample oracle"),
+    ("docs/coop/artifacts/c2-plan-stage-schema.v4.json", "retained: subjectScopeCommitment"),
+    ("docs/coop/artifacts/permission-truth-tables.v9.json", "copied enforcement values for AuthorizedExecutionV2.effects"),
+    ("docs/coop/artifacts/d9-exit-contract.v1.14.json", "existing D9 classes/codes used by interim mappings"),
+    ("docs/coop/artifacts/fact-identity-policy.v2.json", "retained clone normalisation ladder"),
+    ("docs/coop/completion/language-quality-matrix.completed.v2.json", "TypeScript cells retained by the v2 matrix"),
+    ("docs/v2/architecture/10-mvp-and-future-scope.md", "one product design: native language depth, platforms, exclusions"),
+    ("docs/v2/architecture/03-configuration-and-security.md", "preserved confinement honesty and execution default"),
+    ("docs/coop/architecture-depth-review/REVIEW.md", "AR-07/12/13/16 findings"),
+    ("docs/coop/design-corrections/native/native-evidence.schemas.v2.json", "owned: closed schema bundle under test"),
+    ("docs/coop/design-corrections/native/native_evidence_model.v2.py", "owned: model under test"),
+    ("docs/coop/design-corrections/native/native-cases.v2.json", "owned: hand-authored cases"),
+    ("docs/coop/design-corrections/native/native-capability-matrix.v2.json", "owned: matrix validated here"),
+    ("docs/v2/contracts/product-v1/native-evidence.md", "owned: contract these checks evidence"),
+    ("docs/coop/design-corrections/native/provider-handshake.schemas.v1.json", "owned: provider handshake, limit and historical FactBatch records (section 9)"),
+    ("docs/coop/design-corrections/native/provider_wire_model.v1.py", "owned: provider wire joins loaded by the model (section 9)"),
+    ("docs/coop/design-corrections/native/fact-batch.schema.v3.json", "negotiated FactBatchV3 and the candidate vector item used by the wire model"),
+    ("docs/coop/design-corrections/native/occupancy-companion.schema.v1.json", "FactBatchV3 companion items resolved by the wire model registry"),
+    ("docs/coop/design-corrections/native/provider-startup.schemas.v1.json", "owned: startup, pre-Analyze Unavailable and Coverage wrapper records (section 9.7)"),
+    ("docs/coop/design-corrections/native/typescript-protocol2-order.v1.json", "owned: typescript-semantic major-2 abstract event machine (section 9.7)"),
+    ("docs/coop/design-corrections/native/provider_startup_model.v1.py", "owned: startup admissions and TypeScript order interpreter loaded by the model (section 9.7)"),
+]
+PRIMARY_REFERENCES = [
+    {"url": "https://doc.rust-lang.org/cargo/reference/config.html", "readOn": "2026-09-06", "claim": "Cargo reads .cargo/config.toml (and legacy .cargo/config) in all ancestors of CWD and in CARGO_HOME; arrays merge; executable/linker/runner/credential knobs and environment overrides exist"},
+    {"url": "https://doc.rust-lang.org/rustc/command-line-arguments.html", "readOn": "2026-09-06", "claim": "rustc accepts -C linker/link-arg/link-args/link-self-contained, -L, --sysroot, --extern, --remap-path-prefix and @path response files"},
+    {"url": "https://www.typescriptlang.org/tsconfig/allowJs.html", "readOn": "2026-09-06", "claim": "allowJs admits JavaScript files into the program alongside TypeScript"},
+    {"url": "https://www.typescriptlang.org/tsconfig/checkJs.html", "readOn": "2026-09-06", "claim": "checkJs enables error reporting in JavaScript files; it does not change what is resolved"},
+]
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def regenerate_pins() -> None:
+    pins = [{"path": p, "sha256": sha256_file(REPO / p), "consumedFor": why} for p, why in CONSUMED_SOURCES]
+    doc = {"artifact": "opensip.native-evidence.source-pins", "version": 2, "status": "PROPOSED",
+           "purpose": "Exact SHA-256 pins of every source consumed by the native unit (contract, schemas, model, cases, foundation canonical/identity, joint interfaces, superseded artifacts). The checker refuses to run cases if any pin differs.",
+           "primaryReferences": PRIMARY_REFERENCES, "pins": pins}
+    PINS_PATH.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
+    print(f"wrote {PINS_PATH.name} with {len(pins)} pins")
+
+
+def verify_pins() -> list[dict]:
+    if not PINS_PATH.exists():
+        return [{"path": str(PINS_PATH), "fault": "pin file missing; run --regenerate-pins"}]
+    pins = json.loads(PINS_PATH.read_text(encoding="utf-8"))["pins"]
+    faults = []
+    pinned = {p["path"] for p in pins}
+    for p, _ in CONSUMED_SOURCES:
+        if p not in pinned:
+            faults.append({"path": p, "fault": "consumed source not pinned"})
+    for p in pins:
+        target = REPO / p["path"]
+        if not target.exists():
+            faults.append({"path": p["path"], "fault": "missing"}); continue
+        actual = sha256_file(target)
+        if actual != p["sha256"]:
+            faults.append({"path": p["path"], "fault": "sha256 mismatch", "expected": p["sha256"], "actual": actual})
+    return faults
+
+
+def load_model():
+    spec = importlib.util.spec_from_file_location("native_evidence_model_v2", HERE / "native_evidence_model.v2.py")
+    m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+    return m
+
+
+# ---------------------------------------------------------------------------
+# Step interpreter
+# ---------------------------------------------------------------------------
+
+def expand_tokens(spec: str) -> list[dict]:
+    """'kind:value kind:value ...' shorthand for token lists; '|' separates value with spaces."""
+    out = []
+    for item in spec.split():
+        kind, _, value = item.partition(":")
+        out.append({"kind": kind, "value": value.replace("|", " ")})
+    return out
+
+
+def resolve(value, env):
+    if isinstance(value, str) and value.startswith("$"):
+        head, *rest = value[1:].split(".")
+        cur = env[head]
+        for part in rest:
+            cur = cur[int(part)] if isinstance(cur, list) else cur[part]
+        return copy.deepcopy(cur)
+    if isinstance(value, dict):
+        if set(value) == {"$tokens"}:
+            return expand_tokens(value["$tokens"])
+        if set(value) == {"$set"}:
+            return set(resolve(value["$set"], env))
+        if set(value) == {"$merge", "$with"}:
+            base = resolve(value["$merge"], env)
+            for path, v in value["$with"].items():
+                cur = base; keys = json.loads(path) if path.startswith("[") else path.split(".")
+                for k in keys[:-1]:
+                    cur = cur[int(k)] if isinstance(cur, list) else cur[k]
+                last = keys[-1]
+                if isinstance(cur, list):
+                    cur[int(last)] = resolve(v, env)
+                else:
+                    cur[last] = resolve(v, env)
+            return base
+        return {k: resolve(v, env) for k, v in value.items()}
+    if isinstance(value, list):
+        return [resolve(v, env) for v in value]
+    return value
+
+
+def get_path(obj, path: str):
+    cur = obj
+    for part in path.split("."):
+        if part == "":
+            continue
+        if isinstance(cur, list):
+            cur = cur[int(part)]
+        elif isinstance(cur, dict):
+            cur = cur[part]
+        else:
+            cur = getattr(cur, part)
+    return cur
+
+
+def same(a, b) -> bool:
+    if isinstance(a, set):
+        a = sorted(a)
+    if isinstance(b, set):
+        b = sorted(b)
+    if type(a) is not type(b):
+        return False
+    if isinstance(a, dict):
+        return a.keys() == b.keys() and all(same(a[k], b[k]) for k in a)
+    if isinstance(a, list):
+        return len(a) == len(b) and all(same(x, y) for x, y in zip(a, b))
+    return a == b
+
+
+def run_case(case: dict, model, fixtures: dict) -> dict:
+    env: dict = {"fixtures": fixtures}
+    faults: list[str] = []
+    for step in case.get("steps", []):
+        fn = step["fn"]; args = resolve(step.get("args", {}), env); bind = step.get("bind")
+        expect_error = step.get("expectError")
+        try:
+            if fn == "parse":
+                result = model.C.parse(args["raw"].encode("utf-8"))
+            elif fn == "validate":
+                result = model.validate_native(args["def"], args["value"])
+            elif fn == "canonical":
+                result = model.C.canonical(args["value"]).decode("utf-8")
+            elif fn == "identityVector":
+                canonical = model.C.canonical(args["descriptor"])
+                if canonical != args["canonicalUtf8"].encode("utf-8"):
+                    faults.append(f"canonical bytes differ from hand-spelled: {canonical!r}")
+                preimage = b"opensip.product.v1\0" + args["domain"].encode("ascii") + b"\0" + len(canonical).to_bytes(8, "big") + canonical
+                oracle = "sha256:" + hashlib.sha256(preimage).hexdigest()
+                result = {"model": model.native_identity(args["domain"], args["def"], args["descriptor"]), "oracle": oracle,
+                          "rawSha256": hashlib.sha256(canonical).hexdigest()}
+            elif fn == "foundationIdentityVector":
+                # Independent hashlib oracle for a FOUNDATION-domain identity (subject-scope / closure /
+                # coverage), the counterpart of identityVector for native domains. The native `sha256:`
+                # text form of the same digest is returned so a case can pin both spellings at once.
+                canonical = model.C.canonical(args["descriptor"])
+                if "canonicalUtf8" in args and canonical != args["canonicalUtf8"].encode("utf-8"):
+                    faults.append(f"canonical bytes differ from hand-spelled: {canonical!r}")
+                preimage = b"opensip.product.v1\0" + args["domain"].encode("ascii") + b"\0" + len(canonical).to_bytes(8, "big") + canonical
+                oracle_hex = hashlib.sha256(preimage).hexdigest()
+                result = {"oracle": model.IM.PREFIX[args["domain"]] + ":" + oracle_hex,
+                          "model": model.IM.identifier(args["domain"], args["descriptor"]),
+                          "sha256Text": "sha256:" + oracle_hex, "rawSha256": hashlib.sha256(canonical).hexdigest()}
+            elif fn == "concat":
+                # join resolved parts into one string, so a case can assert an exact typed refusal whose
+                # subject is a value the step above computed rather than a frozen literal
+                result = "".join(args["parts"])
+            elif fn == "sha256Utf8":
+                result = hashlib.sha256(args["text"].encode("utf-8")).hexdigest()
+            elif fn == "schemaDocumentDigest":
+                result = hashlib.sha256((REPO / args["path"]).read_bytes()).hexdigest()
+            elif fn == "rawSha256Canonical":
+                result = hashlib.sha256(model.C.canonical(args["value"])).hexdigest()
+            elif fn == "domainSha256Hex":
+                # hashlib oracle over an independently authored deterministic-CBOR preimage under a
+                # delivery.v2 commitment domain: sha256:hex(SHA-256(UTF8(domain) || 0x00 || bytes)).
+                result = "sha256:" + hashlib.sha256(args["domain"].encode("utf-8") + b"\0" + bytes.fromhex(args["hex"])).hexdigest()
+            else:
+                result = getattr(model, fn)(**args)
+            if expect_error:
+                faults.append(f"step {fn}: expected error containing {expect_error!r} but got result")
+        except Exception as exc:  # noqa: BLE001 — every refusal is a typed exception here
+            text = getattr(exc, "message", None) or str(exc)
+            if expect_error and expect_error in text:
+                result = {"error": text}
+            else:
+                faults.append(f"step {fn}: {type(exc).__name__}: {text}")
+                result = None
+        if bind:
+            env[bind] = result
+    for path, expected in case.get("expect", {}).items():
+        try:
+            actual = get_path(env, path.lstrip("$"))
+        except Exception as exc:  # noqa: BLE001
+            faults.append(f"expect {path}: unreachable ({exc})"); continue
+        if isinstance(expected, dict) and set(expected) == {"$not"}:
+            forbidden = resolve(expected["$not"], env)
+            if same(actual, forbidden):
+                faults.append(f"expect {path}: must differ from {json.dumps(forbidden, default=sorted)[:200]}")
+            continue
+        expected_r = resolve(expected, env)
+        if not same(actual if not isinstance(actual, set) else sorted(actual), expected_r if not isinstance(expected_r, set) else sorted(expected_r)):
+            faults.append(f"expect {path}: got {json.dumps(actual, default=sorted)[:400]} want {json.dumps(expected_r, default=sorted)[:400]}")
+    return {"id": case["id"], "feedback": case.get("feedback", []), "kind": case.get("kind", "positive"), "passed": not faults, "faults": faults}
+
+
+def main(argv: list[str]) -> int:
+    if "--regenerate-pins" in argv:
+        regenerate_pins(); return 0
+    report = {"artifact": "opensip.native-evidence-report", "version": 2, "status": "PROPOSED",
+              "standing": "design reference evidence; not product measurement; no compiler, provider, Cargo or repository code executed; no platform qualified",
+              "python": sys.version.split()[0], "jsonschema": __import__("importlib.metadata").metadata.version("jsonschema"),
+              "trustedObservationInputs": "every fixture's provider/adapter observations are assumed inputs marked in native-cases.v2.json; the model decides host behavior only"}
+    pin_faults = verify_pins()
+    report["pins"] = {"verified": not pin_faults, "faults": pin_faults}
+    if pin_faults:
+        report["result"] = "PIN-MISMATCH"; REPORT_PATH.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+        print(json.dumps(pin_faults, indent=1)); return 2
+    model = load_model()
+    from jsonschema import Draft202012Validator
+    Draft202012Validator.check_schema(model.SCHEMAS)
+
+    # ---- relation ladder: one authority, every mirror drift-checked exactly AND IN ORDER.
+    # The kit carried four independent ladder copies and they had already drifted: the capability
+    # domain registry's arrays were alphabetised while declaring the inherited ladder as their
+    # source, reversing calls/imports/references. Order is load-bearing (_rung_index compares
+    # positions), so set equality is not a sufficient check.
+    authority = model.C.parse(
+        (FOUNDATION_DIR / "relation-payload-schemas.v2.json").read_bytes()
+    )["x-opensip-relation-registry"]["relations"]
+    # Plain json: the inherited artifact is a historical design document, not a product payload
+    # under C (it carries float lexemes elsewhere, which C correctly refuses). Only its ladders
+    # are read here, and they are compared as exact string arrays.
+    inherited = json.loads(
+        (REPO / "docs/coop/artifacts/fact-plane.v1.json").read_text(encoding="utf-8")
+    )["relationRegistry"]["relations"]
+    domain_ladders = model.CAPABILITY_DOMAINS["registries"]["RELATION-LADDER-DOMAIN-V2"]["ladders"]
+    rung_vocabulary = set(model.SCHEMAS["$defs"]["Rung"]["enum"])
+    ladder_faults: list[str] = []
+    for name, row in sorted(authority.items()):
+        ladder = row.get("ladder")
+        if not ladder:
+            ladder_faults.append(f"{name}: authority publishes no ladder")
+            continue
+        if len(set(ladder)) != len(ladder):
+            ladder_faults.append(f"{name}: ladder repeats a rung")
+        # unresolved-edge is the successor's own relation and has no inherited row.
+        if name in inherited and inherited[name]["ladder"] != ladder:
+            ladder_faults.append(
+                f"{name}: inherited fact-plane ladder {inherited[name]['ladder']} != authority {ladder}")
+        if model.LADDERS.get(name) != ladder:
+            ladder_faults.append(f"{name}: model LADDERS {model.LADDERS.get(name)} != authority {ladder}")
+        if domain_ladders.get(name) != ladder:
+            ladder_faults.append(
+                f"{name}: RELATION-LADDER-DOMAIN-V2 {domain_ladders.get(name)} != authority {ladder}")
+        for rung in ladder:
+            if rung not in rung_vocabulary:
+                ladder_faults.append(f"{name}: rung {rung} is outside the Rung vocabulary")
+        # A rung table entry that is not a ladder rung is a field rule for a rung that cannot occur.
+        for rung in row["rungs"]:
+            if rung not in ladder:
+                ladder_faults.append(f"{name}: rungs table names {rung}, which is not on its ladder")
+    for name in sorted(set(inherited) - set(authority)):
+        ladder_faults.append(f"{name}: inherited relation absent from the authority")
+    for name in sorted(set(domain_ladders) - set(authority)):
+        ladder_faults.append(f"{name}: capability registry names a relation the authority does not")
+    # Every vocabulary member must belong to exactly one relation's ladder: a rung nobody can carry
+    # is a live token with no owner, which is how cross-relation rungs get accepted.
+    owners: dict[str, list[str]] = {}
+    for name, row in authority.items():
+        for rung in row.get("ladder", []):
+            owners.setdefault(rung, []).append(name)
+    for rung in sorted(rung_vocabulary - set(owners)):
+        ladder_faults.append(f"vocabulary rung {rung} belongs to no relation ladder")
+    # ---- syntax-only universe: the advertised grammar set and the identity vocabulary agree.
+    # native-evidence 1.2 advertises syntax-only over "any file whose extension maps to a bundled
+    # grammar". A bundled grammar whose languageId the body-language-version record cannot express
+    # would make that advertisement outrun what a clone identity can say, so the two are held equal
+    # here rather than by convention.
+    foundation_schemas = model.C.parse(
+        (FOUNDATION_DIR / "identity-schemas.v2.json").read_bytes())
+    body_language_ids = set(
+        foundation_schemas["$defs"]["body-language-version"]["properties"]["languageId"]["enum"])
+    grammar_language_ids = set(
+        model.SCHEMAS["$defs"]["SyntaxGrammarBundleV1"]["properties"]["grammars"]["items"]
+        ["properties"]["languageId"]["enum"])
+    universe_sets = foundation_schemas["x-opensip-digest-domains"]["domainSets"]
+    syntax_binding = universe_sets["native-semantic-universe"][
+        "native.semantic-universe.syntax.v2"]["languageVersionBinding"]
+    syntax_faults: list[str] = []
+    # The descriptor vocabulary must cover EXACTLY what the host bundles. An earlier revision
+    # required it to equal the body-language-version enum, which silently excluded the four
+    # data/document grammars the host has always bundled and made native-evidence 1.2's
+    # "any file whose extension maps to a bundled grammar" unrepresentable for them.
+    bundled_language_ids = set(model.BUNDLED_GRAMMARS.values())
+    if grammar_language_ids != bundled_language_ids:
+        syntax_faults.append(
+            f"grammar descriptor languageId enum {sorted(grammar_language_ids)} != "
+            f"host BUNDLED_GRAMMARS languages {sorted(bundled_language_ids)}")
+    # What IS held equal to the body-language enum is the clone-capable subset. section 6.3 gives
+    # body spans and an L1-L3 normalisation table to the code languages only, so a data/document
+    # grammar must never be able to enter a clone preimage, and a code language must never be
+    # missing from it.
+    if not body_language_ids <= bundled_language_ids:
+        syntax_faults.append("a clone body language is not a bundled grammar language")
+    data_languages = bundled_language_ids - body_language_ids
+    if not data_languages:
+        syntax_faults.append("no data/document grammar class remains; the distinction was lost")
+    # Every bundled suffix belongs to exactly one language, and only code suffixes carry a dialect.
+    dialect_suffixes = set(syntax_binding["dialect"]["table"])
+    code_suffixes = {s for s, l in model.BUNDLED_GRAMMARS.items() if l in body_language_ids}
+    data_suffixes = {s for s, l in model.BUNDLED_GRAMMARS.items() if l in data_languages}
+    # Not naive set equality: the dialect table may carry LONGEST-MATCH sub-variants of a bundled
+    # suffix (`.d.ts` is ts-declaration and is reached through the bundled `.ts`). So every bundled
+    # code suffix must appear, and every dialect entry must resolve to a bundled code suffix.
+    for suffix in sorted(code_suffixes - dialect_suffixes):
+        syntax_faults.append("bundled code suffix has no grammar dialect variant: " + suffix)
+    for suffix in sorted(dialect_suffixes):
+        base = max((b for b in model.BUNDLED_GRAMMARS if suffix.endswith(b)), key=len, default=None)
+        if base is None or model.BUNDLED_GRAMMARS[base] not in body_language_ids:
+            syntax_faults.append("dialect variant resolves to no bundled code grammar: " + suffix)
+    if data_suffixes & dialect_suffixes:
+        syntax_faults.append(
+            "a data/document suffix has a grammar dialect variant, so it could mint a body identity: "
+            + ",".join(sorted(data_suffixes & dialect_suffixes)))
+    if not set(syntax_binding["bodyLanguages"]) <= body_language_ids:
+        syntax_faults.append("syntax universe bodyLanguages outside the languageId enum")
+    variants = set(syntax_binding["dialect"]["table"].values())
+    if set(syntax_binding["bodyLanguageByVariant"]) != variants:
+        syntax_faults.append("bodyLanguageByVariant does not cover exactly the dialect variants")
+    if set(syntax_binding["bodyLanguageByVariant"].values()) != set(syntax_binding["bodyLanguages"]):
+        syntax_faults.append("bodyLanguageByVariant values are not exactly bodyLanguages")
+    # The grammar dialect axis must stay distinct from the compiler ones, or a grammar-parsed body
+    # could mint the same identity as a compiler-parsed one.
+    compiler_keys = {universe_sets["native-semantic-universe"][d]["languageVersionBinding"]["dialect"]["key"]
+                     for d in ("native.semantic-universe.typescript.v2", "native.semantic-universe.rust.v2")}
+    if syntax_binding["dialect"]["key"] in compiler_keys:
+        syntax_faults.append("syntax dialect key collides with a compiler dialect key")
+    if universe_sets["native-context"]["native.context.syntax.v2"]["language"] != "syntax":
+        syntax_faults.append("syntax context row language is not `syntax`")
+    report["syntaxOnlyUniverse"] = {
+        "contextDomain": "native.context.syntax.v2",
+        "universeDomain": "native.semantic-universe.syntax.v2",
+        "dialectKey": syntax_binding["dialect"]["key"],
+        "bundledGrammarLanguages": sorted(bundled_language_ids),
+        "cloneBodyIdentityLanguages": sorted(body_language_ids),
+        "dataDocumentLanguages": sorted(data_languages),
+        "faults": syntax_faults,
+    }
+    ladder_faults.extend("syntax-only: " + f for f in syntax_faults)
+
+    report["ladderAuthority"] = {
+        "authority": "foundation/relation-payload-schemas.v2.json#/x-opensip-relation-registry/relations[].ladder",
+        "mirrorsChecked": ["fact-plane.v1 relationRegistry", "native_evidence_model.v2.LADDERS",
+                           "capability-manifest-domains.v2 RELATION-LADDER-DOMAIN-V2"],
+        "relations": len(authority), "faults": ladder_faults,
+        "sharedRungsAcrossRelations": {r: sorted(o) for r, o in sorted(owners.items()) if len(o) > 1},
+    }
+    open_objects = []
+    digest_sites = []
+    def walk(x, p):
+        if isinstance(x, dict):
+            if "x-opensip-digest" in x:
+                digest_sites.append({"path": p, **x["x-opensip-digest"]})
+            if x.get("type") == "object" and "additionalProperties" not in x:
+                open_objects.append(p)
+            for k, v in x.items():
+                walk(v, p + "/" + k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk(v, p + "/" + str(i))
+    walk(model.SCHEMAS, "")
+    report["schemas"] = {"defs": len(model.SCHEMAS["$defs"]), "openObjects": open_objects}
+    digest_law = model.SCHEMAS["x-opensip-digest-law"]
+    undeclared_retention = [s["path"] for s in digest_sites if s.get("retention") not in digest_law["retention"]]
+    undeclared_representation = [s["path"] for s in digest_sites if s.get("representation") not in digest_law["representations"]]
+    report["digestLaw"] = {"annotationSites": len(digest_sites),
+                          "undeclaredRetentionSites": undeclared_retention,
+                          "undeclaredRepresentationSites": undeclared_representation}
+
+    # ---- provider handshake publication (section 9). The successor records are held to the PUBLISHED
+    # inherited inputs, not to themselves: TypeScript limits are re-derived from delivery.v2 AND from the
+    # section 9.4 prose; ProtocolLimitsV3 from rust-provider-protocol.v2 plus the section 9.3 prose; every
+    # inherited Hello/HelloAck member must survive in its successor; every TypeScript HelloAck member must be
+    # bound to a descriptor or an echo; the Rust identity has a retained Plan-row source; the contract
+    # digest names real bytes.
+    wire_doc = json.loads((HERE / "provider-handshake.schemas.v1.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(wire_doc)
+    wire_faults: list[str] = []
+    wire_open: list[str] = []
+    def walk_wire(x, p):
+        if isinstance(x, dict):
+            if x.get("type") == "object" and "additionalProperties" not in x:
+                wire_open.append(p)
+            for k, v in x.items():
+                walk_wire(v, p + "/" + k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk_wire(v, p + "/" + str(i))
+    walk_wire(wire_doc, "")
+    wdefs = wire_doc["$defs"]
+    def const_map(name):
+        d = wdefs[name]
+        if d.get("additionalProperties") is not False or sorted(d["required"]) != sorted(d["properties"]):
+            wire_faults.append(name + ": not a closed map whose required members are exactly its properties")
+        return {k: v.get("const") for k, v in d["properties"].items()}
+    delivery_doc = json.loads((REPO / "docs/coop/artifacts/delivery.v2.json").read_text(encoding="utf-8"))
+    rust_v2 = json.loads((REPO / "docs/coop/artifacts/rust-provider-protocol.v2.json").read_text(encoding="utf-8"))
+    ts_protocol = delivery_doc["typescriptSemanticSubstrate"]["providerProtocol"]
+    ts_identity = delivery_doc["typescriptSemanticSubstrate"]["identity"]
+    ts_inherited = {k: v for k, v in ts_protocol["wireSchema"]["limits"].items() if k != "limitRule"}
+    contract_text = (REPO / "docs/v2/contracts/product-v1/native-evidence.md").read_text(encoding="utf-8")
+    def section_limits(start, end):
+        body = contract_text.split(start, 1)[1].split(end, 1)[0]
+        return {m.group(1): int(m.group(2)) for m in re.finditer(r"`(max\w+) (\d+)`", body)}
+    ts_prose = section_limits("### 9.4 TypeScript major 2", "### 9.5")
+    rust_prose = section_limits("### 9.3 Limits", "### 9.4")
+    ts_published = const_map("TypeScriptProtocolLimitsV1")
+    if not (same(ts_published, ts_inherited) and same(ts_prose, ts_inherited)):
+        wire_faults.append(f"TypeScriptProtocolLimitsV1 {ts_published} / section 9.4 {ts_prose} != delivery.v2 numeric limits {ts_inherited}")
+    rust_expected = dict(rust_v2["limits"])
+    rust_expected.update(rust_prose)
+    rust_published = const_map("ProtocolLimitsV3")
+    if (len(rust_prose) != 8 or set(rust_prose) & set(rust_v2["limits"]) or len(rust_published) != 32
+            or not same(rust_published, rust_expected)):
+        wire_faults.append(f"ProtocolLimitsV3 ({len(rust_published)}) != 24 rust-provider-protocol.v2 limits + 8 section 9.3 members {rust_prose}")
+    ps_ts = ts_protocol["wireSchema"]["payloadSchemas"]
+    ps_rust = rust_v2["wireSchema"]["payloadSchemas"]
+    for name, inherited_required in [
+            ("TypeScriptHelloV2", ps_ts["HelloV1"]["required"]),
+            ("TypeScriptHelloAckV2", ps_ts["HelloAckV1"]["required"]),
+            ("TypeScriptHelloAckV2", ts_identity["handshakeRequired"]),
+            ("HelloV3", ps_rust["HelloV2"]["required"]),
+            ("HelloAckV3", ps_rust["HelloAckV2"]["required"]),
+            ("ExpectedRustIdentityV3", rust_v2["wireSchema"]["definitions"]["ExpectedRustIdentityV2"]["required"]),
+            ("HelloV3", model.SCHEMAS["$defs"]["HelloV3"]["required"]),
+            ("HelloAckV3", model.SCHEMAS["$defs"]["HelloAckV3"]["required"])]:
+        lost = sorted(set(inherited_required) - set(wdefs[name]["required"]))
+        if lost:
+            wire_faults.append(f"{name} drops inherited members {lost}")
+    wire_law = wire_doc["x-opensip-wire-law"]
+    ts_binding = wire_law["typescriptDescriptorBinding"]
+    unbound = sorted(set(wdefs["TypeScriptHelloAckV2"]["required"]) - set(ts_binding["providerDescriptorFields"])
+                     - set(ts_binding["runtimeDescriptorFields"])
+                     - {"providerDescriptorSha256", "runtimeDescriptorSha256", "capabilities", "identityVersions"})
+    if unbound:
+        wire_faults.append(f"TypeScriptHelloAckV2 members bound to no descriptor or echo {unbound}")
+    for kind, fields in (("provider", ts_binding["providerDescriptorFields"]), ("runtime", ts_binding["runtimeDescriptorFields"])):
+        for fld in fields:
+            if fld not in ts_identity[kind + "Descriptor"]["closedRequired"]:
+                wire_faults.append(f"{kind} descriptor has no member {fld}")
+    rust_row = json.loads((REPO / "docs/coop/artifacts/resolved-inputs.v2.json").read_text(encoding="utf-8"))[
+        "planIdContract"]["semanticUniverseSchemas"]["rust-v1"]["required"]
+    unsourced = sorted(set(wire_law["rustIdentityBinding"]["identityFields"]) - set(rust_row))
+    if unsourced:
+        wire_faults.append(f"rust-v1 Plan row carries no source for expectedIdentity members {unsourced}")
+    if sha256_file(REPO / wire_law["expectedProtocolContractSha256"]["artifact"]) != wire_law["expectedProtocolContractSha256"]["sha256"]:
+        wire_faults.append("expectedProtocolContractSha256 artifact bytes differ from the published digest")
+    if (set(wdefs["TypeScriptCapabilityToken"]["enum"]) != set(model.TS2_TOKENS_ATTRIBUTION)
+            or set(wdefs["RustCapabilityToken"]["enum"]) != set(model.RUST3_TOKENS_ATTRIBUTION)
+            or list(model.WIRE.IDENTITY_TOKENS) != list(model.IDENTITY_TOKENS)):
+        wire_faults.append("per-language token vocabularies differ from the section 9.1 token sets")
+    if not (set(wdefs["TypeScriptCapabilityToken"]["enum"]) | set(wdefs["RustCapabilityToken"]["enum"])) <= set(model.SCHEMAS["$defs"]["CapabilityToken"]["enum"]):
+        wire_faults.append("a per-language token is outside CapabilityToken")
+    registered_versions = {k: v["const"] for k, v in model.SCHEMAS["$defs"]["HelloV3"]["properties"]["identityVersions"]["properties"].items()}
+    if not same(const_map("IdentityVersionsV1"), registered_versions):
+        wire_faults.append("identityVersions differ from the registered section 9.1 values")
+    report["providerWire"] = {"document": "native/provider-handshake.schemas.v1.json", "defs": len(wdefs),
+                              "openObjects": wire_open, "typescriptLimits": len(ts_published),
+                              "rustLimits": len(rust_published), "section93Members": len(rust_prose),
+                              "section94Members": len(ts_prose), "faults": wire_faults}
+
+    # ---- provider startup publication (section 9.7): the successor records are held to the INHERITED member lists,
+    # the registered bundle, the section 9.2/9.4 reason prose and both published event machines, not to themselves.
+    startup_doc = json.loads((HERE / "provider-startup.schemas.v1.json").read_text(encoding="utf-8"))
+    ts_order = json.loads((HERE / "typescript-protocol2-order.v1.json").read_text(encoding="utf-8"))
+    p3_doc = json.loads((HERE / "protocol3-transitions.v1.json").read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(startup_doc)
+    startup_faults: list[str] = []
+    startup_open: list[str] = []
+    def walk_startup(x, p):
+        if isinstance(x, dict):
+            if x.get("type") == "object" and "additionalProperties" not in x:
+                startup_open.append(p)
+            for k, v in x.items():
+                walk_startup(v, p + "/" + k)
+        elif isinstance(x, list):
+            for i, v in enumerate(x):
+                walk_startup(v, p + "/" + str(i))
+    walk_startup(startup_doc, "")
+    sdefs = startup_doc["$defs"]
+    universe_rows = json.loads((REPO / "docs/coop/artifacts/resolved-inputs.v2.json").read_text(encoding="utf-8"))[
+        "planIdContract"]["semanticUniverseSchemas"]
+    for name, inherited_required in [
+            ("TypeScriptOpenUniverseV2", ps_ts["OpenUniverseV1"]["required"]),
+            ("TypeScriptUniverseAcceptedV2", ps_ts["UniverseAcceptedV1"]["required"]),
+            ("TypeScriptCoverageV2", ps_ts["CoverageV1"]["required"]),
+            ("TypeScriptUnavailableV2", ps_ts["UnavailableV1"]["required"]),
+            ("TypeScriptBudgetExhaustedV2", ps_ts["BudgetExhaustedV1"]["required"]),
+            ("OpenUniverseV3", ps_rust["OpenUniverseV2"]["required"]),
+            ("UniverseAcceptedV3", ps_rust["UniverseAcceptedV2"]["required"]),
+            ("CoverageV3", ps_rust["CoverageV2"]["required"]),
+            ("UnavailableV3", ps_rust["UnavailableV2"]["required"]),
+            ("BudgetExhaustedV3", ps_rust["BudgetExhaustedV2"]["required"]),
+            ("TypeScriptSemanticUniverseV2", universe_rows["typescript-v1"]["required"]),
+            ("RustSemanticUniverseV2", universe_rows["rust-v1"]["required"])]:
+        d = sdefs[name]
+        if list(d["required"]) != list(inherited_required) or d.get("additionalProperties") is not False:
+            startup_faults.append(f"{name} members {d['required']} != inherited {inherited_required}")
+    entry_ref = {"$ref": model.SCHEMAS["$id"] + "#/$defs/CoverageResultV3"}
+    for name, member in (("TypeScriptCoverageV2", "entries"), ("CoverageV3", "entries"), ("TypeScriptUnavailableV2", "coverage"),
+                         ("UnavailableV3", "coverage"), ("TypeScriptBudgetExhaustedV2", "coverage"), ("BudgetExhaustedV3", "coverage")):
+        if sdefs[name]["properties"][member]["items"] != entry_ref:
+            startup_faults.append(f"{name}.{member} items are not the registered CoverageResultV3")
+    if (sdefs["PreAnalyzeUnavailableV1"]["properties"]["reason"] != {"const": "native-context-mismatch"}
+            or "native-context-mismatch" not in model.SCHEMAS["$defs"]["UnavailableReasonV3"]["enum"]):
+        startup_faults.append("PreAnalyzeUnavailableV1 reason is not exactly the registered native-context-mismatch")
+    startup_law = startup_doc["x-opensip-startup-law"]
+    added92 = re.search(r"`UnavailableReasonV3` adds (.*?)\.\n", contract_text, re.S)
+    added94 = re.search(r"`Unavailable\.reason` adds (.*?)\.\n", contract_text, re.S)
+    rust_added = re.findall(r"`([a-z-]+)`", added92.group(1)) if added92 else []
+    ts_added = re.findall(r"`([a-z-]+)`", added94.group(1)) if added94 else []
+    want_ts = sorted(set(ps_ts["UnavailableV1"]["fields"]["reason"].removeprefix("enum ").split("|")) | set(ts_added))
+    want_rust = sorted((set(ps_rust["UnavailableV2"]["fields"]["reason"].split("|")) | set(rust_added)) - {"native-context-mismatch"})
+    if (not ts_added or sorted(sdefs["TypeScriptUnavailableV2"]["properties"]["reason"]["enum"]) != want_ts
+            or startup_law["postAnalyzeReasons"]["typescript-semantic"] != want_ts):
+        startup_faults.append(f"typescript post-Analyze reasons != delivery.v2 reasons + section 9.4 additions {want_ts}")
+    if (not rust_added or sorted(sdefs["UnavailableV3"]["properties"]["reason"]["enum"]) != want_rust
+            or startup_law["postAnalyzeReasons"]["rust-semantic"] != want_rust):
+        startup_faults.append(f"rust post-Analyze reasons != rust-provider-protocol.v2 reasons + section 9.2 additions {want_rust}")
+    p3_rows = {r["id"]: r for r in p3_doc["rules"]}
+    if (p3_rows["P3-24"]["frame"] != "CoverageV3" or p3_rows["P3-21"]["frame"] != "Unavailable"
+            or p3_rows["P3-21"]["phase"] != "WAIT_NATIVE_CONTEXT_VERIFIED"):
+        startup_faults.append("protocol3 rows no longer carry the CoverageV3 frame or the pre-Analyze Unavailable phase")
+    if set(p3_doc.get("rowPayloads", {})) - set(p3_rows) - {"standing"}:
+        startup_faults.append("protocol3 rowPayloads names a row that does not exist")
+    if set(p3_doc.get("derivedObservations", {})) != {"standing", "dependencyMode", "preparedMode"}:
+        startup_faults.append("protocol3 derivedObservations must name exactly dependencyMode and preparedMode")
+    ts_rows = {r["id"]: r for r in ts_order["rules"]}
+    if (ts_order["ruleCount"] != len(ts_order["rules"]) or len(ts_rows) != len(ts_order["rules"])
+            or ts_rows["T2-08"]["next"] != "WAIT_NATIVE_CONTEXT_VERIFIED"
+            or ts_rows["T2-10"].get("guard") != {"unavailablePayload": "pre-analyze"} or ts_rows["T2-13"]["frame"] != "Coverage"):
+        startup_faults.append("typescript order table does not carry the section 9.7 insertions exactly")
+    allowed_ts_frames = set(ts_protocol["wireSchema"]["frameSchemas"]) | {"NativeContextVerified", "zero-exit", "eof", "*PROCESS_FAULT", "*"}
+    added_ts_frames = sorted({r["frame"] for r in ts_order["rules"]} - allowed_ts_frames)
+    if added_ts_frames:
+        startup_faults.append(f"typescript order table adds frames {added_ts_frames}")
+    pre_terminal = set(ts_order["wildcards"]["*PRE_TERMINAL"]["phases"])
+    def ts_phases(row):
+        return set() if row["phase"] == "*ANY" else (pre_terminal if row["phase"] == "*PRE_TERMINAL" else {row["phase"]})
+    def ts_overlap(a, b):
+        if a["frame"] != b["frame"] or not (ts_phases(a) & ts_phases(b)):
+            return False
+        ga, gb = a.get("guard", {}), b.get("guard", {})
+        return not any(k in gb and gb[k] != v for k, v in ga.items())
+    overlapping = [(a["id"], b["id"]) for i, a in enumerate(ts_order["rules"]) for b in ts_order["rules"][i + 1:] if ts_overlap(a, b)]
+    if overlapping:
+        startup_faults.append(f"typescript order rows overlap {overlapping}")
+    report["providerStartup"] = {"document": "native/provider-startup.schemas.v1.json", "defs": len(sdefs),
+                                 "openObjects": startup_open, "typescriptOrderRules": len(ts_order["rules"]),
+                                 "faults": startup_faults}
+
+    matrix = model.C.parse(MATRIX_PATH.read_bytes())
+    model.validate_native("NativeCapabilityMatrixV2", matrix)
+    cells = matrix["cells"]
+    modes = {m for m in matrix["languageModes"]}; caps = {c["id"] for c in matrix["capabilities"]}
+    covered = {(c["capability"], c["mode"]) for c in cells}
+    missing_cells = sorted(f"{c}×{m}" for c in caps for m in modes if (c, m) not in covered)
+    # The cell count is DERIVED and held to the exact product, in both directions. A prose count of
+    # 60 stood against 66 actual cells; a second hand-maintained counter would only go stale again,
+    # so what is maintained is the invariant and the number is reported from it (CB4-ADV-1).
+    extra_cells = sorted(f"{c}×{m}" for (c, m) in covered if c not in caps or m not in modes)
+    duplicate_cells = sorted(f"{c}×{m}" for (c, m) in covered if
+                             sum(1 for x in cells if (x["capability"], x["mode"]) == (c, m)) > 1)
+    cell_count_is_the_product = len(cells) == len(caps) * len(modes)
+    # The published vocabulary law must not drift from the table it governs.
+    law = matrix["capabilityIdLaw"]
+    vocabulary_drift = law["members"] != [c["id"] for c in matrix["capabilities"]]
+    report["matrix"] = {"cells": len(cells), "capabilities": len(caps), "modes": len(modes), "missingCells": missing_cells,
+                        "extraCells": extra_cells, "duplicateCells": duplicate_cells,
+                        "cellCountIsTheProduct": cell_count_is_the_product,
+                        "capabilityVocabularyDrift": vocabulary_drift,
+                        "qualifiedCells": sum(1 for c in cells if c["state"] not in ("SUPPORTED-DESIGN", "UNSUPPORTED-TYPED", "NOT-SELECTED"))}
+    cases_doc = model.C.parse(CASES_PATH.read_bytes())
+    fixtures = cases_doc.get("fixtures", {})
+    results = [run_case(c, model, fixtures) for c in cases_doc["cases"]]
+    ids = [r["id"] for r in results]
+    if len(ids) != len(set(ids)):
+        results.append({"id": "__unique-ids", "passed": False, "faults": ["duplicate case ids"], "kind": "meta", "feedback": []})
+    feedback_cov = {}
+    for r in results:
+        for f in r["feedback"]:
+            feedback_cov.setdefault(f, []).append(r["id"])
+    passed = sum(1 for r in results if r["passed"])
+    report["cases"] = {"total": len(results), "passed": passed, "failed": len(results) - passed,
+                       "positive": sum(1 for r in results if r["kind"] == "positive"),
+                       "negative": sum(1 for r in results if r["kind"] == "negative"),
+                       "feedbackCoverage": {k: sorted(v) for k, v in sorted(feedback_cov.items())},
+                       "uncoveredFeedback": sorted((set(f"F{i}" for i in range(1, 13)) | set(f"R{i}" for i in range(1, 8))) - set(feedback_cov)),
+                       "results": results}
+    ok = (passed == len(results) and not missing_cells and not extra_cells and not duplicate_cells
+          and cell_count_is_the_product and not vocabulary_drift and not open_objects
+          and not report["cases"]["uncoveredFeedback"] and not ladder_faults
+          and not undeclared_retention and not undeclared_representation
+          and not wire_faults and not wire_open
+          and not startup_faults and not startup_open)
+    report["result"] = "PASS" if ok else "FAIL"
+    report["limitations"] = [
+        "Observation inputs (edges, tokens, vendored file digests, stage terminals) are fixture-asserted, not measured from a compiler or Cargo.",
+        "Protocol transitions are a host-side abstract machine; framing, byte limits, OS process death and EOF are not exercised.",
+        "Cargo config discovery and rustc flag semantics are pinned to primary documentation read on 2026-09-06; the ancestor-carrier verification is a design rule, not a demonstrated switch.",
+        "The tsjs-erasure-v1 projection operates on token kinds supplied by fixtures; a real tokenizer is qualification work.",
+        "No cell is QUALIFIED; the four platform families are asserted design-invariant only.",
+        "Provider handshake and FactBatch records are JSON vectors: frame length/digest/sequence bytes, process lifetime and compiler output are not exercised, and descriptor digests hash canonical.py bytes, which equal RFC 8785 only for the fixture value domain.",
+        "Provider startup exchanges exercise selected startup schema/join checks. Coverage checks wrapper shape and requested-key correspondence, not commitments or complete entry/request-ordinal admission. Cancelled checks only the inserted TypeScript observedPhase interval, not full inherited record/correlation, Rust phase or host cancellation reduction. Other inherited owner checks remain prerequisites; snapshot, dependency-source, prepared, Analyze and FactBatch are abstract events. Fixture host inputs and placeholder commitments do not establish a verified Plan, complete Run or framed process.",
+    ]
+    REPORT_PATH.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    for r in results:
+        if not r["passed"]:
+            print("FAIL", r["id"]); [print("   ", f) for f in r["faults"]]
+    for fault in ladder_faults:
+        print("FAIL ladder-drift:", fault)
+    for path in undeclared_retention + undeclared_representation:
+        print("FAIL digest-law vocabulary:", path)
+    for fault in wire_faults + ["open object " + p for p in wire_open]:
+        print("FAIL provider-wire:", fault)
+    for fault in startup_faults + ["open object " + p for p in startup_open]:
+        print("FAIL provider-startup:", fault)
+    print(f"{report['result']}: {passed}/{len(results)} cases; matrix cells {len(cells)}; open objects {len(open_objects)}; uncovered feedback {report['cases']['uncoveredFeedback']}")
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,94 @@
+--- v4/controls/check_store_instance_lineage.py
++++ v5/controls/check_store_instance_lineage.py
+@@ -122,8 +122,58 @@
+     check(rc is not None and rc.get("accepted") is True,
+           "root's counterexamples must be recorded as accepted")
+     ids = [f["id"] for f in rc.get("findings", [])]
+-    check(set(ids) >= {"RC-1", "RC-2", "RC-3", "RC-4", "RC-5"},
+-          "all five root findings must be recorded, got " + str(ids))
++    check(set(ids) >= {"RC-1", "RC-2", "RC-3", "RC-4", "RC-5", "RC-6", "RC-7"},
++          "all seven root findings must be recorded, got " + str(ids))
++
++    # --- revision 5: phase-sensitive markers and idempotent-path validation ---
++    mc = companion["identityAndMarkers"]["markerContract"]
++    obs = mc.get("targetObservationIsThreeWay")
++    check(obs is not None, "the three-way target observation must be stated")
++    if obs:
++        check(set(obs) == {"readable", "absent", "unreadable", "notObserved"},
++              "the target observation vocabulary changed: " + str(sorted(obs or {})))
++        check("never treated as one" in obs["unreadable"]
++              or "NOT absence" in obs["unreadable"],
++              "an unreadable target must never be read as absence")
++        check("reclaim" in obs["absent"].lower() and "materialis" in obs["absent"].lower(),
++              "absence must cover both pre-materialisation and reclamation")
++    phase = mc.get("phaseSensitivity", "")
++    check("SETTLED" in phase and "UNSETTLED" in phase,
++          "the marker requirement must be bound to the owner phase")
++    check("abort stands" in phase,
++          "an early abort must stand rather than becoming a quarantine")
++    check("consult no marker" in phase,
++          "BUSY/REFUSE/QUARANTINE must consult no marker")
++
++    lawsec = companion["admissionLaw"]
++    check("idempotentPathValidatesToo" in lawsec,
++          "the idempotent path validation rule must be stated")
++    if "idempotentPathValidatesToo" in lawsec:
++        check("not a short circuit" in lawsec["idempotentPathValidatesToo"].lower()
++              or "NOT a short circuit" in lawsec["idempotentPathValidatesToo"],
++              "the idempotent path must not be a short circuit")
++        check("writes nothing" in lawsec["idempotentPathValidatesToo"],
++              "the idempotent path must write nothing")
++    check("rootScoping" in lawsec, "root scoping must be stated")
++    if "rootScoping" in lawsec:
++        check("COMPONENT invariant" in lawsec["rootScoping"],
++              "the one-root rule must be component-scoped")
++        check("coexist" in lawsec["rootScoping"],
++              "several lineages must be allowed to coexist")
++    checks_text = json.dumps(lawsec["checks"])
++    check("closed schema" in checks_text and "ExactValidator" in checks_text,
++          "node shape must be admitted by the real closed schema")
++    check("assumes no member set" in checks_text or "assumes no member" in checks_text,
++          "the law must not assume member sets or types")
++    check("exactly ONE lineage root" in checks_text or "exactly one lineage root" in checks_text,
++          "the chain must reach exactly one lineage root")
++
++    rt0 = companion["recoveryTotality"]
++    check("phaseSensitiveMarkers" in rt0,
++          "recovery totality must record the phase-sensitive marker rule")
++    for row in rt0["byOwnerAction"]:
++        check("markerRequirement" in row,
++              "every owner-action row must state its marker requirement")
+ 
+     # --- revision 4: full-triple identity and one admission law --------------
+     ident = companion.get("identityAndMarkers")
+@@ -292,8 +342,6 @@
+     check("marker" in added, "S9.3 must state the store-root marker contract")
+     check("never a search key" in added,
+           "S9.3 must state that intentDigest is never a search key")
+-    check("no global uniqueness" in added.lower() or "asserts no global" in added.lower(),
+-          "S9.3 must not invent global generation uniqueness")
+     # Phrases may wrap across diff lines, so normalise whitespace before matching.
+     flat = " ".join(added.replace("+", " ").split())
+     check("no decision at all" in flat and "inspects nothing" in flat,
+@@ -302,6 +350,21 @@
+           "S9.3 must name the premature-node contradiction")
+     check("retained branch at the same numeric generation" in flat,
+           "S9.3 must state a retained branch is expected and untouched")
++    check("three-way and phase-bound" in flat,
++          "S9.3 must state the three-way, phase-bound marker observation")
++    check("never treated as absence" in flat,
++          "S9.3 must forbid reading an unreadable marker as absence")
++    check("absent target there is expected" in flat,
++          "S9.3 must state that an absent target before materialisation is expected")
++    check("idempotent but **not** a short circuit" in flat
++          or "idempotent but not a short circuit" in flat,
++          "S9.3 must state the idempotent path is validated, not short-circuited")
++    check("scoped to the chain, not to the whole table" in flat,
++          "S9.3 must scope the one-root rule to the chain")
++    check("reads no marker" in flat,
++          "S9.3 must state that a no-decision owner action reads no marker")
++    check("asserts no global uniqueness" in flat,
++          "S9.3 must not invent global generation uniqueness")
+ 
+ 
+ def digest_properties(C):

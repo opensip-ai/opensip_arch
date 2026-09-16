@@ -1,0 +1,17 @@
+--- a37/docs/coop/design-corrections/security/security_lifecycle_model_v1.py
++++ b38/docs/coop/design-corrections/security/security_lifecycle_model_v1.py
+@@ -1544,10 +1544,10 @@
+     IM = _identity_model_v3()
+     try:
+         actual = IM.close_run(run, objects, blobs)
+-    except Exception as e:
+-        if type(e).__name__ in ('AdmissionError', 'EvidenceUnavailable', 'RegenerationMismatch'):
+-            raise Reject('SEAL_CLOSE_RUN_REFUSED:' + str(e).split('\n')[0][:240]) from e
+-        raise
++    except IM.C.AdmissionError as e:
++        # close_run normalizes declared owner refusals into this identity copy,
++        # including CompleteReplayMismatch. Other exceptions remain host defects.
++        raise Reject('SEAL_CLOSE_RUN_REFUSED:' + str(e).split('\n')[0][:240]) from e
+     if actual != claimed:
+         raise Reject('SEAL_RUN_ID_MISMATCH')
+     return {'result': 'ADMIT', 'standing': 'current-host', 'authority': 'identity-model.v3.close_run',

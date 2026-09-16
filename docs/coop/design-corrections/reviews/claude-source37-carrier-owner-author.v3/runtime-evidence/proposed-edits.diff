@@ -1,0 +1,1426 @@
+--- a/docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
++++ b/docs/coop/design-corrections/security/grant-journal.carrier.v3.sql
+@@ -14,24 +14,61 @@
+ -- carrierFormat 2: security-schemas.v2/grant-journal.sql (adds the uint53 seq CHECK,
+ --                  operation_ref format, contiguity, TERMINAL closure, reserved slot).
+ -- carrierFormat 3: this file.
++--
++-- Source37 owner correction (review advisories A37-01 and A37-02). Revised after root reproduced embedded-NUL
++-- and ASCII-hex BLOB admissions against the source37 v1 bytes, and again after root showed that the source37 v2
++-- byte-length predicate refused lawful rows in UTF-16 databases. These bytes supersede the earlier PROPOSED
++-- carrierFormat 3 bytes in place. No product implementation or deployed carrier was created from the earlier
++-- bytes. Reference in-memory SQLite instances were created from them by earlier design checks and review
++-- probes; those instances and their receipts remain historical evidence. The open dispatch validates the
++-- stored definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT
++-- rather than read as this definition. carrierFormat 1 and 2 bytes stay frozen.
++--
++-- Storage class and whole-value grammar. SQLite types values dynamically: TEXT affinity keeps a BLOB,
++-- INTEGER affinity keeps a non-integral REAL, and length() and GLOB stop at an embedded NUL. Every column's
++-- storage class is enforced either by an explicit typeof() guard (every INTEGER column, every free TEXT
++-- column and every hex-bearing column) or by exact enumeration (record_type and platform, whose IN lists
++-- hold only TEXT literals and so never equal a BLOB, a number or a NUL-suffixed text). Every hex-bearing
++-- column is an exact whole TEXT value: typeof(column) = 'text', length(column) = N, no NUL anywhere
++-- (instr(column, char(0)) = 0), the prefix GLOB where a prefix exists, and NOT GLOB '*[^0-9a-f]*' over
++-- the hex part. With no NUL, length() and GLOB see the whole value, and the case-sensitive hex class admits
++-- only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. The
++-- conjunction evaluates the TEXT value by character and does not depend on the database text encoding
++-- (exercised under UTF-8, UTF-16le and UTF-16be); no encoding is required of a carrier. CHECKs see values
++-- after column affinity, so an integer supplied as text '5' is stored and checked as integer 5. Host
++-- record admission still validates the closed record bodies; these CHECKs are defence in depth.
++--
++-- Publication: no grant_journal_v3 row may exist before the carrier_format row is published, and
++-- first_generation is 1 on the fresh path and at least 2 on the migrated path.
+ 
+ CREATE TABLE carrier_format (
+-  singleton          INTEGER NOT NULL PRIMARY KEY CHECK (singleton = 1),
+-  carrier_format     INTEGER NOT NULL CHECK (carrier_format = 3),
+-  project_key_digest TEXT    NOT NULL CHECK (length(project_key_digest) = 64
+-                               AND project_key_digest GLOB '[0-9a-f]*'),
+-  first_generation   INTEGER NOT NULL CHECK (first_generation >= 1
++  singleton          INTEGER NOT NULL PRIMARY KEY CHECK (typeof(singleton) = 'integer' AND singleton = 1),
++  carrier_format     INTEGER NOT NULL CHECK (typeof(carrier_format) = 'integer' AND carrier_format = 3),
++  project_key_digest TEXT    NOT NULL CHECK (typeof(project_key_digest) = 'text'
++                               AND length(project_key_digest) = 64
++                               AND instr(project_key_digest, char(0)) = 0
++                               AND project_key_digest NOT GLOB '*[^0-9a-f]*'),
++  first_generation   INTEGER NOT NULL CHECK (typeof(first_generation) = 'integer'
++                               AND first_generation >= 1
+                                AND first_generation <= 9223372036854775807),
+   -- Exactly the selected chain law. Value 2 (a recursive chain) is NOT selected and is NOT
+   -- implemented, so the column refuses it rather than advertising an unbuilt alternative.
+   -- Widening this CHECK is a reviewed successor act, not a configuration choice.
+-  chain_law          INTEGER NOT NULL CHECK (chain_law = 1),
+-  migrated_from      INTEGER          CHECK (migrated_from IS NULL OR migrated_from IN (1, 2)),
++  chain_law          INTEGER NOT NULL CHECK (typeof(chain_law) = 'integer' AND chain_law = 1),
++  migrated_from      INTEGER          CHECK (migrated_from IS NULL
++                               OR (typeof(migrated_from) = 'integer' AND migrated_from IN (1, 2))),
+   migration_op_ref   TEXT             CHECK (migration_op_ref IS NULL
+-                               OR (migration_op_ref GLOB 'op-[0-9a-f]*'
+-                                   AND length(migration_op_ref) = 35)),
++                               OR (typeof(migration_op_ref) = 'text'
++                                   AND length(migration_op_ref) = 35
++                                   AND instr(migration_op_ref, char(0)) = 0
++                                   AND migration_op_ref GLOB 'op-*'
++                                   AND substr(migration_op_ref, 4) NOT GLOB '*[^0-9a-f]*')),
+   CHECK ((migrated_from IS NULL AND migration_op_ref IS NULL)
+-      OR (migrated_from IS NOT NULL AND migration_op_ref IS NOT NULL))
++      OR (migrated_from IS NOT NULL AND migration_op_ref IS NOT NULL)),
++  -- first_generation at publication: the fresh path publishes generation 1 exactly; the migrated path
++  -- publishes (max inherited generation) + 1, at least 2 because act A closed a generation >= 1.
++  CHECK ((migrated_from IS NULL AND first_generation = 1)
++      OR (migrated_from IS NOT NULL AND first_generation >= 2))
+ ) WITHOUT ROWID;
+ CREATE TRIGGER cf_no_update BEFORE UPDATE ON carrier_format
+   BEGIN SELECT RAISE(ABORT, 'carrier format binding is immutable'); END;
+@@ -39,25 +76,42 @@
+   BEGIN SELECT RAISE(ABORT, 'carrier format binding is immutable'); END;
+ 
+ CREATE TABLE grant_journal_v3 (
+-  grantGeneration INTEGER NOT NULL CHECK (grantGeneration >= 1
++  grantGeneration INTEGER NOT NULL CHECK (typeof(grantGeneration) = 'integer'
++                              AND grantGeneration >= 1
+                               AND grantGeneration <= 9223372036854775807),
+-  seq          INTEGER NOT NULL CHECK (seq >= 1 AND seq <= 9007199254740991),
+-  record_schema INTEGER NOT NULL CHECK (record_schema IN (1, 3)),
++  seq          INTEGER NOT NULL CHECK (typeof(seq) = 'integer'
++                              AND seq >= 1 AND seq <= 9007199254740991),
++  record_schema INTEGER NOT NULL CHECK (typeof(record_schema) = 'integer' AND record_schema IN (1, 3)),
+   record_type  TEXT    NOT NULL CHECK (record_type IN
+                  ('GRANT','RA','ICI','RCI','ICO','RCO','REV','CLN','SEAL','TERMINAL')),
+-  operation_ref TEXT   NOT NULL CHECK (operation_ref GLOB 'op-[0-9a-f]*'
+-                              AND length(operation_ref) = 35),
+-  request_ref  TEXT,
+-  token        TEXT,
+-  install_generation_id TEXT,
+-  manifest_digest TEXT CHECK (manifest_digest IS NULL OR length(manifest_digest) = 64),
++  operation_ref TEXT   NOT NULL CHECK (typeof(operation_ref) = 'text'
++                              AND length(operation_ref) = 35
++                              AND instr(operation_ref, char(0)) = 0
++                              AND operation_ref GLOB 'op-*'
++                              AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),
++  request_ref  TEXT    CHECK (request_ref IS NULL OR typeof(request_ref) = 'text'),
++  token        TEXT    CHECK (token IS NULL OR typeof(token) = 'text'),
++  install_generation_id TEXT CHECK (install_generation_id IS NULL OR typeof(install_generation_id) = 'text'),
++  manifest_digest TEXT CHECK (manifest_digest IS NULL OR (typeof(manifest_digest) = 'text'
++                              AND length(manifest_digest) = 64
++                              AND instr(manifest_digest, char(0)) = 0
++                              AND manifest_digest NOT GLOB '*[^0-9a-f]*')),
+   platform     TEXT    CHECK (platform IS NULL OR platform IN
+                  ('macos-aarch64','macos-x86_64','linux-x86_64-gnu','linux-aarch64-gnu')),
+-  run_id       TEXT    CHECK (run_id IS NULL OR (run_id GLOB 'run3:[0-9a-f]*'
+-                              AND length(run_id) = 69)),
+-  body         TEXT    NOT NULL,
+-  body_sha256  TEXT    NOT NULL CHECK (length(body_sha256) = 64),
+-  prev_sha256  TEXT    NOT NULL CHECK (length(prev_sha256) = 64),
++  run_id       TEXT    CHECK (run_id IS NULL OR (typeof(run_id) = 'text'
++                              AND length(run_id) = 69
++                              AND instr(run_id, char(0)) = 0
++                              AND run_id GLOB 'run3:*'
++                              AND substr(run_id, 6) NOT GLOB '*[^0-9a-f]*')),
++  body         TEXT    NOT NULL CHECK (typeof(body) = 'text'),
++  body_sha256  TEXT    NOT NULL CHECK (typeof(body_sha256) = 'text'
++                              AND length(body_sha256) = 64
++                              AND instr(body_sha256, char(0)) = 0
++                              AND body_sha256 NOT GLOB '*[^0-9a-f]*'),
++  prev_sha256  TEXT    NOT NULL CHECK (typeof(prev_sha256) = 'text'
++                              AND length(prev_sha256) = 64
++                              AND instr(prev_sha256, char(0)) = 0
++                              AND prev_sha256 NOT GLOB '*[^0-9a-f]*'),
+   -- Capacity records are the FROZEN recordSchema-1 TERMINAL body
+   -- (security-schemas.v2/journal-record.schema.json). Operational records are the
+   -- current closed JournalRecord schema 3. TERMINAL is therefore carried without
+@@ -82,6 +136,8 @@
+   BEGIN SELECT RAISE(ABORT, 'grant journal is append-only'); END;
+ CREATE TRIGGER gj3_append_laws BEFORE INSERT ON grant_journal_v3
+   BEGIN
++    SELECT CASE WHEN NOT EXISTS (SELECT 1 FROM carrier_format WHERE singleton = 1)
++      THEN RAISE(ABORT, 'carrierFormat 3 is not published; no append precedes the format row') END;
+     SELECT CASE WHEN NEW.seq <> (SELECT COALESCE(MAX(seq), 0) + 1 FROM grant_journal_v3
+         WHERE grantGeneration = NEW.grantGeneration)
+       THEN RAISE(ABORT, 'grant journal sequence must be tail+1') END;
+--- a/docs/coop/design-corrections/security/carrier-format.v3.md
++++ b/docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -7,6 +7,8 @@
+ and no self-acceptance. Design/reference only: a physical DDL, an open/read dispatch and
+ reference validation. Not product Rust, not executable storage, not a crash-test result, and
+ not an OS durability claim. No historical or frozen file is modified by this correction.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Revision note.** This revises the first draft in two places root identified: §2.1 replaces an
+ overbroad "nothing is writable" claim with the exact two incompatible cases, and §11 separates the
+@@ -155,10 +157,73 @@
+   physical narrowing of the logical schema-3 `seq`, which is `I64Positive`. The narrowing is a
+   carrier refusal (F32), not a schema change; `CommitRecoveryAssociationV1.journalSeq` already
+   states the same bound with maximum 9007199254740990.
+-- **operation_ref grammar.** `op-` plus 32 lowercase hex, length 35.
++- **operation_ref grammar.** `op-` plus 32 lowercase hex, length 35, as one whole TEXT value: storage
++  class, character length, no NUL, prefix and hex tail (§5.1). The frozen carrierFormat 2 bytes check only
++  the first character after the prefix, and the source37 v1 revision of this DDL checked the tail but still
++  admitted an embedded-NUL suffix or an ASCII-hex BLOB; see §5.1.
+ - **GRANT completeness.** `install_generation_id`, `manifest_digest`, `platform` and `token` all
+   present.
+ - **Witness and high-water laws.** Unchanged in substance; see §8 and §10.
++
++### 5.1 Exact storage class, whole-value grammar and the publication law (source37 owner correction)
++
++**Storage class and grammar (A37-01, revised).** SQLite types values dynamically: a column's TEXT affinity
++keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and `length()` and `GLOB` stop at an embedded NUL.
++Every carrierFormat 3 column's storage class is therefore enforced, by one of two mechanisms. An explicit
++`typeof()` guard states `integer` for `singleton`, `carrier_format`, `first_generation`, `chain_law`,
++`migrated_from`, `grantGeneration`, `seq` and `record_schema`, and `text` for `request_ref`, `token`,
++`install_generation_id`, `body` and every hex-bearing column. Exact enumeration enforces it for
++`record_type` and `platform`: their `IN` lists hold only TEXT literals, and a whole-value comparison never
++equals a BLOB, a number or a NUL-suffixed text. Each hex-bearing column (`carrier_format.project_key_digest`
++and `migration_op_ref`, and `grant_journal_v3.operation_ref`, `run_id`, `manifest_digest`, `body_sha256` and
++`prev_sha256`) is then an exact whole TEXT value: `typeof(column) = 'text'`, `length(column) = N`, no NUL
++anywhere (`instr(column, char(0)) = 0`), the prefix `GLOB` where a prefix exists, and
++`NOT GLOB '*[^0-9a-f]*'` over the hex part. With no NUL, `length()` and `GLOB` see the whole value, and the
++case-sensitive hex class admits only ASCII `0`–`9` and `a`–`f`, so a multibyte or malformed character is
++refused by the same conjunction. Removing any one conjunct admits a hostile value. The conjunction evaluates
++the TEXT value by character and does not depend on the database text encoding; it was exercised under
++UTF-8, UTF-16le and UTF-16be, and no encoding is required of a carrier. CHECKs see values after column
++affinity, so an integer supplied as text `'5'` is stored and checked as integer 5. The private
++`attempt_custody` DDL applies the same laws: `typeof()` on `store_generation_digest`, `execution_id`,
++`operation_ref`, `namespace_id` and `record_schema`, and exact enumeration on `phase` and `settled_outcome`.
++Host record admission still validates the closed record bodies; the DDL is defence in depth.
++
++**Revision history of this law.** The source37 v1 correction replaced a first-character-only `GLOB` with a
++whole-tail `NOT GLOB` and described the result as exact. Root then reproduced, against those v1 bytes, an
++embedded-NUL suffix being admitted in `body_sha256`, `operation_ref` and `run_id`, and an ASCII-hex BLOB
++being admitted in `body_sha256` and `project_key_digest`. The exhaustive storage-class matrix run for this
++revision found the same NUL and BLOB admissions in every hex-bearing column, a BLOB in every free TEXT
++column, and a non-integral REAL in `first_generation` and `grantGeneration`. These are DDL admission
++counterexamples, not a demonstrated product exploit. STRICT tables were not selected: they do not refuse an
++embedded NUL, and SQLite documents that a database containing a STRICT table cannot be read by libraries
++older than 3.37.0, which would contradict the staging in which a format-unaware core still reads historical
++generations (§9).
++
++The source37 v2 revision then paired `length(column) = N` with a byte count,
++`length(CAST(column AS BLOB)) = N`, assumed a UTF-8 database and described the refusal of every UTF-16
++hex-bearing row as failing closed. Root showed that this refused otherwise lawful rows in UTF-16le and
++UTF-16be databases, although no earlier owner requires a text encoding for historical SQLite carriers. This
++revision replaces the byte count with `instr(column, char(0)) = 0`; with the retained storage class,
++character length, prefix and whole-hex guards it gives the same exact grammar in all three encodings, and
++the v2 encoding restriction is withdrawn.
++
++**Historical scope.** carrierFormat 1 and 2 bytes are frozen and unchanged. Their `GLOB` checks inspect only
++the first character after a prefix, and they also admit embedded-NUL and BLOB values. That weakness is
++disclosed, not repaired: historical rows are read as history under recordSchema-1 semantics, are never
++re-admitted through the schema-3 gate and can never satisfy a schema-3 `SEAL` join (§9, F46), so a
++malformed historical value confers no commitment. No product implementation or deployed carrier was
++created from the earlier PROPOSED carrierFormat 3 bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created
++from them by earlier design checks and review probes, and those instances and their receipts remain
++historical evidence. The open dispatch validates definitions byte-exactly, so a carrier created from
++earlier bytes is refused `MIGRATION.CORRUPT` rather than read as this definition.
++
++**Publication law (A37-02).** `gj3_append_laws` refuses every append while no `carrier_format` row
++exists, so an `{A, B}` footprint cannot acquire a row that a later publication would contradict. A
++`carrier_format` CHECK couples `first_generation` to `migrated_from`: exactly 1 on the fresh path, at
++least 2 on the migrated path. Act C verifies, in the same transaction that inserts the row, the seven
++definitions, that `grant_journal_v3` holds no row and that a surviving witness names the admitted
++`projectKeyDigest`; any failure publishes nothing. Both laws live inside existing definitions, so the
++seven object names are unchanged.
+ 
+ ## 6. Additions beyond the inherited DDL, and why each is needed
+ 
+@@ -170,9 +235,12 @@
+ | `carrier_format` singleton table | names carrierFormat, `first_generation` and `chain_law` durably |
+ | `first_generation` trigger | keeps migrated generations out of the new table |
+ | superseded-generation trigger | enforces WA-13 generation ordering physically |
+-
+-The last two are genuinely new laws. Neither can affect an inherited row: both live only on the
+-new table. The inherited DDL permitted appending to an older generation; carrierFormat 3 does
++| no append before the format row | an `{A, B}` footprint holds no row that publication could contradict (§5.1) |
++| `first_generation` coupled to `migrated_from` | the fresh path publishes 1; the migrated path publishes at least 2 (§5.1) |
++| whole-value storage-class and hex CHECKs | a value is admitted only in its exact storage class and whole grammar: no embedded NUL, BLOB or non-integral REAL (§5.1) |
++
++The last five are genuinely new laws. None can affect an inherited row: all live only on the new
++objects. The inherited DDL permitted appending to an older generation; carrierFormat 3 does
+ not, which is strictly narrower and matches WA-13.
+ 
+ `run_id` is a physical column, not a new body member: the value is already a member of the closed
+@@ -243,7 +311,8 @@
+                                                  -> MIGRATION.CORRUPT
+ 5  read the carrier_format row where singleton = 1
+        row present  -> carrierFormat 3
+-       row absent   -> INCOMPLETE FOOTPRINT: inherited format; a fresh admitted
++       row absent   -> if grant_journal_v3 holds any row -> MIGRATION.CORRUPT
++                       else INCOMPLETE FOOTPRINT: inherited format; a fresh admitted
+                        maintenance attempt resumes at act C
+ 6  if table grant_journal exists and trigger gj_seq_contiguous exists -> carrierFormat 2
+ 7  if table grant_journal exists                                      -> carrierFormat 1
+@@ -271,9 +340,17 @@
+    frozen definition. This closes the `CREATE TABLE IF NOT EXISTS` hole: a pre-existing variant
+    can never be silently accepted. Verified equal in C2.
+ 2. `carrier_format.project_key_digest` must equal the carrier's own `projectKeyDigest` derived from
+-   the admitted project key; otherwise `MIGRATION.CORRUPT`.
++   the admitted project key. A mismatch is a **carrier project binding mismatch**, not migration
++   corruption: nothing in the migration footprint is inconsistent, but the carrier's own binding names
++   another project, the condition the frozen `reconcile_witness` reports as *witness names another
++   carrier*. It never borrows `MIGRATION.CORRUPT`; its route is §8.1.
+ 3. `max(grantGeneration)` in `grant_journal` must be strictly less than
+-   `carrier_format.first_generation`; otherwise `MIGRATION.CORRUPT`.
++   `carrier_format.first_generation`, and no inherited row may follow a `TERMINAL` in its generation;
++   otherwise the published generation boundary is violated (the F51 split-brain custody condition)
++   and the carrier is `MIGRATION.CORRUPT` at a writer or maintenance open.
++3a. `min(grantGeneration)` in `grant_journal_v3`, when any row exists, must be at least
++   `carrier_format.first_generation`; otherwise `MIGRATION.CORRUPT`. The corrected DDL already refuses
++   such a row; this check verifies rows, not only definitions.
+ 4. Witness reconciliation runs exactly as `security_unit_lib_v8.reconcile_witness` specifies. C1
+    reproduced all 14 rows of the v8 §5.4 table against the frozen implementation with no
+    deviation. Reconciliation is unchanged by this correction.
+@@ -281,6 +358,48 @@
+    step: the frozen `reconcile_witness` is pure and does **not** consult the high-water
+    (verified in C1).
+ 
++### 8.1 Phase-specific public routes (source37 owner correction)
++
++Every route below is an existing D9 v1.14 class, exit, `errorCode` and `faultCause`; nothing is minted.
++The phase decides which existing route applies, never a new class. Machine-readable:
++`carrier-dispatch.v3.json#/publicProjectionByPhase`. Security owner rows: S12.
++
++| Phase | Observation | Internal standing | class / exit / errorCode / faultCause | `domainDetail` |
++|---|---|---|---|---|
++| writer or maintenance open | partial object set; all names with an invalid definition; a `grant_journal_v3` row with no published row; a published boundary violated (checks 3, 3a) | migration footprint not a lawful prefix | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | `MIGRATION.CORRUPT` |
++| writer or maintenance open | F51: inherited generation at or above `first_generation`, or an inherited row after `TERMINAL` | `split-brain-custody-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | `MIGRATION.CORRUPT` |
++| writer or maintenance open | published `project_key_digest` (check 2) or a surviving witness names another project | carrier project binding mismatch | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
++| maintenance act C (fresh or `{A, B}` resume) | a `grant_journal_v3` row, a partial set or invalid definition; or a witness naming another project | as the rows above | as above; **nothing is published** | as above |
++| read-only recovery | the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest` differs from the admitted binding | `binding-unusable` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` / — | `RECOVERY.REFUSED`, typed subject |
++| read-only recovery | association names the admitted carrier, but the carrier's own row or witness names another project; an unlawful footprint; or F51 | `unknown-quarantine-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
++| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | lawful `{A}` or `{A, B}` prefix (`carrier-migration.v1.md` §4), or an unstable observation | `unavailable-busy` | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` / `ledger-busy` | `PROJECT.BUSY` |
++
++**Why a digest mismatch is not migration corruption.** A partial object set, an invalid definition, a
++row before publication and a violated generation boundary are failures of the migration footprint
++itself, so `MIGRATION.CORRUPT` names their remedy. A project digest mismatch leaves that footprint
++intact: the carrier at this namespace carries another project's binding. The frozen v8 witness law
++already treats the same fact as a carrier quarantine, and S12 keeps journal-carrier quarantine free of
++`MIGRATION.CORRUPT` so that one code never carries two remedies. On read-only recovery the
++association's own carrier naming decides first: an association that names another carrier is the
++existing `binding-unusable` refusal of the recovery request.
++
++**Why F46 is `HOST.IO_FAILURE`.** An association is written only with a committed carrierFormat 3
++`SEAL`, so one naming a historical generation contradicts two retained owners. That is the
++`unknown-custody` family (`HOST.IO_FAILURE`, `host-io`): not a caller defect (request-rejected), not a
++stably observed quarantine (`LEDGER.CORRUPT`) and not contention. It never becomes not-committed or a
++confirmation.
++
++**Interrupted state and stale custody.** Each phase re-evaluates every predicate from the bytes it
++reads at that open or in that journal snapshot: a cached verdict, `first_generation`,
++`projectKeyDigest` or earlier successful open is never reused. A writer or maintenance refusal appends
++nothing, publishes nothing and writes no marker, because `carrier_quarantine.reason` keeps its inherited
++enum; the next open detects the same condition again. Read-only recovery writes nothing, uses
++`MIGRATION.CORRUPT` on no path, and reports the quarantine-condition row only with its Step 4 stable
++observations, otherwise `unavailable-busy`. A lawful `{A}` or `{A, B}` prefix stays a resumable
++interrupted migration, never a corruption diagnosis. No route confirms, negates or settles an attempt,
++merges split-brain rows, rewrites the immutable format row or grants authority.
++
+ ## 9. Read dispatch
+ 
+ Every generation lives entirely in exactly one table, and generations are totally ordered per
+@@ -298,7 +417,7 @@
+   `RepoExecutionGrantV2.platformId` or a truth-table key.
+ - A historical generation can never satisfy a schema-3 `SEAL` join, because no `SEAL` row can
+   exist there. A recovery request whose association names such a generation returns
+-  `unknown-carrier-incompatible` (F31/F46), never `not-committed`.
++  `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its public route is §8.1.
+ - Historical bytes are read under recordSchema-1 semantics. They are not relabelled as schema 3
+   and are not re-admitted through the schema-3 gate. This preserves the existing
+   `JournalRecordV2` law, which exists "only to identify historical bytes so they are refused as
+@@ -331,7 +450,7 @@
+   with `first_generation`.
+ - That collision is therefore **detectable, not preventable**: any generation at or above
+   `first_generation` appearing in the **inherited** table is a split-brain custody condition, never
+-  valid history, and is never merged into the current generation sequence. The mitigation is the
++  valid history, and is never merged into the current generation sequence (public route §8.1). The mitigation is the
+   existing ordered-release discipline — ship the format-aware core first, enable migration only
+   once the install's selected core generation is at or above that release. That is an
+   implementation and release obligation, and it is a **selected disclosed limitation**, not an
+--- a/docs/coop/design-corrections/security/carrier-migration.v1.md
++++ b/docs/coop/design-corrections/security/carrier-migration.v1.md
+@@ -4,6 +4,8 @@
+ readiness, no application and no implementation authorization. Private design/reference work, not
+ OS qualification. Authored against frozen Source25
+ `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Why this document exists.** The v4 dispatch said the carrier transition used an
+ "`InstallationTransitionJournalV1`-shaped intent". Root's supplied counterexample
+@@ -112,7 +114,7 @@
+ |---|---|---|
+ | **A** | one `TERMINAL` row appended to the inherited `grant_journal` at tail+1, cause `grantGenerationClosure`, carrying `migrationOpRef` as its `operationRef` | single INSERT under the inherited append triggers |
+ | **B** | `grant_journal_v3`, `carrier_format` and their triggers created | **one explicit transaction on the same connection**: `BEGIN`, every statement, `COMMIT`, and `ROLLBACK` on any failure |
+-| **C** | the single `carrier_format` row inserted, publishing `first_generation` and `chain_law` | single INSERT, immutable by trigger |
++| **C** | the single `carrier_format` row inserted, publishing `first_generation` and `chain_law` | single INSERT, immutable by trigger, in one transaction that first verifies the definitions, that `grant_journal_v3` holds no row and that a surviving witness names the admitted `projectKeyDigest` |
+ 
+ **Act B must be an explicit transaction, and a corrected claim about how.** An earlier draft said
+ "one DDL transaction; SQLite DDL is transactional, so B is all-or-nothing", and its reference
+@@ -147,6 +149,15 @@
+ one, under the same held `EXCLUSIVE` lease. It is never fixed at planning time, so a benign
+ interleaving (§5) cannot make it stale.
+ 
++**Publication law at C (source37 owner correction, A37-02).** The corrected DDL refuses every
++`grant_journal_v3` append while no format row exists, and couples `first_generation` to
++`migrated_from` (exactly 1 fresh, at least 2 migrated). Act C, fresh or resuming `{A, B}`, therefore
++verifies in the transaction that publishes the row: the seven definitions, an empty `grant_journal_v3`,
++and a surviving witness naming the admitted `projectKeyDigest`. A row or definition failure is
++`MIGRATION.CORRUPT`; a witness naming another project is a carrier project binding mismatch; either
++way nothing is published and no marker is written. Values are read under the held lease at C, never
++carried from the stopped attempt. Routes: `carrier-format.v3.md` §8.1.
++
+ ### Total recovery over every durable prefix
+ 
+ There is no torn state to repair, because each act is atomic and the physical state is
+@@ -156,7 +167,7 @@
+ |---|---|---|---|
+ | ∅ | no `TERMINAL` at the inherited tail, no new objects | carrierFormat 1 or 2, generation open | none; a later `store-gc` may start at A |
+ | **{A}** | inherited tail is `TERMINAL`; no new objects | carrierFormat 1 or 2, generation **closed** | resume at **B**, recomputing `closedGeneration`. This is the "failure after TERMINAL and before final metadata" case |
+-| **{A, B}** | new objects exist, `carrier_format` has **no row** | still carrierFormat 1 or 2 by detection | resume at **C**, after verifying the existing object definitions byte-equal the selected DDL; otherwise `MIGRATION.CORRUPT` |
++| **{A, B}** | new objects exist, `carrier_format` has **no row** | still carrierFormat 1 or 2 by detection | resume at **C**, after verifying the existing object definitions byte-equal the selected DDL, that `grant_journal_v3` holds no row and that a surviving witness names the admitted `projectKeyDigest`; otherwise `MIGRATION.CORRUPT` (definitions or rows) or a carrier project binding mismatch (witness), and nothing is published |
+ | {A, B, C} | `carrier_format` row present | carrierFormat 3 | none; complete |
+ 
+ **Commit or barrier uncertainty stops the attempt. It does not continue it.** An earlier draft read
+@@ -213,7 +224,8 @@
+   otherwise would be an overclaim.
+ - **Detection is exact**: the read dispatch treats any generation greater than or equal to
+   `first_generation` appearing in the **inherited** table as a split-brain custody condition, never
+-  as valid history, and never merges it into the current generation sequence.
++  as valid history, and never merges it into the current generation sequence. Its public route is
++  `carrier-format.v3.md` §8.1.
+ - **The mitigation is the existing ordered-release pattern**, not a new mechanism. S9 already ships
+   a stage-2 core under the stage-1 catalog so every install updates by its ordinary path. The
+   format-3-capable core ships first; migration is enabled only once the install's selected core
+--- a/docs/coop/design-corrections/security/carrier-dispatch.v3.json
++++ b/docs/coop/design-corrections/security/carrier-dispatch.v3.json
+@@ -188,7 +188,7 @@
+       {
+         "step": 5,
+         "if": "all seven names present AND all definitions valid",
+-        "then": "Read the carrier_format row with singleton = 1. Row present -> carrierFormat 3. Row absent -> INCOMPLETE FOOTPRINT: historical reads use the inherited format if grant_journal exists; otherwise no carrier format is published yet. A fresh admitted maintenance attempt resumes at C, using the fresh-install row values when no inherited table exists."
++        "then": "Read the carrier_format row with singleton = 1. Row present -> carrierFormat 3. Row absent -> INCOMPLETE FOOTPRINT: historical reads use the inherited format if grant_journal exists; otherwise no carrier format is published yet. A fresh admitted maintenance attempt resumes at C, using the fresh-install row values when no inherited table exists. Before any resume the incomplete footprint must hold no grant_journal_v3 row: a row there is not a lawful durable prefix and is MIGRATION.CORRUPT. The corrected DDL refuses every append before publication."
+       },
+       {
+         "step": 6,
+@@ -209,8 +209,9 @@
+     "executedEvidence": "scratch/out/c18.json exercises this SELECTED algorithm on the fresh-install path, every lawful durable prefix, a partial object set and an all-names malformed-complete shape. The five-case evidence formerly cited from c2.json tested an EARLIER table-existence predicate and is retained only as historical evidence, not as evidence for this algorithm.",
+     "postDetectionChecks": [
+       "The stored SQL text of carrier_quarantine and carrier_capacity_pause must byte-equal the frozen definition. This closes the CREATE TABLE IF NOT EXISTS hole. Verified equal in C2.",
+-      "For a published carrierFormat 3 row, carrier_format.project_key_digest must equal the admitted projectKeyDigest, else MIGRATION.CORRUPT. Before publication do not read absent row fields.",
+-      "If an inherited grant_journal table exists and carrierFormat 3 is published, max(grantGeneration) in it must be strictly less than carrier_format.first_generation, else MIGRATION.CORRUPT. An absent inherited table is the lawful fresh-install path and is never queried.",
++      "For a published carrierFormat 3 row, carrier_format.project_key_digest must equal the admitted projectKeyDigest. A mismatch is a CARRIER PROJECT BINDING MISMATCH, not migration corruption: the carrier's own binding names another project, the same condition the frozen reconcile_witness reports as witness names another carrier. It never borrows MIGRATION.CORRUPT; its route is publicProjectionByPhase. Before publication do not read absent row fields.",
++      "If an inherited grant_journal table exists and carrierFormat 3 is published, max(grantGeneration) in it must be strictly less than carrier_format.first_generation and no inherited row may follow a TERMINAL in its generation; otherwise the published generation boundary is violated (the F51 split-brain custody condition), MIGRATION.CORRUPT at a writer or maintenance open. An absent inherited table is the lawful fresh-install path and is never queried.",
++      "For a published carrierFormat 3 row, min(grantGeneration) in grant_journal_v3, when any row exists, must be at least carrier_format.first_generation; otherwise MIGRATION.CORRUPT. The corrected DDL already refuses such a row; this check verifies rows, not only definitions.",
+       "Witness reconciliation runs exactly as security_unit_lib_v8.reconcile_witness specifies; all 14 rows of the v8 section 5.4 table were reproduced in C1 with no deviation.",
+       "The SC-TRUST high-water comparison is a separate step: the frozen reconcile_witness is pure and does not consult the high-water (verified in C1)."
+     ],
+@@ -258,7 +259,7 @@
+     ],
+     "readerLaws": [
+       "A historical platform value is never presented as an S8 machine id, never rewritten, and never joined to RepoExecutionGrantV2.platformId or a truth-table key.",
+-      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed.",
++      "A recovery request whose association names a carrierFormat 1 or 2 generation returns unknown-carrier-incompatible, never not-committed; its route is publicProjectionByPhase.readOnlyRecovery.",
+       "Historical bytes are read under recordSchema-1 semantics, never relabelled as schema 3 and never re-admitted through the schema-3 gate. This preserves the existing JournalRecordV2 law.",
+       "AUD, CHECKPOINT, EXPIRY, MIGRATION and NARROW rows are readable as history in historical generations, are not writable in carrierFormat 3, and never enter LinearizationV1.",
+       "A carrierFormat 1 generation closed by a TERMINAL record is marked closed-by-record, not-trigger-enforced, because carrierFormat 1 has no TERMINAL trigger. Any row after that TERMINAL is a custody condition, never valid history."
+@@ -272,7 +273,7 @@
+     "steps": [
+       "Under the S7 install fence with EXCLUSIVE on the affected namespace, append TERMINAL with cause grantGenerationClosure to the existing grant_journal at tail+1, carrying the migration operation own op- token.",
+       "Execute grant-journal.carrier.v3.sql.",
+-      "Insert the single carrier_format row with carrier_format 3, the carrier projectKeyDigest, first_generation = max inherited generation + 1, chain_law 1, migrated_from 1 or 2 and the migration op ref.",
++      "Insert the single carrier_format row with carrier_format 3, the carrier projectKeyDigest, first_generation = max inherited generation + 1, chain_law 1, migrated_from 1 or 2 and the migration op ref. Publication runs in one transaction that first verifies the seven definitions, that grant_journal_v3 holds no row and that a surviving witness names the admitted projectKeyDigest; the DDL couples first_generation to migrated_from.",
+       "New operational appends go to grant_journal_v3 in first_generation onward."
+     ],
+     "executedEvidence": {
+@@ -319,12 +320,12 @@
+     "recoveryByPrefix": {
+       "empty": "start at A (or, on a fresh install with no inherited table, start at B)",
+       "A": "resume at B, recomputing the closed generation",
+-      "AB": "validate the existing object definitions against the selected creation path, then resume at C, else MIGRATION.CORRUPT",
++      "AB": "validate the existing object definitions against the selected creation path, require grant_journal_v3 to hold no row and a surviving witness to name the admitted projectKeyDigest, then resume at C by publishing in one transaction that re-verifies emptiness; invalid definitions or any grant_journal_v3 row is MIGRATION.CORRUPT, a witness naming another project is a carrier project binding mismatch, and nothing is published in either case",
+       "ABC": "complete",
+       "partialObjects": "MIGRATION.CORRUPT, refused and never resumed",
+       "allNamesInvalidDefinitions": "MIGRATION.CORRUPT, refused and never resumed"
+     },
+-    "splitBrainLimit": "A format-unaware core cannot be made to refuse a migrated carrier. Prevention is impossible within the inherited format; detection is exact, because any generation at or above first_generation in the inherited table is a custody condition and never valid history. The mitigation is the existing ordered-release pattern.",
++    "splitBrainLimit": "A format-unaware core cannot be made to refuse a migrated carrier. Prevention is impossible within the inherited format; detection is exact, because any generation at or above first_generation in the inherited table is a custody condition and never valid history. The mitigation is the existing ordered-release pattern. Its route is MIGRATION.CORRUPT at a writer or maintenance open and the quarantine-condition row at read-only recovery (publicProjectionByPhase).",
+     "detectionOrder": "object names, then partial refusal, then definition validation, then the row. The row is read LAST.",
+     "uncertaintyStopsTheAttempt": "A commit- or barrier-uncertain maintenance attempt STOPS: cleanup only, release EXCLUSIVE then the fence, write nothing further. Progress requires a separately admitted fresh maintenance attempt with its own migrationOpRef, re-acquiring fence and EXCLUSIVE, which resumes from the observed durable prefix. The same operation never retries or proceeds."
+   },
+@@ -454,5 +455,222 @@
+     "PS-01": "docs/v2/architecture/store-instance-lineage.v1.json owns store-instance identity and lineage; root integrated it and the binding tuple and digest shape are consumed unchanged. Nothing is redefined here.",
+     "PS-04": "docs/v2/architecture/report-asset-binding.v1.json owns the report asset binding. Untouched."
+   },
+-  "rootIntegrationClarification": "Scope inherited-table post-checks and incomplete-row recovery to distinguish interrupted fresh installation from interrupted migration. No public field or format axis changes."
++  "rootIntegrationClarification": "Scope inherited-table post-checks and incomplete-row recovery to distinguish interrupted fresh installation from interrupted migration. No public field or format axis changes.",
++  "ddlGrammar": {
++    "standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 DDL (sha256 f0a22382f8a5a5bc356334cfde16f7ca1fa6caa37e537cc7924cd46ffd81e3ba). Those are DDL admission counterexamples, not a demonstrated product exploit; host record admission remains separate. Revised in v3: root showed that the v2 predicate length(CAST(column AS BLOB)) = N refused lawful rows in UTF-16le and UTF-16be databases; it is replaced by instr(column, char(0)) = 0 and no database text encoding is required.",
++    "law": "Every hex-bearing column of the carrierFormat 3 DDL and of the private attempt_custody DDL is an exact whole TEXT value: typeof(column) = 'text', length(column) = N (characters before any NUL), instr(column, char(0)) = 0 (no NUL anywhere), a prefix GLOB where a prefix exists, then substr(column, prefix + 1) NOT GLOB '*[^0-9a-f]*'. With no NUL, length() and GLOB see the whole value; the case-sensitive hex class admits only ASCII 0-9 and a-f, so multibyte and malformed characters are refused by the same conjunction. Removing any one conjunct admits a hostile value.",
++    "carrierFormat3Columns": [
++      "carrier_format.project_key_digest",
++      "carrier_format.migration_op_ref",
++      "grant_journal_v3.operation_ref",
++      "grant_journal_v3.run_id",
++      "grant_journal_v3.manifest_digest",
++      "grant_journal_v3.body_sha256",
++      "grant_journal_v3.prev_sha256"
++    ],
++    "attemptCustodyColumns": [
++      "store_generation_digest",
++      "execution_id",
++      "operation_ref"
++    ],
++    "grammarSources": [
++      "operation_ref: op- plus 32 lowercase hex (carrier-format.v3.md section 5)",
++      "run_id: security-lifecycle.schemas.v1.json JournalRecord runId ^run3:[0-9a-f]{64}",
++      "manifest_digest: security-schemas.v2 journal-record.schema.json manifestDigest ^[0-9a-f]{64}$",
++      "project_key_digest: security_unit_lib_v8 witness projectKeyDigest [0-9a-f]{64}",
++      "body_sha256 and prev_sha256: lowercase-hex SHA-256 text; security_unit_lib_v8 journal tail digest [0-9a-f]{64}",
++      "attempt_custody: attempt-custody.schema.v1.json storeGenerationDigest, executionId and operationRef patterns"
++    ],
++    "authority": "Host record admission still validates the closed record bodies. The DDL is defence in depth.",
++    "historicalScope": "carrierFormat 1 and 2 bytes are frozen and unchanged: their GLOB checks inspect only the first character after a prefix, and they also admit embedded-NUL and BLOB values. That is a disclosed historical limit, not repaired: historical rows are read as history under recordSchema-1 semantics, are never re-admitted through the schema-3 gate and can never satisfy a schema-3 SEAL join (F46), so a malformed historical value confers no commitment. No product implementation or deployed carrier or ledger table was created from the earlier PROPOSED carrierFormat 3 or attempt_custody bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created from them by earlier design checks and review probes and remain historical evidence; the open dispatch validates definitions byte-exactly, so a carrier created from earlier bytes is refused MIGRATION.CORRUPT rather than read as this definition.",
++    "storageClassLaw": "Every carrierFormat 3 and attempt_custody column's storage class is enforced by one of two mechanisms. An explicit typeof() guard: 'integer' for the INTEGER columns (the v1 range checks admitted a non-integral REAL in first_generation and grantGeneration), 'text' for the free TEXT columns request_ref, token, install_generation_id, body and namespace_id (a BLOB was admitted) and for every hex-bearing column. Exact enumeration: record_type, platform, phase and settled_outcome have IN lists of TEXT literals only, and a whole-value comparison never equals a BLOB, a number or a NUL-suffixed text. CHECK constraints see values after column affinity, so an integer supplied as text '5' is stored and checked as integer 5.",
++    "carrierFormat3IntegerColumns": [
++      "carrier_format.singleton",
++      "carrier_format.carrier_format",
++      "carrier_format.first_generation",
++      "carrier_format.chain_law",
++      "carrier_format.migrated_from",
++      "grant_journal_v3.grantGeneration",
++      "grant_journal_v3.seq",
++      "grant_journal_v3.record_schema"
++    ],
++    "carrierFormat3TextColumns": [
++      "grant_journal_v3.request_ref",
++      "grant_journal_v3.token",
++      "grant_journal_v3.install_generation_id",
++      "grant_journal_v3.body"
++    ],
++    "carrierFormat3EnumeratedColumns": [
++      "grant_journal_v3.record_type",
++      "grant_journal_v3.platform"
++    ],
++    "attemptCustodyIntegerColumns": [
++      "record_schema"
++    ],
++    "attemptCustodyTextColumns": [
++      "namespace_id"
++    ],
++    "attemptCustodyEnumeratedColumns": [
++      "phase",
++      "settled_outcome"
++    ],
++    "alternativesRejected": [
++      "STRICT tables: they refuse a BLOB in a TEXT column and a REAL in an INTEGER column, but do not refuse an embedded NUL, and SQLite documents that a database containing a STRICT table cannot be read by SQLite libraries older than 3.37.0, which would contradict the selected staging in which a format-unaware core still reads historical generations.",
++      "length(CAST(column AS BLOB)) = N (source37 v2): the byte count of a TEXT value depends on the database text encoding, so it refused every lawful hex-bearing row in UTF-16le and UTF-16be databases; withdrawn.",
++      "instr(CAST(column AS BLOB), x'00') = 0: the BLOB view of a UTF-16 value contains zero bytes, so it also refuses lawful UTF-16 rows; the selected guard is the TEXT instr(column, char(0)) = 0.",
++      "instr(column, char(0)) = 0 without the character length, prefix and hex guards: admits uppercase, non-hex, short and long values; each retained conjunct is necessary."
++    ],
++    "encodingIndependence": "The grammar evaluates TEXT values by character and does not depend on the database text encoding. The reference matrix and the owner checker admit every canonical lawful row and refuse the NUL, BLOB, REAL, malformed UTF-8 or UTF-16, multibyte, non-ASCII digit, prefix and length variants under UTF-8, UTF-16le and UTF-16be, and a UTF-16 carrierFormat 2 carrier migrates, publishes and seals. No carrier or ledger is required to use a particular encoding."
++  },
++  "publicationLaw": {
++    "standing": "Source37 owner correction (review advisory A37-02).",
++    "ddl": "gj3_append_laws refuses every append while no carrier_format row exists, so an {A, B} footprint cannot acquire a row that a later publication would contradict. A carrier_format CHECK couples first_generation to migrated_from: exactly 1 on the fresh path and at least 2 when migrated.",
++    "actC": "Publication, on the fresh path or resuming {A, B}, runs under the held fence and EXCLUSIVE lease in one transaction that first verifies the seven definitions, that grant_journal_v3 holds no row and that a surviving witness names the admitted projectKeyDigest, then recomputes first_generation and inserts the row. A failed precondition publishes nothing: a definition or row failure is MIGRATION.CORRUPT and a witness naming another project is a carrier project binding mismatch.",
++    "published": "After publication the row-level post-detection checks verify rows, not only definitions: no inherited generation at or above first_generation, no inherited row after a TERMINAL and no grant_journal_v3 row below first_generation.",
++    "noNewObject": "The law lives in the existing trigger and table definitions; the seven object names are unchanged."
++  },
++  "publicProjectionByPhase": {
++    "standing": "Source37 owner correction (review advisories A37-03 and A37-04). Exact existing D9 v1.14 class, exit, errorCode and faultCause for every carrier open, publication and read-only recovery observation. Nothing is minted: no class, code, exit, faultCause or DomainDetailCode. domainDetail null means the member is omitted. Prose owner: carrier-format.v3.md section 8.1. Security rows: security-and-lifecycle.md S12. Read-only rows: commit-recovery-readonly.v3.md section 1.",
++    "phaseLaws": [
++      "The phase decides only which existing route applies. A writer or maintenance open refuses: it appends nothing, publishes nothing and writes no quarantine marker, because carrier_quarantine.reason is the unchanged inherited enum. Every open re-detects from the bytes it reads; a cached verdict, first_generation, projectKeyDigest or earlier successful open is never reused.",
++      "Read-only recovery writes nothing, never uses MIGRATION.CORRUPT, and reports the quarantine-condition row only with the Step 4 stable observations of commit-recovery-readonly.v3.md; otherwise it reports unavailable-busy.",
++      "No route confirms, negates or settles an attempt, merges split-brain rows, rewrites the immutable format row or grants any authority."
++    ],
++    "writerOrMaintenanceOpen": {
++      "migration-footprint-corrupt": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "observations": [
++          "some but not all seven carrierFormat 3 object names",
++          "all seven names with an invalid definition",
++          "a grant_journal_v3 row while no format row is published",
++          "a published grant_journal_v3 row below first_generation"
++        ]
++      },
++      "split-brain-custody-condition": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "observations": [
++          "an inherited grant_journal generation at or above the published first_generation (F51)",
++          "an inherited row after a TERMINAL in its generation"
++        ]
++      },
++      "carrier-project-binding-mismatch": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "writer or maintenance carrier open, or maintenance format publication",
++        "observations": [
++          "published carrier_format.project_key_digest differs from the admitted projectKeyDigest",
++          "a surviving witness names another project (frozen reconcile_witness: witness names another carrier)"
++        ]
++      }
++    },
++    "maintenanceActCPublication": {
++      "migration-footprint-corrupt": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": "MIGRATION.CORRUPT",
++        "securityRefusal": "MIGRATION.CORRUPT",
++        "s12Row": "`MIGRATION.CORRUPT` (incl. a registry differing",
++        "publishes": false,
++        "observations": [
++          "a grant_journal_v3 row before publication",
++          "a partial object set or an invalid definition"
++        ]
++      },
++      "carrier-project-binding-mismatch": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "writer or maintenance carrier open, or maintenance format publication",
++        "publishes": false,
++        "observations": [
++          "a surviving witness names another project"
++        ]
++      }
++    },
++    "readOnlyRecovery": {
++      "binding-unusable": {
++        "class": "request-rejected",
++        "exit": 2,
++        "errorCode": "EXTENSION.ADMISSION_REJECTED",
++        "faultCause": null,
++        "domainDetail": "RECOVERY.REFUSED",
++        "securityRefusal": "RECOVERY.REFUSED",
++        "s12Row": "read-only recovery: the requested binding",
++        "observations": [
++          "the association storeGenerationDigest, namespaceId or journalCarrierDigest differs from the admitted binding"
++        ]
++      },
++      "unknown-quarantine-condition": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.CORRUPT",
++        "faultCause": "ledger-corrupt",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: stably observed carrier quarantine condition",
++        "requiresStableObservations": true,
++        "otherwise": "unavailable-busy",
++        "observations": [
++          "with the association naming the admitted carrier, the carrier's own published row or witness names another project",
++          "a migration footprint that is not a lawful durable prefix",
++          "the F51 split-brain condition",
++          "the inherited quarantine conditions uncertainTailLoss, witnesslessRestore and witnessMalformed"
++        ]
++      },
++      "unknown-carrier-incompatible": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "host-io",
++        "domainDetail": null,
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: the association names a carrierFormat 1 or 2 generation",
++        "observations": [
++          "the association grantGeneration is below the first_generation read in the same journal snapshot (F46)"
++        ]
++      },
++      "unavailable-busy": {
++        "class": "operational-failed",
++        "exit": 4,
++        "errorCode": "LEDGER.BUSY_TIMEOUT",
++        "faultCause": "ledger-busy",
++        "domainDetail": "PROJECT.BUSY",
++        "securityRefusal": null,
++        "s12Row": "read-only recovery: requested attempt still `admitted` **with no receipt**",
++        "observations": [
++          "a lawful {A} or {A, B} migration prefix (carrier-migration.v1.md section 4)",
++          "an unstable observation where a quarantine condition would otherwise be reported"
++        ]
++      }
++    },
++    "readOnlyStandingOfDispatchResult": {
++      "binding-unusable": "binding-unusable",
++      "carrier-project-binding-mismatch": "unknown-quarantine-condition",
++      "migration-footprint-corrupt": "unknown-quarantine-condition",
++      "split-brain-custody-condition": "unknown-quarantine-condition",
++      "unknown-carrier-incompatible": "unknown-carrier-incompatible",
++      "incomplete-footprint": "unavailable-busy"
++    }
++  }
+ }
+--- a/docs/coop/design-corrections/security/check-carrier-v3.py
++++ b/docs/coop/design-corrections/security/check-carrier-v3.py
+@@ -165,7 +165,10 @@
+     """Apply the DDL to a fresh in-memory carrier and return admit/refuse per row."""
+     c = sqlite3.connect(':memory:')
+     c.executescript(ddl3)
+-    c.execute('INSERT INTO carrier_format VALUES (1,3,?,?,1,NULL,NULL)', ('e' * 64, first))
++    # The fresh path publishes first_generation 1; a higher first generation is a migrated row with its
++    # migration op ref, as the corrected carrier_format CHECK requires.
++    c.execute('INSERT INTO carrier_format VALUES (1,3,?,?,1,?,?)',
++              ('e' * 64, first, None if first == 1 else 2, None if first == 1 else 'op-' + 'f' * 32))
+     c.commit()
+     out = []
+     for r in rows:
+@@ -437,6 +440,616 @@
+ ck('the fresh-install path does not read absent tables',
+    disp['openDispatch']['freshInstallPath'].get('readsAbsentTables') is False)
+ 
++# ---- 7. source37 owner correction: exact storage class and whole-value grammar (A37-01, revised v3) -------
++# SQLite types values dynamically: TEXT affinity keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and
++# length() and GLOB stop at an embedded NUL. Every column's storage class is enforced by an explicit typeof() guard
++# or by exact enumeration, and every hex-bearing column is an exact whole TEXT value (typeof text, character length,
++# instr(column, char(0)) = 0, prefix, whole-hex guard). Every column is exercised under the UTF-8, UTF-16le and
++# UTF-16be database encodings: canonical lawful values must be admitted in their exact storage class and hostile
++# values must never be stored outside the column law. Read-back uses typeof() and CAST(... AS BLOB) decoded in the
++# observed database encoding, so no admitted value can crash the observation.
++_S37_CF = 'INSERT INTO carrier_format VALUES (?,?,?,?,?,?,?)'
++_S37_FRESH = (1, 3, 'e' * 64, 1, 1, None, None)
++_S37_MIG = (1, 3, 'e' * 64, 2, 1, 2, 'op-' + 'f' * 32)
++_S37_RUN3 = 'run3:' + 'c' * 64
++
++
++def _s37_run(script, steps):
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    c.executescript(script)
++    out = []
++    for sql, args in steps:
++        try:
++            c.execute(sql, args)
++            out.append(True)
++        except sqlite3.Error:
++            out.append(False)
++    c.close()
++    return out
++
++
++def _s37_try(c, sql, args):
++    try:
++        c.execute(sql, args)
++        return True
++    except sqlite3.Error:
++        return False
++
++
++def _s37_v3(gen=1, seq=1, rt='REV', op=_OP, rid=None, md_=None, pf=None, tk=None, ig=None, bs=_H, ps=_H):
++    return (gen, seq, 3, rt, op, None, tk, ig, md_, pf, rid, '{}', bs, ps)
++
++
++_S37_AC = sload(os.path.join(ROOT, 'scratch', 'proposal', 'docs/v2/architecture/attempt-custody.schema.v1.json'))['proposedPrivateDDL']
++_S37_A64, _S37_B64, _S37_C64, _S37_E64 = 'a' * 64, 'b' * 64, 'c' * 64, 'e' * 64
++_S37_EXEC = 'exec1_' + 'a' * 32
++_S37_ENCODINGS = ('UTF-8', 'UTF-16le', 'UTF-16be')
++_S37_CODEC = {'UTF-8': 'utf-8', 'UTF-16le': 'utf-16-le', 'UTF-16be': 'utf-16-be'}
++
++
++def _s37_hexlaw(prefix, n, nullable):
++    pat = re.compile(re.escape(prefix).encode() + b'[0-9a-f]{%d}' % n)
++    return lambda t, b: (t == 'null' and nullable) or (t == 'text' and pat.fullmatch(b) is not None)
++
++
++def _s37_intlaw(pred, nullable=False):
++    return lambda t, b: (t == 'null' and nullable) or (t == 'integer' and pred(int(b)))
++
++
++def _s37_enumlaw(values, nullable=False):
++    enc = {v.encode() for v in values}
++    return lambda t, b: (t == 'null' and nullable) or (t == 'text' and b in enc)
++
++
++def _s37_textlaw(nullable):
++    return lambda t, b: (t == 'null' and nullable) or t == 'text'
++
++
++_S37_BASE = {'fresh': {'singleton': 1, 'carrier_format': 3, 'project_key_digest': _S37_E64, 'first_generation': 1,
++                       'chain_law': 1, 'migrated_from': None, 'migration_op_ref': None}}
++_S37_BASE['migrated'] = dict(_S37_BASE['fresh'], first_generation=2, migrated_from=2, migration_op_ref='op-' + 'f' * 32)
++_S37_BASE['seal'] = {'grantGeneration': 1, 'seq': 1, 'record_schema': 3, 'record_type': 'SEAL', 'operation_ref': _OP,
++                     'request_ref': None, 'token': None, 'install_generation_id': None, 'manifest_digest': None,
++                     'platform': None, 'run_id': _S37_RUN3, 'body': '{}', 'body_sha256': _S37_B64, 'prev_sha256': _S37_B64}
++_S37_BASE['rev'] = dict(_S37_BASE['seal'], record_type='REV', run_id=None)
++_S37_BASE['grant'] = dict(_S37_BASE['seal'], record_type='GRANT', run_id=None, token='PT', install_generation_id='ig1',
++                          manifest_digest=_S37_C64, platform='macos-x86_64')
++_S37_BASE['admitted'] = {'store_generation_digest': _S37_A64, 'namespace_id': 'ns', 'execution_id': _S37_EXEC,
++                         'operation_ref': _OP, 'record_schema': 1, 'phase': 'admitted', 'settled_outcome': None}
++_S37_BASE['settled'] = dict(_S37_BASE['admitted'], phase='settled', settled_outcome='refused')
++
++
++def _s37_hex_hostile(prefix, v):
++    n, mid, p = len(v), len(v) // 2, len(prefix)
++    rows = [('uppercase-last', '?', v[:-1] + 'A'), ('nonhex-last', '?', v[:-1] + 'g'),
++            ('nonhex-tail', '?', v[:p + 1] + 'Z' * (n - p - 1)), ('nul-suffix-Z', '?', v + '\x00Z'),
++            ('nul-suffix', '?', v + '\x00'), ('nul-middle', '?', v[:mid] + '\x00' + v[mid + 1:]),
++            ('ascii-hex-blob', '?', v.encode()), ('blob-nul-suffix', '?', v.encode() + b'\x00Z'),
++            ('nonhex-blob', '?', b'Z' * n), ('invalid-utf8-text', 'CAST(? AS TEXT)', v[:-1].encode() + b'\xc0'),
++            ('invalid-utf8-text-nul', 'CAST(? AS TEXT)', v.encode() + b'\x00\xff'),
++            ('multibyte', '?', v[:-1] + 'é'), ('trailing-newline', '?', v + '\n'), ('short', '?', v[:-1]),
++            ('long', '?', v + 'a'), ('integer', '?', 12345), ('real', '?', 1.5)]
++    if prefix:
++        rows += [('uppercase-prefix', '?', prefix.upper() + v[p:]), ('wrong-prefix', '?', 'x' * p + v[p:]),
++                 ('nul-after-prefix', '?', prefix + '\x00' + v[p + 1:])]
++    return rows
++
++
++def _s37_hex_extra(v, enc):
++    """Encoding-specific malformed TEXT: overlong and surrogate UTF-8; lone surrogate, NUL unit and odd byte in UTF-16."""
++    head = v[:-1]
++    if enc == 'UTF-8':
++        raw = [('overlong-nul', head.encode() + b'\xc0\x80'), ('overlong-hex-digit', head.encode() + b'\xc0\xb0'),
++               ('cesu-surrogate', head.encode() + b'\xed\xa0\x80'), ('lone-continuation', head.encode() + b'\x80')]
++    else:
++        codec = _S37_CODEC[enc]
++        raw = [('lone-surrogate', head.encode(codec) + (b'\x00\xd8' if enc == 'UTF-16le' else b'\xd8\x00')),
++               ('nul-code-unit', v.encode(codec) + '\x00'.encode(codec)), ('odd-trailing-byte', v.encode(codec) + b'\x41')]
++    return [(l_, 'CAST(? AS TEXT)', b_) for l_, b_ in raw] + [('fullwidth-digit', '?', head + '０'),
++                                                            ('arabic-indic-digit', '?', head + '٠')]
++
++
++def _s37_int_hostile(v):
++    return [('text-integral', '?', str(v)), ('real-integral', '?', float(v)), ('real-fraction', '?', v + 0.5),
++            ('text-fraction', '?', str(v) + '.5'), ('blob', '?', bytes([v])), ('text-nul', '?', str(v) + '\x00')]
++
++
++def _s37_enum_hostile(v):
++    return [('blob', '?', v.encode()), ('nul-suffix', '?', v + '\x00'), ('nul-suffix-Z', '?', v + '\x00Z'),
++            ('lowercase', '?', v.lower() if v.lower() != v else v.upper()), ('integer', '?', 7)]
++
++
++def _s37_text_hostile(v):
++    return [('blob', '?', v.encode()), ('integer', '?', 7), ('real', '?', 2.5), ('with-nul', '?', v + '\x00x')]
++
++
++_S37_OPF = 'op-' + 'f' * 32
++_S37_HEX = {('carrier_format', 'project_key_digest'), ('carrier_format', 'migration_op_ref'), ('grant_journal_v3', 'operation_ref'),
++            ('grant_journal_v3', 'run_id'), ('grant_journal_v3', 'manifest_digest'), ('grant_journal_v3', 'body_sha256'),
++            ('grant_journal_v3', 'prev_sha256'), ('attempt_custody', 'store_generation_digest'), ('attempt_custody', 'execution_id'),
++            ('attempt_custody', 'operation_ref')}
++_S37_SPEC = [
++    ('carrier_format', 'singleton', _s37_intlaw(lambda v: v == 1), [('fresh', 1)], 'fresh', _s37_int_hostile(1)),
++    ('carrier_format', 'carrier_format', _s37_intlaw(lambda v: v == 3), [('fresh', 3)], 'fresh', _s37_int_hostile(3)),
++    ('carrier_format', 'project_key_digest', _s37_hexlaw('', 64, False), [('fresh', _S37_E64)], 'fresh',
++     _s37_hex_hostile('', _S37_E64) + [('null', '?', None)]),
++    ('carrier_format', 'first_generation', _s37_intlaw(lambda v: v >= 1), [('fresh', 1), ('migrated', 2), ('migrated', 9)],
++     'migrated', _s37_int_hostile(2)),
++    ('carrier_format', 'chain_law', _s37_intlaw(lambda v: v == 1), [('fresh', 1)], 'fresh', _s37_int_hostile(1)),
++    ('carrier_format', 'migrated_from', _s37_intlaw(lambda v: v in (1, 2), True), [('fresh', None), ('migrated', 2), ('migrated', 1)],
++     'migrated', _s37_int_hostile(2)),
++    ('carrier_format', 'migration_op_ref', _s37_hexlaw('op-', 32, True), [('fresh', None), ('migrated', _S37_OPF)], 'migrated',
++     _s37_hex_hostile('op-', _S37_OPF)),
++    ('grant_journal_v3', 'grantGeneration', _s37_intlaw(lambda v: v >= 1), [('seal', 1)], 'seal', _s37_int_hostile(1)),
++    ('grant_journal_v3', 'seq', _s37_intlaw(lambda v: v >= 1), [('seal', 1)], 'seal', _s37_int_hostile(1)),
++    ('grant_journal_v3', 'record_schema', _s37_intlaw(lambda v: v in (1, 3)), [('seal', 3)], 'seal', _s37_int_hostile(3)),
++    ('grant_journal_v3', 'record_type', _s37_enumlaw({'GRANT', 'RA', 'ICI', 'RCI', 'ICO', 'RCO', 'REV', 'CLN', 'SEAL', 'TERMINAL'}),
++     [('seal', 'SEAL'), ('rev', 'REV')], 'seal', _s37_enum_hostile('SEAL')),
++    ('grant_journal_v3', 'operation_ref', _s37_hexlaw('op-', 32, False), [('seal', _OP)], 'seal',
++     _s37_hex_hostile('op-', _OP) + [('null', '?', None)]),
++    ('grant_journal_v3', 'request_ref', _s37_textlaw(True), [('seal', None), ('seal', 'req')], 'seal', _s37_text_hostile('req')),
++    ('grant_journal_v3', 'token', _s37_textlaw(True), [('seal', None), ('grant', 'PT')], 'grant', _s37_text_hostile('PT')),
++    ('grant_journal_v3', 'install_generation_id', _s37_textlaw(True), [('seal', None), ('grant', 'ig1')], 'grant',
++     _s37_text_hostile('ig1')),
++    ('grant_journal_v3', 'manifest_digest', _s37_hexlaw('', 64, True), [('seal', None), ('grant', _S37_C64)], 'grant',
++     _s37_hex_hostile('', _S37_C64)),
++    ('grant_journal_v3', 'platform', _s37_enumlaw({'macos-aarch64', 'macos-x86_64', 'linux-x86_64-gnu', 'linux-aarch64-gnu'}, True),
++     [('seal', None), ('grant', 'macos-x86_64')], 'grant', _s37_enum_hostile('macos-x86_64') + [('alias', '?', 'macos-arm64')]),
++    ('grant_journal_v3', 'run_id', _s37_hexlaw('run3:', 64, True), [('seal', _S37_RUN3), ('rev', None)], 'seal',
++     _s37_hex_hostile('run3:', _S37_RUN3)),
++    ('grant_journal_v3', 'body', _s37_textlaw(False), [('seal', '{}')], 'seal', _s37_text_hostile('{}') + [('null', '?', None)]),
++    ('grant_journal_v3', 'body_sha256', _s37_hexlaw('', 64, False), [('seal', _S37_B64)], 'seal',
++     _s37_hex_hostile('', _S37_B64) + [('null', '?', None)]),
++    ('grant_journal_v3', 'prev_sha256', _s37_hexlaw('', 64, False), [('seal', _S37_B64)], 'seal',
++     _s37_hex_hostile('', _S37_B64) + [('null', '?', None)]),
++    ('attempt_custody', 'store_generation_digest', _s37_hexlaw('', 64, False), [('admitted', _S37_A64)], 'admitted',
++     _s37_hex_hostile('', _S37_A64) + [('null', '?', None)]),
++    ('attempt_custody', 'namespace_id', _s37_textlaw(False), [('admitted', 'ns')], 'admitted',
++     _s37_text_hostile('ns') + [('null', '?', None)]),
++    ('attempt_custody', 'execution_id', _s37_hexlaw('exec1_', 32, False), [('admitted', _S37_EXEC)], 'admitted',
++     _s37_hex_hostile('exec1_', _S37_EXEC) + [('null', '?', None)]),
++    ('attempt_custody', 'operation_ref', _s37_hexlaw('op-', 32, False), [('admitted', _OP)], 'admitted',
++     _s37_hex_hostile('op-', _OP) + [('null', '?', None)]),
++    ('attempt_custody', 'record_schema', _s37_intlaw(lambda v: v == 1), [('admitted', 1)], 'admitted', _s37_int_hostile(1)),
++    ('attempt_custody', 'phase', _s37_enumlaw({'admitted', 'settled'}), [('admitted', 'admitted'), ('settled', 'settled')],
++     'admitted', _s37_enum_hostile('admitted')),
++    ('attempt_custody', 'settled_outcome', _s37_enumlaw({'committed', 'refused'}, True), [('admitted', None), ('settled', 'refused')],
++     'settled', _s37_enum_hostile('refused')),
++]
++
++
++def _s37_insert(table, base, column, expr, value, encoding='UTF-8'):
++    """Insert one row in a database of `encoding`; return ((typeof, utf8 value bytes) or None if refused, observed encoding)."""
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    try:
++        c.execute("PRAGMA encoding = '%s'" % encoding)
++        c.executescript(_S37_AC if table == 'attempt_custody' else ddl3)
++        if table == 'grant_journal_v3':
++            c.execute(_S37_CF, _S37_FRESH)
++        observed = c.execute('PRAGMA encoding').fetchone()[0]
++        cols = list(_S37_BASE[base])
++        c.execute('INSERT INTO %s (%s) VALUES (%s)' % (table, ','.join(cols), ','.join(expr if k == column else '?' for k in cols)),
++                  [value if k == column else _S37_BASE[base][k] for k in cols])
++        t, b = c.execute('SELECT typeof(%s), CAST(%s AS BLOB) FROM %s' % (column, column, table)).fetchone()
++        if t in ('null', 'blob'):
++            return (t, b), observed
++        try:
++            return (t, b.decode(_S37_CODEC[observed]).encode('utf-8')), observed
++        except UnicodeDecodeError:
++            return (t, b'\xff<undecodable>'), observed
++    except sqlite3.Error:
++        return None, None
++    finally:
++        c.close()
++
++
++for _enc in _S37_ENCODINGS:
++    for _table, _col, _law, _canon, _hbase, _hostile in _S37_SPEC:
++        _key = '%s.%s [%s]' % (_table, _col, _enc)
++        _bad = []
++        for _i, (_b, _v) in enumerate(_canon):
++            _g, _obs = _s37_insert(_table, _b, _col, '?', _v, _enc)
++            if _g is None or _obs != _enc or not _law(*_g):
++                _bad.append(_i)
++        ck('source37 storage: %s admits every canonical lawful value in its exact storage class' % _key, not _bad, _bad)
++        _extra = _s37_hex_extra(_S37_BASE[_hbase][_col], _enc) if (_table, _col) in _S37_HEX else []
++        _holes = []
++        for _label, _expr, _v in _hostile + _extra:
++            _g, _obs = _s37_insert(_table, _hbase, _col, _expr, _v, _enc)
++            if _g is not None and not _law(*_g):
++                _holes.append('%s -> %s %r' % (_label, _g[0], (_g[1] or b'')[:24]))
++        ck('source37 storage: %s never stores a hostile value outside its law (NUL, BLOB, REAL, malformed UTF-8/UTF-16, multibyte, prefix, length)'
++           % _key, not _holes, _holes)
++    ck('source37 storage: root counterexamples (embedded-NUL suffix, ASCII-hex BLOB64, uppercase) are refused [%s]' % _enc,
++       all(_s37_insert(t, b, col, '?', v, _enc)[0] is None for t, b, col, v in (
++           ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64 + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'operation_ref', _OP + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'run_id', _S37_RUN3 + '\x00Z'),
++           ('grant_journal_v3', 'seal', 'body_sha256', _S37_B64.encode()),
++           ('carrier_format', 'fresh', 'project_key_digest', _S37_E64.encode()),
++           ('carrier_format', 'fresh', 'project_key_digest', _S37_E64[:-1] + 'A'),
++           ('attempt_custody', 'admitted', 'store_generation_digest', _S37_A64 + '\x00Z'))))
++for _script, _name, _hexcols, _intcols, _textcols, _enums in (
++        (ddl3, 'carrierFormat 3', {'project_key_digest': 64, 'migration_op_ref': 35, 'operation_ref': 35, 'run_id': 69,
++                                   'manifest_digest': 64, 'body_sha256': 64, 'prev_sha256': 64},
++         ['singleton', 'carrier_format', 'first_generation', 'chain_law', 'migrated_from', 'grantGeneration', 'seq', 'record_schema'],
++         ['request_ref', 'token', 'install_generation_id', 'body'], ['record_type IN', 'platform IN']),
++        (_S37_AC, 'attempt_custody', {'store_generation_digest': 64, 'execution_id': 38, 'operation_ref': 35},
++         ['record_schema'], ['namespace_id'], ['phase IN', 'settled_outcome IN'])):
++    _missing = [c_ for c_, n_ in _hexcols.items()
++                if ("typeof(%s) = 'text'" % c_) not in _script or ('length(%s) = %d' % (c_, n_)) not in _script
++                or ('instr(%s, char(0)) = 0' % c_) not in _script]
++    _missing += [c_ for c_ in _intcols if ("typeof(%s) = 'integer'" % c_) not in _script]
++    _missing += [c_ for c_ in _textcols if ("typeof(%s) = 'text'" % c_) not in _script]
++    _missing += [e_ for e_ in _enums if e_ not in _script]
++    ck('source37 storage: every %s column enforces its storage class by typeof() or exact enumeration, and every hex column its character length and NUL guard'
++       % _name, not _missing, _missing)
++ck('source37 storage: no hex-bearing column uses an encoding-dependent byte-length or BLOB predicate',
++   'AS BLOB' not in ddl3 and 'AS BLOB' not in _S37_AC)
++_S37_SEVEN7 = ('carrier_format', 'cf_no_update', 'cf_no_delete', 'grant_journal_v3', 'gj3_no_update', 'gj3_no_delete', 'gj3_append_laws')
++_S37_Q7L = 'SELECT name, sql FROM sqlite_master WHERE name IN (%s)' % ','.join('?' * 7)
++_s37_r = sqlite3.connect(':memory:')
++_s37_r.executescript(ddl3)
++_S37_DEFS7 = dict(_s37_r.execute(_S37_Q7L, _S37_SEVEN7).fetchall())
++_s37_r.close()
++_S37_GJ2L = ("INSERT INTO grant_journal (grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256)"
++             " VALUES (?,?,?,?,'{}',?,?)")
++for _enc in ('UTF-16le', 'UTF-16be'):
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    c.execute("PRAGMA encoding = '%s'" % _enc)
++    c.executescript(ddl2)
++    c.execute(_S37_GJ2L, (1, 1, 'REV', _OP, _H, _H))
++    c.execute(_S37_GJ2L, (1, 2, 'TERMINAL', 'op-' + '9' * 32, _H, _H))
++    c.executescript(ddl3)
++    _obs = (c.execute('PRAGMA encoding').fetchone()[0], dict(c.execute(_S37_Q7L, _S37_SEVEN7).fetchall()) == _S37_DEFS7,
++            _s37_try(c, _S37_CF, (1, 3, _S37_E64, 2, 1, 2, 'op-' + '9' * 32)),
++            _s37_try(c, _Q, _s37_v3(gen=2, rt='SEAL', rid=_S37_RUN3)),
++            _s37_try(c, _Q, _s37_v3(gen=2, seq=2, op=_OP + '\x00Z')),
++            _s37_try(c, _Q, _s37_v3(gen=2, seq=2, bs=_S37_B64.encode())))
++    c.close()
++    ck('source37 storage: a %s carrierFormat 2 carrier migrates to carrierFormat 3, publishes, admits a lawful SEAL and refuses NUL and BLOB values'
++       % _enc, _obs == (_enc, True, True, True, False, False), _obs)
++_S37_G = disp.get('ddlGrammar', {})
++ck('source37 storage: the dispatch states the storage-class law, encoding independence, rejected alternatives and historical scope, and no encoding requirement',
++   all(k in _S37_G for k in ('storageClassLaw', 'encodingIndependence', 'alternativesRejected', 'historicalScope'))
++   and 'encodingAssumption' not in _S37_G)
++ck('source37: no carrierFormat 3 or attempt_custody CHECK keeps a first-character-only hex GLOB',
++   "[0-9a-f]*'" not in ddl3 and "[0-9a-f]*'" not in _S37_AC,
++   [l.strip() for l in (ddl3 + '\n' + _S37_AC).splitlines() if "[0-9a-f]*'" in l])
++_s37_hist = [_s37_run(ddl2, [("INSERT INTO grant_journal (grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256)"
++                              " VALUES (1,1,'REV',?,'{}',?,?)", (op, _H, _H))]) == [True]
++             for op in ('op-a' + 'Z' * 31, _OP + '\x00Z', _OP.encode())]
++ck('source37: frozen carrierFormat 2 bytes are unchanged and still admit first-character-only, embedded-NUL and BLOB operation_ref values (disclosed historical scope)',
++   "operation_ref GLOB 'op-[0-9a-f]*' AND length(operation_ref) = 35" in ddl2 and all(_s37_hist), _s37_hist)
++
++# ---- 8. source37 owner correction: publication and first_generation law (review advisory A37-02) -----
++ck('source37: an {A, B} footprint (seven objects, no format row) refuses every grant_journal_v3 append',
++   _s37_run(ddl3, [(_Q, _s37_v3(gen=1)), (_Q, _s37_v3(gen=9))]) == [False, False])
++ck('source37: first_generation is exactly 1 on the fresh path',
++   _s37_run(ddl3, [(_S37_CF, (1, 3, 'e' * 64, 5, 1, None, None))]) == [False]
++   and _s37_run(ddl3, [(_S37_CF, _S37_FRESH)]) == [True])
++ck('source37: first_generation is at least 2 on the migrated path',
++   _s37_run(ddl3, [(_S37_CF, (1, 3, 'e' * 64, 1, 1, 2, 'op-' + 'f' * 32))]) == [False]
++   and _s37_run(ddl3, [(_S37_CF, _S37_MIG)]) == [True])
++ck('source37: after publication a generation below first_generation refuses and first_generation admits',
++   _s37_run(ddl3, [(_S37_CF, _S37_MIG), (_Q, _s37_v3(gen=1)), (_Q, _s37_v3(gen=2))]) == [True, False, True])
++
++# ---- 9. source37 owner correction: executable open dispatch, interrupted state, phase routes (A37-03/04)
++# A reference decision function over real in-memory SQLite carriers. Every call re-reads the carrier bytes
++# (no cached verdict), writes nothing, and its conclusions are projected through
++# publicProjectionByPhase, which must agree with an independent expectation table, S12, the read-only
++# section 1 table, the security model D9 map, D9 v1.14 codeMaps and the selected StepTermination schema.
++_S37_SEVEN = disp['openDispatch']['sevenCarrierFormat3Objects']
++_S37_Q7 = 'SELECT name, sql FROM sqlite_master WHERE name IN (%s)' % ','.join('?' * 7)
++_s37_ref = sqlite3.connect(':memory:')
++_s37_ref.executescript(ddl3)
++_S37_REF_DEFS = dict(_s37_ref.execute(_S37_Q7, _S37_SEVEN).fetchall())
++_s37_ref.close()
++_S37_ADMITTED, _S37_OTHER = 'e' * 64, 'd' * 64
++
++
++def _s37_open(c, phase, admitted=_S37_ADMITTED, assoc=None, witness=None):
++    if phase == 'readOnlyRecovery' and assoc is not None and assoc['journalCarrierDigest'] != admitted:
++        return 'binding-unusable'
++    names = {r[0] for r in c.execute('SELECT name FROM sqlite_master')}
++    present = [n for n in _S37_SEVEN if n in names]
++    if present:
++        if len(present) < 7 or dict(c.execute(_S37_Q7, _S37_SEVEN).fetchall()) != _S37_REF_DEFS:
++            return 'migration-footprint-corrupt'
++        row = c.execute('SELECT project_key_digest, first_generation FROM carrier_format WHERE singleton = 1').fetchone()
++        if row is None:
++            if c.execute('SELECT 1 FROM grant_journal_v3 LIMIT 1').fetchone():
++                return 'migration-footprint-corrupt'
++            if witness is not None and witness != admitted:
++                return 'carrier-project-binding-mismatch'
++            return 'incomplete-footprint'
++        if row[0] != admitted:
++            return 'carrier-project-binding-mismatch'
++        if 'grant_journal' in names:
++            top = c.execute('SELECT MAX(grantGeneration) FROM grant_journal').fetchone()[0]
++            after_terminal = c.execute(
++                "SELECT 1 FROM grant_journal g JOIN grant_journal t ON t.grantGeneration = g.grantGeneration"
++                " AND t.record_type = 'TERMINAL' AND t.seq < g.seq LIMIT 1").fetchone()
++            if (top is not None and top >= row[1]) or after_terminal:
++                return 'split-brain-custody-condition'
++        low = c.execute('SELECT MIN(grantGeneration) FROM grant_journal_v3').fetchone()[0]
++        if low is not None and low < row[1]:
++            return 'migration-footprint-corrupt'
++        if witness is not None and witness != admitted:
++            return 'carrier-project-binding-mismatch'
++        if phase == 'readOnlyRecovery' and assoc is not None and assoc['grantGeneration'] < row[1]:
++            return 'unknown-carrier-incompatible'
++        return 'carrierFormat3'
++    if 'grant_journal' in names:
++        return 'carrierFormat2' if 'gj_seq_contiguous' in names else 'carrierFormat1'
++    return 'fresh-install'
++
++
++def _s37_publish(c, admitted=_S37_ADMITTED, witness=None):
++    """Act C, fresh or resuming {A, B}: verify, then publish in one transaction; any failure publishes nothing."""
++    standing = _s37_open(c, 'maintenanceActCPublication', admitted, witness=witness)
++    if standing != 'incomplete-footprint':
++        return standing
++    migrated = 'grant_journal' in {r[0] for r in c.execute('SELECT name FROM sqlite_master')}
++    c.execute('BEGIN IMMEDIATE')
++    try:
++        if c.execute('SELECT 1 FROM grant_journal_v3 LIMIT 1').fetchone():
++            c.execute('ROLLBACK')
++            return 'migration-footprint-corrupt'
++        first = c.execute('SELECT MAX(grantGeneration) FROM grant_journal').fetchone()[0] + 1 if migrated else 1
++        c.execute(_S37_CF, (1, 3, admitted, first, 1, 2 if migrated else None, 'op-' + '9' * 32 if migrated else None))
++        c.execute('COMMIT')
++        return 'published'
++    except sqlite3.Error:
++        c.execute('ROLLBACK')
++        return 'refused-by-ddl'
++
++
++_S37_GJ2 = ("INSERT INTO grant_journal (grantGeneration,seq,record_type,operation_ref,body,body_sha256,prev_sha256)"
++            " VALUES (?,?,?,?,'{}',?,?)")
++
++
++def _s37_carrier(kind):
++    """fresh: act B only. migrated: a carrierFormat 2 generation, act A TERMINAL, then act B objects."""
++    c = sqlite3.connect(':memory:', isolation_level=None)
++    if kind == 'migrated':
++        c.executescript(ddl2)
++        c.execute(_S37_GJ2, (1, 1, 'REV', _OP, _H, _H))
++        c.execute(_S37_GJ2, (1, 2, 'TERMINAL', 'op-' + '9' * 32, _H, _H))
++    c.executescript(ddl3)
++    return c
++
++
++def _s37_state(c):
++    tables = [r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")]
++    return (tuple(c.execute('SELECT type, name, sql FROM sqlite_master ORDER BY name').fetchall()),
++            tuple((t, tuple(c.execute('SELECT * FROM "%s"' % t).fetchall())) for t in tables))
++
++
++def _s37_inject(c, gen):
++    """Disclosed harness only: lift the append trigger verbatim, insert one row, reinstall the identical text."""
++    trig = c.execute("SELECT sql FROM sqlite_master WHERE name = 'gj3_append_laws'").fetchone()[0]
++    c.execute('DROP TRIGGER gj3_append_laws')
++    c.execute(_Q, _s37_v3(gen=gen))
++    c.execute(trig)
++
++
++_S37_PROJ = disp['publicProjectionByPhase']
++_S37_RO_MAP = _S37_PROJ['readOnlyStandingOfDispatchResult']
++_S37_LC = ('operational-failed', 4, 'LEDGER.CORRUPT', 'ledger-corrupt')
++_S37_EXPECT = {
++    ('writerOrMaintenanceOpen', 'migration-footprint-corrupt'): _S37_LC + ('MIGRATION.CORRUPT',),
++    ('writerOrMaintenanceOpen', 'split-brain-custody-condition'): _S37_LC + ('MIGRATION.CORRUPT',),
++    ('writerOrMaintenanceOpen', 'carrier-project-binding-mismatch'): _S37_LC + (None,),
++    ('maintenanceActCPublication', 'migration-footprint-corrupt'): _S37_LC + ('MIGRATION.CORRUPT',),
++    ('maintenanceActCPublication', 'carrier-project-binding-mismatch'): _S37_LC + (None,),
++    ('readOnlyRecovery', 'binding-unusable'): ('request-rejected', 2, 'EXTENSION.ADMISSION_REJECTED', None, 'RECOVERY.REFUSED'),
++    ('readOnlyRecovery', 'carrier-project-binding-mismatch'): _S37_LC + (None,),
++    ('readOnlyRecovery', 'migration-footprint-corrupt'): _S37_LC + (None,),
++    ('readOnlyRecovery', 'split-brain-custody-condition'): _S37_LC + (None,),
++    ('readOnlyRecovery', 'unknown-carrier-incompatible'): ('operational-failed', 4, 'HOST.IO_FAILURE', 'host-io', None),
++    ('readOnlyRecovery', 'incomplete-footprint'): ('operational-failed', 4, 'LEDGER.BUSY_TIMEOUT', 'ledger-busy', 'PROJECT.BUSY'),
++}
++_S37_SEEN = set()
++
++
++def _s37_public(phase, standing):
++    if phase == 'readOnlyRecovery':
++        return _S37_PROJ['readOnlyRecovery'][_S37_RO_MAP[standing]]
++    return _S37_PROJ[phase][standing]
++
++
++def _s37_expect(label, phase, got, standing):
++    _S37_SEEN.add((phase, got))
++    ok = got == standing
++    detail = got
++    if ok and (phase, got) in _S37_EXPECT:
++        p = _s37_public(phase, got)
++        detail = (p['class'], p['exit'], p['errorCode'], p['faultCause'], p['domainDetail'])
++        ok = detail == _S37_EXPECT[(phase, got)]
++    ck('source37 scenario: ' + label, ok, detail)
++
++
++_RO_OK = {'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 2}
++c = _s37_carrier('fresh')
++_s37_expect('interrupted fresh install {B} is an incomplete footprint at a writer open', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'incomplete-footprint')
++_s37_expect('interrupted fresh install {B} is unavailable-busy on read-only recovery', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery'), 'incomplete-footprint')
++ck('source37 scenario: the fresh {B} footprint refuses an append before publication', _s37_try(c, _Q, _s37_v3(gen=1)) is False)
++ck('source37 scenario: fresh act C publishes first_generation 1 with null migration fields',
++   _s37_publish(c) == 'published'
++   and c.execute('SELECT first_generation, migrated_from, migration_op_ref FROM carrier_format').fetchone() == (1, None, None))
++_s37_expect('a published fresh carrier opens as carrierFormat 3', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'carrierFormat3')
++
++c = _s37_carrier('migrated')
++_before = _s37_state(c)
++_s37_expect('interrupted migration {A, B} is an incomplete footprint at a writer open', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'incomplete-footprint')
++_s37_expect('interrupted migration {A, B} is unavailable-busy on read-only recovery', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'incomplete-footprint')
++ck('source37 scenario: detection over {A, B} writes nothing', _s37_state(c) == _before)
++ck('source37 scenario: the {A, B} footprint refuses grant_journal_v3 appends at any generation',
++   _s37_try(c, _Q, _s37_v3(gen=1)) is False and _s37_try(c, _Q, _s37_v3(gen=2)) is False)
++ck('source37 scenario: act C resume publishes first_generation = max inherited + 1 with migration fields',
++   _s37_publish(c) == 'published'
++   and c.execute('SELECT first_generation, migrated_from FROM carrier_format').fetchone() == (2, 2))
++_s37_expect('a migrated carrier opens as carrierFormat 3', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'carrierFormat3')
++_s37_expect('read-only recovery of an association in the current generation proceeds to the SEAL join', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'carrierFormat3')
++_s37_expect('F46: an association naming the historical generation is unknown-carrier-incompatible', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_ADMITTED, 'grantGeneration': 1}),
++            'unknown-carrier-incompatible')
++_s37_expect('an association naming another carrier is binding-unusable on read-only recovery', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}), 'binding-unusable')
++c.execute(_S37_GJ2, (2, 1, 'REV', _OP, _H, _H))  # a format-unaware core rolls the inherited table
++_before = _s37_state(c)
++_s37_expect('F51: an inherited generation at first_generation is split-brain at a writer open, re-detected after an earlier clean open',
++            'writerOrMaintenanceOpen', _s37_open(c, 'writerOrMaintenanceOpen'), 'split-brain-custody-condition')
++_s37_expect('F51 on read-only recovery projects the quarantine-condition row', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'split-brain-custody-condition')
++ck('source37 scenario: split-brain detection writes nothing', _s37_state(c) == _before)
++
++c = _s37_carrier('migrated')
++_s37_inject(c, 1)
++ck('source37 scenario: the injection harness reinstalled byte-identical definitions',
++   dict(c.execute(_S37_Q7, _S37_SEVEN).fetchall()) == _S37_REF_DEFS)
++_before = _s37_state(c)
++_s37_expect('{A, B} holding a grant_journal_v3 row is migration corruption at a writer open', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'migration-footprint-corrupt')
++_s37_expect('act C refuses to publish over a grant_journal_v3 row', 'maintenanceActCPublication',
++            _s37_publish(c), 'migration-footprint-corrupt')
++_s37_expect('the same footprint on read-only recovery projects the quarantine-condition row', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'migration-footprint-corrupt')
++ck('source37 scenario: the refused publication published and wrote nothing', _s37_state(c) == _before)
++
++c = _s37_carrier('migrated')
++_before = _s37_state(c)
++_s37_expect('act C refuses to publish when a surviving witness names another project', 'maintenanceActCPublication',
++            _s37_publish(c, witness=_S37_OTHER), 'carrier-project-binding-mismatch')
++ck('source37 scenario: the witness refusal published and wrote nothing', _s37_state(c) == _before)
++
++c = _s37_carrier('migrated')
++ck('source37 scenario: a carrier published under another project binding', _s37_publish(c, admitted=_S37_OTHER) == 'published')
++_s37_expect('a published project_key_digest naming another project is a binding mismatch, not MIGRATION.CORRUPT, at a writer open',
++            'writerOrMaintenanceOpen', _s37_open(c, 'writerOrMaintenanceOpen'), 'carrier-project-binding-mismatch')
++_s37_expect('that carrier with an association naming the admitted carrier is the read-only quarantine-condition row',
++            'readOnlyRecovery', _s37_open(c, 'readOnlyRecovery', assoc=_RO_OK), 'carrier-project-binding-mismatch')
++_s37_expect('an association naming the other carrier is binding-unusable before any carrier read', 'readOnlyRecovery',
++            _s37_open(c, 'readOnlyRecovery', assoc={'journalCarrierDigest': _S37_OTHER, 'grantGeneration': 2}), 'binding-unusable')
++
++c = sqlite3.connect(':memory:', isolation_level=None)
++c.executescript(ddl2)
++c.execute('CREATE TABLE carrier_format (singleton INTEGER)')
++_s37_expect('a partial carrierFormat 3 object set is migration corruption', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'migration-footprint-corrupt')
++c = sqlite3.connect(':memory:', isolation_level=None)
++c.executescript(ddl2)
++# The anchor 'chain_law = 1)' occurs exactly once in every carrierFormat 3 DDL revision, so a hybrid tree that
++# restores earlier DDL bytes still exercises the invalid-definition path.
++_s37_mutated = (ddl3.replace('chain_law = 1)', 'chain_law IN (1, 2))', 1)
++                if ddl3.count('chain_law = 1)') == 1 else ddl3)
++ck('source37 scenario: the invalid-definition mutation really changes the DDL', _s37_mutated != ddl3)
++c.executescript(_s37_mutated)
++_s37_expect('all seven names with an invalid definition is migration corruption', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'migration-footprint-corrupt')
++c = _s37_carrier('migrated')
++_s37_publish(c)
++_s37_inject(c, 1)
++_s37_expect('a published grant_journal_v3 row below first_generation is migration corruption (rows verified, not only definitions)',
++            'writerOrMaintenanceOpen', _s37_open(c, 'writerOrMaintenanceOpen'), 'migration-footprint-corrupt')
++c = sqlite3.connect(':memory:', isolation_level=None)
++c.executescript(ddl2)
++_s37_expect('an unmigrated carrierFormat 2 carrier still opens as carrierFormat 2', 'writerOrMaintenanceOpen',
++            _s37_open(c, 'writerOrMaintenanceOpen'), 'carrierFormat2')
++_s37_expect('no journal table at all is the fresh-install path', 'writerOrMaintenanceOpen',
++            _s37_open(sqlite3.connect(':memory:'), 'writerOrMaintenanceOpen'), 'fresh-install')
++
++_s37_need = ({(ph, st) for ph in ('writerOrMaintenanceOpen', 'maintenanceActCPublication') for st in _S37_PROJ[ph]}
++             | {('readOnlyRecovery', st) for st in _S37_RO_MAP})
++ck('source37 scenario coverage: every phase route is exercised by a real carrier state', _s37_need <= _S37_SEEN,
++   sorted(_s37_need - _S37_SEEN))
++ck('source37 route law: read-only recovery never publishes MIGRATION.CORRUPT',
++   all(p['domainDetail'] != 'MIGRATION.CORRUPT' for p in _S37_PROJ['readOnlyRecovery'].values()))
++ck('source37 route law: a carrier project binding mismatch never borrows MIGRATION.CORRUPT',
++   all(_S37_PROJ[ph]['carrier-project-binding-mismatch']['domainDetail'] is None
++       for ph in ('writerOrMaintenanceOpen', 'maintenanceActCPublication')))
++ck('source37 route law: a read-only quarantine conclusion requires stable observations, otherwise unavailable-busy',
++   _S37_PROJ['readOnlyRecovery']['unknown-quarantine-condition'].get('requiresStableObservations') is True
++   and _S37_PROJ['readOnlyRecovery']['unknown-quarantine-condition'].get('otherwise') == 'unavailable-busy')
++ck('source37 route law: the seven carrierFormat 3 object names are unchanged',
++   sorted(_S37_SEVEN) == sorted(['carrier_format', 'cf_no_update', 'cf_no_delete', 'grant_journal_v3',
++                                 'gj3_no_update', 'gj3_no_delete', 'gj3_append_laws']) and set(_S37_REF_DEFS) == set(_S37_SEVEN))
++
++# Every projection agrees with the owners it names.
++_S37_D9 = json.loads(load('docs/coop/artifacts/d9-exit-contract.v1.14.json'))
++_S37_FAULT = dict(_S37_D9['codeMaps']['faultCauseToErrorCode'])
++_S37_REJECT = set(_S37_D9['codeMaps']['rejectionCauseToErrorCode'].values())
++_S37_EXIT = {'success': 0, 'policy-failed': 1, 'request-rejected': 2, 'indeterminate': 3, 'operational-failed': 4, 'interrupted': 130}
++_S37_MODEL = load('docs/coop/design-corrections/security/security_lifecycle_model_v1.py')
++_S37_CODES = {r['code'] for r in json.loads(load('docs/coop/design-corrections/public-detail-registry.v1.json'))['records']}
++_S37_COMMON = json.loads(load('docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json'))
++_S37_READONLY = open(os.path.join(ROOT, 'scratch', 'proposal', 'docs/v2/architecture/commit-recovery-readonly.v3.md'),
++                     encoding='utf-8').read()
++_S37_S12 = [l for l in sec[sec.index('## S12. D9 joins and refusal vocabulary'):sec.index('### S12.1')].splitlines()
++            if l.startswith('| ')]
++try:
++    from referencing import Registry, Resource
++    from referencing.jsonschema import DRAFT202012
++    _S37_STV = jsonschema.Draft202012Validator(
++        {'$ref': _S37_COMMON['$id'] + '#/$defs/StepTermination'},
++        registry=Registry().with_resource(_S37_COMMON['$id'], Resource(contents=_S37_COMMON, specification=DRAFT202012)))
++except Exception as e:
++    _S37_STV = None
++    ck('source37: selected StepTermination validator available', False, e)
++for _phase in ('writerOrMaintenanceOpen', 'maintenanceActCPublication', 'readOnlyRecovery'):
++    for _standing, _p in _S37_PROJ[_phase].items():
++        _label = '%s/%s' % (_phase, _standing)
++        _t = {'class': _p['class']}
++        if _p['errorCode'] is not None:
++            _t['errorCode'] = _p['errorCode']
++        if _p['faultCause'] is not None:
++            _t['faultCause'] = _p['faultCause']
++        if _p['domainDetail'] is not None:
++            _t['domainDetail'] = {'code': _p['domainDetail'], 'remedy': 'reference projection'}
++        _errs = sorted(e.message for e in _S37_STV.iter_errors(_t)) if _S37_STV else ['no validator']
++        ck('source37 route: %s projects to a StepTermination the selected schema admits' % _label, not _errs, _errs)
++        ck('source37 route: %s exit is the fixed D9 class exit' % _label, _S37_EXIT[_p['class']] == _p['exit'])
++        if _p['class'] == 'operational-failed':
++            _ok = _S37_FAULT.get(_p['faultCause']) == _p['errorCode']
++        else:
++            _ok = _p['class'] == 'request-rejected' and _p['faultCause'] is None and _p['errorCode'] in _S37_REJECT
++        ck('source37 route: %s errorCode and faultCause pair under D9 v1.14 codeMaps' % _label, _ok, _t)
++        ck('source37 route: %s domainDetail is omitted or an existing registered code' % _label,
++           _p['domainDetail'] is None or _p['domainDetail'] in _S37_CODES, _p['domainDetail'])
++        if _p['securityRefusal'] is not None:
++            _m = re.search(r"'%s':\s*\('([a-z-]+)',\s*(\d+),\s*'([A-Z._]+)'\)" % re.escape(_p['securityRefusal']), _S37_MODEL)
++            ck('source37 route: %s agrees with the security model D9 map' % _label,
++               _m is not None and (_m.group(1), int(_m.group(2)), _m.group(3)) == (_p['class'], _p['exit'], _p['errorCode']),
++               _m and _m.groups())
++        _rows = [l for l in _S37_S12 if _p['s12Row'] in l]
++        _ok = len(_rows) == 1 and ('%s / %d / `%s`' % (_p['class'], _p['exit'], _p['errorCode'])) in _rows[0]
++        if _ok and _p['faultCause'] is not None and '`faultCause`' in _rows[0]:
++            _ok = ('`faultCause` `%s`' % _p['faultCause']) in _rows[0]
++        if _ok and _p['domainDetail'] is None and _p['class'] == 'operational-failed':
++            _ok = 'domainDetail` omitted' in _rows[0]
++        if _ok and _p['domainDetail'] is not None and _p['domainDetail'] != _p['securityRefusal']:
++            _ok = ('`%s`' % _p['domainDetail']) in _rows[0]
++        ck('source37 route: %s is exactly one S12 row with the same class / exit / code' % _label, _ok, _rows)
++_S37_RO_ROWS = {}
++for _l in _S37_READONLY.splitlines():
++    _cells = [x.strip() for x in _l.strip().strip('|').split('|')]
++    if _l.startswith('| `') and len(_cells) == 5 and re.fullmatch(r'`[a-z-]+`', _cells[0]):
++        _S37_RO_ROWS[_cells[0].strip('`')] = _cells
++for _standing, _p in _S37_PROJ['readOnlyRecovery'].items():
++    _cells = _S37_RO_ROWS.get(_standing)
++    _ok = (_cells is not None and _cells[1].strip('`') == _p['class'] and _cells[2].strip('`') == (_p['errorCode'] or '—')
++           and _cells[3].strip('`') == (_p['faultCause'] or '—')
++           and (('omitted' in _cells[4]) if _p['domainDetail'] is None else (('`%s`' % _p['domainDetail']) in _cells[4])))
++    ck('source37 route: readOnlyRecovery/%s matches the commit-recovery-readonly.v3 section 1 row' % _standing, _ok, _cells)
++
+ rep = {'control': 'c4-check-carrier-v3',
+        'passed': sum(1 for c in checks if c['pass']),
+        'failed': sum(1 for c in checks if not c['pass']),
+--- a/docs/v2/architecture/attempt-custody.schema.v1.json
++++ b/docs/v2/architecture/attempt-custody.schema.v1.json
+@@ -150,8 +150,9 @@
+     "Excluded from every semantic hash, Run identity, Coverage, Plan bound and public schema. It adds no field to the closed receipt or JournalRecord schemas.",
+     "Scoped to durable-authoritative commit-capable attempts. A read-only request or an --ephemeral attempt neither creates nor requires a row, and its absence for such a request is not a custody condition."
+   ],
+-  "proposedPrivateDDL": "CREATE TABLE attempt_custody (\n  store_generation_digest TEXT NOT NULL CHECK (length(store_generation_digest) = 64 AND store_generation_digest GLOB '[0-9a-f]*'),\n  namespace_id    TEXT NOT NULL CHECK (length(namespace_id) BETWEEN 1 AND 4096),\n  execution_id    TEXT NOT NULL CHECK (execution_id GLOB 'exec1_[0-9a-f]*' AND length(execution_id) = 38),\n  operation_ref   TEXT NOT NULL CHECK (operation_ref GLOB 'op-[0-9a-f]*' AND length(operation_ref) = 35),\n  record_schema   INTEGER NOT NULL CHECK (record_schema = 1),\n  phase           TEXT NOT NULL CHECK (phase IN ('admitted','settled')),\n  settled_outcome TEXT CHECK (settled_outcome IS NULL OR settled_outcome IN ('committed','refused')),\n  CHECK ((phase = 'admitted' AND settled_outcome IS NULL)\n      OR (phase = 'settled'  AND settled_outcome IS NOT NULL)),\n  PRIMARY KEY (store_generation_digest, namespace_id, execution_id)\n) WITHOUT ROWID;\nCREATE TRIGGER ac_no_delete BEFORE DELETE ON attempt_custody\n  BEGIN SELECT RAISE(ABORT, 'attempt custody is append-and-settle only'); END;\nCREATE TRIGGER ac_monotone BEFORE UPDATE ON attempt_custody\n  BEGIN\n    SELECT CASE WHEN OLD.phase = 'settled'\n      THEN RAISE(ABORT, 'attempt custody is already settled') END;\n    SELECT CASE WHEN NEW.phase <> 'settled' OR NEW.settled_outcome IS NULL\n      THEN RAISE(ABORT, 'the only lawful transition is admitted to settled') END;\n    SELECT CASE WHEN NEW.store_generation_digest <> OLD.store_generation_digest\n              OR NEW.namespace_id <> OLD.namespace_id\n              OR NEW.execution_id <> OLD.execution_id\n              OR NEW.operation_ref <> OLD.operation_ref\n              OR NEW.record_schema <> OLD.record_schema\n      THEN RAISE(ABORT, 'attempt custody identity is immutable') END;\n  END;\n",
++  "proposedPrivateDDL": "CREATE TABLE attempt_custody (\n  store_generation_digest TEXT NOT NULL CHECK (typeof(store_generation_digest) = 'text' AND length(store_generation_digest) = 64 AND instr(store_generation_digest, char(0)) = 0 AND store_generation_digest NOT GLOB '*[^0-9a-f]*'),\n  namespace_id    TEXT NOT NULL CHECK (typeof(namespace_id) = 'text' AND length(namespace_id) BETWEEN 1 AND 4096),\n  execution_id    TEXT NOT NULL CHECK (typeof(execution_id) = 'text' AND length(execution_id) = 38 AND instr(execution_id, char(0)) = 0 AND execution_id GLOB 'exec1_*' AND substr(execution_id, 7) NOT GLOB '*[^0-9a-f]*'),\n  operation_ref   TEXT NOT NULL CHECK (typeof(operation_ref) = 'text' AND length(operation_ref) = 35 AND instr(operation_ref, char(0)) = 0 AND operation_ref GLOB 'op-*' AND substr(operation_ref, 4) NOT GLOB '*[^0-9a-f]*'),\n  record_schema   INTEGER NOT NULL CHECK (typeof(record_schema) = 'integer' AND record_schema = 1),\n  phase           TEXT NOT NULL CHECK (phase IN ('admitted','settled')),\n  settled_outcome TEXT CHECK (settled_outcome IS NULL OR settled_outcome IN ('committed','refused')),\n  CHECK ((phase = 'admitted' AND settled_outcome IS NULL)\n      OR (phase = 'settled'  AND settled_outcome IS NOT NULL)),\n  PRIMARY KEY (store_generation_digest, namespace_id, execution_id)\n) WITHOUT ROWID;\nCREATE TRIGGER ac_no_delete BEFORE DELETE ON attempt_custody\n  BEGIN SELECT RAISE(ABORT, 'attempt custody is append-and-settle only'); END;\nCREATE TRIGGER ac_monotone BEFORE UPDATE ON attempt_custody\n  BEGIN\n    SELECT CASE WHEN OLD.phase = 'settled'\n      THEN RAISE(ABORT, 'attempt custody is already settled') END;\n    SELECT CASE WHEN NEW.phase <> 'settled' OR NEW.settled_outcome IS NULL\n      THEN RAISE(ABORT, 'the only lawful transition is admitted to settled') END;\n    SELECT CASE WHEN NEW.store_generation_digest <> OLD.store_generation_digest\n              OR NEW.namespace_id <> OLD.namespace_id\n              OR NEW.execution_id <> OLD.execution_id\n              OR NEW.operation_ref <> OLD.operation_ref\n              OR NEW.record_schema <> OLD.record_schema\n      THEN RAISE(ABORT, 'attempt custody identity is immutable') END;\n  END;\n",
+   "ddlStanding": "SELECTED placement: the storage-owned evidence ledger, within the already inventoried crates/storage/src/ledger_store.rs, commit.rs and recovery.rs modules. The authorized settlement sweep writes through that same ledger and the same table, so it needs no separate DDL. This is a settled selection.",
++  "ddlGrammarCorrection": {"standing": "Source37 owner correction (review advisory A37-01), revised after root reproduced embedded-NUL and ASCII-hex BLOB admissions against the source37 v1 bytes, and again after root showed that the source37 v2 byte-length predicate refused lawful rows in UTF-16 databases. The planned private DDL is corrected in place. No product implementation or deployed ledger table was created from the earlier bytes; reference in-memory SQLite instances were created from them by earlier design checks and review probes, and those instances and their receipts remain historical evidence.", "law": "Every column's storage class is enforced: by typeof() on store_generation_digest, namespace_id, execution_id and operation_ref (text) and on record_schema (integer), and by exact enumeration on phase and settled_outcome. Each hex-bearing column is an exact whole TEXT value: length(column) = N, instr(column, char(0)) = 0, its prefix GLOB and NOT GLOB '*[^0-9a-f]*' over the whole value, matching this record's patterns ^[0-9a-f]{64}, ^exec1_[0-9a-f]{32} and ^op-[0-9a-f]{32}. The conjunction does not depend on the database text encoding (exercised under UTF-8, UTF-16le and UTF-16be); no encoding is required.", "authority": "The ledger's record admission remains the owner of the closed record; the DDL is defence in depth. namespace_id keeps its character-length bound, which SQLite counts before any embedded NUL; the record's own minLength and maxLength govern. No member, phase, outcome, key or join changes."},
+   "readOnlyRecoveryUse": {
+     "receiptPresentAndPhaseSettledCommitted": "committed-historically; proceed to the carrier capture and anchor selection",
+     "receiptPresentAndPhaseAdmitted": "committed-historically with pendingSettlement disclosed; proceed to the carrier capture. LAWFUL interval, not a contradiction, and it revives no authority",
+--- a/docs/v2/architecture/commit-recovery-readonly.v3.md
++++ b/docs/v2/architecture/commit-recovery-readonly.v3.md
+@@ -3,6 +3,8 @@
+ **Standing.** PROPOSED-NOT-SELF-ACCEPTED: no acceptance, no readiness, no application and no
+ implementation authorization. Private design/reference work, not OS qualification. Authored against
+ frozen Source25 `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Stable normative path:** `docs/v2/architecture/commit-recovery-readonly.v3.md`. This is the
+ current owner and it is **self-contained**: every operative rule is stated here, and no rule may be
+@@ -64,6 +66,7 @@
+ | `unknown-quarantine-condition` | `operational-failed` | `LEDGER.CORRUPT` | `ledger-corrupt` | **omitted** |
+ | `unavailable-busy` | `operational-failed` | `LEDGER.BUSY_TIMEOUT` | `ledger-busy` | `PROJECT.BUSY` |
+ | `binding-unusable` | `request-rejected` | `EXTENSION.ADMISSION_REJECTED` | — | `RECOVERY.REFUSED` with typed subject |
++| `unknown-carrier-incompatible` | `operational-failed` | `HOST.IO_FAILURE` | `host-io` | omitted |
+ 
+ **The carrier-quarantine decision is settled, not deferred.** `LEDGER.CORRUPT` with
+ `faultCause: "ledger-corrupt"` and an omitted `domainDetail` is schema-valid, so no new
+@@ -72,6 +75,19 @@
+ one code, which the D9 contract names a defect. The typed reason (`uncertainTailLoss`,
+ `witnesslessRestore`, `witnessMalformed`) travels in the operational record and the owner
+ diagnosis, not in a public detail code.
++
++**Carrier binding, footprint and generation observations (source37 owner correction).** The
++association's own carrier naming is checked first: an association whose `journalCarrierDigest`,
++`storeGenerationDigest` or `namespaceId` differs from the admitted binding is `binding-unusable`. With
++the association naming the admitted carrier, a carrier whose own published `project_key_digest` or
++witness names another project, a migration footprint that is not a lawful durable prefix, and the F51
++split-brain condition are `unknown-quarantine-condition`, subject to Step 4 like every quarantine
++report and otherwise `unavailable-busy`. An association naming a generation below the published
++`first_generation` is `unknown-carrier-incompatible` (F46): an association is written only with a
++committed carrierFormat 3 `SEAL`, so this contradicts two retained owners and joins the `unknown-custody`
++family. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`. `MIGRATION.CORRUPT` is used on none of
++these read-only paths, and none confirms, negates or settles an attempt. Exact phase table:
++`design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+ A registered detail is used only where one already fits the event exactly: `PROJECT.BUSY` for busy,
+ `RECOVERY.REFUSED` for a refused recovery request, and the `evidence.*` family for availability.
+@@ -115,7 +131,8 @@
+ | both absent | no row | — | `unknown-attempt-unobserved` |
+ | exactly one present | any | any | `unknown-custody` (F23) |
+ 
+-Store-binding or namespace mismatch in the association → `binding-unusable` (F27).
++Store-binding, namespace or carrier mismatch in the association — its `storeGenerationDigest`,
++`namespaceId` or `journalCarrierDigest` differs from the admitted binding → `binding-unusable` (F27).
+ 
+ ### 2.1 Receipt present with the attempt still `admitted` is a lawful interval
+ 
+@@ -211,6 +228,13 @@
+ continue. If `k > t` still: when `stableH`, `H.lastSeq >= k` and both tails agree →
+ `unknown-quarantine-condition` (F22); otherwise `unavailable-busy`, attributed to the security
+ carrier owner. Never `uncommitted`, and never a conclusion drawn from two different snapshots.
++
++**Carrier format, binding and generation, inside each journal snapshot.** Before the SEAL join the
++reader applies the carrier open dispatch to the bytes of that snapshot only, never to a cached
++result: the object names and definitions, the format row, `project_key_digest` against the admitted
++`projectKeyDigest`, the published generation boundary, and `A.grantGeneration` against
++`first_generation`. Their conclusions are the carrier rows of §1; a quarantine-class conclusion also
++requires Step 4.
+ 
+ **The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+ `record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the
+--- a/docs/v2/architecture/store-instance-lineage.v1.json
++++ b/docs/v2/architecture/store-instance-lineage.v1.json
+@@ -467,6 +467,7 @@
+     "neverRewrite": "No association row's storeGenerationDigest, receipt, ExecutionId or commitSequence is ever rewritten by a transition, migration, rollback, restore or adoption. A historical receipt stays historically true; a transition changes current selection and availability, never past commitment.",
+     "neverImportAuthority": "Following a hop reports history. It never revives grants, floors or local authority, never makes an abandoned store's row a current commitment, and never substitutes for the receipt, inventory, carrier and operation joins the recovery record already requires.",
+     "existingCaseCoverage": "F27 already refuses a substituted binding target, F35 already routes migration and restore lookups through admitted lineage without rewriting old ids, and F25 already separates retained assurance from current availability. This correction names the lineage those cases refer to; it proposes no new failure case and no change to the generated F00-F37 matrix.",
++    "currentStandingNote": "Current standing: the F00-F37 references in this file record the case inventory at this companion's authoring time and are not relabelled. The current commit-recovery-plan.v1.json holds F00-F53, because the separate carrier correction appended F38-F53. This companion still proposes no failure case and changes no generated section.",
+     "ancestorSelection": "An ancestor re-selection resolves its target from the retained store own marker and then requires that exact triple to lie on the verified chain from the current node. It never guesses globally by numeric pair and never rewrites the retained node origin."
+   },
+   "axisSeparation": {
+@@ -504,6 +505,7 @@
+     "This is a proposed owner successor delta. It is not accepted, not frozen, and confers no readiness. Freezing and an independent substantive review on the new bytes remain required.",
+     "No executable product code is authored here. Owning modules are named for implementation planning only; none exists.",
+     "This correction does not touch the closed CommitRecoveryAssociationV1 schema, the F00-F37 case inventory or either generated section of the implementation plan.",
++    "Current standing: the F00-F37 references in this file record the case inventory at this companion's authoring time and are not relabelled. The current commit-recovery-plan.v1.json holds F00-F53, because the separate carrier correction appended F38-F53. This companion still proposes no failure case and changes no generated section.",
+     "The companion node and recovery rules are a design reference exercised against the frozen owner functions. They are models: no carrier implementation, no crash test and no qualification.",
+     "Only the two rollback operations can retreat a schema, and StateSchema is currently the two-member enum {1, 2}. A wider enum would admit longer chains and multiple distinct ancestors at one schema; the ancestor-reselect branch already refuses an ambiguous match, but that case has no owner-admitted example to exercise today.",
+     "Node identity depends on the store-root markers being readable. An unreadable marker refuses rather than guessing, but a marker that is readable and wrong, for example after an out-of-band copy, is in the same stated undetected class as A9.",
+--- a/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -1297,15 +1297,19 @@
+ | `PAYLOAD-NOT-ADMISSIBLE` (incl. `ROOT.*`, `ENVELOPE.*`, `PROFILE_SET.*` details), `RECOVERY.REFUSED` (all typed details), `NT-TCB-*`, revoked-during-operation, `AUTHZ.RECIPE_CLOSURE_REVOKED` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` |
+ | `ROOT.SCHEMA_UNSUPPORTED`, `STATE.SCHEMA_UNSUPPORTED`, `ROOT.FLOOR_ABOVE_CORE` | request-rejected / 2 / `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` |
+ | `PROJECT.BUSY` (incl. a journaled transition lease set not re-acquired exactly, S9.2) | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` |
+-| `MIGRATION.CORRUPT` (incl. a registry differing from the frozen transition journal, S9.2) | operational-failed / 4 / `LEDGER.CORRUPT` |
++| `MIGRATION.CORRUPT` (incl. a registry differing from the frozen transition journal, S9.2; and, at a writer or maintenance carrier open, a carrierFormat 3 migration footprint that is not a lawful durable prefix (partial object set, invalid definitions, `grant_journal_v3` rows before format publication) or a violated published generation boundary, including the F51 split-brain custody condition, carrier-format.v3 §8.1) | operational-failed / 4 / `LEDGER.CORRUPT` |
++| writer or maintenance carrier open, or maintenance format publication: the published `carrier_format.project_key_digest` or a surviving witness names a project key other than the admitted one (carrier project binding mismatch; never `MIGRATION.CORRUPT`; nothing is appended or published) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
+ | `OBSERVER.FAIL_STOP`, I/O failure | operational-failed / 4 / `HOST.IO_FAILURE` |
+ | read-only recovery: requested attempt still `admitted` **with no receipt**, or observations temporally skewed beyond the single permitted retry | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT`, `faultCause` `ledger-busy` (detail `PROJECT.BUSY`) |
+ | read-only recovery: a valid joined receipt is present while the attempt row is still `admitted`, or is absent entirely | **not** a busy or custody condition. The receipt establishes historical commitment, so the termination is the ordinary successful observation; pending or unknown settlement is disclosed operationally |
+-| read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
++| read-only recovery: stably observed carrier quarantine condition (`uncertainTailLoss`, `witnesslessRestore`, `witnessMalformed`; and, with the association naming the admitted carrier, a carrier whose own published row or witness names another project, a migration footprint that is not a lawful durable prefix, or the F51 split-brain condition) | operational-failed / 4 / `LEDGER.CORRUPT`, `faultCause` `ledger-corrupt`, **`domainDetail` omitted** |
+ | read-only recovery: unreadable ledger or carrier, unobserved attempt, or an anchor that does not reach the requested sequence | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io` |
+-| read-only recovery: requested binding names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
+-
+-A journal-carrier quarantine deliberately publishes **no** `domainDetail`. `StepTermination` requires only `class`, and `domainDetail` is optional, so the projection is schema-valid with `class`, `errorCode` and a non-none `faultCause` alone. No new `DomainDetailCode` is registered for it, and `MIGRATION.CORRUPT` is **not** reused: that code is the store transition’s detail, and borrowing it for ordinary journal corruption would put two remedies behind one code. The typed reason travels in the owner diagnosis and the operational record, not in a public detail code.
++| read-only recovery: the association names a carrierFormat 1 or 2 generation (below the published `first_generation`), where no schema-3 `SEAL` can exist (`unknown-carrier-incompatible`, F46) | operational-failed / 4 / `HOST.IO_FAILURE`, `faultCause` `host-io`, `domainDetail` omitted; never not-committed and never a confirmation |
++| read-only recovery: the requested binding (the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest`) names a foreign carrier or a swapped store/namespace | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` (detail `RECOVERY.REFUSED`, typed subject) |
++
++A journal-carrier quarantine deliberately publishes **no** `domainDetail`. `StepTermination` requires only `class`, and `domainDetail` is optional, so the projection is schema-valid with `class`, `errorCode` and a non-none `faultCause` alone. No new `DomainDetailCode` is registered for it, and `MIGRATION.CORRUPT` is **not** reused: that code is the detail of a store transition footprint and of a carrierFormat 3 migration footprint at a writer or maintenance open, and borrowing it for ordinary journal corruption, a carrier project binding mismatch or any read-only carrier observation would put two remedies behind one code. The typed reason travels in the owner diagnosis and the operational record, not in a public detail code.
++
++**Phase-specific carrier routes (source37 owner correction).** One carrier observation can reach a writer or maintenance open and read-only recovery; the phase selects one of the rows above and never a new class, code or exit. A writer or maintenance refusal appends nothing, publishes nothing and writes no quarantine marker (`carrier_quarantine.reason` keeps its inherited enum), and every open re-detects from the bytes it reads rather than reusing a cached verdict, `first_generation` or `projectKeyDigest`. Read-only recovery writes nothing, reports a quarantine row only with its stable observations and otherwise the busy row, and uses `MIGRATION.CORRUPT` on no path. A lawful interrupted carrier migration prefix remains resumable and is never a corruption diagnosis. No route confirms, negates or settles an attempt, merges split-brain rows or grants authority. Exact table: `design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+ The common scope stage additionally refuses PROJECT.SCOPE_LIMIT with REQUEST.UNSATISFIABLE (exit2) when its distinct workspaceRoots exceed1024 or pathPrefixes/excludedPathPrefixes exceed65536, even if discovery's4096-unit limit admitted the repository. Public subject `field:count>limit` states the observed bound. PROJECT.DISCOVERY_INVENTORY_MISMATCH is REQUEST.PRECONDITION_FAILED (exit2) at the host's security/native inventory join. Boundary crossing still uses PROJECT.EXPLICIT_PATH_INVALID; native internal aliases do not create a second public code.
+ 

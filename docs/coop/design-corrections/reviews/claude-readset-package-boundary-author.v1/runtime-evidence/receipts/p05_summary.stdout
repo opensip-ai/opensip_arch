@@ -1,0 +1,288 @@
+{
+ "changedFiles": [
+  {
+   "path": "docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py",
+   "before": "eaa1f0ca9c38cd78c2affaf17aca8fe56add6c7614c593008be636c7091656d8",
+   "after": "caa602935474f6d29b65daca0348eb65c6a86243658d07c387e0e82b8e8eafdc",
+   "priorReviewCopyStillBefore": true
+  },
+  {
+   "path": "docs/coop/design-corrections/foundation/identity-model.v3.py",
+   "before": "05d084a7ca6281346a173cf229d025cb72e7990d50780cb44dad41cd0b8d6b78",
+   "after": "a6dc5f997b5b9502d185d1b68a61765516ccf5f64f1c33a4282682ebee2803dc",
+   "priorReviewCopyStillBefore": true
+  },
+  {
+   "path": "docs/v2/contracts/product-v1/identity-and-evidence.md",
+   "before": "0e4be039b27b2178795659d10cf832e9d292cef1a792a351a247194372cdc4f3",
+   "after": "c82404f3a0cf56fa6cc02e99cc3ebbd5356fedc3b36aeb38f9ef284077fbd31f",
+   "priorReviewCopyStillBefore": true
+  },
+  {
+   "path": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+   "before": "06a3174a8fe3c5983071812ec1445a89d43ea5bbc4b27e7cf6ab9a3e7742b595",
+   "after": "6dc2ca82846a43cb39b018385e2b898c6ac4b5f9b410d1602666c841c53f7fd2",
+   "priorReviewCopyStillBefore": true
+  }
+ ],
+ "added": [],
+ "removed": [],
+ "onlyOwnedFilesChanged": true,
+ "delta": {
+  "path": "delta-vs-prior-review-source.diff",
+  "sha256": "364cb75baaf6d66d5cf3402e1f903314bc4ed60e4369b16041fd5ce931daa93a",
+  "lines": 222
+ },
+ "priorReviewUnchanged": true,
+ "priorReviewSourceUnchangedForOwned": true,
+ "ownerSelectors": {
+  "docs/coop/design-corrections/foundation/identity-model.v3.py": [
+   "snapshot_pruned_tree_faults (docstring and package authorization call)",
+   "listed_package_authorizes_read (new helper)"
+  ],
+  "docs/v2/contracts/product-v1/identity-and-evidence.md": [
+   "section 3 \"What sourceInventory contains (consumer24 A4)\": \"Nested packages have explicit custody\" and \"What replay decides and what it does not prove\""
+  ],
+  "docs/v2/contracts/product-v1/security-and-lifecycle.md": [
+   "S3 \"Pruned trees and the read set (A-5)\": nested installed package sentence"
+  ],
+  "docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py": [
+   "a4(): 12 helper rows after nested-vcs-lookalike-segments-remain-lawful-package-reads",
+   "a4(): ts_run(extra, packages) and ts_context_layout",
+   "a4(): 7 real-Run rows after the existing real-run-refuses loop"
+  ]
+ },
+ "receiptExits": {
+  "p00_copy.receipt.json": 0,
+  "p01_apply.receipt.json": 0,
+  "p02_matrix.baseline.receipt.json": 0,
+  "p02_matrix.edited.receipt.json": 0,
+  "p03_checkers.baseline-model-a4.receipt.json": 0,
+  "p03_checkers.edited-a4.receipt.json": 0,
+  "p03_checkers.edited-all.receipt.json": 0,
+  "p03_checkers.substring-mutant-a4.receipt.json": 0
+ }
+}
+--- prior-review-source/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
++++ author/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
+@@ -596,6 +596,54 @@
+     row("A4", "listed-package-read-allowance-never-overrides-nested-vcs", faults(nested_vcs) == sorted(nested_vcs))
+     row("A4", "nested-vcs-lookalike-segments-remain-lawful-package-reads",
+         faults(["node_modules/left-pad/.git-like/index.js", "node_modules/left-pad/.gitignore"]) == [])
++    # Explicit nested package custody (identity section 3). Helper rows call the owner join directly over synthetic
++    # layouts; the real-Run rows below admit altered layouts through the maintained fixture constructors.
++
++    def with_rows(*extra_rows):
++        return {"schemaVersion": 1, "entries": sorted(layout["entries"] + [
++            {"packageName": name, "packageVersion": "1.0.0", "installPath": install, "realPath": real, "contentSha256": "4" * 64}
++            for name, install, real in extra_rows], key=lambda r: r["installPath"].encode())}
++
++    evil = "node_modules/left-pad/node_modules/evil"
++    row("A4", "a-listed-package-authorizes-its-ordinary-descendants",
++        faults(["node_modules/left-pad/index.js", "node_modules/left-pad/dist/index.d.ts"]) == [])
++    row("A4", "an-enclosing-listed-package-never-authorizes-a-nested-installed-package",
++        faults([evil + "/index.js", evil + "/package.json"]) == [evil + "/index.js", evil + "/package.json"])
++    listed_evil = with_rows(("evil", evil, evil))
++    row("A4", "a-separately-listed-nested-package-authorizes-its-own-files",
++        faults([evil + "/index.js", evil + "/lib/x.js"], (listed_evil,)) == [])
++    row("A4", "a-nested-package-row-does-not-authorize-deeper-or-sibling-nested-packages",
++        faults([evil + "/node_modules/deeper/index.js", "node_modules/left-pad/node_modules/other/index.js"], (listed_evil,))
++        == [evil + "/node_modules/deeper/index.js", "node_modules/left-pad/node_modules/other/index.js"])
++    row("A4", "nested-vcs-refuses-even-inside-a-separately-listed-nested-package",
++        faults([evil + "/.git/HEAD", evil + "/.jj/repo"], (listed_evil,)) == [evil + "/.git/HEAD", evil + "/.jj/repo"])
++    scoped_inner = "node_modules/@scope/util/node_modules/@inner/pkg"
++    scoped_row = ("@scope/util", "node_modules/@scope/util", "node_modules/@scope/util")
++    row("A4", "a-listed-scoped-package-authorizes-its-ordinary-descendants",
++        faults(["node_modules/@scope/util/index.js", "node_modules/@scope/util/lib/a.js"], (with_rows(scoped_row),)) == [])
++    row("A4", "a-nested-scoped-package-needs-its-own-row",
++        faults([scoped_inner + "/index.js"], (with_rows(scoped_row),)) == [scoped_inner + "/index.js"]
++        and faults([scoped_inner + "/index.js"], (with_rows(scoped_row, ("@inner/pkg", scoped_inner, scoped_inner)),)) == [])
++    row("A4", "lookalike-and-case-variant-segments-are-no-nested-package-boundary",
++        faults(["node_modules/left-pad/node_modules-like/index.js", "node_modules/left-pad/Node_modules/x/index.js",
++                "node_modules/left-pad/my_node_modules/index.js"]) == [])
++    store = "node_modules/.pnpm/store-pkg@1.0.0/node_modules/store-pkg"
++    store_rows = (("store-pkg", "node_modules/store-pkg", store), ("store-pkg", store, store))
++    row("A4", "a-listed-store-realpath-authorizes-its-ordinary-descendants",
++        faults([store + "/index.js", store + "/lib/deep/x.js", "node_modules/store-pkg/index.js"], (with_rows(*store_rows),)) == [])
++    row("A4", "a-nested-package-below-a-listed-store-realpath-needs-its-own-row",
++        faults([store + "/node_modules/dep/index.js", "node_modules/.pnpm/store-pkg@1.0.0/node_modules/dep/index.js"],
++               (with_rows(*store_rows),))
++        == ["node_modules/.pnpm/store-pkg@1.0.0/node_modules/dep/index.js", store + "/node_modules/dep/index.js"]
++        and faults([store + "/node_modules/dep/index.js"],
++                   (with_rows(*store_rows, ("dep", store + "/node_modules/dep", store + "/node_modules/dep")),)) == [])
++    row("A4", "a-first-party-realpath-keeps-first-party-custody-and-its-nested-dependency-needs-a-row",
++        faults(["packages/lib/src/index.ts"]) == []
++        and faults(["packages/lib/node_modules/x/index.js"]) == ["packages/lib/node_modules/x/index.js"]
++        and faults(["packages/lib/node_modules/x/index.js"],
++                   (with_rows(("x", "packages/lib/node_modules/x", "packages/lib/node_modules/x")),)) == [])
++    row("A4", "discovery-still-reports-the-outermost-anchor-for-a-nested-package-read",
++        M.native_admission().DD.classify_path(evil + "/index.js", set()) == ("node_modules", "dependency-tree"))
+     row("A4", "cargo-build-output-rows-are-never-reads",
+         faults(first_party + ["target/debug/app.d"]) == ["target/debug/app.d"])
+     native_schema = json.loads((KIT / "native/native-evidence.schemas.v2.json").read_text())
+@@ -606,10 +654,28 @@
+         and "stay in their owning toolchain and stdlib closures" in layout_description
+         and "so an inventory row could not exist for them" not in layout_description, layout_description[:200])
+ 
+-    def ts_run(extra):
+-        graph = SR.S.build_ts_semantic_graph(atom=SR.REFS_EXISTS_SRC, has_declares=False, has_references_fact=True,
+-                                             extra_sources=extra)
+-        return SR.close_positive(graph)
++    def ts_run(extra, packages=None):
++        """A real complete Run. `packages` adds installed-package manifests to the fixture's layout for this Run only:
++        the maintained constructors mint the altered layout, native context, universe, Plan and every dependent
++        identity, then seed admission, derive, replay and close_run run as usual. The global is restored afterwards."""
++        scope = SR.S.helpers().native_inputs.__globals__
++        saved = scope["TS_NODE_MODULES"]
++        if packages is not None:
++            scope["TS_NODE_MODULES"] = {**saved, **packages}
++        try:
++            graph = SR.S.build_ts_semantic_graph(atom=SR.REFS_EXISTS_SRC, has_declares=False, has_references_fact=True,
++                                                 extra_sources=extra)
++            return SR.close_positive(graph)
++        finally:
++            scope["TS_NODE_MODULES"] = saved
++
++    def ts_context_layout(result):
++        run, objects, blobs, _ = result
++        for digest in objects[run["planId"]][1]["nativeContextDigests"]:
++            domain, context = M.parse_h_frame(blobs[digest], "native-context")[:2]
++            if domain == "native.context.typescript.v2":
++                return context, sorted(e["installPath"] for e in C.parse(blobs[context["nodeModulesLayoutDigest"]])["entries"])
++        return None, []
+ 
+     got = refusal_any(lambda: ts_run({"node_modules/left-pad/index.js": b"module.exports = 1;\n"}))
+     row("A4", "real-run-with-a-file-read-inside-a-listed-package-closes", got is None, got)
+@@ -623,6 +689,38 @@
+                         ("listed-package-nested-mercurial-metadata", {"node_modules/left-pad/.hg/store/data": b"metadata\n"})):
+         got = refusal_any(lambda e=extra: ts_run(e))
+         row("A4", "real-run-refuses-" + name, got is not None and "SNAPSHOT_PRUNED_TREE_NOT_A_READ" in got, got)
++    # Explicit nested package custody on the same actual full-Run fixture.
++    evil_manifest = {evil + "/package.json": b'{"name":"evil","version":"0.0.1"}\n'}
++    inner_manifest = {scoped_inner + "/package.json": b'{"name":"@inner/pkg","version":"0.0.1"}\n'}
++    for name, extra, packages in (
++            ("an-unlisted-nested-package-under-a-listed-package", {evil + "/index.js": b"module.exports = 3;\n"}, None),
++            ("an-unlisted-nested-scoped-package-under-a-listed-scoped-package", {scoped_inner + "/index.js": b"module.exports = 4;\n"}, None),
++            ("nested-vcs-inside-a-separately-listed-nested-package", {evil + "/.git/HEAD": b"ref: refs/heads/main\n"}, evil_manifest)):
++        path = next(iter(extra))
++        got = refusal_any(lambda e=extra, p=packages: ts_run(e, p))
++        row("A4", "real-run-refuses-" + name, got is not None and got.endswith("SNAPSHOT_PRUNED_TREE_NOT_A_READ:" + path), got)
++    base_context, base_layout = ts_context_layout(ts_run({"node_modules/left-pad/index.js": b"module.exports = 1;\n"}))
++    for name, extra, packages, installed in (
++            ("the-nested-package-separately-listed", {evil + "/index.js": b"module.exports = 3;\n"}, evil_manifest, evil),
++            ("the-nested-scoped-package-separately-listed", {scoped_inner + "/index.js": b"module.exports = 4;\n"}, inner_manifest,
++             scoped_inner)):
++        path = next(iter(extra))
++        try:
++            result = ts_run(extra, packages)
++        except Exception as exc:  # noqa: BLE001 - a refused positive is a failed control
++            row("A4", "real-run-closes-with-" + name, False, type(exc).__name__ + ":" + str(exc))
++            continue
++        run, objects, blobs, actual = result
++        context, installs = ts_context_layout(result)
++        ok = (installed in installs and installed not in base_layout
++              and context["nodeModulesLayoutDigest"] != base_context["nodeModulesLayoutDigest"]
++              and M.close_run(run, objects, blobs) == actual["runId"]
++              and any(r["path"] == path for r in objects[run["snapshotId"]][1]["sourceInventory"]))
++        row("A4", "real-run-closes-with-" + name, ok, {"runId": actual["runId"], "layout": installs})
++    for name, path in (("a-nested-lookalike-segment", "node_modules/left-pad/node_modules-like/index.js"),
++                       ("a-listed-scoped-package-file", "node_modules/@scope/util/index.js")):
++        got = refusal_any(lambda p=path: ts_run({p: b"module.exports = 5;\n"}))
++        row("A4", "real-run-closes-with-" + name, got is None, got)
+ 
+ 
+ # ------------------------------------------------------------------------------------------------ S1
+--- prior-review-source/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ author/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -688,10 +688,14 @@
+     rule never walks into a pruned tree - PLUS exactly the bytes the analysis actually read from outside that walk.
+     A row inside a pruned tree is therefore lawful only as a READ: inside a DEPENDENCY tree it must lie inside a
+     package directory (`installPath` or `realPath`) of a retained ResolvedNodeModulesLayoutV1 whose context committed
+-    nodeModulesInReadSet; a VCS-tree or Cargo build-output row is never a read input of any published universe.
+-    Package-directory granularity is all the retained layout records. That no OTHER file of a listed package was
+-    read, or that the host walked every first-party file, is a host TCB observation a bytes-only replay cannot
+-    establish, and this join does not claim it."""
++    nodeModulesInReadSet, with no further exact `node_modules` segment between that listed directory and the file:
++    explicit nested package custody, so a nested installed package is authorized only by its own row and never
++    through an enclosing listed directory. A VCS-tree or Cargo build-output row is never a read input of any
++    published universe, and the VCS exclusion is checked at every depth before any package authorization. Listed
++    directories are arbitrary admitted CanonicalPaths compared by exact segment prefix; no package root is parsed.
++    Replay decides every INVENTORIED row against the listed directories, nested boundaries included. That no other
++    file was read, that no read file is missing from the inventory, or that the host walked every first-party file,
++    is a host TCB observation a bytes-only replay cannot establish, and this join does not claim it."""
+     DD=native_admission().DD
+     paths=[row['path'] for row in source_inventory]
+     cargo_roots=DD.cargo_roots_from_markers(paths)
+@@ -705,9 +709,19 @@
+             continue
+         hit=DD.classify_path(path,cargo_roots)
+         if hit is None:continue
+-        if hit[1]=='dependency-tree' and any(path.startswith(package+'/') for package in packages):continue
++        if hit[1]=='dependency-tree' and any(listed_package_authorizes_read(package,path,DD.DEPENDENCY_TREE_SEGMENTS)
++                                             for package in packages):continue
+         faults.append(path)
+     return sorted(faults,key=lambda p:p.encode('utf-8'))
++
++def listed_package_authorizes_read(package,path,dependency_segments):
++    """Explicit nested package custody (identity section 3, consumer24 A4). A listed installPath or realPath
++    authorizes a read file below it only while the relative suffix below that exact directory has no further exact
++    dependency-tree segment: a nested installed package needs its own retained row whose directory lies below that
++    boundary. The listed directory is an arbitrary admitted CanonicalPath (a package-manager store directory or a
++    workspace link included); nothing is parsed from its spelling, and its own segments may contain node_modules."""
++    if not path.startswith(package+'/'):return False
++    return not any(segment in dependency_segments for segment in path[len(package)+1:].split('/'))
+ 
+ STAGE_OUTPUT_INTERFACE_DIRECTORY='opensip-interface/stage-output/'
+ STAGE_OUTPUT_DECLARATION='x-opensip-stage-output'
+--- prior-review-source/docs/v2/contracts/product-v1/identity-and-evidence.md
++++ author/docs/v2/contracts/product-v1/identity-and-evidence.md
+@@ -569,13 +569,27 @@
+ Plan-selected context that committed `nodeModulesInReadSet`, and a VCS-tree or Cargo
+ build-output row is never a read input of any published universe. A dependency
+ package's read allowance never overrides a VCS-tree exclusion deeper in that path;
+-the VCS exclusion uses exact segments at every depth. Either violation refuses
+-`SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay does not prove.** The
+-custody walk and the read set are host TCB observations retained with the Run.
+-Bytes-only replay re-checks every retained digest, and this join, at package-directory
+-granularity. It cannot prove that the host walked every first-party file, that it
+-read no other file of a listed package, or that every package it read is listed:
+-those are properties of an unobserved host process, not of the retained bytes.
++the VCS exclusion uses exact segments at every depth. **Nested packages have
++explicit custody.** A listed directory authorizes a read file below it only while
++the path suffix below that exact directory has no further exact `node_modules`
++segment. A nested installed package (for example
++`node_modules/left-pad/node_modules/evil`) is its own installed package directory
++and needs its own layout row; an enclosing listed directory never authorizes it.
++Listed directories are admitted `CanonicalPath` prefixes compared by exact segment,
++not package roots parsed from a path, so a package-manager store or workspace-link
++`realPath` authorizes its ordinary descendants, and a lookalike segment such as
++`node_modules-like` is no boundary. A row outside every pruned tree stays with the
++first-party custody walk even when a listed `realPath` contains it. Discovery's
++outermost pruned anchor is unchanged and is not this authorization boundary. Any
++violation refuses `SNAPSHOT_PRUNED_TREE_NOT_A_READ`. **What replay decides and
++what it does not prove.** Replay decides every inventoried row: a recorded read
++path that crosses a nested installed-package boundary without its own retained
++row refuses, whatever enclosing directory is listed. The custody walk and the read
++set are host TCB observations retained with the Run. Bytes-only replay re-checks
++every retained digest, and this join, at package-directory granularity. It cannot
++prove that the host walked every first-party file, that it read no file missing
++from the inventory, or which of a listed package's own files it read: those are
++properties of an unobserved host process, not of the retained bytes.
+ Security S3 "Pruned trees and the read set" carries the matching custody statement.
+ 
+ The closure checker parses and exactly validates scope, semantic configuration,
+--- prior-review-source/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ author/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -269,7 +269,10 @@
+ package directories listed by a retained `ResolvedNodeModulesLayoutV1` of a
+ context with `nodeModulesInReadSet`. Such rows are `host-ignore-convention`
+ members joined at Run closure, refusing `SNAPSHOT_PRUNED_TREE_NOT_A_READ`.
+-VCS trees and Cargo build output are never reads. Required inputs outside the
++A nested installed package below a listed directory (a further exact
++`node_modules` segment) needs its own row; the enclosing listed directory never
++authorizes it. VCS trees and Cargo build output are never reads, at any depth.
++Required inputs outside the
+ project root stay in their owning closures. Which files inside a listed package
+ were read, and that the custody walk was complete, are host TCB observations
+ that bytes-only replay cannot prove. Identity §3 owns the inventory and joins;
+

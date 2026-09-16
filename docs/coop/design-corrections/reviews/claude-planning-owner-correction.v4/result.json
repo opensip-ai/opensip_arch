@@ -1,0 +1,69 @@
+{
+  "session_id": "329a5132-ee66-4303-97a9-b9ebd1b7ffc0",
+  "total_cost_usd": 17.5159365,
+  "usage": {
+    "input_tokens": 90,
+    "cache_creation_input_tokens": 75966,
+    "cache_read_input_tokens": 30657803,
+    "output_tokens": 57077,
+    "output_tokens_details": {
+      "thinking_tokens": 7102
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 75966,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 2531,
+        "cache_read_input_tokens": 707070,
+        "cache_creation_input_tokens": 1581,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1581
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 90,
+      "outputTokens": 57077,
+      "cacheReadInputTokens": 30657803,
+      "cacheCreationInputTokens": 75966,
+      "webSearchRequests": 0,
+      "costUSD": 17.5159365,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 7102,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01JTQiLsmWNPYrce8KHy81xu",
+      "tool_input": {
+        "command": "python3 -c \"\nimport pathlib,re\np=pathlib.Path('/private/tmp/opensip-design-corrections/claude-planning-owner-correction.v4/scratch/README.md')\nt=p.read_text()\nt=t.replace('| 86912 B | 88024 B |','| 86912 B | 88249 B |')\nt=t.replace('| 49961 B | 59261 B |','| 49961 B | 59050 B |')\np.write_text(t)\nprint([l for l in t.splitlines() if l.startswith('| `implementation-bou') or l.startswith('| `store-instance')])\n\"",
+        "description": "Correct byte figures in README"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 45,
+  "subtype": "success",
+  "result": "# PS-01 identity-selection boundary fixed \u2014 v4\n\nI ran root's `repeated-generation.py` unchanged; it reproduces the supplied JSON byte-for-byte. Both counterexamples are correct and accepted. v3 is immutable (71/71 verified), frozen25 intact (12869 members, 0 mismatches), nine planning inputs unmodified, **PS-04 bytes unchanged** (`ae82ca6a\u2026`).\n\n---\n\n## RC-4 \u2014 repeated generation across distinct stores\n\nv3 looked nodes up by the numeric `(storeGeneration, stateSchema)` pair while the S9.3 prose it shipped with said the primary key is the **triple**. The helper contradicted its own prose. With retained branch `(b,4,2)`, active root `(a,3,1)`, fresh target `(e,4,2)`:\n\n| state | owner | v3 companion | v4 companion |\n|---|---|---|---|\n| LEASED | `ABORT` | **QUARANTINE** \"premature new node\" | `none`, no refusal, 2 nodes untouched |\n| COMMITTED | `RESUME-COMMIT` | **QUARANTINE** \"stored node disagrees\" | `reconstructed-and-written`, 3 nodes, invariants clean |\n\nEvery lookup now builds the full triple from the store-root **marker** of the store concerned. A retained branch at an equal numeric pair is a different store: it neither blocks admission nor is read as this attempt's node. No global generation uniqueness is invented beyond the owner. `intentDigest` is validated *on* the selected node, never scanned for \u2014 the record's own schema says it may repeat.\n\n## RC-5 \u2014 missing predecessor at the decision boundary\n\nv3 wrote broken ancestry with `refusal: None` because predecessor presence lived only in the unused `invariants()` helper. There is now **one admission law, `admit_node`, called by both publication and recovery**: six members, paired nulls, no self-reference, predecessor present at its exact triple, no disagreeing duplicate primary key, one acyclic lineage root afterwards. A refusal writes nothing. `invariants()` is now only a whole-set auditor for controls.\n\n```\nabsent predecessor                              -> QUARANTINE (predecessor-absent), 0 written\npredecessor names a node that does not exist    -> QUARANTINE, 0 written\nduplicate predecessor key, identical contents   -> QUARANTINE\nduplicate predecessor key, disagreeing contents -> QUARANTINE\nduplicate target key, disagreeing contents      -> QUARANTINE\ntarget key exists with a different origin       -> QUARANTINE\nselected marker missing / malformed             -> QUARANTINE, nothing dereferenced\nforward markers name the same store             -> QUARANTINE\nancestor reselect naming an off-chain store     -> QUARANTINE\nancestor reselect naming the verified chain     -> validated-existing\n```\n\n## Also corrected\n\n**Non-forward joins** use the same full-triple principle: an ancestor is resolved from the retained store's marker and must lie on the **verified chain** from the current node; origins are never rewritten. **BUSY / REFUSE / QUARANTINE** now make no companion decision and inspect nothing \u2014 v3's prose said this but the generic branch still inspected nodes. **Stale metadata** fixed: both `correctionOf.remedy` and `ownerSuccessorDelta.normativePatch` now name `security-and-lifecycle.md.S9-pair-law-and-S9.3.patch` and say two hunks.\n\n## New composed evidence\n\n`check_lineage_recovery.py` keeps sections A (root v2 regressions) and C (7 owner-admitted operation cases \u00d7 6 journal states) and adds D (root v3 regressions), E, F, G. Shape admission (`admit_transition_intent`, eleven-member record) is reported separately from current-state/footprint admission (`recover_transition_journal` with registry, fence, leases, footprint).\n\nSection E, composed with real owner-admitted intents:\n```\nmigrate (3,1)->(4,2)        RESUME-COMMIT  reconstructed-and-written   2 nodes\nstore-rollback (4,2)->(3,1) RESUME-COMMIT  validated-existing          2 nodes, origin {null,null} preserved\nsecond migrate (3,1)->(5,2) RESUME-COMMIT  reconstructed-and-written   3 nodes\nfinal lineage: (a,3,1) root -> (e,4,2) and (f,5,2); retained branch origin digest unchanged\n```\n\nSection G confirms `REFUSE` / `BUSY` / `QUARANTINE` \u2192 `no-decision`, and that an unfenced PREPARED store operation is an owner `ABORT` with no companion refusal.\n\nAn interim failure is on the record: my first section-F expectation treated two identical duplicate **root** nodes as benign; the law correctly refused them on the one-root invariant \u2014 the test was wrong, not the law. Duplicates are now exercised where the decision path actually dereferences a key.\n\n---\n\n## Deliverables\n\n| File | v3 | v4 | Patch |\n|---|---|---|---|\n| `implementation-boundaries-and-build-plan.md` | 86912 B | 88249 B | 2 hunks, +30/\u221210 |\n| `store-instance-lineage.v1.json` | 49961 B | 59050 B | 12 hunks, +91/\u221245 |\n| `report-asset-binding.v1.json` | 27714 B | **unchanged** | \u2014 |\n| `security-and-lifecycle.md` (frozen25) | `12dcebea\u2026` 94428 B | `4464780e\u2026` 101061 B | **2 hunks, +97/\u22120** |\n| `controls/lineage_law.py` \u00b7 `check_lineage_recovery.py` \u00b7 `check_store_instance_lineage.py` | | | 6 \u00b7 4 \u00b7 2 hunks |\n\nSchema unchanged at six members; no new identifier, record or operation. Eight of nine planning inputs byte-identical to frozen; both generated plan blocks byte-identical; JSON valid with no duplicate keys; no trailing whitespace or tabs; links resolve. Exact digests in `manifest.json`; all four root counterexample files retained in `root-counterexamples/`.\n\n**All six controls PASS** (`control-evidence.json`): both planning checkers unchanged (198 paths; 320 mappings, 38 cases), `check_store_instance_lineage`, `check_lineage_recovery`, `check_report_asset_binding`, `check_report_asset_fixture`. Unrelated suites not rerun.\n\n## Limitations\n\nProposed, unaccepted, unfrozen; no readiness \u2014 independent review follows and I do not accept my own corrections. No product code; all named owning modules already exist in the inventory, so no inventory row or generated-section change. Owner results are the frozen model's own returns; the companion law is a design reference, not a carrier implementation, crash test or native lifecycle qualification. Node identity depends on readable markers \u2014 an unreadable one refuses rather than guessing, but a readable-and-wrong marker after an out-of-band copy stays in frozen25's stated undetected class. `StateSchema` is `{1,2}`, so no owner-admitted example exercises multiple distinct ancestors at one schema, though the ancestor branch already refuses ambiguous and off-chain matches. The CORE release catalog/manifest shape remains not provided by candidate25 and unassigned; COV-03 and the separately active carrier work remain open.",
+  "type": "result",
+  "duration_ms": 690342
+}

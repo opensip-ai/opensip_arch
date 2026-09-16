@@ -1,0 +1,439 @@
+# Bounded read-only commit recovery, the commit-admission gate, and the settlement sweep (PROPOSED v3)
+
+**Standing.** PROPOSED-NOT-SELF-ACCEPTED: no acceptance, no readiness, no application and no
+implementation authorization. Private design/reference work, not OS qualification. Authored against
+frozen Source25 `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
+
+**Stable normative path:** `docs/v2/architecture/commit-recovery-readonly.v3.md`. This is the
+current owner and it is **self-contained**: every operative rule is stated here, and no rule may be
+recovered from a superseded draft, from a reference model, or from any `scratch/` path. The v1 and
+v2 drafts are superseded historical evidence only and must never be linked as current owners.
+Selected companions, all repo-relative: `docs/v2/architecture/attempt-custody.schema.v1.json`,
+`docs/v2/architecture/commit-recovery-plan.v1.json` (association),
+`docs/v2/architecture/store-instance-lineage.v1.json` (PS-01 owner, consumed unchanged),
+`docs/v2/architecture/report-asset-binding.v1.json` (PS-04 owner, untouched), and under
+`docs/coop/design-corrections/security/`: `carrier-format.v3.md`, `carrier-migration.v1.md`,
+`carrier-dispatch.v3.json`, `carrier-highwater.schema.v1.json` and
+`grant-journal.carrier.v3.sql`. Any `scratch/` citation below marks executed evidence and carries
+no law.
+
+**Revision history of the corrections in this document**, which supersede earlier drafts:
+
+1. Step 1 branched on `phase` alone, so a `settled` row whose outcome was `committed` or
+   `undetermined` could yield `terminal-not-committed`. Fixed in §2 and §3; the negative conclusion
+   now requires the `refused` outcome *and* a confirmed absent receipt in the same snapshot.
+2. The authorized settlement sweep was named but unspecified. Specified in §4.
+3. The carrier-quarantine public projection was left as a two-option open decision. Settled in §1
+   against the actual schema: `LEDGER.CORRUPT` with a non-none `faultCause` and **no**
+   `domainDetail`. No registry member is minted and `MIGRATION.CORRUPT` is not misused.
+4. The state-3 delivery rule is now a **selected successor law**, not an owner choice (§6.2).
+
+## 1. Conclusion vocabulary and its exact schema-valid projection
+
+Internal recovery standings are **not** public D9 classes and are deliberately spelled so they
+cannot be mistaken for one. This matters because the word `indeterminate` collides with the public
+D9 class `indeterminate` at exit 3: no standing below is spelled that way, and every one projects
+onto an existing class, `errorCode` and `faultCause`. Root owns the final generator and the
+clarification of the older internal `indeterminate` spelling in F00–F37; that is not treated as a
+blocker here.
+
+The public shape is **`workflows/schemas/evaluator3/common.schema.json#/$defs/StepTermination`**.
+That owner is **explicitly selected**, not inferred from a pattern: `workflows-and-surfaces.md`
+line 33 states "Its closed schemas live under `workflows/schemas/evaluator3/`", and the
+incorporated `workflow-projection-contract.v3.md` line 7 states "The current output schemas are
+under `schemas/evaluator3/`." The sibling `workflows/schemas/common.schema.json` is the **retained
+predecessor**; the same paragraph settles its standing at line 38 — "Historical output schemas
+remain retained evidence and are not an alternative parser for this profile." An earlier draft
+named that sibling as the owner, which was wrong and is corrected here; its `run2` `RunId` is
+therefore **not** an unresolved conflict and is not listed as a gap.
+
+The selected owner's frozen branch contract is decisive: `required: ["class"]` only;
+`domainDetail` is **optional**; and "request-rejected and operational-failed require `errorCode`
+(operational-failed also a non-none `faultCause`)". Every projection below is therefore expressible
+with **only existing members**, and C12 validates each one against that actual schema while also
+asserting both selectors.
+
+| Internal standing | class | errorCode | faultCause | domainDetail |
+|---|---|---|---|---|
+| `committed-historically` | `success` | — | — | omitted |
+| `committed-availability-degraded` | `success` for history; a required object unavailable during a selected operation is `operational-failed` / `HOST.IO_FAILURE` / `host-io` | | | `evidence.missing`, `evidence.corrupt`, `evidence.purged` or `evidence.expired` |
+| `terminal-not-committed` | `success` | — | — | omitted (a successful observation, not a refusal) |
+| `unknown-attempt-open` | `operational-failed` | `LEDGER.BUSY_TIMEOUT` | `ledger-busy` | `PROJECT.BUSY` |
+| `unknown-attempt-unobserved` | `operational-failed` | `HOST.IO_FAILURE` | `host-io` | omitted |
+| `unknown-custody` | `operational-failed` | `HOST.IO_FAILURE` | `host-io` | omitted |
+| `unknown-quarantine-condition` | `operational-failed` | `LEDGER.CORRUPT` | `ledger-corrupt` | **omitted** |
+| `unavailable-busy` | `operational-failed` | `LEDGER.BUSY_TIMEOUT` | `ledger-busy` | `PROJECT.BUSY` |
+| `binding-unusable` | `request-rejected` | `EXTENSION.ADMISSION_REJECTED` | — | `RECOVERY.REFUSED` with typed subject |
+
+**The carrier-quarantine decision is settled, not deferred.** `LEDGER.CORRUPT` with
+`faultCause: "ledger-corrupt"` and an omitted `domainDetail` is schema-valid, so no new
+`DomainDetailCode` is minted for aesthetics. `MIGRATION.CORRUPT` is **not** reused: it is the store
+transition's detail, and borrowing it for ordinary journal corruption would put two remedies behind
+one code, which the D9 contract names a defect. The typed reason (`uncertainTailLoss`,
+`witnesslessRestore`, `witnessMalformed`) travels in the operational record and the owner
+diagnosis, not in a public detail code.
+
+A registered detail is used only where one already fits the event exactly: `PROJECT.BUSY` for busy,
+`RECOVERY.REFUSED` for a refused recovery request, and the `evidence.*` family for availability.
+
+## 2. The algorithm
+
+Read-only throughout. Prohibited for the whole algorithm: the install fence; the writer lease;
+`EXCLUSIVE`; any `BEGIN IMMEDIATE`; any `INSERT`/`UPDATE`/`DELETE`; witness `INIT`, `REVERT` or
+`ADVANCE`; any witness write; any SC-TRUST high-water raise or copy; any quarantine-marker write;
+any new execution grant; any store-binding allocation; any wait on any lock or on the writer; any
+repair. Bounded to **exactly one** ledger snapshot, **at most two** journal snapshots, and **at
+most four** witness and four floor reads.
+
+### Step 0 — admission
+
+Take the `SHARED-READ` project lease per S7 and obtain the custody-admitted store binding through
+an admitted handle and the registry, never from request fields. Compute `storeGenerationDigest`
+(PS-01 owns the binding tuple and digest shape; nothing is allocated here). An unregistered
+namespace refuses. **No liveness probe of any kind is taken, and no in-memory active set is
+consulted at any point.**
+
+### Step 1 — one coherent ledger snapshot, read as a whole
+
+Inside one consistent committed reader snapshot read: the receipt; the private
+`CommitRecoveryAssociationV1` row; the Run manifest, object references, availability generation and
+pins; **and the `AttemptCustodyV1` phase together with its `settledOutcome`**.
+
+Ledger unreadable → `unknown-custody` (F24). Never absence: a failed read, a wrong generation or an
+empty fallback database is never absence.
+
+### Step 2 — the settlement matrix, decided entirely inside that snapshot
+
+| receipt + association | phase | settledOutcome | conclusion |
+|---|---|---|---|
+| both present | `settled` | `committed` | continue to the carrier capture (§3) |
+| both present | `settled` | `refused` | **contradiction** → `unknown-custody`; preserve rows, synthesize nothing |
+| both present | `admitted` | null | **`committed-historically`**, with `pendingSettlement` disclosed. A **lawful interval**, not a contradiction — see below |
+| both absent | `settled` | **`refused`** | **`terminal-not-committed`** — the only negative |
+| both absent | `settled` | `committed` | **contradiction** → `unknown-custody`, unavailable history. **Never a negative** |
+| both absent | `admitted` | null | `unknown-attempt-open`. A durability-uncertain attempt lands here too |
+| both absent | no row | — | `unknown-attempt-unobserved` |
+| exactly one present | any | any | `unknown-custody` (F23) |
+
+Store-binding or namespace mismatch in the association → `binding-unusable` (F27).
+
+### 2.1 Receipt present with the attempt still `admitted` is a lawful interval
+
+An earlier draft treated this as a contradiction. **That was wrong and is dropped.** The settle
+write is ordered **after** the receipt write, so *every* committing attempt passes through exactly
+this state; §4.2's own `committed but unsettled` sweep case exists to settle it later. Treating a
+lawful interval as corruption would have made the ordinary commit path look broken.
+
+The selected law:
+
+- A **valid joined receipt establishes historical commitment on its own.** The conclusion is
+  `committed-historically` and the reader continues to the carrier capture exactly as for
+  `settled`+`committed`.
+- The unsettled custody row is disclosed **operationally** as `pendingSettlement`. It is not a
+  defect, not a refusal, and not a reason to report the receipt as absent.
+- It **revives no authority**. The attempt stays terminal, gets no retry, and **no writer may
+  reopen a stopped session merely to settle it**. Settlement is the separately authorized sweep's
+  job (§4), which acquires its own fence and `EXCLUSIVE`.
+
+The composed case — commit, then a reader, then a later sweep — is exercised end to end in C14 and
+C6: the reader answers `committed-historically` + `pendingSettlement` before any sweep runs, the
+sweep then writes `settled`+`committed`, and a second reader answers `committed-historically` with
+no pending disclosure. No step changes the commitment, and no step grants anything.
+
+Everything else in the table is load-bearing: C11 drifts A3 and A9 both produce false negatives
+when removed.
+
+### 2.2 A missing attempt-custody row beside a present receipt
+
+Not covered by the v6 table, and now selected explicitly. A receipt and association are present and
+joined, **no** `AttemptCustodyV1` row exists for that primary key, and no legacy custody record
+exists either. This happens lawfully: for any attempt that committed before this record was
+selected, and for any store generation whose attempts predate it.
+
+The two questions are answered **separately**:
+
+| Question | Answer |
+|---|---|
+| Did this attempt commit? | **`committed-historically`.** The receipt and association are valid historical evidence and remain so. |
+| Was it settled? | **`custody-unknown-renamed`.** Silence about settlement, disclosed operationally. |
+
+It is **never** a negative, never `terminal-not-committed`, and never a licence to synthesize a
+custody row. Absence of the settlement record is silence about settlement, not a claim about
+commitment.
+
+### 2.3 A purged receipt: logical retention versus physically missing bytes
+
+These are two different observations and must not be conflated.
+
+- A **logical retained record** — the minimal sealed manifest, provenance or tombstone that purge
+  retains under identity §5 — still names the Run. The receipt therefore **exists as history** even
+  when its unshared evidence bytes have been reclaimed. That is `committed-availability-degraded`.
+- A **raw both-absent observation** means no receipt row and no association row is present at all
+  in this store generation.
+
+A purged committed attempt is therefore never a raw both-absent observation: the retained tombstone
+or manifest is exactly what distinguishes the two, and the reader **reads** it. **No receipt is ever
+reconstructed, synthesized or forged from a tombstone, and a tombstone is never presented as a
+receipt.** The negative additionally requires `settledOutcome == refused`, which a purge cannot
+produce, so no purge can flip a committed attempt to a negative even with its bytes gone.
+
+### Step 3 — bracketed capture of the carrier observations
+
+**Stated in full here.** This document is the current owner; the superseded v2 draft is historical
+evidence and no operative rule may be recovered from it or from any reference model.
+
+Each capture performs exactly five observations in this order, and computes byte stability:
+
+```
+W1 := read_witness()        H1 := read_floor()
+J  := snapshot_journal()    (point-in-time consistent read of tail seq and tail digest)
+W2 := read_witness()        H2 := read_floor()
+stableW := (W1 == W2 byte-identical)     stableH := (H1 == H2 byte-identical)
+```
+
+**Bounds.** Exactly one ledger snapshot; **at most two** journal snapshots; at most four witness and
+four floor reads. **At most one** fresh capture is permitted — the single retry — and it also
+supplies the second tail observation §4 requires. No lock, no wait on the writer, no mutation.
+
+**Witness shape, validated before any comparison.** The closed v8 §5.4 shape:
+`{witnessSchema: 1, projectKeyDigest, grantGeneration, seq, state, bodySha256}`, with `bodySha256`
+**present** (an absent member is not a null), `state ∈ {PENDING, COMMITTED}`, `seq` a non-boolean
+integer in `0..9007199254740991`, `PENDING` requiring `seq >= 1`, and no other member. Any violation
+is `witnessMalformed`. Carrier naming must match: `W.projectKeyDigest == A.journalCarrierDigest` and
+`W.grantGeneration == A.grantGeneration`.
+
+**The requested sequence against tail and floor.** Let `k = A.journalSeq`, `t` = captured tail seq,
+`H` = the SC-TRUST floor for that carrier and generation. Required structural checks: sequence
+contiguity `1..t`; `t >= H.lastSeq` (a lower tail is the F22 condition, never a confirmation); and
+`floorOk`, meaning `H.lastSeq == 0` or `body_sha256[H.lastSeq] == H.tailSha256`.
+
+**Ordering hazard.** If `k > t`, take the single permitted fresh capture. If `k <= t` afterwards,
+continue. If `k > t` still: when `stableH`, `H.lastSeq >= k` and both tails agree →
+`unknown-quarantine-condition` (F22); otherwise `unavailable-busy`, attributed to the security
+carrier owner. Never `uncommitted`, and never a conclusion drawn from two different snapshots.
+
+**The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+`record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the
+**domain-framed** digest `SHA256("opensip.metadata.journal.1" ‖ 0x00 ‖ C(body))`, not
+`SHA256(body)` — `operation_ref == A.operationRef`, and body `runId == A.runId` (`run3` only). Any
+mismatch is `unknown-custody`; hash presence alone is never sufficient.
+
+**Anchor selection, and its stability requirement.**
+
+| Case | Witness state | Anchor class | Requires |
+|---|---|---|---|
+| A | `COMMITTED`, `seq == t`, `bodySha256 == body_sha256[t]` | `witness-committed-tail` | `stableW` |
+| B | `PENDING`, `seq == t`, `bodySha256 == body_sha256[t]` | `witness-pending-at-tail` | `stableW`; report `witnessWouldAdvance`; perform **no** ADVANCE |
+| C | `PENDING`, `seq == t + 1`, `k <= H.lastSeq`, `floorOk` | `sc-trust-floor` | `stableH`; report `witnessWouldRevert` |
+| C′ | `PENDING`, `seq == t + 1`, `k > H.lastSeq` | none | `unknown-custody`, explicitly **not** invalidated |
+| — | anything else (COMMITTED beyond tail, equal seq different hash, non-adjacent PENDING, foreign, malformed) | none | `unknown-quarantine-condition` per the v8 §5.4 row; no repair |
+
+Cases A and B additionally require `t >= H.lastSeq` and, when `H.lastSeq >= 1`, `floorOk`.
+
+**Determinism.** For a given captured tuple the outcome is a total function: confirm on a usable
+anchor with no hazard; otherwise take the one retry; otherwise apply the hazard rule, then the
+adverse rule of §4, then `unavailable-busy`. Every path terminates after at most two captures, and
+no path waits, repairs or mutates.
+
+### Step 4 — which stable observations an owner quarantine condition requires
+
+**Stated in full here.** All five are required before any owner quarantine or corruption condition
+may be reported: stable witness bracket (`stableW`); stable floor bracket (`stableH`); **two**
+journal snapshots agreeing on tail sequence **and** tail digest; the closed witness shape validated
+before any comparison; and matching carrier naming. Otherwise the mismatch is attributed to temporal
+skew and reported
+`unavailable-busy`. Read-only never invents a corruption diagnosis from independently timed
+observations.
+
+**Standing of the second-tail observation: SELECTED conservative diagnostic policy.** It is
+required by this law. Its justification is conservatism, not necessity, and the evidence for that
+is stated honestly rather than dressed up: C11 drift A2 shows that dropping it produces no
+violation in any enumerated schedule, because in a lawful append the tail moves only together with
+the witness. So it is **not proven independently necessary**, it is **not** a correctness
+requirement, and it is **no part of any cryptographic argument** — and it is nonetheless selected,
+because a second agreeing tail costs one bounded read and covers a writer or repair path that moves
+the tail without moving the witness. No attack is manufactured to justify it, and no stronger
+cryptographic prefix mechanism is proposed anywhere in this correction.
+
+## 3. Carrier anchor bound — a selected limit, not an open gap
+
+Retained-custody-only confirmation is the **selected** position. Confirming establishes that the
+sealing record is present with its joined digest, operation reference and Run identity, that the
+sequence is contiguous, and that no rollback below the last *observed* operation boundary occurred.
+It does not authenticate the interior record prefix. The conclusion class is
+`confirmed-under-retained-custody`, and every confirming result carries
+`interior-bodies-not-authenticated`. An unmet anchor is `unknown`, never invalidation.
+
+No stronger prefix authentication is requested or proposed. `chain_law` is **1** only; the DDL
+refuses any other value. Historical generations report `chain-unverifiable` where the prospective
+encoding does not recompute, which is a diagnostic and never tamper. These are selected limits and
+are **not** listed as remaining gaps.
+
+## 4. The authorized settlement sweep
+
+A writer that dies before settling leaves `phase = admitted` forever. Read-only recovery then
+reports `unknown-attempt-open` indefinitely, and that is correct: unknown stays unknown until
+proof. This section specifies the separately authorized act that obtains the proof.
+
+### 4.1 Authorization and custody, traced to existing owners
+
+The sweep writes to the **selected** storage-owned evidence ledger and the **same**
+`attempt_custody` table the commit path uses, inside the already inventoried
+`crates/storage/src/ledger_store.rs`, `commit.rs` and `recovery.rs` modules. It needs no separate
+DDL and no second table.
+
+| Question | Existing owner |
+|---|---|
+| Which command? | `store-gc` — `owner: "security"`, `requestClass: "lifecycle"`, `authorizationClass: "exclusive-lease"`, `writesTrackedIntent: false`. As in `carrier-migration.v1.md` §1, adding this behaviour is a **selected prospective expansion** under an authorization class the command already carries; the inherited row is not by itself proof of prior authorization |
+| What custody? | S7 install fence at level 0, then `EXCLUSIVE` on the affected project namespace, `LOCK_EX|LOCK_NB` |
+| Busy namespace? | Skipped and retained, never refused — S7's existing GC law |
+| What authority does it get? | Only the exclusive-lease maintenance authority of that operation. **No reuse of the dead attempt's authority**, no new execution grant, no grant revival, and no retry of its commit |
+
+The sweep is **not** read-only recovery and **not** something a stopped session may do. A failed,
+latching or undetermined attempt must never open another write transaction with its stopped
+session; it releases and leaves the row `admitted`.
+
+### 4.2 What counts as proof, per case
+
+The sweep holds the fence and `EXCLUSIVE`, so **no writer for this namespace can be live**. That is
+the custody fact that makes proof possible, and it is why read-only recovery — which holds neither
+— cannot produce it.
+
+| Observed case | Proof available | Permitted write |
+|---|---|---|
+| **crashed**: `admitted`, no receipt, no association, exclusive lease acquired | The lease was free, so the attempt's writer is gone and can never commit. A later writer would be a different ExecutionId | settle `refused` |
+| **crashed with an orphan SEAL**: as above, plus a durable `SEAL` for that `operationRef` and no receipt | Same. F36 already fixes that a lone SEAL is an uncommitted attempt | settle `refused`; the SEAL stays operational history and is never promoted |
+| **committed but unsettled**: `admitted`, receipt and association both present and joined | The receipt is the authority. This is the lawful interval of §2.1, and settling it is bookkeeping that changes no commitment | settle `committed` |
+| **one-sided ledger**: exactly one of receipt/association present | None. This is the F23 contradiction | **no write**; leave `admitted`, report the contradiction |
+| **durability uncertainty**: `admitted`, the attempt's own D9 response was `durability-undetermined`, no receipt | The same proof as "crashed": the lease is free, so its writer is gone, and a readable ledger with no receipt means it did not commit | settle `refused` |
+| **live**: the namespace lease is busy | None — the attempt may still commit | **no write**; skip and retain, exactly as GC does |
+| **inaccessible**: the ledger cannot be opened or read | None | **no write**; report `operational-failed` / `HOST.IO_FAILURE` / `host-io` |
+| **already settled** | — | **no write**; the row is immutable once settled |
+
+**The sweep writes only `committed` or `refused`, and that is deliberate.** C14 exposed a flaw in
+the v5 draft of this section, which carried a third `undetermined` custody outcome: because the row
+is immutable once settled, `settled+undetermined` would have been **unresolvable** — nothing could
+ever move it to a real outcome, which is exactly the "cannot prove absence without actual durable
+reconciliation" problem root named. The correct separation is:
+
+- `durability-undetermined` is the **D9 response to the caller** at the moment the commit syscall or
+  barrier failed: `operational-failed` / `DURABILITY.COMMIT_FAILED` / `durability-commit`, with the
+  ExecutionId retained, the `runId` omitted and no automatic retry.
+- The **custody row stays `admitted`**, because terminality is genuinely unknown then. `admitted`
+  *is* the honest unknown.
+- The sweep is the durable reconciliation. Holding the fence and `EXCLUSIVE` proves no writer for
+  the namespace is live, so the attempt's writer is gone and can never commit; with a readable
+  ledger, absence of both rows proves not-committed and presence proves committed. Absence observed
+  under that custody cannot later become presence.
+
+The default for not-knowing is therefore to **leave the row `admitted`** — which happens whenever
+the lease is busy, the ledger is unreadable, or the ledger is one-sided.
+
+### 4.3 Write ordering and cleanup
+
+1. Acquire the fence; acquire `EXCLUSIVE` non-blocking on the namespace. Busy → skip.
+2. Open **one** coherent ledger snapshot and read receipt, association and custody row together.
+   The sweep honours the same one-snapshot rule as the reader; holding the lease does not license
+   separately timed re-reads to assemble a conclusion.
+3. Decide per §4.2. If no write is permitted, release and continue to the next namespace.
+4. Write the single `admitted → settled` transition with its outcome, in one transaction, and
+   satisfy the ledger's durability barriers. The monotone trigger refuses a second settle.
+5. Permissible lifecycle cleanup, and only this: remove unreferenced orphan objects by the existing
+   reachability GC; record nothing else. **Not permitted**: synthesizing a receipt or association,
+   appending a `SEAL`, raising the SC-TRUST high-water, writing or repairing the witness, rolling a
+   grant generation, or reviving any grant.
+6. Release `EXCLUSIVE`, then the fence, in reverse order.
+7. A crash anywhere leaves either the pre-state or the settled state; step 4 is a single atomic
+   transition and steps 1–3 are read-only, so there is no torn state and the retry is the next
+   sweep.
+
+## 5. Race 2 — the ledger-owned attempt phase
+
+**Stated in full here**, and corrected: an earlier draft treated the existing uniqueness rule as if
+it established durable persistence for every request mode. It does not.
+
+- Identity §2 requires that RequestId and ExecutionId are "reserved with uniqueness checked in the
+  corresponding operational ledger before use". That is a **pre-use uniqueness rule** and it applies
+  to every request mode. It does **not** establish a durable per-attempt record, because a
+  uniqueness check before use can be satisfied without retaining a row after the request ends.
+- `AttemptCustodyV1` (`docs/v2/architecture/attempt-custody.schema.v1.json`) is therefore a
+  **separate, scoped durable record**, not a restatement of that rule. Its scope is
+  **durable-authoritative commit-capable attempts using the evidence ledger** — exactly those that
+  can publish an authoritative receipt through the guarded commit facade.
+- **Read-only requests and `--ephemeral` acquire no row**: no persistent evidence-ledger write and
+  no security operation reference. Identity §5 owns `--ephemeral` as non-authoritative with
+  temporary custody, minting no authoritative commit receipt, and that ownership is consumed
+  unchanged. The absence of a row for such a request is not a custody condition.
+- The race it closes: the phase and outcome are read in the **same** snapshot as the receipt and
+  association, so terminality is never inferred from a separately timed liveness probe or an
+  in-memory active set.
+- **Who may write it**: the guarded commit facade while its session is live, or the authorized
+  settlement sweep under fence plus `EXCLUSIVE`. A **stopped cleanup-only session may not write
+  it** — it releases and leaves the row `admitted` for the sweep.
+
+## 6. The commit-admission gate (PS05 bit states)
+
+**Stated in full here.** One atomic bit state with `ADMITTED = 1` and `LATCHED = 2`: `0` preparing,
+`1` admitted, `2` latched before admission, `3` admitted then latched. Commit admission is
+compare-exchange `0 → 1`. The observer **always** fetch-ORs `2`, including `1 → 3`, so a
+post-admission latch cannot be lost, and the fetch-OR is idempotent and never clears `ADMITTED`.
+**No state resets during the attempt.** A successful gate mints **one internal single-use permit**
+for the already prepared commit; it is not a reusable grant, and a second consume obtains no
+commit. A latch winning at state `0` prevents the gate entirely, so a compare-exchange from state
+`2` fails. State `3` records the latch and forbids further effect admission and retries **without**
+revoking the already admitted attempt or relabelling its outcome. The gate orders admission only
+and is **not** the durability point; the observer cannot abort an in-flight syscall or rewrite its
+outcome.
+
+### 6.1 Pending REV correlation
+
+Unchanged: the private association plus the `executionId ↔ operationRef` mapping in
+`AttemptCustodyV1`, plus the reader rule that `REV` after `SEAL` in sequence order never implies the
+`SEAL` was refused. **No `runId` member is added to `REV`.**
+
+### 6.2 Required delivery after the gate — selected successor law
+
+**Selected, not an open owner choice.** After a latch (state `2` or `3`) the host starts **no new
+required-delivery phase**. For state `3` the commit stays committed, the RunId stays observable, and
+the required delivery is reported through the existing `DELIVERY.REQUIRED_FAILED` /
+`operational-failed` / `delivery-required` route at exit 4. A failed or latching attempt cannot
+reacquire authority by opening a delivery phase; a new effect needs a fresh attempt with a fresh
+ExecutionId.
+
+For an unlatched ordinary commit (state `1`), required rendering and delivery run as a separate
+`SHARED-READ` phase over the committed snapshot, drawing no authority from the returned stopped
+cleanup-only session. The handoff is: commit confirmed → stopped session returned → cleanup
+`REV`/`CLN` through a fresh lawful level-3 then level-4 append while that session still holds the
+operation lease → release the lease → S7 end handoff → then the delivery phase.
+
+### 6.3 Publication does not overwrite the workflow outcome
+
+**A successful publication does not force `success` / exit 0.** The Run's own assessment outcome
+survives, and C12 validates each of these against the actual `StepTermination` schema:
+
+- **`policy-failed`** (exit 1) with the committed `runId`. The branch contract requires `runId` for
+  `policy-failed`, which a committed Run supplies, so a Run that publishes successfully and then
+  fails its policy assessment terminates `policy-failed` carrying that RunId.
+- **`indeterminate`** (exit 3) with `reasonCodes`. The branch contract requires `reasonCodes`, drawn
+  from the existing closed `D9ReasonCode` set — for example `VERDICT.INDETERMINATE` or
+  `COVERAGE.REQUIRED_RELATION_MISSING`. A committed Run whose verdict is indeterminate stays
+  indeterminate after publication.
+- **An optional surface failure never resets either.** F17 already fixes that an optional effect
+  failure is disclosed without rewriting the result. So an optional export or browser launch that
+  fails after a `policy-failed` or `indeterminate` Run leaves that class and its
+  `runId`/`reasonCodes` exactly as they were; it does not become `success`, and it does not become
+  `operational-failed` unless the *required* delivery failed.
+- Required delivery failure moves the class to `operational-failed` /
+  `DELIVERY.REQUIRED_FAILED` / `delivery-required`, which is the one lawful overwrite, and it still
+  preserves the RunId.
+
+## 7. The historical chain-head contradiction — current-owner disposition
+
+carrierFormat 1 §5.4 says "the chain head is in the witness"; the v8 closed witness shape has no
+chain-head member. Both documents are immutable and neither is edited. The disposition belongs in
+the **current** owner and is patched into security §S1 (superseded selectors) and §S6, stating that
+the v8 closed witness shape governs, that the v1 sentence is retained historical prose and is not a
+current claim about the witness, and that no current owner asserts interior-prefix authentication.
+Old bytes are preserved exactly.
+
+This is a **selected limit with a recorded disposition**, not a remaining gap.

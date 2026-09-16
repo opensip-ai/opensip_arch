@@ -1,0 +1,3 @@
+Actual Grok accepted the frozen coverage binding experiment within its stated reference scope. [Review](review.md) records no must-fix defects, one test-gap should-fix, and six advisories. Codex reproduced all72 independent checks in a separate directory, with only exception-log destinations adapted. [Root receipt](root-receipt.json) records the correction and remaining scope.
+
+S1 is corrected in [binding02 checkpoint01](../../trials/report-coverage-binding-02-checkpoint-01/README.md); no delta review is inferred. [Shared budget integration](../../trials/report-coverage-integration-01-checkpoint-01/README.md) and joint10 integration still require review. This is not Claude agreement or product completion.

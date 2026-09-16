@@ -1,0 +1,69 @@
+--- v2/docs/v2/architecture/implementation-boundaries-and-build-plan.md
++++ v3/docs/v2/architecture/implementation-boundaries-and-build-plan.md
+@@ -261,34 +261,50 @@
+ `InstallationTransitionJournalV1` (20 members) are closed with
+ `additionalProperties: false` and carry no store instance identity, and S9.2's
+ `registry` is a `NamespaceList` of namespace strings. The minimal S9 owner
+-successor is therefore authored as an explicit normative insertion —
+-a single-hunk `### S9.3` addition after S9.2 that removes no line — and its
++successor is therefore authored as an explicit normative insertion — two pure
++`+`-only hunks that remove no line: the explicit schema/store pair law into S9.2
++itself, and a `### S9.3` section after it — and its
+ private lifecycle companion is specified in
+ [store-instance lineage](store-instance-lineage.v1.json): a private
+ `StoreLineageNodeV1` keyed by the admitted binding triple
+ `(storeInstanceId, storeGeneration, stateSchema)`, carrying its predecessor
+-triple and the selecting `intentDigest` as evidence, written **after** the
++triple and the creating `intentDigest` as evidence, written **after** the
+ transition journal record is durably `COMMITTED`, under the already-required
+ fence and exact `leaseSet`, adding no member to any closed public, signed or
+ namespace record and minting no D9 code. `intentDigest` is a semantic input
+ digest, not an attempt identifier, so it is evidence and never a key: a lawful
+ retry of a byte-identical intent after an abort writes a different triple or no
+-node at all. No atomicity is claimed between the journal record and the node;
+-the node is derivable from the journal's own from/to members plus the two
+-store-root markers, so a one-sided crash footprint reconciles by reconstruction
+-rather than quarantine. That successor must be frozen and
++node at all. That successor must be frozen and
+ reviewed; it is not accepted here.
+ 
+ A store instance identity is allocated once per physical store and never
+-rewritten. Whether a transition writes a node is read from the admitted intent's
+-own `from`/`to` values, never from the operation name, because S9.2 publishes a
+-store rule for `core-repair`, `core-update`, `store-migrate` and `store-rollback`
+-but **not** for `core-rollback`. Equal `to`/`from` generation and schema keep the
+-same physical store and write nothing, which covers `core-repair` and any
+-schema-preserving `core-update` or `core-rollback`. A `to` pair naming an
+-existing ancestor re-selects that retained store and also writes nothing. Only a
+-`to` pair naming neither materializes a new store, allocates a fresh identity and
+-writes one node.
++rewritten. Which transitions write a node is read from the admitted intent's own
++`from`/`to` values, never from the operation name. The owner's pair law makes
++that decidable without consulting any stored record: for `core-update` and
++`core-rollback` alike an unchanged schema keeps the store
++(`TRANSITION.SAME_SCHEMA_KEEPS_STORE`) and a changed schema selects a different
++one (`TRANSITION.SCHEMA_CHANGE_SELECTS_NEW_STORE`), `core-repair` keeps all
++three, and both store operations require a schema change *and* a different
++generation. So equal `to`/`from` generation and schema keep the same physical
++store and write nothing; a **retreating** schema re-selects a retained ancestor
++and also writes nothing; only an **advancing** schema materializes a new store,
++allocates a fresh identity and writes one node. Deriving the case from the intent
++rather than from stored ancestry is deliberate: a case read out of the node set
++would let a damaged lineage reclassify a rollback as a forward selection.
++
++Recovery applies that **same** case, and only after the owner's own
++`recover_transition_journal` decision settles the transition as committed — a
++core operation at `PREPARED` still aborts, a store operation still follows the S9
++footprint. No atomicity is claimed between the journal record and a node. Only a
++forward selection created a node, so only a forward selection is reconstructible,
++from the journal's own from/to members plus the two store-root markers; because
++the owner forbids a same store there, that reconstruction can never name itself.
++A same-store or ancestor re-selection validates the retained node and **never
++rewrites its predecessor or origin digest**: that node came from an earlier,
++unrelated act whose origin the current intent does not carry, so a missing one
++cannot be repaired from it and is a custody quarantine. Before the owner settles a
++transition, pre-existing ancestry is expected and untouched; what must not exist
++is a *new* node for that transition.
+ 
+ A rollback that re-selects the **same retained physical old store** keeps that
+ store's original `storeInstanceId`, so

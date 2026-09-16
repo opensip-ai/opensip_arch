@@ -1,0 +1,74 @@
+{
+  "session_id": "b6138049-0a59-4e41-9ed7-d04e223605b7",
+  "total_cost_usd": 4.8174015,
+  "usage": {
+    "input_tokens": 546,
+    "cache_creation_input_tokens": 202940,
+    "cache_read_input_tokens": 2239841,
+    "output_tokens": 66541,
+    "output_tokens_details": {
+      "thinking_tokens": 20237
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 202940,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1827,
+        "cache_read_input_tokens": 208025,
+        "cache_creation_input_tokens": 410,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 410
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1746,
+      "outputTokens": 16,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001826,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 546,
+      "outputTokens": 66541,
+      "cacheReadInputTokens": 2239841,
+      "cacheCreationInputTokens": 202940,
+      "webSearchRequests": 0,
+      "costUSD": 4.8155755000000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 20237,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 52,
+  "subtype": "success",
+  "result": "None of the four proposals can be accepted as they stand: each gets a separate changes-required verdict, and the configuration one is narrow. `review.json` and `review.md` are written in the review directory, with probes, results, private copies and mutants under `probes/` and `runs/`.\n\n**Custody:** for all four subjects the manifest SHA, exact file set, per-file hashes and external pins matched before and after my runs. No bytecode reached any subject, and the architecture `__pycache__` is unchanged. The root suites pass on private copies (10 + 10 + 8 + 9, exit 0). Those are reference tests over synthetic inputs, not runtime custody.\n\n**Mutants:** 16 of 18 were killed. Two catalogue mutants survived: dropping the canonical byte cap, and letting capabilities skip the declaration check. Two \"kills\" prove little. CAT-M5 dies only because a root test pins the mixed-up absence label I criticise below. CFG-M4 dies on ID shape checks only.\n\n**Two controls corrected:**\n- CAT-C4 was meant to test a float-bearing listing but actually refused earlier on a digest mismatch, so I kept it as a digest-swap control. Float refusal is still covered by the reproduced root test.\n- My own first history probe run crashed with a `NameError`. I fixed and reran it.\n\n## 1. Presentation catalogue (RP-DO-01/06/07/08): changes-required\nThe closure association is sound: exact Blob, no embedded `closureId`, and an invalid listing never downgrades to absence.\n- **Blocking:**\n  - Capability descriptions are tied to whichever closure ships them. The native release capability registry actually owns capabilities (`native-evidence.md:1014-1022`), and two closures can currently describe `reachability` in contradictory ways.\n  - A closure with no catalogue and a catalogue whose bytes weren't retained both show as `catalog-not-retained`.\n- **Required:**\n  - A row missing from a retained listing is labelled \"not retained\", and selection accepts keys outside the declaration index.\n  - The receipt drops `tree`, `platform` and `protocolMajor` from the security receipt it claims to reuse.\n  - The recipe `selector` is the same set of constants for every recipe.\n  - Names and descriptions accept bidi overrides and control characters.\n\n## 2. Configuration disclosure (RP-DO-04): changes-required (narrow)\nThe substance holds up:\n- The pinned resolver's output projects with a matching digest and no leaks.\n- A changed current configuration against an older Plan digest is refused, so there's no current-settings fallback.\n- 32 variants differing only in redacted values produce identical output apart from the digest.\n\nRequired fixes:\n- `planId` isn't tied to the admitted Plan (any valid ID is accepted), and the Plan itself isn't validated.\n- The output has no `verifiedInDocument`/`hostAsserted` provenance split.\n- Source failures aren't mapped to the report's existing unavailable, corrupt or incompatible panel states.\n\n## 3. Attempt duration (RP-DO-11): changes-required\nThe lifecycle boundaries, retry and abandoned semantics, identity independence and floor arithmetic are right (20,000 random cases checked).\n- **Blocking:** the v4 `Attempt` schema accepts abandoned+measured and completed+`supervisor-lost`. The outcome/reason rule exists only in `timing.py`.\n- **Required:**\n  - A malformed clock sample paired with a missing one returns `clock-unavailable` instead of refusing.\n  - The step sum accepts duplicate ExecutionIds and negative values, and crashes on bad input.\n  - Retained invocation major-1 records exist but have no report state; they should use the existing incompatible state rather than an unowned refusal.\n\n## 4. Explicit history selection (RP-DO-12): changes-required\nArgument order is kept, there's no `latest` fallback or silent baseline insertion, a requested ID equal to this invocation's Run fills its slot without a lookup, and the automatic no-flag mode is unchanged.\n- **Blocking:**\n  - The proposed refusal contradicts the existing route for a non-applicable format (`REQUEST.UNKNOWN_OPTION` / `OUTPUT.FORMAT_NOT_APPLICABLE`, `workflows-and-surfaces.md:1141-1142`). It also ignores the existing `EVALUATION.SELECTION_LIMIT` for more than four IDs.\n  - It neither pins nor types the query owner that RP-DO-12 names (`query-projection-contract.v3` \u00a71, `run.show`).\n- **Required:**\n  - Freeze the exact CLI flag record for all eight HTML commands.\n  - A bad host-supplied current Run ID currently becomes a user-facing request rejection; it should be an internal fault.\n  - Define when the read snapshot is taken, including for a pivot Run this same invocation creates.\n  - Write the explicit-mode panel variant and its provenance list.\n- The fixed selection overhead is 896 canonical bytes, plus 533 for four minimal unavailable rows.\n\nEach verdict in the review lists its remaining integration work: report carriers, host, clock, store and catalogue implementation, and final browser leakage and accessibility tests. I didn't touch the author02 report evidence work or the interruption-envelope work.",
+  "type": "result",
+  "duration_ms": 809956
+}

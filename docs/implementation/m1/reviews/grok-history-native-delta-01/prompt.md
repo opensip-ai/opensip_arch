@@ -1,0 +1,15 @@
+Actual independent Grok delta review; user authorizes Grok, Codex remains lead. Not Claude agreement.
+
+Frozen subject: /tmp/opensip-implementation/m1-history-native-delta-subject-01
+Manifest: /tmp/opensip-implementation/m1-history-native-delta-subject-01.manifest.json
+SHA-256 c87231a09082032f9b7c61ece2d13a7b31ab596478027f45e9940db95bbcb224;403 regular files.
+
+Work only in a new private copy under /tmp/opensip-implementation/m1-grok-history-native-delta-review-01/review. Verify manifest exact closure and every file before/after work and declared external pins. Read README.md and input-pins.json. Parent history03 and native04 are copied exactly and parent manifests/checkpoints are declared; new wrappers merely relocate fixtures for private-copy reproduction.
+
+Review actual history02 S1 correction (retained run.show required items) through current joint13/generation03/codec03/native04 report reader. The standalone history reference originally uses a proposed same-URI3 successor; final current query4/common4 must not relabel old bytes. Compare actual accepted history02 review /Users/sb/code/opensip-ai/opensip_arch/docs/implementation/m1/reviews/grok-history-selection-02/ and native-integration03 review. History03 has18selection+18query groups,12inherited controls plus a missing-items regression control. Only query schema output changes; typed retained response must have exactly1 item; unavailable states may legitimately have none.
+
+Reproduce fresh eight-output assembly and strict TypeScript (exactOptionalPropertyTypes). Seven outputs must match accepted native03 bytes (all6Rust/providerTS); only report reader changes. No new Rust execution need be claimed for unchanged bytes. Root wrapper71consumer checks and17history/Fit cases pass. Test independent counterexamples, schema-level validation versus exact-number decoding, inherited cases, absent/empty/multiple/untyped retained items, stale identities/version profiles, unchanged default4MiB/32 versus reportprofile6, and copy/assembly provenance. The copied old generated reader is a negative control, not accepted output. Fit sourceStep0.0/-0/exponent/boolean must refuse at selected decoder/type boundary; generic mathematical JSON Schema is not enough.
+
+Read README commands; use pinned Python /tmp/opensip-implementation/metadata-reference-env/bin/python -I -B and Node24.16.0. Run all mutating reference/check/assembly commands only in private mutable copies. External generation03/codec03/checkpoints/tool closure are pinned by native04/assembly-input-pins.json. The outer freeze contains original failed compile logs and inherited historical results; do not count them as your execution or silently replace them. Do not claim product, source-selection or milestone qualification.
+
+Write substantive review.md/review.json with exact subject hash, scope, independent probes and required findings. Scope is this source-to-generated delta, not final design-unit approval. No architecture/product/frozen edits, network installs, commits/pushes, private session inspection, background tasks or substitute agents. Reverify originals after work.

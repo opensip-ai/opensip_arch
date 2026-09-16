@@ -1,0 +1,81 @@
+{
+  "session_id": "ce3dec3b-0620-44ec-86e6-129b0e25cb1b",
+  "total_cost_usd": 13.396992500000001,
+  "usage": {
+    "input_tokens": 712,
+    "cache_creation_input_tokens": 208343,
+    "cache_read_input_tokens": 17598005,
+    "output_tokens": 100440,
+    "output_tokens_details": {
+      "thinking_tokens": 34203
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 208343,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2253,
+        "cache_read_input_tokens": 764842,
+        "cache_creation_input_tokens": 1403,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 1403
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 712,
+      "outputTokens": 100440,
+      "cacheReadInputTokens": 17598005,
+      "cacheCreationInputTokens": 208343,
+      "webSearchRequests": 0,
+      "costUSD": 13.396992500000001,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 34203,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_014HookhgsrHnotbkgozse9k",
+      "tool_input": {
+        "command": "cd /tmp/opensip-design-corrections/claude-source38-advisory-author.v2 && for v in v1-model inventory-join-disabled execution-plan-join-disabled stage-count-join-disabled; do /tmp/opensip-architecture-review-env/bin/python -I -B probes/run.py p05_discrimination $v > /dev/null 2>&1 & done; wait; echo done",
+        "timeout": 3600000,
+        "description": "Run semantic discrimination variants in parallel",
+        "run_in_background": true
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01MTMkjZedSVeYYZ7o5QB175",
+      "tool_input": {
+        "command": "cd /tmp/opensip-design-corrections/claude-source38-advisory-author.v2 && for v in stage-progress-join-disabled v1-dispatch v1-prose; do /tmp/opensip-architecture-review-env/bin/python -I -B probes/run.py p05_discrimination $v > /dev/null 2>&1 & done; wait; echo done",
+        "timeout": 3600000,
+        "description": "Run remaining discrimination variants in parallel",
+        "run_in_background": true
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 86,
+  "subtype": "success",
+  "result": "I've made all three corrections in the new v2 runtime. Root's three probe cases now refuse or route correctly, the two affected validators pass, and 7 controls that each disable one change fail exactly as intended. This is not acceptance of integrated bytes; all 54 recovery cases (F00\u2013F53) are still not executed.\n\n**1. Execution-plan binding.** Your finding reproduced on the v1 model. The Run record has no execution plan of its own: it comes from the evaluation seal, and `close_run` already ties that plan to the proof and the Run's `planId`. The composition now refuses three mismatches:\n- an attempt whose `executionPlanId` isn't that plan (`RUN_TERMINATION_ATTEMPT_EXECUTION_PLAN_MISMATCH`);\n- a `stageCount` that isn't the plan's number of stages (`RUN_TERMINATION_ATTEMPT_STAGE_COUNT_MISMATCH`);\n- stage progress outside the plan: `stagesCompleted` above `stageCount`, or a `firstFailedStage` that isn't one of its stages (`RUN_TERMINATION_ATTEMPT_STAGE_PROGRESS_MISMATCH`).\n\nIt does not require `stagesCompleted` to equal `stageCount`. Completion is runtime progress that no retained record re-derives, and a scheduled stage isn't a completed one. It also doesn't decide whether a completed attempt may carry `firstFailedStage`; both stay with the host attempt owner (workflows \u00a71). The fixtures now use each Run's real plan and stage count. A wrong-plan case that is otherwise admitted refuses, and a partial-progress case is admitted.\n\n**2. Receipt inventory.** Nothing on the composition path already checks this:\n- the commit path (`EvidenceStore.commit`) only mints the digest;\n- read-only recovery only joins receipt to association.\n\nThe composition now requires `receipt.inventoryDigest` to equal `commit_inventory(runId, objects, blobs)` over the Run content it reads (`RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH`). This assumes that content is the Run's published inventory, not a wider shared store; a wider store fails closed. Namespace, sequence, signer and assurance stay with receipt admission; nothing is authenticated.\n\nAll committed-case receipts are now minted by the real reference commit path, and their digest matched `commit_inventory` on two Runs. Controls:\n- the minted receipt is admitted;\n- your `f*64` digest refuses;\n- a digest of the inventory with one published object missing refuses.\n\n**3. Absent carrier on read-only recovery.** When an association names the bound carrier but SQLite holds neither `grant_journal` nor any format 3 object, the result is now the existing `unknown-custody` route (exit 4, `HOST.IO_FAILURE`/`host-io`, no detail). It is never absence, not-committed or success, and the reader never creates or initializes a carrier.\n- **Precedence:** `binding-unusable` first, then the format 3 footprint and stability rules, then unmigrated format 1/2 (F46), then this case.\n- **Totality:** every dispatch result except `carrierFormat3` now has exactly one read-only standing.\n- **Where:** read-only \u00a71 precedence row 4 and the Step 3 sentence, carrier-format \u00a78.1, the S12 unreadable-carrier row, and the dispatch map, route, reader law and phase law.\n- **Writer path:** writer fresh-install stays its separate owner.\n\nThe controls use real SQLite:\n- empty and fallback databases;\n- a surviving witness naming either project;\n- a binding mismatch;\n- a read-only open of a missing file (creates nothing) and of an empty file (bytes unchanged);\n- an interrupted fresh install that stays busy.\n\n**Results**\n\n| Check | v1 | v2 |\n|---|---|---|\n| Semantic replay | 31/31 rows, 37 composition cases | 31/31 rows, 44 composition cases, 0 faults |\n| Carrier validator | 384/0 | 406/0 |\n\nDiscrimination controls:\n- restoring the v1 model fails exactly the 6 new join cases, which reproduces your finding;\n- disabling each new join fails exactly its own cases;\n- restoring the v1 dispatch JSON fails exactly the 9 absent-carrier checks (391/9);\n- restoring the v1 prose fails exactly 2 checks (404/2).\n\n**Diffs**\n\n| Diff | File | SHA-256 | Size |\n|---|---|---|---|\n| Total vs source38 | `total-edits-vs-source38.diff` | `beaa92e4b9b6e86c43ca088a91f008aa58e54f40b4ba49834576836214cefb4a` | 10 files, 1257 lines |\n| Incremental v1 \u2192 v2 | `incremental-v1-to-v2.diff` | `870bc958db978852570cd3b25faedb8c854ad754931ce01047e86cd9d0c4c3d4` | 9 files, 534 lines |\n\n`workflows-and-surfaces.md` is unchanged from v1. Full source38/v1/v2 hash maps are in `review.json`. Custody holds: source38, v1 and your assessment are unchanged, and the working copy is regular files.\n\n**Failed attempts, kept**\n- My first v2 validator run exited 1 (carrier 405/1). The new totality check wrongly counted the string `'gj_seq_contiguous'`, a condition inside the dispatch function, as a result. It was a checker bug, not a law error; I fixed it to read only returned values and the rerun passes.\n- Two looped background launches of the discrimination runs were denied before they started, so each ran individually.\n\n**Binding drift for you to rebind:**\n- five source-pin ledgers pin all 10 touched files;\n- coverage, normative-inputs and planning-sources pin 6 of them;\n- planning sections `security-and-lifecycle:12` and `workflows-and-surfaces:10` changed text, and `workflows-and-surfaces:11`\u2013`13` shift by 4 lines.\n\nI ran only the two affected validators and their controls: no global groups, planning checker or whole-manifest rescan. All commands have finished.\n\nEverything is in `/tmp/opensip-design-corrections/claude-source38-advisory-author.v2`:\n- `review.md`\n- `review.json`\n- `total-edits-vs-source38.diff`\n- `incremental-v1-to-v2.diff`",
+  "type": "result",
+  "duration_ms": 1236890
+}

@@ -1,0 +1,25 @@
+--- a44/docs/coop/design-corrections/native/check_native_evidence.v2.py
++++ b45/docs/coop/design-corrections/native/check_native_evidence.v2.py
+@@ -573,6 +573,22 @@
+             or "native-context-mismatch" not in model.SCHEMAS["$defs"]["UnavailableReasonV3"]["enum"]):
+         startup_faults.append("PreAnalyzeUnavailableV1 reason is not exactly the registered native-context-mismatch")
+     startup_law = startup_doc["x-opensip-startup-law"]
++    # M-s44-1: the pre-analysis conversion commits this exact complete record. This is
++    # a conversion-specific law, not a restriction on other lawful ClosedWorldV2 records.
++    conversion_closed_world = {"exportsClosed": "unknown", "entryPointsRecognized": "none",
++                              "nonliteralLoading": "none", "externalConsumers": "unknown",
++                              "dynamicDispatch": "not-applicable", "reasons": ["no-manifest"],
++                              "deadCodeRepairEligible": False}
++    if startup_law["preAnalyzeUnavailable"].get("hostConversionClosedWorld") != conversion_closed_world:
++        startup_faults.append("pre-analysis closedWorld differs from the exact section 9.7 record")
++    if model.closed_world_v2(None, {"source": "none", "state": "none"}, [], "unknown") != conversion_closed_world:
++        startup_faults.append("pre-analysis closedWorld differs from the retained helper's no-observation result")
++    marker = "hostConversionClosedWorld"
++    section97 = contract_text[contract_text.index("### 9.7"):contract_text.index("## 10.")]
++    fence = chr(96) * 3
++    block = re.search(fence + r"json\s*(\{.*?\})\s*" + fence, section97, re.S)
++    if marker not in section97 or block is None or json.loads(block.group(1)) != conversion_closed_world:
++        startup_faults.append("section 9.7 does not publish the exact complete pre-analysis closedWorld record")
+     added92 = re.search(r"`UnavailableReasonV3` adds (.*?)\.\n", contract_text, re.S)
+     added94 = re.search(r"`Unavailable\.reason` adds (.*?)\.\n", contract_text, re.S)
+     rust_added = re.findall(r"`([a-z-]+)`", added92.group(1)) if added92 else []

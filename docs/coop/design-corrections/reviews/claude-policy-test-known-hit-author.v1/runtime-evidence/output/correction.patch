@@ -1,0 +1,790 @@
+--- a/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -3840,6 +3840,73 @@
+       _pt2_ov_ref is None and _pt2_ov_res["candidatePolicyDigest"] == _r2_policy_result["candidatePolicyDigest"]
+       and _pt2_ov_res["effectivePolicyDigest"] != _pt2_ov_res["candidatePolicyDigest"] and _pt2_ov_res["overridesApplied"] == _pt2_override["overrides"]
+       and _pt2_cases(_pt2_ov_res)["target-endpoint-discrimination"]["observedVerdict"] == "advisory")
++# ------------------------------------------------ PolicyTestSuiteV2: known hits under missing required evidence (composition §5/§9.5)
++_pt2_req_suite = _PT2["requiredEvidenceSuite"]
++_pt2_req_expect = _PT2["requiredEvidenceSuiteExpect"]
++must_valid("pt2-required-evidence-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_req_suite)
++_pt2_req_res, _pt2_req_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_req_suite))
++_pt2_req = _pt2_cases(_pt2_req_res) if _pt2_req_ref is None else {}
++check("pt2-required-evidence-suite-reaches-the-authored-outcomes",
++      _pt2_req_ref is None and _pt2_req_res["summary"] == _pt2_req_expect["summary"] and _pt2_req == _pt2_req_expect["cases"],
++      _pt2_req if _pt2_req_ref is None else (_pt2_req_ref.detail, _pt2_req_ref.remedy))
++_pt2_hit = _pt2_req.get("known-hit-survives-missing-required-evidence", {})
++check("pt2-known-gating-hit-survives-missing-required-evidence-and-fails",
++      _pt2_hit.get("observedVerdict") == "fail" and ["known-hit-required-test", "src/a.ts", False] in _pt2_hit.get("findings", [])
++      and ["known-hit-required-test-advisory", "src/a.ts", False] in _pt2_hit.get("findings", [])
++      and {"known-hit-required-test", "known-hit-required-test-advisory", "known-false-and-required-test"} <= set(_pt2_hit.get("indeterminateRules", [])), _pt2_hit)
++check("pt2-known-false-under-missing-required-evidence-is-not-an-authoritative-no-match",
++      _pt2_hit.get("expectationOutcomes", [None] * 6)[1:4] == ["indeterminate", "indeterminate", "met"], _pt2_hit)
++_pt2_waived = _pt2_req.get("waived-known-hit-keeps-required-evidence-unknown", {})
++check("pt2-waived-known-hit-keeps-the-required-evidence-unknown",
++      _pt2_waived.get("observedVerdict") == "indeterminate" and ["known-hit-required-test", "src/w.ts", True] in _pt2_waived.get("findings", []), _pt2_waived)
++_pt2_zero = _pt2_req.get("no-selected-subjects-required-evidence-absent", {})
++check("pt2-no-selected-subjects-with-missing-required-evidence-stay-indeterminate",
++      _pt2_zero.get("observedVerdict") == "indeterminate" and _pt2_zero.get("findings") == []
++      and _pt2_zero.get("indeterminateRules") == ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"], _pt2_zero)
++_pt2_partial = _pt2_req.get("optional-only-unknown-under-partial-coverage-is-disclosed", {})
++check("pt2-optional-only-unknown-is-disclosed-not-blocking-under-partial-coverage",
++      _pt2_partial.get("observedVerdict") == "fail" and "optional-only-and-test" not in _pt2_partial.get("indeterminateRules", ["optional-only-and-test"])
++      and _pt2_req.get("required-evidence-present-controls", {}).get("indeterminateRules") == ["known-false-and-required-test", "optional-only-and-test"], _pt2_partial)
++# ------------------------------------------------ PolicyTestSuiteV2: closed policy universe tokens (composition §2, evaluator profile)
++_pt2_umap = json.loads((HERE.parent / "foundation" / "identity-schemas.v3.json").read_text())["x-opensip-evaluator-profile"]["policyUniverseMap"]
++check("pt2-authored-suites-use-the-closed-policy-universe-tokens",
++      sorted(_pt2_umap) == ["rust", "syntax", "typescript"]
++      and all(r["subjectEnumeration"]["universe"] in _pt2_umap for s in (_pt2_suite, _pt2_req_suite) for r in s["candidatePolicy"]["rules"])
++      and all(f["universe"] in _pt2_umap for s in (_pt2_suite, _pt2_req_suite) for c in s["cases"] for f in c["subject"].get("facts", [])))
++
++
++def _pt2_tokens(rule_token, fact_token, first_rule_only=False, disable_first=False):
++    suite = copy.deepcopy(_pt2_req_suite)
++    for i, r in enumerate(suite["candidatePolicy"]["rules"]):
++        if i == 0 or not first_rule_only:
++            r["subjectEnumeration"]["universe"] = rule_token
++    if disable_first:
++        suite["candidatePolicy"]["rules"][0]["enabled"] = False
++    for c in suite["cases"]:
++        for f in c["subject"].get("facts", []):
++            f["universe"] = fact_token
++    return suite
++
++
++_pt2_same = {}
++for _pt2_tok in sorted(_pt2_umap):
++    _pt2_tr, _pt2_tf = WF3.run_admitted_policy_test(_pt2_tokens(_pt2_tok, _pt2_tok))
++    _pt2_same[_pt2_tok] = None if _pt2_tf is not None else (_pt2_tr["summary"], _pt2_cases(_pt2_tr))
++check("pt2-every-registered-universe-token-is-admitted-with-the-same-outcomes",
++      all(v is not None and v == (_pt2_req_expect["summary"], _pt2_req_expect["cases"]) for v in _pt2_same.values()), sorted(k for k, v in _pt2_same.items() if v is None))
++_pt2_cross_res, _pt2_cross_ref = WF3.run_admitted_policy_test(_pt2_tokens("typescript", "rust"))
++check("pt2-facts-of-another-registered-universe-never-occupy",
++      _pt2_cross_ref is None and _pt2_cases(_pt2_cross_res)["known-hit-survives-missing-required-evidence"]["findings"] == []
++      and _pt2_cases(_pt2_cross_res)["known-hit-survives-missing-required-evidence"]["observedVerdict"] == "indeterminate")
++for _pt2_label, _pt2_bad_token, _pt2_disable in (("historical-typescript-v2", "typescript-v2", False), ("arbitrary", "no-such-universe", False),
++                                                 ("disabled-rule", "no-such-universe", True)):
++    _pt2_ur, _pt2_uf = WF3.run_admitted_policy_test(_pt2_tokens(_pt2_bad_token, "typescript", first_rule_only=True, disable_first=_pt2_disable))
++    check("pt2-%s-rule-universe-token-is-a-resolver-refusal" % _pt2_label,
++          _pt2_uf is not None and (_pt2_uf.error_code, _pt2_uf.detail) == ("CONFIG.INVALID", "POLICY.UNKNOWN_RULE")
++          and str(_pt2_uf.remedy) == "EVALUATOR_POLICY_UNIVERSE_UNREGISTERED: " + _pt2_bad_token and _pt2_ur["resolverAccepted"] is False
++          and not valid(U + "command-envelope:3#/$defs/PolicyTestResultRecordV1", {"surface": "policy-test-result", "result": _pt2_ur})[0],
++          (_pt2_uf.error_code, _pt2_uf.detail, _pt2_uf.remedy) if _pt2_uf else "accepted")
++_oc2_route("pt2-fixture-fact-universe-token-unregistered-is-config-invalid", _pt2_tokens("typescript", "typescript-v2"), "CONFIG.INVALID")
+ _R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
+ _R2_COMMAND_OF["policy-test"] = "policy-test"
+ # baseline show through adoption, admission and current-trust pivot resolution.
+--- a/docs/coop/design-corrections/workflows/policy-test-cases.v3.json
++++ b/docs/coop/design-corrections/workflows/policy-test-cases.v3.json
+@@ -1,5 +1,5 @@
+ {
+-  "standing": "Explicitly authored evaluator3 policy.test fixtures (PolicyTestSuiteV2, candidate PolicyDocumentV2). Every current policy record here is constructed directly, not relabelled from a PolicyDocumentV1 or PolicyTestSuiteV1; check-workflow-projection.v3.py admits each through the PolicyTestSuiteV2 schema and the current resolver before use. Expected outcomes were authored by the same author as policy_test_model.v3.py; independent review is the oracle. Reference evidence, not qualification.",
++  "standing": "Explicitly authored evaluator3 policy.test fixtures (PolicyTestSuiteV2, candidate PolicyDocumentV2). Every current policy record here is constructed directly, not relabelled from a PolicyDocumentV1 or PolicyTestSuiteV1; check-workflow-projection.v3.py admits each through the PolicyTestSuiteV2 schema and the current resolver before use. Expected outcomes were authored by the same author as policy_test_model.v3.py; independent review is the oracle. Reference evidence, not qualification. Universe selectors are tokens of the closed evaluator profile policy universe map (composition contract section 2). requiredEvidenceSuite was authored for the known-hit-under-missing-required-evidence correction; its expected outcomes follow composition contract sections 5 and 9.5.",
+   "currentSuite": {
+     "schemaFamily": "opensip.product.policy-test",
+     "schemaMajor": 2,
+@@ -20,7 +20,7 @@
+           "severity": "warning",
+           "gate": false,
+           "subjectEnumeration": {
+-            "universe": "typescript-v2",
++            "universe": "typescript",
+             "subjectKind": "file"
+           },
+           "emitWhen": {
+@@ -60,7 +60,7 @@
+           "severity": "note",
+           "gate": false,
+           "subjectEnumeration": {
+-            "universe": "typescript-v2",
++            "universe": "typescript",
+             "subjectKind": "export"
+           },
+           "emitWhen": {
+@@ -84,7 +84,7 @@
+           "severity": "note",
+           "gate": false,
+           "subjectEnumeration": {
+-            "universe": "typescript-v2",
++            "universe": "typescript",
+             "subjectKind": "file"
+           },
+           "emitWhen": {
+@@ -119,7 +119,7 @@
+           "severity": "error",
+           "gate": true,
+           "subjectEnumeration": {
+-            "universe": "typescript-v2",
++            "universe": "typescript",
+             "subjectKind": "file",
+             "include": [
+               "src/**"
+@@ -176,7 +176,7 @@
+               "subject": "src/b.ts",
+               "target": "src/a.ts",
+               "resolution": "resolved-target",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000,
+               "targetKind": "file"
+             }
+@@ -223,7 +223,7 @@
+               "subject": "src/b.ts",
+               "target": "src/a.ts",
+               "resolution": "resolved-target",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000
+             }
+           ],
+@@ -262,7 +262,7 @@
+               "subject": "src/b.ts",
+               "target": "src/a.ts",
+               "resolution": "resolved-target",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000,
+               "targetKind": "file"
+             }
+@@ -305,7 +305,7 @@
+               "subject": "src/x.ts",
+               "target": "src/h.ts",
+               "resolution": "resolved-target",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000,
+               "targetKind": "file"
+             },
+@@ -314,7 +314,7 @@
+               "subject": "src/h.ts",
+               "target": "src/h.ts",
+               "resolution": "observed",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000,
+               "observability": "observed-hit"
+             }
+@@ -352,7 +352,7 @@
+               "subject": "src/x.ts",
+               "target": "src/u.ts",
+               "resolution": "resolved-target",
+-              "universe": "typescript-v2",
++              "universe": "typescript",
+               "confidenceMillionths": 1000000,
+               "targetKind": "file"
+             }
+@@ -525,7 +525,7 @@
+         "outcome": "passed",
+         "observedVerdict": "indeterminate",
+         "findings": [],
+-        "indeterminateRules": ["failed-test-exit1", "import-free-export", "runtime-hit", "unimported-file"],
++        "indeterminateRules": ["failed-test-exit1", "import-free-export", "unimported-file"],
+         "expectationOutcomes": ["met", "met"]
+       },
+       "live-waiver-suppresses-gate": {
+@@ -554,6 +554,432 @@
+         "findings": [],
+         "indeterminateRules": [],
+         "expectationOutcomes": ["indeterminate"]
++      }
++    }
++  },
++  "requiredEvidenceSuite": {
++    "schemaFamily": "opensip.product.policy-test",
++    "schemaMajor": 2,
++    "candidatePolicy": {
++      "schemaFamily": "opensip.product.policy",
++      "schemaMajor": 2,
++      "gateSeverityAtLeast": "warning",
++      "rules": [
++        {
++          "ruleId": "known-false-and-required-test",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "known-false-and-required-test",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "and",
++            "operands": [
++              {
++                "op": "exists",
++                "relation": "file",
++                "minResolution": "enumerated",
++                "filters": []
++              },
++              {
++                "op": "exists",
++                "relation": "test-execution",
++                "minResolution": "observed",
++                "filters": [],
++                "evidence": "test"
++              }
++            ]
++          },
++          "evidenceUse": [
++            {
++              "kind": "test",
++              "requirement": "required"
++            }
++          ]
++        },
++        {
++          "ruleId": "known-hit-required-test",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "known-hit-required-test",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "or",
++            "operands": [
++              {
++                "op": "exists",
++                "relation": "file",
++                "minResolution": "enumerated",
++                "filters": []
++              },
++              {
++                "op": "exists",
++                "relation": "test-execution",
++                "minResolution": "observed",
++                "filters": [],
++                "evidence": "test"
++              }
++            ]
++          },
++          "evidenceUse": [
++            {
++              "kind": "test",
++              "requirement": "required"
++            }
++          ]
++        },
++        {
++          "ruleId": "known-hit-required-test-advisory",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "known-hit-required-test-advisory",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "note",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "or",
++            "operands": [
++              {
++                "op": "exists",
++                "relation": "file",
++                "minResolution": "enumerated",
++                "filters": []
++              },
++              {
++                "op": "exists",
++                "relation": "test-execution",
++                "minResolution": "observed",
++                "filters": [],
++                "evidence": "test"
++              }
++            ]
++          },
++          "evidenceUse": [
++            {
++              "kind": "test",
++              "requirement": "required"
++            }
++          ]
++        },
++        {
++          "ruleId": "optional-only-and-test",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "optional-only-and-test",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "and",
++            "operands": [
++              {
++                "op": "exists",
++                "relation": "file",
++                "minResolution": "enumerated",
++                "filters": []
++              },
++              {
++                "op": "exists",
++                "relation": "test-execution",
++                "minResolution": "observed",
++                "filters": [],
++                "evidence": "test"
++              }
++            ]
++          },
++          "evidenceUse": [
++            {
++              "kind": "test",
++              "requirement": "optional"
++            }
++          ]
++        }
++      ]
++    },
++    "waivers": {
++      "schemaFamily": "opensip.product.waivers",
++      "schemaMajor": 1,
++      "waivers": [
++        {
++          "waiverId": "w-known-hit",
++          "target": {
++            "ruleId": "known-hit-required-test",
++            "subjectPath": "src/w.ts"
++          },
++          "reason": "accepted",
++          "expires": null
++        }
++      ]
++    },
++    "asOfDate": "2026-09-05",
++    "cases": [
++      {
++        "id": "known-hit-survives-missing-required-evidence",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts",
++            "src/b.ts"
++          ],
++          "facts": [
++            {
++              "relation": "file",
++              "subject": "src/a.ts",
++              "target": "src/a.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "known-hit-required-test",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/a.ts"
++            ]
++          },
++          {
++            "kind": "finding",
++            "ruleId": "known-hit-required-test",
++            "minCount": 1,
++            "maxCount": 1
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "known-false-and-required-test"
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "optional-only-and-test"
++          },
++          {
++            "kind": "indeterminate",
++            "ruleId": "known-hit-required-test"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "waived-known-hit-keeps-required-evidence-unknown",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/w.ts"
++          ],
++          "facts": [
++            {
++              "relation": "file",
++              "subject": "src/w.ts",
++              "target": "src/w.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "known-hit-required-test",
++            "minCount": 1
++          },
++          {
++            "kind": "verdict",
++            "verdict": "indeterminate"
++          }
++        ]
++      },
++      {
++        "id": "required-evidence-present-controls",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts"
++          ],
++          "facts": [
++            {
++              "relation": "file",
++              "subject": "src/a.ts",
++              "target": "src/a.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "test"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "known-hit-required-test",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/a.ts"
++            ]
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "no-selected-subjects-required-evidence-absent",
++        "subject": {
++          "kind": "facts",
++          "subjects": [],
++          "facts": [],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "no-finding",
++            "ruleId": "known-hit-required-test"
++          },
++          {
++            "kind": "indeterminate",
++            "ruleId": "known-hit-required-test"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "indeterminate"
++          }
++        ]
++      },
++      {
++        "id": "optional-only-unknown-under-partial-coverage-is-disclosed",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts"
++          ],
++          "facts": [
++            {
++              "relation": "file",
++              "subject": "src/a.ts",
++              "target": "src/a.ts",
++              "resolution": "enumerated",
++              "universe": "typescript",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "partial",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "no-finding",
++            "ruleId": "optional-only-and-test"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      }
++    ]
++  },
++  "requiredEvidenceSuiteExpect": {
++    "summary": {
++      "passed": 4,
++      "failed": 0,
++      "indeterminate": 1,
++      "notExecutable": 0
++    },
++    "cases": {
++      "known-hit-survives-missing-required-evidence": {
++        "outcome": "indeterminate",
++        "observedVerdict": "fail",
++        "findings": [
++          ["known-hit-required-test", "src/a.ts", false],
++          ["known-hit-required-test-advisory", "src/a.ts", false]
++        ],
++        "indeterminateRules": ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"],
++        "expectationOutcomes": ["met", "indeterminate", "indeterminate", "met", "met", "met"]
++      },
++      "waived-known-hit-keeps-required-evidence-unknown": {
++        "outcome": "passed",
++        "observedVerdict": "indeterminate",
++        "findings": [
++          ["known-hit-required-test", "src/w.ts", true],
++          ["known-hit-required-test-advisory", "src/w.ts", false]
++        ],
++        "indeterminateRules": ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "required-evidence-present-controls": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["known-hit-required-test", "src/a.ts", false],
++          ["known-hit-required-test-advisory", "src/a.ts", false]
++        ],
++        "indeterminateRules": ["known-false-and-required-test", "optional-only-and-test"],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "no-selected-subjects-required-evidence-absent": {
++        "outcome": "passed",
++        "observedVerdict": "indeterminate",
++        "findings": [],
++        "indeterminateRules": ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"],
++        "expectationOutcomes": ["met", "met", "met"]
++      },
++      "optional-only-unknown-under-partial-coverage-is-disclosed": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["known-hit-required-test", "src/a.ts", false],
++          ["known-hit-required-test-advisory", "src/a.ts", false]
++        ],
++        "indeterminateRules": ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"],
++        "expectationOutcomes": ["met", "met"]
+       }
+     }
+   },
+@@ -570,7 +996,7 @@
+       "severity": "note",
+       "gate": false,
+       "subjectEnumeration": {
+-        "universe": "typescript-v2",
++        "universe": "typescript",
+         "subjectKind": "file"
+       },
+       "emitWhen": {
+@@ -605,7 +1031,7 @@
+       "severity": "error",
+       "gate": true,
+       "subjectEnumeration": {
+-        "universe": "typescript-v2",
++        "universe": "typescript",
+         "subjectKind": "file"
+       },
+       "emitWhen": {
+--- a/docs/coop/design-corrections/workflows/policy_test_model.v3.py
++++ b/docs/coop/design-corrections/workflows/policy_test_model.v3.py
+@@ -32,6 +32,9 @@
+ _V2 = json.loads((HERE / "schemas" / "policy-document.v2.schema.json").read_text())["$defs"]
+ _CASES = json.loads((HERE / "schemas" / "policy-test.schema.json").read_text())["$defs"]
+ SEVERITIES = tuple(_V2["Severity"]["enum"])
++# The closed policy universe token map of the evaluator profile (composition contract section 2: unknown tokens refuse
++# admission; historical illustrative tokens such as typescript-v2 are not implicit aliases).
++POLICY_UNIVERSES = json.loads((HERE.parent / "foundation" / "identity-schemas.v3.json").read_text())["x-opensip-evaluator-profile"]["policyUniverseMap"]
+ NUMERIC_FIELDS = frozenset(REGISTRY["fieldFilterSuccessor"]["numericFields"])
+ _fact_members = set(_CASES["FactRecordCandidate"]["properties"])
+ _registry_selectors = {row["observationAddressSelector"] for row in REGISTRY["relations"].values() if row.get("observationAddressSelector")}
+@@ -65,7 +68,15 @@
+                 faults.append("case %s fact %d names unregistered relation %s" % (case["id"], j, fact["relation"]))
+             elif fact["resolution"] not in row["ladder"]:
+                 faults.append("case %s fact %d resolution %s is not a rung of %s" % (case["id"], j, fact["resolution"], fact["relation"]))
++            if fact["universe"] not in POLICY_UNIVERSES:
++                faults.append("case %s fact %d universe %s is not a registered policy universe token" % (case["id"], j, fact["universe"]))
+     return faults
++
++
++def unregistered_universes(policy):
++    """(ruleId, token) of every candidate rule, enabled or not, whose subjectEnumeration.universe is not a token of the closed
++    evaluator profile policy universe map; the evaluator input admission applies the same law to every rule."""
++    return [(r["ruleId"], r["subjectEnumeration"]["universe"]) for r in policy["rules"] if r["subjectEnumeration"]["universe"] not in POLICY_UNIVERSES]
+ 
+ 
+ def apply_overrides(policy, overrides):
+@@ -196,7 +207,6 @@
+         target = waiver["target"]
+         if "ruleId" in target:
+             waived.add((target["ruleId"], target["subjectPath"]))
+-    complete = fixture["coverage"] == "complete"
+     available = set(fixture["evidenceAvailable"])
+     findings, indeterminate, optional_absent, unknown = [], [], [], {}
+     fail = gating_unknown = False
+@@ -211,14 +221,13 @@
+         subjects = [s for s in fixture["subjects"] if W.in_scope(scope, s)
+                     and (not enum.get("include") or any(W.glob_match(g, s) for g in enum["include"]))
+                     and not any(W.glob_match(g, s) for g in enum.get("exclude", []))]
+-        if required - available:
+-            indeterminate.append(rid)
+-            unknown[rid] = set(subjects)
+-            gating_unknown = gating_unknown or gating
+-            continue
++        # Composition contract sections 5 and 9.5: every selected subject is evaluated whatever the evidence. A declared REQUIRED
++        # kind absent from evidenceAvailable is a rule-level deficiency independent of the root value: it never suppresses a
++        # known finding, and a live unwaived gating finding still makes the verdict fail.
++        required_absent = required - available
+         kind, universe = _kind(enum["subjectKind"]), enum["universe"]
+         absent_optional = {("evidence-absent", k) for k in optional - available}
+-        rule_unknown, only_optional_absent = set(), True
++        rule_unknown, blocking = set(), bool(required_absent)
+         for subject in subjects:
+             value, causes = _predicate(rule["emitWhen"], subject, kind, universe, fixture)
+             if value is True:
+@@ -227,13 +236,17 @@
+                 fail = fail or (gating and not is_waived)
+             elif value is None:
+                 rule_unknown.add(subject)
+-                only_optional_absent = only_optional_absent and complete and causes <= absent_optional
+-        if rule_unknown and only_optional_absent:
+-            optional_absent.append(rid)
+-        elif rule_unknown:
++                # An unknown root blocks unless its only causes are absent OPTIONAL evidence; an incomplete-Coverage or
++                # uncertain native match, a required kind or a fixture representation limit is itself a blocking cause.
++                blocking = blocking or not causes <= absent_optional
++            elif required_absent:
++                rule_unknown.add(subject)  # a known false root is not an authoritative no-match while required evidence is absent
++        if blocking:
+             indeterminate.append(rid)
+             unknown[rid] = rule_unknown
+             gating_unknown = gating_unknown or gating
++        elif rule_unknown:
++            optional_absent.append(rid)
+     verdict = "fail" if fail else "indeterminate" if gating_unknown else "advisory" if any(not f["waived"] for f in findings) else "pass"
+     return {"verdict": verdict, "findings": findings, "indeterminateRules": sorted(set(indeterminate), key=lambda s: s.encode()),
+             "optionalEvidenceAbsent": sorted(set(optional_absent), key=lambda s: s.encode()), "unknownSubjects": unknown}
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/policy-test.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/policy-test.schema.json
+@@ -57,13 +57,13 @@
+     "1. suite major: a policy-test suite object whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR",
+     "2. candidate major: a policy document candidatePolicy whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR, before any grammar classification",
+     "3. closed PolicyTestSuiteV2 schema: a candidate-policy member no closed PolicyDocumentV2 alternative declares at its position, or a string where every alternative is an object, refuses CONFIG.INVALID / POLICY.IMPERATIVE_KEY_REFUSED; any other schema failure refuses CONFIG.INVALID / CONFIG.INVALID",
+-    "4. fixture facts: every facts-case fact names a registered relation and a rung of that relation's ladder, and every override names a candidate rule with its field's value type; otherwise CONFIG.INVALID / CONFIG.INVALID",
+-    "5. resolver (admitted suite): the current policy resolver and atom owner, then waiver resolution; a refusal keeps its own detail (POLICY.UNKNOWN_RULE, IMPORT.ABSENT_FOR_PREDICATE, POLICY.DUPLICATE_WAIVER) and its resolverAccepted=false result is never carried"
++    "4. fixture facts: every facts-case fact names a registered relation, a rung of that relation's ladder and a registered policy universe token, and every override names a candidate rule with its field's value type; otherwise CONFIG.INVALID / CONFIG.INVALID",
++    "5. resolver (admitted suite): the current policy resolver and atom owner, then every candidate rule universe (enabled or not) must be a token of the closed evaluator profile policyUniverseMap of foundation/identity-schemas.v3.json (composition contract section 2; otherwise POLICY.UNKNOWN_RULE with remedy EVALUATOR_POLICY_UNIVERSE_UNREGISTERED), then waiver resolution; a refusal keeps its own detail (POLICY.UNKNOWN_RULE, IMPORT.ABSENT_FOR_PREDICATE, POLICY.DUPLICATE_WAIVER) and its resolverAccepted=false result is never carried"
+   ],
+   "x-opensip-fixture-representation": {
+     "standing": "Bounded deterministic standalone authoring-test semantics over a finite facts fixture, evaluated with the current atom admission and registry (foundation/atom_model.v1.py, foundation/evaluator-projection-registry.v1.json). Not production evaluator, provider, full Run or native qualification.",
+-    "subject": "A facts-case subject is a LogicalPath of subjects[]. Its evaluated kind is the rule subjectEnumeration.subjectKind (export evaluates as symbol) and its universe is the rule subjectEnumeration.universe.",
+-    "factUniverse": "FactRecordCandidate.universe is the one universe of both endpoints of the supplied fact; occupancy requires it to equal the evaluated subject universe.",
++    "subject": "A facts-case subject is a LogicalPath of subjects[]. Its evaluated kind is the rule subjectEnumeration.subjectKind (export evaluates as symbol) and its universe is the rule subjectEnumeration.universe, a token of the closed evaluator profile policy universe map (typescript, rust, syntax; no implicit alias such as typescript-v2).",
++    "factUniverse": "FactRecordCandidate.universe is a registered policy universe token naming the one universe of both endpoints of the supplied fact; occupancy requires it to equal the evaluated subject universe, so a fact of another registered universe never occupies.",
+     "endpoint": "endpoint source matches FactRecordCandidate.subject to the evaluated subject. endpoint target matches FactRecordCandidate.target to the evaluated subject; the target's first-party kind is known only from FactRecordCandidate.targetKind: equal to the evaluated kind matches, another kind or external does not match, absent is unknown.",
+     "fields": {
+       "subject": "subject",
+@@ -86,7 +86,7 @@
+     },
+     "importedLaw": "Keyed by the registry relations[].observationAddressSelector. A representable imported row can establish a known match: exists true, none false, count-at-most false above N. The fixture cannot represent wrapper completeness, observation window or population, selection completeness or staleness, so absence of a matching row never proves absence: exists is never false and none, count-at-most and all-covered are never true. An atom of an unrepresentable selector is unknown. Unobservable, unmapped or observability-absent runtime rows are unknown, never unhit.",
+     "nativeLaw": "Native relations follow the atom owner's strong Kleene quantifiers over the supplied facts with the case's declared Coverage: complete Coverage lets absence decide; partial or unknown Coverage, or any unknown match, leaves exists false, none true, count-at-most true and all-covered true unknown.",
+-    "ruleLaw": "Required evidence absent from evidenceAvailable makes the rule unknown for every enumerated subject. Optional evidence absent with complete Coverage is the disclosed non-gating IMPORT.ABSENT_FOR_PREDICATE case when it is the only unknown cause. Every other unknown rule result for an enumerated subject lists the rule in CaseResult.indeterminateRules; an enabled gating rule at the policy threshold makes the observed verdict indeterminate unless a live unwaived gating finding makes it fail.",
++    "ruleLaw": "Every enumerated subject is evaluated whatever the evidence (composition contract sections 5 and 9.5). A known true root emits its finding, waived or live. A declared required evidence kind absent from evidenceAvailable is a rule-level deficiency independent of the root value: the rule is listed in CaseResult.indeterminateRules and every enumerated subject without a known finding stays unknown (a known false root is not an authoritative no-match), with no subject the rule is still listed. An unknown root lists the rule too unless its only causes are absent optional evidence, which is the disclosed non-blocking IMPORT.ABSENT_FOR_PREDICATE case; an incomplete-Coverage or uncertain native match, a required kind and a fixture representation limit are blocking causes. A live unwaived finding of an enabled gating rule at the policy threshold makes the observed verdict fail; otherwise a listed gating rule makes it indeterminate; a non-gating rule never changes the verdict beyond advisory.",
+     "expectationLaw": "finding: known matching findings above maxCount is unmet; at least minCount is met unless maxCount is present and an enumerated subject (within subjects when given) is unknown for the rule, which is indeterminate; below minCount is indeterminate when such an unknown subject exists, otherwise unmet. no-finding: a known finding is unmet; otherwise an unknown subject is indeterminate; otherwise met. verdict: met exactly when the observed verdict equals it. indeterminate: met exactly when the rule is in indeterminateRules. A case is failed with any unmet, else indeterminate with any indeterminate, else passed.",
+     "resultLimit": "PolicyTestResultV1 and CaseResult are unchanged: indeterminateRules and expectationOutcomes name the affected rules and expectations but carry no per-rule unknown cause (Coverage, missing evidence or fixture representation)."
+   }
+--- a/docs/coop/design-corrections/workflows/workflows_model.v3.py
++++ b/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -275,8 +275,9 @@
+ def run_policy_test(suite,scope=None):
+     """The evaluator3 authoring test over an ADMITTED PolicyTestSuiteV2. In this profile it replaces the imported historical
+     workflows_model.v1.run_policy_test (still _base.run_policy_test), whose globals bind the historical resolver and
+-    evaluator. The current resolver and atom owner resolve the candidate, the unchanged WaiverSetV1 owner resolves waivers,
+-    and policy_test_model.v3 evaluates each case. The result stays PolicyTestResultV1 (policytest2): suiteDigest is H over the
++    evaluator. The current resolver and atom owner resolve the candidate, every rule universe must be a token of the closed
++    evaluator profile policyUniverseMap (composition contract section 2; an unknown token is a POLICY.UNKNOWN_RULE resolver
++    refusal), the unchanged WaiverSetV1 owner resolves waivers, and policy_test_model.v3 evaluates each case. The result stays PolicyTestResultV1 (policytest2): suiteDigest is H over the
+     admitted PolicyTestSuiteV2 and the candidate and effective digests are over PolicyDocumentV2 bytes."""
+     T=policy_test_model()
+     scope=scope or {'schemaFamily':'opensip.product.scope','schemaMajor':1,'include':['**'],'exclude':[]}
+@@ -284,6 +285,8 @@
+          'candidatePolicyDigest':doc_digest(suite['candidatePolicy']),'overridesApplied':list(suite.get('overrides',[])),'enforcementUnchanged':True,'resolverRefusals':[]}
+     try:
+         policy=resolve_policy(copy.deepcopy(suite['candidatePolicy']))
++        unregistered=T.unregistered_universes(policy)
++        if unregistered:raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','EVALUATOR_POLICY_UNIVERSE_UNREGISTERED: '+unregistered[0][1],unregistered[0][0])
+         effective_waivers,waiver_resolution=resolve_waivers(suite['waivers'],suite.get('asOfDate'))
+         res['resolverAccepted']=True
+     except Refusal as refusal:
+--- a/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ b/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -658,14 +658,19 @@
+ registered code. A candidate policy carrying a member that no closed `PolicyDocumentV2` alternative
+ declares at that position, or a string where every closed alternative at that position is
+ an object (a string expression), is `POLICY.IMPERATIVE_KEY_REFUSED`. Any other `PolicyTestSuiteV2`
+-admission failure, a fixture fact whose resolution is not a rung of its registered relation, or an
+-override of a non-candidate rule or with the wrong value type carries the
++admission failure, a fixture fact whose resolution is not a rung of its registered relation or whose
++universe is not a registered policy universe token, or an override of a non-candidate rule or with the
++wrong value type carries the
+ shared registered `CONFIG.INVALID` detail; the public detail registry row is registered by
+ security, and the native route registry reuses the same detail for external configuration. An
+ admitted suite whose candidate policy or waivers the current resolver refuses terminates the same way
+ with the resolver's detail (`POLICY.DUPLICATE_WAIVER`, `POLICY.UNKNOWN_RULE`,
+ `IMPORT.ABSENT_FOR_PREDICATE`); its `resolverAccepted=false` result records the refusal but is
+-not a query carrier.
++not a query carrier. A candidate rule whose `subjectEnumeration.universe` is not a token of the closed
++evaluator profile policy universe map (composition contract §2: `typescript`, `rust`, `syntax`) is such a
++`POLICY.UNKNOWN_RULE` refusal. Declared required evidence absent from a case never suppresses a known
++finding: the rule keeps its required-evidence deficiency in `indeterminateRules`, and a live unwaived gating
++finding still makes the verdict `fail` (composition contract §5 and §9.5).
+ 
+ **Candidate → inspect → review (Map side).** `opensip candidates` lists
+ `Candidate` records derived from one sealed Run: findings plus advisory kinds

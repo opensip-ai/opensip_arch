@@ -1,0 +1,32 @@
+--- docs/coop/design-corrections/foundation/check-array-orders.py
++++ docs/coop/design-corrections/foundation/check-array-orders.py
+@@ -17,7 +17,13 @@
+     elif isinstance(node,list):
+         for i,value in enumerate(node):yield from arrays(value,path+'/'+str(i))
+ 
+-files=[*sorted(p for p in HERE.glob('*.json') if 'schema' in p.name),DC/'native/native-evidence.schemas.v2.json',DC/'security/security-lifecycle.schemas.v1.json',*sorted((DC/'workflows/schemas').glob('*.json'))]
++files=list(dict.fromkeys([
++    *sorted(p for p in HERE.glob('*.json') if 'schema' in p.name),
++    *sorted(p for p in (DC/'native').glob('*.json') if 'schema' in p.name),
++    DC/'security/security-lifecycle.schemas.v1.json',
++    *sorted((DC/'workflows/schemas').glob('*.json')),
++    *sorted((DC/'workflows/schemas/evaluator3').glob('*.json')),
++]))
+ coverage=[]
+ for path in files:
+     found=list(arrays(json.loads(path.read_text())))
+@@ -46,6 +52,14 @@
+     check('invalid-order-definition-'+str(i),not admitted({'type':'array','x-opensip-order':order},[]))
+ tokens=['x','(',')','x'];seq={'type':'array','x-opensip-order':'sequence'}
+ check('ordered-repeated-tokens-retained',admitted(seq,tokens) and C.canonical(tokens)!=C.canonical(list(reversed(tokens))))
++candord={'type':'array','x-opensip-order':'candidateOrdinal'}
++check('candidateOrdinal-order-admits-unique-increasing',admitted(candord,[{'candidateOrdinal':0},{'candidateOrdinal':1}]))
++check('candidateOrdinal-order-admits-unique-increasing-with-gap',admitted(candord,[{'candidateOrdinal':0},{'candidateOrdinal':2}]))
++check('candidateOrdinal-order-refuses-reverse',not admitted(candord,[{'candidateOrdinal':1},{'candidateOrdinal':0}]))
++check('candidateOrdinal-order-refuses-duplicate',not admitted(candord,[{'candidateOrdinal':1},{'candidateOrdinal':1}]))
++check('candidateOrdinal-order-refuses-non-int',not admitted(candord,[{'candidateOrdinal':'0'}]))
++# Contiguous 0..n-1 is NOT this annotation (that is FactBatch candidate-stream law).
++check('candidateOrdinal-order-is-not-contiguous-ordinal',admitted(candord,[{'candidateOrdinal':4},{'candidateOrdinal':7}]))
+ 
+ # Exercise actual native host admission, including its stable refusal projection.
+ spec=importlib.util.spec_from_file_location('array_native',DC/'native/native_evidence_model.v2.py');N=importlib.util.module_from_spec(spec);spec.loader.exec_module(N)

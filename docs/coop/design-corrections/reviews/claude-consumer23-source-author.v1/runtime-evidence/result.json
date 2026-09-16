@@ -1,0 +1,77 @@
+{
+  "session_id": "823bf66b-e92a-4789-ab81-63a1a9dc371d",
+  "total_cost_usd": 23.38703549999999,
+  "usage": {
+    "input_tokens": 1122,
+    "cache_creation_input_tokens": 1071113,
+    "cache_read_input_tokens": 16785979,
+    "output_tokens": 139479,
+    "output_tokens_details": {
+      "thinking_tokens": 57335
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 1071113,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1562,
+        "cache_read_input_tokens": 122687,
+        "cache_creation_input_tokens": 714,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 714
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 19422,
+      "outputTokens": 148603,
+      "cacheReadInputTokens": 17727441,
+      "cacheCreationInputTokens": 1071113,
+      "webSearchRequests": 0,
+      "costUSD": 23.38703549999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 57335,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_019kMqJrit5kxy3Tupqxyvjo",
+      "tool_input": {
+        "command": "/tmp/opensip-architecture-review-env/bin/python -I -B - <<'EOF'\nimport json\nfrom pathlib import Path\nR=Path(\"probes/receipts\")\nfor d in sorted(R.iterdir()):\n    so=(d/\"stdout.txt\").read_bytes()\n    print(d.name, \"exit\", (d/\"exit.txt\").read_text().strip(), \"stdoutBytes\", len(so), \"stderrBytes\", (d/\"stderr.txt\").stat().st_size)\ndef top(label):\n    try:\n        o=json.loads((R/label/\"stdout.txt\").read_text())\n    except Exception as e:\n        print(label, \"NOT JSON\", e); return None\n    print(\"==\", label, \"type\", type(o).__name__, \"keys\", list(o)[:30] if isinstance(o,dict) else len(o))\n    return o\nfor l in [\"native-cases-frozen36\",\"native-cases-assembly.2\",\"p2-discrimination.2\",\"p3-native-case-discrimination\"]:\n    o=top(l)\n    if isinstance(o,dict):\n        for k,v in o.items():\n            if isinstance(v,(int,str,bool)) or (isinstance(v,list) and len(json.dumps(v))<600): print(\"  \",k,\"=\",v)\n            elif isinstance(v,dict): print(\"  \",k,\"dict keys\",list(v)[:20])\n            else: print(\"  \",k,type(v).__name__,len(v))\nfor f in sorted(Path(\"reports\").iterdir()):\n    o=json.loads(f.read_text())\n    print(\"## report\", f.name, \"keys\", list(o)[:25])\n    for k,v in o.items():\n        if isinstance(v,(int,bool)) or (isinstance(v,str) and len(v)<120): print(\"   \",k,\"=\",v)\n        elif isinstance(v,list): print(\"   \",k,\"list\",len(v), json.dumps(v)[:300] if len(json.dumps(v))<300 else \"\")\nm=json.loads(Path(\"after-manifest.json\").read_text())\nprint(\"after assembly:\", {k:(v if not isinstance(v,list) else v) for k,v in m[\"assembly\"].items()})\nfor r in m[\"files\"]: print(r[\"path\"], r[\"frozen36Sha256\"][:12], r[\"sha256\"][:12], r[\"bytes\"], r.get(\"added\"), r.get(\"removed\"), r[\"equalsFrozen36\"])\nb=json.loads(Path(\"before-manifest.json\").read_text()); print(\"before keys\", list(b), [ (r[\"path\"].split('/')[-1], r[\"equalsFrozen36\"]) for r in b[\"files\"]])\nEOF",
+        "description": "Dump exact receipt, report and manifest facts"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01Bfr9vwqg8kEgvXRwgRvdqz",
+      "tool_input": {
+        "command": "/tmp/opensip-architecture-review-env/bin/python -I -B build-author-report.py && shasum -a 256 author-report.md author-report.json build-author-report.py after-manifest.json before-manifest.json",
+        "description": "Rebuild author-report.json and hash report artifacts"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 141,
+  "subtype": "success",
+  "result": "I fixed all three source issues in the isolated assembly and wrote the author report. This is authorship only: not acceptance, blind B or readiness, and nothing was committed or pushed. All four checkers pass on the final assembly: query 138/138, native cases 377/377, identity 1596/1596 and integration 412/412.\n\n**What changed**\n- **V23-S1:** A package endpoint without a `packageManifestPath` is now a schema refusal (`QUERY.PARAMS_MALFORMED`). \"Ambiguous\" is kept for a complete tuple that matches more than one vertex, and the model helper was brought into line. Public behaviour is unchanged. The reference public wrapper can never actually return \"ambiguous\", so only a helper-level control covers that code.\n- **V23-S2:** Native deficiencies now follow the existing D9 codes.\n  - The section 10 table rows for language tier, confidence floor and missing relation now use their `COVERAGE.*` codes.\n  - The model gained a complete mapping for all nine deficiencies, checked against the D9 contract.\n  - `run_termination` now picks the code by section 10 precedence. It used to return `VERDICT.INDETERMINATE` for budget and the other three `COVERAGE.*` deficiencies on a successful stage. It also ignored a higher-precedence entry deficiency on budget or unavailable stages.\n  - 11 of 24 stage \u00d7 entry combinations change. One gets a less specific code: a budget stage with an input-closure deficiency goes from `COVERAGE.BUDGET_EXHAUSTED` to `VERDICT.INDETERMINATE`, because input-closure ranks higher.\n  - The helper returns only the primary code, not D9's list of secondary reasons.\n- **V23-S3:** The graph query contract now states `purged`, `expired`, `corrupt` and `unavailable` \u2192 exit 4 with `evidence.purged`, `evidence.expired`, `evidence.corrupt` and `evidence.missing`. `retained` and `partial` neither refuse nor grant; `close_run` decides. No new enums or details were added.\n- **V16-A3 and V23-A1:** kept as advisories with no source change; the reasons are in the report. The consumer said the \"Not native CoverageResult\" wording appears in both schemas, but only the graph-query schema has it.\n\n**Tests**\n- 15 new query controls and 2 new native cases.\n- Against the frozen36 models, only one of the new query controls fails; the other 14 lock in behaviour frozen36 already had but never published. Both new native cases fail there, on wrong codes and not just missing functions.\n- No existing expectation was changed.\n\n**Things I didn't finish or change**\n- **Schema annotation:** my edit to the native schema's D9 wording broke an identity check. That file's hash is a registered schema digest, so I restored the exact frozen36 bytes. The exact replacement text is in the JSON report, to apply only with a deliberate re-registration.\n- **Failed runs:** a failed identity run and a failed probe from that edit are kept as receipts.\n- **Citation fix:** reviewing my own diff, I found a wrong case reference in native-evidence.md, fixed it, and reran the four checks and the after-snapshot.\n- **Not run:** the native checker's `main()` (it writes into the tree), the six groups, planning checks and pin validation. The frozen36 manifest file wasn't readable, so custody rests on a file-by-file hash comparison. S2 evidence comes from calling helpers directly, with no complete Run.\n- **Carried over:** the one TCB-SCOPE-01 assumption with 13 residual accounts, plus 32 product gates and 54 recovery cases, none performed.\n\n**For root**\n- Reseal 30 stale pin rows: 6 in each of the five source-pin ledgers.\n- The same frozen36 hashes also appear in three planning-layer files and in `workflows-report.v1.json`; I left them alone.\n- `native-evidence-report.v2.json` still records 375 cases; the assembly now has 377.\n\nSix files differ from frozen36, and nothing outside them. The before-images, after-images and diffs are saved, and every command and its output is under `probes/receipts/`.\n\nFiles are in `/private/tmp/opensip-design-corrections/claude-consumer23-source-author.v1`:\n- author-report.md\n- author-report.json (SHA-256 `de5f2fd2\u2026`)\n- before-manifest.json\n- after-manifest.json",
+  "type": "result",
+  "duration_ms": 2561628
+}

@@ -1,0 +1,192 @@
+--- a38/docs/coop/design-corrections/workflows/schemas/evaluator3/command-inventory.schema.json
++++ b39/docs/coop/design-corrections/workflows/schemas/evaluator3/command-inventory.schema.json
+@@ -308,6 +308,9 @@
+             "$ref": "#/$defs/CommandFlag"
+           },
+           "x-opensip-order": "sequence"
++        },
++        "queryDispatch": {
++          "$ref": "#/$defs/QueryDispatch"
+         }
+       },
+       "allOf": [
+@@ -405,6 +408,30 @@
+                   "const": "purge-disclosure"
+                 }
+               }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "requestClass"
++            ],
++            "properties": {
++              "requestClass": {
++                "const": "query"
++              }
++            }
++          },
++          "then": {
++            "required": [
++              "queryDispatch"
++            ]
++          },
++          "else": {
++            "not": {
++              "required": [
++                "queryDispatch"
++              ]
+             }
+           }
+         }
+@@ -492,8 +519,146 @@
+         },
+         "remedy": {
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
+-        }
+-      }
++        },
++        "detailSuppliedBy": {
++          "type": "string",
++          "enum": [
++            "native-route-composition"
++          ],
++          "description": "workflows-and-surfaces §8: the native §10 route composition supplies errors from the route detail. Absent when domainDetail is present."
++        }
++      },
++      "description": "A failure golden (request-rejected or operational-failed) carries its actual domainDetail, unless detailSuppliedBy names the composition that supplies the failure envelope errors.",
++      "allOf": [
++        {
++          "if": {
++            "required": [
++              "class"
++            ],
++            "properties": {
++              "class": {
++                "enum": [
++                  "request-rejected",
++                  "operational-failed"
++                ]
++              }
++            }
++          },
++          "then": {
++            "anyOf": [
++              {
++                "required": [
++                  "domainDetail"
++                ]
++              },
++              {
++                "required": [
++                  "detailSuppliedBy"
++                ]
++              }
++            ]
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "detailSuppliedBy"
++            ]
++          },
++          "then": {
++            "not": {
++              "required": [
++                "domainDetail"
++              ]
++            }
++          }
++        }
++      ]
++    },
++    "QueryDispatch": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "surface",
++        "stepKind",
++        "operations",
++        "parityPaths"
++      ],
++      "properties": {
++        "surface": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:3#/properties/querySurface"
++        },
++        "stepKind": {
++          "type": "string",
++          "enum": [
++            "query",
++            "repair-preview"
++          ]
++        },
++        "operations": {
++          "type": "array",
++          "maxItems": 20,
++          "uniqueItems": true,
++          "items": {
++            "oneOf": [
++              {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
++              },
++              {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/HostQueryOperation"
++              }
++            ]
++          },
++          "x-opensip-order": "sequence"
++        },
++        "parityPaths": {
++          "type": "object",
++          "minProperties": 1,
++          "maxProperties": 32,
++          "propertyNames": {
++            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++          },
++          "additionalProperties": {
++            "type": "string",
++            "pattern": "^(/[A-Za-z0-9-]+)+(?![\\s\\S])"
++          }
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "stepKind": {
++                "const": "repair-preview"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "operations": {
++                "maxItems": 0
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "stepKind": {
++                "const": "query"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "operations": {
++                "minItems": 1
++              }
++            }
++          }
++        }
++      ],
++      "description": "Closed dispatch of a query-class command: the envelope surface it selects, the step that produces it, the query-step operations it may dispatch, and the exact JSON pointer into CommandEnvelope major 3 for every parity field."
+     }
+   }
+ }

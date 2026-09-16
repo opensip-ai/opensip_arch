@@ -1,8 +1,34 @@
-# Architecture corrections — additional audit findings recorded
+# Applied complete product design correction — D-372
+
+The [application record](application.v1.json), effective through its [activation](application-activation.v1.json), binds Claude’s independent design ACCEPT, Codex’s technical assent, the fresh blind consumer result and the independent final application review. [The product contracts](../../v2/contracts/product-v1/README.md) are the current complete intended-product design.
+
+[Current readiness](../../v2/architecture/08-decision-and-readiness-register.md#unified-product-design-readiness) records conditions1–4 at design level. Condition5 remains NOT MET: implementation requires separate user authorization. No supported-platform product qualification is claimed. D9 remains a carried implementation-unit obligation on DR-007 and DR-011-R08.
+
+The [applied corrections](correction-crosswalk.applied.v1.json), [28-row design map](readiness-row-map.v1.json), [inherited dispositions](inherited-residuals.applied.v1.json), [evaluation dispositions](evaluation-residual-dispositions.applied.v1.json), [review-owner records](review-owner-dispositions.v1.json), [32 release gates](qualification-gates.applied.v1.json), and [review advisories](accepted-review-advisories.v1.json) provide the exact account. Historical preview and interrupted/rejected review evidence remain intact. Historical Claude source21 ACCEPT does not accept these bytes.
+
+The [current reference summary](validation-summary.applied.v1.json) and [advisory clarifications](accepted-review-advisories.v1.json) verify the measured matrix count and qualify the historical crate-size illustration.
+
+Current reference evidence records 477 native cases, 1816 workflow controls and 17 current evaluator suites. Counts describe their retained reference scope, not product qualification. Full semantic Run admission uses `close_run`; `open_run_closure` provides structural owner admission only. The exact accepted contracts and their current review dispositions govern these boundaries. Historical source23 recording corrections are not presented as unresolved current advisories.
+
+## Historical correction chronology (not current status)
+
+**Current: Claude’s completed review of candidate37 requires three design corrections. Codex and Claude are preparing the successor; the independent reconstruction remains active. Implementation readiness and final application remain pending.** The [resume guide](reviews/NEXT-REVIEW.md) records exact evidence and active work.
+
+## Superseded status
+
+**Current: actual Claude and Codex have technically accepted frozen candidate36 with no unresolved MUST/SHOULD findings. The independent consumer reconstruction remains active; final application and readiness reconciliation are pending.** The [resume guide](reviews/NEXT-REVIEW.md) records exact evidence, advisory limits and remaining work.
+
+> Current 2026-09-12: frozen candidate27 is under actual Claude independent review and the original fresh blind-origin continuation15. Root has since found a reference-validator rule-result ordering mismatch and is preparing its tested successor; no implementation-readiness or final application acceptance is claimed. See [the current resume record](reviews/NEXT-REVIEW.md) for exact source/session/check evidence. Historical status statements below retain their original scope.
+
+# Architecture corrections — final source under fresh Claude review
+
+The combined design is frozen as candidate26. All six final reference groups and the planning/companion checks pass. A fresh actual Claude whole-design review and a separate normative-only blind reconstruction are running. The [resume guide](reviews/NEXT-REVIEW.md) records exact source hashes, sessions and retained evidence. Claude separately confirmed all eleven application-tool findings fixed; that tooling result does not accept the final design or application. Implementation readiness remains pending the required reviews and reconciliation.
 
 The [additional Codex audit](reviews/codex-crosscut-audit.v1/README.md) found a reproducible workspace-selection defect, a public error-route overlap and an advisory discovery-observation question against frozen candidate25. A separate three-file author reference correction passes the new counterexamples, 464 security cases/11 sweeps, 375 native cases and 412 integration checks. The proposed changes require independent review and successor integration; candidate25's earlier acceptance does not cover them.
 
 **Implementation readiness remains pending.** The original independent consumer reconstruction and final application review are still required. No fresh Grok or Claude agreement is claimed. The [review queue](reviews/codex-crosscut-audit.v1/review-queue.json) records the new work alongside the preserved earlier author package.
+
+The user's 2026-09-10 repository-layout agreements are recorded in [repository and module layout](../../v2/architecture/14-repository-and-module-layout.md): `apps/cli/`, Cargo package `opensip-cli`, executable `opensip`, `apps/report/` and `crates/reporting/`. That chapter also owns the remaining crate/package topology, report feature inventory and documentation organization work. Its generated inventory now contains 198 proposed filenames. The [implementation plan](../../v2/architecture/implementation-boundaries-and-build-plan.md) proposes opaque replay/security prerequisites for storage, a journal/ledger recovery join, independent build lanes, checked-in binding generation rules and M0–M6 milestones. The follow-up includes a closed 13-field private recovery record, 38 planned failure cases, 320 source-bound ownership/verification mappings and a tooling decision matrix. COV-01 adds the pure syntax crate and explicit host admission owners; COV-02 flags four stale run2 command examples; COV-03 records required product journal-carrier migration. The [prototype report inventory](../../v2/architecture/prototype-report-inventory.md) records 24 source-based feature dispositions at the existing pinned prototype commit. Actual Claude has substantively reviewed these concrete decisions and tool selection, identifying eight planning corrections. Report asset, lineage and six root planning corrections are integrated as author work; carrier consistency corrections remain active, followed by final independent review. No product implementation or executed prototype parity is claimed.
 
 The user's later instruction explicitly authorizes committing and pushing the design/reference work. Earlier statements below excluding commit/push record their historical authorization; product implementation remains outside this task.
 

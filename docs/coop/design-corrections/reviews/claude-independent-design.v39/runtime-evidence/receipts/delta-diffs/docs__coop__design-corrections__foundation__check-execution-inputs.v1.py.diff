@@ -1,0 +1,43 @@
+--- a38/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
++++ b39/docs/coop/design-corrections/foundation/check-execution-inputs.v1.py
+@@ -601,7 +601,7 @@
+ 
+ 
+ def set_account_target_universe(owner, predicate, value):
+-    """Host-side mutation of one account's targetUniverse. §5 deliberately does not join it."""
++    """Host-side mutation of one account's targetUniverse. §5 fixes it to null."""
+     mutated = copy.deepcopy(owner)
+     hit = False
+     for a in mutated["execution_inputs"]["nativeCoverageAccounts"]:
+@@ -1027,7 +1027,7 @@
+     # matrix unsupported still owes a coverage account with empty ids
+     ref_acc = {
+         "cellOrdinal": 0, "programOrdinal": 0, "relation": "references", "resolution": "resolved-binding",
+-        "sourceUniverse": uni, "targetUniverse": uni, "applicability": "unsupported-typed", "coverageIds": [],
++        "sourceUniverse": uni, "targetUniverse": None, "applicability": "unsupported-typed", "coverageIds": [],
+     }
+     ref_manifest = {
+         "schemaVersion": 1, "planId": owner["plan_id"], "executionPlanId": owner["execution_plan_id"],
+@@ -1357,7 +1357,11 @@
+     rec("foreign-universe-account-source-universe-refuses",
+         admit(set_account_source_universe(
+             two_u, lambda a: a["programOrdinal"] == 0 and a["relation"] == "file", u1)))
+-    rec("cross-universe-target-universe-is-not-constrained", admit(
++    # §5: an account aggregates its binding's Coverage across target universes, so its own
++    # targetUniverse has one canonical value, null. A cross-universe TARGET stays lawful on the
++    # Coverage/fact records; only the account field is fixed.
++    rec("account-target-universe-null-admits-in-a-two-universe-run", admit(two_u))
++    rec("account-target-universe-non-null-refuses", admit(
+         set_account_target_universe(two_u, lambda a: a["programOrdinal"] == 0, u1)))
+     _ = u0
+ 
+@@ -1426,7 +1430,8 @@
+         "optional-unselected-account-retained-typed-disclosure": "ADMIT",
+         "null-binding-universe-account-must-stay-null": "REFUSE",
+         "foreign-universe-account-source-universe-refuses": "REFUSE",
+-        "cross-universe-target-universe-is-not-constrained": "ADMIT",
++        "account-target-universe-null-admits-in-a-two-universe-run": "ADMIT",
++        "account-target-universe-non-null-refuses": "REFUSE",
+         "census-missing-subjects-derive-null-pair": "ADMIT",
+         "census-missing-subjects-host-may-not-claim-provider-unavailable": "REFUSE",
+         "empty-returned-partitions-host-may-not-claim-provider-unavailable": "REFUSE",

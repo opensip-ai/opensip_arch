@@ -1,0 +1,16 @@
+--- a/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ b/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -124,6 +124,13 @@
+     must_valid(f'termination.accept.{i}', U + 'common#/$defs/StepTermination', t)
+ for i, t in enumerate(CASES['terminationVectors']['reject']):
+     must_invalid(f'termination.reject.{i}', U + 'common#/$defs/StepTermination', t)
++# The schema's operational faultCause/errorCode pairs are exactly the host fault map, so the retained D9
++# codeDerivation cannot drift between the public carrier and the host projection.
++_OPERATIONAL = next(b['then'] for b in SCHEMAS[U + 'common']['$defs']['StepTermination']['allOf']
++                    if b['if'].get('properties', {}).get('class', {}).get('const') == 'operational-failed')
++check('termination.fault-pairs-equal-host-fault-map',
++      [(r['properties']['faultCause']['const'], r['properties']['errorCode']['const']) for r in _OPERATIONAL['anyOf']]
++      == list(M.FAULT_TO_ERROR.items()))
+ for i, e in enumerate(CASES['envelopeVectors']['accept']):
+     must_valid(f'envelope.accept.{i}', U + 'command-envelope', e)
+     check(f'envelope.accept.{i}.exit-matches-class', M.EXIT[e['termination']['class']] == e['exitCode'])

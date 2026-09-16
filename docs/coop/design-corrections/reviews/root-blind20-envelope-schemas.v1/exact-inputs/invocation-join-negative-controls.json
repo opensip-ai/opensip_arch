@@ -1,0 +1,446 @@
+{
+ "standing": "Distinguishing controls for the invocation step/result joins (audit area 5).\n\nEach control starts from the ADMITTED multi-step invocation of envelopes/multi-step.json and\nmutates one thing that a published clause of workflows-and-surfaces section 1 refuses. The\nschema still admits most of them -- which is the point: \"Schema shape and the normative\nstep/result joins are separate obligations.\"\n\nTwo POSITIVE contrasts are included so the checker is not merely refusing everything:\nan OPTIONAL step that fails must NOT change the aggregate, and a retry attempt on the same\nadmitted inputs may bind the same exec-plan2 and Run.\n",
+ "controls": [
+  {
+   "case": "step-ids-one-based-instead-of-zero-based",
+   "classification": "invalid",
+   "owningLaw": "workflows section 1: \"`StepId` is the zero-based position.\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "STEP_ID_IS_THE_ZERO_BASED_POSITION",
+     "detail": {
+      "position": 0,
+      "stepId": 1
+     }
+    },
+    {
+     "check": "STEP_ID_IS_THE_ZERO_BASED_POSITION",
+     "detail": {
+      "position": 1,
+      "stepId": 2
+     }
+    },
+    {
+     "check": "STEP_ID_IS_THE_ZERO_BASED_POSITION",
+     "detail": {
+      "position": 2,
+      "stepId": 3
+     }
+    },
+    {
+     "check": "DELEGATED_VERDICT_GATE_REQUIRES_A_CONSUMING_COMPARISON_STEP",
+     "detail": {
+      "stepId": 2
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "STEP_ID_IS_THE_ZERO_BASED_POSITION",
+    "detail": {
+     "position": 0,
+     "stepId": 1
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "STEP_ID_IS_THE_ZERO_BASED_POSITION",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "a-step-depends-on-a-higher-step-id",
+   "classification": "invalid",
+   "owningLaw": "\"`dependsOn` names lower StepIds only (a forward or self reference is WORKFLOW.DEPENDENCY_CYCLE)\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "WORKFLOW.DEPENDENCY_CYCLE",
+     "detail": {
+      "stepId": 0,
+      "dependsOn": 2,
+      "why": "dependsOn names LOWER StepIds only"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "WORKFLOW.DEPENDENCY_CYCLE",
+    "detail": {
+     "stepId": 0,
+     "dependsOn": 2,
+     "why": "dependsOn names LOWER StepIds only"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "WORKFLOW.DEPENDENCY_CYCLE",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "a-required-step-depends-on-an-optional-step",
+   "classification": "invalid",
+   "owningLaw": "\"a required step may not depend on an optional step\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL",
+     "detail": {
+      "stepId": 2,
+      "dependsOn": 1
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL",
+    "detail": {
+     "stepId": 2,
+     "dependsOn": 1
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "WORKFLOW.REQUIRED_DEPENDS_ON_OPTIONAL",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "dependency-gate-terminal-on-an-analysis-step",
+   "classification": "invalid",
+   "owningLaw": "\"`terminal` ... lawful only for render/export-delivery\"",
+   "schemaAdmitted": false,
+   "schemaError": {
+    "stock": [
+     {
+      "path": "orderedSteps/0/kind",
+      "schemaPath": "properties/orderedSteps/items/allOf/1/then/properties/kind/enum",
+      "message": "'analysis' is not one of ['render', 'export-delivery']"
+     }
+    ]
+   },
+   "jointRefusals": [
+    {
+     "check": "DEPENDENCY_GATE_TERMINAL_ONLY_FOR_RENDER_OR_EXPORT_DELIVERY",
+     "detail": {
+      "stepId": 0,
+      "kind": "analysis"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "DEPENDENCY_GATE_TERMINAL_ONLY_FOR_RENDER_OR_EXPORT_DELIVERY",
+    "detail": {
+     "stepId": 0,
+     "kind": "analysis"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "DEPENDENCY_GATE_TERMINAL_ONLY_FOR_RENDER_OR_EXPORT_DELIVERY",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": false
+  },
+  {
+   "case": "idempotent-retry-on-a-comparison-step",
+   "classification": "invalid",
+   "owningLaw": "\"`mutation`, `import`, `repair-preview`, `repair-apply`, `comparison`, `native-preparation` and `test-execution` carry `retryPolicy=none` by schema\"",
+   "schemaAdmitted": false,
+   "schemaError": {
+    "stock": [
+     {
+      "path": "orderedSteps/2/retryPolicy",
+      "schemaPath": "properties/orderedSteps/items/allOf/0/then/properties/retryPolicy/const",
+      "message": "'none' was expected"
+     }
+    ]
+   },
+   "jointRefusals": [
+    {
+     "check": "IDEMPOTENT_RETRY_NOT_LAWFUL_FOR_THIS_STEP_KIND",
+     "detail": {
+      "stepId": 2,
+      "kind": "comparison"
+     }
+    },
+    {
+     "check": "THIS_STEP_KIND_CARRIES_RETRY_POLICY_NONE",
+     "detail": {
+      "stepId": 2,
+      "kind": "comparison",
+      "retryPolicy": "idempotent-retry"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "IDEMPOTENT_RETRY_NOT_LAWFUL_FOR_THIS_STEP_KIND",
+    "detail": {
+     "stepId": 2,
+     "kind": "comparison"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "IDEMPOTENT_RETRY_NOT_LAWFUL_FOR_THIS_STEP_KIND",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": false
+  },
+  {
+   "case": "a-comparison-step-result-that-mints-a-run",
+   "classification": "invalid",
+   "owningLaw": "\"Only `analysis` and `verify` steps seal or link a content-derived `run3`\" and \"The comparison result is a distinct closed ComparisonStepResult, never a Run\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "ONLY_ANALYSIS_AND_VERIFY_MINT_OR_LINK_A_RUN",
+     "detail": {
+      "stepId": 2,
+      "kind": "comparison",
+      "runId": "run3:408b3e80156aae0aec2cd3a361d578af4a0313c7aeedb0a2c950b4870ff4d45d"
+     }
+    },
+    {
+     "check": "COMPARISON_RESULT_IS_A_COMPARISON_STEP_RESULT_NOT_A_RUN",
+     "detail": {
+      "kind": "analysis",
+      "authority": "authoritative",
+      "runId": "run3:408b3e80156aae0aec2cd3a361d578af4a0313c7aeedb0a2c950b4870ff4d45d",
+      "planId": "plan2:33ead6a1db0463358ab58c3e5830c4b0f7e65b2b09f9a3132a0efaa5f9b042be",
+      "verdict": "pass",
+      "requiredCoverage": "satisfied",
+      "durability": "committed",
+      "deficiency": "none",
+      "secondaryDeficiencies": []
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "ONLY_ANALYSIS_AND_VERIFY_MINT_OR_LINK_A_RUN",
+    "detail": {
+     "stepId": 2,
+     "kind": "comparison",
+     "runId": "run3:408b3e80156aae0aec2cd3a361d578af4a0313c7aeedb0a2c950b4870ff4d45d"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "ONLY_ANALYSIS_AND_VERIFY_MINT_OR_LINK_A_RUN",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "the-comparison-step-has-no-result-at-all",
+   "classification": "invalid",
+   "owningLaw": "the terminal result of the WHOLE selected step list must be accounted",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "EVERY_ORDERED_STEP_IS_ACCOUNTED_IN_STEP_RESULTS",
+     "detail": {
+      "stepId": 2,
+      "kind": "comparison"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "EVERY_ORDERED_STEP_IS_ACCOUNTED_IN_STEP_RESULTS",
+    "detail": {
+     "stepId": 2,
+     "kind": "comparison"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "EVERY_ORDERED_STEP_IS_ACCOUNTED_IN_STEP_RESULTS",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "an-analysis-attempt-with-no-derivation-binding",
+   "classification": "invalid",
+   "owningLaw": "\"Each analysis/verify attempt owns exactly one derivation DAG ... recorded in the attempt's `derivation` binding\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "EVERY_ANALYSIS_OR_VERIFY_ATTEMPT_OWNS_ITS_DERIVATION_BINDING",
+     "detail": {
+      "stepId": 0,
+      "executionId": "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "EVERY_ANALYSIS_OR_VERIFY_ATTEMPT_OWNS_ITS_DERIVATION_BINDING",
+    "detail": {
+     "stepId": 0,
+     "executionId": "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "EVERY_ANALYSIS_OR_VERIFY_ATTEMPT_OWNS_ITS_DERIVATION_BINDING",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "comparison-verdict-fail-reported-as-a-success-termination",
+   "classification": "invalid",
+   "owningLaw": "ComparisonStepResult: \"The step termination is derived from verdict: fail -> policy-failed ... Never defaults to success.\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "COMPARISON_STEP_TERMINATION_DERIVES_FROM_ITS_VERDICT",
+     "detail": {
+      "verdict": "fail",
+      "derived": "policy-failed",
+      "declared": "success"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "COMPARISON_STEP_TERMINATION_DERIVES_FROM_ITS_VERDICT",
+    "detail": {
+     "verdict": "fail",
+     "derived": "policy-failed",
+     "declared": "success"
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "COMPARISON_STEP_TERMINATION_DERIVES_FROM_ITS_VERDICT",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "aggregate-success-while-a-required-step-is-policy-failed",
+   "classification": "invalid",
+   "owningLaw": "\"Over required steps only: operational-failed > request-rejected > policy-failed > indeterminate > success\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "AGGREGATE_TERMINATION_IS_THE_D9_MAXIMUM_OVER_REQUIRED_STEPS",
+     "detail": {
+      "requiredStepClasses": [
+       "success",
+       "policy-failed",
+       "success"
+      ],
+      "derived": "policy-failed",
+      "declared": "success"
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "AGGREGATE_TERMINATION_IS_THE_D9_MAXIMUM_OVER_REQUIRED_STEPS",
+    "detail": {
+     "requiredStepClasses": [
+      "success",
+      "policy-failed",
+      "success"
+     ],
+     "derived": "policy-failed",
+     "declared": "success"
+    }
+   },
+   "derivedAggregate": "policy-failed",
+   "refused": true,
+   "expectedOwnerJoin": "AGGREGATE_TERMINATION_IS_THE_D9_MAXIMUM_OVER_REQUIRED_STEPS",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "two-attempts-sharing-one-execution-id",
+   "classification": "invalid",
+   "owningLaw": "\"Each admitted attempt of a step receives a fresh ExecutionId\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "EACH_ATTEMPT_RECEIVES_A_FRESH_EXECUTION_ID",
+     "detail": [
+      "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+      "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+     ]
+    }
+   ],
+   "firstRefusal": {
+    "check": "EACH_ATTEMPT_RECEIVES_A_FRESH_EXECUTION_ID",
+    "detail": [
+     "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a",
+     "exec1_1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a"
+    ]
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "EACH_ATTEMPT_RECEIVES_A_FRESH_EXECUTION_ID",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "delegated-verdict-gate-with-no-consuming-comparison-step",
+   "classification": "invalid",
+   "owningLaw": "\"`delegated` requires authoritative analysis and a consuming comparison step\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [
+    {
+     "check": "DELEGATED_VERDICT_GATE_REQUIRES_A_CONSUMING_COMPARISON_STEP",
+     "detail": {
+      "stepId": 0
+     }
+    },
+    {
+     "check": "DELEGATED_VERDICT_GATE_REQUIRES_A_CONSUMING_COMPARISON_STEP",
+     "detail": {
+      "stepId": 1
+     }
+    }
+   ],
+   "firstRefusal": {
+    "check": "DELEGATED_VERDICT_GATE_REQUIRES_A_CONSUMING_COMPARISON_STEP",
+    "detail": {
+     "stepId": 0
+    }
+   },
+   "derivedAggregate": "success",
+   "refused": true,
+   "expectedOwnerJoin": "DELEGATED_VERDICT_GATE_REQUIRES_A_CONSUMING_COMPARISON_STEP",
+   "firstRefusalIsTheIntendedJoin": true,
+   "schemaAloneWouldHaveAdmittedIt": true
+  },
+  {
+   "case": "optional-step-failure-does-not-change-the-aggregate",
+   "classification": "valid",
+   "owningLaw": "\"An optional step's rejection or failure never changes the aggregate.\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [],
+   "firstRefusal": null,
+   "derivedAggregate": "success",
+   "refused": false,
+   "mustAdmit": true,
+   "admitted": true
+  },
+  {
+   "case": "a-retry-attempt-may-bind-the-same-exec-plan-and-run",
+   "classification": "valid",
+   "owningLaw": "\"A retry on identical admitted inputs may bind the same exec-plan2 and the same Run; attempts remain separately auditable.\"",
+   "schemaAdmitted": true,
+   "schemaError": null,
+   "jointRefusals": [],
+   "firstRefusal": null,
+   "derivedAggregate": "success",
+   "refused": false,
+   "mustAdmit": true,
+   "admitted": true
+  }
+ ],
+ "schemaVersusJoins": "the `schemaAlone` column is the finding: 10 of 12 invalid records are ADMITTED by the owning schema and are refused only by the normative step/result joins."
+}

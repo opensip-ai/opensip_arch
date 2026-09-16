@@ -1,0 +1,48 @@
+--- before/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ after/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -3836,7 +3836,9 @@
+     co-located units (rust + tsjs) with the same rootPath. Within tsjs, marker precedence tsconfig > jsconfig >
+     package.json selects the mode of the ONE tsjs unit at that directory; it never removes the rust unit.
+     A Cargo.toml package inside a Cargo workspace root's tree is folded into the workspace unit as a member
+-    package (Cargo resolves the workspace as one program).
++    package (Cargo resolves the workspace as one program). The fold target is the deepest enclosing SURVIVING
++    `cargo-workspace` unit (U-4b.2): a nested workspace manifest below a workspace unit is itself a folded member,
++    and its subtree folds into that same unit.
+     Shared discovery rule (../discovery-defaults.py, MUST-3): markers inside dependency trees (node_modules), VCS trees
+     and Cargo build output (`target` directly under a Cargo.toml directory) are pruned by exact path segment and
+     reported once per tree in `prunedTrees`; they are never units and never count toward the cap. More than 4096
+@@ -3925,14 +3927,18 @@
+     if len(by_dir) > MAX_WORKSPACE_UNITS:
+         return refused("native.too-many-units", [], unitCount=len(by_dir), limit=MAX_WORKSPACE_UNITS)
+     provenance = "EXPLICIT" if explicit_workspace_roots is not None else "DISCOVERED"
+-    cargo_ws_roots = sorted(d for d, m in by_dir.items() if "Cargo.toml" in m and m["Cargo.toml"].get("isCargoWorkspace"))
+     units: list[dict] = []
+     for d in sorted(by_dir, key=lambda x: (x.count("/") if x else -1, x)):
+         m = by_dir[d]
+         if "Cargo.toml" in m:
+-            enclosing = [w for w in cargo_ws_roots if w != d and _under_unit(d, w)]
++            # U-4b.2: fold into the deepest enclosing cargo-workspace UNIT. Shallower directories are decided first, so a
++            # nested workspace manifest below a workspace unit was already folded and is never a target; the
++            # shallowest enclosing workspace manifest has no enclosing workspace, so it is always a unit.
++            enclosing = [u for u in units if u["languageFamily"] == "rust" and u["unitKind"] == "cargo-workspace"
++                         and u["rootPath"] != d and _under_unit(d, u["rootPath"])]
+             if enclosing:
+-                pass  # folded into the enclosing workspace unit below
++                ws = max(enclosing, key=lambda u: len(u["rootPath"]))
++                ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+             else:
+                 units.append({"rootPath": d, "languageFamily": "rust", "languageMode": "rust-cargo",
+                               "unitKind": "cargo-workspace" if m["Cargo.toml"].get("isCargoWorkspace") else "cargo-package",
+@@ -3953,12 +3959,6 @@
+                               "recognizerId": "typescript-config" if marker != "package.json" else "node-package", "recognizerVersion": 1,
+                               "provenance": provenance, "memberPackageRoots": []})
+                 break
+-    for d, m in by_dir.items():
+-        if "Cargo.toml" in m:
+-            enclosing = sorted((w for w in cargo_ws_roots if w != d and _under_unit(d, w)), key=len)
+-            if enclosing:
+-                ws = next(u for u in units if u["languageFamily"] == "rust" and u["rootPath"] == enclosing[-1])
+-                ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+     if not units and explicit_workspace_roots is None and _boundary_hit("", boundaries) is None:
+         # U-9: a marker-free project is still analysable. Without this unit the default selection requested
+         # nothing and the Run was an empty successful analysis of a repository full of readable code.

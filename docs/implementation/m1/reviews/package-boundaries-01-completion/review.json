@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "review": "m1-package-boundaries-review-01 (completion)",
+  "subject": "/tmp/opensip-implementation/m1-package-boundaries-subject-01",
+  "subjectManifestSha256": "6706c27f63b828753df15b679e27628ead3b7902a16de6136b7fe81e7df06a60",
+  "subjectFiles": {
+    "UNIT.md": "37a900d54d291b2ec0a32976f2ddaca4c35e71ce17924fd5d5cb17d682f953c2",
+    "tools/check_package_edges.py": "8de98fb94565450d5c32da02dbb8a163093e1dde186f44924b1488697a7f48f4",
+    "tools/tests/test_package_edges.py": "0a0db8921b6e07d72208c34e6d110241cfd353c1ea96bf089715456484102441"
+  },
+  "frozenBytesVerified": {"before": true, "after": true, "fileCount": 3, "readOnlyInputHashEntriesUnchanged": 33},
+  "verdict": "changes-required",
+  "verdictSummary": "Not accepted. The headline claim that stale metadata cannot hide an added inactive internal dependency is false for Cargo-honored underscore dependency tables (dev_dependencies/build_dependencies, editions 2015/2021, also under target tables). All other probed boundary behaviour and the limited CLI and provider-isolation trial claims were independently reproduced.",
+  "requiredFindings": [
+    {
+      "id": "RF-1",
+      "title": "Raw manifest recheck misses Cargo-honored underscore dependency tables",
+      "location": "tools/check_package_edges.py:40",
+      "detail": "manifest_internal_edges reads only 'dependencies', 'build-dependencies' and 'dev-dependencies'. Cargo 1.95 still honors '[dev_dependencies]' and '[build_dependencies]' (top-level and under [target.*]) for editions 2015/2021; the edition-2024 rejection only applies to 2024 manifests, and the tool does not require edition 2024. With metadata captured before the edit, real Cargo fixtures adding opensip-contracts -> opensip-host through '[dev_dependencies]' (edition 2021 and no-edition) and '[target.'cfg(windows)'.build_dependencies]' (edition 2021) all return passed=true. Fresh metadata does refuse these through the metadata path, so the gap is exactly the stale-metadata guarantee UNIT.md claims.",
+      "evidence": ["probes/probe-results.json case 'stale: edition2021 underscore dev_dependencies contracts->host' => pass", "probes/underscore-subject.json (stale target build_dependencies and no-edition dev_dependencies => pass)"],
+      "requiredChange": "Either read the underscore spellings as well (reviewer-only one-line diff in probes/reviewer-fix-underscore.diff; the 12 subject tests still pass and all three stale bypasses become 'forbidden manifest internal edge'), or refuse package manifests whose edition is not 2024 or that contain any underscore dependency key. Add a stale-metadata regression test for this form, and one for a stale build-dependencies declaration (see ADV-2)."
+    }
+  ],
+  "advisories": [
+    {"id": "ADV-1", "title": "Stale metadata still hides target-path and workspace-membership changes", "detail": "The recheck covers dependency declarations and package name only. Real Cargo stale cases: editing '[lib] path' to ../contracts/src/lib.rs, and adding providers/rust to host root workspace members, both pass. Fresh metadata refuses both. That is consistent with the caller-freshness precondition, but UNIT.md should say the stale-metadata guarantee is limited to dependency declarations."},
+    {"id": "ADV-2", "title": "13 of 27 meaningful mutants survive the subject's 12 tests", "detail": "Survivors: manifest ignores build-dependencies; manifest optional ignored; metadata optional ignored; workspace_root check removed; duplicate local owner removed; manifest pathless-internal check removed; manifest package-name check removed; local-missing-from-resolve removed; inventory path escape removed; manifest owner-path check weakened; empty workspace allowed; default-member check removed. The build-dependencies survivor matters most because it removes part of the headline stale-metadata guarantee undetected. Reviewer real-Cargo probes detect 5 of these; the rest are fail-closed guards with no test."},
+    {"id": "ADV-3", "title": "Fail-closed false refusals from textual tuple comparison", "detail": "An allowed '[target.'cfg( windows )'.dependencies]' (Cargo normalizes this to cfg(windows) in metadata) and an allowed edition-2021 '[build_dependencies]' both refuse with 'metadata internal declarations differ'. These are safe, but may confuse users; normalize cfg strings or document canonical formatting."},
+    {"id": "ADV-4", "title": "Root CLI metadata reproducibility needs --filter-platform", "detail": "Offline, unfiltered 'cargo metadata --locked' on m1-cli-metadata-candidate-01 fails (r-efi v6.0.0 is not cached). With '--filter-platform aarch64-apple-darwin', fresh metadata equals the stored cli-metadata.json except target_directory/build_directory, and the tool output is byte-identical to cli-boundary-check.json. Record the exact capture command alongside the artifact."},
+    {"id": "ADV-5", "title": "The 14-shared equality is platform-filtered evidence", "detail": "Shared version/feature equality was independently reproduced for aarch64-apple-darwin-filtered resolves of the root copy and the export copy. An unfiltered comparison could not run offline for the root (r-efi missing). The claim should say it holds for this host platform filter."},
+    {"id": "ADV-6", "title": "Hard-coded lane and kind facts", "detail": "The provider package name and providers/rust root are hard-coded rather than taken from the inventory, and inventory kind (rust-library vs rust-binary) is not checked against targets. Acceptable for this scoped tool; revisit if the inventory changes. New tool paths still need additive inventory review; no inventory amendment is selected here."}
+  ],
+  "independentEvidence": {
+    "environment": {"python": "3.14.6", "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21) (Homebrew)", "TMPDIR": "reviewer scratch only"},
+    "subjectTests": "12/12 pass on reviewer copy (twice: review-01 and completion)",
+    "realCargoProbes": {"file": "probes/probe_real_cargo.py", "results": "probes/probe-results.json", "cases": 36, "asExpected": 31, "unexpected": ["cfg with whitespace normalisation (false refusal, ADV-3)", "stale edition2021 underscore dev_dependencies (bypass, RF-1)", "fresh edition2021 underscore allowed (false refusal, ADV-3)", "stale lib path escape (ADV-1)", "stale provider added to host workspace (ADV-1)"], "rebinding": "fixtures use the actual v3 inventory rows for cli/contracts/identity/platform/reporting/host/provider", "positives": "normal, renamed alias, optional feature-gated, cfg target, triple-target build, dev, same-crate normal+dev+build, filter-platform, provider lane, non-normalized path", "negatives": "forbidden normal/dev/build/target/optional/alias-spoof edges, provider<->host both directions, non-inventory local crate, host workspace including provider, lib/build-script/symlink target escape, workspace inheritance of version and internal dependency, wrong lane, wrong repository root, stale inactive/aliased/allowed additions, stale package rename"},
+    "mutation": {"file": "probes/mutations.py", "results": "probes/mutation-results.json", "mutants": 27, "killedBySubjectTests": 14, "survivedSubjectTests": 13},
+    "rootCliTrial": "Fresh filtered metadata equals the stored metadata except target/build directory. The check output is byte-identical to cli-boundary-check.json. It passes for the six local packages and refuses under the rust-provider lane and a wrong repository root.",
+    "providerIsolationTrial": {
+      "packageEdgesReproducedBytes": true,
+      "providerMetadataJsonEqualsStdout": true,
+      "exportContents": "17 files: crates/contracts (8), crates/identity (5), providers/rust Cargo.toml/Cargo.lock/rust-toolchain.toml/src/main.rs; no root Cargo.toml, apps, Node/package.json/js/ts/py, generator, .cargo config or build.rs",
+      "exportEqualsRepositoryDirs": "diff -r identical for contracts, identity, providers/rust",
+      "sourcePins": "all 13 shared-sources-before.json entries match size+SHA256 in both repository and export and are exactly the files in crates/contracts and crates/identity",
+      "ownBuild": "copied read-only export into scratch, cargo metadata --locked --offline and cargo build --locked --offline succeeded, probe printed 'isolated shared-library probe passed', copy unchanged after build",
+      "providerLock": "15 packages, local only contracts/identity/provider; root-only cfg-if, getrandom, libc, r-efi, opensip-cli/host/platform/reporting; root lock equals root-lock-before",
+      "sharedSelection": "14 shared packages with equal version and features (aarch64-apple-darwin filter); contracts closure is exactly 11 registry packages matching contracts-dependency-check.json",
+      "workspace": "provider workspace member is only opensip-rust-provider; the host lane refuses provider metadata"
+    }
+  },
+  "limits": [
+    "Does not qualify rustc/provider integration, release, product install, M1 completion, or native purity; the trial binary is a disposable build probe only.",
+    "No macro expansion, #[path]/include!, build-script behaviour, external feature attestation or target-matrix review; the tool does not claim these.",
+    "Metadata authenticity is not attested; adversarial metadata was probed only for the specific refusals listed.",
+    "Shared selection equality was verified only under the aarch64-apple-darwin platform filter; offline unfiltered root resolution was unavailable.",
+    "Mutation set is reviewer-chosen, not exhaustive.",
+    "The review-01 background mutation run was interrupted; all mutation evidence here comes from a complete foreground rerun in this completion directory. Review-01 probe outputs were reused only after the baseline probe rerun matched them exactly."
+  ],
+  "writes": ["/tmp/opensip-implementation/m1-package-boundaries-review-01 (probes/scratch/copies, before interruption)", "/tmp/opensip-implementation/m1-package-boundaries-review-01-completion"],
+  "noCommitPushInventoryAmendmentOrProductInstall": true
+}

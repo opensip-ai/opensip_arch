@@ -1,0 +1,280 @@
+--- docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -14,6 +14,7 @@
+ import copy
+ import hashlib
+ import importlib.util
++import inspect
+ import json
+ import sys
+ from pathlib import Path
+@@ -42,6 +43,8 @@
+     "no all-suite pin rerun; no independent ACCEPT claimed by this checker",
+     "imports@resolved-target uses the same reconciled occupancy as atom matching; owner-admitted execute_graph_query covers mapped file, exact-id symbol without sidecar, unknown sidecar plus unique inventory, and genuine unmapped limitation",
+     "native incomplete resolutionState is mapped from completeness_from_stage; the semantic fixture unresolved path remains not-attempted",
++    "host-defect controls monkeypatch close_run or the loaded replay comparison in this process only and always restore; they model an untyped host failure, not a product fault injector",
++    "host_adapter_refusal and observe_retained_availability are reference adapter laws; no product host adapter or evidence store is implemented",
+ ]
+ 
+ 
+@@ -644,6 +647,42 @@
+             check("host-availability-precondition-" + label, exc.missing == "host.availability")
+         else:
+             check("host-availability-precondition-" + label, False, "invalid trusted observation was ignored")
++    # Contract section 7: the precondition is reference-harness law. A product host adapter's own out-of-vocabulary
++    # observation is the existing host-internal invariant route when a valid RequestId exists; without one it stays
++    # a precondition. A retained availability record failing identity admission is corrupt evidence instead.
++    try:
++        ex(out_req, host_obs(availability="not-a-state"))
++        precondition = None
++    except Q.ReferenceCallPrecondition as exc:
++        precondition = exc
++    check("host-adapter-invalid-observation-is-typed-precondition", precondition is not None and precondition.missing == "host.availability")
++    if precondition is not None:
++        refuse("host-adapter-invalid-availability-host-invariant",
++               lambda: raise_(Q.host_adapter_refusal(precondition, out_req, host_obs())),
++               "SYSTEM.OUTCOME.ILLEGAL_STATE", "HOST.INVARIANT_VIOLATED")
++        adapter_env = Q.host_adapter_refusal(precondition, out_req, host_obs()).envelope()
++        check("host-adapter-invalid-availability-envelope-exit-4",
++              adapter_env["exitCode"] == 4 and adapter_env["termination"]["faultCause"] == "host-invariant"
++              and adapter_env["termination"]["domainDetail"]["subject"] == "host.availability" and "run" not in adapter_env, adapter_env)
++        try:
++            Q.host_adapter_refusal(precondition, out_req, {})
++            check("host-adapter-without-request-id-stays-precondition", False, "adapter fault projected without a RequestId")
++        except Q.ReferenceCallPrecondition as exc:
++            check("host-adapter-without-request-id-stays-precondition", exc.missing == "host.requestId", exc.missing)
++    try:
++        Q.host_adapter_refusal(Q.ReferenceCallPrecondition("host.requestId"), out_req, host_obs())
++        check("host-adapter-request-id-precondition-not-projected", False, "RequestId precondition was projected")
++    except Q.ReferenceCallPrecondition as exc:
++        check("host-adapter-request-id-precondition-not-projected", exc.missing == "host.requestId", exc.missing)
++    record = {"schemaVersion": 2, "runId": run_key, "generation": 0, "state": "purged", "missingRefs": [], "reason": "operator purge"}
++    observed = Q.observe_retained_availability(canonical.canonical(record), run_key)
++    check("retained-availability-record-admitted-supplies-state", observed == "purged", observed)
++    refuse("retained-availability-record-state-routes-as-observation", lambda: ex(out_req, host_obs(latestRunId=run_key, availability=observed)), "HOST.IO_FAILURE", "evidence.purged")
++    for label, raw in (("unparseable-bytes", b"{not-json"),
++                       ("unknown-state", canonical.canonical(dict(record, state="not-a-state"))),
++                       ("other-run", canonical.canonical(dict(record, runId=run_id("other"))))):
++        refuse("retained-availability-record-%s-is-corrupt" % label,
++               lambda raw=raw: Q.observe_retained_availability(raw, run_key), "HOST.IO_FAILURE", "evidence.corrupt", envelope=False)
+     partial_ok = ex(out_req, host_obs(latestRunId=run_key, availability="partial"))
+     check("host-availability-partial-neither-refuses-nor-grants", len(partial_ok["items"]) == 1, partial_ok["items"])
+     if victim is not None:
+@@ -907,35 +946,193 @@
+     check("strong-entry-has-no-standing-bypass", not hasattr(owner, "SYNTHETIC_STANDING") or "standing" not in (owner.execute_graph_query.__doc__ or ""))
+ 
+ 
++def raise_(exc):
++    raise exc
++
++
++def remint_false_result(M, packed, flip):
++    """Fully remint a structurally valid but semantically false result: flipped predicate values with emptied
++    witnesses, no findings or execution deficiencies, verdict pass; proof, evidence, seal and Run re-identified."""
++    run, objects, blobs = copy.deepcopy(packed)
++    seal = copy.deepcopy(objects[run["evaluationSealId"]][1])
++    proof = copy.deepcopy(objects[seal["proofBundleId"]][1])
++    evidence = copy.deepcopy(objects[run["evidenceId"]][1])
++    for predicate in proof["predicateProofs"]:
++        value = flip(predicate)
++        if value is None or value == predicate["value"]:
++            continue
++        witness = canonical.parse(blobs[predicate["witnessDigest"]])
++        witness.update(matchingFactIds=[], uncertainFactIds=[], deficiencies=[])
++        raw = canonical.canonical(witness)
++        digest = hashlib.sha256(raw).hexdigest()
++        blobs[digest] = raw
++        predicate.update(witnessDigest=digest, value=value)
++    proof.update(findingIds=[], waivedFindingIds=[], executionDeficiencies=[], verdict="pass")
++    for rule in proof["ruleResults"]:
++        rule.update(findingIds=[], deficiencies=[])
++        if rule["outcome"] in ("fail", "indeterminate"):
++            rule["outcome"] = "pass"
++    proof_id = M.identifier("proof-bundle", proof)
++    objects[proof_id] = ("proof-bundle", proof)
++    evidence.update(findingIds=[], proofBundleId=proof_id)
++    evidence_id = M.identifier("semantic-evidence", evidence)
++    objects[evidence_id] = ("semantic-evidence", evidence)
++    seal.update(proofBundleId=proof_id, evidenceId=evidence_id, verdict="pass")
++    seal_id = M.identifier("evaluation-seal", seal)
++    objects[seal_id] = ("evaluation-seal", seal)
++    run.update(evidenceId=evidence_id, evaluationSealId=seal_id)
++    return run, objects, blobs
++
++
+ def semantic_refusal_controls():
+-    # A digest-valid, fully reminted result can still be semantically false.
+-    # Reuse the maintained mutation constructor, not an arbitrary close_run stub.
++    # Contract section 7: close_run outcomes route by the exact typed classes of the query's identity copy, never by
++    # message text. Fully reminted false results are structurally admitted, then refused by complete replay through
++    # the evaluator fault registry's retained-regeneration route; structural corruption, missing bytes and host
++    # defects keep their own routes. Reuses the maintained semantic fixtures and finding mutation constructor.
+     foundation = HERE.parent / "foundation"
+     semantic = load("query_refusal_semantic3", foundation / "check-semantic-replay.v3.py")
+     mutants = load("query_refusal_mutants3", foundation / "check-replay.v3.py")
+-    graph, positive, actual = semantic.case_declares_exists()
+-    run, objects, blobs = mutants.remint_finding(
+-        *positive, lambda finding, _blobs: finding.update(severity="warning")
+-    )
+-    run_key, _ = Q.identity3().open_run_closure(run, objects, blobs)
+-    check("semantic-query-mutant-structural-admit-new-identity", run_key != actual["runId"])
+-    symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
+-    req = request("graph.neighbors", run["projectId"], {"runId": run_key}, {
+-        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
+-        "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
+-    })
+-    refuse("semantic-query-mutant-refuses", lambda: Q.execute_graph_query(req, run, objects, blobs, host=host_obs()),
+-           "HOST.IO_FAILURE", "evidence.corrupt")
++    faults = load("query_refusal_faults3", foundation / "evaluator_fault_model.v3.py")
++    M3 = Q.identity3()
++    declares_graph, declares, declares_actual = semantic.case_declares_exists()
++    incoming_graph, incoming, incoming_actual = semantic.case_incoming_incomplete_unknown()
++    inventory_graph, inventory, inventory_actual = semantic.case_missing_inventory_execution()
++    lawful = {declares_actual["runId"], incoming_actual["runId"], inventory_actual["runId"]}
++    regeneration = faults.ROUTES["complete-replay-mismatch:retained-regeneration"]
++    host_internal = faults.ROUTES["input-schema-invalid:host-internal"]
++    routes = {}
++
++    def query(graph, packed, run_key=None):
++        run, objects, blobs = packed
++        symbol = next(row for row in graph["inputs"]["population"].values() if row["kind"] == "symbol")
++        req = request("graph.neighbors", run["projectId"], {"runId": run_key or M3.identifier("run", run)}, {
++            "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing",
++            "endpoint": ep(symbol["universe"], "symbol", symbol["row"]["nativeSubjectId"]),
++        })
++        return Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
++
++    def refusal(fn):
++        try:
++            fn()
++        except Q.QueryRefusal as exc:
++            return exc
++        except Exception:
++            return None
++        return None
++
++    def summary(exc):
++        return None if exc is None else (exc.termination(), type(exc.__cause__).__name__)
++
++    for name, graph, packed in (
++        ("finding-severity", declares_graph, mutants.remint_finding(*declares, lambda finding, _blobs: finding.update(severity="warning"))),
++        ("fail-to-pass", declares_graph, remint_false_result(semantic.M, declares, lambda p: "false" if p["value"] == "true" else None)),
++        ("indeterminate-laundered", incoming_graph, remint_false_result(semantic.M, incoming, lambda p: "false" if p["value"] == "indeterminate" else None)),
++        ("execution-deficiency-erased", inventory_graph, remint_false_result(semantic.M, inventory, lambda p: None)),
++    ):
++        cid = "semantic-mutant-" + name
++        run_key, _ = M3.open_run_closure(*packed)
++        check(cid + "-structurally-admitted-new-run", run_key not in lawful, run_key)
++        exc = refusal(lambda: query(graph, packed, run_key))
++        if exc is None or exc.diagnostic is None:
++            check(cid + "-retained-regeneration-route", False, summary(exc))
++            continue
++        term = exc.termination()
++        env = exc.envelope()
++        carrier = M3.RegenerationMismatch(run_key)
++        diagnostic = exc.diagnostic.encode()
++        observation = faults.owner_observation(carrier, diagnostic)
++        routed = faults.route(observation, diagnostic)["termination"]
++        check(cid + "-retained-regeneration-route",
++              term == carrier.termination == routed
++              and (observation["condition"], observation["origin"]) == ("complete-replay-mismatch", "retained-regeneration")
++              and term["errorCode"] == regeneration["termination"]["errorCode"] and term["domainDetail"]["code"] == regeneration["detail"]
++              and env["exitCode"] == 4 and env["errors"] == [term["domainDetail"]] and "run" not in env, term)
++        check(cid + "-typed-cause-retains-exact-diagnostic",
++              type(exc.__cause__) is M3.CompleteReplayMismatch and exc.diagnostic == exc.__cause__.diagnostic == str(exc.__cause__)
++              and exc.diagnostic.startswith("EVALUATOR_"), (type(exc.__cause__).__name__, exc.diagnostic))
++        routes["semantic-replay"] = (term["errorCode"], term["faultCause"], term["domainDetail"]["code"])
++
++    stack = M3.complete_replay()
++    check("replay-stack-is-a-separate-identity-load",
++          stack.M is not M3 and stack.M.CompleteReplayMismatch is not M3.CompleteReplayMismatch
++          and stack.M.C.AdmissionError is not M3.C.AdmissionError and canonical.AdmissionError is not M3.C.AdmissionError)
++
++    run, objects, blobs = copy.deepcopy(declares)
++    domain, value = objects[run["evidenceId"]]
++    objects[run["evidenceId"]] = (domain, dict(value, findingIds=list(value["findingIds"])[:-1]))
+     try:
+-        Q.execute_graph_query(req, run, objects, blobs, host=host_obs())
+-    except Q.QueryRefusal as exc:
+-        env = exc.envelope()
+-        check("semantic-query-mutant-retains-replay-boundary",
+-              env["exitCode"] == 4 and exc.fault_cause == "host-io"
+-              and "EVALUATOR_COMPLETE_PROOF_REPLAY" in str(exc.subject)
+-              and "run" not in env and "queryResponse" not in env, env)
+-    else:
+-        check("semantic-query-mutant-retains-replay-boundary", False, "semantic mutant admitted")
++        M3.open_run_closure(run, objects, blobs)
++        structural = "ADMIT"
++    except M3.EvidenceUnavailable:
++        structural = "MISSING"
++    except M3.C.AdmissionError:
++        structural = "REFUSE"
++    check("structural-retained-graph-refused-by-owner-closure", structural == "REFUSE", structural)
++    exc = refusal(lambda: query(declares_graph, (run, objects, blobs)))
++    check("structural-retained-graph-evidence-corrupt",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail) == ("HOST.IO_FAILURE", "host-io", "evidence.corrupt")
++          and type(exc.__cause__) is M3.C.AdmissionError and exc.envelope()["exitCode"] == 4, summary(exc))
++    if exc is not None:
++        routes["structural"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    run, objects, blobs = copy.deepcopy(declares)
++    proof_id = objects[run["evaluationSealId"]][1]["proofBundleId"]
++    del objects[proof_id]
++    exc = refusal(lambda: query(declares_graph, (run, objects, blobs)))
++    check("missing-promised-bytes-evidence-missing",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail, exc.subject) == ("HOST.IO_FAILURE", "host-io", "evidence.missing", proof_id)
++          and type(exc.__cause__) is M3.EvidenceUnavailable and exc.envelope()["exitCode"] == 4, summary(exc))
++    if exc is not None:
++        routes["missing"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    def host_defect(cid, raised):
++        original = M3.close_run
++        M3.close_run = lambda *args, **kwargs: raise_(raised)
++        try:
++            exc = refusal(lambda: query(declares_graph, declares, declares_actual["runId"]))
++        finally:
++            M3.close_run = original
++        term = exc.termination() if exc is not None else {}
++        detail = term.get("domainDetail") or {}
++        check(cid,
++              term.get("class") == "operational-failed"
++              and (term.get("errorCode"), term.get("faultCause")) == (host_internal["termination"]["errorCode"], host_internal["termination"]["faultCause"])
++              and (detail.get("code"), detail.get("remedy")) == (host_internal["detail"], host_internal["remedy"])
++              and exc.__cause__ is raised and exc.envelope()["exitCode"] == 4, summary(exc))
++        if exc is not None:
++            routes["host-defect"] = (exc.error_code, exc.fault_cause, exc.detail)
++
++    host_defect("host-defect-with-replay-key-text-is-host-invariant", RuntimeError("EVALUATOR_COMPLETE_PROOF_REPLAY"))
++    host_defect("host-defect-with-missing-key-text-is-host-invariant", RuntimeError("EVIDENCE_UNAVAILABLE:" + proof_id))
++    host_defect("foreign-identity-copy-mismatch-is-host-invariant", semantic.M.CompleteReplayMismatch("EVALUATOR_COMPLETE_PROOF_REPLAY"))
++    original_compare = stack.E.compare_complete_replay
++    stack.E.compare_complete_replay = lambda *args, **kwargs: raise_(TypeError("simulated evaluator comparison defect"))
++    try:
++        exc = refusal(lambda: query(declares_graph, declares, declares_actual["runId"]))
++    finally:
++        stack.E.compare_complete_replay = original_compare
++    check("host-defect-inside-replay-stack-is-host-invariant",
++          exc is not None and (exc.error_code, exc.fault_cause, exc.detail) == ("SYSTEM.OUTCOME.ILLEGAL_STATE", "host-invariant", "HOST.INVARIANT_VIOLATED")
++          and type(exc.__cause__) is TypeError, summary(exc))
++
++    try:
++        lawful_result = query(declares_graph, declares, declares_actual["runId"])
++        lawful_ok = M3.close_run(*declares) == declares_actual["runId"] and lawful_result["termination"]["class"] == "success"
++        lawful_why = lawful_result["termination"]
++    except Exception as exc:
++        lawful_ok, lawful_why = False, type(exc).__name__ + ": " + str(exc)[:200]
++    check("lawful-replay-and-query-unchanged-after-restore", lawful_ok, lawful_why)
++    check("structural-missing-semantic-host-defect-routes-distinct",
++          len(routes) == 4 and len(set(routes.values())) == 4
++          and not {r[0] for r in routes.values()} & {"PROVIDER.PROTOCOL_VIOLATION", "CONFIG.INVALID"}, routes)
++    check("evaluator-fault-origin-law-unchanged",
++          faults.ROUTES["complete-replay-mismatch:host-internal"]["termination"] == {"class": "operational-failed", "errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE", "faultCause": "host-invariant"}
++          and faults.ROUTES["complete-replay-mismatch:host-internal"]["detail"] == "HOST.INVARIANT_VIOLATED"
++          and faults.ROUTES["input-schema-invalid:provider-return"]["termination"]["errorCode"] == "PROVIDER.PROTOCOL_VIOLATION"
++          and faults.ROUTES["input-schema-invalid:external-configuration"]["termination"]["errorCode"] == "CONFIG.INVALID"
++          and regeneration["termination"]["faultCause"] == "host-io")
++    source = inspect.getsource(Q.close_retained_run)
++    check("close-retained-run-routes-without-message-parsing", "startswith" not in source and ".split(" not in source)
+ 
+ 
+ def main():

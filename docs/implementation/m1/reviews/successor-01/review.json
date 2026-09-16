@@ -1,0 +1,87 @@
+{
+  "verdict": "CHANGES-REQUIRED",
+  "verdictScope": "m1-successor-subject-01 only (design-lock.json schemaVersion 2, tools/verify_design.py, tools/tests/test_design_binding.py). Not full M1, not product qualification, not a re-review of the canonical-03 inventory acceptance.",
+  "reviewKind": "fresh independent review with executable adversarial probes and mutation testing",
+  "subjectManifestSha256": "3fabfe4759fb6555813a05d54e9f99e5f2e8d3a7ed54a5806a5dd9f1c0ea4caa",
+  "baseSubject": "/tmp/opensip-implementation/m1-canonical-subject-04",
+  "summary": "The verifier logic is correct: it verified the real architecture checkout, refused every realistic mistake probed against real evidence, and remained backward compatible with lock1. The blocking issue is only in the tests. They assert a generic DesignError and do not rebind downstream joins, so 14 of 26 reviewer mutants that remove named successor guards still pass all 17 tests. These include the independent ACCEPT-UNIT, ACCEPT assessment and empty-findings requirements. The fix changes tests only; no verifier change is required.",
+  "requiredFindings": [
+    {
+      "id": "SUCC-R1-01",
+      "title": "Successor refusal tests do not isolate the guards they name",
+      "severity": "required",
+      "location": "tools/tests/test_design_binding.py:130-222 (change(), test_different_parent_record_candidate_or_subject_refuses, test_review_rejection_and_findings_refuse, test_parent_must_be_selected_base_input, test_closed_binding_and_required_pins)",
+      "evidence": "change() re-pins only the mutated document. Record and review mutations therefore leave the review/assent joins stale, and every case only asserts DesignError. With the targeted guard removed, a downstream join such as 'root review names a different subject' still refuses, so the test passes. probes/mutants.log: 14/26 mutants survive the subject suite: M01 parent-in-inputs, M02 candidate!=parent path, M03 record candidate size, M04 record preservation flags, M05 review ACCEPT-UNIT, M06 assessment ACCEPT, M07 assessment findings, M08/M09/M10 review candidate/parent/record joins, M11 assent status, M19 at-least-one addition, M23 closed binding keys (extra key with a valid pin), M26 review requiredFindings. A regression that dropped the proposal's core 'independent ACCEPT-UNIT plus ACCEPT inventory assessment, empty required findings' requirement would pass all 17 tests. probes/masking.log confirms the correct guard fires first today, so the verifier behaves correctly; only regression protection is missing.",
+      "requiredChange": "Rebind downstream pins after each mutation (record -> review.successorRecord -> assent.actualClaudeReview) so only the targeted guard can refuse, and assert the diagnostic (assertRaisesRegex) or an equivalent discriminator. Add isolated cases for zero additions, a parent that is fully joined but not a selected base input, and an extra binding key holding a valid pin. Reviewer demonstration: probes/test_design_binding_augmented.py adds 12 such tests (29 total, all passing on the unmodified verifier); with it 25/26 mutants are killed, and the only survivor (M02) is an equivalent mutant (probes/mutants-augmented.log).",
+      "verifierChangeRequired": false
+    }
+  ],
+  "advisories": [
+    {
+      "id": "SUCC-A1-01",
+      "title": "Value equality uses Python ==, not JSON-type equality",
+      "evidence": "probes/adversarial.log: a fully rebound candidate whose inherited row changes generated false->0 or false->0.0, or whose schemaVersion changes 1->true, is accepted; a review assessment bytes 71497.0 matches pin 71497. The real v1/v3 inherited rows, packages, pendingDecisions and schemaVersion are strictly JSON-type equal (probes/strict-rows.log), and all compared documents are hash-pinned reviewed evidence, so this is defense in depth only. If desired, compare canonical JSON (json.dumps(sort_keys=True)) or use a type-strict recursive equality."
+    },
+    {
+      "id": "SUCC-A1-02",
+      "title": "Added rows are not structurally validated",
+      "evidence": "A reviewed and rebound candidate may add a row with an undeclared package, a noncanonical path such as '../escape', or missing row fields, and it is accepted. This is consistent with the proposal ('does not attest that every planned file exists'), and the additions stay under independent review. The four real additions use declared packages and existing roles. Do not generalize now; a later profile may check that added rows use declared packages if the reviewed record stops being the control."
+    },
+    {
+      "id": "SUCC-A1-03",
+      "title": "Pinned evidence still carries historical pending standing text",
+      "evidence": "inventory-successor.v2.json has standing 'PROPOSED' and independentAcceptancePending true, and the v3 candidate/added rows say 'actual Claude acceptance pending'. The verifier deliberately ignores these in favour of the later pinned review and assent, as the proposal states. That is correct, but readers of the arch docs may be confused. No code change is needed."
+    },
+    {
+      "id": "SUCC-A1-04",
+      "title": "Implementation subject join is digest equality only",
+      "evidence": "assent.subjectManifest.sha256 must equal review.subjectManifestSha256 (581d747a...), but the subject manifest file itself is not pinned or hashed. This is acceptable because review and assent are both pinned. Pinning it would add little now."
+    },
+    {
+      "id": "SUCC-A1-05",
+      "title": "Pinned evidence is untracked in the architecture git checkout",
+      "evidence": "git status shows docs/implementation/ and docs/v2/architecture/repository-file-inventory.v1.json as untracked. The lock hashes are the trust anchor, so verification is unaffected. Durable provenance depends on the user eventually committing those bytes unchanged. The reviewer did not modify them."
+    },
+    {
+      "id": "SUCC-A1-06",
+      "title": "Single-successor profile limits future chaining",
+      "evidence": "The parent must be a selected base input and only one inventorySuccessor is allowed. A later additive inventory must therefore again be expressed cumulatively over v1 with a fresh review/assent chain, or use a new reviewed profile. This is proportionate now; no additional schema or generalization is required for the present v3 selection."
+    }
+  ],
+  "assessment": {
+    "closedLockShapes": "Pass. Lock v1 must have exactly four top-level keys and v2 exactly those plus inventorySuccessor. schemaVersion must be int 1 or 2, so bool, float, string and 3 are refused. The successor has exactly five keys, each a closed {path,sha256,bytes} pin with lowercase hex and int bytes. Probed on the real lock.",
+    "authenticatedPinsAndJoins": "Pass in behaviour. All five documents are read from the explicit checkout and length- and SHA-256-checked before decoding. Checked joins: record<->parent/candidate (with size); review assessment<->candidate (size), parent (size) and record (path+sha); assent<->review and candidate; assent subject digest == review subject digest; parent pin == a selected lock input. Honest repins to the superseded v2 inventory, v1 record, canonical-02 review, swapped pins and a different parent input are all refused.",
+    "invalidMalformedRefusal": "Pass. Non-object nested records, missing fields, string booleans, truthy 1, traversal, missing files, array or deeply nested lock files all give a controlled DesignError or CLI exit 1.",
+    "reviewedCandidateSelection": "Pass. Only the candidate named by an ACCEPT-UNIT/ACCEPT review with empty findings and ACCEPTED-UNIT substantive root assent is selected. Base pins are unchanged, and the result reports the selected path/hash and addedFiles=4.",
+    "inheritedRowsAndPackageEdges": "Pass, subject to SUCC-A1-01 type strictness. The real 198 inherited rows are equal and packages/pendingDecisions unchanged; only standing differs. Candidate rows are sorted and unique with a strict superset of paths. Package dependency, row package, removal, duplicate, reorder, pendingDecisions, schemaVersion value and unknown top-level key changes are refused even when fully rebound.",
+    "lock1BackwardCompatibility": "Pass. The new verifier accepts the canonical-04 lock1 (46 inputs, identical output). The old verifier fails closed on lock2 with 'unsupported design lock'. The only other verifier diff drops a redundant '\"bytes\" in row' condition already guaranteed by the closed pin shape.",
+    "trustModel": "This is a correct developer provenance-consistency checker. The checked-in lock is the trust anchor; anyone who can edit both the lock and the architecture checkout can produce a passing chain. It does not authenticate reviewer identity (sessionId is not verified, and there are no signatures), grant runtime authorization or approve general design changes. The docstring and proposal state this accurately, and output keeps productQualification false.",
+    "proportionality": "The bounded additive profile is proportionate and correct for selecting the already accepted v3 inventory. No additional schema or generalization is required now; non-additive or contract successors should get their own reviewed profile, as proposed."
+  },
+  "executedChecks": [
+    {"executor": "Claude", "check": "shasum -a 256 of subject manifest, before and after", "result": "3fabfe47...caa matches both times"},
+    {"executor": "Claude", "check": "probes/verify_manifest.py: all 13 rows sha256+bytes, extra-file walk, before and after", "result": "13/13 OK, no extra files, both times; no __pycache__ in subject or base"},
+    {"executor": "Claude", "check": "diff -rq m1-canonical-subject-04 vs m1-successor-subject-01", "result": "only design-lock.json, tools/verify_design.py, tools/tests/test_design_binding.py differ; Rust bytes identical"},
+    {"executor": "Claude", "check": "python3 -I -B -m unittest discover -s tools/tests -t tools/tests -v (Python 3.14.6)", "result": "17 tests OK (9 DesignBindingTests + 8 InventorySuccessorTests)"},
+    {"executor": "Claude", "check": "python3 -I -B tools/verify_design.py --architecture /Users/sb/code/opensip-ai/opensip_arch", "result": "passed; 46 inputs; inventorySuccessor selected docs/implementation/m1/repository-file-inventory.v3.json 63027fb6..., addedFiles 4; productQualification false"},
+    {"executor": "Claude", "check": "Same command with a relative --architecture path from the subject directory", "result": "passed, identical output (a first attempt used the wrong ../ depth and failed with a controlled diagnostic; reviewer error, rerun correctly)"},
+    {"executor": "Claude", "check": "Compatibility matrix: new verifier+lock1, old verifier+lock2, old verifier+lock1", "result": "pass (46 inputs); refuse 'unsupported design lock'; pass"},
+    {"executor": "Claude", "check": "CLI malformed input: nonexistent architecture, array lock, 100000-deep nested lock", "result": "all exit 1 with controlled 'Design verification failed' diagnostics"},
+    {"executor": "Claude", "check": "probes/adversarial.py: 59 probes (lock-level against the real checkout; document-level on rebound copies of real evidence)", "result": "55 matched expectation; 4 accepted where strict JSON typing would refuse (bool/int/float equality; SUCC-A1-01). An initial harness bug (KeyError for the review!/assent! mutator keys) was fixed in the probe and the probes rerun; the subject was not affected"},
+    {"executor": "Claude", "check": "probes/strict-rows.py (inline): real v1/v3 strict canonical-JSON comparison and added-row package/role checks", "result": "inherited rows, packages, pendingDecisions and schemaVersion strictly equal; 4 additions use declared packages and existing roles; v3 sorted"},
+    {"executor": "Claude", "check": "probes/mutants.py: 26 guard-removal mutants vs the subject's 17 tests", "result": "14 survived (see SUCC-R1-01)"},
+    {"executor": "Claude", "check": "probes/masking.py: first-firing diagnostic for each subject test refusal case", "result": "the correct guard fires first today; with the guard removed, stale downstream joins still refuse"},
+    {"executor": "Claude", "check": "probes/test_design_binding_augmented.py (reviewer copy with 12 isolation tests) on the unmodified verifier, then vs the 26 mutants", "result": "29 tests OK; 25/26 mutants killed; M02 survives as an equivalent mutant (guarded by the pin hash and zero-addition checks)"},
+    {"executor": "Claude", "check": "Architecture evidence sha256 (docs/implementation/m1 json/md, reviews/canonical-03/*, inventory v1) and git status --porcelain digest, before and after", "result": "unchanged"},
+    {"executor": "not rerun", "check": "Rust tests, clippy, fmt, crypto/reference differentials", "result": "Rust bytes are byte-identical to accepted canonical-subject-04, as the brief states"}
+  ],
+  "limitations": [
+    "Only the design-lock v2 unit was reviewed. This is not full M1 acceptance, product qualification or release approval; 32 release gates and 54 recovery cases remain as recorded elsewhere.",
+    "The historical canonical-03 inventory acceptance and canonical-unit assent were used as pinned evidence. Their conclusions were spot-checked (rows, packages, sort order, joins) but not re-reviewed.",
+    "Rust/Cargo checks were not rerun because those bytes are unchanged.",
+    "Checks ran on a single platform, macOS with Python 3.14.6; older Python versions were not exercised (Path.is_relative_to needs 3.9+).",
+    "The mutation set was chosen by the reviewer and is not exhaustive.",
+    "Launcher files already in the review directory (launch-public.py, process.json, public-events.jsonl, root-validation.json) were not read or modified.",
+    "The trust model is provenance consistency only: no cryptographic reviewer identity, signatures or runtime authorization were assessed, because none are claimed."
+  ]
+}

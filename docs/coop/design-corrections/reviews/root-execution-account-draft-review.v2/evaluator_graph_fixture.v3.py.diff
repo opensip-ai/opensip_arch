@@ -1,0 +1,158 @@
+--- source32/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
++++ active-draft/docs/coop/design-corrections/foundation/evaluator_graph_fixture.v3.py
+@@ -21,7 +21,7 @@
+     exec(compile(ast.Module(body=body,type_ignores=[]),str(p),'exec'),scope)
+     return types.SimpleNamespace(**scope)
+ 
+-def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True, import_producer_kind='provider', import_adapter_kind='adapter', additional_disabled_rule=False, symbol_only_second_program=False):
++def build_file_inputs(*, atom_override=None, enabled=True, gate=True, budget_limit=10000, enumeration_filter=None, waiver_rows=None, import_specs=None, evidence_use=None, multiple_universes=False, symbol_rows=None, symbol_state="complete", select_exports=False, scope_document=None, complete_required_native=True, import_producer_kind='provider', import_adapter_kind='adapter', additional_disabled_rule=False, symbol_only_second_program=False, unsupported_cell=None, optional_unselected_cell=False, file_coverage_subjects=None):
+     """`symbol_only_second_program` (AUTHOR_PENDING_REVIEW, default OFF, changes nothing unless
+     set) builds the ASYMMETRIC selected-program shape: the first universe binds only on the
+     `inventory` cell and the second binds only on the symbol-kind `syntax` cell. The second
+@@ -29,7 +29,31 @@
+     NO source-path (`file`/`clones`/`vcs-change`) subject scope at all. It requires
+     `multiple_universes` and `symbol_rows`, and it alters no default: every existing caller is
+     byte-identical. It is used by the repair closed-world selection controls to discriminate a
+-    selected-program owner census from a source-path scope census on a fully admitted Run."""
++    selected-program owner census from a source-path scope census on a fully admitted Run.
++
++    `unsupported_cell` (`'required'` / `'optional'`, default OFF) appends a
++    `references|syntax-only` cell, which the native capability matrix states as
++    `UNSUPPORTED-TYPED`. Its binding is SELECTED with a NON-NULL universe, and the native owner
++    helper mints the Coverage that `native-evidence.md` says such a request is answered with:
++    `coverage=unknown`, `language-tier-unsupported` / `capability-missing`, admitted by
++    `admit_coverage_result_v3`. The fixture asserts nothing about support: the pair is derived by
++    the producer helper from the admitted grammars. Used by the execution-account controls for the
++    selected-U unsupported disclosure and, when `'required'`, for the matrix-pair proof bridge.
++
++    `optional_unselected_cell` (default OFF) appends an OPTIONAL `syntax|syntax-only` cell -
++    a `SUPPORTED-DESIGN` matrix cell, so applicability is decided by the enumerator rather than the
++    matrix - whose single binding is the lawful `UnavailableProgramBindingV1` shape of
++    `enumeration-contract.v1.md` §1: `{status:'unselected', reason:'optional-unselected'}`,
++    `universe=null`, a typed `provider-unavailable`/null pair, host extents still populated, and an
++    empty `unavailable` inventory matching that pair. No shape is bent to reach a branch.
++
++    `file_coverage_subjects` (list of paths, default OFF) narrows the RETURNED `file@enumerated`
++    partition's committed subjects while the file inventory and binding extent still name every
++    path. That is the census shape: nonempty, honestly `complete` partitions whose retained
++    Coverage carries NO pair, over an expected-subject set the partitions do not cover.
++
++    All three options are keyword-only and default OFF: every existing caller stays byte-identical."""
++    if unsupported_cell not in (None,'required','optional'):raise C.AdmissionError('FIXTURE3_UNSUPPORTED_CELL_OPTION')
+     H=fixture_helpers();N=H.N;objects={};blobs={}
+     def blob(value):
+         raw=value if type(value) is bytes else C.canonical(value)
+@@ -74,6 +98,33 @@
+         enum['cells'][0]['programBindings']=[enum['cells'][0]['programBindings'][0]]
+         second=copy.deepcopy(enum['cells'][1]['programBindings'][1]);second['ordinal']=0
+         enum['cells'][1]['programBindings']=[second]
++    # Extra cells for the execution-account applicability/disclosure controls. Both default OFF.
++    if unsupported_cell is not None:
++        enum['cells'].append({'capabilityId':'references','languageMode':'syntax-only','workspaceRoot':'.',
++            'required':unsupported_cell=='required','kinds':['symbol'],
++            'programBindings':[{'ordinal':0,'provenance':'default-unit',
++                'enumerator':{'status':'selected','closureId':provider},
++                'nativeContextDigest':native['contextDigest'],'universe':universe_ids[0],
++                'programEntry':None,'extents':[{'kind':'symbol','paths':['src/index.ts']}]}]})
++    if optional_unselected_cell:
++        # `syntax|syntax-only` is SUPPORTED-DESIGN, so applicability is decided by the ENUMERATOR
++        # and not by the matrix. Its symbol kind is also not the kind the default `file` rule
++        # enumerates, so the unavailable inventory this shape requires does not silently turn the
++        # rule's own enumeration incomplete and confuse what the control is measuring.
++        if symbol_rows is not None:raise C.AdmissionError('FIXTURE3_UNSELECTED_SYNTAX_CELL_CONFLICTS_WITH_SYMBOL_ROWS')
++        enum['cells'].append({'capabilityId':'syntax','languageMode':'syntax-only','workspaceRoot':'.',
++            'required':False,'kinds':['symbol'],
++            'programBindings':[{'ordinal':0,'provenance':'default-unit',
++                'enumerator':{'status':'unselected','reason':'optional-unselected'},
++                'nativeContextDigest':None,'universe':None,'programEntry':None,
++                'extents':[{'kind':'symbol','paths':['src/index.ts']}],
++                'deficiency':'provider-unavailable','nativeCause':None}]})
++    # cells is x-opensip-order {by:[capabilityId,languageMode,workspaceRoot]} and cellOrdinal IS
++    # the index in that sorted array, so a new cell may land before an existing one. Sort once and
++    # read every cellOrdinal from this map instead of a literal. With no extra cell the order is
++    # already inventory < syntax, so this is a no-op and existing callers stay byte-identical.
++    enum['cells'].sort(key=lambda c:(c['capabilityId'],c['languageMode'],c['workspaceRoot']))
++    cell_ordinal_of={c['capabilityId']:i for i,c in enumerate(enum['cells'])}
+     enum_digest=blob(enum)
+     atom=atom_override or {'op':'exists','relation':'file','minResolution':'enumerated','filters':[]}
+     if symbol_rows is not None and atom_override is None:atom={'op':'exists','relation':'declares','minResolution':'syntactic','filters':[]}
+@@ -96,6 +147,12 @@
+         parameters=E.cset(parameters+[{'schemaDigest':blob((HERE.parent/'workflows/schemas/policy-document.schema.json').read_bytes()),'payloadDigest':blob(scope_document)}])
+     spec_record={'schemaVersion':2,'requestedCapabilities':[{'capabilityId':'inventory','languageMode':'syntax-only','workspaceRoot':'.','required':True}],'policyPackIds':['fixture.file-observed'],'parameters':parameters}
+     if symbol_rows is not None:spec_record['requestedCapabilities'].append({'capabilityId':'syntax','languageMode':'syntax-only','workspaceRoot':'.','required':True})
++    if unsupported_cell is not None:spec_record['requestedCapabilities'].append({'capabilityId':'references','languageMode':'syntax-only','workspaceRoot':'.','required':unsupported_cell=='required'})
++    if optional_unselected_cell:spec_record['requestedCapabilities'].append({'capabilityId':'syntax','languageMode':'syntax-only','workspaceRoot':'.','required':False})
++    # requestedCapabilities is x-opensip-order: canonical-set. Cells and requests are joined as
++    # sorted TUPLE SETS, so this reorders nothing for existing callers and only keeps the new
++    # rows lawful. (The default and `syntax` callers are already in canonical order.)
++    spec_record['requestedCapabilities']=E.cset(spec_record['requestedCapabilities'])
+     cap=H.CURRENT_CAPABILITY_MANIFEST_BYTES;cap_digest=blob(cap);cap_id=hashlib.sha256(b'opensip.capability-manifest.v1\0'+cap).hexdigest()
+     import_ids=[]
+     W=M.workflow_admission()
+@@ -121,7 +178,7 @@
+     for program_ordinal,universe in enumerate(inventory_universes):
+         for kind in ['file','package']:
+             rows=[{'nativeSubjectId':path,'kind':'file','path':path,'qualifiedName':path,'subjectLanguage':languages[path],'signatureTokens':[],'projections':[]} for path in paths] if kind=='file' else []
+-            inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':0,'programOrdinal':program_ordinal,'kind':kind,'state':'complete','deficiency':None,'nativeCause':None,'examinedPaths':E.cset(paths) if kind=='file' else [],'rows':sorted(rows,key=lambda r:r['nativeSubjectId'].encode())}
++            inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['inventory'],'programOrdinal':program_ordinal,'kind':kind,'state':'complete','deficiency':None,'nativeCause':None,'examinedPaths':E.cset(paths) if kind=='file' else [],'rows':sorted(rows,key=lambda r:r['nativeSubjectId'].encode())}
+             digest=blob(inv);inventory_results.append((digest,inv))
+             for row in rows:
+                 sid=M.identifier('evaluation-subject',{'schemaVersion':3,'universe':universe,'kind':'file','nativeSubjectId':row['nativeSubjectId']})
+@@ -133,14 +190,33 @@
+                 tokens=item.get('signatureTokens',['function','x','(',')'])
+                 projections=[] if item.get('projectionAvailable',True) is False else [{'closureId':detector,'signatureTokens':item.get('detectorTokens',tokens)}]
+                 row={'nativeSubjectId':item['nativeSubjectId'],'kind':'symbol','path':'src/index.ts','qualifiedName':item.get('qualifiedName','x'),'subjectLanguage':'typescript','signatureTokens':tokens,'projections':projections,'exported':item.get('exported','exported')};rows.append(row)
+-            inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':1,'programOrdinal':program_ordinal,'kind':'symbol','state':symbol_state,'deficiency':None if symbol_state=='complete' else 'budget-exhausted','nativeCause':None,'examinedPaths':['src/index.ts'],'rows':sorted(rows,key=lambda r:r['nativeSubjectId'].encode())}
++            inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['syntax'],'programOrdinal':program_ordinal,'kind':'symbol','state':symbol_state,'deficiency':None if symbol_state=='complete' else 'budget-exhausted','nativeCause':None,'examinedPaths':['src/index.ts'],'rows':sorted(rows,key=lambda r:r['nativeSubjectId'].encode())}
+             digest=blob(inv);inventory_results.append((digest,inv))
+             for row in rows:
+                 sid=M.identifier('evaluation-subject',{'schemaVersion':3,'universe':universe,'kind':'symbol','nativeSubjectId':row['nativeSubjectId']})
+                 population[sid]={'subjectId':sid,'universe':universe,'kind':'symbol','row':row,'collisionPopulationComplete':symbol_state=='complete'}
++    if unsupported_cell is not None:
++        # Complete symbol census over exactly this binding's symbol extent (the enumeration
++        # owner requires examinedPaths == extent for a complete inventory) with no declared
++        # symbols. The cell's own answer is the matrix disclosure, not an inventory claim.
++        inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['references'],
++            'programOrdinal':0,'kind':'symbol','state':'complete','deficiency':None,'nativeCause':None,
++            'examinedPaths':['src/index.ts'],'rows':[]}
++        inventory_results.append((blob(inv),inv))
++    if optional_unselected_cell:
++        # enumeration-contract §1: an optional-unselected binding keeps host extents and empty
++        # `unavailable` inventories MATCHING the binding's own typed pair.
++        inv={'schemaVersion':1,'planId':plan_id,'parameterDigest':enum_digest,'cellOrdinal':cell_ordinal_of['syntax'],
++            'programOrdinal':0,'kind':'symbol','state':'unavailable','deficiency':'provider-unavailable',
++            'nativeCause':None,'examinedPaths':[],'rows':[]}
++        inventory_results.append((blob(inv),inv))
+     view_ids=[];scope_ids=[];coverage_ids=[];all_facts=[]
+     for universe in inventory_universes:
+-        scope_id=add('subject-scope',snapshotId=snapshot,sourceUniverse=universe,targetUniverse=universe,relation='file',resolution='enumerated',enumeratorClosure=provider,subjects=E.cset(paths))
++        # file_coverage_subjects narrows only the RETURNED partition's committed subjects; the
++        # file inventory and the binding extent still name every path, so the expected-source
++        # census is genuinely short while the returned Coverage is honestly `complete` over what
++        # it did commit to. Nothing is made unlawful to produce the shape.
++        scope_id=add('subject-scope',snapshotId=snapshot,sourceUniverse=universe,targetUniverse=universe,relation='file',resolution='enumerated',enumeratorClosure=provider,subjects=E.cset(paths if file_coverage_subjects is None else file_coverage_subjects))
+         facts=[]
+         relation_schema=blob((HERE/'relation-payload-schemas.v2.json').read_bytes());coverage_schema=blob((HERE.parent/'native/native-evidence.schemas.v2.json').read_bytes())
+         for row in inventory:
+@@ -184,6 +260,21 @@
+                 cid=add('coverage',scopeId=sid,payloadSchemaDigest=coverage_schema,payloadDigest=blob(payload))
+                 vid=add('view',planId=plan_id,scopeIds=[sid],facts=[],coverageIds=[cid],producerClosure=provider,schemaDigests=sorted([relation_schema,coverage_schema]))
+                 view_ids.append(vid);scope_ids.append(sid);coverage_ids.append(cid)
++    if unsupported_cell is not None:
++        # The lawfully returned answer for an UNSUPPORTED-TYPED request. The producer helper
++        # DERIVES the unavailable pair from the admitted grammars and the committed extent; the
++        # fixture does not assert it, and the native owner admits the record. It is retained in a
++        # real returned view, so it reaches selectedRefs through that view's coverageIds even
++        # though the unsupported-typed account will name no coverageIds at all.
++        sid=add('subject-scope',snapshotId=snapshot,sourceUniverse=universe_ids[0],targetUniverse=universe_ids[0],relation='references',resolution='resolved-binding',enumeratorClosure=provider,subjects=[])
++        payload=H.coverage_result(objects[sid][1],universe_ids[0],True,blobs,paths)
++        admitted=N.admit_coverage_result_v3(payload,objects[sid][1],[],coverage_schema)
++        if admitted['result']!='ADMIT':raise C.AdmissionError('FIXTURE3_UNSUPPORTED_COVERAGE:'+str(admitted))
++        if payload['entry']['coverage']!='unknown' or payload['entry']['deficiency'] is None:
++            raise C.AdmissionError('FIXTURE3_UNSUPPORTED_COVERAGE_NOT_DISCLOSED:'+str(payload['entry']))
++        cid=add('coverage',scopeId=sid,payloadSchemaDigest=coverage_schema,payloadDigest=blob(payload))
++        vid=add('view',planId=plan_id,scopeIds=[sid],facts=[],coverageIds=[cid],producerClosure=provider,schemaDigests=sorted([relation_schema,coverage_schema]))
++        view_ids.append(vid);scope_ids.append(sid);coverage_ids.append(cid)
+     stage_schema={'$schema':'https://json-schema.org/draft/2020-12/schema','$id':'urn:opensip:fixture:evaluator3-view-output','type':'object','additionalProperties':False,'required':['viewId'],'properties':{'viewId':{'type':'string','pattern':'^view2:[0-9a-f]{64}(?![\\s\\S])'}}}
+     stage=blob({'schemaVersion':2,'planId':plan_id,'producerClosure':provider,'operation':'derive-inventory-view','parameters':parameters,'outputDomains':['view'],'outputSchemaDigest':blob(stage_schema)})
+     execution_id=add('execution-plan',planId=plan_id,stages=[{'ordinal':0,'stageSpecDigest':stage,'requires':[],'outputDomains':['view']}])

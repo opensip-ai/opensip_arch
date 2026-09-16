@@ -1,0 +1,32 @@
+--- a38/docs/coop/design-corrections/foundation/check-replay.v3.py
++++ b39/docs/coop/design-corrections/foundation/check-replay.v3.py
+@@ -192,6 +192,29 @@
+   unmatched_count=sum(objects[fid][1]['fingerprint'] is None for fid in proof['findingIds'])
+   assert (actual['verdict'],actual['findingCount'],unmatched_count)==(want,count,unmatched),(name,actual,unmatched_count)
+   exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'unmatchedFindings':unmatched_count})
++ # A6 on complete replayed Runs: co-occurring correspondence conditions publish the first applicable cause once.
++ for name,options,want_reasons in [
++  ('correspondence-projection-unavailable-precedes-population-incomplete',{'symbol_rows':[{'nativeSubjectId':'symbol:x','projectionAvailable':False}],'symbol_state':'partial'},['projection-unavailable']),
++  ('correspondence-population-incomplete-precedes-signature-ambiguous',{'symbol_rows':[{'nativeSubjectId':'symbol:x1'},{'nativeSubjectId':'symbol:x2'}],'symbol_state':'partial'},['population-incomplete','population-incomplete']),
++ ]:
++  graph=positive(**options);actual=R.replay(*graph);run,objects,blobs=graph;proof=objects[objects[run['evaluationSealId']][1]['proofBundleId']][1]
++  findings=[objects[fid][1] for fid in proof['findingIds']]
++  reasons=sorted((f['subjectId'],f['correspondence']['reason']) for f in findings if f['fingerprint'] is None)
++  corr=sorted((d['subjectId'],d['cause']) for r in proof['ruleResults'] for d in r['deficiencies'] if d['source']=='correspondence')
++  assert [c for _,c in reasons]==want_reasons and corr==reasons,(name,reasons,corr)
++  exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'correspondenceReasons':[c for _,c in reasons]})
++ # A9 on complete replayed Runs: required evidence kind absent from the Plan applies regardless of the root value.
++ none_file={'op':'none','relation':'file','minResolution':'enumerated','filters':[]}
++ for name,options,want in [
++  ('required-import-unavailable-false-root-gating-indeterminate',{'atom_override':none_file,'evidence_use':[{'kind':'runtime','requirement':'required'}]},'indeterminate'),
++  ('required-import-unavailable-known-live-failure-dominates',{'evidence_use':[{'kind':'runtime','requirement':'required'}]},'fail'),
++  ('required-import-unavailable-advisory-pass',{'atom_override':none_file,'evidence_use':[{'kind':'runtime','requirement':'required'}],'gate':False},'pass'),
++ ]:
++  graph=positive(**options);actual=R.replay(*graph);run,objects,blobs=graph;proof=objects[objects[run['evaluationSealId']][1]['proofBundleId']][1];rr=proof['ruleResults'][0]
++  roots={p['value'] for p in proof['predicateProofs'] if p['predicateId']=='p'}
++  assert actual['verdict']==want and rr['outcome']==want and any(d['source']=='import' and d['cause']=='evidence-kind-unavailable' for d in rr['deficiencies']),(name,actual,rr['outcome'])
++  assert want!='indeterminate' or roots=={'false'},(name,roots)
++  exports[name]=graph;rows.append({'case':name,'ownerAdmission':'ADMIT','replay':actual,'ruleOutcome':rr['outcome'],'rootValues':sorted(roots)})
+  kind_controls=load('closure_field_kind_controls3','closure_field_kind_controls.v3.py')
+  import types
+  rows.extend(kind_controls.run_controls(types.SimpleNamespace(M=M,C=C,F=F,R=R,positive=positive)))

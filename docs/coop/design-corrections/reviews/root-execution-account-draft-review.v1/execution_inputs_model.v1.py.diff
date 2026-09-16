@@ -1,0 +1,178 @@
+--- source32/execution_inputs_model.v1.py
++++ active-draft/execution_inputs_model.v1.py
+@@ -403,15 +403,40 @@
+     return canon_str_list([p for p in raw if isinstance(p, str)]), None
+ 
+ 
++APPLICABILITY_PRECEDENCE = (
++    ("inapplicable-vcs", "relation vcs-change and admitted VCS observation kind=none"),
++    ("unsupported-typed", "matrix cell state UNSUPPORTED-TYPED"),
++    ("unavailable-unselected", "binding enumerator status unselected"),
++    ("unavailable-null-universe", "binding universe is null"),
++    ("supported-available", "otherwise"),
++)
++
++
+ def derived_applicability(rel: str, uni, en_status: str, matrix_state: str | None, vcs_kind) -> str:
++    """FIRST-MATCH applicability (contract §5, `APPLICABILITY_PRECEDENCE`).
++
++    The order is normative and total: VCS-none, then matrix UNSUPPORTED-TYPED, then an
++    unselected enumerator, then a null binding universe, else supported-available.
++
++    `unavailable-unselected` deliberately precedes `unavailable-null-universe`. The
++    enumeration owner refuses a non-null universe on an unselected enumerator
++    (`enumeration-contract.v1.md` §1), so testing `uni is None` first would make
++    `unavailable-unselected` unreachable and collapse two advertised states into one.
++    With this order the two states have distinct reachable meanings: the enumerator was
++    not selected (optional-unselected disclosure), versus a SELECTED enumerator whose
++    binding has no universe (unavailable binding). Matrix-unsupported still outranks
++    both, so an UNSUPPORTED-TYPED cell discloses its matrix pair even at null U.
++    Malformed binding shapes are rejected by their own owner; no shape is invented here
++    solely to reach a branch.
++    """
+     if rel == "vcs-change" and vcs_kind == "none":
+         return "inapplicable-vcs"
+     if matrix_state == "UNSUPPORTED-TYPED":
+         return "unsupported-typed"
++    if en_status == "unselected":
++        return "unavailable-unselected"
+     if uni is None:
+         return "unavailable-null-universe"
+-    if en_status == "unselected":
+-        return "unavailable-unselected"
+     return "supported-available"
+ 
+ 
+@@ -498,6 +523,12 @@
+                     "coverageId": rec.get("coverageId"),
+                 })
+             if not typed:
++                # No retained Coverage record of this account carries a pair. The account
++                # item is the account's derived primary pair, which for pure missing work
++                # (empty returned partitions, or missing expected subjects over otherwise
++                # complete partitions) is explicitly (None, None). The row stays `partial`
++                # and keeps the account's originating Coverage refs; it does not become
++                # complete and it does not acquire a fabricated provider observation.
+                 items.append({
+                     "source": "account",
+                     "deficiency": acc.get("deficiency"),
+@@ -546,6 +577,29 @@
+     }
+ 
+ 
++def _primary_source_pair(coverage_records: list[dict]) -> tuple:
++    """Deterministic primary pair of an incomplete account: the FIRST retained record
++    that actually carries a typed pair, else `(None, None)`.
++
++    Records arrive in a deterministic order (returned partitions in canonical H order,
++    then any named-but-not-returned Coverage), so the choice is reproducible. The pair
++    is taken whole from one record; deficiency and nativeCause are never unzipped and
++    re-paired across records.
++
++    When the only incompleteness is MISSING WORK -- no returned partition at all, or
++    expected subjects that no returned partition covers -- no retained source carries a
++    pair, so the derived pair is explicitly `(None, None)`. Manufacturing
++    `provider-unavailable` there would assert a provider observation that occurs on no
++    source record, which contract §4/§5 forbid. `(None, None)` is what the proof bridge
++    (composition §9.6) maps to `required-cell-unsatisfied`, so the required obligation
++    is kept, not erased.
++    """
++    for rec in coverage_records:
++        if rec.get("deficiency") is not None or rec.get("nativeCause") is not None:
++            return rec.get("deficiency"), rec.get("nativeCause")
++    return None, None
++
++
+ def _summarize_coverage_records(records: list[dict], expected: set, covered: set) -> dict:
+     """Extraction completeness from ALL owner Coverage records, pairs kept together.
+ 
+@@ -554,6 +608,12 @@
+     examinedExhaustive true. RC-1/RC-3 stay native: resolutionCompleteness.state may
+     be not-applicable or incomplete on a complete extraction. A record's deficiency
+     and nativeCause are never unzipped and re-paired across records.
++
++    An incomplete account's own `(deficiency, nativeCause)` is `_primary_source_pair`:
++    an ACTUAL retained pair when one exists, otherwise explicit null/null for pure
++    missing work. No carrier is invented for census-driven or empty-partition
++    incompleteness. Every retained record, every originating ref and every real native
++    cause survive on `coverageRecords` / `nativeCauses` / `deficiencies` regardless.
+     """
+     missing = expected - covered
+     coverage_records = []
+@@ -593,16 +653,19 @@
+             "censusMissing": [],
+             "coverageRecords": coverage_records,
+         }
++    primary_def, primary_cause = _primary_source_pair(coverage_records)
+     if not coverage_records:
++        # Empty returned partitions: native work is incomplete and NO retained source
++        # carries a pair. Derive null/null; do not manufacture provider-unavailable.
+         return {
+             "accountState": "incomplete",
+             "coverage": "unknown",
+             "resolutionCompletenessState": None,
+             "examinedExhaustive": None,
+-            "deficiency": "provider-unavailable",
++            "deficiency": None,
+             "nativeCause": None,
+             "nativeCauses": [],
+-            "deficiencies": ["provider-unavailable"],
++            "deficiencies": [],
+             "censusMissing": canon_str_list(list(missing)),
+             "coverageRecords": [],
+         }
+@@ -610,9 +673,9 @@
+         "accountState": "incomplete",
+         "coverage": "unknown",
+         "resolutionCompletenessState": rc_state,
+-        "examinedExhaustive": all(r.get("examinedExhaustive") is True for r in coverage_records) if coverage_records else None,
+-        "deficiency": coverage_records[0].get("deficiency") or "provider-unavailable",
+-        "nativeCause": coverage_records[0].get("nativeCause"),
++        "examinedExhaustive": all(r.get("examinedExhaustive") is True for r in coverage_records),
++        "deficiency": primary_def,
++        "nativeCause": primary_cause,
+         "nativeCauses": [r["nativeCause"] for r in coverage_records if r.get("nativeCause")],
+         "deficiencies": [r["deficiency"] for r in coverage_records if r.get("deficiency")],
+         "censusMissing": canon_str_list(list(missing)),
+@@ -1137,7 +1200,14 @@
+                 _add(faults, "EXECUTION_INPUTS_VCS_APPLICABILITY")
+             else:
+                 _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+-        want_u = None if want_app in ("unavailable-unselected", "unavailable-null-universe") else uni
++        # Account sourceUniverse denotes its BINDING's universe coordinate, for every
++        # applicability. Lack of Coverage does not erase that coordinate: an inapplicable-vcs,
++        # unsupported-typed or unavailable account still belongs to the universe its binding
++        # names. A null binding universe stays null. This is an EXTERNAL join to
++        # EnumerationPlanV1.cells[ci].programBindings[po].universe that JSON Schema cannot
++        # express; it is published in contract §5 and annotated on the schema, and enforced
++        # here. targetUniverse is deliberately NOT constrained by this join.
++        want_u = uni
+         if acc.get("sourceUniverse") != want_u:
+             _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+         producer = (binding.get("enumerator") or {}).get("closureId")
+@@ -1237,15 +1307,24 @@
+             recs = summary.get("coverageRecords") or []
+             if recs:
+                 for rec in recs:
++                    # EXACT per-record pair with that record's own originating ref. A
++                    # record whose pair is (null, null) keeps null/null and bridges to
++                    # required-cell-unsatisfied; it never borrows a sibling record's
++                    # carrier and never gains a manufactured one.
+                     deficiencies.append({
+                         "source": "execution", "cause": "native-work-incomplete",
+                         "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],
+                         "required": True, "relation": rel, "resolution": rung,
+-                        "deficiency": rec.get("deficiency") or summary.get("deficiency"),
++                        "deficiency": rec.get("deficiency"),
+                         "nativeCause": rec.get("nativeCause"),
+                         "inputRefs": [rec["inputRef"]] if rec.get("inputRef") else [],
+                     })
+             else:
++                # No retained Coverage record at all: the genuinely missing-source account
++                # row is still published, with the derived null/null pair and whatever
++                # coverageIds the host named (empty when none). The obligation travels to
++                # the proof bridge as required-cell-unsatisfied; it is not dropped and it
++                # is not dressed up as a provider observation.
+                 deficiencies.append({
+                     "source": "execution", "cause": "native-work-incomplete",
+                     "cellOrdinal": ci, "programOrdinal": po, "capabilityId": cell["capabilityId"],

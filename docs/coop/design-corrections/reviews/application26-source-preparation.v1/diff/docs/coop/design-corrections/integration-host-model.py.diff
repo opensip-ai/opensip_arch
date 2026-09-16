@@ -1,0 +1,25 @@
+diff --git a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/integration-host-model.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/integration-host-model.py
+index f079e863..9c46e8c4 100644
+--- a/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/integration-host-model.py
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/integration-host-model.py
+@@ -234,14 +234,18 @@ def admit_repository_discovery(discovery_input, markers, files, ignore_paths=())
+     discovery = S.discovery(discovery_input)
+     if discovery['status'] != 'ACCEPT':
+         raise Refusal('security discovery refused')
+-    provenance = discovery['provenance']; S.validate_input('DiscoveryProvenanceV1', provenance)
++    provenance = discovery['provenance']; S.validate_discovery_provenance(provenance)
+     root = provenance['selectedRoot']
+     observed = {p[len(root) + 1:] for p, row in discovery_input['fs'].items()
+                 if p.startswith(root + '/') and row['kind'] == 'file'}
+     expected_markers = {p for p in observed if p.rpartition('/')[2] in S.DD.WORKSPACE_MARKERS}
+     if set(markers) != expected_markers or not set(files) <= observed:
+         raise DiscoveryInventoryMismatch('native inventory differs from security discovery observations')
+-    boundaries = S.DD.boundary_inventory_from_provenance(provenance)
++    # XA-02 follow-up: the AUTHORITATIVE composition must carry the admitted inventory. `require_admitted_boundaries`
++    # refuses `None` here, so the agreement between the two instruments is structural at this boundary rather than a
++    # convention a caller could drop. The standalone/algorithm lane in `discover_units` keeps accepting `None`, so
++    # the pure reference callers that exercise the shared rule in isolation are unaffected.
++    boundaries = N.require_admitted_boundaries(S.DD.boundary_inventory_from_provenance(provenance))
+     explicit = None if provenance['unitSource'] == 'automatic' else [S.DD.spell_root(S.DD.relative_locator(root, u['path'])) for u in provenance['units']]
+     native = N.discover_units(markers, explicit, boundaries)
+     if native['refused'] is not None:

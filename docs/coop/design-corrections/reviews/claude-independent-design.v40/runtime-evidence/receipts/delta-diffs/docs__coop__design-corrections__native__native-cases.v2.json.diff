@@ -1,0 +1,492 @@
+--- a39/docs/coop/design-corrections/native/native-cases.v2.json
++++ b40/docs/coop/design-corrections/native/native-cases.v2.json
+@@ -1239,6 +1239,28 @@
+     "isCargoWorkspace": false
+    }
+   },
++  "markersCargoNestedWorkspace": {
++   "Cargo.toml": {
++    "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
++    "isCargoWorkspace": true
++   },
++   "nested-x/Cargo.toml": {
++    "sha256": "4444444444444444444444444444444444444444444444444444444444444444",
++    "isCargoWorkspace": false
++   },
++   "nested/Cargo.toml": {
++    "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
++    "isCargoWorkspace": true
++   },
++   "nested/pkg/Cargo.toml": {
++    "sha256": "3333333333333333333333333333333333333333333333333333333333333333",
++    "isCargoWorkspace": false
++   },
++   "nested/pkg/target/debug/build/x/Cargo.toml": {
++    "sha256": "5555555555555555555555555555555555555555555555555555555555555555",
++    "isCargoWorkspace": false
++   }
++  },
+   "markersScope1025": {
+    "pkg0000/package.json": {
+     "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+@@ -12386,6 +12408,262 @@
+    "note": "P22: naming the Cargo workspace root explicitly yields exactly the automatic result (members folded, member target output pruned, `crates/a/src/target` stays source). Naming a member package alone selects that package: files of the unselected member and the unselected root are honest no-program-unit rows, not silently claimed and not over-ignored."
+   },
+   {
++   "id": "units-nested-cargo-workspace-folds-into-the-deepest-surviving-workspace-unit",
++   "feedback": [
++    "R1",
++    "R6",
++    "PR2-P22"
++   ],
++   "kind": "positive",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace"
++     },
++     "bind": "auto"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "."
++      ]
++     },
++     "bind": "expl"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       ".",
++       "nested"
++      ]
++     },
++     "bind": "both"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "nested"
++      ]
++     },
++     "bind": "inner"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "explicit_workspace_roots": [
++       "nested/pkg"
++      ]
++     },
++     "bind": "leaf"
++    },
++    {
++     "fn": "discover_units",
++     "args": {
++      "markers": "$fixtures.markersCargoNestedWorkspace",
++      "boundaries": {
++       "schemaVersion": 2,
++       "source": "security.discovery",
++       "selectedRoot": "/home/alice/repo",
++       "nestedRepositories": [],
++       "nestedProjects": [
++        "nested-x"
++       ],
++       "custodyExcludedUnits": [],
++       "prunedTrees": [
++        {
++         "path": "nested/pkg/target",
++         "reason": "cargo-build-output",
++         "markerCount": 1,
++         "markerCountBasis": "observed-inventory"
++        }
++       ]
++      }
++     },
++     "bind": "bnd"
++    },
++    {
++     "fn": "assign_membership",
++     "args": {
++      "units": "$auto.units",
++      "files": [
++       "nested-x/src/lib.rs",
++       "nested/pkg/src/lib.rs",
++       "nested/pkg/target/debug/x.rs",
++       "nested/src/target/mod.rs",
++       "nested/target/debug/y.rs",
++       "src/main.rs"
++      ]
++     },
++     "bind": "ma"
++    },
++    {
++     "fn": "unit_scope_descriptor",
++     "args": {
++      "units": "$auto.units",
++      "ignore_paths": []
++     },
++     "bind": "s"
++    }
++   ],
++   "expect": {
++    "$auto.refused": null,
++    "$auto.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "Cargo.toml",
++      "markerSha256": "1111111111111111111111111111111111111111111111111111111111111111",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "DISCOVERED",
++      "memberPackageRoots": [
++       "nested",
++       "nested-x",
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$auto.prunedTrees": [
++     {
++      "path": "nested/pkg/target",
++      "reason": "cargo-build-output",
++      "markerCount": 1,
++      "markerCountBasis": "observed-inventory"
++     }
++    ],
++    "$expl.refused": null,
++    "$expl.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "Cargo.toml",
++      "markerSha256": "1111111111111111111111111111111111111111111111111111111111111111",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": [
++       "nested",
++       "nested-x",
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$both.units": "$expl.units",
++    "$inner.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "nested",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-workspace",
++      "markerPath": "nested/Cargo.toml",
++      "markerSha256": "2222222222222222222222222222222222222222222222222222222222222222",
++      "recognizerId": "cargo-workspace",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": [
++       "nested/pkg"
++      ]
++     }
++    ],
++    "$leaf.units": [
++     {
++      "unitOrdinal": 0,
++      "rootPath": "nested/pkg",
++      "languageFamily": "rust",
++      "languageMode": "rust-cargo",
++      "unitKind": "cargo-package",
++      "markerPath": "nested/pkg/Cargo.toml",
++      "markerSha256": "3333333333333333333333333333333333333333333333333333333333333333",
++      "recognizerId": "cargo-package",
++      "recognizerVersion": 1,
++      "provenance": "EXPLICIT",
++      "memberPackageRoots": []
++     }
++    ],
++    "$bnd.refused": null,
++    "$bnd.units.0.memberPackageRoots": [
++     "nested",
++     "nested/pkg"
++    ],
++    "$bnd.boundaries.excludedUnits": [
++     {
++      "path": "nested-x",
++      "marker": "Cargo.toml",
++      "reason": "nested-project",
++      "anchor": "nested-x"
++     }
++    ],
++    "$ma.rows": [
++     {
++      "path": "nested-x/src/lib.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/pkg/src/lib.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/pkg/target/debug/x.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": null,
++      "membership": "syntax-only",
++      "reason": "host-ignore-convention"
++     },
++     {
++      "path": "nested/src/target/mod.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     },
++     {
++      "path": "nested/target/debug/y.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": null,
++      "membership": "syntax-only",
++      "reason": "host-ignore-convention"
++     },
++     {
++      "path": "src/main.rs",
++      "languageFamily": "rust",
++      "unitOrdinal": 0,
++      "membership": "program-member",
++      "reason": "deepest-unit-in-language"
++     }
++    ],
++    "$s.scopeDescriptor.excludedPathPrefixes": [
++     ".git",
++     "nested-x/target",
++     "nested/pkg/target",
++     "nested/target",
++     "node_modules",
++     "target"
++    ]
++   },
++   "note": "U-4b.2: the fold target is the deepest enclosing SURVIVING cargo-workspace unit. `nested` declares a workspace but lies below the root workspace unit, so it is a folded member and `nested/pkg` folds into the root unit too (looking `nested` up as a unit raised StopIteration). Member roots are strict UTF-8 order (`nested-x` before `nested/pkg`); every folded root keeps its `target` pruned while `nested/src/target` stays source. P22: `.` and `.`+`nested` equal the automatic unit, `nested` alone is its own workspace unit with `nested/pkg`, `nested/pkg` alone is a cargo-package unit. U-8: a nested project at `nested-x` is excluded and never folded. Trusted marker observations only; no Cargo layout validity is asserted."
++  },
++  {
+    "id": "scope-1025-first-party-roots-refuses-typed-without-truncation",
+    "feedback": [
+     "R6",
+@@ -21691,6 +21969,197 @@
+      }
+     ]
+    }
++  },
++  {
++   "id": "units-config-effective-allowjs-jsconfig-default",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "jsconfig.json": {
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "js-allowjs",
++    "$u.units.0.unitKind": "js-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-jsconfig-false",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "jsconfig.json": {
++        "allowJs": false,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "ts-tsconfig",
++    "$u.units.0.unitKind": "ts-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-jsconfig-true",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "jsconfig.json": {
++        "allowJs": true,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "js-allowjs",
++    "$u.units.0.unitKind": "js-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-tsconfig-false",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "tsconfig.json": {
++        "allowJs": false,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "ts-tsconfig",
++    "$u.units.0.unitKind": "ts-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-tsconfig-true",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "tsconfig.json": {
++        "allowJs": true,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "js-allowjs",
++    "$u.units.0.unitKind": "js-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-package-only",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "package.json": {
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "js-synthesized",
++    "$u.units.0.unitKind": "js-program"
++   }
++  },
++  {
++   "id": "units-config-effective-allowjs-tsconfig-before-jsconfig",
++   "kind": "positive",
++   "feedback": [
++    "R1"
++   ],
++   "note": "Native §1.2 and U-1: effective allowJs decides mode for both configuration entry names. Standalone trusted marker observation, not compiler execution.",
++   "steps": [
++    {
++     "fn": "discover_units",
++     "bind": "u",
++     "args": {
++      "markers": {
++       "tsconfig.json": {
++        "allowJs": false,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       },
++       "jsconfig.json": {
++        "allowJs": true,
++        "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
++       }
++      }
++     }
++    }
++   ],
++   "expect": {
++    "$u.refused": null,
++    "$u.units.0.languageMode": "ts-tsconfig",
++    "$u.units.0.unitKind": "ts-program"
++   }
+   }
+  ],
+  "revision": "Blind-consumer corrections: M-1 subjectScopeCommitment producing recipe and admitted producer boundary; M-2 closed TypeScript native context."

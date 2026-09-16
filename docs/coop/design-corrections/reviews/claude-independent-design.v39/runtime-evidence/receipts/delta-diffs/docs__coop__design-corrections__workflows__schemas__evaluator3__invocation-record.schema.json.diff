@@ -1,0 +1,313 @@
+--- a38/docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json
++++ b39/docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json
+@@ -729,32 +729,15 @@
+       }
+     },
+     "QueryParams": {
+-      "type": "object",
+-      "additionalProperties": false,
+-      "required": [
+-        "kind",
+-        "operation",
+-        "completeness",
+-        "page"
+-      ],
+-      "properties": {
+-        "kind": {
+-          "const": "query"
+-        },
+-        "operation": {
+-          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
+-        },
+-        "completeness": {
+-          "type": "string",
+-          "enum": [
+-            "required",
+-            "best-effort"
+-          ]
+-        },
+-        "page": {
+-          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Page"
+-        }
+-      }
++      "oneOf": [
++        {
++          "$ref": "#/$defs/PublicQueryParams"
++        },
++        {
++          "$ref": "#/$defs/HostQueryParams"
++        }
++      ],
++      "description": "Closed query-step params: public graph-query:3 operations or the closed host-only extension. The command->operation mapping is command-inventory:3 queryDispatch."
+     },
+     "RenderParams": {
+       "type": "object",
+@@ -2072,6 +2055,268 @@
+         }
+       },
+       "description": "Retained operational replay namespace for a generic mutation. H(workflow.mutation-intent, this complete record) is its idempotencyKey. The admitted immutable invocation and step own effect inputs; a key grants no authority and never deduplicates different fresh requests. Repair apply uses its separate exact content-derived recipe."
++    },
++    "HostQueryOperation": {
++      "type": "string",
++      "enum": [
++        "baseline.inspect",
++        "discovery.recommend",
++        "policy.show",
++        "policy.test",
++        "review.produce-brief"
++      ],
++      "description": "Closed host-only query-step operations for query-class CLI commands whose request has no member of the public graph-query:3 Operation/Params API. Never members of that public Operation enum and never public query operations."
++    },
++    "PublicQueryParams": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "kind",
++        "operation",
++        "completeness",
++        "page",
++        "request"
++      ],
++      "properties": {
++        "kind": {
++          "const": "query"
++        },
++        "operation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Operation"
++        },
++        "completeness": {
++          "type": "string",
++          "enum": [
++            "required",
++            "best-effort"
++          ]
++        },
++        "page": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/Page"
++        },
++        "request": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryRequestV1"
++        }
++      },
++      "description": "A query step over one of the twenty public graph-query:3 operations; request is the complete admitted GraphQueryRequestV1 whose operation, completeness and page equal the step fields (cross-field join)."
++    },
++    "HostQueryParams": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "kind",
++        "operation",
++        "request"
++      ],
++      "properties": {
++        "kind": {
++          "const": "query"
++        },
++        "operation": {
++          "$ref": "#/$defs/HostQueryOperation"
++        },
++        "request": {
++          "oneOf": [
++            {
++              "$ref": "#/$defs/BaselineInspectRequestV1"
++            },
++            {
++              "$ref": "#/$defs/DiscoveryRecommendRequestV1"
++            },
++            {
++              "$ref": "#/$defs/PolicyShowRequestV1"
++            },
++            {
++              "$ref": "#/$defs/PolicyTestRequestV1"
++            },
++            {
++              "$ref": "#/$defs/ReviewBriefProduceRequestV1"
++            }
++          ]
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "required": [
++              "operation"
++            ],
++            "properties": {
++              "operation": {
++                "const": "baseline.inspect"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "request": {
++                "$ref": "#/$defs/BaselineInspectRequestV1"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "operation"
++            ],
++            "properties": {
++              "operation": {
++                "const": "discovery.recommend"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "request": {
++                "$ref": "#/$defs/DiscoveryRecommendRequestV1"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "operation"
++            ],
++            "properties": {
++              "operation": {
++                "const": "policy.show"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "request": {
++                "$ref": "#/$defs/PolicyShowRequestV1"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "operation"
++            ],
++            "properties": {
++              "operation": {
++                "const": "policy.test"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "request": {
++                "$ref": "#/$defs/PolicyTestRequestV1"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "required": [
++              "operation"
++            ],
++            "properties": {
++              "operation": {
++                "const": "review.produce-brief"
++              }
++            }
++          },
++          "then": {
++            "properties": {
++              "request": {
++                "$ref": "#/$defs/ReviewBriefProduceRequestV1"
++              }
++            }
++          }
++        }
++      ],
++      "description": "A query step over one closed host-only operation; request is the closed record of exactly that operation."
++    },
++    "BaselineInspectRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation",
++        "path"
++      ],
++      "properties": {
++        "operation": {
++          "const": "baseline.inspect"
++        },
++        "path": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
++        }
++      },
++      "description": "baseline show [PATH]: the tracked baseline artifact path (default opensip.baseline.json resolved by the host)."
++    },
++    "DiscoveryRecommendRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation"
++      ],
++      "properties": {
++        "operation": {
++          "const": "discovery.recommend"
++        },
++        "emitConfigProposalPath": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
++        }
++      },
++      "description": "recommend [--emit-config-proposal PATH]."
++    },
++    "PolicyShowRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation"
++      ],
++      "properties": {
++        "operation": {
++          "const": "policy.show"
++        }
++      },
++      "description": "policy show: tracked policy and waiver documents resolved at the admitted trust-clock date (host observation, not a request field)."
++    },
++    "PolicyTestRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation",
++        "suitePath"
++      ],
++      "properties": {
++        "operation": {
++          "const": "policy.test"
++        },
++        "suitePath": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
++        }
++      },
++      "description": "policy test SUITE: suitePath names an evaluator3 PolicyTestSuiteV2 document (urn:opensip:product-v1:workflows:evaluator3:policy-test:2); a suite or candidate policy of another major is refused before evaluation."
++    },
++    "ReviewBriefProduceRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "operation",
++        "view",
++        "producer"
++      ],
++      "properties": {
++        "operation": {
++          "const": "review.produce-brief"
++        },
++        "view": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/View"
++        },
++        "producer": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:review:2#/$defs/ReviewerPrincipal"
++        }
++      },
++      "description": "review brief [--producer model|heuristic]: model selects a ReviewerPrincipal of kind model with its admitted modelClosureId; heuristic selects kind policy-rule with id opensip.review.heuristic."
+     }
+   }
+ }

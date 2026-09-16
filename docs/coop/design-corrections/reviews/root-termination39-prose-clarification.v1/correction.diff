@@ -1,0 +1,38 @@
+--- source39/run-termination-contract.v1.md
++++ successor/run-termination-contract.v1.md
+@@ -82,7 +82,9 @@
+ 
+ Deficiencies retained only as dominated provenance (a determinate root, a non-gating or passing rule) are not in
+ the population. An `indeterminate` gating rule, or an `indeterminate` Run, with an empty population is a host
+-invariant violation (`RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_*`), not a silent `VERDICT.INDETERMINATE`.
++invariant violation, not a silent `VERDICT.INDETERMINATE`. The closed internal refusal keys are
++`RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_RULE` for a rule (with its `ruleId` as diagnostic context) and
++`RUN_TERMINATION_UNEXPLAINED_INDETERMINATE_RUN` for the Run.
+ 
+ ## 4. Conditions, bridge and total order
+ 
+@@ -168,8 +170,10 @@
+ **Candidate check** (`check_projection`). A candidate `StepTermination` is compared with the derived projection,
+ and refusals are applied in this fixed order:
+ 
+-1. anything but an object;
+-2. a member outside the projection and delegated members (`RUN_TERMINATION_UNKNOWN_FIELD`);
++1. anything but an object (`RUN_TERMINATION_CANDIDATE_NOT_OBJECT`);
++2. a member outside the closed candidate comparison fields `class`, `runId`, `reasonCodes`, `coverageId`,
++   `errorCode`, `faultCause`, `signal` and the delegated members (`RUN_TERMINATION_UNKNOWN_FIELD`). The three
++   forbidden-class fields are compared at step 3; naming them here does not make their presence lawful;
+ 3. a projection that is not exactly the derived one (`RUN_TERMINATION_NOT_DERIVED`): a wrong class, `runId`,
+    reason set or order, `coverageId` presence or value, or any `errorCode`, `faultCause` or `signal`;
+ 4. a delegated member when no shape validator is supplied (`RUN_TERMINATION_DELEGATED_SHAPE_UNCHECKED`), or when
+@@ -243,7 +247,10 @@
+   over the Run content composed here: identity-and-evidence's `commit-inventory`, "the exact set of typed object
+   identities and retained raw blob digests the commit published for that Run"
+   (`RUN_TERMINATION_RECEIPT_INVENTORY_MISMATCH`). The `objects` and `blobs` composed are therefore the Run's
+-  published retained content, as the reference commit path inventories them, not a wider shared store.
++  published retained content, not a wider shared store. The independent recipe is the identity owner's
++  `commit-inventory` record: `objects` contains exactly the published typed object keys and `blobDigests`
++  exactly the published raw blob keys, in the owning schema's order; its digest is the raw SHA-256 of
++  `C(record)`. The reference function implements this recipe and supplies no additional unpublished input.
+   Receipt schema admission does not establish this join, and no owner invoked on this path discharges it: the
+   commit path mints the digest, and read-only recovery joins it only between the receipt and the association
+   (`attempt-custody.schema.v1.json` `joins.toReceipt`);

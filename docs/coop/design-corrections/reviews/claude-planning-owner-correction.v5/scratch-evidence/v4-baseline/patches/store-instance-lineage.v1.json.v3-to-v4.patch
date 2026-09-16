@@ -1,0 +1,246 @@
+--- v3/docs/v2/architecture/store-instance-lineage.v1.json
++++ v4/docs/v2/architecture/store-instance-lineage.v1.json
+@@ -1,8 +1,18 @@
+ {
+   "schemaVersion": 1,
+-  "standing": "Author correction for review finding PS-01, revision 3. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
++  "standing": "Author correction for review finding PS-01, revision 4. Proposed minimal successor delta to the security S9 owner plus its private lifecycle companion. Not an accepted amendment, not executable product code, not a wire schema and not acceptance of frozen candidate25 bytes. Requires its own substantive review on newly frozen bytes.",
+   "revision": {
+-    "supersedes": "claude-planning-owner-correction.v2 store-instance-lineage.v1.json (sha256 7565223e825ebcfe...), which superseded v1 (sha256 4dd6291fbf526010...)",
++    "supersedes": "claude-planning-owner-correction.v3 store-instance-lineage.v1.json (sha256 170ec81d5d3ad1d4...), which superseded v2 (7565223e825ebcfe...) and v1 (4dd6291fbf526010...)",
++    "v3ToV4Changes": [
++      "Node identity at every decision point is now the FULL TRIPLE, whose instance component is read from the store-root MARKER of the store the transition actually selects. v3 searched by the numeric (storeGeneration, stateSchema) pair, so a retained old branch at (b,4,2) blocked a fresh target at (e,4,2); root executed the actual owner-admitted intentStoreMigrate and v3 wrongly quarantined against owner ABORT at LEASED and owner RESUME-COMMIT at COMMITTED. Accepted as a real defect.",
++      "intentDigest is never a global search key. The record schema already says it may repeat, so it is validated ON the selected node and never scanned for across the node set.",
++      "One admission law, admit_node, is now applied by BOTH publication and recovery, on the decision path. v3 reconstructed a forward node without checking that its predecessor existed and wrote broken ancestry with refusal None; the whole-set invariants helper detected it but was never consulted at the boundary.",
++      "A duplicate exact primary key whose contents disagree refuses instead of selecting the first match.",
++      "Markers are validated for presence and shape before any dereference.",
++      "BUSY, REFUSE and QUARANTINE now make NO companion decision at all and inspect no node, matching the prose. v3 prose said so but the generic non-settled branch still inspected nodes.",
++      "The ancestor re-selection join uses the retained selected marker and the verified chain from the current node, never a global numeric match.",
++      "correctionOf remedy metadata corrected: the owner patch is two hunks and its current filename is security-and-lifecycle.md.S9-pair-law-and-S9.3.patch."
++    ],
+     "v2ToV3Changes": [
+       "Recovery is now CONDITIONAL on the same selection case as publication. v2's durabilityAndReconciliation, recoveryTotality and S9.3 reconstructed a node unconditionally on COMMITTED/DONE; root executed the v2 reconstruct() against the owner-admitted frozen intentRepair and it produced a node whose predecessor equalled its own triple. Accepted as a real defect; see rootCounterexamples.",
+       "The selection case is now a pure function of the admitted intent, never of the stored node set. An earlier draft of this revision asked whether the to pair appeared in the stored ancestry, which let a damaged lineage reclassify a rollback as a forward selection and fabricate a node; that draft failure is retained in the control history.",
+@@ -24,7 +34,7 @@
+     "finding": "PS-01",
+     "withdrawnClaim": "S9 validates the exact old/new (storeInstanceId, storeGeneration, stateSchema) tuple against the transition intent and current registry state.",
+     "reason": "Verified false against frozen candidate25. The substring storeInstance does not occur anywhere in docs/coop/design-corrections/security/security-lifecycle.schemas.v1.json. InstallationTransitionIntentV1 is additionalProperties:false with exactly 11 properties and InstallationTransitionJournalV1 with exactly 20; neither carries a store instance identity. The S9.2 registry member is $defs/NamespaceList, an array of namespace strings, not a store-instance registry.",
+-    "remedy": "The explicit normative S9.3 insertion in patches/security-and-lifecycle.md.S9.3.patch, selecting this private companion. One hunk, pure insertion after S9.2, no member added to any closed public or signed record."
++    "remedy": "The explicit normative insertion in patches/security-and-lifecycle.md.S9-pair-law-and-S9.3.patch: TWO hunks, both pure insertions with no line removed or altered. Hunk 1 states the schema/store pair law inside S9.2 itself; hunk 2 inserts S9.3 between the end of S9.2 and the S10 heading. No member is added to any closed public or signed record."
+   },
+   "frozenSourceAnchors": [
+     {
+@@ -104,7 +114,7 @@
+   ],
+   "ownerSuccessorDelta": {
+     "owner": "docs/v2/contracts/product-v1/security-and-lifecycle.md",
+-    "normativePatch": "patches/security-and-lifecycle.md.S9.3.patch",
++    "normativePatch": "patches/security-and-lifecycle.md.S9-pair-law-and-S9.3.patch",
+     "patchShape": "Two hunks, both pure insertions with no line removed or altered, so they three-way merge cleanly with a separate author S1/S6/S9/WA13 edits. Hunk 1 inserts the explicit schema/store pair law into S9.2 itself, which is existing reference behavior rather than a new choice. Hunk 2 inserts S9.3 between the end of S9.2 and the S10 heading.",
+     "proposedSectionId": "S9.3",
+     "closedPublicRecordsUnchanged": [
+@@ -271,7 +281,8 @@
+         "instanceIdentity": "unchanged; never re-minted",
+         "nodeWritten": false,
+         "recoveryExpectation": "The selected node already exists and was created by an EARLIER, unrelated act. Recovery validates it and never rewrites its predecessor or selectedByIntentDigest.",
+-        "associationEffect": "storeGenerationDigest is unchanged, so every existing association keeps joining by binary equality."
++        "associationEffect": "storeGenerationDigest is unchanged, so every existing association keeps joining by binary equality.",
++        "selectedTriple": "(selectedStoreRoot marker, toStoreGeneration, toStateSchema); the markers must be equal and the triple must equal the current triple."
+       },
+       {
+         "id": "ancestor-reselect",
+@@ -288,7 +299,8 @@
+         "instanceIdentity": "the retained store keeps its ORIGINAL storeInstanceId, read from its unchanged marker; no fresh identity is minted",
+         "nodeWritten": false,
+         "recoveryExpectation": "The re-selected ancestor node already exists with its own origin. Recovery validates it, additionally verifies that it really is an ancestor of the current node (the owner has no lineage knowledge and cannot check this), and never rewrites it.",
+-        "associationEffect": "The active triple becomes byte-identical to the pre-migration triple, so storeGenerationDigest is byte-identical and every association written before the forward transition joins by plain binary equality, with no lineage walk and no row rewrite. Associations in the abandoned forward store keep their own digest and are reached only through the chain or reported unavailable: F35 in the reverse direction."
++        "associationEffect": "The active triple becomes byte-identical to the pre-migration triple, so storeGenerationDigest is byte-identical and every association written before the forward transition joins by plain binary equality, with no lineage walk and no row rewrite. Associations in the abandoned forward store keep their own digest and are reached only through the chain or reported unavailable: F35 in the reverse direction.",
++        "selectedTriple": "(selectedStoreRoot marker of the RETAINED store, toStoreGeneration, toStateSchema); it must lie on the verified chain from the current node. A store at the same numeric pair off that chain never qualifies."
+       },
+       {
+         "id": "forward-selection",
+@@ -305,7 +317,8 @@
+         "instanceIdentity": "freshly allocated for the new store instance",
+         "nodeWritten": true,
+         "recoveryExpectation": "This transition created the node, so recovery MAY reconstruct it from this committed intent plus the two store-root markers. Because the owner forbids a same store here, the reconstructed predecessor can never equal the node itself; recovery refuses rather than writing if it ever would.",
+-        "associationEffect": "Associations already written under the predecessor keep their original digest and are never rewritten. Lookups for them follow the chain or report unavailability."
++        "associationEffect": "Associations already written under the predecessor keep their original digest and are never rewritten. Lookups for them follow the chain or report unavailability.",
++        "selectedTriple": "(selectedStoreRoot marker of the NEWLY materialised store, toStoreGeneration, toStateSchema); its predecessor is (predecessorStoreRoot, fromStoreGeneration, fromStateSchema) and must already exist as a node. A retained branch at the same numeric pair is a different store and does not occupy this triple."
+       },
+       {
+         "id": "unreachable-by-admission",
+@@ -317,7 +330,8 @@
+         "note": "Refused by the owner before the companion sees it. v2 wrongly labelled (5,1)->(4,1) a schema retreat for both rollback kinds; the control now regresses both refusals.",
+         "nodeWritten": false
+       }
+-    ]
++    ],
++    "identityNote": "Every case resolves its selected node by full triple from the store-root markers. The v3 numeric-pair lookup is withdrawn: see rootCounterexamples RC-4."
+   },
+   "abortedAttempts": {
+     "rule": "An attempt that the owner does not settle as committed writes no lineage node, so no node can ever be misread as successful lineage. Only a forward-selection transition creates a node at all.",
+@@ -328,59 +342,52 @@
+   "durabilityAndReconciliation": {
+     "noAtomicityClaimed": "This companion does NOT claim that the public journal record and a private node commit atomically. They are separate durable writes and may be observed one-sided.",
+     "writeOrder": "The journal record reaches COMMITTED durably FIRST; a node is written after, and only in the forward-selection case. A node carrying a transition intentDigest that the owner has not settled as committed is therefore impossible under the rule and is treated as corruption.",
+-    "derivabilityIsCaseBound": "Only a forward selection created a node, so only a forward selection is reconstructible. Its storeGeneration and stateSchema are the journal record own to members, its predecessor generation and schema are the from members, and both storeInstanceIds are read from the store-root markers of the fenced predecessor and the selected store. Because the owner forbids a same store for these operations, the reconstructed predecessor can never equal the node itself.",
++    "derivabilityIsCaseBound": "Only a forward selection created a node, so only a forward selection is reconstructible. Its full triple is (selectedStoreRoot marker, toStoreGeneration, toStateSchema) and its predecessor is (predecessorStoreRoot marker, fromStoreGeneration, fromStateSchema), both read from durable owner state plus the two store-root markers. The reconstruction is then admitted by the same admit_node law publication uses, so a missing predecessor, a disagreeing duplicate key or a broken chain refuses and writes nothing.",
+     "nonForwardIsNotReconstructible": "A same-store or ancestor-reselect transition created no node. Its selected node was created by an EARLIER, unrelated act whose predecessor and origin digest this intent does not carry. Recovery therefore cannot repair a missing node in those cases and must quarantine; fabricating one from the current unrelated intent is exactly the v2 defect.",
+     "undeterminedBarrier": "If a forward-selection node write returns an UNDETERMINED barrier (A10), the writer refuses every further effect of the operation, reopens under the next fence and reconciles: absent means write the reconstruction, byte-identical means done, any difference means quarantine. It never assumes either the old or the new state.",
+-    "boundary": "A node is written at the existing lifecycle-publication durability boundary named in A10, under the held fence and the exact leaseSet, and never inside a level-4 grant-journal append lock."
++    "boundary": "A node is written at the existing lifecycle-publication durability boundary named in A10, under the held fence and the exact leaseSet, and never inside a level-4 grant-journal append lock.",
++    "markersFirst": "Marker presence and shape are validated before any dereference. A missing or unreadable marker refuses immediately and reads nothing."
+   },
+   "recoveryTotality": {
+     "composition": "The companion never decides a journal state itself. It reads the action returned by the frozen recover_transition_journal and acts only where that action settles the transition as committed, which is action RESUME-COMMIT or RELEASE-ONLY with journalStateAfter DONE. Every other action, including BUSY, REFUSE and the owner QUARANTINE, leaves the node set untouched.",
+     "ownerPrecedenceAtPrepared": "At PREPARED the owner decides first and its decision stands: a core operation ABORTs because the published generation was never selected, and a store operation follows the S9 footprint, resuming to DONE only when the old store is fenced RESTORED. The companion then applies the case branch only if the owner settled it as committed. A missing node at PREPARED is never a quarantine and never replaces the owner ABORT.",
+-    "preCommittedInvariant": "It is wrong to say no node exists before COMMITTED: the currently selected store node and its whole ancestry exist and are expected. What must not exist is a NEW node for THIS transition. Precisely: no node may carry this transition intentDigest, and for a forward selection no node may occupy its to pair. Either is a premature NEW-node contradiction and quarantines.",
++    "preCommittedInvariant": "It is wrong to say no node exists before the owner settles a transition: the currently selected store node and its whole ancestry exist and are expected, and a retained branch at the same numeric generation may also exist lawfully. What must not exist is a NEW node for THIS attempt at ITS OWN FULL TRIPLE, built from the selected marker. A node there before settlement, or a node at that triple already claiming this transition as its origin, is a premature-node contradiction and quarantines. A node at a merely equal numeric pair on another branch is a different store and is neither read nor disturbed.",
+     "byOwnerAction": [
+       {
++        "ownerAction": "REFUSE, BUSY or QUARANTINE",
++        "journalStates": "any; fence not held, lease set not re-acquired exactly, registry differs, or a PREPARED store operation with no durable footprint",
++        "companionAction": "no-decision; nothing inspected, nothing read, nothing written"
++      },
++      {
+         "ownerAction": "ABORT",
+-        "journalStates": "LEASED, PREPARING, PREPARED for a core operation, PREPARED for an unfenced store operation",
+-        "companionAction": "none",
+-        "expected": "pre-existing ancestry present and untouched; no node carries this intentDigest",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature new node only"
+-      },
+-      {
+-        "ownerAction": "RELEASE-ONLY with journalStateAfter ABORTED",
++        "journalStates": "LEASED, PREPARING, PREPARED for a core operation, PREPARED for a store operation whose old store is not fenced RESTORED",
++        "companionAction": "none; only the premature-node check at this attempt own full triple",
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only"
++      },
++      {
++        "ownerAction": "RELEASE-ONLY reaching ABORTED",
+         "journalStates": "ABORTED",
+-        "companionAction": "none",
+-        "expected": "same as ABORT",
+-        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature new node only"
+-      },
+-      {
+-        "ownerAction": "RESUME-COMMIT with journalStateAfter DONE",
++        "companionAction": "none; same premature-node check",
++        "ifViolated": "QUARANTINE / MIGRATION.CORRUPT for a premature node only"
++      },
++      {
++        "ownerAction": "RESUME-COMMIT reaching DONE",
+         "journalStates": "COMMITTED, and PREPARED for a store operation whose old store is fenced RESTORED",
+         "companionAction": "apply the case branch",
+-        "forwardSelection": "reconstruct if absent, require byte equality if present",
+-        "sameStoreOrAncestorReselect": "validate the retained node; absent or ambiguous is QUARANTINE; an ancestor reselect additionally verifies the target really is an ancestor of the current node, which the owner cannot check",
++        "forwardSelection": "admit_node the reconstruction at the selected full triple; an existing byte-identical node is idempotent, a disagreeing one refuses",
++        "sameStoreOrAncestorReselect": "validate the retained node at its own full triple; absent, duplicated-and-disagreeing, or claiming this transition as origin refuses; an ancestor must additionally lie on the verified chain from the current node",
+         "ifViolated": "QUARANTINE / MIGRATION.CORRUPT"
+       },
+       {
+-        "ownerAction": "RELEASE-ONLY with journalStateAfter DONE",
++        "ownerAction": "RELEASE-ONLY reaching DONE",
+         "journalStates": "DONE",
+-        "companionAction": "apply the same case branch as RESUME-COMMIT",
++        "companionAction": "the same case branch as RESUME-COMMIT",
+         "ifViolated": "QUARANTINE / MIGRATION.CORRUPT"
+-      },
+-      {
+-        "ownerAction": "BUSY or REFUSE",
+-        "journalStates": "any, when the fence or the exact lease set is not held",
+-        "companionAction": "none; no node decision is made at all",
+-        "ifViolated": "not applicable"
+-      },
+-      {
+-        "ownerAction": "QUARANTINE",
+-        "journalStates": "any, including a differing registry or an ambiguous store footprint",
+-        "companionAction": "none; the owner quarantine stands",
+-        "ifViolated": "not applicable"
+       }
+     ],
+     "originsAreStable": "In every non-forward case the retained node keeps its original predecessor and selectedByIntentDigest. Recovery validates and never rewrites an origin.",
+-    "executedBy": "controls/check_lineage_recovery.py, operationStateMatrix: seven owner-admitted operation cases times all six journal states, using the frozen owner functions."
++    "executedBy": "controls/check_lineage_recovery.py sections C (seven owner-admitted operation cases x six journal states), D (root v3 regressions), E (composed migrate, rollback, second forward selection with a retained branch), F (damaged and duplicate) and G (owner actions that decide nothing).",
++    "noDecisionActions": "BUSY, REFUSE and QUARANTINE make no transition decision, so the companion makes none either: it inspects no node, reads no marker and changes nothing. v3 prose said this but its generic non-settled branch still inspected the node set; law and prose now agree and the behaviour is executed in control section G."
+   },
+   "retryTrace": {
+     "purpose": "Shows that a lawful retry of a byte-identical intent produces no contradiction, and that a retry after a committed transition is refused by the owner's own checks.",
+@@ -443,10 +450,11 @@
+   },
+   "associationJoinRules": {
+     "sameTripleJoin": "An association row joins the active binding when its storeGenerationDigest equals the digest recomputed from the currently admitted binding for that namespace. Plain binary equality; the only join used on the ordinary path.",
+-    "acrossLineage": "When the digests differ, a historical lookup may walk predecessor links from the active node. Each hop must be an admitted node; a missing or contradictory hop ends the walk and the lookup reports unavailability.",
++    "acrossLineage": "When the digests differ, a historical lookup walks predecessor links from the active node by FULL TRIPLE. Each hop must be an admitted node at its exact triple; a node at a merely equal numeric generation on another branch never qualifies as a hop. A missing, duplicated-and-disagreeing or contradictory hop ends the walk and the lookup reports unavailability.",
+     "neverRewrite": "No association row's storeGenerationDigest, receipt, ExecutionId or commitSequence is ever rewritten by a transition, migration, rollback, restore or adoption. A historical receipt stays historically true; a transition changes current selection and availability, never past commitment.",
+     "neverImportAuthority": "Following a hop reports history. It never revives grants, floors or local authority, never makes an abandoned store's row a current commitment, and never substitutes for the receipt, inventory, carrier and operation joins the recovery record already requires.",
+-    "existingCaseCoverage": "F27 already refuses a substituted binding target, F35 already routes migration and restore lookups through admitted lineage without rewriting old ids, and F25 already separates retained assurance from current availability. This correction names the lineage those cases refer to; it proposes no new failure case and no change to the generated F00-F37 matrix."
++    "existingCaseCoverage": "F27 already refuses a substituted binding target, F35 already routes migration and restore lookups through admitted lineage without rewriting old ids, and F25 already separates retained assurance from current availability. This correction names the lineage those cases refer to; it proposes no new failure case and no change to the generated F00-F37 matrix.",
++    "ancestorSelection": "An ancestor re-selection resolves its target from the retained store own marker and then requires that exact triple to lie on the verified chain from the current node. It never guesses globally by numeric pair and never rewrites the retained node origin."
+   },
+   "axisSeparation": {
+     "logicalStateSchema": {
+@@ -484,11 +492,13 @@
+     "No executable product code is authored here. Owning modules are named for implementation planning only; none exists.",
+     "This correction does not touch the closed CommitRecoveryAssociationV1 schema, the F00-F37 case inventory or either generated section of the implementation plan.",
+     "The companion node and recovery rules are a design reference exercised against the frozen owner functions. They are models: no carrier implementation, no crash test and no qualification.",
+-    "Only the two rollback operations can retreat a schema, and StateSchema is currently the two-member enum {1, 2}. A wider enum would admit longer chains and multiple distinct ancestors at one schema; the ancestor-reselect branch already refuses an ambiguous match, but that case has no owner-admitted example to exercise today."
++    "Only the two rollback operations can retreat a schema, and StateSchema is currently the two-member enum {1, 2}. A wider enum would admit longer chains and multiple distinct ancestors at one schema; the ancestor-reselect branch already refuses an ambiguous match, but that case has no owner-admitted example to exercise today.",
++    "Node identity depends on the store-root markers being readable. An unreadable marker refuses rather than guessing, but a marker that is readable and wrong, for example after an out-of-band copy, is in the same stated undetected class as A9.",
++    "The companion asserts no global uniqueness of storeGeneration. Two lawful branches may carry the same numeric pair; only instance identity and the verified chain distinguish them, and a lookup that cannot verify a chain reports unavailability rather than guessing."
+   ],
+   "rootCounterexamples": {
+     "accepted": true,
+-    "source": "root-counterexamples/lineage-recovery-control.py and .json, retained unchanged in this scratch",
++    "source": "root-counterexamples/ retains all four supplied files unchanged: lineage-recovery-control.py/.json against v2 and repeated-generation.py/.json against v3.",
+     "findings": [
+       {
+         "id": "RC-1",
+@@ -507,6 +517,18 @@
+         "what": "The repeated claim that S9.2 publishes no core-rollback store rule was an overstatement.",
+         "rootCause": "Only the short S9.2 prose omits the pair; the published reference enforces it and the S9 footprint owns reselect.",
+         "fix": "Claim withdrawn (A4b). A minimal prose statement of the pair law is inserted into S9.2 itself by the current owner patch."
++      },
++      {
++        "id": "RC-4",
++        "what": "Root built a retained old branch (b,4,2) whose origin digest is unrelated, an active root (a,3,1) and a newly selected instance (e,4,2), then ran the owner-admitted intentStoreMigrate through the actual owner recovery. The owner returned ABORT at LEASED and RESUME-COMMIT at COMMITTED; the v3 companion wrongly quarantined both, claiming a premature node and then a disagreeing reconstruction.",
++        "rootCause": "v3 identified nodes by the numeric (storeGeneration, stateSchema) pair. S9.3 prose itself says such pairs repeat across distinct stores and the primary key is the triple, so the helper contradicted the prose.",
++        "fix": "Every lookup now uses the full triple built from the selected and predecessor store-root markers. A retained branch at the same numeric pair is a different store: it neither blocks admission nor is read as this attempt node. No global generation uniqueness is invented beyond the owner."
++      },
++      {
++        "id": "RC-5",
++        "what": "Root supplied an empty node set to forward reconstruction. v3 wrote a node whose predecessor did not exist, with refusal None; only the unused whole-set invariants helper reported the broken ancestry afterwards.",
++        "rootCause": "Predecessor presence, acyclicity and uniqueness were checked in invariants(), which was never on the decision path, and publication and recovery did not share one admission law.",
++        "fix": "admit_node is the single decision-path law used by publication and recovery: predecessor presence at its exact triple, no self reference, acyclicity after insertion, exactly one lineage root, and primary-key agreement. A refusal writes nothing."
+       }
+     ]
+   },
+@@ -535,5 +557,29 @@
+     "lookupConsequence": "A storeGenerationDigest from the source store is simply not in the local chain. A walk terminates at the local root and the lookup reports unavailability. It never reports the source commitment as locally committed.",
+     "whichActCreatedARoot": "Recorded by the existing owners, installation.rs and backup.rs, and by their own durable records. This companion does not duplicate that distinction, so the six-member record shape is unchanged.",
+     "detectionLimit": "An out-of-band raw copy of a whole store root that bypasses these authorized paths is in the same stated, undetected class as A9."
++  },
++  "identityAndMarkers": {
++    "principle": "A node is identified by its FULL TRIPLE (storeInstanceId, storeGeneration, stateSchema) at every decision point. The numeric pair alone never identifies a node, because S9.2 generations are not monotonic and a retained branch can present the same pair as a fresh target.",
++    "markerContract": {
++      "selectedStoreRoot": "The storeInstanceId read from the root of the store this transition SELECTS: the newly materialised store for a forward selection, the retained ancestor for a re-selection, the unchanged store for a same-store operation.",
++      "predecessorStoreRoot": "The storeInstanceId read from the root of the store the transition comes from.",
++      "validatedBeforeDereference": "Both markers are checked for presence and 32-lowercase-hex shape before any dereference or lookup. A missing or unreadable marker refuses immediately; nothing is read, dereferenced or written.",
++      "caseConsistency": "A same-store operation requires the two markers to be equal; a forward selection requires them to differ. A mismatch refuses."
++    },
++    "intentDigestIsNotAKey": "selectedByIntentDigest is evidence validated ON the selected node, never a search key. The record schema states it may repeat across nodes and retries, so scanning the node set for it would be unsound.",
++    "noInventedUniqueness": "No global uniqueness of storeGeneration is asserted beyond what the owner already enforces. Two distinct stores may lawfully carry the same numeric pair; only their instance identities distinguish them."
++  },
++  "admissionLaw": {
++    "oneLawBothPaths": "Publication and recovery both call admit_node. They cannot diverge, which is the correction for the v3 boundary defect.",
++    "checks": [
++      "Exactly the six members; schemaVersion 1.",
++      "predecessor and selectedByIntentDigest are null together (a lineage root) or non-null together.",
++      "A node never names its own triple as predecessor.",
++      "A non-null predecessor must already EXIST as a node at that exact full triple. This is checked on the decision path, not by a later audit.",
++      "A duplicate exact primary key whose contents disagree refuses; it never selects the first match. A byte-identical key is idempotent.",
++      "After insertion the chain from the new node is acyclic and the node set still has exactly one lineage root."
++    ],
++    "onRefusal": "Nothing is written. The node set returned is the input set unchanged.",
++    "executedBy": "controls/check_lineage_recovery.py section F: absent predecessor, a predecessor naming a node that does not exist, duplicate predecessor keys identical and disagreeing, a duplicate target key disagreeing, a target key holding a different origin, a missing marker, a malformed marker and forward markers naming the same store."
+   }
+ }

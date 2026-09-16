@@ -1,0 +1,266 @@
+{
+ "changedFiles": [
+  {
+   "path": "docs/coop/design-corrections/workflows/check-workflow-projection.v3.py",
+   "before": "56647271dbd7b288f2b3274ac4d4e394b6ba503147f5c39cedc7887b9d5fddc2",
+   "after": "a34824d02ede6bd26bc514531ecc2bf146b0e35722d0420eae1676a5d5db7e25",
+   "rootCapturedStillBefore": true
+  },
+  {
+   "path": "docs/coop/design-corrections/workflows/repair_closed_world_selection.v1.py",
+   "before": "c92ea49d3d488809f3137493d8adc16051bdc7e8d9ce37c30018eda32389da5d",
+   "after": "08fb9b72a5de0e06d5c8e194c020eb3b62db3dae57d5bcd7e441fdd77bd43bc5",
+   "rootCapturedStillBefore": true
+  },
+  {
+   "path": "docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md",
+   "before": "3bdb5c1e6e03033f093c7c096e61b6205781967e8a7d3810489bef4775cfd60d",
+   "after": "1650e55257bc6d9e4bdb4e7ba03473cb7156189190915c4a14231addc94530df",
+   "rootCapturedStillBefore": true
+  },
+  {
+   "path": "docs/coop/design-corrections/workflows/workflows_model.v3.py",
+   "before": "3ba50985fc82ea5dbcc6b5a1487a8373a59938a4d1a310d8e41736fd1ad7f504",
+   "after": "ae7fc67313daa7eb81e6740cf17432eca572951717eb63708b5b8d682506c95c",
+   "rootCapturedStillBefore": true
+  }
+ ],
+ "added": [],
+ "removed": [],
+ "onlyOwnedFilesChanged": true,
+ "delta": {
+  "path": "delta-vs-captured-source.diff",
+  "sha256": "b7c04ff851d1912df37cd91f8e911f6c8c133adf6dee6a4c0ec2a4b31ed41495",
+  "lines": 218
+ },
+ "rootInputsUnchanged": true,
+ "rootCapturedSourceStillCapture": true,
+ "priorReviewsUnchanged": true,
+ "receiptExits": {
+  "p00_copy.receipt.json": 0,
+  "p01_tree.baseline.receipt.json": 0,
+  "p01_tree.hybrid-baseline-owner.hybrid-checker.receipt.json": 0,
+  "p02_battery.baseline.receipt.json": 0,
+  "p03_rootprobe.baseline.receipt.json": 0,
+  "p04_semantic.baseline.receipt.json": 0
+ }
+}
+--- captured-source/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ author/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -3869,6 +3869,117 @@
+              lambda: WF3.repair_preview(CW_PROJECT, CW_TREE, dict(_oc1_adapter, retained=None), CW_RECIPE, CW_FPS[:1], CW_DELETE,
+                                         CW_REQS, ["**"], CW_TRUST, ephemeral=True),
+              "REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE")
++
++# ------------------------------------------------ owner completion 1: exact evidence Run join and declared unavailability
++# A retained closure of another Run refuses by exact identity: the request runId must be identity-model.v3's own
++# identifier of the retained Run record (RC.M is a separate identity instance from the owner's). cw_dyn and cw_neg are
++# fully admitted by close_run above and share cw_pos's Plan, so substitution is controlled with actually admitted Runs as
++# well as with a well-formed arbitrary id. The shared builder is spied: zero calls means refused before any descriptor.
++# SEL is a SEPARATE instance of the selection owner, so its views declare their own unavailability class; that class and
++# the owner's own map typed by exact identity, and everything else propagates as the same object. The views remain
++# trusted host adapters over admitted Runs; no host, snapshot or trust is qualified here.
++_OC1_BUILDER = WF3._base.repair_preview
++
++
++def _oc1_outcome(adapter):
++    """("ADMIT", plan | "REFUSE", Refusal | "PROPAGATE", exception, shared-builder calls)."""
++    calls = []
++
++    def spy(*args, **kwargs):
++        calls.append(1)
++        return _OC1_BUILDER(*args, **kwargs)
++    WF3._base.repair_preview = spy
++    try:
++        return ("ADMIT", WF3.repair_preview(CW_PROJECT, CW_TREE, adapter, CW_RECIPE, CW_FPS[:1], CW_DELETE, CW_REQS, ["**"], CW_TRUST), len(calls))
++    except WF3.Refusal as exc:
++        return ("REFUSE", exc, len(calls))
++    except Exception as exc:
++        return ("PROPAGATE", exc, len(calls))
++    finally:
++        WF3._base.repair_preview = _OC1_BUILDER
++
++
++def _oc1_why(outcome):
++    kind, value, calls = outcome
++    return f"{kind}/{getattr(value, 'detail', type(value).__name__)}/{type(getattr(value, '__cause__', None)).__name__}/{calls}"
++
++
++def _oc1_unavailable(outcome, cause_class, builder_calls):
++    kind, value, calls = outcome
++    cause = getattr(value, "__cause__", None)
++    return (kind == "REFUSE" and (value.error_code, value.detail) == ("REQUEST.PRECONDITION_FAILED", "REPAIR.EVIDENCE_RUN_UNAVAILABLE")
++            and (cause is None if cause_class is None else type(cause) is cause_class) and calls == builder_calls), _oc1_why(outcome)
++
++
++def _oc1_same_object(outcome, marker):
++    return outcome[0] == "PROPAGATE" and outcome[1] is marker, _oc1_why(outcome)
++
++
++def _oc1_raising(method, exc):
++    view = SEL.RetainedRunView(cw_pos_run, cw_pos_obj, cw_pos_blob)
++
++    def raise_it(*args, **kwargs):
++        raise exc
++    setattr(view, method, raise_it)
++    return view
++
++
++_oc1_lawful = _oc1_outcome(_oc1_adapter)
++check("oc1-lawful-full-run-preview-names-the-identity-owner-run-id",
++      _oc1_lawful[0] == "ADMIT" and _oc1_lawful[2] == 1 and _oc1_lawful[1] == cw_pos_plan
++      and _oc1_lawful[1]["descriptor"]["evidenceRunId"] == cw_pos_id == RC.M.identifier("run", cw_pos_run), _oc1_why(_oc1_lawful))
++check("oc1-same-retained-closure-and-plan-with-another-run3-id-refuses-before-descriptor",
++      *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, runId="run3:" + "a" * 64)), None, 0))
++_OC1_SHARED = [(n, i, r, o, b) for n, i, r, o, b in (("dyn", cw_dyn_id, cw_dyn_run, cw_dyn_obj, cw_dyn_blob),
++                                                     ("neg", cw_neg_id, cw_neg_run, cw_neg_obj, cw_neg_blob))
++               if r["planId"] == cw_pos_run["planId"] and i != cw_pos_id and r["evidenceId"] != cw_pos_run["evidenceId"]]
++check("oc1-two-further-admitted-runs-share-the-positive-plan-with-different-evidence", len(_OC1_SHARED) == 2, str(len(_OC1_SHARED)))
++for _oc1_name, _oc1_id, _oc1_run, _oc1_obj, _oc1_blob in _OC1_SHARED:
++    _oc1_own = _oc1_outcome(dict(_oc1_adapter, runId=_oc1_id, retained=SEL.RetainedRunView(_oc1_run, _oc1_obj, _oc1_blob)))
++    check("oc1-admitted-%s-run-own-preview-names-its-own-run-id" % _oc1_name,
++          _oc1_own[0] == "ADMIT" and _oc1_own[1]["descriptor"]["evidenceRunId"] == _oc1_id == RC.M.identifier("run", _oc1_run), _oc1_why(_oc1_own))
++    check("oc1-admitted-%s-run-id-over-the-positive-run-closure-refuses-before-descriptor" % _oc1_name,
++          *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, runId=_oc1_id)), None, 0))
++    check("oc1-positive-run-id-over-the-admitted-%s-run-closure-refuses-before-descriptor" % _oc1_name,
++          *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, retained=SEL.RetainedRunView(_oc1_run, _oc1_obj, _oc1_blob))), None, 0))
++_OC1_SEL = WF3.closed_world_selection()
++check("oc1-each-selection-instance-view-declares-its-own-unavailability-class",
++      SEL is not _OC1_SEL and SEL.RetainedEvidenceUnavailable is not _OC1_SEL.RetainedEvidenceUnavailable
++      and getattr(SEL.RetainedRunView, "UNAVAILABLE", None) is SEL.RetainedEvidenceUnavailable
++      and getattr(_OC1_SEL.RetainedRunView, "UNAVAILABLE", None) is _OC1_SEL.RetainedEvidenceUnavailable)
++_OC1_MISSING = {
++    "finding": ({k: v for k, v in cw_pos_obj.items() if k != cw_pos_obj[cw_pos_run["evidenceId"]][1]["findingIds"][0]}, 0),
++    "subject": ({k: v for k, v in cw_pos_obj.items() if v[0] != "evaluation-subject"}, 1),
++}
++for _oc1_name, _oc1_inst in (("reference", SEL), ("owner", _OC1_SEL)):
++    for _oc1_what, (_oc1_objects, _oc1_calls) in _OC1_MISSING.items():
++        check("oc1-declared-missing-retained-%s-maps-typed-for-a-%s-instance-view" % (_oc1_what, _oc1_name),
++              *_oc1_unavailable(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_inst.RetainedRunView(cw_pos_run, _oc1_objects, cw_pos_blob))),
++                                _oc1_inst.RetainedEvidenceUnavailable, _oc1_calls))
++_OC1_FOREIGN = type("RetainedEvidenceUnavailable", (Exception,), {"__doc__": "Checker-local: the owner's class name, not the owner's class."})
++for _oc1_method in ("matched_findings", "coverage_records"):
++    _oc1_marker = _OC1_FOREIGN("foreign host defect")
++    check("oc1-foreign-same-name-exception-from-%s-propagates-as-the-same-object" % _oc1_method.replace("_", "-"),
++          *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_raising(_oc1_method, _oc1_marker))), _oc1_marker))
++_oc1_marker = OSError("host read fault")
++check("oc1-host-fault-from-matched-findings-propagates-as-the-same-object",
++      *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_oc1_raising("matched_findings", _oc1_marker))), _oc1_marker))
++
++
++class _Oc1UndeclaredView:
++    """Duck-typed retained view that declares no unavailability class."""
++
++    def __init__(self, run, exc):
++        self.run, self._exc = run, exc
++
++    def matched_findings(self):
++        raise self._exc
++
++
++_oc1_marker = SEL.RetainedEvidenceUnavailable("finding:undeclared-view")
++check("oc1-an-undeclared-view-raising-a-separate-owner-instance-class-is-not-normalized",
++      *_oc1_same_object(_oc1_outcome(dict(_oc1_adapter, retained=_Oc1UndeclaredView(cw_pos_run, _oc1_marker))), _oc1_marker))
++check("oc1-shared-builder-restored-after-the-join-controls", WF3._base.repair_preview is _OC1_BUILDER)
+ check("oc1-repair-preview-command-surface-admits-the-owner-plan-without-relabel",
+       QS.project_command_surface(_R2_ENVS["repair-preview"], _R2_CMD["repair-preview"])["parity"]["repair-plan-id"] == cw_pos_plan["repairPlanId"]
+       and _R2_ENVS["repair-preview"]["queryRecord"]["plan"] == cw_pos_plan)
+--- captured-source/docs/coop/design-corrections/workflows/repair_closed_world_selection.v1.py
++++ author/docs/coop/design-corrections/workflows/repair_closed_world_selection.v1.py
+@@ -190,6 +190,11 @@
+     supplies a closure it has already had admitted, and the controls in this unit do exactly
+     that through the foundation replay fixtures.
+     """
++
++    #: The declared unavailability class of this view: the exact `RetainedEvidenceUnavailable` of
++    #: the module instance that defined it. A caller that loaded its own instance of this module
++    #: normalizes by this class identity, never by class name or message.
++    UNAVAILABLE = RetainedEvidenceUnavailable
+ 
+     def __init__(self, run, objects, blobs, parameter_row_of=None):
+         self.run = run
+--- captured-source/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
++++ author/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
+@@ -109,7 +109,7 @@
+ 
+ - Repair targets remain finding-key2. Unmatched → `REQUEST.PRECONDITION_FAILED` / `REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE`.
+ - Several configurations, one fingerprint: compatible metadata (ruleId, subjectPath, kind, qualifiedName, ruleClosure) or `REPAIR.TARGET_METADATA_AMBIGUOUS`. Do not collapse `parameterDigest`.
+-- Preview constructor: `workflows_model.v3.repair_preview` is the evaluator3 owner entry. Before any descriptor it refuses non-authoritative evidence (`REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE`), a missing retained closure or a retained closure of another Run (`REPAIR.EVIDENCE_RUN_UNAVAILABLE`), a non-run3 evidence Run (`REQUEST.SCHEMA_MAJOR_UNSUPPORTED` / `EVALUATION.MIXED_OUTPUT_MAJOR`) and the two target refusals above over the retained matched findings. It builds the descriptor at major 2 through the shared builder and returns only a plan that `admit_repair_plan_v2` admits: repair:2 schema and a recomputed `repairPlanId`. A major-1 plan refuses `EVALUATION.MIXED_OUTPUT_MAJOR`, and an unreminted relabel refuses `CONFIG.INVALID` / `IMPORT.ARTIFACT_CORRUPT`. `workflows_model.v1.repair_preview` remains the historical major-1 constructor (`descriptor_major` defaults to 1).
++- Preview constructor: `workflows_model.v3.repair_preview` is the evaluator3 owner entry. Before any descriptor it refuses non-authoritative evidence (`REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE`), a missing retained closure or a retained closure of another Run (`REPAIR.EVIDENCE_RUN_UNAVAILABLE`), a non-run3 evidence Run (`REQUEST.SCHEMA_MAJOR_UNSUPPORTED` / `EVALUATION.MIXED_OUTPUT_MAJOR`) and the two target refusals above over the retained matched findings. "Another Run" is decided by exact identity: after the run3 check, the request `planId` must be the retained Run's and the request `runId` must equal identity-model.v3 `identifier('run', …)` of the retained Run record, so neither a shared Plan nor another well-formed run3 id names that closure. Retained unavailability maps to `REPAIR.EVIDENCE_RUN_UNAVAILABLE` only for the declared owner class, by exact class identity: this profile's own `repair_closed_world_selection` `RetainedEvidenceUnavailable`, or the class the retained view's type declares as `UNAVAILABLE` (a separately loaded instance of that owner). Class names and messages are never consulted; any other exception, including an unrelated class of the same name, propagates unchanged. The retained view stays a trusted host adapter over an already admitted Run: this join qualifies no host, snapshot or trust. It builds the descriptor at major 2 through the shared builder and returns only a plan that `admit_repair_plan_v2` admits: repair:2 schema and a recomputed `repairPlanId`. A major-1 plan refuses `EVALUATION.MIXED_OUTPUT_MAJOR`, and an unreminted relabel refuses `CONFIG.INVALID` / `IMPORT.ARTIFACT_CORRUPT`. `workflows_model.v1.repair_preview` remains the historical major-1 constructor (`descriptor_major` defaults to 1).
+ - Candidates: matched group-by-fingerprint **after** BaselineEntry-field agreement, one logical `candidateId` carrying **all** `findingIds` and per-occurrence parameters; unmatched stay one candidate per findingId. No representative findingId may drop other configuration evidence. Reviewed-clone suppression is keyed by that logical `candidateId`; fingerprint suppression does not hide unmatched findingId candidates.
+ - Query `findingId` locates any occurrence; `fingerprint` locates matched configurations only.
+ - Graph query (`graph-query:3`, `query-projection-contract.v3.md`): `graph.neighbors|path|reach` use native endpoints, closed per-op params, admitted-Run snapshot join, vertex-domain endpoint admission, single visited-endpoint budget, and mandatory retained Coverage/deficiency disclosure. Other 17 operations keep their existing owners. This unit does not implement a parallel absence evaluator.
+--- captured-source/docs/coop/design-corrections/workflows/workflows_model.v3.py
++++ author/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -67,6 +67,23 @@
+         _SELECTION=importlib.util.module_from_spec(spec);spec.loader.exec_module(_SELECTION)
+     return _SELECTION
+ 
++def retained_unavailable(retained):
++    """The declared retained-unavailability classes, matched by exact class identity only: this profile's own selection
++    instance's class and the class the trusted retained view's type declares as UNAVAILABLE (a separately loaded instance
++    of the same selection owner). Class names and message text are never consulted; any other exception propagates."""
++    declared=getattr(type(retained),'UNAVAILABLE',None)
++    own=closed_world_selection().RetainedEvidenceUnavailable
++    return (own,declared) if isinstance(declared,type) and issubclass(declared,Exception) and declared is not own else (own,)
++
++_IDENTITY=None
++def identity_owner():
++    """identity-model.v3: the exact run3 identifier of a retained Run record is that owner's identifier('run', run)."""
++    global _IDENTITY
++    if _IDENTITY is None:
++        spec=importlib.util.spec_from_file_location('workflow_repair_identity3',PROFILE_ROOT.parent/'foundation/identity-model.v3.py')
++        _IDENTITY=importlib.util.module_from_spec(spec);spec.loader.exec_module(_IDENTITY)
++    return _IDENTITY
++
+ def evaluator3_closed_world(run,targets,edits):
+     """Derive the gate and the display summary from the RETAINED records of the evidence Run.
+ 
+@@ -85,9 +102,11 @@
+     if retained is None:
+         raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE',
+                       'evaluator3 repair preview requires the retained closure of the evidence Run; a caller-selected closed-world record is not admitted here')
++    unavailable=retained_unavailable(retained)
+     try:
+         return S.derive(retained,targets,edits)
+-    except S.RetainedEvidenceUnavailable as exc:
++    except unavailable as exc:
++        if type(exc) not in unavailable:raise
+         raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE',
+                       'a retained record the closed-world selection must read is unavailable: '+str(exc)) from exc
+ 
+@@ -127,10 +146,13 @@
+     """Evaluator3 repair preview: the owner-produced, admitted repair:2 RepairPlanV1.
+ 
+     Before any descriptor exists: authority (exactly as the historical profile), the retained closure of the evidence
+-    Run, a run3 evidence Run whose planId is the retained Run's, and every target a matched finding-key2 of THAT
+-    retained Run with compatible metadata (workflow-projection-contract section 5). The closed-world gate, edits, trust
+-    and requirements then run through the shared builder with this profile's retained-record selector installed, at
+-    descriptor major 2, and the plan is admitted before it is returned."""
++    Run, a run3 evidence Run whose planId is the retained Run's and whose runId is exactly the identity owner's
++    identifier of the retained Run record (a shared Plan or another well-formed run3 id never substitutes), and every
++    target a matched finding-key2 of THAT retained Run with compatible metadata (workflow-projection-contract section 5).
++    The retained view is the trusted host adapter of an already admitted Run; nothing here re-admits or qualifies it.
++    Only its declared unavailability class maps to REPAIR.EVIDENCE_RUN_UNAVAILABLE; other exceptions propagate. The
++    closed-world gate, edits, trust and requirements then run through the shared builder with this profile's
++    retained-record selector installed, at descriptor major 2, and the plan is admitted before it is returned."""
+     if ephemeral or run.get('authority')!='authoritative':
+         raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_NOT_AUTHORITATIVE','run an authoritative analysis first')
+     retained=run.get('retained')
+@@ -141,10 +163,13 @@
+         raise Refusal('REQUEST.SCHEMA_MAJOR_UNSUPPORTED','EVALUATION.MIXED_OUTPUT_MAJOR','a repair:2 plan names an authoritative run3 evidence Run',str(run.get('runId')))
+     if run.get('planId')!=retained.run.get('planId'):
+         raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE','the retained closure is not the evidence Run this request names',str(run.get('planId')))
++    if run['runId']!=identity_owner().identifier('run',retained.run):
++        raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE','the retained closure is not the evidence Run this request names',str(run['runId']))
+     P=projection_owner()
++    unavailable=retained_unavailable(retained)
+     try:matched=[{'findingId':fid,'finding':f} for fid,f in retained.matched_findings()]
+-    except Exception as exc:
+-        if type(exc).__name__!='RetainedEvidenceUnavailable':raise
++    except unavailable as exc:
++        if type(exc) not in unavailable:raise
+         raise Refusal('REQUEST.PRECONDITION_FAILED','REPAIR.EVIDENCE_RUN_UNAVAILABLE','a retained finding the target join must read is unavailable: '+str(exc)) from exc
+     try:P.project_repair_targets(sorted(set(targets)),matched)
+     except P.Refusal as exc:raise Refusal(exc.error_code,exc.detail,exc.remedy,exc.subject) from exc
+

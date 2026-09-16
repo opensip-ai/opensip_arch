@@ -1,0 +1,20 @@
+--- a/verify-applied.py
++++ b/verify-applied.py
+@@ -9,7 +9,7 @@
+  values=[v for v in values if v is not None]
+  assert values and all(type(v) is str and v==values[0] for v in values), 'Absent or conflicting review subject digests'
+  return values[0]
+-import argparse,hashlib,importlib.util,json,subprocess
++import argparse,hashlib,importlib.util,json,subprocess,re
+ p=argparse.ArgumentParser()
+ for name in ('root','stage','out'):p.add_argument('--'+name,type=Path,required=True)
+ p.add_argument('--reference-results',type=Path,required=True)
+@@ -42,7 +42,7 @@
+  q=Path(accepted['snapshotRoot'])/row['path'];assert sha(q)==row['sha256'] and q.stat().st_size==row['bytes'],row['path']
+ applied_paths={row['path'] for row in manifest['files']}
+ variants={v['path']:v for v in app['preservedHistoricalGuideVariants']}
+-assert set(variants)=={dc+'reviews/resume-before-v24-next-review.v1.md',dc+'reviews/resume-before-v23-next-review.v1.md',dc+'reviews/resume-source21-next-review.v1.md'}
++assert set(variants)=={row['path'] for row in accepted['files'] if re.fullmatch(re.escape(dc) + r'reviews/(?:resume-before-v[1-9][0-9]*-next-review\.v1|resume-source21-next-review\.v1)\.md', row['path'])}
+ accepted_by_path={v['path']:v for v in accepted['files']}
+ for rel,v in variants.items():
+  assert rel not in applied_paths

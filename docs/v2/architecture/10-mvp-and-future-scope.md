@@ -1,5 +1,7 @@
 # OpenSIP product scope and delivery stages
 
+The [consolidated product contracts](../contracts/product-v1/README.md), independently reviewed and applied by D-372, supply the complete selected design. [The central register](08-decision-and-readiness-register.md#unified-product-design-readiness) records its acceptance and separate implementation authorization. Language-independent discovery, evidence, workflow and output contracts are implemented by native TS/JS/Rust components where language semantics are required.
+
 > **Current direction — binding scope selection under D-371:** One complete design for the intended product,
 > implemented in stages. The preview is a delivery milestone. Its completed
 > design does not establish completion of the whole product design.

@@ -1,0 +1,1200 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json
+new file mode 100644
+index 00000000..61b741ae
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json
+@@ -0,0 +1,1194 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3",
++  "title": "Bounded read-only graph/query operations over one sealed view (ISOLATED SUCCESSOR major 3)",
++  "description": "Every query names one ProjectId and exactly one view selector. The 20 operation names are unchanged. Parameters are closed per operation. Graph operations (graph.neighbors|path|reach) select an admitted Run plus fact-view set and native endpoints {universe,kind,nativeSubjectId,(packageManifestPath)}. They do not accept LogicalPath-only subject/target. Response ResolvedView for graph.* is {runId} only; request View may still name snapshotId or latest as a resolver that must yield a unique Run. Non-graph snapshot metadata operations keep request View on the response and MUST NOT be forced to run-only. Bounds (schema constants, not request fields): page size 1..1000 (default 100); at most 100000 items per logical operation; traversal depth at most 64; at most 1000000 visited nodes. Work bounds apply across the logical operation and do not reset per page. A bound reached under completeness=required is QUERY.COMPLETENESS_UNMET (indeterminate); under best-effort it is truncated-bound with no continuation past the cap. Queries never materialise facts, invoke a provider, allocate an attempt, seal a Run, derive policy or choose termination. Advisory is cross-joined: true exactly for AdvisoryOperation members, false for graph.* and the remaining non-advisory operations. Evaluator3 schemaMajor 3. params.findingId locates unmatched and matched findings on finding ops. params.fingerprint locates matched occurrences only. RunId is run3. Native/input prefixes stay snapshot2/plan2/closure2/import2/fact2/view2. No global database id and no FactViewId recipe.",
++  "$defs": {
++    "View": {
++      "description": "Request selector. latest is an explicitly trusted host observation of current run identity; it is never derived from static Run bytes. snapshotId is joined to the admitted Run's snapshotId; a host index is not authority. Empty domain is IDENTITY.UNKNOWN with QUERY.VIEW_UNKNOWN. Two candidate Runs for one snapshot is QUERY.VIEW_AMBIGUOUS, not untyped IDENTITY.UNKNOWN-by-count.",
++      "oneOf": [
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "runId"
++          ],
++          "properties": {
++            "runId": {
++              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
++            }
++          }
++        },
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "snapshotId"
++          ],
++          "properties": {
++            "snapshotId": {
++              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
++            }
++          }
++        },
++        {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "latest"
++          ],
++          "properties": {
++            "latest": {
++              "const": true
++            }
++          },
++          "description": "a resolver, never an authority: graph responses must carry ResolvedView {runId}; empty domain is request-rejected"
++        }
++      ]
++    },
++    "ResolvedView": {
++      "description": "Graph-operation response view. Concrete run3 only. latest and snapshotId are forbidden here so a page cannot re-resolve.",
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "runId"
++      ],
++      "properties": {
++        "runId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
++        }
++      }
++    },
++    "ViewDigest": {
++      "description": "Existing view2 identity of an admitted fact-view. Not a new FactViewId recipe.",
++      "type": "string",
++      "pattern": "^view2:[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "FactId": {
++      "type": "string",
++      "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "ScopeId": {
++      "type": "string",
++      "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
++    },
++    "StoredKind": {
++      "type": "string",
++      "enum": [
++        "file",
++        "symbol",
++        "package"
++      ]
++    },
++    "NativeSubjectId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "description": "Native evaluation-subject id as stored on inventory/fact payload. Not a backend numeric id."
++    },
++    "GraphEndpoint": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "universe",
++        "kind",
++        "nativeSubjectId"
++      ],
++      "properties": {
++        "universe": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex",
++          "description": "H-identity of the native semantic universe (fact sourceUniverse/targetUniverse). Required so two program universes with the same path cannot silently union."
++        },
++        "kind": {
++          "$ref": "#/$defs/StoredKind"
++        },
++        "nativeSubjectId": {
++          "$ref": "#/$defs/NativeSubjectId"
++        },
++        "packageManifestPath": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "kind": {
++                "const": "package"
++              }
++            },
++            "required": [
++              "kind"
++            ]
++          },
++          "then": {
++            "required": [
++              "packageManifestPath"
++            ]
++          },
++          "else": {
++            "not": {
++              "required": [
++                "packageManifestPath"
++              ]
++            }
++          }
++        }
++      ]
++    },
++    "GraphDirection": {
++      "type": "string",
++      "enum": [
++        "outgoing",
++        "incoming",
++        "both"
++      ]
++    },
++    "FactViewDigests": {
++      "type": "array",
++      "minItems": 1,
++      "maxItems": 100000,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/ViewDigest"
++      },
++      "x-opensip-order": "canonical-set",
++      "description": "Explicit admitted view2 set. Omitted means all admitted views of the resolved Run whose scopes match relation@minResolution. Silent newest-provider is forbidden."
++    },
++    "GraphNeighborsParams": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "relation",
++        "minResolution",
++        "direction",
++        "endpoint"
++      ],
++      "properties": {
++        "relation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "minResolution": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "direction": {
++          "$ref": "#/$defs/GraphDirection"
++        },
++        "endpoint": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "factViewDigests": {
++          "$ref": "#/$defs/FactViewDigests"
++        }
++      }
++    },
++    "GraphPathParams": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "relation",
++        "minResolution",
++        "direction",
++        "start",
++        "target",
++        "maxDepth"
++      ],
++      "properties": {
++        "relation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "minResolution": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "direction": {
++          "$ref": "#/$defs/GraphDirection"
++        },
++        "start": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "target": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "maxDepth": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 64,
++          "description": "Semantic hop bound (GX-01), not a free work cutoff. Required completion means complete within this declared depth."
++        },
++        "factViewDigests": {
++          "$ref": "#/$defs/FactViewDigests"
++        }
++      }
++    },
++    "GraphReachParams": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "relation",
++        "minResolution",
++        "direction",
++        "start",
++        "maxDepth"
++      ],
++      "properties": {
++        "relation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "minResolution": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "direction": {
++          "$ref": "#/$defs/GraphDirection"
++        },
++        "start": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "maxDepth": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 64,
++          "description": "Semantic hop bound (GX-01)."
++        },
++        "includeStart": {
++          "type": "boolean",
++          "default": false,
++          "description": "Closed reach field. Admission default false when omitted. Start is excluded unless true. Not an optional closing cycle."
++        },
++        "factViewDigests": {
++          "$ref": "#/$defs/FactViewDigests"
++        }
++      }
++    },
++    "Page": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "size"
++      ],
++      "properties": {
++        "size": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 1000
++        },
++        "cursor": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 256,
++          "description": "Opaque host token bound to projectId+runId+factViewDigests+operation+effective params/order+page position. Continuation never re-resolves latest. Reference form q3.<runId-64hex>.<selectionHash64>.<position>."
++        }
++      }
++    },
++    "Operation": {
++      "type": "string",
++      "enum": [
++        "run.show",
++        "run.list",
++        "finding.list",
++        "finding.show",
++        "fact.list",
++        "coverage.show",
++        "artifact.get",
++        "graph.neighbors",
++        "graph.path",
++        "graph.reach",
++        "baseline.show",
++        "comparison.show",
++        "comparison.diff",
++        "candidate.list",
++        "inspection.show",
++        "review.brief",
++        "policy.effective",
++        "import.show",
++        "receipt.show",
++        "availability.show"
++      ]
++    },
++    "GraphOperation": {
++      "type": "string",
++      "enum": [
++        "graph.neighbors",
++        "graph.path",
++        "graph.reach"
++      ]
++    },
++    "AdvisoryOperation": {
++      "type": "string",
++      "enum": [
++        "comparison.diff",
++        "candidate.list",
++        "inspection.show",
++        "review.brief"
++      ]
++    },
++    "Bounds": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "maxPageSize",
++        "defaultPageSize",
++        "maxItemsPerOperation",
++        "maxTraversalDepth",
++        "maxVisitedNodes"
++      ],
++      "properties": {
++        "maxPageSize": {
++          "const": 1000
++        },
++        "defaultPageSize": {
++          "const": 100
++        },
++        "maxItemsPerOperation": {
++          "const": 100000
++        },
++        "maxTraversalDepth": {
++          "const": 64
++        },
++        "maxVisitedNodes": {
++          "const": 1000000
++        }
++      }
++    },
++    "GraphQueryRequestV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaFamily",
++        "schemaMajor",
++        "projectId",
++        "view",
++        "operation",
++        "params",
++        "completeness",
++        "page"
++      ],
++      "properties": {
++        "schemaFamily": {
++          "const": "opensip.product.query"
++        },
++        "schemaMajor": {
++          "const": 3
++        },
++        "projectId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
++        },
++        "view": {
++          "$ref": "#/$defs/View"
++        },
++        "operation": {
++          "$ref": "#/$defs/Operation"
++        },
++        "params": {
++          "type": "object",
++          "description": "Closed per operation by the allOf joins below. Graph ops use GraphNeighborsParams/GraphPathParams/GraphReachParams. Other 17 operations keep Params."
++        },
++        "completeness": {
++          "type": "string",
++          "enum": [
++            "required",
++            "best-effort"
++          ]
++        },
++        "page": {
++          "$ref": "#/$defs/Page"
++        },
++        "fieldSelection": {
++          "type": "array",
++          "maxItems": 64,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++          },
++          "x-opensip-order": "sequence"
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.neighbors"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "params": {
++                "$ref": "#/$defs/GraphNeighborsParams"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.path"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "params": {
++                "$ref": "#/$defs/GraphPathParams"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.reach"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "params": {
++                "$ref": "#/$defs/GraphReachParams"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "not": {
++                  "enum": [
++                    "graph.neighbors",
++                    "graph.path",
++                    "graph.reach"
++                  ]
++                }
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "params": {
++                "$ref": "#/$defs/Params"
++              }
++            }
++          }
++        }
++      ]
++    },
++    "Params": {
++      "description": "Closed optional bag for the 17 non-graph operations only. Graph operations must not use this shape.",
++      "type": "object",
++      "additionalProperties": false,
++      "properties": {
++        "relation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "subject": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
++        },
++        "target": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
++        },
++        "direction": {
++          "type": "string",
++          "enum": [
++            "outgoing",
++            "incoming",
++            "both"
++          ]
++        },
++        "maxDepth": {
++          "type": "integer",
++          "minimum": 1,
++          "maximum": 64
++        },
++        "ruleId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "fingerprint": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
++        },
++        "artifactRef": {
++          "type": "object",
++          "additionalProperties": false,
++          "required": [
++            "domain",
++            "digest"
++          ],
++          "properties": {
++            "domain": {
++              "type": "string",
++              "minLength": 1,
++              "maxLength": 64
++            },
++            "digest": {
++              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
++            }
++          }
++        },
++        "otherRunId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
++        },
++        "baselineId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
++        },
++        "comparisonResultId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ComparisonResultId"
++        },
++        "candidateId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CandidateId"
++        },
++        "importId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ImportId"
++        },
++        "receiptId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ReceiptId"
++        },
++        "includeSuppressed": {
++          "type": "boolean"
++        },
++        "findingId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/FindingId"
++        }
++      }
++    },
++    "CountBasis": {
++      "type": "string",
++      "enum": [
++        "exact",
++        "lower-bound"
++      ],
++      "description": "Qualifies totalItems. exact: totalItems is the cardinality of the declared selection within semantic maxDepth. lower-bound: totalItems is a produced prefix, not a claimed universe cardinality. An empty nextCursor does not by itself make the count exact."
++    },
++    "TraversalCoverage": {
++      "type": "string",
++      "enum": [
++        "complete",
++        "truncated-page",
++        "truncated-bound"
++      ],
++      "description": "Graph traversal completion for the declared semantic depth. complete: no owed unexamined work remains within maxDepth (exactly-at-cap is complete when the queue is empty). truncated-page: this page is full and more result units exist in the produced selection; page fullness is not operation truncation. truncated-bound: a work bound stopped the logical operation and owed unexamined work remains. Not native CoverageResult."
++    },
++    "GraphEvidenceDisclosure": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "coverageIds",
++        "scopeIds",
++        "deficiencyCitations",
++        "resolutionLimitations"
++      ],
++      "description": "Mandatory Q3 disclosure for graph.*. Cites existing native Coverage, scopes, evaluation deficiencies and resolution limitations. Does not mint negative proof or run a parallel absence evaluator.",
++      "properties": {
++        "coverageIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "scopeIds": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/ScopeId"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "deficiencyCitations": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "source",
++              "cause",
++              "inputRefs"
++            ],
++            "properties": {
++              "source": {
++                "type": "string",
++                "enum": [
++                  "enumeration",
++                  "native",
++                  "import",
++                  "execution",
++                  "correspondence"
++                ]
++              },
++              "cause": {
++                "type": "string",
++                "minLength": 1,
++                "maxLength": 128
++              },
++              "subjectId": {
++                "oneOf": [
++                  {
++                    "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SubjectId"
++                  },
++                  {
++                    "type": "null"
++                  }
++                ]
++              },
++              "predicateId": {
++                "oneOf": [
++                  {
++                    "type": "string",
++                    "minLength": 1,
++                    "maxLength": 4096
++                  },
++                  {
++                    "type": "null"
++                  }
++                ]
++              },
++              "inputRefs": {
++                "type": "array",
++                "maxItems": 100000,
++                "uniqueItems": true,
++                "items": {
++                  "type": "object",
++                  "additionalProperties": false,
++                  "required": [
++                    "domain",
++                    "digest"
++                  ],
++                  "properties": {
++                    "domain": {
++                      "type": "string",
++                      "minLength": 1,
++                      "maxLength": 64
++                    },
++                    "digest": {
++                      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
++                    }
++                  }
++                },
++                "x-opensip-order": "canonical-set"
++              },
++              "coverageId": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"
++              },
++              "nativeCause": {
++                "oneOf": [
++                  {
++                    "type": "string",
++                    "minLength": 1,
++                    "maxLength": 128
++                  },
++                  {
++                    "type": "null"
++                  }
++                ]
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        },
++        "resolutionLimitations": {
++          "type": "array",
++          "maxItems": 100000,
++          "items": {
++            "type": "object",
++            "additionalProperties": false,
++            "required": [
++              "kind"
++            ],
++            "properties": {
++              "kind": {
++                "type": "string",
++                "enum": [
++                  "unexamined-work-bound",
++                  "unprojectable-fact",
++                  "resolution-incomplete",
++                  "resolution-partial",
++                  "resolution-not-attempted",
++                  "coverage-unknown",
++                  "coverage-partial",
++                  "unresolved-edge-present",
++                  "examined-not-exhaustive",
++                  "unsupported-rung-omitted",
++                  "incoming-search-incomplete",
++                  "native-evidence-unavailable"
++                ]
++              },
++              "coverageId": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId"
++              },
++              "factId": {
++                "$ref": "#/$defs/FactId"
++              },
++              "examinedExhaustive": {
++                "type": "boolean"
++              },
++              "attempted": {
++                "type": "boolean"
++              },
++              "resolutionState": {
++                "type": "string",
++                "enum": [
++                  "not-attempted",
++                  "partial",
++                  "complete",
++                  "not-applicable",
++                  "incomplete"
++                ]
++              },
++              "relation": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++              },
++              "minResolution": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++              },
++              "unresolvedEdgeCount": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++              },
++              "coverage": {
++                "type": "string",
++                "enum": [
++                  "complete",
++                  "partial",
++                  "unknown"
++                ]
++              },
++              "incomingSearchDigest": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
++              },
++              "note": {
++                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BoundedText"
++              }
++            }
++          },
++          "x-opensip-order": "sequence"
++        }
++      }
++    },
++    "GraphNeighborRow": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "factId",
++        "relation",
++        "resolution",
++        "source",
++        "target"
++      ],
++      "properties": {
++        "factId": {
++          "$ref": "#/$defs/FactId"
++        },
++        "relation": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "resolution": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
++        },
++        "source": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "target": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "producerClosure": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
++        },
++        "confidenceMillionths": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        }
++      }
++    },
++    "GraphPathEdge": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "factId",
++        "source",
++        "target"
++      ],
++      "properties": {
++        "factId": {
++          "$ref": "#/$defs/FactId"
++        },
++        "source": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "target": {
++          "$ref": "#/$defs/GraphEndpoint"
++        }
++      }
++    },
++    "GraphPathRow": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "hopCount",
++        "start",
++        "target",
++        "nodes",
++        "edges"
++      ],
++      "description": "One simple path. start==target yields hopCount 0, nodes [start], edges []. Otherwise shortest hop count with canonical fact2-id-sequence tie-break. No optional closing cycle.",
++      "properties": {
++        "hopCount": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "start": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "target": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "nodes": {
++          "type": "array",
++          "minItems": 1,
++          "maxItems": 65,
++          "items": {
++            "$ref": "#/$defs/GraphEndpoint"
++          },
++          "x-opensip-order": "sequence"
++        },
++        "edges": {
++          "type": "array",
++          "maxItems": 64,
++          "items": {
++            "$ref": "#/$defs/GraphPathEdge"
++          },
++          "x-opensip-order": "sequence"
++        }
++      }
++    },
++    "GraphReachRow": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "endpoint",
++        "depth"
++      ],
++      "properties": {
++        "endpoint": {
++          "$ref": "#/$defs/GraphEndpoint"
++        },
++        "depth": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "viaFactId": {
++          "$ref": "#/$defs/FactId",
++          "description": "Fact that first reached this endpoint on the canonical walk. Omitted for the start row when includeStart is true."
++        }
++      }
++    },
++    "GraphQueryResponseContext": {
++      "type": "object",
++      "description": "Response context for the 17 non-graph operations. resolvedView remains request View so snapshot metadata operations are not forced to run-only. Graph operations MUST use GraphOperationResponseContext instead.",
++      "additionalProperties": false,
++      "required": [
++        "projectId",
++        "resolvedView",
++        "coverage",
++        "availability",
++        "truncated",
++        "totalItems",
++        "advisory"
++      ],
++      "properties": {
++        "projectId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
++        },
++        "resolvedView": {
++          "$ref": "#/$defs/View"
++        },
++        "coverage": {
++          "type": "string",
++          "enum": [
++            "complete",
++            "partial",
++            "unavailable"
++          ]
++        },
++        "availability": {
++          "type": "string",
++          "enum": [
++            "retained",
++            "partial",
++            "expired",
++            "purged",
++            "corrupt",
++            "unavailable"
++          ]
++        },
++        "truncated": {
++          "type": "boolean"
++        },
++        "totalItems": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "nextCursor": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 256
++        },
++        "advisory": {
++          "type": "boolean",
++          "description": "true exactly for AdvisoryOperation members"
++        }
++      }
++    },
++    "GraphOperationResponseContext": {
++      "type": "object",
++      "description": "Mandatory graph.* response context. resolvedView is run3 only. traversalCoverage is not native CoverageResult. totalItems is qualified by countBasis. evidence is required. advisory is const false.",
++      "additionalProperties": false,
++      "required": [
++        "projectId",
++        "resolvedView",
++        "factViewDigests",
++        "availability",
++        "truncated",
++        "totalItems",
++        "countBasis",
++        "traversalCoverage",
++        "visitedNodes",
++        "producedItems",
++        "advisory",
++        "evidence"
++      ],
++      "properties": {
++        "projectId": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
++        },
++        "resolvedView": {
++          "$ref": "#/$defs/ResolvedView"
++        },
++        "factViewDigests": {
++          "type": "array",
++          "maxItems": 100000,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/ViewDigest"
++          },
++          "x-opensip-order": "canonical-set"
++        },
++        "availability": {
++          "type": "string",
++          "enum": [
++            "retained",
++            "partial",
++            "expired",
++            "purged",
++            "corrupt",
++            "unavailable"
++          ]
++        },
++        "truncated": {
++          "type": "boolean",
++          "description": "true iff traversalCoverage is truncated-bound (operation-level). Full page is not truncated."
++        },
++        "totalItems": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "countBasis": {
++          "$ref": "#/$defs/CountBasis"
++        },
++        "traversalCoverage": {
++          "$ref": "#/$defs/TraversalCoverage"
++        },
++        "visitedNodes": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "producedItems": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
++        },
++        "nextCursor": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 256
++        },
++        "advisory": {
++          "const": false
++        },
++        "evidence": {
++          "$ref": "#/$defs/GraphEvidenceDisclosure"
++        }
++      }
++    },
++    "GraphQueryResponseV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaFamily",
++        "schemaMajor",
++        "operation",
++        "context"
++      ],
++      "properties": {
++        "schemaFamily": {
++          "const": "opensip.product.query"
++        },
++        "schemaMajor": {
++          "const": 3
++        },
++        "operation": {
++          "$ref": "#/$defs/Operation"
++        },
++        "context": {
++          "type": "object"
++        },
++        "items": {
++          "type": "array",
++          "maxItems": 1000,
++          "x-opensip-order": "sequence"
++        },
++        "termination": {
++          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/StepTermination"
++        }
++      },
++      "allOf": [
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "$ref": "#/$defs/GraphOperation"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "required": [
++              "items",
++              "context"
++            ],
++            "properties": {
++              "context": {
++                "$ref": "#/$defs/GraphOperationResponseContext"
++              }
++            }
++          },
++          "else": {
++            "properties": {
++              "context": {
++                "$ref": "#/$defs/GraphQueryResponseContext"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.neighbors"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "items": {
++                "type": "array",
++                "maxItems": 1000,
++                "items": {
++                  "$ref": "#/$defs/GraphNeighborRow"
++                },
++                "x-opensip-order": "sequence"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.path"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "items": {
++                "type": "array",
++                "maxItems": 1,
++                "items": {
++                  "$ref": "#/$defs/GraphPathRow"
++                },
++                "x-opensip-order": "sequence"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "const": "graph.reach"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "items": {
++                "type": "array",
++                "maxItems": 1000,
++                "items": {
++                  "$ref": "#/$defs/GraphReachRow"
++                },
++                "x-opensip-order": "sequence"
++              }
++            }
++          }
++        },
++        {
++          "if": {
++            "properties": {
++              "operation": {
++                "$ref": "#/$defs/AdvisoryOperation"
++              }
++            },
++            "required": [
++              "operation"
++            ]
++          },
++          "then": {
++            "properties": {
++              "context": {
++                "type": "object",
++                "required": [
++                  "advisory"
++                ],
++                "properties": {
++                  "advisory": {
++                    "const": true
++                  }
++                }
++              }
++            }
++          }
++        }
++      ]
++    }
++  }
++}

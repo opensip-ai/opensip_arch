@@ -1,0 +1,13 @@
+import { readFileSync,writeFileSync } from 'node:fs';
+import { parseExact } from './dist/exact-json.js';
+import { SchemaRegistry } from './dist/schema.js';
+const arch='/Users/sb/code/opensip-ai/opensip_arch/';
+const pins=JSON.parse(readFileSync(arch+'docs/implementation/m1/metadata-v1/sources.json','utf8'));
+const schemas=pins.schemas.map(pin=>parseExact(readFileSync(arch+pin.path)));
+const registry=new SchemaRegistry(schemas);
+const entrypoints=Object.keys(JSON.parse(readFileSync('/tmp/opensip-implementation/m1-full-generator-trial-01/source-map.json','utf8')).selectedTargets);
+registry.checkEntryPoints(entrypoints);
+const fixtures=parseExact(readFileSync(arch+'docs/implementation/m1/metadata-v1/fixtures.json'));
+const results=fixtures.cases.map(c=>({id:c.id,shape:registry.matches('urn:opensip:product-v1:workflows:evaluator3:command-envelope:4',c.value)}));
+writeFileSync(new URL('schema-outcomes.json',import.meta.url),JSON.stringify({entrypoints:entrypoints.length,results},null,2)+'\n');
+console.log(JSON.stringify({entrypoints:entrypoints.length,cases:results.length}));

@@ -1,0 +1,81 @@
+--- a38/docs/coop/design-corrections/native/native_evidence_model.v2.py
++++ b39/docs/coop/design-corrections/native/native_evidence_model.v2.py
+@@ -1001,8 +1001,11 @@
+         return None
+     table = (dialect or {}).get("table")
+     if not isinstance(table, dict) or not table:
+-        # No closed suffix table on this universe's body axis, so this law does not own it. Rust's
+-        # ownership form and any future form keep their own selection law untouched.
++        # No suffix table was supplied. Identity Run closure always supplies one: the universe row's
++        # body-eligibility table (identity-model.v3 `body_eligibility_table`; this module's `IM` is the
++        # historical identity-model and does not carry it), which for Rust is its closed `.rs` set,
++        # so every published universe is judged (bodyEligibilityLaw). A caller passing nothing gets
++        # no producer-boundary decision here and the closure backstop still decides.
+         return None
+     readable = [source_variant_of_path(p, table) is not None for p in paths]
+     if require_all:
+@@ -2213,7 +2216,11 @@
+         cfg = tsconfig if tsconfig is not None else jsconfig
+         origin = "tsconfig" if tsconfig is not None else "jsconfig"
+         opts = dict(cfg.get("compilerOptions", {}))
+-        allow_js = bool(opts.get("allowJs", origin == "jsconfig")); check_js = bool(opts.get("checkJs", False))
++        # Config-origin defaults are applied before the compiler's computed option.
++        # An explicit allowJs (including false) wins; jsconfig defaults to true;
++        # an absent tsconfig allowJs inherits checkJs. Flags are not completeness.
++        check_js = bool(opts.get("checkJs", False))
++        allow_js = bool(opts.get("allowJs", True if origin == "jsconfig" else check_js))
+         mode = "js-allowjs" if allow_js else "ts-tsconfig"; synthesized = None; synth_version = None
+         program_roots = roots_all if allow_js else [p for p in roots_all if p.endswith(TS_EXT)]
+         js_roots = js_roots if allow_js else []
+@@ -3752,6 +3759,12 @@
+ 
+ RUST_EXT = (".rs",)
+ FAMILY_MARKERS = {"rust": ["Cargo.toml"], "tsjs": ["tsconfig.json", "jsconfig.json", "package.json"]}
++# Section 1.4 U-9 (consumer24 S3): the ONE unit zero-config discovery emits when it finds no rust or tsjs unit. It is
++# not a marker directory and claims no program membership; it gives the syntax-only mode a root to be requested at.
++SYNTAX_ONLY_FALLBACK_UNIT = {"rootPath": "", "languageFamily": "none", "languageMode": "syntax-only",
++                             "unitKind": "syntax-only", "markerPath": "", "markerSha256": None,
++                             "recognizerId": "syntax-only-fallback", "recognizerVersion": 1,
++                             "provenance": "DEFAULTED", "memberPackageRoots": []}
+ # Host ignore conventions are the shared discovery rule's pruned trees (../discovery-defaults.py): dependency trees
+ # (node_modules), VCS trees (.git/.hg/.svn/.jj) and Cargo build output (`target` directly under a Cargo.toml directory),
+ # matched by exact path segment. `packages/target/index.ts` and `src/target/x.ts` are ordinary program members.
+@@ -3831,7 +3844,11 @@
+     with no language marker is CONFIG.INVALID (native.explicit-root-without-marker), never silently dropped.
+     Explicit roots are UNIT SELECTION, never loss of Cargo workspace semantics (P22): naming a Cargo workspace root
+     explicitly keeps its member packages folded (`memberPackageRoots`) so their `target` output stays pruned; naming a
+-    member package alone selects that package as its own `cargo-package` unit."""
++    member package alone selects that package as its own `cargo-package` unit.
++    ZERO-CONFIG SYNTAX-ONLY FALLBACK (section 1.4 U-9, consumer24 S3): with no explicit roots, when no rust or tsjs
++    unit survives pruning and boundary exclusion and the project root is not itself at or below a boundary, exactly
++    one `SYNTAX_ONLY_FALLBACK_UNIT` is emitted (provenance DEFAULTED). It claims no file: membership rows are decided
++    exactly as without it. Explicit roots never get it. Ordering and ordinals are U-4b."""
+     if boundaries is not None:
+         admit_current_boundary_inventory(boundaries)
+     enum = DD.enumerate_units(markers, enforce_limit=False)
+@@ -3939,7 +3956,12 @@
+             if enclosing:
+                 ws = next(u for u in units if u["languageFamily"] == "rust" and u["rootPath"] == enclosing[-1])
+                 ws["memberPackageRoots"] = sorted(set(ws["memberPackageRoots"]) | {d})
+-    units.sort(key=lambda u: (u["rootPath"].encode("utf-8"), u["languageFamily"]))
++    if not units and explicit_workspace_roots is None and _boundary_hit("", boundaries) is None:
++        # U-9: a marker-free project is still analysable. Without this unit the default selection requested
++        # nothing and the Run was an empty successful analysis of a repository full of readable code.
++        units.append(dict(SYNTAX_ONLY_FALLBACK_UNIT))
++    # U-4b: strictly ascending by (UTF-8 bytes of rootPath, UTF-8 bytes of languageFamily); ordinal = index.
++    units.sort(key=lambda u: (u["rootPath"].encode("utf-8"), u["languageFamily"].encode("utf-8")))
+     for i, u in enumerate(units):
+         u["unitOrdinal"] = i
+         validate_native("WorkspaceUnitV2", u)
+@@ -4443,6 +4465,11 @@
+     Explicit user configuration overrides the REQUEST, not this obligation, and an override is a recorded choice
+     with its own provenance rather than a silent narrowing."""
+     admit_release_capability_registry(registry)
++    if not units:
++        # Section 1.4 U-9 (consumer24 S3): zero-config discovery always yields a unit or a typed refusal, so an empty
++        # unit list here is a host composition defect. It refuses as an INTERNAL host invariant (no public detail
++        # code) rather than emitting an empty, successful capability request.
++        raise AdmissionError("NATIVE_DEFAULT_SELECTION_WITHOUT_UNIT")
+     available = {(r["capabilityId"], mode) for r in registry for mode in r["languageModes"]}
+     requested, undeclared = [], []
+     for u in units:

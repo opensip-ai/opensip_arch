@@ -1,0 +1,66 @@
+# coop/design-corrections/workflows/schemas/evaluator3/baseline-artifact.schema.json
+top-level keys: $schema, $id, title, description, type, additionalProperties, required, properties, $defs
+## $schema: "https://json-schema.org/draft/2020-12/schema"
+## $id: "urn:opensip:product-v1:workflows:evaluator3:baseline:2"
+## title: "BaselineArtifact schemaMajor 2 — evaluator3 unmatched-occurrence profile"
+## description: "Identity-bearing descriptor schemaMajor is 2 because unmatchedOccurrences is a required member of the H('workflow.baseline', descriptor) preimage. Historical schemaMajor 1 artifacts are refused (BASELINE.SCHEMA_MAJOR_UNSUPPORTED / REQUEST.SCHEMA_MAJOR_UNSUPPORTED). They MUST NOT be admitted by treating a missing unmatched array as []. RunId is run3. Fingerprint recipe remains finding-fingerprint / finding-key2. Policy embed is PolicyDocumentV2; Scope/Waiver remain V1 on the original owner document."
+## type: "object"
+## additionalProperties: false
+## required: ["baselineId", "descriptor", "custody"]
+## properties: keys=["baselineId", "descriptor", "custody"]
+### BaselineDescriptor | type="object" | required=["schemaFamily", "schemaMajor", "originProjectId", "source", "runId", "planId", "fingerprintRecipe", "detectorClosure", "pivotClosure", "context", "contextDocuments", "ruleCoverage", "entries", "unmatchedOccurrences"] | additionalProperties=false | description="Identity-bearing: H('workflow.baseline', descriptor). Excludes RequestId, ExecutionId, clocks, receipts, host release and signatures."
+  schemaFamily: const="opensip.product.baseline"
+  schemaMajor: const=2
+  originProjectId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ProjectId"
+  source: type="object" | additionalProperties=false | required=["snapshotId"] | properties=["snapshotId", "vcsRevision"]
+      snapshotId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SnapshotId"
+      vcsRevision: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/VcsRevision"
+  runId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+  planId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+  fingerprintRecipe: type="object" | additionalProperties=false | required=["domain", "recipeMajor"] | properties=["domain", "recipeMajor"]
+      domain: const="finding-fingerprint"
+      recipeMajor: type="integer" | minimum=2 | maximum=65535
+  detectorClosure: type="array" | minItems=1 | maxItems=64 | x-opensip-order="sequence" | items={"$ref": "#/$defs/DetectorClosureEntry"}
+  pivotClosure: type="array" | minItems=1 | maxItems=256 | uniqueItems=true | x-opensip-order={"by": ["closureId"]} | items={"$ref": "#/$defs/PivotClosureEntry"}
+  context: $ref="urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/EvaluationContext"
+  contextDocuments: type="object" | additionalProperties=false | required=["policy", "scope", "waivers"] | properties=["policy", "scope", "waivers"]
+      policy: $ref="urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2"
+      scope: $ref="urn:opensip:product-v1:workflows:policy-document#/$defs/ScopeDocumentV1"
+      waivers: $ref="urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
+  ruleCoverage: type="array" | maxItems=4096 | x-opensip-order="sequence" | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:comparison:2#/$defs/RuleCoverage"}
+  entries: type="array" | minItems=0 | maxItems=1048576 | x-opensip-order={"by": ["fingerprint"]} | items={"$ref": "#/$defs/BaselineEntry"}
+  unmatchedOccurrences: type="array" | maxItems=1048576 | uniqueItems=true | x-opensip-order={"by": ["findingId"]} | items={"$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UnmatchedOccurrence"}
+### DetectorClosureEntry | type="object" | required=["detectorId", "closureId", "semanticsMajor", "semanticVersion", "contributionId", "manifestDigest"] | additionalProperties=false
+  detectorId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  closureId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+  semanticsMajor: type="integer" | minimum=0 | maximum=65535
+  semanticVersion: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SemanticVersion"
+  contributionId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ContributionId"
+  manifestDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+### PivotClosureEntry | type="object" | required=["closureId", "kind", "manifestDigest", "protocolMajor", "platform"] | additionalProperties=false
+  closureId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/ClosureId"
+  kind: type="string" | enum=["detector", "evaluator", "provider", "toolchain", "stdlib", "schema-set"]
+  manifestDigest: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+  protocolMajor: type="integer" | minimum=0 | maximum=65535
+  platform: type="string" | minLength=1 | maxLength=64
+### BaselineEntry | type="object" | required=["fingerprint", "ruleId", "detectorId", "stabilityClass", "subjectPath", "waived"] | additionalProperties=false
+  fingerprint: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Fingerprint"
+  legacyFingerprint: type="string" | minLength=1 | maxLength=256
+  ruleId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  detectorId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CanonicalIdentifier"
+  stabilityClass: type="string" | enum=["rename-stable", "path-stable", "span-fallback"]
+  subjectPath: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/LogicalPath"
+  waived: type="boolean"
+### Custody | type="object" | required=["exportedByHostRelease", "exportedAtUtc", "runRetainedAtExport", "retentionPins"] | additionalProperties=false | description="Non-identity custody envelope. Time and host release are disclosure only; they never enter baselineId."
+  exportedByHostRelease: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/SemanticVersion"
+  exportedAtUtc: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UtcTimestamp"
+  runRetainedAtExport: type="boolean"
+  retentionPins: type="array" | maxItems=320 | uniqueItems=true | x-opensip-order="sequence" | items={"pattern": "^(run3|closure2):[0-9a-f]{64}(?![\\s\\S])", "type": "string"}
+  closureBundle: type="object" | additionalProperties=false | required=["path", "sha256", "bytes"] | properties=["bytes", "path", "sha256"]
+      path: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+      sha256: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+      bytes: type="integer" | minimum=1 | maximum=4294967296
+  signature: type="object" | additionalProperties=false | required=["scheme", "keyId", "value"] | properties=["keyId", "scheme", "value"]
+      scheme: const="ed25519"
+      keyId: $ref="urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+      value: type="string" | pattern="^[0-9a-f]{128}(?![\\s\\S])"

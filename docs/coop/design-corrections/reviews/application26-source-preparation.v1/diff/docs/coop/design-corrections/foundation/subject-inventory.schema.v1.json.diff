@@ -1,0 +1,588 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/subject-inventory.schema.v1.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/subject-inventory.schema.v1.json
+new file mode 100644
+index 00000000..0bf12db5
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/subject-inventory.schema.v1.json
+@@ -0,0 +1,582 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.subject-inventory.1",
++  "title": "SubjectInventoryV1 — native-attested inventory result (DRAFT, isolated successor)",
++  "description": "Closed Draft 2020-12 producer-output record. Locator identity is (planId, parameterDigest, cellOrdinal, programOrdinal, kind) — one result per that tuple. No H-domain, no per-row self-hash, no expected-findings flag. Rows and examinedPaths are native attestations; the host does not recompute symbol extraction. Raw SHA-256 of C(this record) is the retained canonical-record digest. 4 MiB C-byte ceiling, no truncation. Standing: draft only.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "planId",
++    "parameterDigest",
++    "cellOrdinal",
++    "programOrdinal",
++    "kind",
++    "state",
++    "deficiency",
++    "nativeCause",
++    "examinedPaths",
++    "rows"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 1
++    },
++    "planId": {
++      "type": "string",
++      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "Locates the Plan whose EnumerationPlanV1 parameter committed the binding. Not hashed as a parent into the parameter."
++    },
++    "parameterDigest": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++      "x-opensip-digest": {
++        "representation": "canonical-record",
++        "retention": "preimage",
++        "authority": "foundation",
++        "record": {
++          "document": "foundation/enumeration-plan.schema.v1.json",
++          "selector": "#",
++          "payloadClass": "parameter"
++        }
++      },
++      "description": "raw SHA-256 of C(EnumerationPlanV1). Equals analysis-spec.parameters[].payloadDigest for that document."
++    },
++    "cellOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 1023,
++      "description": "0-based index into EnumerationPlanV1.cells after the required capId/mode/root order."
++    },
++    "programOrdinal": {
++      "type": "integer",
++      "minimum": 0,
++      "maximum": 127,
++      "description": "ProgramBindingV1.ordinal of that cell."
++    },
++    "kind": {
++      "type": "string",
++      "enum": [
++        "file",
++        "symbol",
++        "package"
++      ]
++    },
++    "state": {
++      "type": "string",
++      "enum": [
++        "complete",
++        "partial",
++        "unavailable"
++      ]
++    },
++    "deficiency": {
++      "oneOf": [
++        {
++          "$ref": "#/$defs/EnumerationDeficiencyV1"
++        },
++        {
++          "type": "null"
++        }
++      ],
++      "description": "null iff state=complete. Required non-null for partial and unavailable. Native DeficiencyV2 members keep owner carrier law. Local member source-syntax-invalid requires nativeCause null and is NOT added to copied DeficiencyV2/NativeCause. Known named-package rows remain on partial parse failure."
++    },
++    "nativeCause": {
++      "oneOf": [
++        {
++          "$ref": "#/$defs/NativeCause"
++        },
++        {
++          "type": "null"
++        }
++      ]
++    },
++    "examinedPaths": {
++      "type": "array",
++      "maxItems": 100000,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/LogicalPath"
++      },
++      "x-opensip-order": "canonical-set",
++      "description": "Native-attested examined path set. Compare as a parsed path set to the binding's KindExtentV1.paths of this kind — never compare mixed digest encodings. Each examined path MUST be a member of that extent. PARTIAL MAY equal the extent (timeout inside the last file). COMPLETE FILE requires set equality with the file extent AND a row per path."
++    },
++    "rows": {
++      "type": "array",
++      "maxItems": 100000,
++      "uniqueItems": true,
++      "items": {
++        "$ref": "#/$defs/InventoryRowV1"
++      },
++      "x-opensip-order": "sequence",
++      "description": "Kind-specific unique order is applied in allOf. File/symbol unique nativeSubjectId; package unique (nativeSubjectId, path) so two first-party manifests may share a packageName."
++    }
++  },
++  "allOf": [
++    {
++      "if": {
++        "properties": {
++          "state": {
++            "const": "unavailable"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "rows": {
++            "maxItems": 0
++          },
++          "examinedPaths": {
++            "maxItems": 0
++          },
++          "deficiency": {
++            "$ref": "#/$defs/EnumerationDeficiencyV1"
++          }
++        },
++        "not": {
++          "properties": {
++            "deficiency": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "state": {
++            "const": "complete"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "deficiency": {
++            "type": "null"
++          },
++          "nativeCause": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "state": {
++            "const": "partial"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "deficiency": {
++            "$ref": "#/$defs/EnumerationDeficiencyV1"
++          }
++        },
++        "not": {
++          "properties": {
++            "deficiency": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "file"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "rows": {
++            "items": {
++              "properties": {
++                "kind": {
++                  "const": "file"
++                },
++                "signatureTokens": {
++                  "maxItems": 0
++                },
++                "projections": {
++                  "maxItems": 0
++                }
++              },
++              "required": [
++                "path"
++              ],
++              "not": {
++                "required": [
++                  "exported"
++                ]
++              }
++            },
++            "x-opensip-order": {
++              "by": [
++                "nativeSubjectId"
++              ]
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "package"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "rows": {
++            "items": {
++              "properties": {
++                "kind": {
++                  "const": "package"
++                },
++                "subjectLanguage": {
++                  "enum": [
++                    "json",
++                    "toml"
++                  ]
++                },
++                "signatureTokens": {
++                  "maxItems": 0
++                },
++                "projections": {
++                  "maxItems": 0
++                }
++              },
++              "required": [
++                "path"
++              ],
++              "not": {
++                "required": [
++                  "exported"
++                ]
++              }
++            },
++            "x-opensip-order": {
++              "by": [
++                "nativeSubjectId",
++                "path"
++              ]
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "symbol"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "rows": {
++            "items": {
++              "properties": {
++                "kind": {
++                  "const": "symbol"
++                },
++                "nativeSubjectId": {
++                  "type": "string",
++                  "minLength": 3,
++                  "maxLength": 4096,
++                  "pattern": "^[a-z][a-z0-9-]*:[^\\u0000-\\u001f\\u007f-\\u009f]+(?![\\s\\S])",
++                  "description": "Exact SubjectIdV1 owner admission (relation-payload-schemas.v2.json#/$defs/SubjectIdV1). This draft does not invent a second spelling."
++                }
++              },
++              "required": [
++                "path",
++                "exported",
++                "projections"
++              ]
++            },
++            "x-opensip-order": {
++              "by": [
++                "nativeSubjectId"
++              ]
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "deficiency": {
++            "const": "source-syntax-invalid"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "nativeCause": {
++            "type": "null"
++          }
++        },
++        "not": {
++          "properties": {
++            "nativeCause": {
++              "not": {
++                "type": "null"
++              }
++            }
++          }
++        }
++      }
++    }
++  ],
++  "x-opensip-new-internal-faults": {
++    "standing": "NEW/internal pending root public-registry integration. Not existing DomainDetailCode members.",
++    "keys": [
++      "ENUMERATION_INVENTORY_MISSING_RECORD",
++      "ENUMERATION_INVENTORY_FILE_TOTALITY",
++      "ENUMERATION_INVENTORY_KIND_EXTENT_MISMATCH",
++      "ENUMERATION_INVENTORY_ORDINAL_UNBOUND",
++      "ENUMERATION_INVENTORY_EXAMINED_OUTSIDE_EXTENT",
++      "ENUMERATION_INVENTORY_EXTERNAL_PATH"
++    ]
++  },
++  "x-opensip-subject-language-table": {
++    "standing": "Closed. Subject language is the language of path via this suffix table, never the universe engine language. Longest suffix wins. Unlisted suffix => unspecified. No known-unbundled table is published here; adding one is a versioned registry change with concrete entries.",
++    "authority": "native/native-evidence.schemas.v2.json#/x-opensip-grammar-capability-registry/languages plus this document for unspecified",
++    "members": [
++      {
++        "languageId": "typescript",
++        "suffixes": [
++          ".cts",
++          ".mts",
++          ".ts",
++          ".tsx"
++        ]
++      },
++      {
++        "languageId": "javascript",
++        "suffixes": [
++          ".cjs",
++          ".js",
++          ".jsx",
++          ".mjs"
++        ]
++      },
++      {
++        "languageId": "rust",
++        "suffixes": [
++          ".rs"
++        ]
++      },
++      {
++        "languageId": "json",
++        "suffixes": [
++          ".json"
++        ]
++      },
++      {
++        "languageId": "toml",
++        "suffixes": [
++          ".toml"
++        ]
++      },
++      {
++        "languageId": "markdown",
++        "suffixes": [
++          ".md"
++        ]
++      },
++      {
++        "languageId": "yaml",
++        "suffixes": [
++          ".yaml",
++          ".yml"
++        ]
++      }
++    ],
++    "packageLanguage": "Manifest FORMAT language only: package.json => json, Cargo.toml => toml. Not ecosystem javascript/rust and not engine syntax.",
++    "unspecified": "Suffix not in this table, including extensionless and unknown extensions."
++  },
++  "$defs": {
++    "EnumerationDeficiencyV1": {
++      "oneOf": [
++        {
++          "$ref": "#/$defs/DeficiencyV2"
++        },
++        {
++          "const": "source-syntax-invalid"
++        }
++      ],
++      "description": "Enumeration-local deficiency vocabulary: copied native DeficiencyV2 OR the local member source-syntax-invalid. Do not add the local member to copied DeficiencyV2 or NativeCause. nativeCause MUST be null for the local member. Complete inventories forbid any deficiency. Partial/unavailable condition references this local def. Parse/classification failure of a first-party manifest is this local member, never provider-unavailable."
++    },
++    "LogicalPath": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
++      "not": {
++        "pattern": "(^|/)\\.\\.?(/|$)"
++      },
++      "description": "Byte-identical constraint to identity-schemas.v2.json#/$defs/LogicalPath."
++    },
++    "DeficiencyV2": {
++      "type": "string",
++      "enum": [
++        "language-tier-unsupported",
++        "provider-unavailable",
++        "input-closure-incomplete",
++        "budget-exhausted",
++        "confidence-floor-unmet",
++        "derivation-policy-unmet",
++        "resolution-incomplete",
++        "external-consumers-unknown",
++        "required-relation-missing"
++      ],
++      "description": "Copied closed membership of native-evidence.schemas.v2.json#/$defs/DeficiencyV2."
++    },
++    "NativeCause": {
++      "type": "string",
++      "enum": [
++        "body-language-owner-ambiguous",
++        "body-language-owner-unenumerated",
++        "body-language-ownership-missing",
++        "capability-missing",
++        "config-flag-stripped",
++        "generated-file-missing",
++        "generated-file-out-of-bounds",
++        "generated-output-unavailable",
++        "linker-unavailable",
++        "lockfile-missing",
++        "missing-dependency-source",
++        "no-program-unit",
++        "node-modules-outside-read-set",
++        "source-replacement-outside-snapshot"
++      ],
++      "description": "Copied closed membership of native-evidence.schemas.v2.json#/$defs/NativeCause."
++    },
++    "SubjectLanguage": {
++      "type": "string",
++      "enum": [
++        "typescript",
++        "javascript",
++        "rust",
++        "json",
++        "toml",
++        "markdown",
++        "yaml",
++        "unspecified"
++      ]
++    },
++    "DetectorProjectionV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "closureId",
++        "signatureTokens"
++      ],
++      "description": "Per-detector token projection bound to a selected detector closure. Naming finding.ruleClosure alone does NOT compute a discriminator. Empty signatureTokens on a symbol projection is unavailable projection (pending GR6), NOT the file/package canonical-empty discriminator and NOT anonymous-symbol correspondence.",
++      "properties": {
++        "closureId": {
++          "type": "string",
++          "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
++          "description": "Selected detector closure (kind=detector). Reconstruction of a finding discriminator MUST use the projection whose closureId equals that finding's ruleClosure."
++        },
++        "signatureTokens": {
++          "type": "array",
++          "maxItems": 256,
++          "items": {
++            "type": "string",
++            "minLength": 0,
++            "maxLength": 4096
++          },
++          "x-opensip-order": "sequence",
++          "description": "Grammar order, repeats retained. Sequence, not a set."
++        }
++      }
++    },
++    "InventoryRowV1": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "nativeSubjectId",
++        "kind",
++        "path",
++        "qualifiedName",
++        "subjectLanguage",
++        "signatureTokens",
++        "projections"
++      ],
++      "properties": {
++        "nativeSubjectId": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096,
++          "description": "Scope.subjects spelling: LogicalPath for file; package name for package; SubjectIdV1 for symbol."
++        },
++        "kind": {
++          "type": "string",
++          "enum": [
++            "file",
++            "symbol",
++            "package"
++          ]
++        },
++        "path": {
++          "$ref": "#/$defs/LogicalPath",
++          "description": "File: the snapshot path (equals nativeSubjectId). Package: first-party manifestPath. Symbol: trusted attributed first-party snapshot path in the symbol extent. Never an invented external/node_modules path (NEW ENUMERATION_INVENTORY_EXTERNAL_PATH)."
++        },
++        "qualifiedName": {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        "subjectLanguage": {
++          "$ref": "#/$defs/SubjectLanguage"
++        },
++        "exported": {
++          "type": "string",
++          "enum": [
++            "exported",
++            "not-exported",
++            "unknown"
++          ],
++          "description": "Symbol rows only. File/package must omit this field."
++        },
++        "signatureTokens": {
++          "type": "array",
++          "maxItems": 256,
++          "items": {
++            "type": "string",
++            "minLength": 0,
++            "maxLength": 4096
++          },
++          "x-opensip-order": "sequence",
++          "description": "Enumerator-native tokens. File/package MUST be empty (canonical [] discriminator). Symbol empty tokens here do not establish correspondence (identity-and-evidence §3 anonymous unmatched)."
++        },
++        "projections": {
++          "type": "array",
++          "maxItems": 64,
++          "uniqueItems": true,
++          "items": {
++            "$ref": "#/$defs/DetectorProjectionV1"
++          },
++          "x-opensip-order": {
++            "by": [
++              "closureId"
++            ]
++          },
++          "description": "Symbol: one row per selected detector that projected this subject; empty array means projection unavailable (GR6). File/package MUST be empty."
++        }
++      }
++    }
++  }
++}

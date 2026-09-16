@@ -1,0 +1,51 @@
+--- docs/coop/design-corrections/security/check-analysis-seal-adapter.v1.py
++++ docs/coop/design-corrections/security/check-analysis-seal-adapter.v1.py
+@@ -202,6 +202,48 @@
+     rows.append({"case": "analysis-seal-owner-only-semantically-false", "ownerRunId": owner_id,
+                  "result": "SEAL_CLOSE_RUN_REFUSED", "ok": True})
+ 
++    # The adapter consumes its own identity module's normalized outcome types.
++    # Same-named foreign exceptions and owner-looking text are not owner refusals.
++    identity = S._identity_model_v3()
++    original_close = identity.close_run
++    def raising(exc):
++        def fail(*args, **kwargs):
++            raise exc
++        return fail
++    try:
++        for label, exc in (
++            ("admission", identity.C.AdmissionError("REFERENCE_IDENTITY")),
++            ("missing", identity.EvidenceUnavailable("retained:test")),
++            ("replay-mismatch", identity.CompleteReplayMismatch("EVALUATOR_COMPLETE_PROOF_REPLAY")),
++        ):
++            identity.close_run = raising(exc)
++            try:
++                S.admit_analysis_seal(rec, run, objects, blobs)
++            except S.Reject as refused:
++                assert str(refused).startswith("SEAL_CLOSE_RUN_REFUSED:") and refused.__cause__ is exc
++            else:
++                raise AssertionError("typed owner refusal admitted: " + label)
++            rows.append({"case": "analysis-seal-typed-" + label, "ok": True,
++                         "standing": "in-process adapter boundary control, not product fault injection"})
++        for label, exc in (
++            ("foreign-admission-name", type("AdmissionError", (Exception,), {})("REFERENCE_IDENTITY")),
++            ("foreign-mismatch-name", type("CompleteReplayMismatch", (Exception,), {})("EVALUATOR_COMPLETE_PROOF_REPLAY")),
++            ("owner-looking-text", RuntimeError("EVIDENCE_UNAVAILABLE:retained:test")),
++        ):
++            identity.close_run = raising(exc)
++            try:
++                S.admit_analysis_seal(rec, run, objects, blobs)
++            except Exception as raised:
++                assert raised is exc, "host defect misclassified: " + label
++            else:
++                raise AssertionError("host defect admitted: " + label)
++            rows.append({"case": "analysis-seal-host-defect-" + label, "ok": True,
++                         "standing": "unexpected exception propagates; outer host fault projection not implemented here"})
++    finally:
++        identity.close_run = original_close
++    restored = S.admit_analysis_seal(rec, run, objects, blobs)
++    rows.append({"case": "analysis-seal-lawful-after-boundary-controls", "ok": restored == admitted})
++
+     failed = [r for r in rows if not r.get("ok")]
+     report = {
+         "artifact": "opensip.security.analysis-seal-adapter-check",

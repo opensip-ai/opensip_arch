@@ -1,0 +1,11 @@
+import {readFileSync} from 'node:fs';
+import {parseExact} from '../subject/dist/exact-json.js';
+import {SchemaRegistry} from '../subject/dist/schema.js';
+const arch='/Users/sb/code/opensip-ai/opensip_arch/';
+const pins=JSON.parse(readFileSync(arch+'docs/implementation/m1/metadata-v2/sources.json','utf8'));
+const reg=new SchemaRegistry(pins.schemas.map(p=>parseExact(readFileSync(arch+p.path))));
+const fx=parseExact(readFileSync(arch+'docs/implementation/m1/metadata-v2/fixtures.json'));
+const py=JSON.parse(readFileSync(new URL('meta43-py.json',import.meta.url)));
+const frozen=JSON.parse(readFileSync('../subject/schema-differential-02.json')).expected;
+const ts=fx.cases.map(c=>({id:c.id,shape:reg.matches('urn:opensip:product-v1:workflows:evaluator3:command-envelope:4',c.value)}));
+console.log(JSON.stringify({cases:ts.length,tsVsPy:ts.filter((t,i)=>t.shape!==py[i].shape||t.id!==py[i].id).map(t=>t.id),tsVsFrozen:ts.filter((t,i)=>t.shape!==frozen[i].shape||t.id!==frozen[i].id).map(t=>t.id)}));

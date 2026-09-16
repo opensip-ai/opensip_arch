@@ -1,0 +1,1 @@
+Initial preparation mistakenly treated the flattened review-only finalize-application.v1.py as a top-level mutable source file. FileNotFoundError before any manifest/launch; no Claude process launched. Correct mapping is files/docs/coop/design-corrections/finalize-application.v1.py. Existing partial input copies were verified identical before continuing.

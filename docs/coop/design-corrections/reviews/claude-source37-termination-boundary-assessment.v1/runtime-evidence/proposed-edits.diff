@@ -1,0 +1,560 @@
+--- a/docs/coop/design-corrections/workflows/schemas/common.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/common.schema.json
+@@ -738,7 +738,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -811,6 +811,11 @@
+                 {
+                   "required": [
+                     "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
+                   ]
+                 }
+               ]
+@@ -859,6 +864,16 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -896,8 +911,22 @@
+               "errorCode"
+             ],
+             "not": {
+-              "required": [
+-                "signal"
++              "anyOf": [
++                {
++                  "required": [
++                    "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }
+@@ -921,6 +950,123 @@
+                   "const": "none"
+                 }
+               }
++            },
++            "anyOf": [
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-io"
++                  },
++                  "errorCode": {
++                    "const": "HOST.IO_FAILURE"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-busy"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.BUSY_TIMEOUT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-corrupt"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.CORRUPT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "cas-link"
++                  },
++                  "errorCode": {
++                    "const": "CAS.LINK_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "provider-protocol"
++                  },
++                  "errorCode": {
++                    "const": "PROVIDER.PROTOCOL_VIOLATION"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "durability-commit"
++                  },
++                  "errorCode": {
++                    "const": "DURABILITY.COMMIT_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "delivery-required"
++                  },
++                  "errorCode": {
++                    "const": "DELIVERY.REQUIRED_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "output-serialization"
++                  },
++                  "errorCode": {
++                    "const": "OUTPUT.SERIALIZATION_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "extension-install-io"
++                  },
++                  "errorCode": {
++                    "const": "EXTENSION.INSTALL_IO_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "serve-protocol"
++                  },
++                  "errorCode": {
++                    "const": "SERVE.PROTOCOL_FAULT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-invariant"
++                  },
++                  "errorCode": {
++                    "const": "SYSTEM.OUTCOME.ILLEGAL_STATE"
++                  }
++                }
++              }
++            ],
++            "not": {
++              "required": [
++                "reasonCodes"
++              ]
+             }
+           }
+         },
+@@ -947,6 +1093,11 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -965,8 +1116,22 @@
+               "signal"
+             ],
+             "not": {
+-              "required": [
+-                "errorCode"
++              "anyOf": [
++                {
++                  "required": [
++                    "errorCode"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/common.schema.json
+@@ -738,7 +738,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -811,6 +811,11 @@
+                 {
+                   "required": [
+                     "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
+                   ]
+                 }
+               ]
+@@ -859,6 +864,16 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -896,8 +911,22 @@
+               "errorCode"
+             ],
+             "not": {
+-              "required": [
+-                "signal"
++              "anyOf": [
++                {
++                  "required": [
++                    "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }
+@@ -921,6 +950,123 @@
+                   "const": "none"
+                 }
+               }
++            },
++            "anyOf": [
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-io"
++                  },
++                  "errorCode": {
++                    "const": "HOST.IO_FAILURE"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-busy"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.BUSY_TIMEOUT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-corrupt"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.CORRUPT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "cas-link"
++                  },
++                  "errorCode": {
++                    "const": "CAS.LINK_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "provider-protocol"
++                  },
++                  "errorCode": {
++                    "const": "PROVIDER.PROTOCOL_VIOLATION"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "durability-commit"
++                  },
++                  "errorCode": {
++                    "const": "DURABILITY.COMMIT_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "delivery-required"
++                  },
++                  "errorCode": {
++                    "const": "DELIVERY.REQUIRED_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "output-serialization"
++                  },
++                  "errorCode": {
++                    "const": "OUTPUT.SERIALIZATION_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "extension-install-io"
++                  },
++                  "errorCode": {
++                    "const": "EXTENSION.INSTALL_IO_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "serve-protocol"
++                  },
++                  "errorCode": {
++                    "const": "SERVE.PROTOCOL_FAULT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-invariant"
++                  },
++                  "errorCode": {
++                    "const": "SYSTEM.OUTCOME.ILLEGAL_STATE"
++                  }
++                }
++              }
++            ],
++            "not": {
++              "required": [
++                "reasonCodes"
++              ]
+             }
+           }
+         },
+@@ -947,6 +1093,11 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -965,8 +1116,22 @@
+               "signal"
+             ],
+             "not": {
+-              "required": [
+-                "errorCode"
++              "anyOf": [
++                {
++                  "required": [
++                    "errorCode"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }
+--- a/docs/coop/design-corrections/workflows/workflow-cases.v1.json
++++ b/docs/coop/design-corrections/workflows/workflow-cases.v1.json
+@@ -9272,6 +9272,75 @@
+       {
+         "class": "success",
+         "exitCode": 0
++      },
++      {
++        "class": "success",
++        "faultCause": "host-io"
++      },
++      {
++        "class": "success",
++        "faultCause": "none"
++      },
++      {
++        "class": "policy-failed",
++        "authority": "ephemeral",
++        "reasonCodes": [
++          "COVERAGE.PROVIDER_UNAVAILABLE"
++        ]
++      },
++      {
++        "class": "policy-failed",
++        "authority": "ephemeral",
++        "faultCause": "host-io"
++      },
++      {
++        "class": "request-rejected",
++        "errorCode": "CONFIG.INVALID",
++        "faultCause": "host-io"
++      },
++      {
++        "class": "request-rejected",
++        "errorCode": "CONFIG.INVALID",
++        "reasonCodes": [
++          "COVERAGE.PROVIDER_UNAVAILABLE"
++        ]
++      },
++      {
++        "class": "indeterminate",
++        "reasonCodes": [
++          "COVERAGE.PROVIDER_UNAVAILABLE"
++        ],
++        "faultCause": "host-io"
++      },
++      {
++        "class": "operational-failed",
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "host-io",
++        "reasonCodes": [
++          "COVERAGE.PROVIDER_UNAVAILABLE"
++        ]
++      },
++      {
++        "class": "operational-failed",
++        "errorCode": "HOST.IO_FAILURE",
++        "faultCause": "ledger-busy"
++      },
++      {
++        "class": "operational-failed",
++        "errorCode": "SYSTEM.OUTCOME.ILLEGAL_STATE",
++        "faultCause": "host-io"
++      },
++      {
++        "class": "interrupted",
++        "signal": "SIGINT",
++        "faultCause": "host-io"
++      },
++      {
++        "class": "interrupted",
++        "signal": "SIGINT",
++        "reasonCodes": [
++          "COVERAGE.PROVIDER_UNAVAILABLE"
++        ]
+       }
+     ]
+   },
+--- a/docs/coop/design-corrections/workflows/check_workflows.v1.py
++++ b/docs/coop/design-corrections/workflows/check_workflows.v1.py
+@@ -124,6 +124,13 @@
+     must_valid(f'termination.accept.{i}', U + 'common#/$defs/StepTermination', t)
+ for i, t in enumerate(CASES['terminationVectors']['reject']):
+     must_invalid(f'termination.reject.{i}', U + 'common#/$defs/StepTermination', t)
++# The schema's operational faultCause/errorCode pairs are exactly the host fault map, so the retained D9
++# codeDerivation cannot drift between the public carrier and the host projection.
++_OPERATIONAL = next(b['then'] for b in SCHEMAS[U + 'common']['$defs']['StepTermination']['allOf']
++                    if b['if'].get('properties', {}).get('class', {}).get('const') == 'operational-failed')
++check('termination.fault-pairs-equal-host-fault-map',
++      [(r['properties']['faultCause']['const'], r['properties']['errorCode']['const']) for r in _OPERATIONAL['anyOf']]
++      == list(M.FAULT_TO_ERROR.items()))
+ for i, e in enumerate(CASES['envelopeVectors']['accept']):
+     must_valid(f'envelope.accept.{i}', U + 'command-envelope', e)
+     check(f'envelope.accept.{i}.exit-matches-class', M.EXIT[e['termination']['class']] == e['exitCode'])
+--- a/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ b/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -1143,7 +1143,10 @@
+ delivery-required, output-serialization, extension-install-io, serve-protocol,
+ host-invariant);
+ indeterminate carries `reasonCodes`; interrupted carries `signal` and a `runId` only
+-when a Run was committed before the interrupt. `DomainDetailCode` is explanatory
++when a Run was committed before the interrupt. The same schema enforces the retained
++D9 cause/code exclusivity: `faultCause` appears only on operational-failed and pairs
++with its `errorCode` by the fault map, and `reasonCodes` appear only on indeterminate.
++`DomainDetailCode` is explanatory
+ detail beside an existing code, never a termination code. Selected goldens (the complete retained set
+ is in the inventory and exercised by the model):
+ 

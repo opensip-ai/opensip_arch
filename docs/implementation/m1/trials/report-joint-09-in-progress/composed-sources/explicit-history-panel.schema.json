@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:report:explicit-history-panel:1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "selection",
+    "runs",
+    "provenance"
+  ],
+  "properties": {
+    "selection": {
+      "$ref": "urn:opensip:product-v1:report:explicit-history:1"
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "runId"
+            ],
+            "properties": {
+              "state": {
+                "const": "current-run"
+              },
+              "runId": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+              }
+            }
+          },
+          {
+            "$ref": "#/$defs/RetainedHistorySlotV1"
+          }
+        ]
+      },
+      "x-opensip-order": "sequence"
+    },
+    "provenance": {
+      "const": {
+        "verifiedInDocument": [
+          "current-run-equals-envelope-current-run",
+          "item-counts-consistent",
+          "rows-equal-requested-runs"
+        ],
+        "hostAsserted": [
+          "selected-run-and-project-equal-typed-query-item",
+          "findings-belong-to-history-run",
+          "retained-read-snapshot-after-invocation-data-commits",
+          "typed-query-item-from-close-run-and-retained-receipt",
+          "byte-budget-rejected-delta-measurement"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "RetainedHistorySlotV1": {
+      "allOf": [
+        {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:report-projection:1#/$defs/HistoryRunV1"
+        },
+        {
+          "if": {
+            "required": [
+              "availability"
+            ],
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              },
+              "availability": {
+                "const": "expired"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "detail": {
+                "properties": {
+                  "code": {
+                    "const": "evidence.expired"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "availability"
+            ],
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              },
+              "availability": {
+                "const": "purged"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "detail": {
+                "properties": {
+                  "code": {
+                    "const": "evidence.purged"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "availability"
+            ],
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              },
+              "availability": {
+                "const": "corrupt"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "detail": {
+                "properties": {
+                  "code": {
+                    "const": "evidence.corrupt"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "availability"
+            ],
+            "properties": {
+              "state": {
+                "const": "unavailable"
+              },
+              "availability": {
+                "const": "unavailable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "detail": {
+                "properties": {
+                  "code": {
+                    "const": "QUERY.VIEW_UNKNOWN"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

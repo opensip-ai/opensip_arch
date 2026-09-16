@@ -1,0 +1,40 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-current-profile.v3.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-current-profile.v3.py
+new file mode 100644
+index 00000000..9f096cc1
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/check-current-profile.v3.py
+@@ -0,0 +1,34 @@
++"""Cross-owner current selection controls, not product execution."""
++import copy,hashlib,importlib.util,json
++from pathlib import Path
++HERE=Path(__file__).resolve().parent
++
++def load(name,path):
++    spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
++M=load('profile_selection3',HERE/'identity-model.v3.py')
++W=load('profile_workflows3',HERE.parent/'workflows/workflow_projection_model.v3.py')
++commands=json.loads((HERE.parent/'workflows/command-inventory.v3.json').read_text())
++W.validate_profile('urn:opensip:product-v1:workflows:evaluator3:command-inventory:3',commands)
++assert next(r for r in commands['renderers'] if r['format']=='json')['version']==3
++rows=[{'case':'current-command-inventory-admitted','commands':len(commands['commands'])}]
++old=json.loads((HERE.parent/'workflows/command-inventory.v1.json').read_text())
++try:W.validate_profile('urn:opensip:product-v1:workflows:evaluator3:command-inventory:3',old)
++except Exception:rows.append({'case':'historical-command-inventory-not-current','result':'REFUSE'})
++else:raise AssertionError('old instance accepted as current')
++required=[{'schemaDigest':hashlib.sha256((HERE.parent/path).read_bytes()).hexdigest(),'payloadDigest':'a'*64} for path,row in M.PAYLOADS['classes']['parameter']['rows'].items() if 3 in row.get('requiredForEvaluatorMajors',[])]
++M.admit_parameter_selection(required)
++rows.append({'case':'exact-required-parameter-selection','count':len(required)})
++for index in range(len(required)):
++    selection=[r for i,r in enumerate(required) if i!=index]
++    try:M.admit_parameter_selection(selection)
++    except Exception as exc:
++        assert 'EVALUATOR_REQUIRED_PARAMETER_MISSING' in str(exc),str(exc)
++        rows.append({'case':'omitted-required-parameter-'+str(index),'result':'REFUSE'})
++    else:raise AssertionError('missing required parameter accepted')
++Q=load('query_surface_projection3',HERE.parent/'workflows'/'query_surface_projection.v3.py')
++proj=Q.run_projection_controls(commands)
++rows.extend(proj['rows'])
++report={'standing':'cross-owner selected-profile reference controls','passed':proj['passed'],'count':len(rows),'checks':rows,'querySurfaceProjection':{'passed':proj['passed'],'failed':proj['failed'],'requiredParityFields':proj['requiredParityFields']}}
++print(json.dumps(report,indent=2))
++if not proj['passed']:
++    raise AssertionError('query-surface-projection-controls:'+','.join(proj['failed']))

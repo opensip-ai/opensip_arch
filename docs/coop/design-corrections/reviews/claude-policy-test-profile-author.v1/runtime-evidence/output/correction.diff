@@ -1,0 +1,1529 @@
+--- a/docs/coop/design-corrections/workflows/README.md
++++ b/docs/coop/design-corrections/workflows/README.md
+@@ -12,8 +12,10 @@
+ `schemas/evaluator3/`, `workflow-projection-contract.v3.md` and
+ `workflow_projection_model.v3.py` own current output projections.
+ `command-inventory.v3.json` selects the 45 commands and JSON envelope major3.
+-`schemas/policy-document.v2.schema.json` owns PolicyDocumentV2; unchanged scope, waiver,
+-import and test documents retain their declared schemas. Current Run admission
++`schemas/policy-document.v2.schema.json` owns PolicyDocumentV2 and
++`schemas/evaluator3/policy-test.schema.json` owns the current `policy test` input PolicyTestSuiteV2,
++evaluated by `policy_test_model.v3.py` and exercised over the authored `policy-test-cases.v3.json`;
++unchanged scope, waiver, import and test-execution documents retain their declared schemas. Current Run admission
+ calls the foundation evaluator3 public replay boundary before projection.
+ `check-workflow-projection.v3.py` checks current projections over retained
+ synthetic graphs. The retained workflow1 model/checker below exercises its
+@@ -32,7 +34,7 @@
+ | `schemas/comparison-result.schema.json` | multi-axis comparison with pivot chain B/E0..E4, audit profiles, typed indeterminacy |
+ | `schemas/imported-evidence.schema.json` | the one `import2` wrapper (foundation `import` mirror), payload bindings, runtime/history payloads, staleness table |
+ | `schemas/policy-document.schema.json` | closed declarative policy DSL, scope document, waiver set and resolution |
+-| `schemas/policy-test.schema.json` | authoring test suite and deterministic result |
++| `schemas/policy-test.schema.json` | retained PolicyTestSuiteV1 authoring test suite (workflow1 input) and the deterministic PolicyTestResultV1, Case and Override definitions the evaluator3 suite reuses |
+ | `schemas/review.schema.json` | candidate → inspect → review disposition (advisory only) |
+ | `schemas/repair.schema.json` | repair plan, apply journal, recovery table, mutation receipt |
+ | `schemas/test-execution.schema.json` | separately authorized test execution step and test payload |
+--- a/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -416,7 +416,7 @@
+ 
+ 
+ # ----------------------------------------------------------------------------- schema shape vs v1
+-check("schema-count", len(list(E3.glob("*.schema.json"))) == 11)
++check("schema-count", len(list(E3.glob("*.schema.json"))) == 12)
+ check("common-run3-not-mixed", SCHEMAS[U + "common:3"]["$defs"]["RunId"]["pattern"].startswith("^run3:"))
+ check("common-no-run2-alternation", "run[23]" not in json.dumps(SCHEMAS[U + "common:3"]["$defs"]["RunId"]))
+ check("fingerprint-retained-key2", SCHEMAS[U + "common:3"]["$defs"]["Fingerprint"]["pattern"].startswith("^finding-key2:"))
+@@ -3635,15 +3635,30 @@
+     return o
+ 
+ 
+-_r2_policy_result, _r2_policy_refusal = P.W.run_policy_test(_r2_sub(_R2_RAW)["policySuite"])
++# The historical workflow1 route (the projection owner's legacy module) stays byte-unchanged over the retained
++# PolicyTestSuiteV1 and its identity is pinned. It is not the evaluator3 route and never feeds a current carrier.
++_R2_HISTORICAL_V1_POLICY_TEST_ID = "policytest2:5ce020d40b29ce7f1592189d66efd007d732c699a4c612e75b6c788cd497ee27"
++_r2_v1_result, _r2_v1_refusal = P.W.run_policy_test(_r2_sub(_R2_RAW)["policySuite"])
++check("pt2-historical-workflow1-policy-test-route-unchanged",
++      _r2_v1_refusal is None and _r2_v1_result["policyTestResultId"] == _R2_HISTORICAL_V1_POLICY_TEST_ID, _r2_v1_result["policyTestResultId"])
++# The current route: the explicitly authored PolicyTestSuiteV2 of policy-test-cases.v3.json through admission, the current
++# resolver and policy_test_model.v3.
++_PT2 = canonical.parse((HERE / "policy-test-cases.v3.json").read_bytes())
++_pt2_suite = _PT2["currentSuite"]
++must_valid("pt2-current-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_suite)
++must_valid("pt2-current-candidate-is-policy-document-v2", "urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2", _pt2_suite["candidatePolicy"])
++must_invalid("pt2-current-candidate-is-not-a-policy-document-v1", "urn:opensip:product-v1:workflows:policy-document#/$defs/PolicyDocumentV1", _pt2_suite["candidatePolicy"])
++check("pt2-current-candidate-resolver-admitted", WF3.resolve_policy(copy.deepcopy(_pt2_suite["candidatePolicy"])) == _pt2_suite["candidatePolicy"])
++_r2_policy_result, _r2_policy_refusal = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_suite))
+ check("r2-policy-test-owner-result-produced", _r2_policy_refusal is None and _r2_policy_result["resolverAccepted"] is True)
+ 
+-# ------------------------------------------------ owner completion 2: policy-test suite admission route
+-_oc2_suite = _r2_sub(_R2_RAW)["policySuite"]
++# ------------------------------------------------ owner completion 2: policy-test suite admission route (PolicyTestSuiteV2)
++_oc2_suite = _pt2_suite
+ _oc2_result, _oc2_refusal = WF3.run_admitted_policy_test(copy.deepcopy(_oc2_suite))
+ check("oc2-admitted-suite-runs-the-same-authoring-test",
+       _oc2_refusal is None and WF3.admit_policy_test_suite(_oc2_suite) is _oc2_suite
+-      and _oc2_result["policyTestResultId"] == _r2_policy_result["policyTestResultId"])
++      and _oc2_result["policyTestResultId"] == WF3.run_policy_test(copy.deepcopy(_oc2_suite))[0]["policyTestResultId"]
++      and WF3.run_policy_test is not WF3._base.run_policy_test)
+ _OC2_REGISTRY = {r["code"]: r for r in json.loads((HERE.parent / "public-detail-registry.v1.json").read_text())["records"]}
+ 
+ 
+@@ -3686,8 +3701,8 @@
+ _oc2_include = copy.deepcopy(_oc2_suite)
+ _oc2_include["candidatePolicy"]["rules"][0]["include"] = "other-policy.json"
+ check("oc2-include-is-a-declared-member-elsewhere-in-the-policy-grammar",
+-      '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:workflows:policy-document"]["$defs"]["Rule"])
+-      or '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:workflows:policy-document"]["$defs"]))
++      '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:policy-document:2"]["$defs"]["Rule"])
++      or '"include"' in json.dumps(SCHEMAS["urn:opensip:product-v1:policy-document:2"]["$defs"]))
+ _oc2_route("oc2-grammar-law-is-positional-for-a-member-declared-elsewhere", _oc2_include, "POLICY.IMPERATIVE_KEY_REFUSED")
+ check("oc2-grammar-law-does-not-flag-the-admitted-candidate-policy", not WF3.policy_grammar_violation(_oc2_suite["candidatePolicy"]))
+ _oc2_dup = copy.deepcopy(_oc2_suite)
+@@ -3723,6 +3738,108 @@
+       and "CONFIG.INVALID" in SCHEMAS["urn:opensip:product-v1:workflows:common"]["$defs"]["DomainDetailCode"]["enum"]
+       and _OC2_REGISTRY["CONFIG.INVALID"]["owner"] == "security"
+       and _OC2_REGISTRY["POLICY.IMPERATIVE_KEY_REFUSED"]["owner"] == "workflows")
++# ------------------------------------------------ PolicyTestSuiteV2 route controls: majors, current resolver, fixture semantics
++def _pt2_cases(result):
++    return {c["id"]: {"outcome": c["outcome"], "observedVerdict": c["observedVerdict"],
++                      "findings": [[f["ruleId"], f["subject"], f["waived"]] for f in c["findings"]],
++                      "indeterminateRules": c["indeterminateRules"], "expectationOutcomes": c["expectationOutcomes"]} for c in result["results"]}
++
++
++_pt2_expect = _PT2["currentSuiteExpect"]
++check("pt2-admitted-current-suite-reaches-the-authored-outcomes",
++      _r2_policy_result["resolverAccepted"] is _pt2_expect["resolverAccepted"]
++      and _r2_policy_result["waiverResolution"]["expired"] == _pt2_expect["expired"]
++      and _r2_policy_result["summary"] == _pt2_expect["summary"]
++      and _pt2_cases(_r2_policy_result) == _pt2_expect["cases"], _pt2_cases(_r2_policy_result))
++check("pt2-current-result-identity-preimages",
++      _r2_policy_result["schemaMajor"] == 1 and _r2_policy_result["policyTestResultId"].startswith("policytest2:")
++      and _r2_policy_result["suiteDigest"] == canonical.identity("workflow.policy-test-suite", _pt2_suite)
++      and _r2_policy_result["candidatePolicyDigest"] == P.W.doc_digest(_pt2_suite["candidatePolicy"]) == _r2_policy_result["effectivePolicyDigest"]
++      and _r2_policy_result["suiteDigest"] != canonical.identity("workflow.policy-test-suite", dict(_pt2_suite, schemaMajor=1)))
++must_valid("pt2-current-result-is-a-policy-test-result", "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1", _r2_policy_result)
++_pt2_disc = _pt2_cases(_r2_policy_result)["target-endpoint-discrimination"]
++check("pt2-target-and-source-endpoint-decide-different-subjects-through-the-public-route",
++      ["unimported-file", "src/b.ts", False] in _pt2_disc["findings"] and ["import-free-export", "src/a.ts", False] in _pt2_disc["findings"]
++      and ["unimported-file", "src/a.ts", False] not in _pt2_disc["findings"] and ["import-free-export", "src/b.ts", False] not in _pt2_disc["findings"],
++      _pt2_disc)
++_pt2_test_rule = next(r for r in _pt2_suite["candidatePolicy"]["rules"] if r["ruleId"] == "failed-test-exit1")
++_pt2_test_case = _pt2_cases(_r2_policy_result)["test-filter-unrepresentable-is-unknown"]
++check("pt2-test-filter-rule-is-resolved-then-honestly-unknown",
++      WF3.admit_policy_rule(copy.deepcopy(_pt2_test_rule)) == _pt2_test_rule
++      and "failed-test-exit1" in _pt2_test_case["indeterminateRules"]
++      and not any(f[0] == "failed-test-exit1" for f in _pt2_test_case["findings"])
++      and _pt2_test_case["expectationOutcomes"][1:3] == ["indeterminate", "indeterminate"], _pt2_test_case)
++_pt2_runtime_absent = _pt2_cases(_r2_policy_result)["runtime-absence-does-not-prove-no-hit"]
++check("pt2-absent-imported-observation-never-proves-absence",
++      _pt2_runtime_absent["expectationOutcomes"][1] == "indeterminate" and "runtime-hit" in _pt2_runtime_absent["indeterminateRules"], _pt2_runtime_absent)
++
++
++def _pt2_major_route(cid, suite, subject):
++    exc = _oc2_termination(suite)
++    if exc is None:
++        return check(cid, False, "admitted")
++    term = exc.termination()
++    env = {"schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "failure", "requestId": "req1_" + "e" * 32,
++           "termination": term, "exitCode": WF3.exit_code(term), "errors": [term["domainDetail"]]}
++    ok_env, why = valid(U + "command-envelope:3", env)
++    return check(cid, exc.error_code == "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" and exc.detail == "EVALUATION.MIXED_OUTPUT_MAJOR" and exc.subject == subject
++                 and term["class"] == "request-rejected" and env["exitCode"] == 2 and ok_env, f"{exc.error_code}/{exc.detail}/{exc.subject} {why}")
++
++
++_pt2_v1_suite = _r2_sub(_R2_RAW)["policySuite"]
++_pt2_major_route("pt2-historical-v1-suite-refused-by-the-typed-major-route", _pt2_v1_suite, "1")
++_pt2_v1_candidate = dict(copy.deepcopy(_pt2_suite), candidatePolicy=copy.deepcopy(_pt2_v1_suite["candidatePolicy"]))
++_pt2_major_route("pt2-v1-candidate-in-a-v2-suite-refused-by-the-typed-major-route", _pt2_v1_candidate, "1")
++_pt2_v1_candidate_hook = copy.deepcopy(_pt2_v1_candidate)
++_pt2_v1_candidate_hook["candidatePolicy"]["hook"] = "node scripts/check.js"
++_pt2_major_route("pt2-wrong-major-precedes-and-is-never-classified-imperative", _pt2_v1_candidate_hook, "1")
++try:
++    WF3.resolve_policy(copy.deepcopy(_pt2_v1_suite["candidatePolicy"]))
++    check("pt2-current-resolver-refuses-a-historical-policy-typed", False, "admitted")
++except WF3.Refusal as _pt2_exc:
++    check("pt2-current-resolver-refuses-a-historical-policy-typed",
++          _pt2_exc.error_code == "REQUEST.SCHEMA_MAJOR_UNSUPPORTED" and _pt2_exc.detail == "EVALUATION.MIXED_OUTPUT_MAJOR", f"{_pt2_exc.error_code}/{_pt2_exc.detail}")
++_pt2_gmajor = {g["id"]: g for g in _R2_INV["goldens"]}.get("policy-test-suite-major-unsupported", {})
++_pt2_major_term = _oc2_termination(_pt2_v1_suite).termination()
++check("pt2-major-refusal-golden-is-the-owner-termination",
++      _pt2_gmajor.get("command") == "policy-test" and _pt2_gmajor.get("class") == _pt2_major_term["class"]
++      and _pt2_gmajor.get("exitCode") == WF3.exit_code(_pt2_major_term) and _pt2_gmajor.get("errorCode") == _pt2_major_term["errorCode"]
++      and _pt2_gmajor.get("domainDetail") == _pt2_major_term["domainDetail"]["code"], _pt2_gmajor)
++
++
++def _pt2_with_rule(rule):
++    suite = copy.deepcopy(_pt2_suite)
++    suite["candidatePolicy"]["rules"] = sorted(suite["candidatePolicy"]["rules"] + [copy.deepcopy(rule)], key=lambda r: r["ruleId"].encode())
++    return suite
++
++
++for _pt2_label, _pt2_key, _pt2_cause in (("legacy-resolver-only-filter", "legacyResolverOnlyRule", "ATOM_FILTER_FIELD_FORBIDDEN"),
++                                          ("forbidden-target-endpoint", "forbiddenTargetEndpointRule", "ATOM_ENDPOINT_UNAVAILABLE")):
++    _pt2_bad = _pt2_with_rule(_PT2["controls"][_pt2_key])
++    _pt2_bad_ok = valid(U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_bad)[0] and WF3.admit_policy_test_suite(copy.deepcopy(_pt2_bad)) is not None
++    _pt2_res, _pt2_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_bad))
++    check("pt2-%s-policy-is-schema-admitted-then-refused-by-the-current-resolver" % _pt2_label,
++          _pt2_bad_ok and _pt2_ref is not None and _pt2_ref.error_code == "CONFIG.INVALID" and _pt2_ref.detail == "POLICY.UNKNOWN_RULE"
++          and str(_pt2_ref.remedy).startswith(_pt2_cause) and _pt2_res["resolverAccepted"] is False
++          and not valid(U + "command-envelope:3#/$defs/PolicyTestResultRecordV1", {"surface": "policy-test-result", "result": _pt2_res})[0],
++          (_pt2_ref.error_code, _pt2_ref.detail, _pt2_ref.remedy) if _pt2_ref else None)
++check("pt2-historical-resolver-alone-accepts-the-legacy-only-filter",
++      P.W.resolve_policy(dict(copy.deepcopy(_pt2_suite["candidatePolicy"]), rules=[copy.deepcopy(_PT2["controls"]["legacyResolverOnlyRule"])])) is not None)
++check("pt2-valid-v2-endpoint-member-is-not-an-imperative-key",
++      any("endpoint" in r["emitWhen"] for r in _pt2_suite["candidatePolicy"]["rules"]) and not WF3.policy_grammar_violation(_pt2_suite["candidatePolicy"]))
++_oc2_route("pt2-override-of-an-unknown-rule-is-config-invalid",
++           dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "not-a-rule", "field": "gate", "value": False}]), "CONFIG.INVALID")
++_oc2_route("pt2-override-value-of-the-wrong-type-is-config-invalid",
++           dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "unimported-file", "field": "gate", "value": "error"}]), "CONFIG.INVALID")
++_pt2_bad_rung = copy.deepcopy(_pt2_suite)
++_pt2_bad_rung["cases"][0]["subject"]["facts"][0]["resolution"] = "observed"
++_oc2_route("pt2-fixture-fact-rung-off-its-relation-ladder-is-config-invalid", _pt2_bad_rung, "CONFIG.INVALID")
++_pt2_override = dict(copy.deepcopy(_pt2_suite), overrides=[{"ruleId": "unimported-file", "field": "gate", "value": False}])
++_pt2_ov_res, _pt2_ov_ref = WF3.run_admitted_policy_test(_pt2_override)
++check("pt2-lawful-override-changes-only-the-effective-policy",
++      _pt2_ov_ref is None and _pt2_ov_res["candidatePolicyDigest"] == _r2_policy_result["candidatePolicyDigest"]
++      and _pt2_ov_res["effectivePolicyDigest"] != _pt2_ov_res["candidatePolicyDigest"] and _pt2_ov_res["overridesApplied"] == _pt2_override["overrides"]
++      and _pt2_cases(_pt2_ov_res)["target-endpoint-discrimination"]["observedVerdict"] == "advisory")
+ _R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
+ _R2_COMMAND_OF["policy-test"] = "policy-test"
+ # baseline show through adoption, admission and current-trust pivot resolution.
+@@ -4106,6 +4223,8 @@
+     HERE / "command-inventory.v1.json",
+     HERE / "repair_closed_world_selection.v1.py",
+     HERE / "workflows_model.v3.py",
++    HERE / "policy_test_model.v3.py",
++    HERE / "policy-test-cases.v3.json",
+ ]
+ OWNED += sorted((HERE / "schemas" / "evaluator3").glob("*.schema.json"))
+ source_hashes = {str(p.relative_to(HERE)): _sha256_file(p) for p in OWNED}
+--- a/docs/coop/design-corrections/workflows/command-inventory.v3.json
++++ b/docs/coop/design-corrections/workflows/command-inventory.v3.json
+@@ -1918,12 +1918,22 @@
+     {
+       "id": "policy-test-suite-inadmissible",
+       "command": "policy-test",
+-      "situation": "the suite fails PolicyTestSuiteV1 admission and the candidate policy has no grammar violation",
++      "situation": "the suite fails PolicyTestSuiteV2 admission and the candidate policy has no grammar violation",
+       "class": "request-rejected",
+       "exitCode": 2,
+       "errorCode": "CONFIG.INVALID",
+       "domainDetail": "CONFIG.INVALID",
+-      "remedy": "correct the suite so it satisfies PolicyTestSuiteV1"
++      "remedy": "correct the suite so it satisfies PolicyTestSuiteV2"
++    },
++    {
++      "id": "policy-test-suite-major-unsupported",
++      "command": "policy-test",
++      "situation": "the suite is not PolicyTestSuiteV2 or its candidate policy is not PolicyDocumentV2 (for example a retained PolicyTestSuiteV1); nothing is relabelled, coerced or grammar-classified",
++      "class": "request-rejected",
++      "exitCode": 2,
++      "errorCode": "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
++      "domainDetail": "EVALUATION.MIXED_OUTPUT_MAJOR",
++      "remedy": "author a PolicyTestSuiteV2 whose candidatePolicy is PolicyDocumentV2"
+     },
+     {
+       "id": "repair-apply-source-moved",
+--- /dev/null
++++ b/docs/coop/design-corrections/workflows/policy-test-cases.v3.json
+@@ -0,0 +1,621 @@
++{
++  "standing": "Explicitly authored evaluator3 policy.test fixtures (PolicyTestSuiteV2, candidate PolicyDocumentV2). Every current policy record here is constructed directly, not relabelled from a PolicyDocumentV1 or PolicyTestSuiteV1; check-workflow-projection.v3.py admits each through the PolicyTestSuiteV2 schema and the current resolver before use. Expected outcomes were authored by the same author as policy_test_model.v3.py; independent review is the oracle. Reference evidence, not qualification.",
++  "currentSuite": {
++    "schemaFamily": "opensip.product.policy-test",
++    "schemaMajor": 2,
++    "candidatePolicy": {
++      "schemaFamily": "opensip.product.policy",
++      "schemaMajor": 2,
++      "gateSeverityAtLeast": "warning",
++      "rules": [
++        {
++          "ruleId": "failed-test-exit1",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "failed-test-exit1",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "warning",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript-v2",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "exists",
++            "relation": "test-execution",
++            "minResolution": "observed",
++            "filters": [
++              {
++                "field": "testResult",
++                "cmp": "eq",
++                "value": "failed"
++              },
++              {
++                "field": "exitStatus",
++                "cmp": "eq",
++                "value": 1
++              }
++            ],
++            "evidence": "test"
++          },
++          "evidenceUse": [
++            {
++              "kind": "test",
++              "requirement": "required"
++            }
++          ]
++        },
++        {
++          "ruleId": "import-free-export",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "import-free-export",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "note",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript-v2",
++            "subjectKind": "export"
++          },
++          "emitWhen": {
++            "op": "none",
++            "relation": "imports",
++            "minResolution": "resolved-target",
++            "endpoint": "source",
++            "filters": []
++          },
++          "evidenceUse": []
++        },
++        {
++          "ruleId": "runtime-hit",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "runtime-hit",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "note",
++          "gate": false,
++          "subjectEnumeration": {
++            "universe": "typescript-v2",
++            "subjectKind": "file"
++          },
++          "emitWhen": {
++            "op": "exists",
++            "relation": "runtime-observation",
++            "minResolution": "observed",
++            "filters": [
++              {
++                "field": "observability",
++                "cmp": "eq",
++                "value": "observed-hit"
++              }
++            ],
++            "evidence": "runtime"
++          },
++          "evidenceUse": [
++            {
++              "kind": "runtime",
++              "requirement": "optional"
++            }
++          ]
++        },
++        {
++          "ruleId": "unimported-file",
++          "ruleProgramRef": {
++            "contributionId": "core.rules",
++            "ruleStableId": "unimported-file",
++            "semanticsMajor": 1,
++            "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++          },
++          "enabled": true,
++          "severity": "error",
++          "gate": true,
++          "subjectEnumeration": {
++            "universe": "typescript-v2",
++            "subjectKind": "file",
++            "include": [
++              "src/**"
++            ]
++          },
++          "emitWhen": {
++            "op": "none",
++            "relation": "imports",
++            "minResolution": "resolved-target",
++            "endpoint": "target",
++            "filters": []
++          },
++          "evidenceUse": []
++        }
++      ]
++    },
++    "waivers": {
++      "schemaFamily": "opensip.product.waivers",
++      "schemaMajor": 1,
++      "waivers": [
++        {
++          "waiverId": "w-expired",
++          "target": {
++            "ruleId": "unimported-file",
++            "subjectPath": "src/legacy/old.ts"
++          },
++          "reason": "temporary",
++          "expires": "2026-01-01"
++        },
++        {
++          "waiverId": "w-live",
++          "target": {
++            "ruleId": "unimported-file",
++            "subjectPath": "src/waived.ts"
++          },
++          "reason": "accepted",
++          "expires": "2027-01-01"
++        }
++      ]
++    },
++    "asOfDate": "2026-09-05",
++    "cases": [
++      {
++        "id": "target-endpoint-discrimination",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts",
++            "src/b.ts"
++          ],
++          "facts": [
++            {
++              "relation": "imports",
++              "subject": "src/b.ts",
++              "target": "src/a.ts",
++              "resolution": "resolved-target",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000,
++              "targetKind": "file"
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "unimported-file",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/b.ts"
++            ]
++          },
++          {
++            "kind": "finding",
++            "ruleId": "import-free-export",
++            "minCount": 1,
++            "maxCount": 1,
++            "subjects": [
++              "src/a.ts"
++            ]
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "target-kind-unrepresented-is-unknown",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts",
++            "src/b.ts"
++          ],
++          "facts": [
++            {
++              "relation": "imports",
++              "subject": "src/b.ts",
++              "target": "src/a.ts",
++              "resolution": "resolved-target",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "indeterminate",
++            "ruleId": "unimported-file"
++          },
++          {
++            "kind": "finding",
++            "ruleId": "unimported-file",
++            "minCount": 1,
++            "subjects": [
++              "src/a.ts"
++            ]
++          },
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "test-filter-unrepresentable-is-unknown",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/a.ts"
++          ],
++          "facts": [
++            {
++              "relation": "imports",
++              "subject": "src/b.ts",
++              "target": "src/a.ts",
++              "resolution": "resolved-target",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000,
++              "targetKind": "file"
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "test"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "indeterminate",
++            "ruleId": "failed-test-exit1"
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "failed-test-exit1"
++          },
++          {
++            "kind": "finding",
++            "ruleId": "failed-test-exit1",
++            "minCount": 1
++          },
++          {
++            "kind": "verdict",
++            "verdict": "advisory"
++          }
++        ]
++      },
++      {
++        "id": "runtime-observed-hit-is-a-known-match",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/h.ts"
++          ],
++          "facts": [
++            {
++              "relation": "imports",
++              "subject": "src/x.ts",
++              "target": "src/h.ts",
++              "resolution": "resolved-target",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000,
++              "targetKind": "file"
++            },
++            {
++              "relation": "runtime-observation",
++              "subject": "src/h.ts",
++              "target": "src/h.ts",
++              "resolution": "observed",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000,
++              "observability": "observed-hit"
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "runtime-hit",
++            "minCount": 1,
++            "subjects": [
++              "src/h.ts"
++            ]
++          },
++          {
++            "kind": "verdict",
++            "verdict": "advisory"
++          }
++        ]
++      },
++      {
++        "id": "runtime-absence-does-not-prove-no-hit",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/u.ts"
++          ],
++          "facts": [
++            {
++              "relation": "imports",
++              "subject": "src/x.ts",
++              "target": "src/u.ts",
++              "resolution": "resolved-target",
++              "universe": "typescript-v2",
++              "confidenceMillionths": 1000000,
++              "targetKind": "file"
++            }
++          ],
++          "coverage": "complete",
++          "evidenceAvailable": [
++            "runtime"
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "indeterminate",
++            "ruleId": "runtime-hit"
++          },
++          {
++            "kind": "no-finding",
++            "ruleId": "runtime-hit"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "advisory"
++          }
++        ]
++      },
++      {
++        "id": "partial-coverage-is-indeterminate-not-finding",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/p.ts"
++          ],
++          "facts": [],
++          "coverage": "partial",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "indeterminate",
++            "ruleId": "unimported-file"
++          },
++          {
++            "kind": "verdict",
++            "verdict": "indeterminate"
++          }
++        ]
++      },
++      {
++        "id": "live-waiver-suppresses-gate",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/waived.ts"
++          ],
++          "facts": [],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "finding",
++            "ruleId": "unimported-file",
++            "minCount": 1
++          },
++          {
++            "kind": "verdict",
++            "verdict": "advisory"
++          }
++        ]
++      },
++      {
++        "id": "expired-waiver-does-not-suppress",
++        "subject": {
++          "kind": "facts",
++          "subjects": [
++            "src/legacy/old.ts"
++          ],
++          "facts": [],
++          "coverage": "complete",
++          "evidenceAvailable": []
++        },
++        "expectations": [
++          {
++            "kind": "verdict",
++            "verdict": "fail"
++          }
++        ]
++      },
++      {
++        "id": "sources-fixture-not-executable-here",
++        "subject": {
++          "kind": "sources",
++          "files": [
++            {
++              "path": "src/a.ts",
++              "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
++              "bytes": 10
++            }
++          ]
++        },
++        "expectations": [
++          {
++            "kind": "verdict",
++            "verdict": "pass"
++          }
++        ]
++      }
++    ]
++  },
++  "currentSuiteExpect": {
++    "resolverAccepted": true,
++    "expired": [
++      "w-expired"
++    ],
++    "summary": {
++      "passed": 5,
++      "failed": 0,
++      "indeterminate": 3,
++      "notExecutable": 1
++    },
++    "cases": {
++      "target-endpoint-discrimination": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["import-free-export", "src/a.ts", false],
++          ["unimported-file", "src/b.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1"],
++        "expectationOutcomes": ["met", "met", "met"]
++      },
++      "target-kind-unrepresented-is-unknown": {
++        "outcome": "indeterminate",
++        "observedVerdict": "fail",
++        "findings": [
++          ["import-free-export", "src/a.ts", false],
++          ["unimported-file", "src/b.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1", "unimported-file"],
++        "expectationOutcomes": ["met", "indeterminate", "met"]
++      },
++      "test-filter-unrepresentable-is-unknown": {
++        "outcome": "indeterminate",
++        "observedVerdict": "advisory",
++        "findings": [
++          ["import-free-export", "src/a.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1"],
++        "expectationOutcomes": ["met", "indeterminate", "indeterminate", "met"]
++      },
++      "runtime-observed-hit-is-a-known-match": {
++        "outcome": "passed",
++        "observedVerdict": "advisory",
++        "findings": [
++          ["import-free-export", "src/h.ts", false],
++          ["runtime-hit", "src/h.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1"],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "runtime-absence-does-not-prove-no-hit": {
++        "outcome": "indeterminate",
++        "observedVerdict": "advisory",
++        "findings": [
++          ["import-free-export", "src/u.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1", "runtime-hit"],
++        "expectationOutcomes": ["met", "indeterminate", "met"]
++      },
++      "partial-coverage-is-indeterminate-not-finding": {
++        "outcome": "passed",
++        "observedVerdict": "indeterminate",
++        "findings": [],
++        "indeterminateRules": ["failed-test-exit1", "import-free-export", "runtime-hit", "unimported-file"],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "live-waiver-suppresses-gate": {
++        "outcome": "passed",
++        "observedVerdict": "advisory",
++        "findings": [
++          ["import-free-export", "src/waived.ts", false],
++          ["unimported-file", "src/waived.ts", true]
++        ],
++        "indeterminateRules": ["failed-test-exit1"],
++        "expectationOutcomes": ["met", "met"]
++      },
++      "expired-waiver-does-not-suppress": {
++        "outcome": "passed",
++        "observedVerdict": "fail",
++        "findings": [
++          ["import-free-export", "src/legacy/old.ts", false],
++          ["unimported-file", "src/legacy/old.ts", false]
++        ],
++        "indeterminateRules": ["failed-test-exit1"],
++        "expectationOutcomes": ["met"]
++      },
++      "sources-fixture-not-executable-here": {
++        "outcome": "not-executable",
++        "observedVerdict": "indeterminate",
++        "findings": [],
++        "indeterminateRules": [],
++        "expectationOutcomes": ["indeterminate"]
++      }
++    }
++  },
++  "controls": {
++    "legacyResolverOnlyRule": {
++      "ruleId": "stale-file-advisory",
++      "ruleProgramRef": {
++        "contributionId": "core.rules",
++        "ruleStableId": "stale-file-advisory",
++        "semanticsMajor": 1,
++        "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++      },
++      "enabled": true,
++      "severity": "note",
++      "gate": false,
++      "subjectEnumeration": {
++        "universe": "typescript-v2",
++        "subjectKind": "file"
++      },
++      "emitWhen": {
++        "op": "exists",
++        "relation": "history-change",
++        "minResolution": "observed",
++        "filters": [
++          {
++            "field": "confidenceMillionths",
++            "cmp": "lte",
++            "value": 100000
++          }
++        ],
++        "evidence": "history"
++      },
++      "evidenceUse": [
++        {
++          "kind": "history",
++          "requirement": "optional"
++        }
++      ]
++    },
++    "forbiddenTargetEndpointRule": {
++      "ruleId": "file-target-endpoint",
++      "ruleProgramRef": {
++        "contributionId": "core.rules",
++        "ruleStableId": "file-target-endpoint",
++        "semanticsMajor": 1,
++        "programDigest": "0000000000000000000000000000000000000000000000000000000000000000"
++      },
++      "enabled": true,
++      "severity": "error",
++      "gate": true,
++      "subjectEnumeration": {
++        "universe": "typescript-v2",
++        "subjectKind": "file"
++      },
++      "emitWhen": {
++        "op": "none",
++        "relation": "file",
++        "minResolution": "enumerated",
++        "endpoint": "target",
++        "filters": []
++      },
++      "evidenceUse": []
++    }
++  }
++}
+--- /dev/null
++++ b/docs/coop/design-corrections/workflows/policy_test_model.v3.py
+@@ -0,0 +1,272 @@
++"""Evaluator3 policy.test fixture evaluator for PolicyTestSuiteV2 (reference evidence, not a host runtime).
++
++Owner of the bounded deterministic authoring-test semantics of schemas/evaluator3/policy-test.schema.json
++x-opensip-fixture-representation. Atom law comes from the current atom owner (foundation/atom_model.v1.py: its registry,
++ladder comparison, filter comparators and three-valued match combination); this module adds no relation table. The facts
++fixture is a finite FactRecordCandidate view, so a field or imported observation it cannot represent is unknown, never a
++fabricated no-match. It raises no refusal: workflows_model.v3 admits the suite, resolves the policy and owns every
++Refusal. Not production evaluator, provider, full Run or native qualification.
++"""
++import copy
++import importlib.util
++import json
++from pathlib import Path
++
++HERE = Path(__file__).resolve().parent
++
++
++def _load(name, path):
++    spec = importlib.util.spec_from_file_location(name, path)
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++A = _load("policy_test_atom_owner3", HERE.parent / "foundation" / "atom_model.v1.py")
++REGISTRY = A.REGISTRY
++W = A.W  # the atom owner's glob_match / in_scope / SEV_ORDER helpers
++SUITE_SCHEMA = json.loads((HERE / "schemas" / "evaluator3" / "policy-test.schema.json").read_text())
++REPRESENTATION = SUITE_SCHEMA["x-opensip-fixture-representation"]
++FIELDS = REPRESENTATION["fields"]
++SELECTORS = REPRESENTATION["importedObservationSelectors"]
++_V2 = json.loads((HERE / "schemas" / "policy-document.v2.schema.json").read_text())["$defs"]
++_CASES = json.loads((HERE / "schemas" / "policy-test.schema.json").read_text())["$defs"]
++SEVERITIES = tuple(_V2["Severity"]["enum"])
++NUMERIC_FIELDS = frozenset(REGISTRY["fieldFilterSuccessor"]["numericFields"])
++_fact_members = set(_CASES["FactRecordCandidate"]["properties"])
++_registry_selectors = {row["observationAddressSelector"] for row in REGISTRY["relations"].values() if row.get("observationAddressSelector")}
++if set(FIELDS) != set(_V2["FieldFilter"]["properties"]["field"]["enum"]) or not {m for m in FIELDS.values() if m} <= _fact_members:
++    raise RuntimeError("fixture field representation drifted from PolicyDocumentV2 FieldFilter or FactRecordCandidate")
++if set(SELECTORS) != _registry_selectors:
++    raise RuntimeError("fixture imported-observation representation drifted from the atom registry selectors")
++OVERRIDE_TYPES = {"enabled": "boolean", "gate": "boolean", "severity": "severity"}
++
++
++def _kind(kind):
++    """export is not a stored kind (registry exportLaw): it evaluates as symbol."""
++    return "symbol" if kind == "export" else kind
++
++
++def suite_faults(suite):
++    """Fixture and override faults of a schema-admitted suite, in suite order. Empty means admissible."""
++    faults = []
++    rules = {r["ruleId"] for r in suite["candidatePolicy"]["rules"]}
++    for i, o in enumerate(suite.get("overrides", [])):
++        if o["ruleId"] not in rules:
++            faults.append("overrides[%d] names rule %s, which is not a candidate rule" % (i, o["ruleId"]))
++        elif OVERRIDE_TYPES[o["field"]] == "boolean" and type(o["value"]) is not bool or OVERRIDE_TYPES[o["field"]] == "severity" and o["value"] not in SEVERITIES:
++            faults.append("overrides[%d] value does not have the type of field %s" % (i, o["field"]))
++    for case in suite["cases"]:
++        if case["subject"]["kind"] != "facts":
++            continue
++        for j, fact in enumerate(case["subject"]["facts"]):
++            row = REGISTRY["relations"].get(fact["relation"])
++            if row is None:
++                faults.append("case %s fact %d names unregistered relation %s" % (case["id"], j, fact["relation"]))
++            elif fact["resolution"] not in row["ladder"]:
++                faults.append("case %s fact %d resolution %s is not a rung of %s" % (case["id"], j, fact["resolution"], fact["relation"]))
++    return faults
++
++
++def apply_overrides(policy, overrides):
++    """The effective policy: test-only field overrides of admitted candidate rules, in rule-ID order; never written."""
++    effective = copy.deepcopy(policy)
++    rules = {r["ruleId"]: r for r in effective["rules"]}
++    for o in overrides:
++        rules[o["ruleId"]][o["field"]] = o["value"]
++    effective["rules"] = [rules[k] for k in sorted(rules, key=lambda s: s.encode())]
++    return effective
++
++
++# ------------------------------------------------------------------------------------------------- atoms
++def _projection(fact, field, plane, kind):
++    if plane == "imported" and field == "subjectKind":
++        return kind
++    if plane == "imported" and field == "resolution":
++        return "observed"
++    member = FIELDS[field]
++    if member is None or fact.get(member) is None:
++        return A.ABSENT
++    value = fact[member]
++    return _kind(value) if field in ("subjectKind", "targetKind") else value
++
++
++def _filters(fact, atom, plane, kind):
++    acc = A.MATCH
++    for flt in atom.get("filters") or []:
++        projected = _projection(fact, flt["field"], plane, kind)
++        if projected is A.ABSENT:
++            acc = A._and_fr(acc, A.FUNK)
++            continue
++        compare = A._cmp_int if flt["field"] in NUMERIC_FIELDS else A._cmp_string
++        acc = A._and_fr(acc, compare(flt["cmp"], projected, flt["value"]))
++        if acc == A.NOMATCH:
++            break
++    return acc
++
++
++def _native_occupancy(fact, atom, spec, subject, kind, universe):
++    if fact["universe"] != universe:
++        return A.NOMATCH
++    if atom.get("endpoint", "source") == "source":
++        return A.MATCH if fact["subject"] == subject else A.NOMATCH
++    if not spec.get("targetNativeIdField") or fact["target"] != subject:
++        return A.NOMATCH
++    target_kind = fact.get("targetKind")
++    if target_kind is None:
++        return A.FUNK
++    return A.MATCH if _kind(target_kind) == kind else A.NOMATCH  # another first-party kind or external
++
++
++def _atom(atom, subject, kind, universe, fixture):
++    """(value, causes): value True / False / None under strong Kleene; causes name why a None arose."""
++    rel = atom["relation"]
++    spec = REGISTRY["relations"][rel]
++    evidence = atom.get("evidence")
++    if evidence is not None and evidence not in fixture["evidenceAvailable"]:
++        return None, {("evidence-absent", evidence)}
++    facts = [f for f in fixture["facts"] if f["relation"] == rel and A._rung_ge(rel, f["resolution"], atom["minResolution"])]
++    known, uncertain = set(), set()
++    op, n = atom["op"], atom.get("n")
++    if spec["plane"] == "native":
++        for fact in facts:
++            occupancy = _native_occupancy(fact, atom, spec, subject, kind, universe)
++            if occupancy == A.NOMATCH:
++                continue
++            status = A._and_fr(occupancy, _filters(fact, atom, "native", kind))
++            key = json.dumps(fact, sort_keys=True)
++            if status == A.MATCH:
++                known.add(key)
++            elif status == A.FUNK:
++                uncertain.add(key)
++        decided = fixture["coverage"] == "complete" and not uncertain
++        cause = {("uncertain-match",)} if uncertain else {("coverage",)}
++        if op == "exists":
++            value = True if known else (False if decided else None)
++        elif op == "none":
++            value = False if known else (True if decided else None)
++        elif op == "count-at-most":
++            value = False if len(known) > n else (True if decided else None)
++        else:
++            value = True if decided else None
++        return value, (set() if value is not None else cause)
++    if SELECTORS[spec["observationAddressSelector"]] != "representable":
++        return None, {("unrepresentable", spec["observationAddressSelector"])}
++    for fact in facts:
++        if fact["subject"] != subject:
++            continue
++        key = json.dumps(fact, sort_keys=True)
++        if spec["observationAddressSelector"] == "runtime-subject" and fact.get("observability") not in ("observed-hit", "observable-unhit"):
++            uncertain.add(key)
++            continue
++        status = _filters(fact, atom, "imported", kind)
++        if status == A.MATCH:
++            known.add(key)
++        elif status == A.FUNK:
++            uncertain.add(key)
++    if op == "exists" and known:
++        return True, set()
++    if op == "none" and known:
++        return False, set()
++    if op == "count-at-most" and len(known) > n:
++        return False, set()
++    return None, {("import-completeness-unrepresentable", spec["evidenceKind"])}
++
++
++def _predicate(node, subject, kind, universe, fixture):
++    if node["op"] in ("and", "or"):
++        results = [_predicate(child, subject, kind, universe, fixture) for child in node["operands"]]
++        dominant = False if node["op"] == "and" else True
++        if any(v is dominant for v, _ in results):
++            return dominant, set()
++        if all(v is (not dominant) for v, _ in results):
++            return (not dominant), set()
++        return None, set().union(*(c for v, c in results if v is None))
++    if node["op"] == "not":
++        value, causes = _predicate(node["operand"], subject, kind, universe, fixture)
++        return (None if value is None else not value), causes
++    return _atom(node, subject, kind, universe, fixture)
++
++
++# ------------------------------------------------------------------------------------------------- rules and cases
++def evaluate(policy, scope, effective_waivers, fixture):
++    """-> verdict, findings, indeterminateRules, optionalEvidenceAbsent and unknownSubjects (rule -> subjects)."""
++    waived = set()
++    for waiver in effective_waivers["waivers"]:
++        target = waiver["target"]
++        if "ruleId" in target:
++            waived.add((target["ruleId"], target["subjectPath"]))
++    complete = fixture["coverage"] == "complete"
++    available = set(fixture["evidenceAvailable"])
++    findings, indeterminate, optional_absent, unknown = [], [], [], {}
++    fail = gating_unknown = False
++    for rule in sorted(policy["rules"], key=lambda r: r["ruleId"].encode()):
++        if not rule["enabled"]:
++            continue
++        rid = rule["ruleId"]
++        required = {u["kind"] for u in rule["evidenceUse"] if u["requirement"] == "required"}
++        optional = {u["kind"] for u in rule["evidenceUse"] if u["requirement"] == "optional"}
++        gating = rule["gate"] and W.SEV_ORDER[rule["severity"]] >= W.SEV_ORDER[policy["gateSeverityAtLeast"]]
++        enum = rule["subjectEnumeration"]
++        subjects = [s for s in fixture["subjects"] if W.in_scope(scope, s)
++                    and (not enum.get("include") or any(W.glob_match(g, s) for g in enum["include"]))
++                    and not any(W.glob_match(g, s) for g in enum.get("exclude", []))]
++        if required - available:
++            indeterminate.append(rid)
++            unknown[rid] = set(subjects)
++            gating_unknown = gating_unknown or gating
++            continue
++        kind, universe = _kind(enum["subjectKind"]), enum["universe"]
++        absent_optional = {("evidence-absent", k) for k in optional - available}
++        rule_unknown, only_optional_absent = set(), True
++        for subject in subjects:
++            value, causes = _predicate(rule["emitWhen"], subject, kind, universe, fixture)
++            if value is True:
++                is_waived = (rid, subject) in waived
++                findings.append({"ruleId": rid, "subject": subject, "waived": is_waived})
++                fail = fail or (gating and not is_waived)
++            elif value is None:
++                rule_unknown.add(subject)
++                only_optional_absent = only_optional_absent and complete and causes <= absent_optional
++        if rule_unknown and only_optional_absent:
++            optional_absent.append(rid)
++        elif rule_unknown:
++            indeterminate.append(rid)
++            unknown[rid] = rule_unknown
++            gating_unknown = gating_unknown or gating
++    verdict = "fail" if fail else "indeterminate" if gating_unknown else "advisory" if any(not f["waived"] for f in findings) else "pass"
++    return {"verdict": verdict, "findings": findings, "indeterminateRules": sorted(set(indeterminate), key=lambda s: s.encode()),
++            "optionalEvidenceAbsent": sorted(set(optional_absent), key=lambda s: s.encode()), "unknownSubjects": unknown}
++
++
++def _expectation(expectation, ev):
++    rid = expectation["ruleId"] if "ruleId" in expectation else None
++    if expectation["kind"] == "verdict":
++        return "met" if ev["verdict"] == expectation["verdict"] else "unmet"
++    if expectation["kind"] == "indeterminate":
++        return "met" if rid in ev["indeterminateRules"] else "unmet"
++    unknown = ev["unknownSubjects"].get(rid, set())
++    if expectation["kind"] == "no-finding":
++        if any(f["ruleId"] == rid for f in ev["findings"]):
++            return "unmet"
++        return "indeterminate" if unknown else "met"
++    wanted = expectation.get("subjects")
++    matched = [f for f in ev["findings"] if f["ruleId"] == rid and (not wanted or f["subject"] in wanted)]
++    open_subjects = unknown if not wanted else unknown & set(wanted)
++    if "maxCount" in expectation and len(matched) > expectation["maxCount"]:
++        return "unmet"
++    if len(matched) >= expectation["minCount"]:
++        return "indeterminate" if "maxCount" in expectation and open_subjects else "met"
++    return "indeterminate" if open_subjects else "unmet"
++
++
++def case_result(policy, scope, effective_waivers, case):
++    """One CaseResult of PolicyTestResultV1 (unchanged shape)."""
++    if case["subject"]["kind"] == "sources":
++        return {"id": case["id"], "outcome": "not-executable", "observedVerdict": "indeterminate", "findings": [], "indeterminateRules": [],
++                "expectationOutcomes": ["indeterminate"] * len(case["expectations"])}
++    ev = evaluate(policy, scope, effective_waivers, case["subject"])
++    outcomes = [_expectation(x, ev) for x in case["expectations"]]
++    outcome = "failed" if "unmet" in outcomes else "indeterminate" if "indeterminate" in outcomes else "passed"
++    return {"id": case["id"], "outcome": outcome, "observedVerdict": ev["verdict"], "findings": ev["findings"],
++            "indeterminateRules": ev["indeterminateRules"], "expectationOutcomes": outcomes}
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/README.md
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/README.md
+@@ -7,13 +7,14 @@
+ - `urn:opensip:product-v1:workflows:policy-document` — ScopeDocumentV1, WaiverSetV1, EvidenceUse, Rung
+ - `urn:opensip:product-v1:policy-document:2` — PolicyDocumentV2 embed in baseline
+ - `urn:opensip:product-v1:workflows:imported-evidence` — import kinds/payloads
++- `urn:opensip:product-v1:workflows:policy-test` — PolicyTestResultV1 (the `policytest2` carrier), Case and Override, reused by `policy-test.schema.json` (`...evaluator3:policy-test:2`, PolicyTestSuiteV2 with candidate PolicyDocumentV2)
+ 
+ Output prefixes are exact `run3` / `evidence3` / `finding3`. Fingerprint remains
+ `finding-key2`. Mixed output-major patterns are refused. Historical baseline/comparison
+ schemaMajor 1 is not admitted by empty-array coercion.
+ 
+ v1 identity-bearing majors that moved (verified against source schema consts, not description-only):
+-baseline 1→2, comparison 1→2, graph-query 1→2→3, repair-plan 1→2,
++baseline 1→2, comparison 1→2, graph-query 1→2→3, repair-plan 1→2, policy-test suite 1→2,
+ envelope 2→3, invocation 1→3, command-inventory 1→3. Retention pins are `run3|closure2`.
+ 
+ SARIF 2.1.0 adapter: `sarif-adapter.schema.json` (`...evaluator3:sarif-adapter:2`).
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json
+@@ -785,7 +785,7 @@
+           "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1"
+         }
+       },
+-      "description": "policy test: the complete PolicyTestResultV1 of a resolver-accepted suite. A suite admission or resolver refusal terminates request-rejected CONFIG.INVALID with its detail (workflows-and-surfaces section 5; goldens policy-test-duplicate-waiver, policy-test-imperative-key, policy-test-suite-inadmissible) and is never carried here.",
++      "description": "policy test: the complete PolicyTestResultV1 of a resolver-accepted evaluator3 PolicyTestSuiteV2 (urn:opensip:product-v1:workflows:evaluator3:policy-test:2). A suite or candidate policy of another major terminates request-rejected REQUEST.SCHEMA_MAJOR_UNSUPPORTED with EVALUATION.MIXED_OUTPUT_MAJOR (golden policy-test-suite-major-unsupported); any other suite admission or resolver refusal terminates request-rejected CONFIG.INVALID with its detail (workflows-and-surfaces section 5; goldens policy-test-duplicate-waiver, policy-test-imperative-key, policy-test-suite-inadmissible). No refusal is carried here.",
+       "allOf": [
+         {
+           "properties": {
+--- a/docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json
+@@ -2295,7 +2295,7 @@
+           "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UserInputPath"
+         }
+       },
+-      "description": "policy test SUITE."
++      "description": "policy test SUITE: suitePath names an evaluator3 PolicyTestSuiteV2 document (urn:opensip:product-v1:workflows:evaluator3:policy-test:2); a suite or candidate policy of another major is refused before evaluation."
+     },
+     "ReviewBriefProduceRequestV1": {
+       "type": "object",
+--- /dev/null
++++ b/docs/coop/design-corrections/workflows/schemas/evaluator3/policy-test.schema.json
+@@ -0,0 +1,93 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "urn:opensip:product-v1:workflows:evaluator3:policy-test:2",
++  "title": "PolicyTestSuiteV2 — evaluator3 policy authoring test suite",
++  "description": "The current evaluator3 `opensip policy test SUITE` input. A suite tests a candidate PolicyDocumentV2 before enforcement. schemaMajor 2 because the admitted candidate policy is PolicyDocumentV2 and the whole admitted suite, including this major and the candidate's own major, is the H(\"workflow.policy-test-suite\", PolicyTestSuiteV2) preimage of PolicyTestResultV1.suiteDigest. Waivers (WaiverSetV1), cases (Case) and test-only overrides (Override) keep their retained owner definitions. The deterministic result stays urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestResultV1 with prefix policytest2; its candidate and effective policy digests are raw SHA-256 of PolicyDocumentV2 canonical bytes. The retained PolicyTestSuiteV1 (candidate PolicyDocumentV1) is the historical workflow1 input and is not an alternative parser here: a suite or candidate policy of another major is refused before schema validation (REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR) and is never relabelled or coerced. Bounds are those of the retained definitions: at most 1024 cases, at most 64 overrides.",
++  "$defs": {
++    "PolicyTestSuiteV2": {
++      "type": "object",
++      "additionalProperties": false,
++      "required": [
++        "schemaFamily",
++        "schemaMajor",
++        "candidatePolicy",
++        "waivers",
++        "cases"
++      ],
++      "properties": {
++        "schemaFamily": {
++          "const": "opensip.product.policy-test"
++        },
++        "schemaMajor": {
++          "const": 2
++        },
++        "candidatePolicy": {
++          "$ref": "urn:opensip:product-v1:policy-document:2#/$defs/PolicyDocumentV2"
++        },
++        "waivers": {
++          "$ref": "urn:opensip:product-v1:workflows:policy-document#/$defs/WaiverSetV1"
++        },
++        "asOfDate": {
++          "$ref": "urn:opensip:product-v1:workflows:common#/$defs/UtcDate",
++          "description": "date used for waiver expiry resolution in the fixture; defaults to no expiry resolution (all non-expired) when absent"
++        },
++        "overrides": {
++          "type": "array",
++          "maxItems": 64,
++          "items": {
++            "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/Override"
++          },
++          "description": "Test-only overrides of the effective policy, disclosed in the result and never written. Each names a candidate rule and carries the value type of its field (boolean for enabled and gate, Severity for severity).",
++          "x-opensip-order": "sequence"
++        },
++        "cases": {
++          "type": "array",
++          "minItems": 1,
++          "maxItems": 1024,
++          "items": {
++            "$ref": "urn:opensip:product-v1:workflows:policy-test#/$defs/Case"
++          },
++          "description": "Facts cases are evaluated under x-opensip-fixture-representation. Sources cases are not-executable in this reference.",
++          "x-opensip-order": "sequence"
++        }
++      }
++    }
++  },
++  "x-opensip-admission-precedence": [
++    "1. suite major: a policy-test suite object whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR",
++    "2. candidate major: a policy document candidatePolicy whose integer schemaMajor is not 2 refuses REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR, before any grammar classification",
++    "3. closed PolicyTestSuiteV2 schema: a candidate-policy member no closed PolicyDocumentV2 alternative declares at its position, or a string where every alternative is an object, refuses CONFIG.INVALID / POLICY.IMPERATIVE_KEY_REFUSED; any other schema failure refuses CONFIG.INVALID / CONFIG.INVALID",
++    "4. fixture facts: every facts-case fact names a registered relation and a rung of that relation's ladder, and every override names a candidate rule with its field's value type; otherwise CONFIG.INVALID / CONFIG.INVALID",
++    "5. resolver (admitted suite): the current policy resolver and atom owner, then waiver resolution; a refusal keeps its own detail (POLICY.UNKNOWN_RULE, IMPORT.ABSENT_FOR_PREDICATE, POLICY.DUPLICATE_WAIVER) and its resolverAccepted=false result is never carried"
++  ],
++  "x-opensip-fixture-representation": {
++    "standing": "Bounded deterministic standalone authoring-test semantics over a finite facts fixture, evaluated with the current atom admission and registry (foundation/atom_model.v1.py, foundation/evaluator-projection-registry.v1.json). Not production evaluator, provider, full Run or native qualification.",
++    "subject": "A facts-case subject is a LogicalPath of subjects[]. Its evaluated kind is the rule subjectEnumeration.subjectKind (export evaluates as symbol) and its universe is the rule subjectEnumeration.universe.",
++    "factUniverse": "FactRecordCandidate.universe is the one universe of both endpoints of the supplied fact; occupancy requires it to equal the evaluated subject universe.",
++    "endpoint": "endpoint source matches FactRecordCandidate.subject to the evaluated subject. endpoint target matches FactRecordCandidate.target to the evaluated subject; the target's first-party kind is known only from FactRecordCandidate.targetKind: equal to the evaluated kind matches, another kind or external does not match, absent is unknown.",
++    "fields": {
++      "subject": "subject",
++      "target": "target",
++      "resolution": "resolution",
++      "confidenceMillionths": "confidenceMillionths",
++      "subjectKind": "subjectKind",
++      "targetKind": "targetKind",
++      "observability": "observability",
++      "universe": null,
++      "testResult": null,
++      "exitStatus": null
++    },
++    "fieldsLaw": "A registered filter field mapped to a FactRecordCandidate member reads that member; an absent optional member is unknown. A field mapped to null is not representable by the facts fixture and evaluates unknown: universe compares the registered endpoint-universe domain, which the fixture does not carry; testResult and exitStatus read test-execution process and test-case payloads. Imported rows project subjectKind from the evaluated subject and resolution as observed, as the atom owner does.",
++    "importedObservationSelectors": {
++      "runtime-subject": "representable",
++      "history-subject": "representable",
++      "test-execution": "unrepresentable",
++      "test-case": "unrepresentable"
++    },
++    "importedLaw": "Keyed by the registry relations[].observationAddressSelector. A representable imported row can establish a known match: exists true, none false, count-at-most false above N. The fixture cannot represent wrapper completeness, observation window or population, selection completeness or staleness, so absence of a matching row never proves absence: exists is never false and none, count-at-most and all-covered are never true. An atom of an unrepresentable selector is unknown. Unobservable, unmapped or observability-absent runtime rows are unknown, never unhit.",
++    "nativeLaw": "Native relations follow the atom owner's strong Kleene quantifiers over the supplied facts with the case's declared Coverage: complete Coverage lets absence decide; partial or unknown Coverage, or any unknown match, leaves exists false, none true, count-at-most true and all-covered true unknown.",
++    "ruleLaw": "Required evidence absent from evidenceAvailable makes the rule unknown for every enumerated subject. Optional evidence absent with complete Coverage is the disclosed non-gating IMPORT.ABSENT_FOR_PREDICATE case when it is the only unknown cause. Every other unknown rule result for an enumerated subject lists the rule in CaseResult.indeterminateRules; an enabled gating rule at the policy threshold makes the observed verdict indeterminate unless a live unwaived gating finding makes it fail.",
++    "expectationLaw": "finding: known matching findings above maxCount is unmet; at least minCount is met unless maxCount is present and an enumerated subject (within subjects when given) is unknown for the rule, which is indeterminate; below minCount is indeterminate when such an unknown subject exists, otherwise unmet. no-finding: a known finding is unmet; otherwise an unknown subject is indeterminate; otherwise met. verdict: met exactly when the observed verdict equals it. indeterminate: met exactly when the rule is in indeterminateRules. A case is failed with any unmet, else indeterminate with any indeterminate, else passed.",
++    "resultLimit": "PolicyTestResultV1 and CaseResult are unchanged: indeterminateRules and expectationOutcomes name the affected rules and expectations but carry no per-rule unknown cause (Coverage, missing evidence or fixture representation)."
++  }
++}
+--- a/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
++++ b/docs/coop/design-corrections/workflows/workflow-projection-contract.v3.md
+@@ -38,12 +38,13 @@
+ | envelope | `...evaluator3:command-envelope:3` | **3** | run3 + FindingSurface |
+ | invocation | `...evaluator3:invocation:3` | **3** | AnalysisResult.runId is run3 |
+ | command-inventory | `...evaluator3:command-inventory:3` | **3** | findings parity is FindingSurface |
++| policy-test suite | `...evaluator3:policy-test:2` | **2** | candidatePolicy is PolicyDocumentV2 inside the `workflow.policy-test-suite` H preimage; the result stays `PolicyTestResultV1` (`policytest2`) |
+ 
+ Historical baseline/comparison `schemaMajor` 1 is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with detail `BASELINE.SCHEMA_MAJOR_UNSUPPORTED`. Missing unmatched arrays are **not** `[]`.
+ 
+ Output prefixes are exact (`^run3:`, `^finding3:`, `^evidence3:`). Mixed `run[23]` regex is forbidden. Native/input prefixes stay snapshot2/plan2/closure2/import2/fact2/finding-key2.
+ 
+-ScopeDocumentV1 and WaiverSetV1 remain on `urn:opensip:product-v1:workflows:policy-document`. Baseline embedded policy is `PolicyDocumentV2` on `urn:opensip:product-v1:policy-document:2`.
++ScopeDocumentV1 and WaiverSetV1 remain on `urn:opensip:product-v1:workflows:policy-document`. Baseline embedded policy is `PolicyDocumentV2` on `urn:opensip:product-v1:policy-document:2`. A policy-test suite or candidate policy of another major is `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with detail `EVALUATION.MIXED_OUTPUT_MAJOR`, in the admission order of that schema's `x-opensip-admission-precedence`; `policy_test_model.v3.py` owns its fixture evaluation, and the retained `PolicyTestSuiteV1` stays the workflow1 input.
+ 
+ ## 2. Projection preconditions
+ 
+--- a/docs/coop/design-corrections/workflows/workflows_model.v3.py
++++ b/docs/coop/design-corrections/workflows/workflows_model.v3.py
+@@ -49,6 +49,9 @@
+     visit(rule['emitWhen']);return rule
+ 
+ def resolve_policy(doc):
++    """The current resolver admits PolicyDocumentV2 only; a historical policy is refused typed and never relabelled."""
++    if not isinstance(doc,dict) or doc.get('schemaMajor')!=POLICY_DOCUMENT_MAJOR:
++        raise Refusal('REQUEST.SCHEMA_MAJOR_UNSUPPORTED','EVALUATION.MIXED_OUTPUT_MAJOR','the evaluator3 policy resolver admits PolicyDocumentV2 only; a historical policy is not relabelled or coerced',str(doc.get('schemaMajor') if isinstance(doc,dict) else None))
+     ids=[r['ruleId'] for r in doc['rules']]
+     if ids!=sorted(set(ids),key=lambda s:s.encode()):raise Refusal('CONFIG.INVALID','POLICY.UNKNOWN_RULE','ruleIds must be unique and sorted')
+     for rule in doc['rules']:admit_policy_rule(rule)
+@@ -150,16 +153,33 @@
+     except P.Refusal as exc:raise Refusal(exc.error_code,exc.detail,exc.remedy,exc.subject) from exc
+     return admit_repair_plan_v2(_base.repair_preview(project_id,snapshot_tree,run,recipe,targets,edits,evidence_requirements,permitted_scope,trust,ephemeral,descriptor_major=REPAIR_PLAN_MAJOR))
+ 
+-# ---------------------------------------------------------- policy.test suite admission
+-# errorCode is CONFIG.INVALID (D9 rejection cause config-invalid) for every suite refusal. The DomainDetail is a separate
+-# registered code: POLICY.IMPERATIVE_KEY_REFUSED for a candidate-policy grammar violation (workflows-and-surfaces section 5),
+-# otherwise the shared registered CONFIG.INVALID detail. Resolver refusals of an admitted suite keep their own details.
+-POLICY_TEST_SUITE_REF='urn:opensip:product-v1:workflows:policy-test#/$defs/PolicyTestSuiteV1'
++# ---------------------------------------------------------- policy.test (evaluator3 PolicyTestSuiteV2)
++# The current input is schemas/evaluator3/policy-test.schema.json PolicyTestSuiteV2 (candidate PolicyDocumentV2). The retained
++# PolicyTestSuiteV1 and workflows_model.v1.run_policy_test are the historical workflow1 profile only; this module's private
++# _base keeps them unchanged. Admission precedence is that document's x-opensip-admission-precedence: suite major, then
++# candidate major (REQUEST.SCHEMA_MAJOR_UNSUPPORTED / EVALUATION.MIXED_OUTPUT_MAJOR, the current policy major refusal of
++# workflow_projection_model.v3; never relabelled or grammar-classified), then the closed schema (errorCode CONFIG.INVALID,
++# D9 rejection cause config-invalid, with POLICY.IMPERATIVE_KEY_REFUSED for a PolicyDocumentV2 grammar violation and
++# otherwise the shared registered CONFIG.INVALID detail), then fixture and override admission (CONFIG.INVALID), then the
++# current resolver, whose refusals of an admitted suite keep their own details.
++import copy
++POLICY_DOCUMENT_MAJOR=2
++POLICY_TEST_SUITE_MAJOR=2
++POLICY_TEST_SUITE_REF='urn:opensip:product-v1:workflows:evaluator3:policy-test:2#/$defs/PolicyTestSuiteV2'
+ _POLICY_GRAMMAR=None
+ def _policy_grammar():
+     global _POLICY_GRAMMAR
+-    if _POLICY_GRAMMAR is None:_POLICY_GRAMMAR=json.loads((PROFILE_ROOT/'schemas'/'policy-document.schema.json').read_text())
++    if _POLICY_GRAMMAR is None:_POLICY_GRAMMAR=json.loads((PROFILE_ROOT/'schemas'/'policy-document.v2.schema.json').read_text())
+     return _POLICY_GRAMMAR
++
++_POLICY_TEST_MODEL=None
++def policy_test_model():
++    """The evaluator3 fixture evaluator: current atom law over the PolicyTestSuiteV2 facts fixture representation."""
++    global _POLICY_TEST_MODEL
++    if _POLICY_TEST_MODEL is None:
++        spec=importlib.util.spec_from_file_location('policy_test_fixture_owner3',PROFILE_ROOT/'policy_test_model.v3.py')
++        _POLICY_TEST_MODEL=importlib.util.module_from_spec(spec);spec.loader.exec_module(_POLICY_TEST_MODEL)
++    return _POLICY_TEST_MODEL
+ 
+ def _grammar_alternatives(nodes,doc):
+     """Leaf alternatives admitted at one position: local $refs resolved and oneOf/anyOf branches flattened. An allOf member
+@@ -191,7 +211,7 @@
+     include or exec key), or a string where every alternative is an object (a string expression). Every other schema
+     failure (a wrong enum value, a missing member, a bound) is not a grammar violation."""
+     doc=doc or _policy_grammar()
+-    alts=_grammar_alternatives(nodes if nodes is not None else [doc['$defs']['PolicyDocumentV1']],doc)
++    alts=_grammar_alternatives(nodes if nodes is not None else [doc['$defs']['PolicyDocumentV2']],doc)
+     objects=[a for a in alts if a.get('type')=='object' or 'properties' in a]
+     if isinstance(value,str):
+         return bool(objects) and not any(_admits_scalar(a) for a in alts)
+@@ -205,19 +225,62 @@
+         return bool(items) and any(policy_grammar_violation(v,items,doc) for v in value)
+     return False
+ 
++def _other_major(record,family,major):
++    return isinstance(record,dict) and record.get('schemaFamily')==family and type(record.get('schemaMajor')) is int and record['schemaMajor']!=major
++
++def _policy_major_refusal(what,major):
++    return Refusal('REQUEST.SCHEMA_MAJOR_UNSUPPORTED','EVALUATION.MIXED_OUTPUT_MAJOR',
++                   'evaluator3 policy test admits PolicyTestSuiteV2 with a PolicyDocumentV2 candidate; a '+what+' of another major is not relabelled or coerced',str(major))
++
+ def admit_policy_test_suite(suite):
+-    """policy.test admission, before any evaluation (workflows-and-surfaces section 5)."""
++    """policy.test admission, before any evaluation (workflows-and-surfaces section 5), in the precedence above."""
++    if _other_major(suite,'opensip.product.policy-test',POLICY_TEST_SUITE_MAJOR):raise _policy_major_refusal('suite',suite['schemaMajor'])
++    policy=suite.get('candidatePolicy') if isinstance(suite,dict) else None
++    if _other_major(policy,'opensip.product.policy',POLICY_DOCUMENT_MAJOR):raise _policy_major_refusal('candidate policy',policy['schemaMajor'])
+     try:
+         projection_owner().validate_profile(POLICY_TEST_SUITE_REF,suite)
+-        return suite
+     except (ValidationError,canonical.AdmissionError) as exc:
+-        policy=suite.get('candidatePolicy') if isinstance(suite,dict) else None
+         if policy is not None and policy_grammar_violation(policy):
+             raise Refusal('CONFIG.INVALID','POLICY.IMPERATIVE_KEY_REFUSED','the policy DSL is declarative data only') from exc
+-        raise Refusal('CONFIG.INVALID','CONFIG.INVALID','correct the suite so it satisfies PolicyTestSuiteV1') from exc
++        raise Refusal('CONFIG.INVALID','CONFIG.INVALID','correct the suite so it satisfies PolicyTestSuiteV2') from exc
++    faults=policy_test_model().suite_faults(suite)
++    if faults:raise Refusal('CONFIG.INVALID','CONFIG.INVALID','correct the suite so it satisfies PolicyTestSuiteV2',faults[0][:512])
++    return suite
++
++def run_policy_test(suite,scope=None):
++    """The evaluator3 authoring test over an ADMITTED PolicyTestSuiteV2. In this profile it replaces the imported historical
++    workflows_model.v1.run_policy_test (still _base.run_policy_test), whose globals bind the historical resolver and
++    evaluator. The current resolver and atom owner resolve the candidate, the unchanged WaiverSetV1 owner resolves waivers,
++    and policy_test_model.v3 evaluates each case. The result stays PolicyTestResultV1 (policytest2): suiteDigest is H over the
++    admitted PolicyTestSuiteV2 and the candidate and effective digests are over PolicyDocumentV2 bytes."""
++    T=policy_test_model()
++    scope=scope or {'schemaFamily':'opensip.product.scope','schemaMajor':1,'include':['**'],'exclude':[]}
++    res={'schemaFamily':'opensip.product.policy-test-result','schemaMajor':1,'suiteDigest':canonical.identity('workflow.policy-test-suite',suite),
++         'candidatePolicyDigest':doc_digest(suite['candidatePolicy']),'overridesApplied':list(suite.get('overrides',[])),'enforcementUnchanged':True,'resolverRefusals':[]}
++    try:
++        policy=resolve_policy(copy.deepcopy(suite['candidatePolicy']))
++        effective_waivers,waiver_resolution=resolve_waivers(suite['waivers'],suite.get('asOfDate'))
++        res['resolverAccepted']=True
++    except Refusal as refusal:
++        res.update(resolverAccepted=False,resolverRefusals=[refusal.termination()['domainDetail']],effectivePolicyDigest=res['candidatePolicyDigest'],
++                   waiverResolution={'asOfDate':suite.get('asOfDate','0000-00-00'),'effectiveCount':0,'expired':[],
++                                     'duplicatesRejected':[refusal.subject] if refusal.detail=='POLICY.DUPLICATE_WAIVER' else []},
++                   results=[],summary={'passed':0,'failed':0,'indeterminate':0,'notExecutable':0})
++        res['policyTestResultId']=wid('policytest2','workflow.policy-test-result',res)
++        return res,refusal
++    effective=T.apply_overrides(policy,suite.get('overrides',[]))
++    res['effectivePolicyDigest']=doc_digest(effective)
++    res['waiverResolution']=waiver_resolution
++    res['results']=[T.case_result(effective,scope,effective_waivers,case) for case in suite['cases']]
++    summary={'passed':0,'failed':0,'indeterminate':0,'notExecutable':0}
++    for case in res['results']:summary['notExecutable' if case['outcome']=='not-executable' else case['outcome']]+=1
++    res['summary']=summary
++    res['policyTestResultId']=wid('policytest2','workflow.policy-test-result',res)
++    return res,None
+ 
+ def run_admitted_policy_test(suite):
+-    """policy.test: admit the suite, then run the authoring test. A resolver refusal returns (result, refusal) and terminates
+-    request-rejected with its own detail (goldens policy-test-duplicate-waiver, policy-test-imperative-key); only a
+-    resolver-accepted result is a policy-test-result carrier."""
++    """policy.test: admit the PolicyTestSuiteV2, then run the evaluator3 authoring test. An admission refusal raises (goldens
++    policy-test-suite-major-unsupported, policy-test-imperative-key, policy-test-suite-inadmissible); a resolver refusal
++    returns (result, refusal) and terminates request-rejected with its own detail (golden policy-test-duplicate-waiver);
++    only a resolver-accepted result is a policy-test-result carrier."""
+     return run_policy_test(admit_policy_test_suite(suite))
+--- a/docs/v2/contracts/product-v1/workflows-and-surfaces.md
++++ b/docs/v2/contracts/product-v1/workflows-and-surfaces.md
+@@ -33,8 +33,11 @@
+ Its closed schemas live under `workflows/schemas/evaluator3/`: envelope,
+ invocation, command inventory and graph query major3; baseline and comparison
+ major2; review and repair schema profile2. Embedded policy uses
+-`policy-document.v2.schema.json` (PolicyDocumentV2). Unchanged scope, waiver,
+-import, test and operational records keep their explicitly selected owners.
++`policy-document.v2.schema.json` (PolicyDocumentV2); the `policy test` input is
++`PolicyTestSuiteV2` (`schemas/evaluator3/policy-test.schema.json`), whose candidate policy is
++PolicyDocumentV2. Unchanged scope, waiver and import records, the retained
++`test-execution.schema.json` test-execution documents and operational records keep
++their explicitly selected owners.
+ Historical output schemas remain retained evidence and are not an alternative
+ parser for this profile. An absent unmatched-population field in an old
+ baseline is never interpreted as an empty population in a new baseline.
+@@ -625,25 +628,41 @@
+ policy and waiver documents at the admitted trust-clock date and reports the policy, its digest,
+ the effective waiver set, its digest and the resolution disclosure.
+ 
+-**Authoring test.** `opensip policy test SUITE` is Query class. A suite supplies the
+-candidate policy, waivers, an `asOfDate`, optional test-only overrides and cases with
+-typed fact fixtures (subjects, facts, declared Coverage, available evidence kinds) or
+-a bounded source fixture. Facts cases are evaluated by the deterministic fixture
++**Authoring test.** `opensip policy test SUITE` is Query class. Its input is `PolicyTestSuiteV2`
++(`schemaMajor` 2, [`schemas/evaluator3/policy-test.schema.json`](../../../coop/design-corrections/workflows/schemas/evaluator3/policy-test.schema.json)):
++a candidate `PolicyDocumentV2`, unchanged `WaiverSetV1` waivers, an `asOfDate`, optional test-only
++overrides of candidate rules and cases with typed fact fixtures (subjects, facts, declared Coverage,
++available evidence kinds) or a bounded source fixture. The retained `PolicyTestSuiteV1` (candidate
++`PolicyDocumentV1`) is the historical workflow1 input only. This is a breaking input change for
++`policy test`, not a relabel: a retained major-1 suite and its result stay historical evidence and are
++not re-evaluated under this profile. Facts cases are evaluated by the deterministic fixture
+ verifier (the finite declarative fixture evaluator; this is reference evidence, not
+-qualification of the production evaluator or native providers); sources cases run only under an ephemeral non-authoritative Plan with
++qualification of the production evaluator or native providers) under the current policy resolver and
++atom law, including endpoint, kind applicability and the registered filter projections. The facts
++fixture has an explicit representation law in that schema: a filter field or imported observation it
++cannot carry (the endpoint universe domain, `testResult`, `exitStatus`, test-execution and test-case
++observations) is unknown, and the absence of an imported row never proves absence. An unknown result
++for an enumerated subject lists the rule in `indeterminateRules` and leaves an affected finding or
++no-finding expectation `indeterminate` unless a known finding decides it; known findings, strong
++Kleene and gating are unchanged. Sources cases run only under an ephemeral non-authoritative Plan with
+ bundled providers and otherwise report `not-executable`. Expectations are
+ `finding{ruleId,minCount,maxCount,subjects}`, `no-finding`, `verdict`, `indeterminate`.
+-The result (`policytest2:`) records candidate and effective digests, resolver
++The result stays `PolicyTestResultV1` (`policytest2:`) and records candidate and effective digests, resolver
+ acceptance and refusals, applied overrides, waiver resolution and
+ `enforcementUnchanged=true`; the same suite always yields the same result identity.
+-Admission precedes evaluation. Every refusal is `request-rejected` (exit 2) with `errorCode`
++Admission precedes evaluation, in this order. A suite or candidate policy of another major is
++`request-rejected` (exit 2) `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with `EVALUATION.MIXED_OUTPUT_MAJOR`, the
++current policy major refusal; it is never relabelled, coerced or grammar-classified. Every other refusal
++is `request-rejected` (exit 2) with `errorCode`
+ `CONFIG.INVALID`, the D9 rejection cause `config-invalid`; the `DomainDetail` is a separate
+-registered code. A candidate policy carrying a member that no closed alternative of the policy
+-grammar declares at that position, or a string where every closed alternative at that position is
+-an object (a string expression), is `POLICY.IMPERATIVE_KEY_REFUSED`. Any other `PolicyTestSuiteV1` admission failure carries the
++registered code. A candidate policy carrying a member that no closed `PolicyDocumentV2` alternative
++declares at that position, or a string where every closed alternative at that position is
++an object (a string expression), is `POLICY.IMPERATIVE_KEY_REFUSED`. Any other `PolicyTestSuiteV2`
++admission failure, a fixture fact whose resolution is not a rung of its registered relation, or an
++override of a non-candidate rule or with the wrong value type carries the
+ shared registered `CONFIG.INVALID` detail; the public detail registry row is registered by
+ security, and the native route registry reuses the same detail for external configuration. An
+-admitted suite whose candidate policy or waivers the resolver refuses terminates the same way
++admitted suite whose candidate policy or waivers the current resolver refuses terminates the same way
+ with the resolver's detail (`POLICY.DUPLICATE_WAIVER`, `POLICY.UNKNOWN_RULE`,
+ `IMPORT.ABSENT_FOR_PREDICATE`); its `resolverAccepted=false` result records the refusal but is
+ not a query carrier.
+@@ -1197,7 +1216,7 @@
+ | `recommend` | `query`; host `discovery.recommend`; `DiscoveryRecommendRequestV1` | `discovery-recommendation` / `DiscoveryRecommendationRecordV1`: `advisory`, `discovery` (native `UnitDiscoveryV2`), `recommendations` (`DomainDetail[]`, zero rows in this profile), `config2Proposals` (at most one) | every proposed root normalizes under the native explicit-root law to a discovered unit root, and `unitOrdinals` are exactly those units | `items` recommendations, `truncated` false, `completenessMet` true, `advisory` true |
+ | `baseline-show` | `query`; host `baseline.inspect`; `BaselineInspectRequestV1` (`path`) | `baseline-inspection` / `BaselineInspectionRecordV1`: `baseline` (baseline:2 artifact), `pivotClosureAvailability` | baseline admission (§2, including detector identity); one availability row per descriptor pivot closure, in order | `items` rows, `truncated` false, `completenessMet` every row `available`, `advisory` false |
+ | `policy-show` | `query`; host `policy.show`; `PolicyShowRequestV1` | `effective-policy` / `EffectivePolicyRecordV1`: `policyDigest`, `policy` (`PolicyDocumentV2`), `waiverSetDigest`, `effectiveWaivers` (`WaiverSetV1`), `waiverResolution` (`WaiverResolutionV1`) | both digests are the document digests; `effectiveCount` equals the effective waivers; no expired or rejected waiver is effective | `items` rules, `truncated` false, `completenessMet` true, `advisory` false |
+-| `policy-test` | `query`; host `policy.test`; `PolicyTestRequestV1` (`suitePath`) | `policy-test-result` / `PolicyTestResultRecordV1`: `result` (`PolicyTestResultV1`, `resolverAccepted=true` only) | `policyTestResultId` recomputes; `summary` counts case outcomes | `items` cases, `truncated` false, `completenessMet` resolver accepted with no indeterminate or not-executable case, `advisory` false |
++| `policy-test` | `query`; host `policy.test`; `PolicyTestRequestV1` (`suitePath` of a `PolicyTestSuiteV2`) | `policy-test-result` / `PolicyTestResultRecordV1`: `result` (`PolicyTestResultV1`, `resolverAccepted=true` only) | `policyTestResultId` recomputes; `summary` counts case outcomes | `items` cases, `truncated` false, `completenessMet` resolver accepted with no indeterminate or not-executable case, `advisory` false |
+ | `repair-preview` | its own `repair-preview` step; `RepairPreviewParams` | `repair-preview` / `RepairPreviewRecordV1`: `preview` (invocation:3 `RepairPreviewResult`), `plan` (repair:2 `RepairPlanV1`) | `repairPlanId` recomputes from the descriptor; preview plan id, snapshot, `applicable` and `unmetPreconditions` equal the descriptor; descriptor project equals envelope project | `items` edits, `truncated` false, `completenessMet` `applicable`, `advisory` false |
+ 
+ Parity pointers (`queryDispatch.parityPaths`); `termination-class` is `/termination/class` for all nine:
+@@ -1232,8 +1251,8 @@
+ `--producer heuristic` is `{kind: policy-rule, id: opensip.review.heuristic}`); `discovery.recommend`
+ joins the security discovery boundary inventory with native unit discovery; `baseline.inspect`
+ admits the artifact (§2) and resolves pivot closures under current trust; `policy.show` resolves the
+-tracked policy and waivers at the admitted trust-clock date (§5); `policy.test` runs the authoring
+-test (§5). `repair-preview` keeps its own step and `RepairPreviewParams`. Every query step still
++tracked policy and waivers at the admitted trust-clock date (§5); `policy.test` admits a
++`PolicyTestSuiteV2` and runs the authoring test (§5). `repair-preview` keeps its own step and `RepairPreviewParams`. Every query step still
+ yields the compact `QueryResult`.
+ 
+ **Query-class failures.** A refusal is a `kind=failure` envelope with its owner's detail and no
+@@ -1242,7 +1261,8 @@
+ `REVIEW.CANDIDATE_UNKNOWN`; `recommend` the native discovery refusal and its registered detail (a
+ refused `UnitDiscoveryV2` is never carried); `baseline-show` the baseline admission refusals (§2);
+ `policy-show` the policy and waiver resolution refusals (`POLICY.UNKNOWN_RULE`,
+-`POLICY.DUPLICATE_WAIVER`); `policy-test` the suite admission and resolver refusals of §5 (`CONFIG.INVALID` with
++`POLICY.DUPLICATE_WAIVER`); `policy-test` the suite admission and resolver refusals of §5 (`REQUEST.SCHEMA_MAJOR_UNSUPPORTED` with
++`EVALUATION.MIXED_OUTPUT_MAJOR` for a suite or candidate policy of another major; `CONFIG.INVALID` with
+ `POLICY.IMPERATIVE_KEY_REFUSED`, the shared `CONFIG.INVALID` detail, or the resolver's `POLICY.*` /
+ `IMPORT.ABSENT_FOR_PREDICATE` detail; only a `resolverAccepted=true` result is carried); `repair-preview` its `REPAIR.*` refusals (unmet preconditions
+ are plan data). A missing, revoked or incompatible pivot closure is availability data
+@@ -1356,6 +1376,7 @@
+ | required evidence lost in audit | indeterminate 3 | `VERDICT.INDETERMINATE` | `COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE` → re-import |
+ | unmapped / corrupt import artifact | request-rejected 2 | `CONFIG.INVALID` | `IMPORT.MAPPING_REQUIRED` / `IMPORT.ARTIFACT_CORRUPT` |
+ | duplicate waiver / imperative policy key | request-rejected 2 | `CONFIG.INVALID` | `POLICY.DUPLICATE_WAIVER` / `POLICY.IMPERATIVE_KEY_REFUSED` |
++| policy test suite or candidate policy of another major | request-rejected 2 | `REQUEST.SCHEMA_MAJOR_UNSUPPORTED` | `EVALUATION.MIXED_OUTPUT_MAJOR`; never relabelled |
+ | policy test suite otherwise inadmissible | request-rejected 2 | `CONFIG.INVALID` | `CONFIG.INVALID` (shared registered detail) |
+ | repair preimage mismatch / source moved | request-rejected 2 | `REQUEST.PRECONDITION_FAILED` | `REPAIR.TARGET_PREIMAGE_MISMATCH` / `REPAIR.SOURCE_MOVED` |
+ | recovery blocked | operational-failed 4 | `HOST.IO_FAILURE` | `REPAIR.RECOVERY_BLOCKED`; journal retained |
+@@ -1400,8 +1421,10 @@
+ resolved waiver, rule program, payload, correspondence, build, observation and
+ schema-document digests use raw SHA-256 of the exact preimage described above.
+ `PolicyTestResultV1.suiteDigest` is the bare 64-hex result of
+-`H("workflow.policy-test-suite", PolicyTestSuiteV1)`, over the entire closed
+-admitted suite before override application; the suite is retained with the result.
++`H("workflow.policy-test-suite", PolicyTestSuiteV2)`, over the entire closed
++admitted suite, including its `schemaMajor` 2 and candidate `PolicyDocumentV2`, before override
++application; the suite is retained with the result. A retained historical result names its
++`PolicyTestSuiteV1` preimage and is not recomputed under this profile.
+ This is an H identity, distinct from raw SHA-256 of the suite's canonical bytes.
+ Candidate/effective policy digests remain raw SHA-256 of their respective closed
+ PolicyDocumentV2 canonical bytes. Exact typed admission precedes schema validation;

@@ -1,0 +1,29 @@
+--- before/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
++++ after/docs/coop/design-corrections/foundation/check-native-consumer24-corrections.v1.py
+@@ -576,6 +576,26 @@
+         graph, got = run_with(mutate_after(lambda m, w=wrong: m["units"][0].update(unitKind=w), units))
+         row("M3", "real-run-refuses-a-reminted-unit-kind-" + label, got is not None and ORDER in got, got)
+ 
++    # U-4b.2 over a nested Cargo workspace: the fold target is the surviving outer workspace UNIT, never the folded
++    # nested workspace manifest (looking that up as a unit raised StopIteration), and the law sees the fold through
++    # the member roots that decide `target` pruning.
++    cargo = lambda digit, ws: {"sha256": digit * 64, "isCargoWorkspace": ws}
++    nested = NV.discover_units({"Cargo.toml": cargo("1", True), "nested/Cargo.toml": cargo("2", True),
++                                "nested/pkg/Cargo.toml": cargo("3", False), "nested-x/Cargo.toml": cargo("4", False)})
++    row("M3", "nested-cargo-workspace-folds-into-the-surviving-outer-unit",
++        [(u["rootPath"], u["unitKind"], u["memberPackageRoots"]) for u in nested["units"]]
++        == [("", "cargo-workspace", ["nested", "nested-x", "nested/pkg"])], nested["units"])
++    nested_base = NV.assign_membership(nested["units"], ["nested-x/src/lib.rs", "nested/pkg/src/lib.rs",
++                                                        "nested/pkg/target/debug/x.rs", "nested/target/debug/y.rs"])
++    row("M3", "nested-cargo-workspace-membership-passes-the-law", law(nested_base) == [], law(nested_base))
++    for name, roots, expected in (
++            ("nested-member-roots-in-segment-not-utf8-order", ["nested", "nested/pkg", "nested-x"], [ORDER]),
++            ("folded-nested-member-dropped-unprunes-its-target", ["nested", "nested-x"], [DERIVED])):
++        m = copy.deepcopy(nested_base)
++        m["units"][0]["memberPackageRoots"] = roots
++        got = law(m)
++        row("M3", "law-" + name, got == expected, got)
++
+ 
+ # ------------------------------------------------------------------------------------------------ S3
+ def s3():

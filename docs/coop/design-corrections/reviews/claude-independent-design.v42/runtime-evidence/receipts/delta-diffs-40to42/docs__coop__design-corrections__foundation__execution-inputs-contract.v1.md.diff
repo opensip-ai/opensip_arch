@@ -1,0 +1,53 @@
+--- a40/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
++++ b42/docs/coop/design-corrections/foundation/execution-inputs-contract.v1.md
+@@ -49,6 +49,8 @@
+ ## 3. Stage ordinal and receipts
+ 
+ Selected producer outputs (`enumerator=selected`, non-null U, derived `state` complete or partial): `stageOrdinal` **non-null**, matching a receipt. Check enumerator closure (Plan-selected **provider**), stage-spec `producerClosure`, view `planId`, each named scope `sourceUniverse` vs binding U, and receipt `outputDomains` vs the stage.
++
++**View attribution (`CellProgramOutcomeV1.viewDigests`, normative).** The candidate views are the captured returned views: the `view` `outputRefs` of complete receipts, which §1 makes exactly the `view` members of `selectedRefs` (a `view` on `selectedRefs` but on no complete receipt refuses `EXECUTION_INPUTS_SELECTED_COVER`); a candidate view whose `planId` is not the Plan's refuses `EXECUTION_INPUTS_PLAN_JOIN`. For a row whose binding enumerator is `selected` with closure P and whose binding universe U is non-null, a candidate view V is **attributed** to that row iff `V.producerClosure` = P **and one and the same** subject-scope S named by `V.scopeIds` has `S.sourceUniverse` = U **and** `S.relation` is the relation member (first element) of some `[relation, resolution]` pair in the `relations` array of the `native-capability-matrix.v2.json` `capabilities[]` entry whose `id` is the row's `capabilityId`. This is relation-column membership: the pair's resolution plays no part, so a scope at another rung of that relation's ladder is attributed too (a candidate-only capability, whose matrix entry has no relations, needs `S.sourceUniverse` = U alone). A U match on one scope and a relation match on another scope of the same view attribute nothing. The matrix cell state plays no part: an `UNSUPPORTED-TYPED` cell's returned view is attributed exactly like a supported cell's, although its account still names no `coverageIds` (§5), and a view carrying none of the capability's relations at U is not attributed to that row even when it shares the provider and U. One view may be attributed to several rows (several relations of one or several cells at U). An unselected enumerator or a null U attributes nothing. `viewDigests` equals the canonical set of attributed views, otherwise `EXECUTION_INPUTS_VIEW_TOTALITY`. A captured view attributed to no row stays lawful and stays on `selectedRefs` (§1). The named-scope check above applies to **every attributed view, for every account applicability**: each subject-scope the view names must have `sourceUniverse` = U, whether or not that scope carries Coverage, otherwise `EXECUTION_INPUTS_COVERAGE_DERIVE` (the refusal §5 uses for a foreign-universe Coverage; no new code).
+ 
+ Unavailable / optional-unselected: `stageOrdinal` may be null with typed reason, **or** may name an `unavailable` receipt (`provider-unavailable`). Selected U cannot become complete by omitting the stage and views.
+ 
+@@ -226,9 +228,10 @@
+ `key.sourceUniverse` MUST equal U -- a foreign-universe Coverage reached this way is
+ `EXECUTION_INPUTS_COVERAGE_DERIVE`, not a silently skipped row -- and the account's declared
+ `coverageIds` MUST equal the complete matching returned partition set for
+-`(cell, program, relation, resolution, U, producer)`. Section 3 separately requires each
+-NAMED scope's `sourceUniverse` to equal the binding U and binds view `planId`, enumerator
+-closure, stage `producerClosure` and receipt `outputDomains`.
++`(cell, program, relation, resolution, U, producer)`. Section 3 separately defines which views
++are attributed to that binding ("View attribution"), requires each scope NAMED by such a view to
++have `sourceUniverse` equal to the binding U, and binds view `planId`, enumerator closure, stage
++`producerClosure` and receipt `outputDomains`.
+ 
+ This clause is deliberately narrow. It does NOT constrain the `targetUniverse` of a Coverage or
+ fact (the account's own `targetUniverse` is the constant `null` above): a Coverage or a
+@@ -237,11 +240,13 @@
+ view per selected binding admits. It does NOT ban a view that carries more than one universe
+ in general; it constrains only views REACHED THROUGH a selected cell/program binding's
+ account derivation, so a retained fact view that no selected binding resolves is not
+-restricted here. It forbids exactly one thing: making a SINGLE view carry two universes'
+-Coverage and then attributing that view to a cell/program binding fixed at one of them.
+-Splitting the selected evidence into one view per universe is the lawful construction. No
+-new refusal code and no new semantic scope are introduced: both conditions above are what
+-the derivation already decides today.
++restricted here. It forbids exactly one thing: attributing (section 3 "View attribution") a
++view to a cell/program binding fixed at U while that view names a scope of another universe --
++the principal instance being a SINGLE view that carries two universes' Coverage. This holds for
++every account applicability, including `unsupported-typed`, whose account resolves no Coverage
++and so could never meet the envelope check above. Splitting the selected evidence into one view
++per universe is the lawful construction. No new refusal code and no new semantic scope are
++introduced: the section 3 named-scope check refuses `EXECUTION_INPUTS_COVERAGE_DERIVE`.
+ 
+ ## 6. Candidate-only
+ 
+@@ -291,7 +296,7 @@
+ | Function | Effect |
+ |---|---|
+ | `normalize_graph` | Accepts `evaluator_graph_fixture.v3` and `evaluator_semantic_fixture.v3` field names (`viewIds`/`viewId`, `coverageIds`/`coverageId`, `planId` on `inputs` or graph, `inventoryResults`, existing `evaluationInputRefs`). |
+-| `build_manifest` | Walks **all** execution-plan stages. `hostDerivedRefs` = inventories + bound candidate envelopes + target/incoming sidecars already named. `selectedRefs` = attributed views + their coverage + inventories + Plan imports + those sidecars. Does **not** hash retained object/blob censuses. |
++| `build_manifest` | Walks **all** execution-plan stages. `hostDerivedRefs` = inventories + bound candidate envelopes + target/incoming sidecars already named. Receipt `outputRefs` capture the **explicit** returned views it is handed (`viewIds`/`viewId` plus `view` refs on existing `evaluationInputRefs`, never the object/blob census) on the view stage whose `producerClosure` each carries; `selectedRefs` = those captured views + their coverage + inventories + Plan imports + those sidecars. Row `viewDigests` are the §3-attributed subset; a returned view no row owns stays captured (§3). Does **not** hash retained object/blob censuses. |
+ | `admission_kwargs` | Does not mutate. `store_pointers` = `promised_pointers` (logical closure). Reuses a previously attached hashed manifest. |
+ | `attach_host_capture` | **Before seed seal.** Stores `C(manifest)` in `blobs`, sets `inputs.executionInputsDigest`, sets `evaluationInputRefs = selectedRefs + execution-inputs ref`. Returns `{graph, manifest, digest, admission, evaluationInputRefs, operationalCapture}`. `operationalCapture` is metadata, not a Run preimage. |
+ 

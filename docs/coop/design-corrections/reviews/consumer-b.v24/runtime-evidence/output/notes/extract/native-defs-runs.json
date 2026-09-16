@@ -1,0 +1,989 @@
+=== coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/SourceUnitOwnershipV1
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schemaVersion",
+  "enumeration",
+  "units",
+  "selectedUnitIds",
+  "ownership"
+ ],
+ "description": "The committed relation from a SNAPSHOT SOURCE PATH to the compilation TARGET that reads it, the closed table of those targets, and the EXPLICIT SELECTION of which of them this universe analyses. It exists because a body span dialect is a property of the compilation target: neither a crate-name-to-root map nor the package edition map can supply it, since #[path], files shared by several targets and several compilation contexts of one crate defeat a directory inference, and Cargo lets a target override its package default edition. Because this record is committed by H identity inside RustUniverseV2ResolvedInputs.sourceUnitOwnershipId, a different SELECTION is a different record, a different identity and therefore a DIFFERENT sourceUniverse: one physical source path compiled by two targets at two editions is validly analysed under each, one selection at a time, with no change to any relation payload. Every row is a retained native observation; nothing here executes Cargo, a build script or a repository read, and nothing here qualifies a compiler or an enumerator.",
+ "properties": {
+  "schemaVersion": {
+   "const": 1
+  },
+  "enumeration": {
+   "type": "string",
+   "enum": [
+    "complete",
+    "partial"
+   ],
+   "description": "complete: every compiled source path OF THE SELECTED UNITS has a row, so a path with no row is not compiled by any selected target. partial: the producer did not finish, so an owner INSIDE the selected scope may exist that is not listed. These are different claims and the second is not a weaker form of the first: an unlisted owner could contradict a listed one, so no clone body dialect is admissible under partial. That is checked BEFORE any row lookup, so partial discovery can never act as an implicit edition selection by hiding a conflicting owner. Partial evidence remains useful under the existing facts and Coverage law: the clones scope reports its incompleteness and the predicate is indeterminate, rather than a body identity being minted on an unbounded claim."
+  },
+  "units": {
+   "type": "array",
+   "maxItems": 65536,
+   "uniqueItems": true,
+   "x-opensip-order": {
+    "by": [
+     "unitId"
+    ]
+   },
+   "description": "The closed table of compilation targets. Strictly unique by unitId, and unitId is a FUNCTION of the metadata, so two contradictory rows for one purported unit are a refusal rather than two units that differ by accident. A selection or an ownership row naming a unitId with no row here is an unbound caller label and is inadmissible.",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "unitId",
+     "markerPath",
+     "crateName",
+     "targetKind",
+     "targetName",
+     "targetEdition"
+    ],
+    "properties": {
+     "unitId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+       "representation": "h-identity",
+       "domain": "native.compilation-unit.v1",
+       "form": "sha256-text",
+       "retention": "derived",
+       "authority": "native"
+      },
+      "description": "H(native.compilation-unit.v1, UnitIdentityV1{schemaVersion:1, markerPath, targetKind, targetName}) over the very fields this row carries. DERIVED retention: nothing separate is retained because the preimage IS the row, and admission re-derives and compares (sourceUnitOwnership.unitId). Not an opaque digest - preimage record, domain and selector are all published - and not a delimiter label, which could stay injective only by narrowing admitted repository paths."
+     },
+     "markerPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])",
+      "description": "The inventoried manifest that declares this target: the same markerPath vocabulary WorkspaceUnitV2 already uses, cited rather than duplicated. WorkspaceUnitV2 and UnitMembershipV1 identify WORKSPACE units - cargo-package and cargo-workspace - which is the wrong granularity here, because one package holds several targets that may carry different editions; naming the marker joins the two rather than competing with them."
+     },
+     "crateName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.-]+(?![\\s\\S])",
+      "description": "A key of the universe edition map, which supplies the package default."
+     },
+     "targetKind": {
+      "type": "string",
+      "enum": [
+       "lib",
+       "bin",
+       "test",
+       "bench",
+       "example",
+       "build-script"
+      ]
+     },
+     "targetName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "pattern": "^[A-Za-z0-9_.-]+(?![\\s\\S])"
+     },
+     "targetEdition": {
+      "oneOf": [
+       {
+        "type": "null"
+       },
+       {
+        "type": "integer",
+        "enum": [
+         2015,
+         2018,
+         2021,
+         2024
+        ]
+       }
+      ],
+      "description": "The target's OWN edition when it sets one, null when it takes the package default. Cargo documents edition on a target as well as on a package: cargo-metadata lists targets[].edition and states the package edition is a DEFAULT individual targets may differ from. null DEFERS to the universe edition map for crateName, so the two committed places can never contradict: an override is explicit and visible, and its absence is explicit too."
+     }
+    }
+   }
+  },
+  "selectedUnitIds": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 65536,
+   "uniqueItems": true,
+   "x-opensip-order": "utf8",
+   "items": {
+    "type": "string",
+    "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+    "x-opensip-digest": {
+     "representation": "h-identity",
+     "domain": "native.compilation-unit.v1",
+     "form": "sha256-text",
+     "retention": "derived",
+     "authority": "native"
+    }
+   },
+   "description": "The EXPLICIT analysis scope: the compilation targets this universe analyses. Every member must be a unitId of the units table. This is what makes a shared path representable at two editions without an ambiguous claim - two selections are two universes - and it is what distinguishes SELECTED SCOPE from INCOMPLETE ENUMERATION. An owner outside the selection is deliberately out of scope and its edition does not bear on a body; an unlisted owner INSIDE the selection is a gap in knowledge and refuses. Silently omitting a conflicting owner from the units table is not a selection: the omission is invisible, whereas a selection is committed in the identity."
+  },
+  "ownership": {
+   "type": "array",
+   "maxItems": 1000000,
+   "uniqueItems": true,
+   "x-opensip-order": {
+    "by": [
+     "path",
+     "unitId"
+    ]
+   },
+   "description": "The pure relation. It carries no edition and no metadata, so it cannot contradict the units table.",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "path",
+     "unitId"
+    ],
+    "properties": {
+     "path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+     },
+     "unitId": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+       "representation": "h-identity",
+       "domain": "native.compilation-unit.v1",
+       "form": "sha256-text",
+       "retention": "derived",
+       "authority": "native"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+=== coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/TypeScriptConfigGraphV1
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "entryConfigPath",
+  "nodes",
+  "schemaVersion"
+ ],
+ "properties": {
+  "schemaVersion": {
+   "const": 1
+  },
+  "entryConfigPath": {
+   "oneOf": [
+    {
+     "$ref": "#/$defs/CanonicalPath"
+    },
+    {
+     "type": "null"
+    }
+   ]
+  },
+  "nodes": {
+   "type": "array",
+   "maxItems": 1024,
+   "minItems": 0,
+   "uniqueItems": true,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "contentSha256",
+     "extendsResolved",
+     "kind",
+     "path"
+    ],
+    "properties": {
+     "path": {
+      "$ref": "#/$defs/CanonicalPath"
+     },
+     "contentSha256": {
+      "$ref": "#/$defs/DigestHex",
+      "x-opensip-digest": {
+       "representation": "raw-artifact",
+       "artifact": "the exact inventoried snapshot bytes of that config file",
+       "retention": "preimage",
+       "authority": "native"
+      }
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "tsconfig",
+       "jsconfig",
+       "other"
+      ],
+      "description": "Which recognized configuration file this node is. DERIVED from node.path by the closed table at #/x-opensip-config-node-kind-law, never asserted: exact case-sensitive basename `tsconfig.json` -> tsconfig, `jsconfig.json` -> jsconfig, every other basename -> other. The rule is total and applies to EVERY node, entry and non-entry alike. `other` is an ordinary value, not a defect: `tsconfig.build.json` reached as a base is `other`, and an explicitly selected custom-named configuration is an `other` ENTRY that still derives configOrigin tsconfig. This field is inside the hashed record, so the rule is an identity rule.",
+      "x-opensip-vocabulary": {
+       "authority": "native/native-evidence.schemas.v2.json#/x-opensip-config-node-kind-law",
+       "law": "native/native-evidence.schemas.v2.json#/x-opensip-config-node-kind-law/rule",
+       "admittedBy": "native_evidence_model.typescript_config_graph_faults (native.config-graph-kind-contradicts-path), which reads the table above",
+       "movesIdentity": "tsconfigGraphHash -> TypeScriptUniverseV2ResolvedInputs -> sourceUniverse -> fact2 / scope2 / coverage2 / view2 / evidence3 / seal3 / run3"
+      }
+     },
+     "extendsResolved": {
+      "type": "array",
+      "maxItems": 64,
+      "minItems": 0,
+      "items": {
+       "$ref": "#/$defs/CanonicalPath"
+      },
+      "x-opensip-order": "sequence",
+      "description": "The ORDERED resolved extends edges of this node, in the order the config declares them. TypeScript 5.0 supports multiple entries in `extends` and a LATER entry wins, so precedence is the array order and must be retained: an unordered set or a single edge cannot represent an ordinary modern configuration. Empty means this node extends nothing. Repeated edges are retained; this is a sequence, not a set."
+     }
+    }
+   },
+   "x-opensip-order": {
+    "by": [
+     "path"
+    ]
+   }
+  }
+ },
+ "description": "The resolved tsconfig/jsconfig extends graph a TypeScript universe commits to. entryConfigPath is the SELECTED root config the program was opened with, null exactly when the configuration was synthesized; nodes is every config file actually read, strictly ascending and unique by path, each carrying its inventoried snapshot digest, its kind and its ORDERED resolved extends edges with later-wins precedence. configOrigin is derived from the ENTRY node kind, never from the whole set: a jsconfig.json that extends a shared base.json is a jsconfig program. Every node must be reachable from the entry, every edge must name another node, and the edge graph must be acyclic. tsconfigGraphHash is the raw SHA-256 of C(this record). A selected entry whose kind is other represents an explicitly selected custom-named TypeScript configuration and derives configOrigin tsconfig. Every node's `kind` is derived from its path by the closed exact-basename table at #/x-opensip-config-node-kind-law - entry and non-entry alike - and a node whose declared kind is not the derived one refuses."
+}
+=== coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/ResolvedNodeModulesLayoutV1
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "entries",
+  "schemaVersion"
+ ],
+ "properties": {
+  "schemaVersion": {
+   "const": 1
+  },
+  "entries": {
+   "type": "array",
+   "maxItems": 100000,
+   "minItems": 0,
+   "uniqueItems": true,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "contentSha256",
+     "installPath",
+     "packageName",
+     "packageVersion",
+     "realPath"
+    ],
+    "properties": {
+     "packageName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "packageVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "installPath": {
+      "$ref": "#/$defs/CanonicalPath"
+     },
+     "realPath": {
+      "$ref": "#/$defs/CanonicalPath"
+     },
+     "contentSha256": {
+      "$ref": "#/$defs/DigestHex",
+      "x-opensip-digest": {
+       "representation": "raw-artifact",
+       "artifact": "the exact retained bytes of that installed package manifest file; a resolution read-set observation, not a snapshot inventory row",
+       "retention": "preimage",
+       "authority": "native"
+      }
+     }
+    }
+   },
+   "x-opensip-order": {
+    "by": [
+     "installPath"
+    ]
+   }
+  }
+ },
+ "description": "The retained resolution read-set layout a TypeScript context commits to when nodeModulesInReadSet is true. One row per installed package DIRECTORY the resolver may read: installPath is the project-relative directory as the resolver walks it, realPath is the project-relative directory after symlink/workspace-link resolution (equal to installPath when there is no link), and contentSha256 is the raw SHA-256 of that package directory manifest file bytes (its package.json) as RETAINED, joined by digest. These rows are deliberately NOT snapshot inventory rows and must not be read as any: the one shared discovery rule prunes node_modules by path segment, so an inventory row could not exist for them, and the layout is a retained resolution observation of bytes the analysis actually read (native-evidence section 2.2, and the blobJoin -- not a snapshotJoin -- on the native.context.typescript.v2 nested record). The earlier wording said 'as inventoried in the snapshot', which contradicted both and would have led an implementer to add node_modules paths to the snapshot inventory. Rows are strictly ascending and unique by installPath, so one layout has one spelling. nodeModulesLayoutDigest is the raw SHA-256 of C(this record); it is null exactly when nodeModulesInReadSet is false."
+}
+=== coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/SyntaxGrammarBundleV1
+{
+ "type": "object",
+ "additionalProperties": false,
+ "description": "The installed, closure-bound grammar bundle that a syntax-only analysis parses with. It is the component that INTERPRETS a body span in that mode, so it is pinned exactly the way a toolchain is: closureId names an admitted kind=grammar closure, parserVersion must equal that closure manifest's semanticVersion (admission refuses native.syntax-grammar-version-not-from-manifest otherwise, mirroring the compiler-version rule), and bundleDigest is the exact retained bundle identity. `grammars` is the CLOSED bundled-grammar set: it is what native-evidence section 1.2's 'any file whose extension maps to a bundled grammar' actually denotes, and what makes `unsupported-file / no-bundled-grammar` decidable rather than a matter of taste.",
+ "required": [
+  "bundleDigest",
+  "grammars",
+  "normalizer",
+  "parserName",
+  "parserVersion",
+  "schemaVersion",
+  "closureId"
+ ],
+ "properties": {
+  "schemaVersion": {
+   "const": 1
+  },
+  "closureId": {
+   "type": "string",
+   "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+  },
+  "parserName": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 256,
+   "description": "The component that reads the body span. Not a compiler: a syntax-only universe executes none, and naming one here would claim an interpretation that never happened."
+  },
+  "parserVersion": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 256
+  },
+  "bundleDigest": {
+   "$ref": "#/$defs/DigestHex",
+   "x-opensip-digest": {
+    "representation": "raw-artifact",
+    "artifact": "the exact retained bytes of the admitted grammar bundle manifest",
+    "retention": "preimage",
+    "authority": "native"
+   }
+  },
+  "grammars": {
+   "type": "array",
+   "minItems": 1,
+   "maxItems": 256,
+   "uniqueItems": true,
+   "x-opensip-order": {
+    "by": [
+     "grammarId"
+    ]
+   },
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "grammarDigest",
+     "grammarId",
+     "grammarVersion",
+     "languageId",
+     "suffixes",
+     "syntaxClass"
+    ],
+    "properties": {
+     "grammarId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "grammarVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "languageId": {
+      "type": "string",
+      "enum": [
+       "typescript",
+       "javascript",
+       "rust",
+       "json",
+       "toml",
+       "markdown",
+       "yaml"
+      ],
+      "description": "Every language the host actually bundles a grammar for, matching BUNDLED_GRAMMARS exactly. An earlier revision listed only typescript/javascript/rust and claimed equality with the body-language-version enum as a drift check; that could not express the four data/document grammars the host has always bundled, so native-evidence section 1.2's 'any file whose extension maps to a bundled grammar' was unrepresentable for them. What is actually held equal to the body-language-version enum is the set of languages whose grammars are syntaxClass=code - see syntaxClass."
+     },
+     "syntaxClass": {
+      "type": "string",
+      "enum": [
+       "code",
+       "data-document"
+      ],
+      "description": "Which capability this grammar's files bear, and the exact distinction the original contracts already draw. `code`: the language has the body spans native-evidence section 6.3 defines - function, method, closure/lambda, impl item and block bodies - and a published L1-L3 normalisation table, so its files can bear clone body identity and the code-construct syntax relations. Its languageId MUST be a member of the foundation body-language-version languageId enum, because that identifier goes into the clone preimage. `data-document`: a bundled grammar for a data or document format with no such body spans and no published tokenisation, literalKind mapping or normalisation law anywhere in this kit. Its files are grammar-only members - accounted, never `unsupported-file` - and bear inventory evidence (file/package/vcs-change); they mint no body identity, and its languageId MUST NOT be in the body-language-version enum, since it can never appear in a clone preimage. Claiming code-construct syntax facts for a data format would require a tokenisation law this kit does not publish, which is exactly the fabricated-semantics failure the syntax-only universe exists to avoid."
+     },
+     "suffixes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+       "type": "string",
+       "minLength": 2,
+       "maxLength": 32
+      },
+      "x-opensip-order": "utf8"
+     },
+     "grammarDigest": {
+      "$ref": "#/$defs/DigestHex",
+      "x-opensip-digest": {
+       "representation": "raw-artifact",
+       "artifact": "the exact retained bytes of that grammar definition",
+       "retention": "preimage",
+       "authority": "native"
+      }
+     }
+    }
+   }
+  },
+  "normalizer": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "normalizerId",
+    "normalizerVersion",
+    "specificationDigest"
+   ],
+   "description": "The clone normalisation component this bundle ships. It is recorded so the clones rung has a bound owner in syntax-only mode; it is deliberately NOT part of the body-language-version record, because the normalisation level specification is already its own framed component of the body identity.",
+   "properties": {
+    "normalizerId": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 256
+    },
+    "normalizerVersion": {
+     "type": "string",
+     "minLength": 1,
+     "maxLength": 256
+    },
+    "specificationDigest": {
+     "$ref": "#/$defs/DigestHex",
+     "x-opensip-digest": {
+      "representation": "raw-artifact",
+      "artifact": "the exact retained normalisation level specification bytes",
+      "retention": "preimage",
+      "authority": "native"
+     }
+    }
+   }
+  }
+ }
+}
+=== coop/design-corrections/native/native-evidence.schemas.v2.json#/$defs/ToolchainIdentityV1
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "cargoVersion",
+  "rustCommitHash",
+  "rustcDevLlvmDigest",
+  "rustcVersion",
+  "standardLibraryComponentDigests",
+  "sysrootDigest",
+  "targetTriple"
+ ],
+ "properties": {
+  "rustCommitHash": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{40}(?![\\s\\S])"
+  },
+  "rustcVersion": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 256
+  },
+  "cargoVersion": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 256
+  },
+  "sysrootDigest": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+   "x-opensip-digest": {
+    "representation": "raw-artifact",
+    "artifact": "raw SHA-256 of the admitted sysroot tree manifest bytes",
+    "retention": "preimage",
+    "authority": "native"
+   }
+  },
+  "rustcDevLlvmDigest": {
+   "type": "string",
+   "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+   "x-opensip-digest": {
+    "representation": "h-identity",
+    "domain": "closure",
+    "form": "bare-suffix",
+    "retention": "preimage-frame",
+    "authority": "foundation",
+    "kind": "rust-dev-llvm",
+    "note": "the 64-hex suffix of the closure2 identity of the admitted kind=rust-dev-llvm closure"
+   }
+  },
+  "standardLibraryComponentDigests": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "component",
+     "sha256"
+    ],
+    "properties": {
+     "component": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+     },
+     "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+       "representation": "raw-artifact",
+       "artifact": "a member digest of the retained signed closure tree named by toolchain.rustcDevLlvmDigest / the retained stdlib closure tree",
+       "retention": "closure-tree-member",
+       "authority": "native"
+      }
+     }
+    }
+   },
+   "maxItems": 64,
+   "minItems": 0,
+   "uniqueItems": true,
+   "x-opensip-order": "sequence"
+  },
+  "targetTriple": {
+   "type": "string",
+   "minLength": 1,
+   "maxLength": 256
+  }
+ }
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/fact/properties/anchors
+{
+ "type": "array",
+ "maxItems": 100000,
+ "uniqueItems": true,
+ "items": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+   "path",
+   "blobDigest",
+   "startByte",
+   "endByte"
+  ],
+  "properties": {
+   "path": {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 4096
+   },
+   "blobDigest": {
+    "type": "string",
+    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+    "x-opensip-digest": {
+     "representation": "raw-artifact",
+     "artifact": "the exact retained source blob bytes named by path in the snapshot inventory"
+    }
+   },
+   "startByte": {
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 18446744073709551615
+   },
+   "endByte": {
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 18446744073709551615
+   }
+  }
+ },
+ "x-opensip-order": "canonical-set"
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/execution-plan/properties/stages
+{
+ "type": "array",
+ "maxItems": 1024,
+ "items": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+   "ordinal",
+   "stageSpecDigest",
+   "requires",
+   "outputDomains"
+  ],
+  "properties": {
+   "ordinal": {
+    "type": "integer",
+    "minimum": 0,
+    "maximum": 18446744073709551615
+   },
+   "stageSpecDigest": {
+    "type": "string",
+    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+    "x-opensip-digest": {
+     "representation": "canonical-record",
+     "record": {
+      "bundle": "identity",
+      "selector": "#/$defs/stage-spec"
+     }
+    }
+   },
+   "requires": {
+    "type": "array",
+    "maxItems": 1024,
+    "items": {
+     "type": "integer",
+     "minimum": 0,
+     "maximum": 18446744073709551615
+    },
+    "uniqueItems": true,
+    "x-opensip-order": "numeric"
+   },
+   "outputDomains": {
+    "type": "array",
+    "maxItems": 128,
+    "items": {
+     "$ref": "#/$defs/Domain",
+     "x-opensip-vocabulary": {
+      "authority": "foundation/identity-schemas.v3.json#/x-opensip-digest-domains/byDomain",
+      "schema": "#/$defs/Domain",
+      "meaning": "Registered output-domain names; declaration alone grants no producer or evidence authority."
+     }
+    },
+    "uniqueItems": true,
+    "x-opensip-order": "canonical-set",
+    "description": "Declared output-domain set. Empty is permitted and asserts no output domains; it does not establish completeness or result authority. Stage and stage-spec sets must agree."
+   }
+  }
+ },
+ "uniqueItems": true,
+ "x-opensip-order": "ordinal"
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/analysis-spec
+{
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schemaVersion",
+  "requestedCapabilities",
+  "policyPackIds",
+  "parameters"
+ ],
+ "properties": {
+  "schemaVersion": {
+   "const": 2
+  },
+  "requestedCapabilities": {
+   "type": "array",
+   "uniqueItems": true,
+   "maxItems": 1024,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "capabilityId",
+     "languageMode",
+     "workspaceRoot",
+     "required"
+    ],
+    "properties": {
+     "capabilityId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9._:-]*(?![\\s\\S])",
+      "x-opensip-vocabulary": {
+       "authority": "native/native-capability-matrix.v2.json#/capabilities[].id",
+       "law": "native/native-capability-matrix.v2.json#/capabilityIdLaw",
+       "admittedBy": "native_evidence_model.admit_requested_capabilities, re-run at foundation close_run over the retained analysis-spec",
+       "note": "This field enters PlanId through analysisSpecDigest and was previously $ref Text with no named vocabulary, so two conforming hosts requesting the same analysis of the same unit minted different PlanIds. The pattern here is the product-configuration analysis.capabilities item pattern - it contains no `@`, so a relation@rung spelling is refused by shape - and it is NECESSARY, never sufficient: membership in the closed matrix vocabulary and applicability of the (capability, languageMode) cell are decided at admission. A capability id is a requestable unit of work and is deliberately NOT a relation@rung fact/Coverage coordinate; the matrix publishes the bridge both ways."
+      }
+     },
+     "languageMode": {
+      "$ref": "#/$defs/Text",
+      "x-opensip-vocabulary": {
+       "authority": "foundation/identity-schemas.v3.json#/x-opensip-digest-domains/languageModes/map",
+       "admittedBy": "foundation close_run (ANALYSIS_SPEC_LANGUAGE_MODE_UNREGISTERED), and the same native capability admission for cell applicability"
+      }
+     },
+     "workspaceRoot": {
+      "$ref": "#/$defs/Text"
+     },
+     "required": {
+      "type": "boolean",
+      "x-opensip-ownership-attribute": "An ATTRIBUTE of the cell named by (capabilityId, languageMode, workspaceRoot), never part of its name. It decides whether a missing Coverage entry for that cell contributes indeterminate, so it must have exactly one value per cell."
+     }
+    }
+   },
+   "x-opensip-order": "canonical-set",
+   "x-opensip-uniqueness": {
+    "ownershipTuple": [
+     "capabilityId",
+     "languageMode",
+     "workspaceRoot"
+    ],
+    "law": "Within ONE analysis-spec the ownership tuple is UNIQUE. Two rows carrying the same (capabilityId, languageMode, workspaceRoot) are refused whatever their `required` values are; there is deliberately no last-wins, no order dependence and no merge of requiredness, so a caller states one value per cell or the record is refused.",
+    "why": "The tuple names one cell of work for one unit and `required` is that cell's attribute. Two disagreeing rows leave requiredness undetermined for a cell whose value decides an indeterminate contribution, and BOTH rows enter analysisSpecDigest and therefore PlanId - so the contradiction is committed, not transient. native section 1.4 already refuses a duplicate capabilityId in the RELEASE declaration for exactly this reason; this is the analysis-spec's own analogue, published here because this is the record's owning schema.",
+    "stillLegal": "The SAME capabilityId on a different workspaceRoot or a different languageMode is a different cell and remains legal, and different capabilities on one unit remain legal. Only the tuple is constrained.",
+    "notUniqueItems": "uniqueItems cannot express this: two rows differing only in `required` are DISTINCT items and it admits them. uniqueItems and the canonical-set order law own the WHOLE-ITEM duplicate, which refuses earlier and stays their refusal; this rule owns only distinct rows over one tuple.",
+    "admittedBy": "native_evidence_model.admit_requested_capabilities (internal key native.requested-capability-duplicate-ownership-tuple), which is called BOTH at the pre-Plan analysis-spec boundary and again at retained Run closure over the retained analysis-spec, so the two boundaries agree by construction.",
+    "publicRoute": "native/native-evidence.schemas.v2.json#/x-opensip-public-route-registry/keys/native.requested-capability-duplicate-ownership-tuple - origin-dependent over the existing external-configuration / externally-supplied-spec / host-generated-internal-layer routes. No public DomainDetailCode member is added."
+   }
+  },
+  "policyPackIds": {
+   "type": "array",
+   "uniqueItems": true,
+   "maxItems": 128,
+   "items": {
+    "$ref": "#/$defs/Text"
+   },
+   "x-opensip-order": "canonical-set"
+  },
+  "parameters": {
+   "type": "array",
+   "uniqueItems": true,
+   "maxItems": 128,
+   "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "schemaDigest",
+     "payloadDigest"
+    ],
+    "properties": {
+     "schemaDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+       "representation": "raw-artifact",
+       "artifact": "the exact complete registered parameter schema document bytes"
+      }
+     },
+     "payloadDigest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "x-opensip-digest": {
+       "representation": "canonical-record",
+       "record": {
+        "payloadClass": "parameter",
+        "keyedBy": [
+         "schemaDigest"
+        ],
+        "schemaDigestField": "schemaDigest"
+       }
+      }
+     }
+    }
+   },
+   "x-opensip-order": "canonical-set"
+  }
+ }
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/semantic-grant/properties/principals
+{
+ "type": "array",
+ "uniqueItems": true,
+ "maxItems": 1024,
+ "items": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+   "kind",
+   "closureId",
+   "ownerSourceDigest"
+  ],
+  "properties": {
+   "kind": {
+    "enum": [
+     "first-party",
+     "trusted-repository-code"
+    ]
+   },
+   "closureId": {
+    "type": "string",
+    "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+   },
+   "ownerSourceDigest": {
+    "oneOf": [
+     {
+      "type": "null"
+     },
+     {
+      "$ref": "#/$defs/Hash",
+      "x-opensip-digest": {
+       "representation": "canonical-record",
+       "record": {
+        "bundle": "identity",
+        "selector": "#/$defs/owner-source-set"
+       }
+      }
+     }
+    ]
+   }
+  }
+ },
+ "x-opensip-order": "canonical-set"
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/proof-bundle/properties/predicateProofs
+{
+ "type": "array",
+ "maxItems": 100000,
+ "items": {
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+   "ruleId",
+   "subjectId",
+   "predicateId",
+   "operation",
+   "inputRefs",
+   "scopeIds",
+   "value",
+   "witnessDigest"
+  ],
+  "properties": {
+   "ruleId": {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 4096
+   },
+   "subjectId": {
+    "type": "string",
+    "pattern": "^subject3:[0-9a-f]{64}(?![\\s\\S])"
+   },
+   "predicateId": {
+    "type": "string",
+    "minLength": 1,
+    "maxLength": 4096
+   },
+   "operation": {
+    "type": "string",
+    "enum": [
+     "exists",
+     "none",
+     "count-at-most",
+     "all-covered",
+     "and",
+     "or",
+     "not"
+    ]
+   },
+   "inputRefs": {
+    "type": "array",
+    "maxItems": 100000,
+    "items": {
+     "$ref": "#/$defs/ProofInputRef"
+    },
+    "uniqueItems": true,
+    "x-opensip-order": "canonical-set",
+    "description": "Atomic: equal to proof.evaluationInputRefs (whole admitted selection, including empty-population inputs). Boolean: canonical union of immediate children. Projection of the witness-binding sentence; witnesses have no inputRefs field. Not the atom internal consumed-ref subset. composition §9.2."
+   },
+   "scopeIds": {
+    "type": "array",
+    "maxItems": 100000,
+    "items": {
+     "type": "string",
+     "pattern": "^scope2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "uniqueItems": true,
+    "x-opensip-order": "canonical-set"
+   },
+   "value": {
+    "type": "string",
+    "enum": [
+     "true",
+     "false",
+     "indeterminate"
+    ]
+   },
+   "witnessDigest": {
+    "type": "string",
+    "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+    "x-opensip-digest": {
+     "representation": "canonical-record",
+     "record": {
+      "bundle": "identity",
+      "selector": "#/$defs/predicate-witness"
+     }
+    }
+   }
+  }
+ },
+ "uniqueItems": true,
+ "x-opensip-order": "predicate"
+}
+=== coop/design-corrections/foundation/identity-schemas.v3.json#/$defs/body-language-version/properties/dialect
+{
+ "oneOf": [
+  {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "edition"
+   ],
+   "properties": {
+    "edition": {
+     "type": "integer",
+     "enum": [
+      2015,
+      2018,
+      2021,
+      2024
+     ]
+    }
+   }
+  },
+  {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "sourceVariant"
+   ],
+   "properties": {
+    "sourceVariant": {
+     "type": "string",
+     "enum": [
+      "ts",
+      "tsx",
+      "ts-declaration",
+      "mts",
+      "cts",
+      "js",
+      "jsx",
+      "mjs",
+      "cjs"
+     ]
+    }
+   }
+  },
+  {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "grammarVariant"
+   ],
+   "description": "The dialect axis of a GRAMMAR-ONLY interpretation; used only by the syntax-only universe. A syntax-only analysis has no compilation unit, so it has no edition to select and no tsconfig program to join. Claiming an edition for a .rs body read without Cargo would fabricate compiler semantics, and reusing sourceVariant would let a grammar-parsed body carry the identical dialect token as a compiler-parsed one. The token is the variant the bundled grammar selects from the body's own suffix. Because this is a DIFFERENT branch, a syntax-only body identity can never collide with a compiler-derived identity over the same bytes - which is the intended distinction, not a defect: a grammar parse and a compiler parse are different interpretations of the span and equating them would be a false clone claim.",
+   "properties": {
+    "grammarVariant": {
+     "type": "string",
+     "enum": [
+      "rs",
+      "ts",
+      "tsx",
+      "ts-declaration",
+      "mts",
+      "cts",
+      "js",
+      "jsx",
+      "mjs",
+      "cjs"
+     ]
+    }
+   }
+  }
+ ],
+ "description": "The SELECTED source-language dialect of the body being identified: the edition of its owning compilation unit, the source variant its own suffix denotes, or - for a grammar-only interpretation - the grammar variant that suffix selects. Never a whole map and never null - a language with no declared dialect axis would be an unexamined default, and there is none. Including a map would make one body identity depend on unrelated crates and would not be representable inside the inherited u8 component length."
+}

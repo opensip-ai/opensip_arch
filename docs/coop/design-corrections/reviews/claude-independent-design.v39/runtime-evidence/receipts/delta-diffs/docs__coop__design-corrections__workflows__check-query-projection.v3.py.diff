@@ -1,0 +1,81 @@
+--- a38/docs/coop/design-corrections/workflows/check-query-projection.v3.py
++++ b39/docs/coop/design-corrections/workflows/check-query-projection.v3.py
+@@ -71,11 +71,14 @@
+     "policy-document.schema.json",
+     "policy-document.v2.schema.json",
+     "test-execution.schema.json",
++    "policy-test.schema.json",
+ ):
+     path = WF / name
+     if path.exists():
+         doc = canonical.parse(path.read_bytes())
+         SCHEMAS[doc["$id"]] = doc
++_native_schema = canonical.parse((HERE.parent / "native" / "native-evidence.schemas.v2.json").read_bytes())
++SCHEMAS[_native_schema["$id"]] = _native_schema
+ REG = Registry().with_resources(
+     [(k, Resource(contents=v, specification=DRAFT202012)) for k, v in SCHEMAS.items()]
+ )
+@@ -433,6 +436,51 @@
+     }, [f1], project_id=prj, run_id=rid), "REQUEST.PRECONDITION_FAILED", "QUERY.RELATION_UNSUPPORTED", envelope=False)
+ 
+ 
++def surface_carrier_controls(response, project):
++    """Retained-Run owner graph response through the public CommandEnvelope major 3 carrier and every renderer."""
++    QS = load("query_surface_projection3_checker", HERE / "query_surface_projection.v3.py")
++    inv = json.loads((HERE / "command-inventory.v3.json").read_text())
++    command = next(c for c in inv["commands"] if c["name"] == "query")
++    term = copy.deepcopy(response.get("termination") or {"class": "success"})
++    env = {
++        "schemaFamily": "opensip.product.envelope", "schemaMajor": 3, "kind": "query", "requestId": host_obs()["requestId"],
++        "projectId": project, "termination": term, "exitCode": QS.Wlegacy.EXIT[term["class"]],
++        "query": QS.graph_query_result_summary(response), "querySurface": "graph-query-response", "queryResponse": copy.deepcopy(response),
++    }
++    must_valid("m5-retained-run-graph-response-in-public-envelope", U + "command-envelope:3", env)
++    try:
++        proj = QS.project_query_surface(response, term, envelope=env, command=command)
++        rnd = QS.render_query_formats(proj["parity"], env, command, hints=["hint"])
++        bodies = {r["format"]: r["body"] for r in rnd["renderings"]}
++        check("m5-retained-run-all-advertised-renderers-hold-parity", rnd["ok"] and rnd["parityHolds"] and sorted(bodies) == ["agent", "human", "json"], rnd.get("ok"))
++        check("m5-retained-run-json-rendering-is-the-schema-valid-envelope", bodies["json"] == env and valid(U + "command-envelope:3", bodies["agent"])[0] and "agentHints" not in bodies["json"])
++        check("m5-retained-run-query-response-is-the-owner-response", proj["parity"]["query-response"] == response and proj["parity"]["total-items"] == response["context"]["totalItems"])
++        pointer = QS.project_command_surface(env, command)
++        check("r2-query-command-parity-paths-equal-owner-projection", pointer["parity"] == proj["parity"] and pointer["surface"] == "graph-query-response")
++        generic = QS.render_command_formats(env, command, hints=["hint"])
++        check("r2-query-command-generic-renderer-recovers-parity", generic["ok"] and generic["parityHolds"])
++        partial = {k: v for k, v in proj["parity"].items() if k != "query-response"}
++        failed = QS.render_query_formats(partial, env, command)
++        dt = failed["deliveryTermination"] or {}
++        check(
++            "m5-a13-retained-run-missing-query-response-is-precommit-delivery-fault",
++            failed["ok"] is False and "runId" not in dt and dt.get("domainDetail", {}).get("code") == "DELIVERY.REQUIRED_PROJECTION_FAILED" and valid(U + "common:3#/$defs/StepTermination", dt)[0],
++            dt,
++        )
++    except Exception as exc:
++        check("m5-retained-run-all-advertised-renderers-hold-parity", False, type(exc).__name__ + ": " + str(exc)[:200])
++    missing = copy.deepcopy(env)
++    del missing["queryResponse"]
++    must_invalid("m5-retained-run-graph-envelope-cannot-omit-query-response", U + "command-envelope:3", missing)
++    other_project = copy.deepcopy(env)
++    other_project["projectId"] = project_id("elsewhere")
++    try:
++        QS.project_query_surface(response, term, envelope=other_project, command=command)
++        check("m5-retained-run-envelope-project-join", False, "admitted")
++    except QS.QuerySurfaceProjectionError as exc:
++        check("m5-retained-run-envelope-project-join", exc.code == "QUERY_SURFACE_PROJECT_JOIN", exc.code)
++
++
+ def owner_controls():
+     foundation = HERE.parent / "foundation"
+     S = load("query_semantic_fixture3", foundation / "evaluator_semantic_fixture.v3.py")
+@@ -472,6 +520,11 @@
+ 
+     cites = neigh["context"]["evidence"]["deficiencyCitations"]
+     check("owner-deficiency-keeps-inputRefs", bool(cites) and all("inputRefs" in c and c["source"] in Q.DEFICIENCY_SOURCES for c in cites), cites[:2])
++    surface_carrier_controls(neigh, project)
++    refuse("a8-request-project-differs-from-admitted-run", lambda: ex(request("graph.neighbors", project_id("elsewhere"), {"runId": run_key}, {
++        "relation": "references", "minResolution": "resolved-binding", "direction": "outgoing", "endpoint": foo_ep,
++    })), "REQUEST.PRECONDITION_FAILED", "QUERY.PARAMS_MALFORMED")
++    check("a8-query-contract-publishes-project-mismatch-route", "| request `projectId` differs from the admitted Run's project | request-rejected | `REQUEST.PRECONDITION_FAILED` | `QUERY.PARAMS_MALFORMED` |" in (HERE / "query-projection-contract.v3.md").read_text())
+ 
+     in_req = request("graph.neighbors", project, {"runId": run_key}, {
+         "relation": "references", "minResolution": "resolved-binding", "direction": "incoming", "endpoint": foo_ep,

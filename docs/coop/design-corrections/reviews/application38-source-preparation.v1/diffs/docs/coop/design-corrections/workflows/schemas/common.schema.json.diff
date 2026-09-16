@@ -1,0 +1,292 @@
+--- docs/coop/design-corrections/workflows/schemas/common.schema.json
++++ docs/coop/design-corrections/workflows/schemas/common.schema.json
+@@ -119,7 +119,7 @@
+       "minLength": 1,
+       "maxLength": 1024,
+       "pattern": "^[^\\\\\\u0000]+(?![\\s\\S])",
+-      "description": "Closed glob over LogicalPath: literal characters plus '*', '?' and a whole-segment '**'. No brace, class or escape syntax."
++      "description": "Portable glob matching is normative in docs/coop/design-corrections/foundation/glob-pattern-contract.v1.md: full-string, case-sensitive matching; '*' and '?' stay within a segment; whole-segment '**' matches zero or more segments including a final filename. Braces and brackets are literal; no escape syntax. Candidate admission remains owned by its field."
+     },
+     "UtcTimestamp": {
+       "type": "string",
+@@ -355,6 +355,7 @@
+         "AUTHZ.SOURCE_MOVED",
+         "AUTHZ.TIME_GRAMMAR",
+         "BASELINE.CONTEXT_DOCUMENT_MISSING",
++        "BASELINE.ENTRY_PROJECTION_CONFLICT",
+         "BASELINE.PIVOT_CLOSURE_INCOMPATIBLE",
+         "BASELINE.PIVOT_CLOSURE_REVOKED",
+         "BASELINE.PIVOT_DETECTOR_UNAVAILABLE",
+@@ -364,6 +365,7 @@
+         "BASELINE.SCOPE_PARAMETER_DIGEST_MISMATCH",
+         "BASELINE.SOURCE_EPHEMERAL",
+         "CLOCK-EXCURSION-FORWARD",
++        "COMPARISON.CORRESPONDENCE_INCOMPLETE",
+         "COMPARISON.PIVOT_REEVALUATION_UNAVAILABLE",
+         "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
+         "COMPARISON.REQUIRED_EVIDENCE_UNAVAILABLE",
+@@ -379,6 +381,15 @@
+         "ENVELOPE.BODY_DIGEST",
+         "ENVELOPE.KIND",
+         "ENVELOPE.SHAPE",
++        "EVALUATION.FINDING_JOIN_REFUSED",
++        "EVALUATION.INPUT_REFUSED",
++        "EVALUATION.MIXED_OUTPUT_MAJOR",
++        "EVALUATION.OUTPUT_BOUND_EXCEEDED",
++        "EVALUATION.PROJECTION_INPUT_INCOMPLETE",
++        "EVALUATION.PROOF_VERDICT_INCONSISTENT",
++        "EVALUATION.REQUIRED_OUTPUT_OMITTED",
++        "EVALUATION.SELECTION_LIMIT",
++        "EVALUATION.WORK_BUDGET_EXHAUSTED",
+         "GRANT.ARGV_MISMATCH",
+         "GRANT.AUTHORIZATION_MODE",
+         "GRANT.AUTHORIZATION_SHAPE",
+@@ -461,6 +472,15 @@
+         "PROVIDER.UNAVAILABLE.SEMANTIC_UNIVERSE_INCOMPLETE",
+         "PROVIDER.UNAVAILABLE.SNAPSHOT_RESOLUTION_INPUT_MISSING",
+         "PROVIDER.UNAVAILABLE.UNSUPPORTED_COMPILER_MODE",
++        "QUERY.CURSOR_MISMATCH",
++        "QUERY.ENDPOINT_AMBIGUOUS",
++        "QUERY.ENDPOINT_UNKNOWN",
++        "QUERY.FACT_VIEW_UNAVAILABLE",
++        "QUERY.PARAMS_MALFORMED",
++        "QUERY.RELATION_UNSUPPORTED",
++        "QUERY.SCHEMA_MAJOR_UNSUPPORTED",
++        "QUERY.VIEW_AMBIGUOUS",
++        "QUERY.VIEW_UNKNOWN",
+         "RECOVERY.REFUSED",
+         "REPAIR.CLOSED_WORLD_NOT_ESTABLISHED",
+         "REPAIR.CONSENT_NOT_BOUND",
+@@ -474,6 +494,8 @@
+         "REPAIR.RECOVERY_NOT_AUTHORIZED",
+         "REPAIR.RECOVERY_REQUIRES_BROKER",
+         "REPAIR.SOURCE_MOVED",
++        "REPAIR.TARGET_CORRESPONDENCE_UNAVAILABLE",
++        "REPAIR.TARGET_METADATA_AMBIGUOUS",
+         "REPAIR.TARGET_PREIMAGE_MISMATCH",
+         "REVIEW.ADVISORY_ONLY",
+         "REVIEW.CANDIDATE_SUPPRESSED",
+@@ -716,7 +738,7 @@
+     },
+     "StepTermination": {
+       "type": "object",
+-      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt.",
++      "description": "D9-shaped per-step or aggregate termination. exitCode is never stored; it derives from class by the fixed table (0,1,2,3,4,130). Branch contract: success carries no errorCode/reasonCodes/signal; policy-failed requires runId, or authority=ephemeral when the failing analysis was explicitly non-authoritative and therefore has no Run; request-rejected and operational-failed require errorCode (operational-failed also a non-none faultCause); indeterminate requires reasonCodes; interrupted requires signal and may carry runId only when a Run was committed before the interrupt. Retained D9 class/code legality (X1, X3, X4 and codeDerivation) is schema-enforced on the same branches: faultCause appears only on operational-failed and pairs with errorCode exactly as the fault map (D9 codeMaps.faultCauseToErrorCode plus the successor host-invariant member); reasonCodes appear only on indeterminate.",
+       "additionalProperties": false,
+       "required": [
+         "class"
+@@ -789,6 +811,11 @@
+                 {
+                   "required": [
+                     "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
+                   ]
+                 }
+               ]
+@@ -837,6 +864,16 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -874,8 +911,22 @@
+               "errorCode"
+             ],
+             "not": {
+-              "required": [
+-                "signal"
++              "anyOf": [
++                {
++                  "required": [
++                    "signal"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }
+@@ -899,6 +950,123 @@
+                   "const": "none"
+                 }
+               }
++            },
++            "anyOf": [
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-io"
++                  },
++                  "errorCode": {
++                    "const": "HOST.IO_FAILURE"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-busy"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.BUSY_TIMEOUT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "ledger-corrupt"
++                  },
++                  "errorCode": {
++                    "const": "LEDGER.CORRUPT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "cas-link"
++                  },
++                  "errorCode": {
++                    "const": "CAS.LINK_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "provider-protocol"
++                  },
++                  "errorCode": {
++                    "const": "PROVIDER.PROTOCOL_VIOLATION"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "durability-commit"
++                  },
++                  "errorCode": {
++                    "const": "DURABILITY.COMMIT_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "delivery-required"
++                  },
++                  "errorCode": {
++                    "const": "DELIVERY.REQUIRED_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "output-serialization"
++                  },
++                  "errorCode": {
++                    "const": "OUTPUT.SERIALIZATION_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "extension-install-io"
++                  },
++                  "errorCode": {
++                    "const": "EXTENSION.INSTALL_IO_FAILED"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "serve-protocol"
++                  },
++                  "errorCode": {
++                    "const": "SERVE.PROTOCOL_FAULT"
++                  }
++                }
++              },
++              {
++                "properties": {
++                  "faultCause": {
++                    "const": "host-invariant"
++                  },
++                  "errorCode": {
++                    "const": "SYSTEM.OUTCOME.ILLEGAL_STATE"
++                  }
++                }
++              }
++            ],
++            "not": {
++              "required": [
++                "reasonCodes"
++              ]
+             }
+           }
+         },
+@@ -925,6 +1093,11 @@
+                   "required": [
+                     "signal"
+                   ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
+                 }
+               ]
+             }
+@@ -943,8 +1116,22 @@
+               "signal"
+             ],
+             "not": {
+-              "required": [
+-                "errorCode"
++              "anyOf": [
++                {
++                  "required": [
++                    "errorCode"
++                  ]
++                },
++                {
++                  "required": [
++                    "reasonCodes"
++                  ]
++                },
++                {
++                  "required": [
++                    "faultCause"
++                  ]
++                }
+               ]
+             }
+           }

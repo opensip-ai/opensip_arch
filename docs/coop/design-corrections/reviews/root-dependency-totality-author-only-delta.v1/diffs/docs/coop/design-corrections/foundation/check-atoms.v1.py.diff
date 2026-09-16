@@ -1,0 +1,189 @@
+--- completed95/docs/coop/design-corrections/foundation/check-atoms.v1.py
++++ totality-author/docs/coop/design-corrections/foundation/check-atoms.v1.py
+@@ -2656,6 +2656,173 @@
+         expect_value(r, "indeterminate", "depth-2-wrong-universe")
+         if cov2("6") in r["coverageIds"]:
+             fail(f"depth-2-wrong-universe must not cite the second-level dependency: {r['coverageIds']}")
++    finally:
++        AM.N.DEPENDS_ON.clear()
++        AM.N.DEPENDS_ON.update(saved)
++
++
++H_SYM = "ts-symbol:src/a.ts#h"
++F_DEP = ([F_SYM], "2", "paired")
++G_DEP = ([G_SYM], "4", "paired")
++
++
++def totality_inputs(partitions, deps, attest=False):
++    """Incoming reachability over primary partitions of {f, g} plus same-kind calls dependency partitions.
++
++    partitions: subject lists, one primary scope each (tags 1, a, b); with attest=False each has complete
++    S->U Coverage, with attest=True none has and one qualifying attestation names all of them.
++    deps: (subjects, tag, variant), variant in paired | no-coverage | other-target | wrong-universe |
++    unknown-carrier.
++    """
++    inputs = base_inputs(enumerationPlan=plan_one(cap="reachability"),
++                         inventories=[inv_symbol(), inv_symbol(nid=G_SYM, qn="g")])
++    sids = []
++    for n, subjects in enumerate(partitions):
++        sid, sc = scope("reachability", "from-resolved-calls", U1, U1, subjects, sid="1ab"[n])
++        sids.append(sid)
++        if attest:
++            inputs["scopes"][sid] = sc
++        else:
++            install_pair(inputs, sid, sc, *coverage("reachability", "from-resolved-calls", U1, U1, cid="1ab"[n]))
++    if attest:
++        inputs["incomingSearchAttestations"] = [incoming_att("reachability", "from-resolved-calls", U1, U1, sids,
++                                                             inputs["inventories"])]
++    for subjects, tag, variant in deps:
++        target = U2 if variant == "other-target" else U1
++        sid, sc = scope("calls", "resolved-callee", U1, target, subjects, sid=tag)
++        if variant == "wrong-universe":
++            sc["sourceUniverse"] = U2
++        inputs["scopes"][sid] = sc
++        if variant == "no-coverage":
++            continue
++        cid, cov = coverage("calls", "resolved-callee", U1, target, cid=tag,
++                            cov="unknown" if variant == "unknown-carrier" else "complete")
++        if variant == "unknown-carrier":
++            cov["entry"]["deficiency"], cov["entry"]["nativeCause"] = "input-closure-incomplete", "lockfile-missing"
++        inputs["coverages"][cid] = cov
++        inputs["coverageScopes"][cid] = sid
++    return inputs
++
++
++def test_dependency_totality_regrouping_invariant():
++    """Splitting incoming primary {f, g} into disjoint partitions cannot change the answer or its causes."""
++    atom = {**REACH_ALL, "endpoint": "target"}
++    for label, deps, want in (("f-only", [F_DEP], "indeterminate"), ("g-only", [G_DEP], "indeterminate"),
++                              ("f-and-g", [F_DEP, G_DEP], "true")):
++        merged = AM.evaluate_atom(atom, F_SUBJ, totality_inputs([[F_SYM, G_SYM]], deps))
++        split = AM.evaluate_atom(atom, F_SUBJ, totality_inputs([[F_SYM], [G_SYM]], deps))
++        expect_value(merged, want, f"{label}/merged")
++        expect_value(split, want, f"{label}/split")
++        if (merged["causes"], merged["nativeDeficiencies"]) != (split["causes"], split["nativeDeficiencies"]):
++            fail(f"{label}: regrouping changed causes {merged['causes']} {merged['nativeDeficiencies']} "
++                 f"vs {split['causes']} {split['nativeDeficiencies']}")
++        if want == "indeterminate" and "required-relation-missing" not in merged["nativeDeficiencies"]:
++            fail(f"{label}: an uncovered owed subject must answer required-relation-missing: {merged['nativeDeficiencies']}")
++
++
++def test_dependency_totality_missing_subject_and_full_cover():
++    """Every way g can lack a dependency leaves incoming unknown; f's actual evidence stays cited; full covers close."""
++    atom_in = {**REACH_ALL, "endpoint": "target"}
++    for variant, g_dep in (("absent", None), ("scope-without-coverage", ([G_SYM], "4", "no-coverage")),
++                           ("coverage-at-other-target", ([G_SYM], "4", "other-target")),
++                           ("wrong-universe-scope", ([G_SYM], "4", "wrong-universe")),
++                           ("unrelated-subject-only", ([H_SYM], "5", "paired"))):
++        inputs = totality_inputs([[F_SYM, G_SYM]], [F_DEP] + ([g_dep] if g_dep else []))
++        r = AM.evaluate_atom(atom_in, F_SUBJ, inputs)
++        expect_value(r, "indeterminate", f"missing-g/{variant}")
++        if cov2("2") not in r["coverageIds"] or "required-relation-missing" not in r["nativeDeficiencies"]:
++            fail(f"missing-g/{variant}: f's dependency must stay cited beside required-relation-missing: "
++                 f"{r['coverageIds']} {r['nativeDeficiencies']}")
++        expect_value(AM.evaluate_atom({**REACH_ALL, "endpoint": "source"}, F_SUBJ, inputs), "true",
++                     f"outgoing-f-unchanged/{variant}")
++    for label, deps in (("disjoint", [F_DEP, G_DEP]), ("one-spanning-scope", [([F_SYM, G_SYM], "2", "paired")]),
++                        ("disjoint-plus-unrelated", [F_DEP, G_DEP, ([H_SYM], "5", "paired")])):
++        r = AM.evaluate_atom(atom_in, F_SUBJ, totality_inputs([[F_SYM, G_SYM]], deps))
++        expect_value(r, "true", f"full-cover/{label}")
++        if cov2("5") in r["coverageIds"] or r["nativeDeficiencies"]:
++            fail(f"full-cover/{label}: {r['coverageIds']} {r['nativeDeficiencies']}")
++
++
++def test_dependency_totality_keeps_partial_carrier():
++    """A gap never erases the actual partition's deficiency or typed carrier; it only adds the missing relation."""
++    atom = {**REACH_ALL, "endpoint": "target"}
++    f_unknown = ([F_SYM], "2", "unknown-carrier")
++    for label, deps, want_defs in (("g-uncovered", [f_unknown], {"input-closure-incomplete", "required-relation-missing"}),
++                                   ("g-covered", [f_unknown, G_DEP], {"input-closure-incomplete"})):
++        r = AM.evaluate_atom(atom, F_SUBJ, totality_inputs([[F_SYM, G_SYM]], deps))
++        expect_value(r, "indeterminate", f"carrier/{label}")
++        if set(r["nativeDeficiencies"]) != want_defs:
++            fail(f"carrier/{label}: nativeDeficiencies {r['nativeDeficiencies']}")
++        cu = [c for c in r["causes"] if c["code"] == "coverage-unknown"]
++        if len(cu) != 1 or cu[0].get("nativeCause") != "lockfile-missing" or cov2("2") not in r["coverageIds"]:
++            fail(f"carrier/{label}: coverage-unknown {cu} coverageIds {r['coverageIds']}")
++
++
++def incoming_reachability_fact(fid, origin):
++    return {
++        "factId": fid, "relation": "reachability", "resolution": "from-resolved-calls",
++        "sourceUniverse": U1, "targetUniverse": U1, "producerClosure": C_PROV, "confidenceMillionths": 1000000,
++        "payload": {"origin": origin, "reachable": F_SYM},
++        "anchors": [{"path": "src/a.ts", "blobDigest": H("0"), "startByte": 0, "endByte": 1}],
++    }
++
++
++def test_dependency_totality_known_matches_and_bounds():
++    """A gap retracts no evidence: a known incoming fact still decides exists/none and an exceeded bound."""
++    fid = fact2("1")
++    for label, deps, needs_completeness in (("f-only", [F_DEP], "indeterminate"), ("f-and-g", [F_DEP, G_DEP], "true")):
++        inputs = totality_inputs([[F_SYM, G_SYM]], deps)
++        inputs["facts"] = {fid: incoming_reachability_fact(fid, G_SYM)}
++        want = {"exists": "true", "none": "false", "count-at-most-0": "false",
++                "count-at-most-1": needs_completeness, "all-covered": needs_completeness}
++        for key, op, extra in (("exists", "exists", {}), ("none", "none", {}),
++                               ("count-at-most-0", "count-at-most", {"n": 0}),
++                               ("count-at-most-1", "count-at-most", {"n": 1}), ("all-covered", "all-covered", {})):
++            r = AM.evaluate_atom({**REACH_ALL, "op": op, "endpoint": "target", **extra}, F_SUBJ, inputs)
++            expect_value(r, want[key], f"known/{label}/{key}")
++            if r["knownFactIds"] != [fid]:
++                fail(f"known/{label}/{key}: known fact must be retained: {r['knownFactIds']}")
++
++
++def test_dependency_totality_attestation_route_and_order():
++    """The whole-source attestation view owes its owned scopes' subjects; one result for every insertion order."""
++    from itertools import permutations
++    atom = {**REACH_ALL, "endpoint": "target"}
++    r = AM.evaluate_atom(atom, F_SUBJ, totality_inputs([[F_SYM, G_SYM]], [F_DEP], attest=True))
++    expect_value(r, "indeterminate", "attested/f-only")
++    if "required-relation-missing" not in r["nativeDeficiencies"] or cov2("2") not in r["coverageIds"]:
++        fail(f"attested/f-only: {r['nativeDeficiencies']} {r['coverageIds']}")
++    for label, deps in (("f-and-g", [F_DEP, G_DEP]), ("spanning", [([F_SYM, G_SYM], "2", "paired")])):
++        expect_value(AM.evaluate_atom(atom, F_SUBJ, totality_inputs([[F_SYM, G_SYM]], deps, attest=True)),
++                     "true", f"attested/{label}")
++    results = set()
++    for order in permutations(("scopes", "coverages", "coverageScopes", "inventories")):
++        for reverse in (False, True):
++            inputs = totality_inputs([[F_SYM, G_SYM]], [F_DEP, ([G_SYM], "4", "no-coverage")])
++            if reverse:
++                for key in order:
++                    value = inputs[key]
++                    inputs[key] = list(reversed(value)) if isinstance(value, list) else dict(reversed(list(value.items())))
++            results.add(json.dumps(AM.evaluate_atom(atom, F_SUBJ, inputs), sort_keys=True))
++    if len(results) != 1:
++        fail(f"dependency totality depends on insertion order: {len(results)} results")
++    expect_value(json.loads(results.pop()), "indeterminate", "ordering/g-scope-without-coverage")
++
++
++def test_dependency_totality_every_depth_synthetic_graph():
++    """Synthetic DEPENDS_ON extension calls -> declares@syntactic, restored afterwards (helper-graph evidence)."""
++    saved = copy.deepcopy(AM.N.DEPENDS_ON)
++    try:
++        AM.N.DEPENDS_ON["calls"] = [{"relation": "declares", "minResolution": "syntactic"}]
++        atom = {**REACH_ALL, "endpoint": "target"}
++        inputs = totality_inputs([[F_SYM, G_SYM]], [F_DEP, G_DEP])
++        install_pair(inputs, *paired("declares", "syntactic", U1, U1, [F_SYM], tag="6"))
++        r = AM.evaluate_atom(atom, F_SUBJ, inputs)
++        expect_value(r, "indeterminate", "depth-2/declares-f-only")
++        if "required-relation-missing" not in r["nativeDeficiencies"] or cov2("6") not in r["coverageIds"]:
++            fail(f"depth-2/declares-f-only: {r['nativeDeficiencies']} {r['coverageIds']}")
++        install_pair(inputs, *paired("declares", "syntactic", U1, U1, [G_SYM], tag="8"))
++        expect_value(AM.evaluate_atom(atom, F_SUBJ, inputs), "true", "depth-2/declares-f-and-g")
+     finally:
+         AM.N.DEPENDS_ON.clear()
+         AM.N.DEPENDS_ON.update(saved)
+@@ -2757,6 +2924,12 @@
+     test_dependency_non_exact_scope_keeps_known_matches,
+     test_dependency_different_kind_whole_source_unchanged,
+     test_dependency_rule_applies_at_every_depth_synthetic_graph,
++    test_dependency_totality_regrouping_invariant,
++    test_dependency_totality_missing_subject_and_full_cover,
++    test_dependency_totality_keeps_partial_carrier,
++    test_dependency_totality_known_matches_and_bounds,
++    test_dependency_totality_attestation_route_and_order,
++    test_dependency_totality_every_depth_synthetic_graph,
+ ]
+ 
+ 

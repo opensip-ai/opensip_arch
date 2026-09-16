@@ -1,0 +1,199 @@
+--- docs/coop/design-corrections/security/carrier-format.v3.md
++++ docs/coop/design-corrections/security/carrier-format.v3.md
+@@ -7,6 +7,8 @@
+ and no self-acceptance. Design/reference only: a physical DDL, an open/read dispatch and
+ reference validation. Not product Rust, not executable storage, not a crash-test result, and
+ not an OS durability claim. No historical or frozen file is modified by this correction.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Revision note.** This revises the first draft in two places root identified: §2.1 replaces an
+ overbroad "nothing is writable" claim with the exact two incompatible cases, and §11 separates the
+@@ -155,10 +157,73 @@
+   physical narrowing of the logical schema-3 `seq`, which is `I64Positive`. The narrowing is a
+   carrier refusal (F32), not a schema change; `CommitRecoveryAssociationV1.journalSeq` already
+   states the same bound with maximum 9007199254740990.
+-- **operation_ref grammar.** `op-` plus 32 lowercase hex, length 35.
++- **operation_ref grammar.** `op-` plus 32 lowercase hex, length 35, as one whole TEXT value: storage
++  class, character length, no NUL, prefix and hex tail (§5.1). The frozen carrierFormat 2 bytes check only
++  the first character after the prefix, and the source37 v1 revision of this DDL checked the tail but still
++  admitted an embedded-NUL suffix or an ASCII-hex BLOB; see §5.1.
+ - **GRANT completeness.** `install_generation_id`, `manifest_digest`, `platform` and `token` all
+   present.
+ - **Witness and high-water laws.** Unchanged in substance; see §8 and §10.
++
++### 5.1 Exact storage class, whole-value grammar and the publication law (source37 owner correction)
++
++**Storage class and grammar (A37-01, revised).** SQLite types values dynamically: a column's TEXT affinity
++keeps a BLOB, INTEGER affinity keeps a non-integral REAL, and `length()` and `GLOB` stop at an embedded NUL.
++Every carrierFormat 3 column's storage class is therefore enforced, by one of two mechanisms. An explicit
++`typeof()` guard states `integer` for `singleton`, `carrier_format`, `first_generation`, `chain_law`,
++`migrated_from`, `grantGeneration`, `seq` and `record_schema`, and `text` for `request_ref`, `token`,
++`install_generation_id`, `body` and every hex-bearing column. Exact enumeration enforces it for
++`record_type` and `platform`: their `IN` lists hold only TEXT literals, and a whole-value comparison never
++equals a BLOB, a number or a NUL-suffixed text. Each hex-bearing column (`carrier_format.project_key_digest`
++and `migration_op_ref`, and `grant_journal_v3.operation_ref`, `run_id`, `manifest_digest`, `body_sha256` and
++`prev_sha256`) is then an exact whole TEXT value: `typeof(column) = 'text'`, `length(column) = N`, no NUL
++anywhere (`instr(column, char(0)) = 0`), the prefix `GLOB` where a prefix exists, and
++`NOT GLOB '*[^0-9a-f]*'` over the hex part. With no NUL, `length()` and `GLOB` see the whole value, and the
++case-sensitive hex class admits only ASCII `0`–`9` and `a`–`f`, so a multibyte or malformed character is
++refused by the same conjunction. Removing any one conjunct admits a hostile value. The conjunction evaluates
++the TEXT value by character and does not depend on the database text encoding; it was exercised under
++UTF-8, UTF-16le and UTF-16be, and no encoding is required of a carrier. CHECKs see values after column
++affinity, so an integer supplied as text `'5'` is stored and checked as integer 5. The private
++`attempt_custody` DDL applies the same laws: `typeof()` on `store_generation_digest`, `execution_id`,
++`operation_ref`, `namespace_id` and `record_schema`, and exact enumeration on `phase` and `settled_outcome`.
++Host record admission still validates the closed record bodies; the DDL is defence in depth.
++
++**Revision history of this law.** The source37 v1 correction replaced a first-character-only `GLOB` with a
++whole-tail `NOT GLOB` and described the result as exact. Root then reproduced, against those v1 bytes, an
++embedded-NUL suffix being admitted in `body_sha256`, `operation_ref` and `run_id`, and an ASCII-hex BLOB
++being admitted in `body_sha256` and `project_key_digest`. The exhaustive storage-class matrix run for this
++revision found the same NUL and BLOB admissions in every hex-bearing column, a BLOB in every free TEXT
++column, and a non-integral REAL in `first_generation` and `grantGeneration`. These are DDL admission
++counterexamples, not a demonstrated product exploit. STRICT tables were not selected: they do not refuse an
++embedded NUL, and SQLite documents that a database containing a STRICT table cannot be read by libraries
++older than 3.37.0, which would contradict the staging in which a format-unaware core still reads historical
++generations (§9).
++
++The source37 v2 revision then paired `length(column) = N` with a byte count,
++`length(CAST(column AS BLOB)) = N`, assumed a UTF-8 database and described the refusal of every UTF-16
++hex-bearing row as failing closed. Root showed that this refused otherwise lawful rows in UTF-16le and
++UTF-16be databases, although no earlier owner requires a text encoding for historical SQLite carriers. This
++revision replaces the byte count with `instr(column, char(0)) = 0`; with the retained storage class,
++character length, prefix and whole-hex guards it gives the same exact grammar in all three encodings, and
++the v2 encoding restriction is withdrawn.
++
++**Historical scope.** carrierFormat 1 and 2 bytes are frozen and unchanged. Their `GLOB` checks inspect only
++the first character after a prefix, and they also admit embedded-NUL and BLOB values. That weakness is
++disclosed, not repaired: historical rows are read as history under recordSchema-1 semantics, are never
++re-admitted through the schema-3 gate and can never satisfy a schema-3 `SEAL` join (§9, F46), so a
++malformed historical value confers no commitment. No product implementation or deployed carrier was
++created from the earlier PROPOSED carrierFormat 3 bytes, including the source37 v1 and v2 revisions. Reference in-memory SQLite instances were created
++from them by earlier design checks and review probes, and those instances and their receipts remain
++historical evidence. The open dispatch validates definitions byte-exactly, so a carrier created from
++earlier bytes is refused `MIGRATION.CORRUPT` rather than read as this definition.
++
++**Publication law (A37-02).** `gj3_append_laws` refuses every append while no `carrier_format` row
++exists, so an `{A, B}` footprint cannot acquire a row that a later publication would contradict. A
++`carrier_format` CHECK couples `first_generation` to `migrated_from`: exactly 1 on the fresh path, at
++least 2 on the migrated path. Act C verifies, in the same transaction that inserts the row, the seven
++definitions, that `grant_journal_v3` holds no row and that a surviving witness names the admitted
++`projectKeyDigest`; any failure publishes nothing. Both laws live inside existing definitions, so the
++seven object names are unchanged.
+ 
+ ## 6. Additions beyond the inherited DDL, and why each is needed
+ 
+@@ -170,9 +235,12 @@
+ | `carrier_format` singleton table | names carrierFormat, `first_generation` and `chain_law` durably |
+ | `first_generation` trigger | keeps migrated generations out of the new table |
+ | superseded-generation trigger | enforces WA-13 generation ordering physically |
+-
+-The last two are genuinely new laws. Neither can affect an inherited row: both live only on the
+-new table. The inherited DDL permitted appending to an older generation; carrierFormat 3 does
++| no append before the format row | an `{A, B}` footprint holds no row that publication could contradict (§5.1) |
++| `first_generation` coupled to `migrated_from` | the fresh path publishes 1; the migrated path publishes at least 2 (§5.1) |
++| whole-value storage-class and hex CHECKs | a value is admitted only in its exact storage class and whole grammar: no embedded NUL, BLOB or non-integral REAL (§5.1) |
++
++The last five are genuinely new laws. None can affect an inherited row: all live only on the new
++objects. The inherited DDL permitted appending to an older generation; carrierFormat 3 does
+ not, which is strictly narrower and matches WA-13.
+ 
+ `run_id` is a physical column, not a new body member: the value is already a member of the closed
+@@ -243,7 +311,8 @@
+                                                  -> MIGRATION.CORRUPT
+ 5  read the carrier_format row where singleton = 1
+        row present  -> carrierFormat 3
+-       row absent   -> INCOMPLETE FOOTPRINT: inherited format; a fresh admitted
++       row absent   -> if grant_journal_v3 holds any row -> MIGRATION.CORRUPT
++                       else INCOMPLETE FOOTPRINT: inherited format; a fresh admitted
+                        maintenance attempt resumes at act C
+ 6  if table grant_journal exists and trigger gj_seq_contiguous exists -> carrierFormat 2
+ 7  if table grant_journal exists                                      -> carrierFormat 1
+@@ -271,9 +340,17 @@
+    frozen definition. This closes the `CREATE TABLE IF NOT EXISTS` hole: a pre-existing variant
+    can never be silently accepted. Verified equal in C2.
+ 2. `carrier_format.project_key_digest` must equal the carrier's own `projectKeyDigest` derived from
+-   the admitted project key; otherwise `MIGRATION.CORRUPT`.
++   the admitted project key. A mismatch is a **carrier project binding mismatch**, not migration
++   corruption: nothing in the migration footprint is inconsistent, but the carrier's own binding names
++   another project, the condition the frozen `reconcile_witness` reports as *witness names another
++   carrier*. It never borrows `MIGRATION.CORRUPT`; its route is §8.1.
+ 3. `max(grantGeneration)` in `grant_journal` must be strictly less than
+-   `carrier_format.first_generation`; otherwise `MIGRATION.CORRUPT`.
++   `carrier_format.first_generation`, and no inherited row may follow a `TERMINAL` in its generation;
++   otherwise the published generation boundary is violated (the F51 split-brain custody condition)
++   and the carrier is `MIGRATION.CORRUPT` at a writer or maintenance open.
++3a. `min(grantGeneration)` in `grant_journal_v3`, when any row exists, must be at least
++   `carrier_format.first_generation`; otherwise `MIGRATION.CORRUPT`. The corrected DDL already refuses
++   such a row; this check verifies rows, not only definitions.
+ 4. Witness reconciliation runs exactly as `security_unit_lib_v8.reconcile_witness` specifies. C1
+    reproduced all 14 rows of the v8 §5.4 table against the frozen implementation with no
+    deviation. Reconciliation is unchanged by this correction.
+@@ -281,6 +358,48 @@
+    step: the frozen `reconcile_witness` is pure and does **not** consult the high-water
+    (verified in C1).
+ 
++### 8.1 Phase-specific public routes (source37 owner correction)
++
++Every route below is an existing D9 v1.14 class, exit, `errorCode` and `faultCause`; nothing is minted.
++The phase decides which existing route applies, never a new class. Machine-readable:
++`carrier-dispatch.v3.json#/publicProjectionByPhase`. Security owner rows: S12.
++
++| Phase | Observation | Internal standing | class / exit / errorCode / faultCause | `domainDetail` |
++|---|---|---|---|---|
++| writer or maintenance open | partial object set; all names with an invalid definition; a `grant_journal_v3` row with no published row; a published boundary violated (checks 3, 3a) | migration footprint not a lawful prefix | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | `MIGRATION.CORRUPT` |
++| writer or maintenance open | F51: inherited generation at or above `first_generation`, or an inherited row after `TERMINAL` | `split-brain-custody-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | `MIGRATION.CORRUPT` |
++| writer or maintenance open | published `project_key_digest` (check 2) or a surviving witness names another project | carrier project binding mismatch | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
++| maintenance act C (fresh or `{A, B}` resume) | a `grant_journal_v3` row, a partial set or invalid definition; or a witness naming another project | as the rows above | as above; **nothing is published** | as above |
++| read-only recovery | the association's `storeGenerationDigest`, `namespaceId` or `journalCarrierDigest` differs from the admitted binding | `binding-unusable` | request-rejected / 2 / `EXTENSION.ADMISSION_REJECTED` / — | `RECOVERY.REFUSED`, typed subject |
++| read-only recovery | association names the admitted carrier, but the carrier's own row or witness names another project; an unlawful footprint; or F51 | `unknown-quarantine-condition` | operational-failed / 4 / `LEDGER.CORRUPT` / `ledger-corrupt` | omitted |
++| read-only recovery | F46: association names a generation below the `first_generation` read in the same journal snapshot | `unknown-carrier-incompatible` | operational-failed / 4 / `HOST.IO_FAILURE` / `host-io` | omitted |
++| read-only recovery | lawful `{A}` or `{A, B}` prefix (`carrier-migration.v1.md` §4), or an unstable observation | `unavailable-busy` | operational-failed / 4 / `LEDGER.BUSY_TIMEOUT` / `ledger-busy` | `PROJECT.BUSY` |
++
++**Why a digest mismatch is not migration corruption.** A partial object set, an invalid definition, a
++row before publication and a violated generation boundary are failures of the migration footprint
++itself, so `MIGRATION.CORRUPT` names their remedy. A project digest mismatch leaves that footprint
++intact: the carrier at this namespace carries another project's binding. The frozen v8 witness law
++already treats the same fact as a carrier quarantine, and S12 keeps journal-carrier quarantine free of
++`MIGRATION.CORRUPT` so that one code never carries two remedies. On read-only recovery the
++association's own carrier naming decides first: an association that names another carrier is the
++existing `binding-unusable` refusal of the recovery request.
++
++**Why F46 is `HOST.IO_FAILURE`.** An association is written only with a committed carrierFormat 3
++`SEAL`, so one naming a historical generation contradicts two retained owners. That is the
++`unknown-custody` family (`HOST.IO_FAILURE`, `host-io`): not a caller defect (request-rejected), not a
++stably observed quarantine (`LEDGER.CORRUPT`) and not contention. It never becomes not-committed or a
++confirmation.
++
++**Interrupted state and stale custody.** Each phase re-evaluates every predicate from the bytes it
++reads at that open or in that journal snapshot: a cached verdict, `first_generation`,
++`projectKeyDigest` or earlier successful open is never reused. A writer or maintenance refusal appends
++nothing, publishes nothing and writes no marker, because `carrier_quarantine.reason` keeps its inherited
++enum; the next open detects the same condition again. Read-only recovery writes nothing, uses
++`MIGRATION.CORRUPT` on no path, and reports the quarantine-condition row only with its Step 4 stable
++observations, otherwise `unavailable-busy`. A lawful `{A}` or `{A, B}` prefix stays a resumable
++interrupted migration, never a corruption diagnosis. No route confirms, negates or settles an attempt,
++merges split-brain rows, rewrites the immutable format row or grants authority.
++
+ ## 9. Read dispatch
+ 
+ Every generation lives entirely in exactly one table, and generations are totally ordered per
+@@ -298,7 +417,7 @@
+   `RepoExecutionGrantV2.platformId` or a truth-table key.
+ - A historical generation can never satisfy a schema-3 `SEAL` join, because no `SEAL` row can
+   exist there. A recovery request whose association names such a generation returns
+-  `unknown-carrier-incompatible` (F31/F46), never `not-committed`.
++  `unknown-carrier-incompatible` (F31/F46), never `not-committed`; its public route is §8.1.
+ - Historical bytes are read under recordSchema-1 semantics. They are not relabelled as schema 3
+   and are not re-admitted through the schema-3 gate. This preserves the existing
+   `JournalRecordV2` law, which exists "only to identify historical bytes so they are refused as
+@@ -331,7 +450,7 @@
+   with `first_generation`.
+ - That collision is therefore **detectable, not preventable**: any generation at or above
+   `first_generation` appearing in the **inherited** table is a split-brain custody condition, never
+-  valid history, and is never merged into the current generation sequence. The mitigation is the
++  valid history, and is never merged into the current generation sequence (public route §8.1). The mitigation is the
+   existing ordered-release discipline — ship the format-aware core first, enable migration only
+   once the install's selected core generation is at or above that release. That is an
+   implementation and release obligation, and it is a **selected disclosed limitation**, not an

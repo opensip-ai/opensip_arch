@@ -1,0 +1,71 @@
+--- a37/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ b38/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -624,6 +624,16 @@
+             'domainDetail':{'code':'evidence.regeneration-mismatch','remedy':'Retain the sealed Run and investigate the differing regeneration result.','subject':run_id}}
+         super().__init__('REGENERATION_MISMATCH')
+ 
++class CompleteReplayMismatch(C.AdmissionError):
++    """Complete replay disagreement over an owner-admitted closure: the regenerated proof, output object,
++    preimage blob, proof id, evidence, seal or Run differs from the retained result. This names the condition
++    only. The invoking host boundary supplies the origin: a retained read applies RegenerationMismatch; a live
++    first-party evaluator contradicting its own reconstruction is host-internal. The exact comparison key is
++    the message and `diagnostic`; it is retained, never parsed to choose a route."""
++    def __init__(self, diagnostic):
++        self.diagnostic = diagnostic
++        super().__init__(diagnostic)
++
+ 
+ _REGISTERED_SCHEMA_DOCUMENTS=None
+ def registered_schema_documents():
+@@ -641,6 +651,14 @@
+ 
+ 
+ _COMPLETE_REPLAY=None
++def complete_replay():
++    """The evaluator3 replay stack this identity copy loads once; that load has its own class objects."""
++    global _COMPLETE_REPLAY
++    if _COMPLETE_REPLAY is None:
++        spec=importlib.util.spec_from_file_location('identity_complete_replay3',HERE/'evaluator_replay_model.v3.py')
++        _COMPLETE_REPLAY=importlib.util.module_from_spec(spec);spec.loader.exec_module(_COMPLETE_REPLAY)
++    return _COMPLETE_REPLAY
++
+ def close_run(run,objects,blobs):
+     """Public evaluator3 admission includes complete semantic output replay.
+ 
+@@ -648,12 +666,19 @@
+     driver. It establishes retained native/identity/schema joins, not final semantic
+     authority by itself. This entry point, storage and authoritative cache admission
+     always run the stronger profile boundary.
++
++    Refusals are raised as THIS module's classes. The replay stack's declared outcomes
++    are distinct class objects, so they are normalized here by exact class identity,
++    keeping the message and chaining the original: promised-byte loss is
++    EvidenceUnavailable, regenerated output disagreement is CompleteReplayMismatch,
++    and every other declared owner refusal is C.AdmissionError. Any other exception
++    is not an admission decision and propagates unchanged. Origin is not decided here.
+     """
+-    global _COMPLETE_REPLAY
+-    if _COMPLETE_REPLAY is None:
+-        spec=importlib.util.spec_from_file_location('identity_complete_replay3',HERE/'evaluator_replay_model.v3.py')
+-        _COMPLETE_REPLAY=importlib.util.module_from_spec(spec);spec.loader.exec_module(_COMPLETE_REPLAY)
+-    return _COMPLETE_REPLAY.replay(run,objects,blobs)['runId']
++    R=complete_replay()
++    try:return R.replay(run,objects,blobs)['runId']
++    except R.UNAVAILABLE as exc:raise EvidenceUnavailable(exc.reference) from exc
++    except R.MISMATCHES as exc:raise CompleteReplayMismatch(exc.diagnostic) from exc
++    except R.REFUSALS as exc:raise C.AdmissionError(str(exc)) from exc
+ 
+ 
+ def admit_closure_field_kinds(record_kind,value,get_closure):
+@@ -1897,7 +1922,10 @@
+         return {'state':'committed' if receipt else ('failed' if state=='failed' else 'uncommitted' if state=='prepared' else state),'receipt':copy.deepcopy(receipt),'effectsRepeated':False}
+     def restore(self,rid,objects,blobs,replay):
+         run=self.runs[rid]
+-        if close_run(run,objects,blobs)!=rid:raise RegenerationMismatch(rid)
++        # Verified restoration is a retained regeneration boundary; replay disagreement is its carrier.
++        try:closed=close_run(run,objects,blobs)
++        except CompleteReplayMismatch as exc:raise RegenerationMismatch(rid) from exc
++        if closed!=rid:raise RegenerationMismatch(rid)
+         seal=objects[run['evaluationSealId']][1];proof=objects[seal['proofBundleId']][1]
+         if not C.equal_typed(replay(objects[run['planId']][1],objects,blobs,proof['evaluationInputRefs']),proof):raise RegenerationMismatch(rid)
+         self.objects.update(copy.deepcopy(objects));self.blobs.update(copy.deepcopy(blobs))

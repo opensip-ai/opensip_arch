@@ -1,0 +1,1196 @@
+--- package15/verify-package.py
++++ overlay/verify-package.py
+@@ -1,8 +1,15 @@
+-"""Replay pinned author exports in fresh subprocesses; never claim independent review."""
++"""Replay pinned author exports in fresh subprocesses; never claim independent review.
++
++Native-v2 successor (author-package-migration.v1). Verifies the pinned source-manifest.json and this package's
++artifact-manifest.json, then runs every export group through the owner named by --source (check-export.v4.py:
++structural open_run_closure + complete close_run) and the seven query checks. Every expected admission, refusal and
++query clause of package15 is kept; the added group is normalization-map-controls1, whose expected boundary per
++variant is read from its variants.json and must be reached STRUCTURALLY (ownerAdmission REFUSE with that token).
++"""
+ from pathlib import Path
+ import argparse,hashlib,json,subprocess,sys
+ ROOT=Path(__file__).resolve().parent
+-EXPECTED_SOURCE='2ddfa0dbfc101b264c24d2a1f63de1e4e70908ac2a7346eaf0dab09d37f7e5c5'
++EXPECTED_SOURCE='__SOURCE_MANIFEST_SHA256__'
+ def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+ def checked(root,row):
+  rel=Path(row['path']);assert not rel.is_absolute() and '..' not in rel.parts
+@@ -16,11 +23,8 @@
+ package=json.loads((ROOT/'artifact-manifest.json').read_text())
+ for row in package['files']:checked(ROOT,row)
+ a.out.mkdir(parents=True);results=[]
+-# A group that crashes, or a query step that aborts, must still be RECORDED. Earlier this file
+-# asserted mid-flight, so a failing run produced no verification.json at all and the failure had
+-# to be reconstructed from stray stdout. Every expected admission, refusal and clause below is
+-# unchanged and no expectation is weakened; only the reporting path is.
+-for name,is_negative in [('checkpoint3',False),('normalized-examples6',False),('rust-selection-examples1',False),('semantic-controls1',True),('binding-controls',None)]:
++map_expect={v['name']:v['expectedStructuralBoundary'] for v in json.loads((ROOT/'normalization-map-controls1'/'variants.json').read_text())['variants']}
++for name,is_negative in [('checkpoint3',False),('normalized-examples6',False),('rust-selection-examples1',False),('semantic-controls1',True),('binding-controls',None),('normalization-map-controls1','map')]:
+  out=a.out/name
+  cmd=[sys.executable,'-I','-B',str(ROOT/'check-export.v4.py'),'--input',str(ROOT/name),'--claims',str(ROOT/name/'claims.json'),'--source',str(a.source),'--out',str(out)]
+  row={'group':name,'negativeControls':is_negative,'passed':False,'count':0,'reportSha256':None}
+@@ -28,7 +32,9 @@
+   proc=subprocess.run(cmd,capture_output=True,text=True)
+   (a.out/(name+'.stdout.json')).write_text(proc.stdout);(a.out/(name+'.stderr.txt')).write_text(proc.stderr)
+   report=json.loads((out/'report.json').read_text());checks=report['checks']
+-  if is_negative is None:
++  if is_negative=='map':
++   passed=proc.returncode==1 and len(checks)==len(map_expect)==4 and all(r['ownerAdmission']=='REFUSE' and r['semanticAdmission']=='NOT-REACHED' and map_expect[r['name']] in (r.get('reason') or '') for r in checks)
++  elif is_negative is None:
+    passed=proc.returncode==1 and len(checks)==3 and all(r['ownerAdmission']=='ADMIT' and ((r['name']=='ts-invalid-default-entry' and r['semanticAdmission']=='REFUSE' and 'ENUMERATION_BINDING_PROGRAM_ENTRY' in r['reason']) or (r['name']!='ts-invalid-default-entry' and r['semanticAdmission']=='ADMIT')) for r in checks)
+   elif is_negative:
+    passed=proc.returncode==1 and len(checks)==3 and all(r['ownerAdmission']=='ADMIT' and r['semanticAdmission']=='REFUSE' and r['reason']=='EVALUATOR_COMPLETE_PROOF_REPLAY' for r in checks)
+@@ -40,7 +46,6 @@
+   row['failure']={'stage':'group','error':type(exc).__name__,'detail':str(exc)[:1000]}
+  results.append(row)
+  print(name,row['passed'],flush=True)
+-# Query reproduction is a separate measured boundary, now part of package verification.
+ query_commands = [
+  [sys.executable,'-I','-B',str(ROOT/'check-author-query.py'),'--source',str(a.source),
+   '--package',str(ROOT),'--out',str(a.out/'query-checks')],
+@@ -55,7 +60,6 @@
+   (a.out/('query-step-%d.stderr' % index)).write_text(proc.stderr)
+   if proc.returncode!=0:raise AssertionError('query step %d exited %d' % (index,proc.returncode))
+  query=json.loads((a.out/'query-assessment.json').read_text())
+- # Same expectation as before: all seven checks, all passed.
+  if query['passed'] is not True or len(query['checks'])!=7:
+   raise AssertionError('query assessment passed=%r checks=%d' % (query['passed'],len(query['checks'])))
+  query_row.update(passed=True,count=len(query['checks']),reportSha256=sha(a.out/'query-assessment.json'))
+@@ -63,5 +67,5 @@
+  query_row['failure']={'stage':'query','error':type(exc).__name__,'detail':str(exc)[:1000]}
+ results.append(query_row)
+ print('query',query_row['passed'],flush=True)
+-result={'standing':'Author reference package revalidation only. Seven valid synthetic Runs plus three separately reminted negative controls and three binding controls. Not independent reconstruction, compiler qualification or implementation authorization.','sourceManifestSha256':EXPECTED_SOURCE,'packageManifestSha256':sha(ROOT/'artifact-manifest.json'),'sourceFilesVerified':len(source['files']),'packageFilesVerified':len(package['files']),'groups':results,'passed':all(r['passed'] for r in results)}
++result={'standing':'Author reference package revalidation only. Seven valid synthetic Runs, three reminted semantic negative controls, three binding controls and four S2 map discrimination controls. Not independent reconstruction, compiler qualification or implementation authorization.','sourceManifestSha256':EXPECTED_SOURCE,'packageManifestSha256':sha(ROOT/'artifact-manifest.json'),'sourceFilesVerified':len(source['files']),'packageFilesVerified':len(package['files']),'groups':results,'passed':all(r['passed'] for r in results)}
+ (a.out/'verification.json').write_text(json.dumps(result,indent=2)+'\n');assert result['passed'],result
+--- /dev/null
++++ overlay/rebuild-author-package.v2.py
+@@ -0,0 +1,195 @@
++"""Portable rebuild of the author reference package on a successor source (native-v2 laws).
++
++Explicit inputs only; no historical /tmp path is consulted:
++  --source   successor source root (the tree holding docs/coop/design-corrections); root runs this on the FROZEN tree
++  --package  the old author package root (package15) whose artifact-manifest.json digest is --package-manifest-sha256
++  --overlay  the migration overlay (overlay-manifest.json lists every file with its package15 base digest)
++  --out      a fresh output directory (must not exist)
++  --source-manifest  optional JSON {"files":[{path,sha256,bytes}]} the source must equal (e.g. a frozen manifest)
++
++Steps (each subprocess receipted under OUT/work/receipts): verify old package and overlay base digests; hash the source
++tree; build a constructor tree = package15 + overlay; construct every group FROM INPUTS; assemble OUT/package with the
++package15 export groups moved to historical-source38-before-native-v2/; pin the source manifest into verify-package.py;
++run verify-package.py (structural + complete semantic closure, map controls, seven query checks) and two author
++evidence probes (S2 closure membership, U-4b membership vs the owner's discover/assign functions); compare export ids
++with package15; write OUT/package/artifact-manifest.json and OUT/rebuild-report.json. Nothing is written outside OUT.
++This is AUTHOR construction and self-consistency evidence, never independent review or acceptance.
++"""
++from pathlib import Path
++import argparse, hashlib, importlib.util, json, os, shutil, subprocess, sys, time
++
++p = argparse.ArgumentParser()
++p.add_argument('--source', required=True, type=Path)
++p.add_argument('--package', required=True, type=Path)
++p.add_argument('--package-manifest-sha256', required=True)
++p.add_argument('--overlay', required=True, type=Path)
++p.add_argument('--out', required=True, type=Path)
++p.add_argument('--source-manifest', type=Path, default=None)
++p.add_argument('--python', default=sys.executable)
++a = p.parse_args()
++SRC, OLD, OV, OUT = a.source.resolve(), a.package.resolve(), a.overlay.resolve(), a.out.resolve()
++for label, path in (('--source', SRC), ('--package', OLD), ('--overlay', OV)):
++    if OUT == path or OUT.is_relative_to(path) or path.is_relative_to(OUT):
++        raise SystemExit('--out must be separate from ' + label)
++if OUT.exists():
++    raise SystemExit('--out exists; use a fresh directory')
++WORK = OUT / 'work'
++RECEIPTS = WORK / 'receipts'
++RECEIPTS.mkdir(parents=True)
++sha = lambda b: hashlib.sha256(b).hexdigest()
++fsha = lambda path: sha(Path(path).read_bytes())
++report = {'standing': 'AUTHOR construction and self-consistency evidence on a successor source; not independent review, '
++                      'not acceptance, not qualification. Never supply to a blind consumer.',
++          'script': str(Path(__file__).resolve()), 'scriptSha256': fsha(__file__), 'commands': []}
++
++
++def run(label, argv, timeout=3600):
++    out = RECEIPTS / label
++    out.mkdir()
++    argv = [str(x) for x in argv]
++    started = time.time()
++    proc = subprocess.run(argv, capture_output=True, timeout=timeout)
++    (out / 'stdout.txt').write_bytes(proc.stdout)
++    (out / 'stderr.txt').write_bytes(proc.stderr)
++    row = {'label': label, 'argv': argv, 'exit': proc.returncode, 'seconds': round(time.time() - started, 1),
++           'stdoutSha256': sha(proc.stdout), 'stderrSha256': sha(proc.stderr)}
++    (out / 'command.json').write_text(json.dumps(row, indent=2) + '\n')
++    report['commands'].append(row)
++    print(label, proc.returncode, row['seconds'], flush=True)
++    return proc
++
++
++def walk(root):
++    rows = []
++    for d, dirs, files in os.walk(root):
++        dirs[:] = sorted(x for x in dirs if x != '__pycache__')
++        for name in sorted(files):
++            path = Path(d) / name
++            data = path.read_bytes()
++            rows.append({'path': path.relative_to(root).as_posix(), 'sha256': sha(data), 'bytes': len(data)})
++    rows.sort(key=lambda r: r['path'].encode('utf-8'))
++    return rows
++
++
++# 1. Inputs
++raw = (OLD / 'artifact-manifest.json').read_bytes()
++if sha(raw) != a.package_manifest_sha256:
++    raise SystemExit('old package artifact-manifest digest mismatch')
++old_manifest = json.loads(raw)
++for row in old_manifest['files']:
++    if fsha(OLD / row['path']) != row['sha256']:
++        raise SystemExit('old package file digest mismatch: ' + row['path'])
++overlay_manifest = json.loads((OV / 'overlay-manifest.json').read_text())
++for row in overlay_manifest['files']:
++    if fsha(OV / row['path']) != row['sha256']:
++        raise SystemExit('overlay file digest mismatch: ' + row['path'])
++    base = OLD / row['path']
++    if row['package15Sha256'] is None:
++        if base.exists():
++            raise SystemExit('overlay adds a file the base already has: ' + row['path'])
++    elif not base.is_file() or fsha(base) != row['package15Sha256']:
++        raise SystemExit('overlay base digest mismatch (not this package): ' + row['path'])
++source_files = walk(SRC)
++source_manifest_bytes = json.dumps({'files': source_files}, indent=1).encode() + b'\n'
++if a.source_manifest is not None:
++    wanted = json.loads(a.source_manifest.read_text())['files']
++    if [(r['path'], r['sha256'], r['bytes']) for r in wanted] != [(r['path'], r['sha256'], r['bytes']) for r in source_files]:
++        raise SystemExit('--source does not equal --source-manifest')
++report['inputs'] = {'source': str(SRC), 'sourceFiles': len(source_files), 'sourceManifestSha256': sha(source_manifest_bytes),
++                    'package': str(OLD), 'packageManifestSha256': a.package_manifest_sha256,
++                    'overlay': str(OV), 'overlayManifestSha256': fsha(OV / 'overlay-manifest.json'),
++                    'registeredNativeSchemaSha256': fsha(SRC / 'docs/coop/design-corrections/native/native-evidence.schemas.v2.json'),
++                    'registeredEnumerationPlanSchemaSha256': fsha(SRC / 'docs/coop/design-corrections/foundation/enumeration-plan.schema.v1.json')}
++
++# 2. Constructor tree = package15 + overlay
++CON = WORK / 'constructors'
++shutil.copytree(OLD, CON, ignore=shutil.ignore_patterns('__pycache__'), copy_function=shutil.copy2)
++for row in overlay_manifest['files']:
++    (CON / row['path']).parent.mkdir(parents=True, exist_ok=True)
++    shutil.copy2(OV / row['path'], CON / row['path'])
++shutil.copy2(OV / 'overlay-manifest.json', CON / 'overlay-manifest.json')
++
++# 3. Construct every group from inputs
++B = WORK / 'build'
++PY = [a.python, '-I', '-B']
++jobs = [('construct-checkpoint3', 'build-checkpoint3.py', 'checkpoint', []),
++        ('construct-normalized', 'build-normalized-examples6.py', 'normalized', []),
++        ('construct-rust-selection', 'build-rust-selection-examples.py', 'selection', []),
++        ('construct-binding-controls', 'build-binding-controls.py', 'binding', []),
++        ('construct-normalization-map-controls', 'build-normalization-map-controls.py', 'map-controls', [])]
++failed = []
++for label, script, dest, extra in jobs:
++    if run(label, PY + [CON / script, '--source', SRC, '--package', CON, '--out', B / dest] + extra).returncode != 0:
++        failed.append(label)
++if run('construct-semantic-controls', PY + [CON / 'build-semantic-controls.py', '--source', SRC, '--package', CON, '--out', B / 'semantic',
++                                              '--positive', B / 'checkpoint/checkpoint3']).returncode != 0:
++    failed.append('construct-semantic-controls')
++construction_status = {}
++for group, path in (('normalized-examples6', B / 'normalized/normalized-examples6/construction.json'),
++                    ('rust-selection-examples1', B / 'selection/rust-selection-examples1/construction.json')):
++    if path.is_file():
++        construction_status[group] = json.loads(path.read_text())
++        failed.extend(group + ':' + r['name'] for r in construction_status[group] if not r['constructed'])
++report['construction'] = {'failed': failed, 'status': construction_status}
++if failed:
++    (OUT / 'rebuild-report.json').write_text(json.dumps(report, indent=1) + '\n')
++    raise SystemExit('construction failed: %s' % failed)
++
++# 4. Assemble the new package
++PKG = OUT / 'package'
++shutil.copytree(CON, PKG, ignore=shutil.ignore_patterns('__pycache__'), copy_function=shutil.copy2)
++HIST = PKG / 'historical-source38-before-native-v2'
++HIST.mkdir()
++for name in ['checkpoint3', 'normalized-examples6', 'rust-selection-examples1', 'semantic-controls1', 'binding-controls',
++             'query-checks1', 'query-assessment.json', 'source-manifest.json', 'artifact-manifest.json', 'README.md',
++             'verify-package.py', 'author-properties.json', 'mixed-universe-view.probe.json']:
++    if (PKG / name).exists():
++        shutil.move(str(PKG / name), str(HIST / name))
++# The historical README/verify-package are the package15 bytes, not the overlay versions.
++for name in ['README.md', 'verify-package.py']:
++    shutil.copy2(OLD / name, HIST / name)
++    shutil.copy2(OV / name, PKG / name)
++for group, rel in [('checkpoint3', 'checkpoint/checkpoint3'), ('normalized-examples6', 'normalized/normalized-examples6'),
++                   ('rust-selection-examples1', 'selection/rust-selection-examples1'), ('semantic-controls1', 'semantic/semantic-controls1'),
++                   ('binding-controls', 'binding'), ('normalization-map-controls1', 'map-controls')]:
++    shutil.copytree(B / rel, PKG / group, ignore=shutil.ignore_patterns('__pycache__'))
++for name in ['construction-provenance.json']:
++    for group, rel in [('checkpoint3', 'checkpoint'), ('normalized-examples6', 'normalized'), ('rust-selection-examples1', 'selection'),
++                       ('semantic-controls1', 'semantic')]:
++        if (B / rel / name).is_file():
++            shutil.copy2(B / rel / name, PKG / group / name)
++(PKG / 'source-manifest.json').write_bytes(source_manifest_bytes)
++verify_text = (PKG / 'verify-package.py').read_text()
++if verify_text.count('__SOURCE_MANIFEST_SHA256__') != 1:
++    raise SystemExit('verify-package.py source placeholder missing')
++(PKG / 'verify-package.py').write_text(verify_text.replace('__SOURCE_MANIFEST_SHA256__', sha(source_manifest_bytes)))
++shutil.copy2(OLD / 'artifact-manifest.json', PKG / 'predecessor-artifact-manifest.json')
++package_rows = [r for r in walk(PKG) if r['path'] != 'artifact-manifest.json']
++(PKG / 'artifact-manifest.json').write_text(json.dumps(
++    {'standing': 'Author reference package migrated to native-v2 laws on a captured successor source; verification and independent review pending.',
++     'sourceManifestSha256': sha(source_manifest_bytes), 'predecessorArtifactManifestSha256': a.package_manifest_sha256,
++     'files': package_rows}, indent=2) + '\n')
++
++# 5. Verification through the owner named by --source, plus author evidence probes
++verify = run('verify-package', PY + [PKG / 'verify-package.py', '--source', SRC, '--out', WORK / 'verification'])
++report['verification'] = json.loads((WORK / 'verification/verification.json').read_text()) if (WORK / 'verification/verification.json').is_file() else None
++probe = run('probe-native-v2-membership', PY + [CON / 'probe-native-v2.py', '--source', SRC, '--package', PKG, '--out', WORK / 'probe-native-v2.json'])
++report['nativeV2Probe'] = json.loads((WORK / 'probe-native-v2.json').read_text()) if (WORK / 'probe-native-v2.json').is_file() else None
++
++# 6. Export id comparison with package15
++comparison = []
++for group in ['checkpoint3', 'normalized-examples6', 'rust-selection-examples1', 'semantic-controls1', 'binding-controls', 'normalization-map-controls1']:
++    new_claims = json.loads((PKG / group / 'claims.json').read_text())
++    old_claims = json.loads((OLD / group / 'claims.json').read_text()) if (OLD / group / 'claims.json').is_file() else []
++    for claim in new_claims:
++        previous = next((r for r in old_claims if r['name'] == claim['name']), None)
++        comparison.append({'group': group, 'name': claim['name'], 'runId': claim['runId'], 'exportSha256': fsha(PKG / group / claim['path']),
++                           'previousRunId': previous['runId'] if previous else None,
++                           'previousExportSha256': fsha(OLD / group / previous['path']) if previous else None,
++                           'new': previous is None})
++report['exportComparison'] = comparison
++report['packageManifestSha256'] = fsha(PKG / 'artifact-manifest.json')
++report['passed'] = bool(verify.returncode == 0 and probe.returncode == 0)
++(OUT / 'rebuild-report.json').write_text(json.dumps(report, indent=1) + '\n')
++print(json.dumps({'passed': report['passed'], 'packageManifestSha256': report['packageManifestSha256']}, indent=1))
++raise SystemExit(0 if report['passed'] else 1)
+--- package15/README.md
++++ overlay/README.md
+@@ -1,7 +1,27 @@
+-# Source38 author reference package (v15) — current verification pending
++# Author reference package — native-v2 migration (successor of package15)
+ 
+-Exact package14 exports are rebound to source38. TypeScript-derived groups retain their source33 constructions; normalized/Rust groups retain source30 constructions. source-binding.v38.json distinguishes current binding from historical construction receipts. No remint occurred in this preparation.
++Built by `rebuild-author-package.v2.py` from package15 constructors plus the `author-package-migration.v1` overlay, on a CAPTURED successor source (`source-manifest.json`). The package15 exports are kept unchanged under `historical-source38-before-native-v2/`. No old export was repaired, re-serialized or imported. Every export here was reconstructed from inputs by constructors.
+ 
+-Run verify-package.py with the reference interpreter -I -B, --source <frozen-source38> and --out <new-external-output> for all13 structural/full semantic closures and7 query checks. An actual current replay is required; rebinding alone proves no conformance.
++Migrated laws (helpers `author-helpers/native_v2.py`, `runs.py`, `ts_pilot.py`; finalizers in the two normalized/Rust-selection constructors):
++- **S1 stage output registration.** Each provider closure registers `opensip-interface/stage-output/<operation>.schema.json`, and `outputSchemaDigest` is that member's digest.
++- **S2 per-level normalization maps.** They live in the interpreting TypeScript toolchain, Rust toolchain and syntax grammar closures, next to their level specifications.
++- **S4 account targets.** Every account's `targetUniverse` is null.
++- **U-4b / U-9 membership.** Units and rows are deterministic, including the Cargo workspace member roots and the syntax-only fallback unit.
++- **Schema digests.** The registered native and enumeration-plan schema digests are read from the declared kit.
+ 
+-Only the TypeScript checkpoint compares a partial consumer helper with the owner; six positives are owner-derived/replayed self-consistency. Helper exercises exists/none; and/or/not are unexercised, count-at-most/all-covered unimplemented. Two-binding construction is incomplete with a single explicit binding. No compiler/provider/OS/process-isolation qualification. All30 independent residual grades remain PENDING. This author evidence must never be supplied to the blind consumer. Historical source37 README remains under historical-source37-before-binding38.
++Run `verify-package.py --source <frozen-successor> --out <new-dir>` with the reference interpreter `-I -B`. It covers all 17 structural and full semantic closures and the 7 query checks:
++- 7 positives;
++- 3 semantic controls;
++- 3 binding controls;
++- 4 S2 map controls, which must refuse structurally at their recorded boundary.
++
++`probe-native-v2.py` records author self-consistency evidence over owner functions.
++
++**Limits, unchanged and still pending.**
++- Only the TypeScript checkpoint compares a partial consumer helper with the owner. The other positives are author-derived self-consistency under owner replay.
++- Helper operators: exists/none are exercised; and/or/not are unexercised; count-at-most/all-covered are unimplemented.
++- The two-binding construction is incomplete, with a single explicit binding.
++- No compiler, provider, OS or process-isolation qualification.
++- All 30 independent residual grades remain PENDING.
++- This is not frozen-candidate acceptance and not a whole-source review.
++- This author evidence must never be supplied to a blind consumer.
+--- /dev/null
++++ overlay/probe-native-v2.py
+@@ -0,0 +1,145 @@
++"""AUTHOR evidence probe: native-v2 construction properties of every positive export, read through the owner.
++
++Portable: --source (successor source root), --package (package root holding the export groups), --out (fresh JSON path).
++For each positive Run (checkpoint3, normalized-examples6, rust-selection-examples1 and the two ADMIT binding controls):
++  * opens the exact export with the owner's structural open_run_closure (no admission is re-implemented here);
++  * S1  every execution-plan stage's outputSchemaDigest is the producer closure's registered member digest;
++  * S2  every clone fact in the Run's views names a level/specification that its INTERPRETING closure (universe row
++        languageVersionBinding.normalizationClosure) maps, and both the map and the specification are tree members;
++  * S4  every ExecutionInputsV1 native coverage account has targetUniverse null;
++  * U-4b the retained UnitMembershipV1 equals the owner's assign_membership over the retained units and snapshot paths,
++        and its units are compared with the owner's discover_units over the snapshot's marker files.
++This is author self-consistency evidence over owner functions; it is not an independent implementation or acceptance.
++"""
++from pathlib import Path
++import argparse, hashlib, importlib.util, json, sys, tomllib
++
++p = argparse.ArgumentParser()
++p.add_argument('--source', required=True, type=Path)
++p.add_argument('--package', required=True, type=Path)
++p.add_argument('--out', required=True, type=Path)
++a = p.parse_args()
++if a.out.exists():
++    raise SystemExit('--out exists')
++
++
++def load(name, path):
++    spec = importlib.util.spec_from_file_location(name, path)
++    mod = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(mod)
++    return mod
++
++
++F = a.source / 'docs/coop/design-corrections/foundation'
++M = load('probe_identity3', F / 'identity-model.v3.py')
++N = M.native_admission()
++T = load('probe_transport', a.package / 'check-export.v4.py')
++ENUM_SCHEMA = hashlib.sha256((F / 'enumeration-plan.schema.v1.json').read_bytes()).hexdigest()
++MARKERS = ('Cargo.toml', 'package.json', 'tsconfig.json', 'jsconfig.json')
++TARGETS = [('checkpoint3', None), ('normalized-examples6', None), ('rust-selection-examples1', None),
++           ('binding-controls', {'ts-lawful-default', 'ts-lawful-explicit-selection'})]
++
++
++def check_run(group, claim):
++    raw = (a.package / group / claim['path']).read_bytes()
++    objects, blobs = T.decode_store(raw, M)
++    run = objects[claim['runId']][1]
++    rid, owner = M.open_run_closure(run, objects, blobs)
++    faults, notes = [], {}
++    parse = lambda d: json.loads(blobs[d])
++    plan = objects[run['planId']][1]
++    # S1
++    seal = objects[run['evaluationSealId']][1]
++    execution = objects[seal['executionPlanId']][1]
++    stages = []
++    for stage in execution['stages']:
++        spec = parse(stage['stageSpecDigest'])
++        closure = objects[spec['producerClosure']][1]
++        path = 'opensip-interface/stage-output/' + spec['operation'] + '.schema.json'
++        member = next((r for r in closure['tree'] if r['path'] == path), None)
++        ok = member is not None and member['sha256'] == spec['outputSchemaDigest']
++        stages.append({'operation': spec['operation'], 'registered': ok})
++        if not ok:
++            faults.append('S1:' + spec['operation'])
++    notes['stages'] = stages
++    # S2
++    evidence = objects[run['evidenceId']][1]
++    clones = []
++    for vid in evidence['viewIds']:
++        for fid in objects[vid][1]['facts']:
++            fact = objects[fid][1]
++            if fact['relation'] != 'clones':
++                continue
++            payload = parse(fact['payloadDigest'])
++            domain, universe, row, _retained = owner['nativeUniverses'][fact['sourceUniverse']]
++            ref = universe
++            for step in row['contextField']:
++                ref = ref[step]
++            context = owner['nativeContexts'][ref.removeprefix('sha256:')][1]
++            interp = context
++            for step in row['languageVersionBinding']['normalizationClosure']['path']:
++                interp = interp[step]
++            tree = {r['path']: r['sha256'] for r in objects[interp][1]['tree']}
++            map_digest = tree.get(M.NORMALIZATION_MAP_PATH)
++            levels = {r['level']: r['specificationDigest'] for r in parse(map_digest)['levels']} if map_digest else {}
++            ok = (map_digest is not None and levels.get(payload['normalisationLevel']) == payload['normalisationVersion']
++                  and payload['normalisationVersion'] in tree.values())
++            clones.append({'fact': fid, 'universeDomain': domain, 'interpretingClosure': interp,
++                           'closureKind': objects[interp][1]['kind'], 'level': payload['normalisationLevel'],
++                           'mapMember': map_digest is not None, 'mapped': ok})
++            if not ok:
++                faults.append('S2:' + fid)
++    notes['clones'] = clones
++    # S4
++    proof = objects[seal['proofBundleId']][1]
++    ei = parse(proof['executionInputsDigest'])
++    non_null = [acc for acc in ei['nativeCoverageAccounts'] if acc['targetUniverse'] is not None]
++    notes['accounts'] = len(ei['nativeCoverageAccounts'])
++    if non_null:
++        faults.append('S4:%d' % len(non_null))
++    # U-4b
++    spec = parse(plan['analysisSpecDigest'])
++    enumeration = parse(next(r['payloadDigest'] for r in spec['parameters'] if r['schemaDigest'] == ENUM_SCHEMA))
++    membership = parse(enumeration['membershipDigest'])
++    snapshot = objects[run['snapshotId']][1]
++    paths = [r['path'] for r in snapshot['sourceInventory']]
++    derived = N.assign_membership(membership['units'], paths)
++    rows_agree = M.C.equal_typed(derived, membership)
++    if not rows_agree:
++        faults.append('U-4b:assign_membership')
++    markers = {}
++    for r in snapshot['sourceInventory']:
++        name = r['path'].rsplit('/', 1)[-1]
++        if name not in MARKERS:
++            continue
++        info = {'sha256': r['sha256']}
++        body = blobs[r['sha256']]
++        if name == 'Cargo.toml':
++            info['isCargoWorkspace'] = 'workspace' in tomllib.loads(body.decode())
++        if name in ('tsconfig.json', 'jsconfig.json'):
++            info['allowJs'] = bool(json.loads(body).get('compilerOptions', {}).get('allowJs', False))
++        markers[r['path']] = info
++    discovered = N.discover_units(markers)
++    units_agree = discovered['refused'] is None and M.C.equal_typed(discovered['units'], membership['units'])
++    notes['membership'] = {'rows': len(membership['rows']), 'unsupportedFiles': membership['unsupportedFiles'],
++                           'assignMembershipAgrees': rows_agree, 'discoverUnitsAgrees': units_agree,
++                           'retainedUnits': membership['units'], 'ownerDiscoveredUnits': discovered['units']}
++    return {'group': group, 'name': claim['name'], 'runId': rid, 'faults': faults, 'unitsVsDiscoveryAgree': units_agree, **notes}
++
++
++results = []
++for group, only in TARGETS:
++    for claim in json.loads((a.package / group / 'claims.json').read_text()):
++        if only is not None and claim['name'] not in only:
++            continue
++        try:
++            results.append(check_run(group, claim))
++        except Exception as exc:  # recorded, never skipped
++            results.append({'group': group, 'name': claim['name'], 'faults': ['error:%s:%s' % (type(exc).__name__, str(exc)[:400])]})
++out = {'standing': 'Author self-consistency probe over owner functions; not independent implementation or acceptance.',
++       'runs': results, 'passed': all(not r['faults'] for r in results),
++       'unitsVsDiscoveryDisagreements': [r['name'] for r in results if r.get('unitsVsDiscoveryAgree') is False]}
++a.out.write_text(json.dumps(out, indent=1) + '\n')
++print(json.dumps({'passed': out['passed'], 'runs': [(r['name'], r['faults']) for r in results],
++                  'unitsVsDiscoveryDisagreements': out['unitsVsDiscoveryDisagreements']}, indent=1))
++raise SystemExit(0 if out['passed'] else 1)
+--- package15/build-normalized-examples6.py
++++ overlay/build-normalized-examples6.py
+@@ -3,8 +3,13 @@
+ PORTABLE SUCCESSOR. Declared inputs only: --source (reference source root), --package (author
+ package root supplying the bundled helpers and export transport), --out (fresh output dir),
+ optional --helpers overlay. No historical ROOT/output helpers path, no sibling source25 and no
+-external check-blind13 transport is consulted. Construction logic below is byte-identical to
+-the historical entry point.
++external check-blind13 transport is consulted. Construction logic below is the historical entry
++point with exactly two native-v2 migrations (author-package-migration.v1): the finalizer's
++`author-synthetic-analysis` stage is registered by the builder's provider closure
++(runs.EXTRA_STAGE_OUTPUTS) and its outputSchemaDigest is that registered member's digest (S1).
++Clone-body maps (S2), U-4b membership and null account targets (S4) come from the helpers.
++One AUTHOR REPAIR: analysis-spec parameters are re-sorted as a canonical set after their
++payloadDigest rewrites (a latent order defect exposed by the new registered schema digests).
+ """
+ from pathlib import Path
+ import copy,importlib.util,json,sys,tomllib,traceback
+@@ -14,7 +19,9 @@
+ SOURCE=_a.source;PACKAGE=_a.package;OUTROOT=AP.fresh_out(_a.out)
+ F=AP.foundation(SOURCE)
+ AP.load_helpers(PACKAGE,_a.helpers,kit=_a.kit,out=OUTROOT)
+-from helpers import runs,builder,h,order,store
++from helpers import runs,builder,h,order,store,native_v2
++SYNTHETIC_STAGE=('author-synthetic-analysis',['view'])
++runs.EXTRA_STAGE_OUTPUTS=[SYNTHETIC_STAGE]
+ 
+ def load(n,p):
+  return AP.load_module(n,p)
+@@ -68,6 +75,9 @@
+    for rule in emission['rules']:
+     rule.update({key:by_rule[rule['ruleId']]['ruleProgramRef'][key] for key in ['contributionId','ruleStableId','semanticsMajor']})
+    p['payloadDigest']=blob(emission)
++ # AUTHOR REPAIR (author-package-migration.v1): parameters is x-opensip-order canonical-set and the payloadDigest
++ # rewrites above can reorder it; package15 was canonical only because its old digests happened to sort that way.
++ spec['parameters']=order.cset(spec['parameters'])
+  plan['analysisSpecDigest']=blob(spec);planid=st.put_canonical_record('plan',plan)
+  inventories=[];population={}
+  for ci,cell in enumerate(enum['cells']):
+@@ -116,7 +126,7 @@
+   one['facts']=order.cset(f['id'] for f in facts if f['sourceUniverse']==universe)
+   if universe==primary:views.append(st.put_canonical_record('view',one))
+  
+- stage={'schemaVersion':2,'planId':planid,'producerClosure':provider,'operation':'author-synthetic-analysis','parameters':[],'outputDomains':['view'],'outputSchemaDigest':builder.NAT_DIGEST};sd=blob(stage)
++ stage={'schemaVersion':2,'planId':planid,'producerClosure':provider,'operation':SYNTHETIC_STAGE[0],'parameters':[],'outputDomains':SYNTHETIC_STAGE[1],'outputSchemaDigest':native_v2.stage_output_schema_digest(*SYNTHETIC_STAGE)};sd=blob(stage)
+  execution={'schemaVersion':2,'planId':planid,'stages':[{'ordinal':0,'stageSpecDigest':sd,'requires':[],'outputDomains':['view']}]};xid=st.put_canonical_record('execution-plan',execution)
+  # Decode exact retained inputs; no claimed old proof is used in normalization.
+  objects,blobs=T.decode_store(json.dumps(st.export()).encode(),M)
+--- package15/author-delivery-commands.md
++++ overlay/author-delivery-commands.md
+@@ -1,67 +1,37 @@
+-# Reproducible commands — author remint on the merged native reference bytes
++# Reproducible commands — native-v2 author package rebuild (author-package-migration.v1)
+ 
+-Session tool policy allows `Bash(python3 *)` plus Write/Edit, so each command below was invoked
+-as `python3 -c "import subprocess; subprocess.run([<env python>, '-I','-B', ...])"`.
++Reference interpreter, always `-I -B`:
+ 
+-    PY=/tmp/opensip-architecture-review-env/bin/python
+-    R=/private/tmp/opensip-design-corrections/claude-author-remint.v1
+-    SRC=$R/source            # merged reference source (source-manifest.json)
+-    PKG=$R/package           # author successor package (package-manifest.json)
+-    S=$R/scratch
+-    HELPERS=$S/helpers-overlay      # bundled helpers + portability overlay
++    PY=/tmp/opensip-architecture-review-env/bin/python        # or any interpreter with the same pinned env
++    SRC=<successor source root holding docs/coop/design-corrections>   # root: the FROZEN successor
++    PKG15=<author package v15 root>                            # artifact-manifest 6a8d4feca9db7ea48e91debf3a080415f769ac7271b8bf67df145263148b701e
++    OVERLAY=<migration overlay root>                           # overlay-manifest.json pins every package15 base digest
++    OUT=<fresh directory>
+ 
+-Bound to registered native schema digest
+-`673a9bf8b3d1d0d3643d0fdd75813a6fa14d362d792e90d0ddd5f63e16a6bbe2`.
++## 1. Rebuild the package from inputs (constructs, assembles, verifies, probes, compares ids)
+ 
+-## 1. Portable construction (four entry points, each with declared arguments)
++    $PY -I -B $OVERLAY/rebuild-author-package.v2.py \
++        --source $SRC --package $PKG15 \
++        --package-manifest-sha256 6a8d4feca9db7ea48e91debf3a080415f769ac7271b8bf67df145263148b701e \
++        --overlay $OVERLAY --out $OUT [--source-manifest <frozen file-list JSON>]
+ 
+-    $PY -I -B $S/portable/build-checkpoint3.py \
+-        --source $SRC --package $PKG --helpers $HELPERS --out $OUT/a-checkpoint3
+-    $PY -I -B $S/portable/build-normalized-examples6.py \
+-        --source $SRC --package $PKG --helpers $HELPERS --out $OUT/b-normalized
+-    $PY -I -B $S/portable/build-rust-selection-examples.py \
+-        --source $SRC --package $PKG --helpers $HELPERS --out $OUT/c-rust-selection
+-    $PY -I -B $S/portable/build-semantic-controls.py \
+-        --source $SRC --package $PKG --helpers $HELPERS --out $OUT/d-controls \
+-        --positive $OUT/a-checkpoint3/checkpoint3
++The new package is `$OUT/package` (manifest `$OUT/package/artifact-manifest.json`). The run record is `$OUT/rebuild-report.json`, with per-command receipts under `$OUT/work/receipts/`.
+ 
+-`--kit` defaults to `--source` and is what binds the construction to the REGISTERED native
+-schema digest. Driver used here: `$S/harness/run_construction.py $OUT $SRC $PKG $HELPERS <report>`.
++The rebuild constructs these groups, each with `--source $SRC --package <constructor tree> --out <fresh>`:
++- `build-checkpoint3.py`
++- `build-normalized-examples6.py`
++- `build-rust-selection-examples.py`
++- `build-binding-controls.py`
++- `build-normalization-map-controls.py`
++- `build-semantic-controls.py --positive <checkpoint3>`
+ 
+-## 2. F-05 / F-06 binding controls
++## 2. Re-verify an assembled package against a source
+ 
+-    $PY -I -B $S/portable/build-binding-controls.py \
+-        --source $SRC --package $PKG --helpers $HELPERS --out $OUT/e-binding-controls
++    $PY -I -B $OUT/package/verify-package.py --source $SRC --out <fresh>
++    $PY -I -B $OUT/package/probe-native-v2.py --source $SRC --package $OUT/package --out <fresh>.json
+ 
+-## 3. Replay every fresh export through the frozen owner named by --source
++`verify-package.py` refuses unless `$SRC` equals the pinned `source-manifest.json`. A package built on a provisional capture must be rebuilt, not re-pinned, for a different frozen source.
+ 
+-    $PY -I -B $S/harness/replay_all.py $OUT $SRC $PKG $S/evidence/replay-a
+-    $PY -I -B $S/harness/control_diff.py $OUT/d-controls/semantic-controls1 $SRC $PKG <out.json>
++## 3. Standing
+ 
+-Per-Run owner reports are retained under `$S/evidence/replay-a/owner-<group>/report.json`.
+-
+-## 4. Portable probes over the new exports
+-
+-    $PY -I -B $S/harness/run_probes.py $OUT $SRC $PKG $S/evidence/probes-a
+-
+-which runs the package's own portable probes against a package-layout view of the new exports:
+-`check-author-properties.py`, `check-author-query.py`, `assess-author-query.py`,
+-`probe-mixed-universe-view.py`.
+-
+-## 5. Why the kit must be declared (recorded intermediate failure)
+-
+-    $PY -I -B $S/portable/build-normalized-examples6.py --source $SRC --package $PKG \
+-        --helpers $HELPERS --kit /tmp/opensip-design-corrections/consumer-b.v13/subject \
+-        --out <fresh>          # -> PAYLOAD_SCHEMA_NOT_THE_REGISTERED_DOCUMENT, 0 of 4 built
+-    $PY -I -B $S/portable/build-normalized-examples6.py --source $SRC --package $PKG \
+-        --helpers $HELPERS --kit $SRC --out <fresh>          # -> 4 of 4 built
+-
+-## 6. Two-binding feasibility experiment (not a control)
+-
+-    $PY -I -B $S/harness/two_binding_inject.py $S/evidence/two-binding
+-    $PY -I -B $S/harness/two_binding_stage2.py $S/evidence/two-binding
+-
+-## 7. Portability proof from a different arbitrary fresh path
+-
+-    OUT=$S/portability-proof/run-from-an-arbitrary-other-path/deep/nested
+-    # steps 1, 2 and 3 re-run verbatim against that OUT
++This is AUTHOR construction and self-consistency evidence under owner replay. It is not independent review, blind acceptance or qualification, and must never be supplied to a blind consumer.
+--- /dev/null
++++ overlay/build-normalization-map-controls.py
+@@ -0,0 +1,59 @@
++"""S2 normalization-map discrimination controls: the TypeScript checkpoint Run, fully reminted per variant.
++
++PORTABLE. Declared inputs only (--source/--package/--out, optional --helpers/--kit). NEW in author-package-migration.v1.
++
++Each variant is a COMPLETE fresh construction of the same TypeScript Run as checkpoint3 (two clone bodies, L0 and L1,
++interpreted by the TypeScript toolchain closure). Only the toolchain closure's normalization membership differs, set
++before the graph is minted through ts_pilot.NORMALIZATION_CONTROL, so every downstream identity is derived.
++
++  ts-map-absent                   no specification-map member                -> BODY_NORMALIZATION_MAP_MISSING
++  ts-map-level-unmapped           map names L1 only; the L0 body is unmapped -> BODY_NORMALIZATION_LEVEL_UNMAPPED
++  ts-map-level-swapped            map names L1's spec for L0                 -> BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH
++  ts-spec-outside-closure         map names L0's spec, spec file not in tree -> BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE
++
++These are AUTHOR constructions. Admission belongs to the frozen owner through check-export.v4.py; the expected
++boundary for each is recorded in claims.json and checked by verify-package.py, never asserted here.
++"""
++import json
++import sys
++from pathlib import Path
++
++sys.path.insert(0, str(Path(__file__).resolve().parent))
++import author_portable as AP
++
++_a = AP.arguments(__doc__.splitlines()[0])
++PACKAGE = _a.package
++OUTROOT = AP.fresh_out(_a.out)
++AP.load_helpers(PACKAGE, _a.helpers, kit=_a.kit, out=OUTROOT)
++
++VARIANTS = [
++    ("ts-map-absent", {"includeMap": False}, "BODY_NORMALIZATION_MAP_MISSING"),
++    ("ts-map-level-unmapped", {"mapLevels": {"L1-lexical": "L1-lexical"}}, "BODY_NORMALIZATION_LEVEL_UNMAPPED"),
++    ("ts-map-level-swapped", {"mapLevels": {"L0-verbatim": "L1-lexical", "L1-lexical": "L1-lexical"}},
++     "BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH"),
++    ("ts-spec-outside-closure", {"treeLevels": ["L1-lexical"]}, "BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE"),
++]
++
++
++def build(tag, control, boundary):
++    for m in list(sys.modules):
++        if m == "helpers" or m.startswith("helpers."):
++            del sys.modules[m]
++    AP.load_helpers(PACKAGE, _a.helpers, kit=_a.kit, out=OUTROOT)
++    from helpers import ts_pilot
++    ts_pilot.NORMALIZATION_CONTROL = control
++    g = ts_pilot.build_ts_run()
++    export = g["store"].export()
++    (OUTROOT / (tag + ".store.json")).write_text(json.dumps(export, indent=2, sort_keys=True) + "\n")
++    return {"name": tag, "path": tag + ".store.json", "runId": g["runId"], "control": control,
++            "expectedStructuralBoundary": boundary, "objects": len(export["objectTable"])}
++
++
++rows = [build(*v) for v in VARIANTS]
++(OUTROOT / "claims.json").write_text(json.dumps([{"name": r["name"], "path": r["path"], "runId": r["runId"]} for r in rows], indent=2) + "\n")
++(OUTROOT / "variants.json").write_text(json.dumps(
++    {"standing": "AUTHOR S2 map discrimination controls; freshly minted; expected owner boundary recorded, not asserted.",
++     "distinctRunIds": len({r["runId"] for r in rows}) == len(rows), "variants": rows}, indent=2) + "\n")
++for r in rows:
++    print("%-26s %-72s expects %s" % (r["name"], r["runId"], r["expectedStructuralBoundary"]))
++AP.write_provenance(_a)
+--- package15/build-rust-selection-examples.py
++++ overlay/build-rust-selection-examples.py
+@@ -3,8 +3,13 @@
+ PORTABLE SUCCESSOR. Declared inputs only: --source (reference source root), --package (author
+ package root supplying the bundled helpers and export transport), --out (fresh output dir),
+ optional --helpers overlay. No historical ROOT/output helpers path, no sibling source25 and no
+-external check-blind13 transport is consulted. Construction logic below is byte-identical to
+-the historical entry point.
++external check-blind13 transport is consulted. Construction logic below is the historical entry
++point with exactly two native-v2 migrations (author-package-migration.v1): the finalizer's
++`author-synthetic-analysis` stage is registered by the builder's provider closure
++(runs.EXTRA_STAGE_OUTPUTS) and its outputSchemaDigest is that registered member's digest (S1).
++Clone-body maps (S2), U-4b membership and null account targets (S4) come from the helpers.
++One AUTHOR REPAIR: analysis-spec parameters are re-sorted as a canonical set after their
++payloadDigest rewrites (a latent order defect exposed by the new registered schema digests).
+ """
+ from pathlib import Path
+ import copy,importlib.util,json,sys,tomllib,traceback
+@@ -14,7 +19,9 @@
+ SOURCE=_a.source;PACKAGE=_a.package;OUTROOT=AP.fresh_out(_a.out)
+ F=AP.foundation(SOURCE)
+ AP.load_helpers(PACKAGE,_a.helpers,kit=_a.kit,out=OUTROOT)
+-from helpers import runs,builder,h,order,store
++from helpers import runs,builder,h,order,store,native_v2
++SYNTHETIC_STAGE=('author-synthetic-analysis',['view'])
++runs.EXTRA_STAGE_OUTPUTS=[SYNTHETIC_STAGE]
+ 
+ def load(n,p):
+  return AP.load_module(n,p)
+@@ -81,6 +88,9 @@
+    for rule in emission['rules']:
+     rule.update({key:by_rule[rule['ruleId']]['ruleProgramRef'][key] for key in ['contributionId','ruleStableId','semanticsMajor']})
+    p['payloadDigest']=blob(emission)
++ # AUTHOR REPAIR (author-package-migration.v1): parameters is x-opensip-order canonical-set and the payloadDigest
++ # rewrites above can reorder it; package15 was canonical only because its old digests happened to sort that way.
++ spec['parameters']=order.cset(spec['parameters'])
+  plan['analysisSpecDigest']=blob(spec);planid=st.put_canonical_record('plan',plan)
+  inventories=[];population={}
+  for ci,cell in enumerate(enum['cells']):
+@@ -129,7 +139,7 @@
+   one['facts']=order.cset(f['id'] for f in facts if f['sourceUniverse']==universe)
+   if universe==primary:views.append(st.put_canonical_record('view',one))
+  
+- stage={'schemaVersion':2,'planId':planid,'producerClosure':provider,'operation':'author-synthetic-analysis','parameters':[],'outputDomains':['view'],'outputSchemaDigest':builder.NAT_DIGEST};sd=blob(stage)
++ stage={'schemaVersion':2,'planId':planid,'producerClosure':provider,'operation':SYNTHETIC_STAGE[0],'parameters':[],'outputDomains':SYNTHETIC_STAGE[1],'outputSchemaDigest':native_v2.stage_output_schema_digest(*SYNTHETIC_STAGE)};sd=blob(stage)
+  execution={'schemaVersion':2,'planId':planid,'stages':[{'ordinal':0,'stageSpecDigest':sd,'requires':[],'outputDomains':['view']}]};xid=st.put_canonical_record('execution-plan',execution)
+  # Decode exact retained inputs; no claimed old proof is used in normalization.
+  objects,blobs=T.decode_store(json.dumps(st.export()).encode(),M)
+--- package15/author-helpers/ts_pilot.py
++++ overlay/author-helpers/ts_pilot.py
+@@ -8,7 +8,13 @@
+ 
+ from . import builder, canonical, cap_admit, evaluator, h, order, store
+ from . import runs
++from . import native_v2
+ from . import clone_body  # noqa: F401
++
++# S2 discrimination hook for build-normalization-map-controls.py ONLY (default None = the lawful map). A dict with
++# keys `treeLevels` (levels whose spec file the toolchain closure carries), `mapLevels` ({mapped level: level whose
++# spec digest it names}) and `includeMap`. No positive constructor sets it.
++NORMALIZATION_CONTROL = None
+ from .pilot_checks import KIND_DERIVATION, MATRIX_RELATIONS, subject_language_for_path
+ 
+ 
+@@ -167,8 +173,21 @@
+     stdlib_id, stdlib_suffix, dts = runs.make_stdlib_closure(st)
+     tsc_bin = b"typescript-compiler"
+     runtime_bin = b"node-runtime"
+-    tool_id = runs.make_toolchain_closure(st, {"bin/tsc": tsc_bin, "bin/node": runtime_bin})
+-    provider_id = runs.make_provider_closure(st, "ts-provider", 2)
++    spec_l0 = b"level-spec-L0-verbatim-ts"
++    spec_l1 = b"level-spec-L1-lexical-ts"
++    specs = {"L0-verbatim": spec_l0, "L1-lexical": spec_l1}
++    # S2: the TypeScript toolchain closure interprets both clone bodies (L0 and L1), so it publishes the per-level
++    # map and both specifications. NORMALIZATION_CONTROL (controls only) varies exactly this membership.
++    control = NORMALIZATION_CONTROL or {}
++    tree_levels = control.get("treeLevels", list(specs))
++    map_levels = ({level: runs.sha(specs[source]) for level, source in control["mapLevels"].items()}
++                  if "mapLevels" in control else None)
++    tool_files = {"bin/tsc": tsc_bin, "bin/node": runtime_bin}
++    tool_files.update(native_v2.normalization_members("opensip-clone-normalizer", {lv: specs[lv] for lv in tree_levels},
++                                                      map_levels=map_levels if map_levels is not None else {lv: runs.sha(specs[lv]) for lv in specs},
++                                                      include_map=control.get("includeMap", True)))
++    tool_id = runs.make_toolchain_closure(st, tool_files)
++    provider_id = runs.make_provider_closure(st, "ts-provider", 2, stage_outputs=[("analyze", ["view"])])
+     evaluator_id = runs.make_evaluator_closure(st)
+     detector_id = runs.make_detector_closure(st)
+     adapter_id = runs.make_adapter_closure(st)
+@@ -305,14 +324,10 @@
+     grant_d = raw_c(grant)
+     st.put_raw_digest_record(grant)
+ 
+-    membership = {
+-        "schemaVersion": 1,
+-        "units": [runs.workspace_unit("", "tsjs", "ts-tsconfig", "ts-program", "tsconfig.json", sha(tscfg), 0)],
+-        "rows": runs.membership_rows_for_ts_files(inv_paths),
+-        "unsupportedFiles": [],
+-        "outsideBoundaryFiles": [],
+-        "erasedFiles": [],
+-    }
++    # U-4b: one tsjs unit recognized from tsconfig.json; rows follow the first-match decision.
++    membership = native_v2.membership(
++        [native_v2.unit("", "tsjs", "ts-tsconfig", "ts-program", "tsconfig.json", sha(tscfg), recognizer_id="typescript-config")],
++        inv_paths)
+     mem_d = raw_c(membership)
+     st.put_raw_digest_record(membership)
+ 
+@@ -448,8 +463,6 @@
+         st, snap_id, "package", "manifest-declared", uhex, provider_id,
+         {"packageName": "demo", "packageVersion": "0.0.0", "manifestPath": "package.json"}, [],
+     )
+-    spec_l0 = b"level-spec-L0-verbatim-ts"
+-    spec_l1 = b"level-spec-L1-lexical-ts"
+     lang_rec = runs.body_lang_ts(ctx, "ts", "typescript")
+     cl0, _, _ = runs.mint_clone(st, level="L0-verbatim", body=src, lang_rec=lang_rec, lang_id="typescript", spec_bytes=spec_l0, anchor=None)
+     cl1, _, _ = runs.mint_clone(st, level="L1-lexical", body=src, lang_rec=lang_rec, lang_id="typescript", spec_bytes=spec_l1, anchor=None)
+@@ -544,7 +557,7 @@
+         "operation": "analyze",
+         "parameters": [],
+         "outputDomains": order.cset(["view"]),
+-        "outputSchemaDigest": builder.NAT_DIGEST,
++        "outputSchemaDigest": native_v2.stage_output_schema_digest("analyze", ["view"]),  # S1: provider-registered
+     }
+     ss_d = raw_c(stage_spec)
+     st.put_raw_digest_record(stage_spec)
+@@ -677,7 +690,7 @@
+                         "relation": rel,
+                         "resolution": rung,
+                         "sourceUniverse": uhex,
+-                        "targetUniverse": uhex,
++                        "targetUniverse": None,  # S4
+                         "applicability": "inapplicable-vcs",
+                         "coverageIds": [],
+                     }
+@@ -693,7 +706,7 @@
+                         "relation": rel,
+                         "resolution": rung,
+                         "sourceUniverse": uhex,
+-                        "targetUniverse": uhex,
++                        "targetUniverse": None,  # S4
+                         "applicability": "supported-available",
+                         "coverageIds": order.cset(ids),
+                     }
+--- package15/author-helpers/runs.py
++++ overlay/author-helpers/runs.py
+@@ -8,13 +8,17 @@
+ from pathlib import Path
+ from typing import Any
+ 
+-from . import builder, canonical, cap_admit, clone_body, evaluator, h, order, store
++from . import builder, canonical, cap_admit, clone_body, evaluator, h, native_v2, order, store
+ 
+ KIT = Path(os.environ.get("OPENSIP_AUTHOR_KIT",
+                           "/tmp/opensip-design-corrections/consumer-b.v13/subject"))
+ OUT = Path(os.environ.get("OPENSIP_AUTHOR_OUT",
+                           "/tmp/opensip-design-corrections/codex-author-followup.v1/output"))
+ PLATFORM = "macos-aarch64"
++# S1 (native-v2): stage operations a constructor substitutes for a builder's own ("author-synthetic-analysis" in the
++# normalized/Rust-selection finalizers) must also be registered by the provider closure the builder mints. A constructor
++# sets this list BEFORE calling a builder; builders register their own operation explicitly.
++EXTRA_STAGE_OUTPUTS: list = []
+ 
+ 
+ def sha(b: bytes) -> str:
+@@ -59,8 +63,10 @@
+     return ident
+ 
+ 
+-def make_provider_closure(st: store.Store, name: str, protocol_major: int) -> str:
++def make_provider_closure(st: store.Store, name: str, protocol_major: int, stage_outputs=()) -> str:
+     files = {f"bin/{name}": b"provider-binary-" + name.encode()}
++    # S1: the producer interface registers each stage operation's output schema document as a tree member.
++    files.update(native_v2.stage_output_members(list(stage_outputs) + list(EXTRA_STAGE_OUTPUTS)))
+     rec, ident, blobs = builder.make_closure("provider", PLATFORM, files, version="1.0.0", protocol_major=protocol_major)
+     st.put_canonical_record("closure", rec)
+     for b in files.values():
+@@ -89,11 +95,14 @@
+     return ident
+ 
+ 
+-def make_grammar_closure(st: store.Store) -> str:
++def make_grammar_closure(st: store.Store, level_specs=None) -> str:
+     files = {"bundle-manifest": b"grammar-bundle-manifest"}
+     for grammar in ["json", "markdown", "typescript"]:
+         files["grammars/"+grammar+".json"] = json.dumps({"grammar":grammar}).encode()
+         files["normalizers/"+grammar] = b"normalizer-spec-" + grammar.encode()
++    if level_specs:
++        # S2: this grammar closure interprets syntax-only clone bodies, so it publishes the per-level map and specs.
++        files.update(native_v2.normalization_members("opensip-clone-normalizer", level_specs))
+     rec, ident, blobs = builder.make_closure("grammar", PLATFORM, files, version="1.0.0", protocol_major=1)
+     st.put_canonical_record("closure", rec)
+     for b in files.values():
+@@ -1249,7 +1258,7 @@
+                 "relation": "file",
+                 "resolution": "enumerated",
+                 "sourceUniverse": uhex,
+-                "targetUniverse": uhex,
++                "targetUniverse": None,  # S4: an account has no target coordinate
+                 "applicability": "supported-available",
+                 "coverageIds": cov_hexes[:1],
+             }
+@@ -1288,8 +1297,12 @@
+     rustc = b"rustc-bin"
+     cargo = b"cargo-bin"
+     pm = b"proc-macro-srv"
+-    tool_id = make_toolchain_closure(st, {"bin/rustc": rustc, "bin/cargo": cargo, "bin/pm": pm}, kind="toolchain")
+-    provider_id = make_provider_closure(st, "rust-provider", 3)
++    spec_l0 = b"level-spec-L0-rust"
++    # S2: the Rust toolchain closure interprets the clone body span, so it publishes the per-level map and the spec.
++    tool_files = {"bin/rustc": rustc, "bin/cargo": cargo, "bin/pm": pm}
++    tool_files.update(native_v2.normalization_members("opensip-clone-normalizer", {"L0-verbatim": spec_l0}))
++    tool_id = make_toolchain_closure(st, tool_files, kind="toolchain")
++    provider_id = make_provider_closure(st, "rust-provider", 3, stage_outputs=[("analyze", ["coverage", "fact", "view"])])
+     evaluator_id = make_evaluator_closure(st)
+     detector_id = make_detector_closure(st)
+ 
+@@ -1469,14 +1482,11 @@
+     grant_d = raw_c(grant)
+     st.put_raw_digest_record(grant)
+     rust_paths = sorted(files.keys(), key=lambda p: p.encode("utf-8"))
+-    membership = {
+-        "schemaVersion": 1,
+-        "units": [workspace_unit(".", "rust", "rust-cargo", "cargo-workspace", "Cargo.toml", sha(ws))],
+-        "rows": membership_rows_generic(rust_paths, code_suffixes=(".rs",), code_family="rust"),
+-        "unsupportedFiles": [],
+-        "outsideBoundaryFiles": [],
+-        "erasedFiles": [],
+-    }
++    # U-4b: the Cargo workspace unit folds its member packages; rows follow the first-match decision.
++    membership = native_v2.membership(
++        [native_v2.unit("", "rust", "rust-cargo", "cargo-workspace", "Cargo.toml", sha(ws), recognizer_id="cargo-workspace",
++                        member_package_roots=["crates/alpha", "crates/foo#bar"])],
++        rust_paths)
+     mem_d = raw_c(membership)
+     st.put_raw_digest_record(membership)
+     rust_caps = ["inventory"]
+@@ -1561,7 +1571,6 @@
+         facts.append(f)
+ 
+     # clones at two editions of shared.rs
+-    spec_l0 = b"level-spec-L0-rust"
+     lang_2018 = body_lang_rust(ctx, 2018)
+     lang_2021 = body_lang_rust(ctx, 2021)
+     cl_a, bid_a, _ = mint_clone(st, level="L0-verbatim", body=shared, lang_rec=lang_2018, lang_id="rust", spec_bytes=spec_l0, anchor=None)
+@@ -1601,7 +1610,7 @@
+         "operation": "analyze",
+         "parameters": [],
+         "outputDomains": order.cset(["coverage", "fact", "view"]),
+-        "outputSchemaDigest": builder.NAT_DIGEST,
++        "outputSchemaDigest": native_v2.stage_output_schema_digest("analyze", ["coverage", "fact", "view"]),  # S1
+     }
+     ss_d = raw_c(stage_spec)
+     st.put_raw_digest_record(stage_spec)
+@@ -1693,7 +1702,7 @@
+     files = {"Cargo.toml": toml, "src/lib.rs": src, "Cargo.lock": b"# lock\n"}
+     llvm_id = make_toolchain_closure(st, {"lib/LLVM": b"llvm"}, kind="rust-dev-llvm")
+     tool_id = make_toolchain_closure(st, {"bin/rustc": b"rustc", "bin/cargo": b"cargo", "bin/pm": b"pm"})
+-    provider_id = make_provider_closure(st, "rust-provider", 3)
++    provider_id = make_provider_closure(st, "rust-provider", 3, stage_outputs=[("analyze", ["coverage", "fact", "view"])])
+     evaluator_id = make_evaluator_closure(st)
+     detector_id = make_detector_closure(st)
+     cfg = builder.semantic_config(["clones-fact"])
+@@ -1819,14 +1828,9 @@
+     grant_d = raw_c(grant)
+     st.put_raw_digest_record(grant)
+     rpp = sorted(files.keys(), key=lambda p: p.encode("utf-8"))
+-    membership = {
+-        "schemaVersion": 1,
+-        "units": [workspace_unit(".", "rust", "rust-cargo", "cargo-package", "Cargo.toml", sha(files["Cargo.toml"]))],
+-        "rows": membership_rows_generic(rpp, code_suffixes=(".rs",), code_family="rust"),
+-        "unsupportedFiles": [],
+-        "outsideBoundaryFiles": [],
+-        "erasedFiles": [],
+-    }
++    membership = native_v2.membership(
++        [native_v2.unit("", "rust", "rust-cargo", "cargo-package", "Cargo.toml", sha(files["Cargo.toml"]), recognizer_id="cargo-package")],
++        rpp)
+     mem_d = raw_c(membership)
+     st.put_raw_digest_record(membership)
+     rust_caps = ["clones-fact"]
+@@ -1925,7 +1929,7 @@
+         "operation": "analyze",
+         "parameters": [],
+         "outputDomains": order.cset(["coverage", "fact", "view"]),
+-        "outputSchemaDigest": builder.NAT_DIGEST,
++        "outputSchemaDigest": native_v2.stage_output_schema_digest("analyze", ["coverage", "fact", "view"]),  # S1
+     }
+     ss_d = raw_c(stage_spec)
+     st.put_raw_digest_record(stage_spec)
+@@ -1956,14 +1960,9 @@
+             }
+         ],
+     }
+-    membership = {  # already retained before Plan; do not replace with empty rows
+-        "schemaVersion": 1,
+-        "units": [workspace_unit(".", "rust", "rust-cargo", "cargo-package", "Cargo.toml", sha(toml))],
+-        "rows": membership_rows_generic(sorted(files.keys(), key=lambda p: p.encode("utf-8")), code_suffixes=(".rs",), code_family="rust"),
+-        "unsupportedFiles": [],
+-        "outsideBoundaryFiles": [],
+-        "erasedFiles": [],
+-    }
++    membership = native_v2.membership(  # already retained before Plan; do not replace with empty rows
++        [native_v2.unit("", "rust", "rust-cargo", "cargo-package", "Cargo.toml", sha(toml), recognizer_id="cargo-package")],
++        sorted(files.keys(), key=lambda p: p.encode("utf-8")))
+     # mem_d already bound into enum_plan; keep equal bytes
+     assert raw_c(membership) == mem_d
+     st.put_raw_digest_record(membership)
+@@ -2048,8 +2047,10 @@
+ def build_syntax_run(*, data_document: bool) -> dict:
+     st = store.Store()
+     pid = builder.project_id()
+-    gclos = make_grammar_closure(st)
+-    provider_id = make_provider_closure(st, "syntax-provider", 1)
++    syntax_spec_l0 = b"level-spec-L0-syntax-ts"
++    # S2: the grammar closure interprets syntax-only clone bodies; it publishes the map when this Run mints bodies.
++    gclos = make_grammar_closure(st, level_specs=None if data_document else {"L0-verbatim": syntax_spec_l0})
++    provider_id = make_provider_closure(st, "syntax-provider", 1, stage_outputs=[("analyze", ["coverage", "fact", "view"])])
+     evaluator_id = make_evaluator_closure(st)
+     detector_id = make_detector_closure(st)
+     if data_document:
+@@ -2112,19 +2113,8 @@
+     grant_d = raw_c(grant)
+     st.put_raw_digest_record(grant)
+     syn_paths = sorted(files.keys(), key=lambda p: p.encode("utf-8"))
+-    membership = {
+-        "schemaVersion": 1,
+-        "units": [workspace_unit(".", "none", "syntax-only", "syntax-only", path, sha(files[path]))],
+-        "rows": membership_rows_generic(
+-            syn_paths,
+-            code_suffixes=(".ts", ".tsx", ".rs", ".js"),
+-            code_family="none",
+-            syntax_only=True,
+-        ),
+-        "unsupportedFiles": [],
+-        "outsideBoundaryFiles": [],
+-        "erasedFiles": [],
+-    }
++    # U-9 + U-4b: a marker-free project has the single syntax-only fallback unit, which claims no row.
++    membership = native_v2.membership([native_v2.syntax_only_fallback_unit()], syn_paths)
+     mem_d = raw_c(membership)
+     st.put_raw_digest_record(membership)
+     enum_plan = {
+@@ -2194,7 +2184,7 @@
+         coverages.append(cov)
+     if not data_document:
+         lang_rec = body_lang_syntax(ctx, "ts", "typescript")
+-        spec_l0 = b"level-spec-L0-syntax-ts"
++        spec_l0 = syntax_spec_l0
+         cl0, _, _ = mint_clone(st, level="L0-verbatim", body=body, lang_rec=lang_rec, lang_id="typescript", spec_bytes=spec_l0, anchor=None)
+         anc = {"path": path, "blobDigest": sha(body), "startByte": 0, "endByte": len(body)}
+         fc, fidc = make_fact(st, snap_id, "clones", "normalized-body-hash", uhex, provider_id, cl0, [anc])
+@@ -2257,7 +2247,7 @@
+         "operation": "analyze",
+         "parameters": [],
+         "outputDomains": order.cset(["coverage", "fact", "view"]),
+-        "outputSchemaDigest": builder.NAT_DIGEST,
++        "outputSchemaDigest": native_v2.stage_output_schema_digest("analyze", ["coverage", "fact", "view"]),  # S1
+     }
+     ss_d = raw_c(stage_spec)
+     st.put_raw_digest_record(stage_spec)
+--- /dev/null
++++ overlay/author-helpers/native_v2.py
+@@ -0,0 +1,179 @@
++"""Native-v2 (consumer24) construction laws for the AUTHOR helpers.
++
++Author-side construction of three published laws, read from the declared kit where the law is machine-readable and
++from the normative prose where it is not. This module constructs; it does not admit. The frozen owner named by
++--source remains the only admission authority and every export must still pass its structural closure and complete
++close_run replay.
++
++* S1 stage output registration (identity-schemas.v3 #/$defs/stage-spec/properties/outputSchemaDigest
++  x-opensip-digest.registeredBy): the producer closure carries, at treePath with {operation}, a JSON Schema 2020-12
++  document declaring x-opensip-stage-output {schemaVersion 1, operation, outputDomains}; outputSchemaDigest is the raw
++  SHA-256 of exactly those member bytes.
++* S2 per-level normalization map (identity-schemas.v3 #/x-opensip-digest-domains/normalizationSpecificationLaw): the
++  closure that INTERPRETS the body span carries C(normalization-specification-map) at closureTreePath, and every mapped
++  level specification is itself a member of that closure's tree.
++* U-4b / U-9 deterministic membership (native-evidence.md section 1.4): units sorted by (UTF-8 rootPath, UTF-8
++  languageFamily) with index ordinals; rows sorted by UTF-8 path; first-match row decision; projections in row order.
++"""
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import re
++from pathlib import Path
++
++from . import canonical
++
++KIT = Path(os.environ.get("OPENSIP_AUTHOR_KIT", ""))
++_IDENTITY = json.loads((KIT / "docs/coop/design-corrections/foundation/identity-schemas.v3.json").read_text())
++_REGISTERED_BY = (_IDENTITY["$defs"]["stage-spec"]["properties"]["outputSchemaDigest"]["x-opensip-digest"]["registeredBy"])
++_NORMALIZATION_LAW = _IDENTITY["x-opensip-digest-domains"]["normalizationSpecificationLaw"]
++STAGE_OUTPUT_TREE_PATH = _REGISTERED_BY["treePath"]
++STAGE_OUTPUT_DECLARATION = _REGISTERED_BY["declaration"]
++_OPERATION_SEGMENT = re.compile(_REGISTERED_BY["operationSegment"].replace("(?![\\s\\S])", "") + r"\Z")
++NORMALIZATION_MAP_PATH = _NORMALIZATION_LAW["closureTreePath"]
++NORMALIZATION_LEVELS = ("L0-verbatim", "L1-lexical", "L2-comment-insensitive", "L3-identifier-insensitive")
++
++
++def sha(data: bytes) -> str:
++    return hashlib.sha256(data).hexdigest()
++
++
++# ------------------------------------------------------------------------------------------------ S1
++def stage_output_member(operation: str, output_domains) -> tuple[str, bytes]:
++    """(tree path, exact document bytes) the producer closure registers for one operation."""
++    if not isinstance(operation, str) or not _OPERATION_SEGMENT.match(operation):
++        raise ValueError("stage operation is not one registered path segment: %r" % (operation,))
++    domains = sorted(set(output_domains), key=lambda d: d.encode("utf-8"))
++    document = {
++        "$schema": "https://json-schema.org/draft/2020-12/schema",
++        "$id": "urn:opensip:author:stage-output:" + operation,
++        "title": "Author synthetic stage output: " + operation,
++        "type": "object",
++        "additionalProperties": False,
++        "required": ["outputRefs"],
++        "properties": {"outputRefs": {"type": "array", "items": {"type": "object"}}},
++        STAGE_OUTPUT_DECLARATION: {"schemaVersion": 1, "operation": operation, "outputDomains": domains},
++    }
++    return STAGE_OUTPUT_TREE_PATH.replace("{operation}", operation), canonical.encode(document)
++
++
++def stage_output_schema_digest(operation: str, output_domains) -> str:
++    return sha(stage_output_member(operation, output_domains)[1])
++
++
++def stage_output_members(registrations) -> dict[str, bytes]:
++    """{tree path: bytes} for [(operation, outputDomains), ...]; one operation must have one declaration."""
++    members = {}
++    for operation, domains in registrations:
++        path, data = stage_output_member(operation, domains)
++        if path in members and members[path] != data:
++            raise ValueError("operation %r registered with two different output declarations" % operation)
++        members[path] = data
++    return members
++
++
++# ------------------------------------------------------------------------------------------------ S2
++def normalization_members(normalizer_id: str, level_specs: dict[str, bytes], *, map_levels=None,
++                          include_map=True, spec_directory="normalizers/levels/") -> dict[str, bytes]:
++    """Tree members for a body-interpreting closure: each level specification file plus the per-level map.
++
++    `map_levels` defaults to exactly `level_specs`; a control may name a different {level: digest} mapping (for a
++    discrimination Run) and `include_map=False` omits the map. Nothing here admits the result."""
++    for level in level_specs:
++        if level not in NORMALIZATION_LEVELS:
++            raise ValueError("unknown normalisation level %r" % level)
++    members = {spec_directory + level + ".spec": data for level, data in level_specs.items()}
++    if include_map:
++        mapping = map_levels if map_levels is not None else {level: sha(data) for level, data in level_specs.items()}
++        record = {"schemaVersion": 1, "normalizerId": normalizer_id,
++                  "levels": [{"level": level, "specificationDigest": mapping[level]}
++                             for level in sorted(mapping, key=lambda x: x.encode("utf-8"))]}
++        members[NORMALIZATION_MAP_PATH] = canonical.encode(record)
++    return members
++
++
++# ------------------------------------------------------------------------------------------------ U-4b / U-9
++RUST_SUFFIXES = (".rs",)
++TSJS_SUFFIXES = (".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx")
++BUNDLED_GRAMMAR_EXTENSIONS = (".rs", ".ts", ".tsx", ".mts", ".cts", ".js", ".mjs", ".cjs", ".jsx",
++                              ".json", ".toml", ".md", ".yaml", ".yml")
++DEPENDENCY_SEGMENTS = ("node_modules",)
++VCS_SEGMENTS = (".git", ".hg", ".svn", ".jj")
++
++
++def unit(root, family, mode, kind, marker_path, marker_sha, *, recognizer_id, provenance="DISCOVERED",
++         member_package_roots=()):
++    """WorkspaceUnitV2 without its ordinal (membership() assigns it)."""
++    return {"rootPath": root, "languageFamily": family, "languageMode": mode, "unitKind": kind,
++            "markerPath": marker_path, "markerSha256": marker_sha, "recognizerId": recognizer_id,
++            "recognizerVersion": 1, "provenance": provenance,
++            "memberPackageRoots": sorted(set(member_package_roots), key=lambda s: s.encode("utf-8"))}
++
++
++def syntax_only_fallback_unit():
++    """U-9: the single zero-config unit of a marker-free project."""
++    return unit("", "none", "syntax-only", "syntax-only", "", None, recognizer_id="syntax-only-fallback",
++                provenance="DEFAULTED")
++
++
++def _family(path):
++    if path.endswith(RUST_SUFFIXES):
++        return "rust"
++    if path.endswith(TSJS_SUFFIXES):
++        return "tsjs"
++    return "none"
++
++
++def _final_extension(path):
++    name = path.rsplit("/", 1)[-1]
++    return name[name.rfind("."):] if "." in name else ""
++
++
++def _under(path, root):
++    return root == "" or path == root or path.startswith(root + "/")
++
++
++def _pruned(path, cargo_roots):
++    parts = path.split("/")
++    for i, seg in enumerate(parts):
++        if seg in DEPENDENCY_SEGMENTS or seg in VCS_SEGMENTS:
++            return True
++    for i, seg in enumerate(parts):
++        if seg == "target" and "/".join(parts[:i]) in cargo_roots:
++            return True
++    return False
++
++
++def membership(units, paths):
++    """UnitMembershipV1 per U-4b: order, ordinals, first-match row decision and row-order projections."""
++    ordered = sorted((dict(u) for u in units), key=lambda u: (u["rootPath"].encode("utf-8"), u["languageFamily"].encode("utf-8")))
++    for index, u in enumerate(ordered):
++        u["unitOrdinal"] = index
++    keys = [(u["rootPath"], u["languageFamily"]) for u in ordered]
++    if len(set(keys)) != len(keys):
++        raise ValueError("two units share (rootPath, languageFamily)")
++    cargo_roots = {u["rootPath"] for u in ordered if u["languageFamily"] == "rust"}
++    cargo_roots |= {m for u in ordered if u["languageFamily"] == "rust" for m in u["memberPackageRoots"]}
++    rows = []
++    for path in sorted(set(paths), key=lambda p: p.encode("utf-8")):
++        family = _family(path)
++        if _pruned(path, cargo_roots):
++            rows.append({"path": path, "languageFamily": family, "unitOrdinal": None, "membership": "syntax-only", "reason": "host-ignore-convention"})
++            continue
++        if family == "none":
++            if _final_extension(path) in BUNDLED_GRAMMAR_EXTENSIONS:
++                rows.append({"path": path, "languageFamily": "none", "unitOrdinal": None, "membership": "syntax-only", "reason": "grammar-only"})
++            else:
++                rows.append({"path": path, "languageFamily": "none", "unitOrdinal": None, "membership": "unsupported-file", "reason": "no-bundled-grammar"})
++            continue
++        candidates = [u for u in ordered if u["languageFamily"] == family and _under(path, u["rootPath"])]
++        if not candidates:
++            rows.append({"path": path, "languageFamily": family, "unitOrdinal": None, "membership": "syntax-only", "reason": "no-program-unit-for-language"})
++            continue
++        deepest = max(candidates, key=lambda u: len(u["rootPath"]))
++        rows.append({"path": path, "languageFamily": family, "unitOrdinal": deepest["unitOrdinal"], "membership": "program-member", "reason": "deepest-unit-in-language"})
++    return {"schemaVersion": 1, "units": ordered, "rows": rows,
++            "unsupportedFiles": [r["path"] for r in rows if r["membership"] == "unsupported-file"],
++            "outsideBoundaryFiles": [], "erasedFiles": []}

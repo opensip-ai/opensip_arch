@@ -1,0 +1,1 @@
+const net=require('node:net'); const s=net.connect({host:'127.0.0.1',port:Number(process.argv[2])});s.on('connect',()=>{console.log('ALLOWED');s.destroy();});s.on('error',e=>console.log(e.code));

@@ -1,0 +1,481 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json
+new file mode 100644
+index 00000000..9de6a23c
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/foundation/target-attribution.schema.v2.json
+@@ -0,0 +1,475 @@
++{
++  "$schema": "https://json-schema.org/draft/2020-12/schema",
++  "$id": "opensip.product.target-attribution.2",
++  "title": "TargetAttributionV2 — Plan-bound provider-attested occupancy sidecar for resolved target endpoints",
++  "description": "CURRENT selected target-attribution schema for this successor. Historical TargetAttributionV1 (foundation/target-attribution.schema.v1.json) remains a retained document and is refused by this profile. Typed separate INPUT/return record. NOT a native fact payload field and MUST NOT be added to relation-payload-schemas.v2.json $defs. Bound to PlanId + source fact2 + the producing provider closure. Identity is raw SHA-256 of C(this record). Provider attestation after host join validation. Host MAY derive an ephemeral first-party projection only on exact inventory native-id equality of targetNativeId. Host MUST NOT parse SubjectIdV1 namespace:opaque spelling to invent kind, occupancy, or evaluationNativeId. logicalPath is a non-authoritative external/unknown hint, never occupancy identity. packageManifestPath remains the sole package coordinate (no evaluationPackageManifestPath). Frozen24 historical Runs remain replayable only under frozen24's own selected V1 schema/profile.",
++  "type": "object",
++  "additionalProperties": false,
++  "required": [
++    "schemaVersion",
++    "planId",
++    "sourceFactId",
++    "producerClosure",
++    "targetUniverse",
++    "targetNativeId",
++    "kind",
++    "occupancy",
++    "exported",
++    "logicalPath",
++    "packageManifestPath",
++    "evaluationNativeId"
++  ],
++  "properties": {
++    "schemaVersion": {
++      "const": 2
++    },
++    "planId": {
++      "type": "string",
++      "pattern": "^plan2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "The Plan whose evaluation consumes this input. Closure requires the named fact2 to belong to this Plan's views. planId is a locator, not hashed as a parent into EnumerationPlanV1."
++    },
++    "sourceFactId": {
++      "type": "string",
++      "pattern": "^fact2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "The native fact whose target endpoint this record attributes. Unique with planId: at most one TargetAttributionV2 per (planId, sourceFactId)."
++    },
++    "producerClosure": {
++      "type": "string",
++      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])",
++      "description": "Must equal the source fact's producerClosure. The named closure must be Plan-selected kind=provider. This is the typed provider return/capture authority, not a second fact mint and not a host guess."
++    },
++    "targetUniverse": {
++      "type": "string",
++      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
++      "x-opensip-digest": {
++        "representation": "h-identity",
++        "retention": "preimage",
++        "authority": "native",
++        "domainSet": "native-semantic-universe"
++      },
++      "description": "Bare 64-hex suffix of the TARGET endpoint universe. Must equal sourceFact.targetUniverse. Never silently swapped with sourceUniverse."
++    },
++    "targetNativeId": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "description": "Exact opaque native target identity copied from the fact payload's resolved target-id field (resolvedTarget / resolvedBinding / resolvedCallee / to / reachable). Payload join only. NOT the occupancy-compare field for kinds whose inventory grammar is not SubjectIdV1."
++    },
++    "kind": {
++      "type": "string",
++      "enum": [
++        "file",
++        "symbol",
++        "package",
++        "unknown"
++      ],
++      "description": "Stored kinds are file|symbol|package. unknown is explicit metadata, not a fourth subject kind and not export."
++    },
++    "occupancy": {
++      "type": "string",
++      "enum": [
++        "first-party",
++        "external",
++        "unknown"
++      ],
++      "description": "first-party: evaluation occupancy identity is a first-party inventory subject of targetUniverse. external: attributed outside first-party inventory. unknown: producer/host could not decide. unknown occupancy is NOT occupancy=external and is NOT a false match."
++    },
++    "exported": {
++      "oneOf": [
++        {
++          "type": "string",
++          "enum": [
++            "exported",
++            "not-exported",
++            "unknown"
++          ]
++        },
++        {
++          "type": "null"
++        }
++      ],
++      "description": "Tri-state for kind=symbol only. MUST be null when kind is file, package, or unknown."
++    },
++    "logicalPath": {
++      "oneOf": [
++        {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        {
++          "type": "null"
++        }
++      ],
++      "description": "Non-authoritative hint ONLY when occupancy is external or unknown AND kind is file or symbol. MUST be null when occupancy=first-party. MUST be null when kind=package (package location is packageManifestPath). NEVER occupancy identity. NEVER used to invent packageManifestPath or evaluationNativeId."
++    },
++    "packageManifestPath": {
++      "oneOf": [
++        {
++          "$ref": "#/$defs/LogicalPath"
++        },
++        {
++          "type": "null"
++        }
++      ],
++      "description": "Sole package coordinate. REQUIRED non-null when kind=package and occupancy=first-party (inventory join of packageName=evaluationNativeId, path=packageManifestPath). REQUIRED non-null when kind=package and occupancy=external (query endpoint coordinate; NOT a first-party inventory join). MUST be null when kind is not package. MUST be null when occupancy=unknown."
++    },
++    "evaluationNativeId": {
++      "oneOf": [
++        {
++          "type": "string",
++          "minLength": 1,
++          "maxLength": 4096
++        },
++        {
++          "type": "null"
++        }
++      ],
++      "description": "Typed evaluation-subject nativeSubjectId for occupancy. REQUIRED non-null iff occupancy=first-party. MUST be null when occupancy is external or unknown. File: LogicalPath matching inventory nativeSubjectId. Package: attested packageName matching inventory nativeSubjectId. Symbol: SubjectIdV1 MUST byte-equal targetNativeId. Host MUST NOT derive this by parsing targetNativeId."
++    }
++  },
++  "allOf": [
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "symbol"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "exported": {
++            "type": "string",
++            "enum": [
++              "exported",
++              "not-exported",
++              "unknown"
++            ]
++          }
++        },
++        "not": {
++          "properties": {
++            "exported": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "enum": [
++              "file",
++              "package",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "exported": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "occupancy": {
++            "const": "first-party"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "logicalPath": {
++            "type": "null"
++          },
++          "evaluationNativeId": {
++            "type": "string",
++            "minLength": 1,
++            "maxLength": 4096
++          }
++        },
++        "not": {
++          "properties": {
++            "evaluationNativeId": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "occupancy": {
++            "enum": [
++              "external",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "evaluationNativeId": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "enum": [
++              "file",
++              "symbol",
++              "unknown"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "package"
++          },
++          "occupancy": {
++            "enum": [
++              "first-party",
++              "external"
++            ]
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "$ref": "#/$defs/LogicalPath"
++          },
++          "logicalPath": {
++            "type": "null"
++          }
++        },
++        "not": {
++          "properties": {
++            "packageManifestPath": {
++              "type": "null"
++            }
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "const": "package"
++          },
++          "occupancy": {
++            "const": "unknown"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "packageManifestPath": {
++            "type": "null"
++          },
++          "logicalPath": {
++            "type": "null"
++          },
++          "evaluationNativeId": {
++            "type": "null"
++          }
++        }
++      }
++    },
++    {
++      "if": {
++        "properties": {
++          "kind": {
++            "enum": [
++              "file",
++              "symbol"
++            ]
++          },
++          "occupancy": {
++            "const": "first-party"
++          }
++        }
++      },
++      "then": {
++        "properties": {
++          "logicalPath": {
++            "type": "null"
++          }
++        }
++      }
++    }
++  ],
++  "$defs": {
++    "LogicalPath": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^[^/\\\\\\u0000]{1,255}(/[^/\\\\\\u0000]{1,255})*(?![\\s\\S])",
++      "not": {
++        "pattern": "(^|/)\\.\\.?(/|$)"
++      },
++      "description": "Byte-identical constraint to identity-schemas.v2.json#/$defs/LogicalPath."
++    },
++    "SubjectIdV1": {
++      "type": "string",
++      "minLength": 3,
++      "maxLength": 4096,
++      "pattern": "^[a-z][a-z0-9-]*:[^\\u0000-\\u001f\\u007f-\\u009f]+(?![\\s\\S])",
++      "description": "Opaque native payload identity. Host MUST NOT parse the namespace to invent occupancy."
++    }
++  },
++  "x-opensip-identity": {
++    "digest": "raw SHA-256 of C(TargetAttributionV2)",
++    "representation": "canonical-record",
++    "retention": "preimage",
++    "hDomain": null,
++    "uniqueness": [
++      "planId",
++      "sourceFactId"
++    ],
++    "proofInputRef": {
++      "standing": "selected domain target-attribution; identity-schemas.v3 byDomain document pointer names this schema",
++      "proposedDomain": "target-attribution",
++      "not": [
++        "blob",
++        "fact-payload",
++        "import-observation-row"
++      ]
++    }
++  },
++  "x-opensip-join-law": {
++    "standing": "CURRENT successor occupancy law. Frozen24 V1 compare (payload native id vs evaluation N first) is historical and is not selected when a sidecar is missing. Host validates joins. A retained TargetAttributionV2 is PROVIDER ATTESTATION captured as a host-derived typed input. Host derivation is an EPHEMERAL projection on exact inventory native-id equality of targetNativeId only and MUST NOT be written as this record. Unknown attestation MUST NOT override independently known inventory metadata.",
++    "selectedProfile": "This successor selects TargetAttributionV2. schemaVersion=1 sidecars refuse TARGET_ATTRIBUTION_SCHEMA_VERSION. Missing sidecar does not restore V1 payload-inequality nomatch.",
++    "evaluationSubject": "subject3 / evaluation-subject is (universe, kind, nativeSubjectId); PACKAGE ONLY adds required packageManifestPath from inventory row.path. File/symbol shape unchanged.",
++    "payloadPlane": "targetNativeId is the opaque payload copy. Unchanged ImportsPayloadV1 SubjectIdV1 grammar.",
++    "occupancyPlane": "MatchingFacts for endpoint=target compare E to occupancy identity, not to targetNativeId, except where those strings are already the same grammar (symbol exact-id).",
++    "producerReturn": "The worker product is OccupancyCompanionV1 on negotiated FactBatchV3 (token target-attribution-v2, additional optional capability beside the four identity tokens), associated by candidateOrdinal before fact2 exists. FactBatch.stageId is C-2 text of the requested stage, correlated via host DispatchBindingV1 (retainedStageOrdinal is not Analyze request ordinal). Host buffer_fact_batch_occupancy runs during ANALYZING; bind_worker_occupancy projects THIS record after mint and stageReceipt, filling planId/sourceFactId/producerClosure from retained Plan/execution-plan stage spec/selected view whose digest is on receipt.outputRefs. Host captures projected records into hostCapture.hostDerivedRefs domain=target-attribution. Missing token or empty companions is lawful occupancy-unknown except exact-id ephemeral. Host MUST NOT parse SubjectIdV1 to invent this record. origin is not an admit blessing.",
++    "producerClosureKind": "producerClosure equals fact.producerClosure and closures[pc].kind=provider. TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER otherwise.",
++    "joins": [
++      "planId names a retained Plan",
++      "sourceFactId is a fact2 of that Plan, present in a selected view of producerClosure",
++      "producerClosure equals fact.producerClosure, is Plan-selected, and closures[producerClosure].kind=provider",
++      "targetUniverse equals fact.targetUniverse",
++      "targetNativeId equals the payload field named by evaluator-projection-registry.v1.json relations[fact.relation].targetNativeIdField at fact.resolution"
++    ],
++    "inventoryIdentity": "File/symbol identity is the triple (universe, kind, nativeSubjectId). Package identity is the quadruple (universe, kind=package, nativeSubjectId=packageName, packageManifestPath=row.path).",
++    "derivation": {
++      "when": "targetNativeIdField is present and the set of distinct inventory identities whose nativeSubjectId EXACTLY equals payload targetNativeId (file/symbol triple, or package quadruple) across admitted SubjectInventoryV1 rows of this Plan has size 1",
++      "action": "host computes an ephemeral projection {occupancy:first-party, kind, exported or null, logicalPath:null, packageManifestPath:row.path or null, evaluationNativeId:row.nativeSubjectId}. It is not a TargetAttributionV2 and not a provider output. This is the existing exact-id authority (symbols; accidental C15 colon-path files whose inventory N already equals SubjectIdV1).",
++      "sizeZero": "no exact-id first-party identity. Ephemeral occupancy is not first-party. Absent sidecar: occupancy unknown, not payload-inequality nomatch.",
++      "sizeGreaterThanOne": "ambiguous exact-id identities. Ephemeral kind/occupancy unknown.",
++      "never": "parse namespace:opaque SubjectIdV1 spelling; never invent evaluationNativeId or first-party packageManifestPath from logicalPath or by stripping a prefix"
++    },
++    "sidecarFirstPartyJoin": "occupancy=first-party requires evaluationNativeId non-null and a unique inventory identity of sidecar.kind: file uses (U, file, evaluationNativeId); package uses (U, package, evaluationNativeId, packageManifestPath); symbol uses (U, symbol, evaluationNativeId) and evaluationNativeId MUST equal targetNativeId. Size!=1 refuses TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY. Null evaluationNativeId or missing first-party packageManifestPath is ADMISSION REFUSAL, not accepted unknown.",
++    "precedence": "Admit sidecar if present. Ephemeral exact-id projection is computed independently. Prefer independently known ephemeral fields over sidecar unknown. Sidecar occupancy=external while ephemeral occupancy=first-party refuses TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY. Sidecar first-party occupancy identity I_sc and independently known ephemeral first-party identity I_eph MUST agree; I_eph ≠ I_sc refuses TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT and MUST NOT overwrite ephemeral nativeId (C15: payload/inventory exact colon-path file vs sidecar naming a different same-kind file). Equal identities admit as sidecar+ephemeral. Missing sidecar uses ephemeral only.",
++    "conflictUniqueness": {
++      "perFact": "(planId, sourceFactId) at most one sidecar (TARGET_ATTRIBUTION_DUPLICATE_FACT)",
++      "providerSelfContradiction": "Within one Plan, two first-party V2 records that share (producerClosure, targetUniverse, targetNativeId) and disagree on occupancy identity (kind, evaluationNativeId, packageManifestPath or empty) refuse TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT. This is one provider contradicting itself about one opaque payload id in one universe. It is not a general alias and does not equate opaque strings across different producerClosures.",
++      "not": "Do not treat two unrelated providers' equal opaque strings as one identity. Do not invent (universe, targetNativeId) aliases.",
++      "ephemeralIdentityConflict": "Independently known exact-id first-party occupancy identity cannot be silently rewritten by a contradictory first-party sidecar. Refuse TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT. Occupancy identity is (kind, evaluationNativeId) for file/symbol and (kind, evaluationNativeId, packageManifestPath) for package."
++    },
++    "packagePathCases": {
++      "first-party-package": "packageManifestPath required; inventory join; logicalPath null; evaluationNativeId=packageName",
++      "external-package": "packageManifestPath required as query endpoint coordinate so GraphEndpoint kind=package is representable; NOT a first-party inventory join; logicalPath null; evaluationNativeId null; query nativeSubjectId remains opaque targetNativeId",
++      "unknown-package": "packageManifestPath null; logicalPath null; evaluationNativeId null; fact unprojectable (cannot form a complete package endpoint tuple)"
++    },
++    "compare": {
++      "endpointSource": "unchanged: payload source field vs E.nativeSubjectId; package also matches manifestPath",
++      "endpointTarget": "1 payload target field present at admitted rung; 2 fact.targetUniverse==E.universe else nomatch; 3 occupancy projection; 4 occupancy=external => nomatch for first-party E; 5 occupancy unknown or missing occupancy identity => unknown, NOT payload-inequality nomatch, unless kind is known and != E.kind (known kind nomatch); 6 occupancy=first-party MATCH iff E equals (U, kind, evaluationNativeId, packageManifestPath or empty)"
++    },
++    "absence": "Missing sidecar and no exact-id ephemeral identity: occupancy unknown, not nomatch, not false. Malformed first-party sidecar is admission refusal. Known incompatible universe remains nomatch. Complete search plus only known nomatches and no unknowns may prove none; unmapped facts block none.",
++    "reconciliation": "Prefer independently known ephemeral fields. Fill remaining unknown from sidecar. Result used for matching is the reconciled occupancy projection, never raw sidecar alone and never a host parse.",
++    "noBacklink": "fact2 descriptors are unchanged. This record names sourceFactId; no fact field names an attribution digest."
++  },
++  "x-opensip-new-internal-faults": {
++    "standing": "Internal diagnostic keys, not DomainDetailCode members and not D9 codes. Public standing is the EXISTING evaluator-fault typed boundary in evaluator-fault-observation.schema.v3.json x-opensip-routes. Provider-emitted schema failures: condition=input-schema-invalid origin=provider-return → operational-failed PROVIDER.PROTOCOL_VIOLATION faultCause=provider-protocol detail=EVALUATION.INPUT_REFUSED. Provider-emitted join/conflict failures: condition=input-join-invalid origin=provider-return → same public detail. Host-invented mapping: origin=host-internal → operational-failed SYSTEM.OUTCOME.ILLEGAL_STATE faultCause=host-invariant detail=HOST.INVARIANT_VIOLATED. Host retains the unmodified diagnostic bytes containing the internal key. No alias and no new D9 code. LIVE D9 successor-artifact remains a future host obligation and is not discharged.",
++    "publicRoute": {
++      "providerOrigin": "provider-return",
++      "hostInventedOrigin": "host-internal",
++      "schemaCondition": "input-schema-invalid",
++      "joinCondition": "input-join-invalid",
++      "providerDetail": "EVALUATION.INPUT_REFUSED",
++      "hostDetail": "HOST.INVARIANT_VIOLATED",
++      "liveD9": "not discharged"
++    },
++    "schemaKeys": [
++      "TARGET_ATTRIBUTION_SCHEMA",
++      "TARGET_ATTRIBUTION_SCHEMA_VERSION",
++      "TARGET_ATTRIBUTION_EVALUATION_ID_REQUIRED",
++      "TARGET_ATTRIBUTION_EVALUATION_ID_FORBIDDEN",
++      "TARGET_ATTRIBUTION_EVALUATION_GRAMMAR",
++      "TARGET_ATTRIBUTION_LOGICAL_PATH_ON_FIRST_PARTY",
++      "TARGET_ATTRIBUTION_LOGICAL_PATH_ON_PACKAGE",
++      "TARGET_ATTRIBUTION_EXPORTED_NOT_SYMBOL",
++      "TARGET_ATTRIBUTION_PACKAGE_MANIFEST_REQUIRED",
++      "TARGET_ATTRIBUTION_PACKAGE_MANIFEST_NOT_PACKAGE",
++      "TARGET_ATTRIBUTION_PACKAGE_PATH_FORBIDDEN",
++      "TARGET_ATTRIBUTION_SYMBOL_EVALUATION_ID_MISMATCH"
++    ],
++    "joinKeys": [
++      "TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN",
++      "TARGET_ATTRIBUTION_PRODUCER_MISMATCH",
++      "TARGET_ATTRIBUTION_UNIVERSE_MISMATCH",
++      "TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH",
++      "TARGET_ATTRIBUTION_DUPLICATE_FACT",
++      "TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY",
++      "TARGET_ATTRIBUTION_KIND_INVENTORY_DISAGREEMENT",
++      "TARGET_ATTRIBUTION_EXPORTED_INVENTORY_DISAGREEMENT",
++      "TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY",
++      "TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER",
++      "TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG",
++      "TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT",
++      "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT"
++    ],
++    "keys": [
++      "TARGET_ATTRIBUTION_FACT_NOT_IN_PLAN",
++      "TARGET_ATTRIBUTION_PRODUCER_MISMATCH",
++      "TARGET_ATTRIBUTION_UNIVERSE_MISMATCH",
++      "TARGET_ATTRIBUTION_NATIVE_ID_MISMATCH",
++      "TARGET_ATTRIBUTION_DUPLICATE_FACT",
++      "TARGET_ATTRIBUTION_FIRST_PARTY_NOT_IN_INVENTORY",
++      "TARGET_ATTRIBUTION_KIND_INVENTORY_DISAGREEMENT",
++      "TARGET_ATTRIBUTION_EXPORTED_INVENTORY_DISAGREEMENT",
++      "TARGET_ATTRIBUTION_EXTERNAL_CONTRADICTS_FIRST_PARTY",
++      "TARGET_ATTRIBUTION_PRODUCER_NOT_PROVIDER",
++      "TARGET_ATTRIBUTION_LOGICAL_PATH_ON_FIRST_PARTY",
++      "TARGET_ATTRIBUTION_EXPORTED_NOT_SYMBOL",
++      "TARGET_ATTRIBUTION_FIELD_NOT_ON_RUNG",
++      "TARGET_ATTRIBUTION_PACKAGE_MANIFEST_REQUIRED",
++      "TARGET_ATTRIBUTION_PACKAGE_MANIFEST_NOT_PACKAGE",
++      "TARGET_ATTRIBUTION_SCHEMA_VERSION",
++      "TARGET_ATTRIBUTION_EVALUATION_ID_REQUIRED",
++      "TARGET_ATTRIBUTION_EVALUATION_ID_FORBIDDEN",
++      "TARGET_ATTRIBUTION_SYMBOL_EVALUATION_ID_MISMATCH",
++      "TARGET_ATTRIBUTION_EVALUATION_GRAMMAR",
++      "TARGET_ATTRIBUTION_PROVIDER_OCCUPANCY_CONFLICT",
++      "TARGET_ATTRIBUTION_PACKAGE_PATH_FORBIDDEN",
++      "TARGET_ATTRIBUTION_LOGICAL_PATH_ON_PACKAGE",
++      "TARGET_ATTRIBUTION_EPHEMERAL_IDENTITY_CONFLICT",
++      "TARGET_ATTRIBUTION_SCHEMA"
++    ]
++  }
++}

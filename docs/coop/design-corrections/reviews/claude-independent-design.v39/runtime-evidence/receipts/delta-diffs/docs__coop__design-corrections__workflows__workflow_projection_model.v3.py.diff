@@ -1,0 +1,487 @@
+--- a38/docs/coop/design-corrections/workflows/workflow_projection_model.v3.py
++++ b39/docs/coop/design-corrections/workflows/workflow_projection_model.v3.py
+@@ -151,11 +151,16 @@
+         "policy-document.schema.json",
+         "policy-document.v2.schema.json",
+         "test-execution.schema.json",
++        "policy-test.schema.json",
+     ):
+         path = HERE / "schemas" / name
+         doc = json.loads(path.read_text())
+         Draft202012Validator.check_schema(doc)
+         docs[doc["$id"]] = doc
++    # recommend carries the native-owned UnitDiscoveryV2 by $ref; the native schema is loaded, never copied.
++    native = json.loads((HERE.parent / "native" / "native-evidence.schemas.v2.json").read_text())
++    Draft202012Validator.check_schema(native)
++    docs[native["$id"]] = native
+     _PROFILE_REG = Registry().with_resources(
+         [(k, Resource(contents=v, specification=DRAFT202012)) for k, v in docs.items()]
+     )
+@@ -428,6 +433,27 @@
+             raise Refusal("REQUEST.SCHEMA_MAJOR_UNSUPPORTED", "EVALUATION.MIXED_OUTPUT_MAJOR", "retentionPins are run3|closure2", pin)
+     if not any(p["kind"] == "detector" for p in d["pivotClosure"]):
+         raise Refusal("CONFIG.INVALID", "IMPORT.ARTIFACT_CORRUPT", "pivotClosure must include the origin detector")
++    # Detector identity (workflows-and-surfaces §2): one detectorClosure row per emission contribution,
++    # detectorId = contributionId, rule semanticsMajor, and entry detectorId = its rule's contribution.
++    # Checked after baselineId recomputation, so a reminted rename is refused, not only a stale hash.
++    detector_rows = d["detectorClosure"]
++    detector_ids = [row["detectorId"] for row in detector_rows]
++    for row in detector_rows:
++        if row["detectorId"] != row["contributionId"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure detectorId must equal its emission contributionId", row["detectorId"])
++    if len(set(detector_ids)) != len(detector_ids):
++        raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure has exactly one row per contributionId", ",".join(sorted(detector_ids)))
++    by_detector = {row["detectorId"]: row for row in detector_rows}
++    rule_refs = {rule["ruleId"]: rule["ruleProgramRef"] for rule in docs["policy"]["rules"]}
++    if {ref["contributionId"] for ref in rule_refs.values()} != set(detector_ids):
++        raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure must be exactly the embedded policy rule contributions")
++    for rule_id, ref in rule_refs.items():
++        if by_detector[ref["contributionId"]]["semanticsMajor"] != ref["semanticsMajor"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "detectorClosure semanticsMajor disagrees with the rule contribution", rule_id)
++    for entry in d["entries"]:
++        ref = rule_refs.get(entry["ruleId"])
++        if ref is None or entry["detectorId"] != ref["contributionId"]:
++            raise Refusal("CONFIG.INVALID", "EVALUATION.FINDING_JOIN_REFUSED", "BaselineEntry detectorId must be its rule contribution in detectorClosure", entry["fingerprint"])
+     return True
+ 
+ 
+@@ -642,8 +668,11 @@
+     return False
+ 
+ 
+-def _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta):
+-    """Unchanged policy/scope/waiver/detector axes copy E4. Do not invent measured absence.
++def _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta, absence_known=None):
++    """Unchanged policy/scope/waiver/detector axes copy E4 knowledge, including null. Do not invent measured absence.
++
++    E4 is True for a matched current occurrence, False only when absence_known(fp) proves absence under the
++    pivot law, otherwise None: a missing matched hit is not by itself known absence.
+ 
+     Independently admitted pivotPresence supplies E0-E3 when present. Mock maps are not
+     full comparison evidence; compare_admitted_v3 is the retained-run adapter.
+@@ -656,7 +685,12 @@
+     )
+     presence = {}
+     for fp in fps:
+-        e4 = bool(derived_e4.get(fp, {}).get("E4"))
++        if derived_e4.get(fp, {}).get("E4"):
++            e4 = True
++        elif absence_known is not None and absence_known(fp):
++            e4 = False
++        else:
++            e4 = None
+         waived_c = bool(derived_e4.get(fp, {}).get("waivedC", False))
+         measured = {}
+         if pivot and fp in pivot:
+@@ -775,8 +809,13 @@
+     pivot = current.get("pivotPresence")
+     b_entries = {x["fingerprint"]: x for x in bdesc["entries"]}
+     fps = set(b_entries) | set(derived_e4) | set(pivot or {}) | set(extra_rules)
+-    presence = _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta)
+-    current_v1 = dict(stub, presence=presence, entryRules=entry_rules)
++    absence_known = current_absence_knowledge(current, b_entries, extra_rules)
++    presence = _derive_or_admit_presence(fps, b_entries, derived_e4, pivot, delta, absence_known)
++    fingerprint_paths = {fp: e.get("subjectPath") for fp, e in b_entries.items()}
++    for occ in occurrences:
++        if occ["finding"]["fingerprint"]:
++            fingerprint_paths[occ["finding"]["fingerprint"]] = occ["finding"]["subject"]["logicalPath"]
++    current_v1 = dict(stub, presence=presence, entryRules=entry_rules, fingerprintPaths=fingerprint_paths)
+     res = _compare_matched(bdesc, current_v1, host, profile_name, current_detectors, accept_origins, baseline_id=baseline_artifact["baselineId"])
+     return _finish_comparison(res, current, occurrences, waived, profile, bdesc, None)
+ 
+@@ -976,7 +1015,7 @@
+         if det_id not in dets:
+             raise Refusal("REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE", "pivot/current detector identity missing from detector union", det_id)
+         pres = dict(current["presence"][fp])
+-        pres["B"] = fp in b_entries
++        pres["B"] = baseline_presence_knowledge(fp, rule_id, b_entries, b_rules, baseline, current.get("fingerprintPaths", {}).get(fp))
+         if pres["B"]:
+             pres["waivedB"] = b_entries[fp]["waived"]
+         m = dets[det_id]["method"]
+@@ -1014,6 +1053,13 @@
+             profile,
+             entry_unavail,
+         )
++        entry["liveInCurrent"] = bool(pres["E4"] is True and not pres.get("waivedC"))
++        unknown_reason = first_attribution_unknown(pres)
++        if unknown_reason and entry["classification"] != "INDETERMINATE":
++            entry.pop("direction", None)
++            entry.pop("gateReason", None)
++            entry.update(classification="INDETERMINATE", indeterminateReason=unknown_reason, gates=False, subsequentDeltas=[])
++            sig = "indeterminate" if comparison_rule_gating(b_rules.get(rule_id), c_rules.get(rule_id), profile) else None
+         desc["entries"].append(entry)
+         counts[entry["classification"]] += 1
+         if entry["gates"]:
+@@ -1047,6 +1093,12 @@
+             desc["remedy"] = {
+                 "code": "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
+                 "remedy": "restore required coverage/evidence for " + ",".join(d["ruleId"] for d in gating_def),
++            }
++        elif any(e.get("indeterminateReason") in ("current-absence-unknown", "baseline-absence-unknown") for e in desc["entries"]):
++            unknown_rules = sorted({e["ruleId"] for e in desc["entries"] if e.get("indeterminateReason") in ("current-absence-unknown", "baseline-absence-unknown")})
++            desc["remedy"] = {
++                "code": "COMPARISON.REQUIRED_COVERAGE_UNSATISFIED",
++                "remedy": "absence is not established for " + ",".join(unknown_rules) + "; complete enumeration and determinate evaluation on the unknown side",
+             }
+         else:
+             desc["remedy"] = {
+@@ -1299,6 +1351,104 @@
+             "metadata": first,
+         }
+     return out
++
++
++NON_GRAPH_EVIDENCE_LEVELS = ("proof-backed", "partial-coverage", "advisory-only")
++INSPECTION_FACT_LIMIT = 4096
++INSPECTION_REF_LIMIT = 64
++
++
++def non_graph_query_context(view, total_items, advisory, truncated=False):
++    """GraphQueryResponseContext of a Run-backed non-graph command surface (candidates, inspect, review brief).
++
++    coverage is complete exactly when the admitted proof was evaluated with no execution deficiency and every enabled
++    rule's enumeration is complete; otherwise partial. availability is retained because the Run was admitted."""
++    enabled = {r["ruleId"] for r in view["policy"]["rules"] if r["enabled"]}
++    complete = (
++        view["evaluationState"] == "evaluated"
++        and not view["executionDeficiencies"]
++        and all(rr["enumeration"]["state"] == "complete" for rr in view["ruleResults"] if rr["ruleId"] in enabled)
++    )
++    return {"projectId": view["projectId"], "resolvedView": {"runId": view["runId"]}, "coverage": "complete" if complete else "partial",
++            "availability": "retained", "truncated": truncated, "totalItems": total_items, "advisory": advisory}
++
++
++def candidate_evidence_level_counts(candidates) -> dict:
++    return {level: sum(1 for c in candidates if c["evidenceLevel"] == level) for level in NON_GRAPH_EVIDENCE_LEVELS}
++
++
++def project_candidate_list(view, include_suppressed):
++    """candidates: every Run candidate; suppressed candidates are listed only on request and always counted."""
++    everything = list(view["candidates"])
++    suppressed = [c for c in everything if c["suppressed"]]
++    listed = everything if include_suppressed else [c for c in everything if not c["suppressed"]]
++    return {"candidates": copy.deepcopy(listed), "suppressedCount": len(suppressed), "evidenceLevels": candidate_evidence_level_counts(listed)}
++
++
++def project_inspection_bundle(view, candidate_id):
++    """inspect: review:2 InspectionBundle of one candidate of an admitted Run (workflows-and-surfaces §5 inspection law).
++
++    facts/coverageIds/importIds are the fact2/coverage2/import2 evidenceRefs of the candidate's findings, unique and
++    sorted by UTF-8 bytes; limitations name every unmatched correspondence reason, an incomplete enumeration of the
++    candidate's rule, and any bound truncation. An unknown candidate refuses IDENTITY.UNKNOWN / REVIEW.CANDIDATE_UNKNOWN."""
++    cand = next((c for c in view["candidates"] if c["candidateId"] == candidate_id), None)
++    if cand is None:
++        raise Refusal("IDENTITY.UNKNOWN", "REVIEW.CANDIDATE_UNKNOWN", "candidateId is not a candidate of the admitted Run", candidate_id)
++    by_id = {o["findingId"]: o for o in view["occurrences"]}
++    facts, coverage, imports, limits = set(), set(), set(), []
++    for fid in cand.get("findingIds", []):
++        finding = by_id[fid]["finding"]
++        for ref in finding["evidenceRefs"]:
++            if ref["domain"] == "fact":
++                facts.add("fact2:" + ref["digest"])
++            elif ref["domain"] == "coverage":
++                coverage.add("coverage2:" + ref["digest"])
++            elif ref["domain"] == "import":
++                imports.add("import2:" + ref["digest"])
++        if finding["correspondence"]["state"] == "unmatched":
++            limits.append("correspondence " + finding["correspondence"]["reason"] + ": " + fid)
++    rr = next((r for r in view["ruleResults"] if r["ruleId"] == cand.get("ruleId")), None)
++    if rr is not None and rr["enumeration"]["state"] != "complete":
++        limits.append("enumeration incomplete for rule " + rr["ruleId"])
++
++    def bounded(values, limit, label):
++        ordered = sorted(values, key=lambda s: s.encode())
++        if len(ordered) > limit:
++            limits.append(label + " truncated at " + str(limit) + " of " + str(len(ordered)))
++        return ordered[:limit]
++
++    fact_list = bounded(facts, INSPECTION_FACT_LIMIT, "facts")
++    coverage_list = bounded(coverage, INSPECTION_REF_LIMIT, "coverageIds")
++    import_list = bounded(imports, INSPECTION_REF_LIMIT, "importIds")
++    if len(limits) > INSPECTION_REF_LIMIT:
++        limits = limits[: INSPECTION_REF_LIMIT - 1] + ["limitations truncated at " + str(INSPECTION_REF_LIMIT)]
++    return {"candidateId": candidate_id, "runId": view["runId"], "facts": fact_list, "coverageIds": coverage_list,
++            "importIds": import_list, "limitations": limits, "advisory": True}
++
++
++def pivot_closure_availability(artifact, host):
++    """baseline show: current-trust resolution of every pivot closure of an admitted baseline, in descriptor order.
++
++    The same law as resolve_detectors' pivot state: missing record or bytes -> missing; trust not admitted -> revoked;
++    protocol major not supported or platform neither the host platform nor any -> incompatible; otherwise available with
++    its trust origin, which must be one of the three current-trust origins."""
++    verify_baseline_artifact_v3(artifact)
++    rows = []
++    for pc in artifact["descriptor"]["pivotClosure"]:
++        c = (host.get("closures") or {}).get(pc["closureId"])
++        row = {"closureId": pc["closureId"], "kind": pc["kind"]}
++        if c is None or c.get("bytes") == "missing":
++            row["state"] = "missing"
++        elif c.get("trust") != "admitted":
++            row["state"] = "revoked"
++        elif c.get("protocolMajor") not in (host.get("protocolMajors") or []) or c.get("platform") not in (host.get("platform"), "any"):
++            row["state"] = "incompatible"
++        else:
++            if c.get("trustOrigin") not in TRUST_ORIGINS:
++                raise Refusal("REQUEST.PRECONDITION_FAILED", "EVALUATION.PROJECTION_INPUT_INCOMPLETE", "an available pivot closure requires a current-trust origin", pc["closureId"])
++            row.update(state="available", trustOrigin=c["trustOrigin"])
++        rows.append(row)
++    return rows
+ 
+ 
+ def serialization_overflow_termination():
+@@ -1616,7 +1766,7 @@
+     return "satisfied"
+ 
+ 
+-def _rule_coverage_from_admitted(policy, rule_results):
++def _rule_coverage_from_admitted(policy, rule_results, view=None):
+     by = {r["ruleId"]: r for r in rule_results}
+     out = []
+     for rule in policy["rules"]:
+@@ -1628,6 +1778,7 @@
+                 "enabled": bool(rule["enabled"]),
+                 "gating": rule_gates(policy, rule["ruleId"]),
+                 "evidenceUse": copy.deepcopy(rule["evidenceUse"]),
++                "absenceKnowledge": rule_absence_knowledge(view, rule["ruleId"]) if view is not None else "unknown",
+             }
+         )
+     return out
+@@ -1664,7 +1815,7 @@
+         detectors,
+         view["evaluationInputRefs"],
+     )
+-    coverage = _rule_coverage_from_admitted(view["policy"], view["ruleResults"])
++    coverage = _rule_coverage_from_admitted(view["policy"], view["ruleResults"], view)
+     overlay = {
+         "authority": "authoritative",
+         "availability": "retained",
+@@ -1720,6 +1871,8 @@
+         "emissionBindings": view["emissionBindings"],
+         "context": ctx,
+         "requiredCoverage": req,
++        "predicateProofs": copy.deepcopy((view.get("proof") or {}).get("predicateProofs")),
++        "absenceExtent": presence_absence_extent(view),
+         "boundPivots": [] if bound is None else bound,
+         **({"pivotPresence": pivots} if pivots is not None else {}),
+     }
+@@ -1854,7 +2007,171 @@
+     presence, entry_rules = derive_current_matched(view["occurrences"], view["waivedFindingIds"], view["emissionBindings"])
+     hits = {fp: True for fp, rec in presence.items() if rec.get("E4")}
+     prove = {rule["ruleId"]: rule_has_complete_hit_set(view, rule["ruleId"]) for rule in view["policy"]["rules"]}
+-    return {"hits": hits, "prove_absence": prove, "entry_rules": entry_rules}
++    return {"hits": hits, "prove_absence": prove, "entry_rules": entry_rules,
++            "unmatched": unmatched_correspondence_rows(view["occurrences"]), "subject_keys": fingerprint_subject_keys(view["occurrences"])}
++
++
++def unmatched_correspondence_rows(occurrences) -> list:
++    """Retained evidence of every unmatched occurrence at one side: rule, logical path and subject identity.
++    No fingerprint is minted for these rows."""
++    out = []
++    for occ in occurrences or ():
++        f = occ["finding"]
++        if f["correspondence"]["state"] != "unmatched":
++            continue
++        out.append({"ruleId": f["ruleId"], "subjectPath": f["subject"]["logicalPath"], "kind": f["subject"]["kind"],
++                    "language": f["subject"]["language"], "qualifiedName": f["subject"]["qualifiedName"]})
++    return out
++
++
++def fingerprint_subject_keys(occurrences) -> dict:
++    """fingerprint -> admitted descriptor subjectKey, from matched occurrences only."""
++    out = {}
++    for occ in occurrences or ():
++        f = occ["finding"]
++        if f["fingerprint"] and occ.get("fingerprintDescriptor"):
++            out[f["fingerprint"]] = occ["fingerprintDescriptor"]["subjectKey"]
++    return out
++
++
++def correspondence_barrier(rows, rule_id, path, subject_key=None) -> bool:
++    """Correspondence knowledge for absence at one side (B, E0-E3 or E4).
++
++    An unmatched occurrence of the same rule might be the fingerprint, so complete enumeration alone does not prove
++    its absence. A row is provably unrelated only when its rule differs, both logical paths are known and differ, or
++    the row's retained subject identity (kind, language, qualifiedName) and the fingerprint subjectKey are both known
++    and differ. Otherwise absence at that side is unknown: the same-rule/same-path barrier applies where no stronger
++    relation is retained (baseline unmatchedOccurrences retain rule and path only)."""
++    for row in rows or ():
++        if not rule_id or row.get("ruleId") != rule_id:
++            continue
++        if path and row.get("subjectPath") and row["subjectPath"] != path:
++            continue
++        if subject_key is not None and all(row.get(k) is not None for k in ("kind", "language", "qualifiedName")):
++            if (row["kind"], row["language"], row["qualifiedName"]) != (subject_key.get("kind"), subject_key.get("language"), subject_key.get("qualifiedName")):
++                continue
++        return True
++    return False
++
++
++def selection_excludes(policy, scope_doc, rule_id, path) -> bool:
++    """Structural non-emission at one side: its policy does not enable the rule, or its ScopeDocument does not
++    select the path. This is not evaluated absence; it attributes the change to the policy or scope axis."""
++    if rule_id and policy is not None:
++        rule = policy_rule(policy, rule_id)
++        if rule is None or not rule.get("enabled"):
++            return True
++    return bool(path and scope_doc and not path_in_scope_document(scope_doc, path))
++
++
++def rule_absence_knowledge(view, rule_id) -> str:
++    """RuleCoverage.absenceKnowledge recorded at baseline adoption: the same complete-hit-set law as pivots."""
++    return "complete-hit-set" if rule_has_complete_hit_set(view, rule_id) else "unknown"
++
++
++def presence_absence_extent(view) -> dict:
++    """Attested extent one admitted view contributes to the path absence law (pivot and current alike)."""
++    return {
++        "examinedPaths": sorted(extracted_source_paths(view)),
++        "scopeDocument": copy.deepcopy(view.get("scopeDocument")),
++        "foundationScope": foundation_scope_record(view),
++        "extractionComplete": inventories_are_complete(view),
++    }
++
++
++def fingerprint_absence_known(knowledge_view, extent, rule_id, path, subject_key=None) -> bool:
++    """Known non-emission of one fingerprint at one side: structural non-selection, or evaluated absence under the
++    law _bind_pivot_runs/compare_admitted_v3 apply to pivots.
++
++    Requires the owning rule's complete hit set (enabled, evaluated, complete enumeration, every selected root
++    determinate, not budget-exhausted), the path absence law over the attested extent, and correspondence knowledge:
++    no unmatched occurrence of that side that might be the fingerprint (correspondence_barrier). Missing admitted
++    root predicate proofs or extent is unknown, never false.
++    """
++    if selection_excludes(knowledge_view.get("policy"), (extent or {}).get("scopeDocument"), rule_id, path):
++        return True
++    if not rule_id or extent is None:
++        return False
++    try:
++        complete = rule_has_complete_hit_set(knowledge_view, rule_id)
++    except Refusal:
++        return False
++    if not complete:
++        return False
++    if not path_absence_claim_allowed(
++        path,
++        examined=set(extent.get("examinedPaths") or []),
++        scope_doc=extent.get("scopeDocument"),
++        foundation_scope=extent.get("foundationScope"),
++        extraction_complete=bool(extent.get("extractionComplete")),
++    ):
++        return False
++    return not correspondence_barrier(unmatched_correspondence_rows(knowledge_view.get("occurrences")), rule_id, path, subject_key)
++
++
++def current_absence_knowledge(current, b_entries, extra_rules):
++    """E4 absence knowledge for compare_v3 from the admitted current projection only.
++
++    Uses the admitted proof predicateProofs and absenceExtent the admitted-run adapter carries. A unit
++    projection without them has no absence knowledge. Caller presence maps remain refused.
++    """
++    knowledge_view = {
++        "policy": current["policy"],
++        "evaluationState": current["evaluationState"],
++        "ruleResults": current["ruleResults"],
++        "proof": {"predicateProofs": current.get("predicateProofs")},
++        "occurrences": current["occurrences"],
++    }
++    extent = current.get("absenceExtent")
++    keys = fingerprint_subject_keys(current["occurrences"])
++    rules, paths = {}, {}
++    for fp, entry in b_entries.items():
++        rules[fp] = entry["ruleId"]
++        paths[fp] = entry.get("subjectPath")
++    for fp, pair in (extra_rules or {}).items():
++        rules.setdefault(fp, pair[0])
++    for occ in current["occurrences"]:
++        finding = occ["finding"]
++        if finding["fingerprint"]:
++            rules[finding["fingerprint"]] = finding["ruleId"]
++            paths[finding["fingerprint"]] = finding["subject"]["logicalPath"]
++    return lambda fp: fingerprint_absence_known(knowledge_view, extent, rules.get(fp), paths.get(fp), keys.get(fp))
++
++
++def baseline_presence_knowledge(fp, rule_id, b_entries, b_rules, baseline=None, path=None):
++    """B: True for a baseline entry; False for non-selection by the embedded baseline policy/ScopeDocument, or under
++    recorded complete-hit-set absence knowledge when no retained baseline unmatched occurrence might be the
++    fingerprint (same rule and path; baseline rows retain no subject identity); else None. An empty entries[] never
++    coerces unknown to False."""
++    if fp in b_entries:
++        return True
++    docs = (baseline or {}).get("contextDocuments") or {}
++    if selection_excludes(docs.get("policy"), docs.get("scope"), rule_id, path):
++        return False
++    rule = b_rules.get(rule_id)
++    if rule is None or rule.get("absenceKnowledge") != "complete-hit-set":
++        return None
++    if correspondence_barrier((baseline or {}).get("unmatchedOccurrences"), rule_id, path):
++        return None
++    return False
++
++
++def first_attribution_unknown(pres):
++    """Reason when the first attributable change along B..E4 would rest on an unknown presence value."""
++    chain = [pres["B"], pres["E0"] if pres["E0"] is not None else pres["E1"], pres["E1"], pres["E2"], pres["E3"], pres["E4"]]
++    for i in range(5):
++        if chain[i] is None or chain[i + 1] is None:
++            return "baseline-absence-unknown" if pres["B"] is None else "current-absence-unknown"
++        if chain[i] != chain[i + 1]:
++            return None
++    return None
++
++
++def comparison_rule_gating(rule_b, rule_c, profile) -> bool:
++    """classify()'s gating selection, reused for an entry reclassified as unknown."""
++    gating_b = bool(rule_b and rule_b["enabled"] and rule_b["gating"])
++    gating_c = bool(rule_c and rule_c["enabled"] and rule_c["gating"])
++    return (gating_b or gating_c) if profile["gateRuleUnder"] == "baseline-or-current" else gating_c
+ 
+ 
+ def path_in_scope_document(scope_doc, path: str) -> bool:
+@@ -2460,6 +2777,7 @@
+         knowledge = axis_presence_knowledge(pview)
+         knowledge["examined_paths"] = extracted_source_paths(pview)
+         knowledge["scope_document"] = pview["scopeDocument"]
++        knowledge["policy"] = pview["policy"]
+         knowledge["foundation_scope"] = foundation_scope_record(pview)
+         knowledge["extraction_complete"] = inventories_are_complete(pview)
+         measured[axis] = knowledge
+@@ -2522,6 +2840,11 @@
+         fp = o["finding"]["fingerprint"]
+         if fp:
+             fp_paths[fp] = o["finding"]["subject"]["logicalPath"]
++    current_extent = presence_absence_extent(view)
++    subject_keys = fingerprint_subject_keys(view["occurrences"])
++    for axis in bound:
++        for fp, key in axis_measured[axis].get("subject_keys", {}).items():
++            subject_keys.setdefault(fp, key)
+     for fp in fps_union:
+         measured = {}
+         rule_id = None
+@@ -2539,6 +2862,9 @@
+             if fp in rec["hits"]:
+                 measured[axis] = True
+                 continue
++            if selection_excludes(rec.get("policy"), rec.get("scope_document"), rule_id, path):
++                measured[axis] = False
++                continue
+             if not (rule_id and rec["prove_absence"].get(rule_id)):
+                 continue
+             examined = rec.get("examined_paths")
+@@ -2553,8 +2879,15 @@
+                 extraction_complete=bool(rec.get("extraction_complete")),
+             ):
+                 continue
++            if correspondence_barrier(rec.get("unmatched"), rule_id, path, subject_keys.get(fp)):
++                continue
+             measured[axis] = False
+-        e4 = bool(e4_map.get(fp, {}).get("E4"))
++        if e4_map.get(fp, {}).get("E4"):
++            e4 = True
++        elif fingerprint_absence_known(view, current_extent, rule_id, path, subject_keys.get(fp)):
++            e4 = False
++        else:
++            e4 = None
+         e0, e1, e2, e3 = _presence_from_equalities(e4, delta, measured)
+         pivot_presence[fp] = {"E0": e0, "E1": e1, "E2": e2, "E3": e3}
+     current = _current_from_admitted_view(view, bound=bound, pivots=pivot_presence)

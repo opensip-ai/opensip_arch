@@ -1,0 +1,60 @@
+{
+  "session_id": "2dc36f69-f9e3-4ac8-af59-fd2351b40007",
+  "total_cost_usd": 1.6247375000000002,
+  "usage": {
+    "input_tokens": 162,
+    "cache_creation_input_tokens": 36164,
+    "cache_read_input_tokens": 1239525,
+    "output_tokens": 25701,
+    "output_tokens_details": {
+      "thinking_tokens": 8657
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 36164,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1249,
+        "cache_read_input_tokens": 225047,
+        "cache_creation_input_tokens": 326,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 326
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 162,
+      "outputTokens": 25701,
+      "cacheReadInputTokens": 1239525,
+      "cacheCreationInputTokens": 36164,
+      "webSearchRequests": 0,
+      "costUSD": 1.6247375000000002,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 8657,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "is_error": false,
+  "num_turns": 12,
+  "subtype": "success",
+  "result": "# Review 03 verdict: changes required (1 finding, 6 advisories), subject `dbb6f55d\u2026c7e856`\n\nBoth review02 findings are fixed, and every guard mutation I tried is caught. One real gap remains: selection payloads are never shape-checked. I found nothing else in scope that should block acceptance. `review.json` (it parses) and `review.md` are in `m1-native-wire-renderer-review-03/`.\n\n**Integrity and gates:**\n- The 24 files matched their hashes and sizes before and after my work.\n- All 11 input pins equal their origins (native owner01 plus the control01 externs).\n- A fresh render gives identical `wire.rs`, `wire.ts` and `render-result.json`.\n- Everything passes: 9 Rust tests plus 2 compile-fail doctests, Clippy with `-D warnings`, 12 Python tests, and strict tsc 6.0.3.\n\n**Review02 findings:**\n- **RF-1 (frame payloads):** the uint literals 2^64 and -1, a nested `frame-payload`, and const+enum are now refused both as a direct payload and inside a selection alternative.\n- **RF-2 (duplicate keys):** removing the duplicate guard now fails the new test. That holds whether I delete it from `wire.rs` or from the `render.py` template and regenerate.\n- **Advisories:** A3 to A5 are fixed and caught by mutations; A1 and A2 are now stated in `UNIT.md` as duties of the future codec.\n\n**Mutations:** all 12 were caught. They covered both duplicate-guard variants, the frame-payload walk and location check, the uint domain, the enum, bool-const, sequence, variant-count and `memberOrder` checks, and both TS direction families. My review01 and review02 serde probes gave the same results as before: every wrong kind is refused and lawful kinds are accepted.\n\n## Required finding\n- **RF-1: selection payloads aren't shape-checked.** With `alternatives: {}`, the Ts2 `FactBatch` frame gets no TS union rows (and, reading the code, no Rust variant), even though the header and frame table still declare it. So a declared frame silently can't be represented.\n  - One alternative, a missing or unknown `select`, and extra keys all render too.\n  - The new Python test uses the key `selector` instead of the declared `select`, so nothing actually tests selection shape.\n  - **Fix:** require exactly `{select, alternatives}`, a declared `select` value and exactly two alternatives. Correct the test key and add refusal tests.\n\n## Advisories\n- **A1:** extern `generatedType` values go straight into the Rust and TS output unchecked; a value like `Foo>); pub fn evil() {} //` lands in both files. Member and frame names aren't pattern-checked either. This is integration and closed-profile work, not a claim this unit makes.\n- **A2:** type objects accept unknown keys; for example, the typo `enumm` silently renders an unconstrained `String`.\n- **A3:** `nullable(nullable(T))` and `nullable(null)` are accepted even though they are redundant.\n- **A4:** a frame payload can reference its own envelope record.\n- **A5:** codec duties, restated.\n- **A6:** limits already disclosed, plus a cosmetic probe variable name.\n\n**Not verified:** I didn't compile or type-check the renders for RF-1 or the advisory cases. Those rest on what the renderer accepted and emitted, plus code reading. No CBOR crate was cached, so codec behaviour was modelled with hand-written serde deserializers. This request didn't restate the tsc path, so I reused review02's and confirmed it reports 6.0.3.",
+  "type": "result",
+  "duration_ms": 309437
+}

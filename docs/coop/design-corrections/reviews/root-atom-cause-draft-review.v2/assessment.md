@@ -1,0 +1,11 @@
+# Root follow-up draft review — pending final author-v2 handoff
+
+The four author-v1 issues are corrected in the current v2 draft: shared no-binding prelude, both incoming foreign-universe routes, sorting after combined pairing, and whole-record dependency fold/tie semantics. Final v2 source/control/handoff review remains pending.
+
+One pre-existing incoming prose ambiguity remains at the very boundary this amendment publishes. The Search of U paragraph says missing/unadmitted/non-exhaustive attestation implies source-target-search-unattested without qualification; the code instead chooses scope-without-coverage for a represented scope with no paired Coverage when no qualifying attestation proves search. The new incoming emission summary still says “no Coverage and no attestation,” omitting the present-but-nonproving attestation case and provider-group-versus-scope distinction.
+
+Exact reference law read from _native_completeness: after any qualifying attestation's sufficiency evaluation, a provider group with no scopes and no att_ok emits source-target-search-unattested; for each represented scope evaluate all paired Coverage, then if no paired S→U and no att_ok, emit source-target-search-unattested when there are other paired S→V records, otherwise scope-without-coverage. A non-exhaustive attestation has att_ok false. This is a direct prose/reference branch comparison, not a demonstrated full retained-Run failure. Correct the two normative summary sentences to name these three cases; no reference behavior/schema/token change is needed. Root may make this small author correction after v2 completes and include it in the final frozen independent review; another broad source-author round is not necessary for prose matching the existing explicit branch.
+
+Minor accuracy improvements in the same final prose edit: unknown-family is owed by definition and blocks incoming just like same-family unavailable; the resolution state rank has a tie complete/not-applicable, so call it fixed precedence with stated tie rule, not a strict total order on enum members. Keep detailed fold exceptions for minimum/union/carrier rather than implying all later fields change only when strictly worse.
+
+All prior reports preserved. No root design/blind/application acceptance granted.

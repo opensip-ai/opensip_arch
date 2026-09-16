@@ -1,3 +1,25 @@
+# Resume OpenSIP design completion with actual Claude
+
+<!-- BEGIN CURRENT RESUME STATE -->
+**Checkpoint105: COMPLETE. OpenSIP design approved for implementation. Actual Claude and Codex acceptance, documentation application and final working-tree verification are all complete. No required design findings remain.**
+
+Start with the [completion guide](root-application46-delivery.v1/README.md) and [pinned completion record](root-application46-delivery.v1/completion.json), SHA256 **94e11c50156418da034254c629015d418c7e7266f0e34ae748c7013e13b21d66**. [Previous checkpoint](root-application46-delivery.v1/previous-current-block.md) preserves the application/verification history. All older queues, pending-review statements and runtime instructions below are historical. No Claude/Grok review is active or pending for these accepted bytes; do not resume superseded sessions or reapply the package.
+
+**Accepted chain.** Source45 manifest8b4efbb04d9e25126ec7955931cf364f7013b3710a45c48bae8bc563a0c82155. Actual independent Claude45 ACCEPT427ae73e..., original independent blind-origin continuation ACCEPT-RECONSTRUCTABLE7ee66bb5..., substantive root design/blind assents36830f6e.../d71b8942.... Blind scope included exact27 exported Runs fully replayed by root and request/carrier query assessment; no new fresh origin claimed for the continuation. Source snapshot/archive and all historical evidence remain immutable.
+
+Fresh actual final Claude application46 originf3029483-5ebc-4782-a4cb-b8151427f4a2, Opus5CLI2.1.270, distinct12 excluded origins, ACCEPT0MUST0SHOULD3advisories. Exact retained review375b2e9daa57a07c7e5e2bfb203c7bd94528f5d4bdda704c518de5085bfb5eb4; [root substantive assent](root-application46-substantive-assessment.v1/assessment.json)e59b2ff74ad1f8b06c9d5877bcab2f939074f8e51805a5a5253a2aa4b6f7e238. Application46 manifestdab6e00fc3ccf82f015941bc767a10b18be9e6ca5f1c8598fa1fe9a4d05743f7; archive094fe874e5b7f6391d8d7e62bc26e5b8cb98fe49d115fb88b4924558d771ab0e.
+
+**Application complete.** Reviewed finalizer check/apply PASS197; [activation](../application-activation.v1.json) SHA256faf900477c5888ec6ea1d6973111318eadd4dd38a200c9c297fd92e8e3d8c4a8 written last. [Applied reference checks](applied-reference.v46/reference-checks.json) PASS all6groups/17evaluator children/7observed command receipts. [Applied verification](applied-verification.v46/application-verification.json) PASS197afterimages,12920frozen accepted files,126203scoped inventory paths,current counts,28readiness rows,5review owners,32unperformed gates,catalogue and0link failures. [Historical checker account](applied-verification.v46/historical-checker-provenance.json) retains old checker6323PASS/6CONTEXT/9FAIL literally:3exactpreexisting failures and6reviewed documentation-divergence failures; no old pins/checker changed and no failures relabelled PASS.67final reference/verification artifacts retained with hashes in completion.json.
+
+All6APP45-S1rows corrected by12mandatory gate memberships. Three final46advisories dispositioned: generated catalogue self-links; four remaining fresh-blind role phrases (exact continuation disclosed); complete support delta independently audited. Reviewer count clarification:242same1changed79added3removed=322support;76 is net growth, not additions. Original Claude review unchanged. These are nonblocking accounts, not unfinished required design work.
+
+**Implementation handoff.** Current authority is D-372 in the [readiness register](../../../v2/architecture/08-decision-and-readiness-register.md#unified-product-design-readiness) and [product contract index](../../../v2/contracts/product-v1/README.md). Conditions1–4 complete at design level. Condition5NOTMET means the next product implementation task requires user authorization; it is not an unresolved design approval.32product gates and54recovery cases remain UNPERFORMED as future implementation/qualification work. D9-SUCCESSOR-ARTIFACT remains mandatory on DR-007/DR-011-R08. TCB-SCOPE-01 is accepted once with13joint evaluation dependents plusR12; scope changes reopen them together. Source/blind advisories retain their exact scope. Layout/naming/report/build decisions and Fallow/Hydra contract changes are part of the selected design, with implementation in stages.
+
+No product implementation, new commit or push performed in this continuation. Delivery is in the working tree; historical evidence and preexisting changes preserved. Do not edit frozen afterimages or replace activation to perform optional cleanup; any future change needs its own appropriately scoped review. There is no remaining authorized design work or active reviewer to wait for.
+<!-- END CURRENT RESUME STATE -->
+
+## Historical resume checkpoints — superseded by current state above
+
 # Resume OpenSIP design completion with actual Grok
 
 Same authorized active task: continue with actual Grok until architecture/design/reference work is complete. No product implementation, commit/push/reset/clean. Preserve live working-tree changes and historical evidence. No GPT substitute. Claude successor remains later pending credits; no Claude agreement claimed for new bytes. Python /tmp/opensip-architecture-review-env/bin/python -I -B. Approval never; commentary <=60s, waits <=60s.
@@ -1002,3 +1024,351 @@ XA-02 is an ADVISORY observation-boundary question, not a demonstrated filesyste
 Next: substantive actual Grok/Claude review of the new findings/proposals, settle any accepted observation successor and integrate its exact schemas/model/controls, incorporate reviewed reference correction and applicability selectors, rebind and freeze a successor, obtain the required fresh review. Candidate25 acceptance remains historical and does not waive these new findings. Original blind consumer13 and the earlier author package remain separate; do not feed this author audit to an origin described as blind. Reassess normative kit and application bindings against the final successor before final independent application review/activation. A version-control commit changes HEAD and navigation before-images; prospective application receipts must be regenerated from actual current bytes rather than treating older HEAD/path receipts as current. Preserve all earlier drafts and evidence.
 
 Historical `.tar.gz` review archives are now Git LFS objects; clone users must materialize them with `git lfs pull` before digest checking/extracting. The archive SHA-256 values and bytes themselves remain unchanged. Existing unrelated `tools/tools/` is preserved outside this design checkpoint. Implementation readiness remains pending, and no new Claude/Grok agreement is claimed.
+
+## Additional input — user-agreed repository and report organization (2026-09-10)
+
+The user asked to settle repository/crate/TypeScript organization before implementation, accepted the proposed organization, selected `apps/cli/` with Cargo package `opensip-cli` and executable `opensip`, and agreed to the report split `apps/report/` plus `crates/reporting/`. They then explicitly requested documenting these agreements in the design.
+
+The single current source for this topic is `docs/v2/architecture/14-repository-and-module-layout.md`, linked from START-HERE, the architecture index and the correction README. It records the agreed naming and responsibilities, the offline self-contained report contract, and the remaining crate inventory, dependency graph, TypeScript modules, workspace/build/release boundaries, schema/fixture ownership, prototype-report feature inventory and documentation organization work. No frontend framework, complete crate list, exact prototype report parity or implementation authorization is inferred.
+
+Continue that blueprint in its owning chapter and include its technical topology in the next appropriate actual Claude/Grok review. These user-agreed structural choices are additional review inputs, not a reviewed amendment to candidate25 or any frozen author package. All XA-01/02/03 findings, earlier author review questions, original independent consumer requirements and final application/readiness work above remain outstanding with their existing standing. Do not modify frozen review queues or receipts to make this later input appear previously reviewed. Future application/source bindings must account for the new chapter and changed navigation bytes. No product directories or code have been scaffolded.
+
+The user next requested a directory/filename inventory with per-file responsibilities and consistent role naming. Chapter 14 now contains generated tables for an initial 167-file proposal across 19 package/organizational groups. The source is `docs/v2/architecture/repository-file-inventory.v1.json`; `docs/operations/check_repository_file_inventory.py --write` regenerates its owning chapter and `--check` validates correspondence, canonical unique paths, package ownership, naming/role suffixes, generated locations, pure-package restrictions and acyclic declared dependencies. The checker passes, including seven in-memory negative controls. These are inventory checks, not implemented dependency or product qualification checks.
+
+The three proposed factory paths consistently use Rust `_factory.rs` and TypeScript `-factory.ts`: components/session_factory, reporting/renderer_factory and the TypeScript provider's program-factory. Exact crate splits, declared dependency edges, provider/workspace/toolchain joins, generated schema mappings, frontend/build tooling and prototype report features still need technical review. Use this initial inventory as the concrete review input and update it in place as decisions settle; do not scaffold 167 empty product files. No new normative or frozen review bytes were changed.
+
+
+### PENDING Claude task — repository structure, dependencies and filenames (2026-09-10)
+
+The user explicitly requested Codex's review now and an additional **actual Claude**
+check once credits return. Codex's focused author review is recorded in chapter 14
+under “Author review and pending Claude review.” The corrected current inventory
+has 175 proposed paths across 19 groups; the 167-file counts above describe its
+initial proposal. Changes move fact admission to host, tighten pure dependency
+direction, assign policy/agent/store-maintenance and derived-index owners, clarify
+runtime report validation and generation/build edges, and identify concrete
+startup/admission/report tests. No product files were scaffolded.
+
+Review inputs: `docs/v2/architecture/14-repository-and-module-layout.md`,
+`docs/v2/architecture/repository-file-inventory.v1.json`,
+`docs/operations/check_repository_file_inventory.py`, and the final selected
+successor contracts/source map. The chapter's Claude task owns the detailed
+questions and required deliverables. Especially resolve the private host
+finalization / low-level storage API and exact replay/custody/fence binding;
+explicitly assess the remaining public interfaces, build/generation/toolchain
+choices and report feature inventory. Do not treat author corrections as Claude
+agreement or the proposed test files as executed product checks.
+
+At dispatch, bind the actual input bytes/digests and preserve Claude's substantive
+response. Apply and re-review material corrections, then account for this delta
+in successor/application source bindings. This task is **PENDING** until actual
+Claude review is received and addressed; Grok cannot close this specific user
+request. It does not replace XA-01/02/03, the earlier author package/residual
+reviews, the original independent consumer requirements or final application
+review. Keep these author-review inputs out of any origin still described as
+blind. No retry has been scheduled and implementation readiness remains pending.
+
+
+### PENDING Claude input — concrete APIs, report dispositions and build plan (2026-09-11)
+
+The user authorized the additional solo planning while reviewers are unavailable.
+Current owners are chapter 14 for paths, `docs/v2/architecture/implementation-boundaries-and-build-plan.md`
+for the commit API/build/milestones, and `docs/v2/architecture/prototype-report-inventory.md`
+for 24 feature dispositions. `implementation-planning-sources.v1.json` records
+44 prototype source/test file digests at the unchanged clean prototype commit
+`a62509d623173155d0946e9f5d5ca90c839893e0` and six selected candidate25 source
+files. Source inspection and selected test intent are not execution or parity.
+
+The concrete API proposal adds storage → evaluator/security dependencies, opaque
+`ReplayedRun` and live `CommitSession`, private raw ledger access, and a guarded
+commit facade. Its proposed SEAL-before-ledger crash join uses a private recovery
+association, with no public schema fields added. Actual Claude must examine the
+lock order, REV/observer checkpoints, operation binding and carrier crash behavior;
+exact local schema/carrier integration remains required before implementation.
+Do not treat this new carrier proposal as an already accepted normative law.
+
+The build proposal selects checked-in generated bindings with byte regeneration
+checks, explicit report asset inputs and separately selectable host/Rust-provider/
+TS-provider/report lanes. Concrete tool versions/adapters are still to be chosen.
+R01–R24 preserve useful prototype behavior while changing body-hash navigation,
+heuristic browser tracing, silent/default missing-data interpretations and limits
+that would omit required parity. Simulation-specific UI has a proposed deferral
+requiring explicit disposition; the user has not approved that specific omission.
+The current target inventory is 186 files/19 groups, including the API and report
+owners. M0–M6 are dependency milestones, not product scope cuts or elapsed estimates.
+
+Include all these owners, inventory/checker, planning-source manifest and the
+final successor contracts in the already-required actual Claude layout review;
+freeze the final input bytes at dispatch and preserve substantive findings and
+re-review of material changes. Nothing here closes the XA findings, author-package
+residuals, original independent blind-consumer work or final application review.
+Keep these author inputs out of an origin still called blind. No external agent
+was launched, no retry was scheduled, and implementation readiness remains pending.
+
+
+### PENDING Claude input — recovery specificity, coverage and tooling (2026-09-11)
+
+The user's `do it` authorized this follow-up solo planning. The existing
+implementation-plan owner now incorporates a closed 13-field private
+CommitRecoveryAssociationV1 (including exact uint64-to-SQL representation),
+private store-generation binding and 36 unexecuted F00–F35 fault-injection cases.
+Its source data is `docs/v2/architecture/commit-recovery-plan.v1.json`. The plan
+accounts for inherited security v8 witness PENDING/COMMITTED and high-water
+rules, reserved journal sequence capacity, read-only diagnosis versus authorized
+witness repair, and retention of local recovery verification material.
+
+Two SQLite write transactions are explicitly ordered at level 3: grant journal,
+then evidence ledger, before level-4 append lock; all journal writers must use
+that ordering. The journal/witness completes first; evidence receipt and private
+association publish atomically in the evidence ledger. A post-SEAL freshness
+failure aborts evidence publication, releases ordered resources and records REV
+through a fresh lawful append, without acquiring level 3 under level 4. This is
+an AUTHOR PROPOSAL that needs substantive Claude compatibility review; it is not
+an accepted extension to candidate25 or a tested carrier. Snapshot readers of an
+earlier durable prefix must not wait for a later valid pending journal append.
+
+`implementation-coverage.v1.json` maps all 45 selected commands, 20 query names,
+66 capability/mode cells, 32 gates, seven shared flags, five renderers, 43 workflow
+goldens, 55 top-level contract sections, 15 Fallow constraints, eight Hydra
+proposals and 24 report feature dispositions: 320 source-bound routing entries.
+Every row names a milestone, proposed source owner and verification responsibility.
+Section routing covers ownership of descendants, not an executed per-predicate
+proof. Profile/fixture/grammar expansion and actual harnesses remain future.
+All gate and test standing remains unperformed; D9 still needs implementation.
+
+Findings: COV-01 adds host syntax.rs, explicit TS syntax/reachability and retains
+compiler-free grammar-backend placement for review. COV-02 identifies frozen
+command-inventory.v3 `cli` example strings containing run2 for baseline-adopt,
+repair-preview, test-run and purge; propose example correction in reviewed
+successor bytes, never new run2 authority or a frozen-byte edit. COV-03 identifies
+historical grant-journal.sql's absent SEAL and old platform labels; versioned
+product carrier migration is required, with old rows/constraints/witness/floors
+preserved. A security journal_store.rs owner is added, distinct from lifecycle's
+transition journal. The existing XA-03 overlap also appears in the pinned
+query-evidence-purged golden (exit2); settle exact applicability before using it
+as a graph-query oracle. These are explicitly tracked, not silently corrected
+inside the frozen normative package. Current file inventory: 190 paths/19 groups.
+
+The tooling matrix gives candidate approaches, primary documentation links,
+tradeoffs and trial criteria. No versions were selected, dependencies installed,
+prototype tests run, product harnesses written or product code scaffolded.
+Planning source manifest now records 44 unchanged prototype file hashes and 15
+selected candidate25 source hashes. `docs/operations/check_implementation_planning.py`
+checks exact source-set/selector/value coverage, inventory owners, case/schema
+bookkeeping and generated prose; it is documentation tooling, not a semantic or
+OS qualification harness. Run with `--source <candidate25 root>`; `--write`
+regenerates only the two marked plan sections.
+
+Include the new JSON owners/checker and final plan in actual Claude's nonblind
+review, bind exact inputs at dispatch, and re-review material corrections.
+COV findings and the carrier/tool choices add to all prior XA/author-package/
+blind-consumer/application obligations. No agreement/readiness is claimed and
+no external agent, retry, commit or push was performed by this follow-up.
+
+
+### ACTIVE actual Claude return review (2026-09-11)
+
+User confirms actual Claude availability and authorizes continuation. A fresh
+nonblind CLI review is running in `/tmp/opensip-design-corrections/claude-return-review.v1`;
+see [dispatch evidence](claude-return-review.v1/README.md). Session
+`eaa8276c-dc65-4d26-8ca2-703b345698f9`, reported model `claude-opus-5`.
+Before launching another process, inspect `process.json`, `process-completion.json`
+and `public-events.jsonl` there. The existing interactive Claude terminal belongs
+to the user and was left untouched. Root verified all candidate25 source members
+and froze 136 supplemental input files. Input manifest SHA-256
+`da22d2d59f09227a4eafc58821af58e5a96ccc3e4be91b41fbe6b54bef29792b`.
+First pass covers new planning/layout/carrier/report/tooling plus XA/COV findings.
+Older author examples/residual review remains a subsequent scoped task; original
+blind consumer and final application review remain separate. Preserve the exact
+public response and assess substantive findings before claiming any agreement.
+No product implementation or readiness activation is authorized by dispatch.
+
+A second fresh actual Claude session independently reviews the older author
+package: `36a89be8-3442-4edb-90d8-a6fd959a437c`, runtime
+`/tmp/opensip-design-corrections/claude-author-package-review.v1`; see
+[dispatch](claude-author-package-review.v1/README.md). This parallel nonblind
+scope covers the seven Runs, three controls and all thirty residual assessments.
+No acceptance yet. Established reference interpreter is
+`/tmp/opensip-architecture-review-env/bin/python` (3.12 with jsonschema); the
+system Python3.14 lacks jsonschema. Root's initial successor probe failed only
+on that missing dependency, then passed with the established environment.
+
+Author integration is prepared separately at
+`/tmp/opensip-design-corrections/claude-return-successor.v1` (APFS copied candidate25).
+It currently contains the unchanged reviewed-input nine planning owners, the
+three-file XA-01 author patch and four COV-02 run3 CLI example corrections.
+Pins, normative selectors and new freeze/review remain pending; do not treat
+this mutable author tree as accepted. All original frozen sources stay intact.
+
+Root prepared two additional XA-03 prose changes in the mutable successor:
+identity §5 and query-projection §7 name graph.neighbors/path/reach exit4 while
+preserving workflow-owned finding.show purged-proof exit2. Its golden is unchanged.
+Fresh graph calls retain the successful retained control and four unavailable
+exit4 refusals. These exact changed bytes still require Claude review.
+
+Actual Claude's author-package review identified auxiliary probes tied to old
+paths and writing into their source tree. Root prepared four portable probes in
+`/tmp/opensip-design-corrections/author-probes-successor.v1`, retained as
+[author proposal](author-probes-successor.v1/README.md). They take explicit inputs
+and fresh output paths outside source trees, use the bundled transport, and all
+four freshly produced JSON values equal the frozen originals. Original package97
+files reverified unchanged. This portability-only package requires changed-byte
+review and does not accept any causal/completeness claim still under review.
+Both actual Claude processes remain active at this checkpoint; no final assent.
+
+
+### Actual Claude first report retained; focused continuation active
+
+First nonblind layout/carrier/XA review completed successfully (115 turns).
+[Full public report](claude-return-review.v1/review.md) and extracted JSON contain
+CR-01 through CR-22. Retained-artifact-manifest.json and scratch-custody.json bind
+public outputs, probes and exact input reconstruction. Original README dispatch
+status is historical; report is now complete. It does NOT accept the delta.
+Root has read the complete report. Seven findings were classified blocking by
+Claude; all 22 remain tracked. Some remedies need qualification: CR-02 does not
+prove that journal-first must expose an unchecked guard, CR-06 raw hashing need
+not introduce a second serializer, and CR-12's new input-bound-regression claim
+must be tested against the old materialization order. Root agrees with the
+concrete graph/finding.show scoping correction, observer latch requirement,
+store-schema domain/lineage gap and missing mappings; no blanket assent.
+
+Focused continuation runs in `/tmp/opensip-design-corrections/claude-return-followup.v1`,
+same session eaa8276c-dc65-4d26-8ca2-703b345698f9; see
+[prompt and dispatch](claude-return-followup.v1/README.md). It supplies the actual
+Python3.12 reference environment and all 44 prototype files verified against
+pinned working hashes and git objects, requests omitted prototype/task4 work,
+empirical discovery integration controls, and precise recovery/syntax remedies.
+Check process files before another launch. The separate author-package Claude
+review session 36a89be8-3442-4edb-90d8-a6fd959a437c is still active. All successor,
+blind-consumer and final application obligations remain open.
+
+
+### Both actual first reports complete; author correction ledger active
+
+The author-package Claude report completed successfully (135 turns); retained
+[report](claude-author-package-review.v1/review.md), extracted JSON and all public
+probe evidence are bound by retained-artifact-manifest/scratch-custody. Root has
+read the entire report, including all thirty individual residual dispositions.
+Central claims are corroborated against25, but F-01/02/03 must correct missing
+charter/assessment attachments and query regeneration; F-04 demonstrates the
+internal root-spelling under-specification. F-05/06 need default/additional-binding
+controls; F-07 can be addressed by explicitly limiting combinator coverage;
+F-08 needs selected ownership/effective-edition evidence; F-09 citation is §5;
+F-10 construction portability must be explicit; F-11 self-comparison wart,
+F-12 unequal evidence weighting, F-13 shared TCB dependency (13 residuals), and
+F-14 informational self-assessment limit are all retained, not waived.
+
+[Author correction queue](claude-corrections-author.v1/review-queue.json) tracks
+22 CR +14 F findings. Current live planning files/checker now contain prepared
+CR-01/10/11/15/16/17/20/21/22 corrections; source comparison still pins25.
+Generated chapter/plan and both checks PASS190/320/36. Four checker controls
+reject bad test/document owners and early analysis/JSON milestones. Latest live
+planning must be copied into the mutable successor before its eventual freeze;
+do not overwrite its separately prepared normative XA-03 and COV-02 edits.
+The current focused Claude continuation remains active in claude-return-followup.v1.
+Original blind consumer, final new freeze/review, and application/readiness remain
+open. No product files, commits or pushes created in this resume.
+
+
+### Focused Claude follow-up complete; two isolated author corrections active
+
+The complete follow-up report/public evidence is retained in
+[claude-return-followup.v1](claude-return-followup.v1/review.md). It verifies all44
+prototype sources and refines CR-02, withdraws CR-06 as a defect, and empirically
+refutes CR-12 custody divergence/input-bound-regression claims. CR-23 through27
+are additional findings; the author queue now has41 entries.
+
+Actual Claude authoring sessions (not independent acceptance):
+- [root/binding correction](claude-root-binding-correction.v1/README.md), runtime
+  `/tmp/opensip-design-corrections/claude-root-binding-correction.v1`, SID
+  `36a89be8-3442-4edb-90d8-a6fd959a437c`: F04–06, narrow binding-view clarification.
+- [discovery correction](claude-discovery-correction.v1/README.md), runtime
+  `/tmp/opensip-design-corrections/claude-discovery-correction.v1`, SID
+  `eaa8276c-dc65-4d26-8ca2-703b345698f9`: XA02/CR13/25 and authoritative boundary.
+Inspect each runtime completion/result before retry. Both use isolated source25
+copies. Retain with `/tmp/opensip-design-corrections/retain-claude-return-review.v2.py`
+once complete, assess changed files and integrate minimal patches carefully.
+
+Root added private binding schema owner domains, F36 orphan-attempt and F37
+exact uint64 sequence-order cases (38 planned, unexecuted), and a concrete
+security-owned session/adapter API proposal. Rust compile probes show why a
+borrowed transaction then moving its session and cross-crate private construction
+do not compile; an owned-session vignette does. These are design probes only.
+The proposed API and all new bytes still require review. Mutable author package
+`/tmp/opensip-design-corrections/claude-author-package-successor.v1` attaches
+original charter/v6/v7 custody, portable probes, stronger effective-edition
+evidence and explicit evidence/TCB limits. No new package manifest yet.
+
+Current live planning files must refresh the mutable normative successor before
+freeze. Original source25 and all frozen input packages remain immutable.
+Blind consumer, final successor/application review and readiness remain pending.
+
+
+A third fresh actual Claude carrier coauthor is active: runtime
+`/tmp/opensip-design-corrections/claude-carrier-correction.v1`, SID
+`0aa529b3-0da1-44b1-b2b9-dbcd9f1bd206`. Its four exact input files, manifest,
+prompt and launcher are retained in the same named review directory. It authors
+CR04/07/08/23 carrier/migration/recovery integration, not independent acceptance.
+Root prepared pure syntax ownership (198 paths/20 groups), report CR26/27
+corrections and explicit generation/release asset row contracts. Planning
+coverage stays320 and38 cases; all cases remain unexecuted product obligations.
+
+
+Carrier coauthor v1 stopped after using Bash command prefixes outside its allowed
+`python3 *` pattern and incorrectly inferred universal execution denial. Its
+complete public result is retained. Same Claude session continues in
+`/tmp/opensip-design-corrections/claude-carrier-correction.v2` with the authorized
+Python wrapper made explicit, same four inputs. No permission escalation or
+new user approval is needed; other sessions already use that wrapper. Check v2
+process files before retry. Root also removed the author helper's misleading
+proof self-comparison label in the mutable author-package successor.
+
+
+Fresh independent nonblind actual Claude review of the nine corrected planning
+inputs runs in `/tmp/opensip-design-corrections/claude-planning-successor-review.v1`,
+SID `329a5132-ee66-4303-97a9-b9ebd1b7ffc0`. Input manifest SHA256
+`f9f57268fe7e9ecc4c4a7ef38be4515ba0cd7644237e4a4f74ffdc10bbefb464`.
+All nine inputs/prompt/manifest are retained in its same named review directory.
+Scope explicitly excludes separately active carrier/discovery/root corrections.
+Root reverified all12869 candidate25 files, original136 inputs and latest9 files;
+see `claude-corrections-author.v1/frozen-input-reverification.v1.json`. Additional
+checker controls reject effectful syntax dependencies, reverse security/storage
+edges, runtime documentation owners, early delivery and unbound report changes.
+
+Root's mutable author-package preparation is now durably reconstructible from
+immutable codex-author-followup.v2 plus
+`claude-corrections-author.v1/author-package-delta.v1/delta-manifest.json` and files.
+That delta is historical preparation, not final package acceptance or a current
+whole-package manifest; preserve it when integrating later Claude changes.
+
+
+### Discovery author report complete; root reproduced controls and handoff gaps
+
+Completed `claude-discovery-correction.v1` is retained (137 artifacts,1446 scratch
+files deduplicated). Output artifact-manifest SHA256
+`86eab347a181accc7f7e9d2559a288142062f092dd04fb6acc3d02e2bce4cf92`;16 changed
+files include four pin ledgers and one generated native report. Root read full
+report, models/shared/integration/prose patches and identity trace; independently
+reran all29 focused controls successfully. New anchor paths can change scope/Plan/Run
+identity by disclosing an existing exclusion; count/basis alone cannot. That
+consequence must be explicitly reviewed, not hidden behind provenance language.
+
+Root additionally demonstrated two V1/V2 handoff problems; see
+`root-discovery-assessment.v1/version-controls.json`. The converter relabels valid
+V1 empty-prune provenance asV2, and discovery validates V1 boundary input then
+uses V2 output schema, refusing a valid legacy pruned row for missing basis.
+Reproduction packaging fails after successful XA01 application because its WORK
+script files were never supplied; exact stdout/stderr retained. Root's initial
+pre-copy suspicion was wrong and explicitly retracted after reading the applier.
+
+Same actual Claude origin now authors a focused successor in runtime
+`/tmp/opensip-design-corrections/claude-discovery-correction.v2` (SID eaa8276c…),
+with public dispatch/prompt retained. Preserve v1 and all failed attempts. No
+discovery delta has yet been integrated into the root mutable successor.
+
+
+Carrier v2 was interrupted by root after22 Bash denials while writing Markdown.
+All26 partial scratch files/public log retained; no completed author report or
+acceptance. Same actual Claude session continues in carrier-correction.v3 with
+direct Write/Edit tools, exact inputs and all26 copied scratch files. Original
+C1/C2/C3 probes are reused; no restart of design investigation requested.

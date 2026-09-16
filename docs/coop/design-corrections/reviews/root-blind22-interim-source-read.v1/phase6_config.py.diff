@@ -1,0 +1,52 @@
+--- historical20/phase6_config.py
++++ ACTIVE22/phase6_config.py
+@@ -22,7 +22,7 @@
+ import mode_harness as MH
+ import phase4_modes as P4M
+ 
+-OUT = '/tmp/opensip-design-corrections/consumer-b.v20/output'
++OUT = '/tmp/opensip-design-corrections/consumer-b.v22/output'
+ KIT = S.KIT
+ 
+ BASE_A = b'{"compilerOptions":{"target":"es2019","strict":false}}\n'
+@@ -87,7 +87,20 @@
+         if admitted:
+             rows = h.config_kind_law(g, uni) + h.mode_law(
+                 'native.semantic-universe.typescript.v2', uni, ctx)
++    # V22-D7: the exact instances this case submitted for admission are retained, with their
++    # owning document and selector, so a fresh process can re-admit the FINAL bytes. Generation 20
++    # kept only the admission flag and the computed identity.
++    instances = [{'document': B.NATIVE_DOC, 'selector': '#/$defs/TypeScriptConfigGraphV1',
++                  'role': 'config-graph', 'instance': g}]
++    if uni is not None:
++        instances.append({'document': B.NATIVE_DOC,
++                          'selector': '#/$defs/TypeScriptNativeContextV2',
++                          'role': 'native-context', 'instance': ctx})
++        instances.append({'document': B.NATIVE_DOC,
++                          'selector': '#/$defs/TypeScriptUniverseV2ResolvedInputs',
++                          'role': 'universe', 'instance': uni})
+     res = {'case': label, 'owningSchemaAdmitted': admitted, 'owningSchemaError': err,
++           'submittedInstances': json.loads(json.dumps(instances)),
+            'computedConfigurationIdentity': cg,
+            'identityRecipe': 'raw SHA-256 of C(TypeScriptConfigGraphV1) == '
+                              'universe.tsconfigGraphHash',
+@@ -97,6 +110,10 @@
+                 for n in g['nodes']],
+            'lawChecks': rows, 'refusals': MH.Harness.refusals(rows)}
+     res['accepted'] = admitted and not res['refusals']
++    # V22-D10: negatives carried firstRefusal but no masking record
++    res['masksLater'] = ('no -- every law check in lawChecks is evaluated and every refusal is '
++                         'listed in refusals in evaluation order; the owning schema verdict is '
++                         'recorded separately in owningSchemaAdmitted')
+     return res
+ 
+ 
+@@ -227,7 +244,7 @@
+ 
+ def main():
+     out = [synthesized(), custom_multi_base(), js_shared_base()]
+-    doc = {'consumerId': 'consumer-b.v20', 'standing': MH.STANDING,
++    doc = {'consumerId': 'consumer-b.v22', 'standing': MH.STANDING,
+            'classification': 'valid+invalid controls', 'cases': out}
+     bad = []
+     for grp in out:

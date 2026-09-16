@@ -1,0 +1,171 @@
+"""Rows for delivery.v2 wireSchema frameEnvelope, frameSchemas and definitions."""
+from rows_common import *  # noqa: F401,F403
+
+G2 = "TS2-G2"
+NFC = "d2.canonicalCbor: UTF-8 NFC text, closed map, canonical encoding"
+
+ENVELOPE = {
+    "frameEnvelope.fields.protocolMajor": R(
+        U, "exactly 2 (inherited 'exactly 1')", "value-substituted", A_HELLO,
+        x="provider-handshake.schemas.v1.json#/x-opensip-wire-law/frameAndMajor/typescript-semantic",
+        h=["wire.admit_hello / wire.admit_hello_ack: envelope_protocol_major == 2 before payload admission"],
+        note="Envelope record proposed implementation name TypeScriptFrameV2 (not a wire field or wire name)."),
+    "frameEnvelope.fields.frameType": R(
+        T, "closed per direction. host->worker (7): Hello, OpenUniverse, SnapshotManifest, SnapshotFileChunk, SnapshotSeal, Analyze, Cancel. worker->host (10): HelloAck, UniverseAccepted, SnapshotAccepted, NativeContextVerified, FactBatch, Coverage, Unavailable, BudgetExhausted, Complete, Cancelled",
+        "retained", A_FRAMES,
+        x="vocabulary = closedHostToWorkerFrames / closedWorkerToHostFrames + NativeContextVerified (worker->host); typescript-protocol2-order.v1.json rule frames agree",
+        h=["d2.ordering + start.typescript_protocol2_run: frame lawful in phase; unknown frame -> PROVIDER.PROTOCOL_VIOLATION", G2],
+        note="Member retained; vocabulary extended by one worker->host member. Rust-only CoverageV3 frame name does not apply (native-evidence.md:3000-3001)."),
+    "frameEnvelope.fields.sequence": R(
+        U, "per direction, starts 0, +1; overflow refused", "retained", A_INHERIT,
+        h=["d2.ordering.sequenceRule"]),
+    "frameEnvelope.fields.payload": R(
+        M, "closed map selected by frameSchemas[frameType].payloadType (TS2 table below)", "retained", A_FRAMES,
+        h=["d2.canonicalCbor: decodeRule, decode once under selected closed schema","d2.limitRule: <= maxFramePayloadBytes 67108864"],
+        g=["TS2-G6"]),
+}
+
+# frameSchemas rows: wireType None (not CBOR members); bounds carries the TS2 payloadType.
+FRAMES = {
+    "frameSchemas.Hello": R(None, "host-to-worker; payloadType TypeScriptHelloV2; terminal false", "replaced", A_HELLO, r=HS + "TypeScriptHelloV2", note="frame name retained; payloadType replaced"),
+    "frameSchemas.OpenUniverse": R(None, "host-to-worker; payloadType TypeScriptOpenUniverseV2; terminal false", "replaced", A_START, r=ST + "TypeScriptOpenUniverseV2", note="frame name retained; payloadType replaced"),
+    "frameSchemas.SnapshotManifest": R(None, "host-to-worker; payloadType SnapshotManifestV1; terminal false", "retained", A_INHERIT),
+    "frameSchemas.SnapshotFileChunk": R(None, "host-to-worker; payloadType SnapshotFileChunkV1; terminal false", "retained", A_INHERIT),
+    "frameSchemas.SnapshotSeal": R(None, "host-to-worker; payloadType SnapshotSealV1; terminal false", "retained", A_INHERIT),
+    "frameSchemas.Analyze": R(None, "host-to-worker; payloadType AnalyzeV1; terminal false", "retained", A_INHERIT, note="retained; NativeContextVerified now precedes it (native-evidence.md:2992-2996)"),
+    "frameSchemas.Cancel": R(None, "host-to-worker; payloadType CancelV1; terminal true", "retained", A_INHERIT),
+    "frameSchemas.HelloAck": R(None, "worker-to-host; payloadType TypeScriptHelloAckV2; terminal false", "replaced", A_HELLO, r=HS + "TypeScriptHelloAckV2", note="frame name retained; payloadType replaced"),
+    "frameSchemas.UniverseAccepted": R(None, "worker-to-host; payloadType TypeScriptUniverseAcceptedV2; terminal false", "replaced", A_START, r=ST + "TypeScriptUniverseAcceptedV2", note="frame name retained; payloadType replaced"),
+    "frameSchemas.SnapshotAccepted": R(None, "worker-to-host; payloadType SnapshotAcceptedV1; terminal false", "retained", A_INHERIT),
+    "frameSchemas.FactBatch": R(None, "worker-to-host; payloadType FactBatchV1 when target-attribution-v2 NOT negotiated, FactBatchV3 when negotiated; terminal false", "retained", A_FB,
+                                r=FB, h=["wire.admit_fact_batch: payload/token agreement; wrong one -> PROVIDER.PROTOCOL_VIOLATION"], g=["TS2-G6"],
+                                note="Historical payloadType retained; negotiated alternative is schema-native opensip.product.fact-batch.3"),
+    "frameSchemas.Coverage": R(None, "worker-to-host; payloadType TypeScriptCoverageV2; terminal false", "replaced", A_COV, r=ST + "TypeScriptCoverageV2", note="frame name Coverage retained (not CoverageV3)"),
+    "frameSchemas.Unavailable": R(None, "worker-to-host; payloadType PreAnalyzeUnavailableV1 in WAIT_NATIVE_CONTEXT_VERIFIED, TypeScriptUnavailableV2 immediately after Analyze; terminal true", "replaced", A_COV + "; " + A_ORDER,
+                                  r=ST + "TypeScriptUnavailableV2", h=["start.admit_unavailable: phase-selected payload"], g=["TS2-G6"],
+                                  note="second alternative " + ST + "PreAnalyzeUnavailableV1"),
+    "frameSchemas.BudgetExhausted": R(None, "worker-to-host; payloadType TypeScriptBudgetExhaustedV2; terminal true", "replaced", A_COV, r=ST + "TypeScriptBudgetExhaustedV2"),
+    "frameSchemas.Complete": R(None, "worker-to-host; payloadType CompleteV1; terminal true", "retained", A_INHERIT),
+    "frameSchemas.Cancelled": R(None, "worker-to-host; payloadType CancelledV1; terminal true", "retained", A_ORDER),
+}
+
+TS_KEY = "Sha256Text; native semantic-universe identity sha256:hex(H(native.semantic-universe.<language>.v2, universe.resolvedInputs)) (inherited recipe opensip.typescript-universe.v1 superseded)"
+
+DEFS = {
+    "definitions.DigestHex": R(T, "^[0-9a-f]{64}$", "retained", A_INHERIT, r=HS + "DigestHex", x="schema-native pattern uses (?![\\s\\S]) end anchor; same language (no trailing newline)"),
+    "definitions.Sha256Text": R(T, "^sha256:[0-9a-f]{64}$", "retained", A_INHERIT, r=HS + "Sha256Text"),
+    "definitions.ExecutionId": R(T, "non-empty; no length bound stated", "retained", A_RET_ID, r=ST + "ExecutionIdText",
+                                 h=["start.admit_open_universe: exact AttemptRecord value", G2], g=["TS2-G11"]),
+    "definitions.SnapshotId": R(T, "^snapshot2:[0-9a-f]{64}$ (inherited: canonical sealed SnapshotId text)", "replaced", A_START, r=ST + "SnapshotId2",
+                                h=["start.admit_open_universe: equals verified Plan snapshot2"]),
+    "definitions.PlanId": R(T, "^plan2:[0-9a-f]{64}$ (inherited: ^plan1:sha256:[0-9a-f]{64}$)", "replaced", A_START, r=ST + "PlanId2",
+                            h=["start.admit_open_universe: equals verified plan2"]),
+    "definitions.PlanIntentCommitment": R(T, "^sha256:[0-9a-f]{64}$", "retained", A_RET_ID, r=ST + "Sha256Text",
+                                          x="TypeScriptOpenUniverseV2.planIntentCommitment $ref Sha256Text", h=["exact AttemptRecord/ExecutionPlan value"]),
+    "definitions.TypeScriptSemanticUniverseV1": R(M, "closed 19-member map (typescript-v1 map, protocolMajor 2, resolvedInputs TypeScriptUniverseV2ResolvedInputs)", "replaced", A_START,
+                                                  r=ST + "TypeScriptSemanticUniverseV2", h=["start.admit_open_universe: 11-member handshakeJoin with TypeScriptHelloAckV2; nativeContextId suffix in plan.nativeContextDigests"]),
+    "definitions.TypeScriptSemanticUniverseKey": R(T, TS_KEY, "replaced", A_START + "; " + A_UNIV, r=ST + "Sha256Text",
+                                                   x="TypeScriptOpenUniverseV2.universeKey $ref Sha256Text; recipe in startup law universeIdentity",
+                                                   h=["host and worker recompute (start.admit_universe_accepted)"],
+                                                   note="type name has no schema-native def; every member typed by it is value-substituted"),
+    # SnapshotEntryV1
+    "definitions.SnapshotEntryV1.fields.path": R(T, "non-empty normalized project-relative; entries strictly sorted by UTF-8 bytes, unique; no length bound", "retained", A_INHERIT,
+                                                 h=["d2.snapshotTransport: normalization, ordering, uniqueness", G2], g=["TS2-G11"]),
+    "definitions.SnapshotEntryV1.fields.kind": R(T, "enum file|symlink", "retained", A_INHERIT),
+    "definitions.SnapshotEntryV1.fields.byteLength": R(U, "file byte length; 0 for symlink", "retained", A_INHERIT, h=["conditional on kind"]),
+    "definitions.SnapshotEntryV1.fields.contentSha256": R(T + "|" + N, "DigestHex for file; null for symlink", "retained", A_INHERIT, h=["conditional on kind (plain schema needs if/then; see audit TF-2)"]),
+    "definitions.SnapshotEntryV1.fields.linkTarget": R(T + "|" + N, "normalized sealed link-target text for symlink; null for file; no length bound", "retained", A_INHERIT, h=["conditional on kind"], g=["TS2-G11"]),
+    # ProviderWorkBudgetV1
+    **{f"definitions.ProviderWorkBudgetV1.fields.{k}": R(U, "uint64 maximum; zero permits zero ops; no unlimited sentinel. Projected value: work-units L in 1..9223372036854775807 for all six, else profile default", "retained", A_INHERIT,
+                                                          h=["d2.stageRequestProjection.budgetProjection (sole budget authority)"])
+       for k in ["sourceFilesVisited", "astNodesVisited", "moduleResolutionQueries", "typeQueries", "factsEmitted", "factBytesEmitted"]},
+    # StageRequestV1
+    "definitions.StageRequestV1.fields.stageId": R(T, "logical C-2 stageId TEXT copied exactly; unique within Analyze; bound unstated", "retained", A_INHERIT,
+                                                   x="StageIdText 1..255 exists schema-natively for echoes only (see TS2-G3)",
+                                                   h=["d2.stageRequestProjection: copy stage.stageId", "dispatch: text is not stageOrdinal and not execution-plan.stages[].ordinal (native-evidence.md:3024-3043)", G2], g=["TS2-G3"]),
+    "definitions.StageRequestV1.fields.stageOrdinal": R(U, "contiguous 0..n-1 in THIS Analyze order (n <= maxAnalyzeStages 1024)", "retained", A_INHERIT,
+                                                        h=["dispatch: equals DispatchBindingV1.analyzeRequestOrdinal; MUST NOT equal-by-assumption retainedStageOrdinal (Analyze may be a Plan subset)"]),
+    "definitions.StageRequestV1.fields.operator": R(T, "const semantic-provider", "retained", A_INHERIT),
+    "definitions.StageRequestV1.fields.providerId": R(T, "const typescript-semantic", "retained", A_INHERIT),
+    "definitions.StageRequestV1.fields.dependsOn": R(A, "items C-2 stageId text; sorted unique; [] when C-2 absent; earlier stageRequest or completed external stage", "retained", A_INHERIT,
+                                                     h=["d2.multiStageAnalyze.batchability", "d2.stageRequestProjection.dependsOn"], g=["TS2-G3", "TS2-G11"]),
+    "definitions.StageRequestV1.fields.relations": R(A, "items text; non-empty sorted unique; <= maxRelationsPerStage 64; vocabulary = typescript relation map {declares, imports, references, calls, types, reachability} within live registry (native Relation enum adds unresolved-edge)", "retained", A_INHERIT,
+                                                     h=["fp.registry", "d2.coverageDomain.relationSource", "d2.limitRule"]),
+    "definitions.StageRequestV1.fields.budget": R(M, "ProviderWorkBudgetV1", "retained", A_INHERIT),
+    "definitions.StageRequestV1.fields.requestedCoverageDomain": R(M, "RequestedCoverageDomainV1", "retained", A_COV,
+                                                                   note="field text names CoverageResultV1; answering entries are now CoverageResultV3 (value meaning only)"),
+    # SnapshotFileSubjectV1
+    "definitions.SnapshotFileSubjectV1.fields.path": R(T, "exact kind=file manifest entry path; strict ascending UTF-8, unique", "retained", A_INHERIT, x="exact echo of SnapshotEntryV1.path", h=["reconstructed by both sides from accepted manifest"]),
+    "definitions.SnapshotFileSubjectV1.fields.contentSha256": R(T, "DigestHex (non-null: file entries only)", "retained", A_INHERIT, x="exact echo of SnapshotEntryV1.contentSha256 file branch"),
+    "definitions.SnapshotFileSubjectV1.fields.byteLength": R(U, "exact entry byteLength", "retained", A_INHERIT, x="exact echo of SnapshotEntryV1.byteLength"),
+    # SubjectScopeV1
+    "definitions.SubjectScopeV1.fields.scopeKind": R(T, "const all-snapshot-files", "retained", A_INHERIT),
+    "definitions.SubjectScopeV1.fields.snapshotId": R(T, "^snapshot2:[0-9a-f]{64}$ via exact OpenUniverse echo", "value-substituted", A_ECHO, r=ST + "SnapshotId2", x="exact OpenUniverse SnapshotId; startup law lists SubjectScopeV1 snapshotId"),
+    "definitions.SubjectScopeV1.fields.subjectCount": R(U, "exact count of kind=file manifest entries (<= maxSnapshotEntries 200000)", "retained", A_INHERIT),
+    "definitions.SubjectScopeV1.fields.subjectScopeCommitment": R(T, "Sha256Text; inherited recipe opensip.coverage.subject-scope.v1 over sorted SnapshotFileSubjectV1", "retained", A_SUBJ, h=["recompute (both sides)"], g=["TS2-G4"],
+                                                                  note="shape retained; value recipe conflict recorded"),
+    # RequestedCoverageDomainV1
+    "definitions.RequestedCoverageDomainV1.fields.subjectScope": R(M, "SubjectScopeV1", "retained", A_INHERIT, h=["d2.definitions: RequestedCoverageDomainV1.workerRule, every key.subjectScopeCommitment equals subjectScope's"], g=["TS2-G4"]),
+    "definitions.RequestedCoverageDomainV1.fields.keys": R(A, "items CoverageKeyV1 map; non-empty; sorted by deterministic-CBOR bytes, unique; <= maxRequestedCoverageKeysPerStage 128", "retained", A_INHERIT,
+                                                           h=["d2.coverageDomain.keyConstruction/cardinality/overflowFate"], note="item universe members value-substituted (see CoverageKeyV1)"),
+    "definitions.RequestedCoverageDomainV1.fields.domainCommitment": R(T, "Sha256Text; domain opensip.ts-provider.requested-coverage-domain.v1 over {subjectScope, keys}", "retained", A_INHERIT,
+                                                                       x="recipe unchanged; committed value changes with substituted key universe ids", h=["d2.commitments", "worker recomputes before analysis"]),
+    # AnchorRefV1 (required list only; no fields map in source)
+    "definitions.AnchorRefV1.required.kind": R(T, "enum source-span|fact-ref", "retained", A_INHERIT, x="variants keys of AnchorRefV1 / fp anchorSchema", h=["fp.anchor", "anchors sorted by deterministic-CBOR bytes, unique"]),
+    "definitions.AnchorRefV1.required.snapshotId": R(UNSTATED + "|" + N, "non-null for source-span, null for fact-ref; CBOR type and snapshot2 domain unstated", "retained", A_INHERIT, h=["fp.anchor"], g=["TS2-G5"]),
+    "definitions.AnchorRefV1.required.path": R(T + "|" + N, "source-span: normalized project-relative NFC path of a sealed file; fact-ref: null", "retained", A_INHERIT, x="fact-plane sourceSpanSchema.rule", h=["fp.anchor", G2], g=["TS2-G5"]),
+    "definitions.AnchorRefV1.required.contentSha256": R(UNSTATED + "|" + N, "source-span: sealed file content digest (form unstated); fact-ref: null", "retained", A_INHERIT, h=["fp.anchor"], g=["TS2-G5"]),
+    "definitions.AnchorRefV1.required.startByte": R(UNSTATED + "|" + N, "source-span: [startByte,endByte) non-empty, in sealed bytes; integer type unstated; fact-ref: null", "retained", A_INHERIT, h=["fp.anchor"], g=["TS2-G5"]),
+    "definitions.AnchorRefV1.required.endByte": R(UNSTATED + "|" + N, "as startByte", "retained", A_INHERIT, h=["fp.anchor"], g=["TS2-G5"]),
+    "definitions.AnchorRefV1.required.factId": R(UNSTATED + "|" + N, "fact-ref: already-admitted fact identity (FACT-ID-V1 vs fact2 unstated); source-span: null", "retained", A_INHERIT, h=["fp.anchor: earlier admitted fact only"], g=["TS2-G5"]),
+    # FactCandidateV1 (fact-batch.3 JSON vector items are the schema-native mirror; wire bstr member differs)
+    "definitions.FactCandidateV1.fields.candidateOrdinal": R(U, "contiguous within stage across FactBatch frames", "retained", A_FB, r=FB + "/properties/candidates/items/properties/candidateOrdinal",
+                                                             h=["dispatch: first ordinal == expectedFirstCandidateOrdinal", "never enters fact identity"]),
+    "definitions.FactCandidateV1.fields.relation": R(T, "live relationRegistry key requested by stage; vector maxLength 64", "retained", A_FB, r=FB + "/properties/candidates/items/properties/relation", h=["fp.registry", G2]),
+    "definitions.FactCandidateV1.fields.resolution": R(T, "rung of relation's live ladder; vector maxLength 64", "retained", A_FB, r=FB + "/properties/candidates/items/properties/resolution", h=["fp.registry"]),
+    "definitions.FactCandidateV1.fields.layer": R(T, "relation's exact live layer; registry layers {derived, inventory, semantic, syntax}; vector maxLength 64", "retained", A_FB, r=FB + "/properties/candidates/items/properties/layer", h=["fp.registry"]),
+    "definitions.FactCandidateV1.fields.producer": R(T, "const typescript-semantic; vector maxLength 128", "retained", A_FB, r=FB + "/properties/candidates/items/properties/producer"),
+    "definitions.FactCandidateV1.fields.producerVersion": R(T, "exact verified providerBuildId; vector maxLength 256", "retained", A_FB, r=FB + "/properties/candidates/items/properties/producerVersion",
+                                                            x="source now TypeScriptHelloAckV2.providerBuildId (native-evidence.md:2983-2984)", h=["wire.admit_hello_ack", G2]),
+    "definitions.FactCandidateV1.fields.schemaVersion": R(U, "relation payload schema version (host registry)", "retained", A_FB, r=FB + "/properties/candidates/items/properties/schemaVersion", h=["fp.candidate"]),
+    "definitions.FactCandidateV1.fields.language": R(T, "const typescript; vector maxLength 64", "retained", A_FB, r=FB + "/properties/candidates/items/properties/language"),
+    "definitions.FactCandidateV1.fields.sourceUniverseId": R(T, TS_KEY + "; vector maxLength 4096", "value-substituted", A_START + "; " + A_UNIV, r=FB + "/properties/candidates/items/properties/sourceUniverseId",
+                                                             h=["equals OpenUniverse.universeKey"]),
+    "definitions.FactCandidateV1.fields.targetUniverseId": R(T, "native semantic-universe identity (Sha256Text) of the target universe (typescript or rust v2); required every fact; vector maxLength 4096", "value-substituted", A_START + "; " + A_UNIV,
+                                                             r=FB + "/properties/candidates/items/properties/targetUniverseId", h=["member of host-admitted target domain (d2.coverageDomain.targetPartition)"]),
+    "definitions.FactCandidateV1.fields.confidenceMillionths": R(U, "0..1000000", "retained", A_FB, r=FB + "/properties/candidates/items/properties/confidenceMillionths"),
+    "definitions.FactCandidateV1.fields.relationSchemaId": R(T, "exact host registry schemaId for relation@schemaVersion; vector maxLength 256", "retained", A_FB, r=FB + "/properties/candidates/items/properties/relationSchemaId", h=["fp.candidate"]),
+    "definitions.FactCandidateV1.fields.canonicalRelationPayload": R(B, "deterministic-CBOR bytes of host registry schema; <= maxFactCandidatePayloadBytes 1048576", "retained", A_FB,
+                                                                     x="no schema-native wire ref: fact-batch.3 canonicalRelationPayloadHex/decodedRelationPayload are JSON-vector transcription and observation, not wire members",
+                                                                     h=["fp.candidate: decode once, re-encode byte-equal", "d2.limitRule"], g=["TS2-G1"]),
+    "definitions.FactCandidateV1.fields.anchors": R(A, "items AnchorRefV1 map; non-empty; sorted by deterministic-CBOR bytes; unique; count bound unstated (vector maxItems 4096)", "retained", A_FB,
+                                                    r=FB + "/properties/candidates/items/properties/anchors", h=["fp.anchor"], g=["TS2-G5", "TS2-G11"]),
+    # CoverageKeyV1 (request key; no schema-native replacement; native CoverageKeyV2 is a different record)
+    "definitions.CoverageKeyV1.fields.relation": R(T, "one stage.relations member", "retained", A_INHERIT, h=["d2.coverageDomain.keyConstruction"], g=["TS2-G7"]),
+    "definitions.CoverageKeyV1.fields.resolution": R(T, "relationResolutionById[relation]: declares->syntactic, imports->resolved-target, references->resolved-binding, calls->resolved-callee, types->checked, reachability->from-resolved-calls", "retained", A_INHERIT, g=["TS2-G7"]),
+    "definitions.CoverageKeyV1.fields.sourceUniverseId": R(T, TS_KEY, "value-substituted", A_START + "; " + A_UNIV, h=["equals OpenUniverse.universeKey"], g=["TS2-G7"],
+                                                           note="CoverageResultV3.key.sourceUniverse carries its 64-hex suffix"),
+    "definitions.CoverageKeyV1.fields.targetUniverseId": R(T, "native semantic-universe identity (Sha256Text) per targetPartition (<= 2 activated universes)", "value-substituted", A_START + "; " + A_UNIV, g=["TS2-G7"]),
+    "definitions.CoverageKeyV1.fields.subjectScopeCommitment": R(T, "Sha256Text", "retained", A_SUBJ, g=["TS2-G4", "TS2-G7"]),
+    "definitions.CoverageKeyV1.fields.producer": R(T, "const typescript-semantic", "retained", A_INHERIT, note="request coordinate; not restated in native CoverageKeyV2 (startup law coverageFrames.entries)"),
+    "definitions.CoverageKeyV1.fields.producerVersion": R(T, "exact verified providerBuildId (TypeScriptHelloAckV2)", "retained", A_INHERIT, note="request coordinate only"),
+    "definitions.CoverageKeyV1.fields.schemaVersion": R(U, "exactly 1", "retained", A_INHERIT, note="request coordinate only"),
+    # CoverageResultV1 -> CoverageResultV3 (entry type)
+    "definitions.CoverageResultV1.fields.stageId": R(T, "attribution moves to TypeScriptCoverageV2.stageId (wrapper)", "replaced", A_COV + "; " + A_CRV1, r=ST + "TypeScriptCoverageV2/properties/stageId", m="moved"),
+    "definitions.CoverageResultV1.fields.entryOrdinal": R(U, "removed; array index i of entries answers keys[i]", "replaced", A_COV + "; " + A_CRV1, r=NE + "CoverageResultV3", m="removed",
+                                                          h=["start.admit_coverage_frame: count and positional bijection"]),
+    "definitions.CoverageResultV1.fields.coverageState": R(T, "-> entry.coverage enum complete|unknown", "replaced", A_COV + "; " + A_CRV1, r=NE + "ViewEntryV3/properties/coverage", m="moved",
+                                                           h=["ne.admit_coverage_result_v3: RC-6 complete => examinedExhaustive"]),
+    "definitions.CoverageResultV1.fields.key": R(M, "-> key CoverageKeyV2 {relation, resolution, sourceUniverse, targetUniverse (bare 64 hex), subjectScopeCommitment}", "replaced", A_COV + "; " + A_CRV1, r=NE + "CoverageKeyV2", m="value-changed",
+                                                 h=["start.admit_coverage_frame: equals keys[i] (suffix projection)", "ne.admit_coverage_result_v3 §4.1a steps 1-4"], g=["TS2-G4", "TS2-G7"]),
+    "definitions.CoverageResultV1.fields.deficiency": R(T + "|" + N, "-> entry.deficiency DeficiencyV2 (9 values) | null", "replaced", A_COV + "; " + A_CRV1, r=NE + "ViewEntryV3/properties/deficiency", m="moved"),
+    # StageResultV1
+    "definitions.StageResultV1.fields.stageId": R(T, "exact requested stageId", "retained", A_INHERIT, g=["TS2-G3"]),
+    "definitions.StageResultV1.fields.stageOrdinal": R(U, "exact requested stageOrdinal", "retained", A_INHERIT),
+    "definitions.StageResultV1.fields.factBatchCount": R(U, "exact observed FactBatch frame count (V1 or V3 payload)", "retained", A_FB),
+    "definitions.StageResultV1.fields.factCount": R(U, "exact observed candidate count", "retained", A_FB),
+    "definitions.StageResultV1.fields.coverageEntryCount": R(U, "exact observed CoverageResultV3 entry count", "retained", A_COV),
+    "definitions.StageResultV1.fields.factCommitment": R(T, "Sha256Text; domain stageFacts over ordered FactCandidateV1 stream whichever payload carried it", "retained", A_FB,
+                                                         x="provider-handshake x-opensip-wire-law/commitments/typescript-semantic", h=["d2.commitments"]),
+    "definitions.StageResultV1.fields.coverageCommitment": R(T, "Sha256Text over ordered CoverageResultV3 values; recipe/domain unchanged", "value-substituted", A_COV, h=["d2.commitments"], g=["TS2-G12"]),
+}

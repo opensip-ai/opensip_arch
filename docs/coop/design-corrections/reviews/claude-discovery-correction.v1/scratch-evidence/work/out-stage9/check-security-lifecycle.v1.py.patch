@@ -1,0 +1,25 @@
+--- docs/coop/design-corrections/security/check-security-lifecycle.v1.py
++++ docs/coop/design-corrections/security/check-security-lifecycle.v1.py
+@@ -506,7 +506,8 @@
+     out = model.discovery(_synthetic_repo(0, 4200))
+     assert out['status'] == 'ACCEPT', out.get('refusal')
+     assert [u['path'] for u in out['provenance']['units']] == ['/home/alice/big']
+-    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree', 'markerCount': 4200}]
++    assert out['provenance']['prunedTrees'] == [{'path': '/home/alice/big/node_modules', 'reason': 'dependency-tree',
++                                                 'markerCount': 4200, 'markerCountBasis': 'observed-inventory'}]
+     checked += 1
+     out = model.discovery(_synthetic_repo(4200, 4200))
+     assert out['status'] == 'REFUSE' and out['refusal'] == 'PROJECT.WORKSPACE_UNIT_LIMIT', out.get('refusal')
+@@ -609,9 +610,10 @@
+     sd = model.discovery({'invokingUid': 1000, 'accountHome': '/home/alice', 'cwd': R, 'fs': fs})
+     assert sd['status'] == 'ACCEPT', sd
+     inv = model.boundary_inventory(sd)
+-    assert inv == {'schemaVersion': 1, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
++    assert inv == {'schemaVersion': 2, 'source': 'security.discovery', 'selectedRoot': R, 'nestedRepositories': ['vendor/lib'],
+                    'nestedProjects': ['apps/site'], 'custodyExcludedUnits': [],
+-                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1}]}, inv
++                   'prunedTrees': [{'path': 'vendor/lib/node_modules', 'reason': 'dependency-tree', 'markerCount': 1,
++                                    'markerCountBasis': 'observed-inventory'}]}, inv
+     markers = {p[len(R) + 1:]: {'sha256': '1' * 64} for p, e in fs.items() if p.startswith(R + '/') and e['kind'] == 'file' and p.rpartition('/')[2] in model.WORKSPACE_MARKERS}
+     nd = native.discover_units(markers, None, inv)
+     assert nd['refused'] is None

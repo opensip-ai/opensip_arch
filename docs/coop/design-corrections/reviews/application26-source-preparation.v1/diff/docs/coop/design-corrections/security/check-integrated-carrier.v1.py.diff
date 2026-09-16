@@ -1,0 +1,34 @@
+diff --git a/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/security/check-integrated-carrier.v1.py b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/security/check-integrated-carrier.v1.py
+new file mode 100644
+index 00000000..859286d2
+--- /dev/null
++++ b/tmp/opensip-design-corrections/candidate-subject.v26/docs/coop/design-corrections/security/check-integrated-carrier.v1.py
+@@ -0,0 +1,28 @@
++"""Run the carrier author validator against exact current integrated source bytes.
++Builds disposable input layout only; no product storage or acceptance.
++"""
++from pathlib import Path
++import argparse,hashlib,json,shutil,subprocess,sys,tempfile
++p=argparse.ArgumentParser();p.add_argument('--source',type=Path,required=True);p.add_argument('--report',type=Path,required=True);a=p.parse_args()
++T=a.source.resolve();assert not a.report.exists(),'Preserve earlier reports'
++S='docs/coop/design-corrections/security/'
++paths=[S+x for x in ['carrier-highwater.schema.v1.json','carrier-dispatch.v3.json','carrier-format.v3.md','carrier-migration.v1.md','grant-journal.carrier.v3.sql','check-carrier-v3.py']]
++paths+=['docs/v2/architecture/'+x for x in ['attempt-custody.schema.v1.json','carrier-fault-cases.v1.json','commit-recovery-readonly.v3.md']]
++inputs=[]
++with tempfile.TemporaryDirectory(prefix='opensip-carrier-reference-') as temp:
++ R=Path(temp)
++ for rel in paths:
++  src=T/rel;raw=src.read_bytes();q=R/'scratch/proposal'/rel;q.parent.mkdir(parents=True,exist_ok=True);q.write_bytes(raw)
++  inputs.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)})
++ for name in ['commit-recovery-plan.v1.json','implementation-boundaries-and-build-plan.md']:
++  rel='docs/v2/architecture/'+name;src=T/rel;raw=src.read_bytes();q=R/'scratch/patched'/name;q.parent.mkdir(parents=True,exist_ok=True);q.write_bytes(raw)
++  inputs.append({'path':rel,'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw)})
++ report=R/'report.json'
++ cmd=[sys.executable,'-I','-B',str(T/(S+'check-carrier-v3.py')),str(T),str(R),str(report)]
++ r=subprocess.run(cmd,capture_output=True,text=True)
++ result=json.loads(report.read_bytes()) if report.exists() else {'failed':1,'error':r.stderr}
++ result['inputCustody']=inputs;result['childExitCode']=r.returncode;result['standing']='Current integrated reference validation only; no product durability qualification or independent acceptance.'
++ a.report.write_text(json.dumps(result,indent=2)+'\n')
++ assert all(hashlib.sha256((T/x['path']).read_bytes()).hexdigest()==x['sha256'] for x in inputs)
++ print(json.dumps({'passed':result.get('passed'), 'failed':result.get('failed'), 'childExitCode':r.returncode}))
++ raise SystemExit(bool(r.returncode or result.get('failed')))

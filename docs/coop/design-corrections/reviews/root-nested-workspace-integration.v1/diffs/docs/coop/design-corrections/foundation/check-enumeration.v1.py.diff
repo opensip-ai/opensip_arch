@@ -1,0 +1,60 @@
+--- before/docs/coop/design-corrections/foundation/check-enumeration.v1.py
++++ after/docs/coop/design-corrections/foundation/check-enumeration.v1.py
+@@ -623,6 +623,37 @@
+         "mode": "operational",
+         "boundaries": {"schemaVersion": 1.5},
+     }))
++
++    # native section 1.4 U-4b.2: a nested Cargo workspace below a workspace unit is a folded member, never a fold
++    # target. The derivation witness re-runs discover_units inside the typed admission handler, so looking the
++    # folded manifest up as a unit (StopIteration) escaped admission instead of being decided.
++    nested_markers = {"Cargo.toml": {"sha256": "1" * 64, "isCargoWorkspace": True},
++                      "nested/Cargo.toml": {"sha256": "2" * 64, "isCargoWorkspace": True},
++                      "nested/pkg/Cargo.toml": {"sha256": "3" * 64, "isCargoWorkspace": False},
++                      "tsconfig.json": {"sha256": "1" * 64}}
++    rec("nested-cargo-workspace-derivation-differs-refused", admit(ep, [
++        inv("file", "complete", files, file_ext),
++        inv("package", "complete", pkgs, pkg_ext),
++    ], memb, sc, universes, retained, source, membership_derivation={
++        "markers": nested_markers, "files": list(SNAPSHOT), "mode": "standalone-fixture"}))
++    nested_paths = list(SNAPSHOT) + ["nested/Cargo.toml", "nested/pkg/Cargo.toml", "nested/pkg/src/lib.rs"]
++    nested_units = M.NV.discover_units(nested_markers)["units"]
++    nested_rust_units = [[u["rootPath"], u["unitKind"], u["memberPackageRoots"]] for u in nested_units if u["languageFamily"] == "rust"]
++    nested_memb = M.NV.assign_membership(nested_units, nested_paths)
++    nested_file_ext = M.host_file_extent(nested_memb, nested_paths, sc, ".", [])
++    nested_source = blobs(cargo=b'[workspace]\nmembers=["nested/pkg"]\n', extra={
++        "nested/Cargo.toml": b'[workspace]\nmembers=["pkg"]\n', "nested/pkg/Cargo.toml": b'[package]\nname="nested-pkg"\n'})
++    nested_pkg_proj = M.project_named_packages(nested_paths, sc, ".", nested_memb, nested_source, [])
++    nested_ep = copy.deepcopy(ep)
++    nested_ep["membershipDigest"] = M.raw_digest(nested_memb)
++    nested_ep["cells"][0]["programBindings"] = [binding(0, U1, None, [
++        {"kind": "file", "paths": nested_file_ext}, {"kind": "package", "paths": nested_pkg_proj["namedPaths"]}])]
++    rec("nested-cargo-workspace-derivation-folds-into-surviving-unit", admit(nested_ep, [
++        inv("file", "complete", sort_files([file_row(p) for p in nested_file_ext]), nested_file_ext),
++        inv("package", "complete", sort_pkgs([pkg_row(n["path"], n["packageName"]) for n in nested_pkg_proj["named"]]),
++            nested_pkg_proj["namedPaths"]),
++    ], nested_memb, sc, universes, retained, nested_source, snapshot_paths=nested_paths, membership_derivation={
++        "markers": nested_markers, "files": nested_paths, "mode": "standalone-fixture"}))
+ 
+     rec("native-admission-error-class-distinct", {
+         "result": "ADMIT" if M.AdmissionError is not M.NV.AdmissionError else "REFUSE",
+@@ -746,6 +777,8 @@
+         "clones-near-two-programs-disjoint-extents": "ADMIT",
+         "clones-near-source-paths-outside-snapshot": "REFUSE",
+         "inventory-cell-rejects-candidate-source-paths": "REFUSE",
++        "nested-cargo-workspace-derivation-differs-refused": "REFUSE",
++        "nested-cargo-workspace-derivation-folds-into-surviving-unit": "ADMIT",
+     }
+     mismatches = []
+     for c in cases:
+@@ -756,6 +789,10 @@
+                       for row in unit_root_cases if not row["passed"])
+     mismatches.extend({"case": "tsjs-unit-kind-" + row["case"], "observed": row}
+                       for row in tsjs_unit_kind_cases if not row["passed"])
++    nested_refusals = next(c["refusals"] for c in cases if c["case"] == "nested-cargo-workspace-derivation-differs-refused")
++    if (nested_refusals != ["ENUMERATION_ADMISSION_MEMBERSHIP_DERIVATION"]
++            or nested_rust_units != [["", "cargo-workspace", ["nested", "nested/pkg"]]]):
++        mismatches.append({"case": "nested-cargo-workspace-derivation", "refusals": nested_refusals, "rustUnits": nested_rust_units})
+     historical = [c["case"] for c in cases if c["case"] in HISTORICAL_BOUNDED]
+     hashes = owned_hashes()
+     report = {

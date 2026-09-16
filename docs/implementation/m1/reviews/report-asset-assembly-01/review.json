@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "kind": "resumed independent review (same Claude session as report-assets review01/review02; not a fresh session)",
+  "reviewer": "Claude (claude-opus-5); no subagents, background tasks, commits, pushes or private session inspection",
+  "date": "2026-09-14",
+  "scope": "PRIMARY: frozen asset assembly subject01 (build-side filesystem enumerator plus verifier interop). The coverage prerequisite subject has a separate verdict in coverage-review.json.",
+  "standing": "Independent review only. Root acceptance is separate. Not product approval, not source promotion, and no real report bundle, D9, M1, release or platform qualification.",
+  "verdict": {
+    "summary": "CONDITIONALLY ACCEPTABLE AT TRIAL SCOPE, WITH ONE REQUIRED TEST-ADEQUACY CORRECTION (RQ-A1). No concrete implementation defect was found. Every enumerator behaviour stated in UNIT.md held under independent probes on real files, and the unchanged accepted verifier02 accepts the enumerator's output for nested, 16-segment and 16-projection bundles under every projection. The subject's permanent Python tests, however, do not substantiate many claimed guards: 18 non-equivalent single-edit mutants survive them, including the byte-order row sort, the claimed replacement detection, the directory/listing/projection/role caps, and owner-schema minItems for roles.",
+    "requiredIssues": 1,
+    "concreteImplementationDefects": 0,
+    "conditions": [
+      "RQ-A1 is resolved by permanent tests matching the behaviours listed there, or by narrowing UNIT.md claims.",
+      "Caps and the lowercase-ASCII namespace are reviewed as private build-policy proposals, not selected product policy, and imply no real bundle sizing.",
+      "Prior verifier02 unit acceptance is not conflated with this integration; every pending duty below stays open."
+    ]
+  },
+  "subject": {
+    "directory": "/tmp/opensip-implementation/m1-report-asset-assembly-subject-01",
+    "manifest": "/tmp/opensip-implementation/m1-report-asset-assembly-subject-01.json",
+    "manifestSha256": "c72765728a14b14b56b6b51bf55e7ee5186156076ed33d2d519e8abc8cc5f454",
+    "manifestStanding": "frozen root asset enumeration/build-profile interoperability trial, unreviewed/unselected, synthetic assets only",
+    "files": 29,
+    "custody": {
+      "before": "manifest hash matched; exact 29-file set with no extras or symlinks; every size and SHA-256 matched",
+      "after": "identical after all runs",
+      "sourcePins": "all 14 source-pins.json entries match both the copy and the source: 13 verifier files from m1-report-assets-subject-02, whose manifest c20b5e35… still matches, plus inputs/report-asset-binding.v1.json, byte-equal to the architecture file",
+      "verifierIdentity": "The 13 verifier files are byte-identical to accepted subject-02. Not carried: subject-02 UNIT.md, root-validation.json, source-pins.json, test-origins.json and tests/filesystem.rs, so the embedded copy has no verifier filesystem tests.",
+      "toolPins": "all 8 root-validation.json toolPins match: reference python3.14.6 b502cb4c…, cargo, rustc, rustdoc, cargo-fmt, rustfmt, cargo-clippy, clippy-driver",
+      "isolation": "All execution ran on exact copies under this review directory, with TMPDIR inside it, its own CARGO_TARGET_DIRs (at most one Cargo build per target at a time), and Python -I -B -X pycache_prefix=<empty private dir>. The prefix held 0 entries after every run and no __pycache__ appeared. build_fixture.py wrote only into the mutable copy."
+    }
+  },
+  "reproducedRootChecks": [
+    {"command": "python -I -B -X pycache_prefix=<empty> tests/test_report_asset_manifest.py -v", "result": "PASS: 9 tests"},
+    {"command": "python -I -B -X pycache_prefix=<empty> build_fixture.py (copy)", "result": "PASS: owner schemas validated; regenerated fixtures/release/report/manifest.json, fixtures/pin.json and fixtures/manifest-digest.rs are byte-identical to frozen; copy remains manifest-exact (648 manifest + 151 member bytes)"},
+    {"command": "cargo test --locked --offline --manifest-path consumer/Cargo.toml", "result": "PASS: 1 (all three projections including the middle one)"},
+    {"command": "cargo clippy --locked --offline --manifest-path consumer/Cargo.toml --all-targets -- -D warnings", "result": "PASS"},
+    {"command": "cargo fmt --manifest-path consumer/Cargo.toml --check", "result": "PASS"},
+    {"command": "cargo test --locked --offline --manifest-path verifier/Cargo.toml and verifier/platform/Cargo.toml", "result": "PASS: 15 and 1 (informational; unchanged accepted bytes)"}
+  ],
+  "reviewAssessment": {
+    "completeInventory": "The walk starts from the caller's directory fd, uses os.listdir(fd), and for every entry does lstat(dir_fd, nofollow), then openat(O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NONBLOCK, plus O_DIRECTORY for directories), then an fstat (dev, ino) match. There is no name filter. Regular files other than the manifest must be declared, and every declared role must be found as a regular file. Empty directories are admitted and do not change bytes (declared).",
+    "manifestExclusion": "Exactly one regular file at exactly assetManifestPath, a direct child of the asset root, is excluded unread (a 4MiB+1 prior manifest is excluded with 0 bytes read). A directory, symlink, dangling link, FIFO or socket there refuses. Case variants refuse through the namespace, and .bak/near names or nested manifest.json refuse as undeclared; a declared backup is an ordinary member. A hardlink at the manifest path is still excluded by path.",
+    "namespace": "The private build namespace is [a-z0-9][a-z0-9._-]* per segment, at most 255 bytes, no trailing dot, at most 16 segments. It removes case-fold and Unicode-normalization aliases for emitted names without changing public LogicalPath or the verifier's generic grammar, which is byte-identical. PATH_LIMIT 4096 is unreachable (16*255+15 = 4095). Windows reserved names (con, nul.txt) are admitted, which is outside the stated macOS/Linux alias goal.",
+    "capsAsPrivateBuildPolicyProposals": {
+      "projectionDigests16": "checked before any filesystem call",
+      "roles4096": "checked before any filesystem call; empty roles refused (owner minItems 1)",
+      "directories4096": "counted while walking, root included",
+      "listingEntries4097": "checked after listdir allocation and before any per-entry stat (declared)",
+      "member16MiB": "fstat size is checked before reading; 16MiB+1 refused with 0 bytes read; the read loop also bounds growth",
+      "aggregate32MiB": "checked after each member is hashed, so excess work is at most one member (observed 48MiB read before refusal with 4x16MiB members), and again with manifest bytes",
+      "manifest4MiB": "checked after construction; reachable within the file and path caps; the runtime 4MiB profile still applies",
+      "sizingClaim": "none; synthetic fixture sizing only"
+    },
+    "changeDetection": "Observed replacement between lstat and open, same-length writes with restored mtime (ctime still changes), append, truncate and directory-entry changes all refuse. A symlink, removal or non-directory swapped in during the race escapes as OSError (ELOOP/ENOENT/ENOTDIR), which fails closed but is not an AssemblyRefusal. Not detected, as declared: files added to an already-visited subdirectory, and members changed after hashing. A 1.5 s concurrent symlink-swap stress never emitted outside bytes.",
+    "custody": "Opens are always dir_fd-relative single segments with O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK and no write/create flags. The tree is unchanged, including mtimes. Descriptor counts are unchanged on success, refusal and OSError paths. Re-enumerating through the same retained fd gives identical bytes. A regular-file fd as root refuses. Root selection remains caller custody; a root opened through a symlink is accepted.",
+    "ownerSchemaConformity": "The fixture, the nested bundle (traversal order differs from byte order, zero-byte members, all five roles) and the deep bundle (16 segments, 3846-char path, 16 projections) validate against copied HostAssetPinV1 and ReportAssetManifestV1 with jsonschema 4.25.1. The emitted manifests equal opensip-identity canonical_bytes(parse_json(manifest)) in Rust.",
+    "projectionChoices": "The consumer and review interop select every listed digest (3 including the middle, and 16), and projection_sha256 equals the selection each time. The list is passed through unchanged and must already be sorted and unique.",
+    "verifierIntegration": "The unchanged verifier accepts all 19 bundle/projection pairs through ReleaseDirectory, with completeness over the enumerated regular files and a wrong-length pin refusing Length. There is no product reporting-to-platform edge; the consumer is isolated."
+  },
+  "independentProbes": {
+    "sources": {
+      "probe-src/assembly_probes.py": "dab666bd0ba715b8902a42593105000a1963e5645de62150456744df16dfd7b7",
+      "probe-src/assembly_interop_probe.rs": "be7401f95f780199fb6e541adc32b195a5f23dc6dc45aa7aeac80d192d8d053d",
+      "mutate_assembly.py": "b9e1684b3c37658e2cdc85c7d6ea0f312465aa8ef5e05c288e995cba6e915317"
+    },
+    "results": {
+      "assembly-probe-results.json": "48af03cb062662f52cf3cbdce43b23dcaa3f5320d720bfc54d6ab57eea9f376b",
+      "mutation-assembly-tests.json": "8fd4a7660d13373be0a30701fa9ab653316fee7174a9d5fb03ee9353123cf5f1",
+      "mutation-assembly-probes.json": "9fc9164ce5dd0c149f869b56360ea97c8d2274cdcc981218b70a7e9037e928c0"
+    },
+    "commands": [
+      "TMPDIR=<review>/t/probe python -I -B -X pycache_prefix=<empty> probe-src/assembly_probes.py <copy>/tools/report_asset_manifest.py <copy>/inputs/report-asset-binding.v1.json <review>/work/interop <review>/assembly-probe-results.json",
+      "ASSEMBLY_INTEROP_DIR=<review>/work/interop cargo test --locked --offline --test assembly_interop_probe (verifier copy + probe file; own target) and cargo clippy --all-targets -D warnings",
+      "python -I -B -X pycache_prefix=<empty> mutate_assembly.py tests|probes"
+    ],
+    "probeOutcomes": {
+      "p01_owner_schema_byte_order_and_interop_bundles": "PASS",
+      "p02_caps_refuse_before_io_where_claimed_and_observed_work": "PASS",
+      "p03_manifest_exact_exclusion_and_self_case": "PASS",
+      "p04_extra_unlisted_hidden_nonregular_and_directory_rows": "PASS",
+      "p05_replacement_growth_and_declared_race_limits": "PASS",
+      "p06_custody_open_flags_fd_hygiene_and_no_writes": "PASS",
+      "p07_projection_choices_and_portable_namespace": "PASS",
+      "rustInteropUnchangedVerifier": "PASS: 19 bundle/projection pairs; identity-canonical manifests; clippy -D warnings PASS"
+    }
+  },
+  "mutationAssessment": {
+    "method": "36 single-edit mutants of tools/report_asset_manifest.py on throwaway copies (short work path because of the macOS AF_UNIX path limit); a control passed in each mode.",
+    "subjectPermanentTests": {
+      "killed": ["T01", "T09", "T10", "T11", "T21", "T22", "T23", "T27", "T28", "T29", "T31", "T32", "T33", "T34", "T35", "T36"],
+      "survivedNonEquivalent": {
+        "T02": "no member fstat size pre-check",
+        "T03": "no running aggregate check",
+        "T04": "no file lstat/open identity check",
+        "T05": "no directory lstat/open identity check",
+        "T06": "no post-open regular check",
+        "T07": "no O_NOFOLLOW",
+        "T08": "no O_NONBLOCK",
+        "T12": "no size equality in stable read (timestamp checks still catch the probed changes on APFS)",
+        "T13": "no directory count cap",
+        "T14": "no listing count cap",
+        "T15": "no projection count cap",
+        "T16": "no build channel check",
+        "T17": "no root-is-directory check",
+        "T18": "no byte-order row sort (legitimate trees such as a/ and a-b.js falsely refuse)",
+        "T19": "empty roles admitted (owner minItems violated)",
+        "T20": "no role count cap",
+        "T26": "no 16-segment cap (17-segment file emitted)",
+        "T30": "role path not required under root (refusal code changes)"
+      },
+      "survivedEquivalent": {"T24": "visit depth check subsumed by segment cap", "T25": "PATH_LIMIT unreachable"}
+    },
+    "reviewProbes": {"killedAllExcept": ["T10", "T12", "T24", "T25", "T27", "T31", "T32"], "note": "T10, T27, T31 and T32 are killed by the subject tests, so the combined suite leaves only T12 (redundant with timestamps here) plus the equivalent T24 and T25."}
+  },
+  "requiredIssues": [
+    {
+      "id": "RQ-A1",
+      "title": "Permanent tests do not substantiate several claimed enumerator guards",
+      "detail": "UNIT.md claims inode replacement detection, the projection/file/directory caps, member/aggregate bounds, the strict namespace including segment count, an exact role map and no symlink following. The nine permanent tests leave the 18 mutants above alive. The most behaviour-relevant are T18 (manifest row byte order versus traversal order, which the flat test trees cannot distinguish), T04/T05/T06/T08 (the replacement races that UNIT.md claims are detected and fail closed without blocking), T13/T14/T15/T20/T26 (claimed caps), T19 (owner-schema minItems) and T02/T03 (caps before excessive work). The implementation is correct under probe; no code change is required.",
+      "remedy": "Add permanent vectors for these behaviours (review probes p01-p07 are one sufficient, reproducible set), or narrow the UNIT.md claims. Assert exact refusal codes, and for races accept only a documented fail-closed class."
+    }
+  ],
+  "advisories": [
+    {"id": "AA-1", "detail": "Race-time OSError (ELOOP, ENOENT, ENOTDIR) escapes as a bare OSError rather than AssemblyRefusal. It fails closed; build callers must treat any exception as refusal, or the tool should map these to a refusal code."},
+    {"id": "AA-2", "detail": "The aggregate cap is enforced after hashing the member that crosses it, so up to 16MiB of excess reading occurs. A pre-check on count_bytes + fstat size would refuse before reading; this is optional at build scope."},
+    {"id": "AA-3", "detail": "Change detection relies on mtime/ctime resolution and does not see post-visit additions or post-hash writes (declared). Because the runtime verifier checks listed members but not completeness at load, publication custody must bind the enumerated tree immutably (see pending duties)."},
+    {"id": "AA-4", "detail": "PATH_LIMIT and the visit depth check are redundant with the segment caps. Windows reserved names are admitted; if a Windows target is ever added, the profile must be revised explicitly as UNIT.md says."},
+    {"id": "AA-5", "detail": "The subject's socket test fails with AF_UNIX path too long when TMPDIR is long (reproduced at a 104-byte socket path). It is an environment-sensitive test, not a tool defect."},
+    {"id": "AA-6", "detail": "The embedded verifier copy omits subject-02 tests/filesystem.rs, so this subject no longer carries the verifier's real-filesystem tests; the consumer covers only flat fixture interop. The review interop covered nested and deep trees."},
+    {"id": "AA-7", "detail": "build_fixture.py enumerates and then writes into the same fixture tree (the manifest is excluded) and imports jsonschema from the reference environment, which is not byte-pinned. The consumer's 'independent' digest is emitted by the same generator process, so it is independent only of load-time computation."}
+  ],
+  "pendingDuties": [
+    "D9 delivery mapping for asset refusal and after-commit/optional-surface behaviour",
+    "Compiled-pin-only route: a private compiled HostAssetPinV1 constant and sole buildChannel in reporting/assets.rs; the emitted pin record is build data, never a runtime authority file",
+    "Actual offline browser bundle and licenses, with measured sizing against these proposed caps",
+    "Renderer schema binding: joining VerifiedBundle.projection_sha256 to the compiled selected projection schema digest",
+    "Bootstrap, source and tool closure selection and pinning for the build step, including the Python environment and schema tooling",
+    "Immutable publication/quiescence custody and release inventory (TR-CORE signed inventory inclusion)",
+    "Host AssetSource over platform handles without a production reporting-to-platform edge; Linux and platform qualification"
+  ],
+  "notClaimed": "No source promotion, report implementation, real bundle sizing, runtime/performance qualification, M1 or release qualification. The synthetic fixtures are not the OpenSIP browser UI.",
+  "reviewDirectoryWrites": ["review.json", "review.md", "coverage-review.json", "coverage-review.md", "probe-src/", "mutate_assembly.py", "*-results.json", "mutation-assembly-*.json", "work/ (copies, interop bundles, coverage check output)", "t/", "pycache-empty/", "target/"]
+}

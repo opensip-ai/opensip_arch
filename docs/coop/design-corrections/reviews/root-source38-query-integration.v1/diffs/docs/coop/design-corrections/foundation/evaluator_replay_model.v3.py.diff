@@ -1,0 +1,55 @@
+--- docs/coop/design-corrections/foundation/evaluator_replay_model.v3.py
++++ docs/coop/design-corrections/foundation/evaluator_replay_model.v3.py
+@@ -4,6 +4,8 @@
+ reconstructs enumeration and scans native/imported inputs. Claimed findings, witnesses,
+ parameters and verdicts never feed reconstruction. This reference does not execute tools,
+ compilers or providers. Synthetic admitted inputs do not qualify real extraction.
++Regenerated output disagreement raises identity CompleteReplayMismatch; owner admission
++refusals keep their owner classes, listed exactly in REFUSALS.
+ """
+ import copy,importlib.util
+ from pathlib import Path
+@@ -13,6 +15,16 @@
+     s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+ I=load('replay_inputs3',HERE/'evaluator_input_model.v3.py');E=I.E;M=E.M;C=M.C
+ A=load('replay_atom1',HERE/'atom_model.v1.py')
++# Declared typed outcomes of this stack, by exact class object. Every load above minted its own classes, so
++# identity-model.v3 close_run normalizes these objects; it never matches class names or message prefixes.
++UNAVAILABLE=(M.EvidenceUnavailable,I.ENUM.IM.EvidenceUnavailable)
++MISMATCHES=(M.CompleteReplayMismatch,)
++REFUSALS=(C.AdmissionError,C.ValidationError,A.AtomAdmissionError,A.C.AdmissionError,A.N.AdmissionError,A.W.Refusal,
++          I.ENUM.AdmissionError,I.ENUM.NV.AdmissionError,I.ENUM.IM.C.AdmissionError)
++
++def require_replay_equal(actual,expected,key):
++    """Regenerated output comparison boundary."""
++    if not C.equal_typed(actual,expected):raise M.CompleteReplayMismatch(key)
+ 
+ def scanner(normalized,atom_inputs):
+     """Adapt actual atom results to typed proof witnesses; no caller-supplied truth values."""
+@@ -57,22 +69,22 @@
+     seal=objects[run['evaluationSealId']][1];proof=objects[seal['proofBundleId']][1]
+     result=derive(run['planId'],seal['executionPlanId'],seal['evaluatorClosure'],proof['evaluationInputRefs'],objects,blobs,owner)
+     E.compare_complete_replay(proof,result,objects,blobs)
+-    if result['proofBundleId']!=seal['proofBundleId']:raise C.AdmissionError('EVALUATOR_PROOF_ID_REPLAY')
++    if result['proofBundleId']!=seal['proofBundleId']:raise M.CompleteReplayMismatch('EVALUATOR_PROOF_ID_REPLAY')
+     evidence=objects[run['evidenceId']][1]
+     expected_views=E.cset('view2:'+r['digest'] for r in proof['evaluationInputRefs'] if r['domain']=='view')
+     expected_coverages=E.cset([c for v in expected_views for c in objects[v][1]['coverageIds']]+['coverage2:'+r['digest'] for r in proof['evaluationInputRefs'] if r['domain']=='coverage'])
+     expected_evidence={'schemaVersion':3,'planId':run['planId'],'viewIds':expected_views,'coverageIds':expected_coverages,
+         'importIds':owner['plan']['importIds'],'findingIds':result['proof']['findingIds'],'proofBundleId':result['proofBundleId']}
+-    E.require_equal(evidence,expected_evidence,'EVALUATOR_EVIDENCE_REPLAY')
++    require_replay_equal(evidence,expected_evidence,'EVALUATOR_EVIDENCE_REPLAY')
+     expected_eid=M.identifier('semantic-evidence',expected_evidence)
+     expected_seal={'schemaVersion':3,'planId':run['planId'],'executionPlanId':seal['executionPlanId'],'evidenceId':expected_eid,
+         'evaluatorClosure':seal['evaluatorClosure'],'policyDigest':owner['plan']['policyDigest'],
+         'proofBundleId':result['proofBundleId'],'verdict':result['proof']['verdict']}
+-    E.require_equal(seal,expected_seal,'EVALUATOR_SEAL_REPLAY')
++    require_replay_equal(seal,expected_seal,'EVALUATOR_SEAL_REPLAY')
+     expected_run={'schemaVersion':3,'projectId':owner['snapshot']['projectId'],'snapshotId':owner['plan']['snapshotId'],
+         'planId':run['planId'],'evidenceId':expected_eid,'evaluationSealId':M.identifier('evaluation-seal',expected_seal),
+         'capabilityManifestId':owner['plan']['capabilityManifestId']}
+-    E.require_equal(run,expected_run,'EVALUATOR_RUN_REPLAY')
++    require_replay_equal(run,expected_run,'EVALUATOR_RUN_REPLAY')
+     return {'result':'ADMIT','runId':run_id,'proofBundleId':result['proofBundleId'],'findingCount':len(result['proof']['findingIds']),
+         'predicateCount':len(result['proof']['predicateProofs']),'verdict':result['proof']['verdict'],'workUnits':result['workUnits']}
+ 

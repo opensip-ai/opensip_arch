@@ -1,0 +1,1483 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:opensip:product-v1:workflows:evaluator3:report-projection:1",
+  "title": "ReportProjection schemaMajor 1 - embedded HTML report document (AUTHOR CANDIDATE)",
+  "description": "The complete data document embedded in the html v1 renderer output. It is advertised only by the eight inventory4 html commands. envelope is the complete command-envelope:4 value and the only parity source. It is the value the json renderer would emit, except that agentHints is always absent and projectRoot is present only under local-editor-links. panels carry typed optional exploration data under a closed state wrapper. A panel never restates or overrides a parity field, and it never admits evidence, grants permission or computes a verdict. Cross-record joins, exploration byte budgets, the budget omission order and the report codec depth are admission rules of contract.md, and check.py enforces them. The raw SHA-256 of this exact document is the value listed in ReportAssetManifestV1.projectionSchemaSha256s.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaFamily",
+    "schemaMajor",
+    "command",
+    "renderer",
+    "envelope",
+    "supportedReportViews",
+    "budgetProfile",
+    "reportObservedAt",
+    "pathDisclosure",
+    "panels"
+  ],
+  "properties": {
+    "schemaFamily": {
+      "const": "opensip.product.report-projection"
+    },
+    "schemaMajor": {
+      "const": 1
+    },
+    "command": {
+      "$ref": "#/$defs/ReportCommand"
+    },
+    "renderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version"
+      ],
+      "properties": {
+        "format": {
+          "const": "html"
+        },
+        "version": {
+          "const": 1
+        }
+      },
+      "description": "Equals the inventory4 html renderer row {format, version}. It is a compatibility tag, not a new renderer."
+    },
+    "envelope": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:command-envelope:4",
+      "description": "Sole parity source. Its closed schema is unchanged. Renderers read every parity field only here, at the inventory4 parityPaths or fixed selectors."
+    },
+    "supportedReportViews": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/ReportViewId"
+      },
+      "x-opensip-order": "sequence",
+      "description": "The exact per-command view set, fixed below. The browser offers no other data view."
+    },
+    "budgetProfile": {
+      "$ref": "#/$defs/BudgetProfileV1"
+    },
+    "reportObservedAt": {
+      "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/UtcTimestamp",
+      "description": "Host wall-clock observation time of report projection. Availability and history states describe this observation only. It is not trusted time, identity or authority, and opening the file later learns nothing new."
+    },
+    "pathDisclosure": {
+      "$ref": "#/$defs/PathDisclosureV1"
+    },
+    "panels": {
+      "$ref": "#/$defs/PanelsV1"
+    }
+  },
+  "allOf": [
+    {
+      "properties": {
+        "envelope": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "run",
+                "query",
+                "failure"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "agentHints"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "pathDisclosure": {
+            "properties": {
+              "mode": {
+                "const": "relative-only"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "envelope": {
+            "not": {
+              "required": [
+                "projectRoot"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "envelope": {
+            "properties": {
+              "kind": {
+                "const": "failure"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "panels": {
+            "properties": {
+              "evidence": {
+                "$ref": "#/$defs/PanelNotPresentV1"
+              },
+              "graph": {
+                "$ref": "#/$defs/PanelNotPresentV1"
+              },
+              "comparison": {
+                "$ref": "#/$defs/PanelNotPresentV1"
+              },
+              "history": {
+                "$ref": "#/$defs/PanelNotPresentV1"
+              },
+              "catalog": {
+                "$ref": "#/$defs/PanelNotPresentV1"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "default"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "findings",
+              "evidence",
+              "catalog",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "failure"
+                ]
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "evidence",
+              "graph",
+              "catalog"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "comparison"
+                  ]
+                },
+                {
+                  "required": [
+                    "history"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "analyze"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "findings",
+              "evidence",
+              "comparison",
+              "catalog",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "failure"
+                ]
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "evidence",
+              "graph",
+              "comparison",
+              "catalog"
+            ],
+            "not": {
+              "required": [
+                "history"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "audit"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "findings",
+              "evidence",
+              "comparison",
+              "history",
+              "catalog",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "failure"
+                ]
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "evidence",
+              "graph",
+              "comparison",
+              "history",
+              "catalog"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "fit"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "evidence",
+              "catalog",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "run",
+                  "failure"
+                ]
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "evidence",
+              "graph",
+              "catalog"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "comparison"
+                  ]
+                },
+                {
+                  "required": [
+                    "history"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "candidates"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "candidate-list",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "query",
+                  "failure"
+                ]
+              },
+              "querySurface": {
+                "const": "candidate-list"
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "graph"
+            ],
+            "maxProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "inspect"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "candidate-inspection",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "query",
+                  "failure"
+                ]
+              },
+              "querySurface": {
+                "const": "candidate-inspection"
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "graph"
+            ],
+            "maxProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "review-brief"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "review-brief",
+              "graph",
+              "symbol-detail"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "query",
+                  "failure"
+                ]
+              },
+              "querySurface": {
+                "const": "review-brief"
+              }
+            }
+          },
+          "panels": {
+            "required": [
+              "graph"
+            ],
+            "maxProperties": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "repair-preview"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "supportedReportViews": {
+            "const": [
+              "overview",
+              "repair-preview",
+              "catalog"
+            ]
+          },
+          "envelope": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "query",
+                  "failure"
+                ]
+              },
+              "querySurface": {
+                "const": "repair-preview"
+              }
+            }
+          },
+          "panels": {
+            "maxProperties": 0
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "ReportCommand": {
+      "type": "string",
+      "enum": [
+        "default",
+        "analyze",
+        "fit",
+        "audit",
+        "candidates",
+        "inspect",
+        "review-brief",
+        "repair-preview"
+      ],
+      "description": "Exactly the inventory4 commands whose formats contain html. query, repair-verify and every other command gain no HTML."
+    },
+    "ReportViewId": {
+      "type": "string",
+      "enum": [
+        "overview",
+        "findings",
+        "candidate-list",
+        "candidate-inspection",
+        "review-brief",
+        "repair-preview",
+        "evidence",
+        "comparison",
+        "history",
+        "catalog",
+        "graph",
+        "symbol-detail"
+      ]
+    },
+    "BudgetProfileV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profileId",
+        "standing",
+        "documentMaxCanonicalBytes",
+        "envelopeMaxCanonicalBytes",
+        "explorationMaxCanonicalBytes",
+        "maxJsonDepth",
+        "maxGraphSlots",
+        "maxGraphItemsPerSlot",
+        "maxEvidenceEntries",
+        "maxHistoryRuns",
+        "maxHistoryFindingsPerRun",
+        "maxCatalogRules",
+        "maxCapabilityDeclarations",
+        "budgetOmissionOrder",
+        "browserLimits"
+      ],
+      "properties": {
+        "profileId": {
+          "const": "opensip.report-projection.development-limits.1"
+        },
+        "standing": {
+          "const": "development-resource-limits; not measured performance; not release qualification"
+        },
+        "documentMaxCanonicalBytes": {
+          "const": 88145920,
+          "description": "envelopeMaxCanonicalBytes + explorationMaxCanonicalBytes + 65536 for the remaining root members."
+        },
+        "envelopeMaxCanonicalBytes": {
+          "const": 83886080,
+          "description": "80 MiB: 100000 envelope4 findings at the 759-byte constructed realistic FindingSurface, rounded up to a 16 MiB multiple. This required-parity ceiling is never truncated. An envelope above it is a required-delivery failure."
+        },
+        "explorationMaxCanonicalBytes": {
+          "const": 4194304,
+          "description": "Canonical bytes of panels. Equals the accepted exact-codec MAX_BYTES."
+        },
+        "maxJsonDepth": {
+          "const": 38,
+          "description": "Accepted codec depth 32 plus 6, the largest embedding offset gain of an owner record over its admitted document."
+        },
+        "maxGraphSlots": {
+          "const": 6,
+          "description": "floor(4194304 / (1000 x 635-byte constructed GraphNeighborRow))."
+        },
+        "maxGraphItemsPerSlot": {
+          "const": 1000,
+          "description": "graph-query:3 Bounds.maxPageSize."
+        },
+        "maxEvidenceEntries": {
+          "const": 3956,
+          "description": "floor(4194304 / 1060-byte CoverageResultV3 witness)."
+        },
+        "maxHistoryRuns": {
+          "const": 1,
+          "description": "The only selected history source, the audit baseline source Run, names one Run."
+        },
+        "maxHistoryFindingsPerRun": {
+          "const": 5526,
+          "description": "floor(4194304 / 759-byte constructed FindingSurface)."
+        },
+        "maxCatalogRules": {
+          "const": 512,
+          "description": "PolicyDocumentV2 rules maxItems."
+        },
+        "maxCapabilityDeclarations": {
+          "const": 128,
+          "description": "ReleaseCapabilityRegistryV1 maxItems."
+        },
+        "budgetOmissionOrder": {
+          "const": [
+            "history",
+            "graph",
+            "evidence",
+            "catalog",
+            "comparison"
+          ],
+          "description": "Whole-panel omission order when canonical panels exceed explorationMaxCanonicalBytes."
+        },
+        "browserLimits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxLaidOutGraphNodes",
+            "maxLaidOutGraphEdges",
+            "maxRenderedTableRows"
+          ],
+          "properties": {
+            "maxLaidOutGraphNodes": {
+              "const": 2000
+            },
+            "maxLaidOutGraphEdges": {
+              "const": 4000
+            },
+            "maxRenderedTableRows": {
+              "const": 500
+            }
+          },
+          "description": "Browser defensive presentation limits. Applying one is presentation-only view state with a visible disclosure. It never changes embedded data, counts or completeness."
+        }
+      }
+    },
+    "PathDisclosureV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "const": "relative-only"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "editorScheme"
+          ],
+          "properties": {
+            "mode": {
+              "const": "local-editor-links"
+            },
+            "editorScheme": {
+              "type": "string",
+              "enum": [
+                "vscode",
+                "vscode-insiders",
+                "idea"
+              ]
+            }
+          }
+        }
+      ],
+      "description": "R20 single local-link choice. relative-only is the default and forbids envelope.projectRoot. local-editor-links permits it and one allowlisted scheme. No repository-supplied URL is ever used."
+    },
+    "PanelsV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "$ref": "#/$defs/EvidencePanelStateV1"
+        },
+        "graph": {
+          "$ref": "#/$defs/GraphPanelStateV1"
+        },
+        "comparison": {
+          "$ref": "#/$defs/ComparisonPanelStateV1"
+        },
+        "history": {
+          "$ref": "#/$defs/HistoryPanelStateV1"
+        },
+        "catalog": {
+          "$ref": "#/$defs/CatalogPanelStateV1"
+        }
+      },
+      "description": "Every applicable panel is required and carries a state; non-applicable panels are forbidden (per-command rules at the root)."
+    },
+    "PanelNotPresentV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "omitted"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "not-selected",
+                "exploration-budget-exceeded"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "no-admitted-result",
+                "no-run-identity",
+                "evidence-expired",
+                "evidence-purged",
+                "evidence-missing",
+                "source-refused"
+              ]
+            },
+            "detail": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "reason": {
+                    "const": "source-refused"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "detail"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "corrupt"
+            },
+            "reason": {
+              "const": "retained-bytes-corrupt"
+            },
+            "detail": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "reason"
+          ],
+          "properties": {
+            "state": {
+              "const": "incompatible"
+            },
+            "reason": {
+              "const": "retained-schema-major-unsupported"
+            },
+            "detail": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+            }
+          }
+        }
+      ],
+      "description": "Host projection statement that optional data is not embedded. omitted = the host did not project it (not selected, or budget). unavailable = the source could not supply it. corrupt and incompatible = the retained source exists but cannot be admitted. The browser shows the state and never infers an empty or clean result."
+    },
+    "EvidencePanelStateV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "data"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "data": {
+              "$ref": "#/$defs/EvidencePanelV1"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/PanelNotPresentV1"
+        }
+      ]
+    },
+    "GraphPanelStateV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "data"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "data": {
+              "$ref": "#/$defs/GraphPanelV1"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/PanelNotPresentV1"
+        }
+      ]
+    },
+    "ComparisonPanelStateV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "data"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "data": {
+              "$ref": "#/$defs/ComparisonPanelV1"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/PanelNotPresentV1"
+        }
+      ]
+    },
+    "HistoryPanelStateV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "data"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "data": {
+              "$ref": "#/$defs/HistoryPanelV1"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/PanelNotPresentV1"
+        }
+      ]
+    },
+    "CatalogPanelStateV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "data"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "data": {
+              "$ref": "#/$defs/CatalogPanelV1"
+            }
+          }
+        },
+        {
+          "$ref": "#/$defs/PanelNotPresentV1"
+        }
+      ]
+    },
+    "ItemProjectionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "omitted",
+        "omissionCause"
+      ],
+      "properties": {
+        "total": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "omitted": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Uint53"
+        },
+        "omissionCause": {
+          "type": "string",
+          "enum": [
+            "none",
+            "item-limit"
+          ]
+        }
+      },
+      "description": "Host projection layer for a prefix-limited list. total is the retained source count, and omitted = total - embedded. item-limit means the embedded count equals the profile limit. This describes projection only, not source-analysis completeness."
+    },
+    "EvidencePanelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverageId",
+        "entries",
+        "entriesProjection"
+      ],
+      "properties": {
+        "coverageId": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/CoverageId",
+          "description": "Join key. It equals envelope.run.coverageId and restates no parity value."
+        },
+        "entries": {
+          "type": "array",
+          "maxItems": 3956,
+          "items": {
+            "$ref": "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/CoverageResultV3"
+          },
+          "x-opensip-order": "sequence",
+          "description": "Exact retained native CoverageResultV3 values in retained stream order, as a prefix. Each keeps its own coverage, resolutionCompleteness, closedWorld and deficiency, which form the source-analysis layer."
+        },
+        "entriesProjection": {
+          "$ref": "#/$defs/ItemProjectionV1"
+        }
+      }
+    },
+    "GraphPanelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "slots"
+      ],
+      "properties": {
+        "slots": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/GraphSlotV1"
+          },
+          "x-opensip-order": "ordinal"
+        }
+      }
+    },
+    "GraphSlotV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "purpose",
+        "request",
+        "response",
+        "hostProjection"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "neighborhood",
+            "package-coupling",
+            "path",
+            "reach"
+          ]
+        },
+        "request": {
+          "allOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryRequestV1"
+            },
+            {
+              "properties": {
+                "view": {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/ResolvedView"
+                },
+                "operation": {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphOperation"
+                }
+              }
+            }
+          ],
+          "description": "The exact owner request that the host admitted, pinned to a concrete run3 view. latest and snapshotId are forbidden, so the report cannot re-resolve."
+        },
+        "response": {
+          "allOf": [
+            {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphQueryResponseV1"
+            },
+            {
+              "required": [
+                "items"
+              ],
+              "properties": {
+                "operation": {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:graph-query:3#/$defs/GraphOperation"
+                },
+                "termination": {
+                  "const": {
+                    "class": "success"
+                  }
+                }
+              }
+            }
+          ],
+          "description": "The complete owner-admitted graph.* response page, unchanged. Its context (traversalCoverage, countBasis, truncated, totalItems, evidence) is the source-analysis layer. Non-graph operations, whose items are untyped, are refused."
+        },
+        "hostProjection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "continuation"
+          ],
+          "properties": {
+            "continuation": {
+              "type": "string",
+              "enum": [
+                "complete-page-set",
+                "not-embedded"
+              ],
+              "description": "not-embedded iff response.context.nextCursor is present. The report never follows a cursor."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "neighborhood"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.neighbors"
+                  }
+                }
+              },
+              "response": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.neighbors"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "package-coupling"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.neighbors"
+                  },
+                  "params": {
+                    "properties": {
+                      "endpoint": {
+                        "properties": {
+                          "kind": {
+                            "const": "package"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "response": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.neighbors"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "path"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.path"
+                  }
+                }
+              },
+              "response": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.path"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "purpose": {
+                "const": "reach"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "request": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.reach"
+                  }
+                }
+              },
+              "response": {
+                "properties": {
+                  "operation": {
+                    "const": "graph.reach"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ComparisonPanelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison"
+      ],
+      "properties": {
+        "comparison": {
+          "$ref": "urn:opensip:product-v1:workflows:evaluator3:comparison:2",
+          "description": "The complete admitted ComparisonResult named by envelope.run.comparisonResultId. It carries baseline and delta classifications and gate attribution, and its presence never alters the envelope verdict."
+        }
+      }
+    },
+    "HistoryPanelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selection",
+        "runs"
+      ],
+      "properties": {
+        "selection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "baselineId",
+            "requestedRunIds"
+          ],
+          "properties": {
+            "source": {
+              "const": "audit-baseline-source-run"
+            },
+            "baselineId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/BaselineId"
+            },
+            "requestedRunIds": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+              },
+              "x-opensip-order": "sequence",
+              "description": "baseline:2 descriptor.runId of the admitted baseline named by comparison descriptor.baselineId."
+            }
+          }
+        },
+        "runs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "$ref": "#/$defs/HistoryRunV1"
+          },
+          "x-opensip-order": "sequence",
+          "description": "Exactly one row per requestedRunIds member, in that order. A row that cannot be supplied is unavailable. Latest or another Run is never substituted."
+        }
+      }
+    },
+    "HistoryRunV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "runId",
+            "run",
+            "findings",
+            "findingsProjection"
+          ],
+          "properties": {
+            "state": {
+              "const": "present"
+            },
+            "runId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+            },
+            "run": {
+              "allOf": [
+                {
+                  "$ref": "urn:opensip:product-v1:workflows:evaluator3:invocation:3#/$defs/AnalysisResult"
+                },
+                {
+                  "required": [
+                    "runId"
+                  ],
+                  "properties": {
+                    "authority": {
+                      "const": "authoritative"
+                    }
+                  }
+                }
+              ]
+            },
+            "findings": {
+              "type": "array",
+              "maxItems": 5526,
+              "uniqueItems": true,
+              "items": {
+                "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/FindingSurface"
+              },
+              "x-opensip-order": {
+                "by": [
+                  "findingId"
+                ]
+              }
+            },
+            "findingsProjection": {
+              "$ref": "#/$defs/ItemProjectionV1"
+            }
+          },
+          "description": "Retained Run projection. It is deliberately not a CommandEnvelope, so no historical requestId, termination or exit code is invented."
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state",
+            "runId",
+            "availability"
+          ],
+          "properties": {
+            "state": {
+              "const": "unavailable"
+            },
+            "runId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/RunId"
+            },
+            "availability": {
+              "type": "string",
+              "enum": [
+                "expired",
+                "purged",
+                "corrupt",
+                "unavailable"
+              ]
+            },
+            "detail": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/DomainDetail"
+            }
+          }
+        }
+      ]
+    },
+    "CatalogPanelV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rules",
+        "capabilities"
+      ],
+      "properties": {
+        "rules": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "data"
+              ],
+              "properties": {
+                "state": {
+                  "const": "present"
+                },
+                "data": {
+                  "$ref": "#/$defs/RuleCatalogV1"
+                }
+              }
+            },
+            {
+              "$ref": "#/$defs/PanelNotPresentV1"
+            }
+          ]
+        },
+        "capabilities": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state",
+                "data"
+              ],
+              "properties": {
+                "state": {
+                  "const": "present"
+                },
+                "data": {
+                  "$ref": "#/$defs/CapabilityCatalogV1"
+                }
+              }
+            },
+            {
+              "$ref": "#/$defs/PanelNotPresentV1"
+            }
+          ]
+        }
+      },
+      "description": "Private host display projection with explicit translation provenance. Rows are exact admitted owner records. There is no free-text description, because no admitted description owner exists. A row confers no execution, grant or selection permission."
+    },
+    "RuleCatalogV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "gateSeverityAtLeast",
+        "rules"
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "planId",
+            "policyDigest"
+          ],
+          "properties": {
+            "kind": {
+              "const": "run-plan-effective-policy"
+            },
+            "planId": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/PlanId"
+            },
+            "policyDigest": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex"
+            }
+          }
+        },
+        "gateSeverityAtLeast": {
+          "$ref": "urn:opensip:product-v1:policy-document:2#/$defs/Severity"
+        },
+        "rules": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "$ref": "urn:opensip:product-v1:policy-document:2#/$defs/Rule"
+          },
+          "x-opensip-order": "ruleId"
+        }
+      }
+    },
+    "CapabilityCatalogV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "declarations"
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "registrySha256"
+          ],
+          "properties": {
+            "kind": {
+              "const": "release-capability-registry"
+            },
+            "registrySha256": {
+              "$ref": "urn:opensip:product-v1:workflows:evaluator3:common:3#/$defs/Sha256Hex",
+              "description": "Raw SHA-256 of the exact-codec canonical bytes of declarations. This is a report-local integrity join, not an owner identity."
+            }
+          }
+        },
+        "declarations": {
+          "$ref": "urn:opensip:product-v1:native:evidence-schemas:v2#/$defs/ReleaseCapabilityRegistryV1"
+        }
+      }
+    }
+  }
+}

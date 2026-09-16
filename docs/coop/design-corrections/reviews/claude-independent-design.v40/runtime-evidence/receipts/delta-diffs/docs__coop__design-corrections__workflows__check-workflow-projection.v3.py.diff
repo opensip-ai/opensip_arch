@@ -1,0 +1,111 @@
+--- a39/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
++++ b40/docs/coop/design-corrections/workflows/check-workflow-projection.v3.py
+@@ -3840,6 +3840,108 @@
+       _pt2_ov_ref is None and _pt2_ov_res["candidatePolicyDigest"] == _r2_policy_result["candidatePolicyDigest"]
+       and _pt2_ov_res["effectivePolicyDigest"] != _pt2_ov_res["candidatePolicyDigest"] and _pt2_ov_res["overridesApplied"] == _pt2_override["overrides"]
+       and _pt2_cases(_pt2_ov_res)["target-endpoint-discrimination"]["observedVerdict"] == "advisory")
++# ------------------------------------------------ PolicyTestSuiteV2: known hits under missing required evidence (composition §5/§9.5)
++_pt2_req_suite = _PT2["requiredEvidenceSuite"]
++_pt2_req_expect = _PT2["requiredEvidenceSuiteExpect"]
++must_valid("pt2-required-evidence-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_req_suite)
++_pt2_req_res, _pt2_req_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_req_suite))
++_pt2_req = _pt2_cases(_pt2_req_res) if _pt2_req_ref is None else {}
++check("pt2-required-evidence-suite-reaches-the-authored-outcomes",
++      _pt2_req_ref is None and _pt2_req_res["summary"] == _pt2_req_expect["summary"] and _pt2_req == _pt2_req_expect["cases"],
++      _pt2_req if _pt2_req_ref is None else (_pt2_req_ref.detail, _pt2_req_ref.remedy))
++_pt2_hit = _pt2_req.get("known-hit-survives-missing-required-evidence", {})
++check("pt2-known-gating-hit-survives-missing-required-evidence-and-fails",
++      _pt2_hit.get("observedVerdict") == "fail" and ["known-hit-required-test", "src/a.ts", False] in _pt2_hit.get("findings", [])
++      and ["known-hit-required-test-advisory", "src/a.ts", False] in _pt2_hit.get("findings", [])
++      and {"known-hit-required-test", "known-hit-required-test-advisory", "known-false-and-required-test"} <= set(_pt2_hit.get("indeterminateRules", [])), _pt2_hit)
++check("pt2-known-false-under-missing-required-evidence-is-not-an-authoritative-no-match",
++      _pt2_hit.get("expectationOutcomes", [None] * 6)[1:4] == ["indeterminate", "indeterminate", "met"], _pt2_hit)
++_pt2_waived = _pt2_req.get("waived-known-hit-keeps-required-evidence-unknown", {})
++check("pt2-waived-known-hit-keeps-the-required-evidence-unknown",
++      _pt2_waived.get("observedVerdict") == "indeterminate" and ["known-hit-required-test", "src/w.ts", True] in _pt2_waived.get("findings", []), _pt2_waived)
++_pt2_zero = _pt2_req.get("no-selected-subjects-required-evidence-absent", {})
++check("pt2-no-selected-subjects-with-missing-required-evidence-stay-indeterminate",
++      _pt2_zero.get("observedVerdict") == "indeterminate" and _pt2_zero.get("findings") == []
++      and _pt2_zero.get("indeterminateRules") == ["known-false-and-required-test", "known-hit-required-test", "known-hit-required-test-advisory"], _pt2_zero)
++_pt2_partial = _pt2_req.get("optional-only-unknown-under-partial-coverage-is-disclosed", {})
++check("pt2-optional-only-unknown-is-disclosed-not-blocking-under-partial-coverage",
++      _pt2_partial.get("observedVerdict") == "fail" and "optional-only-and-test" not in _pt2_partial.get("indeterminateRules", ["optional-only-and-test"])
++      and _pt2_req.get("required-evidence-present-controls", {}).get("indeterminateRules") == ["known-false-and-required-test", "optional-only-and-test"], _pt2_partial)
++# ------------------------------------------------ PolicyTestSuiteV2: closed policy universe tokens (composition §2, evaluator profile)
++_pt2_umap = json.loads((HERE.parent / "foundation" / "identity-schemas.v3.json").read_text())["x-opensip-evaluator-profile"]["policyUniverseMap"]
++check("pt2-authored-suites-use-the-closed-policy-universe-tokens",
++      sorted(_pt2_umap) == ["rust", "syntax", "typescript"]
++      and all(r["subjectEnumeration"]["universe"] in _pt2_umap for s in (_pt2_suite, _pt2_req_suite) for r in s["candidatePolicy"]["rules"])
++      and all(f["universe"] in _pt2_umap for s in (_pt2_suite, _pt2_req_suite) for c in s["cases"] for f in c["subject"].get("facts", [])))
++
++
++def _pt2_tokens(rule_token, fact_token, first_rule_only=False, disable_first=False):
++    suite = copy.deepcopy(_pt2_req_suite)
++    for i, r in enumerate(suite["candidatePolicy"]["rules"]):
++        if i == 0 or not first_rule_only:
++            r["subjectEnumeration"]["universe"] = rule_token
++    if disable_first:
++        suite["candidatePolicy"]["rules"][0]["enabled"] = False
++    for c in suite["cases"]:
++        for f in c["subject"].get("facts", []):
++            f["universe"] = fact_token
++    return suite
++
++
++_pt2_same = {}
++for _pt2_tok in sorted(_pt2_umap):
++    _pt2_tr, _pt2_tf = WF3.run_admitted_policy_test(_pt2_tokens(_pt2_tok, _pt2_tok))
++    _pt2_same[_pt2_tok] = None if _pt2_tf is not None else (_pt2_tr["summary"], _pt2_cases(_pt2_tr))
++check("pt2-every-registered-universe-token-is-admitted-with-the-same-outcomes",
++      all(v is not None and v == (_pt2_req_expect["summary"], _pt2_req_expect["cases"]) for v in _pt2_same.values()), sorted(k for k, v in _pt2_same.items() if v is None))
++_pt2_cross_res, _pt2_cross_ref = WF3.run_admitted_policy_test(_pt2_tokens("typescript", "rust"))
++check("pt2-facts-of-another-registered-universe-never-occupy",
++      _pt2_cross_ref is None and _pt2_cases(_pt2_cross_res)["known-hit-survives-missing-required-evidence"]["findings"] == []
++      and _pt2_cases(_pt2_cross_res)["known-hit-survives-missing-required-evidence"]["observedVerdict"] == "indeterminate")
++for _pt2_label, _pt2_bad_token, _pt2_disable in (("historical-typescript-v2", "typescript-v2", False), ("arbitrary", "no-such-universe", False),
++                                                 ("disabled-rule", "no-such-universe", True)):
++    _pt2_ur, _pt2_uf = WF3.run_admitted_policy_test(_pt2_tokens(_pt2_bad_token, "typescript", first_rule_only=True, disable_first=_pt2_disable))
++    check("pt2-%s-rule-universe-token-is-a-resolver-refusal" % _pt2_label,
++          _pt2_uf is not None and (_pt2_uf.error_code, _pt2_uf.detail) == ("CONFIG.INVALID", "POLICY.UNKNOWN_RULE")
++          and str(_pt2_uf.remedy) == "EVALUATOR_POLICY_UNIVERSE_UNREGISTERED: " + _pt2_bad_token and _pt2_ur["resolverAccepted"] is False
++          and not valid(U + "command-envelope:3#/$defs/PolicyTestResultRecordV1", {"surface": "policy-test-result", "result": _pt2_ur})[0],
++          (_pt2_uf.error_code, _pt2_uf.detail, _pt2_uf.remedy) if _pt2_uf else "accepted")
++_oc2_route("pt2-fixture-fact-universe-token-unregistered-is-config-invalid", _pt2_tokens("typescript", "typescript-v2"), "CONFIG.INVALID")
++# ------------------------------------------------ PolicyTestSuiteV2: imported fixture rows join the evaluated subject universe (factUniverse)
++_pt2_imp_suite = _PT2["importedUniverseSuite"]
++_pt2_imp_expect = _PT2["importedUniverseSuiteExpect"]
++must_valid("pt2-imported-universe-suite-schema-admitted", U + "policy-test:2#/$defs/PolicyTestSuiteV2", _pt2_imp_suite)
++_pt2_imp_res, _pt2_imp_ref = WF3.run_admitted_policy_test(copy.deepcopy(_pt2_imp_suite))
++_pt2_imp = _pt2_cases(_pt2_imp_res) if _pt2_imp_ref is None else {}
++check("pt2-imported-universe-suite-reaches-the-authored-outcomes",
++      _pt2_imp_ref is None and _pt2_imp_res["summary"] == _pt2_imp_expect["summary"] and _pt2_imp == _pt2_imp_expect["cases"],
++      _pt2_imp if _pt2_imp_ref is None else (_pt2_imp_ref.detail, _pt2_imp_ref.remedy))
++_pt2_imp_keys = ("observedVerdict", "findings", "indeterminateRules")
++_pt2_imp_same = _pt2_imp.get("same-universe-runtime-and-history-hits", {})
++_pt2_imp_foreign = _pt2_imp.get("foreign-universe-imported-rows-do-not-occupy", {})
++_pt2_imp_absent = _pt2_imp.get("same-universe-imported-absence-is-unknown", {})
++_pt2_imp_mixed = _pt2_imp.get("foreign-rows-beside-same-universe-hit", {})
++check("pt2-same-universe-runtime-and-history-rows-are-known-matches",
++      _pt2_imp_same.get("observedVerdict") == "fail" and ["runtime-hit-exists", "src/h.ts", False] in _pt2_imp_same.get("findings", [])
++      and ["history-change-exists", "src/h.ts", False] in _pt2_imp_same.get("findings", []) and _pt2_imp_same.get("indeterminateRules") == [], _pt2_imp_same)
++check("pt2-foreign-universe-runtime-and-history-rows-establish-no-known-match",
++      _pt2_imp_foreign.get("observedVerdict") == "indeterminate" and _pt2_imp_foreign.get("findings") == []
++      and {"history-change-exists", "runtime-hit-exists", "runtime-hit-none"} <= set(_pt2_imp_foreign.get("indeterminateRules", [])), _pt2_imp_foreign)
++check("pt2-foreign-universe-imported-rows-behave-exactly-like-imported-absence",
++      bool(_pt2_imp_foreign) and {k: _pt2_imp_foreign.get(k) for k in _pt2_imp_keys} == {k: _pt2_imp_absent.get(k) for k in _pt2_imp_keys},
++      (_pt2_imp_foreign, _pt2_imp_absent))
++check("pt2-foreign-uncertain-row-neither-occupies-nor-weakens-a-same-universe-hit",
++      _pt2_imp_mixed.get("observedVerdict") == "fail" and ["runtime-hit-exists", "src/h.ts", False] in _pt2_imp_mixed.get("findings", [])
++      and _pt2_imp_mixed.get("indeterminateRules") == ["history-change-exists"], _pt2_imp_mixed)
++check("pt2-imported-optional-evidence-absent-stays-disclosed",
++      {k: _pt2_imp.get("imported-evidence-absent-is-disclosed", {}).get(k) for k in _pt2_imp_keys} == {"observedVerdict": "pass", "findings": [], "indeterminateRules": []})
++_pt2_occupancy = getattr(WF3.policy_test_model(), "_imported_occupancy", None)
++_pt2_row = copy.deepcopy(_pt2_imp_suite["cases"][0]["subject"]["facts"][0])
++check("pt2-imported-occupancy-requires-the-evaluated-subject-and-universe",
++      _pt2_occupancy is not None and _pt2_occupancy(_pt2_row, "src/h.ts", "typescript") is True
++      and _pt2_occupancy(dict(_pt2_row, universe="rust"), "src/h.ts", "typescript") is False
++      and _pt2_occupancy(dict(_pt2_row, universe="syntax"), "src/h.ts", "typescript") is False
++      and _pt2_occupancy(_pt2_row, "src/other.ts", "typescript") is False)
+ _R2_ENVS["policy-test"] = _r2_envelope("policy-test-result", {"surface": "policy-test-result", "result": _r2_policy_result}, _r2_project)
+ _R2_COMMAND_OF["policy-test"] = "policy-test"
+ # baseline show through adoption, admission and current-trust pivot resolution.

@@ -1,0 +1,71 @@
+--- a/docs/v2/contracts/product-v1/security-and-lifecycle.md
++++ b/docs/v2/contracts/product-v1/security-and-lifecycle.md
+@@ -788,6 +788,68 @@
+ the rollback window); `DONE`/`ABORTED` → release only. Cases `crash-at-*`,
+ `registry-changed-*`, `journaled-lease-set-not-exactly-reacquired-*`.
+ 
++### S9.3 Private store-instance lineage (successor; proposed, not accepted)
++
++A numeric store generation is not unique over time: `store-rollback` re-selects a
++retained generation and `core-rollback` never raises the schema, so two physically
++distinct stores can present the same `(storeGeneration, stateSchema)` pair. A
++private **store instance identity** disambiguates them for local operational
++records. It adds no member to `InstallationTransitionIntentV1`,
++`InstallationTransitionJournalV1`, the namespace registry or any signed document,
++introduces no envelope kind and no public major, and mints no D9 class, code or
++exit; its refusals are the existing `TRANSITION.*` set and the existing
++`MIGRATION.CORRUPT` quarantine. It is never a wire field, an authority token or a
++semantic input, and it never enters the pure evaluator or a Run hash.
++
++**Instance identity.** Each physical store instance carries one `storeInstanceId`:
++32 lowercase hexadecimal characters from 128 bits of OS CSPRNG, allocated once
++when that store is created, persisted in that store's own root before the store is
++first published, and never rewritten. It has no ordering and no arithmetic, and
++reading it grants nothing.
++
++**Lineage nodes.** A private append-only table holds one node per admitted binding
++triple `(storeInstanceId, storeGeneration, stateSchema)`, carrying its predecessor
++triple and the `intentDigest` of the transition that selected it; both are `null`
++exactly for the store created at installation. A node is written **after** the
++transition journal record is durably `COMMITTED`, never before, and never inside a
++level-4 grant-journal append lock. Nodes are never rewritten or deleted while any
++record citing their triple is retained.
++
++**Which transitions write a node.** Read the admitted intent's own values, not the
++operation name: this section publishes the store rule for `core-repair`,
++`core-update`, `store-migrate` and `store-rollback` but not for `core-rollback`.
++When `toStoreGeneration` and `toStateSchema` equal their `from` counterparts, the
++same physical store stays selected and no node is written. When the `to` pair
++names a triple that is already an ancestor of the current node, that retained
++predecessor is re-selected, it keeps its original `storeInstanceId`, and no node is
++written. Otherwise the transition materializes a new store, that store receives a
++fresh `storeInstanceId`, and one node is written whose predecessor is the current
++triple. A `to` pair naming neither the current triple, an ancestor, nor a newly
++materialized store refuses `TRANSITION.CURRENT_STORE_MISMATCH`.
++
++**Recovery, total over the states above.** `recover_transition_journal` keeps every
++decision it already makes; this adds no state, code or recovery action.
++`LEASED`, `PREPARING`, `PREPARED` and `ABORTED`: the owner's decision stands and a
++node is expected to be absent, because nodes follow `COMMITTED`; in particular a
++core operation at `PREPARED` still aborts. `COMMITTED` and `DONE`: the node must be
++present, or else reconstructed from the journal record's own from/to generation and
++schema members together with the `storeInstanceId` markers in the fenced
++predecessor and selected store roots, before `RESUME-COMMIT` or release continues.
++No atomicity is claimed between the journal record and the node; the node is
++derivable from durable owner state, so a one-sided footprint reconciles by
++reconstruction rather than by quarantine. A node present for a transition that is
++neither `COMMITTED` nor `DONE`, an unreadable or contradictory marker, or a
++reconstruction that disagrees with a stored node, is `QUARANTINE` /
++`MIGRATION.CORRUPT`.
++
++**Floors and authority are unchanged by this section.** An authorized transition
++keeps the S9 floor rules exactly: migration copies the floors forward into the new
++store, rollback inside the window sets them to the maximum of both stores, and a
++poisoned floor is lowered only by S4.5. An instance identity records which physical
++store is selected; it never lowers a floor and never confers local commit authority.
++An evidence-bundle restore or portable adoption is a separate act that allocates its
++own instance identity, restores no trust floor and grants no local authority.
++
+ ## S10. Execution principal `repository-code`
+ 
+ Principal classes: `first-party`, `repository-code`, `imported-artifact`.

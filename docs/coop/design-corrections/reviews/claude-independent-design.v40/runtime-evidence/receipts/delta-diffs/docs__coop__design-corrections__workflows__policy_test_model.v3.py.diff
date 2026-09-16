@@ -1,0 +1,100 @@
+--- a39/docs/coop/design-corrections/workflows/policy_test_model.v3.py
++++ b40/docs/coop/design-corrections/workflows/policy_test_model.v3.py
+@@ -32,6 +32,9 @@
+ _V2 = json.loads((HERE / "schemas" / "policy-document.v2.schema.json").read_text())["$defs"]
+ _CASES = json.loads((HERE / "schemas" / "policy-test.schema.json").read_text())["$defs"]
+ SEVERITIES = tuple(_V2["Severity"]["enum"])
++# The closed policy universe token map of the evaluator profile (composition contract section 2: unknown tokens refuse
++# admission; historical illustrative tokens such as typescript-v2 are not implicit aliases).
++POLICY_UNIVERSES = json.loads((HERE.parent / "foundation" / "identity-schemas.v3.json").read_text())["x-opensip-evaluator-profile"]["policyUniverseMap"]
+ NUMERIC_FIELDS = frozenset(REGISTRY["fieldFilterSuccessor"]["numericFields"])
+ _fact_members = set(_CASES["FactRecordCandidate"]["properties"])
+ _registry_selectors = {row["observationAddressSelector"] for row in REGISTRY["relations"].values() if row.get("observationAddressSelector")}
+@@ -65,7 +68,15 @@
+                 faults.append("case %s fact %d names unregistered relation %s" % (case["id"], j, fact["relation"]))
+             elif fact["resolution"] not in row["ladder"]:
+                 faults.append("case %s fact %d resolution %s is not a rung of %s" % (case["id"], j, fact["resolution"], fact["relation"]))
++            if fact["universe"] not in POLICY_UNIVERSES:
++                faults.append("case %s fact %d universe %s is not a registered policy universe token" % (case["id"], j, fact["universe"]))
+     return faults
++
++
++def unregistered_universes(policy):
++    """(ruleId, token) of every candidate rule, enabled or not, whose subjectEnumeration.universe is not a token of the closed
++    evaluator profile policy universe map; the evaluator input admission applies the same law to every rule."""
++    return [(r["ruleId"], r["subjectEnumeration"]["universe"]) for r in policy["rules"] if r["subjectEnumeration"]["universe"] not in POLICY_UNIVERSES]
+ 
+ 
+ def apply_overrides(policy, overrides):
+@@ -116,6 +127,12 @@
+     if target_kind is None:
+         return A.FUNK
+     return A.MATCH if _kind(target_kind) == kind else A.NOMATCH  # another first-party kind or external
++
++
++def _imported_occupancy(fact, subject, universe):
++    """A representable imported fixture row occupies the evaluated subject only in that subject's universe (factUniverse): a row
++    of another registered universe is neither a known nor an uncertain observation of this subject."""
++    return fact["subject"] == subject and fact["universe"] == universe
+ 
+ 
+ def _atom(atom, subject, kind, universe, fixture):
+@@ -153,7 +170,7 @@
+     if SELECTORS[spec["observationAddressSelector"]] != "representable":
+         return None, {("unrepresentable", spec["observationAddressSelector"])}
+     for fact in facts:
+-        if fact["subject"] != subject:
++        if not _imported_occupancy(fact, subject, universe):
+             continue
+         key = json.dumps(fact, sort_keys=True)
+         if spec["observationAddressSelector"] == "runtime-subject" and fact.get("observability") not in ("observed-hit", "observable-unhit"):
+@@ -196,7 +213,6 @@
+         target = waiver["target"]
+         if "ruleId" in target:
+             waived.add((target["ruleId"], target["subjectPath"]))
+-    complete = fixture["coverage"] == "complete"
+     available = set(fixture["evidenceAvailable"])
+     findings, indeterminate, optional_absent, unknown = [], [], [], {}
+     fail = gating_unknown = False
+@@ -211,14 +227,13 @@
+         subjects = [s for s in fixture["subjects"] if W.in_scope(scope, s)
+                     and (not enum.get("include") or any(W.glob_match(g, s) for g in enum["include"]))
+                     and not any(W.glob_match(g, s) for g in enum.get("exclude", []))]
+-        if required - available:
+-            indeterminate.append(rid)
+-            unknown[rid] = set(subjects)
+-            gating_unknown = gating_unknown or gating
+-            continue
++        # Composition contract sections 5 and 9.5: every selected subject is evaluated whatever the evidence. A declared REQUIRED
++        # kind absent from evidenceAvailable is a rule-level deficiency independent of the root value: it never suppresses a
++        # known finding, and a live unwaived gating finding still makes the verdict fail.
++        required_absent = required - available
+         kind, universe = _kind(enum["subjectKind"]), enum["universe"]
+         absent_optional = {("evidence-absent", k) for k in optional - available}
+-        rule_unknown, only_optional_absent = set(), True
++        rule_unknown, blocking = set(), bool(required_absent)
+         for subject in subjects:
+             value, causes = _predicate(rule["emitWhen"], subject, kind, universe, fixture)
+             if value is True:
+@@ -227,13 +242,17 @@
+                 fail = fail or (gating and not is_waived)
+             elif value is None:
+                 rule_unknown.add(subject)
+-                only_optional_absent = only_optional_absent and complete and causes <= absent_optional
+-        if rule_unknown and only_optional_absent:
+-            optional_absent.append(rid)
+-        elif rule_unknown:
++                # An unknown root blocks unless its only causes are absent OPTIONAL evidence; an incomplete-Coverage or
++                # uncertain native match, a required kind or a fixture representation limit is itself a blocking cause.
++                blocking = blocking or not causes <= absent_optional
++            elif required_absent:
++                rule_unknown.add(subject)  # a known false root is not an authoritative no-match while required evidence is absent
++        if blocking:
+             indeterminate.append(rid)
+             unknown[rid] = rule_unknown
+             gating_unknown = gating_unknown or gating
++        elif rule_unknown:
++            optional_absent.append(rid)
+     verdict = "fail" if fail else "indeterminate" if gating_unknown else "advisory" if any(not f["waived"] for f in findings) else "pass"
+     return {"verdict": verdict, "findings": findings, "indeterminateRules": sorted(set(indeterminate), key=lambda s: s.encode()),
+             "optionalEvidenceAbsent": sorted(set(optional_absent), key=lambda s: s.encode()), "unknownSubjects": unknown}

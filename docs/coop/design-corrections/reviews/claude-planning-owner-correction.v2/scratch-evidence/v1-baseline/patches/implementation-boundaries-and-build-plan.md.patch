@@ -1,0 +1,156 @@
+--- a/docs/v2/architecture/implementation-boundaries-and-build-plan.md
++++ b/docs/v2/architecture/implementation-boundaries-and-build-plan.md
+@@ -236,29 +236,65 @@
+ is 32 lowercase hexadecimal characters from 128 bits of OS randomness allocated
+ once at authorized store creation. `storeGeneration` is exactly the S9.2
+ admitted `currentStoreGeneration` (`I64NonNegative`), validated against the
+-transition intent’s `from/toStoreGeneration`; it is not a second counter.
+-`stateSchema` uses the owning security `$defs/StateSchema` domain, currently
++transition intent’s `from/toStoreGeneration`; it is not a second counter and it
++is not monotonic, because S9.2 `store-rollback`/`core-rollback` re-select a
++retained earlier generation. `stateSchema` uses the owning security
++`$defs/StateSchema` domain, currently
+ `{1, 2}`. It widens only through an explicit reviewed successor of that owner
+ and supported-reader admission, never because a generic integer can encode it.
+ The binding is custody-protected store metadata; `storeGenerationDigest` is raw
+-SHA-256 of its canonical bytes, used only for local correlation. It is not a new
++SHA-256 over the exact canonical bytes produced by the one foundation
++product-profile canonicalizer of identity §3, selected by security S2 because
++this record carries a `schemaVersion`. It is a raw-artifact digest used only for
++local correlation, never `H(domain, descriptor)`: it is not a new
+ public H-domain, semantic identity or proof that a store is trusted. The active
+ security guard obtains this binding through an admitted handle and registry,
+ not from request fields. Randomness never enters the pure evaluator or Run hash.
++Adding any member would change every historical digest, so this record is frozen
++at version 1; a new member needs a V2 plus a reviewed bridge that preserves the
++original digests, never a silent in-place edit.
+ 
+ The binding survives ordinary restart, a same-store core update that preserves
+ the admitted state schema/store generation, and index rebuild.
+-A newly created/restored store instance receives a new storeInstanceId; an explicit
+-state-schema or store-generation transition publishes a new binding and retains
+-its authorized predecessor association. S9 validates the exact old/new
+-`(storeInstanceId, storeGeneration, stateSchema)` tuple against the transition
+-intent and current registry state. The random instance identity distinguishes
+-separately created/restored stores with coincident numeric generations; it never
+-replaces lifecycle generation checks or restores a backup’s local authority. Old commit rows keep their original digest. Historical
++**Current S9 cannot express this validation, and this proposal does not pretend
++otherwise.** `InstallationTransitionIntentV1` (11 members) and
++`InstallationTransitionJournalV1` (20 members) are closed with
++`additionalProperties: false` and carry no store instance identity, and S9.2's
++`registry` is a `NamespaceList` of namespace strings. The minimal S9 owner
++successor and its private lifecycle companion are therefore specified in
++[store-instance lineage](store-instance-lineage.v1.json): a private
++`StoreInstanceLineageV1` row joined to the existing public journal by its
++`intentDigest`, written under the already-required fence and exact `leaseSet`
++in the same durable step, adding no member to any closed public, signed or
++namespace record and minting no D9 code. That successor must be frozen and
++reviewed; it is not accepted here.
++
++A store instance identity is allocated once per physical store and never
++rewritten. An explicit state-schema or store-generation transition that
++materializes a new physical store publishes a new binding and retains its
++authorized predecessor association. A normal rollback that re-selects the **same
++retained physical old store** keeps that store's original `storeInstanceId`, so
++the active `(namespaceId, storeInstanceId, storeGeneration, stateSchema)` tuple
++is byte-identical to the pre-migration tuple and every association written
++before the forward transition joins the active binding by plain binary equality,
++with no lineage walk and no row rewrite. Associations written in the abandoned
++forward store keep their own digest and are reached only through the lineage row
++or reported unavailable, which is F35 applied in the reverse direction. A newly
++created or restored physical store instead receives a new instance identity and
++never imports local authority, floors or grants. The random instance identity
++distinguishes separately created/restored stores with coincident numeric
++generations; it never replaces lifecycle generation checks or restores a
++backup’s local authority. Old commit rows keep their original digest. Historical
+ lookup follows an admitted migration lineage or reports unavailability; it never
+ rewrites old rows to pretend they were committed by the new instance. Portable
+ adoption is a fresh locally authorized attempt, not recovery of local authority
+-from a backup. Exact lineage validation belongs to lifecycle transitions under S9.
++from a backup. Exact lineage validation belongs to lifecycle transitions under
++the proposed S9 successor. Logical `stateSchema`, the physical carrier format
++owned by the separate versioned-carrier work, and this random instance identity
++are three distinct axes; a carrier-format identifier joins the lineage by
++`(storeInstanceId, storeGeneration)` and must never enter the binding. A byte
++copy of an entire store root is not detected, the same stated bound S5 already
++records for a coherent install-root rollback.
+ 
+ Storage owns an append-only association table, inserted **in the same evidence
+ ledger transaction** as its receipt, Run references, availability and pins.
+@@ -588,12 +624,27 @@
+ Generator library selection and actual digest population occur in the M1 trial,
+ after this row contract is accepted, before generated product files are created.
+ 
+-### Report assets bind to the signed host release
+-
+-Report assets are build outputs in the signed **host release artifact tree**,
+-not a ninth producer `closure2.kind` and not a new semantic Run dependency.
+-The host release’s existing authenticated artifact/catalog association commits
+-an exact asset-manifest regular file and every asset member. Use the selected
++### Report assets bind to a host-embedded pin in the signed release
++
++Report assets are build outputs shipped in the host release tree, not a ninth
++producer `closure2.kind` and not a new semantic Run dependency. **The earlier
++claim that an existing host release association already commits an
++asset-manifest file and every asset member is withdrawn**: the only published
++per-member listing is the DR-103 *component* manifest
++(`component-manifest-schemas.v11` `manifestSchema`, whose `kind` vocabulary is
++`component`), the TR-INDEX-signed catalog `releases[].artifacts[]` row commits
++only `{platform, archiveProfileId, archiveDigest, sha256}`, and S9.1 describes
++the signed core release manifest schema 2 as **prospective**. Load-time asset
++integrity therefore anchors where the trust model already is: a build-embedded
++`HostAssetPinV1` constant inside the host binary, which identity §1 already
++places in the TCB, holding the exact length and raw SHA-256 of the private asset
++manifest that shipped with it. Install-time provenance of the delivered archive
++stays with the existing chain — **TR-CORE** as the core release root role, not
++the component-only `TR-COMPONENT`/`kind=component` path — whose exact CORE
++catalog row shape is not published in candidate25 and is named as an open
++dependency of the separate release/carrier work, not as an existing record.
++[Report asset binding](report-asset-binding.v1.json) owns the closed private
++schemas, the anchor comparison and the rejected alternatives. Use the selected
+ machine platform rows (`linux-x86_64-gnu`, `linux-aarch64-gnu`, `macos-aarch64`,
+ `macos-x86_64`); identical browser bytes may be shared across archives, but no
+ new `platform-independent` platform vocabulary is introduced.
+@@ -606,17 +657,32 @@
+ exact nonnegative integer byte lengths and lowercase SHA-256. Roles are
+ `script`, `style`, `font`, `image` or `notice`; license/notice files are exact
+ retained members too. Paths are relative to the release tree and cannot escape
+-it. No URL fetch, symlink traversal, duplicate JSON key or unknown manifest field
+-is permitted. Build assembly validates all joins and binds the manifest digest
+-into its release descriptor; that descriptor points to the existing signed
+-release artifact association, not a second untrusted self-declaration.
+-
+-At load/embedding, `reporting/assets.rs` receives admitted release bytes and
+-checks the manifest digest, each selected member’s digest/length and projection
+-schema compatibility before use. Trust/installation belongs to lifecycle and
+-security, not the renderer. The build never invokes an ambient package manager.
++it. Rows are regular files only; a directory or symlink at a listed path refuses
++and no symlink is followed, matching the identity rule that `type=dir` and
++`type=symlink` stay delivery rows. No URL fetch, duplicate JSON key or unknown
++manifest field is permitted. Build assembly validates all joins, refuses when
++the selected bundle is missing or incompatible, and compiles the manifest's
++exact length and raw SHA-256 into the host binary as `HostAssetPinV1` with its
++`buildChannel`. No second untrusted self-declaration is introduced, and no
++catalog is consulted at render time.
++
++At load, and only when an asset-consuming renderer has been selected,
++`reporting/assets.rs` resolves the manifest under the pinned release-relative
++root through safe handles, reads it length-bounded, requires byte equality with
++the compiled-in digest, then checks projection-schema compatibility and each
++selected member’s length and digest before use. No caller, request, environment
++variable or configuration file supplies any of those paths. Trust/installation
++belongs to lifecycle and security, not the renderer; `assets.rs` verifies no
++signature and grants nothing.
++The build never invokes an ambient package manager or contacts the network.
+ Missing/incompatible/corrupt required assets use the existing required-delivery
+-operational failure/exit4 and preserve any already committed Run. Development
++operational failure (`operational-failed`, exit 4, `faultCause=delivery-required`,
++`DELIVERY.REQUIRED_FAILED`); after a committed Run the existing
++`DELIVERY.RENDERER_FAILED_AFTER_COMMIT` detail applies and the RunId is
++preserved, and otherwise no RunId is invented. No D9 code, class, exit or detail
++is minted. Absent assets never affect a human/JSON/agent/SARIF invocation, and a
++required HTML request is never silently downgraded to another format.
++Development
+ fixtures are labelled and cannot masquerade as a signed product release. Asset
+ packaging is a delivery input; it neither changes native context nor creates an
+ additional semantic producer identity.

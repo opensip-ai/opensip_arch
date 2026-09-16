@@ -1,0 +1,310 @@
+--- a38/docs/coop/design-corrections/foundation/identity-model.v3.py
++++ b39/docs/coop/design-corrections/foundation/identity-model.v3.py
+@@ -68,6 +68,61 @@
+     try:C.ExactValidator({'$ref':by_path[document]['$id']+selector},registry=registry).validate(value)
+     except C.ValidationError as exc:raise C.AdmissionError('REGISTERED_RECORD:'+selector) from exc
+     return value
++
++# The closing digest law over the FOUNDATION RECORD DOCUMENTS this closure walks through a
++# {document, selector} record. identity-schemas and the relation document carry their own sweeps.
++FOUNDATION_DIGEST_LAW_OWN_SWEEP=('foundation/identity-schemas.v2.json','foundation/identity-schemas.v3.json',
++                                 'foundation/relation-payload-schemas.v2.json')
++BARE_HEX_DIGEST_PATTERN='^[0-9a-f]{64}(?![\\s\\S])'
++_FOUNDATION_DOCUMENTS={}
++def foundation_record_document(document):
++    """The parsed pinned bytes of one foundation record document, loaded once per identity copy."""
++    if document not in _FOUNDATION_DOCUMENTS:
++        _FOUNDATION_DOCUMENTS[document]=json.loads((HERE.parent/document).read_text())
++    return _FOUNDATION_DOCUMENTS[document]
++
++def foundation_digest_annotation_coverage(document_schema):
++    """Every bare 64-hex position of one record document, and whether an `x-opensip-digest` covers it.
++
++    A position is a node whose `pattern` is the bare digest pattern, or a local `$ref` to a `$def` that
++    is. It is covered by an annotation on the leaf, on a branch, on an `items` node or on the enclosing
++    property node (the nullable `oneOf` shape) - never by one on the terminal `DigestHex` `$def`, which
++    would exempt every field of that form at once. Schema-only: it decides law coherence, not bytes."""
++    defs=document_schema.get('$defs',{})
++    hex_defs={name for name,node in defs.items() if type(node) is dict and node.get('pattern')==BARE_HEX_DIGEST_PATTERN}
++    seen={}
++    def walk(node,path,covered,chain=()):
++        if type(node) is list:
++            for index,item in enumerate(node):walk(item,path+'['+str(index)+']',covered,chain)
++            return
++        if type(node) is not dict:return
++        covered=covered or 'x-opensip-digest' in node
++        reference=node.get('$ref')
++        local=isinstance(reference,str) and reference.startswith('#/$defs/')
++        if node.get('pattern')==BARE_HEX_DIGEST_PATTERN or (local and reference.split('/')[-1] in hex_defs):
++            seen[path]=seen.get(path,True) and covered
++            return
++        if local and reference.split('/')[-1] in defs and reference not in chain:
++            walk(defs[reference.split('/')[-1]],path,covered,chain+(reference,))
++        for key,child in node.items():
++            if key=='properties' and type(child) is dict:
++                for name,schema in child.items():walk(schema,path+'/'+name,covered)
++            elif key in ('items','additionalProperties'):walk(child,path+'[]',covered)
++            elif key in ('oneOf','anyOf','allOf') and type(child) is list:
++                for index,branch in enumerate(child):walk(branch,path+'|'+key+str(index),covered)
++    walk({k:v for k,v in document_schema.items() if k!='$defs'},'#',False)
++    for name,node in defs.items():
++        if name not in hex_defs:walk(node,'#/$defs/'+name,False)
++    return {'total':len(seen),'annotated':sum(1 for ok in seen.values() if ok),
++            'unannotated':sorted(path for path,ok in seen.items() if not ok)}
++
++_FOUNDATION_DIGEST_LAW_ADMITTED=set()
++def admit_foundation_digest_law(document):
++    """Refuse to walk a foundation record document that leaves a bare 64-hex position unannotated."""
++    if document in FOUNDATION_DIGEST_LAW_OWN_SWEEP or document in _FOUNDATION_DIGEST_LAW_ADMITTED:return
++    uncovered=foundation_digest_annotation_coverage(foundation_record_document(document))['unannotated']
++    if uncovered:raise C.AdmissionError('FOUNDATION_DIGEST_UNANNOTATED:'+document+':'+','.join(uncovered))
++    _FOUNDATION_DIGEST_LAW_ADMITTED.add(document)
+ 
+ _PARAMETER_ROW_DIGESTS=None
+ def parameter_row_of(schema_digest):
+@@ -608,6 +663,155 @@
+         if index>=len(operands):raise C.AdmissionError('PREDICATE_ADDRESS_RANGE')
+         node=operands[index]
+     return node
++
++_ADMITTED_PREDICATE_NODES=set()
++def admit_program_predicate_node(node):
++    """A fragment-retained digest is still a digest of a NAMED record. `program-predicate.nodeDigest`
++    names its record in its own annotation, so the located node is validated against exactly that
++    {document, selector} before its digest is compared - the annotation is the authority, not this
++    function. The rule program is RuleProgramV2, so the record is the v2 policy document's Predicate;
++    the v1 selector refuses every v2-only discriminator (`endpoint`, `all-covered`). Memoized by the
++    node's canonical bytes because one node is located once per (subject, predicate)."""
++    record=SCHEMA['$defs']['program-predicate']['properties']['nodeDigest']['x-opensip-digest']['record']
++    key=(record['document'],record['selector'],C.canonical(node))
++    if key in _ADMITTED_PREDICATE_NODES:return node
++    try:validate_registered_record(record['document'],record['selector'],node)
++    except C.AdmissionError as exc:raise C.AdmissionError('PROGRAM_PREDICATE_NODE_RECORD:'+record['selector']) from exc
++    _ADMITTED_PREDICATE_NODES.add(key)
++    return node
++
++def snapshot_pruned_tree_faults(source_inventory,read_layouts):
++    """identity section 3 `sourceInventory` law (consumer24 A4), over the retained snapshot inventory and the
++    retained resolution read-set layouts of the Plan-selected native contexts. Returns offending paths (UTF-8 order).
++
++    The inventory is the deterministic custody walk of the admitted first-party files - which the shared discovery
++    rule never walks into a pruned tree - PLUS exactly the bytes the analysis actually read from outside that walk.
++    A row inside a pruned tree is therefore lawful only as a READ: inside a DEPENDENCY tree it must lie inside a
++    package directory (`installPath` or `realPath`) of a retained ResolvedNodeModulesLayoutV1 whose context committed
++    nodeModulesInReadSet, with no further exact `node_modules` segment between that listed directory and the file:
++    explicit nested package custody, so a nested installed package is authorized only by its own row and never
++    through an enclosing listed directory. A VCS-tree or Cargo build-output row is never a read input of any
++    published universe, and the VCS exclusion is checked at every depth before any package authorization. Listed
++    directories are arbitrary admitted CanonicalPaths compared by exact segment prefix; no package root is parsed.
++    Replay decides every INVENTORIED row against the listed directories, nested boundaries included. That no other
++    file was read, that no read file is missing from the inventory, or that the host walked every first-party file,
++    is a host TCB observation a bytes-only replay cannot establish, and this join does not claim it."""
++    DD=native_admission().DD
++    paths=[row['path'] for row in source_inventory]
++    cargo_roots=DD.cargo_roots_from_markers(paths)
++    packages={entry[field].rstrip('/') for layout in read_layouts for entry in layout['entries'] for field in ('installPath','realPath')}
++    faults=[]
++    for path in paths:
++        # Discovery reports the outermost pruned tree. A package read allowance must not
++        # hide a deeper VCS segment: VCS custody bytes are never selected program reads.
++        if any(segment in DD.VCS_TREE_SEGMENTS for segment in path.split('/')):
++            faults.append(path)
++            continue
++        hit=DD.classify_path(path,cargo_roots)
++        if hit is None:continue
++        if hit[1]=='dependency-tree' and any(listed_package_authorizes_read(package,path,DD.DEPENDENCY_TREE_SEGMENTS)
++                                             for package in packages):continue
++        faults.append(path)
++    return sorted(faults,key=lambda p:p.encode('utf-8'))
++
++def listed_package_authorizes_read(package,path,dependency_segments):
++    """Explicit nested package custody (identity section 3, consumer24 A4). A listed installPath or realPath
++    authorizes a read file below it only while the relative suffix below that exact directory has no further exact
++    dependency-tree segment: a nested installed package needs its own retained row whose directory lies below that
++    boundary. The listed directory is an arbitrary admitted CanonicalPath (a package-manager store directory or a
++    workspace link included); nothing is parsed from its spelling, and its own segments may contain node_modules."""
++    if not path.startswith(package+'/'):return False
++    return not any(segment in dependency_segments for segment in path[len(package)+1:].split('/'))
++
++STAGE_OUTPUT_INTERFACE_DIRECTORY='opensip-interface/stage-output/'
++STAGE_OUTPUT_DECLARATION='x-opensip-stage-output'
++_STAGE_OPERATION_SEGMENT=re.compile(r'[a-z0-9][a-z0-9._-]{0,127}')
++def stage_output_schema_member_path(operation):
++    """The exact producer-closure tree path that registers the output schema of `operation`."""
++    if type(operation) is not str or _STAGE_OPERATION_SEGMENT.fullmatch(operation) is None:
++        raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_OPERATION_NOT_A_PATH_SEGMENT:'+repr(operation))
++    return STAGE_OUTPUT_INTERFACE_DIRECTORY+operation+'.schema.json'
++
++def admit_stage_output_schema(spec,producer,raw):
++    """Stage output schema OWNERSHIP (identity section 3 stage-spec; consumer24 S1). Returns the parsed document.
++
++    `outputSchemaDigest` used to be admitted as any retained blob: an arbitrary retained byte string became the
++    'registered' output schema by assertion. The owner of an operation's output contract is the producer interface
++    that defines the operation, so registration is membership in THAT closure: the stage-spec's producerClosure must
++    carry, at `opensip-interface/stage-output/<operation>.schema.json`, exactly these bytes, and the document must be
++    a JSON Schema 2020-12 document declaring `x-opensip-stage-output` = {schemaVersion 1, operation, outputDomains}
++    equal to the stage-spec's own. Each failure refuses by its own name; retained-but-unregistered bytes refuse as
++    UNREGISTERED, never as a lookup miss that some fallback could satisfy."""
++    path=stage_output_schema_member_path(spec['operation'])
++    members=[row for row in producer['tree'] if row['path']==path]
++    if not members:raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_UNREGISTERED:'+path)
++    if members[0]['sha256']!=spec['outputSchemaDigest']:raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_REGISTRATION_MISMATCH:'+path)
++    if type(raw) is not bytes or hashlib.sha256(raw).hexdigest()!=spec['outputSchemaDigest']:raise C.AdmissionError('BLOB_DIGEST')
++    from jsonschema import Draft202012Validator
++    from jsonschema.exceptions import SchemaError
++    try:document=C.parse(raw)
++    except (C.AdmissionError,ValueError) as exc:raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID:'+path) from exc
++    if type(document) is not dict or document.get('$schema')!='https://json-schema.org/draft/2020-12/schema':
++        raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID:'+path)
++    try:Draft202012Validator.check_schema(document)
++    except SchemaError as exc:raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_DOCUMENT_INVALID:'+path) from exc
++    declared={'schemaVersion':1,'operation':spec['operation'],'outputDomains':spec['outputDomains']}
++    if not C.equal_typed(document.get(STAGE_OUTPUT_DECLARATION),declared):
++        raise C.AdmissionError('STAGE_OUTPUT_SCHEMA_DECLARATION_MISMATCH:'+path)
++    return document
++
++NORMALIZATION_MAP_PATH=DIGESTS['normalizationSpecificationLaw']['closureTreePath']
++def admit_normalization_specification(level,level_version,closure,blob_of):
++    """The clones level specification's OWNER and LOCATION (normalizationSpecificationLaw; consumer24 S2).
++
++    `normalisationVersion` used to be admitted as ANY retained blob: a specification of another level, of another
++    language's closure or of nothing at all re-hashed and closed. It is now the specification the closure that
++    interprets the body publishes for THIS level: that closure's tree carries C(normalization-specification-map) at
++    NORMALIZATION_MAP_PATH, the map's row for `level` names `level_version`, and that digest is a member of the same
++    tree. `blob_of` is the Run's retained-byte accessor, so absent promised bytes stay retention loss."""
++    members={row['path']:row for row in closure['tree']}
++    if NORMALIZATION_MAP_PATH not in members:raise C.AdmissionError('BODY_NORMALIZATION_MAP_MISSING:'+NORMALIZATION_MAP_PATH)
++    raw=blob_of(members[NORMALIZATION_MAP_PATH]['sha256'])
++    try:record=C.parse(raw)
++    except (C.AdmissionError,ValueError) as exc:raise C.AdmissionError('BODY_NORMALIZATION_MAP_INVALID') from exc
++    if C.canonical(record)!=raw:raise C.AdmissionError('BODY_NORMALIZATION_MAP_INVALID')
++    schema=copy.deepcopy(SCHEMA);schema['$ref']='#/$defs/normalization-specification-map'
++    try:C.validate(schema,record)
++    except (C.AdmissionError,C.ValidationError) as exc:raise C.AdmissionError('BODY_NORMALIZATION_MAP_INVALID') from exc
++    levels=[row['level'].encode('utf-8') for row in record['levels']]
++    if any(not a<b for a,b in zip(levels,levels[1:])):raise C.AdmissionError('BODY_NORMALIZATION_MAP_INVALID')
++    mapped=[row for row in record['levels'] if row['level']==level]
++    if not mapped:raise C.AdmissionError('BODY_NORMALIZATION_LEVEL_UNMAPPED:'+str(level))
++    if mapped[0]['specificationDigest']!=level_version:raise C.AdmissionError('BODY_NORMALIZATION_LEVEL_VERSION_MISMATCH:'+str(level))
++    if level_version not in {row['sha256'] for row in closure['tree']}:
++        raise C.AdmissionError('BODY_NORMALIZATION_SPECIFICATION_NOT_IN_CLOSURE:'+str(level))
++    blob_of(level_version)
++    return record
++
++def body_eligibility_table(universe_row):
++    """`{suffix: label}` deciding whether a path is BODY-ELIGIBLE under one native semantic universe
++    (x-opensip-digest-domains.bodyEligibilityLaw).
++
++    Read from the row's own `languageVersionBinding.bodyEligibility`, never restated here:
++    `dialect-table` is that row's published closed dialect table, `closed-suffix-set` is its listed
++    suffixes. The answer depends on the universe DOMAIN alone - never on ownership, program
++    membership, grammar selection or resolution - so an eligible path whose owner or inputs are
++    incomplete stays owed. A row without a declaration refuses rather than defaulting."""
++    binding=(universe_row or {}).get('languageVersionBinding') or {}
++    language=str((universe_row or {}).get('language'))
++    eligibility=binding.get('bodyEligibility')
++    if not isinstance(eligibility,dict):raise C.AdmissionError('BODY_ELIGIBILITY_UNDECLARED:'+language)
++    if eligibility.get('form')=='dialect-table':
++        dialect=binding.get('dialect') or {}
++        if dialect.get('form')!='closed-suffix-table' or not isinstance(dialect.get('table'),dict) or not dialect['table']:
++            raise C.AdmissionError('BODY_ELIGIBILITY_FORM:'+language)
++        return dict(dialect['table'])
++    if eligibility.get('form')=='closed-suffix-set':
++        suffixes=eligibility.get('suffixes')
++        if not isinstance(suffixes,list) or not suffixes or any(type(s) is not str or not s for s in suffixes):
++            raise C.AdmissionError('BODY_ELIGIBILITY_FORM:'+language)
++        return {suffix:suffix for suffix in suffixes}
++    raise C.AdmissionError('BODY_ELIGIBILITY_FORM:'+language)
+ 
+ 
+ class EvidenceUnavailable(C.AdmissionError):
+@@ -845,7 +1049,8 @@
+         validate_registered_record(document,selector,value)
+         parsed[key]=value
+         if document.startswith('foundation/'):
+-            owner=json.loads((HERE.parent/document).read_text())
++            admit_foundation_digest_law(document)
++            owner=foundation_record_document(document)
+             selected=owner
+             if selector not in ('','#'):
+                 for token in selector.removeprefix('#/').split('/'):selected=selected[token.replace('~1','/').replace('~0','~')]
+@@ -1200,13 +1405,18 @@
+         rather than vacuously complete. The `symbol` branch mirrors `syntax_capability_prerequisite`
+         for a future row that joins a body identity to a non-path subject kind; no relation reaches
+         it today. Like its siblings it never inspects whether facts exist, so an EMPTY view is judged
+-        on the same evidence as a populated one."""
++        on the same evidence as a populated one.
++
++        EVERY UNIVERSE, THROUGH ITS BODY ELIGIBILITY (consumer24 M1). The suffix question is asked of
++        `bodyEligibility`, not of the dialect form, so Rust is judged symmetrically: its closed suffix
++        set makes a clones scope over `Cargo.toml` a disclosed unknown exactly as `package.json` is
++        under TypeScript. A `.rs` path no selected target compiles is still ELIGIBLE and keeps the
++        ownership prerequisite's own treatment."""
+         row=RELATIONS.get(scope['relation'])
+         if row is None or 'bodyIdentityJoin' not in row:return
+         admit_frame(scope['sourceUniverse'],'native-semantic-universe')
+         domain,universe,universe_row,universe_retained=native_universes[scope['sourceUniverse']]
+-        dialect=universe_row.get('languageVersionBinding',{}).get('dialect')
+-        if not isinstance(dialect,dict) or dialect.get('form')!='closed-suffix-table':return
++        dialect={'table':body_eligibility_table(universe_row)}
+         if row.get('subjectKind')=='source-path':
+             paths,require_all=list(scope['subjects']),True
+         else:
+@@ -1304,6 +1514,11 @@
+         admit_frame(context_digest,'native-context')
+         context_domain,context,_admission,_retained=native_contexts[context_digest]
+         if context_domain!=universe_row['contextDomain']:raise C.AdmissionError('BODY_LANGUAGE_UNIVERSE_CONTEXT_DOMAIN:'+context_domain)
++        # normalizationSpecificationLaw: the level version is the specification the body's INTERPRETING closure
++        # publishes for this level, not any retained blob.
++        interpreter=context
++        for step in universe_row['languageVersionBinding']['normalizationClosure']['path']:interpreter=interpreter[step]
++        admit_normalization_specification(level,level_version,get(interpreter,'closure'),blob)
+         anchors=fact['anchors']
+         # One cardinality statement, enforced once. `anchorCardinality` here is a declared MIRROR of
+         # the relation's own `anchorLaw`, which `anchor_law` above already enforced for every
+@@ -1515,6 +1730,12 @@
+         operation=row.get('preparedResolutionGrantOperations',{}).get(universe.get('preparedResolution'))
+         if operation is not None and operation not in grant['analysisOperations']:
+             raise C.AdmissionError('PREPARED_RESOLUTION_GRANT_JOIN:'+operation)
++    # section 3 `sourceInventory`: a pruned-tree row is only lawful as a read recorded by a selected context.
++    read_layouts=[context_retained['nodeModulesLayout'] for context_domain,context,_admission,context_retained in native_contexts.values()
++                  if context_domain=='native.context.typescript.v2' and context.get('nodeModulesLayoutDigest') is not None
++                  and context_retained.get('nodeModulesLayout') is not None]
++    unread=snapshot_pruned_tree_faults(snapshot['sourceInventory'],read_layouts)
++    if unread:raise C.AdmissionError('SNAPSHOT_PRUNED_TREE_NOT_A_READ:'+unread[0])
+     universe_digests=set()
+     for key in list(seen):
+         domain=objects[key][0]
+@@ -1559,6 +1780,7 @@
+         if spec['producerClosure'] not in plan['semanticClosures']:raise C.AdmissionError('STAGE_SPEC_UNSELECTED_PRODUCER')
+         if not C.equal_typed(spec['outputDomains'],stage['outputDomains']):raise C.AdmissionError('STAGE_SPEC_OUTPUT_DOMAIN_JOIN')
+         if any(row not in analysis_spec['parameters'] for row in spec['parameters']):raise C.AdmissionError('STAGE_SPEC_HIDDEN_PARAMETER')
++        admit_stage_output_schema(spec,get(spec['producerClosure'],'closure'),blob(spec['outputSchemaDigest']))
+ 
+     def payload_of_coverage(coverage):
+         return registered_payload(coverage['payloadDigest'],
+@@ -1610,6 +1832,7 @@
+         if pred['ruleId'] not in rules:raise C.AdmissionError('PROGRAM_PREDICATE_RULE_UNKNOWN')
+         node=predicate_node_at(rules[pred['ruleId']]['emitWhen'],addressed['predicateId'])
+         if node['op']!=addressed['operation']:raise C.AdmissionError('PROGRAM_PREDICATE_NODE_OPERATION')
++        admit_program_predicate_node(node)
+         if hashlib.sha256(C.canonical(node)).hexdigest()!=addressed['nodeDigest']:raise C.AdmissionError('PROGRAM_PREDICATE_NODE_DIGEST')
+         children=predicate_child_addresses(node,addressed['predicateId'])
+         if sorted(witness['childPredicateIds'])!=sorted(children):raise C.AdmissionError('WITNESS_CHILD_ADDRESS_JOIN')
+@@ -1692,11 +1915,11 @@
+             scope=get(coverage['scopeId'],'subject-scope')
+             unresolved=[{'relation':row['relation'],'referrer':row['referrer'],'edgeKind':row['edgeKind']}
+                         for row in unresolved_edge_payloads(view)]
+-            # The owning universe's own dialect spec is handed to the producer boundary so the
+-            # SAME derivation runs there, on the same inputs, before closure re-derives it below.
+-            # It is looked up from the retained universe record, never from the coverage payload.
+-            _scope_dialect=(native_universes[scope['sourceUniverse']][2].get('languageVersionBinding',{})
+-                            .get('dialect') if scope['sourceUniverse'] in native_universes else None)
++            # The owning universe's own body-eligibility table is handed to the producer boundary so
++            # the SAME derivation runs there, on the same inputs, before closure re-derives it below.
++            # It is looked up from the retained universe row, never from the coverage payload.
++            _scope_dialect=({'table':body_eligibility_table(native_universes[scope['sourceUniverse']][2])}
++                            if scope['sourceUniverse'] in native_universes else None)
+             admitted=native_admission().admit_coverage_result_v3(coverage_payload,scope,unresolved,coverage['payloadSchemaDigest'],_scope_dialect)
+             if admitted['result']!='ADMIT':
+                 raise C.AdmissionError('COVERAGE_PRODUCER_ADMISSION:'+','.join(admitted['refusals']+[str(f) for f in admitted['faults']]))

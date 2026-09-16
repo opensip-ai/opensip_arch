@@ -1,0 +1,107 @@
+{
+  "session_id": "9d3dfb70-b2d3-498c-a3c1-f8de9e488514",
+  "total_cost_usd": 86.67885450000004,
+  "usage": {
+    "input_tokens": 4994,
+    "cache_creation_input_tokens": 2554783,
+    "cache_read_input_tokens": 68127204,
+    "output_tokens": 1013331,
+    "output_tokens_details": {
+      "thinking_tokens": 402005
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 2554783,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 1413,
+        "cache_read_input_tokens": 682333,
+        "cache_creation_input_tokens": 671,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 671
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-haiku-4-5-20251001": {
+      "inputTokens": 1514,
+      "outputTokens": 15,
+      "cacheReadInputTokens": 0,
+      "cacheCreationInputTokens": 0,
+      "webSearchRequests": 0,
+      "costUSD": 0.001589,
+      "contextWindow": 200000,
+      "maxOutputTokens": 32000,
+      "thinkingTokens": 0,
+      "canonicalModel": "claude-haiku-4-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    },
+    "claude-opus-5": {
+      "inputTokens": 31485,
+      "outputTokens": 1039021,
+      "cacheReadInputTokens": 69992971,
+      "cacheCreationInputTokens": 2554783,
+      "webSearchRequests": 0,
+      "costUSD": 86.67726550000005,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 402005,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01H86p18z8XqgfudNtfvFrzj",
+      "tool_input": {
+        "command": "cd /private/tmp/opensip-design-corrections/consumer-b.v24/subject && find . -type f -exec ls -l {} \\; && find . -type f | xargs shasum -a 256",
+        "description": "List subject files with sizes and SHA-256"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01LMAa9bVM92T2qgXiKmtu6N",
+      "tool_input": {
+        "command": "python3 -c \"\nimport os\nr='/private/tmp/opensip-design-corrections/consumer-b.v24/subject/'\nfor d,_,fs in os.walk(r+'docs'):\n  for f in sorted(fs):\n    p=os.path.join(d,f); b=open(p,'rb').read()\n    print(b.count(b'\\n'), max(len(l) for l in b.split(b'\\n')), p.split('subject/')[1])\n\" | sort -k3",
+        "description": "Count lines and max line length per kit file"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01JCAF2K5TifhWBtuXNGe2iF",
+      "tool_input": {
+        "command": "python3 - <<'EOF'\nimport json, os\nroot='/private/tmp/opensip-design-corrections/consumer-b.v24/subject/docs/'\nout='/private/tmp/opensip-design-corrections/consumer-b.v24/output/notes/'\ndef short(v):\n    s=json.dumps(v,ensure_ascii=False,sort_keys=True)\n    return s if len(s)<=240 else s[:237]+'...'\ndef prop_line(name,p):\n    keys=[]\n    if not isinstance(p,dict): return f\"  {name}: {short(p)}\"\n    for k in ('type','const','enum','pattern','$ref','minItems','maxItems','minimum','maximum','minLength','maxLength','uniqueItems','x-opensip-order','x-opensip-digest','oneOf','anyOf','items','additionalProperties','required','properties'):\n        if k in p:\n            v=p[k]\n            if k=='properties': v=sorted(v.keys())\n            if k=='items' and isinstance(v,dict): v={kk:vv for kk,vv in v.items() if kk in('$ref','type','x-opensip-order','enum','pattern','x-opensip-digest','required')}\n            keys.append(f\"{k}={short(v)}\")\n    extra=[k for k in p if k.startswith('x-opensip') and k not in('x-opensip-order','x-opensip-digest')]\n    for k in extra: keys.append(f\"{k}={short(p[k])}\")\n    return f\"  {name}: \"+' | '.join(keys)\ndef dump(rel):\n    d=json.load(open(root+rel))\n    lines=[f\"# {rel}\", \"top-level keys: \"+', '.join(d.keys())]\n    for k,v in d.items():\n        if k in('$defs','definitions'): continue\n        if k.startswith('x-opensip') or k in ('properties','required','type'):\n            lines.append(f\"## {k}: {short(v) if not isinstance(v,dict) else 'keys='+short(list(v.keys()))}\")\n    defs=d.get('$defs',{})\n    for name,s in defs.items():\n        if not isinstance(s,dict): lines.append(f\"### {name}: {short(s)}\"); continue\n        hdr=[f\"### {name}\"]\n        for k in ('type','required','additionalProperties','oneOf','anyOf','allOf','enum','const','pattern','$ref','x-opensip-order','items','description'):\n            if k in s:\n                v=s[k]\n                if k=='description': v=v[:300]\n                hdr.append(f\"{k}={short(v)}\")\n        for k in s:\n            if k.startswith('x-opensip') and k!='x-opensip-order': hdr.append(f\"{k}={short(s[k])}\")\n        lines.append(' | '.join(hdr))\n        for pn,p in s.get('properties',{}).items():\n            lines.append(prop_line(pn,p))\n    return '\\n'.join(lines)\nfiles=['coop/design-corrections/foundation/identity-schemas.v3.json','coop/design-corrections/native/native-evidence.schemas.v2.json','coop/design-corrections/foundation/relation-payload-schemas.v2.json','coop/design-corrections/workflows/schemas/evaluator3/common.schema.json','coop/design-corrections/workflows/schemas/policy-document.v2.schema.json','coop/design-corrections/workflows/schemas/policy-document.schema.json','coop/design-corrections/foundation/enumeration-plan.schema.v1.json','coop/design-corrections/foundation/subject-inventory.schema.v1.json','coop/design-corrections/foundation/execution-inputs.schema.v1.json','coop/design-corrections/foundation/evaluator-emission-plan.schema.v1.json','coop/design-corrections/workflows/schemas/evaluator3/graph-query.schema.json','coop/design-corrections/workflows/schemas/evaluator3/command-envelope.schema.json','coop/design-corrections/workflows/schemas/imported-evidence.schema.json','coop/design-corrections/foundation/evaluator-fault-observation.schema.v3.json','coop/design-corrections/foundation/target-attribution.schema.v2.json','coop/design-corrections/native/fact-batch.schema.v3.json','coop/design-corrections/native/occupancy-companion.schema.v1.json','coop/design-corrections/native/dispatch-binding.schema.v1.json','coop/design-corrections/foundation/incoming-search.schema.v1.json','coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json','coop/design-corrections/workflows/schemas/evaluator3/comparison-result.schema.json','coop/design-corrections/workflows/schemas/evaluator3/baseline-artifact.schema.json','coop/design-corrections/workflows/schemas/evaluator3/repair.schema.json','coop/design-corrections/workflows/schemas/evaluator3/detector-manifest.schema.json','coop/design-corrections/foundation/product-configuration.schema.v2.json','coop/design-corrections/foundation/import-source-context.schema.json','coop/design-corrections/workflows/schemas/test-execution.schema.json','coop/design-corrections/foundation/provider-target-attribution-return.schema.v2.json']\nos.makedirs(out+'schemas',exist_ok=True)\nfor f in files:\n    txt=dump(f)\n    fn=out+'schemas/'+f.split('/')[-2]+'__'+f.split('/')[-1]+'.txt'\n    open(fn,'w').write(txt)\n    print(len(txt.splitlines()), len(txt), fn.split('notes/')[1])\nEOF",
+        "description": "Write compact schema summaries into notes directory"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01LeNA39h7eywSyTZCgub8iy",
+      "tool_input": {
+        "command": "cd /private/tmp/opensip-design-corrections/consumer-b.v24/subject/docs/v2/contracts/product-v1 && sed -n 928,955p workflows-and-surfaces.md; echo -----; awk 'NR>=587 && NR<=927 && /[Aa]uthoriz/ {print NR\": \"$0}' workflows-and-surfaces.md | head -40; echo ----; awk 'NR>=956 && NR<=1134 && /DELIVERY|required renderer|purge|replay/ {print NR\": \"$0}' workflows-and-surfaces.md | head -30",
+        "description": "Show test execution section and authorization/purge lines in workflows doc"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 567,
+  "subtype": "success",
+  "result": "**Verdict: CHANGES_REQUIRED.** The review is written to `output/blind-review.md` and `output/blind-review.json`. All 123 requirements and 8 standing rules were executed with measured outputs; none is unexecuted or failed. The three future-qualification items were not performed, and are recorded as future work rather than design omissions.\n\n**What was checked**\n- **Kit custody:** the input manifest, its parent hash and all 102 files were re-checked at the end and are unchanged.\n- **Complete Runs:** 26 Runs (4 syntax, 3 TypeScript, 6 Rust, 13 same-project comparison Runs) each passed full closure and independent replay in a separate process. The recomputed proofs match the retained proofs byte for byte, and each Run's inputs, witnesses and proof are exported.\n- **Tamper and mutation tests:** changing a Run's logical result while keeping its identities valid is always refused on replay. Of the 32 mutation variants, 30 are refused. The other two are deliberate measurement variants that admit: `syntax-code~budget-exhausted` (seals indeterminate) and `syntax-code~stage-output-schema-relation-doc` (the evidence for S1).\n- **Graph query:** 53 query vectors over the admitted Runs, 0 failures.\n- **Phases 7\u20138:** envelopes, baseline/comparison, authorization and D9 vectors are all built.\n\n**MUST issues**\n- **M1:** under the default profile, a required clones census over non-code files leaves every TypeScript unit, and any syntax unit containing a non-code file, stuck at indeterminate. The same repository shape passes under Rust.\n- **M2:** the digest rule for predicate nodes points at the v1 policy schema. Any rule using the newer `endpoint` field makes a valid Run unclosable (measured refusal).\n- **M3:** the order of units and rows in unit membership is never published, yet it feeds the PlanId. The kit cites a `discovery-defaults.py` file that is not in the kit.\n- **M4:** `detectorId` has no derivation, but it is part of the baseline identity and the exact detector match used in comparisons.\n- **M5:** the query command's required `query-response` parity field has no slot in the JSON command envelope; adding one is refused by the schema.\n\n**SHOULD issues**\n- **S1:** no fixed list of stage output schemas; two different run identities both admit for the same plan.\n- **S2:** the custody link for clone normalization specifications is unnamed.\n- **S3:** nothing creates a zero-config syntax-only unit.\n- **S4:** the value of `targetUniverse` in coverage accounts is unstated, and it is identity-bearing.\n- **S5:** no recipe for `argvDigest` in execution grants.\n- **S6:** three failure goldens have no detail code, but a failure envelope requires `errors[]`.\n- **S7:** no indeterminate reason fits unknown absence that has neither an evidence nor a pivot cause.\n\nThere are also 14 advisories, all listed in `notes/10-gaps.md`.\n\n**Caveats**\n- **cb24 choices:** where the kit had no recipe, I made a choice and named it as a `cb24` choice (for example `detectorId = contributionId`, the unit/row order, the `argvDigest` recipe). Those choices mean the exported identities can't be treated as canonical until M3\u2013M5 and S5 are resolved.\n- **Root admission:** root admission of the exported bytes is a separate gate I can't observe; the review makes no product qualification claim.\n- **Helper corrections:** 13 fixes to my own reconstruction tooling were made from the kit alone, with the failed attempts kept. None of them is counted as a design gap.\n\nTo recompute from scratch, run these from `output/`:\n```text\n/tmp/opensip-architecture-review-env/bin/python -I -B tools/from_scratch.py\n/tmp/opensip-architecture-review-env/bin/python -I -B tools/replay_export.py\n```",
+  "type": "result",
+  "duration_ms": 11160474
+}

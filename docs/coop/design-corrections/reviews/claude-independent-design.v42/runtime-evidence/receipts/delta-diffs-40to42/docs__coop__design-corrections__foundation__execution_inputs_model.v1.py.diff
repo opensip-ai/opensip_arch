@@ -1,0 +1,55 @@
+--- a40/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
++++ b42/docs/coop/design-corrections/foundation/execution_inputs_model.v1.py
+@@ -1139,20 +1139,29 @@
+                 continue
+             if uni is None:
+                 continue
+-            matched_u = False
+-            matched_rel = False
++            # Contract §3 "View attribution": the binding universe and a matrix relation of this
++            # capability hold on ONE AND THE SAME named scope. A U match on one scope plus a
++            # relation match on another attributes nothing. The matrix cell state plays no part,
++            # so an UNSUPPORTED-TYPED row names its returned view exactly as a supported row does;
++            # a candidate-only capability (no matrix relations) needs the universe alone.
++            same_scope = False
+             for sid in view.get("scopeIds") or []:
+                 sc = objects.get(sid)
+                 if not sc or sc[0] != "subject-scope" or not isinstance(sc[1], dict):
+                     continue
+-                if sc[1].get("sourceUniverse") == uni:
+-                    matched_u = True
+-                if sc[1].get("relation") in cap_rels or (not cap_rels and cell["capabilityId"] in CANDIDATE_CAPS):
+-                    matched_rel = True
+-                if sc[1].get("enumeratorClosure") and producer and sc[1].get("enumeratorClosure") != producer:
+-                    continue
+-            if matched_u and (matched_rel or not cap_rels):
+-                attributed.append(hx)
++                if sc[1].get("sourceUniverse") == uni and (not cap_rels or sc[1].get("relation") in cap_rels):
++                    same_scope = True
++            if not same_scope:
++                continue
++            attributed.append(hx)
++            # Contract §3 named-scope check, for EVERY account applicability: an attributed view
++            # names no scope of another universe, with or without Coverage on it. load_coverage
++            # sees only supported-available Coverage envelopes, so it cannot decide this for an
++            # unsupported-typed row or for a coverage-less scope (§5 per-universe clause).
++            for sid in view.get("scopeIds") or []:
++                sc = objects.get(sid)
++                if sc and sc[0] == "subject-scope" and isinstance(sc[1], dict) and sc[1].get("sourceUniverse") != uni:
++                    _add(faults, "EXECUTION_INPUTS_COVERAGE_DERIVE")
+         attributed = canon_str_list(attributed)
+         cell_view_hexes[(ci, po)] = attributed
+         if not C.equal_typed(row["viewDigests"], attributed):
+@@ -1659,8 +1668,10 @@
+     expected_set = set()
+     for ref in captured_stage_refs:
+         expected_set.add((ref["domain"], ref["digest"]))
+-    view_hexes = {hx for hexes in cell_view_hexes.values() for hx in hexes}
+-    view_hexes.update(ref["digest"] for ref in captured_stage_refs if ref["domain"] == "view")
++    # Contract §1: the stage-produced members of selectedRefs are EXACTLY the union of complete receipt
++    # outputRefs. An attributed view (§3) is one of those captured returns, never an addition to them,
++    # so a view named on selectedRefs and on a row but on no complete receipt refuses SELECTED_COVER.
++    view_hexes = {ref["digest"] for ref in captured_stage_refs if ref["domain"] == "view"}
+     for hx in view_hexes:
+         expected_set.add(("view", hx))
+         view = resolved_views.get(hx)

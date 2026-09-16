@@ -1,0 +1,162 @@
+--- a/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
++++ b/docs/coop/design-corrections/native/native-evidence.schemas.v2.json
+@@ -6992,6 +6992,159 @@
+      "pattern": "^[A-Za-z0-9_.-]+(?![\\s\\S])"
+     }
+    }
++  },
++  "I64NonNegative": {
++   "type": "integer",
++   "minimum": 0,
++   "maximum": 9223372036854775807,
++   "description": "Common i64 nonnegative domain, equal to the security bundle I64NonNegative. Introduced by XA-02 so the pruned-tree markerCount domain is ONE domain in both mirrors; the version-1 native row allowed an unsigned 64-bit upper bound that was never the security mirror domain."
++  },
++  "PrunedTreeV2": {
++   "type": "object",
++   "additionalProperties": false,
++   "required": [
++    "path",
++    "reason",
++    "markerCount",
++    "markerCountBasis"
++   ],
++   "description": "Pruned-tree row VERSION 2 (XA-02 / CR-25). Closed four-member row. The anchor is known from the admitted directory observation and is recorded even when no descendant marker was observed; discovery never descends into the tree to obtain a count or to find a nested anchor. markerCount is null if and only if markerCountBasis is not-enumerated. Version-1 rows keep their bytes under the version-1 records and are read as version 1, never re-read as version 2. Mirror of the security bundle PrunedTreeRowV2; the native boundary comparison uses path and reason only.",
++   "properties": {
++    "path": {
++     "type": "string",
++     "maxLength": 4096
++    },
++    "reason": {
++     "type": "string",
++     "enum": [
++      "dependency-tree",
++      "vcs-tree",
++      "cargo-build-output"
++     ]
++    },
++    "markerCount": {
++     "oneOf": [
++      {
++       "type": "null"
++      },
++      {
++       "$ref": "#/$defs/I64NonNegative"
++      }
++     ],
++     "description": "Exact count of distinct supplied marker paths under this anchor when markerCountBasis is observed-inventory; null when not-enumerated. Common i64 nonnegative domain, shared byte-for-byte with the native mirror."
++    },
++    "markerCountBasis": {
++     "type": "string",
++     "enum": [
++      "not-enumerated",
++      "observed-inventory"
++     ],
++     "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
++    }
++   }
++  },
++  "AdmittedBoundaryInventoryV2": {
++   "type": "object",
++   "additionalProperties": false,
++   "required": [
++    "schemaVersion",
++    "source",
++    "selectedRoot",
++    "nestedRepositories",
++    "nestedProjects",
++    "custodyExcludedUnits",
++    "prunedTrees"
++   ],
++   "properties": {
++    "schemaVersion": {
++     "const": 2
++    },
++    "source": {
++     "const": "security.discovery"
++    },
++    "selectedRoot": {
++     "type": "string",
++     "minLength": 1,
++     "maxLength": 4096
++    },
++    "nestedRepositories": {
++     "type": "array",
++     "maxItems": 4096,
++     "uniqueItems": true,
++     "items": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++     },
++     "x-opensip-order": "sequence"
++    },
++    "nestedProjects": {
++     "type": "array",
++     "maxItems": 4096,
++     "uniqueItems": true,
++     "items": {
++      "type": "string",
++      "minLength": 1,
++      "maxLength": 4096,
++      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
++     },
++     "x-opensip-order": "sequence"
++    },
++    "custodyExcludedUnits": {
++     "type": "array",
++     "maxItems": 4096,
++     "items": {
++      "$ref": "#/$defs/CustodyExcludedUnitV1"
++     },
++     "x-opensip-order": "sequence"
++    },
++    "prunedTrees": {
++     "type": "array",
++     "maxItems": 65536,
++     "items": {
++      "$ref": "#/$defs/PrunedTreeV2"
++     },
++     "x-opensip-order": "sequence"
++    }
++   },
++   "description": "TRUSTED ADMITTED INPUT (P3), VERSION 2 (XA-02 / CR-25): the security discovery instrument authority boundaries for the selected root, converted once by discovery-defaults.boundary_inventory_from_provenance from the ACCEPTed DiscoveryProvenanceV2. Its prunedTrees may name an anchor the marker inventory alone cannot derive; the native instrument accepts those as additional known anchors and never re-derives a boundary from caller input. Never authored by a caller."
++  },
++  "UnitDiscoveryV2": {
++   "type": "object",
++   "additionalProperties": false,
++   "required": [
++    "units",
++    "prunedTrees",
++    "boundaries",
++    "refused"
++   ],
++   "properties": {
++    "units": {
++     "type": "array",
++     "items": {
++      "$ref": "#/$defs/WorkspaceUnitV2"
++     },
++     "maxItems": 8192,
++     "uniqueItems": true,
++     "x-opensip-order": "sequence"
++    },
++    "prunedTrees": {
++     "type": "array",
++     "items": {
++      "$ref": "#/$defs/PrunedTreeV2"
++     },
++     "maxItems": 65536,
++     "x-opensip-order": "sequence"
++    },
++    "boundaries": {
++     "$ref": "#/$defs/UnitBoundariesV1"
++    },
++    "refused": {
++     "type": "null"
++    }
++   },
++   "description": "Unit discovery output VERSION 2 (XA-02 / CR-25): version-2 pruned rows. Under an admitted boundary inventory the prunedTrees carried here are the ADMITTED anchors, which may include anchors the marker inventory alone cannot derive. Version 1 remains the historical record and the standalone-lane output."
+   }
+  },
+  "x-opensip-digest-law": {

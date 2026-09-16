@@ -1,0 +1,1 @@
+An initial preparation attempt stopped before creating the runtime because a process-string guard matched its own inline shell text. No Claude launched in that attempt. Actual executable-field guard used here.

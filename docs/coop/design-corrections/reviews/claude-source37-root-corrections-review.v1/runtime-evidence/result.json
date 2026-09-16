@@ -1,0 +1,70 @@
+{
+  "session_id": "85a08aec-9d22-4ac6-8ec2-c10170e727d7",
+  "total_cost_usd": 10.831413999999999,
+  "usage": {
+    "input_tokens": 776,
+    "cache_creation_input_tokens": 239422,
+    "cache_read_input_tokens": 12466228,
+    "output_tokens": 88008,
+    "output_tokens_details": {
+      "thinking_tokens": 33544
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 239422,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 32,
+        "output_tokens": 2059,
+        "cache_read_input_tokens": 550732,
+        "cache_creation_input_tokens": 464,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 464
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-opus-5": {
+      "inputTokens": 776,
+      "outputTokens": 88008,
+      "cacheReadInputTokens": 12466228,
+      "cacheCreationInputTokens": 239422,
+      "webSearchRequests": 0,
+      "costUSD": 10.831413999999999,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 33544,
+      "canonicalModel": "claude-opus-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01KprvxJkNyq5tbg6NRRjCJR",
+      "tool_input": {
+        "command": "python3 - <<'EOF'\nimport json,hashlib,os,re\nS='/tmp/opensip-design-corrections/candidate-subject.v37/'\nMAN='/Users/sb/code/opensip-ai/opensip_arch/docs/coop/design-corrections/reviews/candidate-subject.v37.json'\ndef rows(o):\n    if isinstance(o,list) and o and isinstance(o[0],dict) and 'path' in o[0] and 'sha256' in o[0]: return o\n    if isinstance(o,dict):\n        for v in o.values():\n            x=rows(v)\n            if x: return x\nman={r['path']:r['sha256'] for r in rows(json.load(open(MAN)))}\ndef load_verified(rel):\n    b=open(S+rel,'rb').read(); assert hashlib.sha256(b).hexdigest()==man[rel], rel; return b\nids=json.loads(load_verified('docs/coop/design-corrections/foundation/identity-schemas.v3.json'))\nreg=ids.get('x-opensip-payload-registry')\nprint('PAYLOAD REGISTRY keys', list(reg.keys()) if isinstance(reg,dict) else type(reg))\ndocs=set()\nfor cname,body in (reg.get('classes') or {}).items():\n    if 'document' in body: docs.add((cname,body['document']))\n    for rn,row in (body.get('rows') or {}).items(): docs.add((cname+'/'+rn,row['document']))\nfor d in sorted(docs): print('  registered',d)\ndd=ids.get('x-opensip-digest-domains')\nprint('DIGEST DOMAINS type',type(dd).__name__)\ntxt=json.dumps(dd)\nfor k in ('invocation','query','envelope','termination','step'):\n    print('  domain mentions',k, [m.group(0) for m in re.finditer(r'\"[^\"]*'+k+r'[^\"]*\"',txt,re.I)][:12])\nav=ids.get('$defs',{}).get('availability')\nprint('AVAILABILITY DEF', json.dumps(av)[:1500])\nov=json.load(open('/private/tmp/opensip-design-corrections/claude-source37-root-corrections-review.v1/subject-manifest.json'))\nneedles={f['beforeSha256']:f['path'] for f in ov['files']}\nurns=['urn:opensip:product-v1:workflows:evaluator3:common:3','urn:opensip:product-v1:workflows:common','urn:opensip:product-v1:workflows:evaluator3:graph-query:3','graph-query.schema.json','evaluator3/common.schema.json','schemas/common.schema.json']\nhits={}\nfor rel in man:\n    if '/reviews/' in rel: continue\n    if not rel.endswith(('.json','.md','.py','.sql','.txt','.yaml','.yml','.toml')): continue\n    try: t=open(S+rel,encoding='utf-8').read()\n    except Exception: continue\n    for sh,p in needles.items():\n        if sh in t: hits.setdefault('SHA:'+p,[]).append(rel)\n    for u in urns:\n        if u in t: hits.setdefault('REF:'+u,[]).append(rel)\nfor k,v in sorted(hits.items()):\n    print(k, len(v)); [print('    ',x) for x in v[:40]]\nEOF",
+        "timeout": 600000,
+        "description": "Registry, digest domains, availability def and references"
+      }
+    }
+  ],
+  "is_error": false,
+  "num_turns": 109,
+  "subtype": "success",
+  "result": "Root's overlay fixes most of what I raised, but not all. S37-02, S37-03, R1 and R2 are substantively corrected, A37-05 and A37-07 are addressed with advisories, and A37-06 is not closed (a new SHOULD, RC37-01). Nothing here accepts the final design, application, readiness or any grade, and my original source37 review stays unchanged at CHANGES_REQUIRED.\n\n**How it was checked.**\n- **Overlay verified:** the overlay manifest (`db9b7b3f\u2026`) matches dispatch. All 12 overlay files match their hashes, and each source37 base file equals its before-hash.\n- **Disposable copy:** I built a verified copy of source37 (manifest `245ef613\u2026`, 12,900 files) and applied the overlay.\n- **What I ran:** probes plus only the three changed checkers and the two planning checkers, each individually. No suite was run and no pins were regenerated. None of those runs changed a file in the copy, and `subject/` is byte-unchanged.\n\n**Dispositions**\n\n| Item | Outcome | Basis |\n|---|---|---|\n| S37-02 | Closed by the text (rebind still needed) | R02 and R24 now allow host-approved data projections only and state that executable report hooks are not admitted. The only remaining \"hook\" wording is those two negations. |\n| S37-03 | Closed for schema and controls | The new `else` branch makes schema admission match \"advisory is true for exactly four operations\" across all 20 operations. The base failed this for 13. No consumer's admission changes, and the query checker passed 162/162. |\n| A37-05 | Addressed, with advisory RC37-A1 | See below. |\n| A37-06 | **Not closed \u2014 RC37-01** | See below. |\n| A37-07 | Wording closed | The build plan now names the v5 normative-input binding and keeps the historical receipts. |\n| A37-08 | Unchanged, as intended | The registered native schema bytes are untouched. |\n| R1 / R2 | Accepted as schema law | See below. |\n\n**RC37-01 (A37-06).** The new query route sends a replay mismatch to `HOST.IO_FAILURE` / `evidence.corrupt`. The evaluator-fault contract (line 15) and its route registry already define a different public outcome for exactly this condition:\n- a retained-data mismatch goes to `evidence.regeneration-mismatch`;\n- a live host defect goes to host-invariant.\n\nIn practice the probe results show the problem:\n- A structural refusal, all four reminted false-result mutants and a simulated host bug inside `close_run` all produce the identical class, code and detail. They differ only in the subject text, which is the exception-text selection both contracts forbid.\n- The query still fails closed (exit 4, no items, no Run), which is why this is SHOULD rather than MUST.\n- My original A37-06 remedy said `evidence.corrupt` was acceptable \"if chosen deliberately\". I had missed that fault-contract row, and I've corrected that in this review.\n\n**RC37-A1 (A37-05).** Treating a null, wrong-type or unknown availability value as a reference-call precondition is honest for the reference harness. All 17 probe variants behave as specified: omitted is still allowed, and request-schema refusal comes first. It doesn't hide a needed new public code. The analogy with a malformed RequestId is only partial, though:\n- A missing RequestId makes a failure envelope impossible to build.\n- With a valid RequestId, a real host can still report its own bad observation publicly. The existing host-invariant route (`SYSTEM.OUTCOME.ILLEGAL_STATE` / `HOST.INVARIANT_VIOLATED`) validates, and the contract should cite it.\n\n**R1/R2.**\n- **Exhaustive check:** I checked all 3,120 combinations of class, `faultCause`, `reasonCodes` and `errorCode`. The base schema admitted 990 and the overlay admits 34, adding none. None of the 956 removed combinations is lawful under D9, and none of the 34 admitted is unlawful.\n- **Request-rejected:** it keeps all 19 error codes, so no legitimate route is excluded (RC37-A3 notes fault-family codes are still admitted there, by design).\n- **Fault pairs:** operational-failed now requires exactly the 11 fault/error pairs of the host fault map, including host-invariant.\n- **Successor versus union:** limiting `faultCause` to operational-failed follows the successor field closure (workflows-and-surfaces \u00a70 and \u00a79); the superseded D9 union never had that field.\n- **Producers:** every evaluator fault route and native public route validates identically before and after.\n- **Fixtures:** only the 12 new reject vectors change admission.\n- **Controls:** `check_workflows` passed 1816/1816 and `check-workflow-projection` passed 493/493. The `check_workflows` report gives only counts, so its new fault-pair control is confirmed by reading the code plus zero failures.\n\n**Identity consequence:** none. No registered payload document is changed by the overlay, and none references the changed definitions. Four closed Runs rebuilt on the overlay copy have the same RunIds as my earlier receipts, so no retained identity needs reminting.\n\n**RC37-A2 (integration).** The planning checker fails on the overlay copy with \"Planning source changed: query\". I've kept that failure as recorded. It stops at the first stale binding; the full list shows that v5, the coverage sources, the planning sources, the five source-pins files and the workflows report all still hold pre-overlay hashes. That's a rebind needed at integration, not a defect in the correction text.\n\n**Outside this overlay.** S37-01 and A37-01..04 are not closed here. All 30 grades stay PENDING, the 32 gates stay unperformed and the 54 recovery cases stay not executed.\n\nAll child commands have finished. Files are in `/private/tmp/opensip-design-corrections/claude-source37-root-corrections-review.v1`:\n- review.md\n- review.json\n- probes/\n- receipts/",
+  "type": "result",
+  "duration_ms": 1179137
+}

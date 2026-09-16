@@ -1,0 +1,273 @@
+--- 22/opensip_eval.py
++++ 23-interim/opensip_eval.py
+@@ -552,6 +552,14 @@
+     return out
+ 
+ 
++def require_scope_carrier(scope_rec, scope_id):
++    """atom contract section 4 "A scope without enumeratorClosure ... is refused
++    ATOM_NATIVE_CARRIER wherever it is paired"."""
++    ec = scope_rec.get('enumeratorClosure')
++    if not (isinstance(ec, str) and ec.startswith('closure2:') and len(ec) == 73):
++        raise EvalError('ATOM_NATIVE_CARRIER:%s enumeratorClosure=%r' % (scope_id, ec))
++
++
+ def fold_partitions(entries):
+     """Section 4 dependency-view step 3: one position folded over several partitions IN
+     SELECTION ORDER, starting from the first partition's entire entry."""
+@@ -592,12 +600,16 @@
+         queue.extend(DEPENDS_ON.get(dep_rel, ()))
+         dep_kind = inp.projreg['relations'][dep_rel]['sourceSubjectKind']
+         if dep_kind == cur_kind:
++            # only exact (relation, rung, S) scopes containing the subject; a mapping to any
++            # other scope contributes no pairing ("There is no mapped-scope fallback")
+             scopes = {sid for sid, s in inp.scopes.items()
+                       if s['relation'] == dep_rel and s['resolution'] == dep_rung
+                       and s['sourceUniverse'] == S
+                       and subject_rec['nativeSubjectId'] in s['subjects']}
+             cids = sorted({cid for cid, c in inp.coverages.items() if c['scopeId'] in scopes
+                            and inp.coverage_payloads[cid]['key']['targetUniverse'] == T})
++            for sid in sorted({inp.coverages[c]['scopeId'] for c in cids}):
++                require_scope_carrier(inp.scopes[sid], sid)
+             how = 'same source kind: Coverage paired to current-source scopes'
+         else:
+             cids = sorted({cid for cid in inp.coverages
+@@ -615,13 +627,43 @@
+     return positions
+ 
+ 
++def dependency_closure(relation):
++    """The transitive DEPENDS_ON closure of `relation`, breadth-first, each relation once
++    (native-evidence section 4.6 step 8: recursively, depth <= 4)."""
++    out, queue, seen = [], list(DEPENDS_ON.get(relation, ())), {relation}
++    depth = {r: 1 for r, _ in queue}
++    while queue:
++        rel, rung = queue.pop(0)
++        if rel in seen:
++            continue
++        seen.add(rel)
++        out.append((rel, rung))
++        for nxt in DEPENDS_ON.get(rel, ()):
++            if depth[rel] < 4:
++                depth.setdefault(nxt[0], depth[rel] + 1)
++                queue.append(nxt)
++    return out
++
++
+ def sufficiency_positions(inp, positions, quantifier, min_confidence=0,
+                           derivation_policy='any', unresolved_policy='forbid'):
+     """native-evidence section 4.6 over an ordered dependency view. Position 0 carries the atom's
+     requirement; a dependency carries partial-ok for an existential parent and the parent's
+     quantifier/policies for a universal negative (step 8). Steps 1..6 in order, every applicable
+-    cause collected; step 7 is incoming-only."""
++    cause collected; step 7 is incoming-only.
++
++    V23-D2: step 1 "Relation absent from the view -> required-relation-missing" applies to every
++    relation of the step-8 dependency closure that occupies no position. Generation 22 read "a
++    dependency contributing no selected Coverage occupies no position" as "adds no cause"
++    (declared interpretation I-A1); the atom contract as frozen for generation 23 states that a
++    removed position "answers required-relation-missing, exactly as an absent relation does" and
++    that for an empty selection "a required dependency remains absent and the answer
++    conservative"."""
+     causes, disclosures = [], []
++    present = {p['relation'] for p in positions}
++    for dep_rel, _dep_rung in dependency_closure(positions[0]['relation']):
++        if dep_rel not in present:
++            causes.append('required-relation-missing')
+     for i, pos in enumerate(positions):
+         e, rel = pos['entry'], pos['relation']
+         completeness = 'complete' if (i == 0 or quantifier == 'universal-negative') \
+@@ -692,6 +734,11 @@
+     scope_ids.extend(containing)                                                 # 3
+     paired = {sid: sorted(cid for cid, c in inp.coverages.items() if c['scopeId'] == sid)
+               for sid in containing}
++    # V23-D3: pairing validates the subject-scope carrier; a scope whose enumeratorClosure is
++    # absent or null is refused ATOM_NATIVE_CARRIER, never read as "no commitment"
++    for sid in containing:
++        if paired[sid]:
++            require_scope_carrier(inp.scopes[sid], sid)
+     for sid in containing:
+         if not paired[sid]:
+             causes.append(atom_cause('scope-without-coverage', universe=U))
+@@ -937,18 +984,50 @@
+     return EVIDENCE_RELATIONS
+ 
+ 
++def runtime_filter_passes(inp, relation, filters, observability):
++    """FieldFilter on an imported runtime atom. Only `observability` is exercised by this
++    reconstruction; the registry projects it from RuntimeSubject.observability, and eq/neq/in
++    values must be members of the closed comparator enum (ATOM_FILTER_ENUM_LITERAL_UNKNOWN)."""
++    spec_row = inp.projreg['relations'][relation]['filters']
++    enum = inp.projreg['comparatorTable']['observability']['enum']
++    for flt in filters:
++        field, cmp_, want = flt['field'], flt['cmp'], flt['value']
++        if spec_row.get(field, 'forbidden') == 'forbidden':
++            raise EvalError('ATOM_FILTER_FIELD_FORBIDDEN:%s.%s' % (relation, field))
++        if field != 'observability':
++            raise EvalError('IMPORTED_FILTER_FIELD_NOT_EXERCISED_BY_THIS_RECONSTRUCTION:%s' % field)
++        if cmp_ in ('eq', 'neq') and want not in enum or \
++                cmp_ == 'in' and any(w not in enum for w in want):
++            raise EvalError('ATOM_FILTER_ENUM_LITERAL_UNKNOWN:%s=%r' % (field, want))
++        if cmp_ == 'eq':
++            ok = observability == want
++        elif cmp_ == 'neq':
++            ok = observability != want
++        elif cmp_ == 'in':
++            ok = observability in want
++        elif cmp_ == 'prefix':
++            ok = observability.startswith(want)
++        elif cmp_ == 'glob':
++            ok = glob_match(want, observability)
++        else:
++            raise EvalError('ATOM_FILTER_COMPARATOR_ILLEGAL:%s %s' % (field, cmp_))
++        if not ok:
++            return False
++    return True
++
++
+ def evaluate_imported_atom(inp, atom, subject_rec, subject_id_, row):
+-    """Atom contract section 6 (import completeness), RUNTIME plane, `exists` / `none`.
+-
+-    V22-D3: the runtime observability enum is {observed-hit, observable-unhit, unobservable,
+-    unmapped}. Only `observed-hit` is a MATCH. `observable-unhit` is the other POLARITY row -- the
+-    subject was observable at the current grain and was not hit -- and section 6 names both as
+-    the "exact consumable mapped polarity row" that `none` / `count-at-most` true / `all-covered`
+-    need. Every retained library since generation 14 counted any consumable row that was not
+-    unobservable/unmapped as a known hit, so an observable-unhit subject was reported as observed.
+-    Completeness also reads the payload owner window/population for EVERY polarity row, not only
+-    for hits.
+-    """
++    """Atom contract section 6 (import completeness), RUNTIME plane, `exists` / `none`, as frozen
++    for generation 23.
++
++    V23-D1: "an unfiltered `exists` tests whether a consumable mapped runtime observation exists,
++    so either `observed-hit` or `observable-unhit` can satisfy it. An `observability` filter
++    restricts the matching polarity set before applying the quantifier; unobservable and unmapped
++    rows never enter that set" -- the projection registry importQuantifiers polaritySetR.runtime.
++    Generation 22 (V22-D3) counted only `observed-hit` as a match whatever the filter; that reading
++    is withdrawn. Completeness is unchanged: none/count-at-most true and all-covered need an exact
++    consumable mapped polarity row (either polarity) for every owed wrapper, the payload owner
++    window and population, and no uncertain row."""
+     reg = evidence_registry()['relations']
+     rel = atom['relation']
+     if rel not in reg:
+@@ -959,6 +1038,9 @@
+     kind = reg[rel]['evidenceKind']
+     if atom.get('evidence') != kind:
+         raise EvalError('ATOM_EVIDENCE_DECLARATION_MISMATCH:%s' % atom.get('evidence'))
++    qset = inp.projreg['importQuantifiers']['polaritySetR']
++    polarity_set, never_in = set(qset[kind]), set(qset['neverInR'])
++    filters = atom.get('filters') or []
+     owed, causes = [], []
+     for iid in inp.plan['importIds']:
+         w = inp.imports.get(iid)
+@@ -1008,6 +1090,109 @@
+             uncertain.append(here)
+             continue
+         obs = r['observability']
++        if obs in never_in:
++            # never in R, and disclosed as uncertain independently of the observability filter
++            causes.append({'code': 'unobservable-subject' if obs == 'unobservable'
++                           else 'unmapped-subject', 'evidenceKind': kind})
++            uncertain.append(here)
++            continue
++        if obs not in polarity_set:
++            raise EvalError('IMPORT_OBSERVABILITY_OUTSIDE_THE_OWNER_ENUM:%s' % obs)
++        polarity.append({'address': here, 'polarity': obs})
++        if runtime_filter_passes(inp, rel, filters, obs):
++            known.append(here)
++        if w['completeness'] != 'complete':
++            causes.append({'code': 'wrapper-partial', 'evidenceKind': kind})
++        if pay.get('observationWindow') is None or pay.get('observedPopulation') in (
++                None, 'unknown'):
++            causes.append({'code': 'observation-window-insufficient', 'evidenceKind': kind})
++    op = atom['op']
++    complete = (not causes) and len(polarity) == len(owed) and not uncertain
++    if op == 'exists':
++        value = TRUE if known else (FALSE if complete else UNK)
++    elif op == 'none':
++        value = FALSE if known else (TRUE if complete else UNK)
++    else:
++        raise EvalError('IMPORTED_ATOM_OP_NOT_EXERCISED_BY_THIS_RECONSTRUCTION:%s' % op)
++    return {'value': value, 'kind': 'imported-atom',
++            'knownRows': cset_rows(known), 'uncertainRows': cset_rows(uncertain),
++            'causes': causes, 'countLimit': None, 'polarityRows': polarity}
++
++
++def evaluate_imported_atom_v22_reading(inp, atom, subject_rec, subject_id_, row):
++    """SUPERSEDED at generation 23 (V23-D1). Generation 22's reading, kept verbatim for the
++    discriminating control only; no Run is built with it.
++
++    Atom contract section 6 (import completeness), RUNTIME plane, `exists` / `none`.
++
++    V22-D3: the runtime observability enum is {observed-hit, observable-unhit, unobservable,
++    unmapped}. Only `observed-hit` is a MATCH. `observable-unhit` is the other POLARITY row -- the
++    subject was observable at the current grain and was not hit -- and section 6 names both as
++    the "exact consumable mapped polarity row" that `none` / `count-at-most` true / `all-covered`
++    need. Every retained library since generation 14 counted any consumable row that was not
++    unobservable/unmapped as a known hit, so an observable-unhit subject was reported as observed.
++    Completeness also reads the payload owner window/population for EVERY polarity row, not only
++    for hits.
++    """
++    reg = evidence_registry()['relations']
++    rel = atom['relation']
++    if rel not in reg:
++        raise EvalError('ATOM_EVIDENCE_RELATION_UNREGISTERED:%s' % rel)
++    if atom['minResolution'] not in reg[rel]['ladder']:
++        raise EvalError('ATOM_MIN_RESOLUTION_NOT_IN_LADDER:%s@%s'
++                        % (rel, atom['minResolution']))
++    kind = reg[rel]['evidenceKind']
++    if atom.get('evidence') != kind:
++        raise EvalError('ATOM_EVIDENCE_DECLARATION_MISMATCH:%s' % atom.get('evidence'))
++    owed, causes = [], []
++    for iid in inp.plan['importIds']:
++        w = inp.imports.get(iid)
++        if w is None or w['kind'] != kind:
++            continue
++        scb = inp.store.get_blob(w['scopeDigest'])
++        if scb is None:
++            raise EvalError('ATOM_IMPORT_SCOPE_DESCRIPTOR_NOT_RETAINED:%s' % iid)
++        if _in_import_scope(json.loads(scb.decode()), row['path']):
++            owed.append(iid)
++    if not owed:
++        causes.append({'code': 'zero-owed-wrappers', 'evidenceKind': kind})
++        causes.append({'code': 'evidence-kind-unavailable', 'evidenceKind': kind})
++        return {'value': UNK, 'kind': 'imported-atom', 'knownRows': [], 'uncertainRows': [],
++                'causes': causes, 'countLimit': None, 'polarityRows': []}
++    known, uncertain, polarity = [], [], []
++    for iid in owed:
++        flags, _cond = derive_import_flags(inp.store, inp.imports[iid], inp.plan['snapshotId'])
++        if set(flags) != {'consumable', 'staleness'}:
++            raise EvalError('ATOM_IMPORT_FLAGS_ADAPTER_ABSENT_OR_EXTRA_KEYS:%s' % iid)
++        pay = inp.import_payloads[iid]
++        w = inp.imports[iid]
++        hits = []
++        for ordinal, r in enumerate(pay['subjects']):
++            if subject_rec['kind'] == 'file':
++                if r['path'] != row['path'] or 'symbol' in r:
++                    continue
++            elif subject_rec['kind'] == 'symbol':
++                if r['path'] != row['path'] or r.get('symbol') != row['qualifiedName']:
++                    continue
++            else:
++                raise EvalError('ATOM_KIND_INCOMPATIBLE:runtime plane %s' % subject_rec['kind'])
++            hits.append((ordinal, r))
++        if len(hits) > 1:
++            raise EvalError('ATOM_IMPORT_AMBIGUOUS_ROWS:%s' % iid)
++        addr = {'importId': iid, 'selector': 'runtime-subject'}
++        if not hits:
++            if w['completeness'] != 'complete':
++                causes.append({'code': 'wrapper-partial', 'evidenceKind': kind})
++            causes.append({'code': 'unmapped-subject', 'evidenceKind': kind})
++            continue
++        ordinal, r = hits[0]
++        here = dict(addr, ordinal=ordinal)
++        if not flags['consumable']:
++            causes.append({'code': 'import-unmapped-only', 'evidenceKind': kind})
++            causes.append({'code': 'no-consumable-row', 'evidenceKind': kind})
++            uncertain.append(here)
++            continue
++        obs = r['observability']
+         if obs in ('unobservable', 'unmapped'):
+             causes.append({'code': 'unobservable-subject' if obs == 'unobservable'
+                            else 'unmapped-subject', 'evidenceKind': kind})

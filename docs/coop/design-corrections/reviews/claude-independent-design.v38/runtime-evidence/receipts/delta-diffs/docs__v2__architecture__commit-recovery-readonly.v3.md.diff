@@ -1,0 +1,63 @@
+--- a37/docs/v2/architecture/commit-recovery-readonly.v3.md
++++ b38/docs/v2/architecture/commit-recovery-readonly.v3.md
+@@ -3,6 +3,8 @@
+ **Standing.** PROPOSED-NOT-SELF-ACCEPTED: no acceptance, no readiness, no application and no
+ implementation authorization. Private design/reference work, not OS qualification. Authored against
+ frozen Source25 `fa8cdc796c4dbab514c8b8a91a593b740e3f8e69d19574f4be11c6e00c3a536d`.
++
++**Current standing.** The Source25 authoring baseline stated above is historical and is not relabelled. The current bytes carry the source37 owner correction of review advisories A37-01 to A37-04 (`design-corrections/security/carrier-format.v3.md` §8.1). They remain PROPOSED-NOT-SELF-ACCEPTED and are bound only by whichever candidate manifest selects them; no acceptance, readiness or implementation authorization follows.
+ 
+ **Stable normative path:** `docs/v2/architecture/commit-recovery-readonly.v3.md`. This is the
+ current owner and it is **self-contained**: every operative rule is stated here, and no rule may be
+@@ -64,6 +66,7 @@
+ | `unknown-quarantine-condition` | `operational-failed` | `LEDGER.CORRUPT` | `ledger-corrupt` | **omitted** |
+ | `unavailable-busy` | `operational-failed` | `LEDGER.BUSY_TIMEOUT` | `ledger-busy` | `PROJECT.BUSY` |
+ | `binding-unusable` | `request-rejected` | `EXTENSION.ADMISSION_REJECTED` | — | `RECOVERY.REFUSED` with typed subject |
++| `unknown-carrier-incompatible` | `operational-failed` | `HOST.IO_FAILURE` | `host-io` | omitted |
+ 
+ **The carrier-quarantine decision is settled, not deferred.** `LEDGER.CORRUPT` with
+ `faultCause: "ledger-corrupt"` and an omitted `domainDetail` is schema-valid, so no new
+@@ -72,6 +75,19 @@
+ one code, which the D9 contract names a defect. The typed reason (`uncertainTailLoss`,
+ `witnesslessRestore`, `witnessMalformed`) travels in the operational record and the owner
+ diagnosis, not in a public detail code.
++
++**Carrier binding, footprint and generation observations (source37 owner correction).** The
++association's own carrier naming is checked first: an association whose `journalCarrierDigest`,
++`storeGenerationDigest` or `namespaceId` differs from the admitted binding is `binding-unusable`. With
++the association naming the admitted carrier, a carrier whose own published `project_key_digest` or
++witness names another project, a migration footprint that is not a lawful durable prefix, and the F51
++split-brain condition are `unknown-quarantine-condition`, subject to Step 4 like every quarantine
++report and otherwise `unavailable-busy`. An association naming a generation below the published
++`first_generation` is `unknown-carrier-incompatible` (F46): an association is written only with a
++committed carrierFormat 3 `SEAL`, so this contradicts two retained owners and joins the `unknown-custody`
++family. A lawful `{A}` or `{A, B}` prefix is `unavailable-busy`. `MIGRATION.CORRUPT` is used on none of
++these read-only paths, and none confirms, negates or settles an attempt. Exact phase table:
++`design-corrections/security/carrier-format.v3.md` §8.1.
+ 
+ A registered detail is used only where one already fits the event exactly: `PROJECT.BUSY` for busy,
+ `RECOVERY.REFUSED` for a refused recovery request, and the `evidence.*` family for availability.
+@@ -115,7 +131,8 @@
+ | both absent | no row | — | `unknown-attempt-unobserved` |
+ | exactly one present | any | any | `unknown-custody` (F23) |
+ 
+-Store-binding or namespace mismatch in the association → `binding-unusable` (F27).
++Store-binding, namespace or carrier mismatch in the association — its `storeGenerationDigest`,
++`namespaceId` or `journalCarrierDigest` differs from the admitted binding → `binding-unusable` (F27).
+ 
+ ### 2.1 Receipt present with the attempt still `admitted` is a lawful interval
+ 
+@@ -211,6 +228,13 @@
+ continue. If `k > t` still: when `stableH`, `H.lastSeq >= k` and both tails agree →
+ `unknown-quarantine-condition` (F22); otherwise `unavailable-busy`, attributed to the security
+ carrier owner. Never `uncommitted`, and never a conclusion drawn from two different snapshots.
++
++**Carrier format, binding and generation, inside each journal snapshot.** Before the SEAL join the
++reader applies the carrier open dispatch to the bytes of that snapshot only, never to a cached
++result: the object names and definitions, the format row, `project_key_digest` against the admitted
++`projectKeyDigest`, the published generation boundary, and `A.grantGeneration` against
++`first_generation`. Their conclusions are the carrier rows of §1; a quarantine-class conclusion also
++requires Step 4.
+ 
+ **The SEAL join at `k`, all members required.** A row must exist at `(A.grantGeneration, k)` with
+ `record_type == 'SEAL'`, `record_schema == 3`, `body_sha256 == A.journalBodySha256` — the

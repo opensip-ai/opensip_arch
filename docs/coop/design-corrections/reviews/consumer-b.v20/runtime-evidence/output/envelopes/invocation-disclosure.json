@@ -1,0 +1,211 @@
+{
+ "requirement": "R-INVOCATION-DISCLOSURE",
+ "classification": "measured",
+ "law": {
+  "invocationRecord": "docs/coop/design-corrections/workflows/schemas/evaluator3/invocation-record.schema.json",
+  "commandInventory": "docs/coop/design-corrections/workflows/schemas/evaluator3/command-inventory.schema.json"
+ },
+ "ownershipFields": {
+  "requestId": {
+   "owner": "host-minted per request, operational",
+   "pattern": "^req1_[0-9a-f]{32}$",
+   "neverInAnIdentity": true
+  },
+  "stepId": {
+   "owner": "the step position within this invocation"
+  },
+  "projectId": {
+   "owner": "the project, 64-hex, shared with the sealed graph",
+   "measuredEqualToTheRunProject": true
+  },
+  "executionId": {
+   "owner": "one ATTEMPT of a step; per-attempt identity that is deliberately NOT in any idempotency preimage"
+  },
+  "runId": {
+   "owner": "the sealed analysis Run (run3), a semantic identity"
+  }
+ },
+ "boundedCardinality": {
+  "orderedSteps": 64,
+  "stepResults": 64,
+  "dependsOn": 8,
+  "attemptsPerStep": 3,
+  "availabilityStepsPerInvocation": 64,
+  "availabilityNoticesPerStep": 1024
+ },
+ "ordering": {
+  "orderedSteps": "sequence",
+  "dependsOn": "sequence",
+  "attempts": "sequence",
+  "note": "`sequence` means the ADMITTED order is the order, so a renderer may not re-sort it; a `by` order is a sort key the record must already satisfy"
+ },
+ "stepKinds": [
+  "analysis",
+  "verify",
+  "comparison",
+  "query",
+  "render",
+  "import",
+  "repair-preview",
+  "repair-apply",
+  "test-execution",
+  "mutation",
+  "export-delivery",
+  "doctor",
+  "native-preparation"
+ ],
+ "applicableOutputFormats": {
+  "renderers": {
+   "human": {
+    "version": 1,
+    "applicability": [
+     "analysis",
+     "query",
+     "mutation",
+     "lifecycle",
+     "execution",
+     "meta",
+     "trust"
+    ],
+    "requiredFailureClass": "operational-failed",
+    "parityRule": "prints every parity field of the command verbatim or by a documented fixed label; never omits termination-class"
+   },
+   "json": {
+    "version": 3,
+    "applicability": [
+     "analysis",
+     "query",
+     "mutation",
+     "lifecycle",
+     "execution",
+     "serve",
+     "meta",
+     "trust"
+    ],
+    "requiredFailureClass": "operational-failed",
+    "parityRule": "the CommandEnvelope major 3 is the parity reference for every other renderer"
+   },
+   "sarif": {
+    "version": 1,
+    "applicability": [
+     "analysis"
+    ],
+    "requiredFailureClass": "operational-failed",
+    "parityRule": "SARIF 2.1.0 results equal the declared findings projection one-to-one; run.properties carries the same declared verdict and deficiency, never invented nulls. Every SARIF command declares the common an"
+   },
+   "html": {
+    "version": 1,
+    "applicability": [
+     "analysis",
+     "query"
+    ],
+    "requiredFailureClass": "operational-failed",
+    "parityRule": "static single-file rendering of the envelope with resolution-completeness and disclosures; identical counts and identities; no script-fetched data"
+   },
+   "agent": {
+    "version": 1,
+    "applicability": [
+     "analysis",
+     "query",
+     "mutation",
+     "lifecycle",
+     "execution",
+     "serve",
+     "trust"
+    ],
+    "requiredFailureClass": "operational-failed",
+    "parityRule": "the JSON envelope plus agentHints; hints never alter a parity field"
+   }
+  },
+  "commandCount": 45,
+  "distinctFormats": [
+   "agent",
+   "html",
+   "human",
+   "json",
+   "sarif"
+  ],
+  "parityReferenceFormat": "json (CommandEnvelope major 3)",
+  "formatApplicabilityViolationsMeasured": [],
+  "notApplicableCode": "OUTPUT.FORMAT_NOT_APPLICABLE (request-rejected)",
+  "exampleCommands": {
+   "agent-serve": {
+    "requestClass": "serve",
+    "formats": [
+     "agent"
+    ],
+    "parityFields": [
+     "termination-class"
+    ],
+    "steps": [
+     "query"
+    ]
+   },
+   "analyze": {
+    "requestClass": "analysis",
+    "formats": [
+     "human",
+     "json",
+     "sarif",
+     "html",
+     "agent"
+    ],
+    "parityFields": [
+     "run-id",
+     "verdict",
+     "required-coverage",
+     "deficiency",
+     "findings",
+     "termination-class",
+     "retention-disclosure",
+     "comparison-counts",
+     "capability-availability"
+    ],
+    "steps": [
+     "import",
+     "analysis",
+     "render"
+    ]
+   },
+   "audit": {
+    "requestClass": "analysis",
+    "formats": [
+     "human",
+     "json",
+     "sarif",
+     "html",
+     "agent"
+    ],
+    "parityFields": [
+     "run-id",
+     "verdict",
+     "required-coverage",
+     "deficiency",
+     "findings",
+     "termination-class",
+     "retention-disclosure",
+     "baseline-id",
+     "comparison-id",
+     "comparison-counts",
+     "rule-deficiencies",
+     "audit-profile",
+     "pivots-available",
+     "capability-availability"
+    ],
+    "steps": [
+     "analysis",
+     "analysis",
+     "comparison",
+     "render"
+    ]
+   }
+  }
+ },
+ "parityReference": "command-envelope: \"The JSON envelope is the parity reference: SARIF, HTML and agent renderings must carry semantically equal parity fields, and the agent rendering is this envelope plus advisory hints.\"",
+ "retentionDisclosureFields": [
+  "firstUse",
+  "policy",
+  "provenance",
+  "storageRoot"
+ ]
+}
