@@ -1,0 +1,9 @@
+# Retained Run links — private source19
+
+Two deliberately separate phases preserve fullRun caller order. inspect_run_links rehashes Run/snapshot/Plan/evidence/seal/proof/execution, actual capability bytes/owner and configuration/grant/VCS records; checks source/Plan/proof/evaluator/verdict/import/scope/budget/grant/principal/operation/inventory joins. inspect_evidence_roots belongs after policy/stages: proof-selected view and Coverage sets, selected evaluated imports, finding evidence membership/message/selected detector. It does not evaluate or reconstruct findings.
+
+The API consumes retained Run id, never a callerADMIT or supplied Plan/proofsets. Private counts are diagnostics only. General walk/source joins, foreigncapability andnativecensus, policy/stages/predicateprogramaddresses/importadmission and replay remain separate. The two phases must not be collapsed across intervening owners in fullRun. No opaque ReplayedRun is minted.
+
+252actualselectedI local comparisons,153checked0mismatch; fouractualhelpers with explicitpayloadwalkNOOP and excludedforeigncapwalkcensus.36hostcontrols and104workspace tests/strictClippy/policy110 pass.236priorfiles unchanged, newrun_links.rs onlyproductionbody addition. Testwrapper interns body blobs but restoresexactpriorpackets, alloldtests rerun; fixture1500257under4MiBproductioncap. Initialcompilererrors preserved. Originalinventory19missingdeclaration failedprivateactivation; independentlyreviewed correctedrecord selected samecandidatebytes, originalfailurehistory preserved.
+
+Currentlive17inventory/21contracts, inventory19 via correctedrecord, runtimev8. This SOURCE is private/unaccepted; actual source review/formalruntime/rootassent/activation required. PriorGitcheckpoint source19draftbackup is separate and remains unchanged. M2-M6 incomplete.
