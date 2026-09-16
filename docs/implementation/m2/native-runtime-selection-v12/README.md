@@ -1,0 +1,5 @@
+# Evaluation work arithmetic — proposed runtimev12
+
+Two mapped inputs, one planned budgets.rs,243nonlockfiles exactfrozen25. Pure inert supplied census/rule counts, full input driver must derive; no Run/replay authority.2513comparisons72actualASTprojections/113tests, disabledrules/zero-products/U64overflow and exhaustion-before-output-bound. Identity/policy/provider/hostfixture unchanged. Current18/25base; source25reviewpending. Source-onlyhostisolation new; provider25pins carried forward fromacceptedv10, not rebuilt. If stage-meta reference selection changes lock before freeze, recompose exact currentbase and rerun design preflight; nonlock source exports unchanged. Formalruntime/rootassent/privateactivation stillowed.
+
+Freeze: actual source25 no required findings; candidate/base18/25 exactlive andsixpreflightchecks pass. Host125sources18archives113tests/help/version pass. Provider25source+Cargo.lockpins independentlyrevalidated againstacceptedv10receipt; no rebuildclaimed. Stage-meta reference proposal underseparatereview has not been selected. Formalreview/rootassent/privateactivation stillpending.
