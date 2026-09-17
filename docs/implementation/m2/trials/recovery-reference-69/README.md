@@ -1,0 +1,7 @@
+# Proposed recovery reference69
+
+Explicit successor on exact1264-file reference60 candidate and66 contract (including64 Unicode clarification). Historical/selected owners unchanged. Actual probes: matched epoch/pending nonce with final LF APPLIED despite strict schema; impossible epoch calendar escaped as Reject; impossible pending createdWall APPLIED; mono near i64max emitted an unrepresentable pending expiry. Overlong boot observation already rejects and is not claimed as an admission bypass.
+
+Corrections use full-match nonce/digest grammar, real calendar instants, pending boot length≤256, present pending shape before authority comparisons, string wall observations and checked monotonic expiry before challenge/pending output. Overflow returns existing RECOVERY.REFUSED/PENDING_SHAPE; no new public code/detail is minted.418 focused comparisons produce203 intended boundary/order changes. Full security470cases/all11sweeps PASS after explicit two-file model/contract source-pin rebind; parent pins/beforeimages retained.
+
+These reference cases use SYNTHETIC asserted signer IDs; actual signed recovery is a separate product70 draft. No cryptographic, custody or persistence authority follows from this reference. Actual independent review and complete selected registry/manifest reconciliation remain. New envelope66 schema/reference remains separately proposed; this copied tree does not silently select it.
