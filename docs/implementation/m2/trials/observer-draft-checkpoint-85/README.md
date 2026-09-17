@@ -1,0 +1,7 @@
+# Private observer freshness85
+
+Exact321-file84 parent;322 pins/319 unchanged, private gate visibility and securitylib changed, already-planned revocation.rs added. No dependencies/inventory/new fixture paths. Fail-stop monitor brackets a supplied counter callback with the actual raw OS clock, conservatively measures from earliest previous read to latest current observation, and updates freshness only after bound/read/boot/monotonic checks. Ten seconds is admitted; one nanosecond more stops. Clock/counter failures, observed stalls and external stops latch the private final gate; no reset. An already admitted permit keeps its outcome.
+
+90 actual selected-reference observer_tick comparisons over nonnegative integer-second samples are embedded as generated test constants, with full script/input/output retained. Subsecond/bracket/boot cases are additional native-adapter checks.46 security tests/strict workspace Clippy passed; actual awake macOS clock/callback test included. Freshhost48 COMPLETE202sources/40archives,211totalRusttests and build/tests/doctests/metadata/help/version passed. Reference malformed-monotonic Reject maps to a stopped private monitor, not a newly selected public refusal code.
+
+Counter authenticity/custody and signed current-view integration remain supplied. No background poller, journal append, process cancellation or operational CommitSession exists; this cannot by itself satisfy S6 qualification. Actual review/selection, Linux/suspend/reboot qualification and full owner integration remain.

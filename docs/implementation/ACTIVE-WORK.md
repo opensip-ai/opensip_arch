@@ -1018,3 +1018,16 @@ Private83 /tmp/opensip-implementation/m2-native-custody-trial-83 frozen320pins/3
 Editable84 /tmp/opensip-implementation/m2-commit-gate-trial-84 copies exact320-file83. Adds already-planned security/commit_authority.rs, private two-bit final admission gate: compare_exchange0to1, stop always OR2, no reset, uniquely owned prepared attempt and consumed permit. No CommitSession constructor or operational authority. Exhaustive6561 eight-action law traces,256 actual threaded races plus before/after/drop tests;40security tests passed. Strict workspace Clippy running session23327; inspect before freeze. No new fixture/inventory/dependency required. Need freeze84/freshhost47/archive, then revocation observer integration.
 
 Actual reviewer quota remains the unresolved independent-review block; no retries/assent claimed. Continue independent work and preserve all evidence.
+
+
+## Latest: checkpointb32bd019a; gate84/observer85 qualified; retry86 frozen
+
+Architectureb32bd019a commits82/83 archives. Guard153853files/45447unique/3761627184B, ordinary>100MiB0/whitespace0. Productfa72e50 clean; no pushes.
+
+84 frozen321pins/319unchanged: securitylib changed, planned commit_authority.rs added. Private atomic gate and consumed prepared-attempt permit;40security tests/strict lint passed. Freshhost47 COMPLETE201sources/40archives,203workspace+2doctests. Archive84:357members/3909532B, all members rehashed. No operational CommitSession/custody/writer/journal/replay authority.
+
+85 frozen322pins/319unchanged: securitylib and narrow sibling visibility in private gate changed, planned revocation.rs added. Fail-stop freshness monitor brackets a supplied counter callback with raw OS clock, uses conservative subsecond elapsed bound, stops before refreshing if >10seconds, or clock/counter read/boot/continuity fails. Latches gate without rewriting an admitted attempt.90 actual selected observer_tick comparisons, subsecond/read-duration/error/concurrent-stop checks;46security tests/strict lint passed. Freshhost48 COMPLETE202sources/40archives,209workspace+2doctests. Archive85:364members/3911320B, every member rehashed. No native authenticated counter, poll thread, journal append or process cancellation yet. No inventory/dependency changes.
+
+86 /tmp/opensip-implementation/m2-project-retry-trial-86 FROZEN322pins/321unchanged, only lifecycle leases.rs changed. Optional S7 project retry uses one30s overall budget including nested5s fence waits,1/2/4/8/15backoff strictly outside fence/partial leases, observes clock continuity, drops late acquired leases, never retries non-busy errors.12lifecycle tests passed with actual kernel guards and scripted timing, strict Clippy-r2 passed. Initial lint caught items-after-test-module; beforeimage/log preserved and production items reordered. Freshhost49 RUNNINGsession76744, final bytes awaiting complete validation/archive. No inventory/dependency changes.
+
+Read-only Herdr check2026-09-17T14:06Z: implementationGrok still weekly-limit blocked, consumerB still0%. No retry/task/telemetry change. Actual independent review remains unavailable; no agreement or completion claimed. Next independent work: current journal record/SEAL binding to owned ReplayedRun, then guarded publication/authority composition. No87 created yet; inspect selected schema and owner API before implementation.
