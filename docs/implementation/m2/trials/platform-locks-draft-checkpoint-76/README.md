@@ -1,0 +1,5 @@
+# Private platform flock76
+
+Exact309-file75 parent;310 product pins,308 unchanged,platformlib modified andalready-planned locks.rs added. No inventory or registry dependency change. One nonblocking flock attempt over an owned regular close-on-exec descriptor; busy distinct from OS error, RAII/explicit release, no descriptor escape or upgrade. Stable lock carrier custody and absence of escaped descriptor aliases are caller obligations. No fence/lease-order/retry/publication authority.
+
+Seven platform tests (including one child helper) and strict workspace Clippy passed. Actual macOS subprocess controls exercise reader coexistence, exclusive contention, explicit/drop release and forced holder process termination. Path replacement intentionally creates an independent lock and demonstrates why inode custody is required. Nonregular/inheritable descriptors refuse. Linux and release/platform qualification unperformed. Freshhost41 COMPLETE190sources/40archives,179totalRusttests and build/tests/doctests/metadata/help/version passed. Actual review/selection remains.
