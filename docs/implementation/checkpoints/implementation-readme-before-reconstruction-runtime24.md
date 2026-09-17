@@ -38,7 +38,7 @@ The [active work guide](ACTIVE-WORK.md) gives the current task, exact review sub
 - [First-evaluation structural inputs](m2/trials/native-runtime-materialization-23/) installs nine reviewed inputs. Plan-only policy compilation and fixed structural validation now operate without a Run or claimed proof/program. 930 policy comparisons, 24 no-output structural cases, 17 boundary controls, 137 Rust tests and fresh host/provider builds support this unit. Independent evaluator reconstruction, atom truth, replay and custody remain open.
 - Initial report help and styles. The complete offline report application and host delivery are not integrated.
 
-The live design lock selects 30 inventory and 44 contract successors. [Inventory 32](m2/reconstruction-inventory-v32-unit.json) describes 409 file responsibilities across the unchanged 20-package structure. This is a plan and ownership guide, not a claim that all 409 files are implemented.
+The live design lock selects 30 inventory and 43 contract successors. [Inventory 32](m2/reconstruction-inventory-v32-unit.json) describes 409 file responsibilities across the unchanged 20-package structure. This is a plan and ownership guide, not a claim that all 409 files are implemented.
 
 ## Milestones
 
@@ -62,4 +62,4 @@ Native universe, retention, Plan diagnostics, body identity, syntax support and 
 
 The [active work guide](ACTIVE-WORK.md) records exact subjects, review state and resume steps. The [previous status](checkpoints/implementation-readme-before-native-runtime03.md) and earlier checkpoints preserve historical claims. M2 completion, native compiler providers, the full report and workflows, and M6 qualification remain required.
 
-The [selected reconstruction reference correction](m2/reconstruction-closure-reference-selection-v1-unit.json) limits scanner closure maps to Plan.semanticClosures without dropping retained native interpreter dependencies. The [installed reconstruction runtime](m2/native-runtime-selection-v24-unit.json) has 87 permanent fixture cases, 138 workspace tests, a fresh isolated host build and a portable reference reproduction. Actual Grok source and runtime integration reviews passed; private and live activation checks passed. Atom scanning, complete output composition, replay and custody remain open.
+The [selected reconstruction reference correction](m2/reconstruction-closure-reference-selection-v1-unit.json) limits scanner closure maps to Plan.semanticClosures without dropping retained native interpreter dependencies. The private reconstruction implementation has 87 permanent fixture cases, 138 workspace tests, a fresh isolated host build and a portable reference reproduction. Its frozen source and runtime integration reviews remain required before installation.
