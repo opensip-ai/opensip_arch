@@ -1,0 +1,7 @@
+# Private conditional root-chain evidence68
+
+Exact296-file unaccepted67 parent;298 current pins,295 unchanged,trust.rs changed,two fixtures added. Proposed inventory41/all parents pending actual review. Full root payload admission and complete envelope verification establish continuity and possession separately for each link; revoked keys are removed from both verified signer sets before threshold checks. Contiguous versions, supported schema and non-backdated issue precede signature use. Intermediate expiry is ignored; final expiry/future boundary and no-chain expiry follow selected reference. No state mutation occurs.
+
+465 actual reference comparisons use71 pooled signed links/42 actual OpenSSL signature verifications. Signer sets for the reference are derived from real signatures over exact envelope messages, not caller assertions.22 package tests/strict workspace ClippyPASS; includes owned exact bytes/root/quorum evidence after inputs disappear, local work/link bounds and malformed carrier refusal. Freshhost35 COMPLETE178sources/40archives,165totalRusttests and build/tests/doctests/metadata/help/version passed.
+
+RootChainEvidence is inert and conditional on supplied anchor. The anchor currently has validated payload standing, not authenticated installation custody; persistent floors/root adoption/current operational admission remain unimplemented. Budgets bound input bytes/tree work/link allocation locally, not total heap/CPU/native execution. No aggregate M6 or release claim.
