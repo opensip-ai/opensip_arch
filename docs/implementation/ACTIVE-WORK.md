@@ -1143,3 +1143,14 @@ Architecture88aa2372d commits95backup. Guard153905files/45499unique/3762593905B,
 97frozen329pins/328unchanged, onlyjournal_store.rs,256shape+1245actualv8reconcilecases;57security tests/strictClippy passed. Freshhost59RUNNINGsession42259. No newfixture/inventory/dependency. README97 plus REVIEW-QUESTIONS.md retain two integrationquestions foractualreview:explicit witness/floor filedecoder profile/negativezero; malformed/foreign witness diagnosis underreadonlyStep4 successfulvalidation/naming requirement versus stablefailed-validation interpretation. No currentpublicdiagnosticimplemented, no designbyteschanged. Complete97host/archive, thencontinueindependentmodulework; record any decoder/diagnostic choice asproposedpendingreview, notacceptedlaw. No98createdyet.
 
 User'sboth-reviewers-reset-in-about24hoursupdate persists. No quota retries/assignments, no fabricatedindependentapproval.
+
+
+## Latest: checkpoint34509d759; witness97 qualified; availability98 editable
+
+Architecture34509d759 commits96backup. Guard153909files/45503unique/3762665419B,ordinary>100MiB0/whitespace0. Productfa72e50 clean; no pushes.
+
+97freshhost59 COMPLETE209sources/51archives,251workspace+2doctests; archive97 COMPLETE368members/4038020B all rehashed. Exact329pins/328unchanged;57security tests/strictClippy passed. REVIEW-QUESTIONS.md preserves explicit file decoder and malformed/foreign witness diagnostic questions for actual independent review. No byte capture, writes or recovery authority implied.
+
+98 /tmp/opensip-implementation/m2-availability-trial-98 EDITABLE329-file97parent. Adds planned storage/availability.rs and lib module; no dependency/inventory changes. Uses exact RegisteredSchemas availability selector; checks retained requires no missingRefs, initial generation0 and successor sameRun/exact checked increment. Pure candidates only, no restoration/purge/transaction authority.364actual exact reference shape cases+360actual EvidenceStore.set_availability transitions. Initial preparation stopped before source edits because full schema byte equality failed: product payload-registry paths are rewritten, all definitions/allother top fields identical. Failure recorded, all329parent files reverified, explicitresume script retained. Out-of-range nextgeneration stored as raw fixture text so outer corpus remains valid productJSON. Tests/lint running; no freeze/host/archive98yet.
+
+Both actual reviewers remain unavailable under user's roughly24hour estimate; no retries/assignments or fabricated assent. Continue independent work while keeping precise integration questions and candidates queued.

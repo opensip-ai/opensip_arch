@@ -1,0 +1,7 @@
+# Private witness and rollback-floor values97
+
+Exact329-file96 parent;329pins/328unchanged, only security/journal_store.rs changed. No inventory/fixture/dependency changes. Constructors consume exact JSON values and enforce the closed v8 witness and selected CarrierHighWaterV1 floor shapes, including present-null versus absent hash, strict integer ranges, null iff sequence0 and PENDING requiring nonzero sequence.
+
+256 actual witness/floor shape comparisons and1245 actual v8 reconciliation cases are embedded in source. Floor comparisons include its explicit null-iff-zero extra rule. Pure reconciliation distinguishes malformed, confirmed absent and unreadable observations; unreadable stays Unavailable and never becomes INIT/REVERT/ADVANCE. Project context is UTF8 bytes1..1024 without NUL, generation positive-i64, exactly the retained boundary. Proposed actions do not perform writes, and read-only recovery may not execute the write actions.
+
+57security tests/strict workspace Clippy passed; Freshhost59 COMPLETE209sources/51archives,253totalRusttests and build/tests/doctests/metadata/help/version passed. No file byte decoder/canonical-profile selection is implied by value-only construction; future capture must explicitly bind the profile (including negative-zero behavior), exact byte stability and actual file custody. Read-only anchor/stability diagnostics, per-carrier rollback-floor read/write under the fence, migration dispatch and journal publication remain separate. No independent acceptance or Linux/power-loss/release qualification.

@@ -70,3 +70,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 
 | Source96 |55security tests/251freshhost58 Rust tests/strict lint passed; archive96 retained | Review security SQLite edge, exact selected physical definitions and bounded fresh-carrier snapshot/row checks. Migrated/inherited dispatch explicitly unimplemented; custody, quarantine/witness/floor and complete recovery remain separate |
 | Witness/floor integration questions |Unit97 value-only constructors avoid selecting a byte decoder or public read-only diagnostic; precise questions retained in its REVIEW-QUESTIONS.md | Resolve explicit file decoder profile and malformed/foreign witness interpretation under read-only Step4 before those integration paths; no selected owner rewritten |
+
+| Source97 |256witness/floor shape and1245actualv8 reconciliation comparisons;57security tests/253freshhost59 Rust tests/strict lint passed; archive97 retained | Review closed value shapes, absent/malformed/unreadable distinction, exact v8 action proposals. Resolve retained REVIEW-QUESTIONS before filedecoder/readonlydiagnostic integration; no custody or writes |
