@@ -65,3 +65,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 | Source93 |550schema/extra-rule/lexical cases,169counter-order comparisons;18storage tests/241freshhost55 Rust tests/strict lint passed; archive93 retained | Review exact receipt bytes and all association joins, uint64 ordering, conditional phase matrix, and supplied-snapshot limitation. No authoritative recovery or journal/custody confirmation |
 
 | Source94 |22storage tests/245freshhost56 Rust tests/strict lint passed; archive94 retained | Review proposed physical paired DDL/both unique keys, savepoint rollback and poison behavior, actual same-snapshot joins, exact body/index/schema refusal. Live security authority, journal/witness/floor, full recovery and crash/release qualification remain |
+
+| Source95 |156terminal/30actualgenesis comparisons;52security tests/248freshhost57 Rust tests/strict lint passed; archive95 retained | Review frozen TERMINAL versus current records, canonical/domain/column/sequence checks and selected weak chain law. Supplied row projection only; explicit interior-substitution limit; no authenticated/durable/current prefix |

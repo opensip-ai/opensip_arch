@@ -1,0 +1,9 @@
+# Private projected journal-prefix checks95
+
+Exact329-file94 parent;329pins/328unchanged, only existing security/journal_store.rs changed. No inventory/fixture/dependency change. Current operational records reuse owned JournalRecord3 admission/canonical bytes/domain hash. Frozen recordSchema1 TERMINAL is parsed separately, without widening schema3 or changing its inherited lexical wallClockData into trusted calendar admission.
+
+156actual frozen TERMINAL schema plus metadata-canonicalizer cases and30actual v8 genesis comparisons are embedded in source; genesis preserves raw UTF8 projectKey bytes and decimal positive-i64 generation. Prospective carrierFormat3 chain_law1 uses SHA256(ascii_hex(previousBodyHash)||decimalPreviousSeq), not historicalv2 wording or a recursive hash. Given projected rows, checks enforce canonical bytes, exact domain body hash, generation/contiguity, operation/type/run column joins, terminal closure, count and total-body local work bounds. Projection excludes other physical grant columns and cannot replace full SQL carrier admission.
+
+An explicit adversarial control rewrites an interior body and its successor previous hash while preserving both the tail body hash and tail previous hash. The selected chain still verifies: retained custody is essential and this is not cryptographic authentication of the history. No authority, durable append, witness/floor admission, SQL snapshot or current-tail proof is minted.
+
+52security tests/strict workspace Clippy passed; Freshhost57 COMPLETE209sources/51archives,248totalRusttests and build/tests/doctests/metadata/help/version passed. Local bounds limit verification work over supplied owned rows, not allocation by a future SQL reader. Actual SQL capture, complete physical shape/definition validation, custody and bounded carrier recovery remain. No actual independent acceptance, Linux or power-loss/release qualification.
