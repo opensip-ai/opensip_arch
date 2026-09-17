@@ -61,3 +61,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 | Source91 |9storage tests/232freshhost53 Rust tests/strict lint passed; archive91 retains exact source and11 new crate archives | Review existing-only SQLite open/configuration, snapshot fixation, owned transaction/COMMIT uncertainty, bundled engine/build inputs. No custody, semantic receipt or public write authority |
 
 | Source92 |213schema/profile cases;14storage tests/237freshhost54 Rust tests/strict lint passed; archive92 retained | Review selected attempt DDL/definition verification, product-profile preservation, private admitted insertion/snapshot reads and new connection limits feature/bounds. No production settlement, live authority or complete recovery |
+
+| Source93 |550schema/extra-rule/lexical cases,169counter-order comparisons;18storage tests/241freshhost55 Rust tests/strict lint passed; archive93 retained | Review exact receipt bytes and all association joins, uint64 ordering, conditional phase matrix, and supplied-snapshot limitation. No authoritative recovery or journal/custody confirmation |

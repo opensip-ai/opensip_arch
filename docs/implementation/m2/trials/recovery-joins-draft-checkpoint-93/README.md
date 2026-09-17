@@ -1,0 +1,9 @@
+# Private recovery candidates and ledger joins93
+
+Exact328-file92 parent;329pins/326unchanged, storage lib and narrow sibling attempt visibility changed, planned recovery.rs added. No inventory/fixture/dependency change;51 registry packages remain pinned. Source embeds550 actual selected association/receipt schema comparisons plus exact-u64 extra admission and duplicate-key controls;169 decimal ordering comparisons cover precision and signed-integer boundaries.
+
+ReceiptCandidate retains exact supplied bytes; AssociationCandidate validates all13 fields and exact decimal-u64 counter (not float, signed SQL cast or bare lexical ordering). Exact joins bind execution, namespace, Run, inventory, numeric counter, raw receipt-byte SHA256, store/carrier binding and attempt operation. Four attempt states times four receipt/association presence states cover the selected matrix; only refused settlement with both rows confirmed absent produces the conditional negative. Open/unobserved/contradictory history stays unknown; pending settlement and legacy custody absence are distinct disclosures.
+
+These inputs are SUPPLIED same-snapshot observations. Parsing is not signer/custody admission; None must mean confirmed absence, never a read error or fallback database. Positive joins return ContinueCarrier, not committed: signer authority, retained closure, journal SEAL, witness, floor and actual admitted store verification remain required. No SQL persistence, read-only recovery facade or authority is created by this unit.
+
+18storage tests-r2 and strict workspace Clippy-r2 passed. Initial test compile required sibling visibility of the parser error type; initial lint requested test constants precede the module. Failures/beforeimages retained. Freshhost55 COMPLETE209sources/51archives,241totalRusttests and build/tests/doctests/metadata/help/version passed. No Linux/crash/power-loss/release qualification or actual independent acceptance.
