@@ -1,0 +1,13 @@
+# Private availability ledger draft 100
+
+Copies the exact 330-file draft 98 parent. The candidate preserves 328 files unchanged and modifies only storage/ledger_store.rs and storage/availability.rs. No dependency, inventory, schema or fixture-path changes.
+
+Proposed private physical DDL stores immutable availability history keyed by store, namespace, Run and canonical u64 decimal generation. A matching expression index orders generations by digit count then binary bytes, preserving the full unsigned range. Exact table, index and trigger definitions are checked before interpreting absence. The current body is re-admitted through draft98's registry selector, and its Run/generation must match physical indexes.
+
+ReadSnapshot joins the actual receipt, association and attempt in its fixed SQL snapshot before loading current availability. A positive ledger join remains conditional ContinueCarrier; it is not custody or historical commitment proof. Missing/corrupt schema, body/index mismatch and missing/contradictory receipt joins are errors, not no availability. It reads only the current record, not a cryptographically authenticated or revalidated full history prefix.
+
+WriteTransaction checks a supplied expected generation against the actual current record while holding BEGIN IMMEDIATE. Initial generation0 and exact checked increment are then enforced by draft98. Any SQL INSERT error leaves the transaction poisoned, preventing commit; there is no automatic retry. The same transaction may stage the receipt pair and initial availability, but complete authoritative Run commitment is not installed.
+
+29 storage tests and strict workspace Clippy-r2 passed. Tests exercise actual old/new snapshots, stale writers, rollback, immutable history, unchanged receipts, missing schema/receipt joins, body/index corruption, full-u64 ordering and exhaustion. A reduced real SQLite row limit triggers an actual failed insertion, checks transaction poison/commit refusal, and confirms no availability row afterward. The synthetic high-generation ordering fixture deliberately skips history; it demonstrates numeric ordering, not lawful complete history. Fresh host61 passed with 210 sources, 51 checksum-verified dependency archives, 258 workspace tests and 2 doctests; build, metadata, version and help also passed.
+
+DDL is proposed, not a selected migration. All APIs remain private. Host security authority, verified retained closure/restoration, authorized purge, native custody and command-specific projection remain required. No independent approval, Linux, power-loss or release qualification is claimed. Probe99's pin-disclosure size issue is separate and has not been decided by this change.

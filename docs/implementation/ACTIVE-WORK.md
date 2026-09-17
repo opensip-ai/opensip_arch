@@ -1167,3 +1167,23 @@ Probe 99 at /tmp/opensip-implementation/m2-purge-disclosure-bound-probe-99 repro
 Archive99 has 24 members / 96,064 bytes, all rehashed. It preserves exact owners, observations and a proposed aggregate preflight, including seven near-boundary examples. Review must settle the owner/budget, optional/wrapper context, every projection, pin-admission error and pre-existing over-budget handling. No selected design changed; no truncation or silent destructive fallback is proposed. This is a concrete pending design correction, not a claim that the released CLI has a purge defect. Resolve it before installing pin persistence/purge.
 
 Both reviewers remain unavailable under the user's approximate 24-hour reset estimate. No agent retries, assignments or agreement claims. Next independent work may continue in storage/host integration that does not decide the decoder/readonly-diagnostic questions from 97 or pin-disclosure budget from 99. No draft 100 exists. Keep product installation and formal selection pending actual review.
+
+
+## Latest: checkpoint 464111110; availability ledger 100 frozen
+
+Architecture commit 464111110 preserves draft98 and probe99. Its guard passed with 153,921 files / 45,515 unique blobs / 3,762,819,231 bytes; no ordinary blob above100MiB or whitespace errors. Product fa72e50 remains unchanged; no pushes.
+
+Draft100 /tmp/opensip-implementation/m2-availability-ledger-trial-100 copies the exact330-file98 parent and changes only storage/ledger_store.rs and storage/availability.rs (328 unchanged). It adds proposed private immutable availability-history DDL, full-u64 decimal index ordering, exact schema/index/trigger checking, actual paired receipt/association/attempt joins, fixed-snapshot reads and transactional expected-generation comparison under BEGIN IMMEDIATE. Body/index identity is checked. An INSERT error poisons the transaction and prevents commit. All APIs remain private and conditional; this is not verified retention, security authority, complete Run commitment or a selected migration.
+
+29storage tests and strictClippy-r2 passed. Native tests cover old/new snapshots, stale writers, rollback, immutable records, unchanged receipt bytes, index corruption, missing joins/schema, full-u64 ordering and exhaustion. An actual reduced SQLite row limit produces an INSERT failure; poison prevents commit and no row survives. Synthetic high-generation fixtures test ordering only, not full-history continuity. Frozen330pins/328unchanged; no inventory/dependency/fixture changes. Freshhost61 is RUNNINGsession33094; inspect receipt beforearchive. No archive100 or draft101 yet.
+
+Both reviewer quota reports and pending integration questions97/99 remain in force. Continue independently without quota retries or acceptance claims.
+
+
+## Latest: availability ledger 100 qualified and archived; review resume guide prepared
+
+Draft100's fresh host61 completed: 210 exact sources,51 verified archives,258 workspace tests+2doctests, and build/metadata/version/help passed. Archive100 COMPLETE:372 members /4,047,620 bytes, all rehashed. Source remains frozen330pins/328unchanged.29storage tests and strict workspaceClippy-r2 passed. This completes the private physical availability-history increment, not authoritative store/Run integration.
+
+New docs/implementation/m2/REVIEW-RESUME.md groups the pending exact subjects and highlights the reference-correction chain plus questions97/99. It changes no acceptance policy or historical approval. Both actual reviewers remain unavailable per user; none was contacted. No draft101 exists.
+
+For subsequent carrier work, the exact selected open-dispatch owners are docs/coop/design-corrections/security/carrier-format.v3.md section8 and check-carrier-v3.py::_s37_open (line751 in current bytes). Names/definitions precede all v3 row reads; incomplete lawful footprints, inherited formats, fresh absence and binding mismatch have distinct standings. The current private96 reader intentionally supports only published fresh carriers. Do not flatten read-only quarantine candidates into public corruption before the Step4 stability gate or choose the witness decoder while question97 is pending. No migration implementation was started.
