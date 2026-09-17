@@ -1057,3 +1057,18 @@ Architecturef23873358 commits86archive. Guard153865files/45459unique/3761835849B
 Editable89 /tmp/opensip-implementation/m2-blob-store-trial-89 copies exact324-file88. Planned storage crate activated with identity/platform local dependencies only, private digest-directory owner/VerifiedBlob, no public mutation API. Verify input length/digest, publish immutable bytes by lowercase raw SHA256 filename; EEXIST requires exact existing-byte verification and own file/directory barriers. Added platform ExistingFileReceipt/read-only confirmation helper returns io::Result, not a misleading temporary-publication stage. Bounded read returns owned digest-verified bytes and preserves absent/unreadable/corrupt/over-bound errors. Root/path custody is supplied; no ledger or Run commitment. Four storage tests currently RUNNING; inspect results, verify Cargo.lock existing rows/40 registry versions unchanged. Needs strict lint, pins, freshhost52, archive. No89 source manifest yet.
 
 Actual independent reviewer remains quota-blocked (last read-only14:06Z). Continue independent work; no new assignments/retries/assent and never push.
+
+
+## Latest: checkpoint5bc54f86d; blob89 qualified; SQLite90 probed; ledger91 editable
+
+Architecture5bc54f86d commits87/layout50; guard153873files/45467unique/3762082972B, ordinary>100MiB0/whitespace0. Productfa72e50 remains clean; no pushes.
+
+88 freshhost51 COMPLETE204sources/40archives,221workspace+2doctests; archive88 COMPLETE360members/3987600B, every member rehashed.
+
+89 frozen327pins/320unchanged, four root/lock/platform changes and three planned storage files. All40 registry and prior local lock rows unchanged. Four storage tests/strict lint passed. Freshhost52 COMPLETE207sources/40archives,225workspace+2doctests; archive89 COMPLETE363members/3990496B, all rehashed. Private length/digest-bound blob publication/read and existing-byte confirmation; supplied directory custody, no ledger/Run authority.
+
+Standalone90 uses exact rusqlite0.40.2/bundled SQLite3.53.2 with11 registry archive checksums. First open refused /tmp symlink ancestor (CANTOPEN_SYMLINK1550); original source/error retained. Only owned probe root canonicalized, NOFOLLOW retained. Explicit subprocess r2 exit0; native WAL/FULL/fullfsync/defensive/noDQS/trusted-schema-off/FK/zero-busy settings, writer contention, reader snapshot, readonly missing-file noncreation and symlink refusal passed. Archive90 COMPLETE25members/12352B; all rehashed. Initial shell exit masked binary failure with succeeding cat; explicit failure record retained, never claimed initial success. No Linux/power-loss/custody/release or product dependency selection.
+
+Editable91 /tmp/opensip-implementation/m2-ledger-mechanism-trial-91 copies exact327-file89. Adds already-planned storage/ledger_store.rs and pinned rusqlite bundled dependency, all new lock rows need explicit validation. Existing-only absolute physical-path opens, no CREATE/migration/URI, verifies WAL and strict per-connection configuration. ReadSnapshot pins snapshot before first domain query; owned BEGIN IMMEDIATE transaction is single-use, COMMIT errors remain undetermined and consume connection. Native path/sidecar custody supplied; no raw public SQL or semantic receipt/authority. Storage tests running session15785; inspect logs before lint/freeze/host/archive. No91 manifest yet.
+
+Actual independent review still blocked by Grok quota, last read-only14:06Z; no retry/task/assent. Continue independent work; preserve pending actual review and formal successor selection. Never push.
