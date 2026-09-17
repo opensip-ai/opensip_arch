@@ -1,0 +1,11 @@
+# Private SQLite transaction mechanism91
+
+Exact327-file89 parent;328pins/324unchanged. Three lock/storage manifest/lib changes plus already-planned ledger_store.rs. Forty prior registry packages/all prior local rows except the storage dependency list remain unchanged;11 exact probe90 dependencies added. rusqlite0.40.2 has default features off, bundled SQLite3.53.2. This is proposed source/dependency selection, not independently accepted product code.
+
+Only existing absolute filesystem paths are opened; no CREATE, URI, memory, symlink or silent journal-mode migration. NOFOLLOW remains enabled and per-connection settings are verified: WAL, FULL, zero busy handler, fullfsync/checkpoint_fullfsync, defensive mode, DQS off, trusted-schema off, foreign keys and reader query_only. Directory/inode/sidecar custody throughout SQLite use remains supplied. A read-only SQLite connection may maintain WAL sidecars; this is not a claim of no filesystem activity.
+
+An owned writer begins IMMEDIATE without waiting. Its single-use transaction rolls back on drop and consumes itself on COMMIT; any commit error is undetermined pending recovery, never an automatic write retry. MechanismCommit is private and not a PublishedCommit or semantic receipt. ReadSnapshot forces a main-database read on open so receipt/association/attempt joins will share one snapshot. No raw writable connection crosses the storage facade.
+
+Nine storage tests and strict workspace Clippy passed, including five new native tests for snapshot-before-domain-read, competing writer, rollback after partial writes, deferred-constraint commit failure, and missing/non-WAL/unsafe-path refusal. Initial test fixture used a32-byte digest formatter with16-byte entropy; compile failure and beforeimage retained, corrected to hex the entropy bytes. Freshhost53 COMPLETE208sources/51archives,232totalRusttests and build/tests/doctests/metadata/help/version passed. Actual macOS only: no I/O-fault/power-loss/Linux/custody/release qualification. Public storage authority, schemas, receipts, guarded commit, recovery, retention and availability still require integration.
+
+Primary APIs: https://docs.rs/rusqlite/0.40.2/rusqlite/struct.Connection.html ; https://www.sqlite.org/c3ref/open.html ; https://www.sqlite.org/pragma.html .
