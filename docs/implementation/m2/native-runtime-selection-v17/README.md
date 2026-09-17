@@ -1,0 +1,5 @@
+# Enumeration extent and membership diagnostics — proposed runtime17
+
+Four mapped inputs, two planned additions,254 non-lock product files exactly compose frozen35 on current23/32 with inventory25 and runtime16-r2. Includes independently reviewed extent34 plus membership35 under review.3712 extent cases and2025 membership cases retain distinct reference/local-bound scope.124 Rust tests pass. API returns diagnostics, not full enumeration, package classification, independent truth, Run or replay authority. Identity/Cargo/dependencies and other fixtures unchanged. New isolated host build required; exact25 provider sources match the accepted rebuilt16-r2 provider, so that evidence may carry without a new provider build. Source35/formal review and private activation remain required.
+
+Freeze: completed actual source35 review has no required findings. Host136 sources18 archives124 tests/help/version pass; exact25 provider pins unchanged from accepted rebuilt16-r2. Export design check passes on exact explicit manifest. Four accepted parents, zero passage overrides. Formal review, root assent and private activation pending.

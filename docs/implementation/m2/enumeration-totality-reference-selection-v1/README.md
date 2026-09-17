@@ -1,0 +1,9 @@
+# Enumeration Cargo-manifest UTF-8 refusal correction
+
+Proposed reference-only successor. Only the Cargo.toml branch of project_named_packages catches UnicodeDecodeError together with TOMLDecodeError. Invalid UTF-8 is classified as the existing manifest syntax failure and retained in candidatePaths. The current code lets that decoder exception escape. Historical source bytes remain unchanged; future explicit overlays select this candidate only after independent review and root assent.
+
+954 complete before/after projection comparisons use the selected source32 overlay:128 prior UnicodeDecodeError outcomes become existing syntax failures;826 other outcomes remain identical. JSON controls include pretty/unsorted manifests, duplicates, floats, invalid UTF-8 and non-object documents. All bytes outside the one except clause are unchanged. No schema, identity/hash recipe, public fault, TOML1.0 semantic profile or resource policy changes.
+
+The portable checker takes --overlay pointing to the extracted source32 reference/archroot/docs/coop/design-corrections and --output for fresh evidence. It verifies selected enumeration69b0 and nativee678 pins before executing the full original module and candidate function. It checks the exact one-line source difference. The source32 manifest and selected XZ archive pin bind the complete overlay. No package bytes are treated as canonical JSON unless their format requires the exact JSON profile; pretty JSON remains accepted.
+
+This unit does not add or accept a Rust TOML dependency, package projection, complete enumeration or replay. Private parser feasibility work separately identified calendar and resource distinctions that still require a parser profile and source/dependency qualification. Runtime17 has independently installed before this proposal; any selection changes only the design lock and reference selection, preserving its runtime bytes. Full M2–M6 remain open.
