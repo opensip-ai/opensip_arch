@@ -1,0 +1,5 @@
+# Frozen package projection source38
+
+Pure identity full-document TOML1.0 parsing and evaluator package projection. See TOML-PROFILE.md for exact dependencies, semantics, explicit resource/stack profile, compiled unsafe TCB and feature guards. Sixteen owned paths (thirteen changed, three new),257non-lock product files on selected24/35. No complete enumeration, Run, replay or custody authority. Product source remains uninstalled pending actual Grok source and formal runtime reviews.
+
+Portable reproduction: pinned Python3.12.13 `-I -B -X int_max_str_digits=0 check-packages.py --cargo /absolute/cargo --output /fresh/output`. Reference tree is exact157source32members except accepted E39; full module import/profile gates retained.1940cases=1933reference+7local Limits.130Rusttests,5identitydependencycontrols,9contractsfeature/sourcecontrols. Initial mismatches/refusals preserved. `profile-package-result.json` retains historical proposed-reference wording; portable-reproduction/result.json describes the now selected reference.

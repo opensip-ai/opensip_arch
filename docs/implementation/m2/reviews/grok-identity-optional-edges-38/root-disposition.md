@@ -1,0 +1,3 @@
+# Root disposition
+
+Root fully read the completed actual Grok Markdown and JSON advisory. Both actionable findings are accepted and corrected in the still-private source38: an omitted normalized edge name must match exactly one unconditional normal resolve edge, in addition to the existing declaration/feature checks; the no-exception control pins the custom-build refusal. Controls cover missing/duplicate/renamed/build/conditional resolve edges and the two actual unused optional declarations cited by Grok. Original reviewer inputs and reports are preserved; the original policy lag is historical and does not accept those source bytes. Selected inventory26/reference39 are now24/35. This advisory is not frozen source or runtime acceptance. No live parser installed.
