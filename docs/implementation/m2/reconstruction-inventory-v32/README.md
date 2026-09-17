@@ -1,0 +1,7 @@
+# Retained evaluator reconstruction ownership v32
+
+The evaluator input_reconstruction.rs module derives normalized subjects and scanner evidence from retained Plan/execution/capture records after fixed structural owners. Host reconstruction-fixtures.json supplies durable reference expectations and boundary controls; existing host native_owner_tests.rs dispatches them. Existing full_walk.rs retains a private census of already validated universes for reconstruction; it grants no public graph traversal authority.
+
+407 inherited rows, 20 packages and dependency directions remain unchanged; 409 planned files. The module follows existing input/owner naming and remains a private Rust module with a narrow retained-input API. No caller-owned raw map adapter is exported. Plan.semanticClosures selects the scanner map, while non-Plan transitive native interpreter closures remain required in retained storage. Inventories and incoming attestations preserve occurrences; duplicate inventories are refused before counting. Input reconstruction does not establish predicate truth, full evaluation, replay or publication custody.
+
+Layout only, not source48/runtime24 acceptance. Four inherited effective description overrides must be projected by stable filepath. Actual independent review and root activation precede selection; source/isolation/formal integration review remains required for installation.

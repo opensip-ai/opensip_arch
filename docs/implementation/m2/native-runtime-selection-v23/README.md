@@ -1,0 +1,7 @@
+# First-evaluation structural inputs — proposed runtime23
+
+Nine mapped inputs (seven changed,two new),268 non-design-lock product files exactly frozen47 on accepted29/41 inventory31/runtime22. Plan-only policy compilation and fixed structural input composition require no Run, proof or claimed program. Shared handlers retain existing Run behavior; snapshot.projectId anchors first-evaluation config/grant/source joins. Exact X capture selection precedes graph/payload/native/closure/sidecar admission. Caller callback/census is absent from the public evaluator entry. Independent atom truth, normalized reconstruction, replay and custody remain separate.
+
+930 Plan-policy reference cases,24 no-output structure cases,17 boundary controls,137 Rust tests(136named+1compilefaildoctest)/strictClippy/fmt. Fresh host149sources23archives137tests and provider26sources19archives after identity closure.rs change; dependency source policy updates that local pin only,299sources8dependencies unchanged closure/features. Portable check verifies269product159referencepins, rederives930 expectations and runs137tests in an exact disposable copy. Actual frozen-source47/formal23/rootassent/privateactivation required.
+
+Freeze: actual completed source47 review has no required findings; root read full reports. Two accepted parents, zero passage overrides; four inherited inventory descriptions preserved. Formal runtime review, root assent and private activation pending.

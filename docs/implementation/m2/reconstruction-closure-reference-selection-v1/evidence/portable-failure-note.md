@@ -1,0 +1,1 @@
+Initial portable checker inferred seed Run from object map. Eight additional graph fixture builders return seed descriptor separately without storing it as a Run object. The retained owner descriptor is now explicitly included as ownerRun per case; exact original builder bytes. Both reference versions/results unchanged. Initial corpus/checker and failed output directory retained.

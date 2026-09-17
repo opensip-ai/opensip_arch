@@ -1,0 +1,5 @@
+# Retained evaluator input reconstruction — proposed runtime24
+
+Five mapped inputs (three changed,two new),270 non-design-lock product files exactly frozen48 on accepted30/43 inventory32/runtime23/reference49. reconstruct_evaluator_inputs derives populations, rule enumeration, scanner evidence, observations, deficiencies and counts after fixed first-evaluation structural admission. No Run/proof/caller-admitted maps; opaque result. Plan closures select scanner maps while native interpreter dependencies remain retained. Complete atom truth, composition, replay and custody are separate.
+
+87 durable fixture cases (78 actual reference comparisons and9 typed structural/resource controls),324 additional pure helper comparisons,138 Rust tests (137named+1compilefaildoctest), strictClippy/fmt. Fresh host151sources23archives138tests. Provider26sources19archives carriedexactfresh23, no newproviderbuild or dependency/policy change. Portable verifies271product159referencepins,rederives78expectations18originalowners+23extraowners and324purepopulation cases,139 tests withoneprivateprobe. Actual frozen-source48/formal24/rootassent/privateactivation required.
