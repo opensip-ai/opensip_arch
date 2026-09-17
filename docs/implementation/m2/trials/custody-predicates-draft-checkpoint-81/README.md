@@ -1,0 +1,5 @@
+# Private custody predicates81
+
+Exact318-file80 parent;320 product pins,317 unchanged,securitylib modified plus already-planned custody.rs andone fixture. Typed uid/gid/mode and ACL principals use actual OS-width u32 domains, not the full arbitrary-integer synthetic discovery input domain. Private pure predicates preserve selected directory/config-file refusal precedence; owner waiver never bypasses group/other/ACL write, hard-link or size checks. Unreadable/unresolved ACL never becomes empty evidence.
+
+18851 actual selected S3 helper cases5225admit cover all512permission masks, root/current/foreign owner, authorized groups/waiver, ACL principals/unknown/empty, zero/multiplelinks,size boundaries/sticky modes/u32max.34security tests/strictworkspaceClippyPASS. Freshhost45 COMPLETE200sources/40archives,195totalRusttests and build/tests/doctests/metadata/help/version passed. No actual OS ACL/lstat observation, retained-handle identity join, full DiscoveryProvenance or custody authority. Actual independent review and selection remain.
