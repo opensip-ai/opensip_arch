@@ -1,0 +1,5 @@
+# Retained stage output checks — proposed runtimev13
+
+Four mapped inputs, one new planned stage_output.rs,244nonlock files exact frozen26. Retained stage/spec/provider schema registration and selected structural meta-profile, no instance/regex execution or fullRun/replay.6340shape+167retained-stage comparisons,118tests/28host cases. Identity/policy/Cargo/provider unchanged; priorhostfixturevalues unchanged. Current19/27base with selected stage-meta reference and inventory21; source26reviewpending. New source-onlyhost isolation; provider25pins carried forward fromacceptedv10 without rebuild claim. Formal review/rootassent/privateactivation still owed.
+
+Freeze: actual source26 no required findings; candidate/base19/27 exactlive andsixpreflightchecks pass. Host126sources18archives118tests/help/version pass. Provider25source+Cargo.lockpins revalidated againstacceptedv10receipt; no rebuildclaimed. Stage-meta reference andinventory21 selected. Formalreview/rootassent/privateactivation stillpending.
