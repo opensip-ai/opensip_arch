@@ -1,0 +1,9 @@
+# Private current journal and SEAL binding87
+
+Exact322-file86 parent;324 pins/317 unchanged, five existing files changed and planned journal_store.rs plus one fixture added. Planned security→evaluator local edge activated;40 registry packages and all other local lock rows unchanged. Current recordSchema3 shape/metadata/closed-field and run3 dispatch produces owned canonical metadata bytes with opensip.metadata.journal.1 NUL-prefixed body hash. Historical schema2 remains historical; mixed prefixes refuse.
+
+PreparedJournalSeal consumes actual evaluator-owned ReplayedRun, compares exact nonfixture SEAL runId, retains its owned evidence after input arenas drop, and can move through the private one-shot gate. It is not a JournalSealBinding authority token or a durable append.321 actual selected metadata/schema/body-hash comparisons plus real replay binding/mismatch/fixture/type tests.49 security tests/strict workspace Clippy-r2 passed. Freshhost50 COMPLETE204sources/40archives,218totalRusttests and build/tests/doctests/metadata/help/version passed. Proposed inventory50 adds one fixture,444 planned files/20packages.
+
+Initial raw-hash draft was corrected to the selected domain prefix while reading the actual reference; beforeimage retained. Initial compiler failure on sibling test-helper visibility fixed within cfg(test). r2 and repeated r3 exposed non-NFC metadata refusal precedence (Unsupported instead of Metadata, no acceptance); first edit script failed to match rustfmt wrapping and changed nothing, explicit resume then moved metadata validation before dispatch. r4 tests pass. Clippy-r2 applies two equivalent boolean simplifications, beforeimage retained.
+
+No journal writer/sequence/current grant/custody or durable storage authority, no public operational grant or completion claim. Actual independent review/selection and full storage/host integration remain.

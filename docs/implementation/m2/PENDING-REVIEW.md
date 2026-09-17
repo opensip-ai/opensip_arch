@@ -51,3 +51,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 | Source85 |90 actual observer_tick comparisons,46 security tests,211 fresh-host48 Rust tests/strict lint; archive retained | Review conservative read brackets, >10s boundary, failed-read/stall-before-refresh precedence and latch integration. Supplied counter authenticity, polling, journal append and process cancellation remain |
 
 | Source86 |12 lifecycle tests,215 fresh-host49 Rust tests, strict lint-r2; archive retained | Review one30s project budget containing nested5s fence waits, selected backoff outside all partial locks, continuity, non-busy errors and late-acquisition cleanup. No authenticated registry/custody or hard scheduling guarantee |
+
+| Inventory50/source87 |321 actual metadata/journal/domain-hash comparisons, real owned ReplayedRun binding;49 security tests,218 fresh-host50 Rust tests/strict lint-r2; archive retained | Review current/historical/mixed-prefix admission, metadata refusal precedence, exact journal hash domain, planned security→evaluator edge and owned SEAL binding. No JournalSealBinding authority token, journal append or durable commit |
