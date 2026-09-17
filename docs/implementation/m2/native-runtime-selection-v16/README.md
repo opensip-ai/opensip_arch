@@ -1,0 +1,5 @@
+# Fixed retained structural traversal — proposed runtime16
+
+Ten mapped inputs, two planned additions,252nonlock files exact frozen32. Private fixed evaluator composition derives census and runs selected structural owners in order; default identity diagnostics reject unsupported obligations. No caller admission flag or complete-function owner/census input.526corpus cases:507current reference fullstructural comparisons on canonicaldecoded records,19resource/default controls;122Rusttests. Current22/31base with inventory24/runtime15 selected. Three localidentitysourcepolicy pins change; externalTCB/Cargo/priorfixtures unchanged. New isolated host AND provider builds required; provider includes the changed identity files and cannot carry oldv10 as unchanged. Counts only, not independent replay or publication/M2 authority. Source/formal review and privateactivation remain required.
+
+Freeze: actual source32 no required findings; current22/31base exactlive, sixpreflights. Host134sources18archives122tests/help/version. Provider25sources14archives rebuilt withthreechangedidentityfiles;3intentionalunavailablechecks. Formalreview/rootassent/privateactivation pending.
