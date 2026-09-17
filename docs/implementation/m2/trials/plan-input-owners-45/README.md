@@ -1,0 +1,9 @@
+# Frozen Plan-scoped view, import and stage owners45
+
+Six owned inputs (five changed, one new),262non-design-lock productfiles on accepted27inventory/39contract successors. Exactacceptedruntime20/source43inheritance verified for256unmodifiednonlockfiles; layout29 names the newplan-input-fixtures.json. PriorboundedactualGrokreview found no requiredchanges; accepted43rebase prerequisite satisfied. No source46execution kernel is included.
+
+Three newPlan-scoped wrappers reuse existingRun-owner semantic tails. They admit retainedPlan/snapshot/view/import/stage records before anyRun/seal/proof exists. The view wrapper derives namedview/coverage membership fromshapedProofInputRefs; the stagewrapper explicitlychecks executionPlan.planId. ExistingRunwrappers andfull_walk retain theirpriorflow. No syntheticRun orcallerADMITmap. FullXcaptureselection/nativePlan/enumeration/predicate reconstruction/replay/custodyremainopen.
+
+133workspaceRusttests andstrictClippyPASS. Fresh143source/23archivehostisolationpasses133tests. Provider26sourcepins equalactuallyrebuilt19 and19archiveevidenceiscarried, no newbuild. Noidentity/dependency/featurechanges.69hostfixturecases remove allRun/seal/proof/finding/semanticEvidence/evaluationSubject/predicate-outputobjects:42cases from10actual selectedreferenceowner-admitted packets,27additional typedselection/Plan/source/missing/tamper/resourcecontrols.
+
+Portablecheck: pinnedPython3.12.13 -I -B -X int_max_str_digits=0 check-plan-inputs.py --cargo /absolute/cargo --output /fresh/directory. Verifies263product159referencepins, actualreferenceadmission of10originalpackets, exact42derived no-outputrequests/expectations andall69hostcases. Snapshotabsenceforstage-onlyhelper intentionallysucceeds: separateprerequisite, notfullinputadmission. ReadPLAN-INPUT-PROFILE.md andinheritedpackageprofile. Requiresactualfrozen sourcereview andformalruntime21selection beforeinstallation.

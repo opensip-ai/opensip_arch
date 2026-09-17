@@ -1,0 +1,5 @@
+# Root precision correction: execution refusal diagnostics
+
+This addendum corrects root-disposition.json wording that X REFUSE has empty derived accounts/outcomes/deficiencies. That statement applies only to early schema/store/registry refusal. At the final semantic-join refusal, selected execution_inputs_model.v1.py retains derivedAccounts, derivedOutcomes and requiredCellDeficiencies as diagnostics while result stays REFUSE and digest stays null. Original notes/reviewer evidence remain unchanged. No reference law change or new acceptance is asserted.
+
+The pinned-reference reproduction starts with an actual owner-admitted packet. Its original execution manifest admits with3accounts/1outcome. Changing only analysisSpecDigest to a different shaped digest produces EXECUTION_INPUTS_PLAN_JOIN, null digest, and still3accounts/1outcome. These diagnostic values are not partial admission authority. FutureRustX must reproduce both early and late envelopes precisely. EnumerationE has a different refusal population contract; do not transfer it to X.
