@@ -1,0 +1,5 @@
+# Private conditional platform admission74
+
+Exact305-file72 parent;306 product pins,304 unchanged,trust.rs modified andone portable fixture. Conditional evidence consumes owned verified profile evidence and owns bounded complete supplied observations, decision and four enforcement limitations. Exact measured/baseline tiers, ordered refusals, machine IDs, lane checking and drift match proposed73; mac last duplicate/Linux first duplicate behavior preserved. No actual OS observation, root/core authenticity, execution grant or custody authority.
+
+1017 actual reference73 comparisons cover result/platform/tier/lane/ordered refusals/drift; one foreign profile key is refused by earlier profile shape admission.29 package tests include actual signature-to-profile-to-platform composition, owned-input lifetime and oversize observation refusal. Strict workspace Clippy passed. Freshhost39 COMPLETE186sources/40archives,172totalRusttests and build/tests/doctests/metadata/help/version passed. Source and reference remain unaccepted.

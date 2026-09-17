@@ -953,3 +953,14 @@ Proposed reference73 copies exact1264-file69 tree. Actual probes reproduce final
 PrivateEDITABLE /tmp/opensip-implementation/m2-platform-admission-trial-74 copiesexact305pinned72; conditionalplatformevaluation consumes verifiedProfileSetEvidence andownsboundedfullsuppliedobservation. Two tiers/refusal/drift, exactmachineIDs, signedlane checks, maclastduplicate/Linuxfirstduplicate policies explicit; allfourenforcementlimits retained.1017actualreference73cases (one foreignprofile is rejected earlier byprofile schema); Rustpackage tests currentlyRUNNINGsession23644. Newfixtureplatform-admission-cases.ndjson needs proposedlayout45/freeze/host39 afterqualification. Source currentlyunfrozen; no runtimegrant/platformcustody claim.
 
 Productfa72e50clean; archac1707428 plus71/72/73 checkpoints readytocommitafterguard. Grokstillactualweeklyquotablocked; no retries/newassignment/assent. Continue independently; no pushes.
+
+
+## Latest: checkpoint07670472c; platform74 qualified/archived; revocation75 editable
+
+Architecture07670472c commits71/72/73 checkpoints/layouts43/44. Guard153793files45387unique3760208845B,ordinary>100MiB0/whitespace0.71archive351members3774080B;73archive1283members1819616B. Productfa72e50clean; no pushes.
+
+74frozen306pins304unchangedtrust.rs+onefixture, proposedlayout45→437plannedfiles/20packages, subject639B/69e7b2497bbed3f9c8e07f13ffa94017c7aa3660b9dcdee79f4f64ce10321390.29packagetests/strictworkspaceClippyPASS. Freshhost39 COMPLETE186sources40archives170workspace+2doctests/allcommandsPASS. Archive74 COMPLETE346members3812468B everymemberrehashed. ConditionalOSobservationstanding retained, no grants/actualplatformmeasurement. Needcommit74afterguard.
+
+PrivateEDITABLE /tmp/opensip-implementation/m2-revocation-trial-75 copiesexact306pinned74. Fullclosedrevocationpayload+realcalendars, suppliedrootVersion equality, actualROOTsignedenvelope+previousrevokedkeyfilter. Futureissue/selfrevocationretained as inertdocument, no currentview/time/counter/custodyadmission.490actualschema/calendarcases40admit,40signedscenarios18actualOpenSSLchecks. AddedS6observationpredicate overactualverifieddocument+suppliedclosure/epoch/policy:1920actualreferencecases, includingrollback-counter(nocurrentviewauthority),trust-before-policy,duplicatepolicygrantorder/unrelateddrift.32packagetestsPASS. Initialtimestampcallname compileerror fixedtoexistingtimestamp_seconds, failedsource/logpreserved. StrictClippyfoundone nonminimalboolean; equivalentfixbeforefreeze, lint-r2RUNNINGsessionlatest. Threeportablefixtures currentlyunindexed; freeze_revocation75.py preparedbutNOTRUN; requireslintPASSthenlayout46/freshhost40/archive. No new independentreview/selection;Grokquotablockunchanged.
+
+Nextindependentwork: platformfilesystem flock lease mechanism perselectedS7 (nonblockingprimitive,no custody/policy authority),thenlifecyclecomposition/durablepublication. Platform55 clockstillseparateunmerged. No76createdyet. Neverpush.

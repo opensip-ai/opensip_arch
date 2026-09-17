@@ -31,3 +31,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 
 | Inventory44/source72 |1963 profile shape cases and228 actual signed profile/core-pin/revocation cases;27 package tests,168 workspace tests plus2 doctests on freshhost38, strict lint passed; archive72 retained | Review complete profile shapes, exact core digest and role/revocation binding; supplied root/core pin remains conditional, identities synthetic |
 | Reference73 |618 differential platform cases/147 malformed cases now refuse;38 retained cases unchanged;470 security cases/11 sweeps passed; archive73 retained | Review ASCII complete-string identity grammar and exact boolean/integer observations; no actual OS measurement or authentication |
+
+| Inventory45/source74 |1017 actual corrected-reference platform comparisons,29 package tests/strict workspace lint;freshhost39 passed170 workspace tests plus2 doctests;archive74 retained | Review signed-profile consumption, owned supplied observations, two-tier decision/refusal/drift, duplicate ordering and retained enforcement limitations. Actual OS measurement/root/core/custody/grant authority remains separate |
