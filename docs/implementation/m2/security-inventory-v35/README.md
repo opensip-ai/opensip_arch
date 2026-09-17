@@ -1,0 +1,5 @@
+# Security fixture ownership v35
+
+Add seven consistently named `*-cases.ndjson` fixtures under crates/security/tests/fixtures. Private59 preserves exact bytes from54/57/59 reference corpora and uses source-relative include paths, so tests no longer depend on private temporary directories. Each line is a separately bounded JSON value; the large root corpus is not parsed as a single metadata document. These are test inputs, not current trust roots, configuration or production authority.
+
+The security Cargo/lib/trust/trust_time files are already planned. No package or DAG change:20 packages,418 planned files.411 inherited rows remain equal by value. Actual layout33/34 review is still pending due Grok quota; this successor remains unassigned and unaccepted. No source/runtime, dependency or reference approval is inferred. In particular reference58/56/53, the further root-admission gaps in57 and the concrete strict Ed25519 profile in59 each need independent treatment. Four inherited description overrides must be located by stable path.

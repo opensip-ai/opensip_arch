@@ -2,7 +2,7 @@
 
 Product code lives in the sibling `opensip` repository. This repository retains the accepted design, reference models and review evidence. The user authorizes continuous implementation with actual Grok reviewing and Codex leading. Historical Claude reviews remain valid within their recorded scopes. The user has authorized a checkpoint commit of all outstanding changes in both repositories and will push them personally. No push is authorized.
 
-The [active work guide](ACTIVE-WORK.md) gives the current task, exact review subjects and resume instructions. The [accepted baseline](../coop/design-corrections/reviews/root-application46-delivery.v1/README.md) and [build plan](../v2/architecture/implementation-boundaries-and-build-plan.md) remain authoritative; reviewed successors preserve their history.
+The [pending independent review queue](m2/PENDING-REVIEW.md) separates completed draft checks from outstanding approvals and newly reproduced root-admission gaps. The [active work guide](ACTIVE-WORK.md) gives the current task, exact review subjects and resume instructions. The [accepted baseline](../coop/design-corrections/reviews/root-application46-delivery.v1/README.md) and [build plan](../v2/architecture/implementation-boundaries-and-build-plan.md) remain authoritative; reviewed successors preserve their history.
 
 ## Implemented in the product
 
