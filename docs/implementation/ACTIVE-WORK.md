@@ -1031,3 +1031,16 @@ Architectureb32bd019a commits82/83 archives. Guard153853files/45447unique/376162
 86 /tmp/opensip-implementation/m2-project-retry-trial-86 FROZEN322pins/321unchanged, only lifecycle leases.rs changed. Optional S7 project retry uses one30s overall budget including nested5s fence waits,1/2/4/8/15backoff strictly outside fence/partial leases, observes clock continuity, drops late acquired leases, never retries non-busy errors.12lifecycle tests passed with actual kernel guards and scripted timing, strict Clippy-r2 passed. Initial lint caught items-after-test-module; beforeimage/log preserved and production items reordered. Freshhost49 RUNNINGsession76744, final bytes awaiting complete validation/archive. No inventory/dependency changes.
 
 Read-only Herdr check2026-09-17T14:06Z: implementationGrok still weekly-limit blocked, consumerB still0%. No retry/task/telemetry change. Actual independent review remains unavailable; no agreement or completion claimed. Next independent work: current journal record/SEAL binding to owned ReplayedRun, then guarded publication/authority composition. No87 created yet; inspect selected schema and owner API before implementation.
+
+
+## Latest: checkpoint3f476a9d3; retry86 qualified; journal87 editable
+
+Architecture3f476a9d3 commits84/85 archives; guard153861files/45455unique/3761765687B, ordinary>100MiB0/whitespace0. Productfa72e50 clean; no pushes.
+
+86 freshhost49 COMPLETE202sources/40archives,213workspace+2doctests, final reordered bytes passed. Archive86 COMPLETE361members/3909792B, every member rehashed. Review still pending.
+
+Editable87 /tmp/opensip-implementation/m2-journal-seal-trial-87 copies exact322-file86. Adds planned security/journal_store.rs with current JournalRecord3 shape/metadata/domain-digest ownership; private PreparedJournalSeal consumes actual evaluator-owned ReplayedRun and compares exact nonfixture run3 identity. Activates planned security→evaluator local dependency; all40 registry packages and all other local lock rows verified unchanged. New combined fixture journal-seal-cases.json contains321 actual selected metadata/journal/body-domain reference cases plus one retained replay fixture selected from existing host corpus. Needs proposedinventory50 after qualification.
+
+Initial body-hash draft omitted opensip.metadata.journal.1 NUL prefix; corrected while reading actual reference, beforeimage retained. Initial tests failed on sibling test-helper visibility; narrow crate-internal cfg(test) helpers corrected, beforeimage/compiler log retained. r2 had48passing/1failure: non-NFC schema field returned Unsupported before full metadata domain check. No invalid record was accepted; moved metadata encoding/domain validation before journal dispatch to match selected pipeline refusal precedence. The first edit script mismatched rustfmt line wrapping and changed no source; its subsequent r3 test repeated the same failure. Explicit resume applied the move after verifying the preserved beforeimage. r4 security tests are running; inspect files before continuing. No freeze/runtime acceptance. Need strict lint, inventory50/source pins, host50 and archive after passing.
+
+Next: complete87 qualification then guarded journal append/authority/storage composition. Actual reviewer quota remains blocked per14:06Z read-only evidence; no retry/assent. Never push.

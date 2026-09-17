@@ -49,3 +49,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 
 | Source84 |6561 bounded law traces,256 native thread races,40 security tests,205 fresh-host47 Rust tests/strict lint; archive retained | Review atomic ordering, late-stop retention, non-cloneable prepared value/consumed permit and no-reset behavior. No CommitSession constructor, journal/writer/custody authority or durability claim |
 | Source85 |90 actual observer_tick comparisons,46 security tests,211 fresh-host48 Rust tests/strict lint; archive retained | Review conservative read brackets, >10s boundary, failed-read/stall-before-refresh precedence and latch integration. Supplied counter authenticity, polling, journal append and process cancellation remain |
+
+| Source86 |12 lifecycle tests,215 fresh-host49 Rust tests, strict lint-r2; archive retained | Review one30s project budget containing nested5s fence waits, selected backoff outside all partial locks, continuity, non-busy errors and late-acquisition cleanup. No authenticated registry/custody or hard scheduling guarantee |
