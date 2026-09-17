@@ -46,7 +46,7 @@ The live design lock selects 30 inventory and 44 contract successors. [Inventory
 |---|---|
 | M0 design baseline | Accepted; implementation corrections are reviewed separately |
 | M1 isolated builds/contracts | Accepted development checkpoint; [root readiness](m1/READINESS.md) records actual fresh/scoped reviews and verified integration |
-| M2 admission/publication | Registered schema/identity, native context/universe/retention and explicit-census Plan checks integrated; fixed structural graph composition integrated; independent evaluator reconstruction integrated; complete evaluator/replay candidates under local validation, security/durable publication remain |
+| M2 admission/publication | Registered schema/identity, native context/universe/retention and explicit-census Plan checks integrated; fixed structural graph composition integrated; independent evaluator reconstruction, replay/security/durable publication remain |
 | M3 TS/JS/Rust analysis | Not implemented |
 | M4 report/historical queries | Reader and presentation views reviewed in staged units; full app, retained source locations and host delivery incomplete |
 | M5 workflows/lifecycle | Not implemented |
@@ -63,6 +63,3 @@ Native universe, retention, Plan diagnostics, body identity, syntax support and 
 The [active work guide](ACTIVE-WORK.md) records exact subjects, review state and resume steps. The [previous status](checkpoints/implementation-readme-before-native-runtime03.md) and earlier checkpoints preserve historical claims. M2 completion, native compiler providers, the full report and workflows, and M6 qualification remain required.
 
 The [selected reconstruction reference correction](m2/reconstruction-closure-reference-selection-v1-unit.json) limits scanner closure maps to Plan.semanticClosures without dropping retained native interpreter dependencies. The [installed reconstruction runtime](m2/native-runtime-selection-v24-unit.json) has 87 permanent fixture cases, 138 workspace tests, a fresh isolated host build and a portable reference reproduction. Actual Grok source and runtime integration reviews passed; private and live activation checks passed. Atom scanning, complete output composition, replay and custody remain open.
-
-
-Current unaccepted work: composition50 has a retained-only fixed-scanner evaluation API,54 permanent reference cases,140 workspace tests and a fresh isolated host build. Its portable reproduction passes54 fresh reference derivations and13 atom corpora. Complete replay52 now owns exact evidence after independent output reconstruction, with101 retained reference cases,143 workspace tests, strict lint and dependency checks. Its fresh host/provider builds and portable reference reproduction passed. Neither candidate is installed or approved. Actual Grok quota blocks inventory33 and final composition review; proposed inventory34/replay52 will follow. Historical kernel reviews cover only their pinned subsets. [Active work](ACTIVE-WORK.md) records exact pending duties. Real compiler providers, custody/publication, the full report, workflows and release qualification remain required.

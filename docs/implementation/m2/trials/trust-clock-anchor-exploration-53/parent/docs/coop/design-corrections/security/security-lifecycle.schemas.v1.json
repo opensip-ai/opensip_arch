@@ -1,0 +1,5186 @@
+{
+  "artifact": "opensip.security-lifecycle.schemas",
+  "version": 2,
+  "status": "PROPOSED-NOT-SELF-ACCEPTED",
+  "standing": "Closed Draft 2020-12 records for docs/v2/contracts/product-v1/security-and-lifecycle.md. Validated with the foundation exact validator (exact integer/const/enum types). Records marked `metadata` are signed security metadata under opensip-metadata-canonical.1 (NFC strings, i64 integers); every other record is product data under foundation/canonical.py. Design evidence, not a product implementation. Version 2 adds RootV1/RootV2 (schema-2 extension recipe), the profile-set envelope, the boot-bound pending challenge, RepoExecutionGrantV2, RepairApplyAuthorizationV1, StorageWriteAdmissionV1 and discovery unit kinds. Post-reset v2 additions: AdmittedBoundaryInventoryV1 (S3 export, P3), RepairRecoveryAuthorizationV1 / RecoveryAuthorizationAdmissionV1 (S10.2, P9), InstallationTransitionIntentV1 / InstallationTransitionJournalV1 / TransitionIntentAdmissionV1 / TransitionJournalAdmissionV1 / TransitionRecoveryV1 (S9.2, P10) and the LeaseTraceV1 transition-journal op.",
+  "$defs": {
+    "Timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z(?![\\s\\S])",
+      "minLength": 20,
+      "maxLength": 20
+    },
+    "NullableTimestamp": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/Timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Hex64": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}(?![\\s\\S])",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "I64Positive": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "I64NonNegative": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "NullableString": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 4096
+    },
+    "StringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 4096
+      },
+      "maxItems": 4096,
+      "x-opensip-order": "sequence"
+    },
+    "D9": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "class",
+        "exit",
+        "code"
+      ],
+      "properties": {
+        "class": {
+          "enum": [
+            "request-rejected",
+            "operational-failed"
+          ]
+        },
+        "exit": {
+          "enum": [
+            2,
+            4
+          ]
+        },
+        "code": {
+          "enum": [
+            "CONFIG.INVALID",
+            "REQUEST.PRECONDITION_FAILED",
+            "EXTENSION.ADMISSION_REJECTED",
+            "LEDGER.BUSY_TIMEOUT",
+            "REQUEST.SCHEMA_MAJOR_UNSUPPORTED",
+            "LEDGER.CORRUPT",
+            "HOST.IO_FAILURE"
+          ]
+        }
+      }
+    },
+    "NullableD9": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/D9"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "Anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "bootId",
+        "mono",
+        "wall"
+      ],
+      "properties": {
+        "bootId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "mono": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "wall": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "ExpiryStates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootExpired",
+        "catalogExpired",
+        "revocationStale"
+      ],
+      "properties": {
+        "rootExpired": {
+          "type": "boolean"
+        },
+        "catalogExpired": {
+          "type": "boolean"
+        },
+        "revocationStale": {
+          "type": "boolean"
+        }
+      }
+    },
+    "TrustFloors": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootVersion",
+        "indexSnapshotVersion",
+        "revocationVersion",
+        "evalHighWater",
+        "lastAccepted",
+        "recoveryEpochSerial"
+      ],
+      "properties": {
+        "rootVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "indexSnapshotVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "revocationVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "evalHighWater": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "lastAccepted": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "recoveryEpochSerial": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/I64NonNegative"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "WalkRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "custody",
+        "candidate",
+        "boundary"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "custody": {
+          "enum": [
+            "PASS",
+            "FOREIGN_OWNER",
+            "WRITABLE_BY_OTHERS",
+            "WRITABLE_BY_GROUP",
+            "WRITABLE_BY_ACL",
+            "ACL_UNREADABLE",
+            "SYMLINK",
+            "NOT_A_DIRECTORY",
+            "ABSENT"
+          ]
+        },
+        "candidate": {
+          "enum": [
+            "ABSENT",
+            "PRESENT",
+            "REFUSED",
+            "NOT_EXAMINED"
+          ]
+        },
+        "boundary": {
+          "enum": [
+            null,
+            "EXPLICIT",
+            "VCS",
+            "HOME",
+            "FS_ROOT",
+            "MOUNT",
+            "FOREIGN_OWNER",
+            "WRITABLE_BY_OTHERS",
+            "WRITABLE_BY_GROUP",
+            "WRITABLE_BY_ACL",
+            "ACL_UNREADABLE",
+            "SYMLINK",
+            "NOT_A_DIRECTORY",
+            "ABSENT"
+          ]
+        }
+      }
+    },
+    "JournalRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recordType",
+        "recordSchema",
+        "grantGeneration",
+        "seq",
+        "operationRef"
+      ],
+      "properties": {
+        "recordType": {
+          "enum": [
+            "GRANT",
+            "RA",
+            "ICI",
+            "RCI",
+            "ICO",
+            "RCO",
+            "REV",
+            "CLN",
+            "SEAL"
+          ]
+        },
+        "recordSchema": {
+          "const": 3,
+          "description": "Current product grant-journal record format. Bundle filename security-lifecycle.schemas.v1.json is not this version. Schema-2 journals are frozen historical bytes under JournalRecordV2 and are not read as 3."
+        },
+        "grantGeneration": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "seq": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "operationRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "grant": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "requestRef": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "outcome": {
+          "const": "COMPLETED"
+        },
+        "postimageSha256": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "trustEpochObserved": {
+          "type": "object"
+        },
+        "residuals": {
+          "$ref": "#/$defs/StringList"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])",
+          "description": "Current analysis Run identity. SEAL records that name a Run use run3. No run[23] alternation. Historical schema-2 journals that recorded run2 remain those bytes."
+        }
+      }
+    },
+    "JournalRecordV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "FROZEN historical grant-journal record (recordSchema 2, run2). Not the current selected schema. Not an alternative parser for recordSchema 3. Used only to identify historical bytes so they are refused as current rather than relabelled.",
+      "required": [
+        "recordType",
+        "recordSchema",
+        "grantGeneration",
+        "seq",
+        "operationRef"
+      ],
+      "properties": {
+        "recordType": {
+          "enum": [
+            "GRANT",
+            "RA",
+            "ICI",
+            "RCI",
+            "ICO",
+            "RCO",
+            "REV",
+            "CLN",
+            "SEAL"
+          ]
+        },
+        "recordSchema": {
+          "const": 2
+        },
+        "grantGeneration": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "seq": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "operationRef": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "grant": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "requestRef": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "outcome": {
+          "const": "COMPLETED"
+        },
+        "postimageSha256": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "trustEpochObserved": {
+          "type": "object"
+        },
+        "residuals": {
+          "$ref": "#/$defs/StringList"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^run2:[0-9a-f]{64}(?![\\s\\S])"
+        }
+      }
+    },
+    "EnforcementV1": {
+      "type": "string",
+      "pattern": "^(DISCLOSURE-ONLY|ENFORCED-BY-CONSTRUCTION|ENFORCED-AT-HOST-BROKER|ENFORCED-PLATFORM:[a-z0-9.-]+)(?![\\s\\S])",
+      "maxLength": 128
+    },
+    "ClosureId": {
+      "type": "string",
+      "pattern": "^closure2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "RepairPlanId": {
+      "type": "string",
+      "pattern": "^repairplan2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "SnapshotId": {
+      "type": "string",
+      "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "ProjectId": {
+      "type": "string",
+      "pattern": "^prj1-[0-9a-f]{64}(?![\\s\\S])"
+    },
+    "PendingRecoveryChallenge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nonce",
+        "recordDigest",
+        "bootId",
+        "createdMono",
+        "expiresMono",
+        "createdWall"
+      ],
+      "properties": {
+        "nonce": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "recordDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "bootId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "createdMono": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "expiresMono": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "createdWall": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "Consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "policyRecordId",
+        "ci"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "interactive-explicit",
+            "policy-record"
+          ]
+        },
+        "policyRecordId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Hex64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ci": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Effects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subprocess",
+        "filesystemWrite",
+        "network",
+        "environment"
+      ],
+      "properties": {
+        "subprocess": {
+          "$ref": "#/$defs/EnforcementV1"
+        },
+        "filesystemWrite": {
+          "$ref": "#/$defs/EnforcementV1"
+        },
+        "network": {
+          "$ref": "#/$defs/EnforcementV1"
+        },
+        "environment": {
+          "$ref": "#/$defs/EnforcementV1"
+        }
+      }
+    },
+    "RootRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "keys",
+        "threshold",
+        "namespaces"
+      ],
+      "properties": {
+        "keys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hex64"
+          },
+          "maxItems": 8,
+          "minItems": 0,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "threshold": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 8
+        },
+        "namespaces": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 4194304,
+            "minLength": 1,
+            "pattern": "^[a-z0-9][a-z0-9.-]*(?![\\s\\S])"
+          },
+          "maxItems": 16,
+          "minItems": 0,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "standing": {
+          "enum": [
+            "active",
+            "typed-absence-DR-110"
+          ]
+        }
+      }
+    },
+    "RequestId": {
+      "type": "string",
+      "pattern": "^req1_[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "ExecutionId": {
+      "type": "string",
+      "pattern": "^exec1_[0-9a-f]{32}(?![\\s\\S])"
+    },
+    "JournalState": {
+      "enum": [
+        "PREPARING",
+        "STAGED",
+        "APPLYING",
+        "APPLIED",
+        "COMMITTED",
+        "FAILED_CLEAN",
+        "FAILED_ROLLED_BACK",
+        "RECOVERY_BLOCKED",
+        "INDETERMINATE"
+      ]
+    },
+    "RecoveryAction": {
+      "enum": [
+        "discard-temps",
+        "roll-back-renamed",
+        "verify-postimages-and-commit"
+      ]
+    },
+    "NamespaceList": {
+      "type": "array",
+      "maxItems": 65536,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4096
+      },
+      "x-opensip-order": "utf8"
+    },
+    "StateSchema": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "TransitionOperation": {
+      "enum": [
+        "core-update",
+        "core-repair",
+        "core-rollback",
+        "store-migrate",
+        "store-rollback"
+      ]
+    },
+    "TransitionRefusal": {
+      "type": "string",
+      "pattern": "^TRANSITION\\.[A-Z_]+(:[^ ]+)?(?![\\s\\S])",
+      "maxLength": 256
+    },
+    "LogicalPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024,
+      "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+    },
+    "PrunedTreeRowV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "reason",
+        "markerCount",
+        "markerCountBasis"
+      ],
+      "description": "Pruned-tree row VERSION 2 (XA-02 / CR-25). Closed four-member row. The anchor is known from the admitted directory observation and is recorded even when no descendant marker was observed; discovery never descends into the tree to obtain a count or to find a nested anchor. markerCount is null if and only if markerCountBasis is not-enumerated. Version-1 rows keep their bytes under the version-1 records and are read as version 1, never re-read as version 2.",
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "reason": {
+          "enum": [
+            "dependency-tree",
+            "vcs-tree",
+            "cargo-build-output"
+          ]
+        },
+        "markerCount": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          ],
+          "description": "Exact count of distinct supplied marker paths under this anchor when markerCountBasis is observed-inventory; null when not-enumerated. Common i64 nonnegative domain, shared byte-for-byte with the native mirror."
+        },
+        "markerCountBasis": {
+          "type": "string",
+          "enum": [
+            "not-enumerated",
+            "observed-inventory"
+          ],
+          "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "not-enumerated"
+            },
+            "markerCount": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "markerCountBasis": {
+              "const": "observed-inventory"
+            },
+            "markerCount": {
+              "$ref": "#/$defs/I64NonNegative"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "schemas": {
+    "TrustClockRecordV1": {
+      "title": "SC-TRUST clock and floor fields (state, host-private; not signed metadata)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evalHighWater",
+        "lastAccepted",
+        "anchor",
+        "rootVersion",
+        "indexSnapshotVersion",
+        "revocationVersion",
+        "recoveryEpochSerial",
+        "pendingRecoveryChallenge",
+        "revocationIssuedAt",
+        "catalogExpiresAt",
+        "rootExpiresAt"
+      ],
+      "properties": {
+        "evalHighWater": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "lastAccepted": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "anchor": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Anchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rootVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "indexSnapshotVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "revocationVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "recoveryEpochSerial": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "pendingRecoveryChallenge": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/PendingRecoveryChallenge"
+            }
+          ]
+        },
+        "revocationIssuedAt": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "catalogExpiresAt": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "rootExpiresAt": {
+          "$ref": "#/$defs/NullableTimestamp"
+        }
+      }
+    },
+    "TrustRecoveryChallengeV1": {
+      "title": "metadata: exported by `opensip trust recovery-challenge`; digest domain opensip.metadata.recovery-challenge.1",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "challengeSchema",
+        "kind",
+        "nonce",
+        "recordDigest",
+        "createdWall",
+        "boundRecord"
+      ],
+      "properties": {
+        "challengeSchema": {
+          "const": 1
+        },
+        "kind": {
+          "const": "trust-recovery-challenge"
+        },
+        "nonce": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "recordDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "boundRecord": {
+          "$ref": "#/$defs/TrustFloors"
+        },
+        "createdWall": {
+          "$ref": "#/$defs/Timestamp"
+        }
+      }
+    },
+    "TrustRecoveryEpochV1": {
+      "title": "metadata: signed body under opensip-signature-envelope.2 kind `trust-recovery-epoch` (digest domain opensip.metadata.recovery-epoch.1); signers = accepted root's recoveryAuthority.keys at recoveryAuthority.threshold; counters must EQUAL the challenged record's counters",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "recoverySchema",
+        "kind",
+        "epochSerial",
+        "issuedAt",
+        "challenge",
+        "counters",
+        "installBinding"
+      ],
+      "properties": {
+        "recoverySchema": {
+          "const": 1
+        },
+        "kind": {
+          "const": "trust-recovery-epoch"
+        },
+        "epochSerial": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "challenge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nonce",
+            "recordDigest"
+          ],
+          "properties": {
+            "nonce": {
+              "$ref": "#/$defs/Hex64"
+            },
+            "recordDigest": {
+              "$ref": "#/$defs/Hex64"
+            }
+          }
+        },
+        "counters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rootVersion",
+            "revocationVersion",
+            "indexSnapshotVersion"
+          ],
+          "properties": {
+            "rootVersion": {
+              "$ref": "#/$defs/I64Positive"
+            },
+            "revocationVersion": {
+              "$ref": "#/$defs/I64Positive"
+            },
+            "indexSnapshotVersion": {
+              "$ref": "#/$defs/I64Positive"
+            }
+          }
+        },
+        "installBinding": {
+          "const": "challenge"
+        }
+      }
+    },
+    "RecoveryChallengeResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "detail",
+        "d9",
+        "challenge",
+        "pendingWrite",
+        "tcbAssumptions"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ISSUED",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "RECOVERY.REFUSED"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "challenge": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/schemas/TrustRecoveryChallengeV1"
+            }
+          ]
+        },
+        "pendingWrite": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/PendingRecoveryChallenge"
+            }
+          ]
+        },
+        "tcbAssumptions": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "RecoveryApplyResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "detail",
+        "d9",
+        "writes",
+        "floorLowered",
+        "countersUnchanged",
+        "revocationEntriesUnchanged",
+        "revivesRevokedTrust",
+        "custody",
+        "tcbAssumptions"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "APPLIED",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "RECOVERY.REFUSED"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "writes": {
+          "oneOf": [
+            {
+              "type": "array",
+              "maxItems": 0,
+              "x-opensip-order": "sequence"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "evalHighWater",
+                "lastAccepted",
+                "anchor",
+                "recoveryEpochSerial",
+                "pendingRecoveryChallenge",
+                "audit"
+              ],
+              "properties": {
+                "evalHighWater": {
+                  "$ref": "#/$defs/Timestamp"
+                },
+                "lastAccepted": {
+                  "$ref": "#/$defs/Timestamp"
+                },
+                "anchor": {
+                  "type": "null"
+                },
+                "recoveryEpochSerial": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "pendingRecoveryChallenge": {
+                  "type": "null"
+                },
+                "audit": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "recordType",
+                    "epochSerial",
+                    "previousEvalHighWater"
+                  ],
+                  "properties": {
+                    "recordType": {
+                      "const": "RECOVERY-EPOCH"
+                    },
+                    "epochSerial": {
+                      "$ref": "#/$defs/I64Positive"
+                    },
+                    "previousEvalHighWater": {
+                      "$ref": "#/$defs/NullableTimestamp"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "floorLowered": {
+          "type": "boolean"
+        },
+        "countersUnchanged": {
+          "const": true
+        },
+        "revocationEntriesUnchanged": {
+          "const": true
+        },
+        "revivesRevokedTrust": {
+          "const": false
+        },
+        "custody": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "tcbAssumptions": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "ClockDecisionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "evaluationMode",
+        "rawWallClock",
+        "decision",
+        "refusal",
+        "refusalKind",
+        "evaluationTime",
+        "floorWrite",
+        "floorAdvance",
+        "anchorWrite",
+        "lastAcceptedWrite",
+        "writes",
+        "admittedTimeReference",
+        "plausibilityLimit",
+        "witness",
+        "continuity",
+        "findings",
+        "states",
+        "trustFreshness",
+        "d9",
+        "remedy",
+        "tcbAssumptions"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "evaluationMode": {
+          "enum": [
+            "decision",
+            "report-only"
+          ]
+        },
+        "rawWallClock": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "decision": {
+          "enum": [
+            "PROCEED",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "CLOCK-EXCURSION-FORWARD",
+            "PAYLOAD-NOT-ADMISSIBLE",
+            "TRUST.NO_ADMITTED_TIME_CONTEXT"
+          ]
+        },
+        "refusalKind": {
+          "enum": [
+            null,
+            "in-session",
+            "beyond-horizon",
+            "fresh-beyond-horizon",
+            "payload-future",
+            "fresh-no-context"
+          ]
+        },
+        "evaluationTime": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "floorWrite": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "floorAdvance": {
+          "enum": [
+            null,
+            "INIT",
+            "ADVANCE",
+            "NONE",
+            "WITHHELD",
+            "NOT-APPLICABLE"
+          ]
+        },
+        "anchorWrite": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Anchor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lastAcceptedWrite": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "writes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "evalHighWater",
+              "anchor",
+              "lastAccepted"
+            ]
+          },
+          "maxItems": 3,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "admittedTimeReference": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "plausibilityLimit": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "witness": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "newestIssuedAt",
+                "accepted",
+                "reason"
+              ],
+              "properties": {
+                "newestIssuedAt": {
+                  "$ref": "#/$defs/Timestamp"
+                },
+                "accepted": {
+                  "type": "boolean"
+                },
+                "reason": {
+                  "enum": [
+                    null,
+                    "issued-in-future",
+                    "older-than-lastAccepted"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "continuity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available"
+          ],
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "expectedWall": {
+              "$ref": "#/$defs/Timestamp"
+            },
+            "deviationSeconds": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "check",
+              "status",
+              "wouldRefuse"
+            ],
+            "properties": {
+              "check": {
+                "enum": [
+                  "clock",
+                  "clockContinuity"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "CLOCK-EXCURSION-FORWARD",
+                  "CLOCK-REGRESSION",
+                  "CLOCK-REGRESSION-IN-SESSION",
+                  "CLOCK-CONTINUITY-MALFORMED",
+                  "TRUST.FLOOR_AHEAD_OF_WALL"
+                ]
+              },
+              "wouldRefuse": {
+                "type": "boolean"
+              },
+              "kind": {
+                "enum": [
+                  "in-session",
+                  "beyond-horizon",
+                  "fresh-beyond-horizon"
+                ]
+              },
+              "remedy": {
+                "type": "string",
+                "maxLength": 512
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "states": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ExpiryStates"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trustFreshness": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "daysRemaining",
+                "warning"
+              ],
+              "properties": {
+                "daysRemaining": {
+                  "$ref": "#/$defs/I64NonNegative"
+                },
+                "warning": {
+                  "type": "boolean"
+                }
+              }
+            }
+          ]
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "remedy": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "tcbAssumptions": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "DiscoveryProvenanceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "mode",
+        "ci",
+        "selectedRoot",
+        "configPath",
+        "walked",
+        "stopReason",
+        "custodyWaiver",
+        "authorizedGroupIds",
+        "vcs",
+        "nestedRepositories",
+        "nestedProjects",
+        "unitSource",
+        "units",
+        "excludedUnits",
+        "prunedTrees",
+        "explicitPathWasSymlink",
+        "warnings"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "mode": {
+          "enum": [
+            null,
+            "explicit",
+            "walk",
+            "config",
+            "vcs-default",
+            "cwd-default"
+          ]
+        },
+        "ci": {
+          "type": "boolean"
+        },
+        "selectedRoot": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "configPath": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "walked": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/WalkRecord"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "stopReason": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "custodyWaiver": {
+          "enum": [
+            null,
+            "trustProjectOwner"
+          ]
+        },
+        "authorizedGroupIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/I64NonNegative"
+          },
+          "maxItems": 64,
+          "x-opensip-order": "sequence"
+        },
+        "vcs": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "target",
+                "followed"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "directory",
+                    "indirection"
+                  ]
+                },
+                "target": {
+                  "$ref": "#/$defs/NullableString"
+                },
+                "followed": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        },
+        "nestedRepositories": {
+          "$ref": "#/$defs/StringList"
+        },
+        "nestedProjects": {
+          "$ref": "#/$defs/StringList",
+          "description": "directories under the selected root that hold their own opensip.json: deliberate project boundaries (ADV-3), recorded and never entered; reachable only by their own launch or --project"
+        },
+        "units": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "kind",
+              "markers"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "kind": {
+                "enum": [
+                  "explicit-join",
+                  "config-workspace-root",
+                  "workspace-auto"
+                ]
+              },
+              "markers": {
+                "type": "array",
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "Cargo.toml",
+                    "package.json",
+                    "tsconfig.json",
+                    "jsconfig.json"
+                  ]
+                },
+                "x-opensip-order": "sequence"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "explicitPathWasSymlink": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "warnings": {
+          "$ref": "#/$defs/StringList"
+        },
+        "unitSource": {
+          "enum": [
+            null,
+            "explicit-joins",
+            "config-workspace-roots",
+            "automatic"
+          ]
+        },
+        "excludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "description": "anchors of dependency (node_modules), VCS (.git/.hg/.svn/.jj) and Cargo build-output (target directly under a Cargo.toml directory) trees observed under the selected root; pruned by exact path segment per ../discovery-defaults.py; one record per tree, never per package",
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason",
+              "markerCount"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "reason": {
+                "enum": [
+                  "dependency-tree",
+                  "vcs-tree",
+                  "cargo-build-output"
+                ]
+              },
+              "markerCount": {
+                "$ref": "#/$defs/I64NonNegative"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "DiscoveryResultV1": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "ACCEPT"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV1"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "refusal",
+            "path",
+            "detail",
+            "d9",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "REFUSE"
+            },
+            "refusal": {
+              "enum": [
+                "CONFIG.CUSTODY_REFUSED",
+                "PROJECT.ROOT_CUSTODY_REFUSED",
+                "PROJECT.EXPLICIT_PATH_INVALID",
+                "PROJECT.WORKSPACE_UNIT_LIMIT"
+              ]
+            },
+            "path": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "detail": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "d9": {
+              "$ref": "#/$defs/D9"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV1"
+            }
+          }
+        }
+      ]
+    },
+    "RootChainResultV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "acceptedVersion",
+        "links",
+        "stateUnchanged",
+        "lastAcceptedIssuedAt",
+        "antiRollback",
+        "remedy",
+        "tcbAssumptions"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ACCEPT",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "acceptedVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "prevExpiryConsulted",
+              "oldThresholdMet",
+              "newThresholdMet",
+              "refusal"
+            ],
+            "properties": {
+              "from": {
+                "$ref": "#/$defs/I64Positive"
+              },
+              "to": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "prevExpiryConsulted": {
+                "const": false
+              },
+              "oldThresholdMet": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "newThresholdMet": {
+                "type": [
+                  "boolean",
+                  "null"
+                ]
+              },
+              "refusal": {
+                "$ref": "#/$defs/NullableString"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "stateUnchanged": {
+          "type": "boolean"
+        },
+        "lastAcceptedIssuedAt": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "antiRollback": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "remedy": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "tcbAssumptions": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "RevocationObservationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "reason",
+        "matches"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "CONTINUE",
+            "REVOKE"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "maxItems": 4096,
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "ObserverTickV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "reason",
+        "detail",
+        "d9",
+        "obligation"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "CONTINUE",
+            "REV"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "within-bound",
+            "observer-fail-stop"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "obligation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "standing",
+            "monotonicTimer",
+            "pollIntervalSeconds",
+            "stallBoundSeconds",
+            "authorityCheckpoint",
+            "failStop",
+            "stoppedProcess"
+          ],
+          "properties": {
+            "standing": {
+              "type": "string"
+            },
+            "monotonicTimer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "linux",
+                "macos"
+              ],
+              "properties": {
+                "linux": {
+                  "const": "CLOCK_BOOTTIME"
+                },
+                "macos": {
+                  "const": "mach_continuous_time"
+                }
+              }
+            },
+            "pollIntervalSeconds": {
+              "const": 5
+            },
+            "stallBoundSeconds": {
+              "const": 10
+            },
+            "authorityCheckpoint": {
+              "type": "string"
+            },
+            "failStop": {
+              "type": "string"
+            },
+            "stoppedProcess": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "LinearizationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journal",
+        "journalTypes",
+        "refused",
+        "sealed",
+        "sealSeq",
+        "sealRefused",
+        "revocationSeq",
+        "disclosure",
+        "cancellation",
+        "effectsCommitted",
+        "finalTargets",
+        "sealedBeforeRevocation",
+        "linearizationScope"
+      ],
+      "properties": {
+        "journal": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/JournalRecord"
+          },
+          "maxItems": 4096,
+          "x-opensip-order": "sequence"
+        },
+        "journalTypes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "GRANT",
+              "RA",
+              "ICI",
+              "RCI",
+              "ICO",
+              "RCO",
+              "REV",
+              "CLN",
+              "SEAL"
+            ]
+          },
+          "x-opensip-order": "sequence"
+        },
+        "refused": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "request",
+              "refusal",
+              "atSeq"
+            ],
+            "properties": {
+              "request": {
+                "type": "string"
+              },
+              "refusal": {
+                "const": "RF-6:AUTHORIZATION.GRANT_NOT_CURRENT"
+              },
+              "atSeq": {
+                "$ref": "#/$defs/I64NonNegative"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "sealed": {
+          "type": "boolean"
+        },
+        "sealSeq": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/I64Positive"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sealRefused": {
+          "enum": [
+            null,
+            "SEAL_AFTER_REV"
+          ]
+        },
+        "revocationSeq": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/I64Positive"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "disclosure": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "revocationSeq",
+                "completedBeforeRevocation",
+                "reverted",
+                "rollbackBlocked",
+                "indeterminate",
+                "notBegun",
+                "unconfinedChildren"
+              ],
+              "properties": {
+                "revocationSeq": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "completedBeforeRevocation": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "reverted": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "rollbackBlocked": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "indeterminate": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "notBegun": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "unconfinedChildren": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "name",
+                      "standing"
+                    ],
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "standing": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "x-opensip-order": "sequence"
+                }
+              }
+            }
+          ]
+        },
+        "cancellation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "steps",
+                "totalBoundSeconds",
+                "requestDriven",
+                "standing"
+              ],
+              "properties": {
+                "steps": {
+                  "type": "array",
+                  "minItems": 5,
+                  "maxItems": 5,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "step",
+                      "action",
+                      "boundSeconds"
+                    ],
+                    "properties": {
+                      "step": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5
+                      },
+                      "action": {
+                        "type": "string"
+                      },
+                      "boundSeconds": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 10
+                      }
+                    }
+                  },
+                  "x-opensip-order": "sequence"
+                },
+                "totalBoundSeconds": {
+                  "const": 10
+                },
+                "requestDriven": {
+                  "const": false
+                },
+                "standing": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "effectsCommitted": {
+          "$ref": "#/$defs/StringList"
+        },
+        "finalTargets": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(pre|post|edited):[A-Za-z0-9_-]+(?![\\s\\S])"
+          }
+        },
+        "sealedBeforeRevocation": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "linearizationScope": {
+          "type": "string"
+        }
+      }
+    },
+    "JournalRecordAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "recordSchema"
+      ],
+      "properties": {
+        "result": {
+          "const": "CURRENT"
+        },
+        "recordSchema": {
+          "const": 3
+        },
+        "runId": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
+            }
+          ]
+        }
+      }
+    },
+    "HostSealRunAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Output of admit_seal_run_id_prefix. Pattern dispatch only. Not close_run.",
+      "required": [
+        "result",
+        "standing",
+        "authority",
+        "runId",
+        "fixture"
+      ],
+      "properties": {
+        "result": {
+          "const": "ADMIT"
+        },
+        "standing": {
+          "const": "prefix-dispatch"
+        },
+        "authority": {
+          "const": "run3-pattern"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "fixture": {
+          "const": false
+        }
+      }
+    },
+    "AnalysisSealAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Output of admit_analysis_seal after identity-model.v3.close_run and RunId comparison. Not linearize.",
+      "required": [
+        "result",
+        "standing",
+        "authority",
+        "runId",
+        "journalRecordSchema",
+        "fixture"
+      ],
+      "properties": {
+        "result": {
+          "const": "ADMIT"
+        },
+        "standing": {
+          "const": "current-host"
+        },
+        "authority": {
+          "const": "identity-model.v3.close_run"
+        },
+        "runId": {
+          "type": "string",
+          "pattern": "^run3:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "journalRecordSchema": {
+          "const": 3
+        },
+        "fixture": {
+          "const": false
+        }
+      }
+    },
+    "LeaseTraceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trace",
+        "violations",
+        "deadlockFree",
+        "final",
+        "lockOrder"
+      ],
+      "properties": {
+        "trace": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "actor",
+              "op",
+              "mode",
+              "namespace",
+              "result"
+            ],
+            "properties": {
+              "actor": {
+                "type": "string"
+              },
+              "op": {
+                "enum": [
+                  "fence-acquire",
+                  "fence-release",
+                  "lease",
+                  "lease-release",
+                  "gc-census",
+                  "trust-write",
+                  "core-transition-acquire",
+                  "core-transition-release",
+                  "transition-journal"
+                ]
+              },
+              "mode": {
+                "enum": [
+                  null,
+                  "SHARED-READ",
+                  "APPEND-WRITE",
+                  "EXCLUSIVE"
+                ]
+              },
+              "namespace": {
+                "$ref": "#/$defs/NullableString"
+              },
+              "result": {
+                "type": "string"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "violations": {
+          "$ref": "#/$defs/StringList"
+        },
+        "deadlockFree": {
+          "type": "boolean"
+        },
+        "final": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fence",
+            "readers",
+            "writer",
+            "exclusive",
+            "namespaces",
+            "coreTransitions"
+          ],
+          "properties": {
+            "fence": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "readers": {
+              "$ref": "#/$defs/StringList"
+            },
+            "writer": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "exclusive": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "namespaces": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "readers",
+                  "writer",
+                  "exclusive"
+                ],
+                "properties": {
+                  "readers": {
+                    "$ref": "#/$defs/StringList"
+                  },
+                  "writer": {
+                    "$ref": "#/$defs/NullableString"
+                  },
+                  "exclusive": {
+                    "$ref": "#/$defs/NullableString"
+                  }
+                }
+              }
+            },
+            "coreTransitions": {
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/StringList"
+              }
+            }
+          }
+        },
+        "lockOrder": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "level",
+              "name",
+              "carrier",
+              "blocking"
+            ],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "name": {
+                "type": "string"
+              },
+              "carrier": {
+                "type": "string"
+              },
+              "blocking": {
+                "type": "string"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "PlatformProfileSetV1": {
+      "title": "metadata: signed release profile population keyed by the ONE machine platform vocabulary (linux-aarch64-gnu, linux-x86_64-gnu, macos-aarch64, macos-x86_64; the same ids as RepoExecutionGrantV2.platformId, the native matrix platformFamilies and the workflow test-execution schema); display aliases (macos-arm64, linux-x86_64, linux-arm64) never key it; per platform: measured lanes + supported baseline; values in fixtures are SYNTHETIC",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profileSetSchema",
+        "standing",
+        "platforms"
+      ],
+      "properties": {
+        "profileSetSchema": {
+          "const": 1
+        },
+        "standing": {
+          "type": "string"
+        },
+        "platforms": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "macos-aarch64": {
+              "$ref": "#/schemas/PlatformProfileSetV1/$defs/macos"
+            },
+            "macos-x86_64": {
+              "$ref": "#/schemas/PlatformProfileSetV1/$defs/macos"
+            },
+            "linux-x86_64-gnu": {
+              "$ref": "#/schemas/PlatformProfileSetV1/$defs/linux"
+            },
+            "linux-aarch64-gnu": {
+              "$ref": "#/schemas/PlatformProfileSetV1/$defs/linux"
+            }
+          }
+        }
+      },
+      "$defs": {
+        "macos": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "installRootFilesystems",
+            "projectRootFilesystems",
+            "supportedMajors",
+            "measuredProfiles"
+          ],
+          "properties": {
+            "installRootFilesystems": {
+              "type": "array",
+              "items": {
+                "const": "apfs"
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "projectRootFilesystems": {
+              "type": "array",
+              "items": {
+                "const": "apfs"
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "supportedMajors": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "minBuild",
+                  "marketing"
+                ],
+                "properties": {
+                  "minBuild": {
+                    "type": "string",
+                    "pattern": "^[0-9]{2}[A-Z][0-9]{1,5}[a-z]?(?![\\s\\S])"
+                  },
+                  "marketing": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "measuredProfiles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "build",
+                  "kernUuid",
+                  "dyldCdhash",
+                  "lane"
+                ],
+                "properties": {
+                  "build": {
+                    "type": "string",
+                    "pattern": "^[0-9]{2}[A-Z][0-9]{1,5}[a-z]?(?![\\s\\S])"
+                  },
+                  "kernUuid": {
+                    "type": "string",
+                    "pattern": "^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}(?![\\s\\S])"
+                  },
+                  "dyldCdhash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}(?![\\s\\S])"
+                  },
+                  "lane": {
+                    "enum": [
+                      "macos-15",
+                      "macos-15-intel"
+                    ]
+                  }
+                }
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        },
+        "linux": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "distro",
+            "series",
+            "installRootFilesystems",
+            "projectRootFilesystems",
+            "archiveSigningKeyDigest",
+            "bootAttestation",
+            "supportedKernelLines",
+            "baselineFlavors",
+            "measuredProfiles"
+          ],
+          "properties": {
+            "distro": {
+              "const": "ubuntu"
+            },
+            "series": {
+              "type": "array",
+              "items": {
+                "const": "24.04"
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "installRootFilesystems": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "ext4",
+                  "xfs",
+                  "btrfs"
+                ]
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "projectRootFilesystems": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "ext4",
+                  "xfs",
+                  "btrfs"
+                ]
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "archiveSigningKeyDigest": {
+              "$ref": "#/$defs/Hex64"
+            },
+            "bootAttestation": {
+              "enum": [
+                "secure-boot-lockdown",
+                "package-db-declared"
+              ]
+            },
+            "supportedKernelLines": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?![\\s\\S])"
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "baselineFlavors": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?![\\s\\S])"
+              },
+              "minItems": 1,
+              "x-opensip-order": "sequence"
+            },
+            "measuredProfiles": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "line",
+                  "flavor",
+                  "lane"
+                ],
+                "properties": {
+                  "line": {
+                    "type": "string",
+                    "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?![\\s\\S])"
+                  },
+                  "flavor": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?![\\s\\S])"
+                  },
+                  "lane": {
+                    "enum": [
+                      "ubuntu-24.04",
+                      "ubuntu-24.04-arm"
+                    ]
+                  }
+                }
+              },
+              "x-opensip-order": "sequence"
+            }
+          }
+        }
+      }
+    },
+    "PlatformAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "platform",
+        "displayAlias",
+        "tier",
+        "lane",
+        "refusals",
+        "drift",
+        "disclosure",
+        "remedy",
+        "d9",
+        "enforcementLimits",
+        "tcbAssumptions"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "platform": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "the observed platform id as presented; on ADMIT always one of the four machine ids"
+        },
+        "displayAlias": {
+          "$ref": "#/$defs/NullableString",
+          "description": "human display alias of an admitted machine id (macos-arm64, macos-x86_64, linux-x86_64, linux-arm64); null when the presented platform is not a machine id; never an input"
+        },
+        "tier": {
+          "enum": [
+            null,
+            "EXACT-MEASURED",
+            "BASELINE-ATTESTED"
+          ]
+        },
+        "lane": {
+          "enum": [
+            null,
+            "macos-15",
+            "macos-15-intel",
+            "ubuntu-24.04",
+            "ubuntu-24.04-arm"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^NT-TCB-(BOOT|IDENTITY|PROFILE-UNQUALIFIED)(:.*)?(?![\\s\\S])"
+          },
+          "maxItems": 32,
+          "x-opensip-order": "sequence"
+        },
+        "drift": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 256
+          }
+        },
+        "disclosure": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "remedy": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "enforcementLimits": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "string"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "tcbAssumptions": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "MigrationRecoveryV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "refusal",
+        "d9",
+        "fromStep",
+        "oldRootRetainedDays",
+        "rationale"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "NO-MIGRATION-IN-PROGRESS",
+            "ABORT",
+            "RESUME-COMMIT",
+            "DONE",
+            "QUARANTINE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "MIGRATION.CORRUPT"
+          ]
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "fromStep": {
+          "enum": [
+            null,
+            3,
+            4
+          ]
+        },
+        "oldRootRetainedDays": {
+          "enum": [
+            null,
+            30
+          ]
+        },
+        "rationale": {
+          "type": "string"
+        }
+      }
+    },
+    "FloorMigrationV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "d9",
+        "rationale",
+        "newTrust",
+        "oldStoreMark",
+        "floorsLowered",
+        "downgradeNoReturn",
+        "bridge"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "COPIED",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "ROOT.FLOOR_ABOVE_CORE"
+          ]
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "rationale": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "newTrust": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rootVersion",
+                "indexSnapshotVersion",
+                "revocationVersion",
+                "evalHighWater",
+                "lastAccepted",
+                "recoveryEpochSerial",
+                "anchor",
+                "pendingRecoveryChallenge",
+                "roles"
+              ],
+              "properties": {
+                "rootVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "indexSnapshotVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "revocationVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "evalHighWater": {
+                  "$ref": "#/$defs/NullableTimestamp"
+                },
+                "lastAccepted": {
+                  "$ref": "#/$defs/NullableTimestamp"
+                },
+                "recoveryEpochSerial": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/I64NonNegative"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "anchor": {
+                  "type": "null"
+                },
+                "pendingRecoveryChallenge": {
+                  "type": "null"
+                },
+                "roles": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        },
+        "oldStoreMark": {
+          "enum": [
+            null,
+            "RESTORED"
+          ]
+        },
+        "floorsLowered": {
+          "enum": [
+            null,
+            false
+          ]
+        },
+        "downgradeNoReturn": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "bridge": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stage1",
+            "stage2",
+            "orderedRelease",
+            "metadataProfile"
+          ],
+          "properties": {
+            "stage1": {
+              "type": "object"
+            },
+            "stage2": {
+              "type": "object"
+            },
+            "orderedRelease": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "string"
+              },
+              "x-opensip-order": "sequence"
+            },
+            "metadataProfile": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "FloorRollbackV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "d9",
+        "rationale",
+        "oldTrustAfter",
+        "floorsLowered"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ROLLED-BACK",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "ROOT.FLOOR_ABOVE_CORE"
+          ]
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "oldTrustAfter": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "rootVersion",
+                "indexSnapshotVersion",
+                "revocationVersion",
+                "evalHighWater",
+                "lastAccepted",
+                "recoveryEpochSerial",
+                "anchor",
+                "pendingRecoveryChallenge",
+                "roles"
+              ],
+              "properties": {
+                "rootVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "indexSnapshotVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "revocationVersion": {
+                  "$ref": "#/$defs/I64Positive"
+                },
+                "evalHighWater": {
+                  "$ref": "#/$defs/NullableTimestamp"
+                },
+                "lastAccepted": {
+                  "$ref": "#/$defs/NullableTimestamp"
+                },
+                "recoveryEpochSerial": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/I64NonNegative"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "anchor": {
+                  "type": "null"
+                },
+                "pendingRecoveryChallenge": {
+                  "type": "null"
+                },
+                "roles": {
+                  "const": "ST-UNBOOTSTRAPPED:RESTORED"
+                }
+              }
+            }
+          ]
+        },
+        "floorsLowered": {
+          "enum": [
+            null,
+            false
+          ]
+        }
+      }
+    },
+    "RepoExecutionGrantV1": {
+      "title": "SUPERSEDED by RepoExecutionGrantV2 (never accepted; admitted by nothing). Retained so the superseded selector is byte-visible.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "grantSchema",
+        "principalClass",
+        "projectId",
+        "snapshotId",
+        "argvDigest",
+        "executionClass",
+        "programs",
+        "platformId",
+        "effects",
+        "authorization",
+        "expiry",
+        "inherited"
+      ],
+      "properties": {
+        "grantSchema": {
+          "const": 1
+        },
+        "principalClass": {
+          "const": "repository-code"
+        },
+        "projectId": {
+          "type": "string",
+          "pattern": "^prj1-[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^snapshot2:[0-9a-f]{64}(?![\\s\\S])"
+        },
+        "argvDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "executionClass": {
+          "enum": [
+            "build-script",
+            "proc-macro",
+            "test-runner"
+          ]
+        },
+        "programs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "x-opensip-order": "sequence"
+        },
+        "platformId": {
+          "enum": [
+            "linux-x86_64-gnu",
+            "linux-aarch64-gnu",
+            "macos-aarch64",
+            "macos-x86_64"
+          ]
+        },
+        "effects": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subprocess",
+            "filesystemWrite",
+            "network",
+            "environment"
+          ],
+          "properties": {
+            "subprocess": {
+              "$ref": "#/$defs/EnforcementV1"
+            },
+            "filesystemWrite": {
+              "$ref": "#/$defs/EnforcementV1"
+            },
+            "network": {
+              "$ref": "#/$defs/EnforcementV1"
+            },
+            "environment": {
+              "$ref": "#/$defs/EnforcementV1"
+            }
+          }
+        },
+        "authorization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "policyRecordId",
+            "ci"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "interactive-explicit",
+                "policy-record"
+              ]
+            },
+            "policyRecordId": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/Hex64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "ci": {
+              "type": "boolean"
+            }
+          }
+        },
+        "expiry": {
+          "const": "operation-end"
+        },
+        "inherited": {
+          "const": false
+        }
+      }
+    },
+    "RepoExecutionAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "principalClass",
+        "semanticPrincipalKind",
+        "execution",
+        "confinementClaimed",
+        "effects",
+        "ownerBinding",
+        "revocationPath",
+        "identityDomain",
+        "semanticGrantIdentity"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^GRANT\\.[A-Z_]+(:[^ ]+)?(?![\\s\\S])"
+          },
+          "maxItems": 64,
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "principalClass": {
+          "enum": [
+            null,
+            "repository-code"
+          ]
+        },
+        "semanticPrincipalKind": {
+          "enum": [
+            null,
+            "trusted-repository-code"
+          ]
+        },
+        "execution": {
+          "enum": [
+            null,
+            "disclosed-trusted-code"
+          ]
+        },
+        "confinementClaimed": {
+          "const": false
+        },
+        "effects": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Effects"
+            }
+          ]
+        },
+        "ownerBinding": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "snapshotOwners",
+                "dependencyClosureOwners",
+                "runner",
+                "toolClosureId"
+              ],
+              "properties": {
+                "snapshotOwners": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "dependencyClosureOwners": {
+                  "$ref": "#/$defs/StringList"
+                },
+                "runner": {
+                  "type": "object"
+                },
+                "toolClosureId": {
+                  "$ref": "#/$defs/ClosureId"
+                }
+              }
+            }
+          ]
+        },
+        "revocationPath": {
+          "type": "string"
+        },
+        "identityDomain": {
+          "const": "security.repo-execution-grant.v2"
+        },
+        "semanticGrantIdentity": {
+          "type": "string"
+        }
+      }
+    },
+    "OfflineGuidanceV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evaluationTime",
+        "windows",
+        "revocationFreshUntil",
+        "catalogExpiresAt",
+        "rootExpiresAt",
+        "daysUntilContinuationStops",
+        "daysUntilInstallStops",
+        "daysUntilRootExpires",
+        "posture",
+        "remedy",
+        "warning",
+        "userWaiver",
+        "doctor"
+      ],
+      "properties": {
+        "evaluationTime": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "revocationFreshDays",
+            "catalogExpiryDays",
+            "rootExpiryDays",
+            "warningWindowDays",
+            "continuationStops",
+            "installStops",
+            "rootHealing"
+          ],
+          "properties": {
+            "revocationFreshDays": {
+              "const": 90
+            },
+            "catalogExpiryDays": {
+              "const": 90
+            },
+            "rootExpiryDays": {
+              "const": 365
+            },
+            "warningWindowDays": {
+              "const": 14
+            },
+            "continuationStops": {
+              "type": "string"
+            },
+            "installStops": {
+              "type": "string"
+            },
+            "rootHealing": {
+              "type": "string"
+            }
+          }
+        },
+        "revocationFreshUntil": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "catalogExpiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "rootExpiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "daysUntilContinuationStops": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "daysUntilInstallStops": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "daysUntilRootExpires": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "posture": {
+          "enum": [
+            "NORMAL",
+            "CONTINUATION-ONLY",
+            "REFUSES-ALL-OPERATIONS"
+          ]
+        },
+        "remedy": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "warning": {
+          "type": "boolean"
+        },
+        "userWaiver": {
+          "type": "string"
+        },
+        "doctor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "outcomeWhenDefectFound",
+            "exit",
+            "writes",
+            "ciGate",
+            "rationale"
+          ],
+          "properties": {
+            "outcomeWhenDefectFound": {
+              "const": "OC-2"
+            },
+            "exit": {
+              "const": 0
+            },
+            "writes": {
+              "type": "array",
+              "maxItems": 0,
+              "x-opensip-order": "sequence"
+            },
+            "ciGate": {
+              "type": "string"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "RootV1": {
+      "title": "metadata: root schema 1 = security-schemas.v8/root.schema.json rule set, preserved unchanged (TR-REPAIR typed absence, kernelAttestationKeys exactly []); semantic rules in admit_root_document",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootSchema",
+        "rootVersion",
+        "previousRootVersion",
+        "issuedAt",
+        "expiresAt",
+        "keys",
+        "rootKeys",
+        "rootThreshold",
+        "roles",
+        "recoveryAuthority",
+        "kernelAttestationKeys",
+        "indexOrigin"
+      ],
+      "properties": {
+        "rootVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "previousRootVersion": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/I64Positive"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "keyId",
+              "publicKey",
+              "label"
+            ],
+            "properties": {
+              "keyId": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "publicKey": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "rootKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hex64"
+          },
+          "minItems": 3,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "rootThreshold": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 8
+        },
+        "recoveryAuthority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "keys",
+            "threshold"
+          ],
+          "properties": {
+            "keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "minItems": 5,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "x-opensip-order": "sequence"
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 16
+            }
+          }
+        },
+        "indexOrigin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "spkiSha256"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^https://[a-z0-9.-]+(/[A-Za-z0-9._~/-]*)?(?![\\s\\S])"
+            },
+            "spkiSha256": {
+              "$ref": "#/$defs/Hex64"
+            }
+          }
+        },
+        "rootSchema": {
+          "const": 1
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "TR-CORE",
+            "TR-INDEX",
+            "TR-COMPONENT",
+            "TR-BUNDLE",
+            "TR-REPAIR"
+          ],
+          "properties": {
+            "TR-CORE": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-INDEX": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-COMPONENT": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-BUNDLE": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-REPAIR": {
+              "$ref": "#/$defs/RootRole"
+            }
+          }
+        },
+        "kernelAttestationKeys": {
+          "type": "array",
+          "maxItems": 0,
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RootV2": {
+      "title": "metadata: root schema 2 = byte-exact extension of schema 1: rootSchema const 2; roles gains required TR-PROFILE (signs platform-profile-set); TR-REPAIR and TR-PROFILE may be active (threshold >= 2, keys >= threshold+1, namespaces non-empty; no reuse of rootKeys/recoveryAuthority/other role keys); kernelAttestationKeys 0..8 Hex64 (no reuse). Everything else identical to RootV1. Digest domain opensip.metadata.root.2; signed by previous rootKeys@rootThreshold AND own rootKeys@rootThreshold",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rootSchema",
+        "rootVersion",
+        "previousRootVersion",
+        "issuedAt",
+        "expiresAt",
+        "keys",
+        "rootKeys",
+        "rootThreshold",
+        "roles",
+        "recoveryAuthority",
+        "kernelAttestationKeys",
+        "indexOrigin"
+      ],
+      "properties": {
+        "rootVersion": {
+          "$ref": "#/$defs/I64Positive"
+        },
+        "previousRootVersion": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/I64Positive"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "keys": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "keyId",
+              "publicKey",
+              "label"
+            ],
+            "properties": {
+              "keyId": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "publicKey": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "rootKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hex64"
+          },
+          "minItems": 3,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        },
+        "rootThreshold": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 8
+        },
+        "recoveryAuthority": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "keys",
+            "threshold"
+          ],
+          "properties": {
+            "keys": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Hex64"
+              },
+              "minItems": 5,
+              "maxItems": 16,
+              "uniqueItems": true,
+              "x-opensip-order": "sequence"
+            },
+            "threshold": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 16
+            }
+          }
+        },
+        "indexOrigin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "spkiSha256"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "maxLength": 512,
+              "minLength": 1,
+              "pattern": "^https://[a-z0-9.-]+(/[A-Za-z0-9._~/-]*)?(?![\\s\\S])"
+            },
+            "spkiSha256": {
+              "$ref": "#/$defs/Hex64"
+            }
+          }
+        },
+        "rootSchema": {
+          "const": 2
+        },
+        "roles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "TR-CORE",
+            "TR-INDEX",
+            "TR-COMPONENT",
+            "TR-BUNDLE",
+            "TR-REPAIR",
+            "TR-PROFILE"
+          ],
+          "properties": {
+            "TR-CORE": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-INDEX": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-COMPONENT": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-BUNDLE": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-REPAIR": {
+              "$ref": "#/$defs/RootRole"
+            },
+            "TR-PROFILE": {
+              "$ref": "#/$defs/RootRole"
+            }
+          }
+        },
+        "kernelAttestationKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Hex64"
+          },
+          "minItems": 0,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RootAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "detail",
+        "d9",
+        "rootSchema",
+        "roles",
+        "recoveryAuthority",
+        "kernelAttestationKeys",
+        "profileSetAuthority"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ACCEPT",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "PAYLOAD-NOT-ADMISSIBLE",
+            "ROOT.SCHEMA_UNSUPPORTED"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "rootSchema": {
+          "enum": [
+            null,
+            1,
+            2
+          ]
+        },
+        "roles": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/StringList"
+            }
+          ]
+        },
+        "recoveryAuthority": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "keys",
+                "threshold"
+              ],
+              "properties": {
+                "keys": {
+                  "type": "integer"
+                },
+                "threshold": {
+                  "type": "integer"
+                }
+              }
+            }
+          ]
+        },
+        "kernelAttestationKeys": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 8
+            }
+          ]
+        },
+        "profileSetAuthority": {
+          "enum": [
+            null,
+            "TR-PROFILE",
+            "core-release-embedded-only"
+          ]
+        }
+      }
+    },
+    "PlatformProfileSetEnvelopeV1": {
+      "title": "metadata: opensip-signature-envelope.2 binding for kind platform-profile-set; bodyDigest = metadata digest domain opensip.metadata.platform-profile-set.1 over the canonical body; signers (asserted, outside this record) must reach the schema-2 root's TR-PROFILE threshold",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "envelopeSchema",
+        "kind",
+        "body",
+        "bodyDigest"
+      ],
+      "properties": {
+        "envelopeSchema": {
+          "const": 2
+        },
+        "kind": {
+          "const": "platform-profile-set"
+        },
+        "body": {
+          "$ref": "#/schemas/PlatformProfileSetV1"
+        },
+        "bodyDigest": {
+          "$ref": "#/$defs/Hex64"
+        }
+      }
+    },
+    "ProfileSetAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "detail",
+        "d9",
+        "authority",
+        "bodyDigest"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ACCEPT",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "PAYLOAD-NOT-ADMISSIBLE",
+            "ROOT.SCHEMA_UNSUPPORTED"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "authority": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "bodyDigest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Hex64"
+            }
+          ]
+        }
+      }
+    },
+    "RepoExecutionGrantV2": {
+      "title": "product data; identity H('security.repo-execution-grant.v2', grant) is the workflow `securityGrantRef`/`authorizationRef` for test execution and the native AuthorizedExecutionV2 authorization; distinct from the foundation semanticGrantDigest",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "argvDigest",
+        "authorization",
+        "dependencySourceSetId",
+        "effects",
+        "executionClass",
+        "expiry",
+        "grantSchema",
+        "inherited",
+        "ownerSourceDigest",
+        "owners",
+        "platformId",
+        "principalClass",
+        "projectId",
+        "runner",
+        "semanticPrincipalKind",
+        "snapshotId",
+        "toolClosureId"
+      ],
+      "properties": {
+        "grantSchema": {
+          "const": 2
+        },
+        "principalClass": {
+          "const": "repository-code"
+        },
+        "semanticPrincipalKind": {
+          "const": "trusted-repository-code"
+        },
+        "projectId": {
+          "$ref": "#/$defs/ProjectId"
+        },
+        "snapshotId": {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        "argvDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "executionClass": {
+          "enum": [
+            "build-script",
+            "proc-macro",
+            "test-runner"
+          ]
+        },
+        "owners": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ownerKey",
+              "source",
+              "ownerFileManifestSha256"
+            ],
+            "properties": {
+              "ownerKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "source": {
+                "enum": [
+                  "snapshot-member",
+                  "dependency-closure-member"
+                ]
+              },
+              "ownerFileManifestSha256": {
+                "$ref": "#/$defs/Hex64"
+              }
+            }
+          },
+          "x-opensip-order": {
+            "by": [
+              "ownerKey"
+            ]
+          }
+        },
+        "ownerSourceDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "runner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "member"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "toolchain-closure",
+                "snapshot-member"
+              ]
+            },
+            "member": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            }
+          }
+        },
+        "dependencySourceSetId": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Hex64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "toolClosureId": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "platformId": {
+          "enum": [
+            "linux-x86_64-gnu",
+            "linux-aarch64-gnu",
+            "macos-aarch64",
+            "macos-x86_64"
+          ]
+        },
+        "effects": {
+          "$ref": "#/$defs/Effects"
+        },
+        "authorization": {
+          "$ref": "#/$defs/Consent"
+        },
+        "expiry": {
+          "const": "operation-end"
+        },
+        "inherited": {
+          "const": false
+        }
+      }
+    },
+    "RepairApplyAuthorizationV1": {
+      "title": "product data; identity H('security.repair-apply-authorization.v1', record) is the workflow RepairApplyParams.authorizationRef; authorizes brokered first-party source mutation under EXCLUSIVE lease, never repository execution",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorizationSchema",
+        "kind",
+        "projectId",
+        "repairPlanId",
+        "baseSnapshotId",
+        "recipeClosureId",
+        "consent",
+        "expiry",
+        "leaseMode",
+        "repositoryExecution"
+      ],
+      "properties": {
+        "authorizationSchema": {
+          "const": 1
+        },
+        "kind": {
+          "const": "repair-apply"
+        },
+        "projectId": {
+          "$ref": "#/$defs/ProjectId"
+        },
+        "repairPlanId": {
+          "$ref": "#/$defs/RepairPlanId"
+        },
+        "baseSnapshotId": {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        "recipeClosureId": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "consent": {
+          "$ref": "#/$defs/Consent"
+        },
+        "expiry": {
+          "const": "operation-end"
+        },
+        "leaseMode": {
+          "const": "EXCLUSIVE"
+        },
+        "repositoryExecution": {
+          "const": false
+        }
+      }
+    },
+    "RepairAuthorizationAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "grantsRepositoryExecution",
+        "leaseMode",
+        "identityDomain",
+        "revocationPath"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^AUTHZ\\.[A-Z_]+(?![\\s\\S])"
+          },
+          "maxItems": 32,
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "grantsRepositoryExecution": {
+          "const": false
+        },
+        "leaseMode": {
+          "enum": [
+            null,
+            "EXCLUSIVE"
+          ]
+        },
+        "identityDomain": {
+          "const": "security.repair-apply-authorization.v1"
+        },
+        "revocationPath": {
+          "type": "string"
+        }
+      }
+    },
+    "StorageWriteAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusal",
+        "detail",
+        "d9",
+        "choice",
+        "policyFileWritten",
+        "rootIdentityChanged",
+        "disclosure"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "REQUEST.PRECONDITION_FAILED"
+          ]
+        },
+        "detail": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "choice": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "policyFileWritten": {
+          "const": false
+        },
+        "rootIdentityChanged": {
+          "const": false
+        },
+        "disclosure": {
+          "type": "string"
+        }
+      }
+    },
+    "CoreProfileBindingV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "platformProfileSetBodyDigest"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "platformProfileSetBodyDigest": {
+          "$ref": "#/$defs/Hex64"
+        }
+      }
+    },
+    "CoreTransitionScopeV1": {
+      "title": "S7 core-transition lease set decided from the intent and the host namespace registry (never user input)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "affects",
+        "namespaces"
+      ],
+      "properties": {
+        "affects": {
+          "enum": [
+            "all-registered",
+            "none"
+          ]
+        },
+        "namespaces": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "SemanticProjectionV1": {
+      "title": "S10 principals a consuming analysis must project into plan2 for the preparation grants it consumes (test-runner grants project nothing)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "principals"
+      ],
+      "properties": {
+        "principals": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "closureId",
+              "ownerSourceDigest"
+            ],
+            "properties": {
+              "kind": {
+                "const": "trusted-repository-code"
+              },
+              "closureId": {
+                "$ref": "#/$defs/ClosureId"
+              },
+              "ownerSourceDigest": {
+                "$ref": "#/$defs/Hex64"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "ExecutionProjectionAdmissionV1": {
+      "title": "S10 Plan-time join: plan2 semantic-grant projection versus the consumed preparation grants; never derived from a grant",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "preparedResolution",
+        "requiredPrincipals",
+        "projectionSource",
+        "testRunnerProjected"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "string",
+            "pattern": "^PLAN\\.[A-Z_]+(:[^ ]+)?(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "preparedResolution": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "requiredPrincipals": {
+          "$ref": "#/schemas/SemanticProjectionV1/properties/principals"
+        },
+        "projectionSource": {
+          "type": "string"
+        },
+        "testRunnerProjected": {
+          "const": false
+        }
+      }
+    },
+    "AdmittedBoundaryInventoryV1": {
+      "title": "S3 export (post-reset v2 P3): the admitted authority boundaries of the selected root as relative scope paths; produced only by boundary_inventory over an ACCEPTed DiscoveryResultV1 and consumed unchanged by the native unit instrument",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "source",
+        "selectedRoot",
+        "nestedRepositories",
+        "nestedProjects",
+        "custodyExcludedUnits",
+        "prunedTrees"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "source": {
+          "const": "security.discovery"
+        },
+        "selectedRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nestedRepositories": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "nestedProjects": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "custodyExcludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]*(?![\\s\\S])"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^(DIRECTORY_CUSTODY:[A-Z_]+|MARKER_CUSTODY:(Cargo\\.toml|package\\.json|tsconfig\\.json|jsconfig\\.json):[A-Z_]+|DEPTH)(?![\\s\\S])"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason",
+              "markerCount"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+              },
+              "reason": {
+                "enum": [
+                  "dependency-tree",
+                  "vcs-tree",
+                  "cargo-build-output"
+                ]
+              },
+              "markerCount": {
+                "$ref": "#/$defs/I64NonNegative"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "RepairRecoveryAuthorizationV1": {
+      "title": "product data (S10.2); identity H('security.repair-recovery-authorization.v1', record) is the workflow RepairApplyJournalV1.recoveryAuthorizationRef; authorizes ONE finite recovery action within the original plan's authority under the EXCLUSIVE lease at the host-broker boundary; never repository execution, never a new edit",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorizationSchema",
+        "kind",
+        "projectId",
+        "repairPlanId",
+        "baseSnapshotId",
+        "recipeClosureId",
+        "journalRef",
+        "journalState",
+        "observedJournalStateDigest",
+        "recoveryAction",
+        "originalRequestId",
+        "recoveryRequestId",
+        "recoveryExecutionId",
+        "consent",
+        "issuedAt",
+        "expiresAt",
+        "leaseMode",
+        "mutationBoundary",
+        "repositoryExecution",
+        "newEdits"
+      ],
+      "properties": {
+        "authorizationSchema": {
+          "const": 1
+        },
+        "kind": {
+          "const": "repair-recover"
+        },
+        "projectId": {
+          "$ref": "#/$defs/ProjectId"
+        },
+        "repairPlanId": {
+          "$ref": "#/$defs/RepairPlanId"
+        },
+        "baseSnapshotId": {
+          "$ref": "#/$defs/SnapshotId"
+        },
+        "recipeClosureId": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "journalRef": {
+          "type": "string",
+          "pattern": "^security\\.repair-apply-journal-identity\\.v1:[0-9a-f]{64}(?![\\s\\S])",
+          "description": "H over the closed noncircular journal identity preimage {schemaFamily, schemaMajor, requestId, stepId, executionId, repairPlanId, baseSnapshotId, authorizationRef}: never state, paths, blobs or a recoveryAuthorizationRef"
+        },
+        "journalState": {
+          "$ref": "#/$defs/JournalState"
+        },
+        "observedJournalStateDigest": {
+          "$ref": "#/$defs/Hex64",
+          "description": "raw SHA-256 of canonical {state, stagedPaths, appliedPaths, preimageBlobs} as read under the EXCLUSIVE lease before any recovery write; single use / crash-safe resume"
+        },
+        "recoveryAction": {
+          "$ref": "#/$defs/RecoveryAction"
+        },
+        "originalRequestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "recoveryRequestId": {
+          "$ref": "#/$defs/RequestId"
+        },
+        "recoveryExecutionId": {
+          "$ref": "#/$defs/ExecutionId"
+        },
+        "consent": {
+          "$ref": "#/$defs/Consent"
+        },
+        "issuedAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "leaseMode": {
+          "const": "EXCLUSIVE"
+        },
+        "mutationBoundary": {
+          "const": "host-broker"
+        },
+        "repositoryExecution": {
+          "const": false
+        },
+        "newEdits": {
+          "const": false
+        }
+      }
+    },
+    "RecoveryAuthorizationAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "grantsRepositoryExecution",
+        "grantsNewEdits",
+        "planScope",
+        "leaseMode",
+        "mutationBoundary",
+        "action",
+        "recipeTrustConsulted",
+        "journalRef",
+        "journalStateDigest",
+        "identityDomain",
+        "inspection",
+        "preimagePostimageLaw",
+        "replaySemantics",
+        "revocationPath",
+        "trustedContextInputs"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^AUTHZ\\.[A-Z_]+(:[^ ]+)?(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "grantsRepositoryExecution": {
+          "const": false
+        },
+        "grantsNewEdits": {
+          "const": false
+        },
+        "planScope": {
+          "const": "original-plan-only"
+        },
+        "leaseMode": {
+          "enum": [
+            null,
+            "EXCLUSIVE"
+          ]
+        },
+        "mutationBoundary": {
+          "enum": [
+            null,
+            "host-broker"
+          ]
+        },
+        "action": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/RecoveryAction"
+            }
+          ]
+        },
+        "recipeTrustConsulted": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "journalRef": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "journalStateDigest": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/Hex64"
+            }
+          ]
+        },
+        "identityDomain": {
+          "const": "security.repair-recovery-authorization.v1"
+        },
+        "inspection": {
+          "type": "string"
+        },
+        "preimagePostimageLaw": {
+          "type": "string"
+        },
+        "replaySemantics": {
+          "type": "string"
+        },
+        "revocationPath": {
+          "type": "string"
+        },
+        "trustedContextInputs": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "InstallationTransitionIntentV1": {
+      "title": "S9.2 required operation/field contract of the host-projected installation transition intent (workflow CoreTransitionIntentV1 successor; the same eleven fields serve core update|repair|rollback and store migrate|rollback)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "operation",
+        "fromCoreClosure",
+        "toCoreClosure",
+        "fromStateSchema",
+        "toStateSchema",
+        "fromStoreGeneration",
+        "toStoreGeneration",
+        "platformProfileSetBodyDigest",
+        "preconditionGeneration",
+        "rollbackDeadline"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 1
+        },
+        "operation": {
+          "$ref": "#/$defs/TransitionOperation"
+        },
+        "fromCoreClosure": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "toCoreClosure": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "fromStateSchema": {
+          "$ref": "#/$defs/StateSchema"
+        },
+        "toStateSchema": {
+          "$ref": "#/$defs/StateSchema"
+        },
+        "fromStoreGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "toStoreGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "platformProfileSetBodyDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "preconditionGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "rollbackDeadline": {
+          "$ref": "#/$defs/NullableTimestamp"
+        }
+      }
+    },
+    "InstallationTransitionJournalV1": {
+      "title": "S9.2 closed installation transition journal, written under the held fence only after every lease of the affected set is held; identity H('security.installation-transition-journal.v1', record)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "journalSchema",
+        "kind",
+        "intentDigest",
+        "operation",
+        "fromCoreClosure",
+        "toCoreClosure",
+        "fromStateSchema",
+        "toStateSchema",
+        "fromStoreGeneration",
+        "toStoreGeneration",
+        "platformProfileSetBodyDigest",
+        "preconditionGeneration",
+        "rollbackDeadline",
+        "registryDigest",
+        "registry",
+        "affects",
+        "leaseSet",
+        "state",
+        "fenceHeld",
+        "writtenAfterAllLeasesHeld"
+      ],
+      "properties": {
+        "journalSchema": {
+          "const": 1
+        },
+        "kind": {
+          "const": "installation-transition"
+        },
+        "intentDigest": {
+          "$ref": "#/$defs/Hex64",
+          "description": "raw SHA-256 of the canonical admitted intent (= the mutation step inputDescriptorDigest, S15)"
+        },
+        "operation": {
+          "$ref": "#/$defs/TransitionOperation"
+        },
+        "fromCoreClosure": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "toCoreClosure": {
+          "$ref": "#/$defs/ClosureId"
+        },
+        "fromStateSchema": {
+          "$ref": "#/$defs/StateSchema"
+        },
+        "toStateSchema": {
+          "$ref": "#/$defs/StateSchema"
+        },
+        "fromStoreGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "toStoreGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "platformProfileSetBodyDigest": {
+          "$ref": "#/$defs/Hex64"
+        },
+        "preconditionGeneration": {
+          "$ref": "#/$defs/I64NonNegative"
+        },
+        "rollbackDeadline": {
+          "$ref": "#/$defs/NullableTimestamp"
+        },
+        "registryDigest": {
+          "$ref": "#/$defs/Hex64",
+          "description": "raw SHA-256 of the canonical sorted namespace registry frozen under the fence"
+        },
+        "registry": {
+          "$ref": "#/$defs/NamespaceList"
+        },
+        "affects": {
+          "enum": [
+            "all-registered",
+            "none"
+          ]
+        },
+        "leaseSet": {
+          "$ref": "#/$defs/NamespaceList",
+          "description": "the exact EXCLUSIVE lease set held (locator byte order) = core_transition_affected_namespaces over the frozen registry"
+        },
+        "state": {
+          "enum": [
+            "LEASED",
+            "PREPARING",
+            "PREPARED",
+            "COMMITTED",
+            "DONE",
+            "ABORTED"
+          ]
+        },
+        "fenceHeld": {
+          "const": true
+        },
+        "writtenAfterAllLeasesHeld": {
+          "const": true
+        }
+      }
+    },
+    "TransitionIntentAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "requiredFields",
+        "operations"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/TransitionRefusal"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "requiredFields": {
+          "$ref": "#/$defs/StringList"
+        },
+        "operations": {
+          "type": "array",
+          "minItems": 5,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/TransitionOperation"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "TransitionJournalAdmissionV1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result",
+        "refusals",
+        "d9",
+        "journalRef",
+        "affects",
+        "leaseSet",
+        "identityDomain",
+        "fenceHeldThroughout",
+        "recovery",
+        "trustedContextInputs"
+      ],
+      "properties": {
+        "result": {
+          "enum": [
+            "ADMIT",
+            "REFUSE"
+          ]
+        },
+        "refusals": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/TransitionRefusal"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "journalRef": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^security\\.installation-transition-journal\\.v1:[0-9a-f]{64}(?![\\s\\S])"
+            }
+          ]
+        },
+        "affects": {
+          "enum": [
+            null,
+            "all-registered",
+            "none"
+          ]
+        },
+        "leaseSet": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/NamespaceList"
+            }
+          ]
+        },
+        "identityDomain": {
+          "const": "security.installation-transition-journal.v1"
+        },
+        "fenceHeldThroughout": {
+          "const": true
+        },
+        "recovery": {
+          "type": "string"
+        },
+        "trustedContextInputs": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "TransitionRecoveryV1": {
+      "title": "S9.2 crash recovery decision for a journaled installation transition (first act under the next fence)",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action",
+        "journalStateAfter",
+        "refusal",
+        "d9",
+        "reacquire",
+        "fromStep",
+        "rationale",
+        "trustedContextInputs"
+      ],
+      "properties": {
+        "action": {
+          "enum": [
+            "ABORT",
+            "RESUME-COMMIT",
+            "RELEASE-ONLY",
+            "QUARANTINE",
+            "BUSY",
+            "REFUSE"
+          ]
+        },
+        "journalStateAfter": {
+          "enum": [
+            null,
+            "DONE",
+            "ABORTED"
+          ]
+        },
+        "refusal": {
+          "enum": [
+            null,
+            "MIGRATION.CORRUPT",
+            "PROJECT.BUSY",
+            "TRANSITION.FENCE_NOT_HELD"
+          ]
+        },
+        "d9": {
+          "$ref": "#/$defs/NullableD9"
+        },
+        "reacquire": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/NamespaceList"
+            }
+          ]
+        },
+        "fromStep": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/I64Positive"
+            }
+          ]
+        },
+        "rationale": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "trustedContextInputs": {
+          "$ref": "#/$defs/StringList"
+        }
+      }
+    },
+    "PublicDetailProjectionV1": {
+      "title": "S12 projection of a security outcome onto the ONE closed public DomainDetail vocabulary. `items` are the {code, subject, d9} triples a host emits; `code` is always a member of SECURITY_PUBLIC_DETAIL_CODES; `subject` is free bounded text and never a second vocabulary. `pendingRegistrationCodes` lists members the shared public-detail registry does not yet carry.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "codes",
+        "pendingRegistrationCodes"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "code",
+              "subject",
+              "d9",
+              "pendingRegistration"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "subject": {
+                "$ref": "#/$defs/NullableString"
+              },
+              "d9": {
+                "$ref": "#/$defs/D9"
+              },
+              "pendingRegistration": {
+                "type": "boolean"
+              },
+              "remedy": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "codes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "x-opensip-order": "utf8"
+        },
+        "pendingRegistrationCodes": {
+          "type": "array",
+          "maxItems": 64,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "x-opensip-order": "utf8"
+        }
+      }
+    },
+    "DiscoveryProvenanceV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "mode",
+        "ci",
+        "selectedRoot",
+        "configPath",
+        "walked",
+        "stopReason",
+        "custodyWaiver",
+        "authorizedGroupIds",
+        "vcs",
+        "nestedRepositories",
+        "nestedProjects",
+        "unitSource",
+        "units",
+        "excludedUnits",
+        "prunedTrees",
+        "explicitPathWasSymlink",
+        "warnings"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "mode": {
+          "enum": [
+            null,
+            "explicit",
+            "walk",
+            "config",
+            "vcs-default",
+            "cwd-default"
+          ]
+        },
+        "ci": {
+          "type": "boolean"
+        },
+        "selectedRoot": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "configPath": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "walked": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/WalkRecord"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "stopReason": {
+          "$ref": "#/$defs/NullableString"
+        },
+        "custodyWaiver": {
+          "enum": [
+            null,
+            "trustProjectOwner"
+          ]
+        },
+        "authorizedGroupIds": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/I64NonNegative"
+          },
+          "maxItems": 64,
+          "x-opensip-order": "sequence"
+        },
+        "vcs": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "target",
+                "followed"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "directory",
+                    "indirection"
+                  ]
+                },
+                "target": {
+                  "$ref": "#/$defs/NullableString"
+                },
+                "followed": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        },
+        "nestedRepositories": {
+          "$ref": "#/$defs/StringList"
+        },
+        "nestedProjects": {
+          "$ref": "#/$defs/StringList",
+          "description": "directories under the selected root that hold their own opensip.json: deliberate project boundaries (ADV-3), recorded and never entered; reachable only by their own launch or --project"
+        },
+        "units": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "kind",
+              "markers"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "kind": {
+                "enum": [
+                  "explicit-join",
+                  "config-workspace-root",
+                  "workspace-auto"
+                ]
+              },
+              "markers": {
+                "type": "array",
+                "maxItems": 4,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "Cargo.toml",
+                    "package.json",
+                    "tsconfig.json",
+                    "jsconfig.json"
+                  ]
+                },
+                "x-opensip-order": "sequence"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "explicitPathWasSymlink": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "warnings": {
+          "$ref": "#/$defs/StringList"
+        },
+        "unitSource": {
+          "enum": [
+            null,
+            "explicit-joins",
+            "config-workspace-roots",
+            "automatic"
+          ]
+        },
+        "excludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 256
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "description": "anchors of dependency (node_modules), VCS (.git/.hg/.svn/.jj) and Cargo build-output (target directly under a Cargo.toml directory) trees observed under the selected root; pruned by exact path segment per ../discovery-defaults.py; one record per tree, never per package. VERSION 2 (CR-25): an anchor observed as a directory entry is recorded even with zero observed descendant markers, and the count carries an explicit basis.",
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "$ref": "#/$defs/PrunedTreeRowV2"
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "AdmittedBoundaryInventoryV2": {
+      "title": "S3 export (post-reset v2 P3): the admitted authority boundaries of the selected root as relative scope paths; produced only by boundary_inventory over an ACCEPTed DiscoveryResultV1 and consumed unchanged by the native unit instrument",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schemaVersion",
+        "source",
+        "selectedRoot",
+        "nestedRepositories",
+        "nestedProjects",
+        "custodyExcludedUnits",
+        "prunedTrees"
+      ],
+      "properties": {
+        "schemaVersion": {
+          "const": 2
+        },
+        "source": {
+          "const": "security.discovery"
+        },
+        "selectedRoot": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "nestedRepositories": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "nestedProjects": {
+          "type": "array",
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+          },
+          "x-opensip-order": "sequence"
+        },
+        "custodyExcludedUnits": {
+          "type": "array",
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]*(?![\\s\\S])"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256,
+                "pattern": "^(DIRECTORY_CUSTODY:[A-Z_]+|MARKER_CUSTODY:(Cargo\\.toml|package\\.json|tsconfig\\.json|jsconfig\\.json):[A-Z_]+|DEPTH)(?![\\s\\S])"
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        },
+        "prunedTrees": {
+          "type": "array",
+          "maxItems": 65536,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "reason",
+              "markerCount",
+              "markerCountBasis"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$))[^\\u0000\\\\]+(?![\\s\\S])"
+              },
+              "reason": {
+                "enum": [
+                  "dependency-tree",
+                  "vcs-tree",
+                  "cargo-build-output"
+                ]
+              },
+              "markerCount": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/I64NonNegative"
+                  }
+                ]
+              },
+              "markerCountBasis": {
+                "type": "string",
+                "enum": [
+                  "not-enumerated",
+                  "observed-inventory"
+                ],
+                "description": "Whether the SUPPLIED marker inventory enumerated inside this pruned tree. not-enumerated means discovery did not descend, or the anchor own directory observation could not be established, and markerCount is null. observed-inventory means markerCount is exact OVER THE SUPPLIED INVENTORY ONLY; zero observed never means zero hidden. Provenance only: never a comparison key, never a unit-selection, work-bound, Coverage or scope input."
+              }
+            }
+          },
+          "x-opensip-order": "sequence"
+        }
+      }
+    },
+    "DiscoveryResultV2": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "ACCEPT"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV2"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "refusal",
+            "path",
+            "detail",
+            "d9",
+            "provenance"
+          ],
+          "properties": {
+            "status": {
+              "const": "REFUSE"
+            },
+            "refusal": {
+              "enum": [
+                "CONFIG.CUSTODY_REFUSED",
+                "PROJECT.ROOT_CUSTODY_REFUSED",
+                "PROJECT.EXPLICIT_PATH_INVALID",
+                "PROJECT.WORKSPACE_UNIT_LIMIT"
+              ]
+            },
+            "path": {
+              "$ref": "#/$defs/NullableString"
+            },
+            "detail": {
+              "type": "string",
+              "maxLength": 512
+            },
+            "d9": {
+              "$ref": "#/$defs/D9"
+            },
+            "provenance": {
+              "$ref": "#/schemas/DiscoveryProvenanceV2"
+            }
+          }
+        }
+      ],
+      "description": "Discovery result VERSION 2 (XA-02 / CR-25): identical shape to version 1 with a version-2 provenance record. Version 1 is retained as the historical result record for version-1 provenance bytes; an output is never validated under the version-1 name once its provenance changed."
+    }
+  }
+}
