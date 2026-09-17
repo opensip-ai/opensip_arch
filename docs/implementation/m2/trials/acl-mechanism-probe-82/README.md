@@ -1,0 +1,7 @@
+# Native macOS ACL probe82
+
+The first strictly compiled probe failed on a fresh file: acl_get_fd_np returned null/ENOENT. Initial source, binary, stdout and stderr are preserved. The second probe uses a fresh filesec object, successful fstatx_np, then filesec_query_property(FILESEC_ACL) to distinguish absent ACL from read failure. It passed on the recorded host: invalid descriptor gives EBADF, fresh file has no ACL property, and self/foreign allow and self deny entries round-trip with resolved UID and expected permission mask. These changes touch only probe-owned temporary files.
+
+Pinned Apple source explains the convenience API and property mechanism. On a valid owned ACL, indexed entry enumeration returns zero for success and EINVAL past the last entry; this differs from Linux ACL iteration. Qualifiers and ACLs require acl_free; filesec requires filesec_free. The SDK declares tags/types/id as four bytes and permission masks as eight bytes, observed by C.
+
+Proposed native observer uses descriptor-bound metadata around this operation, reports failed reads explicitly, and retains a conservative list of possible writing principals. Deny entries and inherit-only flags are not used to subtract possible grants; this may refuse more than effective macOS access evaluation. Unknown permissions/tags or unresolved identities must not imply safe access. Observations are not immutable custody, authorization or Linux qualification. Actual independent ABI/safety/semantic review remains required.

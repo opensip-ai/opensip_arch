@@ -1005,3 +1005,16 @@ Architecture3a37cac15 commits77/78/layout47. Productfa72e50 remains clean; no pu
 Current private mechanism probe82 at /tmp/opensip-implementation/m2-acl-mechanism-probe-82: strict C compilation passed; first run failed on absent ACL returning ENOENT via acl_get_fd_np. Source/binary/output retained. Investigating explicit filesec query after successful fstatx_np to distinguish absent property from read failure; no product82 created. Preserve initial failure and bind source/SDK/probe evidence before native adapter work.
 
 Actual Grok read-only check2026-09-17T13:36:07Z still shows weekly0% and implementation pane quota-blocked. No new assignment/retry, no agreement claimed. Continue independent work; never push.
+
+
+## Latest: checkpoint850362a7d; native ACL83 qualified; atomic gate84 editable
+
+Architecture850362a7d commits79/80/81 archives and layouts48/49. Guard153845files/45439unique/3761551792B, ordinary>100MiB0 and whitespace0. Productfa72e50 remains clean; no pushes.
+
+Probe82 now complete: initial C probe source/binary/failure preserved; revised explicit filesec/fstatx query passed absent ACL, invalid-descriptor EBADF, self/foreign ALLOW and self DENY round-trips. Apple Libc source pinned to71bbe350ab79eef58113991d817ccc6165061a64; local SDK header pins retained. x86_64 SDK LLVM emission confirms fstatx_np$INODE64 symbol; no x86_64 execution. Archive82:16members/15008B, every member rehashed.
+
+Private83 /tmp/opensip-implementation/m2-native-custody-trial-83 frozen320pins/316unchanged, four existing sources modified, no inventory/dependency/fixture changes. Native macOS ACL reader explicitly distinguishes absent property/read failure, keeps unresolved possible writers, refuses unknown tags/rights, does not subtract denies or inherit-only grants. Descriptor metadata before/during/after detects sampled changes only. Private security bridge applies custody predicates to actual observed metadata/ACL; no path/ancestor authentication or grant.17platform/35security tests and strict lint passed. Freshhost46 COMPLETE200sources/40archives,198workspace+2doctests. Archive83:362members/3906256B, every member rehashed. Linux observer explicitly unsupported; no release/custody authority qualification.
+
+Editable84 /tmp/opensip-implementation/m2-commit-gate-trial-84 copies exact320-file83. Adds already-planned security/commit_authority.rs, private two-bit final admission gate: compare_exchange0to1, stop always OR2, no reset, uniquely owned prepared attempt and consumed permit. No CommitSession constructor or operational authority. Exhaustive6561 eight-action law traces,256 actual threaded races plus before/after/drop tests;40security tests passed. Strict workspace Clippy running session23327; inspect before freeze. No new fixture/inventory/dependency required. Need freeze84/freshhost47/archive, then revocation observer integration.
+
+Actual reviewer quota remains the unresolved independent-review block; no retries/assent claimed. Continue independent work and preserve all evidence.
