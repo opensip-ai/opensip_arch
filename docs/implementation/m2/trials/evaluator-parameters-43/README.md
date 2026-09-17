@@ -1,0 +1,9 @@
+# Frozen retained parameter, policy and emission owner43
+
+Five owned paths (four changed, one new),261non-design-lock product files on accepted26inventory/38contract successors. Exact accepted runtime19/source41 inheritance verified for256unmodified non-lock files. The additional layout28 fixture is selected. Earlier private43 advisory prerequisite is now resolved; no rebase to an older kernel copy occurred.
+
+inspect_evaluator_parameters derives registered parameters, policy and emission from retained Plan bytes. It checks required/unknown/duplicate parameters, policy binding, ordered rule totality, stable fingerprint namespaces, universe registration, rule-program binding and selected detector closures. It returns opaque inert values. Complete execution-input selection, predicate reconstruction, replay and custody remain open.
+
+132Rusttests and strictClippy pass. Fresh142source/23archive host isolation passes132tests; provider26source/19archive evidence is carried from actually rebuilt runtime19 after exact pin equality, without claiming another build. No dependency or feature changes. The frozen source requires actual source review and separate formal runtime selection before installation.
+
+Portable reproduction: pinned Python3.12.13 -I -B -X int_max_str_digits=0 check-parameters.py --cargo /absolute/cargo --output /fresh/directory. It verifies262product/159reference files, recomputes23selected-reference outcomes and runs31hostfixture cases (23reference plus8typed owner/resource controls). Earlier portable receipt used the preceding private lock only; compiled source bytes match final freeze, and accepted-inheritance.json records the lock-only rebase. Historical initial test-harness setup errors remain separate from product failures. PARAMETER-PROFILE.md gives limits; inherited-package38-profile.md retains development stack/TCB obligations.
