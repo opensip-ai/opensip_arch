@@ -1132,3 +1132,14 @@ Architecture9cd2cab23 commits94backup. Guard153901files/45495unique/3762521522B,
 97 /tmp/opensip-implementation/m2-witness-floor-trial-97 EDITABLE exact329-file96parent. Adds onlyjournal_store.rs inertWitness/CarrierFloor constructors fromexactJSONvalues andpurev8reconciliation proposals, distinctAbsent/Malformed/Unreadable. Filebyte decoder/profile is deliberately not selected byvalue-onlyconstructor; futurefileintegrationmustbindprofile/negativezero behavior explicitly.256actualwitness/floorshape cases+1245actualv8reconcilecomparisons; unreadablecontrolneverINIT/REVERT/ADVANCE. Security tests/ClippyRUNNINGsession1023. No97pins/freeze/host/archiveyet. Noobservationsaretrustedcustodyand noactionwrites.
 
 User reports both Claude and Grok reset in roughly24hours (availabilityupdateabove). Continue independentwork; no attempts/assignmentsuntilactualavailability, no claimedapproval. Next after97: readonlyanchor/stabilityselection percommit-recovery-readonly.v3 sections3/4, thencompletephysicalmigrationdispatchandguardedjournalwrites. No98createdyet.
+
+
+## Latest: checkpoint88aa2372d; native carrier96 qualified; witness97 frozen
+
+Architecture88aa2372d commits95backup. Guard153905files/45499unique/3762593905B,ordinary>100MiB0/whitespace0. Productfa72e50 clean; no pushes.
+
+96freshhost58 COMPLETE209sources/51archives,249workspace+2doctests; archive96 COMPLETE367members/4023976B every member rehashed. SelectedfreshcarrierSQLreader remainsprivate/conditional and explicitly refusesmigrated/inheritedpath untilcompletefootprint validation.
+
+97frozen329pins/328unchanged, onlyjournal_store.rs,256shape+1245actualv8reconcilecases;57security tests/strictClippy passed. Freshhost59RUNNINGsession42259. No newfixture/inventory/dependency. README97 plus REVIEW-QUESTIONS.md retain two integrationquestions foractualreview:explicit witness/floor filedecoder profile/negativezero; malformed/foreign witness diagnosis underreadonlyStep4 successfulvalidation/naming requirement versus stablefailed-validation interpretation. No currentpublicdiagnosticimplemented, no designbyteschanged. Complete97host/archive, thencontinueindependentmodulework; record any decoder/diagnostic choice asproposedpendingreview, notacceptedlaw. No98createdyet.
+
+User'sboth-reviewers-reset-in-about24hoursupdate persists. No quota retries/assignments, no fabricatedindependentapproval.
