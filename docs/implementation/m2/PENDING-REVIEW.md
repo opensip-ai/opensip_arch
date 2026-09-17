@@ -59,3 +59,5 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 | SQLite probe90 |Actual macOS WAL/snapshot/contention/open-refusal probe passed after preserving symlink-ancestor failure;11 dependency pins and compile settings retained | Review bundled engine/native build inputs, physical path requirements and sidecar custody; no release/power-loss/Linux qualification or dependency acceptance |
 
 | Source91 |9storage tests/232freshhost53 Rust tests/strict lint passed; archive91 retains exact source and11 new crate archives | Review existing-only SQLite open/configuration, snapshot fixation, owned transaction/COMMIT uncertainty, bundled engine/build inputs. No custody, semantic receipt or public write authority |
+
+| Source92 |213schema/profile cases;14storage tests/237freshhost54 Rust tests/strict lint passed; archive92 retained | Review selected attempt DDL/definition verification, product-profile preservation, private admitted insertion/snapshot reads and new connection limits feature/bounds. No production settlement, live authority or complete recovery |
