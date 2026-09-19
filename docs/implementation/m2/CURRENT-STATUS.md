@@ -113,3 +113,6 @@ Actual194 review has no findings and closes the main-file fallback only.195 is f
 
 
 Actual198 review confirms196's three findings closed; its remaining unlinked-file label is fixed in [200 physical location components](trials/physical-locations-checkpoint-200/README.md). Actual199 found that keeping floors inside the journal namespace permits their coherent rollback; [201 trust-layout correction](trials/trust-layout-reference-checkpoint-201/README.md) moves them to a separate install-level trust directory. Both are frozen for Claude review.200 has15lifecycle/159security/87storage tests,Clippy andseven mutation checks;201 passes allseven reference suites. No200 isolated-host qualification or full transition-location completion is claimed. Actual filesystem/lease/host composition remains outstanding.
+
+
+202 marker reader is frozen for actual Claude review:90storage/159security tests,strictClippy,7mutation checks,andisolatedworkspace445+2docs pass. Actual200/201 reviews accept their limited scopes.204 namespace/store separation passes15lifecycle andstrictClippy;not yetfrozen.203 transition-layout assistance is received;source-fence atomic trust boundary and physical publication choices still being reconciled. Productfa72e50 remainsunchanged;no newinstallation or cumulative readiness approval.
