@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `ddb99f843`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `ee1921c98`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -74,7 +74,7 @@ Actual Claude reports through184 and the173/181 proposal assistance have been re
 
 ## Next work and remaining boundaries
 
-1. Finish191 directory-chain observation/custody composition and obtain actual Claude review; expand190 stale-revision regression to all ordered state pairs in192. Actual189 and190 close the carrier guard and188 follow-ups in their bounded scope. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
+1. Close191 scope and policy-test findings in193;192 has actual Claude acceptance for all120 ordered state-pair regressions. Actual189 and190 close the carrier guard and188 follow-ups in their bounded scope. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
@@ -89,4 +89,7 @@ The newest appended entries in [ACTIVE-WORK](../ACTIVE-WORK.md), [REVIEW-RESUME]
 Herdr: actual Claude `wF:p1`, native session `de59b975-4f82-4aff-9252-ad6d68d6fb79`; Grok fallback `wN:p1`. Verify current pane status rather than assuming either remains available. No Claude quota error has been observed at this update.
 
 
-Actual189 reviewed with no finding:141 security tests,Clippy,413workspace+2doctests;DDL exact188. Actual190 closes all188 follow-ups with1691 integration checks; a low all-pairs regression expansion is planned. Private191 directory-chain observations/custody join passes43 platform and145 security tests/Clippy; isolated host andmutationvalidation are running. Actual187 closes185F1 for six storage tables only. No cumulative readiness or product installation is claimed.
+Actual189 reviewed with no finding:141 security tests,Clippy,413workspace+2doctests;DDL exact188. Actual190 closes all188 follow-ups with1691 integration checks; a low all-pairs regression expansion is planned. Private191 directory-chain observations/custody join is frozen:43 platform/145security tests,Clippy,418workspace+2doctests and5compiledmutants pass. ActualClaude reviews191 then192;192 expands all120 stale-state pairs and passes1787 integration checks. Actual187 closes185F1 for six storage tables only. No cumulative readiness or product installation is claimed.
+
+
+Actual191 and192 reports are archived and fully read.191 has no defect, but scope wording and three policy-test gaps are being addressed in193.192 closes190T1prime; all seven suites and1787 integration checks pass.193 currently passes150 security tests and strict Clippy; mutation and isolated host checks are in progress. Claude is examining the next concrete SQLite custody/lease integration. This remains M2 work; product installation and M3–M6 are not complete.
