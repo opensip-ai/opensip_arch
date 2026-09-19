@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `c477cbafa`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `2e521fc7a`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -74,7 +74,7 @@ Actual Claude reports through184 and the173/181 proposal assistance have been re
 
 ## Next work and remaining boundaries
 
-1. Close191 scope and policy-test findings in193;192 has actual Claude acceptance for all120 ordered state-pair regressions. Actual189 and190 close the carrier guard and188 follow-ups in their bounded scope. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
+1. Finish actual Claude review of196 reader controls/effects and197 WAL-mode, reader-scope and native retry contracts;193 closed191 scope/tests,194 closed writer main-access fallback. Correct the ledger busy-timeout readback order in the next product candidate. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
@@ -101,3 +101,6 @@ Actual193 closes191W1/T1/T2 with11 compiled mutants; empty-chain refusal remains
 Actual194 review has no findings and closes the main-file fallback only.195 is frozen (all seven reference suites,1787 integration checks) and in Claude review.196 implements conditional reader controls and effect regressions; validation is running. The actual retained-custody/lease/location host join remains required.
 
 196 is frozen with432workspace+2docs,85storage/154security tests and6mutants; actualreviewpending.195reviewneeds197WAL-profile/lock/scopeclarifications; nativeSQLiteinternalretrydespitebusy_timeout0isbeingverified. No197candidateexistsyet. Fullhostcustody/leasejoin andM3–M6stillopen.
+
+
+[195 sidecar contract](trials/sqlite-sidecar-reference-checkpoint-195/README.md) received actual Claude review; its compatibility, contention and diagnostic-scope findings are addressed in [197 SQLite profile](trials/sqlite-profile-reference-checkpoint-197/README.md), pending independent review. All seven reference suites pass. [196 reader controls](trials/reader-effects-checkpoint-196/README.md) is under review:85 storage,154 security, Clippy, six mutation checks and432 workspace+2 doc tests passed. The ledger timeout getter still needs moving before the first data query. Claude's [native retry note](reviews/claude-sqlite-retry197-20260919-r1/SQLITE-RETRY-NOTE.md) confirms that busy_timeout0 does not eliminate SQLite internal waits; examined macOS behavior is not cross-platform qualification. No accumulated candidate has been installed.

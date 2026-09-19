@@ -1,0 +1,9 @@
+# SQLite open profile, diagnostic scope and native retries 197
+
+Private unselected successor to195; actual independent review required. Four owner documents change: read-only recovery, security/lifecycle, workflows/surfaces and carrier format. All91 Python sources, models, SQL, schemas and fixtures remain identical195; five source-pin manifests are rebound. Seven finalr1 reference lanes pass, including1787 integration and479 carrier checks. These checks do not establish native or host implementation readiness.
+
+All existing on-disk journal formats require observed WAL before dispatch; non-WAL carriers are unsupported without conversion, corruption classification or repair. The operational SQLite exception applies to all already-admitted SHARED-READ ledger/journal consumers. Fence-only reports remain write-free; this does not introduce a phase or lease.
+
+SHARED-READ lease compatibility does not guarantee contention-free SQLite calls. SHM reconstruction can transiently contend with writers. Actual Claude's source inspection, linked-engine external-lock experiments and scratch instrumentation confirmed native WAL retries despite busy_timeout0. Examined3.53.2 requests9,958,498microseconds in95 sleeps per exhausted read-transaction start; end-to-end latency is unbounded. Qualification must pin actual compile options, compiler sleep macros, environment and VFS; SQLITE_PROTOCOL is distinct from busy and preserves host-I/O unavailability, never absence/corruption/noncommit. Writers can also encounter the path. No additional application retry is authorized.
+
+The retry note is bounded macOS assistance, not approval of this frozen candidate. Full physical location/custody, Linux qualification, lease-held consumption and host error mapping remain owed. Beforeimages preserve initial wording; finalr1 receipts cover the revised exact bytes. Public output vocabulary and format IDs are unchanged.
