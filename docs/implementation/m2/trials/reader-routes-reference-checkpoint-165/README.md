@@ -1,0 +1,11 @@
+# Read-only evidence failure routes 165
+
+Unaccepted reference candidate over160. Addresses actual Claude160F1/F2/N1/W. Three owner documents and their five pin manifests change; all84 Python files are byte-identical. No runtime source selection or host mapping implementation is claimed.
+
+carrier-format.v3 §8.1 now explicitly routes unavailable inherited mirror-policy evidence and required MarkerUnavailable capture failure to existing unknown-custody: operational-failed /4 /HOST.IO_FAILURE /host-io, no domainDetail. The machine-readable carrier-dispatch observation list and phase laws agree. This is neither a busy retry signal nor a proved quarantine condition; independently admitted higher-priority binding/dispatch refusals retain precedence. A successfully admitted marker still follows existing anchor/stability rules. This records the required host behavior for150F2; that actual host mapper remains unimplemented.
+
+Writer/maintenance disposition for this additional historical mirror policy is explicitly outside this read-only profile and is a required selection/test obligation before enabling that writer path. No append/publication/marker/repair/authority follows; mere reader refusal cannot be borrowed as migration corruption. Independently established footprint/F51 routes are unchanged. This explicit open obligation addresses160F2's missing statement without inventing a public writer route here.
+
+Section9 now names mandatory body mirrors, domain digest recomputation, and diagnostic-only previous-digest chain disagreement. The contract says v8 preview explicitly. No frozen historical DDL/rows changed. The compatibility cost and rationale remain160/159; a diagnostic reader is separate.
+
+All seven unchanged reference lanes pass: foundation231,workflows2193,native477+66,security581+24sweeps,carrier435,envelope168+145+6000+1803(61actual crypto),integration423. These lanes consume admitted projections; they do not prove SQL admission or the unimplemented host mapper. Existing151N2 partial contract-pin enforcement is unchanged. No new executable library/checker was introduced. The changed dispatch JSON is a normative machine-readable observation list, not an implemented dispatch branch or extension of the closed public vocabulary.
