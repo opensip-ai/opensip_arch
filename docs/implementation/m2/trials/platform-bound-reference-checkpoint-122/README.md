@@ -1,0 +1,11 @@
+# Private Linux observation bound and generation regression reference122
+
+Exact frozen120 successor, unselected, actual independent review required. Addresses119 inherited I2 at reference level and120F1/F3/F4. No Rust/platform OS implementation or full storage admission is claimed.
+
+Linux osrelease must match existing ASCII line-ABI-flavor grammar and total length at most256bytes. Longer observations receive fixed OSRELEASE_GRAMMAR with no reflected components/drift. At256 ordinary population matching remains; no truncation/normalization.13mandatorysweepchecks: admittedcontrol and255/256/257/5000-byte line,ABI,flavorcases. Non-ASCII never passes existing grammar, so Python character bound and Rust byte bound agree on possible admitted strings. Linux ExactMeasured deliberatelybindsline/flavor/lane withABIdrift; macOS hasdifferent UUID/cdhashbindingpolicy. This fixes unbounded diagnostics shared by reference/Rust; Rust successor pending.
+
+120F1:4newopencases provide positivegeneration2floors(at-tail,above-tail,wrongdigest) pluscurrentgeneration1floorwithhigheremptygeneration2key. Dispatcher145assertions(74opencases);both previouslysurviving realgenerationselectionmutants nowkilled. Read-onlykernel/composedopen implementation unchanged120. F3/F4limits explicit: malformed/wrongkeyfloor suppresseswitnessmarker, permanentrefusalwithoutreconstruction; absentfloorallowswriterreconciliationbutcannotdistinguishnevercreatedfromdeleted, readonlyunknown.
+
+Finalchecksfoundation231/workflows1816/native477+66matrix/security581+20sweeps/carrier427/envelope168+145+6000+1803/integration423withfreshreceipt.29whitelistedsourcepinupdates plusupdatedmodel/envelopebinding,beforeimagesretained. Fourcompiledmutantskilled:removedLinuxbound,offbyoneat256,hardcodedgeneration1floor,andhighest-map-keyrows. No full concurrency schedule rerun claimed for unchangedkernels.
+
+Pendingactual122review; Rustplatformtypedprofile119I1andLinuxboundport,signed-profilemalformedshape119D2test,R3boundarypanicgates,physicalcapture121review,118I2SQL/marker/admission/writerintegration,D3-D6concreteschema/modelauthoring afterr3adjudication,markerbodyprofileafterr2adjudication,formalunitselection andM2–M6. No inherited or cumulative approval, productfa72e50unchanged.
