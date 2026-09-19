@@ -1,0 +1,11 @@
+# Supplied pin inventory budget, candidate174
+
+Private unaccepted Rust candidate over frozen172.349 product files:346 unchanged172, one changed storage/lib.rs and two additions pin_inventory.rs and pin-budget174.json. No selected product change.
+
+Implements the existing pin_budget_reference.py law for a complete caller-supplied inventory: exact Unicode scalar name limits, canonical disclosure byte measurement with checked arithmetic, the four pin kinds, duplicate/empty/unknown-kind refusal, independent count and byte ceilings, strict decrease for inherited over-limit inventory, first-publication checks, kind-aware no-op, and cross-Run refusal. The immutable internal inventory owns its input; Run identity admission and proving that the supplied set is complete belong to its future caller. Streaming byte counting avoids building a large disclosure but the input inventory itself is held in memory. This is no SQL observation, pin fact, write authority, purge consent, receipt exemption or writer transaction. Empty inventory is within budget but is not a valid PinnedPurgeDisclosure (its schema requires at least one pin).
+
+46 reference-generated cases include Unicode and escapes, exact scalar/count/byte boundaries, same-name kind changes, ordering, legacy reductions, malformed-before rejection and first-publication refusal. Compact recipes are expanded independently by Rust and hashed against the exact Python reference input arrays. Reference source and canonical helper hashes are recorded in pin-fixture-provenance.json. These are differential fixtures, not an independent specification oracle.
+
+Validation:47 storage tests; strict workspace Clippy;11 compiled faults killed plus baseline pass. Final isolated host108:229 sources37 fixtures51 dependencies,377 workspace tests plus2 doctests,metadata/version/help and unchanged source/lock receipt. No additional privacy claim beyond private inventory fields and immutable accessors; the disposition is deliberately inert and constructible, not a capability.
+
+Physical pin observation, aggregate recovery capture bounds, immutable facts, atomic pin transactions, complete host composition/custody/public mapping, candidate selection and M2–M6 remain. Actual independent review is required; a scoped pass is not cumulative approval.

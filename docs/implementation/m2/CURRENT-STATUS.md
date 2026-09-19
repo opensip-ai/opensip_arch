@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `48bf608e2`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `6cf8de780`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -30,7 +30,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 | [155 migrated carrier population](trials/migrated-carrier-checkpoint-155/README.md) | Claude found no behavioral defect; three regression gaps tracked | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
 | [156 anchor adapter regressions](trials/anchor-adapter-regressions-checkpoint-156/README.md) | Claude confirms150F1 closed; exact-judgment and other-generation-marker follow-up163 frozen | Five actual-I/O tests address150 F1; explicit capture failure semantics document150 F2 |
 
-Actual Claude reports through172 and the173 proposal assistance have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
+Actual Claude reports through174 and the173 proposal assistance have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 | [157 owned ledger evidence](trials/ledger-evidence-checkpoint-157/README.md) | Claude found no defect; foreign-row regression and private-view follow-up163 frozen | One snapshot owns joined receipt/association/attempt evidence and a gated borrowed anchor view |
 | [158 historical regressions](trials/history-regressions-checkpoint-158/README.md) | Claude reviewed successfully;152T1/N2/N5 closed | Three152 T1 negatives, structural vocabulary equality and cumulative fixture provenance; production unchanged |
@@ -57,11 +57,16 @@ Actual Claude reports through172 and the173 proposal assistance have been read a
 | [171 read-only admission](trials/readonly-admission-reference-checkpoint-171/README.md) | Claude closed169 findings; terminal-definition gap addressed173 | Explicit no-write admission and pending installation-transition refusal;169F1/W1/W2 corrections |
 
 | [172 Run recovery material](trials/recovery-material-checkpoint-172/README.md) | Claude reviewed successfully;375 workspace+2 doctests pass | Same-snapshot canonical Run manifest and receipt-bound per-execution inventory; closure/pins still owed |
-| [173 active transition admission](trials/terminal-admission-reference-checkpoint-173/README.md) | Frozen;61 new reference checks and all lanes pass; Claude reviewing | Active-slot retirement law and explicit read-only terminal checks;171F1/W1 corrections |
+| [173 active transition admission](trials/terminal-admission-reference-checkpoint-173/README.md) | Claude reviewed; command-scope corrections frozen175 | Active-slot retirement law and explicit read-only terminal checks;171F1/W1 corrections |
+
+| [174 pin budget](trials/pin-budget-checkpoint-174/README.md) | Claude found no defect; three regression cases added176 | Exact supplied-inventory budget law and legacy mutation limits; SQL pin observation/transactions still owed |
+| [175 transition commands](trials/transition-executor-reference-checkpoint-175/README.md) | Frozen; Claude reviewing;71 observer checks/all lanes pass | Explicit executor set, reader/nonexecutor barriers,173F1/F2/T1/N1 corrections |
+
+176 aggregate retained-body budget is in validation:50 storage tests and Clippy pass. It is a supplied byte limit for retained raw records, not a total memory cap.
 
 ## Next work and remaining boundaries
 
-1. Obtain actual Claude review of173 and address findings; continue pin/ledger integration. Actual150F2 host mapper and writer mirror-policy disposition remain required.
+1. Obtain actual Claude reviews of174/175; finish176 aggregate recovery body budget and continue pin/ledger integration. Actual150F2 host mapper and writer mirror-policy disposition remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
