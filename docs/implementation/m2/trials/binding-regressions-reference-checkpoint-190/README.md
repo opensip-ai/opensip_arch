@@ -1,0 +1,9 @@
+# Recovery binding follow-up reference190
+
+Unselected successor to frozen188. Actual independent Claude review required; no product installation, host qualification or cumulative approval.
+
+Addresses actual188T1: three same-store core operations, every journal state, with no binding and a spy that rejects any attribution read; all changed-store families/states with an otherwise healthy footprint and a stale reference to another revision of the same journal. Both surviving behavioral mutants now fail, with1265 focused checks passing. Recovery/model/schema/SQL algorithms are byte-identical to188; only one of91 Python files changes.
+
+Addresses188W1: journal state and its exact-current-reference binding must be atomically and durably published together on every revision. A split durable update can wedge all recovery, including retirement, requiring custody/restore intervention; no reference repair guess is allowed. W2: the old464-case pinned report is explicitly historical, with its original report hash; its prior passed/sourcePinsValid fields are only past results. Eight migration cases are labelled historical without pretending the old report was regenerated. Current receipts live outside the candidate as usual. W3 lists all uniqueness tuples for all six guarded ledger tables and distinguishes actual product187 tests from reference DDL coverage. N1 explicitly documents the seven-object product187/eight-object reference188/product189 incompatibility and the need for matching selection.
+
+All seven finalr2lanes pass:231foundation,2193workflow,477native+66matrix,580security+25sweeps,479carrier,envelope168+145+6000+1803/61,1691integration. Two syntax-valid behavioural mutants are killed and baseline1265 passes. Existing immutable provenance is preserved in parent188 and beforeimages. No new reference DDL or trust/custody authority is invented.
