@@ -1,0 +1,13 @@
+# Existing writer access admission 194
+
+Private unselected successor to193; actual Claude review required. Only storage/src/ledger_store.rs changes.352 pinned files,351 unchanged193; all37 fixtures unchanged.
+
+SQLite may silently open a requested READ_WRITE database as read-only. The existing-writer opener now asks the actual connection through safe rusqlite is_readonly(MAIN_DB) and refuses with private ReadOnlyWriter before configuration's first SQL statement. Query errors retain their Sql cause. The reader path and all DDL remain unchanged. This gate establishes only the engine's reported main access mode, not permissions on sidecars, retained path identity, custody, exclusion or the success of a future write. No transaction/commit was attempted by this refusal, and no public recovery standing is inferred.
+
+Real unprivileged macOS tests observe READ_WRITE fallback on0400 main files in UTF-8/UTF-16le/UTF-16be. They assert typed refusal precedes encoding admission and sidecar creation, preserving main bytes and absent sidecars. Restored access returns to independent encoding admission. A separate reader remains usable, but its created sidecars can preserve non-writable permissions: restoring main alone permits the access-mode check and still fails BEGIN with the original SQLite ReadOnly cause. Restoring sidecar permissions in the fixture permits the positive write control. These are tests, never automatic product chmod/repair.
+
+82storage tests and strict Clippy r3 pass; three compiled faults (omit gate, move gate after SQL, reject read-only readers) are killed with a green baseline. Isolated host122 passes425workspace tests plus2doctests from232sources51verifieddependencyarchives, metadata/version/help and source unchanged.
+
+Initial test r1 incorrectly expected restoring main permissions alone to permit BEGIN. It caught actual retained sidecar permissions; r2 then incorrectly expected both sidecars to share0400 mode. The final test observes at least one non-writable sidecar, preserves the causal error, and explicitly restores both for its positive control. Both failed runs and beforeimages are retained; production gate did not change. An unprivileged native runner is required for the permission tests.
+
+This closes only the READWRITE-fallback part of183N1. Actual main/WAL/SHM custody, inode identity, sidecar effects under the read-only owner law, Linux qualification, leases and the full host pipeline remain owed. A separate195 owner proposal addresses the read-only sidecar rule; this candidate grants no new reader mutation permission and makes no host/cumulative readiness claim.

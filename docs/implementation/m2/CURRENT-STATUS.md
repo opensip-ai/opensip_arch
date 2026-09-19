@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `ee1921c98`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `37613a7cd`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -93,3 +93,7 @@ Actual189 reviewed with no finding:141 security tests,Clippy,413workspace+2docte
 
 
 Actual191 and192 reports are archived and fully read.191 has no defect, but scope wording and three policy-test gaps are being addressed in193.192 closes190T1prime; all seven suites and1787 integration checks pass.193 currently passes150 security tests and strict Clippy; mutation and isolated host checks are in progress. Claude is examining the next concrete SQLite custody/lease integration. This remains M2 work; product installation and M3–M6 are not complete.
+
+193 is frozen (150 security,423 workspace+2docs); actual Claude review pending.194 adds actual writer main access-mode refusal before SQL (82 storage tests,Clippy,3 mutants pass); isolated host122 running. Actual SQLite sidecar behavior requires a precisely scoped owner correction before host recovery integration;195 is a proposal only.
+
+Actual193 closes191W1/T1/T2 with11 compiled mutants; empty-chain refusal remains a small prerequisite before helper reuse.194 is frozen, passes425workspace+2docs, and is queued for actual review. No local builds remain. The195 sidecar owner proposal is still pending; no195 candidate exists.
