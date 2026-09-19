@@ -79,3 +79,7 @@ Composition/replay/kernel tests are implementation evidence, not compiler, custo
 | Source100 |29storage tests/260 fresh-host61 Rust tests/strict lint-r2 passed; archive100 retains exact330 source pins and proposed DDL | Review immutable availability history, numeric u64 index order, actual receipt/attempt joins, fixed snapshots, expected-generation comparison and INSERT-failure poison. Current-record observation is not full-history authentication, security authority, verified restoration or purge |
 
 See [REVIEW-RESUME.md](REVIEW-RESUME.md) for the grouped restart sequence and concrete unresolved questions. The user's approximate reset time is not evidence of reviewer availability.
+
+## September18 actual review update
+
+Claude is primary again per user; Grok is fallback. [Reference60 review](reviews/claude-reference60-20260918-r1/REVIEW.md) requires corrections before selection. [Unicode64/envelope66 review](reviews/claude-envelope66-unicode64-20260918-r1/REVIEW.md) found no blocking bridge defect, but requires a reference UCD guard and changes to the envelope boundary/capability model. Exact findings supersede any earlier pending-only descriptions; neither review approves cumulative implementation. Correction101 is being frozen for re-review; envelope successor remains to be built. Actual Claude is reviewing the97/99 integration questions separately. See latest ACTIVE-WORK for exact current state.
