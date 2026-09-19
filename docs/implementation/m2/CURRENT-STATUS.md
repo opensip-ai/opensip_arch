@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `2b9d33f95`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `947a63a79`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -17,14 +17,17 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 | [145 purge reference](trials/purge-subclass-reference-checkpoint-145/README.md) | Claude reviewed the correction successfully | Refuses pinned-termination injection through Python dict subclasses; arbitrary non-JSON Python mappings remain outside the stated input contract |
 | [146 population reader](trials/generation-population-checkpoint-146/README.md) | Claude confirmed the terminal-cause defect; otherwise the reviewed population behavior passed. Fix in 148 | Complete fresh-carrier generation population, origin, gaps, predecessors and aggregate read bounds |
 | [147 marker regressions](trials/marker-regressions-checkpoint-147/README.md) | Claude reviewed successfully; all marker regression gaps closed | Two isolated negative rows and exact diagnostic assertions; production code unchanged |
-| [148 terminal-cause correction](trials/generation-closure-checkpoint-148/README.md) | Frozen; actual Claude review in progress; isolated workspace checks passed | Separates a project-purge terminal from the generation-closure condition needed for a successor generation |
-| [149 physical bracket capture](trials/bracket-capture-checkpoint-149/README.md) | Frozen; queued for Claude; 93 security and isolated workspace checks passed | Reads witness/floor before and after one retained SQL population; owns exact observations, without a recovery judgment |
+| [148 terminal-cause correction](trials/generation-closure-checkpoint-148/README.md) | Claude found no behavioral defect; purge append-stop regression added in 150 | Separates a project-purge terminal from the generation-closure condition needed for a successor generation |
+| [149 physical bracket capture](trials/bracket-capture-checkpoint-149/README.md) | Claude found no behavioral defect; after-read regression and WAL lifetime addressed in 150 | Reads witness/floor before and after one retained SQL population; owns exact observations, without a recovery judgment |
 
-Candidate 148 lives at `/tmp/opensip-implementation/m2-generation-closure-148`. Preserve all frozen parents. It contains 89 passing security tests and 23 explicit population cases. Two compiled mutants separately restore the predecessor defect and misclassify the exposed terminal cause; both are detected. Review and final source selection are still required.
+| [150 conditional anchor assessment](trials/anchor-assessment-checkpoint-150/README.md) | Frozen; queued for actual Claude; final isolated host checks passed | At most two actual physical captures, reviewed anchor decision, owned evidence without retaining WAL readers |
+| [151 population contract](trials/population-contract-reference-checkpoint-151/README.md) | Frozen; actual Claude reviewing | Clarifies independent marker/terminal-cause predecessor rule; all84 Python sources unchanged; all seven reference lanes pass |
+
+Actual Claude148/149 reports have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 ## Next work and remaining boundaries
 
-1. Obtain independent review of frozen 148, review physical capture 149, and address any remaining findings. The complete 146/147 reports have been read and archived.
+1. Obtain actual Claude reviews of150/151 and address actionable findings. Reviews through149 are archived. Continue historical recordSchema1 decoding in152; full inherited-carrier admission remains separate.
 2. Compose actual witness/floor reads with the owned SQL population and the reviewed historical-anchor decision. Keep the storage receipt/association owner; do not replace its evidence with caller assertions.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
