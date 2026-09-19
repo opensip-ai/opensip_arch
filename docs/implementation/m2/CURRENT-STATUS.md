@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `8408de960`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `daab7e3ca`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -110,3 +110,6 @@ Actual194 review has no findings and closes the main-file fallback only.195 is f
 
 
 [199 retry and physical-layout owner](trials/retry-layout-reference-checkpoint-199/README.md) is frozen for actual Claude review. It preserves the existing workflow retry budget and defines namespace/store/lease/journal/witness/floor paths plus exact prospective store-marker bytes. Per-generation journal trust floors remain in one stable namespace collection outside store rollback; the separate six-counter transition protocol is unchanged. All seven reference suites and the lock-cell regression pass. Implementation and native custody remain outstanding;198 review is also pending.
+
+
+Actual198 review confirms196's three findings closed; its remaining unlinked-file label is fixed in [200 physical location components](trials/physical-locations-checkpoint-200/README.md). Actual199 found that keeping floors inside the journal namespace permits their coherent rollback; [201 trust-layout correction](trials/trust-layout-reference-checkpoint-201/README.md) moves them to a separate install-level trust directory. Both are frozen for Claude review.200 has15lifecycle/159security/87storage tests,Clippy andseven mutation checks;201 passes allseven reference suites. No200 isolated-host qualification or full transition-location completion is claimed. Actual filesystem/lease/host composition remains outstanding.
