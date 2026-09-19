@@ -1,0 +1,13 @@
+# Private signed-security correction112
+
+This unselected candidate copies the exact330 pinned product files of110 and changes only trust.rs plus three existing fixture files. It is not installed, current authority, or cumulative approval.
+
+Addresses actual Claude signed-security106 S-1: pending recovery import requires checked createdMono+86400 == expiresMono; platform decisions validate macOS identity fields before either tier retains drift, use a fixed filesystem refusal, and retain no overlong/non-string selector. The full raw observation remains explicitly supplied evidence; the decision's bounded fields do not authenticate it. Three regression gaps T-1/T-2/T-3 are covered: real signed root bodies under the wrong root-domain tag, verifying root counter mismatch, and extension/kernel key reuse. No new signing, persistence or effect authority.
+
+Reference107 rederivation:1031platform cases (1017 historical+14),584recovery cases (580+4),1805carrier cases (1803+2).70historical platform expectations change;6historical recovery semantic expectations change. One malformed-observation case explicitly maps reference CONTEXT_SHAPE to the existing typed Rust Input OBSERVATION_SHAPE; both refuse, documented in diagnostic-map.json. Original fixture bytes and first rederivation output are retained. The two new carrier cases have three genuine TEST ONLY signatures each, independently checked using OpenSSL and refused by reference107 for root schema/domain mismatch. Synthetic keys confer no deployed authority.
+
+Validation:64security tests pass; strictworkspaceClippy passes;7compiled targeted mutants killed. Initial compiler/test failures and one ill-typed mutant are preserved and not counted as successful tests. The corrected mutant is in mutation-check-r2. Fresh isolated host66 is a separate verification receipt; consult its exact commands/results. It uses verified cached dependency archives and omits HOME. Single macOS development lane, not Linux/musl, full dependency review, power-loss, or release qualification.
+
+Fixture-provenance.json also corrects two105 descriptions that incorrectly described signature-cases.ndjson on unrelated profile/revocation signature fixtures; their bytes remain unchanged. No path, registry, dependency or inventory additions.
+
+Actual independent112 review remains required. R-1 profile refusal ordering, R-2 explicit carrier reader/kind capability policy, R-3 boundary panic qualification and the prior review's partial clock/Linux/profile-helper coverage remain open. Journal/custody/final-gate/revocation monotonicity and other excluded inherited groups remain unreviewed by the signed-security106 report. This candidate makes no claim about those groups.
