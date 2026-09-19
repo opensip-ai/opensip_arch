@@ -1,0 +1,11 @@
+# Admitted root input seal132
+
+Private uninstalled successor of frozen130.330product files,329unchanged; only trust.rs differs. Not cumulative approval, production producer integration, current authority or OS/dependency/release qualification.
+
+ValidatedRootPayload and its sole admit constructor now live in private child admitted_roots. Fields are private, with shared-value/shared-canonical/copy-digest/copy-schema accessors. No clone/default/deserialize/public raw constructor or mutable accessor. Consumers mechanically use accessors; owned copies remain raw data and cannot be passed as admitted roots. This closes actual128F1's root-input forgery route, including parent inherent impls constructing or mutating fields. Envelope/SignatureEvidence/QuorumReport/RootChainEvidence and consumer output seals remain separate open prerequisites before production wiring.
+
+The admission body is character-identical after ignoring whitespace, visibility and the two necessary super-path changes:4268normalized characters. Existing behavioral fixtures unchanged. Record projection regression now uses non-null anchor and distinct non-null five timestamps, including valid year9999 expiry; direct constructor oversized input must return Limit before shape. These target actual129T1/T2; no claim that untyped cloned clock projection confers authority.
+
+80security tests, strict workspace Clippy, six intentional invalid compiler clients plus a passing baseline. Privacy checks are not runtime mutant kills. Five compiled behavioral mutants detected: null anchor projection, bypassed direct record work bound, zero root digest, wrong root schema, empty canonical getter. Fresh isolatedhost81:296workspace tests plus2doc tests;210sourcepins/51dependencyarchivesverified, build/test/help/version/metadata pass. Read receipt scope: not release or Linux qualification.
+
+Preparation was performed in an inline authoring command; exact parent, beforeimages and final source preserve its effect. First79-test run preceded the added projection/bound regression; finalsecurity-r2 and host81 cover finalbytes. No frozen or installed bytes edited. Actual independent review required. Keep126nativeoperationwiring/130causeprecision/118I2storagehistorycustody/clockrange and all other inherited obligations tracked.
