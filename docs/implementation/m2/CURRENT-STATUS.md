@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `037e3aa92`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `0f8531099`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -89,4 +89,4 @@ The newest appended entries in [ACTIVE-WORK](../ACTIVE-WORK.md), [REVIEW-RESUME]
 Herdr: actual Claude `wF:p1`, native session `de59b975-4f82-4aff-9252-ad6d68d6fb79`; Grok fallback `wN:p1`. Verify current pane status rather than assuming either remains available. No Claude quota error has been observed at this update.
 
 
-Current successor188 is not frozen: six reference lanes pass, integration and behavioral mutation checks are running. Actual187 closes185F1 for six storage tables only. No cumulative readiness or product installation is claimed.
+Current successor188 is frozen for actual Claude review: all seven reference lanes and six behavioral/two SQLite mutants pass. Private189 Rust adoption passes141 security tests and Clippy; isolated host validation is running. Actual187 closes185F1 for six storage tables only. No cumulative readiness or product installation is claimed.
