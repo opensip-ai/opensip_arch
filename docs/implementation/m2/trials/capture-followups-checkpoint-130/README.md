@@ -1,0 +1,7 @@
+# Capture follow-ups130 — private unselected Rust draft
+
+Successor129:330productinputs, only platform/filesystem.rs and security/journal_store.rs change. Addresses actual124F2/F3. A real macOS retained-directory removal/replacement-by-regular-file test exercises reachability ENOTDIR through the capture seam and actual leaf path; neither may return Absent and the seam must not open. F_GETPATH ENOSPC is mapped to InvalidInput with an explicit pathname-limit message; the capture owner maps this to Unreadable(Context), not a misleading storage-full Io. A child-process test builds a real >PATH_MAX path without mutating the test runner's cwd and proves both platform and capture classifications. Parent path traversal permission and length limitations documented. Linux branch unchanged/unexecuted here.
+
+126N2/N3 notes added: defensive linkage checks do not replace post-barrier reopened-name identity; preexisting shared-writable blobs refuse confirmation without repair, requiring separate admitted maintenance.126N1 native-ops choice remains a low residual; no closure claim.
+
+33platform+79security tests, strict workspace Clippy, three compiled mutants all killed. Host80 exact210sources/51archives:295workspace+2docs plus build/meta/version/help pass. All fixtures unchanged129. Caller still owns ancestor-anchored custody and operation exclusion before consuming Absent; no full118I2, SQL snapshot/history, marker writer, OS/release or cumulative approval. Private uninstalled draft, actual review required.
