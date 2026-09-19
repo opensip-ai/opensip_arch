@@ -116,3 +116,6 @@ Actual198 review confirms196's three findings closed; its remaining unlinked-fil
 
 
 202 marker reader is frozen for actual Claude review:90storage/159security tests,strictClippy,7mutation checks,andisolatedworkspace445+2docs pass. Actual200/201 reviews accept their limited scopes.204 namespace/store separation passes15lifecycle andstrictClippy;not yetfrozen.203 transition-layout assistance is received;source-fence atomic trust boundary and physical publication choices still being reconciled. Productfa72e50 remainsunchanged;no newinstallation or cumulative readiness approval.
+
+
+204 pathscopes independentlyacceptedforlimitedscope.205 retained-markerfilecaptureisfrozenforClaude:91storage/161security,strictClippy,3mutationchecks,andisolated448workspace+2docsPASS.203 physicaltransitionownerisdraftonly. Its trustcapsule requires reconciliation of per-store trust state with the incorporated v14 per-role machine (located inrepooutside201referenceextraction). Root andClaude agree on separateinstall-levelSC-TRUSTplacement;exactcapsule/eventhistory remainsunderreview. Productfa72e50unchanged; no cumulative installationreadiness.
