@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `b8175d032`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `105124181`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -25,13 +25,15 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 
 | [152 historical bodies](trials/historical-records-checkpoint-152/README.md) | Frozen; queued for Claude | All14 recordSchema1 shapes, canonical bytes, domain digest and historical platform aliases |
 | [153 population wording](trials/population-wording-reference-checkpoint-153/README.md) | Frozen; queued for Claude | Addresses151 wording notes; names reserved lifecycle ownership |
-| 154 inherited SQL reader | 104 security tests pass; isolated build and mutation checks running | One generation from a retained SQL transaction, exact stored bytes in all3 encodings, physical mirrors and historical chain diagnostics |
+| [154 inherited SQL reader](trials/historical-sql-checkpoint-154/README.md) | Frozen; queued for Claude; isolated checks passed | One generation from a retained SQL transaction, exact stored bytes in all3 encodings, physical mirrors and historical chain diagnostics |
+
+| 155 migrated carrier population | 109 security tests and Clippy pass; final isolated build running | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
 
 Actual Claude148/149 reports have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 ## Next work and remaining boundaries
 
-1. Obtain actual Claude reviews of150/151 and address actionable findings. Reviews through149 and151 are archived. Continue154 physical history admission; whole inherited-carrier population and open dispatch remain separate.
+1. Obtain actual Claude reviews of150/151 and address actionable findings. Reviews through149 and151 are archived. Finish155 migrated population validation and independent review. Unmigrated/migration-prefix open dispatch remains separate.
 2. Compose actual witness/floor reads with the owned SQL population and the reviewed historical-anchor decision. Keep the storage receipt/association owner; do not replace its evidence with caller assertions.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
