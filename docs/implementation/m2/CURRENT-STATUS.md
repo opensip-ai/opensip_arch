@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `0e4483b3b`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `31d92452e`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -25,19 +25,23 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 
 | [152 historical bodies](trials/historical-records-checkpoint-152/README.md) | Claude found no behavioral defect; regression follow-up158 frozen | All14 recordSchema1 shapes, canonical bytes, domain digest and historical platform aliases |
 | [153 population wording](trials/population-wording-reference-checkpoint-153/README.md) | Claude reviewed successfully;151 W1/W2 closed | Addresses151 wording notes; names reserved lifecycle ownership |
-| [154 inherited SQL reader](trials/historical-sql-checkpoint-154/README.md) | Frozen; queued for Claude; isolated checks passed | One generation from a retained SQL transaction, exact stored bytes in all3 encodings, physical mirrors and historical chain diagnostics |
+| [154 inherited SQL reader](trials/historical-sql-checkpoint-154/README.md) | Claude found no behavioral defect; explicit mirror-policy decision and regression follow-up159/160 | One generation from a retained SQL transaction, exact stored bytes in all3 encodings, physical mirrors and historical chain diagnostics |
 
-| [155 migrated carrier population](trials/migrated-carrier-checkpoint-155/README.md) | Frozen; final isolated host98 passed; queued for Claude | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
+| [155 migrated carrier population](trials/migrated-carrier-checkpoint-155/README.md) | Claude found no behavioral defect; three regression gaps tracked | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
 | [156 anchor adapter regressions](trials/anchor-adapter-regressions-checkpoint-156/README.md) | Frozen;114 security tests and nine compiled mutants pass; queued for Claude | Five actual-I/O tests address150 F1; explicit capture failure semantics document150 F2 |
 
-Actual Claude reports through153 have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
+Actual Claude reports through155 have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 | [157 owned ledger evidence](trials/ledger-evidence-checkpoint-157/README.md) | Frozen;333 workspace tests+2 doctests pass; queued for Claude | One snapshot owns joined receipt/association/attempt evidence and a gated borrowed anchor view |
 | [158 historical regressions](trials/history-regressions-checkpoint-158/README.md) | Frozen;114 security tests and six mutants pass; queued for Claude | Three152 T1 negatives, structural vocabulary equality and cumulative fixture provenance; production unchanged |
 
+| [159 historical SQL follow-up](trials/history-sql-regressions-checkpoint-159/README.md) | Frozen;118 security tests and six compiled mutants pass; queued for Claude | Explicit legacy mirror compatibility choice and four actual-SQL regression tests; production unchanged |
+| [160 historical mirror policy](trials/historical-mirrors-reference-checkpoint-160/README.md) | Frozen; seven reference lanes pass; queued with159 | Design explicitly names strict mirror admission and its compatibility cost;84 Python files unchanged |
+| 161 retained directory names | In validation;42 platform tests, Clippy and ten mutants pass | Retains and checks every root-to-leaf directory name; sampled binding, not exclusion or authority |
+
 ## Next work and remaining boundaries
 
-1. Obtain actual Claude reviews of154/155/156/157/158 and address actionable findings. Unmigrated/migration-prefix open dispatch remains separate. Optional153 W3/W4 wording can accompany a substantive reference change; no extra prose-only review cycle is needed.
+1. Obtain actual Claude reviews of156/157/158/159/160 and address actionable findings. Unmigrated/migration-prefix open dispatch remains separate. 153 W3/W4 wording is included in160.155 T1 empty-inherited and aggregate-byte regression gaps still need a follow-up.
 2. Compose actual witness/floor reads with the owned SQL population and the reviewed historical-anchor decision. Keep the storage receipt/association owner; do not replace its evidence with caller assertions.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
