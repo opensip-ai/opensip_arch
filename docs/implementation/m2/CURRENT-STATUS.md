@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `2e521fc7a`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `3f2ae99ea`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -104,3 +104,6 @@ Actual194 review has no findings and closes the main-file fallback only.195 is f
 
 
 [195 sidecar contract](trials/sqlite-sidecar-reference-checkpoint-195/README.md) received actual Claude review; its compatibility, contention and diagnostic-scope findings are addressed in [197 SQLite profile](trials/sqlite-profile-reference-checkpoint-197/README.md), pending independent review. All seven reference suites pass. [196 reader controls](trials/reader-effects-checkpoint-196/README.md) is under review:85 storage,154 security, Clippy, six mutation checks and432 workspace+2 doc tests passed. The ledger timeout getter still needs moving before the first data query. Claude's [native retry note](reviews/claude-sqlite-retry197-20260919-r1/SQLITE-RETRY-NOTE.md) confirms that busy_timeout0 does not eliminate SQLite internal waits; examined macOS behavior is not cross-platform qualification. No accumulated candidate has been installed.
+
+
+[198 operational custody and control regressions](trials/operational-custody-checkpoint-198/README.md) is frozen for Claude review:87storage,159security,Clippy,eight mutation checks and439workspace+2doc tests pass. It addresses196's ordering and test findings and adds the operational-file predicate. Actual197 review closes195's three clarifications but identifies a retry-owner conflict;199 is being authored to preserve existing workflow retries, join the model's descriptive lock cell and clarify mode-refusal precedence. Physical layout assistance is also underway. These are implementation checkpoints, not completed host integration or cumulative acceptance.
