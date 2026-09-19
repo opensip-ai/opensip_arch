@@ -1,0 +1,1 @@
+The readable REVIEW.md removes one trailing space for repository whitespace validation. The exact actual-Claude report remains unchanged inside subject.tar.xz, bound by subject.json and archive-pin.json. No finding, evidence or verdict was changed.
