@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `3f2ae99ea`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `8408de960`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -107,3 +107,6 @@ Actual194 review has no findings and closes the main-file fallback only.195 is f
 
 
 [198 operational custody and control regressions](trials/operational-custody-checkpoint-198/README.md) is frozen for Claude review:87storage,159security,Clippy,eight mutation checks and439workspace+2doc tests pass. It addresses196's ordering and test findings and adds the operational-file predicate. Actual197 review closes195's three clarifications but identifies a retry-owner conflict;199 is being authored to preserve existing workflow retries, join the model's descriptive lock cell and clarify mode-refusal precedence. Physical layout assistance is also underway. These are implementation checkpoints, not completed host integration or cumulative acceptance.
+
+
+[199 retry and physical-layout owner](trials/retry-layout-reference-checkpoint-199/README.md) is frozen for actual Claude review. It preserves the existing workflow retry budget and defines namespace/store/lease/journal/witness/floor paths plus exact prospective store-marker bytes. Per-generation journal trust floors remain in one stable namespace collection outside store rollback; the separate six-counter transition protocol is unchanged. All seven reference suites and the lock-cell regression pass. Implementation and native custody remain outstanding;198 review is also pending.
