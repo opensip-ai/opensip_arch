@@ -1,0 +1,5 @@
+# Unselected purge representation proposal115
+
+Design adjudication only: proposed aggregate pin admission budget and closed direct/single-step refusal, with explicit complete-or-fail aggregate serialization and non-destructive legacy overbudget handling. Actual Claude has been asked to examine whether this scope is consistent with invocation retention/receipt obligations and whether a bounded pin-discovery surface is needed. No normative text/model/Rust change or D3–D6 closure is claimed.
+
+A complete schema-admitted direct envelope includes required empty availability; the single-step InvocationRecord example also validates. Their measured fixed overheads13760/14384B fit the illustrative16384reserve; the proposed2088960disclosure budget fits all4096ASCII256-scalar names even with longestkind. A64-step example exposes65copies and79,798,436B. These are schema examples and size measurements, not proof of host admission/idempotency/aggregation. Initial incomplete schema-registry failure preserved, correctedr2 loads full closure. The exact field set/overflow disposition remain owner choices pending substantive review. No product/selected/frozen parent edit.
