@@ -1,0 +1,7 @@
+# Evidence encapsulation 128 — private unselected draft
+
+Successor of frozen126; 330 product inputs, only security/trust.rs changed. Addresses actual123 F1: ProfileSetEvidence plus verify_profile_set and RevocationEvidence plus verify_revocation now live in separate private child modules. Read-only accessors expose immutable evidence, version, timestamp and pin. No public mutable reference, raw constructor or parent-module struct literal can bypass verification. Predicates, signature domains and every fixture are unchanged. Production consumer integration remains pending; this is not authority or cumulative approval.
+
+75 security tests and strict workspace Clippy pass. The first Clippy run found production-unused verifier aliases; these now have cfg(test), while verifier implementations remain compiled. Nine deliberately invalid parent-module clients fail compilation after a successful baseline; these are compiler privacy checks, not behavioral mutant kills. Fresh isolated host77: 291 workspace tests and two doc tests, offline build, metadata, version and help pass with 210 pinned sources and 51 cached dependency archives. No OS, dependency or release qualification claimed.
+
+Inherited124 capture follow-ups and126 native-wiring notes remain open. Full retained trust record admission is the separate reference127 proposal, not implemented by128. Actual signed-body R3 probes were against124/123, not128; independent review/re-execution is required before claiming those results here. No selected product or installed design changes.
