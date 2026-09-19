@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `707f2c8db`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `037e3aa92`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -66,15 +66,15 @@ Actual Claude reports through184 and the173/181 proposal assistance have been re
 
 [177 stored-pin snapshot](trials/stored-pins-checkpoint-177/README.md) and179–184 have actual Claude reviews. Encoding and nonblocking causal-error corrections are in184; no production defect was found there, but a busy-only fault-injection gap and preexisting sidecar/write-custody obligations remain. All candidates remain unselected.
 
-[181 phased recovery](trials/recovery-phases-reference-checkpoint-181/README.md) passed its reference tests, but Claude found real contradictions in the unchanged recovery model and missing floor-freshness rules. Correction186 is in progress, including schema-changing core transitions and a distinct ancestor-rollback protocol. The latest proposal assistance is not acceptance.
+[181 phased recovery](trials/recovery-phases-reference-checkpoint-181/README.md) passed its reference tests, but Claude found real contradictions in the unchanged recovery model and missing floor-freshness rules. Correction186 was reviewed;188 addresses its remaining findings, including schema-changing core transitions and a distinct ancestor-rollback protocol. The latest proposal assistance is not acceptance.
 
 [185 pin transactions](trials/pin-transactions-checkpoint-185/README.md) was reviewed by Claude: the 400-step sequence probe confirmed atomicity/scope, but REPLACE could bypass schema immutability.187 adds guards for all six protected storage tables and the identified regression gaps. Security carrier-format and historical-schema limits require separate reference treatment; the mutable current pin projection is intentionally unaffected.
 
-[186 store recovery protocol](trials/store-recovery-protocol-checkpoint-186/README.md) is frozen for actual Claude review. All seven suites pass, including1490 integration checks;12 behavioral mutants are caught. It corrects selection-case dispatch, rollback carrier ownership, execution attribution, floor freshness and durable ordering. Actual filesystem/store/selection effects remain unimplemented obligations.
+[186 store recovery protocol](trials/store-recovery-protocol-checkpoint-186/README.md) has an actual Claude review. Its original wrong-ID fail-closed claim was corrected in a separately preserved note;188 adds the binding prerequisite. All seven suites pass, including1490 integration checks;12 behavioral mutants are caught. It corrects selection-case dispatch, rollback carrier ownership, execution attribution, floor freshness and durable ordering. Actual filesystem/store/selection effects remain unimplemented obligations.
 
 ## Next work and remaining boundaries
 
-1. Obtain actual186 review and address findings; finish187 storage guards and reference counterparts for185F1. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
+1. Finish188 reference corrections and obtain fresh actual Claude review, then adopt the carrier guard in189. Actual187 review found no defect in the six storage guards;186 wrong-ID limitation now has a separate corrected review note. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
@@ -87,3 +87,6 @@ Candidate155 now admits fully published migrated carriers; unmigrated carriers a
 The newest appended entries in [ACTIVE-WORK](../ACTIVE-WORK.md), [REVIEW-RESUME](REVIEW-RESUME.md) and [PENDING-REVIEW](PENDING-REVIEW.md) contain exact manifests, hashes, active processes and reviewer requests. Earlier entries are historical and may describe superseded authority, selections or reviewer availability. Read this summary and the latest entries before acting.
 
 Herdr: actual Claude `wF:p1`, native session `de59b975-4f82-4aff-9252-ad6d68d6fb79`; Grok fallback `wN:p1`. Verify current pane status rather than assuming either remains available. No Claude quota error has been observed at this update.
+
+
+Current successor188 is not frozen: six reference lanes pass, integration and behavioral mutation checks are running. Actual187 closes185F1 for six storage tables only. No cumulative readiness or product installation is claimed.
