@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `e4df5d5ca`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `9d1341804`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -30,7 +30,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 | [155 migrated carrier population](trials/migrated-carrier-checkpoint-155/README.md) | Claude found no behavioral defect; three regression gaps tracked | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
 | [156 anchor adapter regressions](trials/anchor-adapter-regressions-checkpoint-156/README.md) | Claude confirms150F1 closed; exact-judgment and other-generation-marker follow-up163 frozen | Five actual-I/O tests address150 F1; explicit capture failure semantics document150 F2 |
 
-Actual Claude reports through180 and the173/181 proposal assistance have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
+Actual Claude reports through183 and the173/181 proposal assistance have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 | [157 owned ledger evidence](trials/ledger-evidence-checkpoint-157/README.md) | Claude found no defect; foreign-row regression and private-view follow-up163 frozen | One snapshot owns joined receipt/association/attempt evidence and a gated borrowed anchor view |
 | [158 historical regressions](trials/history-regressions-checkpoint-158/README.md) | Claude reviewed successfully;152T1/N2/N5 closed | Three152 T1 negatives, structural vocabulary equality and cumulative fixture provenance; production unchanged |
@@ -66,11 +66,11 @@ Actual Claude reports through180 and the173/181 proposal assistance have been re
 
 [177 stored-pin snapshot](trials/stored-pins-checkpoint-177/README.md) was reviewed by Claude; UTF-16 identity-aliasing and regression findings corrected179/180. Validation:55 storage tests/Clippy, nine fault injections, five privacy refusals and385 workspace+2 doctests pass. [178 transition scope](trials/transition-scope-reference-checkpoint-178/README.md) was reviewed by Claude; pre-recovery versus new-transition admission needs181. [179 recovery limits](trials/recovery-limits-checkpoint-179/README.md) and [180 ledger encoding](trials/ledger-encoding-reference-checkpoint-180/README.md) are frozen and queued for review:58 storage tests,388 workspace+2 doctests and all reference lanes pass. All remain unselected.
 
-[182 encoding owners](trials/ledger-encoding-owners-checkpoint-182/README.md) and [183 nonblocking opener](trials/ledger-opener-checkpoint-183/README.md) are frozen for actual Claude review.182 passes all seven reference lanes with86 Python sources unchanged.183 passes60 storage tests, strict Clippy, three targeted mutants and390 workspace tests plus two doctests.181 is an unfinished draft; all candidates remain unselected.
+[182 encoding owners](trials/ledger-encoding-owners-checkpoint-182/README.md) and [183 nonblocking opener](trials/ledger-opener-checkpoint-183/README.md) are frozen for actual Claude review.182 passes all seven reference lanes with86 Python sources unchanged.183 passes60 storage tests, strict Clippy, three targeted mutants and390 workspace tests plus two doctests.181 is now frozen for actual review:531 integration checks including108 new cases, six ordering faults caught.184 preserves causal SQL failures and passes392 workspace tests plus two doctests. All candidates remain unselected.
 
 ## Next work and remaining boundaries
 
-1. Complete181 phased recovery and the versioned security command-disposition companion. Both actual181 proposal assessments are archived; owner prose drafted, executable composition/classification still owed. Obtain actual182/183 reviews:182 reconciles180 encoding-owner findings;183 fixes179 no-wait opener regression and types encoding failures. Actual150F2 host mapper and writer mirror-policy disposition remain required.
+1. Obtain actual181/184 reviews and address substantive findings.181 phases and machine companion are frozen with531 integration checks and six ordering mutants;184 causal errors are frozen with62 storage and392 workspace+2 doctests. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
