@@ -1,0 +1,11 @@
+# Derived clock range Rust134
+
+Private uninstalled successor132.330productfiles325unchanged;trust.rs,trust_time.rs andthreeexistingfixtures changed. Implements frozenreference133 calendar range decisions, no actual clock/storage/rendering authority. Actual independent review required; all inherited prerequisites remain.
+
+Pure clock now returns Refusal::TimeRange with typed RetainedLastAccepted/PresentedSignedTime/ContinuityExpectedWall operand. The range guard follows both payload-future refusals; plausibility precedes continuity. Retained diagnosis checks its own horizon independently of newer presentedtime. Calendar0001–9999 inclusive; compared-only arithmetic unchanged. Continuity checked_sub/checked_add and calendar range return the same typed operand refusal. No unrepresentable result or write proposal. Recovery checks representable issuedAt+90days after its signed-time checks, returns Refused("TIME_RANGE") before proposal. Existing raw malformed integer input arithmetic error remains distinct; no production raw V adapter introduced.
+
+36newreferenceclockprojections appended byte-for-byte after1856retainedcases=1892. Four genuinely signed recoverycases appendedafter867=871; fournewenvelopes with test-only deterministickeys signedbyOpenSSL and verifiedbyreference. Exactedge9999-10-02T23:59:59 applies; onesecondover/max refuseTIME_RANGE; oldwall stillISSUED_IN_FUTURE. Fixtureprovenance updatedonlythreeentries, alloldfixturebytes remainprefixes.
+
+80securitytests/strictworkspaceClippy. Sixcompiledbehavioralmutants detected: wrongretainedtag, skippedplausibility/continuitycalendar, erasedcontinuitytag, rejectedinclusivecalendarmax, skippedrecoveryguard. Freshisolatedhost82:296workspace+2doc,210sourcepins51archivesverified; build/test/help/version/metadata pass. This is localdebug qualification, not release/Linux/OScurrentauthority. No full11record decoder or typed admittedrecordclockadapter or publicrenderer implementedhere.
+
+Source preparation performed inline; beforeimages plusfinalsource and projection/signing scripts retained. Newclockpublicvocabulary lives inreference133 and mustmoveinto generatedconsumers atselection. No frozenparentorinstalledfile edited. Envelope/quorum/rootchain/outputseals,118I2history/custody/generation, realpinmutation/spool/renderers, inheritedqualification/formalselection andM2/M3–M6remainopen.
