@@ -1,0 +1,13 @@
+# Store recovery protocol checkpoint186
+
+Proposed, unselected successor181. Actual fresh independent review required.
+
+Corrects181F1/F2 by dispatching recovery from the admitted schema/store pair for every journal state: same-store, forward selection or ancestor re-selection. Schema-changing core operations use the same store protocol. Forward creates a target; ancestor creates only a separate stage carrier. Abort never deletes a retained target and never follows this execution source fence. Terminal actions require the joined footprint. An unavailable observation stops unknown custody; a proven contradictory admitted footprint quarantines.
+
+New role observations are bound to original ExecutionId plus intentDigest: intent bytes can repeat, RESTORED is only a trust role, and final directory names do not establish selection. The owner specifies durable journal/effect order and atomic core/store pair selection. A prepared floor image follows the last first-pass trust evaluation/write, precedes fencing, and is compared against exact fenced source/max retained-target floors on resume. No new trust evaluation occurs in historical recovery. Required physical bindings, store markers, floor capture and atomic carriers are host obligations, not produced by this model.
+
+The additive closed StoreTransitionObservationV1 input and private helper consume projected observations. Existing public intent/journal/recovery output schemas and codes remain unchanged. Original transition v1 vectors and migration_recover remain explicitly historical; current consumers select transition v2 and the role-based selector. S9/S9.2/S9.3/S15 and current lineage owner facts are reconciled; historical revision evidence is retained. Actual installation_recovery_attempt is exercised and its projected-history limit documented.181T1 observer/requested-operation/both-lineage regression gaps are added; flag tokenization is secondary to exact policy equality, not independently claimed fault qualification.
+
+Validation on finalr4:231 foundation,2193 workflow,477 native+66matrix,580 security+25sweeps,435carrier,168explicit+145composition+6000fuzz+1803differential/61crypto envelope,1490integration checks.948new focused crash-prefix/counterexample checks;12syntax-valid behavioral mutants plus baseline pass.91Python sources84unchanged181,5changed2new. No physical crash, file selection, root custody, lease/floor effects or full command authorization qualification. All product host wiring and formal source/schema selection remain owed.
+
+Historical failed checks preserved: envelope r1 had stale model pin; explicitly rebound. Integration r3 lacked its current envelope receipt; finalr4 regenerated it and passes. No failed run is represented as acceptance.

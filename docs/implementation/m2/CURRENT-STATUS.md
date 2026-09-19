@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `3ab4b22b0`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `707f2c8db`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -68,11 +68,13 @@ Actual Claude reports through184 and the173/181 proposal assistance have been re
 
 [181 phased recovery](trials/recovery-phases-reference-checkpoint-181/README.md) passed its reference tests, but Claude found real contradictions in the unchanged recovery model and missing floor-freshness rules. Correction186 is in progress, including schema-changing core transitions and a distinct ancestor-rollback protocol. The latest proposal assistance is not acceptance.
 
-[185 pin transactions](trials/pin-transactions-checkpoint-185/README.md) is frozen for actual Claude review:73 storage tests, strict Clippy,12 compiled mutants killed,403 isolated workspace tests and2 doctests pass. It stages current pin changes and immutable operational history in one SQL transaction; authority, semantic facts, receipts and production callers remain owed.
+[185 pin transactions](trials/pin-transactions-checkpoint-185/README.md) was reviewed by Claude: the 400-step sequence probe confirmed atomicity/scope, but REPLACE could bypass schema immutability.187 adds guards for all six protected storage tables and the identified regression gaps. Security carrier-format and historical-schema limits require separate reference treatment; the mutable current pin projection is intentionally unaffected.
+
+[186 store recovery protocol](trials/store-recovery-protocol-checkpoint-186/README.md) is frozen for actual Claude review. All seven suites pass, including1490 integration checks;12 behavioral mutants are caught. It corrects selection-case dispatch, rollback carrier ownership, execution attribution, floor freshness and durable ordering. Actual filesystem/store/selection effects remain unimplemented obligations.
 
 ## Next work and remaining boundaries
 
-1. Complete186 recovery protocol correction and its fresh review; obtain actual185 pin-transaction review and address findings. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
+1. Obtain actual186 review and address findings; finish187 storage guards and reference counterparts for185F1. Actual150F2 public host mapper, physical custody/exclusion and full writer integration remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
