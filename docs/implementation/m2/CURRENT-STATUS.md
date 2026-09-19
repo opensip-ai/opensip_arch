@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `f34d69ca9`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `c64a1447a`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -30,7 +30,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 | [155 migrated carrier population](trials/migrated-carrier-checkpoint-155/README.md) | Claude found no behavioral defect; three regression gaps tracked | Exact legacy schemas and migration boundary, complete inherited/current population and historical SEAL incompatibility |
 | [156 anchor adapter regressions](trials/anchor-adapter-regressions-checkpoint-156/README.md) | Claude confirms150F1 closed; exact-judgment and other-generation-marker follow-up163 frozen | Five actual-I/O tests address150 F1; explicit capture failure semantics document150 F2 |
 
-Actual Claude reports through167 have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
+Actual Claude reports through169 and the169 proposal adjudication have been read and archived. Candidate150 closes two regression gaps and the completed-assessment WAL lifetime obligation. Full location/ancestor custody, exclusion and ledger composition remain required. No candidate here is installed product code.
 
 | [157 owned ledger evidence](trials/ledger-evidence-checkpoint-157/README.md) | Claude found no defect; foreign-row regression and private-view follow-up163 frozen | One snapshot owns joined receipt/association/attempt evidence and a gated borrowed anchor view |
 | [158 historical regressions](trials/history-regressions-checkpoint-158/README.md) | Claude reviewed successfully;152T1/N2/N5 closed | Three152 T1 negatives, structural vocabulary equality and cumulative fixture provenance; production unchanged |
@@ -47,13 +47,18 @@ Actual Claude reports through167 have been read and archived. Candidate150 close
 | [167 marker admission routes](trials/marker-routes-reference-checkpoint-167/README.md) | Claude reviewed successfully;165F1/W1 closed | Malformed marker prevents the whole capture in any retained generation; kernel receives admitted flags only |
 | [166 physical carrier dispatch](trials/carrier-dispatch-checkpoint-166/README.md) | Claude reviewed; refusal/constructor/regression follow-ups included in168 | One read-only snapshot distinguishes legacy, missing, incomplete and published carrier states |
 
-| [168 dispatch capture composition](trials/dispatch-capture-checkpoint-168/README.md) | Frozen;367 workspace tests+2 doctests pass; queued for Claude | Actual dispatch in recovery capture, owned non-current evidence with SQL released,166 refusal/constructor corrections |
+| [168 dispatch capture composition](trials/dispatch-capture-checkpoint-168/README.md) | Claude reviewed successfully;166F1/T1/N1 closed;166N2 closed for the bracket | Actual dispatch in recovery capture, owned non-current evidence with SQL released,166 refusal/constructor corrections |
 
-| [169 admission boundary proposal](trials/recovery-admission-proposal-169/PROPOSAL.md) | Owner proposal; Claude assessment requested after168 | Reconcile normal S7 fence-to-lease admission with the recovery algorithm’s prohibition on taking the fence |
+| [169 admission boundary proposal](trials/recovery-admission-proposal-169/PROPOSAL.md) | Claude confirmed the conflict; correction frozen in reference169 | Reconcile normal S7 fence-to-lease admission with the recovery algorithm’s prohibition on taking the fence |
+
+| [169 admission correction](trials/recovery-admission-reference-checkpoint-169/README.md) | Claude found admission write-scope gap; correction frozen171 | Ordinary S7 admission first, sealed held context for bounded read-only recovery; explicit wait scope, lifetime and nested handoff |
+| [170 recovery availability](trials/recovery-availability-checkpoint-170/README.md) | Frozen;371 workspace+2 doctests pass; actual Claude reviewing | Own actual availability generation and ledger join from one SQL snapshot; manifests, references and pins still owed |
+
+| [171 read-only admission](trials/readonly-admission-reference-checkpoint-171/README.md) | Frozen; all seven lanes pass; actual review queued | Explicit no-write admission and pending installation-transition refusal;169F1/W1/W2 corrections |
 
 ## Next work and remaining boundaries
 
-1. Obtain actual Claude review of168 and address actionable findings. Actual150F2 host mapper and writer mirror-policy disposition remain required.
+1. Obtain actual Claude reviews of170 and171 and address findings. Actual150F2 host mapper and writer mirror-policy disposition remain required.
 2. Compose the actual dispatch and bound operational captures with owned ledger evidence and retained custody/exclusion.164 now requires full directory chains for witness/floor reads, but SQLite path/sidecar custody is still separate.
 3. Finish inherited-history admission, retained ancestor custody and exclusion, live lease/fence/writer composition, production clock input and current-revocation binding.
 4. Finish actual pin transactions, recovery/cleanup ordering, output spooling and rendering, generated-consumer checks, and formal selection before installing the accumulated implementation candidates.
