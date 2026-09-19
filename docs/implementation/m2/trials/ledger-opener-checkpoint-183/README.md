@@ -1,0 +1,7 @@
+# Nonblocking ledger opener — private checkpoint183
+
+Unselected product successor to179; one source changes, all37 fixtures unchanged. Actual179F1 measured a five-second default SQLite busy wait because encoding was queried before busy_timeout(0). The shared reader/writer configure now disables waiting before its first lock-taking query. A deterministic sentinel busy handler detects the ordering regression; actual reader and writer tests cover rollback and WAL exclusive holders, require DatabaseBusy promptly, then prove unlocked openers work. The two-second test allowance is a scheduling tolerance, not the production lock policy (zero wait).
+
+179W1 is addressed structurally by private LedgerEncodingError::Unsupported(observed_encoding) and ::Observation(sqlite_error). The future host mapper has typed captured facts, not a string key. This is not host-mapper implementation or public output qualification. Existing encoding refusals assert the exact observed encoding for both openers.
+
+Validation required before freezing:60 storage tests, strict workspace Clippy, baseline plus three compiled mutants (late timeout, generic unsupported error, generic observation error), isolated host114 workspace390 tests plus two doctests,230 source pins/37 fixtures/51 verified dependency archives. Existing179 review evidence covers unchanged limits/pin code. No custody, writer/creator, migration, authority, cumulative readiness or installation claim; actual independent review required.

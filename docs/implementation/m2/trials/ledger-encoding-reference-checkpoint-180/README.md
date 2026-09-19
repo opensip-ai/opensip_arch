@@ -1,0 +1,9 @@
+# Project-ledger text encoding, reference180
+
+Unaccepted reference correction over frozen178.1289 candidate files, seven changed:identity-and-evidence.md, commit-recovery-readonly.v3.md and five pin manifests. All86 Python sources are byte-identical178; no decision/output schema/vocabulary change. All seven reference lanes pass. This verifies internal bindings/regression stability, not the physical opener's new behavior.
+
+Explicit owner decision for actual177F1: the project ledger (receipts, associations, attempt custody, Run material, availability and current pins) requires SQLite database encoding UTF-8. Check the retained connection before any domain text read, for both readers and existing writers. Creation must select and verify it before schema publication. Any other encoding, including otherwise valid UTF-16le/be, or an unavailable encoding observation refuses the ledger as unknown-custody using existing HOST.IO_FAILURE/host-io. Never infer empty state, corruption or repair permission, and never silently convert identities. Future conversion needs a separately authorized versioned migration/restore owner; none is enabled here.
+
+The compatibility cost is deliberate: SQLite can transcode malformed UTF-16 stored keys into different valid names before Rust sees them, so validating returned UTF-8 is insufficient. This rule is NOT the separate historical security-journal encoding policy; that reader's explicit raw-byte/encoding admission remains unchanged. Encoding observation alone proves no filesystem custody, authorization or schema validity. Private179 implements the shared-opener refusal and UTF-16LE/BE negatives; it requires its own independent review.
+
+No host mapping/creator/migration/custody/production selection or cumulative readiness.178's remaining pre-recovery admission/classification findings are expressly NOT addressed by this focused encoding change;181 proposal work owns them. Actual independent review required.
