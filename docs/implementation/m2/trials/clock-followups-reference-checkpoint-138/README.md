@@ -1,0 +1,11 @@
+# Clock reference followups138
+
+Private uninstalled successor137. Actual Claude133 T1(a–d), N1/N2 and the reference side of134T1/T2 are addressed; independent review required. Public time-range subjects are exactly retained-last-accepted, presented-signed-time and continuity-expected-wall. Recovery keeps RECOVERY.REFUSED/TIME_RANGE; no fourth clock subject. Exact per-tag remedies are now one kernel/projector table and constrained in both public schemas. The projector rejects mismatched or missing wording, preserving the retained-lastAccepted restoration requirement.
+
+Mandatory clock sweep grows186 to264 assertions,43 materialized cases (38 clock,5 recovery). New cases straddle the recovery horizon in both directions within allowed skew, assert continuity's inclusive final calendar second, pin three literal remedies independently of the table, reject invalid subjects/mismatched remedies in projector/both schemas, and directly exercise iso beyond both endpoints without clamping. Six compiled mutants are caught: wall substituted for issuedAt, wrong remedy, removed public subject/remedy checks, clamping formatter, exclusive continuity maximum.
+
+One author test expectation was wrong: with a2026 wall and a9999 continuity anchor, the result is a backward-clock finding plus PROCEED. Beforeimage and failure description retained; intended inclusive-edge case corrected to wall at calendar maximum, where ordinary plausibility refuses. No production logic changed for that test correction.
+
+Full r2 foundation231/workflows2159/native477+66/security581+24sweeps/carrier435/envelope168+145+6000+1803/integration423 pass. Source pins and envelope binding updated. This is pure reference, no OS clock, signatures, effects, typed Rust adapter or renderer;139 carries the signed Rust test gaps separately. Privacy/current authority/storage/SQL/history/custody, real pin operations and formal selection plus M2/M3–M6 remain incomplete. No cumulative approval.
+
+Initial integration r1 rejected its historical free-form remedy example under the newly fixed-wording schema. The example was corrected to the exact retained-record remedy; r2 checks final pins. Failure output and beforeimage are retained.
