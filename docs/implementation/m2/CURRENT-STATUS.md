@@ -5,7 +5,7 @@ OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `37613a7cd`.
+- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `c477cbafa`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
@@ -97,3 +97,7 @@ Actual191 and192 reports are archived and fully read.191 has no defect, but scop
 193 is frozen (150 security,423 workspace+2docs); actual Claude review pending.194 adds actual writer main access-mode refusal before SQL (82 storage tests,Clippy,3 mutants pass); isolated host122 running. Actual SQLite sidecar behavior requires a precisely scoped owner correction before host recovery integration;195 is a proposal only.
 
 Actual193 closes191W1/T1/T2 with11 compiled mutants; empty-chain refusal remains a small prerequisite before helper reuse.194 is frozen, passes425workspace+2docs, and is queued for actual review. No local builds remain. The195 sidecar owner proposal is still pending; no195 candidate exists.
+
+Actual194 review has no findings and closes the main-file fallback only.195 is frozen (all seven reference suites,1787 integration checks) and in Claude review.196 implements conditional reader controls and effect regressions; validation is running. The actual retained-custody/lease/location host join remains required.
+
+196 is frozen with432workspace+2docs,85storage/154security tests and6mutants; actualreviewpending.195reviewneeds197WAL-profile/lock/scopeclarifications; nativeSQLiteinternalretrydespitebusy_timeout0isbeingverified. No197candidateexistsyet. Fullhostcustody/leasejoin andM3–M6stillopen.
