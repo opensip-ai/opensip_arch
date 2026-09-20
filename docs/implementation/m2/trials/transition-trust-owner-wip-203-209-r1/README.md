@@ -1,0 +1,7 @@
+# Unfinished transition/trust owner work — recovery snapshot
+
+This is an immutable work-in-progress snapshot, **not a frozen candidate for acceptance** and not a selected design. Reconstruct from the exact base201 archive then apply the new draft transition document and two retained historical input copies; existing candidate pin manifests have NOT been rebound. No reference suites were run for this draft. New trust-state capsule and continuity protocol remain unresolved, pending actualClaude209 assistance and root reconciliation.
+
+The source-fence section is explicitly incomplete. Neither the scalar role-standing proposal nor a global precedence-over-flags substitute is accepted: the incorporated v14 machine is per-role and event-driven. Sourcefence/PRESENT lifetimes, sticky revocation/quorum observations, root ceremonies versus clock recovery, retained document histories and audit ordering need complete owner law before writes. The exact six-counter image/public journal stay unchanged; a separate continuity companion is proposed. Metadata object encodings must follow their own signed-document/envelope owners, not an invented JSON filename assumption.
+
+The capacity probe uses the untouched frozen201 model and product canonicalizer: worst-width legal core-rollback intent, all six state wrappers,53759canonicalnamespaceUUIDs fit(4194268bytes max),53760do not. This is a bounded synthetic encoding measurement, not native registration or custody. No hardcodedcountsubstitutesforworstactualbytespreflight.
