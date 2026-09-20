@@ -1,13 +1,13 @@
 # Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): actual Grok verifies primary243 and reproduces46old+28newcases/4omission controls; prepared outcome composition remains bounded, not native authority.242r2 now refuses GC key issuance pending a multi-namespace sweep owner (120scope/15composition/5controls).244 adds a projectless installation mutation output profile, preserving historical/project outputs (79checks/4controls). Grok is reviewing244 and242r2 now. All candidates remain unselected/uninstalled; full command admission, semantic effects, original evidence lookup and native publication remain incomplete. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): Grok confirmed242r2 GC key refusal and found a raw-output-schema bypass in244r1.244r2 closes it and references the single installation scope owner (84checks/5controls).245 proposes the four trust request grammars,49inventory rows and an explicit authorization class (76checks/3controls), preserving45existing rows and read-only agent-serve. Grok is reviewing245 and244r2 now. Typed ceremony context, full51-command/host/transport admission, authenticated effects and native publication remain incomplete. All candidates are unselected/uninstalled. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `e89e86784`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `2ebd5e3cd`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
