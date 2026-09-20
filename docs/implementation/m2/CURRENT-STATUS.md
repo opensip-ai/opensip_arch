@@ -2,14 +2,14 @@
 
 Latest checkpoint (overrides historical sections below): actual Claude independently closed the marker archive and exact-boundary findings in223. All356 pinned product files are present;94storage tests,Clippy and targeted mutation checks pass. The production marker code is unchanged from221. Productfa72e50 remains unchanged; candidates are not installed.
 
-Claude closed the scoped restore findings in228r4; current228r6 adds exact implementation-source joins without changing the66-case model. Root corrected proof-node author assistance in227r7:45 metadata/dependency cases and15 deliberately weakened variants pass, with60 capsule structural checks. Full native authority admission remains incomplete. Claude is authoring explicit core-closure identity and payload-framing successors after confirming missing owners. Working203 primary manifests/models/registries remain stale. No candidate is installed or cumulatively approved. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Claude independently closed the scoped proof findings in227r8. Core distribution229r2 now corrects recovery authority selection across the embedded root chain, with67 conditional cases,9 source mutations and20 guard checks. Root230 retains the existing transition intent format;231 assembles110 schema definitions with explicit collision handling. Claude is authoring the remaining private input formats. Full native authority admission and primary203 schema/model/registry integration remain incomplete. No candidate is installed or cumulatively approved. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `6f1011b81`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `4c33f1574`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
