@@ -1,6 +1,6 @@
 # Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): Actual Grok260 native authorization review is complete with no bounded defect. Exact raw-document/payload-bundle261 is frozen and under actual Grok review:179security,Clippy,20signed/capture and379schema cases pass. Native path/index preflight is next. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): Actual Grok261 review and separate wording correction are complete. Native path-preflight262 is frozen under Grok review:183security,Clippy/fmt,38logical/28preflight/6signed cases and six wrong-admission controls pass. FreshClaude262attempt hitquota. Native bounded envelope/member index is next. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
