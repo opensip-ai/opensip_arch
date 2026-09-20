@@ -1,0 +1,7 @@
+# Incomplete trust persistence WIP222 revision4
+
+Root proposal, unselected and unimplemented. Completes predecessor durability reconfirmation and explicit predecessor-keyed publication storage. Mandatory bounded successor admission denies authority/publication for behind/fork/unavailable, without a full lifetime-directory scan. No restoreDetection flag or restrictive fallback branch. Explicit acknowledge-restore may re-admit the unique proven complete state and publish as logical N+1 with exact distinct nativeBefore. Existing copy/max clock/floor law is retained, including a conservative max F after historical S4.5. Root rejects a three-counter repair and private time-authentication attestation; full relied-on metadata closure is retained, with explicit effective acceptance limits for ordinary and recovery payloads.
+
+Conditional successor model21cases,10unsafevariants with exact expected invariant plus baseline PASS. Cases include cross-process reconfirmation, orphan/overfull/unavailable buckets, full recovery and repeated rollback, false fallback fork, one-revision detection gap and healthy-tip locality. Toy closure/projection inputs are not schema/cryptographic/native qualification or real aggregate charging. Existing publication model53general+20restorecrashstates and history24orders retained as inherited scope; no claim they implement the new index law.
+
+No new product selection. Exact schemas, creator/adoption, complete logical-owner/reference/model/command integration and native custody/enumeration remain owed. All earlier reports preserved.

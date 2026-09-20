@@ -1,0 +1,7 @@
+# Durable incomplete trust owner215 revision10
+
+Root resolves actualr9 Q1 by explicit new ROOT_CHANGED evidence even from UNBOOTSTRAPPED: complete BEFORE RoleRecord retains prior reset EventRef; immutable history is not overwritten by the new current cause/by projection. Q2 selected OLD-subject hits attach to COMMIT evidence without an invented REVOKE. Q3 exploration counts are asserted. Q4 adds generic mixed-history two-role multi-step sequences, skipping impossible never-established revocations and retaining history through ordinary healing.
+
+Model6272ordinarycells,4096genesis/1024accepted,80commit-history cells,26233profile-states1074794edges12987closed states. Counts sum six established-role profiles plus an additional mixed-history two-role profile, not all reachable six-role histories. Current corpus r5:43named/41distinct unsafe variants, all rejected by exact predeclared invariant; baselinePASS. Includes all six actualClaude r9 variants (adapted ordering patch for new evidence field), plus missing superseded evidence and removed mixed-history profile. Earlier reports/generators/mismatch logs remain history. Execute current report-named variants only.
+
+Conditional admitted booleans are not real subject authentication. No signature/schema/fullS4/native qualification. Schemas unchanged42shapechecks inherited. Primary reference/product unchanged. Complete222/creator/reference/schema/command integration remains open; no protocol acceptance or implementation approval.

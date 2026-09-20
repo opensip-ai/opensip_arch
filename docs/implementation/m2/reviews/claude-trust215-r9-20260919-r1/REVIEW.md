@@ -1,0 +1,38 @@
+# Bounded review — frozen INCOMPLETE WIP215 revision 9 (closure of my r8 P-1..P-4)
+
+Reviewer: Claude. Date 2026-09-19. **Scope: the changed coordination text and model only; not protocol approval; no root/product edit, commit or push.** Known 222/creator/schema/source-integration omissions are not re-listed.
+
+## 1. Identity and what I ran
+- `subject.tar.xz` SHA-256 `fd1fc08226e7c8459a1baf22755b7349a3a1e721ef72698b4cc126abbbc6bcb4`, 136,324 bytes, 559 members — equals the request; **every `subject.json` member rehashed from the tar before extraction**; 0 non-regular/unsafe/extra; end pass `re-verified`.
+- `beforeimages-r9/OWNER.md` is byte-equal to the r8 `OWNER.md` I reviewed; both schemas byte-equal to r8. The only OWNER change is one sentence (second BEGIN).
+- Model: my re-run is byte-equal to `ordinary-batch-model-r6.json` (6272; 4096/1024; 20 history cells; 26129 states, 1074242 edges, 12905 closed). `coordination-corpus-r4/baseline.py` equals the model.
+- **Corpus r4, executed by report name only** (`claude-out/probes/run_corpus_named.py`): the runner takes its case list from `report.json`, asserts the two generator names are absent, refuses any source containing `mkdir`/`write_text`/`subprocess`, verifies each source hash, and runs with my review directory as cwd. Result: **35 named / 33 distinct, 35 rejected, 35 of 35 observed labels equal the predeclared `expectedAssertion`**, no bare `AssertionError`, baseline passes (`io/corpus-r4-results.json`). No generator or historical corpus was executed.
+
+## 2. Closure
+| r8 | r9 | Status |
+|---|---|---|
+| P-1 COMMIT oracle contradicted OWNER C | `commit` now: OLD-subject REVOKE for non-batch **established** roles → COMMIT of members → `RESET/ROOT_CHANGED` of remaining established non-revoked siblings; `REVOKED` preserved; never-established state kept; history is an explicit per-role input, updated for members on success. 20-cell table over all non-RECOVERY sibling states × history × hit with exact standing, ordered evidence and history; sequence oracle extended. Corpus gains `r9-commit-keeps-nonbatch-trusted`, `-forgets-old-revocation`, `-resets-never-established`, `-drops-history`, all killed by the matching label | **closed**, with Q-1/Q-2 below |
+| P-2 non-`UNBOOTSTRAPPED` abort worlds unexplored | every table-result world is enqueued with binding/staging cleared; `check_barrier` then exercises restart BEGIN and head-advance from them (12905 closed states vs 5460) | **closed** — but see Q-3 |
+| P-3 second BEGIN unstated | OWNER: "A second BEGIN while any batch remains begun is a pre-dispatch refusal with no per-role events and no rebinding, including an exact re-presentation of its payload"; model asserts it (`begin predispatch barrier`) together with the no-staging case; my variant `q4` is rejected by that label | **closed** |
+| P-4 bare assertions | every assertion labelled; per-case expected label stored; the two r2/r3 expectation mismatches are retained as history and explained (the variants were killed earlier than predicted, by the refusal-audience and subsequent-barrier oracles). I confirm both readings: a variant dying at an *earlier, also-correct* invariant is a harness prediction error, not a hidden failure | **closed** |
+Root's statement that a null `acceptedUnder` is not synonymous with pre-genesis is right and the loosened `ordinary()` precondition reflects it: post-genesis, a never-established member (for example a newly activated role) that aborts has decidable time causes from the outside context — root expiry applies to every role — so never-established `EXPIRED`/`STALE-REVOCATION` are reachable, consistent with r8's N-1 wording, which confines the no-S4 case to P0/P1.
+
+## 3. New findings (changed scope only)
+
+### Q-1 (Low–Medium) — COMMIT emits a `RESET` for a sibling that is already `UNBOOTSTRAPPED`
+Model and table assert `(i,'RESET','ROOT_CHANGED','UNBOOTSTRAPPED','UNBOOTSTRAPPED')` for an established sibling already reset (my variant `q6`, which omits it, is rejected by `commit history-table evidence`). OWNER C says such a role "**becomes** UNBOOTSTRAPPED … retaining exact prior acceptedUnder/**reset evidence**", and C.4 defines a reset by "exact BEFORE/AFTER role records". A record whose BEFORE equals AFTER is an event that changed nothing, and in 222 `RoleRecord.reset` is a single `{cause,by}` slot, so the redundant reset would *replace* an earlier `RESTORED`/`MIGRATED` cause — the opposite of retaining it. **[P]:** no record when the role is already `UNBOOTSTRAPPED` (state, history and prior reset evidence unchanged); or, if root wants the root change recorded per role, say explicitly that reset evidence is a chain rather than a slot. One sentence in OWNER; one expected-value change in the table.
+
+### Q-2 (Low–Medium) — OLD-subject hits on **batch members** are never supplied, so their rule is unasserted
+OWNER C.1: selected roles "take RECOVER-COMMIT against prospective subjects; attach superseded OLD-subject matches to that event as retained evidence, rather than inventing an EV-REVOKE". The table only ever sets a hit on the non-batch role, and the exploration passes no hits. My variant `q2` — an OLD hit on a member emits a `REVOKE` event before its COMMIT — **survives**, with identical counts. **[P]:** add table rows with `old_hits[0]=True` for an established member (enter from `EXPIRED`/`REVOKED` with history) asserting: final `TRUSTED`, **no** `REVOKE` event, and the hit recorded on the COMMIT event (e.g. a fifth tuple field), plus `q2` in the corpus.
+
+### Q-3 (Low) — exploration coverage is not pinned
+My variant `q5` removes the new enqueue of ABORT-result worlds and **passes**, with 18798 states and 5574 closed instead of 26129 / 12905. Coverage is a property of the harness, so no invariant can fail; but the corpus checks exit codes only, so P-2's closure can regress silently. **[P]:** assert the three exploration counts (and the 20/6272/4096/1024 cell counts) inside `checks()` — or have the corpus runner compare the baseline's JSON with the frozen report — and add `q5` to the corpus with the count assertion as its expected label.
+
+### Q-4 (Low) — sequence seeds are all-established
+`check_batch_sequences` seeds `history=(True,)*count`, so never-established members appear only in the 20-cell table, never in multi-step sequences (begin from `UNBOOTSTRAPPED`/false, interruption, abort, restart). With history now explicit this is cheap: seed `('UNBOOTSTRAPPED', False)` members too, and make the interruption generator respect r6 F-5 (no `REVOKED` interruption for a never-established member), which the all-true seeds currently hide.
+
+## 4. Independent check of stated claims
+REVOKE → COMMIT → RESET order asserted both in the table and in the sequence oracle (my order variant `q3` and never-established-revoke variant `q1` are rejected by the intended labels); `REVOKED` sibling preserved with no event; history carried exactly; second BEGIN and no-staging pre-dispatch; every ABORT table world enqueued; counts reproduce; "35 named / 33 distinct, all exact labelled matches" reproduced independently; historical mismatches are disclosed rather than rewritten.
+
+## 5. Limits
+One conditional model with admitted boolean inputs; I executed the model, the 35 report-named cases and six variants of my own (4 rejected, 2 survive — Q-2, Q-3), all inside my review directory. No crypto, S4, format or native effect is modelled or reviewed. In both surviving cases the unmodified model behaves as the prose requires; the findings are missing assertions and one prose/table disagreement (Q-1), not unsafe behaviour. Nothing here approves r9.
