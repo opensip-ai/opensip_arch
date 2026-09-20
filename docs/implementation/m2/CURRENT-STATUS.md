@@ -1,8 +1,8 @@
 # Implementation status — September 19, 2026
 
-Latest checkpoint (overrides historical sections below):218–220 independently reviewed;220 closes the account adapter's native-oracle and debug-output findings.221 joins full policy capture to marker decoding and is under actual Claude review. Its isolated build passed469 workspace tests and2 doctests;94storage tests,Clippy and6targeted mutation checks also passed. Productfa72e50 remains unchanged; candidates are not installed.
+Latest checkpoint (overrides historical sections below): actual Claude independently closed the marker archive and exact-boundary findings in223. All356 pinned product files are present;94storage tests,Clippy and targeted mutation checks pass. The production marker code is unchanged from221. Productfa72e50 remains unchanged; candidates are not installed.
 
-Trust owner215 revision5 reconciles actual Claude's context and ordinary-import assistance. The atomic-import proposal explicitly delays revocations when another required payload guard fails, for both import and online refresh. Complete capsule/history/creator/restore/command/crash/model work remains. See [root disposition](reviews/trust215-root-disposition-r5-20260919.md) and the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
+Trust215 revision7 addresses further batch atomicity and model-coverage findings. A separate222 draft now specifies capsule persistence, bounded history and explicit proposed ceremony/restore commands; Claude is reviewing it. These are incomplete proposals, not accepted product behavior. See [root disposition](reviews/trust215-root-disposition-r7-20260919.md) and the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 

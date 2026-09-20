@@ -1,0 +1,7 @@
+# Incomplete trust persistence WIP222 revision2
+
+Root-authored proposal, not selected, reviewed, implemented or an acceptance candidate. Builds on215r6 and physical203: one authoritative per-store capsule, immutable exact evidence references, acyclic event/publication descriptor construction, separately durable S4 clock and outcome revisions, precise continuity BEFORE/AFTER images, original-context proof handling, history DAG with explicit new work limits, and source-fence retention.
+
+Proposes an explicit command-inventory successor for ceremony begin/commit/abort and acknowledge-restore, rather than pretending missing actions are available through today's grammar. The restore declaration does not import a backup. Its prepare/marker/capsule/retirement ordering and missing-evidence behavior need review. Creator/adoption ownership, exact closed schemas, detection wording, causal mappings and complete reference/native integration remain open.
+
+Conditional models only: publication model checks74 crash-visible states and rejects3 unsafe variants; history model checks24 insertion orders, complete union/shared ancestors, exact budgets, historical novelty, identity fork versus different envelopes, dangling/cyclic graphs and repeated-edge work. No signed bytes/crypto/OS effects were verified by these models. r1 publication source is retained before adding pre-scheduling edge charging; r2 source/report are current. Numbers are logical checks, not platform qualification.
