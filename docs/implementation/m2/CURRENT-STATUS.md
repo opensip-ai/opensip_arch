@@ -1,13 +1,13 @@
 # Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): Actual Grok completed252 and253 with no bounded defect, reproducing32/8 and35/5 checks/controls. Signed retained inventory now composes with a finite retained+incoming revocation union and every-quorum second pass. Full metadata body/identity admission is next; Grok is locating exact existing owners while root implements. Current trust, requested effects and native custody/publication remain incomplete. Candidates are unselected/uninstalled. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): Catalog/component254 is frozen (48 new checks,9 omission controls,187 inherited checks), under actual Grok review. Primary255 integrates it under the shared Operation;48 metadata/38 command/13 combined checks and all7root suites pass. Actual source assistance was corrected against existing minimum-version and manifest rules. Command-to-authenticated-closure binding is next. Current trust, full effects and native custody/publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `3d6a87335`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `bb7b5aea9`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
