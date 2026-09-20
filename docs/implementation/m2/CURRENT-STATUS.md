@@ -2,14 +2,14 @@
 
 Latest checkpoint (overrides historical sections below): actual Claude independently closed the marker archive and exact-boundary findings in223. All356 pinned product files are present;94storage tests,Clippy and targeted mutation checks pass. The production marker code is unchanged from221. Productfa72e50 remains unchanged; candidates are not installed.
 
-Claude has closed the scoped trust revocation and first-creator findings. Current215r14 and224r3 add small model/wording refinements queued for cumulative review;222r6 carries the reviewed private-reset corrections. Creator tests cover43 scenarios and12 unsafe variants; this is conditional evidence, not native qualification. Working203 persistence/reset text is integrated but its primary manifests and models remain unbound. Exact codecs, signed-time producers, adoption selection and complete host integration remain open. Actual Claude is reviewing the signed-time producer sources. See the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
+Claude has closed the scoped revocation, first-creator, signed-time and audit-dependency findings. Current215r14/224r3/225r2/226r3 refinements await cumulative review. Capsule shape bundle227 now has43 checks, but complete operation/event/proof codecs and host integration remain open. Adoption228 source reconciliation is active: root rejected treating a baseline/backup as one of the five existing import kinds and has not accepted deferring the required restoration behavior. Working203 remains unbound; no candidate is installed. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `a486dea3b`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `31f8f274f`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 

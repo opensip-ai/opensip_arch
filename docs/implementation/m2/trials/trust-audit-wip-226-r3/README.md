@@ -1,0 +1,3 @@
+# Incomplete audit join226 revision3
+
+Actual Claude226r2 closes J1-J5 with no hidden cycle/contradiction. O1-O4 refinements: null events and same-descriptor ABORT annotation, source-head equality, downstream-only carrier rule, explicit authorized-entry clearing of current restriction slots with exact BEFORE history retained. Conditional model91 cases/7 unsafe variants exact assertions+baseline PASS;22 shape checks inherited byte-identical schema. Active-evidence and role-guard applicability remain asserted, not actual producers. Full event/operation codecs and native continuity admission still owed. Changes queued for cumulative review.
