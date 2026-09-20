@@ -1,0 +1,21 @@
+# Ordinary member signatures and finite revocation union 284
+
+Private, unselected candidate based on283; installed product fa72e50 unchanged. This authenticates ordinary catalog, revocation-list and component envelopes under the supplied signing root, then rechecks all incoming groups against the finite union of retained and incoming key revocations. It uses the SAME283 operation Budget and actual retained bytes. No caller-supplied signer list or authenticated flag substitutes for crypto.
+
+The BUNDLE proof comes from283. Catalog and component signatures use the existing actual envelope verifier, binding raw body, metadata preimage, role and delegated namespace. The revocation owner admits the full closed list, actual calendar timestamps and exact rootVersion, then verifies its ROOT signatures. Every initially verified group must satisfy its threshold after the supplied retained-key filter. KeyId subjects require the exact lowercase64hex codec; namespace, release and catalog subjects remain distinct from keys.
+
+A finite second pass can only remove keys from internally verified reports. It includes BUNDLE, catalog, list and every component. The newly delivered list does not exempt its own signatures. There is no recursive trust discovery, extra physical read or mutable current-trust lookup. Evidence owns the complete283 result, admitted list, union set, each filtered group's kind/path/threshold/message/signers and every unresolved root path. All roots, INCLUDING the supplied signing-root pair, remain explicitly unresolved for chain/history admission. Invalid root signatures therefore do not become root authority through this owner.
+
+## Evidence
+
+All426 parent product pins and every265 archive/current-candidate file were rehashed. The reference is an explicit ordinary composition of283's adapter plus exact265 envelope/list/schema/calendar/quorum primitives; it is not claimed to be an existing complete ordinary-import helper. Fresh TEST ONLY OpenSSL Ed25519 keys replace ROOT, BUNDLE, INDEX and COMPONENT test groups with2-of-3 groups. Root-pair signatures are deliberately zero; catalog/component bodies are deliberately minimal and not yet semantically admitted. The next owner must validate those bodies and catalog joins.
+
+46 actual signed cases,12 initial and12 repeated successes. Baseline12objects31edges16239bytes; repeat12/62/16239 and12 physical captures. Tests compare exact store caps/order, per-call counters, failure latching, the complete retained inventory and all new owned facts after inputs/Budget drop. Cases cover every group's incoming/retained/combined threshold loss, individual healthy revocations, crypto corruption/short signatures, list self-revocation, unrelated/duplicate keys, keylike namespace entries, malformed key codecs, full list shape/calendar/root binding, multiple unresolved roots and intentionally deferred body semantics.
+
+230 security tests pass (security-initial-r2), strict workspace Clippy (clippy-final-r1), Cargo fmt and explicit rustfmt on all four included modules. The initial test compile omitted test-local text/hash helpers; test-only correction and failed log/beforeimage are retained. Production functions did not change. Thirteen compiled controls plus230-test baseline all caught in mutation-check-r1; report.json separates wrong admissions from lost facts, over-refusal and counters. The workspace run and exact totals are recorded separately below when complete.
+
+428 product pins:425 unchanged283, changed private inclusion in trust.rs plus new trust_ordinary_quorums.rs and ordinary284.ndjson. Recovery owners, prior ordinary layers and all inherited fixtures unchanged.
+
+Still pending: ordinary root-chain/current/history admission; complete catalog/component semantics and identity/digest/namespace/constraint joins; current revocation population and non-key effects; time/accepted-role effects; physical capsule/artifact/repair/command integration; private policy custody/absence/adoption; fences/census/durable writers; runtime/source selection and M3–M6. This is not shipped behavior or cumulative approval.
+
+Full workspace final-r1 passed527 unit/integration tests plus2 compile-fail documentation tests (529 total). This includes the230 security tests. No separate isolated-host harness or filesystem qualification rerun is claimed.
