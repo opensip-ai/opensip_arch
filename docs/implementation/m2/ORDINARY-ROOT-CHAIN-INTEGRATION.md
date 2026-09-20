@@ -17,3 +17,7 @@ Actual Grok reviewed the cited frozen265 sources and existing verifier. See [ROO
 ## Candidate adapter289, pending independent review
 
 [Candidate289](trials/native-ordinary-roots-checkpoint-289/README.md) now executes the presented-first-root check and exact first/final identities on the same284 operation Budget, then delegates proper successors to the existing dual-threshold verifier under the finite union. Same-head refresh preserves the original accepted DocRef. Its42 signed cases and235 security tests pass;15 compiled weakened variants are detected. This is a private conditional adapter, not bootstrap/current-history authority, role-derived import, signed-time admission or installed behavior. Independent review remains pending.
+
+## Independent adapter review completed
+
+Actual Grok's [289 review](reviews/grok-native-roots289-20260920-r1/REVIEW.md) reproduced235 security tests and15 compiled weakened variants with no scoped defect. It confirms the presented-first-root law and original-DocRef preservation. The finite population here is caller-retained plus incoming-list keyIds applied to every root quorum; no additional chain revocation census is invented. Bootstrap, authenticated current/history context, derived role scope and physical custody remain open.
