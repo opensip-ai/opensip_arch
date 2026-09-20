@@ -1,0 +1,3 @@
+# Working integration standing
+
+Incomplete/unselected203. Current logical215r15 adds226 current restriction projection; persistence222r7 incorporates225 time and226 audit join supplements plus227 partialcodec proposal.225r2/226r3 model refinements await cumulative review.227 generation claim corrected against201; sameS never advances its storeG/K. Full event/operation/closure/proof schemas, command/registry/source/model integration and fresh review still owed. Primary candidate manifests/input pins are STALE. No frozen full reference or product selection is implied. Historical source201 and all earlier frozen archives remain untouched.
