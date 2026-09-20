@@ -1,6 +1,6 @@
 # Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): Actual Grok258 review is complete with no bounded defect. Native Rust carrier259 is frozen and under actual Grok review:175security,472workspace+2doctests,Clippy and four omission controls pass. Native authorization/root-binding work260 is in progress. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): Actual Grok259 native carrier review is complete with no bounded defect. Native authorization260 is frozen and under actual Grok review:176security,Clippy and seven omission controls pass. Exact raw-document/payload-bundle integration261 is in progress. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
