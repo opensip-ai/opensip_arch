@@ -1,0 +1,3 @@
+# Private trust schema assembly WIP231 revision2
+
+122definitions: previous110 unchanged plus12 root-corrected230 input/marker definitions. Every shared definition compared equal before merge; exact source bytes retained. The six pending format names now have definitions, with admission/producer obligations separately explicit. Root230 installed-component surface and raw unsigned marker record are part of the proposed formats; caller role lists remain absent. Existing LogicalPath1024/CoreLogicalPath4096 separation and corrected229 core anchor are preserved. Assembly checks cover whole metaschema/all local refs and representative shapes;230supplies184conditional join cases. No primary reference selection, native authority, lifecycle completion or cumulative approval.

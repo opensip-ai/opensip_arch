@@ -1,13 +1,13 @@
-# Implementation status — September 19, 2026
+# Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): actual Claude independently confirmed the recovery-authority correction in229r2. Root229r3 addresses its remaining directory, chain-test and scope findings (77 conditional cases,10 source mutations,24 guard checks).227r9 reconciles event-design prose. New232r2 extracts118 exact reference fields from actual canonical records, with42checks and8unsafe variants. Claude is correcting its remaining230 input-format proposal after root found incomplete restore and metadata joins. Full native authority admission and primary203 schema/model/registry integration remain incomplete. No candidate is installed or cumulatively approved. See the latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): actual Claude completed the233/232 review, then exhausted quota; actual Grok now independently reviews frozen230r3. Root corrected source-unbound reference decoding (63checks), continuity target-before joins (195checks/29variants), and primary carrier/contract/dependency integration. The signature successor passes1803historical cases with47explicit changes,168focused cases and6000fuzz inputs; foundation/native/workflows/security/carrier reference lanes pass. New primary integration233r2 remains partial; full native authority, graph/producer and command/model integration and cumulative review are incomplete. No candidate is installed. See latest [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `cdc813bca`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `3a913a147`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
