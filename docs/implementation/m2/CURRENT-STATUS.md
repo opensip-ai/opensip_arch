@@ -1,6 +1,6 @@
 # Implementation status — September 20, 2026
 
-Latest checkpoint (overrides historical sections below): Actual Grok262 review is complete. Native shared-budget metadata index263 is frozen under Grok review:186security,Clippy/fmt,34reference pairing/capture/counter cases and eight compiled omission controls pass. Claude fresh262attempt hitquota. Next: connect owned indexed pairs and the same budget to recovery validation. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
+Latest checkpoint (overrides historical sections below): Actual Grok263 review is complete. Native retained recovery264 and reference DocRef-length correction265 are frozen under Grok review.189security,486workspace+2docs,Clippy/fmt;47signed/653schema nativecases;47connectedcommandchecks and all7reference suites pass. Root and Grok independently found the length gap; this fixes the local inventory claim. FreshClaude265attempt stillquota. Full current trust, whole-state effects and native publication remain incomplete; candidates unselected/uninstalled. See [resume entry](REVIEW-RESUME.md). User pushes; do not push.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
