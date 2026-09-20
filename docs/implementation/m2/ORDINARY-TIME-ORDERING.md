@@ -1,6 +1,6 @@
 # Ordinary authentication and clock ordering
 
-Implementation integration finding; actual independent Grok296 source review completed September20 (ORDERING.md; archival pending the report hash-label correction). This does not change frozen289/295 bytes or claim an installed behavior.
+Implementation integration finding; actual independent Grok296 source review completed September20 ([ORDERING.md](reviews/grok-native-times296-20260920-r1/ORDERING.md); complete review archived with hash-label correction beforeimage). This does not change frozen289/295 bytes or claim an installed behavior.
 
 The exact215r14 OWNER.md §C.3 requires complete relied-on authentication before using payload times, followed by S4 and its durable write-ahead; shared root/list validity and remaining entry guards apply at the resulting evaluation time. A later refusal does not erase that write-ahead.225r2 TIME-PRODUCER.md likewise derives ordinary newestIssuedAt from manifest/catalog/list, with final-root issue time separate, only after complete authentication.
 
