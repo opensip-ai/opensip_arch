@@ -1,5 +1,10 @@
 # Implementation status — September 19, 2026
 
+Latest checkpoint (overrides historical sections below):216 policy capture independently reviewed;217 fixes its documented macOS directory-creation side effect. All12 old public-wiring mutants now fail;172security/44platform and isolated461workspace+2docs passed on216.217 changes comments only and awaits scoped review. Productfa72e50 remains unchanged; no candidate installed.
+
+ActualClaude is reviewing revised trust owner215r3. Recovery authorization/payload schemas have42 shape checks, but the capsule/history/genesis/crash/restore owner and semantic model are still incomplete. This is proposal work, not protocol approval. See [root disposition](reviews/trust215-root-disposition-20260919.md) and the latest entry of [resume guide](REVIEW-RESUME.md). User pushes; no push is authorized here.
+
+
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
