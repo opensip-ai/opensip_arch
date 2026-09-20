@@ -1,0 +1,5 @@
+# Durable WIP215 revision5 — NOT an acceptance candidate
+
+Root reconciliation of actual215r4/context/ordinary assistance. Corrects role subject frame, current-root versus prospective ceremony availability, key expiry interpretation, evidenced abort, separately durable S4 write-ahead, original time-authentication context, unknown P1 times and private standing-reset identity. Proposes atomic complete ordinary imports and refreshes, with explicit revocation-delivery availability cost. Root source check corrects the suggested network exception: v1 section6.5 fetches the same ordinary payload. Any namespace match affects the whole role. Revoked states survive typed absence and continuity resets. No cumulative approval.
+
+Authorization/payload schemas unchanged from revision3;42 shape/delta checks inherited, not semantic validation. Complete capsule/reference codecs/history bounds/command/crash/restore/model are still owed. All earlier immutable snapshots/beforeimages preserved. No primary reference verifier/model, role kernel or product activation. Original per-role kernel211 does NOT implement the proposed history-aware revocation amendment.

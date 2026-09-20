@@ -1,9 +1,8 @@
 # Implementation status — September 19, 2026
 
-Latest checkpoint (overrides historical sections below):216 policy capture independently reviewed;217 fixes its documented macOS directory-creation side effect. All12 old public-wiring mutants now fail;172security/44platform and isolated461workspace+2docs passed on216.217 changes comments only and awaits scoped review. Productfa72e50 remains unchanged; no candidate installed.
+Latest checkpoint (overrides historical sections below):218–220 independently reviewed;220 closes the account adapter's native-oracle and debug-output findings.221 joins full policy capture to marker decoding and is under actual Claude review. Its isolated build passed469 workspace tests and2 doctests;94storage tests,Clippy and6targeted mutation checks also passed. Productfa72e50 remains unchanged; candidates are not installed.
 
-ActualClaude is reviewing revised trust owner215r3. Recovery authorization/payload schemas have42 shape checks, but the capsule/history/genesis/crash/restore owner and semantic model are still incomplete. This is proposal work, not protocol approval. See [root disposition](reviews/trust215-root-disposition-20260919.md) and the latest entry of [resume guide](REVIEW-RESUME.md). User pushes; no push is authorized here.
-
+Trust owner215 revision5 reconciles actual Claude's context and ordinary-import assistance. The atomic-import proposal explicitly delays revocations when another required payload guard fails, for both import and online refresh. Complete capsule/history/creator/restore/command/crash/model work remains. See [root disposition](reviews/trust215-root-disposition-r5-20260919.md) and the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
