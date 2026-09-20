@@ -13,3 +13,7 @@ Additional integration boundary from current265 trust-state-continuity.v1.md C.3
 ## Independent assessment, September20
 
 Actual Grok reviewed the cited frozen265 sources and existing verifier. See [ROOT-INTEGRATION.md](reviews/grok-native-metadata-policy285286-20260920-r1/ROOT-INTEGRATION.md). It confirms the missing adapter must explicitly check the presented first-root envelope under filtered shared ROOT authority while retaining the accepted body's original DocRef. This does not establish bootstrap/current-state custody and does not change the proper-successor verifier. An explicit reference composition and cases are next; no such adapter is implemented by287/288.
+
+## Candidate adapter289, pending independent review
+
+[Candidate289](trials/native-ordinary-roots-checkpoint-289/README.md) now executes the presented-first-root check and exact first/final identities on the same284 operation Budget, then delegates proper successors to the existing dual-threshold verifier under the finite union. Same-head refresh preserves the original accepted DocRef. Its42 signed cases and235 security tests pass;15 compiled weakened variants are detected. This is a private conditional adapter, not bootstrap/current-history authority, role-derived import, signed-time admission or installed behavior. Independent review remains pending.
