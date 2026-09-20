@@ -2,14 +2,14 @@
 
 Latest checkpoint (overrides historical sections below): actual Claude independently closed the marker archive and exact-boundary findings in223. All356 pinned product files are present;94storage tests,Clippy and targeted mutation checks pass. The production marker code is unchanged from221. Productfa72e50 remains unchanged; candidates are not installed.
 
-Trust215 revision7 addresses further batch atomicity and model-coverage findings. A separate222 draft now specifies capsule persistence, bounded history and explicit proposed ceremony/restore commands; Claude is reviewing it. These are incomplete proposals, not accepted product behavior. See [root disposition](reviews/trust215-root-disposition-r7-20260919.md) and the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
+Trust215 revision9 corrects the model's recovery-commit sibling standing and retains exact-invariant regression coverage:35named/33distinct unsafe variants rejected. Independent review is queued. Persistence222 revision3 remains incomplete: Claude and root are reconciling detection and recovery of restored trust state, including full revocation/clock history. Earlier three-version-only and unavailable-as-clearance suggestions were rejected. No restore flag or recovery amendment is accepted yet. See the latest [resume entry](REVIEW-RESUME.md). User pushes; no push is authorized here.
 
 OpenSIP is not fully implemented. M1 development groundwork is accepted; M2 core, security and storage integration remains in progress. M3 providers, M4 reporting, M5 workflows and M6 qualification remain open.
 
 ## Repositories and authority
 
 - Product: `/Users/sb/code/opensip-ai/opensip`, installed commit `fa72e50`, runtime selection 24 and design selection 30/44. The product working tree is unchanged.
-- Architecture, candidate source archives and review evidence: this repository. Latest checkpoint at this update: `daab7e3ca`.
+- Architecture, candidate source archives and review evidence: this repository. Preceding checkpoint at this update: `0ea81add5`.
 - The user authorizes continued implementation and commits in both repositories when they change. The user will push; do not push.
 - Use actual Claude as primary reviewer, then actual Grok if Claude becomes unavailable. A scoped review is not cumulative implementation approval. Candidate archives below are not installed source selections.
 
