@@ -1,0 +1,1 @@
+Historical partial packaging snapshot: archive/pin/member rehash completed, then README copy failed because preparatory metadata generation used system Python without jsonschema. No approval. Complete successor is trust-reference-reader-wip-232-r2; this archive is preserved unchanged.
