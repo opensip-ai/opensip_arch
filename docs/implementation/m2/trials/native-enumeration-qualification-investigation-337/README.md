@@ -1,0 +1,1 @@
+Bounded qualification investigation337, not approval/selected design or code/profile admission. Read INVESTIGATION.md; local native probe is read-only development evidence. Upstream sources pinned by immutable URL+SHA, NOT asserted equal to installed libc. Original330–336 evidence preserved. Actual independent assessment still required.
