@@ -16,14 +16,14 @@ Inventory56 is selected and committed. Runtime26 proposes exactly three source c
 
 Native directory birth375 remains a private, frozen, unreviewed adapter. Six focused tests pass. Its preserved earlier failures exposed a wrong test-hook ABI type and a false assumption that removing a directory name must set its retained descriptor link count to zero. Positive links do not establish pathname attachment.
 
-Root audit376 identifies a documented possibility that device numbers change across reboot/remount. The selected registry reference rejects an otherwise identical root when only deviceId changes; the move rule requires the old locator to be absent. Corrected executable fixture376-r2 reproduces this conditional case, not an actual reboot. A durable identity or explicit safe rebind design still requires actual peer review. No comparison has been weakened.
+Root audit376 identifies a documented possibility that device numbers change across reboot/remount. The selected registry reference rejects an otherwise identical root when only deviceId changes; the move rule requires the old locator to be absent. Corrected executable fixture376-r2 reproduces this conditional case, not an actual reboot. Actual Grok confirmed the owner-law gap and inspected the one-host UUID ABI probe. Draft379 proposes a versioned durable APFS UUID root while retaining live device/FSID checks and refusing implicit same-path rebind;274 inherited cases,69 new cases and24 schema checks pass. It awaits independent review and exact selection overrides. No live comparison has been weakened.
 
 Full five-field binding372, shared native budgets, endpoint-versus-retained-lineage handling and S9.3 remain unfinished. The reviewed placement direction preserves the crate dependency graph; it does not approve the complete owner or native authority.
 
 ## Review availability and next work
 
-Claude's10:27 retry hit its Fable quota before substantive review. Grok is the active reviewer; no Claude agreement is claimed.
+Claude's11:27 retry again hit its Fable quota before substantive review. Grok is the active reviewer; no Claude agreement is claimed.
 
-Runtime26 is installed and committed; its architecture evidence is being committed. Actual Grok is reviewing root identity376; then review the inert birth adapter and continue native registry/binding implementation. Substantive analyzers, reporting, workflows and release/platform qualification remain later work. No completion date or percentage is inferred from foundation test counts.
+Runtime26 is installed and committed; its architecture evidence is being committed. Actual Grok confirmed root identity376 and is reviewing the inert birth/volume adapters375/378. Draft379 is frozen for the next owner review. Continue native registry/binding implementation after those corrections are resolved. Substantive analyzers, reporting, workflows and release/platform qualification remain later work. No completion date or percentage is inferred from foundation test counts.
 
 Exact historical evidence and resume details remain in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW. The previous status is preserved in status-history/20260921-1120.md.
