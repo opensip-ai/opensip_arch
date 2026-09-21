@@ -9,12 +9,16 @@ The project is not fully implemented. M2–M6 remain open. Product `opensip` is 
 
 **361:** [Native trust read session](trials/native-trust-read-session-checkpoint-361/README.md) is frozen and independently reviewed by actual Grok, with no bounded defect.382 security tests, four lifetime checks and eight fault controls pass. It retains every original current file across repeated reads under one cumulative, failure-latching budget.
 
-**362:** [Shared current/census session](trials/native-trust-census-session-checkpoint-362/README.md) is frozen and currently under Grok review.388 security tests and14 fault controls pass. All current/dependency/candidate evidence remains owned under the same budget and fence.
+**362:** [Shared current/census session](trials/native-trust-census-session-checkpoint-362/README.md) is frozen and independently reviewed by actual Grok with no bounded defect. Thirteen focused tests, four lifetime checks and14 fault controls reproduced; full388 security tests are author evidence. All current/dependency/candidate evidence remains owned under the same budget and fence.
 
-**363:** [Host records/trust bundle](trials/host-installation-trust-checkpoint-363/README.md) is frozen, awaiting review.68 host tests and Clippy pass. The synthetic-home integration passes16 cases, catches four deliberate faults, and passes the restored16-case baseline. The failed first pilot is preserved. This is provisional consistency, not full binding/current authority.
+**363:** [Host records/trust bundle](trials/host-installation-trust-checkpoint-363/README.md) is frozen and currently under actual Grok review.68 host tests and Clippy pass. The synthetic-home integration passes16 cases, catches four deliberate faults, and passes the restored16-case baseline. The failed first pilot is preserved. This is provisional consistency, not full binding/current authority.
 
 The [store-binding advisory](reviews/grok-store-binding358-20260921-r1/REVIEW.md) has a corrective ADDENDUM preserved in its archive. Independent current-record S/G/K comparison is necessary provisional consistency, not a replacement for the full namespace/registry/lineage/admitted-handle binding.
 
-Claude's latest attempt at05:33 was refused by its Fable quota. No Claude agreement is claimed; Grok is the active fallback reviewer. The next source-inventory audit must account for213 private candidate files outside the selected inventory, including generated-code ownership and naming, before runtime materialization. Full authority, writers, installation and later milestones remain open.
+**364:** [Source inventory and generation audit](trials/candidate-source-audit-364/README.md) is frozen, awaiting review. Three schema-generated Rust files reproduce byte for byte; both Unicode tables match their pinned inputs. The corrected inventory gap is79 source files and134 fixtures,213 total. No inventory selection or product installation follows from this audit.
+
+**365:** Generated-file layout is being implemented in a separate private candidate. It moves generated code, preserves handwritten wrappers/tests, and adds one offline generation/check command. Final crate validation and independent review remain pending.
+
+Claude's latest attempt at06:41 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
 
 Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
