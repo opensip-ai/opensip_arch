@@ -6,9 +6,9 @@ OpenSIP is not fully implemented. M2 through M6 remain open. The reviewed native
 
 | Item | Current state |
 | --- | --- |
-| Product source | runtime25 installed at `b3af5e8`; subsequent lock-only commit selects the registry contract |
+| Product source | runtime25 installed at `b3af5e8`; registry contract lock committed at `2e90e02` |
 | Selected design | 31 inventory successors / 46 contract successors; inventory55 |
-| Product source | 583 tracked files, including design-lock.json; 582 source files verified against frozen368 |
+| Product file inventory | 583 tracked files, including design-lock.json; 582 source files verified against frozen368 |
 | Fresh cumulative host checks | 755 tests and 6 doctests passed; 2 explicitly ignored tests |
 | Fresh provider build | 26 sources / 19 verified dependency archives; boundary checks pass, semantic analysis remains unimplemented |
 | Independent integration review | Actual Grok accepted runtime25 for the bounded macOS arm64 development scope; root assent and private/live checks completed |
@@ -25,14 +25,14 @@ Author and actual Grok reference evidence: 274 cases, 24 schema checks and eight
 
 The [retention review371](reviews/grok-lineage-retention371-20260921-r1/root-assessment.md) separates retained lineage nodes from live store markers. Intermediate ancestry must remain inspectable after historical store cleanup; actually selected/opened stores still require their markers. The installed provisional reader currently refuses conservatively when any ancestor marker is missing. No unsound admission is claimed.
 
-Root is preparing binding owner372 privately, including exact namespace/store/generation/schema joins, creation without a circular dependency on the current record, shared budgets, and the handoff from installation fence to project lease. Its codec placement must preserve the agreed crate dependency graph: security cannot depend on lifecycle, storage or host. It is not frozen or accepted.
+Root is preparing binding owner372 privately, including exact namespace/store/generation/schema joins, creation without a circular dependency on the current record, shared budgets, and the handoff from installation fence to project lease. Actual [placement review372](reviews/grok-binding-placement372-20260921-r1/root-assessment.md) recommends inert codecs in identity and native producers in security, preserving the agreed crate dependency graph. Binding372 is not frozen or accepted.
 
 ## Review availability and next steps
 
-Claude's September21 09:27 attempt was blocked by its Fable quota before substantive review. Actual Grok is the current reviewer; no Claude concurrence is claimed.
+Claude's September21 10:27 attempt was blocked by its Fable quota before substantive review. Actual Grok is the current reviewer; no Claude concurrence is claimed.
 
-1. Complete the pure registry/marker codec prototype and compare it with the selected reference model.
-2. Review codec placement and source changes, then select the corresponding file inventory and runtime unit.
+1. Finish the codec source/integration review. Private codec373 matches the selected model on 37,412 decode cases; integration374 passes 52 identity tests and the workspace/provider builds. Original author fault373 evidence is invalid (missing executables were incorrectly counted); [the correction](trials/project-registry-codec-checkpoint-373/ROOT-CORRECTION.md) is explicit, and the revised runner now passes a fresh baseline, nine actual compiled faults and six infrastructure-negative controls. Its independent review remains pending.
+2. Review additive inventory56 and the three-file private integration, then select the corresponding inventory and runtime unit. Both are still unselected; live product remains `2e90e02`.
 3. Implement native root/marker/registry admission under the accepted owner.
 4. Finish the binding/lineage owner and runtime authority, then write/recovery paths.
 

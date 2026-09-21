@@ -1,0 +1,7 @@
+# Private registry codec integration374
+
+Frozen private source candidate from product2e90e02 (selected31/46).585 product files: two new identity codec/test files, one identity lib.rs export extension;582 baseline files unchanged, including design-lock.json. Codec bytes are identical to frozen373 (f3bb0fb6eaabd4f581fc0a858dc0df9127f375bff07b92fc6ce3db1af0948fe5). Public prefixed exports expose inert values; no new dependency edge, lifecycle/storage relocation or native admission producer.
+
+Fresh pinned Rust1.95/offline identity tests:52 passed including9 new semantic integration regressions;0doctests. Full workspace build PASS. This does not rerun prior755 native tests or claim764 tests executed. Fresh provider boundary export28source files/19 verified archives builds and passes existing dependency/edge checks; all three probes intentionally refuse unimplemented semantic analysis with no stdout. No native suites ran concurrently. Existing host verified vendor/config reused with a fresh candidate target directory; current Cargo locks and selected dependency closure are unchanged. Linker/SDK/host remain trusted build inputs, not release qualification.
+
+Await actual source/integration review, additive inventory56 selection and runtime26 selection before any live source installation. The standalone373 review is separate from these public export/test/build joins. M2-M6 remain open; no filesystem authority, writes, crash recovery, full binding/S9.3 or analyzer implementation follows.

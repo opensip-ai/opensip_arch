@@ -1,0 +1,7 @@
+# Corrected author codec373 fault evidence, revision2
+
+Codec project_registry.rs is byte-identical to frozen373 (f3bb0fb6eaabd4f581fc0a858dc0df9127f375bff07b92fc6ce3db1af0948fe5). This successor corrects EVIDENCE/HARNESS only, not Rust semantics. Read author-fault-correction.md first: original nine author detections were invalid FileNotFoundErrors caused by /tmp versus /private/tmp relocation, then misclassified as fault kills. Original frozen373 remains unchanged with an outer ROOT-CORRECTION.md; its baseline37412 comparisons remain valid.
+
+New check_faults.py explicitly constructs compiler paths, verifies exact parent identity rlib, requires successful fresh compilation and existing output files, and classifies only actual complete differential mismatches or specifically identified typed round-trip/projection assertions from the running Rust probe. Missing artifact/compile/timeout/unknown panic/incomplete-output errors fail the runner. Six classifier controls cover false-positive routes. Fresh baseline37412PASS; all nine actual compiled semantic faults detected. Each command, status, source, output and binary hash retained; binaries omitted from this archive.
+
+No native tests, source/runtime selection, writer or full binding authority. Independent review of this corrected evidence is still pending; actual373 source review is preserved separately and its addendum will distinguish author false claims from independently executed real faults.
