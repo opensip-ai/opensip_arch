@@ -27,12 +27,16 @@ Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
 
 **366:** [Trust module extraction](trials/trust-module-layout-checkpoint-366/README.md) moves60 existing bodies into separate files while preserving their logical modules.579 candidate files; independent Grok review is complete with no bounded source defect. Author tests passed before whitespace-only finalization; final formatting and Clippy passed.
 
-**Inventory54:** [Cumulative layout proposal](trust-modules-inventory-v54/README.md) adds60 module files to53:693 planned,579 candidate files accounted,114 future. Formal review returned NEEDS-CHANGES: missing preservation flag and an unselected parent. A cumulative successor directly from selected32 is being prepared; earlier proposals stay preserved.
+**Inventory54:** [Cumulative layout proposal](trust-modules-inventory-v54/README.md) adds60 module files to53:693 planned,579 candidate files accounted,114 future. Formal review returned NEEDS-CHANGES: missing preservation flag and an unselected parent. A cumulative successor55 directly from selected32 is frozen; earlier proposals stay preserved.
 
-**367 frozen:** read-only lifecycle lineage decoding and supplied-chain checks;32 lifecycle tests,565 schema cases and six fault controls pass. Actual Grok review is starting. No native binding, publication or authority claim.
+**367 frozen:** read-only lifecycle lineage decoding and supplied-chain checks;32 lifecycle tests,565 schema cases and six fault controls pass. Actual Grok review is complete with no bounded source defect. No native binding, publication or authority claim.
 
-**368 in progress:** retained native lineage and per-store markers under one installation fence. A synthetic-home integration is running; no result yet.
+**368 frozen:** retained native lineage and per-store markers under one installation fence.68 host tests and24 synthetic-home cases pass; three compiled faults were caught and restored cases passed. Actual Grok review is running.
 
 [Native validation guidance](NATIVE-VALIDATION.md) records required serial runs and macOS user temporary directories. Grok365's failed parallel/wrong-temp runs remain preserved; its final isolated serial run passed388 tests and four compile-fail doctests.
 
 Grok independently ran366 on the final frozen bytes:388 security tests and four compile-fail checks passed, with formatting and Clippy. The documented formatting-difference count is43; the earlier request said42 incorrectly.
+
+**Inventory55:**697 planned files directly from selected32, with288 cumulative additions. All583 candidate files accounted;114 planned future. Both older pending obligations are carried unresolved; formal review is queued. No selection yet.
+
+The [materialization preflight](trials/materialization-preflight-368/README.md) passes32 read-only dependency/profile/package-edge checks across host/provider and four metadata targets. This does not approve the cumulative runtime delta; that review remains required before installation.

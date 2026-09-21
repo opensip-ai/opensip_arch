@@ -17,3 +17,5 @@ The completed author366 run passed388 tests with two pre-existing ignored tests 
 A failed fixture setup or incidental custody error is not a successful fault control. Verify that each deliberate code fault compiled and reached its intended assertion. Use isolated build targets and verify restored source before a baseline replay; historical stale-build evidence must remain distinguishable from a product result.
 
 Record the source manifest, exact command, Rust toolchain, relevant test-thread/temp-directory settings, result and cleanup. Coordinate independent author/reviewer native runs explicitly. Only manage processes positively identified as belonging to the current validation job; never stop another reviewer or root task to manufacture isolation.
+
+Full `opensip-lifecycle` tests include real filesystem lease/guard tests. Only its `lineage::`, `selection::` and `locations::` subsets are pure. Report the actual suite scope and coordinate full lifecycle or workspace runs with other native fixture jobs.
