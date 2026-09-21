@@ -1,0 +1,5 @@
+# Primary source follow-up, September21 11:20 PDT
+
+Successfully read the official GNU C Library2.30 Attribute Meanings page at https://sourceware.org/glibc/manual/2.30/html_node/Attribute-Meanings.html . The st_dev description explicitly does not guarantee stability across reboot or system crash. This is documentation of a possible change, not evidence that this host has rebooted or changed device numbers. The older snapshot PDF found by search returned404 when opened; do not represent that full PDF as fetched. Installed CFURL.h independently distinguishes restart-scoped volume identifiers from persistent volume UUIDs; it does not establish equivalence of CF volume identifiers with st_dev.
+
+Current registry refusal therefore has a concrete documented cross-restart availability concern. Stable volume identifiers are an option requiring a complete admission design and filesystem qualification; they are not proof of original history or a license to drop descriptor device checks. No owner law is changed by this note.
