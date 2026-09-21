@@ -1,0 +1,15 @@
+# Native current and successor-census session 362
+
+Private, uninstalled security candidate. Extends361 so the SAME Budget and native fence cover the original current Head(s), actual P2 descriptor/dependencies, every immediate successor and every following bucket. All captured census objects stay owned. Every later session consumer rechecks all their original Files, directory/name policy, missing/empty bucket observations and actual filesystem identity against I. No replacement handle or fresh per-census budget substitutes for earlier evidence.
+
+`observe_successors` delegates to the existing345 native census and retains its result. Failed census/callback attempts still recheck earlier evidence and latch the shared session unavailable. Copied `ProvisionalSuccessorCounts` distinguishes no census requested, missing publication root, missing immediate bucket, and an empty observed bucket. Counts of candidates/following/support are structural diagnostics only; no clean/behind/fork/current authority or write grant is returned.
+
+Parent361570 members fully rehashed.507 product pins:504 unchanged/three modified security files (lib.rs,trust.rs,trust/native_read_session.rs); no new production file, dependency, codec, census algorithm or fixture change. Existing shared native owners remain unchanged.
+
+Validation: first12 focused tests passed; added a13th late-malformed-following-branch regression before the final full security run.388 security tests pass with two ignored; four lifetime compile-fail doctests pass. Workspace Clippy -D warnings, workspace formatting and31 included modules pass. Fourteen compiled fault controls are caught plus final13-test baseline. No source/test failure occurred in362. Before-image of the12-test draft retained.
+
+Budget expectations derive from earlier345 law and fixed fixture bytes, not this implementation's measured outputs: initialC4objects/7edges/4207bytes; then missing immediate bucket10/38/9105; empty11/41/9108; repeat empty11/75/9111. A cumulative edge bound40 refuses where41 succeeds. Tests cover0/1/2 structurally supported branches, every following branch, changed original current/dependency Files, appearance in missing/empty buckets, failed foreign callback plus changed fence, and malformed later following branch returning no counts and closing the session.
+
+All native fixture IO is real under an EXPLICIT SYNTHETIC account home. No actual user I write, OS-home/release qualification, verified profile allowlist, full five-member binding, namespace/registry/lineage/core admission or durable/current authority. M2–M6 remain open. Independent362 review pending.
+
+The separate selected-source-audit retains eight verified source/receipt pins. S9/lineage/boundaries match both the live design lock and application46 after-image rows despite historical proposed headers. This is targeted source-standing evidence for reviewer adjudication, not replay of the complete application package or new acceptance. It changes no code law and waives no full store-binding obligation.
