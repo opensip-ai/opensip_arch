@@ -28,3 +28,11 @@ Working implementation plan, not a frozen successor or approval. Prepared agains
 4. The five disclosed composition gaps still require joined native implementation evidence: global budget across publication, actual-target disclosure, writer-vs-decoder K derivation, permit-to-stage-to-rename ownership, and backup choice ordering. Pure-model evidence does not close native account/core/profile/custody qualification.
 
 source-anchors.json verifies fourteen exact selected inputs against the accepted manifest/successor graph. This is a planning trace only; it neither expands the peer review subject nor changes frozen399.
+
+## September21 follow-up after actual399 review
+
+Owner401 resolves both required399 findings, names the real selected doctor helper/checker/vectors, and fixes the typed rename-outcome and duplicated-parent receipt joins. Actual re-review is pending. Its frozen diagnostic supplement verifies22 proposed schema/workflow compositions; it does not install schema/generation changes.
+
+A fresh audit found one CURRENT generation closure mismatch among349 pinned files: tools/verify_design.py is33654bytes/SHA2764cf7b5e3aaa7fb1722bab6714fe1eed4a350867f4cc369d0490342527325c, while the selected generator closure still pins28690bytes. The actual generate_contracts.py entry point refuses with input digest mismatch before any child or output directory is created. Evidence is in generation-closure-audit/. This predates the proposed diagnostic change; both files were already in product foundation commit436d615e.
+
+The generation successor must bind the current reviewed checker, the new current schema/source-map bytes, the derived closure digest and the recipe registry digest together. Reverify actual executable pins and generator build receipt, then use the existing confined pipeline for prospective generation and drift checks. Do not weaken or bypass the fail-closed checker in the production entry point. The current-source update preserves all349 closure members except explicit input replacements; generation/output validation remains required before integration.

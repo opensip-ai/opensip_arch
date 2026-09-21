@@ -1,0 +1,7 @@
+# Root assessment of owner402
+
+Root read the complete actual Claude Opus 5 REVIEW.md and findings.json after Herdr reported DONE, verified every reviewer hash and both frozen subject pins, and preserved the original reports and all four hash-listed evidence files.
+
+Root agrees with closure of owner401 RF1: the supplemental README now states that the containing owner resolved the typed rename-outcome issue and separately limits the diagnostic model. The originating mutable draft and this immutable frozen snapshot are distinguished, and path-based helper input limitations are explicit. The owner body, models, schema candidate and checkers remain byte-identical to401. The peer independently compared against its own401 extraction; no substantive change or hidden native qualification is inferred from two README changes.
+
+Root assents to this bounded documentation correction and to carrying the prior owner assessment forward with its required finding closed. This does not select an owner, schema, reference or product successor. A complete formal passage/schema/reference/generation unit still needs independent review and root selection checks. The five native composition gaps, native account/core/profile/custody qualification, P0 construction and release qualification remain open. The peer spot replay is accurately described as a reproducibility check of inherited evidence, not a fresh402 implementation test. Current product remains883f963,35 inventory/54 contract successors. No historic report or frozen candidate was edited.

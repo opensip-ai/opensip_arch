@@ -1,0 +1,5 @@
+# Root disposition
+
+Read full12761B REVIEW and12200B findings afterDONE. Both399RFs closed, roottypedEEXIST andparentreceipt corrections independently agreed. Peer independently derives317→319enum/order/non-enumidentity,117unchangedlatestreferenceAST statements,22schema/compositionchecks and39surfacecases. One required README consistency finding remains: diagnostic supplement still called rootEEXIST unresolved despite owner401closingit. Root agrees and will fix in owner402, preserving401 and originalreports. No401assent/selection.
+
+Root qualifies O2: the original working draft is mutable, but its embedded snapshot is immutable once frozen in401. Unselected draft status does not authorize editing frozen bytes. The successor README must state that distinction and qualify O1: the tiny helper reads live paths and cannot authenticate its own inputs; outer source pins/reference selection and future formal unit govern identity. No current schema/code emission or generated/runtime acceptance follows. No nativequalifiedcreator/fullM2claim.

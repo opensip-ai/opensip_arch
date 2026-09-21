@@ -1,21 +1,13 @@
 # Current implementation status
 
-Updated September 21, 2026, 16:25 PDT. M2–M6 remain open; the project is not complete or release qualified.
+Updated 2026-09-21T16:49:12-07:00.
 
-## Installed product
+Product883f963 is clean and committed: runtime34/source400, inventory59,35 inventory/54 contract successors,592 tracked files. Claude Opus5 accepted the publication changes with no required findings; root verified and integrated them, including a fresh workspace compilation.
 
-Product `4b298da` remains clean: runtime32/source395, inventory59,35 inventory/53 contract successors;591 tracked/590 non-lock files. Accepted layout and original-handle directory barrier changes are committed. No new initialization or writer authority is enabled.
+Owner402 has actual Claude approval with no required findings and bounded root assent. The complete formal initialization passage/schema/reference/generation successor is being prepared; owner approval alone does not activate schemas or native creation.
 
-## Independent review and corrections
+Prospective generation404 passes all40 sources and8 outputs using a verified349-file snapshot and rebuilt pinned generator. It also corrects a previously stale generator input hash. Changes remain in a private candidate pending formal review; live product schemas still have317 diagnostic codes.
 
-Actual Claude Opus5 reviewed source396/formal33 and owner399. Both reports have an acceptance verdict with required findings (three and two); root is resolving those before assent or selection. Complete original reports and evidence are archived.
+Native initial creation, shared budgets, account/core/profile/custody qualification, P0 construction, ordinary binding/current authority, writers and recovery remain unfinished. Analyzers, report/workflows and platform/release qualification remain later milestones. M2–M6 are open.
 
-Frozen source400 corrects all three publication documentation findings without changing runtime algorithms, APIs or tests. Fresh documentation and workspace compilation pass. Formal34 stages3 source changes against the current committed product, preserving588 other non-lock files. Claude is reviewing source400/formal34, followed by owner401. Neither is selected.
-
-Owner401 adds explicit checker/vector integration and the255-actual-defect complete-root limit. Root also corrected rename error routing to require typed visibility and clarified the publication parent handle used for barriers.39 conditional surface checks and22 schema/workflow composition checks pass. The latter are proposed reference evidence; current schemas still reject the new diagnostic codes. A complete formal owner/schema/reference successor and generated integration remain necessary even if this review passes.
-
-## Remaining work
-
-Native creation eligibility, qualified platform/account/project-root admission, complete initial P0 construction, budgets across phases, ordinary binding/current authority, writers/recovery and remaining transition owners are unfinished. Substantive analyzers, reporting, workflows and release/platform qualification remain later milestones.
-
-Both repositories use local commits; the user pushes. No push performed. No root native jobs run while Claude may perform its serial native review checks. Exact resume instructions and pins are in ACTIVE-WORK, REVIEW-RESUME and PENDING-REVIEW.
+Claude is available and currently has no outstanding task. Both repositories are committed locally; no pushes. Exact resumption evidence and completed one-shot script warnings are in REVIEW-RESUME and ACTIVE-WORK.
