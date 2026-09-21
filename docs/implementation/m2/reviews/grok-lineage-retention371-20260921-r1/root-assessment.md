@@ -1,0 +1,5 @@
+# Root reading and disposition
+
+Actual Grok REVIEW and full ADDENDUM read after completion. The addendum narrows the original suggestion: intermediate node-only ancestry need not observe unrelated historical store roots at all. Full-triple immutable predecessor nodes can survive store reclamation; markers remain mandatory for actually selected/opened retained stores and transition endpoints according to the exact recovery phase. Missing a marker leaf never proves that its store root is absent.
+
+Root agrees with this scope correction for the future S9.3/binding owner. It is not acceptance of the still-proposed S9.3 law or a product code change. Runtime25/368 conservatively refuses incomplete store-marker observations; no unsound admission is claimed and it still grants no current authority. The next owner must explicitly clarify the ambiguous every-lookup wording before a changed native reader is selected. Original review remains unchanged and its earlier ancestor-three-way recommendation is qualified by the addendum.

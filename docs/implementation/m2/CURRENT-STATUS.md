@@ -1,6 +1,6 @@
 # Current implementation status — September 21
 
-The project is not fully implemented. M2–M6 remain open. Reviewed cumulative source368 is now installed through accepted runtime25 and inventory55 (31/45 selected units). Exact582 non-lock files and live compilation checks pass; source commit is in progress. The user pushes; no push has been performed.
+The project is not fully implemented. M2–M6 remain open. Reviewed cumulative source368 is now installed through accepted runtime25 and inventory55 (31/45 selected units). Exact582 non-lock files and live compilation checks pass; committed as product `b3af5e8`. The user pushes; no push has been performed.
 
 - **357:** [Native descendant capture](trials/native-descendant-capture-checkpoint-357/README.md) is frozen and independently reviewed by actual Grok. Twelve focused tests, two lifetime compile-fail checks and eight fault controls reproduced; no bounded defect found. Full375 security tests are author evidence.
 - **358:** [Storage marker](trials/native-store-marker-checkpoint-358/README.md) is frozen and independently reviewed by actual Grok with no bounded defect.96 storage tests and three fault controls reproduced.
@@ -21,7 +21,7 @@ The [store-binding advisory](reviews/grok-store-binding358-20260921-r1/REVIEW.md
 
 **Inventory53:** [Cumulative ownership proposal](native-trust-inventory-v53/README.md) preserves470 inherited rows from the existing unselected52 proposal and adds163 paths. All519 candidate files are accounted for within633 planned files. This is proposed layout, not selection; selected inventory32 and productfa72e50 remain unchanged.
 
-Claude's latest attempt at08:31 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
+Claude's latest attempt at09:27 was refused by its Fable quota. No Claude agreement is claimed; Grok remains the reviewer. Grok's separate362 source note finds that the locked S9.3 text remains explicitly proposed despite application46 file membership. Full per-item acceptance reconciliation remains open; no five-field binding or current authority is inferred. Full authority, writers, installation and later milestones remain open.
 
 Detailed append-only history and exact pins: [resume guide](REVIEW-RESUME.md).
 
@@ -41,6 +41,6 @@ Grok independently ran366 on the final frozen bytes:388 security tests and four 
 
 The [materialization preflight](trials/materialization-preflight-368/README.md) passes32 read-only dependency/profile/package-edge checks across host/provider and four metadata targets. This does not approve the cumulative runtime delta; that review remains required before installation.
 
-Fresh cumulative host validation passes755tests+6doctests (0fail,2ignored),454sources/51verified archives. Fresh provider26sources/19archives also passes its boundary checks; semantic analysis remains unimplemented. Actual Grok accepts the bounded macOSarm64 development dependency closure. Actual Grok accepts runtime25 development integration; root assent/private/live31/45 validation and327mapped source installation are complete. Architecture9bca7b8d7 holds the frozen candidate; materialization commits are in progress. No push.
+Fresh cumulative host validation passes755tests+6doctests (0fail,2ignored),454sources/51verified archives. Fresh provider26sources/19archives also passes its boundary checks; semantic analysis remains unimplemented. Actual Grok accepts the bounded macOSarm64 development dependency closure. Actual Grok accepts runtime25 development integration; root assent/private/live31/45 validation and327mapped source installation are complete. Architecture9bca7b8d7 holds the frozen candidate; materialization is committed in architecture `6abaa71e6` and product `b3af5e8`. No push.
 
-Actual Grok is now auditing application46/S9.3 standing and the missing native registry/full-five-field binding contract. This is the next authority gap; installed provisional readers do not close it.
+Actual Grok370 completed the [source-standing audit](reviews/grok-binding-standing370-20260921-r1/root-assessment.md), with corrective addendum preserved. The missing native registry and full-five-field acquisition owner remain the next authority gap. The revised [registry owner371](trials/project-registry-owner-checkpoint-371/README.md) is frozen with211reference cases,23schema checks and six fault controls; actual Grok substantive review is underway. It is not selected or implemented. The [retention review](reviews/grok-lineage-retention371-20260921-r1/root-assessment.md) identified conservative lineage refusal after historical store reclamation; the future owner must distinguish retained nodes from live endpoint markers. Neither proposal is selected or implemented.
