@@ -1,0 +1,3 @@
+# Root disposition
+
+Read complete11670B review and10345B review.json afterDONE. NEEDS-CHANGES RF1explicitmachine-readableoverrideprojection. Rootagrees to strengthenfrozenunit, but qualifies impact: current tools/verify_design.py alreadyderivesprojectionbystablepath and rejectswronginheritance; T/select_inventory59.py alreadyprojectsbyoldrowpath. Thus reportdoesnotestablishalivebug/silentretarget;peerexplicitlydidnotinspectselectionmachinery. Newv59-r2unit will freeze exactfourstablepath/before/afterselector/text projections and selectedcheckeranchor, preserveidenticalinventory59candidate andoldunit, with checkablepureverification and actualreview. Oldselect_inventory59.py NEVER RUN. Newrecord/selectorsdo notalteranydescription,source/owner397/nativeauthority. Noassent.
