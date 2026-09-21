@@ -1,0 +1,9 @@
+# Private registry-v2 codec383 integration candidate
+
+Complete 587-file source derived from accepted380, changing exactly three identity files: pure registry decoder, focused tests and aliases. No inventory path or dependency edge changes. The historical archive design-lock.json is provenance only, never the selected lock for installation.
+
+The decoder requires schemaVersion2, the exact closed persistent-volume root and nonzero lowercase native UUID bytes; old version1/deviceId roots and unsupported platforms/kinds refuse. Locator and incarnation uniqueness remain separate. MarkerV1 framing, canonical complete-document checks, row/byte limits, allocation kinds, states and projections remain. Typed values do not prove native profile, old-name absence, root/marker custody, authorization, registration or leases. Native producer/writers/S9.3 remain unimplemented. Initial MacOS kind syntax does not qualify APFS or Linux.
+
+Fresh author evidence: 56 identity tests passed; 41,532 differential cases (17,972 registry and 23,560 marker) against exact381 model with zero mismatches. The Rust probe links the exact freshly built383 identity crate and reconstructs every typed field and namespace projection. Fresh offline workspace all-targets check passed; a separate provider boundary export rebuilt28 source files with19 verified dependency archives, dependency/edge checks and three expected unavailable-analysis probes. This does not implement the Rust provider or claim a fresh whole-workspace native test aggregate. Previous373 fault failures/corrections remain history; no new fault-injection results are claimed by383.
+
+Prepared against complete substantive owner381-r2 and its separately pending formal registry-v2 selection. Independent review and exact runtime selection are required before live installation. No review verdict, root assent or product qualification is manufactured by this archive.
